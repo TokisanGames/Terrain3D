@@ -1,0 +1,4 @@
+# Ignore everything outside of the addons folder when exporting.
+/**        export-ignore
+/addons    !export-ignore
+/addons/** !export-ignore

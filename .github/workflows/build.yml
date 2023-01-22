@@ -1,0 +1,122 @@
+name: 🛠️ Builds
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - identifier: linux-debug
+            name: Linux Debug
+            runner: ubuntu-20.04
+            target: template_debug
+            platform: linux
+            arch: x86_64
+          - identifier: linux-release
+            name: Linux Release
+            runner: ubuntu-20.04
+            target: template_release
+            platform: linux
+            arch: x86_64
+          - identifier: windows-debug
+            name: Windows Debug
+            runner: ubuntu-20.04
+            target: template_debug
+            platform: windows
+            arch: x86_64
+          - identifier: windows-release
+            name: Windows Release
+            runner: ubuntu-20.04
+            target: template_release
+            platform: windows
+            arch: x86_64
+          - identifier: android-release
+            name: Android Release
+            runner: ubuntu-20.04
+            target: template_release
+            platform: android
+            arch: arm64
+
+    steps:
+      - name: (Windows) Install mingw64
+        if: ${{ startsWith(matrix.identifier, 'windows-') }}
+        shell: sh
+        run: |
+          sudo apt-get install mingw-w64
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
+      - name: (Android) Set up Java 11
+        if: ${{ startsWith(matrix.identifier, 'android-') }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: (Android) Set up Android SDK
+        if: ${{ startsWith(matrix.identifier, 'android-') }}
+        uses: android-actions/setup-android@v2
+
+      - name: (Android) Install Android Tools
+        if: ${{ startsWith(matrix.identifier, 'android-') }}
+        shell: sh
+        run: |
+          "$ANDROID_SDK_ROOT"/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "build-tools;30.0.3" "platforms;android-29" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;21.4.7075529"
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+
+      - name: Set up SCons
+        shell: bash
+        run: |
+          python -c "import sys; print(sys.version)"
+          python -m pip install scons
+          scons --version
+
+      - name: Checkout project
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+#       TODO: Cache doesn't work yet. SCons rebuilds the objects even if they already exist. Could be caused by modification dates or extension_api.json.
+#             fetch-depth: 0 May be needed for cache. See: <https://github.com/actions/checkout/issues/468>.
+#      - name: Set up SCons cache
+#        uses: actions/cache@v3
+#        with:
+#          path: |
+#            ${{ github.workspace }}/.scons-cache/
+#            ${{ github.workspace }}/**/.sconsign.dblite
+#            ${{ github.workspace }}/godot-cpp/gen/
+#          key: ${{ matrix.identifier }}-${{ github.ref }}-${{ github.sha }}
+#          restore-keys: |
+#            ${{ matrix.identifier }}-${{ github.ref }}-${{ github.sha }}
+#            ${{ matrix.identifier }}-${{ github.ref }}
+#            ${{ matrix.identifier }}
+
+      - name: Compile extension
+        shell: sh
+#        env:
+#          SCONS_CACHE: '${{ github.workspace }}/.scons-cache/'
+#          SCONS_CACHE_LIMIT: 8192
+        run: |
+          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
+          ls -l project/addons/*/bin/
+
+      - name: Copy extra files to addon
+        shell: sh
+        run: |
+          for addon in ${{ github.workspace }}/project/addons/*/; do
+            cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' "$addon"
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ github.event.repository.name }}
+          path: |
+            ${{ github.workspace }}/project/
