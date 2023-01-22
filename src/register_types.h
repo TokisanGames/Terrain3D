@@ -1,8 +1,7 @@
-#pragma once
+#ifndef TERRAIN_REGISTER_TYPES_H
+#define TERRAIN_REGISTER_TYPES_H
 
-#include <godot_cpp/core/class_db.hpp>
+void initialize_terrain_types();
+void uninitialize_terrain_types();
 
-using namespace godot;
-
-void gdextension_initialize(ModuleInitializationLevel p_level);
-void gdextension_terminate(ModuleInitializationLevel p_level);
+#endif // TERRAIN_REGISTER_TYPES_H
