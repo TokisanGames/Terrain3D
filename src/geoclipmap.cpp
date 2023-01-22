@@ -6,19 +6,22 @@
 using namespace godot;
 
 
-Vector<RID> GeoClipMap::generate(int p_resolution, int p_clipmap_levels)
+Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 {
+
+	// bit of a mess here. someone care to clean up?
+
 	RID tile_mesh;
 	RID filler_mesh;
 	RID trim_mesh;
 	RID cross_mesh;
 	RID seam_mesh;
 	
-	int TILE_RESOLUTION = p_resolution;
+	int TILE_RESOLUTION = p_size;
 	int PATCH_VERT_RESOLUTION = TILE_RESOLUTION + 1;
 	int CLIPMAP_RESOLUTION = TILE_RESOLUTION * 4 + 1;
 	int CLIPMAP_VERT_RESOLUTION = CLIPMAP_RESOLUTION + 1;
-	int NUM_CLIPMAP_LEVELS = p_clipmap_levels;
+	int NUM_CLIPMAP_LEVELS = p_levels;
 
 	// tile mesh
 	{

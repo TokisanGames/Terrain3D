@@ -29,18 +29,14 @@ class Terrain3D : public Node3D {
 private:
     GDCLASS(Terrain3D, Node3D);
 
-public:
-    enum {
-        MIN_TOTAL_SIZE = 512,
-        MAX_TOTAL_SIZE = 8192,
-    };
 
 private:
-    int size = 1024;
-    int height = 128;
-   
-    int resolution = 48;
+    
+    int clipmap_size = 48;
     int clipmap_levels = 7;
+
+    // Used to rotate the trim mesh
+    float rotations[4] = {0.0, 270.0, 90, 180.0};
 
     bool infinite = false;
     bool valid = false;
@@ -78,17 +74,18 @@ private:
     void find_cameras(TypedArray<Node>& from_nodes, Array& cam_array);
 
 public:
-    void set_size(int p_value);
-    int get_size() const;
-    void set_height(int p_value);
-    int get_height() const;
 
+    void set_clipmap_levels(int p_count);
+    int get_clipmap_levels() const;
+
+    void set_clipmap_size(int p_size);
+    int get_clipmap_size() const;
+    
     void set_material(const Ref<TerrainMaterial3D> &p_material);
     Ref<TerrainMaterial3D> get_material() const;
 
-    RID create_section_mesh(int p_size, int p_subvision, RID p_material) const;
     void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
-    void build();
+    void build(int p_clipmap_levels, int p_clipmap_size);
 
     void set_as_infinite(bool p_enable);
     bool is_infinite() const;

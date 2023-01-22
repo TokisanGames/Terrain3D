@@ -12,4 +12,5 @@
 
 # Editors
 .vscode/
+.vs/
 *.obj

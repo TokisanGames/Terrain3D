@@ -1,6 +1,6 @@
 [configuration]
 
-entry_symbol = "gdextension_init"
+entry_symbol = "terrain_library_init"
 
 [libraries]
 

@@ -12,3 +12,7 @@ config_version=5
 
 config/name="example"
 config/features=PackedStringArray("4.0")
+
+[editor]
+
+export/convert_text_resources_to_binary=true

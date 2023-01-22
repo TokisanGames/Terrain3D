@@ -17,12 +17,9 @@ void Terrain3D::_process(double delta)
     if (camera == nullptr) {
         get_camera();
     }
-    else {
+    else if (valid) {
+        
         Vector3 cam_pos = camera->get_global_transform().origin;
-
-        if (!valid) {
-            return;
-        }
 
         {
             Transform3D t = Transform3D(Basis(), cam_pos.floor() * Vector3(1, 0, 1));
@@ -37,8 +34,8 @@ void Terrain3D::_process(double delta)
             float scale = float(1 << l);
             Vector3 snapped_pos = (cam_pos / scale).floor() * scale * Vector3(1, 0, 1);
             
-            Vector3 tile_size = Vector3(float(resolution << l), 0, float(resolution << l));
-            Vector3 base = snapped_pos - Vector3(float(resolution << (l + 1)), 0, float(resolution << (l + 1)));
+            Vector3 tile_size = Vector3(float(clipmap_size << l), 0, float(clipmap_size << l));
+            Vector3 base = snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
 
             // position tiles
             for (int x = 0; x < 4; x++) {
@@ -59,7 +56,6 @@ void Terrain3D::_process(double delta)
                     tile++;
                 }
             }
-
             {
                 Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
                 t.origin = snapped_pos;
@@ -79,27 +75,18 @@ void Terrain3D::_process(double delta)
                     r |= d.x >= scale ? 0 : 2;
                     r |= d.z >= scale ? 0 : 1;
 
-                    float rotations[4] = {
-                        0.0, 270.0, 90, 180.0
-                    };
-
                     float angle = UtilityFunctions::deg_to_rad(rotations[r]);
-                    
                     Transform3D t = Transform3D().rotated(Vector3(0, 1, 0), -angle);
                     t = t.scaled(Vector3(scale, 1, scale));
                     t.origin = tile_center;
-
                     RenderingServer::get_singleton()->instance_set_transform(data.trims[edge], t);
-
                 }
 
                 // position seams
                 {
-                    Vector3 next_base = next_snapped_pos - Vector3(float(resolution << (l + 1)), 0, float(resolution << (l + 1)));
-                    
+                    Vector3 next_base = next_snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
                     Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
                     t.origin = next_base;
-
                     RenderingServer::get_singleton()->instance_set_transform(data.seams[edge], t);
                     
                 }
@@ -110,12 +97,14 @@ void Terrain3D::_process(double delta)
     }
 }
 
-void Terrain3D::build() {
+void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
+
+    valid = false;
 
     RID scenario = get_world_3d()->get_scenario();
     RID material_rid = material.is_valid() ? material->get_rid() : RID();
 
-    meshes = GeoClipMap::generate(resolution, clipmap_levels);
+    meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
 
     for (int i = 0; i < meshes.size(); i++) {
         RID mesh = meshes[i];
@@ -124,7 +113,7 @@ void Terrain3D::build() {
 
     data.cross = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::CROSS], scenario);
 
-    for (int l = 0; l < clipmap_levels; l++) {
+    for (int l = 0; l < p_clipmap_levels; l++) {
 
         for (int x = 0; x < 4; x++) {
             for (int y = 0; y < 4; y++) {
@@ -141,7 +130,7 @@ void Terrain3D::build() {
         RID filler = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::FILLER], scenario);
         data.fillers.push_back(filler);
 
-        if (l != clipmap_levels - 1) {
+        if (l != p_clipmap_levels - 1) {
             RID trim = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::TRIM], scenario);
             data.trims.push_back(trim);
 
@@ -197,8 +186,6 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
             RenderingServer::get_singleton()->free_rid(rid);
         }
 
-        meshes.clear();
-
         RenderingServer::get_singleton()->free_rid(data.cross);
         
         for (const RID rid : data.tiles) {
@@ -217,6 +204,13 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
             RenderingServer::get_singleton()->free_rid(rid);
         }
 
+        meshes.clear();
+
+        data.tiles.clear();
+        data.fillers.clear();
+        data.trims.clear();
+        data.seams.clear();
+
         valid = false;
         
     }
@@ -231,32 +225,42 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
     }
 }
 
-void Terrain3D::set_size(int p_value) {
-    ERR_FAIL_COND(p_value < MIN_TOTAL_SIZE);
-    ERR_FAIL_COND(p_value > MAX_TOTAL_SIZE);
 
-    size = p_value;
+void Terrain3D::set_clipmap_levels(int p_count)
+{
+    if (clipmap_levels != p_count) {
+        clear();
+        build(p_count, clipmap_size);
+    }
+    clipmap_levels = p_count;
 }
 
-int Terrain3D::get_size() const {
-    return size;
+int Terrain3D::get_clipmap_levels() const
+{
+    return clipmap_levels;
 }
 
-void Terrain3D::set_height(int p_value) {
-    height = p_value;
+void Terrain3D::set_clipmap_size(int p_size)
+{
+    if (clipmap_size != p_size) {
+        clear();
+        build(clipmap_levels, p_size);
+    }
+    clipmap_size = p_size;
 }
 
-int Terrain3D::get_height() const {
-    return height;
+int Terrain3D::get_clipmap_size() const
+{
+    return clipmap_size;
 }
-
 
 void Terrain3D::set_material(const Ref<TerrainMaterial3D> &p_material) {
 
     material = p_material;
 
     if (!valid && material.is_valid()) {
-        build();
+        clear();
+        build(clipmap_levels, clipmap_size);
     }
     else {
         RID rid = material.is_valid() ? material->get_rid() : RID();
@@ -380,118 +384,14 @@ void Terrain3D::find_cameras(TypedArray<Node>& from_nodes, Array& cam_array)
     }
 }
 
-RID Terrain3D::create_section_mesh(int p_size, int p_subvision, RID p_material) const{
-    PackedVector3Array vertices;
-    PackedInt32Array indices;
-
-    float s = float(p_size);
-    int index = 0;
-    float subdv = float(p_subvision);
-    Vector3 ofs = Vector3(s, 0.0, s) / 2.0;
-
-    // top
-    for (int x = 0; x < p_subvision; x++) {
-        for (int y = 0; y < p_subvision; y++) {
-            vertices.append(Vector3(x / subdv * s, 0.0, y / subdv * s) - ofs);
-            vertices.append(Vector3(x / subdv * s + s / subdv, 0.0, y / subdv * s) - ofs);
-            vertices.append(Vector3(x / subdv * s, 0.0, y / subdv * s + s / subdv) - ofs);
-            vertices.append(Vector3(x / subdv * s, 0.0, y / subdv * s + s / subdv) - ofs);
-            vertices.append(Vector3(x / subdv * s + s / subdv, 0.0, y / subdv * s) - ofs);
-            vertices.append(Vector3(x / subdv * s + s / subdv, 0.0, y / subdv * s + s / subdv) - ofs);
-            indices.append(index);
-            indices.append(index + 1);
-            indices.append(index + 2);
-            indices.append(index + 3);
-            indices.append(index + 4);
-            indices.append(index + 5);
-            index += 6;
-        }
-    }
-    // front
-    for (int x = 0; x < p_subvision; x++) {
-        vertices.append(Vector3(x / subdv * s, -1, 0) - ofs);
-        vertices.append(Vector3(x / subdv * s + s / subdv, -1, 0) - ofs);
-        vertices.append(Vector3(x / subdv * s, 0, 0) - ofs);
-        vertices.append(Vector3(x / subdv * s, 0, 0) - ofs);
-        vertices.append(Vector3(x / subdv * s + s / subdv, -1, 0) - ofs);
-        vertices.append(Vector3(x / subdv * s + s / subdv, 0, 0) - ofs);
-        indices.append(index);
-        indices.append(index + 1);
-        indices.append(index + 2);
-        indices.append(index + 3);
-        indices.append(index + 4);
-        indices.append(index + 5);
-        index += 6;
-    }
-    // back
-    for (int x = 0; x < p_subvision; x++) {
-        vertices.append(Vector3(x / subdv * s + s / subdv, 0, s) - ofs);
-        vertices.append(Vector3(x / subdv * s + s / subdv, -1, s) - ofs);
-        vertices.append(Vector3(x / subdv * s, 0, s) - ofs);
-        vertices.append(Vector3(x / subdv * s, 0, s) - ofs);
-        vertices.append(Vector3(x / subdv * s + s / subdv, -1, s) - ofs);
-        vertices.append(Vector3(x / subdv * s, -1, s) - ofs);
-        indices.append(index);
-        indices.append(index + 1);
-        indices.append(index + 2);
-        indices.append(index + 3);
-        indices.append(index + 4);
-        indices.append(index + 5);
-        index += 6;
-    }
-    // right
-    for (int x = 0; x < p_subvision; x++) {
-        vertices.append(Vector3(0, 0, x / subdv * s + s / subdv) - ofs);
-        vertices.append(Vector3(0, -1, x / subdv * s + s / subdv) - ofs);
-        vertices.append(Vector3(0, 0, x / subdv * s) - ofs);
-        vertices.append(Vector3(0, 0, x / subdv * s) - ofs);
-        vertices.append(Vector3(0, -1, x / subdv * s + s / subdv) - ofs);
-        vertices.append(Vector3(0, -1, x / subdv * s) - ofs);
-        indices.append(index);
-        indices.append(index + 1);
-        indices.append(index + 2);
-        indices.append(index + 3);
-        indices.append(index + 4);
-        indices.append(index + 5);
-        index += 6;
-    }
-    // left
-    for (int x = 0; x < p_subvision; x++) {
-        vertices.append(Vector3(s, -1, x / subdv * s) - ofs);
-        vertices.append(Vector3(s, -1, x / subdv * s + s / subdv) - ofs);
-        vertices.append(Vector3(s, 0, x / subdv * s) - ofs);
-        vertices.append(Vector3(s, 0, x / subdv * s) - ofs);
-        vertices.append(Vector3(s, -1, x / subdv * s + s / subdv) - ofs);
-        vertices.append(Vector3(s, 0, x / subdv * s + s / subdv) - ofs);
-        indices.append(index);
-        indices.append(index + 1);
-        indices.append(index + 2);
-        indices.append(index + 3);
-        indices.append(index + 4);
-        indices.append(index + 5);
-        index += 6;
-    }
-
-    Array arrays;
-    arrays.resize(RenderingServer::ARRAY_MAX);
-    arrays[RenderingServer::ARRAY_VERTEX] = vertices;
-    arrays[RenderingServer::ARRAY_INDEX] = indices;
-
-    RID mesh = RenderingServer::get_singleton()->mesh_create();
-
-    RenderingServer::get_singleton()->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
-    RenderingServer::get_singleton()->mesh_surface_set_material(mesh, 0, p_material);
-
-    return mesh;
-}
-
 void Terrain3D::_bind_methods() {
 
-    ClassDB::bind_method(D_METHOD("set_size", "size"), &Terrain3D::set_size);
-    ClassDB::bind_method(D_METHOD("get_size"), &Terrain3D::get_size);
 
-    ClassDB::bind_method(D_METHOD("set_height", "height"), &Terrain3D::set_height);
-    ClassDB::bind_method(D_METHOD("get_height"), &Terrain3D::get_height);
+    ClassDB::bind_method(D_METHOD("set_clipmap_levels", "count"), &Terrain3D::set_clipmap_levels);
+    ClassDB::bind_method(D_METHOD("get_clipmap_levels"), &Terrain3D::get_clipmap_levels);
+
+    ClassDB::bind_method(D_METHOD("set_clipmap_size", "size"), &Terrain3D::set_clipmap_size);
+    ClassDB::bind_method(D_METHOD("get_clipmap_size"), &Terrain3D::get_clipmap_size);
 
     ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
     ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
@@ -502,10 +402,9 @@ void Terrain3D::_bind_methods() {
     ClassDB::bind_method(D_METHOD("clear"), &Terrain3D::clear);
     ClassDB::bind_method(D_METHOD("build"), &Terrain3D::build);
 
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "size", PROPERTY_HINT_RANGE, "128,8192,1"), "set_size", "get_size");
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "height", PROPERTY_HINT_RANGE, "1,512,1"), "set_height", "get_height");
-
-    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "infinite", PROPERTY_HINT_NONE), "set_as_infinite", "is_infinite");
+    ADD_GROUP("Clipmap", "clipmap_");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_clipmap_size", "get_clipmap_size");
 
     ADD_GROUP("Material", "surface_");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "surface_material", PROPERTY_HINT_RESOURCE_TYPE, "TerrainMaterial3D"), "set_material", "get_material");

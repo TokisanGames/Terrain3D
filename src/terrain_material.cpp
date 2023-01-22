@@ -6,7 +6,6 @@
 using namespace godot;
 
 TerrainMaterial3D::TerrainMaterial3D() {
-    _update_shader();
     call_deferred("reset");
 }
 
@@ -14,6 +13,7 @@ TerrainMaterial3D::~TerrainMaterial3D() {
 }
 
 void TerrainMaterial3D::reset() {
+    _update_shader();
     _update_maps();
 }
 
