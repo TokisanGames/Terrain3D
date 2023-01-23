@@ -18,9 +18,8 @@ void Terrain3D::_process(double delta)
         get_camera();
     }
     else if (valid) {
-        
-        Vector3 cam_pos = camera->get_global_transform().origin;
 
+        Vector3 cam_pos = camera->get_global_transform().origin;
         {
             Transform3D t = Transform3D(Basis(), cam_pos.floor() * Vector3(1, 0, 1));
             RenderingServer::get_singleton()->instance_set_transform(data.cross, t);
@@ -30,10 +29,8 @@ void Terrain3D::_process(double delta)
         int tile = 0;
 
         for (int l = 0; l < clipmap_levels; l++) {
-
             float scale = float(1 << l);
             Vector3 snapped_pos = (cam_pos / scale).floor() * scale * Vector3(1, 0, 1);
-            
             Vector3 tile_size = Vector3(float(clipmap_size << l), 0, float(clipmap_size << l));
             Vector3 base = snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
 
@@ -87,10 +84,8 @@ void Terrain3D::_process(double delta)
                     Vector3 next_base = next_snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
                     Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
                     t.origin = next_base;
-                    RenderingServer::get_singleton()->instance_set_transform(data.seams[edge], t);
-                    
+                    RenderingServer::get_singleton()->instance_set_transform(data.seams[edge], t); 
                 }
-
                 edge++;
             }
         } 
@@ -98,6 +93,11 @@ void Terrain3D::_process(double delta)
 }
 
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
+
+    if (storage.is_null()) {
+        UtilityFunctions::print("Storage not found.");
+        return;
+    }
 
     UtilityFunctions::print("Building Terrain...");
 
@@ -108,9 +108,8 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 
     meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
 
-    for (int i = 0; i < meshes.size(); i++) {
-        RID mesh = meshes[i];
-        RenderingServer::get_singleton()->mesh_surface_set_material(mesh, 0, material_rid);
+    for (const RID rid : meshes) {
+        RenderingServer::get_singleton()->mesh_surface_set_material(rid, 0, material_rid);
     }
 
     data.cross = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::CROSS], scenario);
@@ -168,16 +167,6 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
     }*/
 
     valid = true;
-}
-
-void Terrain3D::set_as_infinite(bool p_enable)
-{
-    infinite = p_enable;
-}
-
-bool Terrain3D::is_infinite() const
-{
-    return infinite;
 }
 
 void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
@@ -256,8 +245,8 @@ int Terrain3D::get_clipmap_size() const
     return clipmap_size;
 }
 
-void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
-
+void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) 
+{
     if (storage != p_storage) {
         storage = p_storage;
 
@@ -267,12 +256,13 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
             build(clipmap_levels, clipmap_size);
         }
     }
- 
 }
 
-Ref<Terrain3DStorage> Terrain3D::get_storage() const {
+Ref<Terrain3DStorage> Terrain3D::get_storage() const 
+{
     return storage;
 }
+
 
 void Terrain3D::_notification(int p_what) {
 
@@ -394,9 +384,6 @@ void Terrain3D::_bind_methods() {
 
     ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
     ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
-
-    ClassDB::bind_method(D_METHOD("set_as_infinite", "enable"), &Terrain3D::set_as_infinite);
-    ClassDB::bind_method(D_METHOD("is_infinite"), &Terrain3D::is_infinite);
 
     ClassDB::bind_method(D_METHOD("clear"), &Terrain3D::clear);
     ClassDB::bind_method(D_METHOD("build"), &Terrain3D::build);

@@ -8,52 +8,15 @@
 
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/material.hpp>
-#include <godot_cpp/classes/shader_material.hpp>
-#include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/image.hpp>
-#include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/classes/texture2d_array.hpp>
-#include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/templates/vector.hpp>
+
+#include "terrain_material.h"
 
 
 using namespace godot;
-
-class TerrainLayerMaterial3D : public Material {
-    GDCLASS(TerrainLayerMaterial3D, Material);
-
-    Color albedo = Color(1.0, 1.0, 1.0, 1.0);
-    Ref<Texture2D> albedo_texture;
-    Ref<Texture2D> normal_texture;
-    Vector3 uv_scale = Vector3(1.0, 1.0, 1.0);
-
-    RID shader;
-
-protected:
-    static void _bind_methods();
-
-public:
-    TerrainLayerMaterial3D();
-    ~TerrainLayerMaterial3D();
-
-    Shader::Mode _get_shader_mode() const;
-    RID _get_shader_rid();
-
-    void set_albedo(Color p_color);
-    Color get_albedo() const;
-    
-    void set_albedo_texture(Ref<Texture2D> &p_texture);
-    Ref<Texture2D> get_albedo_texture() const;
-    void set_normal_texture(Ref<Texture2D> &p_texture);
-    Ref<Texture2D> get_normal_texture() const;
-
-    void set_uv_scale(Vector3 p_scale);
-    Vector3 get_uv_scale() const;
-
-private:
-    bool _texture_is_valid(Ref<Texture2D> &p_texture) const;
-    void _update_shader();
-};
 
 // TERRAIN STORAGE
 
@@ -61,27 +24,22 @@ class Terrain3DStorage : public Resource {
 
     GDCLASS(Terrain3DStorage, Resource);
 
-    const int LAYERS_MAX = 256;
-
     int size = 1024;
     int height = 512;
 
-    bool grid_enabled = true;
-    real_t grid_scale = 1.0;
+    Ref<TerrainMaterial3D> material;
+    Ref<Shader> shader_override;
 
-    Ref<ShaderMaterial> material;
+    Ref<Texture2DArray> height_map_array;
+    Ref<Texture2DArray> control_map_array;
+    Vector<Vector2> map_array_positions;
 
-    Ref<ImageTexture> height_map;
-    Ref<ImageTexture> control_map;
-    Ref<ImageTexture> normal_map;
-
-    Array layers;
+    TypedArray<TerrainLayerMaterial3D> layers;
 
     Ref<Texture2DArray> albedo_textures;
     Ref<Texture2DArray> normal_textures;
 
-    RID shader;
-    bool initialized = false;
+    bool _initialized = false;
 
 protected:
     static void _bind_methods();
@@ -95,19 +53,18 @@ public:
     void set_height(int p_height);
     int get_height() const;
 
-    void enable_grid(bool p_enable);
-    bool is_grid_enabled() const;
-    
-    void set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index);
-    Ref<ShaderMaterial> get_material() const;
+    void set_layer(const Ref<TerrainLayerMaterial3D>& p_material, int p_index);
 
-    Ref<ImageTexture> get_height_map() const;
-    Ref<ImageTexture> get_normal_map() const;
-    Ref<ImageTexture> get_control_map() const;
+    void add_map(Vector2 p_position);
+    void remove_map(Vector2 p_position);
+
+    void set_material(const Ref<TerrainMaterial3D>& p_material);
+    Ref<TerrainMaterial3D> get_material() const;
+
+    void set_shader_override(const Ref<Shader>& p_shader);
+    Ref<Shader> get_shader_override() const;
 
 private:
-    void _update_shader();
-    void _update_maps();
     void _update_layers();
     void _update_arrays();
     void _update_textures();

@@ -20,6 +20,7 @@
 #include <godot_cpp/templates/vector.hpp>
 
 #include <terrain_storage.h>
+#include <terrain_material.h>
 #include <geoclipmap.h>
 
 using namespace godot;
@@ -29,18 +30,14 @@ class Terrain3D : public Node3D {
 private:
     GDCLASS(Terrain3D, Node3D);
 
-
-private:
-    
     int clipmap_size = 48;
     int clipmap_levels = 7;
     float rotations[4] = { 0.0, 270.0, 90, 180.0 };
 
-    bool infinite = false;
     bool valid = false;
 
     Ref<Terrain3DStorage> storage;
-
+    
     struct Instances {
         RID cross;
         Vector<RID> tiles;
@@ -59,7 +56,7 @@ private:
     real_t collision_priority = 1.0;
 
     Camera3D* camera;
-    Vector3 previous_offset_position = Vector3(0, 0, 0);
+
 
 protected:
     static void _bind_methods();
@@ -81,12 +78,9 @@ public:
     
     void set_storage(const Ref<Terrain3DStorage> &p_storage);
     Ref<Terrain3DStorage> get_storage() const;
-
+    
     void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
     void build(int p_clipmap_levels, int p_clipmap_size);
-
-    void set_as_infinite(bool p_enable);
-    bool is_infinite() const;
 
     void _process(double delta);
     
