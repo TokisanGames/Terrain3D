@@ -1,56 +1,44 @@
 //© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
-#include "terrain_material.h"
+#include "terrain_storage.h"
 
 #include <godot_cpp/core/class_db.hpp>
 
 using namespace godot;
 
-TerrainMaterial3D::TerrainMaterial3D() {
-    call_deferred("reset");
+Terrain3DStorage::Terrain3DStorage() {
+    if (!initialized) {
+        _update_shader();
+        initialized = true;
+    }
 }
 
-TerrainMaterial3D::~TerrainMaterial3D() {
+Terrain3DStorage::~Terrain3DStorage() {
+    if (initialized) {
+        RenderingServer::get_singleton()->free_rid(shader);
+    }
 }
 
-void TerrainMaterial3D::reset() {
-    _update_shader();
-    _update_maps();
-}
-
-
-Shader::Mode TerrainMaterial3D::_get_shader_mode() const
-{
-    return Shader::MODE_SPATIAL;
-}
-
-RID TerrainMaterial3D::_get_shader_rid()
-{
-    return shader;
-}
-
-void TerrainMaterial3D::set_size(int p_size)
+void Terrain3DStorage::set_size(int p_size)
 {
     size = p_size;
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "terrain_size", size);
 }
 
-int TerrainMaterial3D::get_size() const
+int Terrain3DStorage::get_size() const
 {
     return size;
 }
 
-void TerrainMaterial3D::set_height(int p_height)
+void Terrain3DStorage::set_height(int p_height)
 {
     height = p_height;
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "terrain_height", height);
 }
 
-int TerrainMaterial3D::get_height() const
+int Terrain3DStorage::get_height() const
 {
     return height;
 }
 
-void TerrainMaterial3D::enable_grid(bool p_enable)
+void Terrain3DStorage::enable_grid(bool p_enable)
 {
     bool should_update = grid_enabled != p_enable;
     grid_enabled = p_enable;
@@ -60,33 +48,27 @@ void TerrainMaterial3D::enable_grid(bool p_enable)
     }
 }
 
-bool TerrainMaterial3D::is_grid_enabled() const
+bool Terrain3DStorage::is_grid_enabled() const
 {
     return grid_enabled;
 }
 
-Ref<ImageTexture> TerrainMaterial3D::get_height_map() const
+Ref<ImageTexture> Terrain3DStorage::get_height_map() const
 {
     return height_map;
 }
 
-Ref<ImageTexture> TerrainMaterial3D::get_normal_map() const
+Ref<ImageTexture> Terrain3DStorage::get_normal_map() const
 {
     return normal_map;
 }
 
-Ref<ImageTexture> TerrainMaterial3D::get_control_map() const
+Ref<ImageTexture> Terrain3DStorage::get_control_map() const
 {
     return control_map;
 }
 
-void TerrainMaterial3D::set_grid_scale(real_t p_scale)
-{
-    grid_scale = p_scale;
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "terrain_grid_scale", grid_scale);
-}
-
-void TerrainMaterial3D::set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index)
+void Terrain3DStorage::set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index)
 {
     if (p_index < layers.size()) {
 
@@ -104,7 +86,12 @@ void TerrainMaterial3D::set_layer(const Ref<TerrainLayerMaterial3D> &p_material,
     _update_layers();
 }
 
-void TerrainMaterial3D::_update_maps()
+Ref<ShaderMaterial> Terrain3DStorage::get_material() const
+{
+    return material;
+}
+
+void Terrain3DStorage::_update_maps()
 {
     int hmap_size = size + 1;
     int cmap_size = size / 2;
@@ -137,19 +124,19 @@ void TerrainMaterial3D::_update_maps()
     }
 
     RID hmap_rid = height_map.is_valid() ? height_map->get_rid() : RID();
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "terrain_heightmap", hmap_rid);
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "terrain_heightmap", hmap_rid);
 
     RID nmap_rid = normal_map.is_valid() ? normal_map->get_rid() : RID();
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "terrain_normalmap", nmap_rid);
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "terrain_normalmap", nmap_rid);
 
     RID cmap_rid = control_map.is_valid() ? control_map->get_rid() : RID();
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "terrain_controlmap", cmap_rid);
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "terrain_controlmap", cmap_rid);
 
     notify_property_list_changed();
     emit_changed();
 }
 
-void TerrainMaterial3D::_update_layers()
+void Terrain3DStorage::_update_layers()
 {
     for (int i = 0; i < layers.size(); i++) {
         
@@ -168,7 +155,7 @@ void TerrainMaterial3D::_update_layers()
     _update_textures();
 }
 
-void TerrainMaterial3D::_update_arrays()
+void Terrain3DStorage::_update_arrays()
 {
     PackedVector3Array uv_scales;
     PackedColorArray colors;
@@ -181,21 +168,21 @@ void TerrainMaterial3D::_update_arrays()
         colors.push_back(material->get_albedo());
     }
 
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "texture_uv_scale_array", uv_scales);
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "texture_color_array", colors);
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "texture_uv_scale_array", uv_scales);
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "texture_color_array", colors);
 
     emit_changed();
 }
 
-void TerrainMaterial3D::_update_textures()
+void Terrain3DStorage::_update_textures()
 {
     Array albedo_texture_array;
     Array normal_texture_array;
 
     for (int i = 0; i < layers.size(); i++) {
-        Ref<TerrainLayerMaterial3D> material = layers[i];
-        albedo_texture_array.push_back(material->get_albedo_texture());
-        normal_texture_array.push_back(material->get_normal_texture());
+        Ref<TerrainLayerMaterial3D> l_material = layers[i];
+        albedo_texture_array.push_back(l_material->get_albedo_texture());
+        normal_texture_array.push_back(l_material->get_normal_texture());
     }
 
     albedo_textures = _convert_array(albedo_texture_array);
@@ -203,12 +190,12 @@ void TerrainMaterial3D::_update_textures()
 
     enable_grid(albedo_textures->get_layers() == 0);
 
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "texture_array_albedo", albedo_textures->get_rid());
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "texture_array_normal", normal_textures->get_rid());
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "texture_array_normal_max", normal_textures->get_layers() - 1);
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "texture_array_albedo", albedo_textures->get_rid());
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "texture_array_normal", normal_textures->get_rid());
+    RenderingServer::get_singleton()->material_set_param(material->get_rid(), "texture_array_normal_max", normal_textures->get_layers() - 1);
 }
 
-Ref<Texture2DArray> TerrainMaterial3D::_convert_array(const Array &p_array) const
+Ref<Texture2DArray> Terrain3DStorage::_convert_array(const Array &p_array) const
 {
     Array img_arr;
 
@@ -231,10 +218,14 @@ Ref<Texture2DArray> TerrainMaterial3D::_convert_array(const Array &p_array) cons
 
 
 
-void TerrainMaterial3D::_update_shader()
+void Terrain3DStorage::_update_shader()
 {
     if (shader.is_valid()) {
         RenderingServer::get_singleton()->free_rid(shader);
+    }
+
+    if (material.is_null()) {
+        material.instantiate();
     }
 
     String code = "shader_type spatial;\n";
@@ -335,7 +326,7 @@ void TerrainMaterial3D::_update_shader()
     code = code + "   vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n";
     code = code + "   UV2 = (world_vertex.xz / vec2(terrain_size + 1.0)) + vec2(0.5);\n";;
     code = code + "   UV = world_vertex.xz * 0.5;\n";
-    code = code + "   VERTEX.y = get_height(UV2) * (VERTEX.y + 1.0);\n";
+    code = code + "   VERTEX.y = get_height(UV2) * VERTEX.y;\n";
     code = code + "   NORMAL = get_normal(UV2);\n";
     code = code + "   TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
     code = code + "   BINORMAL = cross(NORMAL, TANGENT);\n";
@@ -407,31 +398,23 @@ void TerrainMaterial3D::_update_shader()
 
     shader = RenderingServer::get_singleton()->shader_create();
     RenderingServer::get_singleton()->shader_set_code(shader, string_code);
-    RenderingServer::get_singleton()->material_set_shader(get_rid(), shader);
+    RenderingServer::get_singleton()->material_set_shader(material->get_rid(), shader);
 }
 
-void TerrainMaterial3D::_bind_methods() {
+void Terrain3DStorage::_bind_methods() {
 
-    ClassDB::bind_method(D_METHOD("set_size", "size"), &TerrainMaterial3D::set_size);
-    ClassDB::bind_method(D_METHOD("get_size"), &TerrainMaterial3D::get_size);
-    ClassDB::bind_method(D_METHOD("set_height", "height"), &TerrainMaterial3D::set_height);
-    ClassDB::bind_method(D_METHOD("get_height"), &TerrainMaterial3D::get_height);
+    ClassDB::bind_method(D_METHOD("set_size", "size"), &Terrain3DStorage::set_size);
+    ClassDB::bind_method(D_METHOD("get_size"), &Terrain3DStorage::get_size);
+    ClassDB::bind_method(D_METHOD("set_height", "height"), &Terrain3DStorage::set_height);
+    ClassDB::bind_method(D_METHOD("get_height"), &Terrain3DStorage::get_height);
 
-    ClassDB::bind_method(D_METHOD("enable_grid", "enable"), &TerrainMaterial3D::enable_grid);
-    ClassDB::bind_method(D_METHOD("set_grid_scale"), &TerrainMaterial3D::set_grid_scale);
+    ClassDB::bind_method(D_METHOD("enable_grid", "enable"), &Terrain3DStorage::enable_grid);
+  
+    ClassDB::bind_method(D_METHOD("set_layer", "material", "layer"), &Terrain3DStorage::set_layer);
 
-    ClassDB::bind_method(D_METHOD("reset"), &TerrainMaterial3D::reset);
-
-    ClassDB::bind_method(D_METHOD("set_layer", "material", "layer"), &TerrainMaterial3D::set_layer);
-
-    ClassDB::bind_method(D_METHOD("get_height_map"), &TerrainMaterial3D::get_height_map);
-    ClassDB::bind_method(D_METHOD("get_normal_map"), &TerrainMaterial3D::get_normal_map);
-    ClassDB::bind_method(D_METHOD("get_control_map"), &TerrainMaterial3D::get_control_map);
-
-
-    ADD_GROUP("Resolution", "resolution_");
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "resolution_size", PROPERTY_HINT_RANGE, "128,8192,1", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), "set_size", "get_size");
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "resolution_height", PROPERTY_HINT_RANGE, "1,512,1", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), "set_height", "get_height");
+    ClassDB::bind_method(D_METHOD("get_height_map"), &Terrain3DStorage::get_height_map);
+    ClassDB::bind_method(D_METHOD("get_normal_map"), &Terrain3DStorage::get_normal_map);
+    ClassDB::bind_method(D_METHOD("get_control_map"), &Terrain3DStorage::get_control_map);
 
 }
 

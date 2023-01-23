@@ -99,10 +99,12 @@ void Terrain3D::_process(double delta)
 
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 
+    UtilityFunctions::print("Building Terrain...");
+
     valid = false;
 
     RID scenario = get_world_3d()->get_scenario();
-    RID material_rid = material.is_valid() ? material->get_rid() : RID();
+    RID material_rid = storage->get_material().is_valid() ? storage->get_material()->get_rid() : RID();
 
     meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
 
@@ -254,25 +256,22 @@ int Terrain3D::get_clipmap_size() const
     return clipmap_size;
 }
 
-void Terrain3D::set_material(const Ref<TerrainMaterial3D> &p_material) {
+void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 
-    material = p_material;
+    if (storage != p_storage) {
+        storage = p_storage;
 
-    if (!valid && material.is_valid()) {
         clear();
-        build(clipmap_levels, clipmap_size);
-    }
-    else {
-        RID rid = material.is_valid() ? material->get_rid() : RID();
-        for (int i = 0; i < meshes.size(); i++) {
-            RID mesh = meshes[i];
-            RenderingServer::get_singleton()->mesh_surface_set_material(mesh, 0, rid);
+
+        if (storage.is_valid()) {
+            build(clipmap_levels, clipmap_size);
         }
-    } 
+    }
+ 
 }
 
-Ref<TerrainMaterial3D> Terrain3D::get_material() const {
-    return material;
+Ref<Terrain3DStorage> Terrain3D::get_storage() const {
+    return storage;
 }
 
 void Terrain3D::_notification(int p_what) {
@@ -393,8 +392,8 @@ void Terrain3D::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_clipmap_size", "size"), &Terrain3D::set_clipmap_size);
     ClassDB::bind_method(D_METHOD("get_clipmap_size"), &Terrain3D::get_clipmap_size);
 
-    ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
-    ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
+    ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
+    ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 
     ClassDB::bind_method(D_METHOD("set_as_infinite", "enable"), &Terrain3D::set_as_infinite);
     ClassDB::bind_method(D_METHOD("is_infinite"), &Terrain3D::is_infinite);
@@ -406,7 +405,6 @@ void Terrain3D::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_clipmap_size", "get_clipmap_size");
 
-    ADD_GROUP("Material", "surface_");
-    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "surface_material", PROPERTY_HINT_RESOURCE_TYPE, "TerrainMaterial3D"), "set_material", "get_material");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 
 }

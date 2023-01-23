@@ -19,7 +19,7 @@
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/templates/vector.hpp>
 
-#include <terrain_material.h>
+#include <terrain_storage.h>
 #include <geoclipmap.h>
 
 using namespace godot;
@@ -34,14 +34,12 @@ private:
     
     int clipmap_size = 48;
     int clipmap_levels = 7;
-
-    // Used to rotate the trim mesh
-    float rotations[4] = {0.0, 270.0, 90, 180.0};
+    float rotations[4] = { 0.0, 270.0, 90, 180.0 };
 
     bool infinite = false;
     bool valid = false;
 
-    Ref<TerrainMaterial3D> material;
+    Ref<Terrain3DStorage> storage;
 
     struct Instances {
         RID cross;
@@ -81,8 +79,8 @@ public:
     void set_clipmap_size(int p_size);
     int get_clipmap_size() const;
     
-    void set_material(const Ref<TerrainMaterial3D> &p_material);
-    Ref<TerrainMaterial3D> get_material() const;
+    void set_storage(const Ref<Terrain3DStorage> &p_storage);
+    Ref<Terrain3DStorage> get_storage() const;
 
     void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
     void build(int p_clipmap_levels, int p_clipmap_size);

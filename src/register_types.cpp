@@ -5,7 +5,7 @@
 #include <godot_cpp/godot.hpp>
 
 #include <terrain.h>
-#include <terrain_material.h>
+#include <terrain_storage.h>
 
 using namespace godot;
 
@@ -15,7 +15,7 @@ void initialize_terrain_types(ModuleInitializationLevel p_level)
 		return;
 	}
 	ClassDB::register_class<Terrain3D>();
-	ClassDB::register_class<TerrainMaterial3D>();
+	ClassDB::register_class<Terrain3DStorage>();
 	ClassDB::register_class<TerrainLayerMaterial3D>();
 	
 }

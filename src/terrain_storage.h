@@ -1,6 +1,6 @@
 //© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
-#ifndef TERRAINMATERIAL3D_CLASS_H
-#define TERRAINMATERIAL3D_CLASS_H
+#ifndef TERRAINSTORAGE_CLASS_H
+#define TERRAINSTORAGE_CLASS_H
 
 #ifdef WIN32
 #include <windows.h>
@@ -8,6 +8,8 @@
 
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/material.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
+#include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
@@ -48,23 +50,26 @@ public:
     void set_uv_scale(Vector3 p_scale);
     Vector3 get_uv_scale() const;
 
-
 private:
     bool _texture_is_valid(Ref<Texture2D> &p_texture) const;
     void _update_shader();
 };
 
-class TerrainMaterial3D : public Material {
+// TERRAIN STORAGE
 
-    GDCLASS(TerrainMaterial3D, Material);
+class Terrain3DStorage : public Resource {
+
+    GDCLASS(Terrain3DStorage, Resource);
 
     const int LAYERS_MAX = 256;
 
     int size = 1024;
-    int height = 64;
+    int height = 512;
 
     bool grid_enabled = true;
     real_t grid_scale = 1.0;
+
+    Ref<ShaderMaterial> material;
 
     Ref<ImageTexture> height_map;
     Ref<ImageTexture> control_map;
@@ -76,18 +81,14 @@ class TerrainMaterial3D : public Material {
     Ref<Texture2DArray> normal_textures;
 
     RID shader;
+    bool initialized = false;
 
 protected:
     static void _bind_methods();
 
 public:
-    TerrainMaterial3D();
-    ~TerrainMaterial3D();
-
-    Shader::Mode _get_shader_mode() const;
-    RID _get_shader_rid();
-
-    void reset();
+    Terrain3DStorage();
+    ~Terrain3DStorage();
 
     void set_size(int p_size);
     int get_size() const;
@@ -96,9 +97,9 @@ public:
 
     void enable_grid(bool p_enable);
     bool is_grid_enabled() const;
-    void set_grid_scale(real_t p_scale);
-
+    
     void set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index);
+    Ref<ShaderMaterial> get_material() const;
 
     Ref<ImageTexture> get_height_map() const;
     Ref<ImageTexture> get_normal_map() const;
@@ -115,4 +116,4 @@ private:
     
 };
 
-#endif // TERRAINMATERIAL3D_CLASS_H
+#endif // TERRAINSTORAGE_CLASS_H
