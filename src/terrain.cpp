@@ -350,8 +350,8 @@ void Terrain3D::_update_world(RID p_space, RID p_scenario)
 void Terrain3D::get_camera()
 {
     if (Engine::get_singleton()->is_editor_hint()) {
-        Ref<EditorScript> temp_editor_script = memnew(EditorScript);
-        EditorInterface* editor_interface = temp_editor_script->get_editor_interface();
+        EditorScript temp_editor_script;
+        EditorInterface* editor_interface = temp_editor_script.get_editor_interface();
         Array& cam_array = Array();
         find_cameras(editor_interface->get_editor_main_screen()->get_children(), cam_array);
         if (!cam_array.is_empty()) {
