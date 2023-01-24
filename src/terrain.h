@@ -20,7 +20,6 @@
 #include <godot_cpp/templates/vector.hpp>
 
 #include <terrain_storage.h>
-#include <terrain_material.h>
 #include <geoclipmap.h>
 
 using namespace godot;
@@ -32,7 +31,6 @@ private:
 
     int clipmap_size = 48;
     int clipmap_levels = 7;
-    float rotations[4] = { 0.0, 270.0, 90, 180.0 };
 
     bool valid = false;
 

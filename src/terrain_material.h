@@ -13,6 +13,7 @@
 #include <godot_cpp/classes/texture2d_array.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 
+
 using namespace godot;
 
 class TerrainMaterial3D : public Material {
@@ -20,16 +21,16 @@ class TerrainMaterial3D : public Material {
 
     RID shader;
 
-    bool grid_enabled = true;
     bool _initialized = false;
 
 protected:
     static void _bind_methods();
 
 public:
-    
     Shader::Mode _get_shader_mode() const;
     RID _get_shader_rid();
+
+    void set_maps(const Ref<Texture2DArray>& p_height, const Ref<Texture2DArray>& p_control, const Array& p_offsets);
 
     TerrainMaterial3D();
     ~TerrainMaterial3D();

@@ -19,9 +19,9 @@ void Terrain3D::_process(double delta)
     }
     else if (valid) {
 
-        Vector3 cam_pos = camera->get_global_transform().origin;
+        Vector3 cam_pos = camera->get_global_transform().origin * Vector3(1, 0, 1);
         {
-            Transform3D t = Transform3D(Basis(), cam_pos.floor() * Vector3(1, 0, 1));
+            Transform3D t = Transform3D(Basis(), cam_pos.floor());
             RenderingServer::get_singleton()->instance_set_transform(data.cross, t);
         }
         
@@ -30,7 +30,7 @@ void Terrain3D::_process(double delta)
 
         for (int l = 0; l < clipmap_levels; l++) {
             float scale = float(1 << l);
-            Vector3 snapped_pos = (cam_pos / scale).floor() * scale * Vector3(1, 0, 1);
+            Vector3 snapped_pos = (cam_pos / scale).floor() * scale;
             Vector3 tile_size = Vector3(float(clipmap_size << l), 0, float(clipmap_size << l));
             Vector3 base = snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
 
@@ -61,7 +61,7 @@ void Terrain3D::_process(double delta)
 
             if (l != clipmap_levels - 1) {
                 float next_scale = scale * 2.0f;
-                Vector3 next_snapped_pos = (cam_pos / next_scale).floor() * next_scale * Vector3(1, 0, 1);
+                Vector3 next_snapped_pos = (cam_pos / next_scale).floor() * next_scale;
 
                 // position trims
                 {
@@ -71,6 +71,8 @@ void Terrain3D::_process(double delta)
                     int r = 0;
                     r |= d.x >= scale ? 0 : 2;
                     r |= d.z >= scale ? 0 : 1;
+
+                    float rotations[4] = { 0.0, 270.0, 90, 180.0 };
 
                     float angle = UtilityFunctions::deg_to_rad(rotations[r]);
                     Transform3D t = Transform3D().rotated(Vector3(0, 1, 0), -angle);
@@ -92,21 +94,15 @@ void Terrain3D::_process(double delta)
     }
 }
 
-void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
-
-    if (storage.is_null()) {
-        UtilityFunctions::print("Storage not found.");
-        return;
-    }
-
-    UtilityFunctions::print("Building Terrain...");
-
-    valid = false;
-
+void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) 
+{
+    ERR_FAIL_COND(!storage.is_valid());
+   
     RID scenario = get_world_3d()->get_scenario();
     RID material_rid = storage->get_material().is_valid() ? storage->get_material()->get_rid() : RID();
 
     meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
+    ERR_FAIL_COND(meshes.is_empty());
 
     for (const RID rid : meshes) {
         RenderingServer::get_singleton()->mesh_surface_set_material(rid, 0, material_rid);
@@ -253,6 +249,11 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage)
         clear();
 
         if (storage.is_valid()) {
+
+            if (storage->get_map_count() == 0) {
+                storage->add_map(Vector2(0, 0));
+            }
+                
             build(clipmap_levels, clipmap_size);
         }
     }
