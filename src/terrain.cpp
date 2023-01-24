@@ -386,8 +386,8 @@ void Terrain3D::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
     ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 
-    ClassDB::bind_method(D_METHOD("clear"), &Terrain3D::clear);
-    ClassDB::bind_method(D_METHOD("build"), &Terrain3D::build);
+    ClassDB::bind_method(D_METHOD("clear", "clear_meshes", "clear_collision"), &Terrain3D::clear);
+    ClassDB::bind_method(D_METHOD("build", "clipmap_levels", "clipmap_size"), &Terrain3D::build);
 
     ADD_GROUP("Clipmap", "clipmap_");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");

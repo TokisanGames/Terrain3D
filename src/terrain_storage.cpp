@@ -53,7 +53,7 @@ void Terrain3DStorage::add_map(Vector2 p_global_position)
         }
     }
 
-    Ref<Image> hmap_img = Image::create(map_size + 1, map_size + 1, false, Image::FORMAT_RH);
+    Ref<Image> hmap_img = Image::create(map_size, map_size, false, Image::FORMAT_RH);
     hmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
     h_maps.push_back(hmap_img);
     
@@ -295,11 +295,9 @@ Ref<Texture2DArray> Terrain3DStorage::_convert_array(const Array &p_array) const
 
 void Terrain3DStorage::_bind_methods() {
 
-    ClassDB::bind_method(D_METHOD("set_size", "size"), &Terrain3DStorage::set_size);
-    ClassDB::bind_method(D_METHOD("get_size"), &Terrain3DStorage::get_size);
     ClassDB::bind_method(D_METHOD("set_height", "height"), &Terrain3DStorage::set_height);
     ClassDB::bind_method(D_METHOD("get_height"), &Terrain3DStorage::get_height);
-
+  
     ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DStorage::set_shader_override);
     ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
 
@@ -319,8 +317,6 @@ void Terrain3DStorage::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_map_offsets", "offsets"), &Terrain3DStorage::set_map_offsets);
     ClassDB::bind_method(D_METHOD("get_map_offsets"), &Terrain3DStorage::get_map_offsets);
 
-    ADD_GROUP("Resolution", "map_");
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "map_size", PROPERTY_HINT_ENUM, "512:512, 1024:1024, 2048:2048"), "set_size", "get_size");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "map_height", PROPERTY_HINT_RANGE, "1, 1024, 1"), "set_height", "get_height");
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "height_maps", PROPERTY_HINT_RESOURCE_TYPE, "Texture2DArray"), "set_height_maps", "get_height_maps");

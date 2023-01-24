@@ -92,9 +92,18 @@ void TerrainMaterial3D::_update_shader()
     code += "           index = float(i); uv -= pos; break;}}\n";
     code += "   return texture(height_maps, vec3(uv, index)).r * terrain_height;\n";
     code += "}\n\n";
-
-    code += "vec3 get_normal(vec2 uv) {\n";
-    code += "    return vec3(0, 1, 0);\n";
+  
+    code +=  "vec3 get_normal(vec2 uv) {\n";
+    code += "    vec2 ps = vec2(1.0) / terrain_size;\n";
+    code += "    float left = get_height(uv + vec2(-ps.x, 0));\n";
+    code += "    float right = get_height(uv + vec2(ps.x, 0));\n";
+    code += "    float back = get_height(uv + vec2(0, -ps.y));\n";
+    code += "    float fore = get_height(uv + vec2(0, ps.y));\n";
+    code += "    vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
+    code += "    vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
+    code += "    vec3 normal = normalize(cross(vertical, horizontal));\n";
+    code += "    normal.z *= -1.0;\n";
+    code += "    return normal;\n";
     code += "}\n\n";
 
     // Vertex Shader
@@ -116,7 +125,7 @@ void TerrainMaterial3D::_update_shader()
     code += "   vec3 color = vec3(0.0);\n";
     code += "   float rough = 1.0;\n";
 
-    //code += "   NORMAL = mat3(VIEW_MATRIX) * get_normal(UV2);\n";
+    code += "   NORMAL = mat3(VIEW_MATRIX) * get_normal(UV2);\n";
 
     code += "   vec2 p = UV * 4.0 * terrain_grid_scale;\n";
     code += "   vec2 ddx = dFdx(p);\n";
