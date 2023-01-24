@@ -64,7 +64,7 @@ protected:
 
 private:
     void get_camera();
-    void find_cameras(TypedArray<Node>& from_nodes, Array& cam_array);
+    void find_cameras(TypedArray<Node>& from_nodes, Node* excluded_node, Array& cam_array);
 
 public:
 

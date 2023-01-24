@@ -347,13 +347,17 @@ void Terrain3D::_update_world(RID p_space, RID p_scenario)
 
 }
 
+/**
+* If running in the editor, recurses into the editor scene tree to find the editor cameras and grabs the first one.
+* The edited_scene_root is excluded in case the user already has a Camera3D in their scene.
+*/
 void Terrain3D::get_camera()
 {
     if (Engine::get_singleton()->is_editor_hint()) {
         EditorScript temp_editor_script;
         EditorInterface* editor_interface = temp_editor_script.get_editor_interface();
         Array& cam_array = Array();
-        find_cameras(editor_interface->get_editor_main_screen()->get_children(), cam_array);
+        find_cameras(editor_interface->get_editor_main_screen()->get_children(), editor_interface->get_edited_scene_root(), cam_array);
         if (!cam_array.is_empty()) {
             camera = Object::cast_to<Camera3D>(cam_array[0]);
         }
@@ -363,11 +367,16 @@ void Terrain3D::get_camera()
     }
 }
 
-void Terrain3D::find_cameras(TypedArray<Node>& from_nodes, Array& cam_array)
+/**
+* Recursive helper function for get_camera(). 
+*/
+void Terrain3D::find_cameras(TypedArray<Node>& from_nodes, Node* excluded_node, Array& cam_array)
 {   
     for (int i = 0; i < from_nodes.size(); i++) {
         Node* node = Object::cast_to<Node>(from_nodes[i]);
-        find_cameras(node->get_children(), cam_array);
+        if (node != excluded_node) {
+            find_cameras(node->get_children(), excluded_node, cam_array);
+        }
         if (node->is_class("Camera3D")) {
             cam_array.push_back(node);
         }
