@@ -6,6 +6,10 @@
 #include <windows.h>
 #endif
 
+#ifndef FLT_MAX
+#define FLT_MAX __FLT_MAX__
+#endif
+
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/physics_server3d.hpp>
@@ -53,7 +57,12 @@ private:
     uint32_t collision_mask = 1;
     real_t collision_priority = 1.0;
 
+    // Current editor or gameplay camera we are centering the terrain on.
     Camera3D* camera;
+    // Position of the camera during the previous snapping. Set to max float value to force a snap update.
+    Vector3 camera_last_position = Vector3(FLT_MAX, FLT_MAX, FLT_MAX);
+    // Crashes if this is removed or <8 bytes, compiled w/ MSVC 2019 or mingw-w64 gcc. Two 32-bit vars work.
+    uint64_t _dummy_var = 0;
 
 
 protected:
@@ -79,6 +88,7 @@ public:
     
     void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
     void build(int p_clipmap_levels, int p_clipmap_size);
+    void snap(Vector3 cam_pos);
 
     void _process(double delta);
     
