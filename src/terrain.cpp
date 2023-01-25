@@ -97,7 +97,7 @@ void Terrain3D::_process(double delta)
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) 
 {
     ERR_FAIL_COND(!storage.is_valid());
-   
+    
     RID scenario = get_world_3d()->get_scenario();
     RID material_rid = storage->get_material().is_valid() ? storage->get_material()->get_rid() : RID();
 
@@ -253,8 +253,8 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage)
             if (storage->get_map_count() == 0) {
                 storage->add_map(Vector2(0, 0));
             }
-                
-            build(clipmap_levels, clipmap_size);
+            
+            call_deferred("build", clipmap_levels, clipmap_size);
         }
     }
 }
@@ -346,6 +346,7 @@ void Terrain3D::_update_world(RID p_space, RID p_scenario)
     }
 
 }
+
 
 /**
 * If running in the editor, recurses into the editor scene tree to find the editor cameras and grabs the first one.
