@@ -23,8 +23,8 @@
 #include <godot_cpp/templates/vector.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
-#include <geoclipmap.h>
-#include <terrain_storage.h>
+#include "geoclipmap.h"
+#include "terrain_storage.h"
 
 using namespace godot;
 

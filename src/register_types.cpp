@@ -4,8 +4,8 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-#include <terrain.h>
-#include <terrain_storage.h>
+#include "terrain.h"
+#include "terrain_storage.h"
 
 using namespace godot;
 

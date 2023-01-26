@@ -1,6 +1,7 @@
 //© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
-#include "terrain_storage.h"
 #include <godot_cpp/core/class_db.hpp>
+
+#include "terrain_storage.h"
 
 using namespace godot;
 
