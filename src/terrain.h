@@ -72,6 +72,9 @@ private:
 	void find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, Array &cam_array);
 
 public:
+	void set_debug_level(int p_level);
+	int get_debug_level() const;
+
 	void set_clipmap_levels(int p_count);
 	int get_clipmap_levels() const;
 

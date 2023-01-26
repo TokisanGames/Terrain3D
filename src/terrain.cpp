@@ -225,6 +225,14 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
 	}
 }
 
+void Terrain3D::set_debug_level(int p_level) {
+	debug_level = CLAMP<int, int, int>(p_level, 0, DEBUG_MAX);
+}
+
+int Terrain3D::get_debug_level() const {
+	return debug_level;
+}
+
 void Terrain3D::set_clipmap_levels(int p_count) {
 	if (clipmap_levels != p_count) {
 		clear();
@@ -379,6 +387,9 @@ void Terrain3D::find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, A
 }
 
 void Terrain3D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
+	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
+
 	ClassDB::bind_method(D_METHOD("set_clipmap_levels", "count"), &Terrain3D::set_clipmap_levels);
 	ClassDB::bind_method(D_METHOD("get_clipmap_levels"), &Terrain3D::get_clipmap_levels);
 
@@ -391,9 +402,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear", "clear_meshes", "clear_collision"), &Terrain3D::clear);
 	ClassDB::bind_method(D_METHOD("build", "clipmap_levels", "clipmap_size"), &Terrain3D::build);
 
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug+Snapping"), "set_debug_level", "get_debug_level");
+
 	ADD_GROUP("Clipmap", "clipmap_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_clipmap_size", "get_clipmap_size");
-
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 }

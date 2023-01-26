@@ -8,9 +8,9 @@
 #define INFO 1
 #define DEBUG 2
 #define DEBUG2 3
-#define LOG(level, ...) \
+#define DEBUG_MAX 3
+#define LOG(level, ...)                  \
 	if (Terrain3D::debug_level >= level) \
-		UtilityFunctions::print("Terrain3D::", __func__, __VA_ARGS__)
-
+	UtilityFunctions::print("Terrain3D::", __func__, ": ", __VA_ARGS__)
 
 #endif // TERRAINLOGGER_CLASS_H
