@@ -58,14 +58,9 @@ private:
     real_t collision_priority = 1.0;
 
     // Current editor or gameplay camera we are centering the terrain on.
-    Camera3D* camera;
+    Camera3D* camera = nullptr;
     // X,Z Position of the camera during the previous snapping. Set to max float value to force a snap update.
     Vector2 camera_last_position = Vector2(FLT_MAX, FLT_MAX);
-    // Crashes if these are removed or under a certain size. Renaming or multiple smaller vars are fine. Same compiled w/ MSVC 2019 or mingw-w64 gcc.
-    // Remove when adding more variables. Or this bug is fixed (possibly upstream).
-    uint64_t _dummy_var = 0;
-    uint64_t _dummy_var2 = 0;
-
 
 protected:
     static void _bind_methods();
