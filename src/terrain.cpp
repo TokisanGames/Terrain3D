@@ -12,86 +12,98 @@ Terrain3D::Terrain3D() {
 Terrain3D::~Terrain3D() {
 }
 
-void Terrain3D::_process(double delta)
-{
+void Terrain3D::_process(double delta) {
+    if (!valid)
+        return;
+
     if (camera == nullptr) {
         get_camera();
     }
-    else if (valid) {
 
-        Vector3 cam_pos = camera->get_global_transform().origin * Vector3(1, 0, 1);
-        {
-            Transform3D t = Transform3D(Basis(), cam_pos.floor());
-            RenderingServer::get_singleton()->instance_set_transform(data.cross, t);
+    if (camera != nullptr) {
+        Vector3 cam_pos = camera->get_global_position();
+        Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
+        if (camera_last_position.distance_to(cam_pos_2d) > clipmap_size * .5) {
+            snap(cam_pos);
+            camera_last_position = cam_pos_2d;
         }
-        
-        int edge = 0;
-        int tile = 0;
-
-        for (int l = 0; l < clipmap_levels; l++) {
-            float scale = float(1 << l);
-            Vector3 snapped_pos = (cam_pos / scale).floor() * scale;
-            Vector3 tile_size = Vector3(float(clipmap_size << l), 0, float(clipmap_size << l));
-            Vector3 base = snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
-
-            // position tiles
-            for (int x = 0; x < 4; x++) {
-                for (int y = 0; y < 4; y++) {
-                    if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
-                        continue;
-                    }
-
-                    Vector3 fill = Vector3(x >= 2 ? 1 : 0, 0, y >= 2 ? 1 : 0) * scale;
-                    Vector3 tile_tl = base + Vector3(x, 0, y) * tile_size + fill;
-                    //Vector3 tile_br = tile_tl + tile_size;
-
-                    Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
-                    t.origin = tile_tl;
-
-                    RenderingServer::get_singleton()->instance_set_transform(data.tiles[tile], t);
-
-                    tile++;
-                }
-            }
-            {
-                Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
-                t.origin = snapped_pos;
-                RenderingServer::get_singleton()->instance_set_transform(data.fillers[l], t);
-            }
-
-            if (l != clipmap_levels - 1) {
-                float next_scale = scale * 2.0f;
-                Vector3 next_snapped_pos = (cam_pos / next_scale).floor() * next_scale;
-
-                // position trims
-                {
-                    Vector3 tile_center = snapped_pos + (Vector3(scale, 0, scale) * 0.5f);
-                    Vector3 d = cam_pos - next_snapped_pos;
-
-                    int r = 0;
-                    r |= d.x >= scale ? 0 : 2;
-                    r |= d.z >= scale ? 0 : 1;
-
-                    float rotations[4] = { 0.0, 270.0, 90, 180.0 };
-
-                    float angle = UtilityFunctions::deg_to_rad(rotations[r]);
-                    Transform3D t = Transform3D().rotated(Vector3(0, 1, 0), -angle);
-                    t = t.scaled(Vector3(scale, 1, scale));
-                    t.origin = tile_center;
-                    RenderingServer::get_singleton()->instance_set_transform(data.trims[edge], t);
-                }
-
-                // position seams
-                {
-                    Vector3 next_base = next_snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
-                    Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
-                    t.origin = next_base;
-                    RenderingServer::get_singleton()->instance_set_transform(data.seams[edge], t); 
-                }
-                edge++;
-            }
-        } 
     }
+}
+
+/**
+ * Centers the terrain and LODs on a provided position. Y height is ignored.
+ */
+void Terrain3D::snap(Vector3 p_cam_pos) {
+    p_cam_pos.y = 0;
+    Transform3D t = Transform3D(Basis(), p_cam_pos.floor());
+    RenderingServer::get_singleton()->instance_set_transform(data.cross, t);
+        
+    int edge = 0;
+    int tile = 0;
+
+    for (int l = 0; l < clipmap_levels; l++) {
+        float scale = float(1 << l);
+        Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
+        Vector3 tile_size = Vector3(float(clipmap_size << l), 0, float(clipmap_size << l));
+        Vector3 base = snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
+
+        // Position tiles
+        for (int x = 0; x < 4; x++) {
+            for (int y = 0; y < 4; y++) {
+                if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
+                    continue;
+                }
+
+                Vector3 fill = Vector3(x >= 2 ? 1 : 0, 0, y >= 2 ? 1 : 0) * scale;
+                Vector3 tile_tl = base + Vector3(x, 0, y) * tile_size + fill;
+                //Vector3 tile_br = tile_tl + tile_size;
+
+                Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
+                t.origin = tile_tl;
+
+                RenderingServer::get_singleton()->instance_set_transform(data.tiles[tile], t);
+
+                tile++;
+            }
+        }
+        {
+            Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
+            t.origin = snapped_pos;
+            RenderingServer::get_singleton()->instance_set_transform(data.fillers[l], t);
+        }
+
+        if (l != clipmap_levels - 1) {
+            float next_scale = scale * 2.0f;
+            Vector3 next_snapped_pos = (p_cam_pos / next_scale).floor() * next_scale;
+
+            // position trims
+            {
+                Vector3 tile_center = snapped_pos + (Vector3(scale, 0, scale) * 0.5f);
+                Vector3 d = p_cam_pos - next_snapped_pos;
+
+                int r = 0;
+                r |= d.x >= scale ? 0 : 2;
+                r |= d.z >= scale ? 0 : 1;
+
+                float rotations[4] = { 0.0, 270.0, 90, 180.0 };
+
+                float angle = UtilityFunctions::deg_to_rad(rotations[r]);
+                Transform3D t = Transform3D().rotated(Vector3(0, 1, 0), -angle);
+                t = t.scaled(Vector3(scale, 1, scale));
+                t.origin = tile_center;
+                RenderingServer::get_singleton()->instance_set_transform(data.trims[edge], t);
+            }
+
+            // position seams
+            {
+                Vector3 next_base = next_snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
+                Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
+                t.origin = next_base;
+                RenderingServer::get_singleton()->instance_set_transform(data.seams[edge], t); 
+            }
+            edge++;
+        }
+    } 
 }
 
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) 
@@ -163,6 +175,8 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size)
     }*/
 
     valid = true;
+    // Force a snap update
+    camera_last_position = Vector2(FLT_MAX, FLT_MAX);
 }
 
 void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
