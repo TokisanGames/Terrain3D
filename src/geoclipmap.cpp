@@ -5,10 +5,7 @@
 
 using namespace godot;
 
-
-Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
-{
-
+Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 	// bit of a mess here. someone care to clean up?
 
 	RID tile_mesh;
@@ -16,7 +13,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 	RID trim_mesh;
 	RID cross_mesh;
 	RID seam_mesh;
-	
+
 	int TILE_RESOLUTION = p_size;
 	int PATCH_VERT_RESOLUTION = TILE_RESOLUTION + 1;
 	int CLIPMAP_RESOLUTION = TILE_RESOLUTION * 4 + 1;
@@ -29,7 +26,6 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 		vertices.resize(PATCH_VERT_RESOLUTION * PATCH_VERT_RESOLUTION);
 		PackedInt32Array indices;
 		indices.resize(TILE_RESOLUTION * TILE_RESOLUTION * 6);
-
 
 		int n = 0;
 
@@ -54,7 +50,6 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 		}
 
 		tile_mesh = create_mesh(vertices, indices);
-
 	}
 
 	// filler mesh
@@ -103,8 +98,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 				indices[n++] = bl;
 				indices[n++] = tl;
 				indices[n++] = tr;
-			}
-			else {
+			} else {
 				indices[n++] = br;
 				indices[n++] = bl;
 				indices[n++] = tl;
@@ -206,7 +200,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 			if (i == TILE_RESOLUTION) {
 				continue;
 			}
-			
+
 			int bl = i * 2 + 0;
 			int br = i * 2 + 1;
 			int tl = i * 2 + 2;
@@ -249,7 +243,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 
 		seam_mesh = create_mesh(vertices, indices);
 	}
-	
+
 	// skirt mesh
 	/*{
 		float scale = float(1 << (NUM_CLIPMAP_LEVELS - 1));
@@ -270,7 +264,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 			Vector3(clipmap_tl.x, 0, clipmap_br.y),
 			Vector3(clipmap_br.x, 0, clipmap_br.y)
 		);
-		
+
 		Array indices = Array::make(
 			0, 1, 4, 4, 1, 5,
 			1, 3, 5, 5, 3, 7,
@@ -279,7 +273,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 		);
 
 		skirt_mesh = create_mesh(PackedVector3Array(vertices), PackedInt32Array(indices));
-		
+
 	}*/
 
 	Vector<RID> meshes = {
@@ -289,17 +283,15 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels)
 		cross_mesh,
 		seam_mesh
 	};
-	
+
 	return meshes;
 }
 
-int GeoClipMap::patch_2d(int x, int y, int res)
-{
+int GeoClipMap::patch_2d(int x, int y, int res) {
 	return y * res + x;
 }
 
-RID GeoClipMap::create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices)
-{
+RID GeoClipMap::create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices) {
 	Array arrays;
 	arrays.resize(RenderingServer::ARRAY_MAX);
 	arrays[RenderingServer::ARRAY_VERTEX] = p_vertices;
@@ -311,7 +303,3 @@ RID GeoClipMap::create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_in
 
 	return mesh;
 }
-
-
-
-

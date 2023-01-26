@@ -12,22 +12,19 @@
 using namespace godot;
 
 class GeoClipMap {
-    
-    static int patch_2d(int x, int y, int res);
-    static RID create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices);
+	static int patch_2d(int x, int y, int res);
+	static RID create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices);
 
 public:
+	enum MeshType {
+		TILE,
+		FILLER,
+		TRIM,
+		CROSS,
+		SEAM,
+	};
 
-    enum MeshType {
-        TILE,
-        FILLER,
-        TRIM,
-        CROSS,
-        SEAM,
-    };
-
-    static Vector<RID> generate(int p_resolution, int p_clipmap_levels);
-    
+	static Vector<RID> generate(int p_resolution, int p_clipmap_levels);
 };
 
 #endif // GEOCLIPMAP_CLASS_H
