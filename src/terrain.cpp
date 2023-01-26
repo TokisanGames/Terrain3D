@@ -253,7 +253,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 
 		if (storage.is_valid()) {
 			if (storage->get_map_count() == 0) {
-				storage->add_map(Vector2(0, 0));
+				storage->add_map(Vector3(0, 0, 0));
 			}
 
 			call_deferred("build", clipmap_levels, clipmap_size);

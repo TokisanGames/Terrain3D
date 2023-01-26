@@ -16,3 +16,7 @@ config/features=PackedStringArray("4.0")
 [editor]
 
 export/convert_text_resources_to_binary=true
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/terrain/editor/plugin.cfg")
