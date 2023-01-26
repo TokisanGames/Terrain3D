@@ -31,12 +31,10 @@ RID TerrainMaterial3D::_get_shader_rid()
 	return shader;
 }
 
-void TerrainMaterial3D::set_maps(const Ref<Texture2DArray>& p_height, const Ref<Texture2DArray>& p_control, const Array& p_offsets)
+void TerrainMaterial3D::set_maps(RID p_height, RID p_control, const Array& p_offsets)
 {
-    RID hrid = p_height.is_valid() ? p_height->get_rid() : RID();
-    RID crid = p_control.is_valid() ? p_control->get_rid() : RID();
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "height_maps", hrid);
-    RenderingServer::get_singleton()->material_set_param(get_rid(), "control_maps", crid);
+    RenderingServer::get_singleton()->material_set_param(get_rid(), "height_maps", p_height);
+    RenderingServer::get_singleton()->material_set_param(get_rid(), "control_maps", p_control);
     RenderingServer::get_singleton()->material_set_param(get_rid(), "map_offsets", p_offsets);
 }
 

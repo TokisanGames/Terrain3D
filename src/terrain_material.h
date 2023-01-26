@@ -30,7 +30,7 @@ public:
     Shader::Mode _get_shader_mode() const;
     RID _get_shader_rid();
 
-    void set_maps(const Ref<Texture2DArray>& p_height, const Ref<Texture2DArray>& p_control, const Array& p_offsets);
+    void set_maps(RID p_height, RID p_control, const Array& p_offsets);
 
     TerrainMaterial3D();
     ~TerrainMaterial3D();
