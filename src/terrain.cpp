@@ -21,15 +21,20 @@ void Terrain3D::_process(double delta) {
     }
 
     if (camera != nullptr) {
-        Vector3 cam_pos = camera->get_global_position() * Vector3(1, 0, 1);
-        if (camera_last_position.distance_to(cam_pos) > clipmap_size * .5) {
+        Vector3 cam_pos = camera->get_global_position();
+        Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
+        if (camera_last_position.distance_to(cam_pos_2d) > clipmap_size * .5) {
             snap(cam_pos);
-            camera_last_position = Vector3(cam_pos);
+            camera_last_position = cam_pos_2d;
         }
     }
 }
 
+/**
+ * Centers the terrain and LODs on a provided position. Y height is ignored.
+ */
 void Terrain3D::snap(Vector3 cam_pos) {
+    cam_pos.y = 0;
     Transform3D t = Transform3D(Basis(), cam_pos.floor());
     RenderingServer::get_singleton()->instance_set_transform(data.cross, t);
         
@@ -42,7 +47,7 @@ void Terrain3D::snap(Vector3 cam_pos) {
         Vector3 tile_size = Vector3(float(clipmap_size << l), 0, float(clipmap_size << l));
         Vector3 base = snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
 
-        // position tiles
+        // Position tiles
         for (int x = 0; x < 4; x++) {
             for (int y = 0; y < 4; y++) {
                 if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
@@ -171,7 +176,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size)
 
     valid = true;
     // Force a snap update
-    camera_last_position = Vector3(FLT_MAX, FLT_MAX, FLT_MAX);
+    camera_last_position = Vector2(FLT_MAX, FLT_MAX);
 }
 
 void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {

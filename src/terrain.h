@@ -59,10 +59,12 @@ private:
 
     // Current editor or gameplay camera we are centering the terrain on.
     Camera3D* camera;
-    // Position of the camera during the previous snapping. Set to max float value to force a snap update.
-    Vector3 camera_last_position = Vector3(FLT_MAX, FLT_MAX, FLT_MAX);
-    // Crashes if this is removed or <8 bytes, compiled w/ MSVC 2019 or mingw-w64 gcc. Two 32-bit vars work.
+    // X,Z Position of the camera during the previous snapping. Set to max float value to force a snap update.
+    Vector2 camera_last_position = Vector2(FLT_MAX, FLT_MAX);
+    // Crashes if these are removed or under a certain size. Renaming or multiple smaller vars are fine. Same compiled w/ MSVC 2019 or mingw-w64 gcc.
+    // Remove when adding more variables. Or this bug is fixed (possibly upstream).
     uint64_t _dummy_var = 0;
+    uint64_t _dummy_var2 = 0;
 
 
 protected:
