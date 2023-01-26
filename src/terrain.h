@@ -32,10 +32,10 @@ class Terrain3D : public Node3D {
 private:
 	GDCLASS(Terrain3D, Node3D);
 
+	static int debug_level;
+	bool valid = false;
 	int clipmap_size = 48;
 	int clipmap_levels = 7;
-
-	bool valid = false;
 
 	Ref<Terrain3DStorage> storage;
 

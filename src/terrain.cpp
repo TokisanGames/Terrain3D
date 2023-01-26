@@ -3,7 +3,12 @@
 
 #include <godot_cpp/core/class_db.hpp>
 
+#include "terrain_logger.h"
+
 using namespace godot;
+
+// Initialize static member variable
+int Terrain3D::debug_level{ DEBUG };
 
 Terrain3D::Terrain3D() {
 	set_notify_transform(true);
