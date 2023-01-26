@@ -46,7 +46,11 @@ int Terrain3DStorage::get_height() const {
 	return map_height;
 }
 
-void Terrain3DStorage::add_map(Vector2 p_global_position) {
+Vector2 Terrain3DStorage::_global_position_to_uv_offset(Vector3 p_global_position) {
+	return (Vector2(p_global_position.x, p_global_position.z) / float(map_size) + Vector2(0.5, 0.5)).floor();
+}
+
+void Terrain3DStorage::add_map(Vector3 p_global_position) {
 	ERR_FAIL_COND(has_map(p_global_position));
 
 	Ref<Image> hmap_img = Image::create(map_size, map_size, false, Image::FORMAT_RH);
@@ -57,7 +61,7 @@ void Terrain3DStorage::add_map(Vector2 p_global_position) {
 	cmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
 	control_maps.push_back(cmap_img);
 
-	Vector2 uv_offset = (p_global_position / float(map_size)).floor();
+	Vector2 uv_offset = _global_position_to_uv_offset(p_global_position);
 	map_offsets.push_back(uv_offset);
 
 	_update_material();
@@ -66,8 +70,12 @@ void Terrain3DStorage::add_map(Vector2 p_global_position) {
 	emit_changed();
 }
 
-void Terrain3DStorage::remove_map(Vector2 p_global_position) {
-	Vector2 uv_offset = (p_global_position / float(map_size)).floor();
+void Terrain3DStorage::remove_map(Vector3 p_global_position) {
+	if (get_map_count() == 1) {
+		return;
+	}
+
+	Vector2 uv_offset = _global_position_to_uv_offset(p_global_position);
 	int index = -1;
 
 	for (int i = 0; i < map_offsets.size(); i++) {
@@ -90,8 +98,8 @@ void Terrain3DStorage::remove_map(Vector2 p_global_position) {
 	emit_changed();
 }
 
-bool Terrain3DStorage::has_map(Vector2 p_global_position) {
-	Vector2 uv_offset = (p_global_position / float(map_size)).floor();
+bool Terrain3DStorage::has_map(Vector3 p_global_position) {
+	Vector2 uv_offset = _global_position_to_uv_offset(p_global_position);
 
 	for (int i = 0; i < map_offsets.size(); i++) {
 		Vector2 pos = map_offsets[i];

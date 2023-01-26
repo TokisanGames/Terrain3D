@@ -47,6 +47,7 @@ private:
 	Ref<Texture2DArray> _convert_array(const Array &p_array) const;
 
 	void _clear_generated_data();
+	Vector2 _global_position_to_uv_offset(Vector3 p_global_position);
 
 protected:
 	static void _bind_methods();
@@ -66,9 +67,9 @@ public:
 	Array get_layers() const;
 	int get_layer_count() const;
 
-	void add_map(Vector2 p_global_position);
-	void remove_map(Vector2 p_global_position);
-	bool has_map(Vector2 p_global_position);
+	void add_map(Vector3 p_global_position);
+	void remove_map(Vector3 p_global_position);
+	bool has_map(Vector3 p_global_position);
 
 	void set_height_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_height_maps() const;
