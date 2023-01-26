@@ -33,9 +33,9 @@ void Terrain3D::_process(double delta) {
 /**
  * Centers the terrain and LODs on a provided position. Y height is ignored.
  */
-void Terrain3D::snap(Vector3 cam_pos) {
-    cam_pos.y = 0;
-    Transform3D t = Transform3D(Basis(), cam_pos.floor());
+void Terrain3D::snap(Vector3 p_cam_pos) {
+    p_cam_pos.y = 0;
+    Transform3D t = Transform3D(Basis(), p_cam_pos.floor());
     RenderingServer::get_singleton()->instance_set_transform(data.cross, t);
         
     int edge = 0;
@@ -43,7 +43,7 @@ void Terrain3D::snap(Vector3 cam_pos) {
 
     for (int l = 0; l < clipmap_levels; l++) {
         float scale = float(1 << l);
-        Vector3 snapped_pos = (cam_pos / scale).floor() * scale;
+        Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
         Vector3 tile_size = Vector3(float(clipmap_size << l), 0, float(clipmap_size << l));
         Vector3 base = snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
 
@@ -74,12 +74,12 @@ void Terrain3D::snap(Vector3 cam_pos) {
 
         if (l != clipmap_levels - 1) {
             float next_scale = scale * 2.0f;
-            Vector3 next_snapped_pos = (cam_pos / next_scale).floor() * next_scale;
+            Vector3 next_snapped_pos = (p_cam_pos / next_scale).floor() * next_scale;
 
             // position trims
             {
                 Vector3 tile_center = snapped_pos + (Vector3(scale, 0, scale) * 0.5f);
-                Vector3 d = cam_pos - next_snapped_pos;
+                Vector3 d = p_cam_pos - next_snapped_pos;
 
                 int r = 0;
                 r |= d.x >= scale ? 0 : 2;

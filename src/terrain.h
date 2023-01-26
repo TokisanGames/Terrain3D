@@ -85,7 +85,7 @@ public:
     
     void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
     void build(int p_clipmap_levels, int p_clipmap_size);
-    void snap(Vector3 cam_pos);
+    void snap(Vector3 p_cam_pos);
 
     void _process(double delta);
     
