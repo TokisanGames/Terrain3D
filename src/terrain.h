@@ -39,19 +39,18 @@ private:
 
 	Ref<Terrain3DStorage> storage;
 
+	// Meshes and Mesh instances
+	Vector<RID> meshes;
 	struct Instances {
 		RID cross;
 		Vector<RID> tiles;
 		Vector<RID> fillers;
 		Vector<RID> trims;
 		Vector<RID> seams;
-	};
+	} data;
 
-	Instances data;
-
-	Vector<RID> meshes;
+	// Physics body and settings
 	RID static_body;
-
 	uint32_t collision_layer = 1;
 	uint32_t collision_mask = 1;
 	real_t collision_priority = 1.0;

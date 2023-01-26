@@ -3,11 +3,21 @@
 
 #include <godot_cpp/core/class_db.hpp>
 
+#include "terrain_logger.h"
+
 using namespace godot;
 
+/*
+ * Generate clipmap meshes originally by Mike J Savage
+ * Article https://mikejsavage.co.uk/blog/geometry-clipmaps.html
+ * Code http://git.mikejsavage.co.uk/medfall/file/clipmap.cc.html#l197
+ * In email communication with Cory, Mike clarified that the code in his
+ * repo can be considered either MIT or public domain.
+ */
 Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
-	// bit of a mess here. someone care to clean up?
+	LOG(DEBUG, "Generating meshes of size: ", p_size, " levels: ", p_levels);
 
+	// TODO bit of a mess here. someone care to clean up?
 	RID tile_mesh;
 	RID filler_mesh;
 	RID trim_mesh;
@@ -20,7 +30,10 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 	int CLIPMAP_VERT_RESOLUTION = CLIPMAP_RESOLUTION + 1;
 	int NUM_CLIPMAP_LEVELS = p_levels;
 
-	// tile mesh
+	// Create a tile mesh
+	// A tile is the main component of terrain panels
+	// LOD0: 4 tiles are placed as a square in each center quadrant, for a total of 16 tiles
+	// LOD1..N 3 tiles make up a corner, 4 corners uses 12 tiles
 	{
 		PackedVector3Array vertices;
 		vertices.resize(PATCH_VERT_RESOLUTION * PATCH_VERT_RESOLUTION);
@@ -52,7 +65,9 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		tile_mesh = create_mesh(vertices, indices);
 	}
 
-	// filler mesh
+	// Create a filler mesh
+	// These meshes are small strips that fill in the gaps between LOD1+,
+	// but only on the camera X and Z axes, and not on LOD0.
 	{
 		PackedVector3Array vertices;
 		vertices.resize(PATCH_VERT_RESOLUTION * 8);
@@ -111,7 +126,9 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		filler_mesh = create_mesh(vertices, indices);
 	}
 
-	// trim mesh
+	// Create trim mesh
+	// This mesh is a skinny L shape that fills in the gaps between
+	// LOD meshes when they are moving at different speeds and have gaps
 	{
 		PackedVector3Array vertices;
 		vertices.resize((CLIPMAP_VERT_RESOLUTION * 2 + 1) * 2);
@@ -158,8 +175,9 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		trim_mesh = create_mesh(vertices, indices);
 	}
 
-	// cross mesh
-
+	// Create center cross mesh
+	// This mesh is the small cross shape that fills in the gaps along the
+	// X and Z axes between the center quadrants on LOD0.
 	{
 		PackedVector3Array vertices;
 		vertices.resize(PATCH_VERT_RESOLUTION * 8);
@@ -217,7 +235,9 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		cross_mesh = create_mesh(vertices, indices);
 	}
 
-	// seam mesh
+	// Create seam mesh
+	// This is a very thin mesh that is supposed to cover tiny gaps
+	// between tiles and fillers when the vertices do not line up
 	{
 		PackedVector3Array vertices;
 		vertices.resize(CLIPMAP_VERT_RESOLUTION * 4);

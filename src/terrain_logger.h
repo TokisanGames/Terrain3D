@@ -7,7 +7,7 @@
 #define ERR 0
 #define INFO 1
 #define DEBUG 2
-#define DEBUG2 3
+#define DEBUG_CONT 3
 #define DEBUG_MAX 3
 #define LOG(level, ...)                  \
 	if (Terrain3D::debug_level >= level) \
