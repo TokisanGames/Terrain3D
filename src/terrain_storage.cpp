@@ -15,8 +15,22 @@ Terrain3DStorage::Terrain3DStorage()
 Terrain3DStorage::~Terrain3DStorage() 
 {
     if (_initialized) {
-        _initialized = false;
+        _clear_generated_data();
     }
+}
+
+void Terrain3DStorage::_clear_generated_data()
+{
+    if (generated_data.height_maps.is_valid()) {
+        RenderingServer::get_singleton()->free_rid(generated_data.height_maps);
+    }
+
+    if (generated_data.control_maps.is_valid()) {
+        RenderingServer::get_singleton()->free_rid(generated_data.control_maps);
+    }
+
+    generated_data.height_maps = RID();
+    generated_data.control_maps = RID();
 }
 
 void Terrain3DStorage::set_size(int p_size)
@@ -41,36 +55,15 @@ int Terrain3DStorage::get_height() const
 
 void Terrain3DStorage::add_map(Vector2 p_global_position)
 {
-    TypedArray<Image> h_maps, c_maps;
-
-    if (height_maps.is_valid() && control_maps.is_valid()) {
-
-        ERR_FAIL_COND(height_maps->get_layers() != control_maps->get_layers());
-
-        for (int i = 0; i < height_maps->get_layers(); i++) {
-            h_maps.push_back(height_maps->get_layer_data(i));
-            c_maps.push_back(control_maps->get_layer_data(i));
-        }
-    }
-
+    ERR_FAIL_COND(has_map(p_global_position));
+    
     Ref<Image> hmap_img = Image::create(map_size, map_size, false, Image::FORMAT_RH);
     hmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
-    h_maps.push_back(hmap_img);
+    height_maps.push_back(hmap_img);
     
     Ref<Image> cmap_img = Image::create(map_size, map_size, false, Image::FORMAT_RGBA8);
     cmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
-    c_maps.push_back(cmap_img);
-
-    if (height_maps.is_null()) {
-        height_maps.instantiate();
-    }
-
-    if (control_maps.is_null()) {
-        control_maps.instantiate();
-    }
-
-    height_maps->create_from_images(h_maps);
-    control_maps->create_from_images(c_maps);
+    control_maps.push_back(cmap_img);
 
     Vector2 uv_offset = (p_global_position / float(map_size)).floor();
     map_offsets.push_back(uv_offset);
@@ -95,19 +88,10 @@ void Terrain3DStorage::remove_map(Vector2 p_global_position)
     }
 
     ERR_FAIL_COND_MSG(index == -1, "Map does not exist.");
+
     map_offsets.remove_at(index);
-
-    TypedArray<Image> h_maps, c_maps;
-   
-    for (int i = 0; i < height_maps->get_layers(); i++) {
-        if (i != index) {
-            h_maps.push_back(height_maps->get_layer_data(i));
-            c_maps.push_back(control_maps->get_layer_data(i));
-        }
-    }
-
-    height_maps->create_from_images(h_maps);
-    control_maps->create_from_images(c_maps);
+    height_maps.remove_at(index);
+    control_maps.remove_at(index);
 
     _update_material();
 
@@ -115,24 +99,37 @@ void Terrain3DStorage::remove_map(Vector2 p_global_position)
     emit_changed();
 }
 
-void Terrain3DStorage::set_height_maps(const Ref<Texture2DArray>& p_maps)
+bool Terrain3DStorage::has_map(Vector2 p_global_position)
+{
+    Vector2 uv_offset = (p_global_position / float(map_size)).floor();
+
+    for (int i = 0; i < map_offsets.size(); i++) {
+        Vector2 pos = map_offsets[i];
+        if (pos == uv_offset) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Terrain3DStorage::set_height_maps(const TypedArray<Image>& p_maps)
 {
     height_maps = p_maps;
     _update_material();
 }
 
-Ref<Texture2DArray> Terrain3DStorage::get_height_maps() const
+TypedArray<Image> Terrain3DStorage::get_height_maps() const
 {
     return height_maps;
 }
 
-void Terrain3DStorage::set_control_maps(const Ref<Texture2DArray>& p_maps)
+void Terrain3DStorage::set_control_maps(const TypedArray<Image>& p_maps)
 {
     control_maps = p_maps;
     _update_material();
 }
 
-Ref<Texture2DArray> Terrain3DStorage::get_control_maps() const
+TypedArray<Image> Terrain3DStorage::get_control_maps() const
 {
     return control_maps;
 }
@@ -269,7 +266,19 @@ void Terrain3DStorage::_update_material()
     if (material.is_null()) {
         material.instantiate();
     }
-    material->set_maps(height_maps, control_maps, map_offsets);
+
+    _clear_generated_data();
+
+
+    if (!height_maps.is_empty()) {
+        generated_data.height_maps = RenderingServer::get_singleton()->texture_2d_layered_create(height_maps, RenderingServer::TEXTURE_LAYERED_2D_ARRAY);
+
+    }
+    if (!control_maps.is_empty()) {
+        generated_data.control_maps = RenderingServer::get_singleton()->texture_2d_layered_create(control_maps, RenderingServer::TEXTURE_LAYERED_2D_ARRAY);
+    }
+
+    material->set_maps(generated_data.height_maps, generated_data.control_maps, map_offsets);
 }
 
 Ref<Texture2DArray> Terrain3DStorage::_convert_array(const Array &p_array) const
@@ -309,6 +318,7 @@ void Terrain3DStorage::_bind_methods() {
 
     ClassDB::bind_method(D_METHOD("add_map", "global_position"), &Terrain3DStorage::add_map);
     ClassDB::bind_method(D_METHOD("remove_map", "global_position"), &Terrain3DStorage::remove_map);
+    ClassDB::bind_method(D_METHOD("has_map", "global_position"), &Terrain3DStorage::has_map);
 
     ClassDB::bind_method(D_METHOD("set_height_maps", "maps"), &Terrain3DStorage::set_height_maps);
     ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DStorage::get_height_maps);
@@ -319,8 +329,8 @@ void Terrain3DStorage::_bind_methods() {
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "map_height", PROPERTY_HINT_RANGE, "1, 1024, 1"), "set_height", "get_height");
 
-    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "height_maps", PROPERTY_HINT_RESOURCE_TYPE, "Texture2DArray"), "set_height_maps", "get_height_maps");
-    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "control_maps", PROPERTY_HINT_RESOURCE_TYPE, "Texture2DArray"), "set_control_maps", "get_control_maps");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_height_maps", "get_height_maps");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_control_maps", "get_control_maps");
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "map_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::VECTOR2, PROPERTY_HINT_NONE)), "set_map_offsets", "get_map_offsets");
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");

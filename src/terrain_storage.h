@@ -23,9 +23,16 @@ class Terrain3DStorage : public Resource {
     Ref<Shader> shader_override;
     Array layers;
 
-    Ref<Texture2DArray> height_maps;
-    Ref<Texture2DArray> control_maps;
-    Array map_offsets;
+    TypedArray<Image> height_maps;
+    TypedArray<Image> control_maps;
+    TypedArray<Vector2> map_offsets;
+
+    struct GeneratedData {
+        RID height_maps;
+        RID control_maps;
+    };
+
+    GeneratedData generated_data;
 
     Ref<Texture2DArray> albedo_textures;
     Ref<Texture2DArray> normal_textures;
@@ -39,6 +46,8 @@ private:
     void _update_material();
 
     Ref<Texture2DArray> _convert_array(const Array& p_array) const;
+
+    void _clear_generated_data();
 
 protected:
     static void _bind_methods();
@@ -60,10 +69,12 @@ public:
 
     void add_map(Vector2 p_global_position);
     void remove_map(Vector2 p_global_position);
-    void set_height_maps(const Ref<Texture2DArray>& p_maps);
-    Ref<Texture2DArray> get_height_maps() const;
-    void set_control_maps(const Ref<Texture2DArray>& p_maps);
-    Ref<Texture2DArray> get_control_maps() const;
+    bool has_map(Vector2 p_global_position);
+
+    void set_height_maps(const TypedArray<Image>& p_maps);
+    TypedArray<Image> get_height_maps() const;
+    void set_control_maps(const TypedArray<Image>& p_maps);
+    TypedArray<Image> get_control_maps() const;
     void set_map_offsets(const Array& p_offsets);
     Array get_map_offsets() const;
     int get_map_count() const;
