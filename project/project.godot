@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="example"
+config/name="Terrain3D"
 config/features=PackedStringArray("4.0")
 
 [editor]
