@@ -23,7 +23,6 @@ void Terrain3DStorage::GeneratedTextureArray::clear() {
 	dirty = true;
 }
 
-
 Terrain3DStorage::Terrain3DStorage() {
 	if (!_initialized) {
 		_update_material();
@@ -127,32 +126,38 @@ int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	return index;
 }
 
-Ref<Image> Terrain3DStorage::get_map(int p_region_index, Map p_map) const {
+Ref<Image> Terrain3DStorage::get_map(int p_region_index, MapType p_map_type) const {
 	Ref<Image> map;
 
-	if (p_map == Map::HEIGHT) {
+	if (p_map_type == MapType::HEIGHT) {
 		map = height_maps[p_region_index];
 	}
 
-	if (p_map == Map::CONTROL) {
+	if (p_map_type == MapType::CONTROL) {
 		map = control_maps[p_region_index];
 	}
 	return map;
 }
 
-void Terrain3DStorage::force_update_maps(Map p_map) {
-	if (p_map == Map::HEIGHT) {
-		generated_height_maps.clear();
-	}
-		
-	if (p_map == Map::CONTROL) {
-		generated_control_maps.clear();
+void Terrain3DStorage::force_update_maps(MapType p_map_type) {
+	switch (p_map_type) {
+		case Terrain3DStorage::HEIGHT:
+			generated_height_maps.clear();
+			break;
+		case Terrain3DStorage::CONTROL:
+			generated_control_maps.clear();
+			break;
+		case Terrain3DStorage::MAX:
+		default:
+			generated_height_maps.clear();
+			generated_control_maps.clear();
+			break;
 	}
 	_update_material();
 }
 
-void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
-	height_maps = p_maps;
+void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_map_types) {
+	height_maps = p_map_types;
 	generated_height_maps.clear();
 	_update_material();
 }
@@ -161,8 +166,8 @@ TypedArray<Image> Terrain3DStorage::get_height_maps() const {
 	return height_maps;
 }
 
-void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
-	control_maps = p_maps;
+void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_map_types) {
+	control_maps = p_map_types;
 	generated_control_maps.clear();
 	_update_material();
 }
@@ -308,15 +313,14 @@ void Terrain3DStorage::_update_material() {
 
 	_update_regions();
 	_update_textures();
-	
+
 	material->set_maps(generated_height_maps.get_rid(), generated_control_maps.get_rid(), region_offsets);
 }
 
 void Terrain3DStorage::_bind_methods() {
-
 	BIND_ENUM_CONSTANT(HEIGHT);
 	BIND_ENUM_CONSTANT(CONTROL);
-	
+
 	ClassDB::bind_method(D_METHOD("set_height", "height"), &Terrain3DStorage::set_height);
 	ClassDB::bind_method(D_METHOD("get_height"), &Terrain3DStorage::get_height);
 
@@ -333,9 +337,9 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_region", "global_position"), &Terrain3DStorage::remove_region);
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("get_region_index", "global_position"), &Terrain3DStorage::get_region_index);
-	ClassDB::bind_method(D_METHOD("force_update_maps", "index"), &Terrain3DStorage::force_update_maps);
-	ClassDB::bind_method(D_METHOD("get_map", "region_index", "map"), &Terrain3DStorage::get_map);
-	
+	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps);
+	ClassDB::bind_method(D_METHOD("get_map", "region_index", "map_type"), &Terrain3DStorage::get_map);
+
 	ClassDB::bind_method(D_METHOD("set_height_maps", "maps"), &Terrain3DStorage::set_height_maps);
 	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DStorage::get_height_maps);
 	ClassDB::bind_method(D_METHOD("set_control_maps", "maps"), &Terrain3DStorage::set_control_maps);
