@@ -156,8 +156,8 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 	_update_material();
 }
 
-void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_map_types) {
-	height_maps = p_map_types;
+void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
+	height_maps = p_maps;
 	generated_height_maps.clear();
 	_update_material();
 }
@@ -166,8 +166,8 @@ TypedArray<Image> Terrain3DStorage::get_height_maps() const {
 	return height_maps;
 }
 
-void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_map_types) {
-	control_maps = p_map_types;
+void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
+	control_maps = p_maps;
 	generated_control_maps.clear();
 	_update_material();
 }
