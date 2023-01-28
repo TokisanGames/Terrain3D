@@ -1,9 +1,13 @@
 //© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
-#include "terrain.h"
-
 #include <godot_cpp/core/class_db.hpp>
 
+#include "terrain.h"
+#include "terrain_logger.h"
+
 using namespace godot;
+
+// Initialize static member variable
+int Terrain3D::debug_level{ DEBUG };
 
 Terrain3D::Terrain3D() {
 	set_notify_transform(true);
@@ -16,10 +20,13 @@ void Terrain3D::_process(double delta) {
 	if (!valid)
 		return;
 
+	// If the game/editor camera is not set, find it
 	if (camera == nullptr) {
+		LOG(DEBUG, "camera is null, getting the current one");
 		get_camera();
 	}
 
+	// If camera has moved significantly, center the terrain on it.
 	if (camera != nullptr) {
 		Vector3 cam_pos = camera->get_global_position();
 		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
@@ -35,6 +42,8 @@ void Terrain3D::_process(double delta) {
  */
 void Terrain3D::snap(Vector3 p_cam_pos) {
 	p_cam_pos.y = 0;
+	LOG(DEBUG_CONT, "Snapping terrain to: ", String(p_cam_pos));
+
 	Transform3D t = Transform3D(Basis(), p_cam_pos.floor());
 	RenderingServer::get_singleton()->instance_set_transform(data.cross, t);
 
@@ -76,7 +85,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 			float next_scale = scale * 2.0f;
 			Vector3 next_snapped_pos = (p_cam_pos / next_scale).floor() * next_scale;
 
-			// position trims
+			// Position trims
 			{
 				Vector3 tile_center = snapped_pos + (Vector3(scale, 0, scale) * 0.5f);
 				Vector3 d = p_cam_pos - next_snapped_pos;
@@ -94,7 +103,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 				RenderingServer::get_singleton()->instance_set_transform(data.trims[edge], t);
 			}
 
-			// position seams
+			// Position seams
 			{
 				Vector3 next_base = next_snapped_pos - Vector3(float(clipmap_size << (l + 1)), 0, float(clipmap_size << (l + 1)));
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
@@ -107,17 +116,24 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
+	LOG(INFO, "Building the terrain");
+
 	ERR_FAIL_COND(!storage.is_valid());
 
-	RID scenario = get_world_3d()->get_scenario();
-	RID material_rid = storage->get_material().is_valid() ? storage->get_material()->get_rid() : RID();
-
+	// Generate terrain meshes, lods, seams
 	meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
 	ERR_FAIL_COND(meshes.is_empty());
 
+	// Set the current terrain material on all meshes
+	RID material_rid = storage->get_material().is_valid() ? storage->get_material()->get_rid() : RID();
 	for (const RID rid : meshes) {
 		RenderingServer::get_singleton()->mesh_surface_set_material(rid, 0, material_rid);
 	}
+
+	// Create mesh instances from meshes
+
+	// Get current visual scenario so the instances appear in the scene
+	RID scenario = get_world_3d()->get_scenario();
 
 	data.cross = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::CROSS], scenario);
 
@@ -178,6 +194,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 }
 
 void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
+	LOG(INFO, "Clearing the terrain");
 	if (p_clear_meshes) {
 		for (const RID rid : meshes) {
 			RenderingServer::get_singleton()->free_rid(rid);
@@ -219,6 +236,14 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
 			static_body = RID();
 		}
 	}
+}
+
+void Terrain3D::set_debug_level(int p_level) {
+	debug_level = CLAMP<int, int, int>(p_level, 0, DEBUG_MAX);
+}
+
+int Terrain3D::get_debug_level() const {
+	return debug_level;
 }
 
 void Terrain3D::set_clipmap_levels(int p_count) {
@@ -288,6 +313,9 @@ void Terrain3D::_notification(int p_what) {
 	}
 }
 
+/**
+ * Make all mesh instances visible or not
+ */
 void Terrain3D::_update_visibility() {
 	if (!is_inside_tree() || !valid) {
 		return;
@@ -313,6 +341,10 @@ void Terrain3D::_update_visibility() {
 	}
 }
 
+/**
+ * Update all mesh instances with the new world scenario so they appear
+ * in the scene.
+ */
 void Terrain3D::_update_world(RID p_space, RID p_scenario) {
 	if (static_body.is_valid()) {
 		PhysicsServer3D::get_singleton()->body_set_space(static_body, p_space);
@@ -352,9 +384,11 @@ void Terrain3D::get_camera() {
 		Array cam_array = Array();
 		find_cameras(editor_interface->get_editor_main_screen()->get_children(), editor_interface->get_edited_scene_root(), cam_array);
 		if (!cam_array.is_empty()) {
+			LOG(DEBUG, "Connecting to the first editor camera");
 			camera = Object::cast_to<Camera3D>(cam_array[0]);
 		}
 	} else {
+		LOG(DEBUG, "Connecting to the in-game viewport camera");
 		camera = get_viewport()->get_camera_3d();
 	}
 }
@@ -369,12 +403,16 @@ void Terrain3D::find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, A
 			find_cameras(node->get_children(), excluded_node, cam_array);
 		}
 		if (node->is_class("Camera3D")) {
+			LOG(DEBUG, "Found a Camera3D at: ", node->get_path());
 			cam_array.push_back(node);
 		}
 	}
 }
 
 void Terrain3D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
+	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
+
 	ClassDB::bind_method(D_METHOD("set_clipmap_levels", "count"), &Terrain3D::set_clipmap_levels);
 	ClassDB::bind_method(D_METHOD("get_clipmap_levels"), &Terrain3D::get_clipmap_levels);
 
@@ -387,9 +425,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear", "clear_meshes", "clear_collision"), &Terrain3D::clear);
 	ClassDB::bind_method(D_METHOD("build", "clipmap_levels", "clipmap_size"), &Terrain3D::build);
 
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug+Snapping"), "set_debug_level", "get_debug_level");
+
 	ADD_GROUP("Clipmap", "clipmap_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_clipmap_size", "get_clipmap_size");
-
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 }

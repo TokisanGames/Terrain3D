@@ -1,6 +1,8 @@
 //© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
-#include "terrain_storage.h"
 #include <godot_cpp/core/class_db.hpp>
+
+#include "terrain_logger.h"
+#include "terrain_storage.h"
 
 using namespace godot;
 
@@ -191,6 +193,7 @@ int Terrain3DStorage::get_layer_count() const {
 }
 
 void Terrain3DStorage::_update_layers() {
+	LOG(INFO, "Generating material layers");
 	for (int i = 0; i < layers.size(); i++) {
 		Ref<TerrainLayerMaterial3D> l_material = layers[i];
 
@@ -209,6 +212,7 @@ void Terrain3DStorage::_update_layers() {
 // PRIVATE
 
 void Terrain3DStorage::_update_arrays() {
+	LOG(INFO, "Generating terrain color and scale arrays");
 	PackedVector3Array uv_scales;
 	PackedColorArray colors;
 
@@ -223,6 +227,7 @@ void Terrain3DStorage::_update_arrays() {
 }
 
 void Terrain3DStorage::_update_textures() {
+	LOG(INFO, "Generating terrain texture arrays");
 	Array albedo_texture_array;
 	Array normal_texture_array;
 
@@ -237,6 +242,7 @@ void Terrain3DStorage::_update_textures() {
 }
 
 void Terrain3DStorage::_update_material() {
+	LOG(INFO, "Generating terrain height & control maps");
 	if (material.is_null()) {
 		material.instantiate();
 	}

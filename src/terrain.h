@@ -23,8 +23,8 @@
 #include <godot_cpp/templates/vector.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
-#include <geoclipmap.h>
-#include <terrain_storage.h>
+#include "geoclipmap.h"
+#include "terrain_storage.h"
 
 using namespace godot;
 
@@ -32,26 +32,25 @@ class Terrain3D : public Node3D {
 private:
 	GDCLASS(Terrain3D, Node3D);
 
+	static int debug_level;
+	bool valid = false;
 	int clipmap_size = 48;
 	int clipmap_levels = 7;
 
-	bool valid = false;
-
 	Ref<Terrain3DStorage> storage;
 
+	// Meshes and Mesh instances
+	Vector<RID> meshes;
 	struct Instances {
 		RID cross;
 		Vector<RID> tiles;
 		Vector<RID> fillers;
 		Vector<RID> trims;
 		Vector<RID> seams;
-	};
+	} data;
 
-	Instances data;
-
-	Vector<RID> meshes;
+	// Physics body and settings
 	RID static_body;
-
 	uint32_t collision_layer = 1;
 	uint32_t collision_mask = 1;
 	real_t collision_priority = 1.0;
@@ -72,6 +71,9 @@ private:
 	void find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, Array &cam_array);
 
 public:
+	void set_debug_level(int p_level);
+	int get_debug_level() const;
+
 	void set_clipmap_levels(int p_count);
 	int get_clipmap_levels() const;
 
