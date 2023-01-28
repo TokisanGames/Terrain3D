@@ -15,21 +15,11 @@ using namespace godot;
 class Terrain3DStorage : public Resource {
 	GDCLASS(Terrain3DStorage, Resource);
 
-	enum Map {
+	enum MapType {
 		HEIGHT,
-		CONTROL
+		CONTROL,
+		MAX
 	};
-
-	int map_size = 1024;
-	int map_height = 512;
-
-	Ref<TerrainMaterial3D> material;
-	Ref<Shader> shader_override;
-
-	TypedArray<TerrainLayerMaterial3D> layers;
-	TypedArray<Image> height_maps;
-	TypedArray<Image> control_maps;
-	TypedArray<Vector2> region_offsets;
 
 	struct GeneratedTextureArray {
 	private:
@@ -42,6 +32,17 @@ class Terrain3DStorage : public Resource {
 		void create(const TypedArray<Image> &p_layers);
 		RID get_rid() { return rid; }
 	};
+
+	int map_size = 1024;
+	int map_height = 512;
+
+	Ref<TerrainMaterial3D> material;
+	Ref<Shader> shader_override;
+
+	TypedArray<TerrainLayerMaterial3D> layers;
+	TypedArray<Image> height_maps;
+	TypedArray<Image> control_maps;
+	TypedArray<Vector2> region_offsets;
 
 	GeneratedTextureArray generated_height_maps;
 	GeneratedTextureArray generated_control_maps;
@@ -82,8 +83,8 @@ public:
 	void remove_region(Vector3 p_global_position);
 	bool has_region(Vector3 p_global_position);
 	int get_region_index(Vector3 p_global_position);
-	Ref<Image> get_map(int p_region_index, Map p_map) const;
-	void force_update_maps(Map p_map);
+	Ref<Image> get_map(int p_region_index, MapType p_map) const;
+	void force_update_maps(MapType p_map);
 
 	void set_height_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_height_maps() const;
@@ -100,6 +101,6 @@ public:
 	Ref<Shader> get_shader_override() const;
 };
 
-VARIANT_ENUM_CAST(Terrain3DStorage, Map);
+VARIANT_ENUM_CAST(Terrain3DStorage, MapType);
 
 #endif // TERRAINSTORAGE_CLASS_H
