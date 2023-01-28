@@ -29,7 +29,6 @@
 using namespace godot;
 
 class Terrain3D : public Node3D {
-private:
 	GDCLASS(Terrain3D, Node3D);
 
 	static int debug_level;
