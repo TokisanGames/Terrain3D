@@ -1,6 +1,7 @@
 //© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
 #include <godot_cpp/core/class_db.hpp>
 
+#include "terrain_logger.h"
 #include "terrain_material.h"
 
 using namespace godot;
@@ -223,7 +224,7 @@ bool TerrainLayerMaterial3D::_texture_is_valid(Ref<Texture2D> &p_texture) const 
 	int format = p_texture->get_image()->get_format();
 
 	if (format != Image::FORMAT_RGBA8) {
-		WARN_PRINT("Invalid format. Expected DXT5 RGBA8.");
+		LOG(WARN, "Invalid format. Expected DXT5 RGBA8.");
 		return false;
 	}
 
