@@ -381,7 +381,7 @@ void Terrain3D::get_camera() {
 	if (Engine::get_singleton()->is_editor_hint()) {
 		EditorScript temp_editor_script;
 		EditorInterface *editor_interface = temp_editor_script.get_editor_interface();
-		Array cam_array = Array();
+		TypedArray<Camera3D> cam_array = TypedArray<Camera3D>();
 		find_cameras(editor_interface->get_editor_main_screen()->get_children(), editor_interface->get_edited_scene_root(), cam_array);
 		if (!cam_array.is_empty()) {
 			LOG(DEBUG, "Connecting to the first editor camera");
@@ -396,7 +396,7 @@ void Terrain3D::get_camera() {
 /**
  * Recursive helper function for get_camera().
  */
-void Terrain3D::find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, Array &cam_array) {
+void Terrain3D::find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array) {
 	for (int i = 0; i < from_nodes.size(); i++) {
 		Node *node = Object::cast_to<Node>(from_nodes[i]);
 		if (node != excluded_node) {

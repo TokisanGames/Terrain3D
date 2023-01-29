@@ -67,7 +67,7 @@ protected:
 
 private:
 	void get_camera();
-	void find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, Array &cam_array);
+	void find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
 public:
 	void set_debug_level(int p_level);
