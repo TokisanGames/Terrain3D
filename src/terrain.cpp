@@ -16,7 +16,11 @@ Terrain3D::Terrain3D() {
 Terrain3D::~Terrain3D() {
 }
 
-void Terrain3D::_process(double delta) {
+/**
+ * This is a proxy for _process(delta) called by _notification() due to
+ * https://github.com/godotengine/godot-cpp/issues/1022
+ */
+void Terrain3D::process(double delta) {
 	if (!valid)
 		return;
 
@@ -292,24 +296,39 @@ Ref<Terrain3DStorage> Terrain3D::get_storage() const {
 
 void Terrain3D::_notification(int p_what) {
 	switch (p_what) {
+		case NOTIFICATION_READY: {
+			set_process(true);
+			break;
+		}
+
+		case NOTIFICATION_PROCESS: {
+			process(get_process_delta_time());
+			break;
+		}
+
 		case NOTIFICATION_PREDELETE: {
 			clear();
-		} break;
+			break;
+		}
 
 		case NOTIFICATION_ENTER_WORLD: {
 			_update_world(get_world_3d()->get_space(), get_world_3d()->get_scenario());
-		} break;
+			break;
+		}
 
 		case NOTIFICATION_TRANSFORM_CHANGED: {
-		} break;
+			break;
+		}
 
 		case NOTIFICATION_EXIT_WORLD: {
 			_update_world(RID(), RID());
-		} break;
+			break;
+		}
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			_update_visibility();
-		} break;
+			break;
+		}
 	}
 }
 
