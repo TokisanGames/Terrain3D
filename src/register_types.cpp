@@ -6,12 +6,16 @@
 #include "register_types.h"
 #include "terrain.h"
 #include "terrain_storage.h"
+#include "terrain_editor.h"
 
 using namespace godot;
 
 void initialize_terrain_types(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
+	}
+	if (p_level != MODULE_INITIALIZATION_LEVEL_EDITOR) {
+		ClassDB::register_class<Terrain3DEditor>();
 	}
 	ClassDB::register_class<Terrain3D>();
 	ClassDB::register_class<Terrain3DStorage>();

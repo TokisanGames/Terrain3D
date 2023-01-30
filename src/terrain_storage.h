@@ -33,8 +33,8 @@ class Terrain3DStorage : public Resource {
 		RID get_rid() { return rid; }
 	};
 
-	int map_size = 1024;
-	int map_height = 512;
+	int region_size = 1024;
+	int max_height = 512;
 
 	Ref<TerrainMaterial3D> material;
 	Ref<Shader> shader_override;
@@ -68,10 +68,10 @@ public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
-	void set_size(int p_size);
-	int get_size() const;
-	void set_height(int p_height);
-	int get_height() const;
+	void set_region_size(int p_size);
+	int get_region_size() const;
+	void set_max_height(int p_height);
+	int get_max_height() const;
 
 	void set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index);
 	Ref<TerrainLayerMaterial3D> get_layer(int p_index) const;
