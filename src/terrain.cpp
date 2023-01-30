@@ -125,7 +125,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	ERR_FAIL_COND(meshes.is_empty());
 
 	// Set the current terrain material on all meshes
-	RID material_rid = storage->get_material().is_valid() ? storage->get_material()->get_rid() : RID();
+	RID material_rid = storage->get_material();
 	for (const RID rid : meshes) {
 		RenderingServer::get_singleton()->mesh_surface_set_material(rid, 0, material_rid);
 	}

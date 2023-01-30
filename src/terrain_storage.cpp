@@ -32,6 +32,8 @@ Terrain3DStorage::Terrain3DStorage() {
 
 Terrain3DStorage::~Terrain3DStorage() {
 	if (_initialized) {
+		RenderingServer::get_singleton()->free_rid(material);
+		RenderingServer::get_singleton()->free_rid(shader);
 		_clear_generated_data();
 	}
 }
@@ -189,11 +191,7 @@ int Terrain3DStorage::get_region_count() const {
 	return region_offsets.size();
 }
 
-void Terrain3DStorage::set_material(const Ref<TerrainMaterial3D> &p_material) {
-	material = p_material;
-}
-
-Ref<TerrainMaterial3D> Terrain3DStorage::get_material() const {
+RID Terrain3DStorage::get_material() const {
 	return material;
 }
 
@@ -203,6 +201,37 @@ void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
 
 Ref<Shader> Terrain3DStorage::get_shader_override() const {
 	return shader_override;
+}
+
+void Terrain3DStorage::set_noise_texture(const Ref<Texture2D> &p_texture) {
+	bool update = false;
+
+	// If noise was already present and a new one is assigned, there is no need to update material
+	if (noise_texture.is_valid() && p_texture.is_valid()) {
+		RenderingServer::get_singleton()->material_set_param(material, "noise", p_texture->get_rid());
+	} else {
+		update = true;
+	}
+
+	noise_texture = p_texture;
+
+	if (update) {
+		_update_material();
+	}
+}
+
+Ref<Texture2D> Terrain3DStorage::get_noise_texture() const {
+	return noise_texture;
+}
+
+void Terrain3DStorage::set_noise_scale(float p_scale) {
+	noise_scale = p_scale;
+	RenderingServer::get_singleton()->material_set_param(material, "noise_scale", noise_scale);
+}
+
+void Terrain3DStorage::set_noise_height(float p_height) {
+	noise_height = p_height;
+	RenderingServer::get_singleton()->material_set_param(material, "noise_height", noise_height);
 }
 
 void Terrain3DStorage::set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index) {
@@ -220,6 +249,7 @@ void Terrain3DStorage::set_layer(const Ref<TerrainLayerMaterial3D> &p_material, 
 	}
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
+
 	_update_layers();
 	notify_property_list_changed();
 }
@@ -258,8 +288,6 @@ void Terrain3DStorage::_update_layers() {
 	_update_material();
 }
 
-// PRIVATE
-
 void Terrain3DStorage::_update_arrays() {
 	LOG(INFO, "Generating terrain color and scale arrays");
 	PackedVector3Array uv_scales;
@@ -276,8 +304,8 @@ void Terrain3DStorage::_update_arrays() {
 }
 
 void Terrain3DStorage::_update_textures() {
-	LOG(INFO, "Generating terrain texture arrays");
 	if (generated_albedo_textures.is_dirty()) {
+		LOG(INFO, "Generating terrain albedo arrays");
 		Array albedo_texture_array;
 		for (int i = 0; i < layers.size(); i++) {
 			Ref<TerrainLayerMaterial3D> l_material = layers[i];
@@ -287,6 +315,7 @@ void Terrain3DStorage::_update_textures() {
 	}
 
 	if (generated_normal_textures.is_dirty()) {
+		LOG(INFO, "Generating terrain normal arrays");
 		Array normal_texture_array;
 		for (int i = 0; i < layers.size(); i++) {
 			Ref<TerrainLayerMaterial3D> l_material = layers[i];
@@ -298,23 +327,173 @@ void Terrain3DStorage::_update_textures() {
 
 void Terrain3DStorage::_update_regions() {
 	if (generated_height_maps.is_dirty()) {
+		LOG(INFO, "Updating height maps");
 		generated_height_maps.create(height_maps);
 	}
 	if (generated_control_maps.is_dirty()) {
+		LOG(INFO, "Updating control maps");
 		generated_control_maps.create(control_maps);
 	}
 }
 
 void Terrain3DStorage::_update_material() {
-	LOG(INFO, "Generating terrain height & control maps");
-	if (material.is_null()) {
-		material.instantiate();
+	LOG(INFO, "Updating material");
+
+	if (!material.is_valid()) {
+		material = RenderingServer::get_singleton()->material_create();
+	}
+
+	if (!shader.is_valid()) {
+		shader = RenderingServer::get_singleton()->shader_create();
 	}
 
 	_update_regions();
 	_update_textures();
 
-	material->set_maps(generated_height_maps.get_rid(), generated_control_maps.get_rid(), region_offsets);
+	RID previous_noise_rid = RenderingServer::get_singleton()->material_get_param(material, "noise");
+	int previous_region_count = RenderingServer::get_singleton()->material_get_param(material , "region_count");
+	RID new_noise_rid = noise_texture.is_valid() ? noise_texture->get_rid() : RID();
+	int new_region_count = Math::max(get_region_count(), 1);
+
+	bool use_noise = noise_texture.is_valid();
+	
+	// Update shader code if something important has changed
+	bool update_shader = previous_noise_rid != new_noise_rid || previous_region_count != new_region_count;
+	
+	if (update_shader) {
+		String code = "shader_type spatial;\n";
+		code += "render_mode depth_draw_opaque, diffuse_burley;\n";
+		code += "\n";
+
+		// Uniforms
+		code += "uniform float terrain_height = 512.0;\n";
+		code += "uniform float terrain_size = 1024.0;\n";
+		code += "\n";
+		code += "uniform sampler2DArray height_maps : filter_linear_mipmap, repeat_disable;\n";
+		code += "uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_disable;\n";
+		code += "uniform int region_count = " + String::num_int64(new_region_count) + ";\n";
+		code += "uniform vec2 region_offsets[" + String::num_int64(new_region_count) + "];\n";
+		code += "\n";
+
+		// For some reason 'hint_default_black' doesn't work when shader is build from code.
+		if (use_noise) {
+			code += "uniform sampler2D noise : filter_linear_mipmap_anisotropic, hint_default_black;\n";
+			code += "uniform float noise_scale = 1.0;\n";
+			code += "uniform float noise_height = 1.0;\n";
+		}
+
+		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
+		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
+		code += "\n";
+		code += "uniform vec3 texture_uv_scale_array[256];\n";
+		code += "uniform vec3 texture_3d_projection_array[256];\n";
+		code += "uniform vec4 texture_color_array[256];\n";
+		code += "uniform int texture_array_normal_max;\n";
+		code += "\n";
+		code += "uniform float terrain_grid_scale = 1.0;\n";
+		code += "\n";
+
+		// Functions
+		code += "vec3 unpack_normal(vec4 rgba) {\n";
+		code += "	vec3 n = rgba.xzy * 2.0 - vec3(1.0);\n";
+		code += "	n.z *= -1.0;\n";
+		code += "	return n;\n";
+		code += "}\n\n";
+
+		code += "vec4 pack_normal(vec3 n, float a) {\n";
+		code += "	n.z *= -1.0;\n";
+		code += "	return vec4((n.xzy + vec3(1.0)) * 0.5, a);\n";
+		code += "}\n\n";
+
+		code += "float get_height(vec2 uv) {\n";
+		code += "	float index = -1.0;\n";
+		code += "	float h = 1.0;\n";
+		code += "	for (int i = 0; i < region_count; i++) { \n";
+		code += "		vec2 pos = region_offsets[i];\n";
+		code += "		vec2 max_pos = pos + 1.0;\n";
+		code += "		if (uv.x > pos.x && uv.x < max_pos.x && uv.y > pos.y && uv.y < max_pos.y) {\n";
+		code += "			index = float(i);\n";
+		code += "			uv -= pos;\n";
+		code += "			break;\n";
+		code += "		}\n";
+		code += "		float r = length(max(abs(uv-pos-0.5) - 0.333,0.0));\n";
+		code += "		h *= smoothstep(0.0, 1.0, pow(r * 0.5, 2.0));\n";
+		code += "	}\n";
+		code += "	if (index >= 0.0) {\n";
+		code += "		h = texture(height_maps, vec3(uv, index)).r;\n";
+		code += "	} else {\n";
+
+		if (use_noise) {
+			code += "		h *= texture(noise, uv * noise_scale).r * noise_height;\n";
+		} else {
+			code += "		h *= 0.0;\n";
+		}
+
+		code += "	}\n";
+		code += "	return h * terrain_height;\n";
+		code += "}\n\n";
+
+		code += "vec3 get_normal(vec2 uv) {\n";
+		code += "	vec2 ps = vec2(1.0) / terrain_size;\n"; // TODO can be precalculated
+		code += "\n";
+		code += "	float left = get_height(uv + vec2(-ps.x, 0));\n";
+		code += "	float right = get_height(uv + vec2(ps.x, 0));\n";
+		code += "	float back = get_height(uv + vec2(0, -ps.y));\n";
+		code += "	float fore = get_height(uv + vec2(0, ps.y));\n";
+		code += "\n";
+		code += "	vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
+		code += "	vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
+		code += "	vec3 normal = normalize(cross(vertical, horizontal));\n";
+		code += "	normal.z *= -1.0;\n";
+		code += "	return normal;\n";
+		code += "}\n\n";
+
+		// Vertex Shader
+		code += "void vertex() {\n";
+		code += "	vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n";
+		code += "	UV2 = (world_vertex.xz / vec2(terrain_size + 1.0)) + vec2(0.5);\n";
+		code += "	UV = world_vertex.xz * 0.5;\n";
+		code += "	VERTEX.y = get_height(UV2);\n";
+		code += "\n";
+		code += "	NORMAL = vec3(0, 1, 0);\n";
+		code += "	TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
+		code += "	BINORMAL = cross(NORMAL, TANGENT);\n";
+		code += "}\n\n";
+
+		// Fragment Shader
+		code += "void fragment() {\n";
+		code += "	vec3 normal = vec3(0.5, 0.5, 1.0);\n";
+		code += "	vec3 color = vec3(0.0);\n";
+		code += "	float rough = 1.0;\n";
+		code += "\n";
+		code += "	NORMAL = mat3(VIEW_MATRIX) * get_normal(UV2);\n";
+		code += "\n";
+		code += "	vec2 p = UV * 4.0 * terrain_grid_scale;\n";
+		code += "	vec2 ddx = dFdx(p);\n";
+		code += "	vec2 ddy = dFdy(p);\n";
+		code += "	vec2 w = max(abs(ddx), abs(ddy)) + 0.01;\n";
+		code += "	vec2 i = 2.0 * (abs(fract((p - 0.5 * w) / 2.0) - 0.5) - abs(fract((p + 0.5 * w) / 2.0) - 0.5)) / w;\n";
+		code += "	color = vec3((0.5 - 0.5 * i.x * i.y) * 0.2 + 0.2);\n";
+		code += "\n";
+		code += "	ALBEDO = color;\n";
+		code += "	ROUGHNESS = rough;\n";
+		code += "	NORMAL_MAP = normal;\n";
+		code += "	NORMAL_MAP_DEPTH = 1.0;\n";
+		code += "\n";
+		code += "}\n\n";
+
+		String string_code = String(code);
+
+		RenderingServer::get_singleton()->shader_set_code(shader, string_code);
+		RenderingServer::get_singleton()->material_set_shader(material, shader_override.is_null() ? shader : shader_override->get_rid());
+	}
+
+	RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
+	RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
+	RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
+	RenderingServer::get_singleton()->material_set_param(material, "noise", new_noise_rid);
+	RenderingServer::get_singleton()->material_set_param(material, "noise_scale", noise_scale);
+	RenderingServer::get_singleton()->material_set_param(material, "noise_height", noise_height);
 }
 
 void Terrain3DStorage::_bind_methods() {
@@ -329,9 +508,15 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DStorage::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
 
+	ClassDB::bind_method(D_METHOD("set_noise_texture", "texture"), &Terrain3DStorage::set_noise_texture);
+	ClassDB::bind_method(D_METHOD("get_noise_texture"), &Terrain3DStorage::get_noise_texture);
+	ClassDB::bind_method(D_METHOD("set_noise_scale", "scale"), &Terrain3DStorage::set_noise_scale);
+	ClassDB::bind_method(D_METHOD("get_noise_scale"), &Terrain3DStorage::get_noise_scale);
+	ClassDB::bind_method(D_METHOD("set_noise_height", "height"), &Terrain3DStorage::set_noise_height);
+	ClassDB::bind_method(D_METHOD("get_noise_height"), &Terrain3DStorage::get_noise_height);
+
 	ClassDB::bind_method(D_METHOD("set_layer", "material", "index"), &Terrain3DStorage::set_layer);
 	ClassDB::bind_method(D_METHOD("get_layer", "index"), &Terrain3DStorage::get_layer);
-
 	ClassDB::bind_method(D_METHOD("set_layers", "layers"), &Terrain3DStorage::set_layers);
 	ClassDB::bind_method(D_METHOD("get_layers"), &Terrain3DStorage::get_layers);
 
@@ -355,6 +540,11 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_height_maps", "get_height_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_control_maps", "get_control_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::VECTOR2, PROPERTY_HINT_NONE)), "set_region_offsets", "get_region_offsets");
+
+	ADD_GROUP("Noise", "noise_");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "noise_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_noise_texture", "get_noise_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_scale", "get_noise_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_height", "get_noise_height");
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "layers", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "TerrainLayerMaterial3D")), "set_layers", "get_layers");
