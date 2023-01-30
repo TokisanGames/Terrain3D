@@ -36,8 +36,13 @@ class Terrain3DStorage : public Resource {
 	int region_size = 1024;
 	int max_height = 512;
 
-	Ref<TerrainMaterial3D> material;
+	RID material;
+	RID shader;
 	Ref<Shader> shader_override;
+
+	Ref<Texture2D> noise_texture;
+	float noise_scale = 1.0;
+	float noise_height = 0.5;
 
 	TypedArray<TerrainLayerMaterial3D> layers;
 	TypedArray<Image> height_maps;
@@ -95,10 +100,16 @@ public:
 	Array get_region_offsets() const;
 	int get_region_count() const;
 
-	void set_material(const Ref<TerrainMaterial3D> &p_material);
-	Ref<TerrainMaterial3D> get_material() const;
+	RID get_material() const;
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const;
+
+	void set_noise_texture(const Ref<Texture2D> &p_texture);
+	Ref<Texture2D> get_noise_texture() const;
+	void set_noise_scale(float p_scale);
+	void set_noise_height(float p_height);
+	float get_noise_scale() const { return noise_scale; };
+	float get_noise_height() const { return noise_height; };
 };
 
 VARIANT_ENUM_CAST(Terrain3DStorage, MapType);

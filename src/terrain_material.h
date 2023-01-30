@@ -15,29 +15,6 @@
 
 using namespace godot;
 
-class TerrainMaterial3D : public Material {
-	GDCLASS(TerrainMaterial3D, Material);
-
-	RID shader;
-
-	bool _initialized = false;
-
-protected:
-	static void _bind_methods();
-
-public:
-	Shader::Mode _get_shader_mode() const;
-	RID _get_shader_rid();
-
-	void set_maps(RID p_height, RID p_control, const Array &p_offsets);
-
-	TerrainMaterial3D();
-	~TerrainMaterial3D();
-
-private:
-	void _update_shader();
-};
-
 class TerrainLayerMaterial3D : public Material {
 	GDCLASS(TerrainLayerMaterial3D, Material);
 
