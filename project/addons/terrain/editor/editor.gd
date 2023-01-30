@@ -6,7 +6,7 @@ const ICON_TERRAIN_MATERIAL: Texture2D = preload("res://addons/terrain/icons/ico
 
 const BRUSH: Image = preload("res://addons/terrain/editor/brush/brush_default.exr")
 
-var current_terrain: Terrain3D
+var terrain: Terrain3D
 
 var mouse_is_pressed: bool = false
 var editor: Terrain3DEditor
@@ -63,14 +63,14 @@ func _handles(object: Variant):
 
 func _edit(object: Variant):
 	if object is Terrain3D:
-		if object == current_terrain:
+		if object == terrain:
 			return
 			
-		current_terrain = object
+		terrain = object
 		editor.set_terrain(object)
 		
-		region_gizmo.set_node_3d(current_terrain)
-		current_terrain.add_gizmo(region_gizmo)
+		region_gizmo.set_node_3d(terrain)
+		terrain.add_gizmo(region_gizmo)
 		
 func _make_visible(visible: bool):
 	toolbar.set_visible(visible)
@@ -81,8 +81,8 @@ func _make_visible(visible: bool):
 	
 func _clear():
 	if is_terrain_valid():
-		current_terrain.clear_gizmos()
-		current_terrain = null
+		terrain.clear_gizmos()
+		terrain = null
 		editor.set_terrain(null)
 		
 	region_gizmo.clear()
@@ -99,7 +99,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent):
 			var t = -Vector3(0, 1, 0).dot(camera_from) / Vector3(0, 1, 0).dot(camera_to)
 			var global_position: Vector3 = (camera_from + t * camera_to)
 			
-			var region_size = current_terrain.get_storage().get_region_size()
+			var region_size = terrain.get_storage().get_region_size()
 			var region_position: Vector2 = (Vector2(global_position.x, global_position.z) / region_size + Vector2(0.5, 0.5)).floor()
 			
 			if current_region_position != region_position:
@@ -128,8 +128,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent):
 		
 func is_terrain_valid():
 	var valid: bool = false
-	if is_instance_valid(current_terrain):
-		valid = current_terrain.storage != null
+	if is_instance_valid(terrain):
+		valid = terrain.storage != null
 	return valid
 	
 func update_grid():
@@ -137,10 +137,10 @@ func update_grid():
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
-		region_gizmo.position = current_region_position * current_terrain.get_storage().get_region_size()
-		region_gizmo.grid = current_terrain.get_storage().get_region_offsets()
+		region_gizmo.position = current_region_position * terrain.get_storage().get_region_size()
+		region_gizmo.grid = terrain.get_storage().get_region_offsets()
 		
-		current_terrain.update_gizmos()
+		terrain.update_gizmos()
 		return
 	
 	region_gizmo.show_rect = false
