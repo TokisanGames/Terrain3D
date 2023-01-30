@@ -14,13 +14,11 @@ void initialize_terrain_types(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
-	if (p_level != MODULE_INITIALIZATION_LEVEL_EDITOR) {
-		ClassDB::register_class<Terrain3DEditor>();
-	}
 	ClassDB::register_class<Terrain3D>();
 	ClassDB::register_class<Terrain3DStorage>();
 	ClassDB::register_class<TerrainMaterial3D>();
 	ClassDB::register_class<TerrainLayerMaterial3D>();
+	ClassDB::register_class<Terrain3DEditor>();
 }
 
 void uninitialize_terrain_types(ModuleInitializationLevel p_level) {
