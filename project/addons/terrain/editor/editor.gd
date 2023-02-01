@@ -145,7 +145,7 @@ func update_grid():
 	
 	region_gizmo.show_rect = false
 	region_gizmo.size = 1024
-	region_gizmo.grid = [Vector2.ZERO]
+	region_gizmo.grid = [Vector2i.ZERO]
 	
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation):
 	if editor:
@@ -160,7 +160,7 @@ class RegionGizmo extends EditorNode3DGizmo:
 	var grid_material: StandardMaterial3D
 	var position: Vector2
 	var size: float
-	var grid: Array[Vector2]
+	var grid: Array[Vector2i]
 	var use_secondary_color: bool = false
 	var show_rect: bool = true
 	
@@ -188,7 +188,7 @@ class RegionGizmo extends EditorNode3DGizmo:
 			draw_rect(position, rect_material)
 		
 		for pos in grid:
-			draw_rect(pos * size, grid_material)
+			draw_rect(Vector2(pos) * size, grid_material)
 		
 	func draw_rect(pos: Vector2, material: StandardMaterial3D):
 		var lines: PackedVector3Array = [
