@@ -127,7 +127,7 @@ void Terrain3DEditor::_operate_height(Vector2 p_uv_position, Vector3 p_global_po
 	}
 
 	int region_index = terrain->get_storage()->get_region_index(p_global_position);
-	Ref<Image> image = terrain->get_storage()->get_map(region_index, Terrain3DStorage::HEIGHT);
+	Ref<Image> image = terrain->get_storage()->get_map(region_index, Terrain3DStorage::TYPE_HEIGHT);
 	Vector2i image_size = image->get_size();
 
 	int s = brush.get_size();
@@ -173,7 +173,7 @@ void Terrain3DEditor::_operate_height(Vector2 p_uv_position, Vector3 p_global_po
 			}
 		}
 	}
-	terrain->get_storage()->force_update_maps(Terrain3DStorage::HEIGHT);
+	terrain->get_storage()->force_update_maps(Terrain3DStorage::TYPE_HEIGHT);
 }
 
 bool Terrain3DEditor::_is_in_bounds(Vector2i p_position, Vector2i p_max_position) {
