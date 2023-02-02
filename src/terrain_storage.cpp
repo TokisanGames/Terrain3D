@@ -228,15 +228,9 @@ Ref<Shader> Terrain3DStorage::get_shader_override() const {
 	return shader_override;
 }
 
-void Terrain3DStorage::set_noise_texture(const Ref<Texture2D> &p_texture) {
-	noise_texture = p_texture;
-	RID rid = noise_texture.is_valid() ? noise_texture->get_rid() : RID();
-	RenderingServer::get_singleton()->material_set_param(material, "noise", rid);
+void Terrain3DStorage::set_noise_enabled(bool p_enabled) {
+	noise_enabled = p_enabled;
 	_update_material();
-}
-
-Ref<Texture2D> Terrain3DStorage::get_noise_texture() const {
-	return noise_texture;
 }
 
 void Terrain3DStorage::set_noise_scale(float p_scale) {
@@ -249,9 +243,20 @@ void Terrain3DStorage::set_noise_height(float p_height) {
 	RenderingServer::get_singleton()->material_set_param(material, "noise_height", noise_height);
 }
 
-void Terrain3DStorage::set_noise_fade(float p_fade) {
-	noise_fade = p_fade;
-	RenderingServer::get_singleton()->material_set_param(material, "noise_fade", noise_fade);
+void Terrain3DStorage::set_noise_blend_near(float p_near) {
+	noise_blend_near = p_near;
+	if (noise_blend_near > noise_blend_far) {
+		set_noise_blend_far(noise_blend_near);
+	}
+	RenderingServer::get_singleton()->material_set_param(material, "noise_blend_near", noise_blend_near);
+}
+
+void Terrain3DStorage::set_noise_blend_far(float p_far) {
+	noise_blend_far = p_far;
+	if (noise_blend_far < noise_blend_near) {
+		set_noise_blend_near(noise_blend_far);
+	}
+	RenderingServer::get_singleton()->material_set_param(material, "noise_blend_far", noise_blend_far);
 }
 
 void Terrain3DStorage::set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index) {
@@ -387,8 +392,6 @@ void Terrain3DStorage::_update_material() {
 		shader = RenderingServer::get_singleton()->shader_create();
 	}
 
-	bool use_noise = noise_texture.is_valid();
-
 	{
 		String code = "shader_type spatial;\n";
 		code += "render_mode depth_draw_opaque, diffuse_burley;\n";
@@ -401,18 +404,10 @@ void Terrain3DStorage::_update_material() {
 		code += "uniform int region_map_size = 16;\n";
 		code += "\n";
 
-		code += "uniform sampler2D region_map : filter_linear, repeat_disable, hint_default_black;\n";
+		code += "uniform sampler2D region_map : hint_default_black, filter_linear, repeat_disable;\n";
 		code += "uniform sampler2DArray height_maps : filter_linear_mipmap, repeat_enable;\n";
 		code += "uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_enable;\n";
 		code += "\n";
-
-		// For some reason 'hint_default_black' doesn't work when shader is build from code.
-		if (use_noise) {
-			code += "uniform sampler2D noise : filter_linear_mipmap_anisotropic, hint_default_black;\n";
-			code += "uniform float noise_scale = 1.0;\n";
-			code += "uniform float noise_height = 0.5;\n";
-			code += "uniform float noise_fade = 5.0;\n";
-		}
 
 		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
@@ -421,6 +416,37 @@ void Terrain3DStorage::_update_material() {
 		code += "uniform vec3 texture_3d_projection_array[256];\n";
 		code += "uniform vec4 texture_color_array[256];\n";
 		code += "uniform int texture_array_normal_max;\n";
+		code += "\n";
+
+		if (noise_enabled) {
+			code += "uniform float noise_scale = 2.0;\n";
+			code += "uniform float noise_height = 1.0;\n";
+			code += "uniform float noise_blend_near = 0.5;\n";
+			code += "uniform float noise_blend_far = 1.0;\n";
+			code += "\n";
+
+			code += "float hashv2(vec2 v) {\n ";
+			code += "	return fract(1e4 * sin(17.0 * v.x + v.y * 0.1) * (0.1 + abs(sin(v.y * 13.0 + v.x))));\n ";
+			code += "}\n\n";
+
+			code += "float noise2D(vec2 st) {\n";
+			code += "	vec2 i = floor(st);\n";
+			code += "	vec2 f = fract(st);\n";
+			code += "\n";
+			code += "	// Four corners in 2D of a tile\n";
+			code += "	float a = hashv2(i);\n";
+			code += "	float b = hashv2(i + vec2(1.0, 0.0));\n";
+			code += "	float c = hashv2(i + vec2(0.0, 1.0));\n";
+			code += "	float d = hashv2(i + vec2(1.0, 1.0));\n";
+			code += "\n";
+			code += "	// Cubic Hermine Curve.  Same as SmoothStep()\n";
+			code += "	vec2 u = f * f * (3.0 - 2.0 * f);\n";
+			code += "\n";
+			code += "	// Mix 4 coorners percentages\n";
+			code += "	return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;\n";
+			code += "}\n\n";
+		}
+
 		code += "\n";
 
 		// Functions
@@ -437,18 +463,15 @@ void Terrain3DStorage::_update_material() {
 
 		code += "float get_height(vec2 uv) {\n";
 		code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv))+(region_map_size/2), 0).r * 255.0);\n";
-
-		if (use_noise) {
-			code += "	float weight = texture(region_map, (uv/float(region_map_size))+0.5).g;\n";
-		}
-
 		code += "	float height = 0.0;\n";
 		code += "	if (index > 0.0){\n";
 		code += "		height = texture(height_maps, vec3(uv, index - 1.0)).r;\n";
 		code += "	}\n";
 
-		if (use_noise) {
-			code += "	height = mix(height, texture(noise, uv * noise_scale).r * noise_height, pow(1.0-weight, noise_fade) );\n";
+		if (noise_enabled) {
+			code += "	float weight = texture(region_map, (uv/float(region_map_size))+0.5).g;\n";
+			code += "	height = mix(height, noise2D(uv * noise_scale) * noise_height, \n";
+			code += "		clamp(smoothstep(noise_blend_near, noise_blend_far, 1.0 - weight), 0.0, 1.0) );\n ";
 		}
 
 		code += "	return height * terrain_height;\n";
@@ -494,6 +517,7 @@ void Terrain3DStorage::_update_material() {
 		code += "	vec2 i = 2.0 * (abs(fract((p - 0.5 * w) / 2.0) - 0.5) - abs(fract((p + 0.5 * w) / 2.0) - 0.5)) / w;\n";
 		code += "	color = vec3((0.5 - 0.5 * i.x * i.y) * 0.2 + 0.2);\n";
 		code += "\n";
+
 		code += "	ALBEDO = color;\n";
 		code += "	ROUGHNESS = rough;\n";
 		code += "	NORMAL_MAP = normal;\n";
@@ -530,14 +554,16 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DStorage::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
 
-	ClassDB::bind_method(D_METHOD("set_noise_texture", "texture"), &Terrain3DStorage::set_noise_texture);
-	ClassDB::bind_method(D_METHOD("get_noise_texture"), &Terrain3DStorage::get_noise_texture);
+	ClassDB::bind_method(D_METHOD("set_noise_enabled", "texture"), &Terrain3DStorage::set_noise_enabled);
+	ClassDB::bind_method(D_METHOD("get_noise_enabled"), &Terrain3DStorage::get_noise_enabled);
 	ClassDB::bind_method(D_METHOD("set_noise_scale", "scale"), &Terrain3DStorage::set_noise_scale);
 	ClassDB::bind_method(D_METHOD("get_noise_scale"), &Terrain3DStorage::get_noise_scale);
 	ClassDB::bind_method(D_METHOD("set_noise_height", "height"), &Terrain3DStorage::set_noise_height);
 	ClassDB::bind_method(D_METHOD("get_noise_height"), &Terrain3DStorage::get_noise_height);
-	ClassDB::bind_method(D_METHOD("set_noise_fade", "fade"), &Terrain3DStorage::set_noise_fade);
-	ClassDB::bind_method(D_METHOD("get_noise_fade"), &Terrain3DStorage::get_noise_fade);
+	ClassDB::bind_method(D_METHOD("set_noise_blend_near", "fade"), &Terrain3DStorage::set_noise_blend_near);
+	ClassDB::bind_method(D_METHOD("get_noise_blend_near"), &Terrain3DStorage::get_noise_blend_near);
+	ClassDB::bind_method(D_METHOD("set_noise_blend_far", "sharpness"), &Terrain3DStorage::set_noise_blend_far);
+	ClassDB::bind_method(D_METHOD("get_noise_blend_far"), &Terrain3DStorage::get_noise_blend_far);
 
 	ClassDB::bind_method(D_METHOD("set_layer", "material", "index"), &Terrain3DStorage::set_layer);
 	ClassDB::bind_method(D_METHOD("get_layer", "index"), &Terrain3DStorage::get_layer);
@@ -566,10 +592,11 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::VECTOR2, PROPERTY_HINT_NONE)), "set_region_offsets", "get_region_offsets");
 
 	ADD_GROUP("Noise", "noise_");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "noise_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_noise_texture", "get_noise_texture");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_scale", "get_noise_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_height", "get_noise_height");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_fade", PROPERTY_HINT_RANGE, "0.1, 10.0"), "set_noise_fade", "get_noise_fade");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_scale", "get_noise_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_height", "get_noise_height");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_near", "get_noise_blend_near");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "layers", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "TerrainLayerMaterial3D")), "set_layers", "get_layers");
