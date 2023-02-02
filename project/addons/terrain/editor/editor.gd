@@ -36,7 +36,6 @@ func _enter_tree():
 #	theme.set_icon("TerrainMaterial3D", "EditorIcons", ICON_TERRAIN_MATERIAL)
 	
 func _exit_tree():
-
 	remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	toolbar.queue_free()
 	remove_control_from_top(toolbar_settings)
@@ -88,7 +87,6 @@ func _clear():
 	region_gizmo.clear()
 
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent):
-	
 	if is_terrain_valid():
 		if p_event is InputEventMouse:
 			var mouse_pos: Vector2 = p_event.get_position()
@@ -133,7 +131,6 @@ func is_terrain_valid():
 	return valid
 	
 func update_grid():
-	
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
@@ -180,7 +177,6 @@ class RegionGizmo extends EditorNode3DGizmo:
 		grid_material.albedo_color = Color.WHITE
 	
 	func _redraw():
-		
 		clear()
 		
 		if show_rect:

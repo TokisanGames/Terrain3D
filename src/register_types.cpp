@@ -5,8 +5,8 @@
 
 #include "register_types.h"
 #include "terrain.h"
-#include "terrain_storage.h"
 #include "terrain_editor.h"
+#include "terrain_storage.h"
 
 using namespace godot;
 

@@ -19,7 +19,7 @@ class Terrain3DStorage : public Resource {
 		TYPE_HEIGHT,
 		TYPE_CONTROL,
 		TYPE_COLOR,
-		TYPE_MAX
+		TYPE_ALL
 	};
 
 	enum RegionSize {
