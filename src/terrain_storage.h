@@ -52,13 +52,13 @@ class Terrain3DStorage : public Resource {
 	RID shader;
 	Ref<Shader> shader_override;
 
-	bool noise_enabled = true;
+	bool noise_enabled = false;
 	float noise_scale = 2.0;
 	float noise_height = 1.0;
 	float noise_blend_near = 0.5;
 	float noise_blend_far = 1.0;
 
-	TypedArray<TerrainLayerMaterial3D> layers;
+	TypedArray<TerrainMaterial3D> surface_materials;
 
 	TypedArray<Vector2i> region_offsets;
 	TypedArray<Image> height_maps;
@@ -73,9 +73,8 @@ class Terrain3DStorage : public Resource {
 	bool _initialized = false;
 
 private:
-	void _update_layers();
-	void _update_arrays();
-	void _update_textures();
+	void _update_surface_materials();
+	void _update_surface_data(bool p_update_textures, bool p_update_values);
 	void _update_regions();
 	void _update_material();
 
@@ -94,12 +93,16 @@ public:
 	void set_max_height(int p_height);
 	int get_max_height() const;
 
-	void set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index);
-	Ref<TerrainLayerMaterial3D> get_layer(int p_index) const;
-	void set_layers(const TypedArray<TerrainLayerMaterial3D> &p_layers);
-	TypedArray<TerrainLayerMaterial3D> get_layers() const;
-	int get_layer_count() const;
+	void set_surface_material(const Ref<TerrainMaterial3D> &p_material, int p_index);
+	Ref<TerrainMaterial3D> get_surface_material(int p_index) const;
+	void set_surface_materials(const TypedArray<TerrainMaterial3D> &p_surface_materials);
+	TypedArray<TerrainMaterial3D> get_surface_materials() const;
+	int get_surface_material_count() const;
 
+	// Workaround until callable_mp is implemeted
+	void update_surface_textures();
+	void update_surface_values();
+	
 	void add_region(Vector3 p_global_position);
 	void remove_region(Vector3 p_global_position);
 	bool has_region(Vector3 p_global_position);
