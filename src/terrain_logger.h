@@ -11,7 +11,7 @@
  * DEBUG_CONT is for continuously called prints like inside snapping
  */
 #define ERROR 0
-#define WARN 99  // Higher than DEBUG_MAX so doesn't impact gdscript enum
+#define WARN 99 // Higher than DEBUG_MAX so doesn't impact gdscript enum
 #define INFO 1
 #define DEBUG 2
 #define DEBUG_CONT 3

@@ -167,7 +167,7 @@ Ref<Image> Terrain3DStorage::get_map(int p_region_index, MapType p_map_type) con
 			break;
 		case TYPE_COLOR:
 			break;
-		case TYPE_MAX:
+		case TYPE_ALL:
 			break;
 		default:
 			break;
@@ -185,7 +185,7 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 			break;
 		case TYPE_COLOR:
 			break;
-		case TYPE_MAX:
+		case TYPE_ALL:
 		default:
 			generated_height_maps.clear();
 			generated_control_maps.clear();
@@ -537,7 +537,7 @@ void Terrain3DStorage::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_HEIGHT);
 	BIND_ENUM_CONSTANT(TYPE_CONTROL);
 	BIND_ENUM_CONSTANT(TYPE_COLOR);
-	BIND_ENUM_CONSTANT(TYPE_MAX);
+	BIND_ENUM_CONSTANT(TYPE_ALL);
 
 	BIND_ENUM_CONSTANT(SIZE_64);
 	BIND_ENUM_CONSTANT(SIZE_128);
