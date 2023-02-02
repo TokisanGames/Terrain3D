@@ -6,30 +6,30 @@
 
 using namespace godot;
 
-TerrainLayerMaterial3D::TerrainLayerMaterial3D() {
+TerrainMaterial3D::TerrainMaterial3D() {
 }
 
-TerrainLayerMaterial3D::~TerrainLayerMaterial3D() {
+TerrainMaterial3D::~TerrainMaterial3D() {
 }
 
-Shader::Mode TerrainLayerMaterial3D::_get_shader_mode() const {
+Shader::Mode TerrainMaterial3D::_get_shader_mode() const {
 	return Shader::MODE_SPATIAL;
 }
 
-RID TerrainLayerMaterial3D::_get_shader_rid() {
+RID TerrainMaterial3D::_get_shader_rid() {
 	return shader;
 }
 
-void TerrainLayerMaterial3D::set_albedo(Color p_color) {
+void TerrainMaterial3D::set_albedo(Color p_color) {
 	albedo = p_color;
 	RenderingServer::get_singleton()->material_set_param(get_rid(), "albedo", albedo);
 }
 
-Color TerrainLayerMaterial3D::get_albedo() const {
+Color TerrainMaterial3D::get_albedo() const {
 	return albedo;
 }
 
-void TerrainLayerMaterial3D::set_albedo_texture(Ref<Texture2D> &p_texture) {
+void TerrainMaterial3D::set_albedo_texture(Ref<Texture2D> &p_texture) {
 	if (_texture_is_valid(p_texture)) {
 		albedo_texture = p_texture;
 		RID rid = albedo_texture.is_valid() ? albedo_texture->get_rid() : RID();
@@ -37,11 +37,11 @@ void TerrainLayerMaterial3D::set_albedo_texture(Ref<Texture2D> &p_texture) {
 	}
 }
 
-Ref<Texture2D> TerrainLayerMaterial3D::get_albedo_texture() const {
+Ref<Texture2D> TerrainMaterial3D::get_albedo_texture() const {
 	return albedo_texture;
 }
 
-void TerrainLayerMaterial3D::set_normal_texture(Ref<Texture2D> &p_texture) {
+void TerrainMaterial3D::set_normal_texture(Ref<Texture2D> &p_texture) {
 	if (_texture_is_valid(p_texture)) {
 		normal_texture = p_texture;
 		RID rid = normal_texture.is_valid() ? normal_texture->get_rid() : RID();
@@ -49,20 +49,20 @@ void TerrainLayerMaterial3D::set_normal_texture(Ref<Texture2D> &p_texture) {
 	}
 }
 
-Ref<Texture2D> TerrainLayerMaterial3D::get_normal_texture() const {
+Ref<Texture2D> TerrainMaterial3D::get_normal_texture() const {
 	return normal_texture;
 }
 
-void TerrainLayerMaterial3D::set_uv_scale(Vector3 p_scale) {
+void TerrainMaterial3D::set_uv_scale(Vector3 p_scale) {
 	uv_scale = p_scale;
 	RenderingServer::get_singleton()->material_set_param(get_rid(), "uv_scale", uv_scale);
 }
 
-Vector3 TerrainLayerMaterial3D::get_uv_scale() const {
+Vector3 TerrainMaterial3D::get_uv_scale() const {
 	return uv_scale;
 }
 
-bool TerrainLayerMaterial3D::_texture_is_valid(Ref<Texture2D> &p_texture) const {
+bool TerrainMaterial3D::_texture_is_valid(Ref<Texture2D> &p_texture) const {
 	if (p_texture.is_null()) {
 		return true;
 	}
@@ -77,7 +77,7 @@ bool TerrainLayerMaterial3D::_texture_is_valid(Ref<Texture2D> &p_texture) const 
 	return true;
 }
 
-void TerrainLayerMaterial3D::_update_shader() {
+void TerrainMaterial3D::_update_shader() {
 	if (shader.is_valid()) {
 		RenderingServer::get_singleton()->free_rid(shader);
 	}
@@ -112,5 +112,5 @@ void TerrainLayerMaterial3D::_update_shader() {
 	RenderingServer::get_singleton()->material_set_shader(get_rid(), shader);
 }
 
-void TerrainLayerMaterial3D::_bind_methods() {
+void TerrainMaterial3D::_bind_methods() {
 }

@@ -15,8 +15,8 @@
 
 using namespace godot;
 
-class TerrainLayerMaterial3D : public Material {
-	GDCLASS(TerrainLayerMaterial3D, Material);
+class TerrainMaterial3D : public Material {
+	GDCLASS(TerrainMaterial3D, Material);
 
 	Color albedo = Color(1.0, 1.0, 1.0, 1.0);
 	Ref<Texture2D> albedo_texture;
@@ -29,8 +29,8 @@ protected:
 	static void _bind_methods();
 
 public:
-	TerrainLayerMaterial3D();
-	~TerrainLayerMaterial3D();
+	TerrainMaterial3D();
+	~TerrainMaterial3D();
 
 	Shader::Mode _get_shader_mode() const;
 	RID _get_shader_rid();

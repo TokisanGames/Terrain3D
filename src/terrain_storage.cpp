@@ -259,96 +259,190 @@ void Terrain3DStorage::set_noise_blend_far(float p_far) {
 	RenderingServer::get_singleton()->material_set_param(material, "noise_blend_far", noise_blend_far);
 }
 
-void Terrain3DStorage::set_layer(const Ref<TerrainLayerMaterial3D> &p_material, int p_index) {
-	if (p_index < layers.size()) {
+void Terrain3DStorage::set_surface_material(const Ref<TerrainMaterial3D> &p_material, int p_index) {
+	if (p_index < get_surface_material_count()) {
 		if (p_material.is_null()) {
-			Ref<TerrainLayerMaterial3D> material_to_remove = layers[p_index];
-			material_to_remove->disconnect("texture_changed", Callable(this, "_update_textures"));
-			material_to_remove->disconnect("value_changed", Callable(this, "_update_arrays"));
-			layers.remove_at(p_index);
+			Ref<TerrainMaterial3D> m = surface_materials[p_index];
+			m->disconnect("texture_changed", Callable(this, "update_surface_textures"));
+			m->disconnect("value_changed", Callable(this, "update_surface_values"));
+			surface_materials.remove_at(p_index);
 		} else {
-			layers[p_index] = p_material;
+			surface_materials[p_index] = p_material;
 		}
 	} else {
-		layers.push_back(p_material);
+		surface_materials.push_back(p_material);
 	}
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
 
-	_update_layers();
+	_update_surface_materials();
 	notify_property_list_changed();
 }
 
-Ref<TerrainLayerMaterial3D> Terrain3DStorage::get_layer(int p_index) const {
-	return layers[p_index];
+Ref<TerrainMaterial3D> Terrain3DStorage::get_surface_material(int p_index) const {
+	return surface_materials[p_index];
 }
 
-void Terrain3DStorage::set_layers(const TypedArray<TerrainLayerMaterial3D> &p_layers) {
-	layers = p_layers;
+void Terrain3DStorage::set_surface_materials(const TypedArray<TerrainMaterial3D> &p_surface_materials) {
+	surface_materials = p_surface_materials;
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
-	_update_layers();
+	_update_surface_materials();
 }
 
-TypedArray<TerrainLayerMaterial3D> Terrain3DStorage::get_layers() const {
-	return layers;
+TypedArray<TerrainMaterial3D> Terrain3DStorage::get_surface_materials() const {
+	return surface_materials;
 }
 
-int Terrain3DStorage::get_layer_count() const {
-	return layers.size();
+int Terrain3DStorage::get_surface_material_count() const {
+	return surface_materials.size();
 }
 
-void Terrain3DStorage::_update_layers() {
-	LOG(INFO, "Generating material layers");
-	for (int i = 0; i < layers.size(); i++) {
-		Ref<TerrainLayerMaterial3D> l_material = layers[i];
+void Terrain3DStorage::update_surface_textures() {
+	_update_surface_data(true, false);
+}
 
-		if (!l_material->is_connected("texture_changed", Callable(this, "_update_textures"))) {
-			l_material->connect("texture_changed", Callable(this, "_update_textures"));
+void Terrain3DStorage::update_surface_values() {
+	_update_surface_data(false, true);
+}
+
+void Terrain3DStorage::_update_surface_materials() {
+	LOG(INFO, "Generating material surface_materials");
+
+	for (int i = 0; i < get_surface_material_count(); i++) {
+		Ref<TerrainMaterial3D> m = surface_materials[i];
+
+		if (m.is_null()) {
+			continue;
 		}
-		if (!l_material->is_connected("value_changed", Callable(this, "_update_values"))) {
-			l_material->connect("value_changed", Callable(this, "_update_values"));
+		if (!m->is_connected("texture_changed", Callable(this, "update_surface_textures"))) {
+			m->connect("texture_changed", Callable(this, "update_surface_textures"));
+		}
+		if (!m->is_connected("value_changed", Callable(this, "update_surface_values"))) {
+			m->connect("value_changed", Callable(this, "update_surface_values"));
 		}
 	}
-	_update_arrays();
-	_update_textures();
+	_update_surface_data(true, true);
 }
 
-void Terrain3DStorage::_update_arrays() {
+void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_update_values) {
 	LOG(INFO, "Generating terrain color and scale arrays");
-	PackedVector3Array uv_scales;
-	PackedColorArray colors;
 
-	for (int i = 0; i < layers.size(); i++) {
-		Ref<TerrainLayerMaterial3D> l_material = layers[i];
+	if (p_update_values) {
+		PackedVector3Array uv_scales;
+		PackedColorArray colors;
 
-		uv_scales.push_back(l_material->get_uv_scale());
-		colors.push_back(l_material->get_albedo());
-	}
+		for (int i = 0; i < get_surface_material_count(); i++) {
+			Ref<TerrainMaterial3D> m = surface_materials[i];
 
-	emit_changed();
-}
-
-void Terrain3DStorage::_update_textures() {
-	if (generated_albedo_textures.is_dirty()) {
-		LOG(INFO, "Generating terrain albedo arrays");
-		Array albedo_texture_array;
-		for (int i = 0; i < layers.size(); i++) {
-			Ref<TerrainLayerMaterial3D> l_material = layers[i];
-			albedo_texture_array.push_back(l_material->get_albedo_texture());
+			if (m.is_null()) {
+				continue;
+			}
+			uv_scales.push_back(m->get_uv_scale());
+			colors.push_back(m->get_albedo());
 		}
-		generated_albedo_textures.create(albedo_texture_array);
+
+		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_scale_array", uv_scales);
+		RenderingServer::get_singleton()->material_set_param(material, "texture_color_array", colors);
 	}
 
-	if (generated_normal_textures.is_dirty()) {
-		LOG(INFO, "Generating terrain normal arrays");
-		Array normal_texture_array;
-		for (int i = 0; i < layers.size(); i++) {
-			Ref<TerrainLayerMaterial3D> l_material = layers[i];
-			normal_texture_array.push_back(l_material->get_normal_texture());
+	if (p_update_textures) {
+		Vector2i albedo_size = Vector2i(0, 0);
+		Vector2i normal_size = Vector2i(0, 0);
+
+		// Get image size
+		for (int i = 0; i < get_surface_material_count(); i++) {
+			Ref<TerrainMaterial3D> m = surface_materials[i];
+
+			if (m.is_null()) {
+				continue;
+			}
+
+			Ref<Texture2D> a = m->get_normal_texture();
+			Ref<Texture2D> n = m->get_albedo_texture();
+
+			if (a.is_valid()) {
+				Vector2i s = a->get_image()->get_size();
+				if (albedo_size.length() == 0.0) {
+					albedo_size = s;
+				} else {
+					ERR_FAIL_COND_MSG(s.length() != albedo_size.length(), "Albedo textures do not have same size!");
+				}
+			}
+			if (n.is_valid()) {
+				Vector2i s = n->get_image()->get_size();
+				if (normal_size.length() == 0.0) {
+					normal_size = s;
+				} else {
+					ERR_FAIL_COND_MSG(s.length() != normal_size.length(), "Normal map textures do not have same size!");
+				}
+			}
 		}
-		generated_normal_textures.create(normal_texture_array);
+
+		// Generate TextureArrays and replace nulls with a empty image
+		if (generated_albedo_textures.is_dirty() && albedo_size.length() > 0) {
+			LOG(INFO, "Generating terrain albedo arrays");
+
+			Array albedo_texture_array;
+
+			for (int i = 0; i < get_surface_material_count(); i++) {
+				Ref<TerrainMaterial3D> m = surface_materials[i];
+
+				if (m.is_null()) {
+					continue;
+				}
+
+				Ref<Texture2D> tex = m->get_albedo_texture();
+				Ref<Image> img;
+
+				if (tex.is_null()) {
+					img = Image::create(albedo_size.x, albedo_size.y, true, Image::FORMAT_RGBA8);
+					img->fill(Color(1.0, 0.0, 1.0, 1.0));
+					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
+				} else {
+					img = tex->get_image();
+				}
+
+				albedo_texture_array.push_back(img);
+			}
+			if (!albedo_texture_array.is_empty()) {
+				generated_albedo_textures.create(albedo_texture_array);
+			}
+		}
+
+		if (generated_normal_textures.is_dirty() && normal_size.length() > 0) {
+			LOG(INFO, "Generating terrain normal arrays");
+
+			Array normal_texture_array;
+
+			for (int i = 0; i < get_surface_material_count(); i++) {
+				Ref<TerrainMaterial3D> m = surface_materials[i];
+
+				if (m.is_null()) {
+					continue;
+				}
+
+				Ref<Texture2D> tex = m->get_normal_texture();
+				Ref<Image> img;
+
+				if (tex.is_null()) {
+					img = Image::create(normal_size.x, normal_size.y, true, Image::FORMAT_RGBA8);
+					img->fill(Color(0.5, 0.5, 1.0, 1.0));
+					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
+				} else {
+					img = tex->get_image();
+				}
+
+				normal_texture_array.push_back(img);
+			}
+			if (!normal_texture_array.is_empty()) {
+				generated_normal_textures.create(normal_texture_array);
+			}
+		}
 	}
+
+	RenderingServer::get_singleton()->material_set_param(material, "texture_array_albedo", generated_albedo_textures.get_rid());
+	RenderingServer::get_singleton()->material_set_param(material, "texture_array_normal", generated_normal_textures.get_rid());
 }
 
 void Terrain3DStorage::_update_regions() {
@@ -415,7 +509,6 @@ void Terrain3DStorage::_update_material() {
 		code += "uniform vec3 texture_uv_scale_array[256];\n";
 		code += "uniform vec3 texture_3d_projection_array[256];\n";
 		code += "uniform vec4 texture_color_array[256];\n";
-		code += "uniform int texture_array_normal_max;\n";
 		code += "\n";
 
 		if (noise_enabled) {
@@ -565,10 +658,13 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_noise_blend_far", "sharpness"), &Terrain3DStorage::set_noise_blend_far);
 	ClassDB::bind_method(D_METHOD("get_noise_blend_far"), &Terrain3DStorage::get_noise_blend_far);
 
-	ClassDB::bind_method(D_METHOD("set_layer", "material", "index"), &Terrain3DStorage::set_layer);
-	ClassDB::bind_method(D_METHOD("get_layer", "index"), &Terrain3DStorage::get_layer);
-	ClassDB::bind_method(D_METHOD("set_layers", "layers"), &Terrain3DStorage::set_layers);
-	ClassDB::bind_method(D_METHOD("get_layers"), &Terrain3DStorage::get_layers);
+	ClassDB::bind_method(D_METHOD("set_surface_material", "material", "index"), &Terrain3DStorage::set_surface_material);
+	ClassDB::bind_method(D_METHOD("get_surface_material", "index"), &Terrain3DStorage::get_surface_material);
+	ClassDB::bind_method(D_METHOD("set_surface_materials", "surface_materials"), &Terrain3DStorage::set_surface_materials);
+	ClassDB::bind_method(D_METHOD("get_surface_materials"), &Terrain3DStorage::get_surface_materials);
+
+	ClassDB::bind_method(D_METHOD("update_surface_textures"), &Terrain3DStorage::update_surface_textures);
+	ClassDB::bind_method(D_METHOD("update_surface_values"), &Terrain3DStorage::update_surface_values);
 
 	ClassDB::bind_method(D_METHOD("add_region", "global_position"), &Terrain3DStorage::add_region);
 	ClassDB::bind_method(D_METHOD("remove_region", "global_position"), &Terrain3DStorage::remove_region);
@@ -599,5 +695,5 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "layers", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "TerrainLayerMaterial3D")), "set_layers", "get_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "surface_materials", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "TerrainMaterial3D")), "set_surface_materials", "get_surface_materials");
 }
