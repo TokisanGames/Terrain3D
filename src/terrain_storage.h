@@ -52,10 +52,11 @@ class Terrain3DStorage : public Resource {
 	RID shader;
 	Ref<Shader> shader_override;
 
-	Ref<Texture2D> noise_texture;
-	float noise_scale = 1.0;
-	float noise_height = 0.5;
-	float noise_fade = 5.0;
+	bool noise_enabled = true;
+	float noise_scale = 2.0;
+	float noise_height = 1.0;
+	float noise_blend_near = 0.5;
+	float noise_blend_far = 1.0;
 
 	TypedArray<TerrainLayerMaterial3D> layers;
 
@@ -119,14 +120,16 @@ public:
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const;
 
-	void set_noise_texture(const Ref<Texture2D> &p_texture);
-	Ref<Texture2D> get_noise_texture() const;
+	void set_noise_enabled(bool p_enabled);
 	void set_noise_scale(float p_scale);
 	void set_noise_height(float p_height);
-	void set_noise_fade(float p_fade);
+	void set_noise_blend_near(float p_near);
+	void set_noise_blend_far(float p_far);
+	bool get_noise_enabled() const { return noise_enabled; }
 	float get_noise_scale() const { return noise_scale; };
 	float get_noise_height() const { return noise_height; };
-	float get_noise_fade() const { return noise_fade; };
+	float get_noise_blend_near() const { return noise_blend_near; };
+	float get_noise_blend_far() const { return noise_blend_far; };
 };
 
 VARIANT_ENUM_CAST(Terrain3DStorage, MapType);
