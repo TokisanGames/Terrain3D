@@ -13,7 +13,7 @@ using namespace godot;
 
 class GeoClipMap {
 	static inline int patch_2d(int x, int y, int res);
-	static RID create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices);
+	static RID create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb);
 
 public:
 	enum MeshType {

@@ -135,11 +135,15 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	}
 
 	// Create mesh instances from meshes
+	LOG(DEBUG, "Creating mesh instances from meshes");
 
 	// Get current visual scenario so the instances appear in the scene
 	RID scenario = get_world_3d()->get_scenario();
 
 	data.cross = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::CROSS], scenario);
+	AABB aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::CROSS]);
+	aabb.size.y = storage->get_max_height();
+	RenderingServer::get_singleton()->instance_set_custom_aabb(data.cross, aabb);
 
 	for (int l = 0; l < p_clipmap_levels; l++) {
 		for (int x = 0; x < 4; x++) {
@@ -150,19 +154,31 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 
 				RID tile = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::TILE], scenario);
 				data.tiles.push_back(tile);
-				;
+
+				aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TILE]);
+				aabb.size.y = storage->get_max_height();
+				RenderingServer::get_singleton()->instance_set_custom_aabb(tile, aabb);
 			}
 		}
 
 		RID filler = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::FILLER], scenario);
 		data.fillers.push_back(filler);
+		aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::FILLER]);
+		aabb.size.y = storage->get_max_height();
+		RenderingServer::get_singleton()->instance_set_custom_aabb(filler, aabb);
 
 		if (l != p_clipmap_levels - 1) {
 			RID trim = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::TRIM], scenario);
 			data.trims.push_back(trim);
+			aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TRIM]);
+			aabb.size.y = storage->get_max_height();
+			RenderingServer::get_singleton()->instance_set_custom_aabb(trim, aabb);
 
 			RID seam = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::SEAM], scenario);
 			data.seams.push_back(seam);
+			aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::SEAM]);
+			aabb.size.y = storage->get_max_height();
+			RenderingServer::get_singleton()->instance_set_custom_aabb(seam, aabb);
 		}
 	}
 
