@@ -1,8 +1,11 @@
 @tool
 extends EditorPlugin
 
-const ICON_TERRAIN: Texture2D = preload("res://addons/terrain/icons/icon_terrain3d.svg")
-const ICON_TERRAIN_MATERIAL: Texture2D = preload("res://addons/terrain/icons/icon_terrain_material.svg")
+# Includes
+const Toolbar: Script = preload("res://addons/terrain/editor/components/toolbar.gd")
+const ToolSettings: Script = preload("res://addons/terrain/editor/components/tool_settings.gd")
+const RegionGizmo: Script = preload("res://addons/terrain/editor/components/region_gizmo.gd")
+const SurfaceList: Script = preload("res://addons/terrain/editor/components/surface_list.gd")
 
 const BRUSH: Image = preload("res://addons/terrain/editor/brush/brush_default.exr")
 
@@ -12,81 +15,84 @@ var mouse_is_pressed: bool = false
 var editor: Terrain3DEditor
 var toolbar: Toolbar
 var toolbar_settings: ToolSettings
+var surface_list: SurfaceList
+var surface_list_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 
 var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 
-func _enter_tree():
+func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
-	
 	toolbar = Toolbar.new()
 	toolbar.hide()
 	toolbar.connect("tool_changed", _on_tool_changed)
-	
 	toolbar_settings = ToolSettings.new()
 	toolbar_settings.hide()
+	surface_list = SurfaceList.new()
+	surface_list.hide()
+	surface_list.connect("resource_changed", _on_surface_list_resource_changed)
+	surface_list.connect("resource_inspected", _on_surface_list_resource_selected)
 	
 	region_gizmo = RegionGizmo.new()
 	
+	add_control_to_container(surface_list_container, surface_list)
+	surface_list.get_parent().connect("visibility_changed", _on_surface_list_visibility_changed)
+	
+	add_control_to_container(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	add_control_to_top(toolbar_settings)
-	add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	
-#	var theme: Theme = get_editor_interface().get_base_control().get_theme()
-#	theme.set_icon("Terrain3D", "EditorIcons", ICON_TERRAIN)
-#	theme.set_icon("TerrainMaterial3D", "EditorIcons", ICON_TERRAIN_MATERIAL)
-	
-func _exit_tree():
-	remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
+func _exit_tree() -> void:
+	remove_control_from_container(surface_list_container, surface_list)
+	remove_control_from_container(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
+	toolbar_settings.get_parent().remove_child(toolbar_settings)
 	toolbar.queue_free()
-	remove_control_from_top(toolbar_settings)
 	toolbar_settings.queue_free()
-	
+	surface_list.queue_free()
 	editor.free()
 	
-#	var theme: Theme = get_editor_interface().get_base_control().get_theme()
-#	theme.set_icon("Terrain3D", "EditorIcons", null)
-#	theme.set_icon("TerrainMaterial3D", "EditorIcons", null)
-
-func add_control_to_top(control: Control):
-	add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, control)
+func add_control_to_top(control: Control) -> void:
+	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, control)
 	var container = control.get_parent().get_parent().get_parent().get_parent()
 	control.get_parent().remove_child(control)
 	container.add_child(control)
 	container.move_child(control, 1)
 	
-func remove_control_from_top(control: Control):
-	control.get_parent().remove_child(control)
-
-func _handles(object: Variant):
+func _handles(object: Variant) -> bool:
 	return object is Terrain3D
 
-func _edit(object: Variant):
+func _edit(object: Variant) -> void:
 	if object is Terrain3D:
 		if object == terrain:
 			return
 			
 		terrain = object
+		# If 'terrain' is passed to editor instead of 'object', Godot crashes.
 		editor.set_terrain(object)
-		
-		region_gizmo.set_node_3d(terrain)
+		region_gizmo.set_node_3d(object)
 		terrain.add_gizmo(region_gizmo)
 		
-func _make_visible(visible: bool):
+		terrain.connect("storage_changed", _load_storage)
+		_load_storage()
+		
+func _make_visible(visible: bool) -> void:
 	toolbar.set_visible(visible)
 	toolbar_settings.set_visible(visible)
+	surface_list.set_visible(visible)
 	
 	update_grid()
 	region_gizmo.set_hidden(!visible)
 	
-func _clear():
+func _clear() -> void:
 	if is_terrain_valid():
+		terrain.disconnect("storage_changed", _load_storage)
+		
 		terrain.clear_gizmos()
 		terrain = null
 		editor.set_terrain(null)
 		
 	region_gizmo.clear()
 
-func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent):
+func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> int:
 	if is_terrain_valid():
 		if p_event is InputEventMouse:
 			var mouse_pos: Vector2 = p_event.get_position()
@@ -111,9 +117,9 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent):
 				
 			if toolbar_settings.is_dirty():
 				var brush_data: Dictionary = {
-					"size": toolbar_settings.get_setting(ToolSettings.SIZE),
-					"opacity": toolbar_settings.get_setting(ToolSettings.OPACITY) / 100.0,
-					"flow": toolbar_settings.get_setting(ToolSettings.FLOW) / 100.0,
+					"size": toolbar_settings.get_setting(toolbar_settings.SIZE),
+					"opacity": toolbar_settings.get_setting(toolbar_settings.OPACITY) / 100.0,
+					"flow": toolbar_settings.get_setting(toolbar_settings.FLOW) / 100.0,
 					"image": BRUSH
 				}
 				editor.set_brush_data(brush_data)
@@ -123,14 +129,15 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent):
 				editor.operate(global_position, was_pressed)
 				
 				return EditorPlugin.AFTER_GUI_INPUT_STOP
+	return EditorPlugin.AFTER_GUI_INPUT_PASS
 		
-func is_terrain_valid():
+func is_terrain_valid() -> bool:
 	var valid: bool = false
 	if is_instance_valid(terrain):
-		valid = terrain.storage != null
+		valid = terrain.get_storage() != null
 	return valid
 	
-func update_grid():
+func update_grid() -> void:
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
@@ -139,204 +146,44 @@ func update_grid():
 		
 		terrain.update_gizmos()
 		return
-	
+		
 	region_gizmo.show_rect = false
 	region_gizmo.size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
 	
-func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation):
+func _load_storage() -> void:
+	if terrain:
+		surface_list.clear()
+		
+		if is_terrain_valid():
+			var surface_count: int = terrain.get_storage().get_surfaces().size()
+			for i in surface_count:
+				var surface: Terrain3DSurface = terrain.get_storage().get_surface(i)
+				surface_list.add_item(surface)
+				
+			if surface_count < 256:
+				surface_list.add_item()
+			
+func _on_surface_list_resource_changed(surface, index: int):
+	if is_terrain_valid():
+		terrain.get_storage().set_surface(surface, index)
+		call_deferred("_load_storage")
+		
+func _on_surface_list_resource_selected(surface):
+	get_editor_interface().inspect_object(surface, "", true)
+	
+func _on_surface_list_visibility_changed() -> void:
+	if surface_list.get_parent() != null:
+		remove_control_from_container(surface_list_container, surface_list)
+	
+	if surface_list.get_parent() == null:
+		surface_list_container = CONTAINER_INSPECTOR_BOTTOM
+		if get_editor_interface().is_distraction_free_mode_enabled():
+			surface_list_container = CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT
+		add_control_to_container(surface_list_container, surface_list)
+
+func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	if editor:
 		editor.set_tool(p_tool)
 		editor.set_operation(p_operation)
 	update_grid()
-
-## Gizmo/Grid
-class RegionGizmo extends EditorNode3DGizmo:
-	
-	var rect_material: StandardMaterial3D
-	var grid_material: StandardMaterial3D
-	var position: Vector2
-	var size: float
-	var grid: Array[Vector2i]
-	var use_secondary_color: bool = false
-	var show_rect: bool = true
-	
-	var main_color: Color = Color.GREEN_YELLOW
-	var secondary_color: Color = Color.RED
-	
-	func _init():
-		rect_material = StandardMaterial3D.new()
-		rect_material.set_flag(BaseMaterial3D.FLAG_DISABLE_DEPTH_TEST, true)
-		rect_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		rect_material.render_priority = 1
-		rect_material.albedo_color = main_color
-		
-		grid_material = StandardMaterial3D.new()
-		grid_material.set_flag(BaseMaterial3D.FLAG_DISABLE_DEPTH_TEST, true)
-		grid_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		grid_material.albedo_color = Color.WHITE
-	
-	func _redraw():
-		clear()
-		
-		if show_rect:
-			rect_material.albedo_color = main_color if !use_secondary_color else secondary_color
-			draw_rect(position, rect_material)
-		
-		for pos in grid:
-			draw_rect(Vector2(pos) * size, grid_material)
-		
-	func draw_rect(pos: Vector2, material: StandardMaterial3D):
-		var lines: PackedVector3Array = [
-			Vector3(-1, 0, -1),
-			Vector3(-1, 0, 1),
-			Vector3(1, 0, 1),
-			Vector3(1, 0, -1),
-			Vector3(-1, 0, 1),
-			Vector3(1, 0, 1),
-			Vector3(1, 0, -1),
-			Vector3(-1, 0, -1),
-		]
-		
-		for i in lines.size():
-			lines[i] = ((lines[i] / 2.0) * size) + Vector3(pos.x, 0, pos.y)
-		
-		add_lines(lines, material)
-		
-## Settings 
-class ToolSettings extends PanelContainer:
-	
-	enum ControlType {
-		LABEL,
-		SLIDER,
-		SPINBOX
-	}
-	
-	enum {
-		SIZE,
-		OPACITY,
-		FLOW
-	}
-	
-	var list: HBoxContainer
-	var dirty: bool = true
-	
-	func _init():
-		list = HBoxContainer.new()
-		add_child(list)
-	
-	func _ready():
-		add_setting("Size: ", "m", 0, 500, 50)
-		add_setting("Opacity: ", "%", 0, 100, 50)
-		add_setting("Flow: ", "%", 0, 100, 50)
-		
-		set("theme_override_styles/panel", get_theme_stylebox("panel", "Panel"))
-		
-	func add_setting(p_name: StringName, p_suffix: String, min_value: int, max_value: int, value: int):
-		var container: HBoxContainer = HBoxContainer.new()
-		var label: Label = Label.new()
-		var slider: HSlider = HSlider.new()
-		var spinbox: EditorSpinSlider = EditorSpinSlider.new()
-		
-		label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
-		label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-		label.set_custom_minimum_size(Vector2(32, 0))
-		slider.set_custom_minimum_size(Vector2(110, 0))
-		slider.set_v_size_flags(SIZE_SHRINK_CENTER)
-		spinbox.set_custom_minimum_size(Vector2(50, 0))
-		spinbox.set_flat(true)
-		spinbox.set_hide_slider(true)
-	
-		container.add_child(label)
-		container.add_child(slider)
-		container.add_child(spinbox)
-		list.add_child(container)
-		
-		slider.share(spinbox)
-		slider.connect("value_changed", _on_setting_changed)
-
-		slider.set_max(max_value)
-		slider.set_min(min_value)
-		spinbox.set_max(max_value)
-		spinbox.set_min(min_value)
-		spinbox.set_suffix(p_suffix)
-		
-		slider.set_value(value)
-		label.set_text(p_name)
-	
-	func get_setting(setting: int):
-		return list.get_child(setting).get_child(ControlType.SPINBOX).get_value()
-		
-	func is_dirty():
-		return dirty
-		
-	func clean():
-		dirty = false
-		
-	func _on_setting_changed(data: Variant):
-		dirty = true
-	
-### Tools
-class Toolbar extends VBoxContainer:
-	
-	signal tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation)
-	
-	const ICON_REGION_ADD: Texture2D = preload("res://addons/terrain/icons/icon_map_add.svg")
-	const ICON_REGION_REMOVE: Texture2D = preload("res://addons/terrain/icons/icon_map_remove.svg")
-	const ICON_HEIGHT_ADD: Texture2D = preload("res://addons/terrain/icons/icon_height_add.svg")
-	const ICON_HEIGHT_SUB: Texture2D = preload("res://addons/terrain/icons/icon_height_sub.svg")
-	const ICON_HEIGHT_MUL: Texture2D = preload("res://addons/terrain/icons/icon_height_mul.svg")
-	const ICON_HEIGHT_FLAT: Texture2D = preload("res://addons/terrain/icons/icon_height_flat.svg")
-	
-	var tool_group: ButtonGroup = ButtonGroup.new()
-	
-	func _init():
-		set_custom_minimum_size(Vector2(32, 0))
-	
-	func _ready():
-		tool_group.connect("pressed", _on_tool_selected)
-		
-		add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.ADD, "Add Region", ICON_REGION_ADD, tool_group)
-		add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.SUBTRACT, "Delete Region", ICON_REGION_REMOVE, tool_group)
-		
-		add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.ADD, "Increase", ICON_HEIGHT_ADD, tool_group)
-		add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.SUBTRACT, "Decrease", ICON_HEIGHT_SUB, tool_group)
-		add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.MULTIPLY, "Multiply", ICON_HEIGHT_MUL, tool_group)
-		add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.REPLACE, "Flatten", ICON_HEIGHT_FLAT, tool_group)
-	
-		var buttons: Array[BaseButton] = tool_group.get_buttons()
-
-		for i in buttons.size():
-			if i < buttons.size() - 1:
-				var button: BaseButton = buttons[i]
-				var next_button: BaseButton = buttons[i+1]
-				
-				if button.get_meta("Tool") != next_button.get_meta("Tool"):
-					var s: HSeparator = HSeparator.new()
-					add_child(s)
-					move_child(s, i+1)
-			
-		buttons[0].set_pressed(true)
-		
-	func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation, p_tip: String, p_icon: Texture2D, p_group: ButtonGroup):
-		var button: Button = Button.new()
-		button.set_meta("Tool", p_tool)
-		button.set_meta("Operation", p_operation)
-		button.set_tooltip_text(p_tip)
-		button.set_button_icon(p_icon)
-		button.set_button_group(p_group)
-		button.set_flat(true)
-		button.set_toggle_mode(true)
-		button.set_h_size_flags(SIZE_SHRINK_END)
-		add_child(button)
-			
-	func _on_tool_selected(p_button: BaseButton):
-		emit_signal("tool_changed", p_button.get_meta("Tool", -1), p_button.get_meta("Operation", -1))
-		
-
-class MaterialList extends HBoxContainer:
-	
-	func _init():
-		custom_minimum_size.y = 100.0
-
-
