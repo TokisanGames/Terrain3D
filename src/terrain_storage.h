@@ -6,7 +6,9 @@
 #include <windows.h>
 #endif
 
-#include "terrain_material.h"
+#include <godot_cpp/classes/shader.hpp>
+
+#include "terrain_surface.h"
 
 using namespace godot;
 
@@ -58,7 +60,8 @@ class Terrain3DStorage : public Resource {
 	float noise_blend_near = 0.5;
 	float noise_blend_far = 1.0;
 
-	TypedArray<TerrainMaterial3D> surface_materials;
+	TypedArray<Terrain3DSurface> surfaces;
+	bool surfaces_enabled = false;
 
 	TypedArray<Vector2i> region_offsets;
 	TypedArray<Image> height_maps;
@@ -73,7 +76,7 @@ class Terrain3DStorage : public Resource {
 	bool _initialized = false;
 
 private:
-	void _update_surface_materials();
+	void _update_surfaces();
 	void _update_surface_data(bool p_update_textures, bool p_update_values);
 	void _update_regions();
 	void _update_material();
@@ -93,13 +96,13 @@ public:
 	void set_max_height(int p_height);
 	int get_max_height() const;
 
-	void set_surface_material(const Ref<TerrainMaterial3D> &p_material, int p_index);
-	Ref<TerrainMaterial3D> get_surface_material(int p_index) const;
-	void set_surface_materials(const TypedArray<TerrainMaterial3D> &p_surface_materials);
-	TypedArray<TerrainMaterial3D> get_surface_materials() const;
-	int get_surface_material_count() const;
+	void set_surface(const Ref<Terrain3DSurface> &p_material, int p_index);
+	Ref<Terrain3DSurface> get_surface(int p_index) const;
+	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
+	TypedArray<Terrain3DSurface> get_surfaces() const;
+	int get_surface_count() const;
 
-	// Workaround until callable_mp is implemeted
+	// Workaround until callable_mp is implemented
 	void update_surface_textures();
 	void update_surface_values();
 	

@@ -288,6 +288,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 			call_deferred("build", clipmap_levels, clipmap_size);
 		}
 	}
+	emit_signal("storage_changed");
 }
 
 Ref<Terrain3DStorage> Terrain3D::get_storage() const {
@@ -450,4 +451,6 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Clipmap", "clipmap_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_clipmap_size", "get_clipmap_size");
+
+	ADD_SIGNAL(MethodInfo("storage_changed"));
 }

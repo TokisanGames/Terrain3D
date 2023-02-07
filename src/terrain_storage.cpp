@@ -259,43 +259,43 @@ void Terrain3DStorage::set_noise_blend_far(float p_far) {
 	RenderingServer::get_singleton()->material_set_param(material, "noise_blend_far", noise_blend_far);
 }
 
-void Terrain3DStorage::set_surface_material(const Ref<TerrainMaterial3D> &p_material, int p_index) {
-	if (p_index < get_surface_material_count()) {
+void Terrain3DStorage::set_surface(const Ref<Terrain3DSurface> &p_material, int p_index) {
+	if (p_index < get_surface_count()) {
 		if (p_material.is_null()) {
-			Ref<TerrainMaterial3D> m = surface_materials[p_index];
+			Ref<Terrain3DSurface> m = surfaces[p_index];
 			m->disconnect("texture_changed", Callable(this, "update_surface_textures"));
 			m->disconnect("value_changed", Callable(this, "update_surface_values"));
-			surface_materials.remove_at(p_index);
+			surfaces.remove_at(p_index);
 		} else {
-			surface_materials[p_index] = p_material;
+			surfaces[p_index] = p_material;
 		}
 	} else {
-		surface_materials.push_back(p_material);
+		surfaces.push_back(p_material);
 	}
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
 
-	_update_surface_materials();
+	_update_surfaces();
 	notify_property_list_changed();
 }
 
-Ref<TerrainMaterial3D> Terrain3DStorage::get_surface_material(int p_index) const {
-	return surface_materials[p_index];
+Ref<Terrain3DSurface> Terrain3DStorage::get_surface(int p_index) const {
+	return surfaces[p_index];
 }
 
-void Terrain3DStorage::set_surface_materials(const TypedArray<TerrainMaterial3D> &p_surface_materials) {
-	surface_materials = p_surface_materials;
+void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
+	surfaces = p_surfaces;
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
-	_update_surface_materials();
+	_update_surfaces();
 }
 
-TypedArray<TerrainMaterial3D> Terrain3DStorage::get_surface_materials() const {
-	return surface_materials;
+TypedArray<Terrain3DSurface> Terrain3DStorage::get_surfaces() const {
+	return surfaces;
 }
 
-int Terrain3DStorage::get_surface_material_count() const {
-	return surface_materials.size();
+int Terrain3DStorage::get_surface_count() const {
+	return surfaces.size();
 }
 
 void Terrain3DStorage::update_surface_textures() {
@@ -306,11 +306,11 @@ void Terrain3DStorage::update_surface_values() {
 	_update_surface_data(false, true);
 }
 
-void Terrain3DStorage::_update_surface_materials() {
-	LOG(INFO, "Generating material surface_materials");
+void Terrain3DStorage::_update_surfaces() {
+	LOG(INFO, "Generating material surfaces");
 
-	for (int i = 0; i < get_surface_material_count(); i++) {
-		Ref<TerrainMaterial3D> m = surface_materials[i];
+	for (int i = 0; i < get_surface_count(); i++) {
+		Ref<Terrain3DSurface> m = surfaces[i];
 
 		if (m.is_null()) {
 			continue;
@@ -328,31 +328,19 @@ void Terrain3DStorage::_update_surface_materials() {
 void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_update_values) {
 	LOG(INFO, "Generating terrain color and scale arrays");
 
-	if (p_update_values) {
-		PackedVector3Array uv_scales;
-		PackedColorArray colors;
-
-		for (int i = 0; i < get_surface_material_count(); i++) {
-			Ref<TerrainMaterial3D> m = surface_materials[i];
-
-			if (m.is_null()) {
-				continue;
-			}
-			uv_scales.push_back(m->get_uv_scale());
-			colors.push_back(m->get_albedo());
-		}
-
-		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_scale_array", uv_scales);
-		RenderingServer::get_singleton()->material_set_param(material, "texture_color_array", colors);
-	}
-
 	if (p_update_textures) {
+		// Update materials to enable sub-materials if albedo is available
+		// and 'surfaces_enabled' changes from previous state
+
+		bool was_surfaces_enabled = surfaces_enabled;
+		surfaces_enabled = false;
+
 		Vector2i albedo_size = Vector2i(0, 0);
 		Vector2i normal_size = Vector2i(0, 0);
 
 		// Get image size
-		for (int i = 0; i < get_surface_material_count(); i++) {
-			Ref<TerrainMaterial3D> m = surface_materials[i];
+		for (int i = 0; i < get_surface_count(); i++) {
+			Ref<Terrain3DSurface> m = surfaces[i];
 
 			if (m.is_null()) {
 				continue;
@@ -385,8 +373,8 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 			Array albedo_texture_array;
 
-			for (int i = 0; i < get_surface_material_count(); i++) {
-				Ref<TerrainMaterial3D> m = surface_materials[i];
+			for (int i = 0; i < get_surface_count(); i++) {
+				Ref<Terrain3DSurface> m = surfaces[i];
 
 				if (m.is_null()) {
 					continue;
@@ -405,8 +393,10 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 				albedo_texture_array.push_back(img);
 			}
+
 			if (!albedo_texture_array.is_empty()) {
 				generated_albedo_textures.create(albedo_texture_array);
+				surfaces_enabled = true;
 			}
 		}
 
@@ -415,8 +405,8 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 			Array normal_texture_array;
 
-			for (int i = 0; i < get_surface_material_count(); i++) {
-				Ref<TerrainMaterial3D> m = surface_materials[i];
+			for (int i = 0; i < get_surface_count(); i++) {
+				Ref<Terrain3DSurface> m = surfaces[i];
 
 				if (m.is_null()) {
 					continue;
@@ -439,10 +429,32 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				generated_normal_textures.create(normal_texture_array);
 			}
 		}
+
+		if (was_surfaces_enabled != surfaces_enabled) {
+			_update_material();
+		}
+
+		RenderingServer::get_singleton()->material_set_param(material, "texture_array_albedo", generated_albedo_textures.get_rid());
+		RenderingServer::get_singleton()->material_set_param(material, "texture_array_normal", generated_normal_textures.get_rid());
 	}
 
-	RenderingServer::get_singleton()->material_set_param(material, "texture_array_albedo", generated_albedo_textures.get_rid());
-	RenderingServer::get_singleton()->material_set_param(material, "texture_array_normal", generated_normal_textures.get_rid());
+	if (p_update_values) {
+		PackedVector3Array uv_scales;
+		PackedColorArray colors;
+
+		for (int i = 0; i < get_surface_count(); i++) {
+			Ref<Terrain3DSurface> m = surfaces[i];
+
+			if (m.is_null()) {
+				continue;
+			}
+			uv_scales.push_back(m->get_uv_scale());
+			colors.push_back(m->get_albedo());
+		}
+
+		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_scale_array", uv_scales);
+		RenderingServer::get_singleton()->material_set_param(material, "texture_color_array", colors);
+	}
 }
 
 void Terrain3DStorage::_update_regions() {
@@ -466,7 +478,6 @@ void Terrain3DStorage::_update_regions() {
 			Color col = Color(float(i + 1) / 255.0, 1.0, 0, 1);
 			image->set_pixelv(ofs + (Vector2i(region_map_size, region_map_size) / 2), col);
 		}
-
 		generated_region_map.create(image);
 	}
 	RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
@@ -503,13 +514,14 @@ void Terrain3DStorage::_update_material() {
 		code += "uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_enable;\n";
 		code += "\n";
 
-		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
-		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
-		code += "\n";
-		code += "uniform vec3 texture_uv_scale_array[256];\n";
-		code += "uniform vec3 texture_3d_projection_array[256];\n";
-		code += "uniform vec4 texture_color_array[256];\n";
-		code += "\n";
+		if (surfaces_enabled) {
+			code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
+			code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
+			code += "uniform vec3 texture_uv_scale_array[256];\n";
+			code += "uniform vec3 texture_3d_projection_array[256];\n";
+			code += "uniform vec4 texture_color_array[256];\n";
+			code += "\n";
+		}
 
 		if (noise_enabled) {
 			code += "uniform float noise_scale = 2.0;\n";
@@ -535,11 +547,10 @@ void Terrain3DStorage::_update_material() {
 			code += "	// Cubic Hermine Curve.  Same as SmoothStep()\n";
 			code += "	vec2 u = f * f * (3.0 - 2.0 * f);\n";
 			code += "\n";
-			code += "	// Mix 4 coorners percentages\n";
+			code += "	// Mix 4 corners percentages\n";
 			code += "	return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;\n";
 			code += "}\n\n";
 		}
-
 		code += "\n";
 
 		// Functions
@@ -597,25 +608,27 @@ void Terrain3DStorage::_update_material() {
 
 		// Fragment Shader
 		code += "void fragment() {\n";
-		code += "	vec3 normal = vec3(0.5, 0.5, 1.0);\n";
-		code += "	vec3 color = vec3(0.0);\n";
-		code += "	float rough = 1.0;\n";
-		code += "\n";
 		code += "	NORMAL = mat3(VIEW_MATRIX) * get_normal(UV2);\n";
 		code += "\n";
-		code += "	vec2 p = UV * 4.0;\n";
-		code += "	vec2 ddx = dFdx(p);\n";
-		code += "	vec2 ddy = dFdy(p);\n";
-		code += "	vec2 w = max(abs(ddx), abs(ddy)) + 0.01;\n";
-		code += "	vec2 i = 2.0 * (abs(fract((p - 0.5 * w) / 2.0) - 0.5) - abs(fract((p + 0.5 * w) / 2.0) - 0.5)) / w;\n";
-		code += "	color = vec3((0.5 - 0.5 * i.x * i.y) * 0.2 + 0.2);\n";
-		code += "\n";
 
-		code += "	ALBEDO = color;\n";
-		code += "	ROUGHNESS = rough;\n";
-		code += "	NORMAL_MAP = normal;\n";
-		code += "	NORMAL_MAP_DEPTH = 1.0;\n";
-		code += "\n";
+		if (surfaces_enabled) {
+			code += "	vec3 normal = vec3(0.5, 0.5, 1.0);\n";
+			code += "	vec3 color = vec3(0.0);\n";
+			code += "	float rough = 1.0;\n";
+			code += "\n";
+			
+			code += "	ROUGHNESS = rough;\n";
+			code += "	NORMAL_MAP = normal;\n";
+			code += "	NORMAL_MAP_DEPTH = 1.0;\n";
+		} else {
+			code += "	vec2 p = UV * 4.0;\n";
+			code += "	vec2 ddx = dFdx(p);\n";
+			code += "	vec2 ddy = dFdy(p);\n";
+			code += "	vec2 w = max(abs(ddx), abs(ddy)) + 0.01;\n";
+			code += "	vec2 i = 2.0 * (abs(fract((p - 0.5 * w) / 2.0) - 0.5) - abs(fract((p + 0.5 * w) / 2.0) - 0.5)) / w;\n";
+			code += "	ALBEDO = vec3((0.5 - 0.5 * i.x * i.y) * 0.2 + 0.2);\n";
+			code += "\n";
+		}
 		code += "}\n\n";
 
 		String string_code = String(code);
@@ -658,10 +671,10 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_noise_blend_far", "sharpness"), &Terrain3DStorage::set_noise_blend_far);
 	ClassDB::bind_method(D_METHOD("get_noise_blend_far"), &Terrain3DStorage::get_noise_blend_far);
 
-	ClassDB::bind_method(D_METHOD("set_surface_material", "material", "index"), &Terrain3DStorage::set_surface_material);
-	ClassDB::bind_method(D_METHOD("get_surface_material", "index"), &Terrain3DStorage::get_surface_material);
-	ClassDB::bind_method(D_METHOD("set_surface_materials", "surface_materials"), &Terrain3DStorage::set_surface_materials);
-	ClassDB::bind_method(D_METHOD("get_surface_materials"), &Terrain3DStorage::get_surface_materials);
+	ClassDB::bind_method(D_METHOD("set_surface", "material", "index"), &Terrain3DStorage::set_surface);
+	ClassDB::bind_method(D_METHOD("get_surface", "index"), &Terrain3DStorage::get_surface);
+	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
+	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
 
 	ClassDB::bind_method(D_METHOD("update_surface_textures"), &Terrain3DStorage::update_surface_textures);
 	ClassDB::bind_method(D_METHOD("update_surface_values"), &Terrain3DStorage::update_surface_values);
@@ -695,5 +708,5 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "surface_materials", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "TerrainMaterial3D")), "set_surface_materials", "get_surface_materials");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface")), "set_surfaces", "get_surfaces");
 }
