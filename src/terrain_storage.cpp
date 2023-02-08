@@ -149,6 +149,9 @@ int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 
 void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
 	region_offsets = p_array;
+
+	generated_region_map.clear();
+	_update_regions();
 }
 
 TypedArray<Vector2i> Terrain3DStorage::get_region_offsets() const {
@@ -191,6 +194,7 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 			generated_control_maps.clear();
 			break;
 	}
+
 	_update_regions();
 }
 
@@ -462,10 +466,12 @@ void Terrain3DStorage::_update_regions() {
 		LOG(INFO, "Updating height maps");
 		generated_height_maps.create(height_maps);
 	}
+
 	if (generated_control_maps.is_dirty()) {
 		LOG(INFO, "Updating control maps");
 		generated_control_maps.create(control_maps);
 	}
+
 	if (generated_region_map.is_dirty()) {
 		LOG(INFO, "Updating region map");
 
@@ -482,8 +488,10 @@ void Terrain3DStorage::_update_regions() {
 	}
 	RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
 	RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
+
 	RenderingServer::get_singleton()->material_set_param(material, "region_map", generated_region_map.get_rid());
 	RenderingServer::get_singleton()->material_set_param(material, "region_map_size", region_map_size);
+	RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
 }
 
 void Terrain3DStorage::_update_material() {
@@ -510,8 +518,9 @@ void Terrain3DStorage::_update_material() {
 		code += "\n";
 
 		code += "uniform sampler2D region_map : hint_default_black, filter_linear, repeat_disable;\n";
-		code += "uniform sampler2DArray height_maps : filter_linear_mipmap, repeat_enable;\n";
-		code += "uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_enable;\n";
+		code += "uniform vec2 region_offsets[256];\n";
+		code += "uniform sampler2DArray height_maps : filter_linear_mipmap, repeat_disable;\n";
+		code += "uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_disable;\n";
 		code += "\n";
 
 		if (surfaces_enabled) {
@@ -569,7 +578,8 @@ void Terrain3DStorage::_update_material() {
 		code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv))+(region_map_size/2), 0).r * 255.0);\n";
 		code += "	float height = 0.0;\n";
 		code += "	if (index > 0.0){\n";
-		code += "		height = texture(height_maps, vec3(uv, index - 1.0)).r;\n";
+		code += "		vec2 pos = region_offsets[int(index - 1.0)];\n";
+		code += "		height = texture(height_maps, vec3(uv-pos, index - 1.0)).r;\n";
 		code += "	}\n";
 
 		if (noise_enabled) {
@@ -616,7 +626,7 @@ void Terrain3DStorage::_update_material() {
 			code += "	vec3 color = vec3(0.0);\n";
 			code += "	float rough = 1.0;\n";
 			code += "\n";
-			
+
 			code += "	ROUGHNESS = rough;\n";
 			code += "	NORMAL_MAP = normal;\n";
 			code += "	NORMAL_MAP_DEPTH = 1.0;\n";
