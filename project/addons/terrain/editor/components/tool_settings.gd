@@ -21,7 +21,7 @@ func _ready() -> void:
 	
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 0, 200)
 	add_setting(SettingType.SLIDER, "opacity", 100, list, "%", 0, 100)
-	add_setting(SettingType.SPINBOX, "height", 10, list, "m", 1, 1000)
+	add_setting(SettingType.SPINBOX, "height", 10, list, "m", 1, 1000, 0.1)
 	
 	var advanced_button: Button = Button.new()
 	list.add_child(advanced_button)
