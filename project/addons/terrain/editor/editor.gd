@@ -7,8 +7,6 @@ const ToolSettings: Script = preload("res://addons/terrain/editor/components/too
 const RegionGizmo: Script = preload("res://addons/terrain/editor/components/region_gizmo.gd")
 const SurfaceList: Script = preload("res://addons/terrain/editor/components/surface_list.gd")
 
-const BRUSH: Image = preload("res://addons/terrain/editor/brush/brush_default.exr")
-
 var terrain: Terrain3D
 
 var mouse_is_pressed: bool = false
@@ -39,7 +37,7 @@ func _enter_tree() -> void:
 	surface_list.get_parent().connect("visibility_changed", _on_surface_list_visibility_changed)
 	
 	add_control_to_container(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
-	add_control_to_top(toolbar_settings)
+	add_control_to_bottom(toolbar_settings)
 	
 func _exit_tree() -> void:
 	remove_control_from_container(surface_list_container, surface_list)
@@ -50,12 +48,12 @@ func _exit_tree() -> void:
 	surface_list.queue_free()
 	editor.free()
 	
-func add_control_to_top(control: Control) -> void:
+func add_control_to_bottom(control: Control) -> void:
 	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, control)
 	var container = control.get_parent().get_parent().get_parent().get_parent()
 	control.get_parent().remove_child(control)
 	container.add_child(control)
-	container.move_child(control, 1)
+	container.move_child(control, 2)
 	
 func _handles(object: Variant) -> bool:
 	return object is Terrain3D
@@ -117,16 +115,21 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				
 			if toolbar_settings.is_dirty():
 				var brush_data: Dictionary = {
-					"size": toolbar_settings.get_setting(toolbar_settings.SIZE),
-					"opacity": toolbar_settings.get_setting(toolbar_settings.OPACITY) / 100.0,
-					"flow": toolbar_settings.get_setting(toolbar_settings.FLOW) / 100.0,
-					"image": BRUSH
+					"size": int(toolbar_settings.get_setting("size")),
+					"opacity": toolbar_settings.get_setting("opacity") / 100.0,
+					"flow": toolbar_settings.get_setting("flow") / 100.0,
+					"gamma": toolbar_settings.get_setting("gamma"),
+					"height": toolbar_settings.get_setting("height"),
+					"jitter": toolbar_settings.get_setting("jitter"),
+					"image": toolbar_settings.get_setting("shape"),
+					"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
+					"align_with_view": toolbar_settings.get_setting("align_with_view")
 				}
 				editor.set_brush_data(brush_data)
 				toolbar_settings.clean()
 			
 			if mouse_is_pressed:
-				editor.operate(global_position, was_pressed)
+				editor.operate(global_position, p_viewport_camera.global_rotation.y, was_pressed)
 				
 				return EditorPlugin.AFTER_GUI_INPUT_STOP
 	return EditorPlugin.AFTER_GUI_INPUT_PASS

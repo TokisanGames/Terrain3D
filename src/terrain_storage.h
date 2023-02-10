@@ -43,6 +43,7 @@ class Terrain3DStorage : public Resource {
 		bool is_dirty() { return dirty; }
 		void create(const TypedArray<Image> &p_layers);
 		void create(const Ref<Image> &p_image);
+		Ref<Image> get_image() const { return image; }
 		RID get_rid() { return rid; }
 	};
 
