@@ -85,13 +85,11 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 		if (!has_region) {
 			terrain->get_storage()->add_region(p_global_position);
 		}
-		return;
 	}
 	if (operation == SUBTRACT) {
 		if (has_region) {
 			terrain->get_storage()->remove_region(p_global_position);
 		}
-		return;
 	}
 }
 
@@ -131,7 +129,10 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 				if (!brush.auto_regions_enabled()) {
 					continue;
 				}
-				terrain->get_storage()->add_region(brush_global_position);
+				Error err = terrain->get_storage()->add_region(brush_global_position);
+				if (err) {
+					continue;
+				}
 				new_region_index = terrain->get_storage()->get_region_index(brush_global_position);
 			}
 
@@ -180,6 +181,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 					dest = Color(CLAMP(destf, 0.0f, 1.0f), 0.0f, 0.0f, 1.0f);
 
 				} else {
+					// Color/Control painting here
 				}
 
 				map->set_pixelv(map_pixel_position, dest);
