@@ -193,4 +193,9 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	if editor:
 		editor.set_tool(p_tool)
 		editor.set_operation(p_operation)
+	
+	toolbar_settings.hide_settings([])
+	if p_operation == Terrain3DEditor.REPLACE:
+		toolbar_settings.hide_settings(["opacity", "flow"])
+
 	update_grid()

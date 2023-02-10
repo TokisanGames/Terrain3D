@@ -21,7 +21,7 @@ func _ready() -> void:
 	add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.SUBTRACT, "Delete Region", ICON_REGION_REMOVE, tool_group)
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.ADD, "Increase", ICON_HEIGHT_ADD, tool_group)
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.SUBTRACT, "Decrease", ICON_HEIGHT_SUB, tool_group)
-	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.MULTIPLY, "Multiply", ICON_HEIGHT_MUL, tool_group)
+	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.MULTIPLY, "Grow", ICON_HEIGHT_MUL, tool_group)
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.REPLACE, "Flatten", ICON_HEIGHT_FLAT, tool_group)
 
 	var buttons: Array[BaseButton] = tool_group.get_buttons()
