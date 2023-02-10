@@ -135,13 +135,19 @@ bool Terrain3DStorage::has_region(Vector3 p_global_position) {
 
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Vector2i uv_offset = _get_offset_from(p_global_position);
+	Ref<Image> img = generated_region_map.get_image();
+
 	int index = -1;
 
-	for (int i = 0; i < region_offsets.size(); i++) {
-		Vector2i ofs = region_offsets[i];
-		if (ofs == uv_offset) {
-			index = i;
-			break;
+	if (img.is_valid()) {
+		index = int(img->get_pixelv(uv_offset + (Vector2i(region_map_size, region_map_size) / 2)).r * 255.0) - 1;
+	} else {
+		for (int i = 0; i < region_offsets.size(); i++) {
+			Vector2i ofs = region_offsets[i];
+			if (ofs == uv_offset) {
+				index = i;
+				break;
+			}
 		}
 	}
 	return index;

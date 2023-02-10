@@ -34,21 +34,31 @@ public:
 	};
 
 	struct Brush {
+	private:
 		Ref<Image> image;
 		Vector2 img_size;
 		int size = 0;
 		float opacity = 0.0;
 		float flow = 0.0;
+		float height = 0.0;
+		float jitter = 0.0;
+		float gamma = 1.0;
+		bool align_to_view = false;
+		bool auto_regions = false;
 
 	public:
-		void set_image(const Ref<Image> &p_image);
-		Ref<Image> get_image() const;
-		Vector2 get_image_size() const;
-		void set_values(float p_size, float p_opacity, float p_flow);
-		Color get_pixel(Vector2i p_position);
-		int get_size() const;
-		float get_opacity() const;
-		float get_flow() const;
+		Ref<Image> get_image() const { return image; }
+		Vector2 get_image_size() const { return img_size; }
+		void set_data(Dictionary p_data);
+		float get_alpha(Vector2i p_position) { return image->get_pixelv(p_position).r; }
+		int get_size() const { return size; }
+		float get_opacity() const { return opacity; }
+		float get_flow() const { return flow; }
+		float get_height() const { return height; }
+		float get_jitter() const { return jitter; }
+		float get_gamma() const { return gamma; }
+		bool is_aligned_to_view() const { return align_to_view; }
+		bool auto_regions_enabled() const { return auto_regions; }
 	};
 
 	Tool tool = REGION;
@@ -59,8 +69,10 @@ public:
 
 private:
 	void _operate_region(Vector3 p_global_position);
-	void _operate_height(Vector2 p_uv_position, Vector3 p_global_position);
+	void _operate_map(Terrain3DStorage::MapType p_map_type, Vector3 p_global_position, float p_camera_direction);
 	bool _is_in_bounds(Vector2i p_position, Vector2i p_max_position);
+	Vector2 _get_uv_position(Vector3 p_global_position, int p_region_size);
+	Vector2 _rotate_uv(Vector2 p_uv, float p_angle);
 
 protected:
 	static void _bind_methods();
@@ -73,7 +85,7 @@ public:
 	Tool get_tool() const;
 	void set_operation(Operation p_operation);
 	Operation get_operation() const;
-	void operate(Vector3 p_global_position, bool p_continuous_operation);
+	void operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation);
 
 	void set_brush_data(Dictionary data);
 
