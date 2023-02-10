@@ -107,7 +107,7 @@ public:
 	void update_surface_textures();
 	void update_surface_values();
 	
-	void add_region(Vector3 p_global_position);
+	Error add_region(Vector3 p_global_position);
 	void remove_region(Vector3 p_global_position);
 	bool has_region(Vector3 p_global_position);
 	int get_region_index(Vector3 p_global_position);

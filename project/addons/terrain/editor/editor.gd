@@ -103,8 +103,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			
 			var region_size = terrain.get_storage().get_region_size()
 			var region_position: Vector2 = (Vector2(global_position.x, global_position.z) / region_size + Vector2(0.5, 0.5)).floor()
-			
-			if current_region_position != region_position:
+
+			if current_region_position != region_position:	
 				current_region_position = region_position
 				update_grid()
 
@@ -130,8 +130,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			
 			if mouse_is_pressed:
 				editor.operate(global_position, p_viewport_camera.global_rotation.y, was_pressed)
-				
 				return EditorPlugin.AFTER_GUI_INPUT_STOP
+				
 	return EditorPlugin.AFTER_GUI_INPUT_PASS
 		
 func is_terrain_valid() -> bool:
@@ -141,17 +141,21 @@ func is_terrain_valid() -> bool:
 	return valid
 	
 func update_grid() -> void:
+	if !region_gizmo.get_node_3d():
+		return
+		
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
-		region_gizmo.position = current_region_position * terrain.get_storage().get_region_size()
+		region_gizmo.region_position = current_region_position
+		region_gizmo.region_size = terrain.get_storage().get_region_size()
 		region_gizmo.grid = terrain.get_storage().get_region_offsets()
 		
 		terrain.update_gizmos()
 		return
 		
 	region_gizmo.show_rect = false
-	region_gizmo.size = 1024
+	region_gizmo.region_size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
 	
 func _load_storage() -> void:

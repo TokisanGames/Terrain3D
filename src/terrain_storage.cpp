@@ -82,12 +82,18 @@ Vector2i Terrain3DStorage::_get_offset_from(Vector3 p_global_position) {
 	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / float(region_size) + Vector2(0.5, 0.5)).floor());
 }
 
-void Terrain3DStorage::add_region(Vector3 p_global_position) {
-	ERR_FAIL_COND(has_region(p_global_position));
+Error Terrain3DStorage::add_region(Vector3 p_global_position) {
+	if (has_region(p_global_position)) {
+		return FAILED;
+	}
+	Vector2i uv_offset = _get_offset_from(p_global_position);
+
+	if (ABS(uv_offset.x) > region_map_size / 2 || ABS(uv_offset.y) > region_map_size / 2) {
+		return FAILED;
+	}
 
 	Ref<Image> hmap_img = Image::create(region_size, region_size, false, Image::FORMAT_RH);
 	Ref<Image> cmap_img = Image::create(region_size, region_size, false, Image::FORMAT_RGBA8);
-	Vector2i uv_offset = _get_offset_from(p_global_position);
 
 	hmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
 	cmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
@@ -104,6 +110,8 @@ void Terrain3DStorage::add_region(Vector3 p_global_position) {
 
 	notify_property_list_changed();
 	emit_changed();
+
+	return OK;
 }
 
 void Terrain3DStorage::remove_region(Vector3 p_global_position) {
@@ -135,9 +143,13 @@ bool Terrain3DStorage::has_region(Vector3 p_global_position) {
 
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Vector2i uv_offset = _get_offset_from(p_global_position);
-	Ref<Image> img = generated_region_map.get_image();
-
 	int index = -1;
+
+	if (ABS(uv_offset.x) > region_map_size / 2 || ABS(uv_offset.y) > region_map_size / 2) {
+		return index;
+	}
+
+	Ref<Image> img = generated_region_map.get_image();
 
 	if (img.is_valid()) {
 		index = int(img->get_pixelv(uv_offset + (Vector2i(region_map_size, region_map_size) / 2)).r * 255.0) - 1;

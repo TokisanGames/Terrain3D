@@ -19,9 +19,9 @@ func _ready() -> void:
 	list = HBoxContainer.new()
 	add_child(list)
 	
-	add_setting(SettingType.SLIDER, "size", list, "m", 0, 500, 50)
-	add_setting(SettingType.SLIDER, "opacity", list, "%", 0, 100, 100)
-	add_setting(SettingType.SPINBOX, "height", list, "m", 1, 1000, 10)
+	add_setting(SettingType.SLIDER, "size", 50, list, "m", 0, 200)
+	add_setting(SettingType.SLIDER, "opacity", 100, list, "%", 0, 100)
+	add_setting(SettingType.SPINBOX, "height", 10, list, "m", 1, 1000)
 	
 	var advanced_button: Button = Button.new()
 	list.add_child(advanced_button)
@@ -40,14 +40,14 @@ func _ready() -> void:
 	advanced_button.add_child(advanced_menu)
 	advanced_menu.add_child(advanced_list)
 	
-	add_setting(SettingType.CHECKBOX, "automatic_regions", advanced_list)
-	add_setting(SettingType.CHECKBOX, "align_with_view", advanced_list)
+	add_setting(SettingType.CHECKBOX, "automatic_regions", true, advanced_list)
+	add_setting(SettingType.CHECKBOX, "align_with_view", true, advanced_list)
 	
 	advanced_list.add_child(HSeparator.new())
 	
-	add_setting(SettingType.SLIDER, "flow", advanced_list, "%", 1, 100, 100)
-	add_setting(SettingType.SLIDER, "gamma", advanced_list, "γ", 0.1, 2.0, 1.0, 0.01)
-	add_setting(SettingType.SLIDER, "jitter", advanced_list, "%", 0, 100)
+	add_setting(SettingType.SLIDER, "flow", 100, advanced_list, "%", 1, 100)
+	add_setting(SettingType.SLIDER, "gamma", 1.0, advanced_list, "γ", 0.1, 2.0, 0.01)
+	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
 
 	add_brushes("shape")
 	
@@ -74,7 +74,8 @@ func add_brushes(p_name: String) -> void:
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
 				var tex: ImageTexture = ImageTexture.create_from_image(img)
 				var btn: Button = Button.new()
-				btn.set_custom_minimum_size(Vector2.ONE * (get_parent().get_size().y + 8))
+
+				btn.set_custom_minimum_size(Vector2.ONE * 36)
 				btn.set_button_icon(tex)
 				btn.set_expand_icon(true)
 				btn.set_material(get_brush_preview_material())
@@ -88,8 +89,8 @@ func add_brushes(p_name: String) -> void:
 	list.add_child(hbox)
 	settings[p_name] = brush_button_group
 	
-func add_setting(p_type: SettingType, p_name: StringName, parent: Control, 
-		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, value: float = 0.0, step: float = 1.0) -> void:
+func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent: Control, 
+		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, step: float = 1.0) -> void:
 			
 	var container: HBoxContainer = HBoxContainer.new()
 	var label: Label = Label.new()
@@ -137,6 +138,7 @@ func add_setting(p_type: SettingType, p_name: StringName, parent: Control,
 		SettingType.CHECKBOX:
 			control = CheckBox.new()
 			control.set_text(p_name.capitalize())
+			control.set_pressed_no_signal(value)
 			control.connect("pressed", _on_setting_changed)
 	
 	container.add_child(control)

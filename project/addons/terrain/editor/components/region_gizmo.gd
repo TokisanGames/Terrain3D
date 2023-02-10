@@ -1,39 +1,43 @@
 extends EditorNode3DGizmo
 	
-var rect_material: StandardMaterial3D
-var grid_material: StandardMaterial3D
-var position: Vector2
-var size: float
+var material: StandardMaterial3D
+var selection_material: StandardMaterial3D
+var region_position: Vector2
+var region_size: float
 var grid: Array[Vector2i]
 var use_secondary_color: bool = false
 var show_rect: bool = true
 
 var main_color: Color = Color.GREEN_YELLOW
 var secondary_color: Color = Color.RED
+var grid_color: Color = Color.WHITE
+var border_color: Color = Color.BLUE
 
 func _init() -> void:
-	rect_material = StandardMaterial3D.new()
-	rect_material.set_flag(BaseMaterial3D.FLAG_DISABLE_DEPTH_TEST, true)
-	rect_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	rect_material.render_priority = 1
-	rect_material.albedo_color = main_color
+	material = StandardMaterial3D.new()
+	material.set_flag(BaseMaterial3D.FLAG_DISABLE_DEPTH_TEST, true)
+	material.set_flag(BaseMaterial3D.FLAG_ALBEDO_FROM_VERTEX_COLOR, true)
+	material.set_shading_mode(BaseMaterial3D.SHADING_MODE_UNSHADED)
+	material.set_albedo(Color.WHITE)
 	
-	grid_material = StandardMaterial3D.new()
-	grid_material.set_flag(BaseMaterial3D.FLAG_DISABLE_DEPTH_TEST, true)
-	grid_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	grid_material.albedo_color = Color.WHITE
+	selection_material = material.duplicate()
+	selection_material.set_render_priority(0)
 
 func _redraw() -> void:
 	clear()
-	
+
 	if show_rect:
-		rect_material.albedo_color = main_color if !use_secondary_color else secondary_color
-		draw_rect(position, rect_material)
+		var modulate: Color = main_color if !use_secondary_color else secondary_color
+		if abs(region_position.x) > 8 or abs(region_position.y) > 8:
+			modulate = Color.GRAY
+		draw_rect(region_position * region_size, region_size, selection_material, modulate)
 	
 	for pos in grid:
-		draw_rect(Vector2(pos) * size, grid_material)
+		draw_rect(Vector2(pos) * region_size, region_size, material, grid_color)
+		
+	draw_rect(Vector2.ZERO, region_size * 17.0, material, border_color)
 	
-func draw_rect(pos: Vector2, material: StandardMaterial3D) -> void:
+func draw_rect(pos: Vector2, size: float, material: StandardMaterial3D, modulate: Color) -> void:
 	var lines: PackedVector3Array = [
 		Vector3(-1, 0, -1),
 		Vector3(-1, 0, 1),
@@ -48,5 +52,5 @@ func draw_rect(pos: Vector2, material: StandardMaterial3D) -> void:
 	for i in lines.size():
 		lines[i] = ((lines[i] / 2.0) * size) + Vector3(pos.x, 0, pos.y)
 	
-	add_lines(lines, material)
+	add_lines(lines, material, false, modulate)
 		
