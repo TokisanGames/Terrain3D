@@ -48,7 +48,7 @@ func _ready() -> void:
 	add_setting(SettingType.SLIDER, "flow", 100, advanced_list, "%", 1, 100)
 	add_setting(SettingType.SLIDER, "gamma", 1.0, advanced_list, "γ", 0.1, 2.0, 0.01)
 	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
-
+	
 	add_brushes("shape")
 	
 func add_brushes(p_name: String) -> void:
@@ -146,8 +146,8 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 	
 	settings[p_name] = control
 	
-func get_setting(setting: String) -> Variant:
-	var object: Object = settings[setting]
+func get_setting(p_setting: String) -> Variant:
+	var object: Object = settings[p_setting]
 	var value: Variant
 	
 	if object is Range:
@@ -159,13 +159,24 @@ func get_setting(setting: String) -> Variant:
 		
 	return value
 	
+func hide_settings(p_settings: Array[String]):
+	for setting in settings.keys():
+		var object: Object = settings[setting]
+		if object is Control:
+			object.get_parent().show()
+
+	for setting in p_settings:
+		var object: Object = settings[setting]
+		if object is Control:
+			object.get_parent().hide()
+	
 func is_dirty() -> bool:
 	return dirty
 	
 func clean() -> void:
 	dirty = false
 	
-func _on_setting_changed(data: Variant = null) -> void:
+func _on_setting_changed(p_data: Variant = null) -> void:
 	dirty = true
 	
 func _on_show_advanced(toggled: bool, button: Button):

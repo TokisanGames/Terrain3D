@@ -48,6 +48,12 @@ void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 }
 
 void Terrain3DEditor::operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation) {
+	if (operation_position == Vector3()) {
+		operation_position = p_global_position;
+	}
+	operation_interval = p_global_position.distance_to(operation_position);
+	operation_position = p_global_position;
+	
 	switch (tool) {
 		case REGION:
 			if (!p_continuous_operation) {
@@ -106,8 +112,11 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 	int s = brush.get_size();
 	Vector2 is = brush.get_image_size();
 	float o = brush.get_opacity();
+
+	float w = Math::smoothstep(0.0f, float(s) / 2.0f, operation_interval);
 	float f = brush.get_flow();
 	float h = brush.get_height() / float(terrain->get_storage()->get_max_height());
+
 	float g = brush.get_gamma();
 	float randf = UtilityFunctions::randf();
 	float rot = randf * Math_PI * brush.get_jitter();
@@ -164,16 +173,16 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 
 					switch (operation) {
 						case Terrain3DEditor::ADD:
-							destf = Math::lerp(srcf, srcf + (o * alpha * h), f);
+							destf = Math::lerp(srcf, srcf + (h * alpha * o), f * w);
 							break;
 						case Terrain3DEditor::SUBTRACT:
-							destf = Math::lerp(srcf, srcf - (o * alpha * h), f);
+							destf = Math::lerp(srcf, srcf - (h * alpha * o), f * w);
 							break;
 						case Terrain3DEditor::MULTIPLY:
-							destf = Math::lerp(srcf, srcf * (o * alpha * h + 1.0f), f);
+							destf = Math::lerp(srcf, srcf * (alpha * h * o + 1.0f), f);
 							break;
 						case Terrain3DEditor::REPLACE:
-							destf = Math::lerp(srcf, o * h, alpha);
+							destf = Math::lerp(srcf, h, alpha);
 							break;
 						default:
 							break;

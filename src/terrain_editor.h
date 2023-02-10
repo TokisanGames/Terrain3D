@@ -8,6 +8,7 @@
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/object.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/math.hpp>
 
 #include "terrain.h"
@@ -63,8 +64,10 @@ public:
 
 	Tool tool = REGION;
 	Operation operation = ADD;
+	Vector3 operation_position = Vector3();
+	float operation_interval = 0.0f;
 	Brush brush;
-
+	
 	Terrain3D *terrain = nullptr;
 
 private:
