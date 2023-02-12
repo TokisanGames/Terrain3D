@@ -29,6 +29,8 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 	int CLIPMAP_RESOLUTION = TILE_RESOLUTION * 4 + 1;
 	int CLIPMAP_VERT_RESOLUTION = CLIPMAP_RESOLUTION + 1;
 	int NUM_CLIPMAP_LEVELS = p_levels;
+	AABB aabb;
+	int n=0;
 
 	// Create a tile mesh
 	// A tile is the main component of terrain panels
@@ -40,7 +42,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		PackedInt32Array indices;
 		indices.resize(TILE_RESOLUTION * TILE_RESOLUTION * 6);
 
-		int n = 0;
+		n = 0;
 
 		for (int y = 0; y < PATCH_VERT_RESOLUTION; y++) {
 			for (int x = 0; x < PATCH_VERT_RESOLUTION; x++) {
@@ -62,7 +64,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 			}
 		}
 
-		AABB aabb = AABB(Vector3(0, 0, 0), Vector3(PATCH_VERT_RESOLUTION, 0.1, PATCH_VERT_RESOLUTION));
+		aabb = AABB(Vector3(0, 0, 0), Vector3(PATCH_VERT_RESOLUTION, 0.1, PATCH_VERT_RESOLUTION));
 		tile_mesh = create_mesh(vertices, indices, aabb);
 	}
 
@@ -75,9 +77,8 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		PackedInt32Array indices;
 		indices.resize(TILE_RESOLUTION * 24);
 
-		int n = 0;
+		n = 0;
 		int offset = TILE_RESOLUTION;
-		AABB aabb;
 
 		for (int i = 0; i < PATCH_VERT_RESOLUTION; i++) {
 			vertices[n] = Vector3(offset + i + 1, 0, 0);
@@ -156,9 +157,8 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		vertices.resize((CLIPMAP_VERT_RESOLUTION * 2 + 1) * 2);
 		PackedInt32Array indices;
 		indices.resize((CLIPMAP_VERT_RESOLUTION * 2 - 1) * 6);
-		AABB aabb;
 
-		int n = 0;
+		n = 0;
 		Vector3 offset = Vector3(0.5f * float(CLIPMAP_VERT_RESOLUTION + 1), 0, 0.5f * float(CLIPMAP_VERT_RESOLUTION + 1));
 
 		for (int i = 0; i < CLIPMAP_VERT_RESOLUTION + 1; i++) {
@@ -216,9 +216,8 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		vertices.resize(PATCH_VERT_RESOLUTION * 8);
 		PackedInt32Array indices;
 		indices.resize(TILE_RESOLUTION * 24 + 6);
-		AABB aabb;
 
-		int n = 0;
+		n = 0;
 
 		for (int i = 0; i < PATCH_VERT_RESOLUTION * 2; i++) {
 			vertices[n] = Vector3(i - float(TILE_RESOLUTION), 0, 0);
@@ -287,9 +286,8 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		vertices.resize(CLIPMAP_VERT_RESOLUTION * 4);
 		PackedInt32Array indices;
 		indices.resize(CLIPMAP_VERT_RESOLUTION * 6);
-		AABB aabb;
 
-		int n = 0;
+		n = 0;
 
 		for (int i = 0; i < CLIPMAP_VERT_RESOLUTION; i++) {
 			n = CLIPMAP_VERT_RESOLUTION * 0 + i;
