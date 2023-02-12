@@ -141,9 +141,6 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	RID scenario = get_world_3d()->get_scenario();
 
 	data.cross = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::CROSS], scenario);
-	AABB aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::CROSS]);
-	aabb.size.y = storage->get_max_height();
-	RenderingServer::get_singleton()->instance_set_custom_aabb(data.cross, aabb);
 
 	for (int l = 0; l < p_clipmap_levels; l++) {
 		for (int x = 0; x < 4; x++) {
@@ -154,34 +151,21 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 
 				RID tile = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::TILE], scenario);
 				data.tiles.push_back(tile);
-
-				aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TILE]);
-				aabb.size.y = storage->get_max_height();
-				RenderingServer::get_singleton()->instance_set_custom_aabb(tile, aabb);
 			}
 		}
 
 		RID filler = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::FILLER], scenario);
 		data.fillers.push_back(filler);
-		aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::FILLER]);
-		aabb.size.y = storage->get_max_height();
-		RenderingServer::get_singleton()->instance_set_custom_aabb(filler, aabb);
 
 		if (l != p_clipmap_levels - 1) {
 			RID trim = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::TRIM], scenario);
 			data.trims.push_back(trim);
-			aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TRIM]);
-			aabb.size.y = storage->get_max_height();
-			RenderingServer::get_singleton()->instance_set_custom_aabb(trim, aabb);
 
 			RID seam = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::SEAM], scenario);
 			data.seams.push_back(seam);
-			aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::SEAM]);
-			aabb.size.y = storage->get_max_height();
-			RenderingServer::get_singleton()->instance_set_custom_aabb(seam, aabb);
 		}
 	}
-
+	
 	// Create collision
 
 	/*if (!static_body.is_valid()) {
@@ -209,8 +193,44 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	}*/
 
 	valid = true;
+	_update_aabbs();
 	// Force a snap update
 	camera_last_position = Vector2(FLT_MAX, FLT_MAX);
+}
+
+void Terrain3D::_update_aabbs() {
+	if (!valid) {
+		return;
+	}
+
+	LOG(INFO, "Updating AABBs");
+	AABB aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::CROSS]);
+	aabb.size.y = storage->get_max_height();
+	RenderingServer::get_singleton()->instance_set_custom_aabb(data.cross, aabb);
+
+	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TILE]);
+	aabb.size.y = storage->get_max_height();
+	for (int i = 0; i < data.tiles.size(); i++) {
+		RenderingServer::get_singleton()->instance_set_custom_aabb(data.tiles[i], aabb);
+	}
+
+	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::FILLER]);
+	aabb.size.y = storage->get_max_height();
+	for (int i = 0; i < data.fillers.size(); i++) {
+		RenderingServer::get_singleton()->instance_set_custom_aabb(data.fillers[i], aabb);
+	}
+
+	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TRIM]);
+	aabb.size.y = storage->get_max_height();
+	for (int i = 0; i < data.trims.size(); i++) {
+		RenderingServer::get_singleton()->instance_set_custom_aabb(data.trims[i], aabb);
+	}
+
+	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::SEAM]);
+	aabb.size.y = storage->get_max_height();
+	for (int i = 0; i < data.seams.size(); i++) {
+		RenderingServer::get_singleton()->instance_set_custom_aabb(data.seams[i], aabb);
+	}
 }
 
 void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
@@ -309,6 +329,14 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 
 Ref<Terrain3DStorage> Terrain3D::get_storage() const {
 	return storage;
+}
+
+void Terrain3D::set_max_height(int p_height) {
+	max_height = p_height;
+	_update_aabbs();
+	if (storage.is_valid()) {
+		storage->set_max_height(p_height);
+	}
 }
 
 void Terrain3D::_notification(int p_what) {
@@ -449,6 +477,9 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
 
+	ClassDB::bind_method(D_METHOD("set_max_height", "height"), &Terrain3D::set_max_height);
+	ClassDB::bind_method(D_METHOD("get_max_height"), &Terrain3D::get_max_height);
+
 	ClassDB::bind_method(D_METHOD("set_clipmap_levels", "count"), &Terrain3D::set_clipmap_levels);
 	ClassDB::bind_method(D_METHOD("get_clipmap_levels"), &Terrain3D::get_clipmap_levels);
 
@@ -461,8 +492,9 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear", "clear_meshes", "clear_collision"), &Terrain3D::clear);
 	ClassDB::bind_method(D_METHOD("build", "clipmap_levels", "clipmap_size"), &Terrain3D::build);
 
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug+Snapping"), "set_debug_level", "get_debug_level");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_height", PROPERTY_HINT_RANGE, "1, 1024, 1"), "set_max_height", "get_max_height");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 
 	ADD_GROUP("Clipmap", "clipmap_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");

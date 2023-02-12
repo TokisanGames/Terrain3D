@@ -32,6 +32,7 @@ class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 
 	static int debug_level;
+	int max_height = 512;
 	bool valid = false;
 	int clipmap_size = 48;
 	int clipmap_levels = 7;
@@ -64,6 +65,7 @@ protected:
 	void _notification(int p_what);
 	void process(double delta);
 	void _update_visibility();
+	void _update_aabbs();
 	void _update_world(RID p_space, RID p_scenario);
 
 private:
@@ -71,6 +73,9 @@ private:
 	void find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
 public:
+	void set_max_height(int p_height);
+	int get_max_height() const { return max_height; }
+
 	void set_debug_level(int p_level);
 	int get_debug_level() const;
 
