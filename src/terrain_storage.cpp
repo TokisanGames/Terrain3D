@@ -682,8 +682,6 @@ void Terrain3DStorage::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
-	ClassDB::bind_method(D_METHOD("set_max_height", "height"), &Terrain3DStorage::set_max_height);
-	ClassDB::bind_method(D_METHOD("get_max_height"), &Terrain3DStorage::get_max_height);
 
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DStorage::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
@@ -722,7 +720,6 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_height", PROPERTY_HINT_RANGE, "1, 1024, 1"), "set_max_height", "get_max_height");
 
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_height_maps", "get_height_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_control_maps", "get_control_maps");

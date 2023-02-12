@@ -48,7 +48,6 @@ class Terrain3DStorage : public Resource {
 	};
 
 	RegionSize region_size = SIZE_1024;
-	int max_height = 512;
 	const int region_map_size = 16;
 
 	RID material;
@@ -77,6 +76,9 @@ class Terrain3DStorage : public Resource {
 	bool _initialized = false;
 
 private:
+	// Copied from and set by Terrain
+	int max_height = 512;
+
 	void _update_surfaces();
 	void _update_surface_data(bool p_update_textures, bool p_update_values);
 	void _update_regions();
