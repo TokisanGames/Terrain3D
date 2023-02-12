@@ -199,11 +199,10 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 }
 
 void Terrain3D::_update_aabbs() {
-	if (!valid) {
-		return;
-	}
-
 	LOG(INFO, "Updating AABBs");
+	ERR_FAIL_COND_MSG(!valid, "Terrain meshes have not been built yet");
+	ERR_FAIL_COND_MSG(!storage.is_valid(), "Terrain3DStorage is not valid");
+
 	AABB aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::CROSS]);
 	aabb.size.y = storage->get_max_height();
 	RenderingServer::get_singleton()->instance_set_custom_aabb(data.cross, aabb);
