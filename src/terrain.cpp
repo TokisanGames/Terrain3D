@@ -165,7 +165,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 			data.seams.push_back(seam);
 		}
 	}
-	
+
 	// Create collision
 
 	/*if (!static_body.is_valid()) {
@@ -282,10 +282,6 @@ void Terrain3D::set_debug_level(int p_level) {
 	debug_level = CLAMP<int, int, int>(p_level, 0, DEBUG_MAX);
 }
 
-int Terrain3D::get_debug_level() const {
-	return debug_level;
-}
-
 void Terrain3D::set_clipmap_levels(int p_count) {
 	if (clipmap_levels != p_count) {
 		clear();
@@ -294,20 +290,12 @@ void Terrain3D::set_clipmap_levels(int p_count) {
 	clipmap_levels = p_count;
 }
 
-int Terrain3D::get_clipmap_levels() const {
-	return clipmap_levels;
-}
-
 void Terrain3D::set_clipmap_size(int p_size) {
 	if (clipmap_size != p_size) {
 		clear();
 		build(clipmap_levels, p_size);
 	}
 	clipmap_size = p_size;
-}
-
-int Terrain3D::get_clipmap_size() const {
-	return clipmap_size;
 }
 
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
@@ -325,10 +313,6 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 		}
 	}
 	emit_signal("storage_changed");
-}
-
-Ref<Terrain3DStorage> Terrain3D::get_storage() const {
-	return storage;
 }
 
 void Terrain3D::set_max_height(int p_height) {

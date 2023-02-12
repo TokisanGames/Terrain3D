@@ -95,26 +95,26 @@ public:
 	~Terrain3DStorage();
 
 	void set_region_size(RegionSize p_size);
-	RegionSize get_region_size() const;
+	RegionSize get_region_size() const { return region_size; }
 	void set_max_height(int p_height);
-	int get_max_height() const;
+	int get_max_height() const { return max_height; }
 
 	void set_surface(const Ref<Terrain3DSurface> &p_material, int p_index);
-	Ref<Terrain3DSurface> get_surface(int p_index) const;
+	Ref<Terrain3DSurface> get_surface(int p_index) const { return surfaces[p_index]; }
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
-	TypedArray<Terrain3DSurface> get_surfaces() const;
+	TypedArray<Terrain3DSurface> get_surfaces() const { return surfaces; }
 	int get_surface_count() const;
 
 	// Workaround until callable_mp is implemented
 	void update_surface_textures();
 	void update_surface_values();
-	
+
 	Error add_region(Vector3 p_global_position);
 	void remove_region(Vector3 p_global_position);
 	bool has_region(Vector3 p_global_position);
 	int get_region_index(Vector3 p_global_position);
 	void set_region_offsets(const TypedArray<Vector2i> &p_array);
-	TypedArray<Vector2i> get_region_offsets() const;
+	TypedArray<Vector2i> get_region_offsets() const { return region_offsets; }
 	int get_region_count() const;
 
 	Ref<Image> get_map(int p_region_index, MapType p_map) const;
@@ -123,11 +123,11 @@ public:
 	void set_height_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_height_maps() const;
 	void set_control_maps(const TypedArray<Image> &p_maps);
-	TypedArray<Image> get_control_maps() const;
+	TypedArray<Image> get_control_maps() const { return control_maps; }
 
-	RID get_material() const;
+	RID get_material() const { return material; }
 	void set_shader_override(const Ref<Shader> &p_shader);
-	Ref<Shader> get_shader_override() const;
+	Ref<Shader> get_shader_override() const { return shader_override; }
 
 	void set_noise_enabled(bool p_enabled);
 	void set_noise_scale(float p_scale);

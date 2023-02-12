@@ -67,7 +67,7 @@ public:
 	Vector3 operation_position = Vector3();
 	float operation_interval = 0.0f;
 	Brush brush;
-	
+
 	Terrain3D *terrain = nullptr;
 
 private:
