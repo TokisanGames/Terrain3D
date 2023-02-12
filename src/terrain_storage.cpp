@@ -65,17 +65,9 @@ void Terrain3DStorage::set_region_size(RegionSize p_size) {
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 }
 
-Terrain3DStorage::RegionSize Terrain3DStorage::get_region_size() const {
-	return region_size;
-}
-
 void Terrain3DStorage::set_max_height(int p_height) {
 	max_height = p_height;
 	RenderingServer::get_singleton()->material_set_param(material, "terrain_height", max_height);
-}
-
-int Terrain3DStorage::get_max_height() const {
-	return max_height;
 }
 
 Vector2i Terrain3DStorage::_get_offset_from(Vector3 p_global_position) {
@@ -172,10 +164,6 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
 	_update_regions();
 }
 
-TypedArray<Vector2i> Terrain3DStorage::get_region_offsets() const {
-	return region_offsets;
-}
-
 Ref<Image> Terrain3DStorage::get_map(int p_region_index, MapType p_map_type) const {
 	Ref<Image> map;
 
@@ -230,24 +218,12 @@ void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 	force_update_maps(TYPE_CONTROL);
 }
 
-TypedArray<Image> Terrain3DStorage::get_control_maps() const {
-	return control_maps;
-}
-
 int Terrain3DStorage::get_region_count() const {
 	return region_offsets.size();
 }
 
-RID Terrain3DStorage::get_material() const {
-	return material;
-}
-
 void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
 	shader_override = p_shader;
-}
-
-Ref<Shader> Terrain3DStorage::get_shader_override() const {
-	return shader_override;
 }
 
 void Terrain3DStorage::set_noise_enabled(bool p_enabled) {
@@ -301,19 +277,11 @@ void Terrain3DStorage::set_surface(const Ref<Terrain3DSurface> &p_material, int 
 	notify_property_list_changed();
 }
 
-Ref<Terrain3DSurface> Terrain3DStorage::get_surface(int p_index) const {
-	return surfaces[p_index];
-}
-
 void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
 	surfaces = p_surfaces;
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
 	_update_surfaces();
-}
-
-TypedArray<Terrain3DSurface> Terrain3DStorage::get_surfaces() const {
-	return surfaces;
 }
 
 int Terrain3DStorage::get_surface_count() const {

@@ -77,16 +77,16 @@ public:
 	int get_max_height() const { return max_height; }
 
 	void set_debug_level(int p_level);
-	int get_debug_level() const;
+	int get_debug_level() const { return debug_level; }
 
 	void set_clipmap_levels(int p_count);
-	int get_clipmap_levels() const;
+	int get_clipmap_levels() const { return clipmap_levels; }
 
 	void set_clipmap_size(int p_size);
-	int get_clipmap_size() const;
+	int get_clipmap_size() const { return clipmap_size; }
 
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
-	Ref<Terrain3DStorage> get_storage() const;
+	Ref<Terrain3DStorage> get_storage() const { return storage; }
 
 	void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
 	void build(int p_clipmap_levels, int p_clipmap_size);

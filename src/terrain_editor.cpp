@@ -53,7 +53,7 @@ void Terrain3DEditor::operate(Vector3 p_global_position, float p_camera_directio
 	}
 	operation_interval = p_global_position.distance_to(operation_position);
 	operation_position = p_global_position;
-	
+
 	switch (tool) {
 		case REGION:
 			if (!p_continuous_operation) {
