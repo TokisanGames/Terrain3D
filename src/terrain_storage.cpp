@@ -471,7 +471,7 @@ void Terrain3DStorage::_update_regions() {
 	RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
 
 	RenderingServer::get_singleton()->material_set_param(material, "region_map", generated_region_map.get_rid());
-	RenderingServer::get_singleton()->material_set_param(material, "REGION_MAP_SIZE", REGION_MAP_SIZE);
+	RenderingServer::get_singleton()->material_set_param(material, "region_map_size", REGION_MAP_SIZE);
 	RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
 }
 
