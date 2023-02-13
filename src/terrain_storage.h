@@ -33,6 +33,11 @@ class Terrain3DStorage : public Resource {
 		SIZE_2048 = 2048,
 	};
 
+	enum {
+		REGION_MAP_SIZE = 16,
+		TERRAIN_MAX_HEIGHT = 2048,
+	};
+
 	struct Generated {
 		RID rid = RID();
 		Ref<Image> image;
@@ -48,7 +53,6 @@ class Terrain3DStorage : public Resource {
 	};
 
 	RegionSize region_size = SIZE_1024;
-	const int region_map_size = 16;
 
 	RID material;
 	RID shader;
@@ -76,9 +80,6 @@ class Terrain3DStorage : public Resource {
 	bool _initialized = false;
 
 private:
-	// Copied from and set by Terrain
-	int max_height = 512;
-
 	void _update_surfaces();
 	void _update_surface_data(bool p_update_textures, bool p_update_values);
 	void _update_regions();
@@ -96,8 +97,6 @@ public:
 
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return region_size; }
-	void set_max_height(int p_height);
-	int get_max_height() const { return max_height; }
 
 	void set_surface(const Ref<Terrain3DSurface> &p_material, int p_index);
 	Ref<Terrain3DSurface> get_surface(int p_index) const { return surfaces[p_index]; }

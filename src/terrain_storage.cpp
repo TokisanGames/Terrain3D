@@ -65,11 +65,6 @@ void Terrain3DStorage::set_region_size(RegionSize p_size) {
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 }
 
-void Terrain3DStorage::set_max_height(int p_height) {
-	max_height = p_height;
-	RenderingServer::get_singleton()->material_set_param(material, "terrain_height", max_height);
-}
-
 Vector2i Terrain3DStorage::_get_offset_from(Vector3 p_global_position) {
 	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / float(region_size) + Vector2(0.5, 0.5)).floor());
 }
@@ -80,7 +75,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position) {
 	}
 	Vector2i uv_offset = _get_offset_from(p_global_position);
 
-	if (ABS(uv_offset.x) > region_map_size / 2 || ABS(uv_offset.y) > region_map_size / 2) {
+	if (ABS(uv_offset.x) > REGION_MAP_SIZE / 2 || ABS(uv_offset.y) > REGION_MAP_SIZE / 2) {
 		return FAILED;
 	}
 
@@ -137,14 +132,14 @@ int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Vector2i uv_offset = _get_offset_from(p_global_position);
 	int index = -1;
 
-	if (ABS(uv_offset.x) > region_map_size / 2 || ABS(uv_offset.y) > region_map_size / 2) {
+	if (ABS(uv_offset.x) > REGION_MAP_SIZE / 2 || ABS(uv_offset.y) > REGION_MAP_SIZE / 2) {
 		return index;
 	}
 
 	Ref<Image> img = generated_region_map.get_image();
 
 	if (img.is_valid()) {
-		index = int(img->get_pixelv(uv_offset + (Vector2i(region_map_size, region_map_size) / 2)).r * 255.0) - 1;
+		index = int(img->get_pixelv(uv_offset + (Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE) / 2)).r * 255.0) - 1;
 	} else {
 		for (int i = 0; i < region_offsets.size(); i++) {
 			Vector2i ofs = region_offsets[i];
@@ -461,14 +456,14 @@ void Terrain3DStorage::_update_regions() {
 	if (generated_region_map.is_dirty()) {
 		LOG(INFO, "Updating region map");
 
-		Ref<Image> image = Image::create(region_map_size, region_map_size, false, Image::FORMAT_RG8);
+		Ref<Image> image = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RG8);
 		image->fill(Color(0.0, 0.0, 0.0, 1.0));
 
 		for (int i = 0; i < region_offsets.size(); i++) {
 			Vector2i ofs = region_offsets[i];
 
 			Color col = Color(float(i + 1) / 255.0, 1.0, 0, 1);
-			image->set_pixelv(ofs + (Vector2i(region_map_size, region_map_size) / 2), col);
+			image->set_pixelv(ofs + (Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE) / 2), col);
 		}
 		generated_region_map.create(image);
 	}
@@ -476,7 +471,7 @@ void Terrain3DStorage::_update_regions() {
 	RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
 
 	RenderingServer::get_singleton()->material_set_param(material, "region_map", generated_region_map.get_rid());
-	RenderingServer::get_singleton()->material_set_param(material, "region_map_size", region_map_size);
+	RenderingServer::get_singleton()->material_set_param(material, "REGION_MAP_SIZE", REGION_MAP_SIZE);
 	RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
 }
 
@@ -632,7 +627,9 @@ void Terrain3DStorage::_update_material() {
 		RenderingServer::get_singleton()->shader_set_code(shader, string_code);
 		RenderingServer::get_singleton()->material_set_shader(material, shader_override.is_null() ? shader : shader_override->get_rid());
 	}
-	set_region_size(region_size);
+	RenderingServer::get_singleton()->material_set_param(material, "terrain_height", TERRAIN_MAX_HEIGHT);
+	RenderingServer::get_singleton()->material_set_param(material, "region_size", region_size);
+	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 }
 
 void Terrain3DStorage::_bind_methods() {

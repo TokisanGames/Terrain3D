@@ -115,7 +115,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 
 	float w = Math::smoothstep(0.0f, float(s) / 2.0f, operation_interval);
 	float f = brush.get_flow();
-	float h = brush.get_height() / float(terrain->get_storage()->get_max_height());
+	float h = brush.get_height() / float(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
 
 	float g = brush.get_gamma();
 	float randf = UtilityFunctions::randf();
