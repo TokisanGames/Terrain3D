@@ -33,10 +33,8 @@ class Terrain3DStorage : public Resource {
 		SIZE_2048 = 2048,
 	};
 
-	enum {
-		REGION_MAP_SIZE = 16,
-		TERRAIN_MAX_HEIGHT = 2048,
-	};
+	static const int REGION_MAP_SIZE = 16;
+	static const int TERRAIN_MAX_HEIGHT = 2048;
 
 	struct Generated {
 		RID rid = RID();
