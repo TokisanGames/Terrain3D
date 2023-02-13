@@ -645,6 +645,9 @@ void Terrain3DStorage::_bind_methods() {
 	BIND_ENUM_CONSTANT(SIZE_1024);
 	BIND_ENUM_CONSTANT(SIZE_2048);
 
+	BIND_CONSTANT(REGION_MAP_SIZE);
+	BIND_CONSTANT(TERRAIN_MAX_HEIGHT);
+
 	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
 
