@@ -280,7 +280,7 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
 }
 
 void Terrain3D::set_debug_level(int p_level) {
-	debug_level = CLAMP<int, int, int>(p_level, 0, DEBUG_MAX);
+	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
 }
 
 void Terrain3D::set_clipmap_levels(int p_count) {

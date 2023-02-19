@@ -54,6 +54,7 @@ void Terrain3DStorage::_clear() {
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
 	generated_region_map.clear();
+	generated_region_blend_map.clear();
 }
 
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
@@ -92,6 +93,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position) {
 	generated_height_maps.clear();
 	generated_control_maps.clear();
 	generated_region_map.clear();
+	generated_region_blend_map.clear();
 
 	_update_regions();
 
@@ -117,6 +119,7 @@ void Terrain3DStorage::remove_region(Vector3 p_global_position) {
 	generated_height_maps.clear();
 	generated_control_maps.clear();
 	generated_region_map.clear();
+	generated_region_blend_map.clear();
 
 	_update_regions();
 
@@ -156,6 +159,7 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
 	region_offsets = p_array;
 
 	generated_region_map.clear();
+	generated_region_blend_map.clear();
 	_update_regions();
 }
 
@@ -224,6 +228,11 @@ void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
 void Terrain3DStorage::set_noise_enabled(bool p_enabled) {
 	noise_enabled = p_enabled;
 	_update_material();
+	if (noise_enabled) {
+		generated_region_map.clear();
+		generated_region_blend_map.clear();
+		_update_regions();
+	}
 }
 
 void Terrain3DStorage::set_noise_scale(float p_scale) {
@@ -451,29 +460,47 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 }
 
 void Terrain3DStorage::_update_regions() {
+	LOG(INFO, "Updating regions");
 	if (generated_height_maps.is_dirty()) {
-		LOG(INFO, "Updating height maps");
+		LOG(DEBUG, "Updating height maps");
 		generated_height_maps.create(height_maps);
 	}
 
 	if (generated_control_maps.is_dirty()) {
-		LOG(INFO, "Updating control maps");
+		LOG(DEBUG, "Updating control maps");
 		generated_control_maps.create(control_maps);
 	}
 
 	if (generated_region_map.is_dirty()) {
-		LOG(INFO, "Updating region map");
+		LOG(DEBUG, "Updating region map");
 
-		Ref<Image> image = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RG8);
-		image->fill(Color(0.0, 0.0, 0.0, 1.0));
+		Ref<Image> region_map_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RG8);
+		region_map_img->fill(Color(0.0, 0.0, 0.0, 1.0));
 
 		for (int i = 0; i < region_offsets.size(); i++) {
 			Vector2i ofs = region_offsets[i];
 
 			Color col = Color(float(i + 1) / 255.0, 1.0, 0, 1);
-			image->set_pixelv(ofs + (Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE) / 2), col);
+			region_map_img->set_pixelv(ofs + (Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE) / 2), col);
 		}
-		generated_region_map.create(image);
+		generated_region_map.create(region_map_img);
+
+		if (noise_enabled) {
+			LOG(DEBUG, "Creating region blend map");
+			Ref<Image> region_blend_img = Image::create(16, 16, true, Image::FORMAT_RH);
+			for (int y = 0; y < region_map_img->get_height(); y++) {
+				for (int x = 0; x < region_map_img->get_width(); x++) {
+					Color c = region_map_img->get_pixel(x, y);
+					c.r = c.g;
+					region_blend_img->set_pixel(x, y, c);
+				}
+			}
+			//region_blend_img->resize(512, 512, Image::INTERPOLATE_NEAREST); // No blur for use with Gaussian blur to add later
+			region_blend_img->resize(512, 512, Image::INTERPOLATE_LANCZOS); // Basic blur w/ subtle artifacts
+
+			generated_region_blend_map.create(region_blend_img);
+			RenderingServer::get_singleton()->material_set_param(material, "region_blend_map", generated_region_blend_map.get_rid());
+		}
 	}
 	RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
 	RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
@@ -524,6 +551,7 @@ void Terrain3DStorage::_update_material() {
 		}
 
 		if (noise_enabled) {
+			code += "uniform sampler2D region_blend_map : hint_default_black, filter_linear, repeat_disable;\n";
 			code += "uniform float noise_scale = 2.0;\n";
 			code += "uniform float noise_height = 1.0;\n";
 			code += "uniform float noise_blend_near = 0.5;\n";
@@ -585,13 +613,13 @@ void Terrain3DStorage::_update_material() {
 		code += "	}\n";
 		code += "	if (linear) {\n";
 		code += "		vec3 region = get_regionf(uv);\n";
-		code += "		height = texture(height_maps, region ).r;\n";
+		code += "		height = texture(height_maps, region).r;\n";
 		code += "	}\n";
-		
+
 		if (noise_enabled) {
-			code += "	float weight = texture(region_map, (uv/float(region_map_size))+0.5).g;\n";
+			code += "	float weight = texture(region_blend_map, (uv/float(region_map_size))+0.5).r;\n";
 			code += "	height = mix(height, noise2D(uv * noise_scale) * noise_height, \n";
-			code += "		clamp(smoothstep(noise_blend_near, noise_blend_far, 1.0 - weight), 0.0, 1.0) );\n ";
+			code += "		clamp(smoothstep(noise_blend_near, noise_blend_far, 1.0 - weight), 0.0, 1.0));\n ";
 		}
 
 		code += "	return height * terrain_height;\n";
@@ -769,6 +797,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DStorage::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
 
+	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DStorage::get_region_blend_map);
 	ClassDB::bind_method(D_METHOD("set_noise_enabled", "texture"), &Terrain3DStorage::set_noise_enabled);
 	ClassDB::bind_method(D_METHOD("get_noise_enabled"), &Terrain3DStorage::get_noise_enabled);
 	ClassDB::bind_method(D_METHOD("set_noise_scale", "scale"), &Terrain3DStorage::set_noise_scale);

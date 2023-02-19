@@ -70,6 +70,7 @@ class Terrain3DStorage : public Resource {
 	TypedArray<Image> control_maps;
 
 	Generated generated_region_map;
+	Generated generated_region_blend_map;
 	Generated generated_height_maps;
 	Generated generated_control_maps;
 	Generated generated_albedo_textures;
@@ -126,6 +127,7 @@ public:
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return shader_override; }
 
+	RID get_region_blend_map() { return generated_region_blend_map.get_rid(); }
 	void set_noise_enabled(bool p_enabled);
 	void set_noise_scale(float p_scale);
 	void set_noise_height(float p_height);

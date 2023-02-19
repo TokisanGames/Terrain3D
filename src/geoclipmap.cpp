@@ -30,7 +30,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 	int CLIPMAP_VERT_RESOLUTION = CLIPMAP_RESOLUTION + 1;
 	int NUM_CLIPMAP_LEVELS = p_levels;
 	AABB aabb;
-	int n=0;
+	int n = 0;
 
 	// Create a tile mesh
 	// A tile is the main component of terrain panels
