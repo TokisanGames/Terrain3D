@@ -10,6 +10,7 @@ const SurfaceList: Script = preload("res://addons/terrain/editor/components/surf
 var terrain: Terrain3D
 
 var mouse_is_pressed: bool = false
+var setting_has_changed: bool = false
 var editor: Terrain3DEditor
 var toolbar: Toolbar
 var toolbar_settings: ToolSettings
@@ -18,18 +19,26 @@ var surface_list_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 
 var region_gizmo: RegionGizmo
 var current_region_position: Vector2
+var current_global_position: Vector3
+var start_global_position: Vector3
+var end_global_position: Vector3
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
+	
+	toolbar_settings = ToolSettings.new()
+	toolbar_settings.connect("setting_changed", _on_setting_changed)
+	toolbar_settings.hide()
+	
 	toolbar = Toolbar.new()
 	toolbar.hide()
 	toolbar.connect("tool_changed", _on_tool_changed)
-	toolbar_settings = ToolSettings.new()
-	toolbar_settings.hide()
+	
 	surface_list = SurfaceList.new()
 	surface_list.hide()
 	surface_list.connect("resource_changed", _on_surface_list_resource_changed)
 	surface_list.connect("resource_inspected", _on_surface_list_resource_selected)
+	surface_list.connect("resource_selected", _on_setting_changed)
 	
 	region_gizmo = RegionGizmo.new()
 	
@@ -47,13 +56,6 @@ func _exit_tree() -> void:
 	toolbar_settings.queue_free()
 	surface_list.queue_free()
 	editor.free()
-	
-func add_control_to_bottom(control: Control) -> void:
-	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, control)
-	var container = control.get_parent().get_parent().get_parent().get_parent()
-	control.get_parent().remove_child(control)
-	container.add_child(control)
-	container.move_child(control, 2)
 	
 func _handles(object: Variant) -> bool:
 	return object is Terrain3D
@@ -74,11 +76,13 @@ func _edit(object: Variant) -> void:
 		
 func _make_visible(visible: bool) -> void:
 	toolbar.set_visible(visible)
-	toolbar_settings.set_visible(visible)
 	surface_list.set_visible(visible)
-	
 	update_grid()
 	region_gizmo.set_hidden(!visible)
+	
+	if visible:
+		visible = editor.get_tool() != Terrain3DEditor.REGION
+	toolbar_settings.set_visible(visible)
 	
 func _clear() -> void:
 	if is_terrain_valid():
@@ -95,11 +99,11 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		if p_event is InputEventMouse:
 			var mouse_pos: Vector2 = p_event.get_position()
 			var camera_pos: Vector3 = p_viewport_camera.get_global_position()
-			
 			var camera_from: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
 			var camera_to: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
 			var t = -Vector3(0, 1, 0).dot(camera_from) / Vector3(0, 1, 0).dot(camera_to)
 			var global_position: Vector3 = (camera_from + t * camera_to)
+			end_global_position = global_position
 			
 			var region_size = terrain.get_storage().get_region_size()
 			var region_position: Vector2 = (Vector2(global_position.x, global_position.z) / region_size + Vector2(0.5, 0.5)).floor()
@@ -107,29 +111,31 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			if current_region_position != region_position:	
 				current_region_position = region_position
 				update_grid()
-
-			var was_pressed: bool = mouse_is_pressed
 			
-			if p_event is InputEventMouseButton and p_event.get_button_index() == 1:
-				mouse_is_pressed = p_event.is_pressed()
-				
-			if toolbar_settings.is_dirty():
+			if setting_has_changed:
 				var brush_data: Dictionary = {
 					"size": int(toolbar_settings.get_setting("size")),
 					"opacity": toolbar_settings.get_setting("opacity") / 100.0,
-					"flow": toolbar_settings.get_setting("flow") / 100.0,
 					"gamma": toolbar_settings.get_setting("gamma"),
 					"height": toolbar_settings.get_setting("height"),
 					"jitter": toolbar_settings.get_setting("jitter"),
 					"image": toolbar_settings.get_setting("shape"),
 					"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
-					"align_with_view": toolbar_settings.get_setting("align_with_view")
+					"align_with_view": toolbar_settings.get_setting("align_with_view"),
+					"index": surface_list.get_selected_index(),
 				}
 				editor.set_brush_data(brush_data)
-				toolbar_settings.clean()
+				setting_has_changed = false
+				
+			var was_pressed: bool = mouse_is_pressed
 			
+			if p_event is InputEventMouseButton and p_event.get_button_index() == 1:
+				if mouse_is_pressed != p_event.is_pressed():
+					mouse_is_pressed = p_event.is_pressed()
+					start_global_position = end_global_position
+				
 			if mouse_is_pressed:
-				editor.operate(global_position, p_viewport_camera.global_rotation.y, was_pressed)
+				editor.operate(global_position, p_viewport_camera.rotation.y, was_pressed)
 				return EditorPlugin.AFTER_GUI_INPUT_STOP
 				
 	return EditorPlugin.AFTER_GUI_INPUT_PASS
@@ -158,6 +164,15 @@ func update_grid() -> void:
 	region_gizmo.region_size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
 	
+func add_control_to_bottom(control: Control) -> void:
+	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, control)
+	var container = control.get_parent().get_parent().get_parent().get_parent()
+	control.get_parent().remove_child(control)
+	container.add_child(control)
+	container.move_child(control, 2)
+
+# Signal handlers
+
 func _load_storage() -> void:
 	if terrain:
 		surface_list.clear()
@@ -171,12 +186,12 @@ func _load_storage() -> void:
 			if surface_count < 256:
 				surface_list.add_item()
 			
-func _on_surface_list_resource_changed(surface, index: int):
+func _on_surface_list_resource_changed(surface, index: int) -> void:
 	if is_terrain_valid():
 		terrain.get_storage().set_surface(surface, index)
 		call_deferred("_load_storage")
 		
-func _on_surface_list_resource_selected(surface):
+func _on_surface_list_resource_selected(surface) -> void:
 	get_editor_interface().inspect_object(surface, "", true)
 	
 func _on_surface_list_visibility_changed() -> void:
@@ -194,8 +209,21 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 		editor.set_tool(p_tool)
 		editor.set_operation(p_operation)
 	
-	toolbar_settings.hide_settings([])
+	var settings: PackedStringArray = []
+	
 	if p_operation == Terrain3DEditor.REPLACE:
-		toolbar_settings.hide_settings(["opacity", "flow"])
-
+		settings.push_back("opacity")
+		
+	if p_tool == Terrain3DEditor.TEXTURE or p_tool == Terrain3DEditor.COLOR:
+		settings.push_back("height")
+		
+	if p_tool == Terrain3DEditor.HEIGHT:
+		settings.push_back("slope")
+		
+	toolbar_settings.set_visible(p_tool != Terrain3DEditor.REGION)
+		
+	toolbar_settings.hide_settings(settings)
 	update_grid()
+	
+func _on_setting_changed() -> void:
+	setting_has_changed = true

@@ -39,8 +39,8 @@ public:
 		Ref<Image> image;
 		Vector2 img_size;
 		int size = 0;
+		int index = 0;
 		float opacity = 0.0;
-		float flow = 0.0;
 		float height = 0.0;
 		float jitter = 0.0;
 		float gamma = 1.0;
@@ -53,8 +53,8 @@ public:
 		void set_data(Dictionary p_data);
 		float get_alpha(Vector2i p_position) { return image->get_pixelv(p_position).r; }
 		int get_size() const { return size; }
+		int get_index() const { return index; }
 		float get_opacity() const { return opacity; }
-		float get_flow() const { return flow; }
 		float get_height() const { return height; }
 		float get_jitter() const { return jitter; }
 		float get_gamma() const { return gamma; }

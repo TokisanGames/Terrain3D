@@ -2,6 +2,7 @@ extends PanelContainer
 
 signal resource_changed(resource: Resource, index: int)
 signal resource_inspected(resource: Resource)
+signal resource_selected
 
 var list: ListContainer
 var entries: Array[ListEntry]
@@ -47,6 +48,7 @@ func notify_resource_inspected(resource: Resource):
 
 func set_selected_index(index: int):
 	selected_index = index
+	emit_signal("resource_selected")
 	
 	for i in entries.size():
 		var entry: ListEntry = entries[i]

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://curxpmtgrppkg"
-path="res://.godot/imported/icon_height_brush.svg-150a2528d2da23f23af97f67440808c4.ctex"
+uid="uid://bx2wxkso083ht"
+path="res://.godot/imported/icon_spray.svg-392af93066408871899867bb84efd916.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/terrain/icons/icon_height_brush.svg"
-dest_files=["res://.godot/imported/icon_height_brush.svg-150a2528d2da23f23af97f67440808c4.ctex"]
+source_file="res://addons/terrain/icons/icon_spray.svg"
+dest_files=["res://.godot/imported/icon_spray.svg-392af93066408871899867bb84efd916.ctex"]
 
 [params]
 

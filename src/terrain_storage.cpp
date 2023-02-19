@@ -62,7 +62,7 @@ void Terrain3DStorage::set_region_size(RegionSize p_size) {
 
 	region_size = p_size;
 	RenderingServer::get_singleton()->material_set_param(material, "region_size", region_size);
-	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
+	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / region_size);
 }
 
 Vector2i Terrain3DStorage::_get_offset_from(Vector3 p_global_position) {
@@ -265,17 +265,12 @@ void Terrain3DStorage::set_surface(const Ref<Terrain3DSurface> &p_material, int 
 	} else {
 		surfaces.push_back(p_material);
 	}
-	generated_albedo_textures.clear();
-	generated_normal_textures.clear();
-
 	_update_surfaces();
 	notify_property_list_changed();
 }
 
 void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
 	surfaces = p_surfaces;
-	generated_albedo_textures.clear();
-	generated_normal_textures.clear();
 	_update_surfaces();
 }
 
@@ -284,6 +279,8 @@ int Terrain3DStorage::get_surface_count() const {
 }
 
 void Terrain3DStorage::update_surface_textures() {
+	generated_albedo_textures.clear();
+	generated_normal_textures.clear();
 	_update_surface_data(true, false);
 }
 
@@ -307,6 +304,9 @@ void Terrain3DStorage::_update_surfaces() {
 			m->connect("value_changed", Callable(this, "update_surface_values"));
 		}
 	}
+	generated_albedo_textures.clear();
+	generated_normal_textures.clear();
+
 	_update_surface_data(true, true);
 }
 
@@ -331,15 +331,15 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				continue;
 			}
 
-			Ref<Texture2D> a = m->get_normal_texture();
-			Ref<Texture2D> n = m->get_albedo_texture();
+			Ref<Texture2D> a = m->get_albedo_texture();
+			Ref<Texture2D> n = m->get_normal_texture();
 
 			if (a.is_valid()) {
 				Vector2i s = a->get_image()->get_size();
 				if (albedo_size.length() == 0.0) {
 					albedo_size = s;
 				} else {
-					ERR_FAIL_COND_MSG(s.length() != albedo_size.length(), "Albedo textures do not have same size!");
+					ERR_FAIL_COND_MSG(s != albedo_size, "Albedo textures do not have same size!");
 				}
 			}
 			if (n.is_valid()) {
@@ -347,13 +347,19 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				if (normal_size.length() == 0.0) {
 					normal_size = s;
 				} else {
-					ERR_FAIL_COND_MSG(s.length() != normal_size.length(), "Normal map textures do not have same size!");
+					ERR_FAIL_COND_MSG(s != normal_size, "Normal map textures do not have same size!");
 				}
 			}
 		}
 
+		if (normal_size == Vector2i(0, 0)) {
+			normal_size = albedo_size;
+		} else if (albedo_size == Vector2i(0, 0)) {
+			albedo_size = normal_size;
+		}
+
 		// Generate TextureArrays and replace nulls with a empty image
-		if (generated_albedo_textures.is_dirty() && albedo_size.length() > 0) {
+		if (generated_albedo_textures.is_dirty() && albedo_size != Vector2i(0, 0)) {
 			LOG(INFO, "Generating terrain albedo arrays");
 
 			Array albedo_texture_array;
@@ -370,7 +376,8 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 				if (tex.is_null()) {
 					img = Image::create(albedo_size.x, albedo_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(Color(1.0, 0.0, 1.0, 1.0));
+					img->fill(Color(1.0f, 0.0f, 1.0f, 1.0f));
+					img->generate_mipmaps();
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
 					img = tex->get_image();
@@ -385,7 +392,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 			}
 		}
 
-		if (generated_normal_textures.is_dirty() && normal_size.length() > 0) {
+		if (generated_normal_textures.is_dirty() && normal_size != Vector2i(0, 0)) {
 			LOG(INFO, "Generating terrain normal arrays");
 
 			Array normal_texture_array;
@@ -402,7 +409,8 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 				if (tex.is_null()) {
 					img = Image::create(normal_size.x, normal_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(Color(0.5, 0.5, 1.0, 1.0));
+					img->fill(Color(0.5f, 0.5f, 1.0f, 1.0f));
+					img->generate_mipmaps();
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
 					img = tex->get_image();
@@ -505,6 +513,8 @@ void Terrain3DStorage::_update_material() {
 		code += "\n";
 
 		if (surfaces_enabled) {
+			LOG(INFO, "Surfaces enabled");
+
 			code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 			code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 			code += "uniform vec3 texture_uv_scale_array[256];\n";
@@ -555,12 +565,25 @@ void Terrain3DStorage::_update_material() {
 		code += "	return vec4((n.xzy + vec3(1.0)) * 0.5, a);\n";
 		code += "}\n\n";
 
-		code += "float get_height(vec2 uv) {\n";
-		code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv))+(region_map_size/2), 0).r * 255.0);\n";
+		// takes in uv, returns non-normalized tex coords
+		code += "vec3 get_region(vec2 uv) {\n";
+		code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;\n";
+		code += "	return vec3((uv - region_offsets[int(index)]) * region_size, index);\n";
+		code += "}\n\n";
+
+		// vec4 region consists of non-normalized tex coords (xy), index (z) and boolean (w) to switch between texelFetch() and texture()
+		code += "float get_height(vec4 region) {\n";
+		code += "	vec2 uv = region.xy * region_pixel_size;\n";
 		code += "	float height = 0.0;\n";
-		code += "	if (index > 0.0){\n";
-		code += "		vec2 pos = region_offsets[int(index - 1.0)];\n";
-		code += "		height = texture(height_maps, vec3(uv-pos, index - 1.0)).r;\n";
+		code += "	if (region.w == 1.0) {\n";
+		code += "		if (region.z >= 0.0) {\n";
+		code += "			height = texelFetch(height_maps, ivec3(region.xyz), 0).r;\n";
+		code += "		}\n";
+		code += "	}\n";
+		code += "	if (region.w == 0.0) {\n";
+		code += "		if (region.z >= 0.0) {\n";
+		code += "			height = texture(height_maps, vec3(uv, region.z)).r;\n";
+		code += "		}\n";
 		code += "	}\n";
 
 		if (noise_enabled) {
@@ -572,26 +595,69 @@ void Terrain3DStorage::_update_material() {
 		code += "	return height * terrain_height;\n";
 		code += "}\n\n";
 
-		code += "vec3 get_normal(vec2 uv) {\n";
-		code += "	float left = get_height(uv + vec2(-region_pixel_size, 0));\n";
-		code += "	float right = get_height(uv + vec2(region_pixel_size, 0));\n";
-		code += "	float back = get_height(uv + vec2(0, -region_pixel_size));\n";
-		code += "	float fore = get_height(uv + vec2(0, region_pixel_size));\n";
-		code += "\n";
-		code += "	vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
-		code += "	vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
-		code += "	vec3 normal = normalize(cross(vertical, horizontal));\n";
-		code += "	normal.z *= -1.0;\n";
-		code += "	return normal;\n";
-		code += "}\n\n";
+		if (surfaces_enabled) {
+			code += "float random(in vec2 xy) {\n";
+			code += "	return fract(sin(dot(xy, vec2(12.9898, 78.233))) * 43758.5453);\n";
+			code += "}\n";
+
+			code += "float blend_weights(float weight, float detail) {\n";
+			code += "	weight = sqrt(weight * 0.5);\n";
+			code += "	float result = max(0.1 * weight, 10.0 * (weight + detail) + 1.0f - (detail + 10.0));\n";
+			code += "	return result;\n";
+			code += "}\n";
+
+			code += "vec4 depth_blend(vec4 a_value, float a_bump, vec4 b_value, float b_bump, float t) {\n";
+			code += "	float ma = max(a_bump + (1.0 - t), b_bump + t) - 0.1;\n";
+			code += "	float ba = max(a_bump + (1.0 - t) - ma, 0.0);\n";
+			code += "	float bb = max(b_bump + t - ma, 0.0);\n";
+			code += "	return (a_value * ba + b_value * bb) / (ba + bb);\n";
+			code += "}\n";
+
+			code += "vec2 rotate(vec2 v, float cosa, float sina) {\n";
+			code += "	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);\n";
+			code += "}\n";
+
+			// One big mess here. Optimized version of what it was in my GDScript terrain plugin. -outobugi
+			// Using 'else' caused fps drops. If-else works the same as a ternary, where both outcomes are evaluated. Right?
+			code += "vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {\n";
+			code += "	float material = index.r * 255.0;\n";
+			code += "	float materialOverlay = index.g * 255.0;\n";
+			code += "	float rand = random(uv_center) * PI;\n";
+			code += "	vec2 rot = vec2(sin(rand), cos(rand));\n";
+			code += "	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)].xy;\n";
+			code += "	vec2 ddx = dFdx(uv);\n";
+			code += "	vec2 ddy = dFdy(uv);\n";
+			code += "	vec4 albedo = vec4(1.0);\n";
+			code += "	vec4 normal = vec4(0.5);\n";
+			code += "	if (index.b == 0.0) {\n";
+			code += "		albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);\n";
+			code += "		normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);\n";
+			code += "	}\n";
+			code += "	if (index.b > 0.0) {\n";
+			code += "		albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);\n";
+			code += "		normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);\n";
+			code += "		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV, materialOverlay), ddx, ddy);\n";
+			code += "		vec4 normal2 = textureGrad(texture_array_normal, vec3(matUV, materialOverlay), ddx, ddy);\n";
+			code += "		albedo = depth_blend(albedo, albedo.a, albedo2, albedo2.a, index.b);\n";
+			code += "		normal = depth_blend(normal, albedo.a, normal2, albedo.a, index.b);\n";
+			code += "	}\n";
+			code += "	vec3 n = unpack_normal(normal);\n";
+			code += "	n.xz = rotate(n.xz, rot.x, -rot.y);\n";
+			code += "	normal = pack_normal(n, normal.a);\n";
+			code += "	weight = blend_weights(weight, albedo.a);\n";
+			code += "	out_normal += normal * weight;\n";
+			code += "	total_weight += weight;\n";
+			code += "	return albedo * weight;\n";
+			code += "}\n";
+		}
 
 		// Vertex Shader
 		code += "void vertex() {\n";
 		code += "	vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n";
 		code += "	UV2 = (world_vertex.xz / vec2(region_size)) + vec2(0.5);\n";
 		code += "	UV = world_vertex.xz * 0.5;\n";
-		code += "	VERTEX.y = get_height(UV2);\n";
-		code += "\n";
+
+		code += "	VERTEX.y = get_height(vec4(get_region(UV2), 1.0));\n";
 		code += "	NORMAL = vec3(0, 1, 0);\n";
 		code += "	TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
 		code += "	BINORMAL = cross(NORMAL, TANGENT);\n";
@@ -599,18 +665,65 @@ void Terrain3DStorage::_update_material() {
 
 		// Fragment Shader
 		code += "void fragment() {\n";
-		code += "	NORMAL = mat3(VIEW_MATRIX) * get_normal(UV2);\n";
+
+		// Normal calc
+		// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,
+		// but control map sampling is slightly different with the mirroring and doesn't work here.
+		// The region map is very, very small, so maybe the performance cost isn't too high
+		code += "	float left = get_height( vec4(get_region(UV2 + vec2(-region_pixel_size, 0)), 0.0) );\n";
+		code += "	float right = get_height( vec4(get_region(UV2 + vec2(region_pixel_size, 0)), 0.0) );\n";
+		code += "	float back = get_height( vec4(get_region(UV2 + vec2(0, -region_pixel_size)), 0.0) );\n";
+		code += "	float fore = get_height( vec4(get_region(UV2 + vec2(0, region_pixel_size)), 0.0) );\n";
+
+		code += "	vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
+		code += "	vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
+		code += "	vec3 normal = normalize(cross(vertical, horizontal));\n";
+		code += "	normal.z *= -1.0;\n";
+
+		code += "	NORMAL = mat3(VIEW_MATRIX) * normal;\n";
 		code += "\n";
 
 		if (surfaces_enabled) {
-			code += "	vec3 normal = vec3(0.5, 0.5, 1.0);\n";
-			code += "	vec3 color = vec3(0.0);\n";
-			code += "	float rough = 1.0;\n";
-			code += "\n";
+			// source: https://github.com/cdxntchou/IndexMapTerrain
+			// Pure black magic which I don't understand at all. Seems simple but what and why?
 
-			code += "	ROUGHNESS = rough;\n";
-			code += "	NORMAL_MAP = normal;\n";
+			code += "	vec2 pos_texel = UV2 * region_size + 0.5;\n";
+			code += "	vec2 pos_texel00 = floor(pos_texel);\n";
+			code += "	vec4 mirror = vec4(fract(pos_texel00 * 0.5) * 2.0, 1.0, 1.0);\n";
+			code += "	mirror.zw = vec2(1.0) - mirror.xy;\n";
+
+			code += "	vec3 index00UV = get_region((pos_texel00 + mirror.xy) * region_pixel_size);\n";
+			code += "	vec3 index01UV = get_region((pos_texel00 + mirror.xw) * region_pixel_size);\n";
+			code += "	vec3 index10UV = get_region((pos_texel00 + mirror.zy) * region_pixel_size);\n";
+			code += "	vec3 index11UV = get_region((pos_texel00 + mirror.zw) * region_pixel_size);\n";
+
+			code += "	vec4 index00 = texelFetch(control_maps, ivec3(index00UV), 0);\n";
+			code += "	vec4 index01 = texelFetch(control_maps, ivec3(index01UV), 0);\n";
+			code += "	vec4 index10 = texelFetch(control_maps, ivec3(index10UV), 0);\n";
+			code += "	vec4 index11 = texelFetch(control_maps, ivec3(index11UV), 0);\n";
+
+			code += "	vec2 weights1 = clamp(pos_texel - pos_texel00, 0, 1);\n";
+			code += "	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);\n";
+			code += "	vec2 weights0 = vec2(1.0) - weights1;\n";
+
+			code += "	float total_weight = 0.0;\n";
+			code += "	vec4 in_normal = vec4(0.0);\n";
+			code += "	vec3 color = vec3(0.0);\n";
+
+			code += "	color = get_material(UV, index00, index00UV.xy, weights0.x * weights0.y, total_weight, in_normal).rgb;\n";
+			code += "	color += get_material(UV, index01, index01UV.xy, weights0.x * weights1.y, total_weight, in_normal).rgb;\n";
+			code += "	color += get_material(UV, index10, index10UV.xy, weights1.x * weights0.y, total_weight, in_normal).rgb;\n";
+			code += "	color += get_material(UV, index11, index11UV.xy, weights1.x * weights1.y, total_weight, in_normal).rgb;\n";
+
+			code += "	total_weight = 1.0 / total_weight;\n";
+			code += "	in_normal *= total_weight;\n";
+			code += "	color *= total_weight;\n";
+
+			code += "	ALBEDO = color;\n";
+			code += "	ROUGHNESS = in_normal.a;\n";
+			code += "	NORMAL_MAP = in_normal.rgb;\n";
 			code += "	NORMAL_MAP_DEPTH = 1.0;\n";
+
 		} else {
 			code += "	vec2 p = UV * 4.0;\n";
 			code += "	vec2 ddx = dFdx(p);\n";
