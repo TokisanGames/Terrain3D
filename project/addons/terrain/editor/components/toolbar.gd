@@ -8,6 +8,9 @@ const ICON_HEIGHT_ADD: Texture2D = preload("res://addons/terrain/icons/icon_heig
 const ICON_HEIGHT_SUB: Texture2D = preload("res://addons/terrain/icons/icon_height_sub.svg")
 const ICON_HEIGHT_MUL: Texture2D = preload("res://addons/terrain/icons/icon_height_mul.svg")
 const ICON_HEIGHT_FLAT: Texture2D = preload("res://addons/terrain/icons/icon_height_flat.svg")
+const ICON_PAINT_TEXTURE: Texture2D = preload("res://addons/terrain/icons/icon_brush.svg")
+const ICON_SPRAY_TEXTURE: Texture2D = preload("res://addons/terrain/icons/icon_spray.svg")
+const ICON_PAINT_COLOR: Texture2D = preload("res://addons/terrain/icons/icon_color.svg")
 
 var tool_group: ButtonGroup = ButtonGroup.new()
 
@@ -19,25 +22,20 @@ func _ready() -> void:
 	
 	add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.ADD, "Add Region", ICON_REGION_ADD, tool_group)
 	add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.SUBTRACT, "Delete Region", ICON_REGION_REMOVE, tool_group)
+	add_child(HSeparator.new())
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.ADD, "Increase", ICON_HEIGHT_ADD, tool_group)
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.SUBTRACT, "Decrease", ICON_HEIGHT_SUB, tool_group)
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.MULTIPLY, "Grow", ICON_HEIGHT_MUL, tool_group)
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.REPLACE, "Flatten", ICON_HEIGHT_FLAT, tool_group)
+	add_child(HSeparator.new())
+	add_tool_button(Terrain3DEditor.TEXTURE, Terrain3DEditor.REPLACE, "Paint Texture", ICON_PAINT_TEXTURE, tool_group)
+	add_tool_button(Terrain3DEditor.TEXTURE, Terrain3DEditor.ADD, "Spray Texture", ICON_SPRAY_TEXTURE, tool_group)
+	add_child(HSeparator.new())
+	add_tool_button(Terrain3DEditor.COLOR, Terrain3DEditor.REPLACE, "Paint Color", ICON_PAINT_COLOR, tool_group)
 
 	var buttons: Array[BaseButton] = tool_group.get_buttons()
-
-	for i in buttons.size():
-		if i < buttons.size() - 1:
-			var button: BaseButton = buttons[i]
-			var next_button: BaseButton = buttons[i+1]
-			
-			if button.get_meta("Tool") != next_button.get_meta("Tool"):
-				var s: HSeparator = HSeparator.new()
-				add_child(s)
-				move_child(s, i+1)
-		
 	buttons[0].set_pressed(true)
-	
+
 func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation, 
 		p_tip: String, p_icon: Texture2D, p_group: ButtonGroup) -> void:
 		

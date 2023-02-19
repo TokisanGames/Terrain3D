@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dck1shk3y1yyt"
-path="res://.godot/imported/icon_cursor.svg-1f882cec48cedc41ee0b23a4dfaf4e02.ctex"
+uid="uid://cnytnsydxqdn2"
+path="res://.godot/imported/icon_color.svg-274cc109f42eae68d62f0392acff2673.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/terrain/icons/icon_cursor.svg"
-dest_files=["res://.godot/imported/icon_cursor.svg-1f882cec48cedc41ee0b23a4dfaf4e02.ctex"]
+source_file="res://addons/terrain/icons/icon_color.svg"
+dest_files=["res://.godot/imported/icon_color.svg-274cc109f42eae68d62f0392acff2673.ctex"]
 
 [params]
 
