@@ -194,12 +194,12 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 						case Terrain3DEditor::ADD:
 							dest_index = int(Math::lerp(index_overlay, index, alpha_clip));
 
-							if (dest_index == index_base || alpha == 0.0f) {
-								continue;
+							if (dest_index == index_base) {
+								dest.b = Math::lerp(src.b, 0.0f, alpha_clip);
+							} else {
+								dest.g = float(dest_index) / 255.0f;
+								dest.b = Math::lerp(src.b, CLAMP(src.b + o * alpha, 0.0f, 1.0f), alpha_clip);
 							}
-							dest.g = float(dest_index) / 255.0f;
-							dest.b = Math::lerp(src.b, o, alpha * alpha_clip);
-
 							break;
 						case Terrain3DEditor::REPLACE:
 							dest_index = int(Math::lerp(index_base, index, alpha_clip));
