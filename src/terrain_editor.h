@@ -96,7 +96,7 @@ public:
 	Terrain3D *get_terrain() const;
 };
 
-VARIANT_ENUM_CAST(Terrain3DEditor, Operation);
-VARIANT_ENUM_CAST(Terrain3DEditor, Tool);
+VARIANT_ENUM_CAST(Terrain3DEditor::Operation);
+VARIANT_ENUM_CAST(Terrain3DEditor::Tool);
 
 #endif // TERRAINEDITOR_CLASS_H

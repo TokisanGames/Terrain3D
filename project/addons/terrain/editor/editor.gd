@@ -57,10 +57,10 @@ func _exit_tree() -> void:
 	surface_list.queue_free()
 	editor.free()
 	
-func _handles(object: Variant) -> bool:
+func _handles(object: Object) -> bool:
 	return object is Terrain3D
 
-func _edit(object: Variant) -> void:
+func _edit(object: Object) -> void:
 	if object is Terrain3D:
 		if object == terrain:
 			return
