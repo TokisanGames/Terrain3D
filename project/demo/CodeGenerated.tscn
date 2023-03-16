@@ -1,0 +1,17 @@
+[gd_scene load_steps=5 format=3 uid="uid://c8i5f64lj73jh"]
+
+[ext_resource type="Script" path="res://demo/src/Scene.gd" id="1_8wsci"]
+[ext_resource type="PackedScene" path="res://demo/components/Player.tscn" id="2_3v2uf"]
+[ext_resource type="PackedScene" uid="uid://c0djt8d57nivw" path="res://demo/components/World.tscn" id="3_71ikj"]
+[ext_resource type="PackedScene" uid="uid://c31srg2a83sgp" path="res://demo/components/UI.tscn" id="4_x5ge4"]
+
+[node name="CodeGenerated" type="Node3D"]
+script = ExtResource("1_8wsci")
+generate_terrain = true
+
+[node name="World" parent="." instance=ExtResource("3_71ikj")]
+
+[node name="Player" parent="." instance=ExtResource("2_3v2uf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1000, 1000, 1000)
+
+[node name="UI" parent="." instance=ExtResource("4_x5ge4")]
