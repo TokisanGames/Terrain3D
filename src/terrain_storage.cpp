@@ -672,10 +672,10 @@ void Terrain3DStorage::_update_material() {
 		// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,
 		// but control map sampling is slightly different with the mirroring and doesn't work here.
 		// The region map is very, very small, so maybe the performance cost isn't too high
-		code += "	float left = get_height( UV2 + vec2(-region_pixel_size, 0), true );\n";
-		code += "	float right = get_height( UV2 + vec2(region_pixel_size, 0), true );\n";
-		code += "	float back = get_height( UV2 + vec2(0, -region_pixel_size), true );\n";
-		code += "	float fore = get_height( UV2 + vec2(0, region_pixel_size), true );\n";
+		code += "	float left = get_height(UV2 + vec2(-region_pixel_size, 0), true);\n";
+		code += "	float right = get_height(UV2 + vec2(region_pixel_size, 0), true);\n";
+		code += "	float back = get_height(UV2 + vec2(0, -region_pixel_size), true);\n";
+		code += "	float fore = get_height(UV2 + vec2(0, region_pixel_size), true);\n";
 
 		code += "	vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
 		code += "	vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
@@ -694,15 +694,15 @@ void Terrain3DStorage::_update_material() {
 			code += "	vec4 mirror = vec4(fract(pos_texel00 * 0.5) * 2.0, 1.0, 1.0);\n";
 			code += "	mirror.zw = vec2(1.0) - mirror.xy;\n";
 
-			code += "	vec3 index00UV = get_region((pos_texel00 + mirror.xy) * region_pixel_size);\n";
-			code += "	vec3 index01UV = get_region((pos_texel00 + mirror.xw) * region_pixel_size);\n";
-			code += "	vec3 index10UV = get_region((pos_texel00 + mirror.zy) * region_pixel_size);\n";
-			code += "	vec3 index11UV = get_region((pos_texel00 + mirror.zw) * region_pixel_size);\n";
+			code += "	ivec3 index00UV = get_region((pos_texel00 + mirror.xy) * region_pixel_size);\n";
+			code += "	ivec3 index01UV = get_region((pos_texel00 + mirror.xw) * region_pixel_size);\n";
+			code += "	ivec3 index10UV = get_region((pos_texel00 + mirror.zy) * region_pixel_size);\n";
+			code += "	ivec3 index11UV = get_region((pos_texel00 + mirror.zw) * region_pixel_size);\n";
 
-			code += "	vec4 index00 = texelFetch(control_maps, ivec3(index00UV), 0);\n";
-			code += "	vec4 index01 = texelFetch(control_maps, ivec3(index01UV), 0);\n";
-			code += "	vec4 index10 = texelFetch(control_maps, ivec3(index10UV), 0);\n";
-			code += "	vec4 index11 = texelFetch(control_maps, ivec3(index11UV), 0);\n";
+			code += "	vec4 index00 = texelFetch(control_maps, index00UV, 0);\n";
+			code += "	vec4 index01 = texelFetch(control_maps, index01UV, 0);\n";
+			code += "	vec4 index10 = texelFetch(control_maps, index10UV, 0);\n";
+			code += "	vec4 index11 = texelFetch(control_maps, index11UV, 0);\n";
 
 			code += "	vec2 weights1 = clamp(pos_texel - pos_texel00, 0, 1);\n";
 			code += "	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);\n";
@@ -712,10 +712,10 @@ void Terrain3DStorage::_update_material() {
 			code += "	vec4 in_normal = vec4(0.0);\n";
 			code += "	vec3 color = vec3(0.0);\n";
 
-			code += "	color = get_material(UV, index00, index00UV.xy, weights0.x * weights0.y, total_weight, in_normal).rgb;\n";
-			code += "	color += get_material(UV, index01, index01UV.xy, weights0.x * weights1.y, total_weight, in_normal).rgb;\n";
-			code += "	color += get_material(UV, index10, index10UV.xy, weights1.x * weights0.y, total_weight, in_normal).rgb;\n";
-			code += "	color += get_material(UV, index11, index11UV.xy, weights1.x * weights1.y, total_weight, in_normal).rgb;\n";
+			code += "	color = get_material(UV, index00, vec2(index00UV.xy), weights0.x * weights0.y, total_weight, in_normal).rgb;\n";
+			code += "	color += get_material(UV, index01, vec2(index01UV.xy), weights0.x * weights1.y, total_weight, in_normal).rgb;\n";
+			code += "	color += get_material(UV, index10, vec2(index10UV.xy), weights1.x * weights0.y, total_weight, in_normal).rgb;\n";
+			code += "	color += get_material(UV, index11, vec2(index11UV.xy), weights1.x * weights1.y, total_weight, in_normal).rgb;\n";
 
 			code += "	total_weight = 1.0 / total_weight;\n";
 			code += "	in_normal *= total_weight;\n";
