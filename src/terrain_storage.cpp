@@ -565,27 +565,29 @@ void Terrain3DStorage::_update_material() {
 		code += "	return vec4((n.xzy + vec3(1.0)) * 0.5, a);\n";
 		code += "}\n\n";
 
-		// takes in uv, returns non-normalized tex coords
-		code += "vec3 get_region(vec2 uv) {\n";
+		// takes in world uv, returns non-normalized tex coords in region space
+		code += "ivec3 get_region(vec2 uv) {\n";
 		code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;\n";
-		code += "	return vec3((uv - region_offsets[int(index)]) * region_size, index);\n";
+		code += "	return ivec3(ivec2((uv - region_offsets[int(index)]) * region_size), int(index));\n";
 		code += "}\n\n";
 
-		// vec4 region consists of non-normalized tex coords (xy), index (z) and boolean (w) to switch between texelFetch() and texture()
-		code += "float get_height(vec4 region) {\n";
-		code += "	vec2 uv = region.xy * region_pixel_size;\n";
-		code += "	float height = 0.0;\n";
-		code += "	if (region.w == 1.0) {\n";
-		code += "		if (region.z >= 0.0) {\n";
-		code += "			height = texelFetch(height_maps, ivec3(region.xyz), 0).r;\n";
-		code += "		}\n";
-		code += "	}\n";
-		code += "	if (region.w == 0.0) {\n";
-		code += "		if (region.z >= 0.0) {\n";
-		code += "			height = texture(height_maps, vec3(uv, region.z)).r;\n";
-		code += "		}\n";
-		code += "	}\n";
+		// takes in world uv, returns uv in region space
+		code += "vec3 get_regionf(vec2 uv) {\n";
+		code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;\n";
+		code += "	return vec3(uv - region_offsets[int(index)], index);\n";
+		code += "}\n\n";
 
+		code += "float get_height(vec2 uv, bool linear) {\n";
+		code += "	float height = 0.0;\n";
+		code += "	if (!linear) {\n";
+		code += "		ivec3 region = get_region(uv);\n";
+		code += "		height = texelFetch(height_maps, region, 0).r;\n";
+		code += "	}\n";
+		code += "	if (linear) {\n";
+		code += "		vec3 region = get_regionf(uv);\n";
+		code += "		height = texture(height_maps, region ).r;\n";
+		code += "	}\n";
+		
 		if (noise_enabled) {
 			code += "	float weight = texture(region_map, (uv/float(region_map_size))+0.5).g;\n";
 			code += "	height = mix(height, noise2D(uv * noise_scale) * noise_height, \n";
@@ -657,7 +659,7 @@ void Terrain3DStorage::_update_material() {
 		code += "	UV2 = (world_vertex.xz / vec2(region_size)) + vec2(0.5);\n";
 		code += "	UV = world_vertex.xz * 0.5;\n";
 
-		code += "	VERTEX.y = get_height(vec4(get_region(UV2), 1.0));\n";
+		code += "	VERTEX.y = get_height(UV2, false);\n";
 		code += "	NORMAL = vec3(0, 1, 0);\n";
 		code += "	TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
 		code += "	BINORMAL = cross(NORMAL, TANGENT);\n";
@@ -670,10 +672,10 @@ void Terrain3DStorage::_update_material() {
 		// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,
 		// but control map sampling is slightly different with the mirroring and doesn't work here.
 		// The region map is very, very small, so maybe the performance cost isn't too high
-		code += "	float left = get_height( vec4(get_region(UV2 + vec2(-region_pixel_size, 0)), 0.0) );\n";
-		code += "	float right = get_height( vec4(get_region(UV2 + vec2(region_pixel_size, 0)), 0.0) );\n";
-		code += "	float back = get_height( vec4(get_region(UV2 + vec2(0, -region_pixel_size)), 0.0) );\n";
-		code += "	float fore = get_height( vec4(get_region(UV2 + vec2(0, region_pixel_size)), 0.0) );\n";
+		code += "	float left = get_height( UV2 + vec2(-region_pixel_size, 0), true );\n";
+		code += "	float right = get_height( UV2 + vec2(region_pixel_size, 0), true );\n";
+		code += "	float back = get_height( UV2 + vec2(0, -region_pixel_size), true );\n";
+		code += "	float fore = get_height( UV2 + vec2(0, region_pixel_size), true );\n";
 
 		code += "	vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
 		code += "	vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
