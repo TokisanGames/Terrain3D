@@ -236,7 +236,7 @@ class DoubleSlider extends Range:
 			pass
 		if p_what == NOTIFICATION_DRAW:
 			var bg: StyleBox = get_theme_stylebox("slider", "HSlider")
-			var bg_height: float = bg.get_minimum_size().y + bg.get_center_size().y
+			var bg_height: float = bg.get_minimum_size().y
 			draw_style_box(bg, Rect2(Vector2(0, (size.y - bg_height) / 2), Vector2(size.x, bg_height)))
 			
 			var grabber: Texture2D = get_theme_icon("grabber", "HSlider")

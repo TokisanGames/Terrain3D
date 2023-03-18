@@ -138,7 +138,7 @@ public:
 	float get_noise_blend_far() const { return noise_blend_far; };
 };
 
-VARIANT_ENUM_CAST(Terrain3DStorage, MapType);
-VARIANT_ENUM_CAST(Terrain3DStorage, RegionSize);
+VARIANT_ENUM_CAST(Terrain3DStorage::MapType);
+VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 
 #endif // TERRAINSTORAGE_CLASS_H
