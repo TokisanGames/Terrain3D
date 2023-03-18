@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://demo/src/Player.gd" id="1_nm1yx"]
+[ext_resource type="Script" path="res://demo/src/CameraManager.gd" id="2_loos7"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lwhhq"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_lsqiy"]
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_nm1yx")
+
+[node name="CameraManager" type="Node3D" parent="."]
+script = ExtResource("2_loos7")
+
+[node name="Arm" type="Node3D" parent="CameraManager"]
+unique_name_in_owner = true
+
+[node name="Camera3D" type="Camera3D" parent="CameraManager/Arm"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 0, 0)
+far = 32768.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+visible = false
+shape = SubResource("CapsuleShape3D_lwhhq")
+disabled = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+visible = false
+mesh = SubResource("CapsuleMesh_lsqiy")
