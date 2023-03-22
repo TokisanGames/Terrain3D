@@ -1,0 +1,39 @@
+[gd_scene load_steps=6 format=3 uid="uid://dnywwg3fpcgn5"]
+
+[ext_resource type="Script" path="res://demo/Import.gd" id="1_60b8f"]
+[ext_resource type="Terrain3DStorage" uid="uid://d27x5yfgr2b21" path="res://demo/data/import_storage.res" id="2_1or7r"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_wxwm0"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+
+[sub_resource type="Sky" id="Sky_0ge7q"]
+sky_material = SubResource("ProceduralSkyMaterial_wxwm0")
+
+[sub_resource type="Environment" id="Environment_efg7r"]
+background_mode = 2
+sky = SubResource("Sky_0ge7q")
+tonemap_mode = 2
+glow_enabled = true
+
+[node name="Node3D" type="Node"]
+script = ExtResource("1_60b8f")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_efg7r")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866023, -0.433016, 0.250001, 0, 0.499998, 0.866027, -0.500003, 0.749999, -0.43301, 0, 0, 0)
+shadow_enabled = true
+
+[node name="Terrain3D" type="Terrain3D" parent="."]
+storage = ExtResource("2_1or7r")
+unique_name_in_owner = true
+
+[node name="TextureRect" type="TextureRect" parent="."]
+unique_name_in_owner = true
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.551937, 0.515682, -0.655315, 0, 0.785857, 0.618408, 0.833886, -0.341322, 0.433743, -1061.58, 1139.91, 613.042)
