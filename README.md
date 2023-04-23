@@ -7,7 +7,7 @@
 * As a Godot plugin, it works with the official engine builds
 
 ## Requirements
-* Supports Godot 4 beta 14+
+* Supports Godot 4.0+
 * Should work on Windows, Linux, and OSX if you build it yourself. It is being developed on Windows.
 
 ## Installation
@@ -17,6 +17,21 @@
 3. Load Godot, let it complain about importing errors. Then restart Godot.
 4. In Project Settings / Plugins, ensure that GDExtensionTerrain is enabled.
 5. Create a new scene in your project, and add a Terrain3D node.
+
+## Contributing
+We use the normal [PR workflow](https://docs.godotengine.org/en/stable/contributing/workflow/pr_workflow.html) and other standards used by Godot. Refer to their documentation.
+
+This means we also format our code using `clang-format`:
+
+#### Installing clang-format
+* Install the commit hooks in your repo after cloning so git will automatically run `clang-format` on your code when you commit
+	* Copy `tools/hooks/*` into `.git/hooks` or run `python tools/install-hooks.py`
+* Install the clang-format binary onto your system.
+	* Download version 13 or later
+	* Make sure the LLVM binary directory where `clang-format` is stored gets added to the `PATH` during installation
+	* Linux/OSX: Install the `clang-format` package, or all of `LLVM` or `clang` if your distribution doesn't provide the standalone tool
+	* Windows: Download LLVM for Windows from <https://releases.llvm.org/download.html>
+
 
 ## Credit
 Developed for the Godot community by:
