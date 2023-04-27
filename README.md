@@ -13,10 +13,13 @@
 ## Installation
 
 1. Download the [latest release](https://github.com/outobugi/GDExtensionTerrain/releases) (when available), or [build the plugin from source](https://github.com/outobugi/GDExtensionTerrain/wiki/Building-From-Source).
-2. Copy `addons/terrain` to your project folder in `addons/terrain`.
-3. Load Godot, let it complain about importing errors. Then restart Godot.
+2. Close Godot, then Copy `addons/terrain` to your project folder in `addons/terrain`.
+3. Open Godot, let it complain about importing errors. Then restart Godot.
 4. In Project Settings / Plugins, ensure that GDExtensionTerrain is enabled.
-5. Create a new scene in your project, and add a Terrain3D node.
+5. Create or open a scene. Add a new node and search for Terrain3D.
+6. Make a new Terrain3DStorage resource.
+7. Save the storage resource to a binary .res file (optional but recommended).
+
 
 ## Contributing
 We use the normal [PR workflow](https://docs.godotengine.org/en/stable/contributing/workflow/pr_workflow.html) and other standards used by Godot. Refer to their documentation.
