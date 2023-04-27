@@ -355,11 +355,11 @@ void Terrain3D::_notification(int p_what) {
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
 			String path = storage->get_path();
 			LOG(DEBUG, "Saving the terrain to: " + path);
-			if (path.ends_with(".tres")) {
-				Error err = ResourceSaver::get_singleton()->save(storage, storage->get_path());
+			if (path.get_extension() == ".tres" || path.get_extension() == ".res") {
+				Error err = ResourceSaver::get_singleton()->save(storage, path);
 				ERR_FAIL_COND(err);
 			}
-			LOG(INFO, "Terrain saving is done");
+			LOG(INFO, "Finished saving terrain data");
 			break;
 		}
 
