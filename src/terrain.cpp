@@ -351,6 +351,21 @@ void Terrain3D::_notification(int p_what) {
 			_update_visibility();
 			break;
 		}
+
+		case NOTIFICATION_EDITOR_PRE_SAVE: {
+			String path = storage->get_path();
+			LOG(DEBUG, "Saving the terrain to: " + path);
+			if (path.ends_with(".tres")) {
+				Error err = ResourceSaver::get_singleton()->save(storage, storage->get_path());
+				ERR_FAIL_COND(err);
+			}
+			LOG(INFO, "Terrain saving is done");
+			break;
+		}
+
+		case NOTIFICATION_EDITOR_POST_SAVE: {
+			break;
+		}
 	}
 }
 
