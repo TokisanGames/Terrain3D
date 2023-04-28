@@ -49,6 +49,8 @@ class Terrain3D : public Node3D {
 		Vector<RID> seams;
 	} data;
 
+	Ref<World3D> world;
+
 	// Physics body and settings
 	RID static_body;
 	uint32_t collision_layer = 1;

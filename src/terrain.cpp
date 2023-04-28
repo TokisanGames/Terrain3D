@@ -138,7 +138,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	LOG(DEBUG, "Creating mesh instances from meshes");
 
 	// Get current visual scenario so the instances appear in the scene
-	RID scenario = get_world_3d()->get_scenario();
+	RID scenario = world->get_scenario();
 
 	data.cross = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::CROSS], scenario);
 
@@ -334,7 +334,8 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_ENTER_WORLD: {
-			_update_world(get_world_3d()->get_space(), get_world_3d()->get_scenario());
+			world = get_world_3d();
+			_update_world(world->get_space(), world->get_scenario());
 			break;
 		}
 
