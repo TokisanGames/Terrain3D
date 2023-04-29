@@ -120,6 +120,10 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
+	if (!is_inside_tree()) {
+		return;
+	}
+
 	LOG(INFO, "Building the terrain");
 
 	ERR_FAIL_COND(!storage.is_valid());
@@ -138,7 +142,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	LOG(DEBUG, "Creating mesh instances from meshes");
 
 	// Get current visual scenario so the instances appear in the scene
-	RID scenario = world->get_scenario();
+	RID scenario = get_world_3d()->get_scenario();
 
 	data.cross = RenderingServer::get_singleton()->instance_create2(meshes[GeoClipMap::CROSS], scenario);
 
@@ -310,7 +314,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 				storage->call_deferred("add_region", Vector3(0, 0, 0));
 			}
 
-			call_deferred("build", clipmap_levels, clipmap_size);
+			build(clipmap_levels, clipmap_size);
 		}
 	}
 	emit_signal("storage_changed");
@@ -333,9 +337,20 @@ void Terrain3D::_notification(int p_what) {
 			break;
 		}
 
+		case NOTIFICATION_ENTER_TREE: {
+			if (!valid) {
+				build(clipmap_levels, clipmap_size);
+			}
+			break;
+		}
+
+		case NOTIFICATION_EXIT_TREE: {
+			clear();
+			break;
+		}
+
 		case NOTIFICATION_ENTER_WORLD: {
-			world = get_world_3d();
-			_update_world(world->get_space(), world->get_scenario());
+			_update_world(get_world_3d()->get_space(), get_world_3d()->get_scenario());
 			break;
 		}
 
