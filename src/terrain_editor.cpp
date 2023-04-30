@@ -1,4 +1,4 @@
-//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+//Copyright Â© 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
@@ -175,6 +175,28 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 						case REPLACE:
 							destf = Math::lerp(srcf, height, brush_alpha);
 							break;
+						case Terrain3DEditor::AVERAGE: {
+							Vector2i left_pixel_position = map_pixel_position - Vector2i(1, 0);
+							Vector2i right_pixel_position = map_pixel_position + Vector2i(1, 0);
+							Vector2i down_pixel_position = map_pixel_position - Vector2i(0, 1);
+							Vector2i up_pixel_position = map_pixel_position + Vector2i(0, 1);
+							float l = srcf, r = srcf, u = srcf, d = srcf;
+							if (_is_in_bounds(left_pixel_position, Vector2i(region_size, region_size))) {
+								l = map->get_pixelv(left_pixel_position).r;
+							}
+							if (_is_in_bounds(right_pixel_position, Vector2i(region_size, region_size))) {
+								r = map->get_pixelv(right_pixel_position).r;
+							}
+							if (_is_in_bounds(down_pixel_position, Vector2i(region_size, region_size))) {
+								d = map->get_pixelv(down_pixel_position).r;
+							}
+							if (_is_in_bounds(up_pixel_position, Vector2i(region_size, region_size))) {
+								u = map->get_pixelv(up_pixel_position).r;
+							}
+							float avg = (srcf + l + r + u + d) * 0.2;
+							destf = Math::lerp(srcf, avg, alpha);
+							break;
+						}
 						default:
 							break;
 					}
