@@ -120,9 +120,12 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
-	LOG(INFO, "Building the terrain");
+	if (!is_inside_tree() || !storage.is_valid()) {
+		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
+		return;
+	}
 
-	ERR_FAIL_COND(!storage.is_valid());
+	LOG(INFO, "Building the terrain");
 
 	// Generate terrain meshes, lods, seams
 	meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
@@ -310,7 +313,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 				storage->call_deferred("add_region", Vector3(0, 0, 0));
 			}
 
-			call_deferred("build", clipmap_levels, clipmap_size);
+			build(clipmap_levels, clipmap_size);
 		}
 	}
 	emit_signal("storage_changed");
@@ -329,6 +332,18 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_PREDELETE: {
+			clear();
+			break;
+		}
+
+		case NOTIFICATION_ENTER_TREE: {
+			if (!valid) {
+				build(clipmap_levels, clipmap_size);
+			}
+			break;
+		}
+
+		case NOTIFICATION_EXIT_TREE: {
 			clear();
 			break;
 		}
@@ -353,6 +368,10 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
+			if (!storage.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
+				return;
+			}
 			String path = storage->get_path();
 			LOG(DEBUG, "Saving the terrain to: " + path);
 			if (path.get_extension() == ".tres" || path.get_extension() == ".res") {
