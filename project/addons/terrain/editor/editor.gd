@@ -71,7 +71,8 @@ func _edit(object: Object) -> void:
 		region_gizmo.set_node_3d(object)
 		terrain.add_gizmo(region_gizmo)
 		
-		terrain.connect("storage_changed", _load_storage)
+		if not terrain.is_connected("storage_changed", _load_storage):
+			terrain.connect("storage_changed", _load_storage)
 		_load_storage()
 		
 func _make_visible(visible: bool) -> void:
