@@ -368,6 +368,10 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
+			if (!storage.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
+				return;
+			}
 			String path = storage->get_path();
 			LOG(DEBUG, "Saving the terrain to: " + path);
 			if (path.get_extension() == ".tres" || path.get_extension() == ".res") {
