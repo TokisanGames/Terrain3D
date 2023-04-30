@@ -120,13 +120,12 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
-	if (!is_inside_tree()) {
+	if (!is_inside_tree() || !storage.is_valid()) {
+		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
 		return;
 	}
 
 	LOG(INFO, "Building the terrain");
-
-	ERR_FAIL_COND(!storage.is_valid());
 
 	// Generate terrain meshes, lods, seams
 	meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
