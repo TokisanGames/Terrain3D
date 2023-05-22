@@ -10,15 +10,15 @@
 * Supports Godot 4.0+
 * Should work on Windows, Linux, and OSX if you build it yourself. It is being developed on Windows.
 
-## Installation
+## Installation & Setup
 
 1. Download the [latest release](https://github.com/outobugi/GDExtensionTerrain/releases) (when available), or [build the plugin from source](https://github.com/outobugi/GDExtensionTerrain/wiki/Building-From-Source).
 2. Close Godot, then Copy `addons/terrain` to your project folder in `addons/terrain`.
 3. Open Godot, let it complain about importing errors. Then restart Godot.
 4. In Project Settings / Plugins, ensure that GDExtensionTerrain is enabled.
-5. Create or open a scene. Add a new node and search for Terrain3D.
-6. Make a new Terrain3DStorage resource.
-7. Save the storage resource to a binary .res file (optional but recommended).
+5. Create or open a scene. Add a new Terrain3D node.
+6. Select Terrain3D and in the inspector, create a new Terrain3DStorage resource.
+7. Click the down arrow to the right of the storage resource and save it as a binary .res file. This is optional, but recommended. Otherwise it will save terrain data as text in the current scene file.
 
 
 ## Contributing
@@ -44,7 +44,7 @@ Developed for the Godot community by:
 |**Roope Palmroos, Outobugi Games** | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/twitter.png?raw=true" width="24"/>](https://twitter.com/outobugi) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true" width="24"/>](https://github.com/outobugi) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/www.png?raw=true" width="24"/>](https://outobugi.com/) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/youtube.png?raw=true" width="24"/>](https://www.youtube.com/@vibelius)|
 |**Cory Petkovsek, Tokisan Games** | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/twitter.png?raw=true" width="24"/>](https://twitter.com/TokisanGames) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true" width="24"/>](https://github.com/TokisanGames) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/www.png?raw=true" width="24"/>](https://tokisan.com/) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/discord.png?raw=true" width="24"/>](https://tokisan.com/discord) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/youtube.png?raw=true" width="24"/>](https://www.youtube.com/@TokisanGames)|
 
-Geometry clipmap mesh code created by [Mike J Savage](https://mikejsavage.co.uk/blog/geometry-clipmaps.html). Blog and repository code released under MIT per direct email with Mike.
+Geometry clipmap mesh code created by [Mike J Savage](https://mikejsavage.co.uk/blog/geometry-clipmaps.html). Blog and repository code released under the MIT license per email communication with Mike.
 
 
 ## License
