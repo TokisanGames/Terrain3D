@@ -1,4 +1,10 @@
-# Objects.
+# Terrain3D
+project/.godot
+project/test/
+project/addon/terrain/bin/
+
+
+# Objects
 .scons-cache/
 *.os
 
