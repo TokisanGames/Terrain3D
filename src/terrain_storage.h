@@ -164,6 +164,8 @@ public:
 	TypedArray<Image> get_color_maps() const { return color_maps; }
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
+	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
+
 	RID get_material() const { return material; }
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return shader_override; }

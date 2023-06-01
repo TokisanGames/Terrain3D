@@ -102,13 +102,9 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position) {
 	}
 
 	LOG(INFO, "Adding region at: ", uv_offset);
-	Ref<Image> hmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_HEIGHT]);
-	Ref<Image> conmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_CONTROL]);
-	Ref<Image> clrmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_COLOR]);
-
-	hmap_img->fill(COLOR[TYPE_HEIGHT]);
-	conmap_img->fill(COLOR[TYPE_CONTROL]);
-	clrmap_img->fill(COLOR[TYPE_COLOR]);
+	Ref<Image> hmap_img = get_filled_image(region_vsize, COLOR[TYPE_HEIGHT], false, FORMAT[TYPE_HEIGHT]);
+	Ref<Image> conmap_img = get_filled_image(region_vsize, COLOR[TYPE_CONTROL], false, FORMAT[TYPE_CONTROL]);
+	Ref<Image> clrmap_img = get_filled_image(region_vsize, COLOR[TYPE_COLOR], false, FORMAT[TYPE_COLOR]);
 
 	height_maps.push_back(hmap_img);
 	LOG(DEBUG, "Height maps size after pushback: ", height_maps.size());
@@ -348,6 +344,15 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 	_update_regions();
 }
 
+Ref<Image> Terrain3DStorage::get_filled_image(Vector2i p_size, Color p_color, bool p_create_mipmaps, Image::Format p_format) {
+	Ref<Image> img = Image::create(p_size.x, p_size.y, p_create_mipmaps, p_format);
+	img->fill(p_color);
+	if (p_create_mipmaps) {
+		img->generate_mipmaps();
+	}
+	return img;
+}
+
 void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
 	LOG(INFO, "Setting override shader");
 	shader_override = p_shader;
@@ -529,9 +534,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				Ref<Image> img;
 
 				if (tex.is_null()) {
-					img = Image::create(albedo_size.x, albedo_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(COLOR_RB);
-					img->generate_mipmaps();
+					img = get_filled_image(albedo_size, COLOR_RB, true, Image::FORMAT_RGBA8);
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
 					img = tex->get_image();
@@ -562,9 +565,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				Ref<Image> img;
 
 				if (tex.is_null()) {
-					img = Image::create(normal_size.x, normal_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(COLOR_NORMAL);
-					img->generate_mipmaps();
+					img = get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
 					img = tex->get_image();
@@ -627,8 +628,7 @@ void Terrain3DStorage::_update_regions() {
 
 	if (generated_region_map.is_dirty()) {
 		LOG(INFO, "Regenerating ", REGION_MAP_VSIZE, " region map");
-		Ref<Image> region_map_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RG8);
-		region_map_img->fill(COLOR_BLACK);
+		Ref<Image> region_map_img = get_filled_image(REGION_MAP_VSIZE, COLOR_BLACK, false, Image::FORMAT_RG8);
 
 		for (int i = 0; i < region_offsets.size(); i++) {
 			Vector2i ofs = region_offsets[i];
