@@ -133,10 +133,6 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position) {
 }
 
 void Terrain3DStorage::remove_region(Vector3 p_global_position) {
-	if (get_region_count() == 1) {
-		return;
-	}
-
 	int index = get_region_index(p_global_position);
 	ERR_FAIL_COND_MSG(index == -1, "Map does not exist.");
 
