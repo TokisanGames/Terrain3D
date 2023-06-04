@@ -1,7 +1,9 @@
 //Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+#include <godot_cpp/classes/editor_undo_redo_manager.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_editor.h"
+#include "terrain_logger.h"
 
 void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	size = p_data["size"];
@@ -218,6 +220,74 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 	terrain->get_storage()->force_update_maps(p_map_type);
 }
 
+void Terrain3DEditor::setup_undo() {
+	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
+	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
+	if (tool < 0 || tool > REGION) {
+		return;
+	}
+	LOG(INFO, "Setting up undo snapshot...");
+	_undo_maps.clear();
+	_undo_maps.resize(Terrain3DStorage::TYPE_MAX + 1);
+	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
+		_undo_maps[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
+		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(_undo_maps[i]).size(), "): ", _undo_maps[i]);
+	}
+	_undo_maps[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate(); // true?
+	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(_undo_maps[Terrain3DStorage::TYPE_MAX]).size(), "): ", _undo_maps[Terrain3DStorage::TYPE_MAX]);
+}
+
+void Terrain3DEditor::store_undo() {
+	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
+	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
+	if (tool < 0 || tool > REGION) {
+		return;
+	}
+	LOG(INFO, "Storing undo snapshot...");
+	EditorUndoRedoManager *undo_redo = terrain->plugin->get_undo_redo();
+
+	String action_name = String("Terrain3D ") + OPNAME[operation] + String(" ") + TOOLNAME[tool];
+	LOG(DEBUG, "Creating undo action: '", action_name, "'");
+	undo_redo->create_action(action_name);
+
+	LOG(DEBUG, "Storing undo snapshot: ", _undo_maps);
+	undo_redo->add_undo_method(this, "apply_undo", _undo_maps.duplicate()); // Must be duplicated
+
+	LOG(DEBUG, "Setting up redo snapshot...");
+	Array redo_maps;
+	redo_maps.resize(Terrain3DStorage::TYPE_MAX + 1);
+	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
+		redo_maps[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
+		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(redo_maps[i]).size(), "): ", redo_maps[i]);
+	}
+	redo_maps[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate();
+	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(redo_maps[Terrain3DStorage::TYPE_MAX]).size(), "): ", redo_maps[Terrain3DStorage::TYPE_MAX]);
+
+	LOG(DEBUG, "Storing redo snapshot: ", redo_maps);
+	undo_redo->add_do_method(this, "apply_undo", redo_maps);
+
+	LOG(DEBUG, "Committing undo action");
+	undo_redo->commit_action(false);
+}
+
+void Terrain3DEditor::apply_undo(const Array &p_maps) {
+	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
+	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
+	LOG(INFO, "Applying Undo/Redo maps. Array size: ", p_maps.size());
+	LOG(DEBUG, "Apply undo received: ", p_maps);
+
+	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
+		Terrain3DStorage::MapType map_type = static_cast<Terrain3DStorage::MapType>(i);
+		terrain->get_storage()->set_maps(map_type, p_maps[i]);
+	}
+	terrain->get_storage()->set_region_offsets(p_maps[Terrain3DStorage::TYPE_MAX]);
+
+	if (terrain->plugin->has_method("update_grid")) {
+		LOG(DEBUG, "Calling GDScript update_grid()");
+		terrain->plugin->call("update_grid");
+	}
+}
+
 bool Terrain3DEditor::_is_in_bounds(Vector2i p_position, Vector2i p_max_position) {
 	bool more_than_min = p_position.x >= 0 && p_position.y >= 0;
 	bool less_than_max = p_position.x < p_max_position.x && p_position.y < p_max_position.y;
@@ -244,11 +314,12 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(SUBTRACT);
 	BIND_ENUM_CONSTANT(MULTIPLY);
 	BIND_ENUM_CONSTANT(REPLACE);
+	BIND_ENUM_CONSTANT(AVERAGE);
 
-	BIND_ENUM_CONSTANT(REGION);
 	BIND_ENUM_CONSTANT(HEIGHT);
 	BIND_ENUM_CONSTANT(TEXTURE);
 	BIND_ENUM_CONSTANT(COLOR);
+	BIND_ENUM_CONSTANT(REGION);
 
 	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction", "continuous_operation"), &Terrain3DEditor::operate);
 	ClassDB::bind_method(D_METHOD("set_brush_data", "data"), &Terrain3DEditor::set_brush_data);
@@ -256,6 +327,10 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tool"), &Terrain3DEditor::get_tool);
 	ClassDB::bind_method(D_METHOD("set_operation", "operation"), &Terrain3DEditor::set_operation);
 	ClassDB::bind_method(D_METHOD("get_operation"), &Terrain3DEditor::get_operation);
+
+	ClassDB::bind_method(D_METHOD("setup_undo"), &Terrain3DEditor::setup_undo);
+	ClassDB::bind_method(D_METHOD("store_undo"), &Terrain3DEditor::store_undo);
+	ClassDB::bind_method(D_METHOD("apply_undo", "maps"), &Terrain3DEditor::apply_undo);
 
 	ClassDB::bind_method(D_METHOD("set_terrain", "terrain"), &Terrain3DEditor::set_terrain);
 }

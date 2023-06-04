@@ -12,6 +12,7 @@
 
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
+#include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/editor_script.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/node3d.hpp>
@@ -37,6 +38,7 @@ class Terrain3D : public Node3D {
 	int clipmap_size = 48;
 	int clipmap_levels = 7;
 
+	EditorPlugin *plugin = nullptr;
 	Ref<Terrain3DStorage> storage;
 
 	// Meshes and Mesh instances
@@ -73,6 +75,9 @@ private:
 	void find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
 public:
+	void set_plugin(EditorPlugin *p_plugin);
+	EditorPlugin *get_plugin() const;
+
 	void set_debug_level(int p_level);
 	int get_debug_level() const { return debug_level; }
 

@@ -11,6 +11,7 @@ var terrain: Terrain3D
 
 var mouse_is_pressed: bool = false
 var setting_has_changed: bool = false
+var pending_undo: bool = false
 var editor: Terrain3DEditor
 var toolbar: Toolbar
 var toolbar_settings: ToolSettings
@@ -70,6 +71,7 @@ func _edit(object: Object) -> void:
 		editor.set_terrain(object)
 		region_gizmo.set_node_3d(object)
 		terrain.add_gizmo(region_gizmo)
+		terrain.set_plugin(self)
 		
 		if not terrain.is_connected("storage_changed", _load_storage):
 			terrain.connect("storage_changed", _load_storage)
@@ -128,15 +130,33 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				editor.set_brush_data(brush_data)
 				setting_has_changed = false
 				
-			var was_pressed: bool = mouse_is_pressed
-			
-			if p_event is InputEventMouseButton and p_event.get_button_index() == 1:
+			if p_event is InputEventMouseButton and p_event.get_button_index() == MOUSE_BUTTON_LEFT:
 				if mouse_is_pressed != p_event.is_pressed():
 					mouse_is_pressed = p_event.is_pressed()
 					start_global_position = end_global_position
-				
+
+				# Save undo if making a change
+				if p_event.is_pressed():
+					# Skip regions that already exist or don't
+					if editor.get_tool() == Terrain3DEditor.REGION:
+						var has_region: bool = terrain.get_storage().has_region(global_position)
+						var op: int = editor.get_operation()
+						if	( has_region and op == Terrain3DEditor.ADD) or \
+							( not has_region and op == Terrain3DEditor.SUBTRACT ):
+							return EditorPlugin.AFTER_GUI_INPUT_STOP
+
+					# Mouse pressed down, copy undo data 
+					editor.setup_undo()
+					pending_undo = true
+				else:
+					# Mouse released, store pending undo data in History
+					if pending_undo:
+						editor.store_undo()
+					pending_undo = false
+
 			if mouse_is_pressed:
-				editor.operate(global_position, p_viewport_camera.rotation.y, was_pressed)
+				var continuous: bool = editor.get_tool() != Terrain3DEditor.REGION
+				editor.operate(global_position, p_viewport_camera.rotation.y, continuous)
 				return EditorPlugin.AFTER_GUI_INPUT_STOP
 				
 	return EditorPlugin.AFTER_GUI_INPUT_PASS
