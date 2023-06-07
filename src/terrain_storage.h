@@ -54,6 +54,7 @@ class Terrain3DStorage : public Resource {
 
 	RID material;
 	RID shader;
+	bool shader_override_enabled = false;
 	Ref<Shader> shader_override;
 
 	bool noise_enabled = false;
@@ -83,6 +84,7 @@ private:
 	void _update_surface_data(bool p_update_textures, bool p_update_values);
 	void _update_regions();
 	void _update_material();
+	String _generate_shader_code();
 
 	void _clear();
 	Vector2i _get_offset_from(Vector3 p_global_position);
@@ -126,6 +128,8 @@ public:
 	RID get_material() const { return material; }
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return shader_override; }
+	void set_override_shader_enabled(bool p_enabled);
+	bool is_shader_override_enabled() const { return shader_override_enabled; }
 
 	RID get_region_blend_map() { return generated_region_blend_map.get_rid(); }
 	void set_noise_enabled(bool p_enabled);
