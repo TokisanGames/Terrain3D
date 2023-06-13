@@ -128,7 +128,7 @@ public:
 	RID get_material() const { return material; }
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return shader_override; }
-	void set_override_shader_enabled(bool p_enabled);
+	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return shader_override_enabled; }
 
 	RID get_region_blend_map() { return generated_region_blend_map.get_rid(); }
