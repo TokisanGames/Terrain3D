@@ -4,8 +4,6 @@
 #include "terrain.h"
 #include "terrain_logger.h"
 
-using namespace godot;
-
 // Initialize static member variable
 int Terrain3D::debug_level{ DEBUG };
 

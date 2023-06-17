@@ -4,8 +4,6 @@
 #include "terrain_logger.h"
 #include "terrain_surface.h"
 
-using namespace godot;
-
 Terrain3DSurface::Terrain3DSurface() {
 }
 

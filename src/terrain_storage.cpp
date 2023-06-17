@@ -4,8 +4,6 @@
 #include "terrain_logger.h"
 #include "terrain_storage.h"
 
-using namespace godot;
-
 void Terrain3DStorage::Generated::create(const TypedArray<Image> &p_layers) {
 	if (!p_layers.is_empty()) {
 		rid = RenderingServer::get_singleton()->texture_2d_layered_create(p_layers, RenderingServer::TEXTURE_LAYERED_2D_ARRAY);
@@ -215,10 +213,6 @@ TypedArray<Image> Terrain3DStorage::get_height_maps() const {
 void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 	control_maps = p_maps;
 	force_update_maps(TYPE_CONTROL);
-}
-
-int Terrain3DStorage::get_region_count() const {
-	return region_offsets.size();
 }
 
 void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {

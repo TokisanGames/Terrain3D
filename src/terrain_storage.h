@@ -115,7 +115,7 @@ public:
 	int get_region_index(Vector3 p_global_position);
 	void set_region_offsets(const TypedArray<Vector2i> &p_array);
 	TypedArray<Vector2i> get_region_offsets() const { return region_offsets; }
-	int get_region_count() const;
+	int get_region_count() const { return region_offsets.size(); }
 
 	Ref<Image> get_map(int p_region_index, MapType p_map) const;
 	void force_update_maps(MapType p_map);

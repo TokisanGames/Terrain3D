@@ -1,11 +1,8 @@
 //Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
-#include "geoclipmap.h"
-
 #include <godot_cpp/core/class_db.hpp>
 
+#include "geoclipmap.h"
 #include "terrain_logger.h"
-
-using namespace godot;
 
 /*
  * Generate clipmap meshes originally by Mike J Savage
