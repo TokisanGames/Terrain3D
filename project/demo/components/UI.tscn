@@ -13,6 +13,9 @@ unique_name_in_owner = true
 layout_mode = 1
 offset_right = 40.0
 offset_bottom = 23.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.662745)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
 
 [node name="TextureRect" type="TextureRect" parent="."]
 unique_name_in_owner = true

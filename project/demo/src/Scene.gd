@@ -1,10 +1,13 @@
-extends Node3D
+extends Node
 
 
 @export var generate_terrain: bool = false 
 
 
 func _ready():
+	if has_node("RunThisSceneLabel3D"):
+		$RunThisSceneLabel3D.queue_free()
+		
 	if generate_terrain:
 		var terrain := Terrain3D.new()
 		terrain.storage = Terrain3DStorage.new()
@@ -38,7 +41,9 @@ func _process(delta) -> void:
 	$UI/Label.text = "FPS: %s\n" % str(Engine.get_frames_per_second())
 	$UI/Label.text += "Move Speed: %.1f\n" % $Player.MOVE_SPEED
 	$UI/Label.text += "Position: %.1v\n" % $Player.global_position
-	
+	$UI/Label.text += "Move: WASD/Mouse\nMove speed: Wheel\nFull screen: F11\n"
+	$UI/Label.text += "Toggle mouse: Escape\nQuit: F8\n"
+
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:

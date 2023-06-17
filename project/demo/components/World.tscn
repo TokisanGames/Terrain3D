@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://c0djt8d57nivw"]
+[gd_scene load_steps=4 format=3 uid="uid://c0djt8d57nivw"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_vibap"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -13,9 +13,6 @@ sky = SubResource("Sky_srg7c")
 tonemap_mode = 2
 glow_enabled = true
 
-[sub_resource type="BoxMesh" id="BoxMesh_2ragy"]
-size = Vector3(40, 1000, 40)
-
 [node name="World" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -25,8 +22,3 @@ environment = SubResource("Environment_tv25c")
 transform = Transform3D(-0.866024, -0.433016, 0.250001, 0, 0.499998, 0.866026, -0.500003, 0.749999, -0.43301, 0, 0, 0)
 shadow_enabled = true
 directional_shadow_max_distance = 256.0
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 500, 0)
-mesh = SubResource("BoxMesh_2ragy")
-skeleton = NodePath("")

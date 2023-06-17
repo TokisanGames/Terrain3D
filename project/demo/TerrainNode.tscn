@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://c31srg2a83sgp" path="res://demo/components/UI.tscn" id="4_gk532"]
 [ext_resource type="Terrain3DStorage" uid="uid://b34urke00hmcx" path="res://demo/data/terrain_storage.res" id="5_p8yf1"]
 
-[node name="Terrain" type="Node3D"]
+[node name="Terrain" type="Node"]
 script = ExtResource("1_k7qca")
 
 [node name="World" parent="." instance=ExtResource("2_2yeq8")]

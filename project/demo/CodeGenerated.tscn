@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://c0djt8d57nivw" path="res://demo/components/World.tscn" id="3_71ikj"]
 [ext_resource type="PackedScene" uid="uid://c31srg2a83sgp" path="res://demo/components/UI.tscn" id="4_x5ge4"]
 
-[node name="CodeGenerated" type="Node3D"]
+[node name="CodeGenerated" type="Node"]
 script = ExtResource("1_8wsci")
 generate_terrain = true
 
@@ -15,3 +15,8 @@ generate_terrain = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1000, 1000, 1000)
 
 [node name="UI" parent="." instance=ExtResource("4_x5ge4")]
+
+[node name="RunThisSceneLabel3D" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, 30)
+pixel_size = 1.0
+text = "Run This Scene"
