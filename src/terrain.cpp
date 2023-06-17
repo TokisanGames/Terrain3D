@@ -281,11 +281,13 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
 }
 
 void Terrain3D::set_debug_level(int p_level) {
+	LOG(INFO, "Setting debug level: ", p_level);
 	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
 }
 
 void Terrain3D::set_clipmap_levels(int p_count) {
 	if (clipmap_levels != p_count) {
+		LOG(INFO, "Setting clipmap levels: ", p_count);
 		clear();
 		build(p_count, clipmap_size);
 		clipmap_levels = p_count;
@@ -294,6 +296,7 @@ void Terrain3D::set_clipmap_levels(int p_count) {
 
 void Terrain3D::set_clipmap_size(int p_size) {
 	if (clipmap_size != p_size) {
+		LOG(INFO, "Setting clipmap size: ", p_size);
 		clear();
 		build(clipmap_levels, p_size);
 		clipmap_size = p_size;
@@ -302,15 +305,15 @@ void Terrain3D::set_clipmap_size(int p_size) {
 
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	if (storage != p_storage) {
+		LOG(INFO, "Setting storage");
 		storage = p_storage;
-
 		clear();
 
 		if (storage.is_valid()) {
 			if (storage->get_region_count() == 0) {
+				LOG(DEBUG, "Region count 0, adding new region");
 				storage->call_deferred("add_region", Vector3(0, 0, 0));
 			}
-
 			build(clipmap_levels, clipmap_size);
 		}
 		emit_signal("storage_changed");
@@ -320,6 +323,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 void Terrain3D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
+			LOG(INFO, "NOTIFICATION_READY");
 			set_process(true);
 			break;
 		}
@@ -330,11 +334,13 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_PREDELETE: {
+			LOG(INFO, "NOTIFICATION_PREDELETE");
 			clear();
 			break;
 		}
 
 		case NOTIFICATION_ENTER_TREE: {
+			LOG(INFO, "NOTIFICATION_ENTER_TREE");
 			if (!valid) {
 				build(clipmap_levels, clipmap_size);
 			}
@@ -342,30 +348,36 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_EXIT_TREE: {
+			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			clear();
 			break;
 		}
 
 		case NOTIFICATION_ENTER_WORLD: {
+			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
 			_update_world(get_world_3d()->get_space(), get_world_3d()->get_scenario());
 			break;
 		}
 
 		case NOTIFICATION_TRANSFORM_CHANGED: {
+			//LOG(INFO, "NOTIFICATION_TRANSFORM_CHANGED");
 			break;
 		}
 
 		case NOTIFICATION_EXIT_WORLD: {
+			LOG(INFO, "NOTIFICATION_EXIT_WORLD");
 			_update_world(RID(), RID());
 			break;
 		}
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
+			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
 			_update_visibility();
 			break;
 		}
 
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
+			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
 			if (!storage.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
 				return;
@@ -381,6 +393,7 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_EDITOR_POST_SAVE: {
+			//LOG(INFO, "NOTIFICATION_EDITOR_POST_SAVE");
 			break;
 		}
 	}

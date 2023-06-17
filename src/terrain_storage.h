@@ -126,6 +126,8 @@ public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
+	void print_audit_data();
+
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return region_size; }
 
