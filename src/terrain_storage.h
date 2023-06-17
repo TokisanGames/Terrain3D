@@ -133,7 +133,7 @@ public:
 	Ref<Terrain3DSurface> get_surface(int p_index) const { return surfaces[p_index]; }
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	TypedArray<Terrain3DSurface> get_surfaces() const { return surfaces; }
-	int get_surface_count() const;
+	int get_surface_count() const { return surfaces.size(); }
 
 	// Workaround until callable_mp is implemented
 	void update_surface_textures();

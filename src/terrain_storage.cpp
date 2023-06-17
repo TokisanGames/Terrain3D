@@ -315,10 +315,6 @@ void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfac
 	_update_surfaces();
 }
 
-int Terrain3DStorage::get_surface_count() const {
-	return surfaces.size();
-}
-
 void Terrain3DStorage::update_surface_textures() {
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();

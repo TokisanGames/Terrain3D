@@ -288,16 +288,16 @@ void Terrain3D::set_clipmap_levels(int p_count) {
 	if (clipmap_levels != p_count) {
 		clear();
 		build(p_count, clipmap_size);
+		clipmap_levels = p_count;
 	}
-	clipmap_levels = p_count;
 }
 
 void Terrain3D::set_clipmap_size(int p_size) {
 	if (clipmap_size != p_size) {
 		clear();
 		build(clipmap_levels, p_size);
+		clipmap_size = p_size;
 	}
-	clipmap_size = p_size;
 }
 
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
@@ -313,8 +313,8 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 
 			build(clipmap_levels, clipmap_size);
 		}
+		emit_signal("storage_changed");
 	}
-	emit_signal("storage_changed");
 }
 
 void Terrain3D::_notification(int p_what) {
