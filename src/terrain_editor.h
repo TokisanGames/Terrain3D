@@ -1,4 +1,4 @@
-//© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef TERRAINEDITOR_CLASS_H
 #define TERRAINEDITOR_CLASS_H
 

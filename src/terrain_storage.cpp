@@ -1,4 +1,4 @@
-//© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_logger.h"
@@ -541,7 +541,7 @@ void Terrain3DStorage::_update_material() {
 		RenderingServer::get_singleton()->shader_set_code(shader, _generate_shader_code());
 		RenderingServer::get_singleton()->material_set_shader(material, shader);
 	}
-	
+
 	RenderingServer::get_singleton()->material_set_param(material, "terrain_height", TERRAIN_MAX_HEIGHT);
 	RenderingServer::get_singleton()->material_set_param(material, "region_size", region_size);
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
@@ -569,7 +569,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		if (surfaces_enabled) {
 			LOG(INFO, "Surfaces enabled");
 		}
-		
+
 		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform vec3 texture_uv_scale_array[256];\n";
@@ -872,6 +872,6 @@ void Terrain3DStorage::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-	
+
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface")), "set_surfaces", "get_surfaces");
 }
