@@ -1,10 +1,8 @@
-//© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_logger.h"
 #include "terrain_surface.h"
-
-using namespace godot;
 
 Terrain3DSurface::Terrain3DSurface() {
 }

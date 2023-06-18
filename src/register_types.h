@@ -1,3 +1,4 @@
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef TERRAIN_REGISTER_TYPES_H
 #define TERRAIN_REGISTER_TYPES_H
 

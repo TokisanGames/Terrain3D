@@ -1,9 +1,7 @@
-//© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
-#include "terrain_editor.h"
-
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/core/class_db.hpp>
 
-using namespace godot;
+#include "terrain_editor.h"
 
 void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	size = p_data["size"];

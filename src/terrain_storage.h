@@ -1,4 +1,4 @@
-//© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef TERRAINSTORAGE_CLASS_H
 #define TERRAINSTORAGE_CLASS_H
 
@@ -12,7 +12,10 @@
 
 using namespace godot;
 
-// TERRAIN STORAGE
+#define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
+#define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
+#define COLOR_RB Color(1.0f, 0.0f, 1.0f, 1.0f)
+#define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 
 class Terrain3DStorage : public Resource {
 	GDCLASS(Terrain3DStorage, Resource);
@@ -21,7 +24,25 @@ class Terrain3DStorage : public Resource {
 		TYPE_HEIGHT,
 		TYPE_CONTROL,
 		TYPE_COLOR,
-		TYPE_ALL
+		TYPE_MAX,
+	};
+
+	static inline const Image::Format FORMAT[] = {
+		Image::FORMAT_RH, // TYPE_HEIGHT
+		Image::FORMAT_RGBA8, // TYPE_CONTROL
+		Image::FORMAT_RGB8, // TYPE_COLOR
+	};
+
+	static inline const char *TYPESTR[] = {
+		"TYPE_HEIGHT",
+		"TYPE_CONTROL",
+		"TYPE_COLOR",
+	};
+
+	static inline const Color COLOR[] = {
+		COLOR_BLACK, // TYPE_HEIGHT
+		COLOR_BLACK, // TYPE_CONTROL
+		COLOR_WHITE, // TYPE_COLOR
 	};
 
 	enum RegionSize {
@@ -34,6 +55,7 @@ class Terrain3DStorage : public Resource {
 	};
 
 	static const int REGION_MAP_SIZE = 16;
+	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 	static const int TERRAIN_MAX_HEIGHT = 2048;
 
 	struct Generated {
@@ -51,6 +73,7 @@ class Terrain3DStorage : public Resource {
 	};
 
 	RegionSize region_size = SIZE_1024;
+	Vector2i region_vsize = Vector2i(region_size, region_size);
 
 	RID material;
 	RID shader;
@@ -66,16 +89,23 @@ class Terrain3DStorage : public Resource {
 	TypedArray<Terrain3DSurface> surfaces;
 	bool surfaces_enabled = false;
 
+	/**
+	 * These Image arrays are region_sized slices of all heightmap data. Their world
+	 * location is tracked by region_offsets. The region data are combined into one large
+	 * texture in generated_*_maps.
+	 */
 	TypedArray<Vector2i> region_offsets;
 	TypedArray<Image> height_maps;
 	TypedArray<Image> control_maps;
+	TypedArray<Image> color_maps;
 
-	Generated generated_region_map;
-	Generated generated_region_blend_map;
-	Generated generated_height_maps;
-	Generated generated_control_maps;
-	Generated generated_albedo_textures;
-	Generated generated_normal_textures;
+	Generated generated_region_map; // REGION_MAP_SIZE^2 sized texture w/ active regions
+	Generated generated_region_blend_map; // 512x512 blurred version of above for blending
+	Generated generated_height_maps; // All heightmap regions combined into one texture
+	Generated generated_control_maps; // All controlmap regions cobined into one texture
+	Generated generated_color_maps; // All colormap regions cobined into one texture
+	Generated generated_albedo_textures; // Albedo + Height array w/ all ground textures
+	Generated generated_normal_textures; // Normal + Rough array w/ all ground textures
 
 	bool _initialized = false;
 
@@ -96,6 +126,8 @@ public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
+	void print_audit_data();
+
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return region_size; }
 
@@ -103,7 +135,7 @@ public:
 	Ref<Terrain3DSurface> get_surface(int p_index) const { return surfaces[p_index]; }
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	TypedArray<Terrain3DSurface> get_surfaces() const { return surfaces; }
-	int get_surface_count() const;
+	int get_surface_count() const { return surfaces.size(); }
 
 	// Workaround until callable_mp is implemented
 	void update_surface_textures();
@@ -115,15 +147,17 @@ public:
 	int get_region_index(Vector3 p_global_position);
 	void set_region_offsets(const TypedArray<Vector2i> &p_array);
 	TypedArray<Vector2i> get_region_offsets() const { return region_offsets; }
-	int get_region_count() const;
+	int get_region_count() const { return region_offsets.size(); }
 
 	Ref<Image> get_map(int p_region_index, MapType p_map) const;
-	void force_update_maps(MapType p_map);
+	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	void set_height_maps(const TypedArray<Image> &p_maps);
-	TypedArray<Image> get_height_maps() const;
+	TypedArray<Image> get_height_maps() const { return height_maps; }
 	void set_control_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_control_maps() const { return control_maps; }
+	void set_color_maps(const TypedArray<Image> &p_maps);
+	TypedArray<Image> get_color_maps() const { return color_maps; }
 
 	RID get_material() const { return material; }
 	void set_shader_override(const Ref<Shader> &p_shader);

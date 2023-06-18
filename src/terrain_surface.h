@@ -1,3 +1,4 @@
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef TERRAINSURFACE_CLASS_H
 #define TERRAINSURFACE_CLASS_H
 

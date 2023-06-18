@@ -1,10 +1,8 @@
-//© Copyright 2014-2022, Juan Linietsky, Ariel Manzur and the Godot community (CC-BY 3.0)
+//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_logger.h"
 #include "terrain_storage.h"
-
-using namespace godot;
 
 void Terrain3DStorage::Generated::create(const TypedArray<Image> &p_layers) {
 	if (!p_layers.is_empty()) {
@@ -34,6 +32,7 @@ void Terrain3DStorage::Generated::clear() {
 
 Terrain3DStorage::Terrain3DStorage() {
 	if (!_initialized) {
+		LOG(INFO, "Initializing terrain storage");
 		_update_material();
 		_initialized = true;
 	}
@@ -51,17 +50,42 @@ void Terrain3DStorage::_clear() {
 
 	generated_height_maps.clear();
 	generated_control_maps.clear();
+	generated_color_maps.clear();
 	generated_albedo_textures.clear();
 	generated_normal_textures.clear();
 	generated_region_map.clear();
 	generated_region_blend_map.clear();
 }
 
+void Terrain3DStorage::print_audit_data() {
+	LOG(INFO, "Dumping storage data");
+
+	LOG(INFO, "_initialized: ", _initialized);
+	LOG(INFO, "region_offsets(", region_offsets.size(), "): ", region_offsets);
+
+	/*for (int i = 0; i < TYPE_MAX; i++) {
+		LOG(INFO, "Map type ", TYPESTR[i], " size: ", maps[i].size(), " ", maps[i]);
+	}*/
+	LOG(INFO, "Map type height size: ", height_maps.size(), " ", height_maps);
+	LOG(INFO, "Map type control size: ", control_maps.size(), " ", control_maps);
+	LOG(INFO, "Map type color size: ", color_maps.size(), " ", color_maps);
+
+	LOG(INFO, "generated_region_map RID: ", generated_region_map.get_rid(), " dirty: ", generated_region_map.is_dirty(), ", image: ", generated_region_map.get_image());
+	LOG(INFO, "generated_region_blend_map RID: ", generated_region_blend_map.get_rid(), ", dirty: ", generated_region_blend_map.is_dirty(), ", image: ", generated_region_blend_map.get_image());
+	LOG(INFO, "generated_height_maps RID: ", generated_height_maps.get_rid(), ", dirty: ", generated_height_maps.is_dirty(), ", image: ", generated_height_maps.get_image());
+	LOG(INFO, "generated_control_maps RID: ", generated_control_maps.get_rid(), ", dirty: ", generated_control_maps.is_dirty(), ", image: ", generated_control_maps.get_image());
+	LOG(INFO, "generated_color_maps RID: ", generated_color_maps.get_rid(), ", dirty: ", generated_color_maps.is_dirty(), ", image: ", generated_color_maps.get_image());
+	LOG(INFO, "generated_albedo_textures RID: ", generated_albedo_textures.get_rid(), ", dirty: ", generated_albedo_textures.is_dirty(), ", image: ", generated_albedo_textures.get_image());
+	LOG(INFO, "generated_normal_textures RID: ", generated_normal_textures.get_rid(), ", dirty: ", generated_normal_textures.is_dirty(), ", image: ", generated_normal_textures.get_image());
+}
+
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
+	LOG(INFO, "Setting region size: ", p_size);
 	ERR_FAIL_COND(p_size < SIZE_64);
 	ERR_FAIL_COND(p_size > SIZE_2048);
 
 	region_size = p_size;
+	region_vsize = Vector2i(region_size, region_size);
 	RenderingServer::get_singleton()->material_set_param(material, "region_size", float(region_size));
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 }
@@ -80,18 +104,27 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position) {
 		return FAILED;
 	}
 
-	Ref<Image> hmap_img = Image::create(region_size, region_size, false, Image::FORMAT_RH);
-	Ref<Image> cmap_img = Image::create(region_size, region_size, false, Image::FORMAT_RGBA8);
+	LOG(INFO, "Adding region at: ", uv_offset);
+	Ref<Image> hmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_HEIGHT]);
+	Ref<Image> conmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_CONTROL]);
+	Ref<Image> clrmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_COLOR]);
 
-	hmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
-	cmap_img->fill(Color(0.0, 0.0, 0.0, 1.0));
+	hmap_img->fill(COLOR[TYPE_HEIGHT]);
+	conmap_img->fill(COLOR[TYPE_CONTROL]);
+	clrmap_img->fill(COLOR[TYPE_COLOR]);
 
 	height_maps.push_back(hmap_img);
-	control_maps.push_back(cmap_img);
+	LOG(DEBUG, "Height maps size after pushback: ", height_maps.size());
+	control_maps.push_back(conmap_img);
+	LOG(DEBUG, "Control maps size after pushback: ", control_maps.size());
+	color_maps.push_back(clrmap_img);
+	LOG(DEBUG, "Color maps size after pushback: ", color_maps.size());
 	region_offsets.push_back(uv_offset);
+	LOG(DEBUG, "Total regions after pushback: ", region_offsets.size());
 
 	generated_height_maps.clear();
 	generated_control_maps.clear();
+	generated_color_maps.clear();
 	generated_region_map.clear();
 	generated_region_blend_map.clear();
 
@@ -109,15 +142,21 @@ void Terrain3DStorage::remove_region(Vector3 p_global_position) {
 	}
 
 	int index = get_region_index(p_global_position);
-
 	ERR_FAIL_COND_MSG(index == -1, "Map does not exist.");
 
+	LOG(INFO, "Removing region at: ", _get_offset_from(p_global_position));
 	region_offsets.remove_at(index);
+	LOG(DEBUG, "Removing region_offsets, size after removal: ", region_offsets.size());
 	height_maps.remove_at(index);
+	LOG(DEBUG, "Removing heightmaps, size after removal: ", height_maps.size());
 	control_maps.remove_at(index);
+	LOG(DEBUG, "Removing control maps, size after removal: ", control_maps.size());
+	color_maps.remove_at(index);
+	LOG(DEBUG, "Removing colormaps, size after removal: ", color_maps.size());
 
 	generated_height_maps.clear();
 	generated_control_maps.clear();
+	generated_color_maps.clear();
 	generated_region_map.clear();
 	generated_region_blend_map.clear();
 
@@ -142,7 +181,7 @@ int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Ref<Image> img = generated_region_map.get_image();
 
 	if (img.is_valid()) {
-		index = int(img->get_pixelv(uv_offset + (Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE) / 2)).r * 255.0) - 1;
+		index = int(img->get_pixelv(uv_offset + (REGION_MAP_VSIZE / 2)).r * 255.0) - 1;
 	} else {
 		for (int i = 0; i < region_offsets.size(); i++) {
 			Vector2i ofs = region_offsets[i];
@@ -156,6 +195,7 @@ int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 }
 
 void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
+	LOG(INFO, "Setting region offsets");
 	region_offsets = p_array;
 
 	generated_region_map.clear();
@@ -164,23 +204,33 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
 }
 
 Ref<Image> Terrain3DStorage::get_map(int p_region_index, MapType p_map_type) const {
-	Ref<Image> map;
-
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
-			map = height_maps[p_region_index];
+			if (p_region_index >= 0 && p_region_index < height_maps.size()) {
+				return height_maps[p_region_index];
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. height_maps size: ", height_maps.size());
+			}
 			break;
 		case TYPE_CONTROL:
-			map = control_maps[p_region_index];
+			if (p_region_index >= 0 && p_region_index < control_maps.size()) {
+				return control_maps[p_region_index];
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. control_maps size: ", control_maps.size());
+			}
 			break;
 		case TYPE_COLOR:
-			break;
-		case TYPE_ALL:
+			if (p_region_index >= 0 && p_region_index < color_maps.size()) {
+				return color_maps[p_region_index];
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. color_maps size: ", color_maps.size());
+			}
 			break;
 		default:
+			LOG(ERROR, "Requested map is invalid");
 			break;
 	}
-	return map;
+	return Ref<Image>();
 }
 
 void Terrain3DStorage::force_update_maps(MapType p_map_type) {
@@ -192,11 +242,13 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 			generated_control_maps.clear();
 			break;
 		case TYPE_COLOR:
+			generated_color_maps.clear();
 			break;
-		case TYPE_ALL:
+		case TYPE_MAX:
 		default:
 			generated_height_maps.clear();
 			generated_control_maps.clear();
+			generated_color_maps.clear();
 			break;
 	}
 
@@ -204,29 +256,31 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 }
 
 void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
+	LOG(INFO, "Setting height maps: ", p_maps.size());
 	height_maps = p_maps;
 	force_update_maps(TYPE_HEIGHT);
 }
 
-TypedArray<Image> Terrain3DStorage::get_height_maps() const {
-	return height_maps;
-}
-
 void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
+	LOG(INFO, "Setting control maps: ", p_maps.size());
 	control_maps = p_maps;
 	force_update_maps(TYPE_CONTROL);
 }
 
-int Terrain3DStorage::get_region_count() const {
-	return region_offsets.size();
+void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
+	LOG(INFO, "Setting color maps: ", p_maps.size());
+	color_maps = p_maps;
+	force_update_maps(TYPE_COLOR);
 }
 
 void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
+	LOG(INFO, "Setting override shader");
 	shader_override = p_shader;
 	_update_material();
 }
 
 void Terrain3DStorage::enable_shader_override(bool p_enabled) {
+	LOG(INFO, "Enable shader override: ", p_enabled);
 	shader_override_enabled = p_enabled;
 	if (shader_override_enabled && shader_override.is_null()) {
 		String code = _generate_shader_code();
@@ -240,6 +294,7 @@ void Terrain3DStorage::enable_shader_override(bool p_enabled) {
 }
 
 void Terrain3DStorage::set_noise_enabled(bool p_enabled) {
+	LOG(INFO, "Enable noise: ", p_enabled);
 	noise_enabled = p_enabled;
 	_update_material();
 	if (noise_enabled) {
@@ -250,16 +305,19 @@ void Terrain3DStorage::set_noise_enabled(bool p_enabled) {
 }
 
 void Terrain3DStorage::set_noise_scale(float p_scale) {
+	LOG(INFO, "Setting noise scale: ", p_scale);
 	noise_scale = p_scale;
 	RenderingServer::get_singleton()->material_set_param(material, "noise_scale", noise_scale);
 }
 
 void Terrain3DStorage::set_noise_height(float p_height) {
+	LOG(INFO, "Setting noise height: ", p_height);
 	noise_height = p_height;
 	RenderingServer::get_singleton()->material_set_param(material, "noise_height", noise_height);
 }
 
 void Terrain3DStorage::set_noise_blend_near(float p_near) {
+	LOG(INFO, "Setting noise blend near: ", p_near);
 	noise_blend_near = p_near;
 	if (noise_blend_near > noise_blend_far) {
 		set_noise_blend_far(noise_blend_near);
@@ -268,6 +326,7 @@ void Terrain3DStorage::set_noise_blend_near(float p_near) {
 }
 
 void Terrain3DStorage::set_noise_blend_far(float p_far) {
+	LOG(INFO, "Setting noise blend far: ", p_far);
 	noise_blend_far = p_far;
 	if (noise_blend_far < noise_blend_near) {
 		set_noise_blend_near(noise_blend_far);
@@ -276,6 +335,7 @@ void Terrain3DStorage::set_noise_blend_far(float p_far) {
 }
 
 void Terrain3DStorage::set_surface(const Ref<Terrain3DSurface> &p_material, int p_index) {
+	LOG(INFO, "Setting surface index: ", p_index);
 	if (p_index < get_surface_count()) {
 		if (p_material.is_null()) {
 			Ref<Terrain3DSurface> surface = surfaces[p_index];
@@ -293,12 +353,9 @@ void Terrain3DStorage::set_surface(const Ref<Terrain3DSurface> &p_material, int 
 }
 
 void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
+	LOG(INFO, "Setting surfaces");
 	surfaces = p_surfaces;
 	_update_surfaces();
-}
-
-int Terrain3DStorage::get_surface_count() const {
-	return surfaces.size();
 }
 
 void Terrain3DStorage::update_surface_textures() {
@@ -312,7 +369,7 @@ void Terrain3DStorage::update_surface_values() {
 }
 
 void Terrain3DStorage::_update_surfaces() {
-	LOG(INFO, "Generating material surfaces");
+	LOG(INFO, "Regenerating material surfaces");
 
 	for (int i = 0; i < get_surface_count(); i++) {
 		Ref<Terrain3DSurface> surface = surfaces[i];
@@ -334,9 +391,8 @@ void Terrain3DStorage::_update_surfaces() {
 }
 
 void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_update_values) {
-	LOG(INFO, "Generating terrain color and scale arrays");
-
 	if (p_update_textures) {
+		LOG(INFO, "Regenerating terrain textures");
 		// Update materials to enable sub-materials if albedo is available
 		// and 'surfaces_enabled' changes from previous state
 
@@ -383,7 +439,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 		// Generate TextureArrays and replace nulls with a empty image
 		if (generated_albedo_textures.is_dirty() && albedo_size != Vector2i(0, 0)) {
-			LOG(INFO, "Generating terrain albedo arrays");
+			LOG(INFO, "Regenerating terrain albedo arrays");
 
 			Array albedo_texture_array;
 
@@ -399,7 +455,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 				if (tex.is_null()) {
 					img = Image::create(albedo_size.x, albedo_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(Color(1.0f, 0.0f, 1.0f, 1.0f));
+					img->fill(COLOR_RB);
 					img->generate_mipmaps();
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
@@ -416,7 +472,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 		}
 
 		if (generated_normal_textures.is_dirty() && normal_size != Vector2i(0, 0)) {
-			LOG(INFO, "Generating terrain normal arrays");
+			LOG(INFO, "Regenerating terrain normal arrays");
 
 			Array normal_texture_array;
 
@@ -432,7 +488,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 				if (tex.is_null()) {
 					img = Image::create(normal_size.x, normal_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(Color(0.5f, 0.5f, 1.0f, 1.0f));
+					img->fill(COLOR_NORMAL);
 					img->generate_mipmaps();
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
@@ -455,6 +511,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 	}
 
 	if (p_update_values) {
+		LOG(INFO, "Updating terrain color and scale arrays");
 		PackedVector3Array uv_scales;
 		PackedColorArray colors;
 
@@ -474,30 +531,40 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 }
 
 void Terrain3DStorage::_update_regions() {
-	LOG(INFO, "Updating regions");
 	if (generated_height_maps.is_dirty()) {
-		LOG(DEBUG, "Updating height maps");
+		LOG(INFO, "Regenerating height layered texture from ", height_maps.size(), " maps");
 		generated_height_maps.create(height_maps);
+		RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
 	}
 
 	if (generated_control_maps.is_dirty()) {
-		LOG(DEBUG, "Updating control maps");
+		LOG(INFO, "Regenerating control layered texture from ", control_maps.size(), " maps");
 		generated_control_maps.create(control_maps);
+		RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
+	}
+
+	if (generated_color_maps.is_dirty()) {
+		LOG(INFO, "Regenerating color layered texture from ", color_maps.size(), " maps");
+		generated_color_maps.create(color_maps);
+		// Enable when colormaps are in the shader
+		//RenderingServer::get_singleton()->material_set_param(material, "color_maps", generated_color_maps.get_rid());
 	}
 
 	if (generated_region_map.is_dirty()) {
-		LOG(DEBUG, "Updating region map");
-
+		LOG(INFO, "Regenerating ", REGION_MAP_VSIZE, " region map");
 		Ref<Image> region_map_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RG8);
-		region_map_img->fill(Color(0.0, 0.0, 0.0, 1.0));
+		region_map_img->fill(COLOR_BLACK);
 
 		for (int i = 0; i < region_offsets.size(); i++) {
 			Vector2i ofs = region_offsets[i];
 
 			Color col = Color(float(i + 1) / 255.0, 1.0, 0, 1);
-			region_map_img->set_pixelv(ofs + (Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE) / 2), col);
+			region_map_img->set_pixelv(ofs + (REGION_MAP_VSIZE / 2), col);
 		}
 		generated_region_map.create(region_map_img);
+		RenderingServer::get_singleton()->material_set_param(material, "region_map", generated_region_map.get_rid());
+		RenderingServer::get_singleton()->material_set_param(material, "region_map_size", REGION_MAP_SIZE);
+		RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
 
 		if (noise_enabled) {
 			LOG(DEBUG, "Creating region blend map");
@@ -516,12 +583,6 @@ void Terrain3DStorage::_update_regions() {
 			RenderingServer::get_singleton()->material_set_param(material, "region_blend_map", generated_region_blend_map.get_rid());
 		}
 	}
-	RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
-	RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
-
-	RenderingServer::get_singleton()->material_set_param(material, "region_map", generated_region_map.get_rid());
-	RenderingServer::get_singleton()->material_set_param(material, "region_map_size", REGION_MAP_SIZE);
-	RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
 }
 
 void Terrain3DStorage::_update_material() {
@@ -541,13 +602,14 @@ void Terrain3DStorage::_update_material() {
 		RenderingServer::get_singleton()->shader_set_code(shader, _generate_shader_code());
 		RenderingServer::get_singleton()->material_set_shader(material, shader);
 	}
-	
+
 	RenderingServer::get_singleton()->material_set_param(material, "terrain_height", TERRAIN_MAX_HEIGHT);
 	RenderingServer::get_singleton()->material_set_param(material, "region_size", region_size);
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 }
 
 String Terrain3DStorage::_generate_shader_code() {
+	LOG(INFO, "Generating default shader code");
 	String code = "shader_type spatial;\n";
 	code += "render_mode depth_draw_opaque, diffuse_burley;\n";
 	code += "\n";
@@ -569,7 +631,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		if (surfaces_enabled) {
 			LOG(INFO, "Surfaces enabled");
 		}
-		
+
 		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform vec3 texture_uv_scale_array[256];\n";
@@ -803,7 +865,7 @@ void Terrain3DStorage::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_HEIGHT);
 	BIND_ENUM_CONSTANT(TYPE_CONTROL);
 	BIND_ENUM_CONSTANT(TYPE_COLOR);
-	BIND_ENUM_CONSTANT(TYPE_ALL);
+	BIND_ENUM_CONSTANT(TYPE_MAX);
 
 	BIND_ENUM_CONSTANT(SIZE_64);
 	BIND_ENUM_CONSTANT(SIZE_128);
@@ -847,21 +909,24 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_region", "global_position"), &Terrain3DStorage::remove_region);
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("get_region_index", "global_position"), &Terrain3DStorage::get_region_index);
-	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps);
+	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 	ClassDB::bind_method(D_METHOD("get_map", "region_index", "map_type"), &Terrain3DStorage::get_map);
 
+	ClassDB::bind_method(D_METHOD("set_region_offsets", "offsets"), &Terrain3DStorage::set_region_offsets);
+	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
 	ClassDB::bind_method(D_METHOD("set_height_maps", "maps"), &Terrain3DStorage::set_height_maps);
 	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DStorage::get_height_maps);
 	ClassDB::bind_method(D_METHOD("set_control_maps", "maps"), &Terrain3DStorage::set_control_maps);
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DStorage::get_control_maps);
-	ClassDB::bind_method(D_METHOD("set_region_offsets", "offsets"), &Terrain3DStorage::set_region_offsets);
-	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
+	ClassDB::bind_method(D_METHOD("set_color_maps", "maps"), &Terrain3DStorage::set_color_maps);
+	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DStorage::get_color_maps);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE)), "set_region_offsets", "get_region_offsets");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_height_maps", "get_height_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_control_maps", "get_control_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE)), "set_region_offsets", "get_region_offsets");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_color_maps", "get_color_maps");
 
 	ADD_GROUP("Noise", "noise_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
@@ -872,6 +937,6 @@ void Terrain3DStorage::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-	
+
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface")), "set_surfaces", "get_surfaces");
 }
