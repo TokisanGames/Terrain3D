@@ -69,6 +69,7 @@ protected:
 	void _update_visibility();
 	void _update_aabbs();
 	void _update_world(RID p_space, RID p_scenario);
+	void _update_collision();
 
 private:
 	void _grab_camera();

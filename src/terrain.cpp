@@ -167,32 +167,6 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 		}
 	}
 
-	// Create collision
-
-	/*if (!static_body.is_valid()) {
-		static_body = PhysicsServer3D::get_singleton()->body_create();
-
-		PhysicsServer3D::get_singleton()->body_set_mode(static_body, PhysicsServer3D::BODY_MODE_STATIC);
-		PhysicsServer3D::get_singleton()->body_set_space(static_body, get_world_3d()->get_space());
-
-		RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
-		PhysicsServer3D::get_singleton()->body_add_shape(static_body, shape);
-
-		Dictionary shape_data;
-		int shape_size = p_size + 1;
-
-		PackedFloat32Array map_data;
-		map_data.resize(shape_size * shape_size);
-
-		shape_data["width"] = shape_size;
-		shape_data["depth"] = shape_size;
-		shape_data["heights"] = map_data;
-		shape_data["min_height"] = 0.0;
-		shape_data["max_height"] = real_t(height);
-
-		PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
-	}*/
-
 	valid = true;
 	_update_aabbs();
 	// Force a snap update
@@ -340,6 +314,7 @@ void Terrain3D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
 			LOG(INFO, "NOTIFICATION_READY");
+			_update_collision();
 			set_process(true);
 			if (storage.is_valid()) {
 				storage->clear_modified();
@@ -483,6 +458,65 @@ void Terrain3D::_update_world(RID p_space, RID p_scenario) {
 
 	for (const RID rid : data.seams) {
 		RenderingServer::get_singleton()->instance_set_scenario(rid, p_scenario);
+	}
+}
+
+void Terrain3D::_update_collision() {
+	if (storage.is_null()) {
+		LOG(DEBUG, "Cannot create collision, storage missing");
+		return;
+	}
+
+	// Create collision only on runtime
+	if (Engine::get_singleton()->is_editor_hint()) {
+		return;
+	}
+
+	if (!static_body.is_valid()) {
+		LOG(INFO, "Updating collision");
+
+		static_body = PhysicsServer3D::get_singleton()->body_create();
+		PhysicsServer3D::get_singleton()->body_set_mode(static_body, PhysicsServer3D::BODY_MODE_STATIC);
+		PhysicsServer3D::get_singleton()->body_set_space(static_body, get_world_3d()->get_space());
+
+		int region_size = storage->get_region_size();
+		int shape_size = region_size + 1;
+		double max_height = double(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
+		int shape_index = 0;
+
+		for (int i = 0; i < storage->get_region_count(); i++) {
+			Dictionary shape_data;
+			PackedFloat32Array map_data = PackedFloat32Array();
+
+			Ref<Image> hmap = storage->get_map(i, Terrain3DStorage::TYPE_HEIGHT);
+			Vector2i hmap_size = hmap->get_size();
+
+			for (int y = 0; y < shape_size; y++) {
+				for (int x = 0; x < shape_size; x++) {
+					Vector2 uv = Vector2(x, y) / Vector2(shape_size, shape_size);
+					Vector2i point = Vector2i(Vector2(hmap_size) * uv);
+					double height = hmap->get_pixelv(point).r * max_height;
+					map_data.push_back(height);
+				}
+			}
+
+			shape_data["width"] = shape_size;
+			shape_data["depth"] = shape_size;
+			shape_data["heights"] = map_data;
+			shape_data["min_height"] = 0.0; // This is probably not needed
+			shape_data["max_height"] = max_height; // nor this.
+
+			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
+			PhysicsServer3D::get_singleton()->body_add_shape(static_body, shape);
+			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
+
+			Vector2i region_offset = storage->get_region_offsets()[i];
+
+			Transform3D tr = Transform3D(Basis(), Vector3(region_offset.x, 0, region_offset.y) * region_size);
+			PhysicsServer3D::get_singleton()->body_set_shape_transform(static_body, shape_index, tr);
+
+			shape_index++;
+		}
 	}
 }
 
