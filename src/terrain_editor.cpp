@@ -109,7 +109,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 		return;
 	}
 
-	Ref<Image> map = terrain->get_storage()->get_map(region_index, p_map_type);
+	Ref<Image> map = terrain->get_storage()->get_map_region(p_map_type, region_index);
 	int s = brush.get_size();
 	int index = brush.get_index();
 	Vector2 is = brush.get_image_size();
@@ -142,7 +142,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 
 			if (new_region_index != region_index) {
 				region_index = new_region_index;
-				map = terrain->get_storage()->get_map(region_index, p_map_type);
+				map = terrain->get_storage()->get_map_region(p_map_type, region_index);
 			}
 
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size);

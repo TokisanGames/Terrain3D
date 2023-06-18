@@ -99,13 +99,15 @@ class Terrain3DStorage : public Resource {
 	TypedArray<Image> control_maps;
 	TypedArray<Image> color_maps;
 
+	// These contain an Image described below and a texture RID from the RenderingServer
 	Generated generated_region_map; // REGION_MAP_SIZE^2 sized texture w/ active regions
 	Generated generated_region_blend_map; // 512x512 blurred version of above for blending
-	Generated generated_height_maps; // All heightmap regions combined into one texture
-	Generated generated_control_maps; // All controlmap regions cobined into one texture
-	Generated generated_color_maps; // All colormap regions cobined into one texture
-	Generated generated_albedo_textures; // Albedo + Height array w/ all ground textures
-	Generated generated_normal_textures; // Normal + Rough array w/ all ground textures
+	// These contain the TextureLayered RID from the RenderingServer, no Image
+	Generated generated_height_maps;
+	Generated generated_control_maps;
+	Generated generated_color_maps;
+	Generated generated_albedo_textures;
+	Generated generated_normal_textures;
 
 	bool _initialized = false;
 
@@ -149,15 +151,18 @@ public:
 	TypedArray<Vector2i> get_region_offsets() const { return region_offsets; }
 	int get_region_count() const { return region_offsets.size(); }
 
-	Ref<Image> get_map(int p_region_index, MapType p_map) const;
-	void force_update_maps(MapType p_map = TYPE_MAX);
-
+	void set_map_region(MapType p_map_type, int p_region_index, const Ref<Image> p_image);
+	Ref<Image> get_map_region(MapType p_map_type, int p_region_index) const;
+	void set_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
+	TypedArray<Image> get_maps(MapType p_map_type) const;
+	TypedArray<Image> get_maps_copy(MapType p_map_type) const;
 	void set_height_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_height_maps() const { return height_maps; }
 	void set_control_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_control_maps() const { return control_maps; }
 	void set_color_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_color_maps() const { return color_maps; }
+	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	RID get_material() const { return material; }
 	void set_shader_override(const Ref<Shader> &p_shader);

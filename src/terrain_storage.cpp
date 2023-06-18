@@ -63,9 +63,6 @@ void Terrain3DStorage::print_audit_data() {
 	LOG(INFO, "_initialized: ", _initialized);
 	LOG(INFO, "region_offsets(", region_offsets.size(), "): ", region_offsets);
 
-	/*for (int i = 0; i < TYPE_MAX; i++) {
-		LOG(INFO, "Map type ", TYPESTR[i], " size: ", maps[i].size(), " ", maps[i]);
-	}*/
 	LOG(INFO, "Map type height size: ", height_maps.size(), " ", height_maps);
 	LOG(INFO, "Map type control size: ", control_maps.size(), " ", control_maps);
 	LOG(INFO, "Map type color size: ", color_maps.size(), " ", color_maps);
@@ -132,7 +129,6 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position) {
 
 	notify_property_list_changed();
 	emit_changed();
-
 	return OK;
 }
 
@@ -195,7 +191,7 @@ int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 }
 
 void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
-	LOG(INFO, "Setting region offsets");
+	LOG(INFO, "Setting region offsets with array sized: ", p_array.size());
 	region_offsets = p_array;
 
 	generated_region_map.clear();
@@ -203,7 +199,36 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
 	_update_regions();
 }
 
-Ref<Image> Terrain3DStorage::get_map(int p_region_index, MapType p_map_type) const {
+void Terrain3DStorage::set_map_region(MapType p_map_type, int p_region_index, const Ref<Image> p_image) {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			if (p_region_index >= 0 && p_region_index < height_maps.size()) {
+				height_maps[p_region_index] = p_image;
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. height_maps size: ", height_maps.size());
+			}
+			break;
+		case TYPE_CONTROL:
+			if (p_region_index >= 0 && p_region_index < control_maps.size()) {
+				control_maps[p_region_index] = p_image;
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. control_maps size: ", control_maps.size());
+			}
+			break;
+		case TYPE_COLOR:
+			if (p_region_index >= 0 && p_region_index < color_maps.size()) {
+				color_maps[p_region_index] = p_image;
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. color_maps size: ", color_maps.size());
+			}
+			break;
+		default:
+			LOG(ERROR, "Requested map type is invalid");
+			break;
+	}
+}
+
+Ref<Image> Terrain3DStorage::get_map_region(MapType p_map_type, int p_region_index) const {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
 			if (p_region_index >= 0 && p_region_index < height_maps.size()) {
@@ -227,32 +252,66 @@ Ref<Image> Terrain3DStorage::get_map(int p_region_index, MapType p_map_type) con
 			}
 			break;
 		default:
-			LOG(ERROR, "Requested map is invalid");
+			LOG(ERROR, "Requested map type is invalid");
 			break;
 	}
 	return Ref<Image>();
 }
 
-void Terrain3DStorage::force_update_maps(MapType p_map_type) {
+void Terrain3DStorage::set_maps(MapType p_map_type, const TypedArray<Image> &p_maps) {
+	ERR_FAIL_COND_MSG(p_map_type < 0 || p_map_type >= TYPE_MAX, "Specified map type out of range");
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
-			generated_height_maps.clear();
+			set_height_maps(p_maps);
 			break;
 		case TYPE_CONTROL:
-			generated_control_maps.clear();
+			set_control_maps(p_maps);
 			break;
 		case TYPE_COLOR:
-			generated_color_maps.clear();
+			set_color_maps(p_maps);
 			break;
-		case TYPE_MAX:
 		default:
-			generated_height_maps.clear();
-			generated_control_maps.clear();
-			generated_color_maps.clear();
 			break;
 	}
+}
 
-	_update_regions();
+TypedArray<Image> Terrain3DStorage::get_maps(MapType p_map_type) const {
+	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
+		LOG(ERROR, "Specified map type out of range");
+		return Ref<Image>();
+	}
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return get_height_maps();
+			break;
+		case TYPE_CONTROL:
+			return get_control_maps();
+			break;
+		case TYPE_COLOR:
+			return get_color_maps();
+			break;
+		default:
+			break;
+	}
+	return Ref<Image>();
+}
+
+TypedArray<Image> Terrain3DStorage::get_maps_copy(MapType p_map_type) const {
+	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
+		LOG(ERROR, "Specified map type out of range");
+		return TypedArray<Image>();
+	}
+
+	TypedArray<Image> maps = get_maps(p_map_type);
+	TypedArray<Image> newmaps;
+	newmaps.resize(maps.size());
+	for (int i = 0; i < maps.size(); i++) {
+		Ref<Image> img;
+		img.instantiate();
+		img->copy_from(maps[i]);
+		newmaps[i] = img;
+	}
+	return newmaps;
 }
 
 void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
@@ -271,6 +330,26 @@ void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting color maps: ", p_maps.size());
 	color_maps = p_maps;
 	force_update_maps(TYPE_COLOR);
+}
+
+void Terrain3DStorage::force_update_maps(MapType p_map_type) {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			generated_height_maps.clear();
+			break;
+		case TYPE_CONTROL:
+			generated_control_maps.clear();
+			break;
+		case TYPE_COLOR:
+			generated_color_maps.clear();
+			break;
+		default:
+			generated_height_maps.clear();
+			generated_control_maps.clear();
+			generated_color_maps.clear();
+			break;
+	}
+	_update_regions();
 }
 
 void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
@@ -567,8 +646,8 @@ void Terrain3DStorage::_update_regions() {
 		RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
 
 		if (noise_enabled) {
-			LOG(DEBUG, "Creating region blend map");
-			Ref<Image> region_blend_img = Image::create(16, 16, true, Image::FORMAT_RH);
+			LOG(INFO, "Regenerating ", Vector2i(512, 512), " region blend map");
+			Ref<Image> region_blend_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RH);
 			for (int y = 0; y < region_map_img->get_height(); y++) {
 				for (int x = 0; x < region_map_img->get_width(); x++) {
 					Color c = region_map_img->get_pixel(x, y);
@@ -587,7 +666,6 @@ void Terrain3DStorage::_update_regions() {
 
 void Terrain3DStorage::_update_material() {
 	LOG(INFO, "Updating material");
-
 	if (!material.is_valid()) {
 		material = RenderingServer::get_singleton()->material_create();
 	}
@@ -901,6 +979,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_surface", "index"), &Terrain3DStorage::get_surface);
 	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
 	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
+	ClassDB::bind_method(D_METHOD("get_surface_count"), &Terrain3DStorage::get_surface_count);
 
 	ClassDB::bind_method(D_METHOD("update_surface_textures"), &Terrain3DStorage::update_surface_textures);
 	ClassDB::bind_method(D_METHOD("update_surface_values"), &Terrain3DStorage::update_surface_values);
@@ -909,17 +988,22 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_region", "global_position"), &Terrain3DStorage::remove_region);
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("get_region_index", "global_position"), &Terrain3DStorage::get_region_index);
-	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
-	ClassDB::bind_method(D_METHOD("get_map", "region_index", "map_type"), &Terrain3DStorage::get_map);
-
 	ClassDB::bind_method(D_METHOD("set_region_offsets", "offsets"), &Terrain3DStorage::set_region_offsets);
 	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
+	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DStorage::get_region_count);
+
+	ClassDB::bind_method(D_METHOD("set_map_region", "map_type", "region_index", "image"), &Terrain3DStorage::set_map_region);
+	ClassDB::bind_method(D_METHOD("get_map_region", "map_type", "region_index"), &Terrain3DStorage::get_map_region);
+	ClassDB::bind_method(D_METHOD("set_maps", "map_type", "maps"), &Terrain3DStorage::set_maps);
+	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DStorage::get_maps);
+	ClassDB::bind_method(D_METHOD("get_maps_copy", "map_type"), &Terrain3DStorage::get_maps_copy);
 	ClassDB::bind_method(D_METHOD("set_height_maps", "maps"), &Terrain3DStorage::set_height_maps);
 	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DStorage::get_height_maps);
 	ClassDB::bind_method(D_METHOD("set_control_maps", "maps"), &Terrain3DStorage::set_control_maps);
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DStorage::get_control_maps);
 	ClassDB::bind_method(D_METHOD("set_color_maps", "maps"), &Terrain3DStorage::set_color_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DStorage::get_color_maps);
+	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 
