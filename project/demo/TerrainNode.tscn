@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://demo/src/Scene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://c0djt8d57nivw" path="res://demo/components/World.tscn" id="2_2yeq8"]
-[ext_resource type="PackedScene" path="res://demo/components/Player.tscn" id="3_ht63y"]
+[ext_resource type="PackedScene" uid="uid://dgkfas2hgwob4" path="res://demo/components/Player.tscn" id="3_ht63y"]
 [ext_resource type="PackedScene" uid="uid://c31srg2a83sgp" path="res://demo/components/UI.tscn" id="4_gk532"]
 [ext_resource type="Terrain3DStorage" uid="uid://b34urke00hmcx" path="res://demo/data/terrain_storage.res" id="5_p8yf1"]
 
@@ -13,6 +13,7 @@ script = ExtResource("1_k7qca")
 
 [node name="Player" parent="." instance=ExtResource("3_ht63y")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 0)
+collision_enabled = true
 
 [node name="UI" parent="." instance=ExtResource("4_gk532")]
 

@@ -11,7 +11,12 @@ config_version=5
 [application]
 
 config/name="Terrain3D"
+run/main_scene="res://demo/TerrainNode.tscn"
 config/features=PackedStringArray("4.0")
+
+[display]
+
+window/vsync/vsync_mode=0
 
 [editor_plugins]
 
