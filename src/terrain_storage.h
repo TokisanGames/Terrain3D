@@ -6,6 +6,7 @@
 #include <windows.h>
 #endif
 
+#include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 
 #include "terrain_surface.h"
@@ -143,8 +144,8 @@ public:
 	void update_surface_textures();
 	void update_surface_values();
 
-	Error add_region(Vector3 p_global_position);
-	void remove_region(Vector3 p_global_position);
+	Error add_region(Vector3 p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
+	void remove_region(Vector3 p_global_position, bool p_update = true);
 	bool has_region(Vector3 p_global_position);
 	int get_region_index(Vector3 p_global_position);
 	void set_region_offsets(const TypedArray<Vector2i> &p_array);
@@ -163,6 +164,16 @@ public:
 	void set_color_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_color_maps() const { return color_maps; }
 	void force_update_maps(MapType p_map = TYPE_MAX);
+
+	static Ref<Image> load_image(String p_file_name, int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
+			Vector2 p_r16_height_range = Vector2(0, 255), Vector2i p_r16_size = Vector2i(0, 0));
+	void import_images(const TypedArray<Image> &p_images, Vector3 p_global_position = Vector3(0, 0, 0),
+			float p_offset = 0.0, float p_scale = 1.0);
+	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);
+	Ref<Image> layered_to_image(MapType p_map_type);
+	static Vector2 get_min_max(const Ref<Image> p_image);
+	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
+	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color = COLOR_BLACK, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
 
 	RID get_material() const { return material; }
 	void set_shader_override(const Ref<Shader> &p_shader);

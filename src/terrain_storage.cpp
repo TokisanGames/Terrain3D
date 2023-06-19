@@ -1,4 +1,5 @@
 //Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+#include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_logger.h"
@@ -91,75 +92,123 @@ Vector2i Terrain3DStorage::_get_offset_from(Vector3 p_global_position) {
 	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / float(region_size) + Vector2(0.5, 0.5)).floor());
 }
 
-Error Terrain3DStorage::add_region(Vector3 p_global_position) {
-	if (has_region(p_global_position)) {
-		return FAILED;
-	}
+/** Adds a region to the terrain
+ * Option to include an array of Images to use for maps
+ * Map types are Height:0, Control:1, Color:2, defined in MapType
+ * If the region already exists and maps are included, the current maps will be overwritten
+ * Parameters:
+ *	p_global_position - the world location to place the region, rounded down to the nearest region_size multiple
+ *	p_images - Optional array of [ Height, Control, Color ... ] w/ region_sized images
+ *	p_update - rebuild the maps if true. Set to false if bulk adding many regions.
+ */
+Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<Image> &p_images, bool p_update) {
 	Vector2i uv_offset = _get_offset_from(p_global_position);
+	LOG(INFO, "Adding region at ", p_global_position, ", uv_offset ", uv_offset,
+			", array size: ", p_images.size(),
+			", update maps: ", p_update ? "yes" : "no");
 
 	if (ABS(uv_offset.x) > REGION_MAP_SIZE / 2 || ABS(uv_offset.y) > REGION_MAP_SIZE / 2) {
+		LOG(ERROR, "Specified position outside of maximum region map size: ", REGION_MAP_SIZE / 2 * region_size);
 		return FAILED;
 	}
 
-	LOG(INFO, "Adding region at: ", uv_offset);
-	Ref<Image> hmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_HEIGHT]);
-	Ref<Image> conmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_CONTROL]);
-	Ref<Image> clrmap_img = Image::create(region_size, region_size, false, FORMAT[TYPE_COLOR]);
+	if (has_region(p_global_position)) {
+		if (p_images.is_empty()) {
+			LOG(DEBUG, "Region at ", p_global_position, " already exists and nothing to overwrite. Doing nothing");
+			return OK;
+		} else {
+			LOG(DEBUG, "Region at ", p_global_position, " already exists, overwriting");
+			remove_region(p_global_position, false);
+		}
+	}
 
-	hmap_img->fill(COLOR[TYPE_HEIGHT]);
-	conmap_img->fill(COLOR[TYPE_CONTROL]);
-	clrmap_img->fill(COLOR[TYPE_COLOR]);
+	TypedArray<Image> images;
+	images.resize(TYPE_MAX);
 
-	height_maps.push_back(hmap_img);
-	LOG(DEBUG, "Height maps size after pushback: ", height_maps.size());
-	control_maps.push_back(conmap_img);
-	LOG(DEBUG, "Control maps size after pushback: ", control_maps.size());
-	color_maps.push_back(clrmap_img);
-	LOG(DEBUG, "Color maps size after pushback: ", color_maps.size());
+	for (int i = 0; i < TYPE_MAX; i++) {
+		Ref<Image> img;
+		if (i < p_images.size()) {
+			img = p_images[i];
+			if (img.is_valid()) {
+				if (img->get_size() == region_vsize) {
+					if (img->get_format() == FORMAT[i]) {
+						LOG(DEBUG, "Map type ", TYPESTR[i], " valid format & size");
+						images[i] = img;
+					} else {
+						LOG(DEBUG, "Provided map type ", TYPESTR[i], " wrong format. Converting copy");
+						Ref<Image> newimg;
+						newimg.instantiate();
+						newimg->copy_from(img);
+						newimg->convert(FORMAT[i]);
+						images[i] = newimg;
+					}
+					continue; // Continue for loop
+				} else {
+					LOG(DEBUG, "Provided map type ", TYPESTR[i], " wrong size. Creating blank");
+				}
+			} else {
+				LOG(DEBUG, "No provided map type ", TYPESTR[i], ". Creating blank");
+			}
+		} else {
+			LOG(DEBUG, "p_images.size() < ", i, ". Creating blank");
+		}
+		images[i] = get_filled_image(region_vsize, COLOR[i], false, FORMAT[i]);
+	}
+
+	LOG(DEBUG, "Pushing back ", images.size(), " images");
+	height_maps.push_back(images[TYPE_HEIGHT]);
+	control_maps.push_back(images[TYPE_CONTROL]);
+	color_maps.push_back(images[TYPE_COLOR]);
 	region_offsets.push_back(uv_offset);
 	LOG(DEBUG, "Total regions after pushback: ", region_offsets.size());
 
-	generated_height_maps.clear();
-	generated_control_maps.clear();
-	generated_color_maps.clear();
+	// Region maps used by get_region_index so must be updated every time
 	generated_region_map.clear();
 	generated_region_blend_map.clear();
-
-	_update_regions();
-
-	notify_property_list_changed();
-	emit_changed();
+	if (p_update) {
+		LOG(DEBUG, "Updating generated maps");
+		generated_height_maps.clear();
+		generated_control_maps.clear();
+		generated_color_maps.clear();
+		_update_regions();
+		notify_property_list_changed();
+		emit_changed();
+	} else {
+		_update_regions();
+	}
 	return OK;
 }
 
-void Terrain3DStorage::remove_region(Vector3 p_global_position) {
-	if (get_region_count() == 1) {
-		return;
-	}
+void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
+	LOG(INFO, "Removing region at ", p_global_position, " Updating: ", p_update ? "yes" : "no");
 
 	int index = get_region_index(p_global_position);
 	ERR_FAIL_COND_MSG(index == -1, "Map does not exist.");
 
 	LOG(INFO, "Removing region at: ", _get_offset_from(p_global_position));
 	region_offsets.remove_at(index);
-	LOG(DEBUG, "Removing region_offsets, size after removal: ", region_offsets.size());
+	LOG(DEBUG, "Removed region_offsets, new size: ", region_offsets.size());
 	height_maps.remove_at(index);
-	LOG(DEBUG, "Removing heightmaps, size after removal: ", height_maps.size());
+	LOG(DEBUG, "Removed heightmaps, new size: ", height_maps.size());
 	control_maps.remove_at(index);
-	LOG(DEBUG, "Removing control maps, size after removal: ", control_maps.size());
+	LOG(DEBUG, "Removed control maps, new size: ", control_maps.size());
 	color_maps.remove_at(index);
-	LOG(DEBUG, "Removing colormaps, size after removal: ", color_maps.size());
+	LOG(DEBUG, "Removed colormaps, new size: ", color_maps.size());
 
-	generated_height_maps.clear();
-	generated_control_maps.clear();
-	generated_color_maps.clear();
+	// Region maps used by get_region_index so must be updated
 	generated_region_map.clear();
 	generated_region_blend_map.clear();
-
-	_update_regions();
-
-	notify_property_list_changed();
-	emit_changed();
+	if (p_update) {
+		LOG(DEBUG, "Updating generated maps");
+		generated_height_maps.clear();
+		generated_control_maps.clear();
+		generated_color_maps.clear();
+		_update_regions();
+		notify_property_list_changed();
+		emit_changed();
+	} else {
+		_update_regions();
+	}
 }
 
 bool Terrain3DStorage::has_region(Vector3 p_global_position) {
@@ -352,6 +401,390 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 	_update_regions();
 }
 
+/**
+ * Loads a file from disk and returns an Image
+ * Parameters:
+ *	p_filename - file on disk to load. EXR, R16, PNG, or a ResourceLoader format (jpg, res, tres, etc)
+ *	p_cache_mode - Send this flag to the resource loader to force caching or not
+ *	p_height_range - R16 format: x=Min & y=Max value ranges. Required for R16 import
+ *	p_size - R16 format: Image dimensions. Default (0,0) auto detects f/ square images. Required f/ non-square R16
+ */
+Ref<Image> Terrain3DStorage::load_image(String p_file_name, int p_cache_mode, Vector2 p_r16_height_range, Vector2i p_r16_size) {
+	if (p_file_name.is_empty()) {
+		LOG(ERROR, "No file specified. Nothing imported.");
+		return Ref<Image>();
+	}
+	if (!FileAccess::file_exists(p_file_name)) {
+		LOG(ERROR, "File ", p_file_name, " does not exist. Nothing to import.");
+		return Ref<Image>();
+	}
+
+	// Load file based on extension
+	Ref<Image> img;
+	LOG(INFO, "Attempting to load: ", p_file_name);
+	String ext = p_file_name.get_extension().to_lower();
+	PackedStringArray imgloader_extensions = PackedStringArray(Array::make("bmp", "dds", "exr", "hdr", "jpg", "jpeg", "png", "tga", "svg", "webp"));
+
+	// If R16 integer format (read/writeable by Krita)
+	if (ext == "r16") {
+		LOG(DEBUG, "Loading file as an r16");
+		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::READ);
+		// If p_size is zero, assume square and try to auto detect size
+		if (p_r16_size <= Vector2i(0, 0)) {
+			file->seek_end();
+			int fsize = file->get_position();
+			int fwidth = sqrt(fsize / 2);
+			p_r16_size = Vector2i(fwidth, fwidth);
+			LOG(DEBUG, "Total file size is: ", fsize, " calculated width: ", fwidth, " dimensions: ", p_r16_size);
+			file->seek(0);
+		}
+		img = Image::create(p_r16_size.x, p_r16_size.y, false, FORMAT[TYPE_HEIGHT]);
+		for (int y = 0; y < p_r16_size.y; y++) {
+			for (int x = 0; x < p_r16_size.x; x++) {
+				float h = float(file->get_16()) / 65535.0f;
+				h = h * (p_r16_height_range.y - p_r16_height_range.x) + p_r16_height_range.x;
+				img->set_pixel(x, y, Color(h, 0, 0));
+			}
+		}
+
+		// If an Image extension, use Image loader
+	} else if (imgloader_extensions.has(ext)) {
+		LOG(DEBUG, "ImageFormatLoader loading recognized file type: ", ext);
+		img = Image::load_from_file(p_file_name);
+
+		// Else, see if Godot's resource loader will read it as an image: RES, TRES, etc
+	} else {
+		LOG(DEBUG, "Loading file as a resource");
+		img = ResourceLoader::get_singleton()->load(p_file_name, "", static_cast<ResourceLoader::CacheMode>(p_cache_mode));
+	}
+
+	if (!img.is_valid()) {
+		LOG(ERROR, "File", p_file_name, " could not be loaded.");
+		return Ref<Image>();
+	}
+	if (img->is_empty()) {
+		LOG(ERROR, "File", p_file_name, " is empty.");
+		return Ref<Image>();
+	}
+	LOG(DEBUG, "Loaded Image size: ", img->get_size(), " format: ", img->get_format());
+	return img;
+}
+
+/**
+ * Imports an Image set (Height, Control, Color) into Terrain3DStorage
+ * It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
+ * Parameters:
+ *	p_images - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null
+ *	p_global_position - X,0,Z location on the region map. Valid range is ~ (+/-8192, +/-8192)
+ *	p_offset - Add this factor to all height values, can be negative
+ *	p_scale - Scale all height values by this factor (applied after offset)
+ */
+void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 p_global_position, float p_offset, float p_scale) {
+	if (p_images.size() != TYPE_MAX) {
+		LOG(ERROR, "p_images.size() is ", p_images.size(), ". It should be ", TYPE_MAX, " even if some Images are blank or null");
+		return;
+	}
+
+	Vector2i img_size = Vector2i(0, 0);
+	for (int i = 0; i < TYPE_MAX; i++) {
+		Ref<Image> img = p_images[i];
+		if (img.is_valid() && !img->is_empty()) {
+			LOG(INFO, "Importing image type ", TYPESTR[i], ", size: ", img->get_size(), ", format: ", img->get_format());
+			if (i == TYPE_HEIGHT) {
+				LOG(INFO, "Applying offset: ", p_offset, ", scale: ", p_scale);
+			}
+			if (img_size == Vector2i(0, 0)) {
+				img_size = img->get_size();
+			} else if (img_size != img->get_size()) {
+				LOG(ERROR, "Included Images in p_images have different dimensions. Aborting import");
+				return;
+			}
+		}
+	}
+	if (img_size == Vector2i(0, 0)) {
+		LOG(ERROR, "All images are empty. Nothing to import");
+		return;
+	}
+
+	int max_dimension = region_size * REGION_MAP_SIZE / 2;
+	if ((abs(p_global_position.x) > max_dimension) || (abs(p_global_position.z) > max_dimension)) {
+		LOG(ERROR, "Specify a position within +/-", Vector3i(max_dimension, 0, max_dimension));
+		return;
+	}
+	if ((p_global_position.x + img_size.x > max_dimension) ||
+			(p_global_position.z + img_size.y > max_dimension)) {
+		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
+				". Try ", -img_size / 2, " to center");
+		return;
+	}
+
+	TypedArray<Image> tmp_images;
+	tmp_images.resize(TYPE_MAX);
+
+	for (int i = 0; i < TYPE_MAX; i++) {
+		Ref<Image> img = p_images[i];
+		tmp_images[i] = img;
+		if (img.is_null()) {
+			continue;
+		}
+
+		// Apply scale and offsets to a new heightmap if applicable
+		if (i == TYPE_HEIGHT && (p_offset != 0 || p_scale != 1.0)) {
+			LOG(DEBUG, "Creating new temp image to adjust scale: ", p_scale, " offset: ", p_offset);
+			Ref<Image> newimg = Image::create(img->get_size().x, img->get_size().y, false, FORMAT[TYPE_HEIGHT]);
+			for (int y = 0; y < img->get_height(); y++) {
+				for (int x = 0; x < img->get_width(); x++) {
+					Color clr = img->get_pixel(x, y);
+					clr.r = (clr.r + p_offset) * p_scale;
+					newimg->set_pixel(x, y, clr);
+				}
+			}
+			tmp_images[i] = newimg;
+		}
+	}
+
+	// Slice up incoming image into segments of region_size^2, and pad any remainder
+	int slices_width = ceil(float(img_size.x) / float(region_size));
+	int slices_height = ceil(float(img_size.y) / float(region_size));
+	slices_width = CLAMP(slices_width, 1, REGION_MAP_SIZE);
+	slices_height = CLAMP(slices_height, 1, REGION_MAP_SIZE);
+	LOG(DEBUG, "Creating ", Vector2i(slices_width, slices_height), " slices for ", img_size, " images.");
+
+	for (int y = 0; y < slices_height; y++) {
+		for (int x = 0; x < slices_width; x++) {
+			Vector2i start_coords = Vector2i(x * region_size, y * region_size);
+			Vector2i end_coords = Vector2i((x + 1) * region_size, (y + 1) * region_size);
+			LOG(DEBUG, "Reviewing image section ", start_coords, " to ", end_coords);
+
+			Vector2i size_to_copy;
+			if (end_coords.x <= img_size.x && end_coords.y <= img_size.y) {
+				size_to_copy = region_vsize;
+			} else {
+				size_to_copy.x = img_size.x - start_coords.x;
+				size_to_copy.y = img_size.y - start_coords.y;
+				LOG(DEBUG, "Uneven end piece. Copying padded slice ", Vector2i(x, y), " size to copy: ", size_to_copy);
+			}
+
+			LOG(DEBUG, "Copying ", size_to_copy, " sized segment");
+			TypedArray<Image> images;
+			images.resize(TYPE_MAX);
+			for (int i = 0; i < TYPE_MAX; i++) {
+				Ref<Image> img = tmp_images[i];
+				Ref<Image> img_slice;
+				if (img.is_valid() && !img->is_empty()) {
+					img_slice = get_filled_image(region_vsize, COLOR[i], false, img->get_format());
+					img_slice->blit_rect(tmp_images[i], Rect2i(start_coords, size_to_copy), Vector2i(0, 0));
+				} else {
+					img_slice = get_filled_image(region_vsize, COLOR[i], false, FORMAT[i]);
+				}
+				images[i] = img_slice;
+			}
+			// Add the heightmap slice and only regenerate on the last one
+			Vector3 position = Vector3(p_global_position.x + start_coords.x, 0, p_global_position.z + start_coords.y);
+			add_region(position, images, (x == slices_width - 1 && y == slices_height - 1));
+		}
+	} // for y < slices_height, x < slices_width
+}
+
+/** Exports a specified map as one of r16, exr, jpg, png, webp, res, tres
+ * r16 or exr are recommended for roundtrip external editing
+ * r16 can be edited by Krita, however you must know the dimensions and min/max before reimporting
+ * res/tres allow storage in any of Godot's native Image formats.
+ */
+Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
+	if (p_file_name.is_empty()) {
+		LOG(ERROR, "No file specified. Nothing to export");
+		return FAILED;
+	}
+	if (get_region_count() == 0) {
+		LOG(ERROR, "No valid regions. Nothing to export");
+		return FAILED;
+	}
+	if (FileAccess::file_exists(p_file_name)) {
+		LOG(INFO, "File ", p_file_name, " already exists. Attempting to overwrite");
+		return FAILED;
+	}
+
+	Ref<Image> img;
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			img = generated_height_maps.get_image();
+			break;
+		case TYPE_CONTROL:
+			img = generated_control_maps.get_image();
+			break;
+		case TYPE_COLOR:
+			img = generated_color_maps.get_image();
+			break;
+		default:
+			LOG(ERROR, "Invalid map type specified: ", p_map_type, " max: ", TYPE_MAX - 1);
+			return FAILED;
+	}
+
+	if (img.is_null()) {
+		LOG(DEBUG, "Generated image is invalid or empty");
+		img = layered_to_image(p_map_type);
+	}
+	if (img.is_valid() && !img->is_empty()) {
+		LOG(DEBUG, "Have acquired generated map image. Size: ", img->get_size(), " format: ", img->get_format());
+	} else {
+		LOG(ERROR, "Could not create an export image for map type: ", TYPESTR[p_map_type]);
+		return FAILED;
+	}
+
+	String ext = p_file_name.get_extension().to_lower();
+	LOG(INFO, "Saving map type ", TYPESTR[p_map_type], " as ", ext, " to file: ", p_file_name);
+	if (ext == "r16") {
+		Vector2i minmax = get_min_max(img);
+		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::WRITE);
+		float height_min = minmax.x;
+		float height_max = minmax.y;
+		float hscale = 65535.0 / (height_max - height_min);
+		for (int y = 0; y < img->get_height(); y++) {
+			for (int x = 0; x < img->get_width(); x++) {
+				int h = int((img->get_pixel(x, y).r - height_min) * hscale);
+				h = CLAMP(h, 0, 65535);
+				file->store_16(h);
+			}
+		}
+		return file->get_error();
+	} else if (ext == "exr") {
+		return img->save_exr(p_file_name, (p_map_type == TYPE_HEIGHT) ? true : false);
+	} else if (ext == "png") {
+		return img->save_png(p_file_name);
+	} else if (ext == "jpg") {
+		return img->save_jpg(p_file_name);
+	} else if (ext == "webp") {
+		return img->save_webp(p_file_name);
+	} else if ((ext == "res") || (ext == "tres")) {
+		return ResourceSaver::get_singleton()->save(img, p_file_name, ResourceSaver::FLAG_COMPRESS);
+	}
+
+	return FAILED;
+}
+
+Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
+	LOG(INFO, "Generating a full sized image for all regions including empty regions");
+	if (p_map_type >= TYPE_MAX) {
+		p_map_type = TYPE_HEIGHT;
+	}
+	Vector2i top_left = Vector2i(0, 0);
+	Vector2i bottom_right = Vector2i(0, 0);
+	for (int i = 0; i < region_offsets.size(); i++) {
+		LOG(DEBUG, "Region offsets[", i, "]: ", region_offsets[i]);
+		Vector2i region = region_offsets[i];
+		if (region.x < top_left.x) {
+			top_left.x = region.x;
+		} else if (region.x > bottom_right.x) {
+			bottom_right.x = region.x;
+		}
+		if (region.y < top_left.y) {
+			top_left.y = region.y;
+		} else if (region.y > bottom_right.y) {
+			bottom_right.y = region.y;
+		}
+	}
+
+	LOG(DEBUG, "Full range to cover all regions: ", top_left, " to ", bottom_right);
+	Vector2i img_size = Vector2i(1 + bottom_right.x - top_left.x, 1 + bottom_right.y - top_left.y) * region_size;
+	LOG(DEBUG, "Image size: ", img_size);
+	Ref<Image> img = get_filled_image(img_size, COLOR[p_map_type], false, FORMAT[p_map_type]);
+
+	for (int i = 0; i < region_offsets.size(); i++) {
+		Vector2i region = region_offsets[i];
+		int index = get_region_index(Vector3(region.x, 0, region.y) * region_size);
+		Vector2i img_location = (region - top_left) * region_size;
+		LOG(DEBUG, "Region to blit: ", region, " Export image coords: ", img_location);
+		img->blit_rect(get_map_region(p_map_type, index), Rect2i(Vector2i(0, 0), region_vsize), img_location);
+	}
+	return img;
+}
+
+/**
+ * Returns the minimum and maximum values for a heightmap (red channel only)
+ */
+Vector2 Terrain3DStorage::get_min_max(const Ref<Image> p_image) {
+	if (p_image.is_null()) {
+		LOG(ERROR, "Provided image is not valid. Nothing to analyze");
+		return Vector2(INFINITY, INFINITY);
+	} else if (p_image->is_empty()) {
+		LOG(ERROR, "Provided image is empty. Nothing to analyze");
+		return Vector2(INFINITY, INFINITY);
+	}
+
+	Vector2 min_max = Vector2(0, 0);
+
+	for (int y = 0; y < p_image->get_height(); y++) {
+		for (int x = 0; x < p_image->get_width(); x++) {
+			Color col = p_image->get_pixel(x, y);
+			if (col.r < min_max.x) {
+				min_max.x = col.r;
+			}
+			if (col.r > min_max.y) {
+				min_max.y = col.r;
+			}
+		}
+	}
+
+	LOG(INFO, "Calculating minimum and maximum values of the image: ", min_max);
+	return min_max;
+}
+
+/**
+ * Returns a Image of a float heightmap normalized to RGB8 greyscale and scaled
+ * Minimum of 8x8
+ */
+Ref<Image> Terrain3DStorage::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
+	if (p_image.is_null()) {
+		LOG(ERROR, "Provided image is not valid. Nothing to process.");
+		return Ref<Image>();
+	} else if (p_image->is_empty()) {
+		LOG(ERROR, "Provided image is empty. Nothing to process.");
+		return Ref<Image>();
+	}
+	p_size.x = CLAMP(p_size.x, 8, 16384);
+	p_size.y = CLAMP(p_size.y, 8, 16384);
+
+	LOG(INFO, "Drawing a thumbnail sized: ", p_size);
+	// Create a temporary work image scaled to desired width
+	Ref<Image> img;
+	img.instantiate();
+	img->copy_from(p_image);
+	img->resize(p_size.x, p_size.y, Image::INTERPOLATE_LANCZOS);
+
+	// Get minimum and maximum height values on the scaled image
+	Vector2 minmax = get_min_max(img);
+	float hmin = minmax.x;
+	float hmax = minmax.y;
+	// Define maximum range
+	hmin = abs(hmin);
+	hmax = abs(hmax) + hmin;
+	// Avoid divide by zero
+	hmax = (hmax == 0) ? 0.001 : hmax;
+
+	// Create a new image w / normalized values
+	Ref<Image> thumb = Image::create(p_size.x, p_size.y, false, Image::FORMAT_RGB8);
+	for (int y = 0; y < thumb->get_height(); y++) {
+		for (int x = 0; x < thumb->get_width(); x++) {
+			Color col = img->get_pixel(x, y);
+			col.r = (col.r + hmin) / hmax;
+			col.g = col.r;
+			col.b = col.r;
+			thumb->set_pixel(x, y, col);
+		}
+	}
+	return thumb;
+}
+
+Ref<Image> Terrain3DStorage::get_filled_image(Vector2i p_size, Color p_color, bool p_create_mipmaps, Image::Format p_format) {
+	Ref<Image> img = Image::create(p_size.x, p_size.y, p_create_mipmaps, p_format);
+	img->fill(p_color);
+	if (p_create_mipmaps) {
+		img->generate_mipmaps();
+	}
+	return img;
+}
+
 void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
 	LOG(INFO, "Setting override shader");
 	shader_override = p_shader;
@@ -533,9 +966,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				Ref<Image> img;
 
 				if (tex.is_null()) {
-					img = Image::create(albedo_size.x, albedo_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(COLOR_RB);
-					img->generate_mipmaps();
+					img = get_filled_image(albedo_size, COLOR_RB, true, Image::FORMAT_RGBA8);
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
 					img = tex->get_image();
@@ -566,9 +997,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				Ref<Image> img;
 
 				if (tex.is_null()) {
-					img = Image::create(normal_size.x, normal_size.y, true, Image::FORMAT_RGBA8);
-					img->fill(COLOR_NORMAL);
-					img->generate_mipmaps();
+					img = get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
 					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
 				} else {
 					img = tex->get_image();
@@ -631,8 +1060,7 @@ void Terrain3DStorage::_update_regions() {
 
 	if (generated_region_map.is_dirty()) {
 		LOG(INFO, "Regenerating ", REGION_MAP_VSIZE, " region map");
-		Ref<Image> region_map_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RG8);
-		region_map_img->fill(COLOR_BLACK);
+		Ref<Image> region_map_img = get_filled_image(REGION_MAP_VSIZE, COLOR_BLACK, false, Image::FORMAT_RG8);
 
 		for (int i = 0; i < region_offsets.size(); i++) {
 			Vector2i ofs = region_offsets[i];
@@ -984,8 +1412,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_surface_textures"), &Terrain3DStorage::update_surface_textures);
 	ClassDB::bind_method(D_METHOD("update_surface_values"), &Terrain3DStorage::update_surface_values);
 
-	ClassDB::bind_method(D_METHOD("add_region", "global_position"), &Terrain3DStorage::add_region);
-	ClassDB::bind_method(D_METHOD("remove_region", "global_position"), &Terrain3DStorage::remove_region);
+	ClassDB::bind_method(D_METHOD("add_region", "global_position", "images", "update"), &Terrain3DStorage::add_region, DEFVAL(TypedArray<Image>()), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("remove_region", "global_position", "update"), &Terrain3DStorage::remove_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("get_region_index", "global_position"), &Terrain3DStorage::get_region_index);
 	ClassDB::bind_method(D_METHOD("set_region_offsets", "offsets"), &Terrain3DStorage::set_region_offsets);
@@ -1004,6 +1432,13 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_color_maps", "maps"), &Terrain3DStorage::set_color_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DStorage::get_color_maps);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
+
+	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DStorage::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(Vector2i(0, 0)));
+	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
+	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
+	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);
+	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_min_max", "image"), &Terrain3DStorage::get_min_max);
+	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DStorage::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 
