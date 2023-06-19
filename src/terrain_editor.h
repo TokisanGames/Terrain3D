@@ -27,11 +27,26 @@ public:
 		AVERAGE,
 	};
 
-	enum Tool {
+	static inline const char *OPNAME[] = {
+		"Add",
+		"Subtract",
+		"Multiply",
+		"Replace",
+		"Average",
+	};
+
+	enum Tool { // Corresponds to MapTypes in Terrain3DStorage
+		HEIGHT, // TYPE_HEIGHT
+		TEXTURE, // TYPE_CONTROL
+		COLOR, // TYPE_COLOR
 		REGION,
-		HEIGHT,
-		TEXTURE,
-		COLOR,
+	};
+
+	static inline const char *TOOLNAME[] = {
+		"Height",
+		"Texture",
+		"Color",
+		"Region",
 	};
 
 	struct Brush {
@@ -69,6 +84,7 @@ public:
 	Brush brush;
 
 	Terrain3D *terrain = nullptr;
+	Array _undo_maps;
 
 private:
 	void _operate_region(Vector3 p_global_position);
@@ -89,6 +105,10 @@ public:
 	void set_operation(Operation p_operation);
 	Operation get_operation() const;
 	void operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation);
+
+	void setup_undo();
+	void store_undo();
+	void apply_undo(const Array &p_maps);
 
 	void set_brush_data(Dictionary data);
 

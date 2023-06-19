@@ -280,6 +280,15 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
 	}
 }
 
+void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
+	plugin = p_plugin;
+	LOG(DEBUG, "Received editor plugin: ", p_plugin);
+}
+
+EditorPlugin *Terrain3D::get_plugin() const {
+	return plugin;
+}
+
 void Terrain3D::set_debug_level(int p_level) {
 	LOG(INFO, "Setting debug level: ", p_level);
 	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
@@ -496,6 +505,8 @@ void Terrain3D::find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, T
 }
 
 void Terrain3D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
+
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
 
