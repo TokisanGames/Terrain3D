@@ -119,6 +119,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				var brush_data: Dictionary = {
 					"size": int(toolbar_settings.get_setting("size")),
 					"opacity": toolbar_settings.get_setting("opacity") / 100.0,
+					"color": toolbar_settings.get_setting("color"),
 					"gamma": toolbar_settings.get_setting("gamma"),
 					"height": toolbar_settings.get_setting("height"),
 					"jitter": toolbar_settings.get_setting("jitter"),

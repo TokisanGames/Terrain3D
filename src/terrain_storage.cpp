@@ -1104,8 +1104,7 @@ void Terrain3DStorage::_update_regions() {
 	if (generated_color_maps.is_dirty()) {
 		LOG(DEBUG_CONT, "Regenerating color layered texture from ", color_maps.size(), " maps");
 		generated_color_maps.create(color_maps);
-		// Enable when colormaps are in the shader
-		//RenderingServer::get_singleton()->material_set_param(material, "color_maps", generated_color_maps.get_rid());
+		RenderingServer::get_singleton()->material_set_param(material, "color_maps", generated_color_maps.get_rid());
 		_modified = true;
 	}
 
@@ -1184,6 +1183,7 @@ String Terrain3DStorage::_generate_shader_code() {
 	code += "uniform vec2 region_offsets[256];\n";
 	code += "uniform sampler2DArray height_maps : filter_linear_mipmap, repeat_disable;\n";
 	code += "uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_disable;\n";
+	code += "uniform sampler2DArray color_maps : filter_linear_mipmap, repeat_disable;\n";
 	code += "\n\n";
 
 	if (surfaces_enabled) {
@@ -1330,6 +1330,10 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "	total_weight += weight;\n";
 		code += "	return albedo * weight;\n";
 		code += "}\n\n";
+
+		code += "vec4 to_linear(vec4 col) {\n";
+		code += "	return vec4(pow(col.rgb, vec3(2.2)), col.a);\n";
+		code += "}\n\n";
 	}
 
 	// Vertex Shader
@@ -1401,7 +1405,10 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "	in_normal *= total_weight;\n";
 		code += "	color *= total_weight;\n\n";
 
-		code += "	ALBEDO = color;\n";
+		code += "	// Look up colormap\n";
+		code += "	vec4 color_tex = to_linear(texture(color_maps, get_regionf(UV2)));\n\n";
+
+		code += "	ALBEDO = color * color_tex.rgb;\n";
 		code += "	ROUGHNESS = in_normal.a;\n";
 		code += "	NORMAL_MAP = in_normal.rgb;\n";
 		code += "	NORMAL_MAP_DEPTH = 1.0;\n";

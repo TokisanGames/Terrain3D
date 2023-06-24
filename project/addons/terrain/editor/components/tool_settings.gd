@@ -6,6 +6,7 @@ enum SettingType {
 	CHECKBOX,
 	SLIDER,
 	DOUBLE_SLIDER,
+	COLOR_SELECT,
 }
 	
 const BRUSH_PATH: String = "res://addons/terrain/editor/brush"
@@ -25,6 +26,15 @@ func _ready() -> void:
 	add_setting(SettingType.SLIDER, "height", 10, list, "m", 1, 1000, 0.1)
 	add_setting(SettingType.DOUBLE_SLIDER, "slope", 0, list, "°", 0, 180, 1)
 	
+	add_setting(SettingType.COLOR_SELECT, "color", Color.WHITE, list)
+
+	var color_pick_button: Button = Button.new()
+	list.add_child(color_pick_button)
+	color_pick_button.set_text("Pick Color")
+	color_pick_button.connect("pressed", _on_color_pick)
+
+	## Advanced Settings
+		
 	var advanced_button: Button = Button.new()
 	list.add_child(advanced_button)
 	
@@ -51,7 +61,11 @@ func _ready() -> void:
 	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
 	
 	add_brushes("shape")
-	
+
+func _on_color_pick() -> void:
+	print("Picking color...")
+	pass
+
 func add_brushes(p_name: String) -> void:
 	var hbox: HBoxContainer = HBoxContainer.new()
 	var label: Label = Label.new()
@@ -73,15 +87,18 @@ func add_brushes(p_name: String) -> void:
 		while file_name != "":
 			if !dir.current_is_dir() and file_name.ends_with(".exr"):
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
+				_black_to_alpha(img)
 				var tex: ImageTexture = ImageTexture.create_from_image(img)
-				var btn: Button = Button.new()
 
+				var btn: Button = Button.new()
 				btn.set_custom_minimum_size(Vector2.ONE * 36)
 				btn.set_button_icon(tex)
 				btn.set_expand_icon(true)
 				btn.set_material(_get_brush_preview_material())
 				btn.set_toggle_mode(true)
 				btn.set_button_group(brush_button_group)
+				btn.mouse_entered.connect(_on_brush_hover.bind(btn))
+				btn.mouse_exited.connect(_on_brush_hover.bind(btn))
 				hbox.add_child(btn)
 				
 			file_name = dir.get_next()
@@ -89,7 +106,10 @@ func add_brushes(p_name: String) -> void:
 	brush_button_group.get_buttons()[0].set_pressed(true)
 	list.add_child(hbox)
 	settings[p_name] = brush_button_group
-	
+
+func _on_brush_hover(button: Button) -> void:
+	print("hovering over: ", button)
+
 func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent: Control, 
 		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, step: float = 1.0) -> void:
 			
@@ -148,7 +168,14 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			control.set_text(p_name.capitalize())
 			control.set_pressed_no_signal(value)
 			control.connect("pressed", _on_setting_changed)
-	
+			
+		SettingType.COLOR_SELECT:
+			control = ColorPickerButton.new()
+			control.set_custom_minimum_size(Vector2(70, 0))
+			control.edit_alpha = false
+			control.color = Color.WHITE
+			control.connect("color_changed", _on_setting_changed)
+			
 	container.add_child(control)
 	parent.add_child(container)
 	
@@ -160,12 +187,14 @@ func get_setting(p_setting: String) -> Variant:
 	
 	if object is Range:
 		value = object.get_value()
-	if object is DoubleSlider:
+	elif object is DoubleSlider:
 		value = [object.get_min_value(), object.get_max_value()]
-	if object is ButtonGroup:
+	elif object is ButtonGroup:
 		value = object.get_pressed_button().get_button_icon().get_image()
-	if object is CheckBox:
+	elif object is CheckBox:
 		value = object.is_pressed()
+	elif object is ColorPickerButton:
+		value = object.color
 		
 	return value
 	
@@ -213,6 +242,16 @@ func _get_brush_preview_material() -> ShaderMaterial:
 		brush_preview_material.set_shader(shader)
 		
 	return brush_preview_material
+
+func _black_to_alpha(image: Image) -> void:
+	if image.get_format() != Image.FORMAT_RGBAF:
+		image.convert(Image.FORMAT_RGBAF)
+
+	for y in image.get_height():
+		for x in image.get_width():
+			var color: Color = image.get_pixel(x,y)
+			color.a = color.get_luminance()
+			image.set_pixel(x, y, color)
 
 class DoubleSlider extends Range:
 	

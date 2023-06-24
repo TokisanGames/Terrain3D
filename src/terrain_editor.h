@@ -57,6 +57,7 @@ public:
 		int index = 0;
 		float opacity = 0.0;
 		float height = 0.0;
+		Color color = COLOR_WHITE;
 		float jitter = 0.0;
 		float gamma = 1.0;
 		bool align_to_view = false;
@@ -71,6 +72,7 @@ public:
 		int get_index() const { return index; }
 		float get_opacity() const { return opacity; }
 		float get_height() const { return height; }
+		Color get_color() const { return color; }
 		float get_jitter() const { return jitter; }
 		float get_gamma() const { return gamma; }
 		bool is_aligned_to_view() const { return align_to_view; }

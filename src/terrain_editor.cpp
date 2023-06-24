@@ -6,11 +6,17 @@
 #include "terrain_logger.h"
 
 void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
+	LOG(DEBUG, "Setting brush data: ");
+	Array ks = p_data.keys();
+	for (int i = 0; i < ks.size(); i++) {
+		LOG(DEBUG, ks[i], ": ", p_data[ks[i]]);
+	}
 	size = p_data["size"];
 	index = p_data["index"];
 	opacity = p_data["opacity"];
-	gamma = p_data["gamma"];
 	height = p_data["height"];
+	color = p_data["color"];
+	gamma = p_data["gamma"];
 	jitter = p_data["jitter"];
 	image = p_data["image"];
 	if (image.is_valid()) {
@@ -121,6 +127,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 	Vector2 img_size = brush.get_image_size();
 	float opacity = brush.get_opacity();
 	float height = brush.get_height() / float(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
+	Color color = brush.get_color();
 	float gamma = brush.get_gamma();
 	float randf = UtilityFunctions::randf();
 	float rot = randf * Math_PI * brush.get_jitter();
@@ -163,6 +170,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 				}
 
 				float brush_alpha = float(Math::pow(double(brush.get_alpha(brush_pixel_position)), double(gamma)));
+				float brush_value = brush.get_alpha(brush_pixel_position);
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
@@ -211,6 +219,14 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 							dest.r = float(dest_index) / 255.0f;
 							dest.b = Math::lerp(src.b, 0.0f, alpha_clip);
 
+							break;
+						default:
+							break;
+					}
+				} else if (p_map_type == Terrain3DStorage::TYPE_COLOR) {
+					switch (operation) {
+						case Terrain3DEditor::REPLACE:
+							dest = src.lerp(color, brush_alpha * opacity);
 							break;
 						default:
 							break;
