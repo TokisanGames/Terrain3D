@@ -1040,26 +1040,26 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 void Terrain3DStorage::_update_regions() {
 	if (generated_height_maps.is_dirty()) {
-		LOG(INFO, "Regenerating height layered texture from ", height_maps.size(), " maps");
+		LOG(DEBUG_CONT, "Regenerating height layered texture from ", height_maps.size(), " maps");
 		generated_height_maps.create(height_maps);
 		RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
 	}
 
 	if (generated_control_maps.is_dirty()) {
-		LOG(INFO, "Regenerating control layered texture from ", control_maps.size(), " maps");
+		LOG(DEBUG_CONT, "Regenerating control layered texture from ", control_maps.size(), " maps");
 		generated_control_maps.create(control_maps);
 		RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
 	}
 
 	if (generated_color_maps.is_dirty()) {
-		LOG(INFO, "Regenerating color layered texture from ", color_maps.size(), " maps");
+		LOG(DEBUG_CONT, "Regenerating color layered texture from ", color_maps.size(), " maps");
 		generated_color_maps.create(color_maps);
 		// Enable when colormaps are in the shader
 		//RenderingServer::get_singleton()->material_set_param(material, "color_maps", generated_color_maps.get_rid());
 	}
 
 	if (generated_region_map.is_dirty()) {
-		LOG(INFO, "Regenerating ", REGION_MAP_VSIZE, " region map");
+		LOG(DEBUG_CONT, "Regenerating ", REGION_MAP_VSIZE, " region map");
 		Ref<Image> region_map_img = get_filled_image(REGION_MAP_VSIZE, COLOR_BLACK, false, Image::FORMAT_RG8);
 
 		for (int i = 0; i < region_offsets.size(); i++) {
@@ -1074,7 +1074,7 @@ void Terrain3DStorage::_update_regions() {
 		RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
 
 		if (noise_enabled) {
-			LOG(INFO, "Regenerating ", Vector2i(512, 512), " region blend map");
+			LOG(DEBUG_CONT, "Regenerating ", Vector2i(512, 512), " region blend map");
 			Ref<Image> region_blend_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RH);
 			for (int y = 0; y < region_map_img->get_height(); y++) {
 				for (int x = 0; x < region_map_img->get_width(); x++) {

@@ -230,20 +230,20 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 		editor.set_tool(p_tool)
 		editor.set_operation(p_operation)
 	
-	var settings: PackedStringArray = []
+	var to_hide: PackedStringArray = []
 	
-	if p_operation == Terrain3DEditor.REPLACE:
-		settings.push_back("opacity")
+	if p_operation == Terrain3DEditor.REPLACE and p_tool != Terrain3DEditor.COLOR:
+		to_hide.push_back("opacity")
 		
 	if p_tool == Terrain3DEditor.TEXTURE or p_tool == Terrain3DEditor.COLOR:
-		settings.push_back("height")
+		to_hide.push_back("height")
 		
 	if p_tool == Terrain3DEditor.HEIGHT:
-		settings.push_back("slope")
+		to_hide.push_back("slope")
 		
 	toolbar_settings.set_visible(p_tool != Terrain3DEditor.REGION)
 		
-	toolbar_settings.hide_settings(settings)
+	toolbar_settings.hide_settings(to_hide)
 	update_grid()
 	
 func _on_setting_changed() -> void:

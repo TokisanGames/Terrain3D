@@ -199,14 +199,14 @@ func _get_brush_preview_material() -> ShaderMaterial:
 		var code: String = "shader_type canvas_item;\n"
 		
 		code += "varying vec4 v_vertex_color;\n"
-		code +="void vertex() {\n"
-		code +="	v_vertex_color = COLOR;\n"
-		code +="}\n"
-		code +="void fragment(){\n"
-		code +="	vec4 tex = texture(TEXTURE, UV);\n"
-		code +="	COLOR.a *= pow(tex.r, 0.666);\n"
-		code +="	COLOR.rgb = v_vertex_color.rgb;\n"
-		code +="}\n"
+		code += "void vertex() {\n"
+		code += "	v_vertex_color = COLOR;\n"
+		code += "}\n"
+		code += "void fragment(){\n"
+		code += "	vec4 tex = texture(TEXTURE, UV);\n"
+		code += "	COLOR.a *= pow(tex.r, 0.666);\n"
+		code += "	COLOR.rgb = v_vertex_color.rgb;\n"
+		code += "}\n"
 		
 		shader.set_code(code)
 		
