@@ -13,6 +13,7 @@
 
 using namespace godot;
 
+#define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
 #define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
 #define COLOR_RB Color(1.0f, 0.0f, 1.0f, 1.0f)
@@ -31,19 +32,22 @@ class Terrain3DStorage : public Resource {
 	static inline const Image::Format FORMAT[] = {
 		Image::FORMAT_RH, // TYPE_HEIGHT
 		Image::FORMAT_RGBA8, // TYPE_CONTROL
-		Image::FORMAT_RGB8, // TYPE_COLOR
+		Image::FORMAT_RGBA8, // TYPE_COLOR
+		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
 	};
 
 	static inline const char *TYPESTR[] = {
 		"TYPE_HEIGHT",
 		"TYPE_CONTROL",
 		"TYPE_COLOR",
+		"TYPE_MAX",
 	};
 
 	static inline const Color COLOR[] = {
 		COLOR_BLACK, // TYPE_HEIGHT
 		COLOR_BLACK, // TYPE_CONTROL
 		COLOR_WHITE, // TYPE_COLOR
+		COLOR_ZERO, // TYPE_MAX, unused just in case someone indexes the array
 	};
 
 	enum RegionSize {
@@ -87,15 +91,16 @@ class Terrain3DStorage : public Resource {
 	float noise_blend_near = 0.5;
 	float noise_blend_far = 1.0;
 
-	TypedArray<Terrain3DSurface> surfaces;
 	bool surfaces_enabled = false;
 
 	/**
-	 * These Image arrays are region_sized slices of all heightmap data. Their world
+	 * These arrays house all of the storage data.
+	 * The Image arrays are region_sized slices of all heightmap data. Their world
 	 * location is tracked by region_offsets. The region data are combined into one large
 	 * texture in generated_*_maps.
 	 */
 	TypedArray<Vector2i> region_offsets;
+	TypedArray<Terrain3DSurface> surfaces;
 	TypedArray<Image> height_maps;
 	TypedArray<Image> control_maps;
 	TypedArray<Image> color_maps;
@@ -163,6 +168,7 @@ public:
 	TypedArray<Image> get_control_maps() const { return control_maps; }
 	void set_color_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_color_maps() const { return color_maps; }
+	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	static Ref<Image> load_image(String p_file_name, int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,

@@ -122,37 +122,10 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 		}
 	}
 
-	TypedArray<Image> images;
-	images.resize(TYPE_MAX);
-
-	for (int i = 0; i < TYPE_MAX; i++) {
-		Ref<Image> img;
-		if (i < p_images.size()) {
-			img = p_images[i];
-			if (img.is_valid()) {
-				if (img->get_size() == region_vsize) {
-					if (img->get_format() == FORMAT[i]) {
-						LOG(DEBUG, "Map type ", TYPESTR[i], " valid format & size");
-						images[i] = img;
-					} else {
-						LOG(DEBUG, "Provided map type ", TYPESTR[i], " wrong format. Converting copy");
-						Ref<Image> newimg;
-						newimg.instantiate();
-						newimg->copy_from(img);
-						newimg->convert(FORMAT[i]);
-						images[i] = newimg;
-					}
-					continue; // Continue for loop
-				} else {
-					LOG(DEBUG, "Provided map type ", TYPESTR[i], " wrong size. Creating blank");
-				}
-			} else {
-				LOG(DEBUG, "No provided map type ", TYPESTR[i], ". Creating blank");
-			}
-		} else {
-			LOG(DEBUG, "p_images.size() < ", i, ". Creating blank");
-		}
-		images[i] = get_filled_image(region_vsize, COLOR[i], false, FORMAT[i]);
+	TypedArray<Image> images = sanitize_maps(TYPE_MAX, p_images);
+	if (images.is_empty()) {
+		LOG(ERROR, "Sanitize_maps failed to accept images or produce blanks");
+		return FAILED;
 	}
 
 	LOG(DEBUG, "Pushing back ", images.size(), " images");
@@ -365,20 +338,92 @@ TypedArray<Image> Terrain3DStorage::get_maps_copy(MapType p_map_type) const {
 
 void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting height maps: ", p_maps.size());
-	height_maps = p_maps;
+	height_maps = sanitize_maps(TYPE_HEIGHT, p_maps);
 	force_update_maps(TYPE_HEIGHT);
 }
 
 void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting control maps: ", p_maps.size());
-	control_maps = p_maps;
+	control_maps = sanitize_maps(TYPE_CONTROL, p_maps);
 	force_update_maps(TYPE_CONTROL);
 }
 
 void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting color maps: ", p_maps.size());
-	color_maps = p_maps;
+	color_maps = sanitize_maps(TYPE_COLOR, p_maps);
 	force_update_maps(TYPE_COLOR);
+}
+
+/**
+ * Returns sanitized maps of either a region set or a uniform set
+ * Verifies size, vailidity, and format of maps
+ * Creates filled blanks if lacking
+ * p_map_type:
+ *	TYPE_HEIGHT, TYPE_CONTROL, TYPE_COLOR: uniform set - p_maps are all the same type, size=N
+ *	TYPE_MAX = region set - p_maps is [ height, control, color ], size=3
+ **/
+TypedArray<Image> Terrain3DStorage::sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps) {
+	LOG(INFO, "Verifying image set is valid: ", p_maps.size(), " maps of type: ", TYPESTR[TYPE_MAX]);
+
+	TypedArray<Image> images;
+	int iterations;
+
+	if (p_map_type == TYPE_MAX) {
+		images.resize(TYPE_MAX);
+		iterations = TYPE_MAX;
+	} else {
+		images.resize(p_maps.size());
+		iterations = p_maps.size();
+		if (iterations <= 0) {
+			LOG(DEBUG, "Empty Image set. Nothing to sanitize");
+			return images;
+		}
+	}
+
+	Image::Format format;
+	const char *type_str;
+	Color color;
+	for (int i = 0; i < iterations; i++) {
+		if (p_map_type == TYPE_MAX) {
+			format = FORMAT[i];
+			type_str = TYPESTR[i];
+			color = COLOR[i];
+		} else {
+			format = FORMAT[p_map_type];
+			type_str = TYPESTR[p_map_type];
+			color = COLOR[p_map_type];
+		}
+
+		if (i < p_maps.size()) {
+			Ref<Image> img;
+			img = p_maps[i];
+			if (img.is_valid()) {
+				if (img->get_size() == region_vsize) {
+					if (img->get_format() == format) {
+						LOG(DEBUG, "Map type ", type_str, " correct format, size. Using image");
+						images[i] = img;
+					} else {
+						LOG(DEBUG, "Provided ", type_str, " map wrong format: ", img->get_format(), ". Converting copy to: ", format);
+						Ref<Image> newimg;
+						newimg.instantiate();
+						newimg->copy_from(img);
+						newimg->convert(format);
+						images[i] = newimg;
+					}
+					continue; // Continue for loop
+				} else {
+					LOG(DEBUG, "Provided ", type_str, " map wrong size: ", img->get_size(), ". Creating blank");
+				}
+			} else {
+				LOG(DEBUG, "No provided ", type_str, " map. Creating blank");
+			}
+		} else {
+			LOG(DEBUG, "p_images.size() < ", i, ". Creating blank");
+		}
+		images[i] = get_filled_image(region_vsize, color, false, format);
+	}
+
+	return images;
 }
 
 void Terrain3DStorage::force_update_maps(MapType p_map_type) {
