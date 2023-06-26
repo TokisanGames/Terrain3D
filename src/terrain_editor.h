@@ -104,20 +104,19 @@ public:
 	Terrain3DEditor();
 	~Terrain3DEditor();
 
-	void set_tool(Tool p_tool);
-	Tool get_tool() const;
-	void set_operation(Operation p_operation);
-	Operation get_operation() const;
+	void set_terrain(Terrain3D *p_terrain) { terrain = p_terrain; }
+	Terrain3D *get_terrain() const { return terrain; }
+
+	void set_brush_data(Dictionary data);
+	void set_tool(Tool p_tool) { tool = p_tool; }
+	Tool get_tool() const { return tool; }
+	void set_operation(Operation p_operation) { operation = p_operation; }
+	Operation get_operation() const { return operation; }
 	void operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation);
 
 	void setup_undo();
 	void store_undo();
 	void apply_undo(const Array &p_maps);
-
-	void set_brush_data(Dictionary data);
-
-	void set_terrain(Terrain3D *p_terrain);
-	Terrain3D *get_terrain() const;
 };
 
 VARIANT_ENUM_CAST(Terrain3DEditor::Operation);

@@ -35,22 +35,6 @@ Terrain3DEditor::Terrain3DEditor() {
 Terrain3DEditor::~Terrain3DEditor() {
 }
 
-void Terrain3DEditor::set_tool(Tool p_tool) {
-	tool = p_tool;
-}
-
-Terrain3DEditor::Tool Terrain3DEditor::get_tool() const {
-	return tool;
-}
-
-void Terrain3DEditor::set_operation(Operation p_operation) {
-	operation = p_operation;
-}
-
-Terrain3DEditor::Operation Terrain3DEditor::get_operation() const {
-	return operation;
-}
-
 void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 	if (p_data.is_empty()) {
 		return;
@@ -89,14 +73,6 @@ void Terrain3DEditor::operate(Vector3 p_global_position, float p_camera_directio
 		default:
 			break;
 	}
-}
-
-void Terrain3DEditor::set_terrain(Terrain3D *p_terrain) {
-	terrain = p_terrain;
-}
-
-Terrain3D *Terrain3DEditor::get_terrain() const {
-	return terrain;
 }
 
 void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
@@ -344,16 +320,17 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(COLOR);
 	BIND_ENUM_CONSTANT(REGION);
 
-	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction", "continuous_operation"), &Terrain3DEditor::operate);
+	ClassDB::bind_method(D_METHOD("set_terrain", "terrain"), &Terrain3DEditor::set_terrain);
+	ClassDB::bind_method(D_METHOD("get_terrain"), &Terrain3DEditor::get_terrain);
+
 	ClassDB::bind_method(D_METHOD("set_brush_data", "data"), &Terrain3DEditor::set_brush_data);
 	ClassDB::bind_method(D_METHOD("set_tool", "tool"), &Terrain3DEditor::set_tool);
 	ClassDB::bind_method(D_METHOD("get_tool"), &Terrain3DEditor::get_tool);
 	ClassDB::bind_method(D_METHOD("set_operation", "operation"), &Terrain3DEditor::set_operation);
 	ClassDB::bind_method(D_METHOD("get_operation"), &Terrain3DEditor::get_operation);
+	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction", "continuous_operation"), &Terrain3DEditor::operate);
 
 	ClassDB::bind_method(D_METHOD("setup_undo"), &Terrain3DEditor::setup_undo);
 	ClassDB::bind_method(D_METHOD("store_undo"), &Terrain3DEditor::store_undo);
 	ClassDB::bind_method(D_METHOD("apply_undo", "maps"), &Terrain3DEditor::apply_undo);
-
-	ClassDB::bind_method(D_METHOD("set_terrain", "terrain"), &Terrain3DEditor::set_terrain);
 }
