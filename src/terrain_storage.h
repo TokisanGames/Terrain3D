@@ -16,6 +16,7 @@ using namespace godot;
 #define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
 #define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
+#define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)
 #define COLOR_RB Color(1.0f, 0.0f, 1.0f, 1.0f)
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 
@@ -46,7 +47,7 @@ class Terrain3DStorage : public Resource {
 	static inline const Color COLOR[] = {
 		COLOR_BLACK, // TYPE_HEIGHT
 		COLOR_BLACK, // TYPE_CONTROL
-		COLOR_WHITE, // TYPE_COLOR
+		COLOR_ROUGHNESS, // TYPE_COLOR
 		COLOR_ZERO, // TYPE_MAX, unused just in case someone indexes the array
 	};
 

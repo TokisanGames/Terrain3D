@@ -41,6 +41,7 @@ func _ready() -> void:
 	list.add_child(color_pick_button)
 	color_pick_button.set_text("Pick Color")
 	color_pick_button.connect("pressed", _on_color_pick)
+	add_setting(SettingType.SLIDER, "roughness", 0, list, "%", -100, 100, 1)
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -227,8 +228,9 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 		SettingType.COLOR_SELECT:
 			control = ColorPickerButton.new()
 			control.set_custom_minimum_size(Vector2(70, 0))
-			control.edit_alpha = false
 			control.color = Color.WHITE
+			control.edit_alpha = false
+			control.get_picker().set_color_mode(ColorPicker.MODE_HSV)
 			control.connect("color_changed", _on_setting_changed)
 			
 	container.add_child(control, true)

@@ -16,6 +16,7 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	opacity = p_data["opacity"];
 	height = p_data["height"];
 	color = p_data["color"];
+	roughness = p_data["roughness"];
 	gamma = p_data["gamma"];
 	jitter = p_data["jitter"];
 	image = p_data["image"];
@@ -128,6 +129,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 	float opacity = brush.get_opacity();
 	float height = brush.get_height() / float(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
 	Color color = brush.get_color();
+	float roughness = brush.get_roughness();
 	float gamma = brush.get_gamma();
 	float randf = UtilityFunctions::randf();
 	float rot = randf * Math_PI * brush.get_jitter();
@@ -227,6 +229,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 					switch (operation) {
 						case Terrain3DEditor::REPLACE:
 							dest = src.lerp(color, brush_alpha * opacity);
+							dest.a = Math::lerp(src.a, .5f + .5f * roughness * .01f, brush_alpha * opacity);
 							break;
 						default:
 							break;

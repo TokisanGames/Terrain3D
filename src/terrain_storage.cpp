@@ -1409,7 +1409,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "	vec4 color_tex = to_linear(texture(color_maps, get_regionf(UV2)));\n\n";
 
 		code += "	ALBEDO = color * color_tex.rgb;\n";
-		code += "	ROUGHNESS = in_normal.a;\n";
+		code += "	ROUGHNESS = clamp(fma(color_tex.a-0.5, 2.0, in_normal.a), 0., 1.);\n";
 		code += "	NORMAL_MAP = in_normal.rgb;\n";
 		code += "	NORMAL_MAP_DEPTH = 1.0;\n";
 
