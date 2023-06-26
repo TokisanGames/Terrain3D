@@ -13,7 +13,11 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	height = p_data["height"];
 	jitter = p_data["jitter"];
 	image = p_data["image"];
-	img_size = Vector2(image->get_size());
+	if (image.is_valid()) {
+		img_size = Vector2(image->get_size());
+	} else {
+		img_size = Vector2(0, 0);
+	}
 	align_to_view = p_data["align_with_view"];
 	auto_regions = p_data["automatic_regions"];
 }
