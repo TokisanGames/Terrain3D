@@ -1,20 +1,20 @@
 @tool
 extends EditorPlugin
+class_name Terrain3DEditorPlugin
+
 
 # Includes
-const Toolbar: Script = preload("res://addons/terrain/editor/components/toolbar.gd")
-const ToolSettings: Script = preload("res://addons/terrain/editor/components/tool_settings.gd")
+const UI: Script = preload("res://addons/terrain/editor/components/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain/editor/components/region_gizmo.gd")
 const SurfaceList: Script = preload("res://addons/terrain/editor/components/surface_list.gd")
 
 var terrain: Terrain3D
 
 var mouse_is_pressed: bool = false
-var setting_has_changed: bool = false
+
 var pending_undo: bool = false
 var editor: Terrain3DEditor
-var toolbar: Toolbar
-var toolbar_settings: ToolSettings
+var ui: Terrain3DUI
 var surface_list: SurfaceList
 var surface_list_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 
@@ -26,36 +26,25 @@ var end_global_position: Vector3
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
-	
-	toolbar_settings = ToolSettings.new()
-	toolbar_settings.connect("setting_changed", _on_setting_changed)
-	toolbar_settings.hide()
-	
-	toolbar = Toolbar.new()
-	toolbar.hide()
-	toolbar.connect("tool_changed", _on_tool_changed)
-	
+	ui = Terrain3DUI.new()
+	ui.plugin = self
+	add_child(ui)
+
 	surface_list = SurfaceList.new()
 	surface_list.hide()
 	surface_list.connect("resource_changed", _on_surface_list_resource_changed)
 	surface_list.connect("resource_inspected", _on_surface_list_resource_selected)
-	surface_list.connect("resource_selected", _on_setting_changed)
+	surface_list.connect("resource_selected", ui._on_setting_changed)
 	
 	region_gizmo = RegionGizmo.new()
 	
 	add_control_to_container(surface_list_container, surface_list)
 	surface_list.get_parent().connect("visibility_changed", _on_surface_list_visibility_changed)
 	
-	add_control_to_container(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
-	add_control_to_bottom(toolbar_settings)
-	
 func _exit_tree() -> void:
 	remove_control_from_container(surface_list_container, surface_list)
-	remove_control_from_container(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
-	toolbar_settings.get_parent().remove_child(toolbar_settings)
-	toolbar.queue_free()
-	toolbar_settings.queue_free()
 	surface_list.queue_free()
+	ui.queue_free()
 	editor.free()
 	
 func _handles(object: Object) -> bool:
@@ -78,14 +67,10 @@ func _edit(object: Object) -> void:
 		_load_storage()
 		
 func _make_visible(visible: bool) -> void:
-	toolbar.set_visible(visible)
+	ui.set_visible(visible)
 	surface_list.set_visible(visible)
 	update_grid()
 	region_gizmo.set_hidden(!visible)
-	
-	if visible:
-		visible = editor.get_tool() != Terrain3DEditor.REGION
-	toolbar_settings.set_visible(visible)
 	
 func _clear() -> void:
 	if is_terrain_valid():
@@ -114,22 +99,6 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			if current_region_position != region_position:	
 				current_region_position = region_position
 				update_grid()
-			
-			if setting_has_changed:
-				var brush_data: Dictionary = {
-					"size": int(toolbar_settings.get_setting("size")),
-					"opacity": toolbar_settings.get_setting("opacity") / 100.0,
-					"color": toolbar_settings.get_setting("color"),
-					"gamma": toolbar_settings.get_setting("gamma"),
-					"height": toolbar_settings.get_setting("height"),
-					"jitter": toolbar_settings.get_setting("jitter"),
-					"image": toolbar_settings.get_setting("shape"),
-					"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
-					"align_with_view": toolbar_settings.get_setting("align_with_view"),
-					"index": surface_list.get_selected_index(),
-				}
-				editor.set_brush_data(brush_data)
-				setting_has_changed = false
 				
 			if p_event is InputEventMouseButton and p_event.get_button_index() == MOUSE_BUTTON_LEFT:
 				if mouse_is_pressed != p_event.is_pressed():
@@ -225,27 +194,3 @@ func _on_surface_list_visibility_changed() -> void:
 		if get_editor_interface().is_distraction_free_mode_enabled():
 			surface_list_container = CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT
 		add_control_to_container(surface_list_container, surface_list)
-
-func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
-	if editor:
-		editor.set_tool(p_tool)
-		editor.set_operation(p_operation)
-	
-	var to_hide: PackedStringArray = []
-	
-	if p_operation == Terrain3DEditor.REPLACE and p_tool != Terrain3DEditor.COLOR:
-		to_hide.push_back("opacity")
-		
-	if p_tool == Terrain3DEditor.TEXTURE or p_tool == Terrain3DEditor.COLOR:
-		to_hide.push_back("height")
-		
-	if p_tool == Terrain3DEditor.HEIGHT:
-		to_hide.push_back("slope")
-		
-	toolbar_settings.set_visible(p_tool != Terrain3DEditor.REGION)
-		
-	toolbar_settings.hide_settings(to_hide)
-	update_grid()
-	
-func _on_setting_changed() -> void:
-	setting_has_changed = true
