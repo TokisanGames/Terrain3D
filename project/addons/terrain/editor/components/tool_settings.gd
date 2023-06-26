@@ -29,19 +29,18 @@ func _ready() -> void:
 	add_child(list, true)
 	
 	add_brushes(list)
+
+	add_setting(SettingType.COLOR_SELECT, "color", Color.WHITE, list)
+	add_setting(SettingType.SLIDER, "roughness", 0, list, "%", -100, 100, 1)
 	
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 0, 200)
-	add_setting(SettingType.SLIDER, "opacity", 100, list, "%", 0, 100)
+	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 0, 100)
 	add_setting(SettingType.SLIDER, "height", 10, list, "m", 1, 1000, 0.1)
 	add_setting(SettingType.DOUBLE_SLIDER, "slope", 0, list, "°", 0, 180, 1)
-	
-	add_setting(SettingType.COLOR_SELECT, "color", Color.WHITE, list)
-
 	var color_pick_button: Button = Button.new()
 	list.add_child(color_pick_button)
 	color_pick_button.set_text("Pick Color")
 	color_pick_button.connect("pressed", _on_color_pick)
-	add_setting(SettingType.SLIDER, "roughness", 0, list, "%", -100, 100, 1)
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -163,8 +162,6 @@ func _on_brush_hover(hovering: bool, button: Button) -> void:
 				child.visible = false
 
 
-func _on_brush_hover(button: Button) -> void:
-	print("hovering over: ", button)
 
 func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent: Control, 
 		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, step: float = 1.0) -> void:
@@ -215,7 +212,7 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			slider.set_value(value)
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 			slider.set_h_size_flags(SIZE_SHRINK_END | SIZE_EXPAND)
-			slider.set_custom_minimum_size(Vector2(110, 10))
+			slider.set_custom_minimum_size(Vector2(100, 10))
 			
 			container.add_child(slider, true)
 				
@@ -227,7 +224,7 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			
 		SettingType.COLOR_SELECT:
 			control = ColorPickerButton.new()
-			control.set_custom_minimum_size(Vector2(70, 0))
+			control.set_custom_minimum_size(Vector2(100, 10))
 			control.color = Color.WHITE
 			control.edit_alpha = false
 			control.get_picker().set_color_mode(ColorPicker.MODE_HSV)

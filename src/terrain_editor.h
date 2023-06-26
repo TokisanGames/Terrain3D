@@ -25,6 +25,7 @@ public:
 		MULTIPLY,
 		REPLACE,
 		AVERAGE,
+		OP_MAX,
 	};
 
 	static inline const char *OPNAME[] = {
@@ -33,20 +34,25 @@ public:
 		"Multiply",
 		"Replace",
 		"Average",
+		"OP_MAX",
 	};
 
-	enum Tool { // Corresponds to MapTypes in Terrain3DStorage
-		HEIGHT, // TYPE_HEIGHT
-		TEXTURE, // TYPE_CONTROL
-		COLOR, // TYPE_COLOR
+	enum Tool {
+		HEIGHT,
+		TEXTURE,
+		COLOR,
+		ROUGHNESS,
 		REGION,
+		TOOL_MAX,
 	};
 
 	static inline const char *TOOLNAME[] = {
 		"Height",
 		"Texture",
 		"Color",
+		"Roughness",
 		"Region",
+		"TOOL_MAX",
 	};
 
 	struct Brush {
@@ -92,7 +98,7 @@ public:
 
 private:
 	void _operate_region(Vector3 p_global_position);
-	void _operate_map(Terrain3DStorage::MapType p_map_type, Vector3 p_global_position, float p_camera_direction);
+	void _operate_map(Vector3 p_global_position, float p_camera_direction);
 	bool _is_in_bounds(Vector2i p_position, Vector2i p_max_position);
 	Vector2 _get_uv_position(Vector3 p_global_position, int p_region_size);
 	Vector2 _rotate_uv(Vector2 p_uv, float p_angle);
