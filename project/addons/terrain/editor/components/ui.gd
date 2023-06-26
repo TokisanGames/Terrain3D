@@ -72,7 +72,7 @@ func _on_setting_changed() -> void:
 		"gamma": toolbar_settings.get_setting("gamma"),
 		"height": toolbar_settings.get_setting("height"),
 		"jitter": toolbar_settings.get_setting("jitter"),
-		"image": toolbar_settings.get_setting("shape"),
+		"image": toolbar_settings.get_setting("brush"),
 		"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
 		"align_with_view": toolbar_settings.get_setting("align_with_view"),
 		"index": plugin.surface_list.get_selected_index(),

@@ -2,6 +2,12 @@ extends PanelContainer
 
 signal setting_changed
 
+enum Layout {
+	HORIZONTAL,
+	VERTICAL,
+	GRID,
+}
+
 enum SettingType {
 	CHECKBOX,
 	SLIDER,
@@ -17,9 +23,12 @@ var list: HBoxContainer
 var advanced_list: VBoxContainer
 var settings: Dictionary = {}
 
+
 func _ready() -> void:
 	list = HBoxContainer.new()
-	add_child(list)
+	add_child(list, true)
+	
+	add_brushes(list)
 	
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 0, 200)
 	add_setting(SettingType.SLIDER, "opacity", 100, list, "%", 0, 100)
@@ -33,52 +42,64 @@ func _ready() -> void:
 	color_pick_button.set_text("Pick Color")
 	color_pick_button.connect("pressed", _on_color_pick)
 
-	## Advanced Settings
-		
-	var advanced_button: Button = Button.new()
-	list.add_child(advanced_button)
-	
-	var advanced_menu: PopupPanel = PopupPanel.new()
-	advanced_list = VBoxContainer.new()
-	
-	advanced_menu.connect("popup_hide", advanced_button.set_pressed_no_signal.bind(false))
-	advanced_button.set_text("Advanced")
-	advanced_button.set_toggle_mode(true)
-	advanced_button.set_v_size_flags(SIZE_SHRINK_CENTER)
-	advanced_button.connect("toggled", _on_show_advanced.bind(advanced_button))
-	advanced_menu.set("theme_override_styles/panel", get_theme_stylebox("panel", "PopupMenu"))
-	advanced_menu.set_size(Vector2i(100, 10))
-	
-	advanced_button.add_child(advanced_menu)
-	advanced_menu.add_child(advanced_list)
-	
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_child(spacer, true)
+
+	## Advanced Settings Menu
+	advanced_list = create_submenu(list, "Advanced", Layout.VERTICAL)
 	add_setting(SettingType.CHECKBOX, "automatic_regions", true, advanced_list)
 	add_setting(SettingType.CHECKBOX, "align_with_view", true, advanced_list)
-	
-	advanced_list.add_child(HSeparator.new())
-	
+	advanced_list.add_child(HSeparator.new(), true)
 	add_setting(SettingType.SLIDER, "gamma", 1.0, advanced_list, "γ", 0.1, 2.0, 0.01)
 	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
-	
-	add_brushes("shape")
 
 func _on_color_pick() -> void:
 	print("Picking color...")
 	pass
 
-func add_brushes(p_name: String) -> void:
-	var hbox: HBoxContainer = HBoxContainer.new()
-	var label: Label = Label.new()
+func create_submenu(parent: Control, button_name: String, layout: Layout) -> Container:
+	var menu_button: Button = Button.new()
+	menu_button.set_text(button_name)
+	menu_button.set_toggle_mode(true)
+	menu_button.set_v_size_flags(SIZE_SHRINK_CENTER)
+	menu_button.connect("toggled", _on_show_submenu.bind(menu_button))
+
+	var submenu: PopupPanel = PopupPanel.new()
+	submenu.connect("popup_hide", menu_button.set_pressed_no_signal.bind(false))
+	submenu.set("theme_override_styles/panel", get_theme_stylebox("panel", "PopupMenu"))
 	
-	label.set_text(p_name.capitalize() + ": ")
-	label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
-	label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-	label.set_custom_minimum_size(Vector2(32, 0))
-	label.set_v_size_flags(SIZE_SHRINK_CENTER)
-	hbox.add_child(label)
+	var sublist: Container
+	match(layout):
+		Layout.GRID:
+			sublist = GridContainer.new()
+		Layout.VERTICAL:
+			sublist = VBoxContainer.new()
+		Layout.HORIZONTAL, _:
+			sublist = HBoxContainer.new()
 	
+	parent.add_child(menu_button, true)
+	menu_button.add_child(submenu, true)
+	submenu.add_child(sublist, true)
+	
+	return sublist
+
+
+func _on_show_submenu(toggled: bool, button: Button):
+	var popup: PopupPanel = button.get_child(0)
+	var popup_pos: Vector2 = button.get_screen_transform().origin
+	popup.set_visible(toggled)
+	popup_pos.y -= popup.get_size().y
+	popup.set_position(popup_pos)
+
+
+func add_brushes(parent: Control) -> void:
+	var brush_list: GridContainer = create_submenu(parent, "Brush", Layout.GRID)
+	brush_list.name = "BrushList"
+
 	var brush_button_group: ButtonGroup = ButtonGroup.new()
 	brush_button_group.connect("pressed", _on_setting_changed)
+	var default_brush_btn: Button
 	
 	var dir: DirAccess = DirAccess.open(BRUSH_PATH)
 	if dir:
@@ -91,34 +112,68 @@ func add_brushes(p_name: String) -> void:
 				var tex: ImageTexture = ImageTexture.create_from_image(img)
 
 				var btn: Button = Button.new()
-				btn.set_custom_minimum_size(Vector2.ONE * 36)
+				btn.set_custom_minimum_size(Vector2.ONE * 100)
 				btn.set_button_icon(tex)
 				btn.set_expand_icon(true)
 				btn.set_material(_get_brush_preview_material())
 				btn.set_toggle_mode(true)
 				btn.set_button_group(brush_button_group)
-				btn.mouse_entered.connect(_on_brush_hover.bind(btn))
-				btn.mouse_exited.connect(_on_brush_hover.bind(btn))
-				hbox.add_child(btn)
+				btn.mouse_entered.connect(_on_brush_hover.bind(true, btn))
+				btn.mouse_exited.connect(_on_brush_hover.bind(false, btn))
+				brush_list.add_child(btn, true)
+				if file_name == "circle1.exr":
+					default_brush_btn = btn 
+				
+				var lbl: Label = Label.new()
+				btn.add_child(lbl, true)
+				lbl.text = file_name.get_basename()
+				lbl.visible = false
+				lbl.position.y = 70
+				lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+				lbl.add_theme_constant_override("shadow_offset_x", 1)
+				lbl.add_theme_constant_override("shadow_offset_y", 1)
+				lbl.add_theme_font_size_override("font_size", 16)
 				
 			file_name = dir.get_next()
 	
-	brush_button_group.get_buttons()[0].set_pressed(true)
-	list.add_child(hbox)
-	settings[p_name] = brush_button_group
+	brush_list.columns = sqrt(brush_list.get_child_count()) + 2
+	
+	if not default_brush_btn:
+		default_brush_btn = brush_button_group.get_buttons()[0]
+	default_brush_btn.set_pressed(true)
+	
+	settings["brush"] = brush_button_group
+
+	# Optionally erase the main brush button text and replace it with the texture
+#	var select_brush_btn: Button = brush_list.get_parent().get_parent()
+#	select_brush_btn.set_button_icon(default_brush_btn.get_button_icon())
+#	select_brush_btn.set_custom_minimum_size(Vector2.ONE * 36)
+#	select_brush_btn.set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER)
+#	select_brush_btn.set_expand_icon(true)
+
+
+func _on_brush_hover(hovering: bool, button: Button) -> void:
+	if button.get_child_count() > 0:
+		var child = button.get_child(0)
+		if child is Label:
+			if hovering:
+				child.visible = true
+			else:
+				child.visible = false
+
 
 func _on_brush_hover(button: Button) -> void:
 	print("hovering over: ", button)
 
 func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent: Control, 
 		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, step: float = 1.0) -> void:
-			
+
 	var container: HBoxContainer = HBoxContainer.new()
 	var label: Label = Label.new()
 	var control: Control
-	
+
 	container.set_v_size_flags(SIZE_EXPAND_FILL)
-	
+
 	match p_type:
 		SettingType.SLIDER, SettingType.DOUBLE_SLIDER:
 			label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
@@ -126,7 +181,7 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			label.set_custom_minimum_size(Vector2(32, 0))
 			label.set_v_size_flags(SIZE_SHRINK_CENTER)
 			label.set_text(p_name.capitalize() + ": ")
-			container.add_child(label)
+			container.add_child(label, true)
 			
 			var slider: Control
 			if p_type == SettingType.SLIDER:
@@ -161,7 +216,7 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			slider.set_h_size_flags(SIZE_SHRINK_END | SIZE_EXPAND)
 			slider.set_custom_minimum_size(Vector2(110, 10))
 			
-			container.add_child(slider)
+			container.add_child(slider, true)
 				
 		SettingType.CHECKBOX:
 			control = CheckBox.new()
@@ -176,11 +231,12 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			control.color = Color.WHITE
 			control.connect("color_changed", _on_setting_changed)
 			
-	container.add_child(control)
-	parent.add_child(container)
+	container.add_child(control, true)
+	parent.add_child(container, true)
 	
 	settings[p_name] = control
-	
+
+
 func get_setting(p_setting: String) -> Variant:
 	var object: Object = settings[p_setting]
 	var value: Variant
@@ -197,7 +253,8 @@ func get_setting(p_setting: String) -> Variant:
 		value = object.color
 		
 	return value
-	
+
+
 func hide_settings(p_settings: PackedStringArray):
 	for setting in settings.keys():
 		var object: Object = settings[setting]
@@ -209,16 +266,21 @@ func hide_settings(p_settings: PackedStringArray):
 			var object: Object = settings[setting]
 			if object is Control:
 				object.get_parent().hide()
-	
+
+
 func _on_setting_changed(p_data: Variant = null) -> void:
+	# If a button was clicked on a submenu
+	if p_data is Button and p_data.get_parent().get_parent() is PopupPanel:
+		if p_data.get_parent().name == "BrushList":
+			# Optionally Set selected brush texture in main brush button
+#			p_data.get_parent().get_parent().get_parent().set_button_icon(p_data.get_button_icon())
+			# Hide popup
+			p_data.get_parent().get_parent().set_visible(false)
+			# Hide label
+			if p_data.get_child_count() > 0:
+				p_data.get_child(0).visible = false
 	emit_signal("setting_changed")
 	
-func _on_show_advanced(toggled: bool, button: Button):
-	var popup: PopupPanel = button.get_child(0)
-	var popup_pos: Vector2 = button.get_screen_transform().origin
-	popup.set_visible(toggled)
-	popup_pos.y -= popup.get_size().y
-	popup.set_position(popup_pos)
 
 func _get_brush_preview_material() -> ShaderMaterial:
 	if !brush_preview_material:
@@ -243,6 +305,7 @@ func _get_brush_preview_material() -> ShaderMaterial:
 		
 	return brush_preview_material
 
+
 func _black_to_alpha(image: Image) -> void:
 	if image.get_format() != Image.FORMAT_RGBAF:
 		image.convert(Image.FORMAT_RGBAF)
@@ -253,12 +316,16 @@ func _black_to_alpha(image: Image) -> void:
 			color.a = color.get_luminance()
 			image.set_pixel(x, y, color)
 
+
+#### Sub Class DoubleSlider
+
 class DoubleSlider extends Range:
 	
 	var label: Label
 	var suffix: String
 	var grabbed: bool = false
 	var _max_value: float
+	
 	
 	func _gui_input(p_event: InputEvent):
 		if p_event is InputEventMouseButton:
@@ -269,6 +336,7 @@ class DoubleSlider extends Range:
 		if p_event is InputEventMouseMotion:
 			if grabbed:
 				set_min_max(p_event.get_position().x)
+		
 		
 	func _notification(p_what: int) -> void:
 		if p_what == NOTIFICATION_RESIZED:
@@ -290,11 +358,13 @@ class DoubleSlider extends Range:
 			draw_texture(grabber, minpos)
 			draw_texture(grabber, maxpos)
 			
+			
 	func set_max(value: float):
 		max_value = value
 		if _max_value == 0:
 			_max_value = max_value
 		update_label()
+		
 		
 	func set_min_max(xpos: float):
 		var mid_value_normalized: float = ((max_value + min_value) / 2.0) / _max_value
@@ -313,6 +383,7 @@ class DoubleSlider extends Range:
 		update_label()
 		emit_signal("value_changed", value)
 		queue_redraw()
+		
 		
 	func update_label():
 		if label:
