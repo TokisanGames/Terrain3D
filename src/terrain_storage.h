@@ -173,6 +173,11 @@ public:
 	TypedArray<Image> get_control_maps() const { return control_maps; }
 	void set_color_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_color_maps() const { return color_maps; }
+	Color get_pixel(MapType p_map_type, Vector3 p_global_position);
+	inline float get_height(Vector3 p_global_position) { return get_pixel(TYPE_HEIGHT, p_global_position).r; }
+	inline Color get_color(Vector3 p_global_position);
+	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
+	inline float get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 

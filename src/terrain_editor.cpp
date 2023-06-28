@@ -208,11 +208,16 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 						case COLOR:
 							dest = src.lerp(color, brush_alpha * opacity);
 							dest.a = src.a;
-							//dest = src.lerp(color, brush_value * opacity);
 							break;
 						case ROUGHNESS:
-							dest.a = Math::lerp(src.a, .5f + .5f * roughness * .01f, brush_alpha * opacity);
-							//dest.a = Math::lerp(src.a, .5f + .5f * roughness * .01f, brush_value * opacity);
+							/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
+							 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
+							 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
+							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
+							 * We round the final amount in tool_settings.gd:_on_picked().
+							 * Tip: One can round to 2 decimal places like so: 0.01*round(100.0*a)
+							 */
+							dest.a = Math::lerp(src.a, .5f + .5f * .01f * roughness, brush_alpha * opacity);
 							break;
 					}
 				}

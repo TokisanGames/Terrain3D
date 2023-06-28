@@ -20,9 +20,8 @@ var surface_list_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 
 var region_gizmo: RegionGizmo
 var current_region_position: Vector2
-var current_global_position: Vector3
-var start_global_position: Vector3
-var end_global_position: Vector3
+var mouse_global_position: Vector3 = Vector3.ZERO
+
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
@@ -40,15 +39,18 @@ func _enter_tree() -> void:
 	
 	add_control_to_container(surface_list_container, surface_list)
 	surface_list.get_parent().connect("visibility_changed", _on_surface_list_visibility_changed)
-	
+
+
 func _exit_tree() -> void:
 	remove_control_from_container(surface_list_container, surface_list)
 	surface_list.queue_free()
 	ui.queue_free()
 	editor.free()
+
 	
 func _handles(object: Object) -> bool:
 	return object is Terrain3D
+
 
 func _edit(object: Object) -> void:
 	if object is Terrain3D:
@@ -65,12 +67,14 @@ func _edit(object: Object) -> void:
 		if not terrain.is_connected("storage_changed", _load_storage):
 			terrain.connect("storage_changed", _load_storage)
 		_load_storage()
+
 		
 func _make_visible(visible: bool) -> void:
 	ui.set_visible(visible)
 	surface_list.set_visible(visible)
 	update_grid()
 	region_gizmo.set_hidden(!visible)
+
 	
 func _clear() -> void:
 	if is_terrain_valid():
@@ -82,60 +86,84 @@ func _clear() -> void:
 		
 	region_gizmo.clear()
 
+
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> int:
-	if is_terrain_valid():
-		if p_event is InputEventMouse:
-			var mouse_pos: Vector2 = p_event.get_position()
-			var camera_pos: Vector3 = p_viewport_camera.get_global_position()
-			var camera_from: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
-			var camera_to: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
-			var t = -Vector3(0, 1, 0).dot(camera_from) / Vector3(0, 1, 0).dot(camera_to)
-			var global_position: Vector3 = (camera_from + t * camera_to)
-			end_global_position = global_position
+	if not is_terrain_valid():
+		return AFTER_GUI_INPUT_PASS
+		
+	# Track mouse position
+	if p_event is InputEventMouseMotion:
+		var mouse_pos: Vector2 = p_event.get_position()
+		var camera_pos: Vector3 = p_viewport_camera.get_global_position()
+		var camera_from: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
+		var camera_to: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
+		var t = -Vector3(0, 1, 0).dot(camera_from) / Vector3(0, 1, 0).dot(camera_to)
+		mouse_global_position = (camera_from + t * camera_to)
+		
+		# Update region highlight
+		var region_size = terrain.get_storage().get_region_size()
+		var region_position: Vector2 = (Vector2(mouse_global_position.x, mouse_global_position.z) / region_size + Vector2(0.5, 0.5)).floor()
+		if current_region_position != region_position:	
+			current_region_position = region_position
+			update_grid()
+
+	elif p_event is InputEventMouseButton and p_event.get_button_index() == MOUSE_BUTTON_LEFT:
+		# Update mouse pressed state
+		if mouse_is_pressed != p_event.is_pressed():
+			mouse_is_pressed = p_event.is_pressed()
+
+		if mouse_is_pressed:
+			var tool: Terrain3DEditor.Tool = editor.get_tool() 
 			
-			var region_size = terrain.get_storage().get_region_size()
-			var region_position: Vector2 = (Vector2(global_position.x, global_position.z) / region_size + Vector2(0.5, 0.5)).floor()
+			if ui.picking != Terrain3DEditor.TOOL_MAX: 
+				var color: Color
+				match ui.picking:
+					Terrain3DEditor.HEIGHT:
+						color = terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_HEIGHT, mouse_global_position)
+					Terrain3DEditor.ROUGHNESS:
+						color = terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_COLOR, mouse_global_position)
+					Terrain3DEditor.COLOR:
+						color = terrain.get_storage().get_color(mouse_global_position)
+					_:
+						push_error("Unsupported picking type: ", ui.picking)
+						return AFTER_GUI_INPUT_STOP
+				ui.picking_callback.call(ui.picking, color)
+				ui.picking = Terrain3DEditor.TOOL_MAX
+				mouse_is_pressed = false
+				return AFTER_GUI_INPUT_STOP
 
-			if current_region_position != region_position:	
-				current_region_position = region_position
-				update_grid()
-				
-			if p_event is InputEventMouseButton and p_event.get_button_index() == MOUSE_BUTTON_LEFT:
-				if mouse_is_pressed != p_event.is_pressed():
-					mouse_is_pressed = p_event.is_pressed()
-					start_global_position = end_global_position
+			elif editor.get_tool() == Terrain3DEditor.REGION:
+				# Skip regions that already exist or don't
+				var has_region: bool = terrain.get_storage().has_region(mouse_global_position)
+				var op: int = editor.get_operation()
+				if	( has_region and op == Terrain3DEditor.ADD) or \
+					( not has_region and op == Terrain3DEditor.SUBTRACT ):
+					return AFTER_GUI_INPUT_STOP
 
-				# Save undo if making a change
-				if p_event.is_pressed():
-					# Skip regions that already exist or don't
-					if editor.get_tool() == Terrain3DEditor.REGION:
-						var has_region: bool = terrain.get_storage().has_region(global_position)
-						var op: int = editor.get_operation()
-						if	( has_region and op == Terrain3DEditor.ADD) or \
-							( not has_region and op == Terrain3DEditor.SUBTRACT ):
-							return EditorPlugin.AFTER_GUI_INPUT_STOP
+			# Mouse clicked, copy undo data 
+			editor.setup_undo()
+			pending_undo = true
 
-					# Mouse pressed down, copy undo data 
-					editor.setup_undo()
-					pending_undo = true
-				else:
-					# Mouse released, store pending undo data in History
-					if pending_undo:
-						editor.store_undo()
-					pending_undo = false
+		# Mouse released, store pending undo data in History
+		else:
+			if pending_undo:
+				editor.store_undo()
+			pending_undo = false
+	
+	if mouse_is_pressed:
+		var continuous: bool = editor.get_tool() != Terrain3DEditor.REGION
+		editor.operate(mouse_global_position, p_viewport_camera.rotation.y, continuous)
+		return AFTER_GUI_INPUT_STOP
 
-			if mouse_is_pressed:
-				var continuous: bool = editor.get_tool() != Terrain3DEditor.REGION
-				editor.operate(global_position, p_viewport_camera.rotation.y, continuous)
-				return EditorPlugin.AFTER_GUI_INPUT_STOP
-				
-	return EditorPlugin.AFTER_GUI_INPUT_PASS
+	return AFTER_GUI_INPUT_PASS
+
 		
 func is_terrain_valid() -> bool:
 	var valid: bool = false
 	if is_instance_valid(terrain):
 		valid = terrain.get_storage() != null
 	return valid
+
 	
 func update_grid() -> void:
 	if !region_gizmo.get_node_3d():
@@ -154,6 +182,7 @@ func update_grid() -> void:
 	region_gizmo.show_rect = false
 	region_gizmo.region_size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
+
 	
 func add_control_to_bottom(control: Control) -> void:
 	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, control)
@@ -161,6 +190,7 @@ func add_control_to_bottom(control: Control) -> void:
 	control.get_parent().remove_child(control)
 	container.add_child(control)
 	container.move_child(control, 2)
+
 
 # Signal handlers
 
@@ -176,14 +206,17 @@ func _load_storage() -> void:
 				
 			if surface_count < 256:
 				surface_list.add_item()
+
 			
 func _on_surface_list_resource_changed(surface, index: int) -> void:
 	if is_terrain_valid():
 		terrain.get_storage().set_surface(surface, index)
 		call_deferred("_load_storage")
+
 		
 func _on_surface_list_resource_selected(surface) -> void:
 	get_editor_interface().inspect_object(surface, "", true)
+
 	
 func _on_surface_list_visibility_changed() -> void:
 	if surface_list.get_parent() != null:

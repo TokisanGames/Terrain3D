@@ -1,5 +1,6 @@
 extends PanelContainer
 
+signal picking(type, callback)
 signal setting_changed
 
 enum Layout {
@@ -13,9 +14,12 @@ enum SettingType {
 	SLIDER,
 	DOUBLE_SLIDER,
 	COLOR_SELECT,
+	PICKER,
 }
-	
+
+const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain/editor/brush"
+const PICKER_ICON: String = "res://addons/terrain/icons/icon_dropper.png"
 
 var brush_preview_material: ShaderMaterial
 
@@ -31,16 +35,16 @@ func _ready() -> void:
 	add_brushes(list)
 
 	add_setting(SettingType.COLOR_SELECT, "color", Color.WHITE, list)
+	add_setting(SettingType.PICKER, "color picker", Terrain3DEditor.COLOR, list)
+	
 	add_setting(SettingType.SLIDER, "roughness", 0, list, "%", -100, 100, 1)
+	add_setting(SettingType.PICKER, "roughness picker", Terrain3DEditor.ROUGHNESS, list)
 	
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 0, 200)
 	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 0, 100)
-	add_setting(SettingType.SLIDER, "height", 10, list, "m", 1, 1000, 0.1)
+	add_setting(SettingType.SLIDER, "height", 10, list, "m", 0, 1000, 0.1)
+	add_setting(SettingType.PICKER, "height picker", Terrain3DEditor.HEIGHT, list)
 	add_setting(SettingType.DOUBLE_SLIDER, "slope", 0, list, "°", 0, 180, 1)
-	var color_pick_button: Button = Button.new()
-	list.add_child(color_pick_button)
-	color_pick_button.set_text("Pick Color")
-	color_pick_button.connect("pressed", _on_color_pick)
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -54,9 +58,6 @@ func _ready() -> void:
 	add_setting(SettingType.SLIDER, "gamma", 1.0, advanced_list, "γ", 0.1, 2.0, 0.01)
 	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
 
-func _on_color_pick() -> void:
-	print("Picking color...")
-	pass
 
 func create_submenu(parent: Control, button_name: String, layout: Layout) -> Container:
 	var menu_button: Button = Button.new()
@@ -121,7 +122,7 @@ func add_brushes(parent: Control) -> void:
 				btn.mouse_entered.connect(_on_brush_hover.bind(true, btn))
 				btn.mouse_exited.connect(_on_brush_hover.bind(false, btn))
 				brush_list.add_child(btn, true)
-				if file_name == "circle1.exr":
+				if file_name == DEFAULT_BRUSH:
 					default_brush_btn = btn 
 				
 				var lbl: Label = Label.new()
@@ -161,6 +162,21 @@ func _on_brush_hover(hovering: bool, button: Button) -> void:
 			else:
 				child.visible = false
 
+
+func _on_pick(type: Terrain3DEditor.Tool) -> void:
+	emit_signal("picking", type, _on_picked)
+
+
+func _on_picked(type: Terrain3DEditor.Tool, color: Color) -> void:
+	match type:
+		Terrain3DEditor.HEIGHT:
+			settings["height"].value = color.r * Terrain3DStorage.TERRAIN_MAX_HEIGHT
+		Terrain3DEditor.COLOR:
+			settings["color"].color = color
+		Terrain3DEditor.ROUGHNESS:
+			# 200... -.5 converts 0,1 to -100,100
+			settings["roughness"].value = round(200 * (color.a - 0.5))
+	_on_setting_changed()
 
 
 func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent: Control, 
@@ -230,6 +246,12 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			control.get_picker().set_color_mode(ColorPicker.MODE_HSV)
 			control.connect("color_changed", _on_setting_changed)
 			
+		SettingType.PICKER:
+			control = Button.new()
+			control.icon = load(PICKER_ICON)
+			control.tooltip_text = "Pick value from the Terrain"
+			control.connect("pressed", _on_pick.bind(value))
+			
 	container.add_child(control, true)
 	parent.add_child(container, true)
 	
@@ -278,6 +300,7 @@ func _on_setting_changed(p_data: Variant = null) -> void:
 			# Hide label
 			if p_data.get_child_count() > 0:
 				p_data.get_child(0).visible = false
+
 	emit_signal("setting_changed")
 	
 

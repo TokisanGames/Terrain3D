@@ -355,6 +355,32 @@ void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	force_update_maps(TYPE_COLOR);
 }
 
+Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position) {
+	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
+		LOG(ERROR, "Specified map type out of range");
+		return COLOR_ZERO;
+	}
+
+	int region = get_region_index(p_global_position);
+	if (region < 0 || region >= region_offsets.size()) {
+		return COLOR_ZERO;
+	}
+	Ref<Image> map = get_map_region(p_map_type, region);
+	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * region_size;
+	Vector2i img_pos = Vector2i(
+			Vector2(p_global_position.x - global_offset.x,
+					p_global_position.z - global_offset.y)
+					.floor() +
+			region_vsize / 2);
+	return map->get_pixelv(img_pos);
+}
+
+Color Terrain3DStorage::get_color(Vector3 p_global_position) {
+	Color clr = get_pixel(TYPE_COLOR, p_global_position);
+	clr.a = 1.0;
+	return clr;
+}
+
 /**
  * Returns sanitized maps of either a region set or a uniform set
  * Verifies size, vailidity, and format of maps
@@ -1491,6 +1517,11 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DStorage::get_control_maps);
 	ClassDB::bind_method(D_METHOD("set_color_maps", "maps"), &Terrain3DStorage::set_color_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DStorage::get_color_maps);
+	ClassDB::bind_method(D_METHOD("get_pixel", "map_type", "global_position"), &Terrain3DStorage::get_pixel);
+	ClassDB::bind_method(D_METHOD("get_height", "global_position"), &Terrain3DStorage::get_height);
+	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DStorage::get_color);
+	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DStorage::get_control);
+	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DStorage::get_roughness);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DStorage::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(Vector2i(0, 0)));

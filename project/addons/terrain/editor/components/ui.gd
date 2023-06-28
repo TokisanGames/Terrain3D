@@ -11,16 +11,19 @@ var toolbar: Toolbar
 var toolbar_settings: ToolSettings
 var setting_has_changed: bool = false
 var visible: bool = false
+var picking: int = Terrain3DEditor.TOOL_MAX
+var picking_callback: Callable
 
 
 func _enter_tree() -> void:
-	toolbar_settings = ToolSettings.new()
-	toolbar_settings.connect("setting_changed", _on_setting_changed)
-	toolbar_settings.hide()
-	
 	toolbar = Toolbar.new()
 	toolbar.hide()
 	toolbar.connect("tool_changed", _on_tool_changed)
+	
+	toolbar_settings = ToolSettings.new()
+	toolbar_settings.connect("setting_changed", _on_setting_changed)
+	toolbar_settings.connect("picking", _on_picking)
+	toolbar_settings.hide()
 
 	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	plugin.add_control_to_bottom(toolbar_settings)
@@ -53,26 +56,35 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	
 	if p_tool != Terrain3DEditor.REGION:
 		# Select which settings to hide. Options:
-		# size, opactiy, height, slope, color, (picker), roughness
+		# size, opactiy, height, slope, color, roughness, (height|color|roughness) picker
 		var to_hide: PackedStringArray = []
 		
 		if p_tool == Terrain3DEditor.HEIGHT:
 			to_hide.push_back("slope")
 			to_hide.push_back("color")
+			to_hide.push_back("color picker")
 			to_hide.push_back("roughness")
+			to_hide.push_back("roughness picker")
 
-		if p_tool == Terrain3DEditor.TEXTURE:
+		elif p_tool == Terrain3DEditor.TEXTURE:
 			to_hide.push_back("height")
+			to_hide.push_back("height picker")
 			to_hide.push_back("color")
+			to_hide.push_back("color picker")
 			to_hide.push_back("roughness")
+			to_hide.push_back("roughness picker")
 
 		elif p_tool == Terrain3DEditor.COLOR:
 			to_hide.push_back("height")
+			to_hide.push_back("height picker")
 			to_hide.push_back("roughness")
+			to_hide.push_back("roughness picker")
 
 		elif p_tool == Terrain3DEditor.ROUGHNESS:
 			to_hide.push_back("height")
+			to_hide.push_back("height picker")
 			to_hide.push_back("color")
+			to_hide.push_back("color picker")
 	
 		toolbar_settings.hide_settings(to_hide)
 
@@ -98,3 +110,8 @@ func _on_setting_changed() -> void:
 		"index": plugin.surface_list.get_selected_index(),
 	}
 	plugin.editor.set_brush_data(brush_data)
+
+
+func _on_picking(type: int, callback: Callable) -> void:
+	picking = type
+	picking_callback = callback
