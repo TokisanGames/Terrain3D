@@ -334,6 +334,9 @@ void Terrain3D::_notification(int p_what) {
 		case NOTIFICATION_READY: {
 			LOG(INFO, "NOTIFICATION_READY");
 			set_process(true);
+			if (storage.is_valid()) {
+				storage->clear_modified();
+			}
 			break;
 		}
 
@@ -391,11 +394,19 @@ void Terrain3D::_notification(int p_what) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
 				return;
 			}
+			if (!storage->is_modified()) {
+				LOG(DEBUG, "Save requested, but not modified. Skipping");
+				return;
+			}
 			String path = storage->get_path();
 			LOG(DEBUG, "Saving the terrain to: " + path);
-			if (path.get_extension() == ".tres" || path.get_extension() == ".res") {
+			if (path.get_extension() == "tres" || path.get_extension() == "res") {
 				Error err = ResourceSaver::get_singleton()->save(storage, path);
 				ERR_FAIL_COND(err);
+				LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
+				if (err == OK) {
+					storage->clear_modified();
+				}
 			}
 			LOG(INFO, "Finished saving terrain data");
 			break;
