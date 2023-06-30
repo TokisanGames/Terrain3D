@@ -18,7 +18,7 @@ enum SettingType {
 }
 
 const DEFAULT_BRUSH: String = "circle0.exr"
-const BRUSH_PATH: String = "res://addons/terrain/editor/brush"
+const BRUSH_PATH: String = "res://addons/terrain/editor/brushes"
 const PICKER_ICON: String = "res://addons/terrain/icons/icon_dropper.png"
 
 var brush_preview_material: ShaderMaterial
