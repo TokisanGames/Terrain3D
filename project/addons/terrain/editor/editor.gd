@@ -90,7 +90,7 @@ func _clear() -> void:
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> int:
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
-		
+	
 	# Track mouse position
 	if p_event is InputEventMouseMotion:
 		var mouse_pos: Vector2 = p_event.get_position()
@@ -99,6 +99,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		var camera_to: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
 		var t = -Vector3(0, 1, 0).dot(camera_from) / Vector3(0, 1, 0).dot(camera_to)
 		mouse_global_position = (camera_from + t * camera_to)
+		ui.decal.global_position = mouse_global_position
 		
 		# Update region highlight
 		var region_size = terrain.get_storage().get_region_size()
@@ -107,48 +108,51 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			current_region_position = region_position
 			update_grid()
 
-	elif p_event is InputEventMouseButton and p_event.get_button_index() == MOUSE_BUTTON_LEFT:
-		# Update mouse pressed state
-		if mouse_is_pressed != p_event.is_pressed():
-			mouse_is_pressed = p_event.is_pressed()
+	elif p_event is InputEventMouseButton:
+		if p_event.get_button_index() == MOUSE_BUTTON_LEFT:
+			# Update mouse pressed state
+			if mouse_is_pressed != p_event.is_pressed():
+				mouse_is_pressed = p_event.is_pressed()
 
-		if mouse_is_pressed:
-			var tool: Terrain3DEditor.Tool = editor.get_tool() 
-			
-			if ui.picking != Terrain3DEditor.TOOL_MAX: 
-				var color: Color
-				match ui.picking:
-					Terrain3DEditor.HEIGHT:
-						color = terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_HEIGHT, mouse_global_position)
-					Terrain3DEditor.ROUGHNESS:
-						color = terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_COLOR, mouse_global_position)
-					Terrain3DEditor.COLOR:
-						color = terrain.get_storage().get_color(mouse_global_position)
-					_:
-						push_error("Unsupported picking type: ", ui.picking)
-						return AFTER_GUI_INPUT_STOP
-				ui.picking_callback.call(ui.picking, color)
-				ui.picking = Terrain3DEditor.TOOL_MAX
-				mouse_is_pressed = false
-				return AFTER_GUI_INPUT_STOP
-
-			elif editor.get_tool() == Terrain3DEditor.REGION:
-				# Skip regions that already exist or don't
-				var has_region: bool = terrain.get_storage().has_region(mouse_global_position)
-				var op: int = editor.get_operation()
-				if	( has_region and op == Terrain3DEditor.ADD) or \
-					( not has_region and op == Terrain3DEditor.SUBTRACT ):
+			if mouse_is_pressed:
+				var tool: Terrain3DEditor.Tool = editor.get_tool() 
+				
+				if ui.picking != Terrain3DEditor.TOOL_MAX: 
+					var color: Color
+					match ui.picking:
+						Terrain3DEditor.HEIGHT:
+							color = terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_HEIGHT, mouse_global_position)
+						Terrain3DEditor.ROUGHNESS:
+							color = terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_COLOR, mouse_global_position)
+						Terrain3DEditor.COLOR:
+							color = terrain.get_storage().get_color(mouse_global_position)
+						_:
+							push_error("Unsupported picking type: ", ui.picking)
+							return AFTER_GUI_INPUT_STOP
+					ui.picking_callback.call(ui.picking, color)
+					ui.picking = Terrain3DEditor.TOOL_MAX
+					mouse_is_pressed = false
 					return AFTER_GUI_INPUT_STOP
 
-			# Mouse clicked, copy undo data 
-			editor.setup_undo()
-			pending_undo = true
+				elif editor.get_tool() == Terrain3DEditor.REGION:
+					# Skip regions that already exist or don't
+					var has_region: bool = terrain.get_storage().has_region(mouse_global_position)
+					var op: int = editor.get_operation()
+					if	( has_region and op == Terrain3DEditor.ADD) or \
+						( not has_region and op == Terrain3DEditor.SUBTRACT ):
+						return AFTER_GUI_INPUT_STOP
 
-		# Mouse released, store pending undo data in History
-		else:
-			if pending_undo:
-				editor.store_undo()
-			pending_undo = false
+				# Mouse clicked, copy undo data 
+				editor.setup_undo()
+				pending_undo = true
+				
+			# Mouse released, store pending undo data in History
+			else:
+				if pending_undo:
+					editor.store_undo()
+				pending_undo = false
+		
+		ui.update_decal()
 	
 	if mouse_is_pressed:
 		var continuous: bool = editor.get_tool() != Terrain3DEditor.REGION

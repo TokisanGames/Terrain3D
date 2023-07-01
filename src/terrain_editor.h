@@ -7,6 +7,7 @@
 #endif
 
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/math.hpp>
@@ -57,6 +58,7 @@ public:
 
 	struct Brush {
 	private:
+		Ref<ImageTexture> texture;
 		Ref<Image> image;
 		Vector2 img_size;
 		int size = 0;
@@ -71,6 +73,7 @@ public:
 		bool auto_regions = false;
 
 	public:
+		Ref<ImageTexture> get_texture() const { return texture; }
 		Ref<Image> get_image() const { return image; }
 		Vector2 get_image_size() const { return img_size; }
 		void set_data(Dictionary p_data);

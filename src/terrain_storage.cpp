@@ -1356,10 +1356,6 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "	total_weight += weight;\n";
 		code += "	return albedo * weight;\n";
 		code += "}\n\n";
-
-		code += "vec4 to_linear(vec4 col) {\n";
-		code += "	return vec4(pow(col.rgb, vec3(2.2)), col.a);\n";
-		code += "}\n\n";
 	}
 
 	// Vertex Shader
@@ -1432,7 +1428,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "	color *= total_weight;\n\n";
 
 		code += "	// Look up colormap\n";
-		code += "	vec4 color_tex = to_linear(texture(color_maps, get_regionf(UV2)));\n\n";
+		code += "	vec4 color_tex = texture(color_maps, get_regionf(UV2));\n\n";
 
 		code += "	ALBEDO = color * color_tex.rgb;\n";
 		code += "	ROUGHNESS = clamp(fma(color_tex.a-0.5, 2.0, in_normal.a), 0., 1.);\n";

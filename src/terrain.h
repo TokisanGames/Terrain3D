@@ -71,12 +71,15 @@ protected:
 	void _update_world(RID p_space, RID p_scenario);
 
 private:
-	void get_camera();
-	void find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
+	void _grab_camera();
+	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
 public:
+	void set_camera(Camera3D *p_plugin);
+	Camera3D *get_camera() const { return camera; }
+
 	void set_plugin(EditorPlugin *p_plugin);
-	EditorPlugin *get_plugin() const;
+	EditorPlugin *get_plugin() const { return plugin; }
 
 	void set_debug_level(int p_level);
 	int get_debug_level() const { return debug_level; }

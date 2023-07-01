@@ -25,7 +25,7 @@ void Terrain3D::process(double delta) {
 	// If the game/editor camera is not set, find it
 	if (camera == nullptr) {
 		LOG(DEBUG, "camera is null, getting the current one");
-		get_camera();
+		_grab_camera();
 	}
 
 	// If camera has moved significantly, center the terrain on it.
@@ -280,13 +280,20 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
 	}
 }
 
+void Terrain3D::set_camera(Camera3D *p_camera) {
+	camera = p_camera;
+	if (p_camera == nullptr) {
+		LOG(DEBUG, "Received null camera. Calling _grab_camera");
+		_grab_camera();
+	} else {
+		LOG(DEBUG, "Setting camera: ", p_camera);
+		camera = p_camera;
+	}
+}
+
 void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
 	plugin = p_plugin;
 	LOG(DEBUG, "Received editor plugin: ", p_plugin);
-}
-
-EditorPlugin *Terrain3D::get_plugin() const {
-	return plugin;
 }
 
 void Terrain3D::set_debug_level(int p_level) {
@@ -483,12 +490,12 @@ void Terrain3D::_update_world(RID p_space, RID p_scenario) {
  * If running in the editor, recurses into the editor scene tree to find the editor cameras and grabs the first one.
  * The edited_scene_root is excluded in case the user already has a Camera3D in their scene.
  */
-void Terrain3D::get_camera() {
+void Terrain3D::_grab_camera() {
 	if (Engine::get_singleton()->is_editor_hint()) {
 		EditorScript temp_editor_script;
 		EditorInterface *editor_interface = temp_editor_script.get_editor_interface();
 		TypedArray<Camera3D> cam_array = TypedArray<Camera3D>();
-		find_cameras(editor_interface->get_editor_main_screen()->get_children(), editor_interface->get_edited_scene_root(), cam_array);
+		_find_cameras(editor_interface->get_editor_main_screen()->get_children(), editor_interface->get_edited_scene_root(), cam_array);
 		if (!cam_array.is_empty()) {
 			LOG(DEBUG, "Connecting to the first editor camera");
 			camera = Object::cast_to<Camera3D>(cam_array[0]);
@@ -500,13 +507,13 @@ void Terrain3D::get_camera() {
 }
 
 /**
- * Recursive helper function for get_camera().
+ * Recursive helper function for _grab_camera().
  */
-void Terrain3D::find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array) {
+void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array) {
 	for (int i = 0; i < from_nodes.size(); i++) {
 		Node *node = Object::cast_to<Node>(from_nodes[i]);
 		if (node != excluded_node) {
-			find_cameras(node->get_children(), excluded_node, cam_array);
+			_find_cameras(node->get_children(), excluded_node, cam_array);
 		}
 		if (node->is_class("Camera3D")) {
 			LOG(DEBUG, "Found a Camera3D at: ", node->get_path());
@@ -516,7 +523,11 @@ void Terrain3D::find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, T
 }
 
 void Terrain3D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
+	ClassDB::bind_method(D_METHOD("get_camera"), &Terrain3D::get_camera);
+
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
+	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
 
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
