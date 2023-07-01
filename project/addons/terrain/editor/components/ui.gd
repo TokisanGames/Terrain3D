@@ -65,6 +65,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_hide.push_back("color picker")
 			to_hide.push_back("roughness")
 			to_hide.push_back("roughness picker")
+			to_hide.push_back("slope")
 
 		elif p_tool == Terrain3DEditor.TEXTURE:
 			to_hide.push_back("height")
@@ -73,18 +74,21 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_hide.push_back("color picker")
 			to_hide.push_back("roughness")
 			to_hide.push_back("roughness picker")
+			to_hide.push_back("slope")
 
 		elif p_tool == Terrain3DEditor.COLOR:
 			to_hide.push_back("height")
 			to_hide.push_back("height picker")
 			to_hide.push_back("roughness")
 			to_hide.push_back("roughness picker")
+			to_hide.push_back("slope")
 
 		elif p_tool == Terrain3DEditor.ROUGHNESS:
 			to_hide.push_back("height")
 			to_hide.push_back("height picker")
 			to_hide.push_back("color")
 			to_hide.push_back("color picker")
+			to_hide.push_back("slope")
 	
 		toolbar_settings.hide_settings(to_hide)
 
