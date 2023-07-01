@@ -59,11 +59,9 @@ func _edit(object: Object) -> void:
 	if object is Terrain3D:
 		if object == terrain:
 			return
-			
 		terrain = object
-		# If 'terrain' is passed to editor instead of 'object', Godot crashes.
-		editor.set_terrain(object)
-		region_gizmo.set_node_3d(object)
+		editor.set_terrain(terrain)
+		region_gizmo.set_node_3d(terrain)
 		terrain.add_gizmo(region_gizmo)
 		terrain.set_plugin(self)
 		
