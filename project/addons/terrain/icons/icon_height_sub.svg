@@ -1,115 +1,28 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg
-   width="16"
-   height="16"
-   version="1.1"
-   viewBox="0 0 16 16"
-   id="svg2"
-   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
-   sodipodi:docname="icon_height_sub.svg"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <metadata
-     id="metadata12">
-    <rdf:RDF>
-      <cc:Work
-         rdf:about="">
-        <dc:format>image/svg+xml</dc:format>
-        <dc:type
-           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-      </cc:Work>
-    </rdf:RDF>
-  </metadata>
-  <defs
-     id="defs10">
-    <inkscape:path-effect
-       effect="spiro"
-       id="path-effect4977"
-       is_visible="true"
-       lpeversion="1" />
-    <inkscape:path-effect
-       effect="spiro"
-       id="path-effect4245"
-       is_visible="true"
-       lpeversion="1" />
-    <inkscape:path-effect
-       effect="spiro"
-       id="path-effect3156"
-       is_visible="true"
-       lpeversion="1" />
-    <inkscape:path-effect
-       effect="spiro"
-       id="path-effect2324"
-       is_visible="true"
-       lpeversion="1" />
-    <inkscape:path-effect
-       effect="powerstroke"
-       id="path-effect2285"
-       is_visible="true"
-       lpeversion="1"
-       offset_points="0.76255776,0.35156248"
-       not_jump="true"
-       sort_points="true"
-       interpolator_type="CentripetalCatmullRom"
-       interpolator_beta="0.75"
-       start_linecap_type="round"
-       linejoin_type="spiro"
-       miter_limit="4"
-       scale_width="1"
-       end_linecap_type="round" />
-    <inkscape:path-effect
-       effect="simplify"
-       id="path-effect2283"
-       is_visible="true"
-       lpeversion="1"
-       steps="1"
-       threshold="0.0028332064"
-       smooth_angles="0"
-       helper_size="0"
-       simplify_individual_paths="false"
-       simplify_just_coalesce="false"
-       step="1" />
-  </defs>
-  <sodipodi:namedview
-     pagecolor="#ffffff"
-     bordercolor="#666666"
-     borderopacity="1"
-     objecttolerance="10"
-     gridtolerance="10"
-     guidetolerance="10"
-     inkscape:pageopacity="0"
-     inkscape:pageshadow="2"
-     inkscape:window-width="1920"
-     inkscape:window-height="1009"
-     id="namedview8"
-     showgrid="false"
-     inkscape:zoom="22.627417"
-     inkscape:cx="2.7179417"
-     inkscape:cy="10.871767"
-     inkscape:window-x="-8"
-     inkscape:window-y="-8"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="svg2"
-     inkscape:object-paths="false"
-     inkscape:snap-smooth-nodes="false"
-     inkscape:object-nodes="true"
-     inkscape:snap-grids="false"
-     inkscape:snap-to-guides="true"
-     inkscape:pagecheckerboard="0"
-     inkscape:showpageshadow="0"
-     inkscape:deskcolor="#d1d1d1"
-     showguides="false">
-    <inkscape:grid
-       type="xygrid"
-       id="grid4140" />
-  </sodipodi:namedview>
-  <path
-     id="rect12437"
-     style="fill:#fc7f7f;stroke-width:2.06368;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers;fill-opacity:1"
-     d="M 0 0 L 14.841797 0.00390625 L 16 0 L 0 0 z M 6.796875 1.3046875 L 6.796875 5.1875 L 3.7246094 5.1699219 L 7.8945312 10.392578 L 12.009766 5.2246094 L 9.1171875 5.2070312 L 9.1171875 1.3046875 L 6.796875 1.3046875 z M 16 6.0214844 L 15.105469 6.1796875 C 14.316378 6.3600633 13.575422 6.8450579 13.091797 7.4941406 C 12.525479 8.2542029 12.225458 9.4075311 11.601562 10.632812 C 11.2882 11.248234 10.875837 11.879749 10.267578 12.392578 C 9.6490257 12.914086 8.843702 13.287158 7.9355469 13.267578 C 7.0768607 13.249061 6.3223968 12.883593 5.7402344 12.386719 C 5.1667809 11.897278 4.7719467 11.300112 4.46875 10.71875 C 3.8648286 9.5607696 3.5699154 8.469224 3.0449219 7.7304688 C 2.5207554 6.9928781 1.6830431 6.4466877 0.796875 6.2636719 L 0 6.0996094 L 0 16 L 16 16 L 16 6.0214844 z " />
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.3, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1"
+	 id="svg2" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" sodipodi:docname="icon_height_sub.svg" inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+	 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="16px" height="16px"
+	 viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+<defs>
+	
+	<inkscape:path-effect  lpeversion="1" effect="spiro" is_visible="true" id="path-effect4977"></inkscape:path-effect>
+	<inkscape:path-effect  lpeversion="1" effect="spiro" is_visible="true" id="path-effect4245"></inkscape:path-effect>
+	<inkscape:path-effect  lpeversion="1" effect="spiro" is_visible="true" id="path-effect3156"></inkscape:path-effect>
+	<inkscape:path-effect  lpeversion="1" effect="spiro" is_visible="true" id="path-effect2324"></inkscape:path-effect>
+	
+		<inkscape:path-effect  lpeversion="1" effect="powerstroke" is_visible="true" scale_width="1" miter_limit="4" linejoin_type="spiro" sort_points="true" not_jump="true" offset_points="0.76255776,0.35156248" id="path-effect2285" start_linecap_type="round" end_linecap_type="round" interpolator_type="CentripetalCatmullRom" interpolator_beta="0.75">
+		</inkscape:path-effect>
+	
+		<inkscape:path-effect  lpeversion="1" effect="simplify" is_visible="true" step="1" helper_size="0" smooth_angles="0" threshold="0.0028332064" steps="1" id="path-effect2283" simplify_individual_paths="false" simplify_just_coalesce="false">
+		</inkscape:path-effect>
+</defs>
+<sodipodi:namedview  inkscape:cy="10.871767" inkscape:cx="2.7179417" inkscape:zoom="22.627417" showgrid="false" guidetolerance="10" gridtolerance="10" objecttolerance="10" borderopacity="1" pagecolor="#ffffff" bordercolor="#666666" id="namedview8" inkscape:current-layer="svg2" inkscape:window-maximized="1" inkscape:window-y="-8" inkscape:window-x="-8" inkscape:object-nodes="true" inkscape:snap-grids="false" inkscape:window-height="1009" inkscape:window-width="1920" inkscape:pageshadow="2" inkscape:pageopacity="0" inkscape:object-paths="false" inkscape:snap-smooth-nodes="false" inkscape:snap-to-guides="true" inkscape:pagecheckerboard="0" inkscape:showpageshadow="0" inkscape:deskcolor="#d1d1d1" showguides="false">
+	<inkscape:grid  type="xygrid" id="grid4140"></inkscape:grid>
+</sodipodi:namedview>
+<path id="rect12437" fill="#FC7F7F" d="M0,0l14.842,0.004L16,0H0z M7,1.25v4H4l4,5.25l4-5.25H9v-4H7z M16,6.021L15.105,6.18
+	c-0.789,0.18-1.53,0.666-2.014,1.314c-0.566,0.76-0.866,1.914-1.49,3.139c-0.313,0.615-0.726,1.247-1.334,1.76
+	c-0.619,0.521-1.424,0.895-2.332,0.875c-0.859-0.019-1.613-0.384-2.195-0.881c-0.573-0.489-0.968-1.086-1.271-1.668
+	C3.865,9.561,3.57,8.469,3.045,7.73C2.521,6.993,1.683,6.447,0.797,6.264L0,6.1V16h16V6.021z"/>
 </svg>

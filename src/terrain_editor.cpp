@@ -180,21 +180,21 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 							Vector2i right_pixel_position = map_pixel_position + Vector2i(1, 0);
 							Vector2i down_pixel_position = map_pixel_position - Vector2i(0, 1);
 							Vector2i up_pixel_position = map_pixel_position + Vector2i(0, 1);
-							float l = srcf, r = srcf, u = srcf, d = srcf;
+							float left = srcf, right = srcf, up = srcf, down = srcf;
 							if (_is_in_bounds(left_pixel_position, Vector2i(region_size, region_size))) {
-								l = map->get_pixelv(left_pixel_position).r;
+								left = map->get_pixelv(left_pixel_position).r;
 							}
 							if (_is_in_bounds(right_pixel_position, Vector2i(region_size, region_size))) {
-								r = map->get_pixelv(right_pixel_position).r;
-							}
-							if (_is_in_bounds(down_pixel_position, Vector2i(region_size, region_size))) {
-								d = map->get_pixelv(down_pixel_position).r;
+								right = map->get_pixelv(right_pixel_position).r;
 							}
 							if (_is_in_bounds(up_pixel_position, Vector2i(region_size, region_size))) {
-								u = map->get_pixelv(up_pixel_position).r;
+								up = map->get_pixelv(up_pixel_position).r;
 							}
-							float avg = (srcf + l + r + u + d) * 0.2;
-							destf = Math::lerp(srcf, avg, alpha);
+							if (_is_in_bounds(down_pixel_position, Vector2i(region_size, region_size))) {
+								down = map->get_pixelv(down_pixel_position).r;
+							}
+							float avg = (srcf + left + right + up + down) * 0.2;
+							destf = Math::lerp(srcf, avg, brush_alpha * opacity);
 							break;
 						}
 						default:
