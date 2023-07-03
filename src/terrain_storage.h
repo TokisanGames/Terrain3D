@@ -116,6 +116,7 @@ class Terrain3DStorage : public Resource {
 	Generated generated_normal_textures;
 
 	bool _initialized = false;
+	bool _modified = false;
 
 private:
 	void _update_surfaces();
@@ -133,6 +134,9 @@ protected:
 public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
+
+	bool is_modified() { return _modified; }
+	void clear_modified() { _modified = false; }
 
 	void print_audit_data();
 

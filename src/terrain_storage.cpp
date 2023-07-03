@@ -62,8 +62,9 @@ void Terrain3DStorage::print_audit_data() {
 	LOG(INFO, "Dumping storage data");
 
 	LOG(INFO, "_initialized: ", _initialized);
-	LOG(INFO, "region_offsets(", region_offsets.size(), "): ", region_offsets);
-
+	LOG(INFO, "_modified: ", _modified);
+	LOG(INFO, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
+	LOG(INFO, "Surfaces size: ", surfaces.size(), " ", surfaces);
 	LOG(INFO, "Map type height size: ", height_maps.size(), " ", height_maps);
 	LOG(INFO, "Map type control size: ", control_maps.size(), " ", control_maps);
 	LOG(INFO, "Map type color size: ", color_maps.size(), " ", color_maps);
@@ -1061,6 +1062,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 		RenderingServer::get_singleton()->material_set_param(material, "texture_array_albedo", generated_albedo_textures.get_rid());
 		RenderingServer::get_singleton()->material_set_param(material, "texture_array_normal", generated_normal_textures.get_rid());
+		_modified = true;
 	}
 
 	if (p_update_values) {
@@ -1080,6 +1082,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_scale_array", uv_scales);
 		RenderingServer::get_singleton()->material_set_param(material, "texture_color_array", colors);
+		_modified = true;
 	}
 }
 
@@ -1088,12 +1091,14 @@ void Terrain3DStorage::_update_regions() {
 		LOG(DEBUG_CONT, "Regenerating height layered texture from ", height_maps.size(), " maps");
 		generated_height_maps.create(height_maps);
 		RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
+		_modified = true;
 	}
 
 	if (generated_control_maps.is_dirty()) {
 		LOG(DEBUG_CONT, "Regenerating control layered texture from ", control_maps.size(), " maps");
 		generated_control_maps.create(control_maps);
 		RenderingServer::get_singleton()->material_set_param(material, "control_maps", generated_control_maps.get_rid());
+		_modified = true;
 	}
 
 	if (generated_color_maps.is_dirty()) {
@@ -1101,6 +1106,7 @@ void Terrain3DStorage::_update_regions() {
 		generated_color_maps.create(color_maps);
 		// Enable when colormaps are in the shader
 		//RenderingServer::get_singleton()->material_set_param(material, "color_maps", generated_color_maps.get_rid());
+		_modified = true;
 	}
 
 	if (generated_region_map.is_dirty()) {
@@ -1117,6 +1123,7 @@ void Terrain3DStorage::_update_regions() {
 		RenderingServer::get_singleton()->material_set_param(material, "region_map", generated_region_map.get_rid());
 		RenderingServer::get_singleton()->material_set_param(material, "region_map_size", REGION_MAP_SIZE);
 		RenderingServer::get_singleton()->material_set_param(material, "region_offsets", region_offsets);
+		_modified = true;
 
 		if (noise_enabled) {
 			LOG(DEBUG_CONT, "Regenerating ", Vector2i(512, 512), " region blend map");
@@ -1157,6 +1164,7 @@ void Terrain3DStorage::_update_material() {
 	RenderingServer::get_singleton()->material_set_param(material, "terrain_height", TERRAIN_MAX_HEIGHT);
 	RenderingServer::get_singleton()->material_set_param(material, "region_size", region_size);
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
+	_modified = true;
 }
 
 String Terrain3DStorage::_generate_shader_code() {
