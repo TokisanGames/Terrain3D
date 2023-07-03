@@ -522,6 +522,27 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 	}
 }
 
+/* Iterate over ground to find intersection point between two rays:
+ *	p_direction (eg camera direction looking at the terrain)
+ *	test_dir (camera direction 0 Y, traversing terrain along height
+ */
+Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
+	Vector3 test_dir = Vector3(p_direction.x, 0., p_direction.z).normalized();
+	Vector3 test_point = p_position;
+
+	if (storage.is_valid()) {
+		for (int i = 0; i < 3000; i++) {
+			test_point += test_dir;
+			test_point.y = storage->get_height(test_point) * storage->TERRAIN_MAX_HEIGHT;
+			Vector3 test_vec = (test_point - p_position).normalized();
+			if (p_direction.dot(test_vec) >= 0.99999) {
+				return test_point;
+			}
+		}
+	}
+	return Vector3(FLT_MAX, FLT_MAX, FLT_MAX);
+}
+
 void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
 	ClassDB::bind_method(D_METHOD("get_camera"), &Terrain3D::get_camera);
@@ -543,6 +564,8 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("clear", "clear_meshes", "clear_collision"), &Terrain3D::clear);
 	ClassDB::bind_method(D_METHOD("build", "clipmap_levels", "clipmap_size"), &Terrain3D::build);
+
+	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
