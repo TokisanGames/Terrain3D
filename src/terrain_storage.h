@@ -11,6 +11,7 @@
 
 #include "terrain_surface.h"
 
+class Terrain3D;
 using namespace godot;
 
 #define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
@@ -31,7 +32,7 @@ class Terrain3DStorage : public Resource {
 	};
 
 	static inline const Image::Format FORMAT[] = {
-		Image::FORMAT_RH, // TYPE_HEIGHT
+		Image::FORMAT_RF, // TYPE_HEIGHT
 		Image::FORMAT_RGBA8, // TYPE_CONTROL
 		Image::FORMAT_RGBA8, // TYPE_COLOR
 		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
@@ -62,7 +63,6 @@ class Terrain3DStorage : public Resource {
 
 	static const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
-	static const int TERRAIN_MAX_HEIGHT = 2048;
 
 	struct Generated {
 		RID rid = RID();
@@ -80,6 +80,8 @@ class Terrain3DStorage : public Resource {
 
 	RegionSize region_size = SIZE_1024;
 	Vector2i region_vsize = Vector2i(region_size, region_size);
+
+	Terrain3D *terrain = nullptr;
 
 	RID material;
 	RID shader;
@@ -136,6 +138,9 @@ public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
+	inline void set_terrain(Terrain3D *p_terrain) { terrain = p_terrain; }
+	inline Terrain3D *get_terrain() const { return terrain; }
+
 	bool is_modified() { return _modified; }
 	void clear_modified() { _modified = false; }
 
@@ -143,6 +148,10 @@ public:
 
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return region_size; }
+
+	Vector2 height_range = Vector2(0, 0);
+	void adjusted_height(float p_height);
+	void adjusted_height(Vector2 p_heights);
 
 	void set_surface(const Ref<Terrain3DSurface> &p_material, int p_index);
 	Ref<Terrain3DSurface> get_surface(int p_index) const { return surfaces[p_index]; }

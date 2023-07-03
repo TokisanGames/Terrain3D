@@ -89,6 +89,22 @@ void Terrain3DStorage::set_region_size(RegionSize p_size) {
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 }
 
+void Terrain3DStorage::adjusted_height(float p_height) {
+	if (p_height < height_range.x) {
+		height_range.x = p_height;
+	} else if (p_height > height_range.y) {
+		height_range.y = p_height;
+	}
+}
+
+void Terrain3DStorage::adjusted_height(Vector2 p_heights) {
+	if (p_heights.x < height_range.x) {
+		height_range.x = p_heights.x;
+	} else if (p_heights.y > height_range.y) {
+		height_range.y = p_heights.y;
+	}
+}
+
 Vector2i Terrain3DStorage::_get_offset_from(Vector3 p_global_position) {
 	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / float(region_size) + Vector2(0.5, 0.5)).floor());
 }
@@ -127,6 +143,14 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 	if (images.is_empty()) {
 		LOG(ERROR, "Sanitize_maps failed to accept images or produce blanks");
 		return FAILED;
+	}
+
+	// If we're importing data into a region, check its heights for aabbs
+	Vector2 min_max = Vector2(0, 0);
+	if (p_images.size() > TYPE_HEIGHT) {
+		min_max = get_min_max(images[TYPE_HEIGHT]);
+		LOG(DEBUG, "Checking imported height range: ", min_max);
+		adjusted_height(min_max);
 	}
 
 	LOG(DEBUG, "Pushing back ", images.size(), " images");
@@ -1118,6 +1142,9 @@ void Terrain3DStorage::_update_regions() {
 		generated_height_maps.create(height_maps);
 		RenderingServer::get_singleton()->material_set_param(material, "height_maps", generated_height_maps.get_rid());
 		_modified = true;
+		if (terrain) {
+			terrain->update_aabbs();
+		}
 	}
 
 	if (generated_control_maps.is_dirty()) {
@@ -1186,7 +1213,6 @@ void Terrain3DStorage::_update_material() {
 		RenderingServer::get_singleton()->material_set_shader(material, shader);
 	}
 
-	RenderingServer::get_singleton()->material_set_param(material, "terrain_height", TERRAIN_MAX_HEIGHT);
 	RenderingServer::get_singleton()->material_set_param(material, "region_size", region_size);
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 	_modified = true;
@@ -1199,7 +1225,6 @@ String Terrain3DStorage::_generate_shader_code() {
 	code += "\n";
 
 	//Uniforms
-	code += "uniform float terrain_height = 512.0;\n";
 	code += "uniform float region_size = 1024.0;\n";
 	code += "uniform float region_pixel_size = 1.0;\n";
 	code += "uniform int region_map_size = 16;\n";
@@ -1298,7 +1323,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "		clamp(smoothstep(noise_blend_near, noise_blend_far, 1.0 - weight), 0.0, 1.0));\n ";
 	}
 
-	code += "	return height * terrain_height;\n";
+	code += "	return height;\n";
 	code += "}\n\n";
 
 	if (surfaces_enabled) {
@@ -1392,9 +1417,8 @@ String Terrain3DStorage::_generate_shader_code() {
 	code += "\n";
 
 	if (surfaces_enabled) {
-		code += "// source : https://github.com/cdxntchou/IndexMapTerrain\n";
-		code += "// black magic which I don't understand at all. Seems simple but what and why?\n";
-
+		code += "	// source : https://github.com/cdxntchou/IndexMapTerrain\n";
+		code += "	// black magic which I don't understand at all. Seems simple but what and why?\n";
 		code += "	vec2 pos_texel = UV2 * region_size + 0.5;\n";
 		code += "	vec2 pos_texel00 = floor(pos_texel);\n";
 		code += "	vec4 mirror = vec4(fract(pos_texel00 * 0.5) * 2.0, 1.0, 1.0);\n";
@@ -1463,7 +1487,6 @@ void Terrain3DStorage::_bind_methods() {
 	BIND_ENUM_CONSTANT(SIZE_2048);
 
 	BIND_CONSTANT(REGION_MAP_SIZE);
-	BIND_CONSTANT(TERRAIN_MAX_HEIGHT);
 
 	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);

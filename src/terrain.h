@@ -75,7 +75,6 @@ protected:
 	void _notification(int p_what);
 	void process(double delta);
 	void _update_visibility();
-	void _update_aabbs();
 	void _update_world(RID p_space, RID p_scenario);
 	void _build_collision();
 	void _update_collision();
@@ -111,6 +110,7 @@ public:
 	void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
 	void build(int p_clipmap_levels, int p_clipmap_size);
 	void snap(Vector3 p_cam_pos);
+	void update_aabbs();
 
 	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);
 

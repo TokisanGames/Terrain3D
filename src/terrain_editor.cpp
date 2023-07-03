@@ -73,14 +73,15 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 }
 
 void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_direction) {
-	int region_size = terrain->get_storage()->get_region_size();
-	int region_index = terrain->get_storage()->get_region_index(p_global_position);
+	Ref<Terrain3DStorage> storage = terrain->get_storage();
+	int region_size = storage->get_region_size();
+	int region_index = storage->get_region_index(p_global_position);
 
 	if (region_index == -1) {
 		LOG(DEBUG, "No region to operate on, attempting to add");
-		terrain->get_storage()->add_region(p_global_position);
-		region_size = terrain->get_storage()->get_region_size();
-		region_index = terrain->get_storage()->get_region_index(p_global_position);
+		storage->add_region(p_global_position);
+		region_size = storage->get_region_size();
+		region_index = storage->get_region_index(p_global_position);
 		if (region_index == -1) {
 			LOG(ERROR, "Failed to add region, no region to operate on");
 			return;
@@ -108,12 +109,12 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			return;
 	}
 
-	Ref<Image> map = terrain->get_storage()->get_map_region(map_type, region_index);
+	Ref<Image> map = storage->get_map_region(map_type, region_index);
 	int brush_size = brush.get_size();
 	int index = brush.get_index();
 	Vector2 img_size = brush.get_image_size();
 	float opacity = brush.get_opacity();
-	float height = brush.get_height() / float(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
+	float height = brush.get_height();
 	Color color = brush.get_color();
 	float roughness = brush.get_roughness();
 	float gamma = brush.get_gamma();
@@ -130,22 +131,22 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			Vector2i brush_offset = Vector2i(x, y) - (Vector2i(brush_size, brush_size) / 2);
 			Vector3 brush_global_position = Vector3(p_global_position.x + float(brush_offset.x), p_global_position.y, p_global_position.z + float(brush_offset.y));
 
-			int new_region_index = terrain->get_storage()->get_region_index(brush_global_position);
+			int new_region_index = storage->get_region_index(brush_global_position);
 
 			if (new_region_index == -1) {
 				if (!brush.auto_regions_enabled()) {
 					continue;
 				}
-				Error err = terrain->get_storage()->add_region(brush_global_position);
+				Error err = storage->add_region(brush_global_position);
 				if (err) {
 					continue;
 				}
-				new_region_index = terrain->get_storage()->get_region_index(brush_global_position);
+				new_region_index = storage->get_region_index(brush_global_position);
 			}
 
 			if (new_region_index != region_index) {
 				region_index = new_region_index;
-				map = terrain->get_storage()->get_map_region(map_type, region_index);
+				map = storage->get_map_region(map_type, region_index);
 			}
 
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size);
@@ -206,7 +207,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 						default:
 							break;
 					}
-					dest = Color(CLAMP(destf, 0.0f, 1.0f), 0.0f, 0.0f, 1.0f);
+					dest = Color(destf, 0.0f, 0.0f, 1.0f);
+					storage->adjusted_height(destf);
 
 				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
 					float alpha_clip = (brush_alpha < 0.1f) ? 0.0f : 1.0f;
@@ -257,7 +259,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			}
 		}
 	}
-	terrain->get_storage()->force_update_maps(map_type);
+	storage->force_update_maps(map_type);
 }
 
 void Terrain3DEditor::setup_undo() {
