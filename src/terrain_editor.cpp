@@ -19,6 +19,7 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	roughness = p_data["roughness"];
 	gamma = p_data["gamma"];
 	jitter = p_data["jitter"];
+	texture = p_data["texture"];
 	image = p_data["image"];
 	if (image.is_valid()) {
 		img_size = Vector2(image->get_size());
@@ -110,12 +111,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 	Color color = brush.get_color();
 	float roughness = brush.get_roughness();
 	float gamma = brush.get_gamma();
+
 	float randf = UtilityFunctions::randf();
 	float rot = randf * Math_PI * brush.get_jitter();
-
 	if (brush.is_aligned_to_view()) {
 		rot += p_camera_direction;
 	}
+	Object::cast_to<Node>(terrain->plugin->get("ui"))->call("set_decal_rotation", rot);
+
 	for (int x = 0; x < brush_size; x++) {
 		for (int y = 0; y < brush_size; y++) {
 			Vector2i brush_offset = Vector2i(x, y) - (Vector2i(brush_size, brush_size) / 2);

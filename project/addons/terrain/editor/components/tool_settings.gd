@@ -54,6 +54,7 @@ func _ready() -> void:
 	advanced_list = create_submenu(list, "Advanced", Layout.VERTICAL)
 	add_setting(SettingType.CHECKBOX, "automatic_regions", true, advanced_list)
 	add_setting(SettingType.CHECKBOX, "align_with_view", true, advanced_list)
+	add_setting(SettingType.CHECKBOX, "show_cursor_while_painting", true, advanced_list)
 	advanced_list.add_child(HSeparator.new(), true)
 	add_setting(SettingType.SLIDER, "gamma", 1.0, advanced_list, "γ", 0.1, 2.0, 0.01)
 	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
@@ -115,6 +116,7 @@ func add_brushes(parent: Control) -> void:
 				var btn: Button = Button.new()
 				btn.set_custom_minimum_size(Vector2.ONE * 100)
 				btn.set_button_icon(tex)
+				btn.set_meta("image", img)
 				btn.set_expand_icon(true)
 				btn.set_material(_get_brush_preview_material())
 				btn.set_toggle_mode(true)
@@ -267,11 +269,13 @@ func get_setting(p_setting: String) -> Variant:
 	elif object is DoubleSlider:
 		value = [object.get_min_value(), object.get_max_value()]
 	elif object is ButtonGroup:
-		value = object.get_pressed_button().get_button_icon().get_image()
+		var img: Image = object.get_pressed_button().get_meta("image")
+		var tex: Texture2D = object.get_pressed_button().get_button_icon()
+		value = [ img, tex ]
 	elif object is CheckBox:
 		value = object.is_pressed()
 	elif object is ColorPickerButton:
-		value = object.color
+		value = object.color.srgb_to_linear()
 		
 	return value
 
