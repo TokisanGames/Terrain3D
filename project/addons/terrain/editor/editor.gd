@@ -93,14 +93,13 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	
 	# Track mouse position
 	if p_event is InputEventMouseMotion:
-		var mouse_pos: Vector2 = p_event.get_position()
-		var camera_pos: Vector3 = p_viewport_camera.get_global_position()
-		var camera_from: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
-		var camera_to: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
-		var t = -Vector3(0, 1, 0).dot(camera_from) / Vector3(0, 1, 0).dot(camera_to)
-		mouse_global_position = (camera_from + t * camera_to)
-		ui.decal.global_position = mouse_global_position
-		
+		var intersection_point: Vector3 = terrain.get_intersection( \
+			p_viewport_camera.global_position, \
+			p_viewport_camera.project_ray_normal(p_event.position))
+		if intersection_point.x <= 16384:
+			mouse_global_position = intersection_point
+			ui.decal.global_position = mouse_global_position
+
 		# Update region highlight
 		var region_size = terrain.get_storage().get_region_size()
 		var region_position: Vector2 = (Vector2(mouse_global_position.x, mouse_global_position.z) / region_size + Vector2(0.5, 0.5)).floor()

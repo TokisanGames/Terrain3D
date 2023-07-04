@@ -97,6 +97,8 @@ public:
 	void build(int p_clipmap_levels, int p_clipmap_size);
 	void snap(Vector3 p_cam_pos);
 
+	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);
+
 	Terrain3D();
 	~Terrain3D();
 };
