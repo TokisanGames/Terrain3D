@@ -6,11 +6,18 @@
 #include "terrain_logger.h"
 
 void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
+	LOG(DEBUG, "Setting brush data: ");
+	Array ks = p_data.keys();
+	for (int i = 0; i < ks.size(); i++) {
+		LOG(DEBUG, ks[i], ": ", p_data[ks[i]]);
+	}
 	size = p_data["size"];
 	index = p_data["index"];
 	opacity = p_data["opacity"];
-	gamma = p_data["gamma"];
 	height = p_data["height"];
+	color = p_data["color"];
+	roughness = p_data["roughness"];
+	gamma = p_data["gamma"];
 	jitter = p_data["jitter"];
 	image = p_data["image"];
 	if (image.is_valid()) {
@@ -28,22 +35,6 @@ Terrain3DEditor::Terrain3DEditor() {
 Terrain3DEditor::~Terrain3DEditor() {
 }
 
-void Terrain3DEditor::set_tool(Tool p_tool) {
-	tool = p_tool;
-}
-
-Terrain3DEditor::Tool Terrain3DEditor::get_tool() const {
-	return tool;
-}
-
-void Terrain3DEditor::set_operation(Operation p_operation) {
-	operation = p_operation;
-}
-
-Terrain3DEditor::Operation Terrain3DEditor::get_operation() const {
-	return operation;
-}
-
 void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 	if (p_data.is_empty()) {
 		return;
@@ -58,38 +49,11 @@ void Terrain3DEditor::operate(Vector3 p_global_position, float p_camera_directio
 	operation_interval = p_global_position.distance_to(operation_position);
 	operation_position = p_global_position;
 
-	switch (tool) {
-		case REGION:
-			if (!p_continuous_operation) {
-				_operate_region(p_global_position);
-			}
-			break;
-		case HEIGHT:
-			if (p_continuous_operation) {
-				_operate_map(Terrain3DStorage::TYPE_HEIGHT, p_global_position, p_camera_direction);
-			}
-			break;
-		case TEXTURE:
-			if (p_continuous_operation) {
-				_operate_map(Terrain3DStorage::TYPE_CONTROL, p_global_position, p_camera_direction);
-			}
-			break;
-		case COLOR:
-			if (p_continuous_operation) {
-				_operate_map(Terrain3DStorage::TYPE_COLOR, p_global_position, p_camera_direction);
-			}
-			break;
-		default:
-			break;
+	if (tool == REGION && !p_continuous_operation) {
+		_operate_region(p_global_position);
+	} else if (tool >= 0 && tool < REGION && p_continuous_operation) {
+		_operate_map(p_global_position, p_camera_direction);
 	}
-}
-
-void Terrain3DEditor::set_terrain(Terrain3D *p_terrain) {
-	terrain = p_terrain;
-}
-
-Terrain3D *Terrain3DEditor::get_terrain() const {
-	return terrain;
 }
 
 void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
@@ -107,20 +71,44 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 	}
 }
 
-void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3 p_global_position, float p_camera_direction) {
+void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_direction) {
 	int region_size = terrain->get_storage()->get_region_size();
 	int region_index = terrain->get_storage()->get_region_index(p_global_position);
 
 	if (region_index == -1) {
+		LOG(ERROR, "No region to operate on");
+		return;
+	} else if (tool < 0 || tool >= REGION) {
+		LOG(ERROR, "Invalid tool selected");
 		return;
 	}
 
-	Ref<Image> map = terrain->get_storage()->get_map_region(p_map_type, region_index);
+	Terrain3DStorage::MapType map_type;
+	switch (tool) {
+		case HEIGHT:
+			map_type = Terrain3DStorage::TYPE_HEIGHT;
+			break;
+		case TEXTURE:
+			map_type = Terrain3DStorage::TYPE_CONTROL;
+			break;
+		case COLOR:
+			map_type = Terrain3DStorage::TYPE_COLOR;
+			break;
+		case ROUGHNESS:
+			map_type = Terrain3DStorage::TYPE_COLOR;
+			break;
+		default:
+			return;
+	}
+
+	Ref<Image> map = terrain->get_storage()->get_map_region(map_type, region_index);
 	int brush_size = brush.get_size();
 	int index = brush.get_index();
 	Vector2 img_size = brush.get_image_size();
 	float opacity = brush.get_opacity();
 	float height = brush.get_height() / float(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
+	Color color = brush.get_color();
+	float roughness = brush.get_roughness();
 	float gamma = brush.get_gamma();
 	float randf = UtilityFunctions::randf();
 	float rot = randf * Math_PI * brush.get_jitter();
@@ -148,7 +136,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 
 			if (new_region_index != region_index) {
 				region_index = new_region_index;
-				map = terrain->get_storage()->get_map_region(p_map_type, region_index);
+				map = terrain->get_storage()->get_map_region(map_type, region_index);
 			}
 
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size);
@@ -163,24 +151,25 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 				}
 
 				float brush_alpha = float(Math::pow(double(brush.get_alpha(brush_pixel_position)), double(gamma)));
+				float brush_value = brush.get_alpha(brush_pixel_position);
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
-				if (p_map_type == Terrain3DStorage::TYPE_HEIGHT) {
+				if (map_type == Terrain3DStorage::TYPE_HEIGHT) {
 					float srcf = src.r;
 					float destf = dest.r;
 
 					switch (operation) {
-						case Terrain3DEditor::ADD:
+						case ADD:
 							destf = srcf + (height * brush_alpha * opacity);
 							break;
-						case Terrain3DEditor::SUBTRACT:
+						case SUBTRACT:
 							destf = srcf - (height * brush_alpha * opacity);
 							break;
-						case Terrain3DEditor::MULTIPLY:
+						case MULTIPLY:
 							destf = srcf * (brush_alpha * height * opacity + 1.0f);
 							break;
-						case Terrain3DEditor::REPLACE:
+						case REPLACE:
 							destf = Math::lerp(srcf, height, brush_alpha);
 							break;
 						default:
@@ -188,7 +177,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 					}
 					dest = Color(CLAMP(destf, 0.0f, 1.0f), 0.0f, 0.0f, 1.0f);
 
-				} else if (p_map_type == Terrain3DStorage::TYPE_CONTROL) {
+				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
 					float alpha_clip = (brush_alpha < 0.1f) ? 0.0f : 1.0f;
 					int index_base = int(src.r * 255.0f);
 					int index_overlay = int(src.g * 255.0f);
@@ -210,9 +199,25 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 
 							dest.r = float(dest_index) / 255.0f;
 							dest.b = Math::lerp(src.b, 0.0f, alpha_clip);
-
 							break;
 						default:
+							break;
+					}
+				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
+					switch (tool) {
+						case COLOR:
+							dest = src.lerp(color, brush_alpha * opacity);
+							dest.a = src.a;
+							break;
+						case ROUGHNESS:
+							/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
+							 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
+							 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
+							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
+							 * We round the final amount in tool_settings.gd:_on_picked().
+							 * Tip: One can round to 2 decimal places like so: 0.01*round(100.0*a)
+							 */
+							dest.a = Math::lerp(src.a, .5f + .5f * .01f * roughness, brush_alpha * opacity);
 							break;
 					}
 				}
@@ -221,7 +226,7 @@ void Terrain3DEditor::_operate_map(Terrain3DStorage::MapType p_map_type, Vector3
 			}
 		}
 	}
-	terrain->get_storage()->force_update_maps(p_map_type);
+	terrain->get_storage()->force_update_maps(map_type);
 }
 
 void Terrain3DEditor::setup_undo() {
@@ -319,22 +324,26 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(MULTIPLY);
 	BIND_ENUM_CONSTANT(REPLACE);
 	BIND_ENUM_CONSTANT(AVERAGE);
+	BIND_ENUM_CONSTANT(OP_MAX);
 
 	BIND_ENUM_CONSTANT(HEIGHT);
 	BIND_ENUM_CONSTANT(TEXTURE);
 	BIND_ENUM_CONSTANT(COLOR);
+	BIND_ENUM_CONSTANT(ROUGHNESS);
 	BIND_ENUM_CONSTANT(REGION);
+	BIND_ENUM_CONSTANT(TOOL_MAX);
 
-	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction", "continuous_operation"), &Terrain3DEditor::operate);
+	ClassDB::bind_method(D_METHOD("set_terrain", "terrain"), &Terrain3DEditor::set_terrain);
+	ClassDB::bind_method(D_METHOD("get_terrain"), &Terrain3DEditor::get_terrain);
+
 	ClassDB::bind_method(D_METHOD("set_brush_data", "data"), &Terrain3DEditor::set_brush_data);
 	ClassDB::bind_method(D_METHOD("set_tool", "tool"), &Terrain3DEditor::set_tool);
 	ClassDB::bind_method(D_METHOD("get_tool"), &Terrain3DEditor::get_tool);
 	ClassDB::bind_method(D_METHOD("set_operation", "operation"), &Terrain3DEditor::set_operation);
 	ClassDB::bind_method(D_METHOD("get_operation"), &Terrain3DEditor::get_operation);
+	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction", "continuous_operation"), &Terrain3DEditor::operate);
 
 	ClassDB::bind_method(D_METHOD("setup_undo"), &Terrain3DEditor::setup_undo);
 	ClassDB::bind_method(D_METHOD("store_undo"), &Terrain3DEditor::store_undo);
 	ClassDB::bind_method(D_METHOD("apply_undo", "maps"), &Terrain3DEditor::apply_undo);
-
-	ClassDB::bind_method(D_METHOD("set_terrain", "terrain"), &Terrain3DEditor::set_terrain);
 }

@@ -1,5 +1,6 @@
 extends VBoxContainer
 	
+	
 signal tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation)
 
 const ICON_REGION_ADD: Texture2D = preload("res://addons/terrain/icons/icon_map_add.svg")
@@ -11,11 +12,14 @@ const ICON_HEIGHT_FLAT: Texture2D = preload("res://addons/terrain/icons/icon_hei
 const ICON_PAINT_TEXTURE: Texture2D = preload("res://addons/terrain/icons/icon_brush.svg")
 const ICON_SPRAY_TEXTURE: Texture2D = preload("res://addons/terrain/icons/icon_spray.svg")
 const ICON_PAINT_COLOR: Texture2D = preload("res://addons/terrain/icons/icon_color.svg")
+const ICON_PAINT_ROUGHNESS: Texture2D = preload("res://addons/terrain/icons/icon_roughness.svg")
 
 var tool_group: ButtonGroup = ButtonGroup.new()
 
+
 func _init() -> void:
 	set_custom_minimum_size(Vector2(32, 0))
+
 
 func _ready() -> void:
 	tool_group.connect("pressed", _on_tool_selected)
@@ -32,9 +36,11 @@ func _ready() -> void:
 	add_tool_button(Terrain3DEditor.TEXTURE, Terrain3DEditor.ADD, "Spray Texture", ICON_SPRAY_TEXTURE, tool_group)
 	add_child(HSeparator.new())
 	add_tool_button(Terrain3DEditor.COLOR, Terrain3DEditor.REPLACE, "Paint Color", ICON_PAINT_COLOR, tool_group)
+	add_tool_button(Terrain3DEditor.ROUGHNESS, Terrain3DEditor.REPLACE, "Paint Roughness", ICON_PAINT_ROUGHNESS, tool_group)
 
 	var buttons: Array[BaseButton] = tool_group.get_buttons()
 	buttons[0].set_pressed(true)
+
 
 func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation, 
 		p_tip: String, p_icon: Texture2D, p_group: ButtonGroup) -> void:
@@ -50,6 +56,7 @@ func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.
 	button.set_h_size_flags(SIZE_SHRINK_END)
 	add_child(button)
 		
+
 func _on_tool_selected(p_button: BaseButton) -> void:
 	emit_signal("tool_changed", p_button.get_meta("Tool", -1), p_button.get_meta("Operation", -1))
 	

@@ -16,6 +16,7 @@ using namespace godot;
 #define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
 #define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
+#define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)
 #define COLOR_RB Color(1.0f, 0.0f, 1.0f, 1.0f)
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 
@@ -46,7 +47,7 @@ class Terrain3DStorage : public Resource {
 	static inline const Color COLOR[] = {
 		COLOR_BLACK, // TYPE_HEIGHT
 		COLOR_BLACK, // TYPE_CONTROL
-		COLOR_WHITE, // TYPE_COLOR
+		COLOR_ROUGHNESS, // TYPE_COLOR
 		COLOR_ZERO, // TYPE_MAX, unused just in case someone indexes the array
 	};
 
@@ -172,6 +173,11 @@ public:
 	TypedArray<Image> get_control_maps() const { return control_maps; }
 	void set_color_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_color_maps() const { return color_maps; }
+	Color get_pixel(MapType p_map_type, Vector3 p_global_position);
+	inline float get_height(Vector3 p_global_position) { return get_pixel(TYPE_HEIGHT, p_global_position).r; }
+	inline Color get_color(Vector3 p_global_position);
+	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
+	inline float get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
