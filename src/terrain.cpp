@@ -525,6 +525,7 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 /* Iterate over ground to find intersection point between two rays:
  *	p_direction (eg camera direction looking at the terrain)
  *	test_dir (camera direction 0 Y, traversing terrain along height
+ * Returns Double max (3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 	Vector3 test_dir = Vector3(p_direction.x, 0., p_direction.z).normalized();
