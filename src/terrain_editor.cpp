@@ -77,8 +77,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 	int region_index = terrain->get_storage()->get_region_index(p_global_position);
 
 	if (region_index == -1) {
-		LOG(ERROR, "No region to operate on");
-		return;
+		LOG(DEBUG, "No region to operate on, attempting to add");
+		terrain->get_storage()->add_region(p_global_position);
+		region_size = terrain->get_storage()->get_region_size();
+		region_index = terrain->get_storage()->get_region_index(p_global_position);
+		if (region_index == -1) {
+			LOG(ERROR, "Failed to add region, no region to operate on");
+			return;
+		}
 	} else if (tool < 0 || tool >= REGION) {
 		LOG(ERROR, "Invalid tool selected");
 		return;
