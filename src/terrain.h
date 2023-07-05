@@ -10,6 +10,10 @@
 #define FLT_MAX __FLT_MAX__
 #endif
 
+#ifndef PI
+#define PI 3.14159265f
+#endif
+
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>

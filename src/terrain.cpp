@@ -482,7 +482,6 @@ void Terrain3D::_update_collision() {
 		int region_size = storage->get_region_size();
 		int shape_size = region_size + 1;
 		double max_height = double(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
-		int shape_index = 0;
 
 		for (int i = 0; i < storage->get_region_count(); i++) {
 			Dictionary shape_data;
@@ -490,13 +489,18 @@ void Terrain3D::_update_collision() {
 
 			Ref<Image> hmap = storage->get_map(i, Terrain3DStorage::TYPE_HEIGHT);
 			Vector2i hmap_size = hmap->get_size();
+			map_data.resize(shape_size * shape_size);
 
-			for (int y = 0; y < shape_size; y++) {
+			for (int z = 0; z < shape_size; z++) {
 				for (int x = 0; x < shape_size; x++) {
-					Vector2 uv = Vector2(x, y) / Vector2(shape_size, shape_size);
-					Vector2i point = Vector2i(Vector2(hmap_size) * uv);
-					double height = hmap->get_pixelv(point).r * max_height;
-					map_data.push_back(height);
+					// Choose array indexing to match triangulation of heightmapshape with the mesh
+					// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
+					// https://stackoverflow.com/questions/16684856/rotating-a-2d-pixel-array-by-90-degrees
+					int index = shape_size - 1 - z + x * shape_size;
+					// Normal array index rotated Y=0 - shape rotation Y=0 (xform below)
+					// int index = z * shape_size + x;
+					Vector2i point = Vector2i(Vector2(hmap_size) * Vector2(x, z) / float(shape_size));
+					map_data[index] = hmap->get_pixelv(point).r * max_height;
 				}
 			}
 
@@ -512,10 +516,13 @@ void Terrain3D::_update_collision() {
 
 			Vector2i region_offset = storage->get_region_offsets()[i];
 
-			Transform3D tr = Transform3D(Basis(), Vector3(region_offset.x, 0, region_offset.y) * region_size);
-			PhysicsServer3D::get_singleton()->body_set_shape_transform(static_body, shape_index, tr);
+			// Non rotated shape for normal array index above
+			// Transform3D xform = Transform3D(Basis(),
+			// Rotated shape Y=90 for -90 rotated array index
+			Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), PI * .5),
+					Vector3(region_offset.x, 0, region_offset.y) * region_size);
+				PhysicsServer3D::get_singleton()->body_set_shape_transform(static_body, i, xform);
 
-			shape_index++;
 		}
 	}
 }
