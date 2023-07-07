@@ -1361,7 +1361,7 @@ String Terrain3DStorage::_generate_shader_code() {
 	// Vertex Shader
 	code += "void vertex() {\n";
 	code += "	vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n";
-	code += "	UV2 = (world_vertex.xz / vec2(region_size)) + vec2(0.5);\n";
+	code += "	UV2 = ((world_vertex.xz - vec2(0.5)) / vec2(region_size)) + vec2(0.5);\n";
 	code += "	UV = world_vertex.xz * 0.5;\n\n";
 
 	code += "	VERTEX.y = get_height(UV2, true);\n";
