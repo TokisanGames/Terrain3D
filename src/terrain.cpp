@@ -530,7 +530,6 @@ void Terrain3D::_update_collision() {
 
 	int region_size = storage->get_region_size();
 	int shape_size = region_size + 1;
-	double max_height = double(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
 
 	for (int i = 0; i < storage->get_region_count(); i++) {
 		Dictionary shape_data;
@@ -549,7 +548,7 @@ void Terrain3D::_update_collision() {
 				// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
 				int index = shape_size - 1 - z + x * shape_size;
 				Vector2i point = Vector2i(Vector2(hmap_size) * Vector2(x, z) / float(shape_size));
-				map_data[index] = hmap->get_pixelv(point).r * max_height;
+				map_data[index] = hmap->get_pixelv(point).r;
 			}
 		}
 
@@ -563,8 +562,6 @@ void Terrain3D::_update_collision() {
 		shape_data["width"] = shape_size;
 		shape_data["depth"] = shape_size;
 		shape_data["heights"] = map_data;
-		shape_data["min_height"] = 0.0; // This is probably not needed
-		shape_data["max_height"] = max_height; // nor this.
 
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();

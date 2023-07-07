@@ -1294,26 +1294,24 @@ String Terrain3DStorage::_generate_shader_code() {
 	code += "	return vec4((n.xzy + vec3(1.0)) * 0.5, a);\n";
 	code += "}\n\n";
 
-	code += "// takes in world uv, returns non - normalized tex coords in region space\n";
+	code += "// Takes in a world UV, returns UV in region space (0-region_size)\n";
+	code += "// Z is the index in the map texturearray\n";
+	code += "// If the UV is not in a region, Z=-1\n";
 	code += "ivec3 get_region(vec2 uv) {\n";
 	code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;\n";
 	code += "	return ivec3(ivec2((uv - region_offsets[int(index)]) * region_size), int(index));\n";
 	code += "}\n\n";
 
-	code += "// takes in world uv, returns uv in region space\n";
+	code += "// float form of get_region. Same return values\n";
 	code += "vec3 get_regionf(vec2 uv) {\n";
 	code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;\n";
 	code += "	return vec3(uv - region_offsets[int(index)], index);\n";
 	code += "}\n\n";
 
-	code += "float get_height(vec2 uv, bool linear) {\n";
+	code += "float get_height(vec2 uv) {\n";
 	code += "	float height = 0.0;\n\n";
-	code += "	if (!linear) {\n";
-	code += "		ivec3 region = get_region(uv);\n";
-	code += "		height = texelFetch(height_maps, region, 0).r;\n";
-	code += "	}\n\n";
-	code += "	if (linear) {\n";
-	code += "		vec3 region = get_regionf(uv);\n";
+	code += "	vec3 region = get_regionf(uv);\n";
+	code += "	if (region.z >= 0.) {\n";
 	code += "		height = texture(height_maps, region).r;\n";
 	code += "	}\n";
 
@@ -1389,7 +1387,7 @@ String Terrain3DStorage::_generate_shader_code() {
 	code += "	UV2 = ((world_vertex.xz - vec2(0.5)) / vec2(region_size)) + vec2(0.5);\n";
 	code += "	UV = world_vertex.xz * 0.5;\n\n";
 
-	code += "	VERTEX.y = get_height(UV2, true);\n";
+	code += "	VERTEX.y = get_height(UV2);\n";
 	code += "	NORMAL = vec3(0, 1, 0);\n";
 	code += "	TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
 	code += "	BINORMAL = cross(NORMAL, TANGENT);\n";
@@ -1398,15 +1396,14 @@ String Terrain3DStorage::_generate_shader_code() {
 	// Fragment Shader
 	code += "void fragment() {\n";
 
-	code += "// Normal calc\n";
-	code += "// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,\n";
-	code += "// but control map sampling is slightly different with the mirroring and doesn't work here.\n";
-	code += "// The region map is very, very small, so maybe the performance cost isn't too high\n\n";
-
-	code += "	float left = get_height(UV2 + vec2(-region_pixel_size, 0), true);\n";
-	code += "	float right = get_height(UV2 + vec2(region_pixel_size, 0), true);\n";
-	code += "	float back = get_height(UV2 + vec2(0, -region_pixel_size), true);\n";
-	code += "	float fore = get_height(UV2 + vec2(0, region_pixel_size), true);\n\n";
+	code += "	// Normal calc\n";
+	code += "	// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,\n";
+	code += "	// but control map sampling is slightly different with the mirroring and doesn't work here.\n";
+	code += "	// The region map is very, very small, so maybe the performance cost isn't too high\n\n";
+	code += "	float left = get_height(UV2 + vec2(-region_pixel_size, 0));\n";
+	code += "	float right = get_height(UV2 + vec2(region_pixel_size, 0));\n";
+	code += "	float back = get_height(UV2 + vec2(0, -region_pixel_size));\n";
+	code += "	float fore = get_height(UV2 + vec2(0, region_pixel_size));\n\n";
 
 	code += "	vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
 	code += "	vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
@@ -1452,7 +1449,11 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "	color *= total_weight;\n\n";
 
 		code += "	// Look up colormap\n";
-		code += "	vec4 color_tex = texture(color_maps, get_regionf(UV2));\n\n";
+		code += "	vec3 ruv = get_regionf(UV2);\n";
+		code += "	vec4 color_tex = vec4(1.);\n";
+		code += "	if (ruv.z >= 0.) {\n";
+		code += "		color_tex = texture(color_maps, ruv);\n";
+		code += "	}\n\n";
 
 		code += "	ALBEDO = color * color_tex.rgb;\n";
 		code += "	ROUGHNESS = clamp(fma(color_tex.a-0.5, 2.0, in_normal.a), 0., 1.);\n";
@@ -1560,7 +1561,7 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_GROUP("Noise", "noise_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_scale", "get_noise_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_height", "get_noise_height");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 1000.0"), "set_noise_height", "get_noise_height");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_near", "get_noise_blend_near");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 
