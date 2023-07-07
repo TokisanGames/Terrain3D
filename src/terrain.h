@@ -22,6 +22,7 @@
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/physics_server3d.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
+#include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/v_box_container.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/world3d.hpp>
@@ -56,7 +57,10 @@ class Terrain3D : public Node3D {
 	} data;
 
 	// Physics body and settings
+	bool _collision_enabled = true;
+	bool _show_debug_collision = false;
 	RID static_body;
+	StaticBody3D *_debug_static_body = nullptr;
 	uint32_t collision_layer = 1;
 	uint32_t collision_mask = 1;
 	real_t collision_priority = 1.0;
@@ -73,7 +77,9 @@ protected:
 	void _update_visibility();
 	void _update_aabbs();
 	void _update_world(RID p_space, RID p_scenario);
+	void _build_collision();
 	void _update_collision();
+	void _destroy_collision();
 
 private:
 	void _grab_camera();
@@ -88,6 +94,10 @@ public:
 
 	void set_debug_level(int p_level);
 	int get_debug_level() const { return debug_level; }
+	void set_collision_enabled(bool p_enabled);
+	int get_collision_enabled() const { return _collision_enabled; }
+	void set_show_debug_collision(bool p_enabled);
+	int get_show_debug_collision() const { return _show_debug_collision; }
 
 	void set_clipmap_levels(int p_count);
 	int get_clipmap_levels() const { return clipmap_levels; }
