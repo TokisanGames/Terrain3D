@@ -89,20 +89,28 @@ void Terrain3DStorage::set_region_size(RegionSize p_size) {
 	RenderingServer::get_singleton()->material_set_param(material, "region_pixel_size", 1.0f / float(region_size));
 }
 
-void Terrain3DStorage::adjusted_height(float p_height) {
-	if (p_height < height_range.x) {
-		height_range.x = p_height;
-	} else if (p_height > height_range.y) {
-		height_range.y = p_height;
+void Terrain3DStorage::update_heights(float p_height) {
+	if (p_height < _height_range.x) {
+		_height_range.x = p_height;
+	} else if (p_height > _height_range.y) {
+		_height_range.y = p_height;
 	}
 }
 
-void Terrain3DStorage::adjusted_height(Vector2 p_heights) {
-	if (p_heights.x < height_range.x) {
-		height_range.x = p_heights.x;
-	} else if (p_heights.y > height_range.y) {
-		height_range.y = p_heights.y;
+void Terrain3DStorage::update_heights(Vector2 p_heights) {
+	if (p_heights.x < _height_range.x) {
+		_height_range.x = p_heights.x;
+	} else if (p_heights.y > _height_range.y) {
+		_height_range.y = p_heights.y;
 	}
+}
+
+void Terrain3DStorage::update_height_range() {
+	_height_range = Vector2(0, 0);
+	for (int i = 0; i < height_maps.size(); i++) {
+		update_heights(get_min_max(height_maps[i]));
+	}
+	LOG(INFO, "Updated terrain height range: ", _height_range);
 }
 
 Vector2i Terrain3DStorage::_get_offset_from(Vector3 p_global_position) {
@@ -150,7 +158,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 	if (p_images.size() > TYPE_HEIGHT) {
 		min_max = get_min_max(images[TYPE_HEIGHT]);
 		LOG(DEBUG, "Checking imported height range: ", min_max);
-		adjusted_height(min_max);
+		update_heights(min_max);
 	}
 
 	LOG(DEBUG, "Pushing back ", images.size(), " images");
@@ -192,6 +200,10 @@ void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
 	LOG(DEBUG, "Removed control maps, new size: ", control_maps.size());
 	color_maps.remove_at(index);
 	LOG(DEBUG, "Removed colormaps, new size: ", color_maps.size());
+
+	if (height_maps.size() == 0) {
+		_height_range = Vector2(0, 0);
+	}
 
 	// Region maps used by get_region_index so must be updated
 	generated_region_map.clear();
@@ -631,7 +643,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 			for (int y = 0; y < img->get_height(); y++) {
 				for (int x = 0; x < img->get_width(); x++) {
 					Color clr = img->get_pixel(x, y);
-					clr.r = (clr.r + p_offset) * p_scale;
+					clr.r = (clr.r * p_scale) + p_offset;
 					newimg->set_pixel(x, y, clr);
 				}
 			}
@@ -1253,7 +1265,7 @@ String Terrain3DStorage::_generate_shader_code() {
 	if (noise_enabled) {
 		code += "uniform sampler2D region_blend_map : hint_default_black, filter_linear, repeat_disable;\n";
 		code += "uniform float noise_scale = 2.0;\n";
-		code += "uniform float noise_height = 1.0;\n";
+		code += "uniform float noise_height = 300.0;\n";
 		code += "uniform float noise_blend_near = 0.5;\n";
 		code += "uniform float noise_blend_far = 1.0;\n";
 		code += "\n\n";
@@ -1491,6 +1503,11 @@ void Terrain3DStorage::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
+	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DStorage::set_version);
+	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DStorage::get_version);
+	ClassDB::bind_method(D_METHOD("set_height_range", "range"), &Terrain3DStorage::set_height_range);
+	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DStorage::get_height_range);
+	ClassDB::bind_method(D_METHOD("update_height_range"), &Terrain3DStorage::update_height_range);
 
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DStorage::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
@@ -1552,21 +1569,23 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DStorage::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE)), "set_region_offsets", "get_region_offsets");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_height_maps", "get_height_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_control_maps", "get_control_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image")), "set_color_maps", "get_color_maps");
-
-	ADD_GROUP("Noise", "noise_");
+	ADD_GROUP("World Noise", "noise_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_scale", "get_noise_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 1000.0"), "set_noise_height", "get_noise_height");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_near", "get_noise_blend_near");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface")), "set_surfaces", "get_surfaces");
+	ADD_GROUP("Read Only", "data_");
+	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "data_version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "data_height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_offsets", "get_region_offsets");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_height_maps", "get_height_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_control_maps", "get_control_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_color_maps", "get_color_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), ro_flags), "set_surfaces", "get_surfaces");
 }

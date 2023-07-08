@@ -180,7 +180,7 @@ void Terrain3D::update_aabbs() {
 	ERR_FAIL_COND_MSG(!valid, "Terrain meshes have not been built yet");
 	ERR_FAIL_COND_MSG(!storage.is_valid(), "Terrain3DStorage is not valid");
 
-	Vector2 height_range = storage->height_range;
+	Vector2 height_range = storage->get_height_range();
 	LOG(DEBUG_CONT, "Updating AABBs with total height range: ", height_range);
 	height_range.y += abs(height_range.x); // Add below zero to total size
 

@@ -83,6 +83,7 @@ class Terrain3DStorage : public Resource {
 
 	Terrain3D *terrain = nullptr;
 
+	float _version = 0.8;
 	RID material;
 	RID shader;
 	bool shader_override_enabled = false;
@@ -90,7 +91,7 @@ class Terrain3DStorage : public Resource {
 
 	bool noise_enabled = false;
 	float noise_scale = 2.0;
-	float noise_height = 1.0;
+	float noise_height = 300.0;
 	float noise_blend_near = 0.5;
 	float noise_blend_far = 1.0;
 
@@ -107,6 +108,8 @@ class Terrain3DStorage : public Resource {
 	TypedArray<Image> height_maps;
 	TypedArray<Image> control_maps;
 	TypedArray<Image> color_maps;
+
+	Vector2 _height_range = Vector2(0, 0);
 
 	// These contain an Image described below and a texture RID from the RenderingServer
 	Generated generated_region_map; // REGION_MAP_SIZE^2 sized texture w/ active regions
@@ -141,6 +144,9 @@ public:
 	inline void set_terrain(Terrain3D *p_terrain) { terrain = p_terrain; }
 	inline Terrain3D *get_terrain() const { return terrain; }
 
+	inline void set_version(float p_version) { _version = p_version; }
+	inline float get_version() const { return _version; }
+
 	bool is_modified() { return _modified; }
 	void clear_modified() { _modified = false; }
 
@@ -149,9 +155,11 @@ public:
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return region_size; }
 
-	Vector2 height_range = Vector2(0, 0);
-	void adjusted_height(float p_height);
-	void adjusted_height(Vector2 p_heights);
+	inline void set_height_range(Vector2 p_range) { _height_range = p_range; }
+	inline Vector2 get_height_range() const { return _height_range; }
+	void update_heights(float p_height);
+	void update_heights(Vector2 p_heights);
+	void update_height_range();
 
 	void set_surface(const Ref<Terrain3DSurface> &p_material, int p_index);
 	Ref<Terrain3DSurface> get_surface(int p_index) const { return surfaces[p_index]; }
