@@ -9,7 +9,8 @@ const RING1: String = "res://addons/terrain/editor/brushes/ring1.exr"
 const COLOR_RAISE := Color.WHITE
 const COLOR_LOWER := Color.BLACK
 const COLOR_SMOOTH := Color(0.5, 0, .1)
-const COLOR_GROW := Color.PERU
+const COLOR_EXPAND := Color.ORANGE
+const COLOR_REDUCE := Color.PURPLE
 const COLOR_FLATTEN := Color(0., 0.32, .4)
 const COLOR_PAINT := Color.FOREST_GREEN
 const COLOR_SPRAY := Color.SEA_GREEN
@@ -80,12 +81,14 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 		var to_hide: PackedStringArray = []
 		
 		if p_tool == Terrain3DEditor.HEIGHT:
-			to_hide.push_back("slope")
 			to_hide.push_back("color")
 			to_hide.push_back("color picker")
 			to_hide.push_back("roughness")
 			to_hide.push_back("roughness picker")
 			to_hide.push_back("slope")
+			if p_operation != Terrain3DEditor.REPLACE:
+				to_hide.push_back("height")
+				to_hide.push_back("height picker")
 
 		elif p_tool == Terrain3DEditor.TEXTURE:
 			to_hide.push_back("height")
@@ -182,7 +185,9 @@ func update_decal() -> void:
 					Terrain3DEditor.SUBTRACT:
 						decal.modulate = COLOR_LOWER
 					Terrain3DEditor.MULTIPLY:
-						decal.modulate = COLOR_GROW
+						decal.modulate = COLOR_EXPAND
+					Terrain3DEditor.DIVIDE:
+						decal.modulate = COLOR_REDUCE
 					Terrain3DEditor.REPLACE:
 						decal.modulate = COLOR_FLATTEN
 					Terrain3DEditor.AVERAGE:

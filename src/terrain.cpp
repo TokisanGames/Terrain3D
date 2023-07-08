@@ -647,7 +647,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 			test_point += test_dir;
 			test_point.y = storage->get_height(test_point);
 			Vector3 test_vec = (test_point - p_position).normalized();
-			if (p_direction.dot(test_vec) >= 0.99999) {
+			if (p_direction.dot(test_vec) > 0.9999) {
 				return test_point;
 			}
 		}

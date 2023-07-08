@@ -44,8 +44,8 @@ func _ready() -> void:
 	add_setting(SettingType.PICKER, "roughness picker", Terrain3DEditor.ROUGHNESS, list)
 	
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 0, 200)
-	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 0, 100)
-	add_setting(SettingType.SLIDER, "height", 10, list, "m", -500, 500, 0.1, ALLOW_OUT_OF_BOUNDS)
+	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 1, 100)
+	add_setting(SettingType.SLIDER, "height", 50, list, "m", -500, 500, 0.1, ALLOW_OUT_OF_BOUNDS)
 	add_setting(SettingType.PICKER, "height picker", Terrain3DEditor.HEIGHT, list)
 	add_setting(SettingType.DOUBLE_SLIDER, "slope", 0, list, "°", 0, 180, 1)
 

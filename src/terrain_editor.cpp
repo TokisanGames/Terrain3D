@@ -75,6 +75,7 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_direction) {
 	Ref<Terrain3DStorage> storage = terrain->get_storage();
 	int region_size = storage->get_region_size();
+	Vector2i region_vsize = Vector2i(region_size, region_size);
 	int region_index = storage->get_region_index(p_global_position);
 
 	if (region_index == -1) {
@@ -152,7 +153,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size);
 			Vector2i map_pixel_position = Vector2i(uv_position * region_size);
 
-			if (_is_in_bounds(map_pixel_position, Vector2i(region_size, region_size))) {
+			if (_is_in_bounds(map_pixel_position, region_vsize)) {
 				Vector2 brush_uv = Vector2(x, y) / float(brush_size);
 				Vector2i brush_pixel_position = Vector2i(_rotate_uv(brush_uv, rot) * img_size);
 
@@ -161,7 +162,6 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 				}
 
 				float brush_alpha = float(Math::pow(double(brush.get_alpha(brush_pixel_position)), double(gamma)));
-				float brush_value = brush.get_alpha(brush_pixel_position);
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
@@ -171,16 +171,19 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 
 					switch (operation) {
 						case ADD:
-							destf = srcf + (height * brush_alpha * opacity);
+							destf = srcf + (brush_alpha * opacity * 10.f);
 							break;
 						case SUBTRACT:
-							destf = srcf - (height * brush_alpha * opacity);
+							destf = srcf - (brush_alpha * opacity * 10.f);
 							break;
 						case MULTIPLY:
-							destf = srcf * (brush_alpha * height * opacity + 1.0f);
+							destf = srcf * (brush_alpha * opacity * .01f + 1.0f);
+							break;
+						case DIVIDE:
+							destf = srcf * (-brush_alpha * opacity * .01f + 1.0f);
 							break;
 						case REPLACE:
-							destf = Math::lerp(srcf, height, brush_alpha);
+							destf = Math::lerp(srcf, height, brush_alpha * opacity);
 							break;
 						case Terrain3DEditor::AVERAGE: {
 							Vector2i left_pixel_position = map_pixel_position - Vector2i(1, 0);
@@ -188,16 +191,16 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 							Vector2i down_pixel_position = map_pixel_position - Vector2i(0, 1);
 							Vector2i up_pixel_position = map_pixel_position + Vector2i(0, 1);
 							float left = srcf, right = srcf, up = srcf, down = srcf;
-							if (_is_in_bounds(left_pixel_position, Vector2i(region_size, region_size))) {
+							if (_is_in_bounds(left_pixel_position, region_vsize)) {
 								left = map->get_pixelv(left_pixel_position).r;
 							}
-							if (_is_in_bounds(right_pixel_position, Vector2i(region_size, region_size))) {
+							if (_is_in_bounds(right_pixel_position, region_vsize)) {
 								right = map->get_pixelv(right_pixel_position).r;
 							}
-							if (_is_in_bounds(up_pixel_position, Vector2i(region_size, region_size))) {
+							if (_is_in_bounds(up_pixel_position, region_vsize)) {
 								up = map->get_pixelv(up_pixel_position).r;
 							}
-							if (_is_in_bounds(down_pixel_position, Vector2i(region_size, region_size))) {
+							if (_is_in_bounds(down_pixel_position, region_vsize)) {
 								down = map->get_pixelv(down_pixel_position).r;
 							}
 							float avg = (srcf + left + right + up + down) * 0.2;
@@ -224,14 +227,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 								dest.b = Math::lerp(src.b, 0.0f, alpha_clip);
 							} else {
 								dest.g = float(dest_index) / 255.0f;
-								dest.b = Math::lerp(src.b, CLAMP(src.b + opacity * brush_alpha, 0.0f, 1.0f), alpha_clip);
+								dest.b = Math::lerp(src.b, CLAMP(src.b + brush_alpha, 0.0f, 1.0f), brush_alpha * opacity);
 							}
 							break;
 						case Terrain3DEditor::REPLACE:
 							dest_index = int(Math::lerp(index_base, index, alpha_clip));
 
 							dest.r = float(dest_index) / 255.0f;
-							dest.b = Math::lerp(src.b, 0.0f, alpha_clip);
+							dest.b = Math::lerp(src.b, 0.0f, alpha_clip * opacity);
 							break;
 						default:
 							break;
@@ -363,6 +366,7 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(ADD);
 	BIND_ENUM_CONSTANT(SUBTRACT);
 	BIND_ENUM_CONSTANT(MULTIPLY);
+	BIND_ENUM_CONSTANT(DIVIDE);
 	BIND_ENUM_CONSTANT(REPLACE);
 	BIND_ENUM_CONSTANT(AVERAGE);
 	BIND_ENUM_CONSTANT(OP_MAX);
