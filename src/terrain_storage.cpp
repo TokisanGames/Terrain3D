@@ -58,6 +58,41 @@ void Terrain3DStorage::_clear() {
 	generated_region_blend_map.clear();
 }
 
+void Terrain3DStorage::save() {
+	if (!_modified) {
+		LOG(DEBUG, "Save requested, but not modified. Skipping");
+		return;
+	}
+	String path = get_path();
+	LOG(DEBUG, "Saving the terrain data to: " + path);
+	if (path.get_extension() == "tres" || path.get_extension() == "res") {
+		Error err;
+		if (_save_16_bit) {
+			LOG(DEBUG, "16-bit save requested, converting heightmaps");
+			TypedArray<Image> original_maps;
+			original_maps = get_maps_copy(Terrain3DStorage::MapType::TYPE_HEIGHT);
+			for (int i = 0; i < height_maps.size(); i++) {
+				Ref<Image> img = height_maps[i];
+				img->convert(Image::FORMAT_RH);
+			}
+			LOG(DEBUG, "Images converted, saving");
+			err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
+
+			LOG(DEBUG, "Restoring 32-bit maps");
+			height_maps = original_maps;
+
+		} else {
+			err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
+		}
+		ERR_FAIL_COND(err);
+		LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
+		if (err == OK) {
+			_modified = false;
+		}
+	}
+	LOG(INFO, "Finished saving terrain data");
+}
+
 void Terrain3DStorage::print_audit_data() {
 	LOG(INFO, "Dumping storage data");
 
@@ -66,8 +101,20 @@ void Terrain3DStorage::print_audit_data() {
 	LOG(INFO, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
 	LOG(INFO, "Surfaces size: ", surfaces.size(), " ", surfaces);
 	LOG(INFO, "Map type height size: ", height_maps.size(), " ", height_maps);
+	for (int i = 0; i < height_maps.size(); i++) {
+		Ref<Image> img = height_maps[i];
+		LOG(INFO, "\tMap size: ", img->get_size(), " format: ", img->get_format());
+	}
 	LOG(INFO, "Map type control size: ", control_maps.size(), " ", control_maps);
+	for (int i = 0; i < control_maps.size(); i++) {
+		Ref<Image> img = control_maps[i];
+		LOG(INFO, "\tMap size: ", img->get_size(), " format: ", img->get_format());
+	}
 	LOG(INFO, "Map type color size: ", color_maps.size(), " ", color_maps);
+	for (int i = 0; i < color_maps.size(); i++) {
+		Ref<Image> img = color_maps[i];
+		LOG(INFO, "\tMap size: ", img->get_size(), " format: ", img->get_format());
+	}
 
 	LOG(INFO, "generated_region_map RID: ", generated_region_map.get_rid(), " dirty: ", generated_region_map.is_dirty(), ", image: ", generated_region_map.get_image());
 	LOG(INFO, "generated_region_blend_map RID: ", generated_region_blend_map.get_rid(), ", dirty: ", generated_region_blend_map.is_dirty(), ", image: ", generated_region_blend_map.get_image());
@@ -1505,6 +1552,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DStorage::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DStorage::get_version);
+	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3DStorage::set_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3DStorage::get_save_16_bit);
 	ClassDB::bind_method(D_METHOD("set_height_range", "range"), &Terrain3DStorage::set_height_range);
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DStorage::get_height_range);
 	ClassDB::bind_method(D_METHOD("update_height_range"), &Terrain3DStorage::update_height_range);
@@ -1569,6 +1618,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DStorage::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16-bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 

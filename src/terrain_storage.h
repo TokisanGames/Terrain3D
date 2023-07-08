@@ -84,6 +84,8 @@ class Terrain3DStorage : public Resource {
 	Terrain3D *terrain = nullptr;
 
 	float _version = 0.8;
+	bool _save_16_bit = false;
+
 	RID material;
 	RID shader;
 	bool shader_override_enabled = false;
@@ -147,8 +149,11 @@ public:
 	inline void set_version(float p_version) { _version = p_version; }
 	inline float get_version() const { return _version; }
 
-	bool is_modified() { return _modified; }
-	void clear_modified() { _modified = false; }
+	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
+	inline bool get_save_16_bit() const { return _save_16_bit; }
+
+	void _clear_modified() { _modified = false; }
+	void save();
 
 	void print_audit_data();
 
