@@ -11,7 +11,6 @@ sky_material = SubResource("ProceduralSkyMaterial_vibap")
 background_mode = 2
 sky = SubResource("Sky_srg7c")
 tonemap_mode = 2
-glow_enabled = true
 
 [node name="World" type="Node3D"]
 

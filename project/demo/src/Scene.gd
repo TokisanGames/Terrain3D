@@ -7,7 +7,7 @@ extends Node
 func _ready():
 	if has_node("RunThisSceneLabel3D"):
 		$RunThisSceneLabel3D.queue_free()
-		
+	
 	if generate_terrain:
 		var terrain := Terrain3D.new()
 		terrain.storage = Terrain3DStorage.new()
