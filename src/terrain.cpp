@@ -548,6 +548,9 @@ void Terrain3D::_update_collision() {
 		shape_data["width"] = shape_size;
 		shape_data["depth"] = shape_size;
 		shape_data["heights"] = map_data;
+		Vector2 min_max = storage->get_height_range();
+		shape_data["min_height"] = min_max.x;
+		shape_data["max_height"] = min_max.y;
 
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
