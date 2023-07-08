@@ -97,7 +97,7 @@ public:
 	Brush brush;
 
 	Terrain3D *terrain = nullptr;
-	Array _undo_maps;
+	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range
 
 private:
 	void _operate_region(Vector3 p_global_position);
@@ -113,8 +113,8 @@ public:
 	Terrain3DEditor();
 	~Terrain3DEditor();
 
-	void set_terrain(Terrain3D *p_terrain) { terrain = p_terrain; }
-	Terrain3D *get_terrain() const { return terrain; }
+	inline void set_terrain(Terrain3D *p_terrain) { terrain = p_terrain; }
+	inline Terrain3D *get_terrain() const { return terrain; }
 
 	void set_brush_data(Dictionary data);
 	void set_tool(Tool p_tool) { tool = p_tool; }
@@ -125,7 +125,7 @@ public:
 
 	void setup_undo();
 	void store_undo();
-	void apply_undo(const Array &p_maps);
+	void apply_undo(const Array &p_set);
 };
 
 VARIANT_ENUM_CAST(Terrain3DEditor::Operation);

@@ -21,6 +21,9 @@ const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain/editor/brushes"
 const PICKER_ICON: String = "res://addons/terrain/icons/icon_dropper.png"
 
+const NONE = 0x0
+const ALLOW_OUT_OF_BOUNDS = 0x1
+
 var brush_preview_material: ShaderMaterial
 
 var list: HBoxContainer
@@ -42,7 +45,7 @@ func _ready() -> void:
 	
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 0, 200)
 	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 0, 100)
-	add_setting(SettingType.SLIDER, "height", 10, list, "m", 0, 1000, 0.1)
+	add_setting(SettingType.SLIDER, "height", 10, list, "m", -500, 500, 0.1, ALLOW_OUT_OF_BOUNDS)
 	add_setting(SettingType.PICKER, "height picker", Terrain3DEditor.HEIGHT, list)
 	add_setting(SettingType.DOUBLE_SLIDER, "slope", 0, list, "°", 0, 180, 1)
 
@@ -172,7 +175,7 @@ func _on_pick(type: Terrain3DEditor.Tool) -> void:
 func _on_picked(type: Terrain3DEditor.Tool, color: Color) -> void:
 	match type:
 		Terrain3DEditor.HEIGHT:
-			settings["height"].value = color.r * Terrain3DStorage.TERRAIN_MAX_HEIGHT
+			settings["height"].value = color.r
 		Terrain3DEditor.COLOR:
 			settings["color"].color = color
 		Terrain3DEditor.ROUGHNESS:
@@ -182,7 +185,8 @@ func _on_picked(type: Terrain3DEditor.Tool, color: Color) -> void:
 
 
 func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent: Control, 
-		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, step: float = 1.0) -> void:
+		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, step: float = 1.0,
+		flags: int = NONE) -> void:
 
 	var container: HBoxContainer = HBoxContainer.new()
 	var label: Label = Label.new()
@@ -214,6 +218,10 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			
 				slider = HSlider.new()
 				slider.share(control)
+				if flags & ALLOW_OUT_OF_BOUNDS:
+					slider.set_allow_greater(true)
+					slider.set_allow_lesser(true)
+					
 			else:
 				control = Label.new()
 				control.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)

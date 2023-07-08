@@ -1,7 +1,10 @@
 # Terrain3D
 project/.godot
 project/test/
-project/addon/terrain/bin/
+project/addons/terrain/bin/
+project/addons/terrain/editor/gterrain-ui/
+project/_dev/
+project/tests/
 
 
 # Objects

@@ -171,42 +171,48 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	}
 
 	valid = true;
-	_update_aabbs();
+	update_aabbs();
 	// Force a snap update
 	camera_last_position = Vector2(FLT_MAX, FLT_MAX);
 }
 
-void Terrain3D::_update_aabbs() {
-	LOG(INFO, "Updating AABBs");
+void Terrain3D::update_aabbs() {
 	ERR_FAIL_COND_MSG(!valid, "Terrain meshes have not been built yet");
 	ERR_FAIL_COND_MSG(!storage.is_valid(), "Terrain3DStorage is not valid");
 
-	float height = float(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
+	Vector2 height_range = storage->get_height_range();
+	LOG(DEBUG_CONT, "Updating AABBs with total height range: ", height_range);
+	height_range.y += abs(height_range.x); // Add below zero to total size
 
 	AABB aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::CROSS]);
-	aabb.size.y = height;
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
 	RenderingServer::get_singleton()->instance_set_custom_aabb(data.cross, aabb);
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TILE]);
-	aabb.size.y = height;
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
 	for (int i = 0; i < data.tiles.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(data.tiles[i], aabb);
 	}
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::FILLER]);
-	aabb.size.y = height;
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
 	for (int i = 0; i < data.fillers.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(data.fillers[i], aabb);
 	}
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::TRIM]);
-	aabb.size.y = height;
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
 	for (int i = 0; i < data.trims.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(data.trims[i], aabb);
 	}
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(meshes[GeoClipMap::SEAM]);
-	aabb.size.y = height;
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
 	for (int i = 0; i < data.seams.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(data.seams[i], aabb);
 	}
@@ -317,6 +323,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 		clear();
 
 		if (storage.is_valid()) {
+			storage->set_terrain(this);
 			if (storage->get_region_count() == 0) {
 				LOG(DEBUG, "Region count 0, adding new region");
 				storage->call_deferred("add_region", Vector3(0, 0, 0));
@@ -333,7 +340,7 @@ void Terrain3D::_notification(int p_what) {
 			LOG(INFO, "NOTIFICATION_READY");
 			set_process(true);
 			if (storage.is_valid()) {
-				storage->clear_modified();
+				storage->_clear_modified();
 			}
 			break;
 		}
@@ -394,21 +401,7 @@ void Terrain3D::_notification(int p_what) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
 				return;
 			}
-			if (!storage->is_modified()) {
-				LOG(DEBUG, "Save requested, but not modified. Skipping");
-				return;
-			}
-			String path = storage->get_path();
-			LOG(DEBUG, "Saving the terrain to: " + path);
-			if (path.get_extension() == "tres" || path.get_extension() == "res") {
-				Error err = ResourceSaver::get_singleton()->save(storage, path);
-				ERR_FAIL_COND(err);
-				LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
-				if (err == OK) {
-					storage->clear_modified();
-				}
-			}
-			LOG(INFO, "Finished saving terrain data");
+			storage->save();
 			break;
 		}
 
@@ -523,7 +516,6 @@ void Terrain3D::_update_collision() {
 
 	int region_size = storage->get_region_size();
 	int shape_size = region_size + 1;
-	double max_height = double(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
 
 	for (int i = 0; i < storage->get_region_count(); i++) {
 		Dictionary shape_data;
@@ -542,7 +534,7 @@ void Terrain3D::_update_collision() {
 				// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
 				int index = shape_size - 1 - z + x * shape_size;
 				Vector2i point = Vector2i(Vector2(hmap_size) * Vector2(x, z) / float(shape_size));
-				map_data[index] = hmap->get_pixelv(point).r * max_height;
+				map_data[index] = hmap->get_pixelv(point).r;
 			}
 		}
 
@@ -556,8 +548,6 @@ void Terrain3D::_update_collision() {
 		shape_data["width"] = shape_size;
 		shape_data["depth"] = shape_size;
 		shape_data["heights"] = map_data;
-		shape_data["min_height"] = 0.0; // This is probably not needed
-		shape_data["max_height"] = max_height; // nor this.
 
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
@@ -655,7 +645,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 	if (storage.is_valid()) {
 		for (int i = 0; i < 3000; i++) {
 			test_point += test_dir;
-			test_point.y = storage->get_height(test_point) * storage->TERRAIN_MAX_HEIGHT;
+			test_point.y = storage->get_height(test_point);
 			Vector3 test_vec = (test_point - p_position).normalized();
 			if (p_direction.dot(test_vec) >= 0.99999) {
 				return test_point;

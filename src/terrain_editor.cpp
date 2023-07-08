@@ -73,14 +73,15 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 }
 
 void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_direction) {
-	int region_size = terrain->get_storage()->get_region_size();
-	int region_index = terrain->get_storage()->get_region_index(p_global_position);
+	Ref<Terrain3DStorage> storage = terrain->get_storage();
+	int region_size = storage->get_region_size();
+	int region_index = storage->get_region_index(p_global_position);
 
 	if (region_index == -1) {
 		LOG(DEBUG, "No region to operate on, attempting to add");
-		terrain->get_storage()->add_region(p_global_position);
-		region_size = terrain->get_storage()->get_region_size();
-		region_index = terrain->get_storage()->get_region_index(p_global_position);
+		storage->add_region(p_global_position);
+		region_size = storage->get_region_size();
+		region_index = storage->get_region_index(p_global_position);
 		if (region_index == -1) {
 			LOG(ERROR, "Failed to add region, no region to operate on");
 			return;
@@ -108,12 +109,12 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			return;
 	}
 
-	Ref<Image> map = terrain->get_storage()->get_map_region(map_type, region_index);
+	Ref<Image> map = storage->get_map_region(map_type, region_index);
 	int brush_size = brush.get_size();
 	int index = brush.get_index();
 	Vector2 img_size = brush.get_image_size();
 	float opacity = brush.get_opacity();
-	float height = brush.get_height() / float(Terrain3DStorage::TERRAIN_MAX_HEIGHT);
+	float height = brush.get_height();
 	Color color = brush.get_color();
 	float roughness = brush.get_roughness();
 	float gamma = brush.get_gamma();
@@ -130,22 +131,22 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			Vector2i brush_offset = Vector2i(x, y) - (Vector2i(brush_size, brush_size) / 2);
 			Vector3 brush_global_position = Vector3(p_global_position.x + float(brush_offset.x), p_global_position.y, p_global_position.z + float(brush_offset.y));
 
-			int new_region_index = terrain->get_storage()->get_region_index(brush_global_position);
+			int new_region_index = storage->get_region_index(brush_global_position);
 
 			if (new_region_index == -1) {
 				if (!brush.auto_regions_enabled()) {
 					continue;
 				}
-				Error err = terrain->get_storage()->add_region(brush_global_position);
+				Error err = storage->add_region(brush_global_position);
 				if (err) {
 					continue;
 				}
-				new_region_index = terrain->get_storage()->get_region_index(brush_global_position);
+				new_region_index = storage->get_region_index(brush_global_position);
 			}
 
 			if (new_region_index != region_index) {
 				region_index = new_region_index;
-				map = terrain->get_storage()->get_map_region(map_type, region_index);
+				map = storage->get_map_region(map_type, region_index);
 			}
 
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size);
@@ -206,7 +207,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 						default:
 							break;
 					}
-					dest = Color(CLAMP(destf, 0.0f, 1.0f), 0.0f, 0.0f, 1.0f);
+					dest = Color(destf, 0.0f, 0.0f, 1.0f);
+					storage->update_heights(destf);
 
 				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
 					float alpha_clip = (brush_alpha < 0.1f) ? 0.0f : 1.0f;
@@ -257,9 +259,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			}
 		}
 	}
-	terrain->get_storage()->force_update_maps(map_type);
+	storage->force_update_maps(map_type);
 }
 
+/* Stored in the _undo_set is:
+ * 0-2: map 0,1,2
+ * 3: Region offsets
+ * 4: height range
+ */
 void Terrain3DEditor::setup_undo() {
 	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
 	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
@@ -267,14 +274,15 @@ void Terrain3DEditor::setup_undo() {
 		return;
 	}
 	LOG(INFO, "Setting up undo snapshot...");
-	_undo_maps.clear();
-	_undo_maps.resize(Terrain3DStorage::TYPE_MAX + 1);
+	_undo_set.clear();
+	_undo_set.resize(Terrain3DStorage::TYPE_MAX + 2);
 	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
-		_undo_maps[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
-		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(_undo_maps[i]).size(), "): ", _undo_maps[i]);
+		_undo_set[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
+		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(_undo_set[i]).size(), "): ", _undo_set[i]);
 	}
-	_undo_maps[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate(); // true?
-	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(_undo_maps[Terrain3DStorage::TYPE_MAX]).size(), "): ", _undo_maps[Terrain3DStorage::TYPE_MAX]);
+	_undo_set[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate();
+	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(_undo_set[Terrain3DStorage::TYPE_MAX]).size(), "): ", _undo_set[Terrain3DStorage::TYPE_MAX]);
+	_undo_set[Terrain3DStorage::TYPE_MAX + 1] = terrain->get_storage()->get_height_range();
 }
 
 void Terrain3DEditor::store_undo() {
@@ -290,37 +298,39 @@ void Terrain3DEditor::store_undo() {
 	LOG(DEBUG, "Creating undo action: '", action_name, "'");
 	undo_redo->create_action(action_name);
 
-	LOG(DEBUG, "Storing undo snapshot: ", _undo_maps);
-	undo_redo->add_undo_method(this, "apply_undo", _undo_maps.duplicate()); // Must be duplicated
+	LOG(DEBUG, "Storing undo snapshot: ", _undo_set);
+	undo_redo->add_undo_method(this, "apply_undo", _undo_set.duplicate()); // Must be duplicated
 
 	LOG(DEBUG, "Setting up redo snapshot...");
-	Array redo_maps;
-	redo_maps.resize(Terrain3DStorage::TYPE_MAX + 1);
+	Array redo_set;
+	redo_set.resize(Terrain3DStorage::TYPE_MAX + 2);
 	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
-		redo_maps[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
-		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(redo_maps[i]).size(), "): ", redo_maps[i]);
+		redo_set[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
+		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(redo_set[i]).size(), "): ", redo_set[i]);
 	}
-	redo_maps[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate();
-	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(redo_maps[Terrain3DStorage::TYPE_MAX]).size(), "): ", redo_maps[Terrain3DStorage::TYPE_MAX]);
+	redo_set[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate();
+	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(redo_set[Terrain3DStorage::TYPE_MAX]).size(), "): ", redo_set[Terrain3DStorage::TYPE_MAX]);
+	redo_set[Terrain3DStorage::TYPE_MAX + 1] = terrain->get_storage()->get_height_range();
 
-	LOG(DEBUG, "Storing redo snapshot: ", redo_maps);
-	undo_redo->add_do_method(this, "apply_undo", redo_maps);
+	LOG(DEBUG, "Storing redo snapshot: ", redo_set);
+	undo_redo->add_do_method(this, "apply_undo", redo_set);
 
 	LOG(DEBUG, "Committing undo action");
 	undo_redo->commit_action(false);
 }
 
-void Terrain3DEditor::apply_undo(const Array &p_maps) {
+void Terrain3DEditor::apply_undo(const Array &p_set) {
 	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
 	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
-	LOG(INFO, "Applying Undo/Redo maps. Array size: ", p_maps.size());
-	LOG(DEBUG, "Apply undo received: ", p_maps);
+	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
+	LOG(DEBUG, "Apply undo received: ", p_set);
 
 	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
 		Terrain3DStorage::MapType map_type = static_cast<Terrain3DStorage::MapType>(i);
-		terrain->get_storage()->set_maps(map_type, p_maps[i]);
+		terrain->get_storage()->set_maps(map_type, p_set[i]);
 	}
-	terrain->get_storage()->set_region_offsets(p_maps[Terrain3DStorage::TYPE_MAX]);
+	terrain->get_storage()->set_region_offsets(p_set[Terrain3DStorage::TYPE_MAX]);
+	terrain->get_storage()->set_height_range(p_set[Terrain3DStorage::TYPE_MAX + 1]);
 
 	if (terrain->plugin->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");

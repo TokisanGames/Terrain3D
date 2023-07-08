@@ -11,6 +11,7 @@
 
 #include "terrain_surface.h"
 
+class Terrain3D;
 using namespace godot;
 
 #define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
@@ -31,7 +32,7 @@ class Terrain3DStorage : public Resource {
 	};
 
 	static inline const Image::Format FORMAT[] = {
-		Image::FORMAT_RH, // TYPE_HEIGHT
+		Image::FORMAT_RF, // TYPE_HEIGHT
 		Image::FORMAT_RGBA8, // TYPE_CONTROL
 		Image::FORMAT_RGBA8, // TYPE_COLOR
 		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
@@ -62,7 +63,6 @@ class Terrain3DStorage : public Resource {
 
 	static const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
-	static const int TERRAIN_MAX_HEIGHT = 2048;
 
 	struct Generated {
 		RID rid = RID();
@@ -81,6 +81,11 @@ class Terrain3DStorage : public Resource {
 	RegionSize region_size = SIZE_1024;
 	Vector2i region_vsize = Vector2i(region_size, region_size);
 
+	Terrain3D *terrain = nullptr;
+
+	float _version = 0.8;
+	bool _save_16_bit = false;
+
 	RID material;
 	RID shader;
 	bool shader_override_enabled = false;
@@ -88,7 +93,7 @@ class Terrain3DStorage : public Resource {
 
 	bool noise_enabled = false;
 	float noise_scale = 2.0;
-	float noise_height = 1.0;
+	float noise_height = 300.0;
 	float noise_blend_near = 0.5;
 	float noise_blend_far = 1.0;
 
@@ -105,6 +110,8 @@ class Terrain3DStorage : public Resource {
 	TypedArray<Image> height_maps;
 	TypedArray<Image> control_maps;
 	TypedArray<Image> color_maps;
+
+	Vector2 _height_range = Vector2(0, 0);
 
 	// These contain an Image described below and a texture RID from the RenderingServer
 	Generated generated_region_map; // REGION_MAP_SIZE^2 sized texture w/ active regions
@@ -136,13 +143,28 @@ public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
-	bool is_modified() { return _modified; }
-	void clear_modified() { _modified = false; }
+	inline void set_terrain(Terrain3D *p_terrain) { terrain = p_terrain; }
+	inline Terrain3D *get_terrain() const { return terrain; }
+
+	inline void set_version(float p_version) { _version = p_version; }
+	inline float get_version() const { return _version; }
+
+	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
+	inline bool get_save_16_bit() const { return _save_16_bit; }
+
+	void _clear_modified() { _modified = false; }
+	void save();
 
 	void print_audit_data();
 
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return region_size; }
+
+	inline void set_height_range(Vector2 p_range) { _height_range = p_range; }
+	inline Vector2 get_height_range() const { return _height_range; }
+	void update_heights(float p_height);
+	void update_heights(Vector2 p_heights);
+	void update_height_range();
 
 	void set_surface(const Ref<Terrain3DSurface> &p_material, int p_index);
 	Ref<Terrain3DSurface> get_surface(int p_index) const { return surfaces[p_index]; }
