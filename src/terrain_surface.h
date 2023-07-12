@@ -18,6 +18,7 @@ class Terrain3DSurface : public Resource {
 	Ref<Texture2D> albedo_texture;
 	Ref<Texture2D> normal_texture;
 	Vector3 uv_scale = Vector3(1.0, 1.0, 1.0);
+	float uv_rotation = 0.0f;
 
 protected:
 	static void _bind_methods();
@@ -27,15 +28,18 @@ public:
 	~Terrain3DSurface();
 
 	void set_albedo(Color p_color);
-	Color get_albedo() const;
+	Color get_albedo() const { return albedo; }
 
 	void set_albedo_texture(const Ref<Texture2D> &p_texture);
-	Ref<Texture2D> get_albedo_texture() const;
+	Ref<Texture2D> get_albedo_texture() const { return albedo_texture; }
 	void set_normal_texture(const Ref<Texture2D> &p_texture);
-	Ref<Texture2D> get_normal_texture() const;
+	Ref<Texture2D> get_normal_texture() const { return normal_texture; }
 
 	void set_uv_scale(Vector3 p_scale);
-	Vector3 get_uv_scale() const;
+	Vector3 get_uv_scale() const { return uv_scale; }
+
+	void set_uv_rotation(float p_rotation);
+	float get_uv_rotation() const { return uv_rotation; }
 
 private:
 	bool _texture_is_valid(const Ref<Texture2D> &p_texture) const;

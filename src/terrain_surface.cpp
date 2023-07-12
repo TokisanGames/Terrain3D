@@ -15,19 +15,11 @@ void Terrain3DSurface::set_albedo(Color p_color) {
 	emit_signal("value_changed");
 }
 
-Color Terrain3DSurface::get_albedo() const {
-	return albedo;
-}
-
 void Terrain3DSurface::set_albedo_texture(const Ref<Texture2D> &p_texture) {
 	if (_texture_is_valid(p_texture)) {
 		albedo_texture = p_texture;
 		emit_signal("texture_changed");
 	}
-}
-
-Ref<Texture2D> Terrain3DSurface::get_albedo_texture() const {
-	return albedo_texture;
 }
 
 void Terrain3DSurface::set_normal_texture(const Ref<Texture2D> &p_texture) {
@@ -37,17 +29,14 @@ void Terrain3DSurface::set_normal_texture(const Ref<Texture2D> &p_texture) {
 	}
 }
 
-Ref<Texture2D> Terrain3DSurface::get_normal_texture() const {
-	return normal_texture;
-}
-
 void Terrain3DSurface::set_uv_scale(Vector3 p_scale) {
 	uv_scale = p_scale;
 	emit_signal("value_changed");
 }
 
-Vector3 Terrain3DSurface::get_uv_scale() const {
-	return uv_scale;
+void Terrain3DSurface::set_uv_rotation(float p_rotation) {
+	uv_rotation = p_rotation;
+	emit_signal("value_changed");
 }
 
 bool Terrain3DSurface::_texture_is_valid(const Ref<Texture2D> &p_texture) const {
@@ -80,8 +69,14 @@ void Terrain3DSurface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_uv_scale", "scale"), &Terrain3DSurface::set_uv_scale);
 	ClassDB::bind_method(D_METHOD("get_uv_scale"), &Terrain3DSurface::get_uv_scale);
 
+	ClassDB::bind_method(D_METHOD("set_uv_rotation", "scale"), &Terrain3DSurface::set_uv_rotation);
+	ClassDB::bind_method(D_METHOD("get_uv_rotation"), &Terrain3DSurface::get_uv_rotation);
+
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "albedo", PROPERTY_HINT_COLOR_NO_ALPHA), "set_albedo", "get_albedo");
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_albedo_texture", "get_albedo_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_normal_texture", "get_normal_texture");
+
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "uv_scale", PROPERTY_HINT_NONE), "set_uv_scale", "get_uv_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_rotation", PROPERTY_HINT_RANGE, "-1.0, 1.0"), "set_uv_rotation", "get_uv_rotation");
 }

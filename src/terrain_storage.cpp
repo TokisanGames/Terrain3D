@@ -1177,6 +1177,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 	if (p_update_values) {
 		LOG(INFO, "Updating terrain color and scale arrays");
 		PackedVector3Array uv_scales;
+		PackedFloat32Array uv_rotations;
 		PackedColorArray colors;
 
 		for (int i = 0; i < get_surface_count(); i++) {
@@ -1186,9 +1187,12 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				continue;
 			}
 			uv_scales.push_back(surface->get_uv_scale());
+			uv_rotations.push_back(surface->get_uv_rotation());
+
 			colors.push_back(surface->get_albedo());
 		}
 
+		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_rotation_array", uv_rotations);
 		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_scale_array", uv_scales);
 		RenderingServer::get_singleton()->material_set_param(material, "texture_color_array", colors);
 		_modified = true;
@@ -1304,6 +1308,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform vec3 texture_uv_scale_array[256];\n";
+		code += "uniform float texture_uv_rotation_array[256];\n";
 		code += "uniform vec3 texture_3d_projection_array[256];\n";
 		code += "uniform vec4 texture_color_array[256];\n";
 		code += "\n\n";
@@ -1411,7 +1416,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {\n";
 		code += "	float material = index.r * 255.0;\n";
 		code += "	float materialOverlay = index.g * 255.0;\n";
-		code += "	float rand = random(uv_center) * PI;\n";
+		code += "	float rand = random(uv_center) * PI * texture_uv_rotation_array[int(material)];\n";
 		code += "	vec2 rot = vec2(sin(rand), cos(rand));\n";
 		code += "	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)].xy;\n";
 		code += "	vec2 ddx = dFdx(uv);\n";
