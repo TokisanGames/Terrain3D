@@ -6,15 +6,16 @@ extends CharacterBody3D
 	set(value):
 		first_person = value
 		if first_person:
-			$CameraManager/Arm.position = Vector3(0, 1.0, 0)
+			$CameraManager/Arm.spring_length = 0.0
 		else:
-			$CameraManager/Arm.position = Vector3(0, 2.5, 3.5)
+			$CameraManager/Arm.spring_length = 4.0
 
-@export var gravity_enabled: bool = false
-@export var collision_enabled: bool = false :
+@export var gravity_enabled: bool = true
+@export var collision_enabled: bool = true :
 	set(value):
 		collision_enabled = value
-		$CollisionShape3D.disabled = ! collision_enabled
+		$CollisionShapeBody.disabled = ! collision_enabled
+		$CollisionShapeRay.disabled = ! collision_enabled
 
 
 func _physics_process(delta):
