@@ -221,18 +221,18 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 
 					switch (operation) {
 						case Terrain3DEditor::ADD:
+							// Spray Overlay
 							dest_index = int(Math::lerp(index_overlay, index, alpha_clip));
-
 							if (dest_index == index_base) {
-								dest.b = Math::lerp(src.b, 0.0f, alpha_clip);
+								dest.b = Math::lerp(src.b, 0.0f, alpha_clip * opacity * .5f);
 							} else {
 								dest.g = float(dest_index) / 255.0f;
-								dest.b = Math::lerp(src.b, CLAMP(src.b + brush_alpha, 0.0f, 1.0f), brush_alpha * opacity);
+								dest.b = Math::lerp(src.b, CLAMP(src.b + brush_alpha, 0.0f, 1.0f), brush_alpha * opacity * .5f);
 							}
 							break;
 						case Terrain3DEditor::REPLACE:
+							// Base Paint
 							dest_index = int(Math::lerp(index_base, index, alpha_clip));
-
 							dest.r = float(dest_index) / 255.0f;
 							dest.b = Math::lerp(src.b, 0.0f, alpha_clip * opacity);
 							break;

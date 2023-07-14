@@ -1436,7 +1436,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "	}\n\n";
 		code += "	if (index.b > 0.0) {\n";
 		code += "		albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);\n";
-		code += "		albedo.rgb *= texture_color_array[int(material)].rgb;";
+		code += "		albedo.rgb *= texture_color_array[int(material)].rgb;\n";
 		code += "		normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);\n";
 		code += "		vec3 n = unpack_normal(normal);\n";
 		code += "		normal.xz = rotate(n.xz, rot.x, -rot.y);\n\n";
