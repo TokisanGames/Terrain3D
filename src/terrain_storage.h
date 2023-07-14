@@ -7,7 +7,7 @@
 #endif
 
 #include <godot_cpp/classes/resource_loader.hpp>
-#include <godot_cpp/classes/shader.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
 
 #include "terrain_surface.h"
 
@@ -89,7 +89,7 @@ class Terrain3DStorage : public Resource {
 	RID material;
 	RID shader;
 	bool shader_override_enabled = false;
-	Ref<Shader> shader_override;
+	Ref<ShaderMaterial> shader_override;
 
 	bool noise_enabled = false;
 	float noise_scale = 2.0;
@@ -214,8 +214,8 @@ public:
 	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color = COLOR_BLACK, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
 
 	RID get_material() const { return material; }
-	void set_shader_override(const Ref<Shader> &p_shader);
-	Ref<Shader> get_shader_override() const { return shader_override; }
+	void set_shader_override(const Ref<ShaderMaterial> &p_shader);
+	Ref<ShaderMaterial> get_shader_override() const { return shader_override; }
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return shader_override_enabled; }
 

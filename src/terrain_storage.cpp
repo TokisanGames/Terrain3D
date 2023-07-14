@@ -940,7 +940,7 @@ Ref<Image> Terrain3DStorage::get_filled_image(Vector2i p_size, Color p_color, bo
 	return img;
 }
 
-void Terrain3DStorage::set_shader_override(const Ref<Shader> &p_shader) {
+void Terrain3DStorage::set_shader_override(const Ref<ShaderMaterial> &p_shader) {
 	LOG(INFO, "Setting override shader");
 	shader_override = p_shader;
 	_update_material();
@@ -954,7 +954,10 @@ void Terrain3DStorage::enable_shader_override(bool p_enabled) {
 		Ref<Shader> shader_res;
 		shader_res.instantiate();
 		shader_res->set_code(code);
-		set_shader_override(shader_res);
+		Ref<ShaderMaterial> shader_mat;
+		shader_mat.instantiate();
+		shader_mat->set_shader(shader_res);
+		set_shader_override(shader_mat);
 	} else {
 		_update_material();
 	}
@@ -1266,7 +1269,7 @@ void Terrain3DStorage::_update_material() {
 	}
 
 	if (shader_override_enabled && shader_override.is_valid()) {
-		RenderingServer::get_singleton()->material_set_shader(material, shader_override->get_rid());
+		RenderingServer::get_singleton()->material_set_shader(material, shader_override->get_shader()->get_rid());
 	} else {
 		RenderingServer::get_singleton()->shader_set_code(shader, _generate_shader_code());
 		RenderingServer::get_singleton()->material_set_shader(material, shader);
@@ -1558,7 +1561,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DStorage::get_height_range);
 	ClassDB::bind_method(D_METHOD("update_height_range"), &Terrain3DStorage::update_height_range);
 
-	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DStorage::set_shader_override);
+	ClassDB::bind_method(D_METHOD("set_shader_override", "shader_material"), &Terrain3DStorage::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
 	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DStorage::enable_shader_override);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DStorage::is_shader_override_enabled);
@@ -1620,7 +1623,7 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16-bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial"), "set_shader_override", "get_shader_override");
 
 	ADD_GROUP("World Noise", "noise_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
