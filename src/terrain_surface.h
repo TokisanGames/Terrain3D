@@ -17,7 +17,7 @@ class Terrain3DSurface : public Resource {
 	Color albedo = Color(1.0, 1.0, 1.0, 1.0);
 	Ref<Texture2D> albedo_texture;
 	Ref<Texture2D> normal_texture;
-	Vector3 uv_scale = Vector3(1.0, 1.0, 1.0);
+	Vector3 uv_scale = Vector3(0.1f, 0.1f, 0.1f);
 	float uv_rotation = 0.0f;
 
 protected:

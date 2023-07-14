@@ -1528,7 +1528,7 @@ String Terrain3DStorage::_generate_shader_code() {
 
 		code += "	// Look up colormap\n";
 		code += "	vec3 ruv = get_regionf(UV2);\n";
-		code += "	vec4 color_tex = vec4(1.);\n";
+		code += "	vec4 color_tex = vec4(1., 1., 1., .5);\n";
 		code += "	if (ruv.z >= 0.) {\n";
 		code += "		color_tex = texture(color_maps, ruv);\n";
 		code += "	}\n\n";
