@@ -1177,6 +1177,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 	if (p_update_values) {
 		LOG(INFO, "Updating terrain color and scale arrays");
 		PackedVector3Array uv_scales;
+		PackedFloat32Array uv_rotations;
 		PackedColorArray colors;
 
 		for (int i = 0; i < get_surface_count(); i++) {
@@ -1186,9 +1187,12 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				continue;
 			}
 			uv_scales.push_back(surface->get_uv_scale());
+			uv_rotations.push_back(surface->get_uv_rotation());
+
 			colors.push_back(surface->get_albedo());
 		}
 
+		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_rotation_array", uv_rotations);
 		RenderingServer::get_singleton()->material_set_param(material, "texture_uv_scale_array", uv_scales);
 		RenderingServer::get_singleton()->material_set_param(material, "texture_color_array", colors);
 		_modified = true;
@@ -1304,6 +1308,7 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform vec3 texture_uv_scale_array[256];\n";
+		code += "uniform float texture_uv_rotation_array[256];\n";
 		code += "uniform vec3 texture_3d_projection_array[256];\n";
 		code += "uniform vec4 texture_color_array[256];\n";
 		code += "\n\n";
@@ -1411,28 +1416,42 @@ String Terrain3DStorage::_generate_shader_code() {
 		code += "vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {\n";
 		code += "	float material = index.r * 255.0;\n";
 		code += "	float materialOverlay = index.g * 255.0;\n";
-		code += "	float rand = random(uv_center) * PI;\n";
+		code += "	float r = random(uv_center) * PI;\n";
+		code += "	float rand = r * texture_uv_rotation_array[int(material)];\n";
+		code += "	float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];\n";
 		code += "	vec2 rot = vec2(sin(rand), cos(rand));\n";
+		code += "	vec2 rot2 = vec2(sin(rand2), cos(rand2));\n";
 		code += "	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)].xy;\n";
-		code += "	vec2 ddx = dFdx(uv);\n";
-		code += "	vec2 ddy = dFdy(uv);\n";
+		code += "	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)].xy;\n";
+		code += "	vec2 ddx = dFdx(matUV);\n";
+		code += "	vec2 ddy = dFdy(matUV);\n";
 		code += "	vec4 albedo = vec4(1.0);\n";
 		code += "	vec4 normal = vec4(0.5);\n\n";
 		code += "	if (index.b == 0.0) {\n";
 		code += "		albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);\n";
+		code += "		albedo.rgb *= texture_color_array[int(material)].rgb;\n";
 		code += "		normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);\n";
+		code += "		vec3 n = unpack_normal(normal);\n";
+		code += "		normal.xz = rotate(n.xz, rot.x, -rot.y);\n";
 		code += "	}\n\n";
 		code += "	if (index.b > 0.0) {\n";
 		code += "		albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);\n";
+		code += "		albedo.rgb *= texture_color_array[int(material)].rgb;";
 		code += "		normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);\n";
-		code += "		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV, materialOverlay), ddx, ddy);\n";
-		code += "		vec4 normal2 = textureGrad(texture_array_normal, vec3(matUV, materialOverlay), ddx, ddy);\n";
+		code += "		vec3 n = unpack_normal(normal);\n";
+		code += "		normal.xz = rotate(n.xz, rot.x, -rot.y);\n\n";
+		code += "		ddx = dFdx(matUV2);\n";
+		code += "		ddy = dFdy(matUV2);\n";
+		code += "		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV2, materialOverlay), ddx, ddy);\n";
+		code += "		albedo2.rgb *= texture_color_array[int(materialOverlay)].rgb;\n";
+		code += "		vec4 normal2 = textureGrad(texture_array_normal, vec3(matUV2, materialOverlay), ddx, ddy);\n";
+		code += "		n = unpack_normal(normal2);\n";
+		code += "		normal2.xz = rotate(n.xz, rot2.x, -rot2.y);\n";
 		code += "		albedo = depth_blend(albedo, albedo.a, albedo2, albedo2.a, index.b);\n";
 		code += "		normal = depth_blend(normal, albedo.a, normal2, albedo.a, index.b);\n";
 		code += "	}\n\n";
-		code += "	vec3 n = unpack_normal(normal);\n";
-		code += "	n.xz = rotate(n.xz, rot.x, -rot.y);\n";
-		code += "	normal = pack_normal(n, normal.a);\n";
+
+		code += "	normal = pack_normal(normal.xyz, normal.a);\n";
 		code += "	weight = blend_weights(weight, albedo.a);\n";
 		code += "	out_normal += normal * weight;\n";
 		code += "	total_weight += weight;\n";
@@ -1509,7 +1528,7 @@ String Terrain3DStorage::_generate_shader_code() {
 
 		code += "	// Look up colormap\n";
 		code += "	vec3 ruv = get_regionf(UV2);\n";
-		code += "	vec4 color_tex = vec4(1.);\n";
+		code += "	vec4 color_tex = vec4(1., 1., 1., .5);\n";
 		code += "	if (ruv.z >= 0.) {\n";
 		code += "		color_tex = texture(color_maps, ruv);\n";
 		code += "	}\n\n";
