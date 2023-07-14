@@ -160,7 +160,9 @@ func update_decal() -> void:
 
 	decal.size = Vector3.ONE * brush_data["size"]
 	if brush_data["align_with_view"]:
-		decal.rotation.y = plugin.terrain.get_camera().rotation.y
+		var cam: Camera3D = plugin.terrain.get_camera();
+		if (cam):
+			decal.rotation.y =cam.rotation.y
 	else:
 		decal.rotation.y = 0
 

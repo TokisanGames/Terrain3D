@@ -19,7 +19,7 @@ enum SettingType {
 
 const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain/editor/brushes"
-const PICKER_ICON: String = "res://addons/terrain/icons/icon_dropper.png"
+const PICKER_ICON: String = "res://addons/terrain/icons/icon_picker.svg"
 
 const NONE = 0x0
 const ALLOW_OUT_OF_BOUNDS = 0x1
