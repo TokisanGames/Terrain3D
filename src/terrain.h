@@ -98,6 +98,13 @@ public:
 	void set_show_debug_collision(bool p_enabled);
 	int get_show_debug_collision() const { return _show_debug_collision; }
 
+	void set_collision_layer(uint32_t p_layer);
+	uint32_t get_collision_layer() const { return collision_layer; };
+	void set_collision_mask(uint32_t p_mask);
+	uint32_t get_collision_mask() const { return collision_mask; };
+	void set_collision_priority(real_t p_priority);
+	real_t get_collision_priority() const { return collision_priority; }
+
 	void set_clipmap_levels(int p_count);
 	int get_clipmap_levels() const { return clipmap_levels; }
 

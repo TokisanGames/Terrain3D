@@ -298,6 +298,18 @@ void Terrain3D::set_show_debug_collision(bool p_enabled) {
 	}
 }
 
+void Terrain3D::set_collision_layer(uint32_t p_layer) {
+	collision_layer = p_layer;
+}
+
+void Terrain3D::set_collision_mask(uint32_t p_mask) {
+	collision_mask = p_mask;
+}
+
+void Terrain3D::set_collision_priority(real_t p_priority) {
+	collision_priority = p_priority;
+}
+
 void Terrain3D::set_clipmap_levels(int p_count) {
 	if (clipmap_levels != p_count) {
 		LOG(INFO, "Setting clipmap levels: ", p_count);
@@ -557,6 +569,9 @@ void Terrain3D::_update_collision() {
 			PhysicsServer3D::get_singleton()->body_add_shape(static_body, shape);
 			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
 			PhysicsServer3D::get_singleton()->body_set_shape_transform(static_body, i, xform);
+			PhysicsServer3D::get_singleton()->body_set_collision_mask(static_body, collision_mask);
+			PhysicsServer3D::get_singleton()->body_set_collision_layer(static_body, collision_layer);
+			PhysicsServer3D::get_singleton()->body_set_collision_priority(static_body, collision_priority);
 		} else {
 			CollisionShape3D *debug_col_shape;
 			debug_col_shape = memnew(CollisionShape3D);
@@ -672,6 +687,13 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_debug_collision", "enabled"), &Terrain3D::set_show_debug_collision);
 	ClassDB::bind_method(D_METHOD("get_show_debug_collision"), &Terrain3D::get_show_debug_collision);
 
+	ClassDB::bind_method(D_METHOD("set_collision_layer", "layer"), &Terrain3D::set_collision_layer);
+	ClassDB::bind_method(D_METHOD("get_collision_layer"), &Terrain3D::get_collision_layer);
+	ClassDB::bind_method(D_METHOD("set_collision_mask", "mask"), &Terrain3D::set_collision_mask);
+	ClassDB::bind_method(D_METHOD("get_collision_mask"), &Terrain3D::get_collision_mask);
+	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
+	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
+
 	ClassDB::bind_method(D_METHOD("set_clipmap_levels", "count"), &Terrain3D::set_clipmap_levels);
 	ClassDB::bind_method(D_METHOD("get_clipmap_levels"), &Terrain3D::get_clipmap_levels);
 
@@ -686,14 +708,21 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_debug_collision"), "set_show_debug_collision", "get_show_debug_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 
-	ADD_GROUP("Clipmap", "clipmap_");
+	ADD_GROUP("Collision", "collision_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
+
+	ADD_GROUP("Mesh", "clipmap_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_clipmap_size", "get_clipmap_size");
+
+	ADD_GROUP("Debug", "debug_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 
 	ADD_SIGNAL(MethodInfo("storage_changed"));
 }
