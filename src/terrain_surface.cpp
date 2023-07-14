@@ -35,7 +35,7 @@ void Terrain3DSurface::set_uv_scale(Vector3 p_scale) {
 }
 
 void Terrain3DSurface::set_uv_rotation(float p_rotation) {
-	uv_rotation = p_rotation;
+	uv_rotation = CLAMP(p_rotation, 0.0f, 1.0f);
 	emit_signal("value_changed");
 }
 
@@ -78,5 +78,5 @@ void Terrain3DSurface::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_normal_texture", "get_normal_texture");
 
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "uv_scale", PROPERTY_HINT_NONE), "set_uv_scale", "get_uv_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_rotation", PROPERTY_HINT_RANGE, "-1.0, 1.0"), "set_uv_rotation", "get_uv_rotation");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_uv_rotation", "get_uv_rotation");
 }
