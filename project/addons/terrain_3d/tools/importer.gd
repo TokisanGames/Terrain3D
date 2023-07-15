@@ -61,7 +61,7 @@ func start_import(value: bool) -> void:
 		if color_file_name:
 			img = Terrain3DStorage.load_image(color_file_name, ResourceLoader.CACHE_MODE_IGNORE)
 			imported_images[Terrain3DStorage.TYPE_COLOR] = img
-		storage.import_images(imported_images, import_position, import_offset-min_max.x, import_scale/(min_max.y))
+		storage.import_images(imported_images, import_position, import_offset, import_scale)
 
 
 @export_group("Export File")
