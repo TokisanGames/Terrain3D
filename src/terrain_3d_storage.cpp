@@ -127,8 +127,9 @@ void Terrain3DStorage::print_audit_data() {
 
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
 	LOG(INFO, "Setting region size: ", p_size);
-	ERR_FAIL_COND(p_size < SIZE_64);
-	ERR_FAIL_COND(p_size > SIZE_2048);
+	//ERR_FAIL_COND(p_size < SIZE_64);
+	//ERR_FAIL_COND(p_size > SIZE_2048);
+	ERR_FAIL_COND(p_size != SIZE_1024);
 
 	region_size = p_size;
 	region_vsize = Vector2i(region_size, region_size);
@@ -1558,12 +1559,12 @@ void Terrain3DStorage::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_COLOR);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
-	BIND_ENUM_CONSTANT(SIZE_64);
-	BIND_ENUM_CONSTANT(SIZE_128);
-	BIND_ENUM_CONSTANT(SIZE_256);
-	BIND_ENUM_CONSTANT(SIZE_512);
+	//BIND_ENUM_CONSTANT(SIZE_64);
+	//BIND_ENUM_CONSTANT(SIZE_128);
+	//BIND_ENUM_CONSTANT(SIZE_256);
+	//BIND_ENUM_CONSTANT(SIZE_512);
 	BIND_ENUM_CONSTANT(SIZE_1024);
-	BIND_ENUM_CONSTANT(SIZE_2048);
+	//BIND_ENUM_CONSTANT(SIZE_2048);
 
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
@@ -1636,7 +1637,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_min_max", "image"), &Terrain3DStorage::get_min_max);
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DStorage::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
+	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16-bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
