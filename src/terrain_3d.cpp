@@ -652,22 +652,39 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 }
 
 /* Iterate over ground to find intersection point between two rays:
- *	p_direction (eg camera direction looking at the terrain)
+ *	p_position (camera position)
+ *	p_direction (camera direction looking at the terrain)
  *	test_dir (camera direction 0 Y, traversing terrain along height
- * Returns Double max (3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
+ * Returns vec3(Double max 3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 	Vector3 test_dir = Vector3(p_direction.x, 0., p_direction.z).normalized();
 	Vector3 test_point = p_position;
+	p_direction.normalize();
+
+	float highest_dotp = 0.f;
+	Vector3 highest_point;
 
 	if (storage.is_valid()) {
 		for (int i = 0; i < 3000; i++) {
 			test_point += test_dir;
 			test_point.y = storage->get_height(test_point);
 			Vector3 test_vec = (test_point - p_position).normalized();
-			if (p_direction.dot(test_vec) > 0.9999) {
+
+			float test_dotp = p_direction.dot(test_vec);
+			if (test_dotp > highest_dotp) {
+				highest_dotp = test_dotp;
+				highest_point = test_point;
+			}
+			// Highest accuracy hits most of the time
+			if (test_dotp > 0.9999) {
 				return test_point;
 			}
+		}
+
+		// Good enough fallback (the above test often overshoots, so this grabs the highest we did hit)
+		if (highest_dotp >= 0.999) {
+			return highest_point;
 		}
 	}
 	return Vector3(FLT_MAX, FLT_MAX, FLT_MAX);
