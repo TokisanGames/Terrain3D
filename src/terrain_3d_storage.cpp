@@ -1465,8 +1465,6 @@ String Terrain3DStorage::_generate_shader_code() {
 
 	code += "	VERTEX.y = get_height(UV2);\n";
 	code += "	NORMAL = vec3(0, 1, 0);\n";
-	code += "	TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
-	code += "	BINORMAL = cross(NORMAL, TANGENT);\n";
 	code += "}\n\n";
 
 	// Fragment Shader
@@ -1487,6 +1485,8 @@ String Terrain3DStorage::_generate_shader_code() {
 	code += "	normal.z *= -1.0;\n\n";
 
 	code += "	NORMAL = mat3(VIEW_MATRIX) * normal;\n";
+	code += "	TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
+	code += "	BINORMAL = cross(NORMAL, TANGENT);\n";
 	code += "\n";
 
 	if (surfaces_enabled) {
