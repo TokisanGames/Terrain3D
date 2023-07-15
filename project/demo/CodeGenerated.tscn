@@ -1,13 +1,12 @@
-[gd_scene load_steps=5 format=3 uid="uid://c8i5f64lj73jh"]
+[gd_scene load_steps=5 format=3 uid="uid://c1g87yfedvx80"]
 
-[ext_resource type="Script" path="res://demo/src/Scene.gd" id="1_8wsci"]
+[ext_resource type="Script" path="res://demo/src/CodeGenerated.gd" id="1_h7vyv"]
 [ext_resource type="PackedScene" uid="uid://dgkfas2hgwob4" path="res://demo/components/Player.tscn" id="2_3v2uf"]
 [ext_resource type="PackedScene" uid="uid://c0djt8d57nivw" path="res://demo/components/World.tscn" id="3_71ikj"]
 [ext_resource type="PackedScene" uid="uid://c31srg2a83sgp" path="res://demo/components/UI.tscn" id="4_x5ge4"]
 
 [node name="CodeGenerated" type="Node"]
-script = ExtResource("1_8wsci")
-generate_terrain = true
+script = ExtResource("1_h7vyv")
 
 [node name="World" parent="." instance=ExtResource("3_71ikj")]
 

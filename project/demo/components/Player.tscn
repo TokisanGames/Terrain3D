@@ -18,7 +18,7 @@ script = ExtResource("2_loos7")
 
 [node name="Arm" type="SpringArm3D" parent="CameraManager"]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 1.85779, -0.0321627)
+transform = Transform3D(1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 2.32515, -0.0321627)
 spring_length = 4.0
 
 [node name="Camera3D" type="Camera3D" parent="CameraManager/Arm"]
