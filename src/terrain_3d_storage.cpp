@@ -1307,10 +1307,10 @@ String Terrain3DStorage::_generate_shader_code() {
 
 		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
 		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
-		code += "uniform vec3 texture_uv_scale_array[256];\n";
-		code += "uniform float texture_uv_rotation_array[256];\n";
-		code += "uniform vec3 texture_3d_projection_array[256];\n";
-		code += "uniform vec4 texture_color_array[256];\n";
+		code += "uniform vec3 texture_uv_scale_array[32];\n";
+		code += "uniform float texture_uv_rotation_array[32];\n";
+		code += "uniform vec3 texture_3d_projection_array[32];\n";
+		code += "uniform vec4 texture_color_array[32];\n";
 		code += "\n\n";
 	}
 

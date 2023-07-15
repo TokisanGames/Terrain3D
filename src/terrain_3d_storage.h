@@ -33,7 +33,7 @@ class Terrain3DStorage : public Resource {
 
 	static inline const Image::Format FORMAT[] = {
 		Image::FORMAT_RF, // TYPE_HEIGHT
-		Image::FORMAT_RGBA8, // TYPE_CONTROL
+		Image::FORMAT_RGB8, // TYPE_CONTROL
 		Image::FORMAT_RGBA8, // TYPE_COLOR
 		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
 	};

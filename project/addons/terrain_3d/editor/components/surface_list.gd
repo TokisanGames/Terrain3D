@@ -145,6 +145,7 @@ class ListEntry extends VBoxContainer:
 					var texture: Texture2D = resource.get_albedo_texture()
 					if texture:
 						draw_texture_rect(texture, rect, false)
+					modulate = resource.get_albedo()
 					
 					if !texture:
 						# Draw checker texture

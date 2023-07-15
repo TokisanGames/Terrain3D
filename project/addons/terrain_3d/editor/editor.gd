@@ -214,7 +214,7 @@ func _load_storage() -> void:
 				var surface: Terrain3DSurface = terrain.get_storage().get_surface(i)
 				surface_list.add_item(surface)
 				
-			if surface_count < 256:
+			if surface_count < 32: # Limit of 5 bits in control map
 				surface_list.add_item()
 
 			
