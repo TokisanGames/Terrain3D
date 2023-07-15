@@ -1,6 +1,6 @@
 @tool
 extends EditorPlugin
-class_name Terrain3DEditorPlugin
+#class_name Terrain3DEditorPlugin Cannot be named until Godot #75388
 
 
 # Includes
@@ -14,7 +14,7 @@ var mouse_is_pressed: bool = false
 
 var pending_undo: bool = false
 var editor: Terrain3DEditor
-var ui: Terrain3DUI
+var ui: Node # Terrain3DUI see Godot #75388
 var surface_list: SurfaceList
 var surface_list_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 
@@ -25,7 +25,7 @@ var mouse_global_position: Vector3 = Vector3.ZERO
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
-	ui = Terrain3DUI.new()
+	ui = UI.new()
 	ui.plugin = self
 	add_child(ui)
 

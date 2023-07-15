@@ -1,5 +1,5 @@
 extends Node
-class_name Terrain3DUI
+#class_name Terrain3DUI Cannot be named until Godot #75388
 
 
 # Includes
@@ -20,7 +20,7 @@ const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 
 
-var plugin: Terrain3DEditorPlugin
+var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var toolbar: Toolbar
 var toolbar_settings: ToolSettings
 var setting_has_changed: bool = false
