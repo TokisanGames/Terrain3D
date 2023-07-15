@@ -148,7 +148,8 @@ void Terrain3DStorage::update_heights(float p_height) {
 void Terrain3DStorage::update_heights(Vector2 p_heights) {
 	if (p_heights.x < _height_range.x) {
 		_height_range.x = p_heights.x;
-	} else if (p_heights.y > _height_range.y) {
+	}
+	if (p_heights.y > _height_range.y) {
 		_height_range.y = p_heights.y;
 	}
 }
