@@ -5,9 +5,9 @@
 #include <godot_cpp/godot.hpp>
 
 #include "register_types.h"
-#include "terrain.h"
-#include "terrain_editor.h"
-#include "terrain_storage.h"
+#include "terrain_3d.h"
+#include "terrain_3d_editor.h"
+#include "terrain_3d_storage.h"
 
 using namespace godot;
 

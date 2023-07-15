@@ -2,7 +2,7 @@
 #include <godot_cpp/core/class_db.hpp>
 
 #include "geoclipmap.h"
-#include "terrain_logger.h"
+#include "terrain_3d_logger.h"
 
 /*
  * Generate clipmap meshes originally by Mike J Savage

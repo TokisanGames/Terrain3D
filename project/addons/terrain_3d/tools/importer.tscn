@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://blaieaqp413k7"]
+
+[ext_resource type="Script" path="res://addons/terrain_3d/tools/importer.gd" id="1_60b8f"]
+
+[node name="Importer" type="Terrain3D"]
+script = ExtResource("1_60b8f")

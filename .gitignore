@@ -1,11 +1,17 @@
 # Terrain3D
-project/.godot
 project/test/
-project/addons/terrain/bin/
-project/addons/terrain/editor/gterrain-ui/
+project/addons/terrain_3d/bin/
+project/addons/terrain_3d/editor/gterrain-ui/
 project/_dev/
 project/tests/
+patches/
 
+# Godot-specific ignores (script cache see godot issue #75388)
+/project/.import/
+/project/.godot/*
+!/project/.godot/global_script_class_cache.cfg
+export.cfg
+export_presets.cfg
 
 # Objects
 .scons-cache/
