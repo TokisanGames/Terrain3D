@@ -1,3 +1,5 @@
+<img src="https://outobugi.com/images/terrain3d.png">
+
 # Terrain3D
 An editable terrain system for Godot 4, written in C++.
 
