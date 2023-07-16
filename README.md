@@ -26,6 +26,12 @@ See the [Wiki](https://github.com/outobugi/GDExtensionTerrain/wiki) for more det
 7. Select Terrain3D. In the inspector, create a new Terrain3DStorage resource.
 8. Click the down arrow to the right of the storage resource and save it as a binary .res file. This is optional, but highly recommended. Otherwise it will save terrain data as text in the current scene file.
 
+## Getting Support
+
+1. Read through the [Wiki](https://github.com/outobugi/Terrain3D/wiki)
+2. Search through the [issues](https://github.com/outobugi/Terrain3D/issues) for known issues, or create a new one if you're sure it's not a duplicate
+3. Join the [Tokisan discord server](https://tokisan.com/discord) and look for the Terrain3D section
+
 ## Credit
 Developed for the Godot community by:
 
