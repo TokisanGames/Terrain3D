@@ -53,6 +53,9 @@ func _handles(object: Object) -> bool:
 
 
 func _edit(object: Object) -> void:
+	if !object:
+		_clear()
+		
 	if object is Terrain3D:
 		if object == terrain:
 			return
@@ -216,7 +219,8 @@ func _load_storage() -> void:
 				
 			if surface_count < 32: # Limit of 5 bits in control map
 				surface_list.add_item()
-
+				
+		update_grid()
 			
 func _on_surface_list_resource_changed(surface, index: int) -> void:
 	if is_terrain_valid():
