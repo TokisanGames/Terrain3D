@@ -53,6 +53,9 @@ func _handles(object: Object) -> bool:
 
 
 func _edit(object: Object) -> void:
+	if !object:
+		_clear()
+		
 	if object is Terrain3D:
 		if object == terrain:
 			return
@@ -72,7 +75,6 @@ func _edit(object: Object) -> void:
 func _make_visible(visible: bool) -> void:
 	ui.set_visible(visible)
 	surface_list.set_visible(visible)
-	update_grid()
 	region_gizmo.set_hidden(!visible)
 
 	
@@ -188,7 +190,7 @@ func update_grid() -> void:
 		
 		terrain.update_gizmos()
 		return
-		
+
 	region_gizmo.show_rect = false
 	region_gizmo.region_size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
@@ -216,7 +218,8 @@ func _load_storage() -> void:
 				
 			if surface_count < 256:
 				surface_list.add_item()
-
+				
+		update_grid()
 			
 func _on_surface_list_resource_changed(surface, index: int) -> void:
 	if is_terrain_valid():
