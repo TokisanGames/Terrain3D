@@ -18,7 +18,7 @@ See the [Wiki](https://github.com/outobugi/GDExtensionTerrain/wiki) for more det
 ## Installation & Setup
 
 1. Download the [latest release](https://github.com/outobugi/GDExtensionTerrain/releases), or [build the plugin from source](https://github.com/outobugi/GDExtensionTerrain/wiki/Building-From-Source).
-2. Close Godot, then Copy `addons/terrain_3d` to your project folder in `addons/terrain`.
+2. Close Godot, then Copy `addons/terrain_3d` to your project folder in `addons/terrain_3d`.
 3. Open Godot. Let it complain about importing errors and may even crash. Then restart Godot.
 4. In Project Settings / Plugins, ensure that Terrain3D is enabled.
 5. Open the demo scene `demo/Demo.tscn`, or:
