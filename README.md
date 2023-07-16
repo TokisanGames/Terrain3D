@@ -1,13 +1,14 @@
-# Editable Terrain System for Godot 4
+# Terrain3D
+An editable terrain system for Godot 4, written in C++.
 
 ## Features
+* Written in C++ as a Godot gdextension plugin, which works with official engine builds
 * Geometric Clipmap mesh terrain (as used in The Witcher 3)
-* Up to 16k x 16k sliced up in non-contiguous 1k regions (think multiple islands without paying for 16k^2 memory)
+* Up to 16k x 16k, sliced up in non-contiguous 1k regions (think multiple islands without paying for 16k^2 vram)
 * Up to 10 levels of detail (LODs)
 * Up to 32 textures
-* Written in C++ as a Godot plugin, which works with official engine builds
-* Sculpting, texture painting, texture detiling, color map painting, import/export, undo/redo
-* Supports importing heightmaps from [Zylann's HTerrain](https://github.com/Zylann/godot_heightmap_plugin/), WorldMachine, Unity, Unreal and any tool that can provide a heightmap image.
+* Sculpting, texture painting, texture detiling, paint colors or wetness
+* Supports importing heightmaps from [HTerrain](https://github.com/Zylann/godot_heightmap_plugin/), WorldMachine, Unity, Unreal and any tool that can export a heightmap (raw/r16/exr/+)
 
 See the [Wiki](https://github.com/outobugi/GDExtensionTerrain/wiki) for more details on project status, features, design, and usage.
 
@@ -28,9 +29,9 @@ See the [Wiki](https://github.com/outobugi/GDExtensionTerrain/wiki) for more det
 
 ## Getting Support
 
-1. Read through the [Wiki](https://github.com/outobugi/Terrain3D/wiki)
-2. Search through the [issues](https://github.com/outobugi/Terrain3D/issues) for known issues, or create a new one if you're sure it's not a duplicate
-3. Join the [Tokisan discord server](https://tokisan.com/discord) and look for the Terrain3D section
+1. Read through the [Wiki](https://github.com/outobugi/Terrain3D/wiki), especially [Troubleshooting](https://github.com/outobugi/Terrain3D/wiki/Troubleshooting).
+2. Search through the [issues](https://github.com/outobugi/Terrain3D/issues) for known issues, or create a new one if you're sure it's not a duplicate.
+3. Join the [Tokisan discord server](https://tokisan.com/discord) and look for the Terrain3D section.
 
 ## Credit
 Developed for the Godot community by:
