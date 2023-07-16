@@ -11,7 +11,7 @@
 ///////////////////////////
 
 // Initialize static member variable
-int Terrain3D::_debug_level{ DEBUG };
+int Terrain3D::_debug_level{ ERROR };
 
 /**
  * This is a proxy for _process(delta) called by _notification() due to
