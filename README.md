@@ -4,6 +4,7 @@
 * Geometric Clipmap mesh terrain (as used in The Witcher 3)
 * Up to 16k x 16k sliced up in non-contiguous 1k regions (think multiple islands without paying for 16k^2 memory)
 * Up to 10 levels of detail (LODs)
+* Up to 32 textures
 * Written in C++ as a Godot plugin, which works with official engine builds
 * Sculpting, texture painting, texture detiling, color map painting, import/export, undo/redo
 * Supports importing heightmaps from [Zylann's HTerrain](https://github.com/Zylann/godot_heightmap_plugin/), WorldMachine, Unity, Unreal and any tool that can provide a heightmap image.
