@@ -35,8 +35,8 @@ func update_heights(value) -> void:
 @export_file var control_file_name: String = ""
 @export_file var color_file_name: String = ""
 @export var import_position: Vector3 = Vector3.ZERO
-@export var import_offset: float = 0.0
 @export var import_scale: float = 1.0
+@export var import_offset: float = 0.0
 @export var r16_range: Vector2 = Vector2(0, 1)
 @export var r16_size: Vector2i = Vector2i(1024, 1024)
 @export var run_import: bool = false : set = start_import
