@@ -1,9 +1,13 @@
-//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_3d_editor.h"
 #include "terrain_3d_logger.h"
+
+///////////////////////////
+// Subclass Functions
+///////////////////////////
 
 void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	LOG(DEBUG, "Setting brush data: ");
@@ -11,69 +15,46 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	for (int i = 0; i < ks.size(); i++) {
 		LOG(DEBUG, ks[i], ": ", p_data[ks[i]]);
 	}
-	size = p_data["size"];
-	index = p_data["index"];
-	opacity = p_data["opacity"];
-	height = p_data["height"];
-	color = p_data["color"];
-	roughness = p_data["roughness"];
-	gamma = p_data["gamma"];
-	jitter = p_data["jitter"];
-	texture = p_data["texture"];
-	image = p_data["image"];
-	if (image.is_valid()) {
-		img_size = Vector2(image->get_size());
+	_size = p_data["size"];
+	_index = p_data["index"];
+	_opacity = p_data["opacity"];
+	_height = p_data["height"];
+	_color = p_data["color"];
+	_roughness = p_data["roughness"];
+	_gamma = p_data["gamma"];
+	_jitter = p_data["jitter"];
+	_texture = p_data["texture"];
+	_image = p_data["image"];
+	if (_image.is_valid()) {
+		_img_size = Vector2(_image->get_size());
 	} else {
-		img_size = Vector2(0, 0);
+		_img_size = Vector2(0, 0);
 	}
-	align_to_view = p_data["align_with_view"];
-	auto_regions = p_data["automatic_regions"];
+	_align_to_view = p_data["align_with_view"];
+	_auto_regions = p_data["automatic_regions"];
 }
 
-Terrain3DEditor::Terrain3DEditor() {
-}
-
-Terrain3DEditor::~Terrain3DEditor() {
-}
-
-void Terrain3DEditor::set_brush_data(Dictionary p_data) {
-	if (p_data.is_empty()) {
-		return;
-	}
-	brush.set_data(p_data);
-}
-
-void Terrain3DEditor::operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation) {
-	if (operation_position == Vector3()) {
-		operation_position = p_global_position;
-	}
-	operation_interval = p_global_position.distance_to(operation_position);
-	operation_position = p_global_position;
-
-	if (tool == REGION && !p_continuous_operation) {
-		_operate_region(p_global_position);
-	} else if (tool >= 0 && tool < REGION && p_continuous_operation) {
-		_operate_map(p_global_position, p_camera_direction);
-	}
-}
+///////////////////////////
+// Private Functions
+///////////////////////////
 
 void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
-	bool has_region = terrain->get_storage()->has_region(p_global_position);
+	bool has_region = _terrain->get_storage()->has_region(p_global_position);
 
-	if (operation == ADD) {
+	if (_operation == ADD) {
 		if (!has_region) {
-			terrain->get_storage()->add_region(p_global_position);
+			_terrain->get_storage()->add_region(p_global_position);
 		}
 	}
-	if (operation == SUBTRACT) {
+	if (_operation == SUBTRACT) {
 		if (has_region) {
-			terrain->get_storage()->remove_region(p_global_position);
+			_terrain->get_storage()->remove_region(p_global_position);
 		}
 	}
 }
 
 void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_direction) {
-	Ref<Terrain3DStorage> storage = terrain->get_storage();
+	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
 	int region_index = storage->get_region_index(p_global_position);
@@ -87,13 +68,13 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			LOG(ERROR, "Failed to add region, no region to operate on");
 			return;
 		}
-	} else if (tool < 0 || tool >= REGION) {
+	} else if (_tool < 0 || _tool >= REGION) {
 		LOG(ERROR, "Invalid tool selected");
 		return;
 	}
 
 	Terrain3DStorage::MapType map_type;
-	switch (tool) {
+	switch (_tool) {
 		case HEIGHT:
 			map_type = Terrain3DStorage::TYPE_HEIGHT;
 			break;
@@ -111,21 +92,21 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 	}
 
 	Ref<Image> map = storage->get_map_region(map_type, region_index);
-	int brush_size = brush.get_size();
-	int index = brush.get_index();
-	Vector2 img_size = brush.get_image_size();
-	float opacity = brush.get_opacity();
-	float height = brush.get_height();
-	Color color = brush.get_color();
-	float roughness = brush.get_roughness();
-	float gamma = brush.get_gamma();
+	int brush_size = _brush.get_size();
+	int index = _brush.get_index();
+	Vector2 img_size = _brush.get_image_size();
+	float opacity = _brush.get_opacity();
+	float height = _brush.get_height();
+	Color color = _brush.get_color();
+	float roughness = _brush.get_roughness();
+	float gamma = _brush.get_gamma();
 
 	float randf = UtilityFunctions::randf();
-	float rot = randf * Math_PI * brush.get_jitter();
-	if (brush.is_aligned_to_view()) {
+	float rot = randf * Math_PI * _brush.get_jitter();
+	if (_brush.is_aligned_to_view()) {
 		rot += p_camera_direction;
 	}
-	Object::cast_to<Node>(terrain->plugin->get("ui"))->call("set_decal_rotation", rot);
+	Object::cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
 
 	for (int x = 0; x < brush_size; x++) {
 		for (int y = 0; y < brush_size; y++) {
@@ -135,7 +116,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			int new_region_index = storage->get_region_index(brush_global_position);
 
 			if (new_region_index == -1) {
-				if (!brush.auto_regions_enabled()) {
+				if (!_brush.auto_regions_enabled()) {
 					continue;
 				}
 				Error err = storage->add_region(brush_global_position);
@@ -161,7 +142,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 					continue;
 				}
 
-				float brush_alpha = float(Math::pow(double(brush.get_alpha(brush_pixel_position)), double(gamma)));
+				float brush_alpha = float(Math::pow(double(_brush.get_alpha(brush_pixel_position)), double(gamma)));
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
@@ -169,7 +150,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 					float srcf = src.r;
 					float destf = dest.r;
 
-					switch (operation) {
+					switch (_operation) {
 						case ADD:
 							destf = srcf + (brush_alpha * opacity * 10.f);
 							break;
@@ -219,7 +200,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 					int index_overlay = int(src.g * 255.0f);
 					int dest_index = 0;
 
-					switch (operation) {
+					switch (_operation) {
 						case Terrain3DEditor::ADD:
 							// Spray Overlay
 							dest_index = int(Math::lerp(index_overlay, index, alpha_clip));
@@ -240,7 +221,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 							break;
 					}
 				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
-					switch (tool) {
+					switch (_tool) {
 						case COLOR:
 							dest = src.lerp(color, brush_alpha * opacity);
 							dest.a = src.a;
@@ -265,82 +246,6 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 	storage->force_update_maps(map_type);
 }
 
-/* Stored in the _undo_set is:
- * 0-2: map 0,1,2
- * 3: Region offsets
- * 4: height range
- */
-void Terrain3DEditor::setup_undo() {
-	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
-	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
-	if (tool < 0 || tool > REGION) {
-		return;
-	}
-	LOG(INFO, "Setting up undo snapshot...");
-	_undo_set.clear();
-	_undo_set.resize(Terrain3DStorage::TYPE_MAX + 2);
-	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
-		_undo_set[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
-		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(_undo_set[i]).size(), "): ", _undo_set[i]);
-	}
-	_undo_set[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate();
-	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(_undo_set[Terrain3DStorage::TYPE_MAX]).size(), "): ", _undo_set[Terrain3DStorage::TYPE_MAX]);
-	_undo_set[Terrain3DStorage::TYPE_MAX + 1] = terrain->get_storage()->get_height_range();
-}
-
-void Terrain3DEditor::store_undo() {
-	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
-	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
-	if (tool < 0 || tool > REGION) {
-		return;
-	}
-	LOG(INFO, "Storing undo snapshot...");
-	EditorUndoRedoManager *undo_redo = terrain->plugin->get_undo_redo();
-
-	String action_name = String("Terrain3D ") + OPNAME[operation] + String(" ") + TOOLNAME[tool];
-	LOG(DEBUG, "Creating undo action: '", action_name, "'");
-	undo_redo->create_action(action_name);
-
-	LOG(DEBUG, "Storing undo snapshot: ", _undo_set);
-	undo_redo->add_undo_method(this, "apply_undo", _undo_set.duplicate()); // Must be duplicated
-
-	LOG(DEBUG, "Setting up redo snapshot...");
-	Array redo_set;
-	redo_set.resize(Terrain3DStorage::TYPE_MAX + 2);
-	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
-		redo_set[i] = terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
-		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(redo_set[i]).size(), "): ", redo_set[i]);
-	}
-	redo_set[Terrain3DStorage::TYPE_MAX] = terrain->get_storage()->get_region_offsets().duplicate();
-	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(redo_set[Terrain3DStorage::TYPE_MAX]).size(), "): ", redo_set[Terrain3DStorage::TYPE_MAX]);
-	redo_set[Terrain3DStorage::TYPE_MAX + 1] = terrain->get_storage()->get_height_range();
-
-	LOG(DEBUG, "Storing redo snapshot: ", redo_set);
-	undo_redo->add_do_method(this, "apply_undo", redo_set);
-
-	LOG(DEBUG, "Committing undo action");
-	undo_redo->commit_action(false);
-}
-
-void Terrain3DEditor::apply_undo(const Array &p_set) {
-	ERR_FAIL_COND_MSG(terrain == nullptr, "terrain is null, returning");
-	ERR_FAIL_COND_MSG(terrain->plugin == nullptr, "terrain->plugin is null, returning");
-	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
-	LOG(DEBUG, "Apply undo received: ", p_set);
-
-	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
-		Terrain3DStorage::MapType map_type = static_cast<Terrain3DStorage::MapType>(i);
-		terrain->get_storage()->set_maps(map_type, p_set[i]);
-	}
-	terrain->get_storage()->set_region_offsets(p_set[Terrain3DStorage::TYPE_MAX]);
-	terrain->get_storage()->set_height_range(p_set[Terrain3DStorage::TYPE_MAX + 1]);
-
-	if (terrain->plugin->has_method("update_grid")) {
-		LOG(DEBUG, "Calling GDScript update_grid()");
-		terrain->plugin->call("update_grid");
-	}
-}
-
 bool Terrain3DEditor::_is_in_bounds(Vector2i p_position, Vector2i p_max_position) {
 	bool more_than_min = p_position.x >= 0 && p_position.y >= 0;
 	bool less_than_max = p_position.x < p_max_position.x && p_position.y < p_max_position.y;
@@ -361,6 +266,117 @@ Vector2 Terrain3DEditor::_rotate_uv(Vector2 p_uv, float p_angle) {
 	p_uv = (p_uv - rotation_offset).rotated(p_angle) + rotation_offset;
 	return p_uv.clamp(Vector2(0, 0), Vector2(1, 1));
 }
+
+///////////////////////////
+// Public Functions
+///////////////////////////
+
+Terrain3DEditor::Terrain3DEditor() {
+}
+
+Terrain3DEditor::~Terrain3DEditor() {
+}
+
+void Terrain3DEditor::set_brush_data(Dictionary p_data) {
+	if (p_data.is_empty()) {
+		return;
+	}
+	_brush.set_data(p_data);
+}
+
+void Terrain3DEditor::operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation) {
+	if (_operation_position == Vector3()) {
+		_operation_position = p_global_position;
+	}
+	_operation_interval = p_global_position.distance_to(_operation_position);
+	_operation_position = p_global_position;
+
+	if (_tool == REGION && !p_continuous_operation) {
+		_operate_region(p_global_position);
+	} else if (_tool >= 0 && _tool < REGION && p_continuous_operation) {
+		_operate_map(p_global_position, p_camera_direction);
+	}
+}
+
+/* Stored in the _undo_set is:
+ * 0-2: map 0,1,2
+ * 3: Region offsets
+ * 4: height range
+ */
+void Terrain3DEditor::setup_undo() {
+	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
+	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
+	if (_tool < 0 || _tool > REGION) {
+		return;
+	}
+	LOG(INFO, "Setting up undo snapshot...");
+	_undo_set.clear();
+	_undo_set.resize(Terrain3DStorage::TYPE_MAX + 2);
+	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
+		_undo_set[i] = _terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
+		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(_undo_set[i]).size(), "): ", _undo_set[i]);
+	}
+	_undo_set[Terrain3DStorage::TYPE_MAX] = _terrain->get_storage()->get_region_offsets().duplicate();
+	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(_undo_set[Terrain3DStorage::TYPE_MAX]).size(), "): ", _undo_set[Terrain3DStorage::TYPE_MAX]);
+	_undo_set[Terrain3DStorage::TYPE_MAX + 1] = _terrain->get_storage()->get_height_range();
+}
+
+void Terrain3DEditor::store_undo() {
+	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
+	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
+	if (_tool < 0 || _tool > REGION) {
+		return;
+	}
+	LOG(INFO, "Storing undo snapshot...");
+	EditorUndoRedoManager *undo_redo = _terrain->get_plugin()->get_undo_redo();
+
+	String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
+	LOG(DEBUG, "Creating undo action: '", action_name, "'");
+	undo_redo->create_action(action_name);
+
+	LOG(DEBUG, "Storing undo snapshot: ", _undo_set);
+	undo_redo->add_undo_method(this, "apply_undo", _undo_set.duplicate()); // Must be duplicated
+
+	LOG(DEBUG, "Setting up redo snapshot...");
+	Array redo_set;
+	redo_set.resize(Terrain3DStorage::TYPE_MAX + 2);
+	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
+		redo_set[i] = _terrain->get_storage()->get_maps_copy(static_cast<Terrain3DStorage::MapType>(i));
+		LOG(DEBUG, "maps ", i, "(", static_cast<TypedArray<Image>>(redo_set[i]).size(), "): ", redo_set[i]);
+	}
+	redo_set[Terrain3DStorage::TYPE_MAX] = _terrain->get_storage()->get_region_offsets().duplicate();
+	LOG(DEBUG, "region_offsets(", static_cast<TypedArray<Vector2i>>(redo_set[Terrain3DStorage::TYPE_MAX]).size(), "): ", redo_set[Terrain3DStorage::TYPE_MAX]);
+	redo_set[Terrain3DStorage::TYPE_MAX + 1] = _terrain->get_storage()->get_height_range();
+
+	LOG(DEBUG, "Storing redo snapshot: ", redo_set);
+	undo_redo->add_do_method(this, "apply_undo", redo_set);
+
+	LOG(DEBUG, "Committing undo action");
+	undo_redo->commit_action(false);
+}
+
+void Terrain3DEditor::apply_undo(const Array &p_set) {
+	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
+	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
+	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
+	LOG(DEBUG, "Apply undo received: ", p_set);
+
+	for (int i = 0; i < Terrain3DStorage::TYPE_MAX; i++) {
+		Terrain3DStorage::MapType map_type = static_cast<Terrain3DStorage::MapType>(i);
+		_terrain->get_storage()->set_maps(map_type, p_set[i]);
+	}
+	_terrain->get_storage()->set_region_offsets(p_set[Terrain3DStorage::TYPE_MAX]);
+	_terrain->get_storage()->set_height_range(p_set[Terrain3DStorage::TYPE_MAX + 1]);
+
+	if (_terrain->get_plugin()->has_method("update_grid")) {
+		LOG(DEBUG, "Calling GDScript update_grid()");
+		_terrain->get_plugin()->call("update_grid");
+	}
+}
+
+///////////////////////////
+// Protected Functions
+///////////////////////////
 
 void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(ADD);

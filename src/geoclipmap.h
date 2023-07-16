@@ -1,4 +1,4 @@
-//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef GEOCLIPMAP_CLASS_H
 #define GEOCLIPMAP_CLASS_H
 
@@ -12,8 +12,9 @@
 using namespace godot;
 
 class GeoClipMap {
-	static inline int patch_2d(int x, int y, int res);
-	static RID create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb);
+private:
+	static inline int _patch_2d(int x, int y, int res);
+	static RID _create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb);
 
 public:
 	enum MeshType {

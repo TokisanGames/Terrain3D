@@ -1,11 +1,38 @@
-//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/core/class_db.hpp>
 
 #include "geoclipmap.h"
 #include "terrain_3d_logger.h"
 
-/*
- * Generate clipmap meshes originally by Mike J Savage
+///////////////////////////
+// Private Functions
+///////////////////////////
+
+int GeoClipMap::_patch_2d(int x, int y, int res) {
+	return y * res + x;
+}
+
+RID GeoClipMap::_create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb) {
+	Array arrays;
+	arrays.resize(RenderingServer::ARRAY_MAX);
+	arrays[RenderingServer::ARRAY_VERTEX] = p_vertices;
+	arrays[RenderingServer::ARRAY_INDEX] = p_indices;
+
+	LOG(DEBUG, "Creating mesh via the Rendering server");
+	RID mesh = RenderingServer::get_singleton()->mesh_create();
+	RenderingServer::get_singleton()->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
+
+	LOG(DEBUG, "Setting custom aabb: ", p_aabb.position, ", ", p_aabb.size);
+	RenderingServer::get_singleton()->mesh_set_custom_aabb(mesh, p_aabb);
+
+	return mesh;
+}
+
+///////////////////////////
+// Public Functions
+///////////////////////////
+
+/* Generate clipmap meshes originally by Mike J Savage
  * Article https://mikejsavage.co.uk/blog/geometry-clipmaps.html
  * Code http://git.mikejsavage.co.uk/medfall/file/clipmap.cc.html#l197
  * In email communication with Cory, Mike clarified that the code in his
@@ -51,18 +78,18 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 
 		for (int y = 0; y < TILE_RESOLUTION; y++) {
 			for (int x = 0; x < TILE_RESOLUTION; x++) {
-				indices[n++] = patch_2d(x, y, PATCH_VERT_RESOLUTION);
-				indices[n++] = patch_2d(x + 1, y + 1, PATCH_VERT_RESOLUTION);
-				indices[n++] = patch_2d(x, y + 1, PATCH_VERT_RESOLUTION);
+				indices[n++] = _patch_2d(x, y, PATCH_VERT_RESOLUTION);
+				indices[n++] = _patch_2d(x + 1, y + 1, PATCH_VERT_RESOLUTION);
+				indices[n++] = _patch_2d(x, y + 1, PATCH_VERT_RESOLUTION);
 
-				indices[n++] = patch_2d(x, y, PATCH_VERT_RESOLUTION);
-				indices[n++] = patch_2d(x + 1, y, PATCH_VERT_RESOLUTION);
-				indices[n++] = patch_2d(x + 1, y + 1, PATCH_VERT_RESOLUTION);
+				indices[n++] = _patch_2d(x, y, PATCH_VERT_RESOLUTION);
+				indices[n++] = _patch_2d(x + 1, y, PATCH_VERT_RESOLUTION);
+				indices[n++] = _patch_2d(x + 1, y + 1, PATCH_VERT_RESOLUTION);
 			}
 		}
 
 		aabb = AABB(Vector3(0, 0, 0), Vector3(PATCH_VERT_RESOLUTION, 0.1, PATCH_VERT_RESOLUTION));
-		tile_mesh = create_mesh(vertices, indices, aabb);
+		tile_mesh = _create_mesh(vertices, indices, aabb);
 	}
 
 	// Create a filler mesh
@@ -143,7 +170,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 			}
 		}
 
-		filler_mesh = create_mesh(vertices, indices, aabb);
+		filler_mesh = _create_mesh(vertices, indices, aabb);
 	}
 
 	// Create trim mesh
@@ -202,7 +229,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 			indices[n++] = start_of_horizontal + (i + 1) * 2 + 0;
 		}
 
-		trim_mesh = create_mesh(vertices, indices, aabb);
+		trim_mesh = _create_mesh(vertices, indices, aabb);
 	}
 
 	// Create center cross mesh
@@ -272,7 +299,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 			indices[n++] = start_of_vertical + tl;
 		}
 
-		cross_mesh = create_mesh(vertices, indices, aabb);
+		cross_mesh = _create_mesh(vertices, indices, aabb);
 	}
 
 	// Create seam mesh
@@ -314,7 +341,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 
 		indices[indices.size() - 1] = 0;
 
-		seam_mesh = create_mesh(vertices, indices, aabb);
+		seam_mesh = _create_mesh(vertices, indices, aabb);
 	}
 
 	// skirt mesh
@@ -345,7 +372,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 			4, 6, 0, 0, 6, 2
 		);
 
-		skirt_mesh = create_mesh(PackedVector3Array(vertices), PackedInt32Array(indices));
+		skirt_mesh = _create_mesh(PackedVector3Array(vertices), PackedInt32Array(indices));
 
 	}*/
 
@@ -358,24 +385,4 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 	};
 
 	return meshes;
-}
-
-int GeoClipMap::patch_2d(int x, int y, int res) {
-	return y * res + x;
-}
-
-RID GeoClipMap::create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb) {
-	Array arrays;
-	arrays.resize(RenderingServer::ARRAY_MAX);
-	arrays[RenderingServer::ARRAY_VERTEX] = p_vertices;
-	arrays[RenderingServer::ARRAY_INDEX] = p_indices;
-
-	LOG(DEBUG, "Creating mesh via the Rendering server");
-	RID mesh = RenderingServer::get_singleton()->mesh_create();
-	RenderingServer::get_singleton()->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
-
-	LOG(DEBUG, "Setting custom aabb: ", p_aabb.position, ", ", p_aabb.size);
-	RenderingServer::get_singleton()->mesh_set_custom_aabb(mesh, p_aabb);
-
-	return mesh;
 }

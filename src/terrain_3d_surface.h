@@ -1,4 +1,4 @@
-//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef TERRAIN3D_SURFACE_CLASS_H
 #define TERRAIN3D_SURFACE_CLASS_H
 
@@ -12,37 +12,38 @@
 using namespace godot;
 
 class Terrain3DSurface : public Resource {
+private:
 	GDCLASS(Terrain3DSurface, Resource);
 
-	Color albedo = Color(1.0, 1.0, 1.0, 1.0);
-	Ref<Texture2D> albedo_texture;
-	Ref<Texture2D> normal_texture;
-	Vector3 uv_scale = Vector3(0.1f, 0.1f, 0.1f);
-	float uv_rotation = 0.0f;
+	Color _albedo = Color(1.0, 1.0, 1.0, 1.0);
+	Ref<Texture2D> _albedo_texture;
+	Ref<Texture2D> _normal_texture;
+	Vector3 _uv_scale = Vector3(0.1f, 0.1f, 0.1f);
+	float _uv_rotation = 0.0f;
 
-protected:
-	static void _bind_methods();
+	bool _texture_is_valid(const Ref<Texture2D> &p_texture) const;
 
 public:
 	Terrain3DSurface();
 	~Terrain3DSurface();
 
 	void set_albedo(Color p_color);
-	Color get_albedo() const { return albedo; }
+	Color get_albedo() const { return _albedo; }
 
 	void set_albedo_texture(const Ref<Texture2D> &p_texture);
-	Ref<Texture2D> get_albedo_texture() const { return albedo_texture; }
+	Ref<Texture2D> get_albedo_texture() const { return _albedo_texture; }
+
 	void set_normal_texture(const Ref<Texture2D> &p_texture);
-	Ref<Texture2D> get_normal_texture() const { return normal_texture; }
+	Ref<Texture2D> get_normal_texture() const { return _normal_texture; }
 
 	void set_uv_scale(Vector3 p_scale);
-	Vector3 get_uv_scale() const { return uv_scale; }
+	Vector3 get_uv_scale() const { return _uv_scale; }
 
 	void set_uv_rotation(float p_rotation);
-	float get_uv_rotation() const { return uv_rotation; }
+	float get_uv_rotation() const { return _uv_rotation; }
 
-private:
-	bool _texture_is_valid(const Ref<Texture2D> &p_texture) const;
+protected:
+	static void _bind_methods();
 };
 
 #endif // TERRAIN3D_SURFACE_CLASS_H

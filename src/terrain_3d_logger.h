@@ -1,4 +1,4 @@
-//Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef TERRAIN3D_LOGGER_CLASS_H
 #define TERRAIN3D_LOGGER_CLASS_H
 
@@ -21,7 +21,7 @@
 		UtilityFunctions::push_error("Terrain3D::", __func__, ": ", __VA_ARGS__);   \
 	else if (level == WARN)                                                         \
 		UtilityFunctions::push_warning("Terrain3D::", __func__, ": ", __VA_ARGS__); \
-	else if (Terrain3D::debug_level >= level)                                       \
+	else if (Terrain3D::_debug_level >= level)                                      \
 	UtilityFunctions::print("Terrain3D::", __func__, ": ", __VA_ARGS__)
 
 #endif // TERRAIN3D_LOGGER_CLASS_H
