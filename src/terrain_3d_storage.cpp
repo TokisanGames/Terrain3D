@@ -838,7 +838,7 @@ void Terrain3DStorage::set_maps(MapType p_map_type, const TypedArray<Image> &p_m
 TypedArray<Image> Terrain3DStorage::get_maps(MapType p_map_type) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
-		return Ref<Image>();
+		return TypedArray<Image>();
 	}
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
@@ -853,7 +853,7 @@ TypedArray<Image> Terrain3DStorage::get_maps(MapType p_map_type) const {
 		default:
 			break;
 	}
-	return Ref<Image>();
+	return TypedArray<Image>();
 }
 
 TypedArray<Image> Terrain3DStorage::get_maps_copy(MapType p_map_type) const {

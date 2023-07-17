@@ -236,6 +236,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 							 */
 							dest.a = Math::lerp(src.a, .5f + .5f * .01f * roughness, brush_alpha * opacity);
 							break;
+						default:
+							break;
 					}
 				}
 
