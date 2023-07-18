@@ -23,7 +23,9 @@
 #include <godot_cpp/classes/physics_server3d.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
-#include <godot_cpp/classes/v_box_container.hpp>
+#include <godot_cpp/classes/visual_instance3d.hpp>
+#include <godot_cpp/classes/geometry_instance3d.hpp>
+#include <godot_cpp/classes/v_box_container.hpp> // needed for get_editor_main_screen()
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/math.hpp>
@@ -38,6 +40,8 @@ using namespace godot;
 class Terrain3D : public Node3D {
 private:
 	GDCLASS(Terrain3D, Node3D);
+
+	bool _is_inside_world = false;
 
 	// Terrain settings
 	static int _debug_level;
@@ -73,6 +77,12 @@ private:
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
 
+	// Visual Instance
+	uint32_t _visual_layers = 1;
+
+	// Geometry Instance
+	GeometryInstance3D::ShadowCastingSetting _shadow_casting_setting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
+
 	void __process(double delta);
 
 	void _grab_camera();
@@ -82,8 +92,7 @@ private:
 	void _update_collision();
 	void _destroy_collision();
 
-	void _update_visibility();
-	void _update_world(RID p_space, RID p_scenario);
+	void _update_instances();
 
 public:
 	Terrain3D();
@@ -118,8 +127,15 @@ public:
 	void set_collision_priority(real_t p_priority) { _collision_priority = p_priority; }
 	real_t get_collision_priority() const { return _collision_priority; }
 
-	// Terrain methods
+	// Visual instance settings
+	void set_layer_mask(uint32_t p_mask);
+	uint32_t get_layer_mask() const { return _visual_layers; };
 
+	// Geometry instance settings
+	void set_cast_shadows_setting(GeometryInstance3D::ShadowCastingSetting p_shadow_casting_setting);
+	GeometryInstance3D::ShadowCastingSetting get_cast_shadows_setting() const { return _shadow_casting_setting; };
+
+	// Terrain methods
 	void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
 	void build(int p_clipmap_levels, int p_clipmap_size);
 	void snap(Vector3 p_cam_pos);

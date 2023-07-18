@@ -222,9 +222,7 @@ void Terrain3DStorage::_update_regions() {
 		_generated_height_maps.create(_height_maps);
 		RenderingServer::get_singleton()->material_set_param(_material, "height_maps", _generated_height_maps.get_rid());
 		_modified = true;
-		if (_terrain) {
-			_terrain->update_aabbs();
-		}
+		emit_signal("height_maps_changed");
 	}
 
 	if (_generated_control_maps.is_dirty()) {
@@ -1668,4 +1666,6 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_control_maps", "get_control_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_color_maps", "get_color_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), ro_flags), "set_surfaces", "get_surfaces");
+
+	ADD_SIGNAL(MethodInfo("height_maps_changed"));
 }
