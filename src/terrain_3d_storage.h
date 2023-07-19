@@ -82,10 +82,6 @@ private:
 		RID get_rid() { return _rid; }
 	};
 
-	// Object References
-
-	Terrain3D *_terrain = nullptr;
-
 	// Storage Settings & flags
 
 	RegionSize _region_size = SIZE_1024;
@@ -150,9 +146,6 @@ private:
 public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
-
-	inline void set_terrain(Terrain3D *p_terrain) { _terrain = p_terrain; }
-	inline Terrain3D *get_terrain() const { return _terrain; }
 
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }

@@ -19,12 +19,14 @@
 #include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/editor_script.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/physics_server3d.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
-#include <godot_cpp/classes/v_box_container.hpp>
+#include <godot_cpp/classes/v_box_container.hpp> // needed for get_editor_main_screen()
 #include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/visual_instance3d.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/templates/vector.hpp>
@@ -39,9 +41,12 @@ class Terrain3D : public Node3D {
 private:
 	GDCLASS(Terrain3D, Node3D);
 
+	// Terrain state
+	bool _is_inside_world = false;
+	bool _valid = false;
+
 	// Terrain settings
 	static int _debug_level;
-	bool _valid = false;
 	int _clipmap_size = 48;
 	int _clipmap_levels = 7;
 
@@ -64,12 +69,16 @@ private:
 		Vector<RID> seams;
 	} _data;
 
+	// Renderer settings
+	uint32_t _render_layers = 1;
+	GeometryInstance3D::ShadowCastingSetting _shadow_casting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
+
 	// Physics body and settings
 	RID _static_body;
 	StaticBody3D *_debug_static_body = nullptr;
 	bool _collision_enabled = true;
 	bool _show_debug_collision = false;
-	uint32_t _collision_layer = 1;
+	uint32_t _collision_layers = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
 
@@ -82,8 +91,7 @@ private:
 	void _update_collision();
 	void _destroy_collision();
 
-	void _update_visibility();
-	void _update_world(RID p_space, RID p_scenario);
+	void _update_instances();
 
 public:
 	Terrain3D();
@@ -106,20 +114,25 @@ public:
 	void set_camera(Camera3D *p_plugin);
 	Camera3D *get_camera() const { return _camera; }
 
+	// Renderer settings
+	void set_render_layers(uint32_t p_layers);
+	uint32_t get_render_layers() const { return _render_layers; };
+	void set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting);
+	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _shadow_casting; };
+
 	// Physics body settings
 	void set_collision_enabled(bool p_enabled);
 	int get_collision_enabled() const { return _collision_enabled; }
 	void set_show_debug_collision(bool p_enabled);
 	int get_show_debug_collision() const { return _show_debug_collision; }
-	void set_collision_layer(uint32_t p_layer) { _collision_layer = p_layer; }
-	uint32_t get_collision_layer() const { return _collision_layer; };
+	void set_collision_layers(uint32_t p_layers) { _collision_layers = p_layers; }
+	uint32_t get_collision_layers() const { return _collision_layers; };
 	void set_collision_mask(uint32_t p_mask) { _collision_mask = p_mask; }
 	uint32_t get_collision_mask() const { return _collision_mask; };
 	void set_collision_priority(real_t p_priority) { _collision_priority = p_priority; }
 	real_t get_collision_priority() const { return _collision_priority; }
 
 	// Terrain methods
-
 	void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
 	void build(int p_clipmap_levels, int p_clipmap_size);
 	void snap(Vector3 p_cam_pos);
