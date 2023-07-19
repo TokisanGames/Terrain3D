@@ -93,6 +93,7 @@ void Terrain3D::_build_collision() {
 		_static_body = PhysicsServer3D::get_singleton()->body_create();
 		PhysicsServer3D::get_singleton()->body_set_mode(_static_body, PhysicsServer3D::BODY_MODE_STATIC);
 		PhysicsServer3D::get_singleton()->body_set_space(_static_body, get_world_3d()->get_space());
+		PhysicsServer3D::get_singleton()->body_attach_object_instance_id(_static_body, get_instance_id());
 	} else {
 		LOG(WARN, "Building debug collision. Disable this mode for releases");
 		_debug_static_body = memnew(StaticBody3D);
