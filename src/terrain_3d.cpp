@@ -160,7 +160,7 @@ void Terrain3D::_update_collision() {
 			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
 			PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, i, xform);
 			PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
-			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
+			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layers);
 			PhysicsServer3D::get_singleton()->body_set_collision_priority(_static_body, _collision_priority);
 		} else {
 			CollisionShape3D *debug_col_shape;
@@ -223,35 +223,35 @@ void Terrain3D::_update_instances() {
 	bool v = is_visible_in_tree();
 	RenderingServer::get_singleton()->instance_set_visible(_data.cross, v);
 	RenderingServer::get_singleton()->instance_set_scenario(_data.cross, _scenario);
-	RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-	RenderingServer::get_singleton()->instance_set_layer_mask(_data.cross, _visual_layers);
+	RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RenderingServer::get_singleton()->instance_set_layer_mask(_data.cross, _render_layers);
 
 	for (const RID rid : _data.tiles) {
 		RenderingServer::get_singleton()->instance_set_visible(rid, v);
 		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _visual_layers);
+		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.fillers) {
 		RenderingServer::get_singleton()->instance_set_visible(rid, v);
 		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _visual_layers);
+		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.trims) {
 		RenderingServer::get_singleton()->instance_set_visible(rid, v);
 		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _visual_layers);
+		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.seams) {
 		RenderingServer::get_singleton()->instance_set_visible(rid, v);
 		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _visual_layers);
+		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
 	}
 }
 
@@ -324,6 +324,16 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 	}
 }
 
+void Terrain3D::set_render_layers(uint32_t p_layers) {
+	_render_layers = p_layers;
+	_update_instances();
+}
+
+void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting) {
+	_shadow_casting = p_shadow_casting;
+	_update_instances();
+}
+
 void Terrain3D::set_collision_enabled(bool p_enabled) {
 	LOG(INFO, "Setting collision enabled: ", p_enabled);
 	_collision_enabled = p_enabled;
@@ -341,16 +351,6 @@ void Terrain3D::set_show_debug_collision(bool p_enabled) {
 	if (_storage.is_valid() && _show_debug_collision) {
 		_build_collision();
 	}
-}
-
-void Terrain3D::set_layer_mask(uint32_t p_mask) {
-	_visual_layers = p_mask;
-	_update_instances();
-}
-
-void Terrain3D::set_cast_shadows_setting(GeometryInstance3D::ShadowCastingSetting p_shadow_casting_setting) {
-	_shadow_casting_setting = p_shadow_casting_setting;
-	_update_instances();
 }
 
 void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
@@ -418,8 +418,8 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	RID scenario = get_world_3d()->get_scenario();
 
 	_data.cross = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
-	RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-	RenderingServer::get_singleton()->instance_set_layer_mask(_data.cross, _visual_layers);
+	RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RenderingServer::get_singleton()->instance_set_layer_mask(_data.cross, _render_layers);
 
 	for (int l = 0; l < p_clipmap_levels; l++) {
 		for (int x = 0; x < 4; x++) {
@@ -429,26 +429,26 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 				}
 
 				RID tile = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::TILE], scenario);
-				RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-				RenderingServer::get_singleton()->instance_set_layer_mask(tile, _visual_layers);
+				RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_shadow_casting));
+				RenderingServer::get_singleton()->instance_set_layer_mask(tile, _render_layers);
 				_data.tiles.push_back(tile);
 			}
 		}
 
 		RID filler = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(filler, _visual_layers);
+		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RenderingServer::get_singleton()->instance_set_layer_mask(filler, _render_layers);
 		_data.fillers.push_back(filler);
 
 		if (l != p_clipmap_levels - 1) {
 			RID trim = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
-			RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-			RenderingServer::get_singleton()->instance_set_layer_mask(trim, _visual_layers);
+			RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RenderingServer::get_singleton()->instance_set_layer_mask(trim, _render_layers);
 			_data.trims.push_back(trim);
 
 			RID seam = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
-			RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_shadow_casting_setting));
-			RenderingServer::get_singleton()->instance_set_layer_mask(seam, _visual_layers);
+			RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RenderingServer::get_singleton()->instance_set_layer_mask(seam, _render_layers);
 			_data.seams.push_back(seam);
 		}
 	}
@@ -718,17 +718,17 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
 	ClassDB::bind_method(D_METHOD("get_camera"), &Terrain3D::get_camera);
 
-	ClassDB::bind_method(D_METHOD("set_cast_shadows_setting", "shadow_casting_setting"), &Terrain3D::set_cast_shadows_setting);
-	ClassDB::bind_method(D_METHOD("get_cast_shadows_setting"), &Terrain3D::get_cast_shadows_setting);
-	ClassDB::bind_method(D_METHOD("set_layer_mask", "mask"), &Terrain3D::set_layer_mask);
-	ClassDB::bind_method(D_METHOD("get_layer_mask"), &Terrain3D::get_layer_mask);
+	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
+	ClassDB::bind_method(D_METHOD("get_render_layers"), &Terrain3D::get_render_layers);
+	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
+	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
 
 	ClassDB::bind_method(D_METHOD("set_collision_enabled", "enabled"), &Terrain3D::set_collision_enabled);
 	ClassDB::bind_method(D_METHOD("get_collision_enabled"), &Terrain3D::get_collision_enabled);
 	ClassDB::bind_method(D_METHOD("set_show_debug_collision", "enabled"), &Terrain3D::set_show_debug_collision);
 	ClassDB::bind_method(D_METHOD("get_show_debug_collision"), &Terrain3D::get_show_debug_collision);
-	ClassDB::bind_method(D_METHOD("set_collision_layer", "layer"), &Terrain3D::set_collision_layer);
-	ClassDB::bind_method(D_METHOD("get_collision_layer"), &Terrain3D::get_collision_layer);
+	ClassDB::bind_method(D_METHOD("set_collision_layers", "layers"), &Terrain3D::set_collision_layers);
+	ClassDB::bind_method(D_METHOD("get_collision_layers"), &Terrain3D::get_collision_layers);
 	ClassDB::bind_method(D_METHOD("set_collision_mask", "mask"), &Terrain3D::set_collision_mask);
 	ClassDB::bind_method(D_METHOD("get_collision_mask"), &Terrain3D::get_collision_mask);
 	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
@@ -742,12 +742,14 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadow", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows_setting", "get_cast_shadows_setting");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_layer_mask", "get_layer_mask");
+
+	ADD_GROUP("Renderer", "render_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
 
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layers", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layers", "get_collision_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
 
