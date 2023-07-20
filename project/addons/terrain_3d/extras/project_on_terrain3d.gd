@@ -46,9 +46,10 @@
 #		warning += """Terrain3D storage is not initialized"""
 #		return
 #
+#	var domain_xform: Transform3D = domain.get_global_transform()
 #	for i in transforms.list.size():
-#		var height: float = _terrain.storage.get_height(transforms.list[i].origin)
-#		transforms.list[i].origin.y = height
+#		var height: float = _terrain.storage.get_height(( domain_xform * transforms.list[i]).origin)
+#		transforms.list[i].origin.y = height - domain_xform.origin.y
 #
 #	if transforms.is_empty():
 #		warning += """Every point has been removed. Possible reasons include: \n
