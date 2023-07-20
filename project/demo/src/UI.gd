@@ -20,6 +20,8 @@ func _process(delta) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
+			KEY_F8:
+				get_tree().quit()
 			KEY_F10:
 				var vp = get_viewport()
 				vp.debug_draw = (vp.debug_draw + 1 ) % 4

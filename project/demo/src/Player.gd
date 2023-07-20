@@ -18,7 +18,7 @@ extends CharacterBody3D
 		$CollisionShapeRay.disabled = ! collision_enabled
 
 
-func _physics_process(delta):
+func _physics_process(delta) -> void:
 	var direction: Vector3 = get_camera_relative_input()
 	var h_veloc: Vector2 = Vector2(direction.x, direction.z) * MOVE_SPEED
 	velocity.x = h_veloc.x
@@ -56,7 +56,7 @@ func get_camera_relative_input() -> Vector3:
 	return input_dir		
 
 
-func _input(event: InputEvent):
+func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			MOVE_SPEED = clamp(MOVE_SPEED + 5, 0, 9999)
