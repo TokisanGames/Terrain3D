@@ -304,6 +304,8 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 				_storage->call_deferred("add_region", Vector3(0, 0, 0));
 			}
 			build(_clipmap_levels, _clipmap_size);
+			// Here to enable grid when creating a new storage
+			_storage->update_surface_values();
 		}
 		emit_signal("storage_changed");
 	}
