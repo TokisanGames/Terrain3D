@@ -1,4 +1,4 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright Â© 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #ifndef GEOCLIPMAP_CLASS_H
 #define GEOCLIPMAP_CLASS_H
 
