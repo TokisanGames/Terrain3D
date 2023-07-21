@@ -109,11 +109,12 @@ private:
 
 	// Material Settings
 
-	bool _surfaces_enabled = false;
+	Dictionary _shader_code;
 	RID _material;
 	RID _shader;
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
+	bool _debug_view_grid = false;
 
 	bool _noise_enabled = false;
 	float _noise_scale = 2.0;
@@ -141,6 +142,8 @@ private:
 	void _update_surface_data(bool p_update_textures, bool p_update_values);
 	void _update_regions();
 	void _update_material();
+	void _preload_shaders();
+	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
 	String _generate_shader_code();
 
 public:
@@ -218,6 +221,8 @@ public:
 	Ref<Shader> get_shader_override() const { return _shader_override; }
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
+	void set_show_grid(bool p_enabled);
+	bool get_show_grid() const { return _debug_view_grid; }
 
 	void set_noise_enabled(bool p_enabled);
 	bool get_noise_enabled() const { return _noise_enabled; }

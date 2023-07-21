@@ -54,7 +54,6 @@ void Terrain3DStorage::_clear() {
 
 void Terrain3DStorage::_update_surfaces() {
 	LOG(INFO, "Regenerating material surfaces");
-
 	for (int i = 0; i < get_surface_count(); i++) {
 		Ref<Terrain3DSurface> surface = _surfaces[i];
 
@@ -70,19 +69,14 @@ void Terrain3DStorage::_update_surfaces() {
 	}
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
-
 	_update_surface_data(true, true);
 }
 
 void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_update_values) {
+	bool mat_update_needed = false;
+
 	if (p_update_textures) {
 		LOG(INFO, "Regenerating terrain textures");
-		// Update materials to enable sub-materials if albedo is available
-		// and '_surfaces_enabled' changes from previous state
-
-		bool was_surfaces_enabled = _surfaces_enabled;
-		_surfaces_enabled = false;
-
 		Vector2i albedo_size = Vector2i(0, 0);
 		Vector2i normal_size = Vector2i(0, 0);
 
@@ -149,7 +143,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 			if (!albedo_texture_array.is_empty()) {
 				_generated_albedo_textures.create(albedo_texture_array);
-				_surfaces_enabled = true;
+				mat_update_needed = true;
 			}
 		}
 
@@ -179,11 +173,8 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 			}
 			if (!normal_texture_array.is_empty()) {
 				_generated_normal_textures.create(normal_texture_array);
+				mat_update_needed = true;
 			}
-		}
-
-		if (was_surfaces_enabled != _surfaces_enabled) {
-			_update_material();
 		}
 
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_array_albedo", _generated_albedo_textures.get_rid());
@@ -205,7 +196,6 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 			}
 			uv_scales.push_back(surface->get_uv_scale());
 			uv_rotations.push_back(surface->get_uv_rotation());
-
 			colors.push_back(surface->get_albedo());
 		}
 
@@ -213,6 +203,18 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_uv_scale_array", uv_scales);
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_color_array", colors);
 		_modified = true;
+	}
+
+	// Enable grid if surface_count is 0
+	if (get_surface_count() == 0 && _debug_view_grid == false) {
+		_debug_view_grid = true;
+		mat_update_needed = true;
+	} else if (get_surface_count() > 0 && _debug_view_grid == true) {
+		_debug_view_grid = false;
+		mat_update_needed = true;
+	}
+	if (mat_update_needed) {
+		_update_material();
 	}
 }
 
@@ -296,268 +298,91 @@ void Terrain3DStorage::_update_material() {
 	_modified = true;
 }
 
+void Terrain3DStorage::_preload_shaders() {
+	// Preprocessor loading of external shader inserts
+	_parse_shader(
+#include "shaders/world_noise.glsl"
+			, "world_noise");
+
+	_parse_shader(
+#include "shaders/debug_views.glsl"
+			, "debug_views");
+
+	_shader_code["main"] = String(
+#include "shaders/main.glsl"
+	);
+
+	if (Terrain3D::_debug_level >= DEBUG) {
+		Array keys = _shader_code.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			LOG(DEBUG, "Loaded shader insert: ", keys[i]);
+		}
+	}
+}
+
+/**
+ * Dual use function that uses the same parsing mechanics for different purposes
+ * if p_name has a value, Reading mode:
+ *	any //INSERT: ID in p_shader is loaded into the DB _shader_code
+ *	returns String()
+ * else
+ *	Apply mode: any //INSERT: ID is replaced by the entry in the DB
+ *	returns a shader string with inserts applied
+ */
+String Terrain3DStorage::_parse_shader(String p_shader, String p_name, Array p_excludes) {
+	PackedStringArray parsed = p_shader.split("//INSERT:");
+
+	String shader;
+	for (int i = 0; i < parsed.size(); i++) {
+		// First section of the file before any //INSERT:
+		if (i == 0) {
+			if (!p_name.is_empty()) {
+				// Load mode
+				_shader_code[p_name] = parsed[0];
+			} else {
+				// Apply mode
+				shader = parsed[0];
+			}
+		} else {
+			// If there is at least one //INSERT:
+			// Get the first ID on the first line
+			PackedStringArray segment = parsed[i].split("\n", true, 1);
+			// If there isn't an ID AND body, skip this insert
+			if (segment.size() < 2) {
+				continue;
+			}
+			String id = segment[0].strip_edges();
+
+			// Process the insert
+			if (!p_name.is_empty()) {
+				// Load mode
+				if (!id.is_empty()) {
+					_shader_code[id] = segment[1];
+				}
+			} else {
+				// Apply mode
+				if (!id.is_empty() && !p_excludes.has(id)) {
+					shader += _shader_code[id];
+				}
+				shader += segment[1];
+			}
+		}
+	}
+	return shader;
+}
+
 String Terrain3DStorage::_generate_shader_code() {
 	LOG(INFO, "Generating default shader code");
-	String code = "shader_type spatial;\n";
-	code += "render_mode depth_draw_opaque, diffuse_burley;\n";
-	code += "\n";
-
-	//Uniforms
-	code += "uniform float region_size = 1024.0;\n";
-	code += "uniform float region_pixel_size = 1.0;\n";
-	code += "uniform int region_map_size = 16;\n";
-	code += "\n\n";
-
-	code += "uniform sampler2D region_map : hint_default_black, filter_linear, repeat_disable;\n";
-	code += "uniform vec2 region_offsets[256];\n";
-	code += "uniform sampler2DArray height_maps : filter_linear_mipmap, repeat_disable;\n";
-	code += "uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_disable;\n";
-	code += "uniform sampler2DArray color_maps : filter_linear_mipmap, repeat_disable;\n";
-	code += "\n\n";
-
-	if (_surfaces_enabled) {
-		LOG(INFO, "Surfaces enabled");
-		code += "uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;\n";
-		code += "uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;\n";
-		code += "uniform vec3 texture_uv_scale_array[32];\n";
-		code += "uniform float texture_uv_rotation_array[32];\n";
-		code += "uniform vec3 texture_3d_projection_array[32];\n";
-		code += "uniform vec4 texture_color_array[32];\n";
-		code += "\n\n";
+	Array excludes;
+	if (!_noise_enabled) {
+		excludes.push_back("WORLD_NOISE1");
+		excludes.push_back("WORLD_NOISE2");
 	}
-
-	if (_noise_enabled) {
-		code += "uniform sampler2D region_blend_map : hint_default_black, filter_linear, repeat_disable;\n";
-		code += "uniform float noise_scale = 2.0;\n";
-		code += "uniform float noise_height = 300.0;\n";
-		code += "uniform float noise_blend_near = 0.5;\n";
-		code += "uniform float noise_blend_far = 1.0;\n";
-		code += "\n\n";
-
-		code += "float hashv2(vec2 v) {\n ";
-		code += "	return fract(1e4 * sin(17.0 * v.x + v.y * 0.1) * (0.1 + abs(sin(v.y * 13.0 + v.x))));\n ";
-		code += "}\n\n";
-
-		code += "float noise2D(vec2 st) {\n";
-		code += "	vec2 i = floor(st);\n";
-		code += "	vec2 f = fract(st);\n";
-		code += "\n";
-		code += "	// Four corners in 2D of a tile\n";
-		code += "	float a = hashv2(i);\n";
-		code += "	float b = hashv2(i + vec2(1.0, 0.0));\n";
-		code += "	float c = hashv2(i + vec2(0.0, 1.0));\n";
-		code += "	float d = hashv2(i + vec2(1.0, 1.0));\n";
-		code += "\n";
-		code += "	// Cubic Hermine Curve.  Same as SmoothStep()\n";
-		code += "	vec2 u = f * f * (3.0 - 2.0 * f);\n";
-		code += "\n";
-		code += "	// Mix 4 corners percentages\n";
-		code += "	return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;\n";
-		code += "}\n\n";
+	if (!_debug_view_grid) {
+		excludes.push_back("GRID");
 	}
-	code += "\n";
-
-	//Functions
-
-	code += "vec3 unpack_normal(vec4 rgba) {\n";
-	code += "	vec3 n = rgba.xzy * 2.0 - vec3(1.0);\n";
-	code += "	n.z *= -1.0;\n";
-	code += "	return n;\n";
-	code += "}\n\n";
-
-	code += "vec4 pack_normal(vec3 n, float a) {\n";
-	code += "	n.z *= -1.0;\n";
-	code += "	return vec4((n.xzy + vec3(1.0)) * 0.5, a);\n";
-	code += "}\n\n";
-
-	code += "// Takes in a world UV, returns UV in region space (0-region_size)\n";
-	code += "// Z is the index in the map texturearray\n";
-	code += "// If the UV is not in a region, Z=-1\n";
-	code += "ivec3 get_region(vec2 uv) {\n";
-	code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;\n";
-	code += "	return ivec3(ivec2((uv - region_offsets[int(index)]) * region_size), int(index));\n";
-	code += "}\n\n";
-
-	code += "// float form of get_region. Same return values\n";
-	code += "vec3 get_regionf(vec2 uv) {\n";
-	code += "	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;\n";
-	code += "	return vec3(uv - region_offsets[int(index)], index);\n";
-	code += "}\n\n";
-
-	code += "float get_height(vec2 uv) {\n";
-	code += "	float height = 0.0;\n\n";
-	code += "	vec3 region = get_regionf(uv);\n";
-	code += "	if (region.z >= 0.) {\n";
-	code += "		height = texture(height_maps, region).r;\n";
-	code += "	}\n";
-
-	if (_noise_enabled) {
-		code += "	float weight = texture(region_blend_map, (uv/float(region_map_size))+0.5).r;\n";
-		code += "	height = mix(height, noise2D(uv * noise_scale) * noise_height, \n";
-		code += "		clamp(smoothstep(noise_blend_near, noise_blend_far, 1.0 - weight), 0.0, 1.0));\n ";
-	}
-
-	code += "	return height;\n";
-	code += "}\n\n";
-
-	if (_surfaces_enabled) {
-		code += "float random(in vec2 xy) {\n";
-		code += "	return fract(sin(dot(xy, vec2(12.9898, 78.233))) * 43758.5453);\n";
-		code += "}\n\n";
-
-		code += "float blend_weights(float weight, float detail) {\n";
-		code += "	weight = sqrt(weight * 0.5);\n";
-		code += "	float result = max(0.1 * weight, 10.0 * (weight + detail) + 1.0f - (detail + 10.0));\n";
-		code += "	return result;\n";
-		code += "}\n\n";
-
-		code += "vec4 depth_blend(vec4 a_value, float a_bump, vec4 b_value, float b_bump, float t) {\n";
-		code += "	float ma = max(a_bump + (1.0 - t), b_bump + t) - 0.1;\n";
-		code += "	float ba = max(a_bump + (1.0 - t) - ma, 0.0);\n";
-		code += "	float bb = max(b_bump + t - ma, 0.0);\n";
-		code += "	return (a_value * ba + b_value * bb) / (ba + bb);\n";
-		code += "}\n\n";
-
-		code += "vec2 rotate(vec2 v, float cosa, float sina) {\n";
-		code += "	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);\n";
-		code += "}\n\n";
-
-		code += "// One big mess here.Optimized version of what it was in my GDScript terrain plugin.- outobugi\n";
-		code += "// Using 'else' caused fps drops.If - else works the same as a ternary, where both outcomes are evaluated. Right?\n";
-
-		code += "vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {\n";
-		code += "	float material = index.r * 255.0;\n";
-		code += "	float materialOverlay = index.g * 255.0;\n";
-		code += "	float r = random(uv_center) * PI;\n";
-		code += "	float rand = r * texture_uv_rotation_array[int(material)];\n";
-		code += "	float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];\n";
-		code += "	vec2 rot = vec2(sin(rand), cos(rand));\n";
-		code += "	vec2 rot2 = vec2(sin(rand2), cos(rand2));\n";
-		code += "	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)].xy;\n";
-		code += "	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)].xy;\n";
-		code += "	vec2 ddx = dFdx(matUV);\n";
-		code += "	vec2 ddy = dFdy(matUV);\n";
-		code += "	vec4 albedo = vec4(1.0);\n";
-		code += "	vec4 normal = vec4(0.5);\n\n";
-		code += "	albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);\n";
-		code += "	albedo.rgb *= texture_color_array[int(material)].rgb;\n";
-		code += "	normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);\n";
-		code += "	normal.rgb = normalize(normal.rgb);\n";
-		code += "	vec3 n = unpack_normal(normal);\n";
-		code += "	normal.xz = rotate(n.xz, rot.x, -rot.y);\n";
-		code += "\n";
-		code += "	if (index.b > 0.0) {\n";
-		code += "		ddx = dFdx(matUV2);\n";
-		code += "		ddy = dFdy(matUV2);\n";
-		code += "		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV2, materialOverlay), ddx, ddy);\n";
-		code += "		albedo2.rgb *= texture_color_array[int(materialOverlay)].rgb;\n";
-		code += "		vec4 normal2 = textureGrad(texture_array_normal, vec3(matUV2, materialOverlay), ddx, ddy);\n";
-		code += "		normal2.rgb = normalize(normal2.rgb);\n";
-		code += "		n = unpack_normal(normal2);\n";
-		code += "		normal2.xz = rotate(n.xz, rot2.x, -rot2.y);\n";
-		code += "		albedo = depth_blend(albedo, albedo.a, albedo2, albedo2.a, index.b);\n";
-		code += "		normal = depth_blend(normal, albedo.a, normal2, albedo.a, index.b);\n";
-		code += "	}\n\n";
-
-		code += "	normal = pack_normal(normal.xyz, normal.a);\n";
-		code += "	weight = blend_weights(weight, albedo.a);\n";
-		code += "	out_normal += normal * weight;\n";
-		code += "	total_weight += weight;\n";
-		code += "	return albedo * weight;\n";
-		code += "}\n\n";
-	}
-
-	// Vertex Shader
-	code += "void vertex() {\n";
-	code += "	vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n";
-	code += "	UV2 = ((world_vertex.xz - vec2(0.5)) / vec2(region_size)) + vec2(0.5);\n";
-	code += "	UV = world_vertex.xz * 0.5;\n\n";
-
-	code += "	VERTEX.y = get_height(UV2);\n";
-	code += "	NORMAL = vec3(0, 1, 0);\n";
-	code += "}\n\n";
-
-	// Fragment Shader
-	code += "void fragment() {\n";
-
-	code += "	// Normal calc\n";
-	code += "	// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,\n";
-	code += "	// but control map sampling is slightly different with the mirroring and doesn't work here.\n";
-	code += "	// The region map is very, very small, so maybe the performance cost isn't too high\n\n";
-	code += "	float left = get_height(UV2 + vec2(-region_pixel_size, 0));\n";
-	code += "	float right = get_height(UV2 + vec2(region_pixel_size, 0));\n";
-	code += "	float back = get_height(UV2 + vec2(0, -region_pixel_size));\n";
-	code += "	float fore = get_height(UV2 + vec2(0, region_pixel_size));\n\n";
-
-	code += "	vec3 horizontal = vec3(2.0, right - left, 0.0);\n";
-	code += "	vec3 vertical = vec3(0.0, back - fore, 2.0);\n";
-	code += "	vec3 normal = normalize(cross(vertical, horizontal));\n";
-	code += "	normal.z *= -1.0;\n\n";
-
-	code += "	NORMAL = mat3(VIEW_MATRIX) * normal;\n";
-	code += "	TANGENT = cross(NORMAL, vec3(0, 0, 1));\n";
-	code += "	BINORMAL = cross(NORMAL, TANGENT);\n";
-	code += "\n";
-
-	if (_surfaces_enabled) {
-		code += "	// source : https://github.com/cdxntchou/IndexMapTerrain\n";
-		code += "	// black magic which I don't understand at all. Seems simple but what and why?\n";
-		code += "	vec2 pos_texel = UV2 * region_size + 0.5;\n";
-		code += "	vec2 pos_texel00 = floor(pos_texel);\n";
-		code += "	vec4 mirror = vec4(fract(pos_texel00 * 0.5) * 2.0, 1.0, 1.0);\n";
-		code += "	mirror.zw = vec2(1.0) - mirror.xy;\n\n";
-
-		code += "	ivec3 index00UV = get_region((pos_texel00 + mirror.xy) * region_pixel_size);\n";
-		code += "	ivec3 index01UV = get_region((pos_texel00 + mirror.xw) * region_pixel_size);\n";
-		code += "	ivec3 index10UV = get_region((pos_texel00 + mirror.zy) * region_pixel_size);\n";
-		code += "	ivec3 index11UV = get_region((pos_texel00 + mirror.zw) * region_pixel_size);\n\n";
-
-		code += "	vec4 index00 = texelFetch(control_maps, index00UV, 0);\n";
-		code += "	vec4 index01 = texelFetch(control_maps, index01UV, 0);\n";
-		code += "	vec4 index10 = texelFetch(control_maps, index10UV, 0);\n";
-		code += "	vec4 index11 = texelFetch(control_maps, index11UV, 0);\n\n";
-
-		code += "	vec2 weights1 = clamp(pos_texel - pos_texel00, 0, 1);\n";
-		code += "	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);\n";
-		code += "	vec2 weights0 = vec2(1.0) - weights1;\n\n";
-
-		code += "	float total_weight = 0.0;\n";
-		code += "	vec4 in_normal = vec4(0.0);\n";
-		code += "	vec3 color = vec3(0.0);\n\n";
-
-		code += "	color = get_material(UV, index00, vec2(index00UV.xy), weights0.x * weights0.y, total_weight, in_normal).rgb;\n";
-		code += "	color += get_material(UV, index01, vec2(index01UV.xy), weights0.x * weights1.y, total_weight, in_normal).rgb;\n";
-		code += "	color += get_material(UV, index10, vec2(index10UV.xy), weights1.x * weights0.y, total_weight, in_normal).rgb;\n";
-		code += "	color += get_material(UV, index11, vec2(index11UV.xy), weights1.x * weights1.y, total_weight, in_normal).rgb;\n";
-
-		code += "	total_weight = 1.0 / total_weight;\n";
-		code += "	in_normal *= total_weight;\n";
-		code += "	color *= total_weight;\n\n";
-
-		code += "	// Look up colormap\n";
-		code += "	vec3 ruv = get_regionf(UV2);\n";
-		code += "	vec4 color_tex = vec4(1., 1., 1., .5);\n";
-		code += "	if (ruv.z >= 0.) {\n";
-		code += "		color_tex = texture(color_maps, ruv);\n";
-		code += "	}\n\n";
-
-		code += "	ALBEDO = color * color_tex.rgb;\n";
-		code += "	ROUGHNESS = clamp(fma(color_tex.a-0.5, 2.0, in_normal.a), 0., 1.);\n";
-		code += "	NORMAL_MAP = in_normal.rgb;\n";
-		code += "	NORMAL_MAP_DEPTH = 1.0;\n";
-
-	} else {
-		code += "	vec2 p = UV * 4.0;\n";
-		code += "	vec2 ddx = dFdx(p);\n";
-		code += "	vec2 ddy = dFdy(p);\n";
-		code += "	vec2 w = max(abs(ddx), abs(ddy)) + 0.01;\n";
-		code += "	vec2 i = 2.0 * (abs(fract((p - 0.5 * w) / 2.0) - 0.5) - abs(fract((p + 0.5 * w) / 2.0) - 0.5)) / w;\n";
-		code += "	ALBEDO = vec3((0.5 - 0.5 * i.x * i.y) * 0.2 + 0.2);\n";
-		code += "\n";
-	}
-	code += "}\n\n";
-
-	return String(code);
+	String shader = _parse_shader(_shader_code["main"], "", excludes);
+	return shader;
 }
 
 ///////////////////////////
@@ -565,6 +390,7 @@ String Terrain3DStorage::_generate_shader_code() {
 ///////////////////////////
 
 Terrain3DStorage::Terrain3DStorage() {
+	_preload_shaders();
 	if (!_initialized) {
 		LOG(INFO, "Initializing terrain storage");
 		_update_material();
@@ -1451,6 +1277,12 @@ void Terrain3DStorage::enable_shader_override(bool p_enabled) {
 	}
 }
 
+void Terrain3DStorage::set_show_grid(bool p_enabled) {
+	LOG(INFO, "Enable show_grid: ", p_enabled);
+	_debug_view_grid = p_enabled;
+	_update_material();
+}
+
 void Terrain3DStorage::set_noise_enabled(bool p_enabled) {
 	LOG(INFO, "Enable noise: ", p_enabled);
 	_noise_enabled = p_enabled;
@@ -1627,6 +1459,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
 	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DStorage::enable_shader_override);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DStorage::is_shader_override_enabled);
+	ClassDB::bind_method(D_METHOD("set_show_grid", "enabled"), &Terrain3DStorage::set_show_grid);
+	ClassDB::bind_method(D_METHOD("get_show_grid"), &Terrain3DStorage::get_show_grid);
 
 	ClassDB::bind_method(D_METHOD("set_noise_enabled", "enabled"), &Terrain3DStorage::set_noise_enabled);
 	ClassDB::bind_method(D_METHOD("get_noise_enabled"), &Terrain3DStorage::get_noise_enabled);
@@ -1649,6 +1483,7 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16-bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid", PROPERTY_HINT_NONE), "set_show_grid", "get_show_grid");
 
 	ADD_GROUP("World Noise", "noise_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
