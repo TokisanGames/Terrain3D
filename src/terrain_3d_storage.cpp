@@ -1048,10 +1048,6 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 		LOG(ERROR, "No valid regions. Nothing to export");
 		return FAILED;
 	}
-	if (FileAccess::file_exists(p_file_name)) {
-		LOG(INFO, "File ", p_file_name, " already exists. Attempting to overwrite");
-		return FAILED;
-	}
 
 	Ref<Image> img;
 	switch (p_map_type) {
