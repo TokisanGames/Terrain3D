@@ -8,14 +8,17 @@
 // Private Functions
 ///////////////////////////
 
-bool Terrain3DSurface::_texture_is_valid(const Ref<ImageTexture> &p_texture) const {
+bool Terrain3DSurface::_texture_is_valid(const Ref<Texture2D> &p_texture) const {
 	if (p_texture.is_null()) {
 		LOG(ERROR, "Provided texture is null.");
 		return true;
 	}
 
-	Image::Format format = p_texture->get_format();
-
+	Ref<Image> img = p_texture->get_image();
+	Image::Format format = Image::FORMAT_MAX;
+	if (img.is_valid()) {
+		format = img->get_format();
+	}
 	if (format != Image::FORMAT_DXT5) {
 		LOG(ERROR, "Invalid format. Expected channel packed DXT5 RGBA8. See documentation for format.");
 		return false;
@@ -39,14 +42,14 @@ void Terrain3DSurface::set_albedo(Color p_color) {
 	emit_signal("value_changed");
 }
 
-void Terrain3DSurface::set_albedo_texture(const Ref<ImageTexture> &p_texture) {
+void Terrain3DSurface::set_albedo_texture(const Ref<Texture2D> &p_texture) {
 	if (_texture_is_valid(p_texture)) {
 		_albedo_texture = p_texture;
 		emit_signal("texture_changed");
 	}
 }
 
-void Terrain3DSurface::set_normal_texture(const Ref<ImageTexture> &p_texture) {
+void Terrain3DSurface::set_normal_texture(const Ref<Texture2D> &p_texture) {
 	if (_texture_is_valid(p_texture)) {
 		_normal_texture = p_texture;
 		emit_signal("texture_changed");
@@ -83,8 +86,8 @@ void Terrain3DSurface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_uv_rotation"), &Terrain3DSurface::get_uv_rotation);
 
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "albedo", PROPERTY_HINT_COLOR_NO_ALPHA), "set_albedo", "get_albedo");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture"), "set_albedo_texture", "get_albedo_texture");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture"), "set_normal_texture", "get_normal_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_albedo_texture", "get_albedo_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_normal_texture", "get_normal_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0"), "set_uv_scale", "get_uv_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_uv_rotation", "get_uv_rotation");
 }

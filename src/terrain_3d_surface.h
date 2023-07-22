@@ -7,7 +7,7 @@
 #endif
 
 #include <godot_cpp/classes/image.hpp>
-#include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/texture2d.hpp>
 
 using namespace godot;
 
@@ -16,12 +16,12 @@ private:
 	GDCLASS(Terrain3DSurface, Resource);
 
 	Color _albedo = Color(1.0, 1.0, 1.0, 1.0);
-	Ref<ImageTexture> _albedo_texture;
-	Ref<ImageTexture> _normal_texture;
+	Ref<Texture2D> _albedo_texture;
+	Ref<Texture2D> _normal_texture;
 	float _uv_scale = 0.1f;
 	float _uv_rotation = 0.0f;
 
-	bool _texture_is_valid(const Ref<ImageTexture> &p_texture) const;
+	bool _texture_is_valid(const Ref<Texture2D> &p_texture) const;
 
 public:
 	Terrain3DSurface();
@@ -30,10 +30,10 @@ public:
 	void set_albedo(Color p_color);
 	Color get_albedo() const { return _albedo; }
 
-	void set_albedo_texture(const Ref<ImageTexture> &p_texture);
+	void set_albedo_texture(const Ref<Texture2D> &p_texture);
 	Ref<Texture2D> get_albedo_texture() const { return _albedo_texture; }
 
-	void set_normal_texture(const Ref<ImageTexture> &p_texture);
+	void set_normal_texture(const Ref<Texture2D> &p_texture);
 	Ref<Texture2D> get_normal_texture() const { return _normal_texture; }
 
 	void set_uv_scale(float p_scale);
