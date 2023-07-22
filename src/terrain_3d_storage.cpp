@@ -184,7 +184,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 	if (p_update_values) {
 		LOG(INFO, "Updating terrain color and scale arrays");
-		PackedVector3Array uv_scales;
+		PackedFloat32Array uv_scales;
 		PackedFloat32Array uv_rotations;
 		PackedColorArray colors;
 

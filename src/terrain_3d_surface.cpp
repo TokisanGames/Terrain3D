@@ -53,7 +53,7 @@ void Terrain3DSurface::set_normal_texture(const Ref<ImageTexture> &p_texture) {
 	}
 }
 
-void Terrain3DSurface::set_uv_scale(Vector3 p_scale) {
+void Terrain3DSurface::set_uv_scale(float p_scale) {
 	_uv_scale = p_scale;
 	emit_signal("value_changed");
 }
@@ -85,6 +85,6 @@ void Terrain3DSurface::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "albedo", PROPERTY_HINT_COLOR_NO_ALPHA), "set_albedo", "get_albedo");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture"), "set_albedo_texture", "get_albedo_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture"), "set_normal_texture", "get_normal_texture");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "uv_scale", PROPERTY_HINT_NONE), "set_uv_scale", "get_uv_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0"), "set_uv_scale", "get_uv_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_uv_rotation", "get_uv_rotation");
 }

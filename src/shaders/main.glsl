@@ -13,7 +13,7 @@ uniform sampler2DArray color_maps : filter_linear_mipmap, repeat_disable;
 
 uniform sampler2DArray texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform vec3 texture_uv_scale_array[32];
+uniform float texture_uv_scale_array[32];
 uniform float texture_uv_rotation_array[32];
 uniform vec3 texture_3d_projection_array[32];
 uniform vec4 texture_color_array[32];
@@ -86,8 +86,8 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 	float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];
 	vec2 rot = vec2(sin(rand), cos(rand));
 	vec2 rot2 = vec2(sin(rand2), cos(rand2));
-	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)].xy;
-	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)].xy;
+	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)];
+	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)];
 	vec2 ddx = dFdx(matUV);
 	vec2 ddy = dFdy(matUV);
 	vec4 albedo = vec4(1.0);
