@@ -11,6 +11,13 @@
 
 void Terrain3DStorage::Generated::create(const TypedArray<Image> &p_layers) {
 	if (!p_layers.is_empty()) {
+		if (Terrain3D::_debug_level >= DEBUG) {
+			LOG(DEBUG, "RenderingServer creating Texture2DArray, layers size: ", p_layers.size());
+			for (int i = 0; i < p_layers.size(); i++) {
+				Ref<Image> img = p_layers[i];
+				LOG(DEBUG, i, ": ", img, ", empty: ", img->is_empty(), ", size: ", img->get_size(), ", format: ", img->get_format());
+			}
+		}
 		_rid = RenderingServer::get_singleton()->texture_2d_layered_create(p_layers, RenderingServer::TEXTURE_LAYERED_2D_ARRAY);
 		_dirty = false;
 	} else {
@@ -19,6 +26,7 @@ void Terrain3DStorage::Generated::create(const TypedArray<Image> &p_layers) {
 }
 
 void Terrain3DStorage::Generated::create(const Ref<Image> &p_image) {
+	LOG(DEBUG, "RenderingServer creating Texture2D");
 	_image = p_image;
 	_rid = RenderingServer::get_singleton()->texture_2d_create(_image);
 	_dirty = false;
@@ -26,9 +34,11 @@ void Terrain3DStorage::Generated::create(const Ref<Image> &p_image) {
 
 void Terrain3DStorage::Generated::clear() {
 	if (_rid.is_valid()) {
+		LOG(DEBUG, "Generated freeing ", _rid);
 		RenderingServer::get_singleton()->free_rid(_rid);
 	}
 	if (_image.is_valid()) {
+		LOG(DEBUG, "Generated unref image", _image);
 		_image.unref();
 	}
 	_rid = RID();
@@ -40,6 +50,7 @@ void Terrain3DStorage::Generated::clear() {
 ///////////////////////////
 
 void Terrain3DStorage::_clear() {
+	LOG(INFO, "Clearing storage");
 	RenderingServer::get_singleton()->free_rid(_material);
 	RenderingServer::get_singleton()->free_rid(_shader);
 
@@ -133,7 +144,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 				if (tex.is_null()) {
 					img = get_filled_image(albedo_size, COLOR_RB, true, Image::FORMAT_RGBA8);
-					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
+					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
 				} else {
 					img = tex->get_image();
 				}
@@ -164,7 +175,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 
 				if (tex.is_null()) {
 					img = get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
-					img->compress(Image::COMPRESS_S3TC, Image::COMPRESS_SOURCE_SRGB);
+					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
 				} else {
 					img = tex->get_image();
 				}
@@ -177,6 +188,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 			}
 		}
 
+		LOG(DEBUG, "Sending textures to shader");
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_array_albedo", _generated_albedo_textures.get_rid());
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_array_normal", _generated_normal_textures.get_rid());
 		_modified = true;
@@ -199,6 +211,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 			colors.push_back(surface->get_albedo());
 		}
 
+		LOG(DEBUG, "Sending settings to shader");
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_uv_rotation_array", uv_rotations);
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_uv_scale_array", uv_scales);
 		RenderingServer::get_singleton()->material_set_param(_material, "texture_color_array", colors);
