@@ -115,6 +115,11 @@ private:
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
 	bool _debug_view_grid = false;
+	bool _debug_view_grey = false;
+	bool _debug_view_heightmap = false;
+	bool _debug_view_colormap = false;
+	bool _debug_view_roughmap = false;
+	bool _debug_view_controlmap = false;
 
 	bool _noise_enabled = false;
 	float _noise_scale = 2.0;
@@ -223,6 +228,16 @@ public:
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
 	void set_show_grid(bool p_enabled);
 	bool get_show_grid() const { return _debug_view_grid; }
+	void set_show_grey(bool p_enabled);
+	bool get_show_grey() const { return _debug_view_grey; }
+	void set_show_heightmap(bool p_enabled);
+	bool get_show_heightmap() const { return _debug_view_heightmap; }
+	void set_show_colormap(bool p_enabled);
+	bool get_show_colormap() const { return _debug_view_colormap; }
+	void set_show_roughmap(bool p_enabled);
+	bool get_show_roughmap() const { return _debug_view_roughmap; }
+	void set_show_controlmap(bool p_enabled);
+	bool get_show_controlmap() const { return _debug_view_controlmap; }
 
 	void set_noise_enabled(bool p_enabled);
 	bool get_noise_enabled() const { return _noise_enabled; }
