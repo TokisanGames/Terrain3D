@@ -67,6 +67,8 @@ private:
 	static const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
+	static const int SURFACE_MAX_SIZE = 32;
+
 	class Generated {
 	private:
 		RID _rid = RID();
@@ -219,7 +221,7 @@ public:
 
 	// Materials
 
-	void set_surface(const Ref<Terrain3DSurface> &p_material, int p_index);
+	void set_surface(int p_index, const Ref<Terrain3DSurface> &p_material);
 	Ref<Terrain3DSurface> get_surface(int p_index) const { return _surfaces[p_index]; }
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	TypedArray<Terrain3DSurface> get_surfaces() const { return _surfaces; }
@@ -265,6 +267,8 @@ public:
 
 	// Regenerate data
 	// Workaround until callable_mp is implemented
+	// https://github.com/godotengine/godot-cpp/pull/1155
+	void _swap_surfaces(int p_old_id, int p_new_id);
 	void update_surface_textures();
 	void update_surface_values();
 	void force_update_maps(MapType p_map = TYPE_MAX);
