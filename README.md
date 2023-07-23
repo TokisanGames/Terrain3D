@@ -20,14 +20,19 @@ See the [Wiki](https://github.com/outobugi/GDExtensionTerrain/wiki) for more det
 
 ## Installation & Setup
 
-1. Download the [latest release](https://github.com/outobugi/GDExtensionTerrain/releases), or [build the plugin from source](https://github.com/outobugi/GDExtensionTerrain/wiki/Building-From-Source).
-2. Close Godot, then Copy `addons/terrain_3d` to your project folder in `addons/terrain_3d`.
-3. Open Godot. Let it complain about importing errors and may even crash. Then restart Godot.
-4. In Project Settings / Plugins, ensure that Terrain3D is enabled.
-5. Open the demo scene `demo/Demo.tscn`, or:
-6. Create or open a scene and add a new Terrain3D node.
-7. Select Terrain3D. In the inspector, create a new Terrain3DStorage resource.
-8. Click the down arrow to the right of the storage resource and save it as a binary .res file. This is optional, but highly recommended. Otherwise it will save terrain data as text in the current scene file.
+### Run the demo
+1. Download the [latest release](https://github.com/outobugi/GDExtensionTerrain/releases) and extract the files, or [build the plugin from source](https://github.com/outobugi/GDExtensionTerrain/wiki/Building-From-Source).
+2. Run Godot, using the console executable so you can see error messages.
+3. Import the project folder and open it. Let it complain about importing errors and likely crash. Then restart Godot.
+4. If the demo scene doesn't open automatically, open `demo/Demo.tscn`. You should see terrain. Run it. If you don't see terrain, look at the console for errors, and in `Project Settings / Plugins` to ensure that Terrain3D is enabled.
+
+### Install Terrain3D in your own project
+1. Copy `addons/terrain_3d` to your project folder in `addons/terrain_3d`.
+2. Open Godot and go through the first load process & crash. Restart if needed.
+3. In Project Settings / Plugins, ensure that Terrain3D is enabled.
+4. Create or open a scene and add a new Terrain3D node.
+5. Select Terrain3D in the scene tree. In the inspector, create a new Terrain3DStorage resource.
+6. Click the down arrow to the right of the storage resource and save it as a binary .res file. This is optional, but highly recommended. Otherwise it will save terrain data as text in the current scene file.
 
 ## Getting Support
 
