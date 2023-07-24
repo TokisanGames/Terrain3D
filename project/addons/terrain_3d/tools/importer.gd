@@ -31,9 +31,9 @@ func update_heights(value) -> void:
 
 
 @export_group("Import File")
-@export_file var height_file_name: String = ""
-@export_file var control_file_name: String = ""
-@export_file var color_file_name: String = ""
+@export_global_file var height_file_name: String = ""
+@export_global_file var control_file_name: String = ""
+@export_global_file var color_file_name: String = ""
 @export var import_position: Vector3 = Vector3.ZERO
 @export var import_scale: float = 1.0
 @export var import_offset: float = 0.0
@@ -71,8 +71,6 @@ enum { TYPE_HEIGHT, TYPE_CONTROL, TYPE_COLOR }
 @export var run_export: bool = false : set = start_export
 
 func start_export(value: bool) -> void:
-	if(not file_name_out.begins_with("res://")):
-		file_name_out = "res://" + file_name_out
 	print("Exporting map type %d to file: %s" % [ map_type, file_name_out ])
 	var err: int = storage.export_image(file_name_out, map_type)
 	print("Export error status: ", err, " ", error_string(err))
