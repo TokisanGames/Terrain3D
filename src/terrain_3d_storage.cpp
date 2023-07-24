@@ -219,11 +219,11 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 	}
 
 	// Enable grid if surface_count is 0
-	if (get_surface_count() == 0 && _debug_view_grid == false) {
-		_debug_view_grid = true;
+	if (get_surface_count() == 0 && _debug_view_checkered == false) {
+		_debug_view_checkered = true;
 		mat_update_needed = true;
-	} else if (get_surface_count() > 0 && _debug_view_grid == true) {
-		_debug_view_grid = false;
+	} else if (get_surface_count() > 0 && _debug_view_checkered == true) {
+		_debug_view_checkered = false;
 		mat_update_needed = true;
 	}
 	if (mat_update_needed) {
@@ -391,8 +391,8 @@ String Terrain3DStorage::_generate_shader_code() {
 		excludes.push_back("WORLD_NOISE1");
 		excludes.push_back("WORLD_NOISE2");
 	}
-	if (!_debug_view_grid) {
-		excludes.push_back("DEBUG_GRID");
+	if (!_debug_view_checkered) {
+		excludes.push_back("DEBUG_CHECKERED");
 	}
 	if (!_debug_view_grey) {
 		excludes.push_back("DEBUG_GREY");
@@ -408,6 +408,9 @@ String Terrain3DStorage::_generate_shader_code() {
 	}
 	if (!_debug_view_controlmap) {
 		excludes.push_back("DEBUG_CONTROLMAP");
+	}
+	if (!_debug_view_grid) {
+		excludes.push_back("DEBUG_GRID");
 	}
 	String shader = _parse_shader(_shader_code["main"], "", excludes);
 	return shader;
@@ -1301,9 +1304,9 @@ void Terrain3DStorage::enable_shader_override(bool p_enabled) {
 	}
 }
 
-void Terrain3DStorage::set_show_grid(bool p_enabled) {
-	LOG(INFO, "Enable show_grid: ", p_enabled);
-	_debug_view_grid = p_enabled;
+void Terrain3DStorage::set_show_checkered(bool p_enabled) {
+	LOG(INFO, "Enable set_show_checkered: ", p_enabled);
+	_debug_view_checkered = p_enabled;
 	_update_material();
 }
 
@@ -1334,6 +1337,12 @@ void Terrain3DStorage::set_show_roughmap(bool p_enabled) {
 void Terrain3DStorage::set_show_controlmap(bool p_enabled) {
 	LOG(INFO, "Enable show_controlmap: ", p_enabled);
 	_debug_view_controlmap = p_enabled;
+	_update_material();
+}
+
+void Terrain3DStorage::set_show_grid(bool p_enabled) {
+	LOG(INFO, "Enable show_grid: ", p_enabled);
+	_debug_view_grid = p_enabled;
 	_update_material();
 }
 
@@ -1513,8 +1522,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DStorage::get_shader_override);
 	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DStorage::enable_shader_override);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DStorage::is_shader_override_enabled);
-	ClassDB::bind_method(D_METHOD("set_show_grid", "enabled"), &Terrain3DStorage::set_show_grid);
-	ClassDB::bind_method(D_METHOD("get_show_grid"), &Terrain3DStorage::get_show_grid);
+	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DStorage::set_show_checkered);
+	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DStorage::get_show_checkered);
 	ClassDB::bind_method(D_METHOD("set_show_grey", "enabled"), &Terrain3DStorage::set_show_grey);
 	ClassDB::bind_method(D_METHOD("get_show_grey"), &Terrain3DStorage::get_show_grey);
 	ClassDB::bind_method(D_METHOD("set_show_heightmap", "enabled"), &Terrain3DStorage::set_show_heightmap);
@@ -1525,6 +1534,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DStorage::get_show_roughmap);
 	ClassDB::bind_method(D_METHOD("set_show_controlmap", "enabled"), &Terrain3DStorage::set_show_controlmap);
 	ClassDB::bind_method(D_METHOD("get_show_controlmap"), &Terrain3DStorage::get_show_controlmap);
+	ClassDB::bind_method(D_METHOD("set_show_grid", "enabled"), &Terrain3DStorage::set_show_grid);
+	ClassDB::bind_method(D_METHOD("get_show_grid"), &Terrain3DStorage::get_show_grid);
 
 	ClassDB::bind_method(D_METHOD("set_noise_enabled", "enabled"), &Terrain3DStorage::set_noise_enabled);
 	ClassDB::bind_method(D_METHOD("get_noise_enabled"), &Terrain3DStorage::get_noise_enabled);
@@ -1547,12 +1558,15 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16-bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid", PROPERTY_HINT_NONE), "set_show_grid", "get_show_grid");
+
+	ADD_GROUP("Debug Views", "show_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grey", PROPERTY_HINT_NONE), "set_show_grey", "get_show_grey");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_heightmap", PROPERTY_HINT_NONE), "set_show_heightmap", "get_show_heightmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap", PROPERTY_HINT_NONE), "set_show_colormap", "get_show_colormap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE), "set_show_roughmap", "get_show_roughmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_controlmap", PROPERTY_HINT_NONE), "set_show_controlmap", "get_show_controlmap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid", PROPERTY_HINT_NONE), "set_show_grid", "get_show_grid");
 
 	ADD_GROUP("World Noise", "noise_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");

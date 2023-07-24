@@ -114,12 +114,13 @@ private:
 	RID _shader;
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
-	bool _debug_view_grid = false;
+	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
 	bool _debug_view_colormap = false;
 	bool _debug_view_roughmap = false;
 	bool _debug_view_controlmap = false;
+	bool _debug_view_grid = false;
 
 	bool _noise_enabled = false;
 	float _noise_scale = 2.0;
@@ -226,8 +227,8 @@ public:
 	Ref<Shader> get_shader_override() const { return _shader_override; }
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
-	void set_show_grid(bool p_enabled);
-	bool get_show_grid() const { return _debug_view_grid; }
+	void set_show_checkered(bool p_enabled);
+	bool get_show_checkered() const { return _debug_view_checkered; }
 	void set_show_grey(bool p_enabled);
 	bool get_show_grey() const { return _debug_view_grey; }
 	void set_show_heightmap(bool p_enabled);
@@ -238,6 +239,8 @@ public:
 	bool get_show_roughmap() const { return _debug_view_roughmap; }
 	void set_show_controlmap(bool p_enabled);
 	bool get_show_controlmap() const { return _debug_view_controlmap; }
+	void set_show_grid(bool p_enabled);
+	bool get_show_grid() const { return _debug_view_grid; }
 
 	void set_noise_enabled(bool p_enabled);
 	bool get_noise_enabled() const { return _noise_enabled; }

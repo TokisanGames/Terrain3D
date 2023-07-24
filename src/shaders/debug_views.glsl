@@ -1,5 +1,5 @@
 R"(
-//INSERT: DEBUG_GRID
+//INSERT: DEBUG_CHECKERED
 	// Show a checkered grid
 	vec2 p = UV * 1.0; // scale
 	vec2 ddx = dFdx(p);
@@ -39,4 +39,34 @@ R"(
 	ALBEDO = index00.rgb;
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+
+//INSERT: DEBUG_GRID
+	// Show region and vertex grids
+	vec3 _camera_pos = INV_VIEW_MATRIX[3].xyz;
+	vec3 _pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
+	float _camera_dist = length(_camera_pos - _pixel_pos);
+	float _region_border = 0.5;		// Region line thickness
+	float _grid_border = 0.05;		// Vertex grid Line thickness
+	float _grid_step = 1.0;			// Vertex grid size, 1.0 == integer units
+	float _vertex_size = 4.;		// Size of vertices
+	float _view_distance = 100.0;	// _show within this camera distance 
+	// Draw region grid
+	_region_border = .1*sqrt(_camera_dist);
+	if (mod(_pixel_pos.x + region_size*.5 + _region_border*.5, region_size) <= _region_border || 
+		mod(_pixel_pos.z + region_size*.5 + _region_border*.5, region_size) <= _region_border ) {
+		ALBEDO = vec3(1.);
+	}
+	if ( _camera_dist < _view_distance ) {
+		// Draw vertex grid
+		if ( mod(_pixel_pos.x + _grid_border*.5, _grid_step) < _grid_border || 
+		  	 mod(_pixel_pos.z + _grid_border*.5, _grid_step) < _grid_border ) { 
+				ALBEDO *= vec3(0.5);
+		}
+
+		// Draw Vertices
+		if ( mod(UV.x*2. + _grid_border*_vertex_size*.5, _grid_step) < _grid_border*_vertex_size &&
+		  	 mod(UV.y*2. + _grid_border*_vertex_size*.5, _grid_step) < _grid_border*_vertex_size ) { 
+				ALBEDO += vec3(0.15);
+		}
+	}
 )"
