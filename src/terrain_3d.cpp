@@ -1,6 +1,7 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_3d.h"
@@ -104,6 +105,10 @@ void Terrain3D::_build_collision() {
 	_update_collision();
 }
 
+/* Eventually this should be callable to update collision on changes,
+ * and especially updating only the ones that have changed. However it's not there yet, so
+ * destroy and recreate for now.
+ */
 void Terrain3D::_update_collision() {
 	if (!_collision_enabled) {
 		return;
@@ -117,16 +122,32 @@ void Terrain3D::_update_collision() {
 		_build_collision();
 	}
 
+	int time = Time::get_singleton()->get_ticks_msec();
 	int region_size = _storage->get_region_size();
 	int shape_size = region_size + 1;
 
 	for (int i = 0; i < _storage->get_region_count(); i++) {
 		Dictionary shape_data;
 		PackedFloat32Array map_data = PackedFloat32Array();
-
-		Ref<Image> hmap = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
-		Vector2i hmap_size = hmap->get_size();
 		map_data.resize(shape_size * shape_size);
+
+		Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size;
+		Vector3 global_pos = Vector3(global_offset.x, 0, global_offset.y);
+
+		Ref<Image> map, map_plusx, map_plusz, map_plusxz;
+		map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
+		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0, global_pos.z));
+		if (region >= 0) {
+			map_plusx = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+		}
+		region = _storage->get_region_index(Vector3(global_pos.x, 0, global_pos.z + region_size));
+		if (region >= 0) {
+			map_plusz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+		}
+		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0, global_pos.z + region_size));
+		if (region >= 0) {
+			map_plusxz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+		}
 
 		for (int z = 0; z < shape_size; z++) {
 			for (int x = 0; x < shape_size; x++) {
@@ -136,17 +157,36 @@ void Terrain3D::_update_collision() {
 				// int index = z * shape_size + x;
 				// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
 				int index = shape_size - 1 - z + x * shape_size;
-				Vector2i point = Vector2i(Vector2(hmap_size) * Vector2(x, z) / float(shape_size));
-				map_data[index] = hmap->get_pixelv(point).r;
+
+				// Set heights on local map, or adjacent maps if on the last row/col
+				if (x < region_size && z < region_size) {
+					map_data[index] = map->get_pixel(x, z).r;
+				} else if (x == region_size && z < region_size) {
+					if (map_plusx.is_valid()) {
+						map_data[index] = map_plusx->get_pixel(0, z).r;
+					} else {
+						map_data[index] = 0.0f;
+					}
+				} else if (z == region_size && x < region_size) {
+					if (map_plusz.is_valid()) {
+						map_data[index] = map_plusz->get_pixel(x, 0).r;
+					} else {
+						map_data[index] = 0.0f;
+					}
+				} else if (x == region_size && z == region_size) {
+					if (map_plusxz.is_valid()) {
+						map_data[index] = map_plusxz->get_pixel(0, 0).r;
+					} else {
+						map_data[index] = 0.0f;
+					}
+				}
 			}
 		}
 
-		Vector2i region_offset = _storage->get_region_offsets()[i];
-		// Transform3D xform = Transform3D(Basis(),
 		// Non rotated shape for normal array index above
+		//Transform3D xform = Transform3D(Basis(), global_pos);
 		// Rotated shape Y=90 for -90 rotated array index
-		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), PI * .5),
-				Vector3(region_offset.x, 0, region_offset.y) * region_size);
+		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), PI * .5), global_pos);
 
 		shape_data["width"] = shape_size;
 		shape_data["depth"] = shape_size;
@@ -179,6 +219,7 @@ void Terrain3D::_update_collision() {
 			debug_col_shape->set_global_transform(xform);
 		}
 	}
+	LOG(DEBUG, "Collision creation time: ", Time::get_singleton()->get_ticks_msec() - time, " ms");
 }
 
 void Terrain3D::_destroy_collision() {
