@@ -21,6 +21,7 @@ var surface_list_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
+var _warn_textures: bool = false
 
 
 func _enter_tree() -> void:
@@ -34,6 +35,7 @@ func _enter_tree() -> void:
 	surface_list.connect("resource_changed", _on_surface_list_resource_changed)
 	surface_list.connect("resource_inspected", _on_surface_list_resource_selected)
 	surface_list.connect("resource_selected", ui._on_setting_changed)
+	surface_list.connect("resource_null_texture", _on_surface_list_null_texture)
 	
 	region_gizmo = RegionGizmo.new()
 	
@@ -239,3 +241,9 @@ func _on_surface_list_visibility_changed() -> void:
 		if get_editor_interface().is_distraction_free_mode_enabled():
 			surface_list_container = CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT
 		add_control_to_container(surface_list_container, surface_list)
+
+
+func _on_surface_list_null_texture(warn_textures: bool) -> void:
+	_warn_textures = warn_textures
+	terrain.update_configuration_warnings()
+

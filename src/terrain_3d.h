@@ -139,6 +139,8 @@ public:
 	void update_aabbs();
 	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);
 
+	PackedStringArray _get_configuration_warnings() const;
+
 protected:
 	void _notification(int p_what);
 	static void _bind_methods();

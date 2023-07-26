@@ -662,6 +662,16 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 	return Vector3(FLT_MAX, FLT_MAX, FLT_MAX);
 }
 
+PackedStringArray Terrain3D::_get_configuration_warnings() const {
+	PackedStringArray ret;
+	if (_plugin) {
+		if (_plugin->get("_warn_textures")) {
+			ret.push_back("At least one Surface has a missing texture. This will break exported games!");
+		}
+	}
+	return ret;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////

@@ -145,8 +145,12 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				if (tex.is_null()) {
 					img = get_filled_image(albedo_size, COLOR_RB, true, Image::FORMAT_RGBA8);
 					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
+					LOG(DEBUG, "ID ", i, " albedo texture is null. Creating a new one. Format: ", img->get_format());
+					LOG(WARN, "ID ", i, " albedo texture is null. This will break exported games!");
+					// Waiting for Godot https://github.com/outobugi/Terrain3D/issues/164
 				} else {
 					img = tex->get_image();
+					LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
 				}
 
 				albedo_texture_array.push_back(img);
@@ -176,8 +180,12 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				if (tex.is_null()) {
 					img = get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
 					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
+					LOG(DEBUG, "ID ", i, " normal texture is null. Creating a new one. Format: ", img->get_format());
+					LOG(WARN, "ID ", i, " normal texture is null. This will break exported games!");
+					// Waiting for Godot https://github.com/outobugi/Terrain3D/issues/164
 				} else {
 					img = tex->get_image();
+					LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
 				}
 
 				normal_texture_array.push_back(img);

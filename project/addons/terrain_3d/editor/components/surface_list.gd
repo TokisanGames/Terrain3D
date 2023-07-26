@@ -3,6 +3,8 @@ extends PanelContainer
 signal resource_changed(resource: Resource, index: int)
 signal resource_inspected(resource: Resource)
 signal resource_selected
+signal resource_null_texture(warn_textures: bool)
+
 
 var list: ListContainer
 var entries: Array[ListEntry]
@@ -39,10 +41,18 @@ func _ready() -> void:
 	
 func notify_resource_changed(resource: Resource, index: int) -> void:
 	if !resource:
-		selected_index = clamp(selected_index, 0, entries.size() - 3)
-	
+		selected_index = clamp(selected_index, 0, entries.size() - 3)	
 	emit_signal("resource_changed", resource, index)
-	
+
+	var warn_textures: bool = false
+	for entry in entries:
+		if entry.resource:
+			if not entry.resource.get_albedo_texture():
+				warn_textures = true
+			if not entry.resource.get_normal_texture():
+				warn_textures = true
+	emit_signal("resource_null_texture", warn_textures)
+		
 func notify_resource_inspected(resource: Resource):
 	emit_signal("resource_inspected", resource)
 
@@ -162,7 +172,7 @@ class ListEntry extends VBoxContainer:
 					draw_rect(rect, Color(1,1,1,0.2))
 				if is_selected:
 					draw_style_box(focus, rect)
-				
+
 			NOTIFICATION_MOUSE_ENTER:
 				is_hovered = true
 				queue_redraw()
@@ -210,14 +220,19 @@ class ListEntry extends VBoxContainer:
 			if text.is_empty():
 				text = "New Surface"
 			set_tooltip_text(text)
+			resource.value_changed.connect(_on_surface_changed)
+			resource.texture_changed.connect(_on_surface_changed)
 		
 		if button_close:
 			button_close.set_visible(resource != null)
 			
 		queue_redraw()
 		if !no_signal:
-			emit_signal("changed", res)
-			
+			emit_signal("changed", resource)
+
+	func _on_surface_changed() -> void:
+		emit_signal("changed", resource)
+
 	func set_selected(value: bool):
 		is_selected = value
 		queue_redraw()
