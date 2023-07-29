@@ -18,7 +18,7 @@ using namespace godot;
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
 #define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
 #define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)
-#define COLOR_RB Color(1.0f, 0.0f, 1.0f, 1.0f)
+#define COLOR_CHECKED Color(1.f, 1.f, 1.0f, -1.0f)
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 
 class Terrain3DStorage : public Resource {
