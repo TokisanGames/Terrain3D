@@ -28,11 +28,11 @@ void Terrain3D::__process(double delta) {
 		_grab_camera();
 	}
 
-	// If camera has moved significantly, center the terrain on it.
+	// If camera has moved enough, re-center the terrain on it.
 	if (_camera != nullptr) {
 		Vector3 cam_pos = _camera->get_global_position();
 		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
-		if (_camera_last_position.distance_to(cam_pos_2d) > _clipmap_size * .5) {
+		if (_camera_last_position.distance_to(cam_pos_2d) > 0.2f) {
 			snap(cam_pos);
 			_camera_last_position = cam_pos_2d;
 		}
