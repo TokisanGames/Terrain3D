@@ -146,16 +146,6 @@ class ListEntry extends VBoxContainer:
 					if texture:
 						draw_texture_rect(texture, rect, false)
 					modulate = resource.get_albedo()
-					
-					if !texture:
-						# Draw checker texture
-						var s: Vector2 = rect.size
-						var col_a: Color = Color(0.8, 0.8, 0.8)
-						var col_b: Color = Color(0.5, 0.5, 0.5)
-						draw_rect(Rect2(Vector2.ZERO, s/2), col_a)
-						draw_rect(Rect2(s/2, s/2), col_a)
-						draw_rect(Rect2(Vector2(s.x, 0) / 2, s/2), col_b)
-						draw_rect(Rect2(Vector2(0, s.y) / 2, s/2), col_b)
 				if drop_data:
 					draw_style_box(focus, rect)
 				if is_hovered:
@@ -210,14 +200,19 @@ class ListEntry extends VBoxContainer:
 			if text.is_empty():
 				text = "New Surface"
 			set_tooltip_text(text)
+			resource.value_changed.connect(_on_surface_changed)
+			resource.texture_changed.connect(_on_surface_changed)
 		
 		if button_close:
 			button_close.set_visible(resource != null)
 			
 		queue_redraw()
 		if !no_signal:
-			emit_signal("changed", res)
-			
+			emit_signal("changed", resource)
+
+	func _on_surface_changed() -> void:
+		emit_signal("changed", resource)
+
 	func set_selected(value: bool):
 		is_selected = value
 		queue_redraw()

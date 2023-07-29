@@ -1,5 +1,6 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "terrain_3d_logger.h"
@@ -125,6 +126,10 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 		} else if (albedo_size == Vector2i(0, 0)) {
 			albedo_size = normal_size;
 		}
+		if (albedo_size == Vector2i(0, 0)) {
+			albedo_size = Vector2i(1024, 1024);
+			normal_size = Vector2i(1024, 1024);
+		}
 
 		// Generate TextureArrays and replace nulls with a empty image
 		if (_generated_albedo_textures.is_dirty() && albedo_size != Vector2i(0, 0)) {
@@ -143,10 +148,13 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				Ref<Image> img;
 
 				if (tex.is_null()) {
-					img = get_filled_image(albedo_size, COLOR_RB, true, Image::FORMAT_RGBA8);
+					img = get_filled_image(albedo_size, COLOR_CHECKED, true, Image::FORMAT_RGBA8);
 					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
+					LOG(DEBUG, "ID ", i, " albedo texture is null. Creating a new one. Format: ", img->get_format());
+					surface->set_albedo_texture(ImageTexture::create_from_image(img));
 				} else {
 					img = tex->get_image();
+					LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
 				}
 
 				albedo_texture_array.push_back(img);
@@ -176,7 +184,10 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 				if (tex.is_null()) {
 					img = get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
 					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
+					LOG(DEBUG, "ID ", i, " normal texture is null. Creating a new one. Format: ", img->get_format());
+					surface->set_normal_texture(ImageTexture::create_from_image(img));
 				} else {
+					LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
 					img = tex->get_image();
 				}
 
@@ -1260,9 +1271,22 @@ Ref<Image> Terrain3DStorage::get_thumbnail(const Ref<Image> p_image, Vector2i p_
 	return thumb;
 }
 
+/* Get image filled with your desired color and format
+ * If alpha < 0, fill with checkered pattern multiplied by rgb
+ */
 Ref<Image> Terrain3DStorage::get_filled_image(Vector2i p_size, Color p_color, bool p_create_mipmaps, Image::Format p_format) {
 	Ref<Image> img = Image::create(p_size.x, p_size.y, p_create_mipmaps, p_format);
-	img->fill(p_color);
+	if (p_color.a < 0.0f) {
+		p_color.a = 1.0f;
+		Color col_a = Color(0.8f, 0.8f, 0.8f, 1.0) * p_color;
+		Color col_b = Color(0.5f, 0.5f, 0.5f, 1.0) * p_color;
+		img->fill_rect(Rect2i(Vector2i(0, 0), p_size / 2), col_a);
+		img->fill_rect(Rect2i(p_size / 2, p_size / 2), col_a);
+		img->fill_rect(Rect2i(Vector2(p_size.x, 0) / 2, p_size / 2), col_b);
+		img->fill_rect(Rect2i(Vector2(0, p_size.y) / 2, p_size / 2), col_b);
+	} else {
+		img->fill(p_color);
+	}
 	if (p_create_mipmaps) {
 		img->generate_mipmaps();
 	}

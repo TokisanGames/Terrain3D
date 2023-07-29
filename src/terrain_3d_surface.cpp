@@ -10,7 +10,7 @@
 
 bool Terrain3DSurface::_texture_is_valid(const Ref<Texture2D> &p_texture) const {
 	if (p_texture.is_null()) {
-		LOG(ERROR, "Provided texture is null.");
+		LOG(DEBUG, "Provided texture is null.");
 		return true;
 	}
 
