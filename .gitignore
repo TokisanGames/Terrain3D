@@ -3,6 +3,7 @@ project/test/
 project/addons/terrain_3d/bin/
 project/addons/terrain_3d/editor/gterrain-ui/
 project/_dev/
+project/_export/
 project/tests/
 patches/
 

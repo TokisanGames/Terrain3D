@@ -375,7 +375,8 @@ String Terrain3DStorage::_parse_shader(String p_shader, String p_name, Array p_e
 			} else {
 				// Apply mode
 				if (!id.is_empty() && !p_excludes.has(id)) {
-					shader += _shader_code[id];
+					String str = _shader_code[id];
+					shader += str;
 				}
 				shader += segment[1];
 			}
