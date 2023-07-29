@@ -123,7 +123,7 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 void vertex() {
 	vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	UV = world_vertex.xz * 0.5;
-	UV2 = ((world_vertex.xz - vec2(0.5)) / vec2(region_size)) + vec2(0.5);
+	UV2 = ((world_vertex.xz + vec2(0.5)) / vec2(region_size)) + vec2(0.5);
 	VERTEX.y = get_height(UV2);
 	NORMAL = vec3(0, 1, 0);
 }
