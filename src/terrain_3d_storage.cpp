@@ -1101,15 +1101,14 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 		LOG(DEBUG, "Generated image is invalid or empty");
 		img = layered_to_image(p_map_type);
 	}
-	if (img.is_valid() && !img->is_empty()) {
-		LOG(DEBUG, "Have acquired generated map image. Size: ", img->get_size(), " format: ", img->get_format());
-	} else {
+	if (img.is_null() || img->is_empty()) {
 		LOG(ERROR, "Could not create an export image for map type: ", TYPESTR[p_map_type]);
 		return FAILED;
 	}
 
 	String ext = p_file_name.get_extension().to_lower();
-	LOG(INFO, "Saving map type ", TYPESTR[p_map_type], " as ", ext, " to file: ", p_file_name);
+	LOG(MESG, "Saving ", img->get_size(), " sized ", TYPESTR[p_map_type],
+			" map in format ", img->get_format(), " as ", ext, " to: ", p_file_name);
 	if (ext == "r16") {
 		Vector2i minmax = get_min_max(img);
 		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::WRITE);

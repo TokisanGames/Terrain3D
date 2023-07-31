@@ -10,6 +10,7 @@
  * Warnings and errors always print except in release builds.
  * DEBUG_CONT is for continuously called prints like inside snapping
  */
+#define MESG -1 // Always print
 #define ERROR 0
 #define WARN 99 // Higher than DEBUG_MAX so doesn't impact gdscript enum
 #define INFO 1

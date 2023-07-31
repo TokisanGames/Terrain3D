@@ -71,7 +71,6 @@ enum { TYPE_HEIGHT, TYPE_CONTROL, TYPE_COLOR }
 @export var run_export: bool = false : set = start_export
 
 func start_export(value: bool) -> void:
-	print("Exporting map type %d to file: %s" % [ map_type, file_name_out ])
 	var err: int = storage.export_image(file_name_out, map_type)
 	print("Export error status: ", err, " ", error_string(err))
 	
