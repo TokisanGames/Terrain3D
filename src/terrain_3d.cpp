@@ -23,13 +23,13 @@ void Terrain3D::__process(double delta) {
 		return;
 
 	// If the game/editor camera is not set, find it
-	if (_camera == nullptr) {
+	if (!UtilityFunctions::is_instance_valid(_camera)) {
 		LOG(DEBUG, "camera is null, getting the current one");
 		_grab_camera();
 	}
 
 	// If camera has moved enough, re-center the terrain on it.
-	if (_camera != nullptr) {
+	if (UtilityFunctions::is_instance_valid(_camera) && _camera->is_inside_tree()) {
 		Vector3 cam_pos = _camera->get_global_position();
 		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
 		if (_camera_last_position.distance_to(cam_pos_2d) > 0.2f) {
@@ -56,6 +56,10 @@ void Terrain3D::_grab_camera() {
 	} else {
 		LOG(DEBUG, "Connecting to the in-game viewport camera");
 		_camera = get_viewport()->get_camera_3d();
+	}
+	if (!_camera) {
+		set_process(false);
+		LOG(ERROR, "Cannot find active camera. Stopping _process()");
 	}
 }
 
