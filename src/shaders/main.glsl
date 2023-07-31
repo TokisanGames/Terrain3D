@@ -94,27 +94,22 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 	return normal;
 }
 
-// One big mess here.Optimized version of what it was in my GDScript terrain plugin.- outobugi
-// Using 'else' caused fps drops.If - else works the same as a ternary, where both outcomes are evaluated. Right?
 vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {
 	float material = index.r * 255.0;
 	float materialOverlay = index.g * 255.0;
 	float r = random(uv_center) * PI;
 	float rand = r * texture_uv_rotation_array[int(material)];
 	float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];
-	vec2 rot = vec2(sin(rand), cos(rand));
-	vec2 rot2 = vec2(sin(rand2), cos(rand2));
+	vec2 rot = vec2(cos(rand), sin(rand));
+	vec2 rot2 = vec2(cos(rand2), sin(rand2));
 	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)];
 	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)];
 	vec2 ddx = dFdx(matUV);
 	vec2 ddy = dFdy(matUV);
-	vec4 albedo = vec4(1.0);
-	vec4 normal = vec4(0.5);
 
-	albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);
+	vec4 albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);
 	albedo.rgb *= texture_color_array[int(material)].rgb;
-	normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);
-	normal.rgb = normalize(normal.rgb);
+	vec4 normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);
 	vec3 n = unpack_normal(normal);
 	normal.xz = rotate(n.xz, rot.x, -rot.y);
 
@@ -124,9 +119,9 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV2, materialOverlay), ddx, ddy);
 		albedo2.rgb *= texture_color_array[int(materialOverlay)].rgb;
 		vec4 normal2 = textureGrad(texture_array_normal, vec3(matUV2, materialOverlay), ddx, ddy);
-		normal2.rgb = normalize(normal2.rgb);
 		n = unpack_normal(normal2);
 		normal2.xz = rotate(n.xz, rot2.x, -rot2.y);
+
 		albedo = depth_blend(albedo, albedo.a, albedo2, albedo2.a, index.b);
 		normal = depth_blend(normal, albedo.a, normal2, albedo.a, index.b);
 	}
