@@ -1,5 +1,5 @@
 R"(shader_type spatial;
-render_mode depth_draw_opaque, diffuse_burley;
+render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx;
 
 uniform float region_size = 1024.0;
 uniform float region_pixel_size = 1.0;
@@ -76,27 +76,40 @@ vec2 rotate(vec2 v, float cosa, float sina) {
 	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);
 }
 
-// One big mess here.Optimized version of what it was in my GDScript terrain plugin.- outobugi
-// Using 'else' caused fps drops.If - else works the same as a ternary, where both outcomes are evaluated. Right?
+vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
+	// Normal calc
+	// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,
+	// but control map sampling is slightly different with the mirroring and doesn't work here.
+	// The region map is very, very small, so maybe the performance cost isn't too high
+	float left = get_height(uv + vec2(-region_pixel_size, 0));
+	float right = get_height(uv + vec2(region_pixel_size, 0));
+	float back = get_height(uv + vec2(0, -region_pixel_size));
+	float fore = get_height(uv + vec2(0, region_pixel_size));
+	vec3 horizontal = vec3(2.0, right - left, 0.0);
+	vec3 vertical = vec3(0.0, back - fore, 2.0);
+	vec3 normal = normalize(cross(vertical, horizontal));
+	normal.z *= -1.0;
+	tangent = cross(normal, vec3(0, 0, 1));
+	binormal = cross(normal, tangent);
+	return normal;
+}
+
 vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {
 	float material = index.r * 255.0;
 	float materialOverlay = index.g * 255.0;
 	float r = random(uv_center) * PI;
 	float rand = r * texture_uv_rotation_array[int(material)];
 	float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];
-	vec2 rot = vec2(sin(rand), cos(rand));
-	vec2 rot2 = vec2(sin(rand2), cos(rand2));
+	vec2 rot = vec2(cos(rand), sin(rand));
+	vec2 rot2 = vec2(cos(rand2), sin(rand2));
 	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)];
 	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)];
 	vec2 ddx = dFdx(matUV);
 	vec2 ddy = dFdy(matUV);
-	vec4 albedo = vec4(1.0);
-	vec4 normal = vec4(0.5);
 
-	albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);
+	vec4 albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);
 	albedo.rgb *= texture_color_array[int(material)].rgb;
-	normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);
-	normal.rgb = normalize(normal.rgb);
+	vec4 normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);
 	vec3 n = unpack_normal(normal);
 	normal.xz = rotate(n.xz, rot.x, -rot.y);
 
@@ -106,9 +119,9 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV2, materialOverlay), ddx, ddy);
 		albedo2.rgb *= texture_color_array[int(materialOverlay)].rgb;
 		vec4 normal2 = textureGrad(texture_array_normal, vec3(matUV2, materialOverlay), ddx, ddy);
-		normal2.rgb = normalize(normal2.rgb);
 		n = unpack_normal(normal2);
 		normal2.xz = rotate(n.xz, rot2.x, -rot2.y);
+
 		albedo = depth_blend(albedo, albedo.a, albedo2, albedo2.a, index.b);
 		normal = depth_blend(normal, albedo.a, normal2, albedo.a, index.b);
 	}
@@ -129,24 +142,14 @@ void vertex() {
 }
 
 void fragment() {
-	// Normal calc
-	// Control map is also sampled 4 times, so in theory we could reduce the region samples to 4 from 8,
-	// but control map sampling is slightly different with the mirroring and doesn't work here.
-	// The region map is very, very small, so maybe the performance cost isn't too high
-	float left = get_height(UV2 + vec2(-region_pixel_size, 0));
-	float right = get_height(UV2 + vec2(region_pixel_size, 0));
-	float back = get_height(UV2 + vec2(0, -region_pixel_size));
-	float fore = get_height(UV2 + vec2(0, region_pixel_size));
+	// Calculate Terrain World Normals
+	vec3 w_tangent, w_binormal;
+	vec3 w_normal = get_normal(UV2, w_tangent, w_binormal);
+	NORMAL = mat3(VIEW_MATRIX) * w_normal;
+	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
+	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 
-	vec3 horizontal = vec3(2.0, right - left, 0.0);
-	vec3 vertical = vec3(0.0, back - fore, 2.0);
-	vec3 normal = normalize(cross(vertical, horizontal));
-	normal.z *= -1.0;
-
-	NORMAL = mat3(VIEW_MATRIX) * normal;
-	TANGENT = cross(NORMAL, vec3(0, 0, 1));
-	BINORMAL = cross(NORMAL, TANGENT);
-
+	// Calculated Weighted Material
 	// source : https://github.com/cdxntchou/IndexMapTerrain
 	// black magic which I don't understand at all. Seems simple but what and why?
 	vec2 pos_texel = UV2 * region_size + 0.5;
@@ -169,27 +172,28 @@ void fragment() {
 	vec2 weights0 = vec2(1.0) - weights1;
 
 	float total_weight = 0.0;
-	vec4 in_normal = vec4(0.0);
+	vec4 normal = vec4(0.0);
 	vec3 color = vec3(0.0);
 
-	color = get_material(UV, index00, vec2(index00UV.xy), weights0.x * weights0.y, total_weight, in_normal).rgb;
-	color += get_material(UV, index01, vec2(index01UV.xy), weights0.x * weights1.y, total_weight, in_normal).rgb;
-	color += get_material(UV, index10, vec2(index10UV.xy), weights1.x * weights0.y, total_weight, in_normal).rgb;
-	color += get_material(UV, index11, vec2(index11UV.xy), weights1.x * weights1.y, total_weight, in_normal).rgb;
+	color = get_material(UV, index00, vec2(index00UV.xy), weights0.x * weights0.y, total_weight, normal).rgb;
+	color += get_material(UV, index01, vec2(index01UV.xy), weights0.x * weights1.y, total_weight, normal).rgb;
+	color += get_material(UV, index10, vec2(index10UV.xy), weights1.x * weights0.y, total_weight, normal).rgb;
+	color += get_material(UV, index11, vec2(index11UV.xy), weights1.x * weights1.y, total_weight, normal).rgb;
 	total_weight = 1.0 / total_weight;
-	in_normal *= total_weight;
+	normal *= total_weight;
 	color *= total_weight;
 
-	// Look up colormap
+	// Apply Colormap
 	vec3 ruv = get_regionf(UV2);
 	vec4 color_tex = vec4(1., 1., 1., .5);
 	if (ruv.z >= 0.) {
 		color_tex = texture(color_maps, ruv);
 	}
 
+	// Apply PBR
 	ALBEDO = color * color_tex.rgb;
-	ROUGHNESS = clamp(fma(color_tex.a-0.5, 2.0, in_normal.a), 0., 1.);
-	NORMAL_MAP = in_normal.rgb;
+	ROUGHNESS = clamp(fma(color_tex.a-0.5, 2.0, normal.a), 0., 1.);
+	NORMAL_MAP = normal.rgb;
 	NORMAL_MAP_DEPTH = 1.0;
 
 //INSERT: DEBUG_CHECKERED
