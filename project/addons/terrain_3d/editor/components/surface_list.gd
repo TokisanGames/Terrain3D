@@ -174,7 +174,9 @@ class ListEntry extends VBoxContainer:
 		name_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 		name_label.add_theme_constant_override("shadow_offset_x", 1)
 		name_label.add_theme_constant_override("shadow_offset_y", 1)
-		name_label.add_theme_font_size_override("font_size", 16)
+		name_label.add_theme_font_size_override("font_size", 15)
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.text = "Add New"
 		
 		
@@ -191,6 +193,8 @@ class ListEntry extends VBoxContainer:
 					var texture: Texture2D = resource.get_albedo_texture()
 					if texture:
 						draw_texture_rect(texture, rect, false)
+						texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+				name_label.add_theme_font_size_override("font_size", 4 + rect.size.x/10)
 				if drop_data:
 					draw_style_box(focus, rect)
 				if is_hovered:
