@@ -407,11 +407,20 @@ String Terrain3DStorage::_generate_shader_code() {
 	if (!_debug_view_roughmap) {
 		excludes.push_back("DEBUG_ROUGHMAP");
 	}
+	if (!_debug_view_tex_height) {
+		excludes.push_back("DEBUG_TEXTURE_HEIGHT");
+	}
+	if (!_debug_view_tex_normal) {
+		excludes.push_back("DEBUG_TEXTURE_NORMAL");
+	}
+	if (!_debug_view_tex_rough) {
+		excludes.push_back("DEBUG_TEXTURE_ROUGHNESS");
+	}
 	if (!_debug_view_controlmap) {
 		excludes.push_back("DEBUG_CONTROLMAP");
 	}
-	if (!_debug_view_grid) {
-		excludes.push_back("DEBUG_GRID");
+	if (!_debug_view_vertex_grid) {
+		excludes.push_back("DEBUG_VERTEX_GRID");
 	}
 	String shader = _parse_shader(_shader_code["main"], "", excludes);
 	return shader;
@@ -1340,9 +1349,27 @@ void Terrain3DStorage::set_show_controlmap(bool p_enabled) {
 	_update_material();
 }
 
-void Terrain3DStorage::set_show_grid(bool p_enabled) {
-	LOG(INFO, "Enable show_grid: ", p_enabled);
-	_debug_view_grid = p_enabled;
+void Terrain3DStorage::set_show_texture_height(bool p_enabled) {
+	LOG(INFO, "Enable show_texture_height: ", p_enabled);
+	_debug_view_tex_height = p_enabled;
+	_update_material();
+}
+
+void Terrain3DStorage::set_show_texture_normal(bool p_enabled) {
+	LOG(INFO, "Enable show_texture_normal: ", p_enabled);
+	_debug_view_tex_normal = p_enabled;
+	_update_material();
+}
+
+void Terrain3DStorage::set_show_texture_rough(bool p_enabled) {
+	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
+	_debug_view_tex_rough = p_enabled;
+	_update_material();
+}
+
+void Terrain3DStorage::set_show_vertex_grid(bool p_enabled) {
+	LOG(INFO, "Enable show_vertex_grid: ", p_enabled);
+	_debug_view_vertex_grid = p_enabled;
 	_update_material();
 }
 
@@ -1534,8 +1561,14 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DStorage::get_show_roughmap);
 	ClassDB::bind_method(D_METHOD("set_show_controlmap", "enabled"), &Terrain3DStorage::set_show_controlmap);
 	ClassDB::bind_method(D_METHOD("get_show_controlmap"), &Terrain3DStorage::get_show_controlmap);
-	ClassDB::bind_method(D_METHOD("set_show_grid", "enabled"), &Terrain3DStorage::set_show_grid);
-	ClassDB::bind_method(D_METHOD("get_show_grid"), &Terrain3DStorage::get_show_grid);
+	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3DStorage::set_show_texture_height);
+	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3DStorage::get_show_texture_height);
+	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3DStorage::set_show_texture_normal);
+	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3DStorage::get_show_texture_normal);
+	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3DStorage::set_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3DStorage::get_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DStorage::set_show_vertex_grid);
+	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DStorage::get_show_vertex_grid);
 
 	ClassDB::bind_method(D_METHOD("set_noise_enabled", "enabled"), &Terrain3DStorage::set_noise_enabled);
 	ClassDB::bind_method(D_METHOD("get_noise_enabled"), &Terrain3DStorage::get_noise_enabled);
@@ -1566,7 +1599,10 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap", PROPERTY_HINT_NONE), "set_show_colormap", "get_show_colormap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE), "set_show_roughmap", "get_show_roughmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_controlmap", PROPERTY_HINT_NONE), "set_show_controlmap", "get_show_controlmap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid", PROPERTY_HINT_NONE), "set_show_grid", "get_show_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE), "set_show_texture_height", "get_show_texture_height");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE), "set_show_texture_normal", "get_show_texture_normal");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE), "set_show_texture_rough", "get_show_texture_rough");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid", PROPERTY_HINT_NONE), "set_show_vertex_grid", "get_show_vertex_grid");
 
 	ADD_GROUP("World Noise", "noise_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");

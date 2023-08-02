@@ -120,7 +120,10 @@ private:
 	bool _debug_view_colormap = false;
 	bool _debug_view_roughmap = false;
 	bool _debug_view_controlmap = false;
-	bool _debug_view_grid = false;
+	bool _debug_view_tex_height = false;
+	bool _debug_view_tex_normal = false;
+	bool _debug_view_tex_rough = false;
+	bool _debug_view_vertex_grid = false;
 
 	bool _noise_enabled = false;
 	float _noise_scale = 2.0;
@@ -239,8 +242,14 @@ public:
 	bool get_show_roughmap() const { return _debug_view_roughmap; }
 	void set_show_controlmap(bool p_enabled);
 	bool get_show_controlmap() const { return _debug_view_controlmap; }
-	void set_show_grid(bool p_enabled);
-	bool get_show_grid() const { return _debug_view_grid; }
+	void set_show_texture_height(bool p_enabled);
+	bool get_show_texture_height() const { return _debug_view_tex_height; }
+	void set_show_texture_normal(bool p_enabled);
+	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
+	void set_show_texture_rough(bool p_enabled);
+	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
+	void set_show_vertex_grid(bool p_enabled);
+	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 
 	void set_noise_enabled(bool p_enabled);
 	bool get_noise_enabled() const { return _noise_enabled; }

@@ -173,12 +173,12 @@ void fragment() {
 
 	float total_weight = 0.0;
 	vec4 normal = vec4(0.0);
-	vec3 color = vec3(0.0);
+	vec4 color = vec4(0.0);
 
-	color = get_material(UV, index00, vec2(index00UV.xy), weights0.x * weights0.y, total_weight, normal).rgb;
-	color += get_material(UV, index01, vec2(index01UV.xy), weights0.x * weights1.y, total_weight, normal).rgb;
-	color += get_material(UV, index10, vec2(index10UV.xy), weights1.x * weights0.y, total_weight, normal).rgb;
-	color += get_material(UV, index11, vec2(index11UV.xy), weights1.x * weights1.y, total_weight, normal).rgb;
+	color = get_material(UV, index00, vec2(index00UV.xy), weights0.x * weights0.y, total_weight, normal);
+	color += get_material(UV, index01, vec2(index01UV.xy), weights0.x * weights1.y, total_weight, normal);
+	color += get_material(UV, index10, vec2(index10UV.xy), weights1.x * weights0.y, total_weight, normal);
+	color += get_material(UV, index11, vec2(index11UV.xy), weights1.x * weights1.y, total_weight, normal);
 	total_weight = 1.0 / total_weight;
 	normal *= total_weight;
 	color *= total_weight;
@@ -191,7 +191,7 @@ void fragment() {
 	}
 
 	// Apply PBR
-	ALBEDO = color * color_tex.rgb;
+	ALBEDO = color.rgb * color_tex.rgb;
 	ROUGHNESS = clamp(fma(color_tex.a-0.5, 2.0, normal.a), 0., 1.);
 	NORMAL_MAP = normal.rgb;
 	NORMAL_MAP_DEPTH = 1.0;
@@ -202,7 +202,10 @@ void fragment() {
 //INSERT: DEBUG_COLORMAP
 //INSERT: DEBUG_ROUGHMAP
 //INSERT: DEBUG_CONTROLMAP
-//INSERT: DEBUG_GRID
+//INSERT: DEBUG_TEXTURE_HEIGHT
+//INSERT: DEBUG_TEXTURE_NORMAL
+//INSERT: DEBUG_TEXTURE_ROUGHNESS
+//INSERT: DEBUG_VERTEX_GRID
 }
 
 )"
