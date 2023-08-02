@@ -170,7 +170,7 @@ public:
 	void update_height_range();
 
 	// Regions
-	void set_region_offsets(const TypedArray<Vector2i> &p_array);
+	void set_region_offsets(const TypedArray<Vector2i> &p_offsets);
 	TypedArray<Vector2i> get_region_offsets() const { return _region_offsets; }
 	int get_region_count() const { return _region_offsets.size(); }
 	Vector2i get_region_offset(Vector3 p_global_position);

@@ -473,9 +473,9 @@ void Terrain3DStorage::update_height_range() {
 	LOG(INFO, "Updated terrain height range: ", _height_range);
 }
 
-void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_array) {
-	LOG(INFO, "Setting region offsets with array sized: ", p_array.size());
-	_region_offsets = p_array;
+void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets) {
+	LOG(INFO, "Setting region offsets with array sized: ", p_offsets.size());
+	_region_offsets = p_offsets;
 
 	_generated_region_map.clear();
 	_generated_region_blend_map.clear();
@@ -1482,7 +1482,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_region_offsets", "offsets"), &Terrain3DStorage::set_region_offsets);
 	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
 	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DStorage::get_region_count);
-	ClassDB::bind_method(D_METHOD("get_region_offset"), &Terrain3DStorage::get_region_offset);
+	ClassDB::bind_method(D_METHOD("get_region_offset", "global_position"), &Terrain3DStorage::get_region_offset);
 	ClassDB::bind_method(D_METHOD("get_region_index", "global_position"), &Terrain3DStorage::get_region_index);
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("add_region", "global_position", "images", "update"), &Terrain3DStorage::add_region, DEFVAL(TypedArray<Image>()), DEFVAL(true));
