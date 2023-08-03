@@ -96,14 +96,10 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 
 vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {
 	float material = index.r * 255.0;
-	float materialOverlay = index.g * 255.0;
 	float r = random(uv_center) * PI;
 	float rand = r * texture_uv_rotation_array[int(material)];
-	float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];
 	vec2 rot = vec2(cos(rand), sin(rand));
-	vec2 rot2 = vec2(cos(rand2), sin(rand2));
 	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)];
-	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)];
 	vec2 ddx = dFdx(matUV);
 	vec2 ddy = dFdy(matUV);
 
@@ -114,6 +110,10 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 	normal.xz = rotate(n.xz, rot.x, -rot.y);
 
 	if (index.b > 0.0) {
+		float materialOverlay = index.g * 255.0;
+		float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];
+		vec2 rot2 = vec2(cos(rand2), sin(rand2));
+		vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)];
 		ddx = dFdx(matUV2);
 		ddy = dFdy(matUV2);
 		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV2, materialOverlay), ddx, ddy);
@@ -123,7 +123,7 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 		normal2.xz = rotate(n.xz, rot2.x, -rot2.y);
 
 		albedo = depth_blend(albedo, albedo.a, albedo2, albedo2.a, index.b);
-		normal = depth_blend(normal, albedo.a, normal2, albedo.a, index.b);
+		normal = depth_blend(normal, albedo.a, normal2, albedo2.a, index.b);
 	}
 
 	normal = pack_normal(normal.xyz, normal.a);
