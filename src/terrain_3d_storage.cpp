@@ -70,7 +70,11 @@ void Terrain3DStorage::_update_surfaces() {
 		Ref<Terrain3DSurface> surface = _surfaces[i];
 
 		if (surface.is_null()) {
+			LOG(ERROR, "Surface at index ", i, " is null, but shouldn't be.");
 			continue;
+		}
+		if (!surface->is_connected("id_changed", Callable(this, "_swap_surfaces"))) {
+			surface->connect("id_changed", Callable(this, "_swap_surfaces"));
 		}
 		if (!surface->is_connected("texture_changed", Callable(this, "update_surface_textures"))) {
 			surface->connect("texture_changed", Callable(this, "update_surface_textures"));
@@ -151,7 +155,7 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 					img = get_filled_image(albedo_size, COLOR_CHECKED, true, Image::FORMAT_RGBA8);
 					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
 					LOG(DEBUG, "ID ", i, " albedo texture is null. Creating a new one. Format: ", img->get_format());
-					surface->set_albedo_texture(ImageTexture::create_from_image(img));
+					surface->get_data()->_albedo_texture = ImageTexture::create_from_image(img);
 				} else {
 					img = tex->get_image();
 					LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
@@ -185,10 +189,10 @@ void Terrain3DStorage::_update_surface_data(bool p_update_textures, bool p_updat
 					img = get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
 					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
 					LOG(DEBUG, "ID ", i, " normal texture is null. Creating a new one. Format: ", img->get_format());
-					surface->set_normal_texture(ImageTexture::create_from_image(img));
+					surface->get_data()->_normal_texture = ImageTexture::create_from_image(img);
 				} else {
-					LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
 					img = tex->get_image();
+					LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
 				}
 
 				normal_texture_array.push_back(img);
@@ -1293,27 +1297,70 @@ Ref<Image> Terrain3DStorage::get_filled_image(Vector2i p_size, Color p_color, bo
 	return img;
 }
 
-void Terrain3DStorage::set_surface(const Ref<Terrain3DSurface> &p_material, int p_index) {
+void Terrain3DStorage::set_surface(int p_index, const Ref<Terrain3DSurface> &p_material) {
 	LOG(INFO, "Setting surface index: ", p_index);
-	if (p_index < get_surface_count()) {
-		if (p_material.is_null()) {
+	if (p_index < 0 || p_index >= SURFACE_MAX_SIZE) {
+		LOG(ERROR, "Invalid surface index: ", p_index, " range is 0-", SURFACE_MAX_SIZE);
+		return;
+	}
+	//Delete surface
+	if (p_material.is_null()) {
+		// If final surface, remove it
+		if (p_index == get_surface_count() - 1) {
+			LOG(DEBUG, "Deleting surface id: ", p_index);
 			Ref<Terrain3DSurface> surface = _surfaces[p_index];
+			surface->disconnect("id_changed", Callable(this, "_swap_surfaces"));
 			surface->disconnect("texture_changed", Callable(this, "update_surface_textures"));
 			surface->disconnect("value_changed", Callable(this, "update_surface_values"));
-			_surfaces.remove_at(p_index);
-		} else {
-			_surfaces[p_index] = p_material;
+			_surfaces.pop_back();
+		} else if (p_index < get_surface_count()) {
+			// Else just clear it
+			Ref<Terrain3DSurface> surface = _surfaces[p_index];
+			surface->clear();
+			surface->get_data()->_surface_id = p_index;
 		}
 	} else {
-		_surfaces.push_back(p_material);
+		// Else Insert/Add Surface
+		// At end if a high number
+		if (p_index >= get_surface_count()) {
+			p_material->get_data()->_surface_id = get_surface_count();
+			_surfaces.push_back(p_material);
+		} else {
+			// Else overwrite an existing slot
+			_surfaces[p_index] = p_material;
+		}
 	}
 	_update_surfaces();
-	notify_property_list_changed();
 }
 
+/**
+ * set_surfaces attempts to keep the surface_id as saved in the resource file.
+ * But if an ID is invalid or already taken, the new ID is changed to the next available one
+ */
 void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
 	LOG(INFO, "Setting surfaces");
-	_surfaces = p_surfaces;
+	int max_size = CLAMP(p_surfaces.size(), 0, SURFACE_MAX_SIZE);
+	_surfaces.resize(max_size);
+	int filled_index = -1;
+	// For all provided surfaces up to MAX SIZE
+	for (int i = 0; i < max_size; i++) {
+		Ref<Terrain3DSurface> surface = p_surfaces[i];
+		int id = surface->get_surface_id();
+		// If saved surface id is in range and doesn't exist, add it
+		if (id >= 0 && id < max_size && !_surfaces[id]) {
+			_surfaces[id] = surface;
+		} else {
+			// Else surface id is invalid or slot is already taken, insert in next available
+			for (int j = filled_index + 1; j < max_size; j++) {
+				if (!_surfaces[j]) {
+					surface->set_surface_id(j);
+					_surfaces[j] = surface;
+					filled_index = j;
+					break;
+				}
+			}
+		}
+	}
 	_update_surfaces();
 }
 
@@ -1436,6 +1483,31 @@ void Terrain3DStorage::set_noise_blend_far(float p_far) {
 		set_noise_blend_near(_noise_blend_far);
 	}
 	RenderingServer::get_singleton()->material_set_param(_material, "noise_blend_far", _noise_blend_far);
+}
+
+void Terrain3DStorage::_swap_surfaces(int p_old_id, int p_new_id) {
+	if (p_old_id < 0 || p_old_id >= _surfaces.size()) {
+		LOG(ERROR, "Old id out of range: ", p_old_id);
+		return;
+	}
+	Ref<Terrain3DSurface> surface_a = _surfaces[p_old_id];
+
+	p_new_id = CLAMP(p_new_id, 0, _surfaces.size() - 1);
+	if (p_new_id == p_old_id) {
+		// Surface_a new id was likely out of range, reset it
+		surface_a->get_data()->_surface_id = p_old_id;
+		return;
+	}
+
+	LOG(DEBUG, "Swapping surfaces id: ", p_old_id, " and id:", p_new_id);
+	Ref<Terrain3DSurface> surface_b = _surfaces[p_new_id];
+	surface_a->get_data()->_surface_id = p_new_id;
+	surface_b->get_data()->_surface_id = p_old_id;
+	_surfaces[p_new_id] = surface_a;
+	_surfaces[p_old_id] = surface_b;
+
+	_update_surfaces();
+	emit_signal("surfaces_changed");
 }
 
 void Terrain3DStorage::update_surface_textures() {
@@ -1563,7 +1635,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_min_max", "image"), &Terrain3DStorage::get_min_max);
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DStorage::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 
-	ClassDB::bind_method(D_METHOD("set_surface", "material", "index"), &Terrain3DStorage::set_surface);
+	ClassDB::bind_method(D_METHOD("set_surface", "index", "material"), &Terrain3DStorage::set_surface);
 	ClassDB::bind_method(D_METHOD("get_surface", "index"), &Terrain3DStorage::get_surface);
 	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
 	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
@@ -1606,6 +1678,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_noise_blend_far"), &Terrain3DStorage::get_noise_blend_far);
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DStorage::get_region_blend_map);
 
+	ClassDB::bind_method(D_METHOD("_swap_surfaces", "old_id", "new_id"), &Terrain3DStorage::_swap_surfaces);
 	ClassDB::bind_method(D_METHOD("update_surface_textures"), &Terrain3DStorage::update_surface_textures);
 	ClassDB::bind_method(D_METHOD("update_surface_values"), &Terrain3DStorage::update_surface_values);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
@@ -1646,4 +1719,5 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), ro_flags), "set_surfaces", "get_surfaces");
 
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
+	ADD_SIGNAL(MethodInfo("surfaces_changed"));
 }

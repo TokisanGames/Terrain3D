@@ -31,14 +31,14 @@ func _enter_tree() -> void:
 
 	surface_list = SurfaceList.new()
 	surface_list.hide()
-	surface_list.connect("resource_changed", _on_surface_list_resource_changed)
-	surface_list.connect("resource_inspected", _on_surface_list_resource_selected)
-	surface_list.connect("resource_selected", ui._on_setting_changed)
+	surface_list.resource_changed.connect(_on_surface_list_resource_changed)
+	surface_list.resource_inspected.connect(_on_surface_list_resource_selected)
+	surface_list.resource_selected.connect(ui._on_setting_changed)
 	
 	region_gizmo = RegionGizmo.new()
 	
 	add_control_to_container(surface_list_container, surface_list)
-	surface_list.get_parent().connect("visibility_changed", _on_surface_list_visibility_changed)
+	surface_list.get_parent().visibility_changed.connect(_on_surface_list_visibility_changed)
 
 
 func _exit_tree() -> void:
@@ -65,8 +65,8 @@ func _edit(object: Object) -> void:
 		terrain.add_gizmo(region_gizmo)
 		terrain.set_plugin(self)
 		
-		if not terrain.is_connected("storage_changed", _load_storage):
-			terrain.connect("storage_changed", _load_storage)
+		if not terrain.storage_changed.is_connected(_load_storage):
+			terrain.storage_changed.connect(_load_storage)
 		_load_storage()
 
 		
@@ -79,7 +79,7 @@ func _make_visible(visible: bool) -> void:
 	
 func _clear() -> void:
 	if is_terrain_valid():
-		terrain.disconnect("storage_changed", _load_storage)
+		terrain.storage_changed.disconnect(_load_storage)
 		
 		terrain.clear_gizmos()
 		terrain = null
@@ -175,6 +175,19 @@ func is_terrain_valid() -> bool:
 		valid = terrain.get_storage() != null
 	return valid
 
+
+func update_surface_list() -> void:
+		surface_list.clear()
+		
+		if is_terrain_valid():
+			var surface_count: int = terrain.get_storage().get_surfaces().size()
+			for i in surface_count:
+				var surface: Terrain3DSurface = terrain.get_storage().get_surface(i)
+				surface_list.add_item(surface)
+				
+			if surface_count < 32: # Limit of 5 bits in control map
+				surface_list.add_item()
+
 	
 func update_grid() -> void:
 	if !region_gizmo.get_node_3d():
@@ -205,31 +218,29 @@ func add_control_to_bottom(control: Control) -> void:
 
 # Signal handlers
 
+	
 func _load_storage() -> void:
 	if terrain:
-		surface_list.clear()
-		
-		if is_terrain_valid():
-			var surface_count: int = terrain.get_storage().get_surfaces().size()
-			for i in surface_count:
-				var surface: Terrain3DSurface = terrain.get_storage().get_surface(i)
-				surface_list.add_item(surface)
-				
-			if surface_count < 32: # Limit of 5 bits in control map
-				surface_list.add_item()
-				
+		if not terrain.storage.surfaces_changed.is_connected(update_surface_list):
+			terrain.storage.surfaces_changed.connect(update_surface_list)
+		update_surface_list()				
 		update_grid()
-			
-func _on_surface_list_resource_changed(surface, index: int) -> void:
+
+
+func _on_surface_list_resource_changed(surface: Resource, index: int) -> void:
 	if is_terrain_valid():
-		terrain.get_storage().set_surface(surface, index)
+		# If removing last entry and its selected, clear inspector
+		if not surface and index == surface_list.get_selected_index() and \
+				surface_list.get_selected_index() == surface_list.entries.size() - 2:
+			get_editor_interface().inspect_object(null)			
+		terrain.get_storage().set_surface(index, surface)
 		call_deferred("_load_storage")
 
-		
+
 func _on_surface_list_resource_selected(surface) -> void:
 	get_editor_interface().inspect_object(surface, "", true)
 
-	
+
 func _on_surface_list_visibility_changed() -> void:
 	if surface_list.get_parent() != null:
 		remove_control_from_container(surface_list_container, surface_list)
