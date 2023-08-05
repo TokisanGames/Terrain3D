@@ -205,7 +205,7 @@ void Terrain3D::_update_collision() {
 			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
 			PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, i, xform);
 			PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
-			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layers);
+			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
 			PhysicsServer3D::get_singleton()->body_set_collision_priority(_static_body, _collision_priority);
 		} else {
 			CollisionShape3D *debug_col_shape;
@@ -775,8 +775,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_enabled"), &Terrain3D::get_collision_enabled);
 	ClassDB::bind_method(D_METHOD("set_show_debug_collision", "enabled"), &Terrain3D::set_show_debug_collision);
 	ClassDB::bind_method(D_METHOD("get_show_debug_collision"), &Terrain3D::get_show_debug_collision);
-	ClassDB::bind_method(D_METHOD("set_collision_layers", "layers"), &Terrain3D::set_collision_layers);
-	ClassDB::bind_method(D_METHOD("get_collision_layers"), &Terrain3D::get_collision_layers);
+	ClassDB::bind_method(D_METHOD("set_collision_layer", "layers"), &Terrain3D::set_collision_layer);
+	ClassDB::bind_method(D_METHOD("get_collision_layer"), &Terrain3D::get_collision_layer);
 	ClassDB::bind_method(D_METHOD("set_collision_mask", "mask"), &Terrain3D::set_collision_mask);
 	ClassDB::bind_method(D_METHOD("get_collision_mask"), &Terrain3D::get_collision_mask);
 	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
@@ -797,7 +797,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layers", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layers", "get_collision_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
 

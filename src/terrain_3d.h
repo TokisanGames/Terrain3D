@@ -78,7 +78,7 @@ private:
 	StaticBody3D *_debug_static_body = nullptr;
 	bool _collision_enabled = true;
 	bool _show_debug_collision = false;
-	uint32_t _collision_layers = 1;
+	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
 
@@ -125,8 +125,8 @@ public:
 	int get_collision_enabled() const { return _collision_enabled; }
 	void set_show_debug_collision(bool p_enabled);
 	int get_show_debug_collision() const { return _show_debug_collision; }
-	void set_collision_layers(uint32_t p_layers) { _collision_layers = p_layers; }
-	uint32_t get_collision_layers() const { return _collision_layers; };
+	void set_collision_layer(uint32_t p_layers) { _collision_layer = p_layers; }
+	uint32_t get_collision_layer() const { return _collision_layer; };
 	void set_collision_mask(uint32_t p_mask) { _collision_mask = p_mask; }
 	uint32_t get_collision_mask() const { return _collision_mask; };
 	void set_collision_priority(real_t p_priority) { _collision_priority = p_priority; }
