@@ -22,6 +22,10 @@ var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 
+# Makeshift Baker - see issue #46
+var baker_plugin:NavBakerPlugin
+var unpacker_plugin:UnpackerPlugin
+
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
@@ -40,12 +44,20 @@ func _enter_tree() -> void:
 	add_control_to_container(surface_list_container, surface_list)
 	surface_list.get_parent().connect("visibility_changed", _on_surface_list_visibility_changed)
 
+  baker_plugin = NavBakerPlugin.new()
+	add_inspector_plugin(baker_plugin)
+	unpacker_plugin = UnpackerPlugin.new()
+	add_inspector_plugin(unpacker_plugin)
+
 
 func _exit_tree() -> void:
 	remove_control_from_container(surface_list_container, surface_list)
 	surface_list.queue_free()
 	ui.queue_free()
 	editor.free()
+
+  remove_inspector_plugin(baker_plugin)
+	remove_inspector_plugin(unpacker_plugin)
 
 	
 func _handles(object: Object) -> bool:
