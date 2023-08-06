@@ -56,9 +56,23 @@ func _thread() -> void:
 
 
 func _bake_region() -> void:
-	progress.clear()
-	progress.resize(area)
-	progress.fill("[color=orange]#[/color]")
+	# dumb mistake proofing (for me)
+	if navmesh_template == null:
+		push_error("Chunk Baker: Chunk baker must have a template navmesh.")
+		return
+	if navmesh_template.filter_baking_aabb.size == Vector3.ZERO:
+		push_error("Chunk Baker: Please define bake chunk sizes by setting the Navmesh Template's Filter>Filter Baking AABB size.")
+		return
+	if terrain == null:
+		push_error("Chunk Baker: Please assign a terrain.")
+	if bake_region >= region_offsets.size():
+		push_error("Chunk Baker: Attempt to bake region index %s, but the terrain doesn't have that many regions.")
+		return
+	
+	if pretty_print:
+		progress.clear()
+		progress.resize(area)
+		progress.fill("[color=orange]#[/color]")
 	
 	task_id = WorkerThreadPool.add_group_task(_work, area)
 	WorkerThreadPool.wait_for_group_task_completion(task_id)
@@ -95,7 +109,7 @@ func _setup_nav() -> void:
 
 func _teardown() -> void:
 	print("Tearing down.")
-	ResourceSaver.save(bundle, "%s/%s_%s_bundle.tres" % [bake_path, name, Time.get_unix_time_from_system()])
+	ResourceSaver.save(bundle, "%s/%s_%s_bundle.res" % [bake_path, name, Time.get_unix_time_from_system()])
 	bundle = null
 
 
