@@ -6,7 +6,8 @@ extends Node3D
 @export var navmesh_template:NavigationMesh
 @export_dir() var bake_path:String
 @export var terrain:Terrain3D
-@export_range(0, 100, 1, "or_greater") var bake_region:int
+@export_range(-1, 15) var bake_region:int
+@export var pretty_print:bool = true
 var region_done:bool
 var bundle:NavmeshBundle
 var region_offsets:Array[Vector2i]:
@@ -24,54 +25,72 @@ var area:int:
 var task_id:int
 var parsed_geometry:NavigationMeshSourceGeometryData3D
 var xz:Rect2
+var to_bake:int
+var region_uv:Vector2i
+var bake_thread:Thread
+var progress:PackedStringArray
+var current_region:int
 
 signal setup_finished
 
 
 ## Bakes a navigation mesh group for a [class Terrain3D], and any child nodes as usual. It wraps it in a [class NavmeshBundle] and saves it to disk.
 func bake_terrain() -> void:
-	_setup()
+	if not bake_thread == null:
+		bake_thread.wait_to_finish()
 	
-	print("Setting up worker pool")
-	task_id = WorkerThreadPool.add_group_task(_work, area)
-	WorkerThreadPool.wait_for_group_task_completion(task_id)
-	
+	_setup_nav()
+	bake_thread = Thread.new()
+	bake_thread.start(_thread.bind())
+
+
+func _thread() -> void:
+	if bake_region == -1:
+		for r in range(region_offsets.size()):
+			_set_size(r)
+			_bake_region()
+	else:
+		_set_size(bake_region)
+		_bake_region()
 	_teardown()
 
 
-func stop() -> void:
-	stop_it = true
+func _bake_region() -> void:
+	progress.clear()
+	progress.resize(area)
+	progress.fill("[color=orange]#[/color]")
+	
+	task_id = WorkerThreadPool.add_group_task(_work, area)
+	WorkerThreadPool.wait_for_group_task_completion(task_id)
 
 
-func _wrap_up() -> void:
-	ResourceSaver.save(bundle, "%s/%s_bundle.tres" % [bake_path, name])
-	print("Finished baking.")
-
-
-func _setup() -> void:
-	print("Setting up worker.")
-	var offsets = region_offsets
-	var region_uv = offsets[bake_region]
-	# Grab region info
+func _set_size(r:int) -> void:
+	current_region = r
+	region_uv = region_offsets[r]
 	var region_center:Vector2 = region_uv*region_size
-	#var region_index = terrain.storage.get_region_index(Vector3(region_center.x, 0, region_center.y))
 	xz = Rect2(region_center.x - region_size*.5, region_center.y - region_size*.5, region_size, region_size)
+	print("Setting bounds for region %s: %s - %s" % [r, xz.position, xz.end])
 	var aabb:AABB = navmesh_template.filter_baking_aabb
 	
-	bundle = NavmeshBundle.new()
 	width = range(xz.position.x, xz.end.x, aabb.size.x).size() # may need to -1
 	height = range(xz.position.y, xz.end.y, aabb.size.z).size()
+
+
+func _setup_nav() -> void:
+	_set_size(0)
 	# Fill bundle
-	for _i in range(area):
+	bundle = NavmeshBundle.new()
+	for _i in range(area * region_offsets.size() if bake_region == -1 else area):
 		bundle.meshes.append(navmesh_template.duplicate())
 	# parse geometry
 	var nm:NavigationMesh = navmesh_template.duplicate()
 	nm.filter_baking_aabb = AABB()
 	nm.filter_baking_aabb_offset = Vector3.ZERO
-	print("Parsing geometry...")
+	print("Parsing geometry on the main thread...")
 	parsed_geometry = NavigationMeshSourceGeometryData3D.new()
-	NavigationMeshGenerator.parse_source_geometry_data(nm, parsed_geometry, self, func(): print("Parsed geometry."))
-	print("Finished setup.")
+	NavigationMeshGenerator.parse_source_geometry_data(nm, parsed_geometry, self, func(): 
+		print("Parsed geometry.")
+		)
 
 
 func _teardown() -> void:
@@ -79,17 +98,21 @@ func _teardown() -> void:
 	ResourceSaver.save(bundle, "%s/%s_%s_bundle.tres" % [bake_path, name, Time.get_unix_time_from_system()])
 	bundle = null
 
+
 func _work(index:int) -> void:
 	var size = (navmesh_template.filter_baking_aabb as AABB).size
 	var pos_offset = Vector3(_get_x(index % width), 0, _get_y(floori(index / height)))
-	print(pos_offset)
 	
 	var agent_diameter = navmesh_template.agent_radius * 2
-	bundle.meshes[index].filter_baking_aabb.size = size + Vector3(agent_diameter, 0, agent_diameter) # expand to compensate for agent diameter
-	bundle.meshes[index].filter_baking_aabb_offset = pos_offset
+	var offset_index = index + ((area * current_region) if bake_region == -1 else 0) # offset index if going through indices so we don't write to the same chunk of meshes over and over
+	bundle.meshes[offset_index].filter_baking_aabb.size = size + Vector3(agent_diameter, 0, agent_diameter) # expand to compensate for agent diameter
+	bundle.meshes[offset_index].filter_baking_aabb_offset = pos_offset
 	
-	print("Baking chunk %s..." % index)
-	NavigationMeshGenerator.bake_from_source_geometry_data(bundle.meshes[index], parsed_geometry, func(): print("Chunk %s finished." % index))
+	NavigationMeshGenerator.bake_from_source_geometry_data(bundle.meshes[offset_index], parsed_geometry, func():
+		if pretty_print:
+			progress[index] = "[color=green]#[/color]"
+			print_progress()
+		)
 
 
 func _get_x(x:int) -> float:
@@ -98,3 +121,9 @@ func _get_x(x:int) -> float:
 
 func _get_y(y:int) -> float:
 	return lerp(xz.position.y, xz.end.y, y as float / height as float)
+
+
+func print_progress() -> void:
+	print("\n\n\n\n")
+	print("Baking region %s" % current_region)
+	print_rich("".join(progress))
