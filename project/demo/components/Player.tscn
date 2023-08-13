@@ -1,7 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://dgkfas2hgwob4"]
+[gd_scene load_steps=7 format=3 uid="uid://dgkfas2hgwob4"]
 
 [ext_resource type="Script" path="res://demo/src/Player.gd" id="1_nm1yx"]
 [ext_resource type="Script" path="res://demo/src/CameraManager.gd" id="2_loos7"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_smq6u"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lwhhq"]
 height = 1.5
@@ -11,6 +13,7 @@ height = 1.5
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_lsqiy"]
 
 [node name="Player" type="CharacterBody3D"]
+collision_layer = 2
 script = ExtResource("1_nm1yx")
 
 [node name="CameraManager" type="Node3D" parent="."]
@@ -19,7 +22,9 @@ script = ExtResource("2_loos7")
 [node name="Arm" type="SpringArm3D" parent="CameraManager"]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 2.32515, -0.0321627)
+shape = SubResource("SphereShape3D_smq6u")
 spring_length = 4.0
+margin = 0.5
 
 [node name="Camera3D" type="Camera3D" parent="CameraManager/Arm"]
 unique_name_in_owner = true

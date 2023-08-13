@@ -83,3 +83,4 @@ transform = Transform3D(0.0774673, 0, -0.996995, 0, 1, 0, 0.996995, 0, 0.0774673
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
 storage = ExtResource("5_sl43a")
+collision_mask = 3
