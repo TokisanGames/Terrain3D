@@ -131,7 +131,6 @@ void Terrain3D::_update_collision() {
 	int shape_size = region_size + 1;
 
 	for (int i = 0; i < _storage->get_region_count(); i++) {
-		Dictionary shape_data;
 		PackedFloat32Array map_data = PackedFloat32Array();
 		map_data.resize(shape_size * shape_size);
 
@@ -192,17 +191,17 @@ void Terrain3D::_update_collision() {
 		// Rotated shape Y=90 for -90 rotated array index
 		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), PI * .5), global_pos);
 
-		shape_data["width"] = shape_size;
-		shape_data["depth"] = shape_size;
-		shape_data["heights"] = map_data;
-		Vector2 min_max = _storage->get_height_range();
-		shape_data["min_height"] = min_max.x;
-		shape_data["max_height"] = min_max.y;
-
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
-			PhysicsServer3D::get_singleton()->body_add_shape(_static_body, shape);
+			Dictionary shape_data;
+			shape_data["width"] = shape_size;
+			shape_data["depth"] = shape_size;
+			shape_data["heights"] = map_data;
+			Vector2 min_max = _storage->get_height_range();
+			shape_data["min_height"] = min_max.x;
+			shape_data["max_height"] = min_max.y;
 			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
+			PhysicsServer3D::get_singleton()->body_add_shape(_static_body, shape);
 			PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, i, xform);
 			PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
 			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
@@ -221,6 +220,9 @@ void Terrain3D::_update_collision() {
 			hshape->set_map_data(map_data);
 			debug_col_shape->set_shape(hshape);
 			debug_col_shape->set_global_transform(xform);
+			_debug_static_body->set_collision_mask(_collision_mask);
+			_debug_static_body->set_collision_layer(_collision_layer);
+			_debug_static_body->set_collision_priority(_collision_priority);
 		}
 	}
 	LOG(DEBUG, "Collision creation time: ", Time::get_singleton()->get_ticks_msec() - time, " ms");
