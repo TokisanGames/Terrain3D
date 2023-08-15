@@ -22,8 +22,14 @@ var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 
+var first_run: bool false
+
 
 func _enter_tree() -> void:
+	if ClassDB.class_exists("Terrain3DEditor"):
+		first_run = true
+		OS.alert("Restart the editor to use the Terrain3D plugin")
+		return
 	editor = Terrain3DEditor.new()
 	ui = UI.new()
 	ui.plugin = self
@@ -42,6 +48,8 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	if first_run:
+		return
 	remove_control_from_container(surface_list_container, surface_list)
 	surface_list.queue_free()
 	ui.queue_free()
