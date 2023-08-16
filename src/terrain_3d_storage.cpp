@@ -908,7 +908,7 @@ void Terrain3DStorage::save() {
 /**
  * Loads a file from disk and returns an Image
  * Parameters:
- *	p_filename - file on disk to load. EXR, R16, PNG, or a ResourceLoader format (jpg, res, tres, etc)
+ *	p_filename - file on disk to load. EXR, R16/RAW, PNG, or a ResourceLoader format (jpg, res, tres, etc)
  *	p_cache_mode - Send this flag to the resource loader to force caching or not
  *	p_height_range - R16 format: x=Min & y=Max value ranges. Required for R16 import
  *	p_size - R16 format: Image dimensions. Default (0,0) auto detects f/ square images. Required f/ non-square R16
@@ -930,7 +930,7 @@ Ref<Image> Terrain3DStorage::load_image(String p_file_name, int p_cache_mode, Ve
 	PackedStringArray imgloader_extensions = PackedStringArray(Array::make("bmp", "dds", "exr", "hdr", "jpg", "jpeg", "png", "tga", "svg", "webp"));
 
 	// If R16 integer format (read/writeable by Krita)
-	if (ext == "r16") {
+	if (ext == "r16" || ext == "raw") {
 		LOG(DEBUG, "Loading file as an r16");
 		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::READ);
 		// If p_size is zero, assume square and try to auto detect size
@@ -1090,7 +1090,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 	} // for y < slices_height, x < slices_width
 }
 
-/** Exports a specified map as one of r16, exr, jpg, png, webp, res, tres
+/** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres
  * r16 or exr are recommended for roundtrip external editing
  * r16 can be edited by Krita, however you must know the dimensions and min/max before reimporting
  * res/tres allow storage in any of Godot's native Image formats.
@@ -1133,7 +1133,7 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 	String ext = p_file_name.get_extension().to_lower();
 	LOG(MESG, "Saving ", img->get_size(), " sized ", TYPESTR[p_map_type],
 			" map in format ", img->get_format(), " as ", ext, " to: ", p_file_name);
-	if (ext == "r16") {
+	if (ext == "r16" || ext == "raw") {
 		Vector2i minmax = get_min_max(img);
 		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::WRITE);
 		float height_min = minmax.x;
