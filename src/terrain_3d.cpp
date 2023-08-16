@@ -679,6 +679,14 @@ void Terrain3D::_notification(int p_what) {
 			set_process(true);
 			if (_storage.is_valid()) {
 				_storage->_clear_modified();
+			} else {
+				LOG(INFO, "Building blank storage");
+				_storage.instantiate();
+				if (!_valid) {
+					build(_clipmap_levels, _clipmap_size);
+					// Create checkered view
+					_storage->update_surface_values();
+				}
 			}
 			break;
 		}
