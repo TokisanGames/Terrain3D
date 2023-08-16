@@ -28,6 +28,7 @@ var visible: bool = false
 var picking: int = Terrain3DEditor.TOOL_MAX
 var picking_callback: Callable
 var decal: Decal
+var decal_timer: Timer
 var brush_data: Dictionary
 @onready var picker_texture: ImageTexture =  ImageTexture.create_from_image(Image.load_from_file(RING1))
 
@@ -47,6 +48,12 @@ func _enter_tree() -> void:
 
 	decal = Decal.new()
 	add_child(decal)
+	decal_timer = Timer.new()
+	decal_timer.wait_time = .5
+	decal_timer.timeout.connect(Callable(func(n):
+		if n:
+			get_tree().create_tween().tween_property(n, "albedo_mix", 0.0, 0.15)).bind(decal))
+	add_child(decal_timer)
 	
 
 func _exit_tree() -> void:
@@ -55,6 +62,7 @@ func _exit_tree() -> void:
 	toolbar.queue_free()
 	toolbar_settings.queue_free()
 	decal.queue_free()
+	decal_timer.queue_free()
 
 	
 func set_visible(p_visible: bool) -> void:
@@ -212,6 +220,9 @@ func update_decal() -> void:
 				decal.modulate = Color.WHITE
 
 	decal.modulate.a = max(.3, brush_data["opacity"])
+	decal.albedo_mix = 1.0
+	decal_timer.start()
+
 
 
 func set_decal_rotation(rot: float) -> void:

@@ -107,6 +107,9 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			var t = -Vector3(0, 1, 0).dot(camera_pos) / Vector3(0, 1, 0).dot(camera_dir)
 			mouse_global_position = (camera_pos + t * camera_dir)
 		ui.decal.global_position = mouse_global_position
+		if not Input.get_mouse_button_mask() & MOUSE_BUTTON_RIGHT:
+			ui.decal.albedo_mix = 1.0
+			ui.decal_timer.start()
 
 		# Update region highlight
 		var region_size = terrain.get_storage().get_region_size()
