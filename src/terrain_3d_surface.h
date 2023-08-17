@@ -2,10 +2,6 @@
 #ifndef TERRAIN3D_SURFACE_CLASS_H
 #define TERRAIN3D_SURFACE_CLASS_H
 
-#ifdef WIN32
-#include <windows.h>
-#endif
-
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 

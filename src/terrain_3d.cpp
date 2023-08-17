@@ -506,7 +506,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	_valid = true;
 	update_aabbs();
 	// Force a snap update
-	_camera_last_position = Vector2(FLT_MAX, FLT_MAX);
+	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
 }
 
 /**
@@ -665,7 +665,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 			return highest_point;
 		}
 	}
-	return Vector3(FLT_MAX, FLT_MAX, FLT_MAX);
+	return Vector3(__FLT_MAX__, __FLT_MAX__, __FLT_MAX__);
 }
 
 ///////////////////////////

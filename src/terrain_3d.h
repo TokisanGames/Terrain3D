@@ -2,12 +2,8 @@
 #ifndef TERRAIN3D_CLASS_H
 #define TERRAIN3D_CLASS_H
 
-#ifdef WIN32
-#include <windows.h>
-#endif
-
-#ifndef FLT_MAX
-#define FLT_MAX __FLT_MAX__
+#ifndef __FLT_MAX__
+#define __FLT_MAX__ FLT_MAX
 #endif
 
 #ifndef PI
@@ -57,7 +53,7 @@ private:
 	// Current editor or gameplay camera we are centering the terrain on.
 	Camera3D *_camera = nullptr;
 	// X,Z Position of the camera during the previous snapping. Set to max float value to force a snap update.
-	Vector2 _camera_last_position = Vector2(FLT_MAX, FLT_MAX);
+	Vector2 _camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
 
 	// Meshes and Mesh instances
 	Vector<RID> _meshes;

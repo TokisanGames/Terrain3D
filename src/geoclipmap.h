@@ -2,10 +2,6 @@
 #ifndef GEOCLIPMAP_CLASS_H
 #define GEOCLIPMAP_CLASS_H
 
-#ifdef WIN32
-#include <windows.h>
-#endif
-
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/templates/vector.hpp>
 

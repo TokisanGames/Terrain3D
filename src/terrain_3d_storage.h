@@ -2,10 +2,6 @@
 #ifndef TERRAIN3D_STORAGE_CLASS_H
 #define TERRAIN3D_STORAGE_CLASS_H
 
-#ifdef WIN32
-#include <windows.h>
-#endif
-
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 
