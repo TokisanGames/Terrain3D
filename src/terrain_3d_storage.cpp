@@ -870,6 +870,26 @@ TypedArray<Image> Terrain3DStorage::sanitize_maps(MapType p_map_type, const Type
 	return images;
 }
 
+void Terrain3DStorage::force_update_maps(MapType p_map_type) {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			_generated_height_maps.clear();
+			break;
+		case TYPE_CONTROL:
+			_generated_control_maps.clear();
+			break;
+		case TYPE_COLOR:
+			_generated_color_maps.clear();
+			break;
+		default:
+			_generated_height_maps.clear();
+			_generated_control_maps.clear();
+			_generated_color_maps.clear();
+			break;
+	}
+	_update_regions();
+}
+
 void Terrain3DStorage::save() {
 	if (!_modified) {
 		LOG(DEBUG, "Save requested, but not modified. Skipping");
@@ -1520,26 +1540,6 @@ void Terrain3DStorage::update_surface_values() {
 	_update_surface_data(false, true);
 }
 
-void Terrain3DStorage::force_update_maps(MapType p_map_type) {
-	switch (p_map_type) {
-		case TYPE_HEIGHT:
-			_generated_height_maps.clear();
-			break;
-		case TYPE_CONTROL:
-			_generated_control_maps.clear();
-			break;
-		case TYPE_COLOR:
-			_generated_color_maps.clear();
-			break;
-		default:
-			_generated_height_maps.clear();
-			_generated_control_maps.clear();
-			_generated_color_maps.clear();
-			break;
-	}
-	_update_regions();
-}
-
 void Terrain3DStorage::print_audit_data() {
 	LOG(INFO, "Dumping storage data");
 
@@ -1627,6 +1627,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DStorage::get_color);
 	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DStorage::get_control);
 	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DStorage::get_roughness);
+	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DStorage::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(Vector2i(0, 0)));
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
@@ -1681,7 +1682,6 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_swap_surfaces", "old_id", "new_id"), &Terrain3DStorage::_swap_surfaces);
 	ClassDB::bind_method(D_METHOD("update_surface_textures"), &Terrain3DStorage::update_surface_textures);
 	ClassDB::bind_method(D_METHOD("update_surface_values"), &Terrain3DStorage::update_surface_values);
-	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");

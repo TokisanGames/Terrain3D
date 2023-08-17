@@ -200,6 +200,7 @@ public:
 	inline float get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
 
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
+	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	// File I/O
 
@@ -267,7 +268,6 @@ public:
 	void _swap_surfaces(int p_old_id, int p_new_id);
 	void update_surface_textures();
 	void update_surface_values();
-	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	// Testing
 
