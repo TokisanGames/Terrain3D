@@ -32,8 +32,17 @@ jobs:
       - name: Setup python & scons
         uses: ./.github/actions/base-deps
 
+      - name: Setup build cache
+        uses: ./.github/actions/build-cache
+        with:
+          cache-name: ${{ matrix.identifier }}
+        continue-on-error: true
+
       - name: Compile extension
         shell: sh
+        env:
+            SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+            SCONS_CACHE_LIMIT: 7168
         run: |
           scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
           ls -l project/addons/terrain_3d/bin/
@@ -43,9 +52,7 @@ jobs:
         run: |
           strip project/addons/terrain_3d/bin/libterrain.*
           ls -l project/addons/terrain_3d/bin/
-          for addon in ${{ github.workspace }}/project/addons/terrain_3d/; do
-            cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' "$addon"
-          done
+          cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3

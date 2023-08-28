@@ -1,29 +1,43 @@
-﻿name: 🍎 macOS Builds
-on: [ workflow_call, workflow_dispatch ]
+﻿name: 🪟 Build (Windows)
+on: workflow_dispatch
 
 env:
     SCONSFLAGS: verbose=yes
 
 jobs:
-  build-macos:
-    runs-on: "macos-latest"
+  build:
+    runs-on: ${{ matrix.runner }}
     name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: macOS Debug
+          - identifier: windows-debug
+            name: Windows Debug
+            runner: ubuntu-20.04
             target: template_debug
-            platform: macos
-          - name: macOS Release
+            platform: windows
+            arch: x86_64
+          - identifier: windows-release
+            name: Windows Release
+            runner: ubuntu-20.04
             target: template_release
-            platform: macos
+            platform: windows
+            arch: x86_64
 
     steps:
       - name: Checkout project
         uses: actions/checkout@v3
         with:
           submodules: recursive
+
+      - name: (Windows) Install mingw64
+        if: ${{ startsWith(matrix.identifier, 'windows-') }}
+        shell: sh
+        run: |
+          sudo apt-get install mingw-w64
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 
       - name: Setup python & scons
         uses: ./.github/actions/base-deps
@@ -40,7 +54,7 @@ jobs:
       - name: Prepare artifact
         shell: sh
         run: |
-          strip project/addons/terrain_3d/bin/libterrain.macos.{debug,release}.framework/*
+          strip project/addons/terrain_3d/bin/libterrain.*
           ls -l project/addons/terrain_3d/bin/
           cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' ${{ github.workspace }}/project/addons/terrain_3d/
 

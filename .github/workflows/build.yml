@@ -1,6 +1,9 @@
 name: 🛠️ Build All
 on: workflow_dispatch
 
+env:
+    SCONSFLAGS: verbose=yes
+
 jobs:
   build:
     runs-on: ${{ matrix.runner }}
@@ -33,6 +36,18 @@ jobs:
             target: template_release
             platform: windows
             arch: x86_64
+          - name: macOS Debug
+            target: template_debug
+            platform: macos
+          - name: macOS Release
+            target: template_release
+            platform: macos
+          - identifier: android-debug
+            name: Android Debug
+            runner: ubuntu-20.04
+            target: template_debug
+            platform: android
+            arch: arm64
           - identifier: android-release
             name: Android Release
             runner: ubuntu-20.04
@@ -61,38 +76,29 @@ jobs:
       - name: Setup python & scons
         uses: ./.github/actions/base-deps
 
-#       TODO: Cache doesn't work yet. SCons rebuilds the objects even if they already exist. Could be caused by modification dates or extension_api.json.
-#             fetch-depth: 0 May be needed for cache. See: <https://github.com/actions/checkout/issues/468>.
-#      - name: Set up SCons cache
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ${{ github.workspace }}/.scons-cache/
-#            ${{ github.workspace }}/**/.sconsign.dblite
-#            ${{ github.workspace }}/godot-cpp/gen/
-#          key: ${{ matrix.identifier }}-${{ github.ref }}-${{ github.sha }}
-#          restore-keys: |
-#            ${{ matrix.identifier }}-${{ github.ref }}-${{ github.sha }}
-#            ${{ matrix.identifier }}-${{ github.ref }}
-#            ${{ matrix.identifier }}
-
       - name: Compile extension
         shell: sh
-#        env:
-#          SCONS_CACHE: '${{ github.workspace }}/.scons-cache/'
-#          SCONS_CACHE_LIMIT: 8192
+        env:
+            SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+            SCONS_CACHE_LIMIT: 7168
         run: |
-          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
+          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
+          ls -l project/addons/terrain_3d/bin/
+
+      - name: Strip libraries
+        shell: sh
+        run: |
+          if [ -x "project/addons/terrain_3d/bin/libterrain.macos.debug.framework" ]; then
+            strip project/addons/terrain_3d/bin/libterrain.macos.{debug,release}.framework/*
+          else
+            strip project/addons/terrain_3d/bin/libterrain.*
+          fi
           ls -l project/addons/terrain_3d/bin/
 
       - name: Prepare artifact
         shell: sh
         run: |
-          strip project/addons/terrain_3d/bin/libterrain.*
-          ls -l project/addons/terrain_3d/bin/
-          for addon in ${{ github.workspace }}/project/addons/terrain_3d/; do
-            cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' "$addon"
-          done
+          cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3

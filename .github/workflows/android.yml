@@ -1,29 +1,39 @@
-﻿name: 🍎 macOS Builds
+﻿name: 🤖 Android Builds
 on: [ workflow_call, workflow_dispatch ]
 
 env:
     SCONSFLAGS: verbose=yes
 
 jobs:
-  build-macos:
-    runs-on: "macos-latest"
+  build:
+    runs-on: ${{ matrix.runner }}
     name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: macOS Debug
+          - identifier: android-debug
+            name: Android Debug
+            runner: ubuntu-20.04
             target: template_debug
-            platform: macos
-          - name: macOS Release
+            platform: android
+            arch: arm64
+          - identifier: android-release
+            name: Android Release
+            runner: ubuntu-20.04
             target: template_release
-            platform: macos
+            platform: android
+            arch: arm64
 
     steps:
       - name: Checkout project
         uses: actions/checkout@v3
         with:
           submodules: recursive
+
+      - name: (Android) Set up Android dependencies
+        if: ${{ startsWith(matrix.identifier, 'android-') }}
+        uses: ./.github/actions/android-deps
 
       - name: Setup python & scons
         uses: ./.github/actions/base-deps
@@ -40,7 +50,7 @@ jobs:
       - name: Prepare artifact
         shell: sh
         run: |
-          strip project/addons/terrain_3d/bin/libterrain.macos.{debug,release}.framework/*
+          strip project/addons/terrain_3d/bin/libterrain.*
           ls -l project/addons/terrain_3d/bin/
           cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' ${{ github.workspace }}/project/addons/terrain_3d/
 
