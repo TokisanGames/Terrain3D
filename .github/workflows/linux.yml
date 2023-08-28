@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Setup python & scons
-        uses: ./.github/base-deps
+        uses: ./.github/actions/base-deps
 
       - name: Checkout godot-cpp
         uses: actions/checkout@v3
