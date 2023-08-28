@@ -1,0 +1,55 @@
+﻿name: 🐧 Linux Builds
+on: [ workflow_call, workflow_dispatch ]
+
+env:
+    SCONSFLAGS: verbose=yes
+
+jobs:
+  build-linux:
+    runs-on: "ubuntu-20.04"
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - identifier: linux-debug
+            name: Linux Debug
+            target: template_debug
+            platform: linux
+            arch: x86_64
+          - identifier: linux-release
+            name: Linux Release
+            target: template_release
+            platform: linux
+            arch: x86_64
+
+    steps:
+      - name: Setup python & scons
+        uses: ./.github/actions/base-deps
+
+      - name: Checkout godot-cpp
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Compile extension
+        shell: sh
+        run: |
+          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
+          ls -l project/addons/*/bin/
+          strip bin/libterrain.*
+          ls -l project/addons/*/bin/
+
+      - name: Copy extra files to addon
+        shell: sh
+        run: |
+          for addon in ${{ github.workspace }}/project/addons/*/; do
+            cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' "$addon"
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.event.repository.name }}
+          path: |
+            ${{ github.workspace }}/project/

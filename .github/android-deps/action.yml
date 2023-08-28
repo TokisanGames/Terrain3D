@@ -1,0 +1,17 @@
+name: Setup Android Dependencies
+description: Setup Java & Android SDK, Tools
+runs:
+  using: "composite"
+  steps:
+      - name: (Android) Set up Java 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: (Android) Set up Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: (Android) Install Android Tools
+        shell: sh
+        run: |
+          "$ANDROID_SDK_ROOT"/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "build-tools;30.0.3" "platforms;android-29" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;21.4.7075529"

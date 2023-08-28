@@ -1,0 +1,48 @@
+﻿name: 🍎 macOS Builds
+on: [ workflow_call, workflow_dispatch ]
+
+env:
+    SCONSFLAGS: verbose=yes
+
+jobs:
+  build-macos:
+    runs-on: "macos-latest"
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Debug
+            target: template_debug
+            platform: macos
+          - name: macOS Release
+            target: template_release
+            platform: macos
+            sconsflags: debug_symbols=no
+
+    steps:
+      - name: Setup python & scons
+        uses: ./.github/actions/base-deps
+
+      - name: Checkout godot-cpp
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Compile extension
+        shell: sh
+        run: |
+          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
+          ls -l project/addons/*/bin/
+
+      - name: Prepare artifact
+        run: |
+          strip bin/libterrain.*
+          ls -l project/addons/*/bin/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.event.repository.name }}
+          path: |
+            ${{ github.workspace }}/project/
