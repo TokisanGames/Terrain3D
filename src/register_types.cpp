@@ -11,7 +11,7 @@
 
 using namespace godot;
 
-void initialize_terrain_types(ModuleInitializationLevel p_level) {
+void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
@@ -21,7 +21,7 @@ void initialize_terrain_types(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DEditor>();
 }
 
-void uninitialize_terrain_types(ModuleInitializationLevel p_level) {
+void uninitialize_terrain_3d(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
@@ -29,12 +29,15 @@ void uninitialize_terrain_types(ModuleInitializationLevel p_level) {
 
 extern "C" {
 // Initialization.
-GDExtensionBool GDE_EXPORT terrain_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
+GDExtensionBool GDE_EXPORT terrain_library_init(
+		GDExtensionInterfaceGetProcAddress p_get_proc_address,
+		GDExtensionClassLibraryPtr p_library,
+		GDExtensionInitialization *r_initialization) {
 	GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 
-	init_obj.register_initializer(initialize_terrain_types);
-	init_obj.register_terminator(uninitialize_terrain_types);
-	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
+	init_obj.register_initializer(initialize_terrain_3d);
+	init_obj.register_terminator(uninitialize_terrain_3d);
+	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SERVERS);
 
 	return init_obj.init();
 }
