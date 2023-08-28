@@ -18,7 +18,6 @@ jobs:
           - name: macOS Release
             target: template_release
             platform: macos
-            sconsflags: debug_symbols=no
 
     steps:
       - name: Checkout project
@@ -33,12 +32,16 @@ jobs:
         shell: sh
         run: |
           scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
-          ls -l project/addons/*/bin/
+          ls -l project/addons/terrain_3d/bin/
 
       - name: Prepare artifact
+        shell: sh
         run: |
-          strip bin/libterrain.*
-          ls -l project/addons/*/bin/
+          strip project/addons/terrain_3d/bin/libterrain.*
+          ls -l project/addons/terrain_3d/bin/
+          for addon in ${{ github.workspace }}/project/addons/terrain_3d/; do
+            cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' "$addon"
+          done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3

@@ -36,14 +36,14 @@ jobs:
         shell: sh
         run: |
           scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
-          ls -l project/addons/*/bin/
-          strip bin/libterrain.*
-          ls -l project/addons/*/bin/
+          ls -l project/addons/terrain_3d/bin/
 
-      - name: Copy extra files to addon
+      - name: Prepare artifact
         shell: sh
         run: |
-          for addon in ${{ github.workspace }}/project/addons/*/; do
+          strip project/addons/terrain_3d/bin/libterrain.*
+          ls -l project/addons/terrain_3d/bin/
+          for addon in ${{ github.workspace }}/project/addons/terrain_3d/; do
             cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' "$addon"
           done
 
