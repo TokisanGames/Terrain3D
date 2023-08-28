@@ -21,13 +21,13 @@ jobs:
             sconsflags: debug_symbols=no
 
     steps:
-      - name: Setup python & scons
-        uses: ./.github/actions/base-deps
-
-      - name: Checkout godot-cpp
+      - name: Checkout project
         uses: actions/checkout@v3
         with:
           submodules: recursive
+
+      - name: Setup python & scons
+        uses: ./.github/actions/base-deps
 
       - name: Compile extension
         shell: sh

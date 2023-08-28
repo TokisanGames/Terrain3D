@@ -41,6 +41,11 @@ jobs:
             arch: arm64
 
     steps:
+      - name: Checkout project
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
       - name: (Windows) Install mingw64
         if: ${{ startsWith(matrix.identifier, 'windows-') }}
         shell: sh
@@ -55,11 +60,6 @@ jobs:
 
       - name: Setup python & scons
         uses: ./.github/actions/base-deps
-
-      - name: Checkout project
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
 #       TODO: Cache doesn't work yet. SCons rebuilds the objects even if they already exist. Could be caused by modification dates or extension_api.json.
 #             fetch-depth: 0 May be needed for cache. See: <https://github.com/actions/checkout/issues/468>.
