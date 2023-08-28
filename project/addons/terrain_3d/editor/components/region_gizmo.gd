@@ -23,6 +23,7 @@ func _init() -> void:
 	selection_material = material.duplicate()
 	selection_material.set_render_priority(0)
 
+
 func _redraw() -> void:
 	clear()
 	
@@ -30,7 +31,7 @@ func _redraw() -> void:
 
 	if show_rect:
 		var modulate: Color = main_color if !use_secondary_color else secondary_color
-		if abs(region_position.x) > 8 or abs(region_position.y) > 8:
+		if region_position.x > 7 or region_position.y > 7 or region_position.x < -8 or region_position.y < -8:
 			modulate = Color.GRAY
 		draw_rect(rect_position, region_size, selection_material, modulate)
 	
@@ -42,7 +43,8 @@ func _redraw() -> void:
 			
 		draw_rect(grid_tile_position, region_size, material, grid_color)
 		
-	draw_rect(Vector2.ZERO, region_size * 17.0, material, border_color)
+	draw_rect(Vector2(-512,-512), region_size * 16.0, material, border_color)
+	
 	
 func draw_rect(pos: Vector2, size: float, material: StandardMaterial3D, modulate: Color) -> void:
 	var lines: PackedVector3Array = [

@@ -275,9 +275,12 @@ void Terrain3DStorage::_update_regions() {
 
 		for (int i = 0; i < _region_offsets.size(); i++) {
 			Vector2i ofs = _region_offsets[i];
-
+			Vector2i img_pos = Vector2i(ofs + (REGION_MAP_VSIZE / 2));
+			if (img_pos.x >= REGION_MAP_SIZE || img_pos.y >= REGION_MAP_SIZE || img_pos.x < 0 || img_pos.y < 0) {
+				continue;
+			}
 			Color col = Color(float(i + 1) / 255.0, 1.0, 0, 1);
-			region_map_img->set_pixelv(ofs + (REGION_MAP_VSIZE / 2), col);
+			region_map_img->set_pixelv(img_pos, col);
 		}
 		_generated_region_map.create(region_map_img);
 		RenderingServer::get_singleton()->material_set_param(_material, "region_map", _generated_region_map.get_rid());
@@ -515,14 +518,15 @@ int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Vector2i uv_offset = get_region_offset(p_global_position);
 	int index = -1;
 
-	if (ABS(uv_offset.x) > REGION_MAP_SIZE / 2 || ABS(uv_offset.y) > REGION_MAP_SIZE / 2) {
+	Vector2i img_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
+	if (img_pos.x >= REGION_MAP_SIZE || img_pos.y >= REGION_MAP_SIZE || img_pos.x < 0 || img_pos.y < 0) {
 		return index;
 	}
 
 	Ref<Image> img = _generated_region_map.get_image();
 
 	if (img.is_valid()) {
-		index = int(img->get_pixelv(uv_offset + (REGION_MAP_VSIZE / 2)).r * 255.0) - 1;
+		index = int(img->get_pixelv(img_pos).r * 255.0) - 1;
 	} else {
 		for (int i = 0; i < _region_offsets.size(); i++) {
 			Vector2i ofs = _region_offsets[i];
@@ -550,7 +554,8 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 			", array size: ", p_images.size(),
 			", update maps: ", p_update ? "yes" : "no");
 
-	if (ABS(uv_offset.x) > REGION_MAP_SIZE / 2 || ABS(uv_offset.y) > REGION_MAP_SIZE / 2) {
+	Vector2i region_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
+	if (region_pos.x >= REGION_MAP_SIZE || region_pos.y >= REGION_MAP_SIZE || region_pos.x < 0 || region_pos.y < 0) {
 		LOG(ERROR, "Specified position outside of maximum region map size: ", REGION_MAP_SIZE / 2 * _region_size);
 		return FAILED;
 	}
