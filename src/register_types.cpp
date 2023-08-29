@@ -29,7 +29,7 @@ void uninitialize_terrain_3d(ModuleInitializationLevel p_level) {
 
 extern "C" {
 // Initialization.
-GDExtensionBool GDE_EXPORT terrain_library_init(
+GDExtensionBool GDE_EXPORT terrain_3d_init(
 		GDExtensionInterfaceGetProcAddress p_get_proc_address,
 		GDExtensionClassLibraryPtr p_library,
 		GDExtensionInitialization *r_initialization) {

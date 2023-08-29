@@ -56,7 +56,7 @@ jobs:
           ls -l project/addons/terrain_3d/bin/
           strip project/addons/terrain_3d/bin/libterrain.*
           ls -l project/addons/terrain_3d/bin/
-          cp --no-clobber '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' ${{ github.workspace }}/project/addons/terrain_3d/
+          cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3

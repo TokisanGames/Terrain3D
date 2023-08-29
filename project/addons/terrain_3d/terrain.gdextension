@@ -1,17 +1,22 @@
 [configuration]
 
-entry_symbol = "terrain_library_init"
+entry_symbol = "terrain_3d_init"
 compatibility_minimum = 4.1
 
 [libraries]
 
-macos.debug = "bin/libterrain.macos.debug.framework"
-macos.release = "bin/libterrain.macos.release.framework"
 windows.debug.x86_64 = "bin/libterrain.windows.debug.x86_64.dll"
 windows.release.x86_64 = "bin/libterrain.windows.release.x86_64.dll"
+
 linux.debug.x86_64 = "bin/libterrain.linux.debug.x86_64.so"
 linux.release.x86_64 = "bin/libterrain.linux.release.x86_64.so"
 linux.debug.arm64 = "bin/libterrain.linux.debug.arm64.so"
 linux.release.arm64 = "bin/libterrain.linux.release.arm64.so"
 linux.debug.rv64 = "bin/libterrain.linux.debug.rv64.so"
 linux.release.rv64 = "bin/libterrain.linux.release.rv64.so"
+
+macos.debug = "bin/libterrain.macos.debug.framework"
+macos.release = "bin/libterrain.macos.release.framework"
+
+android.debug.arm64 = "libterrain.android.debug.arm64.so"
+android.release.arm64 = "libterrain.android.release.arm64.so"
