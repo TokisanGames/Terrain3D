@@ -18,5 +18,5 @@ linux.release.rv64 = "bin/libterrain.linux.release.rv64.so"
 macos.debug = "bin/libterrain.macos.debug.framework"
 macos.release = "bin/libterrain.macos.release.framework"
 
-android.debug.arm64 = "libterrain.android.debug.arm64.so"
-android.release.arm64 = "libterrain.android.release.arm64.so"
+android.debug.arm64 = "bin/libterrain.android.debug.arm64.so"
+android.release.arm64 = "bin/libterrain.android.release.arm64.so"

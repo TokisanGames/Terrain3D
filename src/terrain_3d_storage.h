@@ -62,7 +62,6 @@ private:
 
 	static const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
-
 	static const int SURFACE_MAX_SIZE = 32;
 
 	class Generated {
