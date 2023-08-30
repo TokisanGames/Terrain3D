@@ -2,7 +2,7 @@
 #ifndef TERRAIN3D_REGISTER_TYPES_H
 #define TERRAIN3D_REGISTER_TYPES_H
 
-void initialize_terrain_types();
-void uninitialize_terrain_types();
+void initialize_terrain_3d();
+void uninitialize_terrain_3d();
 
 #endif // TERRAIN3D_REGISTER_TYPES_H
