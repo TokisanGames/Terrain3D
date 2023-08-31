@@ -38,10 +38,12 @@ jobs:
             arch: x86_64
           - identifier: macos-debug
             name: macOS Debug
+            runner: macos-latest
             target: template_debug
             platform: macos
           - identifier: macos-release
             name: macOS Release
+            runner: macos-latest
             target: template_release
             platform: macos
           - identifier: android-debug
