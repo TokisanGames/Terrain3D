@@ -66,7 +66,7 @@ jobs:
           submodules: recursive
 
       - name: (Windows) Install mingw64
-        if: ${{ startsWith(matrix.identifier, 'windows-') }}
+        if: startsWith(matrix.identifier, 'windows-')
         shell: sh
         run: |
           sudo apt-get install mingw-w64
@@ -74,7 +74,7 @@ jobs:
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 
       - name: (Android) Set up Android dependencies
-        if: ${{ startsWith(matrix.identifier, 'android-') }}
+        if: startsWith(matrix.identifier, 'android-')
         uses: ./.github/actions/android-deps
 
       - name: Setup python & scons
@@ -89,7 +89,7 @@ jobs:
           scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
 
       - name: Strip libraries
-        if: ${{ startsWith(matrix.identifier, 'windows-') }} || ${{ startsWith(matrix.identifier, 'linux-') }}
+        if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')
         shell: sh
         run: |
           ls -l project/addons/terrain_3d/bin/
