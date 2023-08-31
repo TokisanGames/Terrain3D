@@ -1,13 +1,10 @@
 name: 🛠️ Build All
 on: workflow_dispatch
 
-env:
-    SCONSFLAGS: verbose=yes
-
 jobs:
   build:
-    runs-on: ${{ matrix.runner }}
     name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -60,35 +57,38 @@ jobs:
             arch: arm64
 
     steps:
-      - name: Checkout project
+      - name: Checkout Terrain3D
         uses: actions/checkout@v3
         with:
           submodules: recursive
 
-      - name: (Windows) Install mingw64
+      - name: Setup Windows Dependencies
         if: startsWith(matrix.identifier, 'windows-')
-        shell: sh
-        run: |
-          sudo apt-get install mingw-w64
-          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
-          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+        uses: ./.github/actions/windows-deps
 
-      - name: (Android) Set up Android dependencies
+      - name: Setup Android Dependencies
         if: startsWith(matrix.identifier, 'android-')
         uses: ./.github/actions/android-deps
 
-      - name: Setup python & scons
+      - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
 
-      - name: Compile extension
+      - name: Setup Build Cache
+        uses: ./.github/actions/build-cache
+        with:
+          cache-name: ${{ matrix.identifier }}
+        continue-on-error: true
+
+      - name: Build Terrain3D
         shell: sh
         env:
+            SCONSFLAGS: verbose=yes
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
             SCONS_CACHE_LIMIT: 7168
         run: |
-          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' ${{ env.SCONSFLAGS }} -j2
+          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
-      - name: Strip libraries
+      - name: Strip Libraries (Windows/Linux)
         if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')
         shell: sh
         run: |
@@ -96,12 +96,12 @@ jobs:
           strip project/addons/terrain_3d/bin/libterrain.*
           ls -l project/addons/terrain_3d/bin/
 
-      - name: Prepare artifact
+      - name: Include Files
         shell: sh
         run: |
           cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE' ${{ github.workspace }}/project/addons/terrain_3d/
 
-      - name: Upload artifact
+      - name: Upload Package
         uses: actions/upload-artifact@v3
         with:
           name: ${{ github.event.repository.name }}

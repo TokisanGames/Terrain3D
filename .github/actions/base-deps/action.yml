@@ -1,5 +1,5 @@
-name: Setup python and scons
-description: Setup python, install the pip version of scons.
+name: Setup Base Dependencies
+description: Setup python and scons
 inputs:
   python-version:
     description: The python version to use.

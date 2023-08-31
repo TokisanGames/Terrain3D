@@ -1,12 +1,12 @@
-name: Setup build cache
+name: Setup Build Cache
 description: Setup build cache.
 inputs:
   cache-name:
     description: The cache base name (job name by default).
-    default: "${{github.job}}"
+    default: "${{ github.job }}"
   scons-cache:
     description: The scons cache path.
-    default: "${{github.workspace}}/.scons-cache/"
+    default: "${{ github.workspace }}/.scons-cache/"
 runs:
   using: "composite"
   steps:
@@ -14,8 +14,8 @@ runs:
     - name: Load .scons_cache directory
       uses: actions/cache@v3
       with:
-        path: ${{inputs.scons-cache}}
-        key: ${{inputs.cache-name}}-main-${{github.ref}}-${{github.sha}}
+        path: ${{ inputs.scons-cache }}
+        key: ${{ inputs.cache-name }}-main-${{ github.ref }}-${{ github.sha }}
 
         # We try to match an existing cache to restore from it. Each potential key is checked against
         # all existing caches as a prefix. E.g. 'linux-template-minimal' would match any cache that
@@ -29,7 +29,7 @@ runs:
         #   4. A partial match for the same base branch only (not ideal, matches any PR with the same base branch).
 
         restore-keys: |
-          ${{inputs.cache-name}}-main-${{github.ref}}-${{github.sha}}
-          ${{inputs.cache-name}}-main-${{github.ref}}
-          ${{inputs.cache-name}}-main-refs/heads/main
-          ${{inputs.cache-name}}-main
+          ${{ inputs.cache-name }}-main-${{ github.ref }}-${{ github.sha }}
+          ${{ inputs.cache-name }}-main-${{ github.ref }}
+          ${{ inputs.cache-name }}-main-refs/heads/main
+          ${{ inputs.cache-name }}-main
