@@ -15,7 +15,7 @@ runs:
       uses: actions/cache@v3
       with:
         path: ${{ inputs.scons-cache }}
-        key: ${{ inputs.cache-name }}-main-${{ github.ref }}-${{ github.sha }}
+        key: ${{ inputs.cache-name }}-${{ github.ref }}
 
         # We try to match an existing cache to restore from it. Each potential key is checked against
         # all existing caches as a prefix. E.g. 'linux-template-minimal' would match any cache that
@@ -29,7 +29,6 @@ runs:
         #   4. A partial match for the same base branch only (not ideal, matches any PR with the same base branch).
 
         restore-keys: |
-          ${{ inputs.cache-name }}-main-${{ github.ref }}-${{ github.sha }}
-          ${{ inputs.cache-name }}-main-${{ github.ref }}
-          ${{ inputs.cache-name }}-main-refs/heads/main
-          ${{ inputs.cache-name }}-main
+          ${{ inputs.cache-name }}-${{ github.ref }}
+          ${{ inputs.cache-name }}-refs/heads/main
+          ${{ inputs.cache-name }}
