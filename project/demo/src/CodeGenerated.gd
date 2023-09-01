@@ -12,6 +12,7 @@ func _ready():
 
 	# Create a terrain
 	var terrain := Terrain3D.new()
+	terrain.set_collision_enabled(false)
 	terrain.storage = Terrain3DStorage.new()
 	terrain.name = "Terrain3D"
 	add_child(terrain, true)
@@ -29,6 +30,10 @@ func _ready():
 	var img: Image = noise.get_image(1024, 3072)
 	terrain.storage.import_images([img, null, null], Vector3(2048, 0, -1024), 0.0, 300.0)
 
+	# Enable collision. Enable the first if you wish to see it with Debug/Visible Collision Shapes
+#	terrain.set_show_debug_collision(true)
+	terrain.set_collision_enabled(true)
+	
 	# Retreive 512x512 region blur map showing where the regions are
 	var rbmap_rid: RID = terrain.storage.get_region_blend_map()
 	img = RenderingServer.texture_2d_get(rbmap_rid)
