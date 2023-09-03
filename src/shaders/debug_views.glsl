@@ -36,6 +36,7 @@ R"(
 
 //INSERT: DEBUG_CONTROLMAP
 	// Show control map
+	index00.rg *= 8.;	// Since there are only 32 colors, emphasize change between each one
 	ALBEDO = index00.rgb;
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
