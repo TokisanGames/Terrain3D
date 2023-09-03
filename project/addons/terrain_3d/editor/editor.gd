@@ -113,8 +113,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 		# Update region highlight
 		var region_size = terrain.get_storage().get_region_size()
-		var region_position: Vector2 = (Vector2(mouse_global_position.x, mouse_global_position.z) / region_size + Vector2(0.5, 0.5)).floor()
-		if current_region_position != region_position:	
+		var region_position: Vector2 = (Vector2(mouse_global_position.x, mouse_global_position.z) / region_size).floor()
+		if current_region_position != region_position:
 			current_region_position = region_position
 			update_grid()
 

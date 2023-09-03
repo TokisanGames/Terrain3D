@@ -189,7 +189,8 @@ void Terrain3D::_update_collision() {
 		// Non rotated shape for normal array index above
 		//Transform3D xform = Transform3D(Basis(), global_pos);
 		// Rotated shape Y=90 for -90 rotated array index
-		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), PI * .5), global_pos);
+		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), PI * .5),
+				global_pos + Vector3(region_size, 0, region_size) * .5);
 
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();

@@ -511,7 +511,7 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets)
 
 /** Returns a region offset given a location */
 Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
-	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / float(_region_size) + Vector2(0.5, 0.5)).floor());
+	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / float(_region_size)).floor());
 }
 
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
@@ -556,7 +556,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 
 	Vector2i region_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
 	if (region_pos.x >= REGION_MAP_SIZE || region_pos.y >= REGION_MAP_SIZE || region_pos.x < 0 || region_pos.y < 0) {
-		LOG(ERROR, "Specified position outside of maximum region map size: ", REGION_MAP_SIZE / 2 * _region_size);
+		LOG(ERROR, "Specified position outside of maximum region map size: +/-", REGION_MAP_SIZE / 2 * _region_size);
 		return FAILED;
 	}
 
@@ -792,8 +792,7 @@ Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position)
 	Vector2i img_pos = Vector2i(
 			Vector2(p_global_position.x - global_offset.x,
 					p_global_position.z - global_offset.y)
-					.floor() +
-			_region_sizev / 2);
+					.floor());
 	return map->get_pixelv(img_pos);
 }
 

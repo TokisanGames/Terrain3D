@@ -251,9 +251,9 @@ bool Terrain3DEditor::_is_in_bounds(Vector2i p_position, Vector2i p_max_position
 
 Vector2 Terrain3DEditor::_get_uv_position(Vector3 p_global_position, int p_region_size) {
 	Vector2 global_position_2d = Vector2(p_global_position.x, p_global_position.z);
-	Vector2 region_position = global_position_2d / float(p_region_size) + Vector2(0.5, 0.5);
+	Vector2 region_position = global_position_2d / float(p_region_size);
 	region_position = region_position.floor();
-	Vector2 uv_position = ((global_position_2d / float(p_region_size)) + Vector2(0.5, 0.5)) - region_position;
+	Vector2 uv_position = (global_position_2d / float(p_region_size)) - region_position;
 
 	return uv_position;
 }
