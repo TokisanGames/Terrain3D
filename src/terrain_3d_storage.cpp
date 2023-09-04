@@ -223,7 +223,7 @@ void Terrain3DStorage::_update_texture_data(bool p_update_textures, bool p_updat
 			}
 			uv_scales.push_back(texture->get_uv_scale());
 			uv_rotations.push_back(texture->get_uv_rotation());
-			colors.push_back(texture->get_albedo());
+			colors.push_back(texture->get_albedo_color());
 		}
 
 		LOG(DEBUG, "Sending settings to shader");
@@ -902,7 +902,7 @@ void Terrain3DStorage::save() {
 	String path = get_path();
 	LOG(DEBUG, "Saving the terrain data to: " + path);
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
-		LOG(DEBUG, "Saving storage version: ", CURRENT_VERSION);
+		LOG(DEBUG, "Saving storage version: ", vformat("%.2f", CURRENT_VERSION));
 		set_version(CURRENT_VERSION);
 		Error err;
 		if (_save_16_bit) {
@@ -1396,11 +1396,6 @@ void Terrain3DStorage::set_textures(const TypedArray<Terrain3DTexture> &p_textur
 			}
 		}
 	}
-
-	for (int i = 0; i < max_size; i++) {
-		Ref<Terrain3DTexture> tex = _textures[i];
-		LOG(WARN, "Stored Texture: ", tex->get_albedo_texture());
-	}
 	_update_textures();
 }
 
@@ -1593,33 +1588,32 @@ void Terrain3DStorage::print_audit_data() {
 }
 
 // DEPRECATED 0.8.3, remove 0.9-1.0
-void Terrain3DStorage::set_surfaces(const Array &p_surfaces) {
-	LOG(WARN, "Received array from storage ver: ", vformat("%.2f", get_version()), " size: ", p_surfaces.size());
-}
+void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
+	LOG(WARN, "Upgrading texture storage from version: ", vformat("%.2f", get_version()), " size: ", p_surfaces.size());
 
-//void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
-//	LOG(WARN, "Loading surfaces from < 0.8.3 storage and converting to textures: ", p_surfaces.size());
-//	TypedArray<Terrain3DTexture> textures;
-//	textures.resize(p_surfaces.size());
-//
-//	for (int i = 0; i < p_surfaces.size(); i++) {
-//		Ref<Terrain3DSurface> sfc = p_surfaces[i];
-//		//LOG(WARN, "Sfc: ", sfc->get_albedo_texture());
-//		Ref<Terrain3DTexture> tex;
-//		tex.instantiate();
-//		//LOG(WARN, "Tex: ", tex->get_albedo_texture());
-//		memcpy(tex->get_data(), sfc->get_data(), sizeof(Terrain3DTexture::Settings));
-//		LOG(WARN, "Tex2: ", tex->get_name());
-//		LOG(WARN, "Tex2: ", tex->get_texture_id());
-//		LOG(WARN, "Tex2: ", tex->get_albedo());
-//		LOG(WARN, "Tex2: ", tex->get_albedo_texture());
-//		LOG(WARN, "Tex2: ", tex->get_normal_texture());
-//		LOG(WARN, "Tex2: ", tex->get_uv_scale());
-//		LOG(WARN, "Tex2: ", tex->get_uv_rotation());
-//		textures[i] = tex;
-//	}
-//	set_textures(textures);
-//}
+	TypedArray<Terrain3DTexture> textures;
+	textures.resize(p_surfaces.size());
+	LOG(WARN, "Creating new texture list");
+
+	for (int i = 0; i < p_surfaces.size(); i++) {
+		LOG(WARN, "Converting surface: ", i);
+		Ref<Terrain3DSurface> sfc = p_surfaces[i];
+		Ref<Terrain3DTexture> tex;
+		tex.instantiate();
+
+		Terrain3DTexture::Settings *tex_data = tex->get_data();
+		Terrain3DSurface::Settings *sfc_data = sfc->get_data();
+		tex_data->_name = sfc_data->_name;
+		tex_data->_texture_id = sfc_data->_surface_id;
+		tex_data->_albedo_color = sfc_data->_albedo;
+		tex_data->_albedo_texture = sfc_data->_albedo_texture;
+		tex_data->_normal_texture = sfc_data->_normal_texture;
+		tex_data->_uv_scale = sfc_data->_uv_scale;
+		tex_data->_uv_rotation = sfc_data->_uv_rotation;
+		textures[i] = tex;
+	}
+	set_textures(textures);
+}
 
 ///////////////////////////
 // Protected Functions
@@ -1777,6 +1771,5 @@ void Terrain3DStorage::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
 	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
-	//ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), ro_flags), "set_surfaces", "get_surfaces");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Array"), ro_flags), "set_surfaces", "get_surfaces");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), ro_flags), "set_surfaces", "get_surfaces");
 }

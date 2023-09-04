@@ -189,7 +189,7 @@ class ListEntry extends VBoxContainer:
 					draw_texture(add_icon, (get_size() / 2) - (add_icon.get_size() / 2))
 				else:
 					name_label.text = resource.get_name()
-					self_modulate = resource.get_albedo()
+					self_modulate = resource.get_albedo_color()
 					var texture: Texture2D = resource.get_albedo_texture()
 					if texture:
 						draw_texture_rect(texture, rect, false)

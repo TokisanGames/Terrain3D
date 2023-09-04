@@ -40,7 +40,7 @@ Terrain3DTexture::~Terrain3DTexture() {
 void Terrain3DTexture::clear() {
 	_data._name = "New Texture";
 	_data._texture_id = 0;
-	_data._albedo = Color(1.0, 1.0, 1.0, 1.0);
+	_data._albedo_color = Color(1.0, 1.0, 1.0, 1.0);
 	_data._albedo_texture.unref();
 	_data._normal_texture.unref();
 	_data._uv_scale = 0.1f;
@@ -58,8 +58,8 @@ void Terrain3DTexture::set_texture_id(int p_new_id) {
 	emit_signal("id_changed", old_id, p_new_id);
 }
 
-void Terrain3DTexture::set_albedo(Color p_color) {
-	_data._albedo = p_color;
+void Terrain3DTexture::set_albedo_color(Color p_color) {
+	_data._albedo_color = p_color;
 	emit_signal("value_changed");
 }
 
@@ -101,8 +101,8 @@ void Terrain3DTexture::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_name"), &Terrain3DTexture::get_name);
 	ClassDB::bind_method(D_METHOD("set_texture_id", "id"), &Terrain3DTexture::set_texture_id);
 	ClassDB::bind_method(D_METHOD("get_texture_id"), &Terrain3DTexture::get_texture_id);
-	ClassDB::bind_method(D_METHOD("set_albedo", "color"), &Terrain3DTexture::set_albedo);
-	ClassDB::bind_method(D_METHOD("get_albedo"), &Terrain3DTexture::get_albedo);
+	ClassDB::bind_method(D_METHOD("set_albedo_color", "color"), &Terrain3DTexture::set_albedo_color);
+	ClassDB::bind_method(D_METHOD("get_albedo_color"), &Terrain3DTexture::get_albedo_color);
 	ClassDB::bind_method(D_METHOD("set_albedo_texture", "texture"), &Terrain3DTexture::set_albedo_texture);
 	ClassDB::bind_method(D_METHOD("get_albedo_texture"), &Terrain3DTexture::get_albedo_texture);
 	ClassDB::bind_method(D_METHOD("set_normal_texture", "texture"), &Terrain3DTexture::set_normal_texture);
@@ -114,7 +114,7 @@ void Terrain3DTexture::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_id", PROPERTY_HINT_NONE), "set_texture_id", "get_texture_id");
-	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "albedo", PROPERTY_HINT_COLOR_NO_ALPHA), "set_albedo", "get_albedo");
+	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "albedo_color", PROPERTY_HINT_COLOR_NO_ALPHA), "set_albedo_color", "get_albedo_color");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_albedo_texture", "get_albedo_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_normal_texture", "get_normal_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0"), "set_uv_scale", "get_uv_scale");

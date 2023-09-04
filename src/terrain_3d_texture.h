@@ -15,7 +15,7 @@ private:
 	struct Settings {
 		String _name = "New Texture";
 		int _texture_id = 0;
-		Color _albedo = Color(1.0, 1.0, 1.0, 1.0);
+		Color _albedo_color = Color(1.0, 1.0, 1.0, 1.0);
 		Ref<Texture2D> _albedo_texture;
 		Ref<Texture2D> _normal_texture;
 		float _uv_scale = 0.1f;
@@ -38,8 +38,8 @@ public:
 	void set_texture_id(int p_new_id);
 	int get_texture_id() const { return _data._texture_id; }
 
-	void set_albedo(Color p_color);
-	Color get_albedo() const { return _data._albedo; }
+	void set_albedo_color(Color p_color);
+	Color get_albedo_color() const { return _data._albedo_color; }
 
 	void set_albedo_texture(const Ref<Texture2D> &p_texture);
 	Ref<Texture2D> get_albedo_texture() const { return _data._albedo_texture; }

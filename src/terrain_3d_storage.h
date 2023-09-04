@@ -5,8 +5,8 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 
+#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
 #include "terrain_3d_texture.h"
-//#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
 
 class Terrain3D;
 using namespace godot;
@@ -218,7 +218,7 @@ public:
 	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
 	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color = COLOR_BLACK, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
 
-	// Materials
+	// Materials & Textures
 
 	void set_texture(int p_index, const Ref<Terrain3DTexture> &p_material);
 	Ref<Terrain3DTexture> get_texture(int p_index) const { return _textures[p_index]; }
@@ -279,10 +279,8 @@ public:
 	//void set_surface(int p_index, const Ref<Terrain3DSurface> &p_material);
 	//Ref<Terrain3DSurface> get_surface(int p_index) const { return _surfaces[p_index]; }
 
-	//void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
-	//TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
-	void set_surfaces(const Array &p_surfaces);
-	Array get_surfaces() const { return Array(); }
+	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
+	TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
 
 protected:
 	static void _bind_methods();
