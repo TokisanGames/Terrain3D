@@ -224,7 +224,7 @@ func add_control_to_bottom(control: Control) -> void:
 
 	
 func _load_storage() -> void:
-	if terrain:
+	if terrain and terrain.storage:
 		if not terrain.storage.textures_changed.is_connected(update_texture_list):
 			terrain.storage.textures_changed.connect(update_texture_list)
 		update_texture_list()				
@@ -246,7 +246,6 @@ func _on_texture_list_resource_selected(texture) -> void:
 
 
 func _on_texture_list_visibility_changed() -> void:
-	print("Texture list visibility changed")
 	if texture_list.get_parent() != null:
 		remove_control_from_container(texture_list_container, texture_list)
 	

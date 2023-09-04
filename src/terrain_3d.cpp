@@ -12,7 +12,7 @@
 ///////////////////////////
 
 // Initialize static member variable
-int Terrain3D::_debug_level{ DEBUG };
+int Terrain3D::_debug_level{ ERROR };
 
 /**
  * This is a proxy for _process(delta) called by _notification() due to
@@ -347,7 +347,9 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 
 		if (_storage.is_valid()) {
 			LOG(INFO, "Loading storage version: ", vformat("%.2f", p_storage->get_version()));
-			_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
+			if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
+				_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
+			}
 			if (_storage->get_region_count() == 0) {
 				LOG(DEBUG, "Region count 0, adding new region");
 				_storage->call_deferred("add_region", Vector3(0, 0, 0));
