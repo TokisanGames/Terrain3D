@@ -902,6 +902,8 @@ void Terrain3DStorage::save() {
 	String path = get_path();
 	LOG(DEBUG, "Saving the terrain data to: " + path);
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
+		LOG(DEBUG, "Saving storage version: ", CURRENT_VERSION);
+		set_version(CURRENT_VERSION);
 		Error err;
 		if (_save_16_bit) {
 			LOG(DEBUG, "16-bit save requested, converting heightmaps");
@@ -1591,6 +1593,10 @@ void Terrain3DStorage::print_audit_data() {
 }
 
 // DEPRECATED 0.8.3, remove 0.9-1.0
+void Terrain3DStorage::set_surfaces(const Array &p_surfaces) {
+	LOG(WARN, "Received array from storage ver: ", vformat("%.2f", get_version()), " size: ", p_surfaces.size());
+}
+
 //void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
 //	LOG(WARN, "Loading surfaces from < 0.8.3 storage and converting to textures: ", p_surfaces.size());
 //	TypedArray<Terrain3DTexture> textures;
@@ -1769,7 +1775,8 @@ void Terrain3DStorage::_bind_methods() {
 	//ClassDB::bind_method(D_METHOD("set_surface", "index", "material"), &Terrain3DStorage::set_surface);
 	//ClassDB::bind_method(D_METHOD("get_surface", "index"), &Terrain3DStorage::get_surface);
 
-	//ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
-	//ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
+	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
+	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
 	//ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), ro_flags), "set_surfaces", "get_surfaces");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Array"), ro_flags), "set_surfaces", "get_surfaces");
 }

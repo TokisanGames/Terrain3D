@@ -346,6 +346,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 		clear();
 
 		if (_storage.is_valid()) {
+			LOG(INFO, "Loading storage version: ", vformat("%.2f", p_storage->get_version()));
 			_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
 			if (_storage->get_region_count() == 0) {
 				LOG(DEBUG, "Region count 0, adding new region");

@@ -25,6 +25,11 @@ private:
 
 	// Constants & Definitions
 
+	static inline const float CURRENT_VERSION = 0.83;
+	static inline const int REGION_MAP_SIZE = 16;
+	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
+	static inline const int MAX_TEXTURES = 32;
+
 	enum MapType {
 		TYPE_HEIGHT,
 		TYPE_CONTROL,
@@ -62,10 +67,6 @@ private:
 		//SIZE_2048 = 2048,
 	};
 
-	static inline const int REGION_MAP_SIZE = 16;
-	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
-	static inline const int MAX_TEXTURES = 32;
-
 	class Generated {
 	private:
 		RID _rid = RID();
@@ -88,7 +89,7 @@ private:
 	bool _initialized = false;
 	bool _modified = false;
 	bool _save_16_bit = false;
-	float _version = 0.8;
+	float _version = 0.8; // First version, never change
 
 	// Stored Data
 
@@ -280,6 +281,8 @@ public:
 
 	//void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	//TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
+	void set_surfaces(const Array &p_surfaces);
+	Array get_surfaces() const { return Array(); }
 
 protected:
 	static void _bind_methods();
