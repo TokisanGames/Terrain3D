@@ -43,18 +43,18 @@ jobs:
             runner: macos-latest
             target: template_release
             platform: macos
-          - identifier: android-debug
-            name: Android Debug
-            runner: ubuntu-20.04
-            target: template_debug
-            platform: android
-            arch: arm64
-          - identifier: android-release
-            name: Android Release
-            runner: ubuntu-20.04
-            target: template_release
-            platform: android
-            arch: arm64
+          # - identifier: android-debug
+          #   name: Android Debug
+          #   runner: ubuntu-20.04
+          #   target: template_debug
+          #   platform: android
+          #   arch: arm64
+          # - identifier: android-release
+          #   name: Android Release
+          #   runner: ubuntu-20.04
+          #   target: template_release
+          #   platform: android
+          #   arch: arm64
 
     steps:
       - name: Checkout Terrain3D
