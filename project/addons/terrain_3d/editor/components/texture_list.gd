@@ -17,7 +17,7 @@ func _init() -> void:
 	var scroll: ScrollContainer = ScrollContainer.new()
 	var label: Label = Label.new()
 	
-	label.set_text("Surfaces")
+	label.set_text("Textures")
 	label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
 	label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
 	scroll.set_v_size_flags(SIZE_EXPAND_FILL)
@@ -127,10 +127,10 @@ class ListContainer extends Container:
 
 class ListEntry extends VBoxContainer:
 	signal selected()
-	signal changed(resource: Terrain3DSurface)
-	signal inspected(resource: Terrain3DSurface)
+	signal changed(resource: Terrain3DTexture)
+	signal inspected(resource: Terrain3DTexture)
 	
-	var resource: Terrain3DSurface
+	var resource: Terrain3DTexture
 	var drop_data: bool = false
 	var is_hovered: bool = false
 	var is_selected: bool = false
@@ -219,7 +219,7 @@ class ListEntry extends VBoxContainer:
 					MOUSE_BUTTON_LEFT:
 						# If `Add new` is clicked
 						if !resource:
-							set_edited_resource(Terrain3DSurface.new(), false)
+							set_edited_resource(Terrain3DTexture.new(), false)
 							edit()
 						else:
 							emit_signal("selected")
@@ -243,19 +243,19 @@ class ListEntry extends VBoxContainer:
 	func _drop_data(at_position: Vector2, data: Variant) -> void:
 		if typeof(data) == TYPE_DICTIONARY:
 			var res: Resource = load(data.files[0])
-			if res is Terrain3DSurface:
+			if res is Terrain3DTexture:
 				set_edited_resource(res, false)
 			if res is Texture2D:
-				var surf: Terrain3DSurface = Terrain3DSurface.new()
+				var surf: Terrain3DTexture = Terrain3DTexture.new()
 				surf.set_albedo_texture(res)
 				set_edited_resource(surf, false)
 
 	
-	func set_edited_resource(res: Terrain3DSurface, no_signal: bool = true) -> void:
+	func set_edited_resource(res: Terrain3DTexture, no_signal: bool = true) -> void:
 		resource = res
 		if resource:
-			resource.value_changed.connect(_on_surface_changed)
-			resource.texture_changed.connect(_on_surface_changed)
+			resource.value_changed.connect(_on_texture_changed)
+			resource.texture_changed.connect(_on_texture_changed)
 		
 		if button_clear:
 			button_clear.set_visible(resource != null)
@@ -265,7 +265,7 @@ class ListEntry extends VBoxContainer:
 			emit_signal("changed", resource)
 
 
-	func _on_surface_changed() -> void:
+	func _on_texture_changed() -> void:
 		emit_signal("changed", resource)
 
 

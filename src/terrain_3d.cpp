@@ -12,7 +12,7 @@
 ///////////////////////////
 
 // Initialize static member variable
-int Terrain3D::_debug_level{ ERROR };
+int Terrain3D::_debug_level{ DEBUG };
 
 /**
  * This is a proxy for _process(delta) called by _notification() due to
@@ -353,7 +353,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 			}
 			build(_clipmap_levels, _clipmap_size);
 			// Here to enable checkered view when creating a new storage
-			_storage->update_surface_values();
+			_storage->update_texture_values();
 		}
 		emit_signal("storage_changed");
 	}
@@ -686,7 +686,7 @@ void Terrain3D::_notification(int p_what) {
 				if (!_valid) {
 					build(_clipmap_levels, _clipmap_size);
 					// Create checkered view
-					_storage->update_surface_values();
+					_storage->update_texture_values();
 				}
 			}
 			break;
