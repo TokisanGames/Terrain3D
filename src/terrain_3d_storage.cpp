@@ -73,13 +73,13 @@ void Terrain3DStorage::_update_textures(const Ref<Terrain3DTextureList> &p_textu
 			LOG(ERROR, "Texture at index ", i, " is null, but shouldn't be.");
 			continue;
 		}
-		if (!texture_set->is_connected("texture_changed", Callable(this, "_update_texture_textures"))) {
+		if (!texture_set->is_connected("texture_changed", Callable(this, "_update_texture_files"))) {
 			LOG(DEBUG, "Connecting texture_changed signal");
-			texture_set->connect("texture_changed", Callable(this, "_update_texture_textures").bindv(Array::make(p_texture_list)));
+			texture_set->connect("texture_changed", Callable(this, "_update_texture_files").bindv(Array::make(p_texture_list)));
 		}
-		if (!texture_set->is_connected("value_changed", Callable(this, "_update_texture_values"))) {
-			LOG(DEBUG, "Connecting value_changed signal");
-			texture_set->connect("value_changed", Callable(this, "_update_texture_values").bindv(Array::make(p_texture_list)));
+		if (!texture_set->is_connected("setting_changed", Callable(this, "_update_texture_settings"))) {
+			LOG(DEBUG, "Connecting setting_changed signal");
+			texture_set->connect("setting_changed", Callable(this, "_update_texture_settings").bindv(Array::make(p_texture_list)));
 		}
 	}
 	_generated_albedo_textures.clear();
@@ -87,15 +87,15 @@ void Terrain3DStorage::_update_textures(const Ref<Terrain3DTextureList> &p_textu
 	_update_texture_data(p_texture_list, true, true);
 }
 
-void Terrain3DStorage::_update_texture_textures(const Ref<Terrain3DTextureList> &p_textures) {
+void Terrain3DStorage::_update_texture_files(const Ref<Terrain3DTextureList> &p_textures) {
 	LOG(DEBUG, "Received texture_changed signal");
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
 	_update_texture_data(p_textures, true, false);
 }
 
-void Terrain3DStorage::_update_texture_values(const Ref<Terrain3DTextureList> &p_textures) {
-	LOG(DEBUG, "Received value_changed signal");
+void Terrain3DStorage::_update_texture_settings(const Ref<Terrain3DTextureList> &p_textures) {
+	LOG(DEBUG, "Received setting_changed signal");
 	_update_texture_data(p_textures, false, true);
 }
 
@@ -1535,8 +1535,8 @@ void Terrain3DStorage::_bind_methods() {
 
 	// Private
 	ClassDB::bind_method(D_METHOD("_update_textures", "texture_list"), &Terrain3DStorage::_update_textures);
-	ClassDB::bind_method(D_METHOD("_update_texture_textures", "texture_list"), &Terrain3DStorage::_update_texture_textures);
-	ClassDB::bind_method(D_METHOD("_update_texture_values", "texture_list"), &Terrain3DStorage::_update_texture_values);
+	ClassDB::bind_method(D_METHOD("_update_texture_files", "texture_list"), &Terrain3DStorage::_update_texture_files);
+	ClassDB::bind_method(D_METHOD("_update_texture_settings", "texture_list"), &Terrain3DStorage::_update_texture_settings);
 
 	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);

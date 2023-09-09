@@ -258,8 +258,8 @@ public:
 	// Private. Public workaround until callable_mp is implemented
 	// https://github.com/godotengine/godot-cpp/pull/1155
 	void _update_textures(const Ref<Terrain3DTextureList> &p_textures);
-	void _update_texture_textures(const Ref<Terrain3DTextureList> &p_textures);
-	void _update_texture_values(const Ref<Terrain3DTextureList> &p_textures);
+	void _update_texture_files(const Ref<Terrain3DTextureList> &p_textures);
+	void _update_texture_settings(const Ref<Terrain3DTextureList> &p_textures);
 
 	// Testing
 	void print_audit_data();

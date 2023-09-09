@@ -254,7 +254,7 @@ class ListEntry extends VBoxContainer:
 	func set_edited_resource(res: Terrain3DTexture, no_signal: bool = true) -> void:
 		resource = res
 		if resource:
-			resource.value_changed.connect(_on_texture_changed)
+			resource.setting_changed.connect(_on_texture_changed)
 			resource.texture_changed.connect(_on_texture_changed)
 		
 		if button_clear:

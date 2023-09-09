@@ -49,7 +49,7 @@ void Terrain3DTexture::clear() {
 
 void Terrain3DTexture::set_name(String p_name) {
 	_data._name = p_name;
-	emit_signal("value_changed");
+	emit_signal("setting_changed");
 }
 
 void Terrain3DTexture::set_texture_id(int p_new_id) {
@@ -60,7 +60,7 @@ void Terrain3DTexture::set_texture_id(int p_new_id) {
 
 void Terrain3DTexture::set_albedo_color(Color p_color) {
 	_data._albedo_color = p_color;
-	emit_signal("value_changed");
+	emit_signal("setting_changed");
 }
 
 void Terrain3DTexture::set_albedo_texture(const Ref<Texture2D> &p_texture) {
@@ -79,12 +79,12 @@ void Terrain3DTexture::set_normal_texture(const Ref<Texture2D> &p_texture) {
 
 void Terrain3DTexture::set_uv_scale(float p_scale) {
 	_data._uv_scale = p_scale;
-	emit_signal("value_changed");
+	emit_signal("setting_changed");
 }
 
 void Terrain3DTexture::set_uv_rotation(float p_rotation) {
 	_data._uv_rotation = CLAMP(p_rotation, 0.0f, 1.0f);
-	emit_signal("value_changed");
+	emit_signal("setting_changed");
 }
 
 ///////////////////////////
@@ -94,7 +94,7 @@ void Terrain3DTexture::set_uv_rotation(float p_rotation) {
 void Terrain3DTexture::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("id_changed"));
 	ADD_SIGNAL(MethodInfo("texture_changed"));
-	ADD_SIGNAL(MethodInfo("value_changed"));
+	ADD_SIGNAL(MethodInfo("setting_changed"));
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DTexture::clear);
 	ClassDB::bind_method(D_METHOD("set_name", "name"), &Terrain3DTexture::set_name);
