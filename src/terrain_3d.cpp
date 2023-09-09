@@ -14,12 +14,54 @@
 // Initialize static member variable
 int Terrain3D::_debug_level{ ERROR };
 
+void Terrain3D::__ready() {
+	_initialize();
+	_storage->_clear_modified();
+	set_process(true);
+}
+
+void Terrain3D::_initialize() {
+	LOG(INFO, "Checking storage, texture list, signal, and terrain initialization");
+
+	// Make blank storage / texture list if needed
+	if (_texture_list.is_null()) {
+		LOG(DEBUG, "Creating blank texture list");
+		_texture_list.instantiate();
+	}
+	if (_storage.is_null()) {
+		LOG(DEBUG, "Creating blank storage");
+		_storage.instantiate();
+	}
+
+	// Connect signals
+	if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
+		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
+		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
+	}
+
+	if (!_texture_list->is_connected("textures_changed", Callable(_storage.ptr(), "_update_textures"))) {
+		LOG(DEBUG, "Connecting textures_changed to _storage._update_textures()");
+		_texture_list->connect("textures_changed",
+				Callable(_storage.ptr(), "_update_textures").bindv(Array::make(_texture_list)));
+	}
+
+	if (!_initialized) {
+		build(_clipmap_levels, _clipmap_size);
+		// Create checkered view
+		//_storage->_update_texture_values(_texture_list);
+
+		_build_collision();
+	}
+
+	_storage->_update_textures(_texture_list);
+}
+
 /**
  * This is a proxy for _process(delta) called by _notification() due to
  * https://github.com/godotengine/godot-cpp/issues/1022
  */
 void Terrain3D::__process(double delta) {
-	if (!_valid)
+	if (!_initialized)
 		return;
 
 	// If the game/editor camera is not set, find it
@@ -259,7 +301,7 @@ void Terrain3D::_destroy_collision() {
  * Update all mesh instances with the new world scenario so they appear
  */
 void Terrain3D::_update_instances() {
-	if (!is_inside_tree() || !_valid || !_is_inside_world) {
+	if (!is_inside_tree() || !_initialized || !_is_inside_world) {
 		return;
 	}
 	if (_static_body.is_valid()) {
@@ -324,18 +366,18 @@ void Terrain3D::set_debug_level(int p_level) {
 void Terrain3D::set_clipmap_levels(int p_count) {
 	if (_clipmap_levels != p_count) {
 		LOG(INFO, "Setting clipmap levels: ", p_count);
-		clear();
-		build(p_count, _clipmap_size);
 		_clipmap_levels = p_count;
+		clear();
+		_initialize();
 	}
 }
 
 void Terrain3D::set_clipmap_size(int p_size) {
 	if (_clipmap_size != p_size) {
 		LOG(INFO, "Setting clipmap size: ", p_size);
-		clear();
-		build(_clipmap_levels, p_size);
 		_clipmap_size = p_size;
+		clear();
+		_initialize();
 	}
 }
 
@@ -343,22 +385,22 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	if (_storage != p_storage) {
 		LOG(INFO, "Setting storage");
 		_storage = p_storage;
-		clear();
-
 		if (_storage.is_valid()) {
 			LOG(INFO, "Loading storage version: ", vformat("%.2f", p_storage->get_version()));
-			if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
-				_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
-			}
-			if (_storage->get_region_count() == 0) {
-				LOG(DEBUG, "Region count 0, adding new region");
-				_storage->call_deferred("add_region", Vector3(0, 0, 0));
-			}
-			build(_clipmap_levels, _clipmap_size);
-			// Here to enable checkered view when creating a new storage
-			_storage->update_texture_values();
 		}
+		clear();
+		_initialize();
 		emit_signal("storage_changed");
+	}
+}
+
+void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
+	if (_texture_list != p_texture_list) {
+		LOG(INFO, "Setting texture list");
+		_texture_list = p_texture_list;
+		clear();
+		_initialize();
+		emit_signal("texture_list_changed");
 	}
 }
 
@@ -439,7 +481,7 @@ void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
 		_data.trims.clear();
 		_data.seams.clear();
 
-		_valid = false;
+		_initialized = false;
 	}
 
 	if (p_clear_collision) {
@@ -453,7 +495,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 		return;
 	}
 
-	LOG(INFO, "Building the terrain");
+	LOG(INFO, "Building the terrain meshes");
 
 	// Generate terrain meshes, lods, seams
 	_meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
@@ -465,8 +507,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 		RenderingServer::get_singleton()->mesh_surface_set_material(rid, 0, material_rid);
 	}
 
-	// Create mesh instances from meshes
-	LOG(DEBUG, "Creating mesh instances from meshes");
+	LOG(DEBUG, "Creating mesh instances");
 
 	// Get current visual scenario so the instances appear in the scene
 	RID scenario = get_world_3d()->get_scenario();
@@ -507,7 +548,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 		}
 	}
 
-	_valid = true;
+	_initialized = true;
 	update_aabbs();
 	// Force a snap update
 	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
@@ -592,7 +633,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::update_aabbs() {
-	ERR_FAIL_COND_MSG(!_valid, "Terrain meshes have not been built yet");
+	ERR_FAIL_COND_MSG(!_initialized, "Terrain meshes have not been built yet");
 	ERR_FAIL_COND_MSG(!_storage.is_valid(), "Terrain3DStorage is not valid");
 
 	Vector2 height_range = _storage->get_height_range();
@@ -680,18 +721,7 @@ void Terrain3D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
 			LOG(INFO, "NOTIFICATION_READY");
-			set_process(true);
-			if (_storage.is_valid()) {
-				_storage->_clear_modified();
-			} else {
-				LOG(INFO, "Building blank storage");
-				_storage.instantiate();
-				if (!_valid) {
-					build(_clipmap_levels, _clipmap_size);
-					// Create checkered view
-					_storage->update_texture_values();
-				}
-			}
+			__ready();
 			break;
 		}
 
@@ -708,16 +738,12 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_ENTER_TREE: {
 			LOG(INFO, "NOTIFICATION_ENTER_TREE");
-			if (!_valid) {
-				build(_clipmap_levels, _clipmap_size);
-			}
-			_build_collision();
+			_initialize();
 			break;
 		}
 
 		case NOTIFICATION_EXIT_TREE: {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
-			_destroy_collision();
 			clear();
 			break;
 		}
@@ -749,11 +775,16 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
+			if (!_texture_list.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid texture list. Skipping");
+			} else {
+				_texture_list->save();
+			}
 			if (!_storage.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
-				return;
+			} else {
+				_storage->save();
 			}
-			_storage->save();
 			break;
 		}
 
@@ -774,6 +805,8 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
 	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
+	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
+	ClassDB::bind_method(D_METHOD("get_texture_list"), &Terrain3D::get_texture_list);
 
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
 	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
@@ -804,6 +837,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), "set_texture_list", "get_texture_list");
 
 	ADD_GROUP("Renderer", "render_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
@@ -824,4 +858,5 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 
 	ADD_SIGNAL(MethodInfo("storage_changed"));
+	ADD_SIGNAL(MethodInfo("texture_list_changed"));
 }

@@ -22,7 +22,7 @@ private:
 		float _uv_rotation = 0.0f;
 	} _data;
 
-	bool _texture_is_valid(const Ref<Texture2D> &p_texture) const;
+	bool _is_texture_valid(const Ref<Texture2D> &p_texture) const;
 
 public:
 	Terrain3DTexture();

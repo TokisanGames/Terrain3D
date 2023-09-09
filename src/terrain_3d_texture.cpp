@@ -8,7 +8,7 @@
 // Private Functions
 ///////////////////////////
 
-bool Terrain3DTexture::_texture_is_valid(const Ref<Texture2D> &p_texture) const {
+bool Terrain3DTexture::_is_texture_valid(const Ref<Texture2D> &p_texture) const {
 	if (p_texture.is_null()) {
 		LOG(DEBUG, "Provided texture is null.");
 		return true;
@@ -64,14 +64,14 @@ void Terrain3DTexture::set_albedo_color(Color p_color) {
 }
 
 void Terrain3DTexture::set_albedo_texture(const Ref<Texture2D> &p_texture) {
-	if (_texture_is_valid(p_texture)) {
+	if (_is_texture_valid(p_texture)) {
 		_data._albedo_texture = p_texture;
 		emit_signal("texture_changed");
 	}
 }
 
 void Terrain3DTexture::set_normal_texture(const Ref<Texture2D> &p_texture) {
-	if (_texture_is_valid(p_texture)) {
+	if (_is_texture_valid(p_texture)) {
 		_data._normal_texture = p_texture;
 		emit_signal("texture_changed");
 	}

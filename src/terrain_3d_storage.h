@@ -6,7 +6,7 @@
 #include <godot_cpp/classes/shader.hpp>
 
 #include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
-#include "terrain_3d_texture.h"
+#include "terrain_3d_texture_list.h"
 
 class Terrain3D;
 using namespace godot;
@@ -28,7 +28,6 @@ private:
 	static inline const float CURRENT_VERSION = 0.83;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
-	static inline const int MAX_TEXTURES = 32;
 
 	enum MapType {
 		TYPE_HEIGHT,
@@ -105,7 +104,6 @@ private:
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
-	TypedArray<Terrain3DTexture> _textures;
 
 	// Material Settings
 
@@ -147,8 +145,7 @@ private:
 
 	void _clear();
 
-	void _update_textures();
-	void _update_texture_data(bool p_update_textures, bool p_update_values);
+	void _update_texture_data(const Ref<Terrain3DTextureList> &p_textures, bool p_update_textures, bool p_update_values);
 	void _update_regions();
 	void _update_material();
 	void _preload_shaders();
@@ -218,13 +215,7 @@ public:
 	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
 	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color = COLOR_BLACK, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
 
-	// Materials & Textures
-
-	void set_texture(int p_index, const Ref<Terrain3DTexture> &p_material);
-	Ref<Terrain3DTexture> get_texture(int p_index) const { return _textures[p_index]; }
-	void set_textures(const TypedArray<Terrain3DTexture> &p_textures);
-	TypedArray<Terrain3DTexture> get_textures() const { return _textures; }
-	int get_texture_count() const { return _textures.size(); }
+	// Terrain Material
 
 	RID get_material() const { return _material; }
 	void set_shader_override(const Ref<Shader> &p_shader);
@@ -264,21 +255,16 @@ public:
 	float get_noise_blend_far() const { return _noise_blend_far; };
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
 
-	// Regenerate data
-	// Workaround until callable_mp is implemented
+	// Private. Public workaround until callable_mp is implemented
 	// https://github.com/godotengine/godot-cpp/pull/1155
-	void _swap_textures(int p_old_id, int p_new_id);
-	void update_texture_textures();
-	void update_texture_values();
+	void _update_textures(const Ref<Terrain3DTextureList> &p_textures);
+	void _update_texture_textures(const Ref<Terrain3DTextureList> &p_textures);
+	void _update_texture_values(const Ref<Terrain3DTextureList> &p_textures);
 
 	// Testing
-
 	void print_audit_data();
 
 	// DEPRECATED 0.8.3, remove 0.9-1.0
-	//void set_surface(int p_index, const Ref<Terrain3DSurface> &p_material);
-	//Ref<Terrain3DSurface> get_surface(int p_index) const { return _surfaces[p_index]; }
-
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
 
