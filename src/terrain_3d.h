@@ -36,6 +36,7 @@ using namespace godot;
 class Terrain3D : public Node3D {
 private:
 	GDCLASS(Terrain3D, Node3D);
+	static inline const char *__class__ = "Terrain3D";
 
 	// Terrain state
 	bool _is_inside_world = false;

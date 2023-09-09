@@ -20,6 +20,7 @@ using namespace godot;
 class Terrain3DStorage : public Resource {
 private:
 	GDCLASS(Terrain3DStorage, Resource);
+	static inline const char *__class__ = "Terrain3DStorage";
 
 	// Constants & Definitions
 

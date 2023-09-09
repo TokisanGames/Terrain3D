@@ -10,6 +10,7 @@ using namespace godot;
 class Terrain3DSurface : public Resource {
 private:
 	GDCLASS(Terrain3DSurface, Resource);
+	static inline const char *__class__ = "Terrain3DSurface";
 
 	struct Settings {
 		String _name = "New Texture";

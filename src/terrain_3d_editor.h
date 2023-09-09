@@ -15,6 +15,7 @@ using namespace godot;
 class Terrain3DEditor : public Object {
 private:
 	GDCLASS(Terrain3DEditor, Object);
+	static inline const char *__class__ = "Terrain3DEditor";
 
 	// Constants & Definitions
 
