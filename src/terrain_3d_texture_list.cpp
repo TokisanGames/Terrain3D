@@ -52,20 +52,6 @@ void Terrain3DTextureList::set_texture(int p_index, const Ref<Terrain3DTexture> 
 		// If final texture, remove it
 		if (p_index == get_texture_count() - 1) {
 			LOG(DEBUG, "Deleting texture id: ", p_index);
-			Ref<Terrain3DTexture> texture = _textures[p_index];
-			texture->disconnect("id_changed", Callable(this, "_swap_textures"));
-			Array signals = texture->get_signal_connection_list("texture_changed");
-			for (int i = 0; i < signals.size(); i++) {
-				Dictionary dict = signals[i];
-				Callable cb = dict["callable"];
-				texture->disconnect("texture_changed", cb);
-			}
-			signals = texture->get_signal_connection_list("value_changed");
-			for (int i = 0; i < signals.size(); i++) {
-				Dictionary dict = signals[i];
-				Callable cb = dict["callable"];
-				texture->disconnect("value_changed", cb);
-			}
 			_textures.pop_back();
 		} else if (p_index < get_texture_count()) {
 			// Else just clear it
