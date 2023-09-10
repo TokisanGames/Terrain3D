@@ -1488,14 +1488,13 @@ void Terrain3DStorage::print_audit_data() {
 
 // DEPRECATED 0.8.3, remove 0.9-1.0
 void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
-	LOG(WARN, "Upgrading texture storage from version: ", vformat("%.2f", get_version()), " size: ", p_surfaces.size());
-
+	LOG(WARN, "Converting old Surfaces to separate TextureList resource");
+	_texture_list.instantiate();
 	TypedArray<Terrain3DTexture> textures;
 	textures.resize(p_surfaces.size());
-	LOG(WARN, "Creating new texture list");
 
 	for (int i = 0; i < p_surfaces.size(); i++) {
-		LOG(WARN, "Converting surface: ", i);
+		LOG(DEBUG, "Converting surface: ", i);
 		Ref<Terrain3DSurface> sfc = p_surfaces[i];
 		Ref<Terrain3DTexture> tex;
 		tex.instantiate();
@@ -1511,7 +1510,7 @@ void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfac
 		tex_data->_uv_rotation = sfc_data->_uv_rotation;
 		textures[i] = tex;
 	}
-	//set_textures(textures);
+	_texture_list->set_textures(textures);
 }
 
 ///////////////////////////

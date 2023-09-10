@@ -16,7 +16,7 @@ int Terrain3D::_debug_level{ ERROR };
 
 void Terrain3D::__ready() {
 	_initialize();
-	_storage->_clear_modified();
+	_storage->clear_modified();
 	set_process(true);
 }
 
@@ -24,13 +24,19 @@ void Terrain3D::_initialize() {
 	LOG(INFO, "Checking storage, texture list, signal, and terrain initialization");
 
 	// Make blank storage / texture list if needed
-	if (_texture_list.is_null()) {
-		LOG(DEBUG, "Creating blank texture list");
-		_texture_list.instantiate();
-	}
 	if (_storage.is_null()) {
 		LOG(DEBUG, "Creating blank storage");
 		_storage.instantiate();
+	} else if (_texture_list.is_null() && _storage->get_version() < 0.83f) {
+		// DEPREPCATED 0.8.3, remove 0.9-1.0
+		LOG(WARN, "Storage version ", vformat("%.2f", _storage->get_version()), " will be updated upon save");
+		set_texture_list(_storage->get_texture_list());
+		_storage->set_modified();
+		return;
+	}
+	if (_texture_list.is_null()) {
+		LOG(DEBUG, "Creating blank texture list");
+		_texture_list.instantiate();
 	}
 
 	// Connect signals
@@ -38,7 +44,6 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
 	}
-
 	if (!_texture_list->is_connected("textures_changed", Callable(_storage.ptr(), "_update_textures"))) {
 		LOG(DEBUG, "Connecting textures_changed to _storage._update_textures()");
 		_texture_list->connect("textures_changed",
@@ -47,9 +52,6 @@ void Terrain3D::_initialize() {
 
 	if (!_initialized) {
 		build(_clipmap_levels, _clipmap_size);
-		// Create checkered view
-		//_storage->_update_texture_values(_texture_list);
-
 		_build_collision();
 	}
 
@@ -386,7 +388,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 		LOG(INFO, "Setting storage");
 		_storage = p_storage;
 		if (_storage.is_valid()) {
-			LOG(INFO, "Loading storage version: ", vformat("%.2f", p_storage->get_version()));
+			LOG(INFO, "Loaded storage version: ", vformat("%.2f", p_storage->get_version()));
 		}
 		clear();
 		_initialize();

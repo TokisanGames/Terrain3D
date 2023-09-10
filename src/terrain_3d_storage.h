@@ -105,6 +105,8 @@ private:
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
+	Ref<Terrain3DTextureList> _texture_list; // DEPRECATED 0.8.3, remove in 0.9-1.0
+
 	// Material Settings
 
 	Dictionary _shader_code;
@@ -204,7 +206,8 @@ public:
 	// File I/O
 
 	void save();
-	void _clear_modified() { _modified = false; }
+	void clear_modified() { _modified = false; }
+	void set_modified() { _modified = true; }
 	static Ref<Image> load_image(String p_file_name, int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
 			Vector2 p_r16_height_range = Vector2(0, 255), Vector2i p_r16_size = Vector2i(0, 0));
 	void import_images(const TypedArray<Image> &p_images, Vector3 p_global_position = Vector3(0, 0, 0),
@@ -267,6 +270,7 @@ public:
 	// DEPRECATED 0.8.3, remove 0.9-1.0
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
+	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
 
 protected:
 	static void _bind_methods();
