@@ -15,7 +15,7 @@ An editable terrain system for Godot 4, written in C++.
 See the [Wiki](https://github.com/TokisanGames/Terrain3D/wiki) for more details on project status, features, design, and usage.
 
 ## Requirements
-* Supports Godot 4.1+. 4.0 is possible with modification.
+* Supports Godot 4.1+. [Older 4.x versions are possible](https://github.com/TokisanGames/Terrain3D/wiki/Supporting-Older-Engine-Versions).
 * Supports Windows, Linux, and macOS. Android pending.
 
 ## Installation & Setup
