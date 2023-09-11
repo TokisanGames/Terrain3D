@@ -50,7 +50,7 @@ void Terrain3D::_initialize() {
 				Callable(_storage.ptr(), "_update_textures").bindv(Array::make(_texture_list)));
 	}
 
-	if (!_initialized) {
+	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
 		build(_clipmap_levels, _clipmap_size);
 		_build_collision();
 	}
@@ -124,7 +124,7 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 }
 
 void Terrain3D::_build_collision() {
-	if (!_collision_enabled) {
+	if (!_collision_enabled || !_initialized || !_is_inside_world || !is_inside_tree()) {
 		return;
 	}
 	// Create collision only in game, unless showing debug
@@ -158,7 +158,7 @@ void Terrain3D::_build_collision() {
  * destroy and recreate for now.
  */
 void Terrain3D::_update_collision() {
-	if (!_collision_enabled) {
+	if (!_collision_enabled || !is_inside_tree()) {
 		return;
 	}
 	// Create collision only in game, unless showing debug
@@ -303,7 +303,7 @@ void Terrain3D::_destroy_collision() {
  * Update all mesh instances with the new world scenario so they appear
  */
 void Terrain3D::_update_instances() {
-	if (!is_inside_tree() || !_initialized || !_is_inside_world) {
+	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
 		return;
 	}
 	if (_static_body.is_valid()) {
@@ -765,7 +765,6 @@ void Terrain3D::_notification(int p_what) {
 		case NOTIFICATION_EXIT_WORLD: {
 			LOG(INFO, "NOTIFICATION_EXIT_WORLD");
 			_is_inside_world = false;
-			_update_instances();
 			break;
 		}
 

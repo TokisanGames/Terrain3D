@@ -192,7 +192,7 @@ func update_texture_dock() -> void:
 			var texture: Terrain3DTexture = terrain.texture_list.get_texture(i)
 			texture_dock.add_item(texture)
 			
-		if texture_count < 32: # Limit of 5 bits in control map
+		if texture_count < Terrain3DTextureList.MAX_TEXTURES:
 			texture_dock.add_item()
 
 	
