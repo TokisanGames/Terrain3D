@@ -100,12 +100,10 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 	float rand = r * texture_uv_rotation_array[int(material)];
 	vec2 rot = vec2(cos(rand), sin(rand));
 	vec2 matUV = rotate(uv, rot.x, rot.y) * texture_uv_scale_array[int(material)];
-	vec2 ddx = dFdx(matUV);
-	vec2 ddy = dFdy(matUV);
 
-	vec4 albedo = textureGrad(texture_array_albedo, vec3(matUV, material), ddx, ddy);
+	vec4 albedo = texture(texture_array_albedo, vec3(matUV, material));
 	albedo.rgb *= texture_color_array[int(material)].rgb;
-	vec4 normal = textureGrad(texture_array_normal, vec3(matUV, material), ddx, ddy);
+	vec4 normal = texture(texture_array_normal, vec3(matUV, material));
 	vec3 n = unpack_normal(normal);
 	normal.xz = rotate(n.xz, rot.x, -rot.y);
 
@@ -114,11 +112,9 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 		float rand2 = r * texture_uv_rotation_array[int(materialOverlay)];
 		vec2 rot2 = vec2(cos(rand2), sin(rand2));
 		vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * texture_uv_scale_array[int(materialOverlay)];
-		ddx = dFdx(matUV2);
-		ddy = dFdy(matUV2);
-		vec4 albedo2 = textureGrad(texture_array_albedo, vec3(matUV2, materialOverlay), ddx, ddy);
+		vec4 albedo2 = texture(texture_array_albedo, vec3(matUV2, materialOverlay));
 		albedo2.rgb *= texture_color_array[int(materialOverlay)].rgb;
-		vec4 normal2 = textureGrad(texture_array_normal, vec3(matUV2, materialOverlay), ddx, ddy);
+		vec4 normal2 = texture(texture_array_normal, vec3(matUV2, materialOverlay));
 		n = unpack_normal(normal2);
 		normal2.xz = rotate(n.xz, rot2.x, -rot2.y);
 
