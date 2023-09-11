@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://2k7wybb864hb"]
+[gd_scene load_steps=14 format=3 uid="uid://2k7wybb864hb"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://c0djt8d57nivw" path="res://demo/components/World.tscn" id="2_2yeq8"]
@@ -6,6 +6,22 @@
 [ext_resource type="PackedScene" uid="uid://dgkfas2hgwob4" path="res://demo/components/Player.tscn" id="3_ht63y"]
 [ext_resource type="PackedScene" uid="uid://c31srg2a83sgp" path="res://demo/components/UI.tscn" id="4_gk532"]
 [ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
+[ext_resource type="Texture2D" uid="uid://cvrgd2gyfdhmc" path="res://demo/textures/ground037_alb_ht.dds" id="7_hqga3"]
+[ext_resource type="Texture2D" uid="uid://dlygkrphbed5k" path="res://demo/textures/ground037_nrm_rgh.dds" id="8_pd4vo"]
+[ext_resource type="Texture2D" uid="uid://ctol1ar05ne0g" path="res://demo/textures/rock028_alb_ht.dds" id="9_rm006"]
+[ext_resource type="Texture2D" uid="uid://dwrxve8g0m64a" path="res://demo/textures/rock028_nrm_rgh.dds" id="10_i3tb8"]
+
+[sub_resource type="Terrain3DTexture" id="Terrain3DTexture_56fwf"]
+albedo_texture = ExtResource("7_hqga3")
+normal_texture = ExtResource("8_pd4vo")
+
+[sub_resource type="Terrain3DTexture" id="Terrain3DTexture_x74kb"]
+texture_id = 1
+albedo_texture = ExtResource("9_rm006")
+normal_texture = ExtResource("10_i3tb8")
+
+[sub_resource type="Terrain3DTextureList" id="Terrain3DTextureList_6biym"]
+textures = Array[Terrain3DTexture]([SubResource("Terrain3DTexture_56fwf"), SubResource("Terrain3DTexture_x74kb")])
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")
@@ -22,4 +38,5 @@ transform = Transform3D(0.0774673, 0, -0.996995, 0, 1, 0, 0.996995, 0, 0.0774673
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
 storage = ExtResource("5_sl43a")
+texture_list = SubResource("Terrain3DTextureList_6biym")
 collision_mask = 3
