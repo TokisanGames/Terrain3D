@@ -5,7 +5,8 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 
-#include "terrain_3d_surface.h"
+#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
+#include "terrain_3d_texture_list.h"
 
 class Terrain3D;
 using namespace godot;
@@ -23,6 +24,10 @@ private:
 	static inline const char *__class__ = "Terrain3DStorage";
 
 	// Constants & Definitions
+
+	static inline const float CURRENT_VERSION = 0.83;
+	static inline const int REGION_MAP_SIZE = 16;
+	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
 	enum MapType {
 		TYPE_HEIGHT,
@@ -61,10 +66,6 @@ private:
 		//SIZE_2048 = 2048,
 	};
 
-	static inline const int REGION_MAP_SIZE = 16;
-	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
-	static inline const int SURFACE_MAX_SIZE = 32;
-
 	class Generated {
 	private:
 		RID _rid = RID();
@@ -87,7 +88,7 @@ private:
 	bool _initialized = false;
 	bool _modified = false;
 	bool _save_16_bit = false;
-	float _version = 0.8;
+	float _version = 0.8; // First version, never change
 
 	// Stored Data
 
@@ -103,7 +104,8 @@ private:
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
-	TypedArray<Terrain3DSurface> _surfaces;
+
+	Ref<Terrain3DTextureList> _texture_list; // DEPRECATED 0.8.3, remove in 0.9-1.0
 
 	// Material Settings
 
@@ -145,8 +147,7 @@ private:
 
 	void _clear();
 
-	void _update_surfaces();
-	void _update_surface_data(bool p_update_textures, bool p_update_values);
+	void _update_texture_data(const Ref<Terrain3DTextureList> &p_textures, bool p_update_textures, bool p_update_values);
 	void _update_regions();
 	void _update_material();
 	void _preload_shaders();
@@ -205,7 +206,8 @@ public:
 	// File I/O
 
 	void save();
-	void _clear_modified() { _modified = false; }
+	void clear_modified() { _modified = false; }
+	void set_modified() { _modified = true; }
 	static Ref<Image> load_image(String p_file_name, int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
 			Vector2 p_r16_height_range = Vector2(0, 255), Vector2i p_r16_size = Vector2i(0, 0));
 	void import_images(const TypedArray<Image> &p_images, Vector3 p_global_position = Vector3(0, 0, 0),
@@ -216,13 +218,7 @@ public:
 	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
 	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color = COLOR_BLACK, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
 
-	// Materials
-
-	void set_surface(int p_index, const Ref<Terrain3DSurface> &p_material);
-	Ref<Terrain3DSurface> get_surface(int p_index) const { return _surfaces[p_index]; }
-	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
-	TypedArray<Terrain3DSurface> get_surfaces() const { return _surfaces; }
-	int get_surface_count() const { return _surfaces.size(); }
+	// Terrain Material
 
 	RID get_material() const { return _material; }
 	void set_shader_override(const Ref<Shader> &p_shader);
@@ -262,16 +258,19 @@ public:
 	float get_noise_blend_far() const { return _noise_blend_far; };
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
 
-	// Regenerate data
-	// Workaround until callable_mp is implemented
+	// Private. Public workaround until callable_mp is implemented
 	// https://github.com/godotengine/godot-cpp/pull/1155
-	void _swap_surfaces(int p_old_id, int p_new_id);
-	void update_surface_textures();
-	void update_surface_values();
+	void _update_textures(const Ref<Terrain3DTextureList> &p_textures);
+	void _update_texture_files(const Ref<Terrain3DTextureList> &p_textures);
+	void _update_texture_settings(const Ref<Terrain3DTextureList> &p_textures);
 
 	// Testing
-
 	void print_audit_data();
+
+	// DEPRECATED 0.8.3, remove 0.9-1.0
+	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
+	TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
+	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
 
 protected:
 	static void _bind_methods();

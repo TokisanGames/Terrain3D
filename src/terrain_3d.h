@@ -30,6 +30,7 @@
 
 #include "geoclipmap.h"
 #include "terrain_3d_storage.h"
+#include "terrain_3d_texture_list.h"
 
 using namespace godot;
 
@@ -40,7 +41,7 @@ private:
 
 	// Terrain state
 	bool _is_inside_world = false;
-	bool _valid = false;
+	bool _initialized = false;
 
 	// Terrain settings
 	static int _debug_level;
@@ -48,6 +49,7 @@ private:
 	int _clipmap_levels = 7;
 
 	Ref<Terrain3DStorage> _storage;
+	Ref<Terrain3DTextureList> _texture_list;
 
 	// Editor components
 	EditorPlugin *_plugin = nullptr;
@@ -79,6 +81,8 @@ private:
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
 
+	void __ready();
+	void _initialize();
 	void __process(double delta);
 
 	void _grab_camera();
@@ -104,6 +108,8 @@ public:
 
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
+	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
+	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
 
 	// Editor components
 	void set_plugin(EditorPlugin *p_plugin);

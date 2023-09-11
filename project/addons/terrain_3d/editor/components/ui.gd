@@ -125,7 +125,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 
 	toolbar_settings.set_visible(p_tool != Terrain3DEditor.REGION)	
 	_on_setting_changed()
-	plugin.update_grid()
+	plugin.update_region_grid()
 
 
 func _on_setting_changed() -> void:
@@ -142,7 +142,7 @@ func _on_setting_changed() -> void:
 		"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
 		"align_with_view": toolbar_settings.get_setting("align_with_view"),
 		"show_cursor_while_painting": toolbar_settings.get_setting("show_cursor_while_painting"),
-		"index": plugin.surface_list.get_selected_index(),
+		"index": plugin.texture_dock.get_selected_index(),
 	}
 	var brush_imgs: Array = toolbar_settings.get_setting("brush")
 	brush_data["image"] = brush_imgs[0]

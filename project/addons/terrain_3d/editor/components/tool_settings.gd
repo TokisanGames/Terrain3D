@@ -415,7 +415,7 @@ class DoubleSlider extends Range:
 		max_value = clamp(max_value, min_value + 10, _max_value)
 		
 		update_label()
-		emit_signal("value_changed", value)
+		emit_signal("setting_changed", value)
 		queue_redraw()
 		
 		

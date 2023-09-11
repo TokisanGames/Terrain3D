@@ -1,0 +1,38 @@
+// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+#ifndef TERRAIN3D_TEXTURE_LIST_CLASS_H
+#define TERRAIN3D_TEXTURE_LIST_CLASS_H
+
+#include "terrain_3d_texture.h"
+
+using namespace godot;
+
+class Terrain3DTextureList : public Resource {
+private:
+	GDCLASS(Terrain3DTextureList, Resource);
+	static inline const char *__class__ = "Terrain3DTextureList";
+
+	static inline const int MAX_TEXTURES = 32;
+
+	TypedArray<Terrain3DTexture> _textures;
+
+public:
+	Terrain3DTextureList();
+	~Terrain3DTextureList();
+
+	void set_texture(int p_index, const Ref<Terrain3DTexture> &p_texture);
+	Ref<Terrain3DTexture> get_texture(int p_index) const { return _textures[p_index]; }
+	void set_textures(const TypedArray<Terrain3DTexture> &p_textures);
+	TypedArray<Terrain3DTexture> get_textures() const { return _textures; }
+	int get_texture_count() const { return _textures.size(); }
+
+	void save();
+
+	// Private. Public workaround until callable_mp is implemented
+	// https://github.com/godotengine/godot-cpp/pull/1155
+	void _swap_textures(int p_old_id, int p_new_id);
+
+protected:
+	static void _bind_methods();
+};
+
+#endif // TERRAIN3D_TEXTURE_LIST_CLASS_H

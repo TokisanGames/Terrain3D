@@ -6,7 +6,7 @@ extends EditorPlugin
 # Includes
 const UI: Script = preload("res://addons/terrain_3d/editor/components/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/editor/components/region_gizmo.gd")
-const SurfaceList: Script = preload("res://addons/terrain_3d/editor/components/surface_list.gd")
+const TextureDock: Script = preload("res://addons/terrain_3d/editor/components/texture_dock.gd")
 
 var terrain: Terrain3D
 
@@ -15,8 +15,8 @@ var mouse_is_pressed: bool = false
 var pending_undo: bool = false
 var editor: Terrain3DEditor
 var ui: Node # Terrain3DUI see Godot #75388
-var surface_list: SurfaceList
-var surface_list_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
+var texture_dock: TextureDock
+var texture_dock_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 
 var region_gizmo: RegionGizmo
 var current_region_position: Vector2
@@ -29,21 +29,21 @@ func _enter_tree() -> void:
 	ui.plugin = self
 	add_child(ui)
 
-	surface_list = SurfaceList.new()
-	surface_list.hide()
-	surface_list.resource_changed.connect(_on_surface_list_resource_changed)
-	surface_list.resource_inspected.connect(_on_surface_list_resource_selected)
-	surface_list.resource_selected.connect(ui._on_setting_changed)
+	texture_dock = TextureDock.new()
+	texture_dock.hide()
+	texture_dock.resource_changed.connect(_on_texture_dock_resource_changed)
+	texture_dock.resource_inspected.connect(_on_texture_dock_resource_selected)
+	texture_dock.resource_selected.connect(ui._on_setting_changed)
 	
 	region_gizmo = RegionGizmo.new()
 	
-	add_control_to_container(surface_list_container, surface_list)
-	surface_list.get_parent().visibility_changed.connect(_on_surface_list_visibility_changed)
+	add_control_to_container(texture_dock_container, texture_dock)
+	texture_dock.get_parent().visibility_changed.connect(_on_texture_dock_visibility_changed)
 
 
 func _exit_tree() -> void:
-	remove_control_from_container(surface_list_container, surface_list)
-	surface_list.queue_free()
+	remove_control_from_container(texture_dock_container, texture_dock)
+	texture_dock.queue_free()
 	ui.queue_free()
 	editor.free()
 
@@ -65,6 +65,9 @@ func _edit(object: Object) -> void:
 		terrain.add_gizmo(region_gizmo)
 		terrain.set_plugin(self)
 		
+		if not terrain.texture_list_changed.is_connected(_load_textures):
+			terrain.texture_list_changed.connect(_load_textures)
+		_load_textures()
 		if not terrain.storage_changed.is_connected(_load_storage):
 			terrain.storage_changed.connect(_load_storage)
 		_load_storage()
@@ -72,8 +75,8 @@ func _edit(object: Object) -> void:
 		
 func _make_visible(visible: bool) -> void:
 	ui.set_visible(visible)
-	surface_list.set_visible(visible)
-	update_grid()
+	texture_dock.set_visible(visible)
+	update_region_grid()
 	region_gizmo.set_hidden(!visible)
 
 	
@@ -116,7 +119,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		var region_position: Vector2 = (Vector2(mouse_global_position.x, mouse_global_position.z) / region_size).floor()
 		if current_region_position != region_position:
 			current_region_position = region_position
-			update_grid()
+			update_region_grid()
 
 	elif p_event is InputEventMouseButton:
 		if p_event.get_button_index() == MOUSE_BUTTON_LEFT:
@@ -179,20 +182,21 @@ func is_terrain_valid() -> bool:
 	return valid
 
 
-func update_surface_list() -> void:
-		surface_list.clear()
-		
-		if is_terrain_valid():
-			var surface_count: int = terrain.get_storage().get_surfaces().size()
-			for i in surface_count:
-				var surface: Terrain3DSurface = terrain.get_storage().get_surface(i)
-				surface_list.add_item(surface)
-				
-			if surface_count < 32: # Limit of 5 bits in control map
-				surface_list.add_item()
+func update_texture_dock() -> void:
+
+	texture_dock.clear()
+	
+	if is_terrain_valid() and terrain.texture_list:
+		var texture_count: int = terrain.texture_list.get_texture_count()
+		for i in texture_count:
+			var texture: Terrain3DTexture = terrain.texture_list.get_texture(i)
+			texture_dock.add_item(texture)
+			
+		if texture_count < Terrain3DTextureList.MAX_TEXTURES:
+			texture_dock.add_item()
 
 	
-func update_grid() -> void:
+func update_region_grid() -> void:
 	if !region_gizmo.get_node_3d():
 		return
 		
@@ -221,35 +225,39 @@ func add_control_to_bottom(control: Control) -> void:
 
 # Signal handlers
 
-	
+
+func _load_textures() -> void:
+	if terrain and terrain.texture_list:
+		if not terrain.texture_list.textures_changed.is_connected(update_texture_dock):
+			terrain.texture_list.textures_changed.connect(update_texture_dock)
+		update_texture_dock()				
+
+
 func _load_storage() -> void:
 	if terrain:
-		if not terrain.storage.surfaces_changed.is_connected(update_surface_list):
-			terrain.storage.surfaces_changed.connect(update_surface_list)
-		update_surface_list()				
-		update_grid()
+		update_region_grid()
 
 
-func _on_surface_list_resource_changed(surface: Resource, index: int) -> void:
+func _on_texture_dock_resource_changed(texture: Resource, index: int) -> void:
 	if is_terrain_valid():
 		# If removing last entry and its selected, clear inspector
-		if not surface and index == surface_list.get_selected_index() and \
-				surface_list.get_selected_index() == surface_list.entries.size() - 2:
+		if not texture and index == texture_dock.get_selected_index() and \
+				texture_dock.get_selected_index() == texture_dock.entries.size() - 2:
 			get_editor_interface().inspect_object(null)			
-		terrain.get_storage().set_surface(index, surface)
+		terrain.get_texture_list().set_texture(index, texture)
 		call_deferred("_load_storage")
 
 
-func _on_surface_list_resource_selected(surface) -> void:
-	get_editor_interface().inspect_object(surface, "", true)
+func _on_texture_dock_resource_selected(texture) -> void:
+	get_editor_interface().inspect_object(texture, "", true)
 
 
-func _on_surface_list_visibility_changed() -> void:
-	if surface_list.get_parent() != null:
-		remove_control_from_container(surface_list_container, surface_list)
+func _on_texture_dock_visibility_changed() -> void:
+	if texture_dock.get_parent() != null:
+		remove_control_from_container(texture_dock_container, texture_dock)
 	
-	if surface_list.get_parent() == null:
-		surface_list_container = CONTAINER_INSPECTOR_BOTTOM
+	if texture_dock.get_parent() == null:
+		texture_dock_container = CONTAINER_INSPECTOR_BOTTOM
 		if get_editor_interface().is_distraction_free_mode_enabled():
-			surface_list_container = CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT
-		add_control_to_container(surface_list_container, surface_list)
+			texture_dock_container = CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT
+		add_control_to_container(texture_dock_container, texture_dock)

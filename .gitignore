@@ -1,11 +1,13 @@
 # Terrain3D
 project/test/
+project/addons/godot-jolt/
 project/addons/terrain_3d/bin/
 project/addons/terrain_3d/editor/gterrain-ui/
 project/_dev/
 project/_export/
 project/tests/
 patches/
+*.zip
 
 # Godot-specific ignores
 /project/.import/
@@ -16,6 +18,7 @@ export_presets.cfg
 # Objects
 .scons-cache/
 *.os
+*.obj
 
 # SConstruct
 .sconf_temp
@@ -28,4 +31,3 @@ export_presets.cfg
 # Editors
 .vscode/
 .vs/
-*.obj

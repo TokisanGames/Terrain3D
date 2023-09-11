@@ -4,6 +4,10 @@
 #include "terrain_3d_logger.h"
 #include "terrain_3d_surface.h"
 
+/******************************************************************
+ * This class is DEPRECATED in 0.8.3. Remove 0.9-1.0. Do not use.
+ ******************************************************************/
+
 ///////////////////////////
 // Private Functions
 ///////////////////////////
@@ -49,42 +53,35 @@ void Terrain3DSurface::clear() {
 
 void Terrain3DSurface::set_name(String p_name) {
 	_data._name = p_name;
-	emit_signal("value_changed");
 }
 
 void Terrain3DSurface::set_surface_id(int p_new_id) {
 	int old_id = _data._surface_id;
 	_data._surface_id = p_new_id;
-	emit_signal("id_changed", old_id, p_new_id);
 }
 
 void Terrain3DSurface::set_albedo(Color p_color) {
 	_data._albedo = p_color;
-	emit_signal("value_changed");
 }
 
 void Terrain3DSurface::set_albedo_texture(const Ref<Texture2D> &p_texture) {
 	if (_texture_is_valid(p_texture)) {
 		_data._albedo_texture = p_texture;
-		emit_signal("texture_changed");
 	}
 }
 
 void Terrain3DSurface::set_normal_texture(const Ref<Texture2D> &p_texture) {
 	if (_texture_is_valid(p_texture)) {
 		_data._normal_texture = p_texture;
-		emit_signal("texture_changed");
 	}
 }
 
 void Terrain3DSurface::set_uv_scale(float p_scale) {
 	_data._uv_scale = p_scale;
-	emit_signal("value_changed");
 }
 
 void Terrain3DSurface::set_uv_rotation(float p_rotation) {
 	_data._uv_rotation = CLAMP(p_rotation, 0.0f, 1.0f);
-	emit_signal("value_changed");
 }
 
 ///////////////////////////
@@ -92,10 +89,6 @@ void Terrain3DSurface::set_uv_rotation(float p_rotation) {
 ///////////////////////////
 
 void Terrain3DSurface::_bind_methods() {
-	ADD_SIGNAL(MethodInfo("id_changed"));
-	ADD_SIGNAL(MethodInfo("texture_changed"));
-	ADD_SIGNAL(MethodInfo("value_changed"));
-
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DSurface::clear);
 	ClassDB::bind_method(D_METHOD("set_name", "name"), &Terrain3DSurface::set_name);
 	ClassDB::bind_method(D_METHOD("get_name"), &Terrain3DSurface::get_name);
