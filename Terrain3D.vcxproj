@@ -160,6 +160,8 @@
     <ClCompile Include="src\terrain_3d_texture_list.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="project\addons\terrain_3d\plugin.cfg" />
+    <None Include="project\addons\terrain_3d\terrain.gdextension" />
     <None Include="src\shaders\debug_views.glsl" />
     <None Include="src\shaders\main.glsl" />
     <None Include="src\shaders\world_noise.glsl" />

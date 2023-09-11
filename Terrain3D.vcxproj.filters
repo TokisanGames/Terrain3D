@@ -73,5 +73,7 @@
     <None Include="src\shaders\world_noise.glsl" />
     <None Include="src\shaders\main.glsl" />
     <None Include="src\shaders\debug_views.glsl" />
+    <None Include="project\addons\terrain_3d\plugin.cfg" />
+    <None Include="project\addons\terrain_3d\terrain.gdextension" />
   </ItemGroup>
 </Project>

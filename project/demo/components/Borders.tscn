@@ -1,6 +1,6 @@
-[gd_scene load_steps=7 format=3 uid="uid://ca4wu1l8lhmyd"]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Texture2D" uid="uid://dwrxve8g0m64a" path="res://demo/textures/rock028_nrm_rgh.dds" id="1_nf248"]
+[ext_resource type="Texture2D" path="res://demo/textures/rock028_nrm_rgh.dds" id="1_nf248"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_1kfaq"]
 size = Vector3(1025.01, 1, 1)

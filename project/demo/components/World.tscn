@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://c0djt8d57nivw"]
+[gd_scene load_steps=4 format=3]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_vibap"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
