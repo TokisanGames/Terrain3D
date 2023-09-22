@@ -29,13 +29,15 @@ See the [Wiki](https://github.com/TokisanGames/Terrain3D/wiki) for more details 
 6. If the demo scene doesn't open automatically, open `demo/Demo.tscn`. You should see a terrain. Run it. 
 
 ### Install Terrain3D in your own project
-1. Copy `addons/terrain_3d` to your project folder in `addons/terrain_3d`.
-2. Open Godot, restart when it prompts.
-3. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
-4. Select `Project / Reload Current Project` to restart once more.
-5. Create or open a 3D scene and add a new Terrain3D node.
-6. Select Terrain3D in the scene tree. In the inspector, click the down arrow to the right of the storage resource and save it as a binary .res file. This is optional, but highly recommended. Otherwise it will save terrain data as text in the current scene file.
-7. Read the wiki to learn how to properly [set up your textures](https://github.com/TokisanGames/Terrain3D/wiki/Setting-Up-Textures), [import data](https://github.com/TokisanGames/Terrain3D/wiki/Importing-&-Exporting-Data) and [more](https://github.com/TokisanGames/Terrain3D/wiki). 
+1. Download the [latest release](https://github.com/TokisanGames/Terrain3D/releases) and extract the files, or [build the plugin from source](https://github.com/TokisanGames/Terrain3D/wiki/Building-From-Source).
+2. Run Godot, using the console executable so you can see error messages.
+3. Copy `addons/terrain_3d` to your project folder in `addons/terrain_3d`.
+4. Open Godot, restart when it prompts.
+5. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
+6. Select `Project / Reload Current Project` to restart once more.
+7. Create or open a 3D scene and add a new Terrain3D node.
+8. Select Terrain3D in the scene tree. In the inspector, click the down arrow to the right of the storage resource and save it as a binary .res file. This is optional, but highly recommended. Otherwise it will save terrain data as text in the current scene file.
+9. Read the wiki to learn how to properly [set up your textures](https://github.com/TokisanGames/Terrain3D/wiki/Setting-Up-Textures), [import data](https://github.com/TokisanGames/Terrain3D/wiki/Importing-&-Exporting-Data) and [more](https://github.com/TokisanGames/Terrain3D/wiki). 
 
 ## Getting Support
 
