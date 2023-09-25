@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 
+#include "generated.h"
 #include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
 #include "terrain_3d_texture_list.h"
 
@@ -64,21 +65,6 @@ private:
 		//SIZE_512 = 512,
 		SIZE_1024 = 1024,
 		//SIZE_2048 = 2048,
-	};
-
-	class Generated {
-	private:
-		RID _rid = RID();
-		Ref<Image> _image;
-		bool _dirty = false;
-
-	public:
-		void clear();
-		bool is_dirty() { return _dirty; }
-		void create(const TypedArray<Image> &p_layers);
-		void create(const Ref<Image> &p_image);
-		Ref<Image> get_image() const { return _image; }
-		RID get_rid() { return _rid; }
 	};
 
 	// Storage Settings & flags

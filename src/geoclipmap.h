@@ -2,7 +2,6 @@
 #ifndef GEOCLIPMAP_CLASS_H
 #define GEOCLIPMAP_CLASS_H
 
-#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/templates/vector.hpp>
 
 using namespace godot;

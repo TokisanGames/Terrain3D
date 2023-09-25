@@ -1,8 +1,6 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
-#include <godot_cpp/core/class_db.hpp>
-
-#include "terrain_3d_logger.h"
 #include "terrain_3d_texture.h"
+#include "terrain_3d_logger.h"
 
 ///////////////////////////
 // Private Functions

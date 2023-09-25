@@ -25,6 +25,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include "geoclipmap.h"
+#include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
 
@@ -45,6 +46,7 @@ private:
 	int _clipmap_levels = 7;
 
 	Ref<Terrain3DStorage> _storage;
+	Ref<Terrain3DMaterial> _material;
 	Ref<Terrain3DTextureList> _texture_list;
 
 	// Editor components
@@ -105,6 +107,8 @@ public:
 
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
+	void set_material(const Ref<Terrain3DMaterial> &p_material);
+	Ref<Terrain3DMaterial> get_material() const { return _material; }
 	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
 	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
 

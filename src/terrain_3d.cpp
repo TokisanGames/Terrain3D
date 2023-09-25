@@ -1,6 +1,7 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
@@ -23,7 +24,7 @@ void Terrain3D::__ready() {
 void Terrain3D::_initialize() {
 	LOG(INFO, "Checking storage, texture list, signal, and terrain initialization");
 
-	// Make blank storage / texture list if needed
+	// Make blank objects if needed
 	if (_storage.is_null()) {
 		LOG(DEBUG, "Creating blank storage");
 		_storage.instantiate();
@@ -37,6 +38,10 @@ void Terrain3D::_initialize() {
 	if (_texture_list.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
 		_texture_list.instantiate();
+	}
+	if (_material.is_null()) {
+		LOG(DEBUG, "Creating blank material");
+		_material.instantiate();
 	}
 
 	// Connect signals
@@ -380,6 +385,16 @@ void Terrain3D::set_clipmap_size(int p_size) {
 		_clipmap_size = p_size;
 		clear();
 		_initialize();
+	}
+}
+
+void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
+	if (_storage != p_material) {
+		LOG(INFO, "Setting material");
+		_material = p_material;
+		clear();
+		_initialize();
+		emit_signal("material_changed");
 	}
 }
 
@@ -815,6 +830,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_clipmap_size", "size"), &Terrain3D::set_clipmap_size);
 	ClassDB::bind_method(D_METHOD("get_clipmap_size"), &Terrain3D::get_clipmap_size);
 
+	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
+	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
 	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
 	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
@@ -851,6 +868,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), "set_texture_list", "get_texture_list");
 
 	ADD_GROUP("Renderer", "render_");
@@ -872,6 +890,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 
+	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("storage_changed"));
 	ADD_SIGNAL(MethodInfo("texture_list_changed"));
 }
