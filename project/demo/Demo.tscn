@@ -12,11 +12,15 @@
 [ext_resource type="Texture2D" path="res://demo/textures/rock028_nrm_rgh.dds" id="10_i3tb8"]
 
 [sub_resource type="Terrain3DTexture" id="Terrain3DTexture_56fwf"]
+name = "Grass"
+albedo_color = Color(0.784314, 0.8, 0.776471, 1)
 albedo_texture = ExtResource("7_hqga3")
 normal_texture = ExtResource("8_pd4vo")
 
 [sub_resource type="Terrain3DTexture" id="Terrain3DTexture_x74kb"]
+name = "Rock"
 texture_id = 1
+albedo_color = Color(0.815686, 0.815686, 0.815686, 1)
 albedo_texture = ExtResource("9_rm006")
 normal_texture = ExtResource("10_i3tb8")
 
