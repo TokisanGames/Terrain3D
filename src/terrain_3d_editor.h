@@ -4,9 +4,6 @@
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
-#include <godot_cpp/classes/object.hpp>
-#include <godot_cpp/classes/time.hpp>
-#include <godot_cpp/core/math.hpp>
 
 #include "terrain_3d.h"
 

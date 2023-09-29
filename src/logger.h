@@ -1,6 +1,8 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
-#ifndef TERRAIN3D_LOGGER_CLASS_H
-#define TERRAIN3D_LOGGER_CLASS_H
+#ifndef LOGGER_CLASS_H
+#define LOGGER_CLASS_H
+
+#include <godot_cpp/variant/utility_functions.hpp>
 
 #include "terrain_3d.h"
 
@@ -25,4 +27,4 @@
 	else if (Terrain3D::_debug_level >= level)                                        \
 	UtilityFunctions::print(__class__, "::", __func__, ": ", __VA_ARGS__)
 
-#endif // TERRAIN3D_LOGGER_CLASS_H
+#endif // LOGGER_CLASS_H

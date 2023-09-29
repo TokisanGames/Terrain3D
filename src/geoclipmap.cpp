@@ -3,7 +3,7 @@
 #include <godot_cpp/classes/rendering_server.hpp>
 
 #include "geoclipmap.h"
-#include "terrain_3d_logger.h"
+#include "logger.h"
 
 ///////////////////////////
 // Private Functions
@@ -20,11 +20,11 @@ RID GeoClipMap::_create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_i
 	arrays[RenderingServer::ARRAY_INDEX] = p_indices;
 
 	LOG(DEBUG, "Creating mesh via the Rendering server");
-	RID mesh = RenderingServer::get_singleton()->mesh_create();
-	RenderingServer::get_singleton()->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
+	RID mesh = RS->mesh_create();
+	RS->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
 
 	LOG(DEBUG, "Setting custom aabb: ", p_aabb.position, ", ", p_aabb.size);
-	RenderingServer::get_singleton()->mesh_set_custom_aabb(mesh, p_aabb);
+	RS->mesh_set_custom_aabb(mesh, p_aabb);
 
 	return mesh;
 }

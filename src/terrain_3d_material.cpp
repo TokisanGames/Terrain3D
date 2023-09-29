@@ -1,7 +1,7 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/classes/rendering_server.hpp>
 
-#include "terrain_3d_logger.h"
+#include "logger.h"
 #include "terrain_3d_material.h"
 
 ///////////////////////////

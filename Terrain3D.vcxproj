@@ -139,12 +139,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\constants.h" />
     <ClInclude Include="src\generated.h" />
     <ClInclude Include="src\geoclipmap.h" />
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\terrain_3d.h" />
     <ClInclude Include="src\terrain_3d_editor.h" />
-    <ClInclude Include="src\terrain_3d_logger.h" />
+    <ClInclude Include="src\logger.h" />
+    <ClInclude Include="src\util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
     <ClInclude Include="src\terrain_3d_storage.h" />
     <ClInclude Include="src\terrain_3d_surface.h" />
@@ -162,6 +164,7 @@
     <ClCompile Include="src\terrain_3d_surface.cpp" />
     <ClCompile Include="src\terrain_3d_texture.cpp" />
     <ClCompile Include="src\terrain_3d_texture_list.cpp" />
+    <ClCompile Include="src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="project\addons\terrain_3d\plugin.cfg" />

@@ -53,7 +53,7 @@ func start_import(value: bool) -> void:
 		var img: Image
 		if height_file_name:
 			img = Terrain3DStorage.load_image(height_file_name, ResourceLoader.CACHE_MODE_IGNORE, r16_range, r16_size)
-			min_max = Terrain3DStorage.get_min_max(img)
+			min_max = Terrain3D.get_min_max(img)
 			imported_images[Terrain3DStorage.TYPE_HEIGHT] = img
 		if control_file_name:
 			img = Terrain3DStorage.load_image(control_file_name, ResourceLoader.CACHE_MODE_IGNORE)

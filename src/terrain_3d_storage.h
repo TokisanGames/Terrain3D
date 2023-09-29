@@ -5,19 +5,12 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 
+#include "constants.h"
 #include "generated.h"
 #include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
 #include "terrain_3d_texture_list.h"
 
-class Terrain3D;
 using namespace godot;
-
-#define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
-#define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
-#define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
-#define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)
-#define COLOR_CHECKED Color(1.f, 1.f, 1.0f, -1.0f)
-#define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 
 class Terrain3DStorage : public Resource {
 private:
@@ -201,9 +194,6 @@ public:
 			float p_offset = 0.0, float p_scale = 1.0);
 	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);
 	Ref<Image> layered_to_image(MapType p_map_type);
-	static Vector2 get_min_max(const Ref<Image> p_image);
-	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
-	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color = COLOR_BLACK, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
 
 	// Terrain Material
 

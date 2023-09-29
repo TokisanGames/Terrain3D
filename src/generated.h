@@ -8,7 +8,7 @@ using namespace godot;
 
 class Generated {
 private:
-	static inline const char *__class__ = "Generated";
+	static inline const char *__class__ = "Terrain3DGenerated";
 	RID _rid = RID();
 	Ref<Image> _image;
 	bool _dirty = false;

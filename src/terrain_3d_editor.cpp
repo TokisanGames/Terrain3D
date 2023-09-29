@@ -2,8 +2,8 @@
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
+#include "logger.h"
 #include "terrain_3d_editor.h"
-#include "terrain_3d_logger.h"
 
 ///////////////////////////
 // Subclass Functions

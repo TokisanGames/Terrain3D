@@ -7,24 +7,10 @@
 #endif
 
 #include <godot_cpp/classes/camera3d.hpp>
-#include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
-#include <godot_cpp/classes/editor_script.hpp>
-#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
-#include <godot_cpp/classes/node3d.hpp>
-#include <godot_cpp/classes/physics_server3d.hpp>
-#include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
-#include <godot_cpp/classes/v_box_container.hpp> // needed for get_editor_main_screen()
-#include <godot_cpp/classes/viewport.hpp>
-#include <godot_cpp/classes/visual_instance3d.hpp>
-#include <godot_cpp/classes/world3d.hpp>
-#include <godot_cpp/core/math.hpp>
-#include <godot_cpp/templates/vector.hpp>
-#include <godot_cpp/variant/utility_functions.hpp>
 
-#include "geoclipmap.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
