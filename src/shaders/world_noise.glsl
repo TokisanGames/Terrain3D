@@ -34,6 +34,17 @@ float noise2D(vec2 st) {
 //INSERT: WORLD_NOISE2
 	// World Noise
 	float weight = texture(region_blend_map, (uv/float(region_map_size))+0.5).r;
+	float rmap_half_size = float(region_map_size)*.5;
+	if(abs(uv.x) > rmap_half_size+.5 || abs(uv.y) > rmap_half_size+.5) {
+		weight = 0.;
+	} else {
+		if(abs(uv.x) > rmap_half_size-.5) {
+			weight = mix(weight, 0., abs(uv.x) - (rmap_half_size-.5));
+		}
+		if(abs(uv.y) > rmap_half_size-.5) {
+			weight = mix(weight, 0., abs(uv.y) - (rmap_half_size-.5));
+		}
+	}
 	height = mix(height, noise2D(uv * noise_scale) * noise_height,
 		clamp(smoothstep(noise_blend_near, noise_blend_far, 1.0 - weight), 0.0, 1.0));
 )"

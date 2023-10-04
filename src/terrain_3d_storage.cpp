@@ -55,13 +55,13 @@ void Terrain3DStorage::_clear() {
 	RenderingServer::get_singleton()->free_rid(_material);
 	RenderingServer::get_singleton()->free_rid(_shader);
 
+	_region_map_dirty = true;
+	_generated_region_blend_map.clear();
 	_generated_height_maps.clear();
 	_generated_control_maps.clear();
 	_generated_color_maps.clear();
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
-	_generated_region_map.clear();
-	_generated_region_blend_map.clear();
 }
 
 void Terrain3DStorage::_update_textures(const Ref<Terrain3DTextureList> &p_texture_list) {
@@ -280,21 +280,20 @@ void Terrain3DStorage::_update_regions() {
 		_modified = true;
 	}
 
-	if (_generated_region_map.is_dirty()) {
-		LOG(DEBUG_CONT, "Regenerating ", REGION_MAP_VSIZE, " region map");
-		Ref<Image> region_map_img = get_filled_image(REGION_MAP_VSIZE, COLOR_BLACK, false, Image::FORMAT_RG8);
-
+	if (_region_map_dirty) {
+		LOG(DEBUG_CONT, "Regenerating ", REGION_MAP_VSIZE, " region map array");
+		_region_map.clear();
+		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
+		_region_map_dirty = false;
 		for (int i = 0; i < _region_offsets.size(); i++) {
 			Vector2i ofs = _region_offsets[i];
-			Vector2i img_pos = Vector2i(ofs + (REGION_MAP_VSIZE / 2));
-			if (img_pos.x >= REGION_MAP_SIZE || img_pos.y >= REGION_MAP_SIZE || img_pos.x < 0 || img_pos.y < 0) {
+			Vector2i pos = Vector2i(ofs + (REGION_MAP_VSIZE / 2));
+			if (pos.x >= REGION_MAP_SIZE || pos.y >= REGION_MAP_SIZE || pos.x < 0 || pos.y < 0) {
 				continue;
 			}
-			Color col = Color(float(i + 1) / 255.0, 1.0, 0, 1);
-			region_map_img->set_pixelv(img_pos, col);
+			_region_map[pos.y * REGION_MAP_SIZE + pos.x] = i + 1; // 0 = no region
 		}
-		_generated_region_map.create(region_map_img);
-		RenderingServer::get_singleton()->material_set_param(_material, "region_map", _generated_region_map.get_rid());
+		RenderingServer::get_singleton()->material_set_param(_material, "region_map", _region_map);
 		RenderingServer::get_singleton()->material_set_param(_material, "region_map_size", REGION_MAP_SIZE);
 		RenderingServer::get_singleton()->material_set_param(_material, "region_offsets", _region_offsets);
 		_modified = true;
@@ -302,16 +301,14 @@ void Terrain3DStorage::_update_regions() {
 		if (_noise_enabled) {
 			LOG(DEBUG_CONT, "Regenerating ", Vector2i(512, 512), " region blend map");
 			Ref<Image> region_blend_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RH);
-			for (int y = 0; y < region_map_img->get_height(); y++) {
-				for (int x = 0; x < region_map_img->get_width(); x++) {
-					Color c = region_map_img->get_pixel(x, y);
-					c.r = c.g;
-					region_blend_img->set_pixel(x, y, c);
+			for (int y = 0; y < REGION_MAP_SIZE; y++) {
+				for (int x = 0; x < REGION_MAP_SIZE; x++) {
+					if (_region_map[y * REGION_MAP_SIZE + x] > 0) {
+						region_blend_img->set_pixel(x, y, COLOR_WHITE);
+					}
 				}
 			}
-			//region_blend_img->resize(512, 512, Image::INTERPOLATE_NEAREST); // No blur for use with Gaussian blur to add later
-			region_blend_img->resize(512, 512, Image::INTERPOLATE_LANCZOS); // Basic blur w/ subtle artifacts
-
+			region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
 			_generated_region_blend_map.create(region_blend_img);
 			RenderingServer::get_singleton()->material_set_param(_material, "region_blend_map", _generated_region_blend_map.get_rid());
 		}
@@ -460,6 +457,7 @@ String Terrain3DStorage::_generate_shader_code() {
 ///////////////////////////
 
 Terrain3DStorage::Terrain3DStorage() {
+	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 	_preload_shaders();
 	if (!_initialized) {
 		LOG(INFO, "Initializing terrain storage");
@@ -515,7 +513,7 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets)
 	LOG(INFO, "Setting region offsets with array sized: ", p_offsets.size());
 	_region_offsets = p_offsets;
 
-	_generated_region_map.clear();
+	_region_map_dirty = true;
 	_generated_region_blend_map.clear();
 	_update_regions();
 }
@@ -527,27 +525,11 @@ Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
 
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Vector2i uv_offset = get_region_offset(p_global_position);
-	int index = -1;
-
-	Vector2i img_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
-	if (img_pos.x >= REGION_MAP_SIZE || img_pos.y >= REGION_MAP_SIZE || img_pos.x < 0 || img_pos.y < 0) {
-		return index;
+	Vector2i pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
+	if (pos.x >= REGION_MAP_SIZE || pos.y >= REGION_MAP_SIZE || pos.x < 0 || pos.y < 0) {
+		return -1;
 	}
-
-	Ref<Image> img = _generated_region_map.get_image();
-
-	if (img.is_valid()) {
-		index = int(img->get_pixelv(img_pos).r * 255.0) - 1;
-	} else {
-		for (int i = 0; i < _region_offsets.size(); i++) {
-			Vector2i ofs = _region_offsets[i];
-			if (ofs == uv_offset) {
-				index = i;
-				break;
-			}
-		}
-	}
-	return index;
+	return _region_map[pos.y * REGION_MAP_SIZE + pos.x] - 1;
 }
 
 /** Adds a region to the terrain
@@ -603,7 +585,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 	LOG(DEBUG, "Total regions after pushback: ", _region_offsets.size());
 
 	// Region maps used by get_region_index so must be updated every time
-	_generated_region_map.clear();
+	_region_map_dirty = true;
 	_generated_region_blend_map.clear();
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
@@ -640,7 +622,7 @@ void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
 	}
 
 	// Region maps used by get_region_index so must be updated
-	_generated_region_map.clear();
+	_region_map_dirty = true;
 	_generated_region_blend_map.clear();
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
@@ -1419,7 +1401,7 @@ void Terrain3DStorage::set_noise_enabled(bool p_enabled) {
 	_noise_enabled = p_enabled;
 	_update_material();
 	if (_noise_enabled) {
-		_generated_region_map.clear();
+		_region_map_dirty = true;
 		_generated_region_blend_map.clear();
 		_update_regions();
 	}
@@ -1477,7 +1459,6 @@ void Terrain3DStorage::print_audit_data() {
 		LOG(INFO, "\tMap size: ", img->get_size(), " format: ", img->get_format());
 	}
 
-	LOG(INFO, "generated_region_map RID: ", _generated_region_map.get_rid(), " dirty: ", _generated_region_map.is_dirty(), ", image: ", _generated_region_map.get_image());
 	LOG(INFO, "generated_region_blend_map RID: ", _generated_region_blend_map.get_rid(), ", dirty: ", _generated_region_blend_map.is_dirty(), ", image: ", _generated_region_blend_map.get_image());
 	LOG(INFO, "generated_height_maps RID: ", _generated_height_maps.get_rid(), ", dirty: ", _generated_height_maps.is_dirty(), ", image: ", _generated_height_maps.get_image());
 	LOG(INFO, "generated_control_maps RID: ", _generated_control_maps.get_rid(), ", dirty: ", _generated_control_maps.is_dirty(), ", image: ", _generated_control_maps.get_image());
@@ -1641,7 +1622,7 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_scale", "get_noise_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 1000.0"), "set_noise_height", "get_noise_height");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_near", "get_noise_blend_near");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, .999"), "set_noise_blend_near", "get_noise_blend_near");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 
 	ADD_GROUP("Read Only", "data_");

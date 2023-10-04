@@ -100,7 +100,8 @@ private:
 	 * location is tracked by region_offsets. The region data are combined into one large
 	 * texture in generated_*_maps.
 	 */
-	TypedArray<Vector2i> _region_offsets;
+	PackedByteArray _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
+	TypedArray<Vector2i> _region_offsets; // Array of active region coordinates
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
@@ -133,8 +134,8 @@ private:
 
 	// Generated Data
 
+	bool _region_map_dirty = true;
 	// These contain an Image described below and a texture RID from the RenderingServer
-	Generated _generated_region_map; // REGION_MAP_SIZE^2 sized texture w/ active regions
 	Generated _generated_region_blend_map; // 512x512 blurred version of above for blending
 	// These contain the TextureLayered RID from the RenderingServer, no Image
 	Generated _generated_height_maps;

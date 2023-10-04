@@ -5,7 +5,7 @@ uniform float region_size = 1024.0;
 uniform float region_pixel_size = 1.0;
 uniform int region_map_size = 16;
 
-uniform sampler2D region_map : hint_default_black, filter_linear, repeat_disable;
+uniform int region_map[256];
 uniform vec2 region_offsets[256];
 uniform sampler2DArray height_maps : filter_linear_mipmap, repeat_disable;
 uniform sampler2DArray control_maps : filter_linear_mipmap, repeat_disable;
@@ -31,18 +31,20 @@ vec4 pack_normal(vec3 n, float a) {
 	return vec4((n.xzy + vec3(1.0)) * 0.5, a);
 }
 
-// Takes in a world UV, returns UV in region space (0-region_size)
-// Z is the index in the map texturearray
-// If the UV is not in a region, Z=-1
+// Takes location in world space coordinates, returns ivec3 with:
+// XY: (0-region_size) coordinates within the region
+// Z: region index used for texturearrays, -1 if not in a region
 ivec3 get_region(vec2 uv) {
-	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;
-	return ivec3(ivec2((uv - region_offsets[int(index)]) * region_size), int(index));
+	ivec2 pos = ivec2(floor(uv)) + (region_map_size / 2);
+	int index = region_map[ pos.y*region_map_size + pos.x ] - 1;
+	return ivec3(ivec2((uv - region_offsets[index]) * region_size), index);
 }
 
-// float form of get_region. Same return values
+// vec3 form of get_region. Same return values
 vec3 get_regionf(vec2 uv) {
-	float index = floor(texelFetch(region_map, ivec2(floor(uv)) + (region_map_size / 2), 0).r * 255.0) - 1.0;
-	return vec3(uv - region_offsets[int(index)], index);
+	ivec2 pos = ivec2(floor(uv)) + (region_map_size / 2);
+	int index = region_map[ pos.y*region_map_size + pos.x ] - 1;
+	return vec3(uv - region_offsets[index], float(index));
 }
 
 float get_height(vec2 uv) {
