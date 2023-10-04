@@ -233,7 +233,7 @@ void Terrain3D::_update_collision() {
 		// Non rotated shape for normal array index above
 		//Transform3D xform = Transform3D(Basis(), global_pos);
 		// Rotated shape Y=90 for -90 rotated array index
-		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), PI * .5),
+		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5),
 				global_pos + Vector3(region_size, 0, region_size) * .5);
 
 		if (!_show_debug_collision) {
@@ -430,6 +430,12 @@ void Terrain3D::set_render_layers(uint32_t p_layers) {
 void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting) {
 	_shadow_casting = p_shadow_casting;
 	_update_instances();
+}
+
+void Terrain3D::set_cull_margin(float p_margin) {
+	LOG(INFO, "Setting extra cull margin: ", p_margin);
+	_cull_margin = p_margin;
+	update_aabbs();
 }
 
 void Terrain3D::set_collision_enabled(bool p_enabled) {
@@ -639,19 +645,21 @@ void Terrain3D::update_aabbs() {
 	ERR_FAIL_COND_MSG(!_storage.is_valid(), "Terrain3DStorage is not valid");
 
 	Vector2 height_range = _storage->get_height_range();
-	LOG(DEBUG_CONT, "Updating AABBs with total height range: ", height_range);
+	LOG(DEBUG_CONT, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
 	height_range.y += abs(height_range.x); // Add below zero to total size
 
 	AABB aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
 	aabb.position.y = height_range.x;
 	aabb.size.y = height_range.y;
 	RenderingServer::get_singleton()->instance_set_custom_aabb(_data.cross, aabb);
+	RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.cross, _cull_margin);
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::TILE]);
 	aabb.position.y = height_range.x;
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.tiles.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.tiles[i], aabb);
+		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.tiles[i], _cull_margin);
 	}
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::FILLER]);
@@ -659,6 +667,7 @@ void Terrain3D::update_aabbs() {
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.fillers.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.fillers[i], aabb);
+		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.fillers[i], _cull_margin);
 	}
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::TRIM]);
@@ -666,6 +675,7 @@ void Terrain3D::update_aabbs() {
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.trims.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.trims[i], aabb);
+		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.trims[i], _cull_margin);
 	}
 
 	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::SEAM]);
@@ -673,6 +683,7 @@ void Terrain3D::update_aabbs() {
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.seams.size(); i++) {
 		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.seams[i], aabb);
+		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.seams[i], _cull_margin);
 	}
 }
 
@@ -818,6 +829,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_render_layers"), &Terrain3D::get_render_layers);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
+	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
 
 	ClassDB::bind_method(D_METHOD("set_collision_enabled", "enabled"), &Terrain3D::set_collision_enabled);
 	ClassDB::bind_method(D_METHOD("get_collision_enabled"), &Terrain3D::get_collision_enabled);
@@ -841,8 +854,9 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), "set_texture_list", "get_texture_list");
 
 	ADD_GROUP("Renderer", "render_");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "render_cull_margin", PROPERTY_HINT_RANGE, "0, 10000, 1, or_greater"), "set_cull_margin", "get_cull_margin");
 
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");

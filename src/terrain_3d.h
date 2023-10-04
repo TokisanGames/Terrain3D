@@ -6,10 +6,6 @@
 #define __FLT_MAX__ FLT_MAX
 #endif
 
-#ifndef PI
-#define PI 3.14159265f
-#endif
-
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
@@ -71,6 +67,7 @@ private:
 	// Renderer settings
 	uint32_t _render_layers = 1;
 	GeometryInstance3D::ShadowCastingSetting _shadow_casting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
+	float _cull_margin = 0.0;
 
 	// Physics body and settings
 	RID _static_body;
@@ -122,6 +119,8 @@ public:
 	uint32_t get_render_layers() const { return _render_layers; };
 	void set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting);
 	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _shadow_casting; };
+	void set_cull_margin(float p_margin);
+	float get_cull_margin() const { return _cull_margin; };
 
 	// Physics body settings
 	void set_collision_enabled(bool p_enabled);
