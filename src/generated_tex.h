@@ -1,14 +1,14 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
-#ifndef GENERATED_CLASS_H
-#define GENERATED_CLASS_H
+#ifndef GENERATEDTEX_CLASS_H
+#define GENERATEDTEX_CLASS_H
 
 #include <godot_cpp/classes/image.hpp>
 
 using namespace godot;
 
-class Generated {
+class GeneratedTex {
 private:
-	static inline const char *__class__ = "Terrain3DGenerated";
+	static inline const char *__class__ = "Terrain3DGeneratedTex";
 	RID _rid = RID();
 	Ref<Image> _image;
 	bool _dirty = false;
@@ -22,4 +22,4 @@ public:
 	RID get_rid() { return _rid; }
 };
 
-#endif // GENERATED_CLASS_H
+#endif // GENERATEDTEX_CLASS_H

@@ -140,7 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\constants.h" />
-    <ClInclude Include="src\generated.h" />
+    <ClInclude Include="src\generated_tex.h" />
     <ClInclude Include="src\geoclipmap.h" />
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\terrain_3d.h" />
@@ -154,7 +154,7 @@
     <ClInclude Include="src\terrain_3d_texture_list.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\generated.cpp" />
+    <ClCompile Include="src\generated_tex.cpp" />
     <ClCompile Include="src\geoclipmap.cpp" />
     <ClCompile Include="src\register_types.cpp" />
     <ClCompile Include="src\terrain_3d.cpp" />

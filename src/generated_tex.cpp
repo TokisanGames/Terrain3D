@@ -1,14 +1,14 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
 #include <godot_cpp/classes/rendering_server.hpp>
 
-#include "generated.h"
+#include "generated_tex.h"
 #include "logger.h"
 
 ///////////////////////////
-// Private Functions
+// Public Functions
 ///////////////////////////
 
-void Generated::create(const TypedArray<Image> &p_layers) {
+void GeneratedTex::create(const TypedArray<Image> &p_layers) {
 	if (!p_layers.is_empty()) {
 		if (Terrain3D::_debug_level >= DEBUG) {
 			LOG(DEBUG, "RenderingServer creating Texture2DArray, layers size: ", p_layers.size());
@@ -24,20 +24,20 @@ void Generated::create(const TypedArray<Image> &p_layers) {
 	}
 }
 
-void Generated::create(const Ref<Image> &p_image) {
+void GeneratedTex::create(const Ref<Image> &p_image) {
 	LOG(DEBUG, "RenderingServer creating Texture2D");
 	_image = p_image;
 	_rid = RS->texture_2d_create(_image);
 	_dirty = false;
 }
 
-void Generated::clear() {
+void GeneratedTex::clear() {
 	if (_rid.is_valid()) {
-		LOG(DEBUG, "Generated freeing ", _rid);
+		LOG(DEBUG, "GeneratedTex freeing ", _rid);
 		RS->free_rid(_rid);
 	}
 	if (_image.is_valid()) {
-		LOG(DEBUG, "Generated unref image", _image);
+		LOG(DEBUG, "GeneratedTex unref image", _image);
 		_image.unref();
 	}
 	_rid = RID();

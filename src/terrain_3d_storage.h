@@ -6,7 +6,7 @@
 #include <godot_cpp/classes/shader.hpp>
 
 #include "constants.h"
-#include "generated.h"
+#include "generated_tex.h"
 #include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
 #include "terrain_3d_texture_list.h"
 
@@ -72,6 +72,7 @@ private:
 	// Stored Data
 
 	Vector2 _height_range = Vector2(0, 0);
+	bool _region_map_dirty = true;
 
 	/**
 	 * These arrays house all of the map data.
@@ -111,17 +112,16 @@ private:
 	float _noise_blend_near = 0.5;
 	float _noise_blend_far = 1.0;
 
-	// Generated Data
+	// Generated Texture RIDs
 
-	bool _region_map_dirty = true;
 	// These contain an Image described below and a texture RID from the RenderingServer
-	Generated _generated_region_blend_map; // 512x512 blurred version of above for blending
+	GeneratedTex _generated_region_blend_map; // 512x512 blurred version of above for blending
 	// These contain the TextureLayered RID from the RenderingServer, no Image
-	Generated _generated_height_maps;
-	Generated _generated_control_maps;
-	Generated _generated_color_maps;
-	Generated _generated_albedo_textures;
-	Generated _generated_normal_textures;
+	GeneratedTex _generated_height_maps;
+	GeneratedTex _generated_control_maps;
+	GeneratedTex _generated_color_maps;
+	GeneratedTex _generated_albedo_textures;
+	GeneratedTex _generated_normal_textures;
 
 	// Functions
 
