@@ -71,8 +71,8 @@ R"(
 	float _view_distance = 100.0;	// Visible distance of grid
 	// Draw region grid
 	_region_line = .1*sqrt(_camera_dist);
-	if (mod(_pixel_pos.x + region_size*.5 + _region_line*.5, region_size) <= _region_line || 
-		mod(_pixel_pos.z + region_size*.5 + _region_line*.5, region_size) <= _region_line ) {
+	if (mod(_pixel_pos.x + _region_line*.5, region_size) <= _region_line || 
+		mod(_pixel_pos.z + _region_line*.5, region_size) <= _region_line ) {
 		ALBEDO = vec3(1.);
 	}
 	if ( _camera_dist < _view_distance ) {
