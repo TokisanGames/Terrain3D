@@ -66,14 +66,14 @@ void Terrain3DTexture::set_albedo_color(Color p_color) {
 void Terrain3DTexture::set_albedo_texture(const Ref<Texture2D> &p_texture) {
 	if (_is_texture_valid(p_texture)) {
 		_data._albedo_texture = p_texture;
-		emit_signal("texture_changed");
+		emit_signal("file_changed");
 	}
 }
 
 void Terrain3DTexture::set_normal_texture(const Ref<Texture2D> &p_texture) {
 	if (_is_texture_valid(p_texture)) {
 		_data._normal_texture = p_texture;
-		emit_signal("texture_changed");
+		emit_signal("file_changed");
 	}
 }
 
@@ -93,7 +93,7 @@ void Terrain3DTexture::set_uv_rotation(float p_rotation) {
 
 void Terrain3DTexture::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("id_changed"));
-	ADD_SIGNAL(MethodInfo("texture_changed"));
+	ADD_SIGNAL(MethodInfo("file_changed"));
 	ADD_SIGNAL(MethodInfo("setting_changed"));
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DTexture::clear);

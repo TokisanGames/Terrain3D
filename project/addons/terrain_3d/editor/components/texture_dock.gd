@@ -255,7 +255,7 @@ class ListEntry extends VBoxContainer:
 		resource = res
 		if resource:
 			resource.setting_changed.connect(_on_texture_changed)
-			resource.texture_changed.connect(_on_texture_changed)
+			resource.file_changed.connect(_on_texture_changed)
 		
 		if button_clear:
 			button_clear.set_visible(resource != null)

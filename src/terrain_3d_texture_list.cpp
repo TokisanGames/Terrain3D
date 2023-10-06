@@ -1,8 +1,10 @@
 // Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+#include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
 #include "terrain_3d_texture_list.h"
+#include "util.h"
 
 ///////////////////////////
 // Private Functions
@@ -29,7 +31,190 @@ void Terrain3DTextureList::_swap_textures(int p_old_id, int p_new_id) {
 	_textures[p_new_id] = texture_a;
 	_textures[p_old_id] = texture_b;
 
-	emit_signal("textures_changed");
+	update();
+}
+
+void Terrain3DTextureList::update() {
+	LOG(INFO, "Reconnecting texture signals");
+	for (int i = 0; i < _textures.size(); i++) {
+		Ref<Terrain3DTexture> texture_set = _textures[i];
+
+		if (texture_set.is_null()) {
+			LOG(ERROR, "Texture at index ", i, " is null, but shouldn't be.");
+			continue;
+		}
+		if (!texture_set->is_connected("file_changed", Callable(this, "_update_texture_files"))) {
+			LOG(DEBUG, "Connecting file_changed signal");
+			texture_set->connect("file_changed", Callable(this, "_update_texture_files"));
+		}
+		if (!texture_set->is_connected("setting_changed", Callable(this, "_update_texture_settings"))) {
+			LOG(DEBUG, "Connecting setting_changed signal");
+			texture_set->connect("setting_changed", Callable(this, "_update_texture_settings"));
+		}
+	}
+	_generated_albedo_textures.clear();
+	_generated_normal_textures.clear();
+	_update_texture_data(true, true);
+}
+
+void Terrain3DTextureList::_update_texture_files() {
+	LOG(DEBUG, "Received texture_changed signal");
+	_generated_albedo_textures.clear();
+	_generated_normal_textures.clear();
+	_update_texture_data(true, false);
+}
+
+void Terrain3DTextureList::_update_texture_settings() {
+	LOG(DEBUG, "Received setting_changed signal");
+	_update_texture_data(false, true);
+}
+
+void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings) {
+	bool mat_update_needed = false;
+	Array signal_args;
+
+	if (!_textures.is_empty() && p_textures) {
+		LOG(INFO, "Validating texture sizes");
+		Vector2i albedo_size = Vector2i(0, 0);
+		Vector2i normal_size = Vector2i(0, 0);
+
+		// Detect image sizes
+		for (int i = 0; i < _textures.size(); i++) {
+			Ref<Terrain3DTexture> texture_set = _textures[i];
+			if (texture_set.is_null()) {
+				continue;
+			}
+			Ref<Texture2D> alb_tex = texture_set->get_albedo_texture();
+			Ref<Texture2D> nor_tex = texture_set->get_normal_texture();
+
+			if (alb_tex.is_valid()) {
+				Vector2i tex_size = alb_tex->get_size();
+				if (albedo_size.length() == 0.0) {
+					albedo_size = tex_size;
+				} else {
+					ERR_FAIL_COND_MSG(tex_size != albedo_size, "Albedo textures do not have same size!");
+				}
+			}
+			if (nor_tex.is_valid()) {
+				Vector2i tex_size = nor_tex->get_size();
+				if (normal_size.length() == 0.0) {
+					normal_size = tex_size;
+				} else {
+					ERR_FAIL_COND_MSG(tex_size != normal_size, "Normal map textures do not have same size!");
+				}
+			}
+		}
+
+		if (normal_size == Vector2i(0, 0)) {
+			normal_size = albedo_size;
+		} else if (albedo_size == Vector2i(0, 0)) {
+			albedo_size = normal_size;
+		}
+		if (albedo_size == Vector2i(0, 0)) {
+			albedo_size = Vector2i(1024, 1024);
+			normal_size = Vector2i(1024, 1024);
+		}
+
+		// Generate TextureArrays and replace nulls with a empty image
+		if (_generated_albedo_textures.is_dirty() && albedo_size != Vector2i(0, 0)) {
+			LOG(INFO, "Regenerating albedo texture array");
+			Array albedo_texture_array;
+
+			for (int i = 0; i < _textures.size(); i++) {
+				Ref<Terrain3DTexture> texture_set = _textures[i];
+				if (texture_set.is_null()) {
+					continue;
+				}
+				Ref<Texture2D> tex = texture_set->get_albedo_texture();
+				Ref<Image> img;
+
+				if (tex.is_null()) {
+					img = Util::get_filled_image(albedo_size, COLOR_CHECKED, true, Image::FORMAT_RGBA8);
+					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
+					LOG(DEBUG, "ID ", i, " albedo texture is null. Creating a new one. Format: ", img->get_format());
+					texture_set->get_data()->_albedo_texture = ImageTexture::create_from_image(img);
+				} else {
+					img = tex->get_image();
+					LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
+				}
+				albedo_texture_array.push_back(img);
+			}
+			if (!albedo_texture_array.is_empty()) {
+				_generated_albedo_textures.create(albedo_texture_array);
+				mat_update_needed = true;
+			}
+		}
+
+		if (_generated_normal_textures.is_dirty() && normal_size != Vector2i(0, 0)) {
+			LOG(INFO, "Regenerating normal texture arrays");
+
+			Array normal_texture_array;
+
+			for (int i = 0; i < _textures.size(); i++) {
+				Ref<Terrain3DTexture> texture_set = _textures[i];
+				if (texture_set.is_null()) {
+					continue;
+				}
+				Ref<Texture2D> tex = texture_set->get_normal_texture();
+				Ref<Image> img;
+
+				if (tex.is_null()) {
+					img = Util::get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
+					img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
+					LOG(DEBUG, "ID ", i, " normal texture is null. Creating a new one. Format: ", img->get_format());
+					texture_set->get_data()->_normal_texture = ImageTexture::create_from_image(img);
+				} else {
+					img = tex->get_image();
+					LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
+				}
+				normal_texture_array.push_back(img);
+			}
+			if (!normal_texture_array.is_empty()) {
+				_generated_normal_textures.create(normal_texture_array);
+				mat_update_needed = true;
+			}
+		}
+	}
+	signal_args.push_back(_generated_albedo_textures.get_rid());
+	signal_args.push_back(_generated_normal_textures.get_rid());
+
+	if (!_textures.is_empty() && p_settings) {
+		LOG(INFO, "Updating terrain color and scale arrays");
+		PackedFloat32Array uv_scales;
+		PackedFloat32Array uv_rotations;
+		PackedColorArray colors;
+
+		for (int i = 0; i < _textures.size(); i++) {
+			Ref<Terrain3DTexture> texture_set = _textures[i];
+			if (texture_set.is_null()) {
+				continue;
+			}
+			uv_scales.push_back(texture_set->get_uv_scale());
+			uv_rotations.push_back(texture_set->get_uv_rotation());
+			colors.push_back(texture_set->get_albedo_color());
+		}
+		signal_args.push_back(uv_rotations);
+		signal_args.push_back(uv_scales);
+		signal_args.push_back(colors);
+	}
+
+	// Enable checkered view if texture_count is 0, disable if not
+	//if (_debug_view_checkered == false) {
+	//	if (_textures.is_empty()) {
+	//		_debug_view_checkered = true;
+	//		mat_update_needed = true;
+	//		LOG(DEBUG, "No textures, enabling checkered view");
+	//	}
+	//} else {
+	//		_debug_view_checkered = false;
+	//		mat_update_needed = true;
+	//		LOG(DEBUG, "Texture count >0, disabling checkered view");
+	//}
+
+	// Notify update for all of the above sections
+	if (mat_update_needed) {
+		emit_signal("updated", signal_args);
+	}
 }
 
 ///////////////////////////
@@ -40,6 +225,8 @@ Terrain3DTextureList::Terrain3DTextureList() {
 }
 
 Terrain3DTextureList::~Terrain3DTextureList() {
+	_generated_albedo_textures.clear();
+	_generated_normal_textures.clear();
 }
 
 void Terrain3DTextureList::set_texture(int p_index, const Ref<Terrain3DTexture> &p_texture) {
@@ -75,7 +262,7 @@ void Terrain3DTextureList::set_texture(int p_index, const Ref<Terrain3DTexture> 
 			_textures[p_index] = p_texture;
 		}
 	}
-	emit_signal("textures_changed");
+	update();
 }
 
 /**
@@ -110,7 +297,7 @@ void Terrain3DTextureList::set_textures(const TypedArray<Terrain3DTexture> &p_te
 			texture->connect("id_changed", Callable(this, "_swap_textures"));
 		}
 	}
-	emit_signal("textures_changed");
+	update();
 }
 
 void Terrain3DTextureList::save() {
@@ -132,6 +319,8 @@ void Terrain3DTextureList::save() {
 void Terrain3DTextureList::_bind_methods() {
 	// Private
 	ClassDB::bind_method(D_METHOD("_swap_textures", "old_id", "new_id"), &Terrain3DTextureList::_swap_textures);
+	ClassDB::bind_method(D_METHOD("_update_texture_files"), &Terrain3DTextureList::_update_texture_files);
+	ClassDB::bind_method(D_METHOD("_update_texture_settings"), &Terrain3DTextureList::_update_texture_settings);
 
 	// Public
 	ClassDB::bind_method(D_METHOD("set_texture", "index", "texture"), &Terrain3DTextureList::set_texture);
@@ -139,11 +328,12 @@ void Terrain3DTextureList::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_textures", "textures"), &Terrain3DTextureList::set_textures);
 	ClassDB::bind_method(D_METHOD("get_textures"), &Terrain3DTextureList::get_textures);
 	ClassDB::bind_method(D_METHOD("get_texture_count"), &Terrain3DTextureList::get_texture_count);
+	ClassDB::bind_method(D_METHOD("update"), &Terrain3DTextureList::update);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "textures", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), ro_flags), "set_textures", "get_textures");
 
 	BIND_CONSTANT(MAX_TEXTURES);
 
-	ADD_SIGNAL(MethodInfo("textures_changed"));
+	ADD_SIGNAL(MethodInfo("updated"));
 }

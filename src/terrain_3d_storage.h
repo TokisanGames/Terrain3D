@@ -120,14 +120,11 @@ private:
 	GeneratedTex _generated_height_maps;
 	GeneratedTex _generated_control_maps;
 	GeneratedTex _generated_color_maps;
-	GeneratedTex _generated_albedo_textures;
-	GeneratedTex _generated_normal_textures;
 
 	// Functions
 
 	void _clear();
 
-	void _update_texture_data(const Ref<Terrain3DTextureList> &p_textures, bool p_update_textures, bool p_update_values);
 	void _update_regions();
 	void _update_material();
 	void _preload_shaders();
@@ -237,9 +234,7 @@ public:
 
 	// Private. Public workaround until callable_mp is implemented
 	// https://github.com/godotengine/godot-cpp/pull/1155
-	void _update_textures(const Ref<Terrain3DTextureList> &p_textures);
-	void _update_texture_files(const Ref<Terrain3DTextureList> &p_textures);
-	void _update_texture_settings(const Ref<Terrain3DTextureList> &p_textures);
+	void _update_texture_arrays(const Array &args);
 
 	// Testing
 	void print_audit_data();

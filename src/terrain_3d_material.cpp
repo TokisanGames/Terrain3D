@@ -45,6 +45,7 @@ void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 }
 
 void Terrain3DMaterial::set_region_size(int p_size) {
+	LOG(INFO, "Setting region size in material");
 	_region_size = CLAMP(p_size, 64, 4096);
 	_region_sizev = Vector2i(_region_size, _region_size);
 	//set_param("region_size", _region_size);

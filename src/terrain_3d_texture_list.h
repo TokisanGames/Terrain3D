@@ -2,6 +2,7 @@
 #ifndef TERRAIN3D_TEXTURE_LIST_CLASS_H
 #define TERRAIN3D_TEXTURE_LIST_CLASS_H
 
+#include "generated_tex.h"
 #include "terrain_3d_texture.h"
 
 using namespace godot;
@@ -14,6 +15,11 @@ private:
 	static inline const int MAX_TEXTURES = 32;
 
 	TypedArray<Terrain3DTexture> _textures;
+
+	GeneratedTex _generated_albedo_textures;
+	GeneratedTex _generated_normal_textures;
+
+	void _update_texture_data(bool p_textures, bool p_settings);
 
 public:
 	Terrain3DTextureList();
@@ -30,6 +36,10 @@ public:
 	// Private. Public workaround until callable_mp is implemented
 	// https://github.com/godotengine/godot-cpp/pull/1155
 	void _swap_textures(int p_old_id, int p_new_id);
+
+	void update();
+	void _update_texture_files();
+	void _update_texture_settings();
 
 protected:
 	static void _bind_methods();

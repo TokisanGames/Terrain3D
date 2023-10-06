@@ -57,18 +57,17 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
 	}
-	if (!_texture_list->is_connected("textures_changed", Callable(_storage.ptr(), "_update_textures"))) {
-		LOG(DEBUG, "Connecting textures_changed to _storage._update_textures()");
-		_texture_list->connect("textures_changed",
-				Callable(_storage.ptr(), "_update_textures").bindv(Array::make(_texture_list)));
+	if (!_texture_list->is_connected("updated", Callable(_storage.ptr(), "_update_texture_arrays"))) {
+		LOG(DEBUG, "Connecting texture_list.updated to _storage._update_texture_arrays()");
+		_texture_list->connect("updated", Callable(_storage.ptr(), "_update_texture_arrays"));
 	}
-
 	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
 		build(_clipmap_levels, _clipmap_size);
 		_build_collision();
 	}
 
-	_storage->_update_textures(_texture_list);
+	_material->set_region_size(_storage->get_region_size());
+	_texture_list->update();
 }
 
 /**

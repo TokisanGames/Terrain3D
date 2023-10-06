@@ -182,8 +182,7 @@ func is_terrain_valid() -> bool:
 	return valid
 
 
-func update_texture_dock() -> void:
-
+func update_texture_dock(args: Array) -> void:
 	texture_dock.clear()
 	
 	if is_terrain_valid() and terrain.texture_list:
@@ -228,9 +227,9 @@ func add_control_to_bottom(control: Control) -> void:
 
 func _load_textures() -> void:
 	if terrain and terrain.texture_list:
-		if not terrain.texture_list.textures_changed.is_connected(update_texture_dock):
-			terrain.texture_list.textures_changed.connect(update_texture_dock)
-		update_texture_dock()				
+		if not terrain.texture_list.updated.is_connected(update_texture_dock):
+			terrain.texture_list.updated.connect(update_texture_dock)
+		update_texture_dock(Array())				
 
 
 func _load_storage() -> void:
