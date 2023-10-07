@@ -15,6 +15,7 @@
 void Terrain3DStorage::_clear() {
 	LOG(INFO, "Clearing storage");
 	_region_map_dirty = true;
+	_region_map.clear();
 	_generated_height_maps.clear();
 	_generated_control_maps.clear();
 	_generated_color_maps.clear();
@@ -60,6 +61,7 @@ void Terrain3DStorage::_update_regions(bool force_emit) {
 		_modified = true;
 	}
 
+	// Don't emit if no changes and not requested
 	if (force_emit) {
 		Array region_signal_args;
 		region_signal_args.push_back(_generated_height_maps.get_rid());
@@ -83,22 +85,13 @@ Terrain3DStorage::~Terrain3DStorage() {
 	_clear();
 }
 
-void Terrain3DStorage::set_region_size(RegionSize p_size) {
-	LOG(INFO, "Setting region size: ", p_size);
-	//ERR_FAIL_COND(p_size < SIZE_64);
-	//ERR_FAIL_COND(p_size > SIZE_2048);
-	ERR_FAIL_COND(p_size != SIZE_1024);
-	_region_size = p_size;
-	_region_sizev = Vector2i(_region_size, _region_size);
-	emit_signal("region_size_changed", _region_size);
-}
-
 void Terrain3DStorage::update_heights(float p_height) {
 	if (p_height < _height_range.x) {
 		_height_range.x = p_height;
 	} else if (p_height > _height_range.y) {
 		_height_range.y = p_height;
 	}
+	_modified = true;
 }
 
 void Terrain3DStorage::update_heights(Vector2 p_heights) {
@@ -108,6 +101,7 @@ void Terrain3DStorage::update_heights(Vector2 p_heights) {
 	if (p_heights.y > _height_range.y) {
 		_height_range.y = p_heights.y;
 	}
+	_modified = true;
 }
 
 void Terrain3DStorage::update_height_range() {
@@ -116,6 +110,16 @@ void Terrain3DStorage::update_height_range() {
 		update_heights(Util::get_min_max(_height_maps[i]));
 	}
 	LOG(INFO, "Updated terrain height range: ", _height_range);
+}
+
+void Terrain3DStorage::set_region_size(RegionSize p_size) {
+	LOG(INFO, "Setting region size: ", p_size);
+	//ERR_FAIL_COND(p_size < SIZE_64);
+	//ERR_FAIL_COND(p_size > SIZE_2048);
+	ERR_FAIL_COND(p_size != SIZE_1024);
+	_region_size = p_size;
+	_region_sizev = Vector2i(_region_size, _region_size);
+	emit_signal("region_size_changed", _region_size);
 }
 
 void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets) {
@@ -209,7 +213,6 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 
 void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
 	LOG(INFO, "Removing region at ", p_global_position, " Updating: ", p_update ? "yes" : "no");
-
 	int index = get_region_index(p_global_position);
 	ERR_FAIL_COND_MSG(index == -1, "Map does not exist.");
 
@@ -889,17 +892,17 @@ void Terrain3DStorage::_bind_methods() {
 
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
-	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
-	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
-	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3DStorage::set_save_16_bit);
-	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3DStorage::get_save_16_bit);
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DStorage::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DStorage::get_version);
+	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3DStorage::set_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3DStorage::get_save_16_bit);
 
 	ClassDB::bind_method(D_METHOD("set_height_range", "range"), &Terrain3DStorage::set_height_range);
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DStorage::get_height_range);
 	ClassDB::bind_method(D_METHOD("update_height_range"), &Terrain3DStorage::update_height_range);
 
+	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
+	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
 	ClassDB::bind_method(D_METHOD("set_region_offsets", "offsets"), &Terrain3DStorage::set_region_offsets);
 	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
 	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DStorage::get_region_count);
@@ -936,21 +939,29 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 
-	ADD_GROUP("Read Only", "data_");
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "data_version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "data_height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_offsets", "get_region_offsets");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_height_maps", "get_height_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_control_maps", "get_control_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_color_maps", "get_color_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_offsets", "get_region_offsets");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_height_maps", "get_height_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_control_maps", "get_control_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_color_maps", "get_color_maps");
 
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_size_changed"));
 	ADD_SIGNAL(MethodInfo("regions_changed"));
 
-	// DEPRECATED 0.8.3, Remove 0.9-1.0
+	// DEPRECATED 0.8.4, Remove 0.9
+	int flags = PROPERTY_USAGE_NONE;
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "data_version", PROPERTY_HINT_NONE, "", flags), "set_version", "get_version");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "data_height_range", PROPERTY_HINT_NONE, "", flags), "set_height_range", "get_height_range");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), flags), "set_region_offsets", "get_region_offsets");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_height_maps", "get_height_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_control_maps", "get_control_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_color_maps", "get_color_maps");
+
+	// DEPRECATED 0.8.3, Remove 0.9
 	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
 	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), ro_flags), "set_surfaces", "get_surfaces");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), flags), "set_surfaces", "get_surfaces");
 }

@@ -27,29 +27,27 @@ void Terrain3D::_initialize() {
 	LOG(INFO, "Checking storage, texture list, signal, and terrain initialization");
 
 	// Make blank objects if needed
+	if (_material.is_null()) {
+		LOG(DEBUG, "Creating blank material");
+		_material.instantiate();
+	}
 	if (_storage.is_null()) {
 		LOG(DEBUG, "Creating blank storage");
 		_storage.instantiate();
 	} else if (_texture_list.is_null() && _storage->get_version() < 0.83f) {
-		// DEPREPCATED 0.8.3, remove 0.9-1.0
-		LOG(WARN, "Storage version ", vformat("%.2f", _storage->get_version()), " will be updated upon save");
-		_storage->set_modified();
+		// DEPREPCATED 0.8.3, remove 0.9
 		set_texture_list(_storage->get_texture_list());
-		return; //_initialized called from set_texture_list
+		return; // set_texture_list calls _initialized() again
 	}
 	if (_texture_list.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
 		_texture_list.instantiate();
 	}
-	if (_material.is_null()) {
-		LOG(DEBUG, "Creating blank material");
-		_material.instantiate();
-	}
 
 	// Connect signals
-	if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
-		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
-		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
+	if (!_texture_list->is_connected("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"))) {
+		LOG(DEBUG, "Connecting texture_list.textures_changed to _storage._update_texture_arrays()");
+		_texture_list->connect("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"));
 	}
 	if (!_storage->is_connected("region_size_changed", Callable(_material.ptr(), "set_region_size"))) {
 		LOG(DEBUG, "Connecting region_size_changed signal to set_region_size()");
@@ -59,25 +57,31 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting regions_changed signal to _update_regions()");
 		_storage->connect("regions_changed", Callable(_material.ptr(), "_update_regions"));
 	}
-	if (!_texture_list->is_connected("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"))) {
-		LOG(DEBUG, "Connecting texture_list.textures_changed to _storage._update_texture_arrays()");
-		_texture_list->connect("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"));
+	if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
+		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
+		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
 	}
 
-	// Configure objects
-	_material->set_region_size(_storage->get_region_size());
-	_storage->_update_regions(true); // generate map arrays
-	_texture_list->update(); // generate texture arrays
-
-	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
+	// Initialize the system
+	//if (!_initialized || !_is_inside_world || !is_inside_tree()) {
+	if (!_initialized && _is_inside_world && is_inside_tree()) {
+		_material->set_region_size(_storage->get_region_size());
+		_storage->_update_regions(true); // generate map arrays
+		_texture_list->_update_list(); // generate texture arrays
 		build(_clipmap_levels, _clipmap_size);
 		_build_collision();
+		_initialized = true;
 	}
 }
 
 void Terrain3D::__ready() {
 	_initialize();
-	_storage->clear_modified();
+	if (_storage->get_version() < Terrain3DStorage::CURRENT_VERSION) {
+		LOG(WARN, "Storage version ", vformat("%.2f", _storage->get_version()), " will be updated upon save");
+		_storage->set_modified();
+	} else {
+		_storage->clear_modified();
+	}
 	set_process(true);
 }
 
@@ -147,7 +151,7 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 }
 
 void Terrain3D::_build_collision() {
-	if (!_collision_enabled || !_initialized || !_is_inside_world || !is_inside_tree()) {
+	if (!_collision_enabled || !_is_inside_world || !is_inside_tree()) {
 		return;
 	}
 	// Create collision only in game, unless showing debug
@@ -535,7 +539,6 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
 		return;
 	}
-
 	LOG(INFO, "Building the terrain meshes");
 
 	// Generate terrain meshes, lods, seams
@@ -589,7 +592,6 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 		}
 	}
 
-	_initialized = true;
 	update_aabbs();
 	// Force a snap update
 	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
@@ -674,7 +676,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::update_aabbs() {
-	ERR_FAIL_COND_MSG(!_initialized, "Terrain meshes have not been built yet");
+	ERR_FAIL_COND_MSG(_meshes.is_empty(), "Terrain meshes have not been built yet");
 	ERR_FAIL_COND_MSG(!_storage.is_valid(), "Terrain3DStorage is not valid");
 
 	Vector2 height_range = _storage->get_height_range();
@@ -878,8 +880,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
 	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
 
-	ClassDB::bind_method(D_METHOD("clear", "clear_meshes", "clear_collision"), &Terrain3D::clear);
-	ClassDB::bind_method(D_METHOD("build", "clipmap_levels", "clipmap_size"), &Terrain3D::build);
 
 	// Utility functions
 	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_min_max", "image"), &Util::get_min_max);

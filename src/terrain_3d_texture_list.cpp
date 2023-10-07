@@ -31,10 +31,10 @@ void Terrain3DTextureList::_swap_textures(int p_old_id, int p_new_id) {
 	_textures[p_new_id] = texture_a;
 	_textures[p_old_id] = texture_b;
 
-	update();
+	_update_list();
 }
 
-void Terrain3DTextureList::update() {
+void Terrain3DTextureList::_update_list() {
 	LOG(INFO, "Reconnecting texture signals");
 	for (int i = 0; i < _textures.size(); i++) {
 		Ref<Terrain3DTexture> texture_set = _textures[i];
@@ -262,7 +262,7 @@ void Terrain3DTextureList::set_texture(int p_index, const Ref<Terrain3DTexture> 
 			_textures[p_index] = p_texture;
 		}
 	}
-	update();
+	_update_list();
 }
 
 /**
@@ -297,7 +297,7 @@ void Terrain3DTextureList::set_textures(const TypedArray<Terrain3DTexture> &p_te
 			texture->connect("id_changed", Callable(this, "_swap_textures"));
 		}
 	}
-	update();
+	_update_list();
 }
 
 void Terrain3DTextureList::save() {
@@ -328,7 +328,6 @@ void Terrain3DTextureList::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_textures", "textures"), &Terrain3DTextureList::set_textures);
 	ClassDB::bind_method(D_METHOD("get_textures"), &Terrain3DTextureList::get_textures);
 	ClassDB::bind_method(D_METHOD("get_texture_count"), &Terrain3DTextureList::get_texture_count);
-	ClassDB::bind_method(D_METHOD("update"), &Terrain3DTextureList::update);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "textures", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), ro_flags), "set_textures", "get_textures");

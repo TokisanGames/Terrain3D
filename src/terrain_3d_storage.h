@@ -7,7 +7,7 @@
 
 #include "constants.h"
 #include "generated_tex.h"
-#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
+#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9
 #include "terrain_3d_texture_list.h"
 
 using namespace godot;
@@ -19,7 +19,7 @@ private:
 
 	// Constants & Definitions
 
-	static inline const float CURRENT_VERSION = 0.83;
+	static inline const float CURRENT_VERSION = 0.84;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
@@ -63,10 +63,10 @@ private:
 	// Storage Settings & flags
 
 	float _version = 0.8; // First version, never change
-	RegionSize _region_size = SIZE_1024;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	bool _modified = false;
 	bool _save_16_bit = false;
+	RegionSize _region_size = SIZE_1024;
+	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 
 	// Stored Data
 
@@ -94,22 +94,17 @@ private:
 	GeneratedTex _generated_color_maps;
 
 	// Functions
-
 	void _clear();
-
 	void _update_regions(bool force_emit = false);
-	void _update_material();
 
 public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
-	void set_region_size(RegionSize p_size);
-	RegionSize get_region_size() const { return _region_size; }
-	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
-	inline bool get_save_16_bit() const { return _save_16_bit; }
 	inline void set_version(float p_version) { _version = p_version; }
 	inline float get_version() const { return _version; }
+	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
+	inline bool get_save_16_bit() const { return _save_16_bit; }
 
 	inline void set_height_range(Vector2 p_range) { _height_range = p_range; }
 	inline Vector2 get_height_range() const { return _height_range; }
@@ -118,6 +113,8 @@ public:
 	void update_height_range();
 
 	// Regions
+	void set_region_size(RegionSize p_size);
+	RegionSize get_region_size() const { return _region_size; }
 	void set_region_offsets(const TypedArray<Vector2i> &p_offsets);
 	TypedArray<Vector2i> get_region_offsets() const { return _region_offsets; }
 	int get_region_count() const { return _region_offsets.size(); }
@@ -128,7 +125,6 @@ public:
 	void remove_region(Vector3 p_global_position, bool p_update = true);
 
 	// Maps
-
 	void set_map_region(MapType p_map_type, int p_region_index, const Ref<Image> p_image);
 	Ref<Image> get_map_region(MapType p_map_type, int p_region_index) const;
 	void set_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
@@ -145,12 +141,10 @@ public:
 	inline Color get_color(Vector3 p_global_position);
 	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
 	inline float get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
-
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	// File I/O
-
 	void save();
 	void clear_modified() { _modified = false; }
 	void set_modified() { _modified = true; }

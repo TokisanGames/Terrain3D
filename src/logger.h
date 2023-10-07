@@ -11,6 +11,11 @@
  * Regular messages are filtered based on the user specified debug level.
  * Warnings and errors always print except in release builds.
  * DEBUG_CONT is for continuously called prints like inside snapping
+ *
+ * Note that in DEBUG mode Godot will crash on quit due to an
+ * access violation in editor_log.cpp EditorLog::_process_message().
+ * This is most likely caused by us printing messages as Godot is
+ * attempting to quit.
  */
 #define MESG -1 // Always print
 #define ERROR 0
