@@ -175,6 +175,7 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 			}
 		}
 	}
+	signal_args.push_back(_textures.size());
 	signal_args.push_back(_generated_albedo_textures.get_rid());
 	signal_args.push_back(_generated_normal_textures.get_rid());
 
@@ -317,7 +318,8 @@ void Terrain3DTextureList::save() {
 ///////////////////////////
 
 void Terrain3DTextureList::_bind_methods() {
-	// Private
+	// Private, but Public workaround until callable_mp is implemented
+	// https://github.com/godotengine/godot-cpp/pull/1155
 	ClassDB::bind_method(D_METHOD("_swap_textures", "old_id", "new_id"), &Terrain3DTextureList::_swap_textures);
 	ClassDB::bind_method(D_METHOD("_update_texture_files"), &Terrain3DTextureList::_update_texture_files);
 	ClassDB::bind_method(D_METHOD("_update_texture_settings"), &Terrain3DTextureList::_update_texture_settings);

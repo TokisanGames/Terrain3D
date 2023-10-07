@@ -73,6 +73,9 @@ private:
 	void _grab_camera();
 	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
+	void _clear(bool p_clear_meshes = true, bool p_clear_collision = true);
+	void _build(int p_clipmap_levels, int p_clipmap_size);
+
 	void _build_collision();
 	void _update_collision();
 	void _destroy_collision();
@@ -125,8 +128,6 @@ public:
 	real_t get_collision_priority() const { return _collision_priority; }
 
 	// Terrain methods
-	void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
-	void build(int p_clipmap_levels, int p_clipmap_size);
 	void snap(Vector3 p_cam_pos);
 	void update_aabbs();
 	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);

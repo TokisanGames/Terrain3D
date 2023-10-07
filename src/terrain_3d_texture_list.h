@@ -19,7 +19,10 @@ private:
 	GeneratedTex _generated_albedo_textures;
 	GeneratedTex _generated_normal_textures;
 
+	void _swap_textures(int p_old_id, int p_new_id);
 	void _update_list();
+	void _update_texture_files();
+	void _update_texture_settings();
 	void _update_texture_data(bool p_textures, bool p_settings);
 
 public:
@@ -33,12 +36,6 @@ public:
 	int get_texture_count() const { return _textures.size(); }
 
 	void save();
-
-	// Private. Public workaround until callable_mp is implemented
-	// https://github.com/godotengine/godot-cpp/pull/1155
-	void _swap_textures(int p_old_id, int p_new_id);
-	void _update_texture_files();
-	void _update_texture_settings();
 
 protected:
 	static void _bind_methods();

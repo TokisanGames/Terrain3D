@@ -124,6 +124,107 @@ String Terrain3DMaterial::_generate_shader_code() {
 	return shader;
 }
 
+// Array expects
+// 0: height maps texture array RID
+// 1: control maps RID
+// 2: color maps RID
+// 3: region map packedByteArray
+// 4: region offsets array
+void Terrain3DMaterial::_update_regions(const Array &p_args) {
+	LOG(INFO, "Updating region maps in shader");
+	if (p_args.size() != 5) {
+		LOG(ERROR, "Expected 5 arguments. Received: ", p_args.size());
+		return;
+	}
+
+	RID height_rid = p_args[0];
+	RID control_rid = p_args[1];
+	RID color_rid = p_args[2];
+	RS->material_set_param(_material, "height_maps", height_rid);
+	RS->material_set_param(_material, "control_maps", control_rid);
+	RS->material_set_param(_material, "color_maps", color_rid);
+	LOG(DEBUG, "Height map RID: ", height_rid);
+	LOG(DEBUG, "Control map RID: ", control_rid);
+	LOG(DEBUG, "Color map RID: ", color_rid);
+
+	int REGION_MAP_SIZE = 16;
+	PackedByteArray region_map = p_args[3];
+	LOG(DEBUG, "Region_map size: ", region_map.size());
+	RS->material_set_param(_material, "region_map", region_map);
+	RS->material_set_param(_material, "region_map_size", REGION_MAP_SIZE);
+	TypedArray<Vector2i> region_offsets = p_args[4];
+	RS->material_set_param(_material, "region_offsets", region_offsets);
+
+	LOG(DEBUG, "Dumping material data");
+	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
+	LOG(DEBUG, "Region map");
+	for (int i = 0; i < region_map.size(); i++) {
+		if (region_map[i]) {
+			LOG(DEBUG, "Region id: ", region_map[i], " array index: ", i);
+		}
+	}
+	Util::dump_gen(_generated_region_blend_map, "blend_map");
+
+	if (_noise_enabled && region_map.size() == REGION_MAP_SIZE * REGION_MAP_SIZE) {
+		LOG(DEBUG, "Regenerating ", Vector2i(512, 512), " region blend map");
+		Ref<Image> region_blend_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RH);
+		for (int y = 0; y < REGION_MAP_SIZE; y++) {
+			for (int x = 0; x < REGION_MAP_SIZE; x++) {
+				if (region_map[y * REGION_MAP_SIZE + x] > 0) {
+					region_blend_img->set_pixel(x, y, COLOR_WHITE);
+				}
+			}
+		}
+		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
+		_generated_region_blend_map.clear();
+		_generated_region_blend_map.create(region_blend_img);
+		RS->material_set_param(_material, "region_blend_map", _generated_region_blend_map.get_rid());
+	}
+}
+
+// Expected Arguments are as follows, * set is optional
+// texture count
+// albedo tex array
+// normal tex array
+// uv rotation array *
+// uv scale array *
+// uv color array *
+// called from texture_list
+void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
+	LOG(INFO, "Updating texture arrays in shader");
+	if (p_args.size() < 3) {
+		LOG(ERROR, "Expecting at least 2 arguments");
+		return;
+	}
+
+	_texture_count = p_args[0];
+	RID albedo_array = p_args[1];
+	RID normal_array = p_args[2];
+	RS->material_set_param(_material, "texture_array_albedo", albedo_array);
+	RS->material_set_param(_material, "texture_array_normal", normal_array);
+
+	if (p_args.size() == 6) {
+		PackedFloat32Array uv_scales = p_args[3];
+		PackedFloat32Array uv_rotations = p_args[4];
+		PackedColorArray colors = p_args[5];
+		_texture_count = uv_scales.size();
+		RS->material_set_param(_material, "texture_uv_rotation_array", uv_scales);
+		RS->material_set_param(_material, "texture_uv_scale_array", uv_rotations);
+		RS->material_set_param(_material, "texture_color_array", colors);
+	}
+
+	// Enable checkered view if texture_count is 0, disable if not
+	if (_texture_count == 0) {
+		if (_debug_view_checkered == false) {
+			set_show_checkered(true);
+			LOG(DEBUG, "No textures, enabling checkered view");
+		}
+	} else {
+		set_show_checkered(false);
+		LOG(DEBUG, "Texture count >0, disabling checkered view");
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -212,86 +313,6 @@ void Terrain3DMaterial::setup_material() {
 
 	RS->material_set_param(_material, "region_size", _region_size);
 	RS->material_set_param(_material, "region_pixel_size", 1.0f / float(_region_size));
-}
-
-// Array expects
-// 0: height maps texture array RID
-// 1: control maps RID
-// 2: color maps RID
-// 3: region map packedByteArray
-// 4: region offsets array
-void Terrain3DMaterial::_update_regions(const Array &p_args) {
-	LOG(INFO, "Updating region maps in shader");
-	if (p_args.size() != 5) {
-		LOG(ERROR, "Expected 5 arguments. Received: ", p_args.size());
-		return;
-	}
-
-	RID height_rid = p_args[0];
-	RID control_rid = p_args[1];
-	RID color_rid = p_args[2];
-	RS->material_set_param(_material, "height_maps", height_rid);
-	RS->material_set_param(_material, "control_maps", control_rid);
-	RS->material_set_param(_material, "color_maps", color_rid);
-	LOG(DEBUG, "Height map RID: ", height_rid);
-	LOG(DEBUG, "Control map RID: ", control_rid);
-	LOG(DEBUG, "Color map RID: ", color_rid);
-
-	int REGION_MAP_SIZE = 16;
-	PackedByteArray region_map = p_args[3];
-	LOG(DEBUG, "Region_map size: ", region_map.size());
-	RS->material_set_param(_material, "region_map", region_map);
-	RS->material_set_param(_material, "region_map_size", REGION_MAP_SIZE);
-	TypedArray<Vector2i> region_offsets = p_args[4];
-	RS->material_set_param(_material, "region_offsets", region_offsets);
-
-	LOG(DEBUG, "Dumping material data");
-	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
-	LOG(DEBUG, "Region map");
-	for (int i = 0; i < region_map.size(); i++) {
-		if (region_map[i]) {
-			LOG(DEBUG, "Region id: ", region_map[i], " array index: ", i);
-		}
-	}
-	Util::dump_gen(_generated_region_blend_map, "blend_map");
-
-	if (_noise_enabled && region_map.size() == REGION_MAP_SIZE * REGION_MAP_SIZE) {
-		LOG(DEBUG, "Regenerating ", Vector2i(512, 512), " region blend map");
-		Ref<Image> region_blend_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RH);
-		for (int y = 0; y < REGION_MAP_SIZE; y++) {
-			for (int x = 0; x < REGION_MAP_SIZE; x++) {
-				if (region_map[y * REGION_MAP_SIZE + x] > 0) {
-					region_blend_img->set_pixel(x, y, COLOR_WHITE);
-				}
-			}
-		}
-		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
-		_generated_region_blend_map.clear();
-		_generated_region_blend_map.create(region_blend_img);
-		RS->material_set_param(_material, "region_blend_map", _generated_region_blend_map.get_rid());
-	}
-}
-
-// Expected Arguments are as follows, * set is optional
-// albedo tex array
-// normal tex array
-// uv rotation array *
-// uv scale array *
-// uv color array *
-// called from texture_list
-void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
-	LOG(INFO, "Updating texture arrays in shader");
-	if (p_args.size() < 2) {
-		LOG(ERROR, "Expecting at least 2 arguments");
-		return;
-	}
-	RS->material_set_param(_material, "texture_array_albedo", p_args[0]);
-	RS->material_set_param(_material, "texture_array_normal", p_args[1]);
-	if (p_args.size() == 5) {
-		RS->material_set_param(_material, "texture_uv_rotation_array", p_args[2]);
-		RS->material_set_param(_material, "texture_uv_scale_array", p_args[3]);
-		RS->material_set_param(_material, "texture_color_array", p_args[4]);
-	}
 }
 
 void Terrain3DMaterial::set_show_checkered(bool p_enabled) {
@@ -395,13 +416,16 @@ void Terrain3DMaterial::set_noise_blend_far(float p_far) {
 ///////////////////////////
 
 void Terrain3DMaterial::_bind_methods() {
+	// Private, but Public workaround until callable_mp is implemented
+	// https://github.com/godotengine/godot-cpp/pull/1155
+	ClassDB::bind_method(D_METHOD("_update_regions", "args"), &Terrain3DMaterial::_update_regions);
+	ClassDB::bind_method(D_METHOD("_update_texture_arrays", "args"), &Terrain3DMaterial::_update_texture_arrays);
+
+	// Public
 	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DMaterial::enable_shader_override);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader_material"), &Terrain3DMaterial::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
-
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DMaterial::get_show_checkered);
@@ -437,9 +461,8 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
-	//Private ?
-	ClassDB::bind_method(D_METHOD("_update_regions", "args"), &Terrain3DMaterial::_update_regions);
-	ClassDB::bind_method(D_METHOD("_update_texture_arrays", "args"), &Terrain3DMaterial::_update_texture_arrays);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");

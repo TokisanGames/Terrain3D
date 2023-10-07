@@ -44,6 +44,8 @@ private:
 	void _preload_shaders();
 	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
 	String _generate_shader_code();
+	void _update_regions(const Array &p_args);
+	void _update_texture_arrays(const Array &p_args);
 
 public:
 	Terrain3DMaterial();
@@ -64,9 +66,6 @@ public:
 	void set_next_pass(const RID &p_next_material);
 
 	void setup_material();
-
-	void _update_regions(const Array &p_args);
-	void _update_texture_arrays(const Array &p_args);
 
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
 
