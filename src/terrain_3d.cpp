@@ -23,12 +23,6 @@
 // Initialize static member variable
 int Terrain3D::_debug_level{ ERROR };
 
-void Terrain3D::__ready() {
-	_initialize();
-	_storage->clear_modified();
-	set_process(true);
-}
-
 void Terrain3D::_initialize() {
 	LOG(INFO, "Checking storage, texture list, signal, and terrain initialization");
 
@@ -39,9 +33,9 @@ void Terrain3D::_initialize() {
 	} else if (_texture_list.is_null() && _storage->get_version() < 0.83f) {
 		// DEPREPCATED 0.8.3, remove 0.9-1.0
 		LOG(WARN, "Storage version ", vformat("%.2f", _storage->get_version()), " will be updated upon save");
-		set_texture_list(_storage->get_texture_list());
 		_storage->set_modified();
-		return;
+		set_texture_list(_storage->get_texture_list());
+		return; //_initialized called from set_texture_list
 	}
 	if (_texture_list.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -57,17 +51,34 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
 	}
-	if (!_texture_list->is_connected("updated", Callable(_storage.ptr(), "_update_texture_arrays"))) {
-		LOG(DEBUG, "Connecting texture_list.updated to _storage._update_texture_arrays()");
-		_texture_list->connect("updated", Callable(_storage.ptr(), "_update_texture_arrays"));
+	if (!_storage->is_connected("region_size_changed", Callable(_material.ptr(), "set_region_size"))) {
+		LOG(DEBUG, "Connecting region_size_changed signal to set_region_size()");
+		_storage->connect("region_size_changed", Callable(_material.ptr(), "set_region_size"));
 	}
+	if (!_storage->is_connected("regions_changed", Callable(_material.ptr(), "_update_regions"))) {
+		LOG(DEBUG, "Connecting regions_changed signal to _update_regions()");
+		_storage->connect("regions_changed", Callable(_material.ptr(), "_update_regions"));
+	}
+	if (!_texture_list->is_connected("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"))) {
+		LOG(DEBUG, "Connecting texture_list.textures_changed to _storage._update_texture_arrays()");
+		_texture_list->connect("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"));
+	}
+
+	// Configure objects
+	_material->set_region_size(_storage->get_region_size());
+	_storage->_update_regions(true); // generate map arrays
+	_texture_list->update(); // generate texture arrays
+
 	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
 		build(_clipmap_levels, _clipmap_size);
 		_build_collision();
 	}
+}
 
-	_material->set_region_size(_storage->get_region_size());
-	_texture_list->update();
+void Terrain3D::__ready() {
+	_initialize();
+	_storage->clear_modified();
+	set_process(true);
 }
 
 /**
@@ -532,7 +543,7 @@ void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
 	ERR_FAIL_COND(_meshes.is_empty());
 
 	// Set the current terrain material on all meshes
-	RID material_rid = _storage->get_material();
+	RID material_rid = _material->get_material_rid();
 	for (const RID rid : _meshes) {
 		RS->mesh_surface_set_material(rid, 0, material_rid);
 	}

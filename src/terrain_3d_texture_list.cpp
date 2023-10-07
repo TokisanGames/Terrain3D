@@ -70,7 +70,7 @@ void Terrain3DTextureList::_update_texture_settings() {
 }
 
 void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings) {
-	bool mat_update_needed = false;
+	bool changed = false;
 	Array signal_args;
 
 	if (!_textures.is_empty() && p_textures) {
@@ -141,7 +141,7 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 			}
 			if (!albedo_texture_array.is_empty()) {
 				_generated_albedo_textures.create(albedo_texture_array);
-				mat_update_needed = true;
+				changed = true;
 			}
 		}
 
@@ -171,7 +171,7 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 			}
 			if (!normal_texture_array.is_empty()) {
 				_generated_normal_textures.create(normal_texture_array);
-				mat_update_needed = true;
+				changed = true;
 			}
 		}
 	}
@@ -212,8 +212,8 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 	//}
 
 	// Notify update for all of the above sections
-	if (mat_update_needed) {
-		emit_signal("updated", signal_args);
+	if (changed) {
+		emit_signal("textures_changed", signal_args);
 	}
 }
 
@@ -335,5 +335,5 @@ void Terrain3DTextureList::_bind_methods() {
 
 	BIND_CONSTANT(MAX_TEXTURES);
 
-	ADD_SIGNAL(MethodInfo("updated"));
+	ADD_SIGNAL(MethodInfo("textures_changed"));
 }

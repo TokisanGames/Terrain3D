@@ -62,17 +62,15 @@ private:
 
 	// Storage Settings & flags
 
+	float _version = 0.8; // First version, never change
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	bool _initialized = false;
 	bool _modified = false;
 	bool _save_16_bit = false;
-	float _version = 0.8; // First version, never change
 
 	// Stored Data
 
 	Vector2 _height_range = Vector2(0, 0);
-	bool _region_map_dirty = true;
 
 	/**
 	 * These arrays house all of the map data.
@@ -80,6 +78,7 @@ private:
 	 * location is tracked by region_offsets. The region data are combined into one large
 	 * texture in generated_*_maps.
 	 */
+	bool _region_map_dirty = true;
 	PackedByteArray _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
 	TypedArray<Vector2i> _region_offsets; // Array of active region coordinates
 	TypedArray<Image> _height_maps;
@@ -88,34 +87,7 @@ private:
 
 	Ref<Terrain3DTextureList> _texture_list; // DEPRECATED 0.8.3, remove in 0.9-1.0
 
-	// Material Settings
-
-	Dictionary _shader_code;
-	RID _material;
-	RID _shader;
-	bool _shader_override_enabled = false;
-	Ref<Shader> _shader_override;
-	bool _debug_view_checkered = false;
-	bool _debug_view_grey = false;
-	bool _debug_view_heightmap = false;
-	bool _debug_view_colormap = false;
-	bool _debug_view_roughmap = false;
-	bool _debug_view_controlmap = false;
-	bool _debug_view_tex_height = false;
-	bool _debug_view_tex_normal = false;
-	bool _debug_view_tex_rough = false;
-	bool _debug_view_vertex_grid = false;
-
-	bool _noise_enabled = false;
-	float _noise_scale = 2.0;
-	float _noise_height = 300.0;
-	float _noise_blend_near = 0.5;
-	float _noise_blend_far = 1.0;
-
 	// Generated Texture RIDs
-
-	// These contain an Image described below and a texture RID from the RenderingServer
-	GeneratedTex _generated_region_blend_map; // 512x512 blurred version of above for blending
 	// These contain the TextureLayered RID from the RenderingServer, no Image
 	GeneratedTex _generated_height_maps;
 	GeneratedTex _generated_control_maps;
@@ -125,11 +97,8 @@ private:
 
 	void _clear();
 
-	void _update_regions();
+	void _update_regions(bool force_emit = false);
 	void _update_material();
-	void _preload_shaders();
-	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
-	String _generate_shader_code();
 
 public:
 	Terrain3DStorage();
@@ -191,50 +160,6 @@ public:
 			float p_offset = 0.0, float p_scale = 1.0);
 	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);
 	Ref<Image> layered_to_image(MapType p_map_type);
-
-	// Terrain Material
-
-	RID get_material() const { return _material; }
-	void set_shader_override(const Ref<Shader> &p_shader);
-	Ref<Shader> get_shader_override() const { return _shader_override; }
-	void enable_shader_override(bool p_enabled);
-	bool is_shader_override_enabled() const { return _shader_override_enabled; }
-	void set_show_checkered(bool p_enabled);
-	bool get_show_checkered() const { return _debug_view_checkered; }
-	void set_show_grey(bool p_enabled);
-	bool get_show_grey() const { return _debug_view_grey; }
-	void set_show_heightmap(bool p_enabled);
-	bool get_show_heightmap() const { return _debug_view_heightmap; }
-	void set_show_colormap(bool p_enabled);
-	bool get_show_colormap() const { return _debug_view_colormap; }
-	void set_show_roughmap(bool p_enabled);
-	bool get_show_roughmap() const { return _debug_view_roughmap; }
-	void set_show_controlmap(bool p_enabled);
-	bool get_show_controlmap() const { return _debug_view_controlmap; }
-	void set_show_texture_height(bool p_enabled);
-	bool get_show_texture_height() const { return _debug_view_tex_height; }
-	void set_show_texture_normal(bool p_enabled);
-	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
-	void set_show_texture_rough(bool p_enabled);
-	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
-	void set_show_vertex_grid(bool p_enabled);
-	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
-
-	void set_noise_enabled(bool p_enabled);
-	bool get_noise_enabled() const { return _noise_enabled; }
-	void set_noise_scale(float p_scale);
-	float get_noise_scale() const { return _noise_scale; };
-	void set_noise_height(float p_height);
-	float get_noise_height() const { return _noise_height; };
-	void set_noise_blend_near(float p_near);
-	float get_noise_blend_near() const { return _noise_blend_near; };
-	void set_noise_blend_far(float p_far);
-	float get_noise_blend_far() const { return _noise_blend_far; };
-	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
-
-	// Private. Public workaround until callable_mp is implemented
-	// https://github.com/godotengine/godot-cpp/pull/1155
-	void _update_texture_arrays(const Array &args);
 
 	// Testing
 	void print_audit_data();

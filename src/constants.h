@@ -2,9 +2,9 @@
 #ifndef CONSTANTS_CLASS_H
 #define CONSTANTS_CLASS_H
 
-/*********************************
- * Macro Constants & Shortcuts
- ********************************/
+//////////////////////////////////////
+// Macro Constants & Syntactic Sugar
+//////////////////////////////////////
 
 #define RS RenderingServer::get_singleton()
 

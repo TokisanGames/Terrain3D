@@ -66,8 +66,8 @@ private:
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
 
-	void __ready();
 	void _initialize();
+	void __ready();
 	void __process(double delta);
 
 	void _grab_camera();
