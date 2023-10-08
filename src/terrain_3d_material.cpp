@@ -183,13 +183,12 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 }
 
 // Expected Arguments are as follows, * set is optional
-// texture count
-// albedo tex array
-// normal tex array
-// uv rotation array *
-// uv scale array *
-// uv color array *
-// called from texture_list
+// 0: texture count
+// 1: albedo tex array
+// 2: normal tex array
+// 3: uv rotation array *
+// 4: uv scale array *
+// 5: uv color array *
 void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
 	LOG(INFO, "Updating texture arrays in shader");
 	if (p_args.size() < 3) {
@@ -395,18 +394,18 @@ void Terrain3DMaterial::set_noise_height(float p_height) {
 
 void Terrain3DMaterial::set_noise_blend_near(float p_near) {
 	LOG(INFO, "Setting noise blend near: ", p_near);
-	_noise_blend_near = p_near;
-	if (_noise_blend_near > _noise_blend_far) {
-		set_noise_blend_far(_noise_blend_near);
+	_noise_blend_near = CLAMP(p_near, 0., 1.);
+	if (_noise_blend_near + .05 > _noise_blend_far) {
+		set_noise_blend_far(_noise_blend_near + .051);
 	}
 	RS->material_set_param(_material, "noise_blend_near", _noise_blend_near);
 }
 
 void Terrain3DMaterial::set_noise_blend_far(float p_far) {
 	LOG(INFO, "Setting noise blend far: ", p_far);
-	_noise_blend_far = p_far;
-	if (_noise_blend_far < _noise_blend_near) {
-		set_noise_blend_near(_noise_blend_far);
+	_noise_blend_far = CLAMP(p_far, 0., 1.);
+	if (_noise_blend_far - .05 < _noise_blend_near) {
+		set_noise_blend_near(_noise_blend_far - .051);
 	}
 	RS->material_set_param(_material, "noise_blend_far", _noise_blend_far);
 }
@@ -480,6 +479,6 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_scale", "get_noise_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 1000.0"), "set_noise_height", "get_noise_height");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, .999"), "set_noise_blend_near", "get_noise_blend_near");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, .95"), "set_noise_blend_near", "get_noise_blend_near");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.05, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 }

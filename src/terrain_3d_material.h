@@ -18,6 +18,7 @@ private:
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
 	Dictionary _shader_code;
+	int _texture_count = 0;
 
 	int _region_size = 1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
@@ -33,7 +34,7 @@ private:
 	bool _debug_view_tex_rough = false;
 	bool _debug_view_vertex_grid = false;
 
-	bool _noise_enabled = true; // change back to false?
+	bool _noise_enabled = false;
 	float _noise_scale = 2.0;
 	float _noise_height = 300.0;
 	float _noise_blend_near = 0.5;

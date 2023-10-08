@@ -6,7 +6,7 @@
 #include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/time.hpp>
-#include <godot_cpp/classes/v_box_container.hpp> // needed for get_editor_main_screen()
+#include <godot_cpp/classes/v_box_container.hpp> // for get_editor_main_screen()
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -36,8 +36,7 @@ void Terrain3D::_initialize() {
 		_storage.instantiate();
 	} else if (_texture_list.is_null() && _storage->get_version() < 0.83f) {
 		// DEPREPCATED 0.8.3, remove 0.9
-		set_texture_list(_storage->get_texture_list());
-		return; // set_texture_list calls _initialized() again
+		_texture_list = _storage->get_texture_list();
 	}
 	if (_texture_list.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -63,7 +62,6 @@ void Terrain3D::_initialize() {
 	}
 
 	// Initialize the system
-	//if (!_initialized || !_is_inside_world || !is_inside_tree()) {
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		_material->set_region_size(_storage->get_region_size());
 		_storage->_update_regions(true); // generate map arrays

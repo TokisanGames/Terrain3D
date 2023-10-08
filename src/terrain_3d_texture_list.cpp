@@ -199,23 +199,7 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 		signal_args.push_back(colors);
 	}
 
-	// Enable checkered view if texture_count is 0, disable if not
-	//if (_debug_view_checkered == false) {
-	//	if (_textures.is_empty()) {
-	//		_debug_view_checkered = true;
-	//		mat_update_needed = true;
-	//		LOG(DEBUG, "No textures, enabling checkered view");
-	//	}
-	//} else {
-	//		_debug_view_checkered = false;
-	//		mat_update_needed = true;
-	//		LOG(DEBUG, "Texture count >0, disabling checkered view");
-	//}
-
-	// Notify update for all of the above sections
-	if (changed) {
-		emit_signal("textures_changed", signal_args);
-	}
+	emit_signal("textures_changed", signal_args);
 }
 
 ///////////////////////////
