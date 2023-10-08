@@ -4,7 +4,7 @@ R"(shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx;
 
 uniform float region_size = 1024.0;
-uniform float region_pixel_size = 1.0;
+uniform float region_pixel_size = 0.0009765625; // 1.0 / 1024.0
 uniform int region_map_size = 16;
 
 uniform int region_map[256];

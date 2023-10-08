@@ -19,8 +19,9 @@ private:
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
 	Dictionary _shader_code;
-	int _texture_count = 0;
+	mutable TypedArray<StringName> _shader_param_list;
 
+	int _texture_count = 0;
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
@@ -102,6 +103,12 @@ public:
 	float get_noise_blend_far() const { return _noise_blend_far; };
 
 protected:
+	void _get_property_list(List<PropertyInfo> *p_list) const;
+	bool _property_can_revert(const StringName &p_name) const;
+	bool _property_get_revert(const StringName &p_name, Variant &r_property) const;
+	bool _set(const StringName &p_name, const Variant &p_property);
+	bool _get(const StringName &p_name, Variant &r_property) const;
+
 	static void _bind_methods();
 };
 

@@ -238,6 +238,14 @@ void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
 void Terrain3DMaterial::_update_shader() {
 	LOG(INFO, "Updating shader");
 	if (_shader_override_enabled && _shader_override.is_valid()) {
+		if (_shader_override->get_code().is_empty()) {
+			String code = _generate_shader_code();
+			_shader_override->set_code(code);
+		}
+		if (!_shader_override->is_connected("changed", Callable(this, "notify_property_list_changed"))) {
+			LOG(DEBUG, "Connecting changed signal to notify_property_list_changed()");
+			_shader_override->connect("changed", Callable(this, "notify_property_list_changed"));
+		}
 		RS->material_set_shader(_material, _shader_override->get_rid());
 	} else {
 		RS->shader_set_code(_shader, _generate_shader_code());
@@ -268,20 +276,16 @@ void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
 	_shader_override_enabled = p_enabled;
 	if (_shader_override_enabled && _shader_override.is_null()) {
 		_shader_override.instantiate();
-		String code = _generate_shader_code();
-		_shader_override->set_code(code);
 	}
 	_update_shader();
+	notify_property_list_changed();
 }
 
 void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	LOG(INFO, "Setting override shader");
 	_shader_override = p_shader;
-	if (_shader_override.is_valid() && _shader_override->get_code().is_empty()) {
-		String code = _generate_shader_code();
-		_shader_override->set_code(code);
-	}
 	_update_shader();
+	notify_property_list_changed();
 }
 
 void Terrain3DMaterial::set_region_size(int p_size) {
@@ -394,6 +398,72 @@ void Terrain3DMaterial::set_noise_blend_far(float p_far) {
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
+
+// Add shader uniforms to properties. Hides uniforms that begin with _
+void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
+	Resource::_get_property_list(p_list);
+	if (!_shader_override_enabled || _shader_override.is_null()) {
+		return;
+	}
+
+	Array shader_params = _shader_override->get_shader_uniform_list(true);
+	_shader_param_list.clear();
+	for (int i = 0; i < shader_params.size(); i++) {
+		Dictionary params = shader_params[i];
+		String name = params["name"];
+		_shader_param_list.push_back(name);
+
+		PropertyInfo pi;
+		pi.name = params["name"];
+		// Filter out uniforms that start with _
+		if (!pi.name.begins_with("_")) {
+			pi.class_name = params["class_name"];
+			pi.type = Variant::Type(int(params["type"]));
+			pi.hint = params["hint"];
+			pi.hint_string = params["hint_string"];
+			pi.usage = params["usage"];
+			p_list->push_back(pi);
+		}
+	}
+	return;
+}
+
+// Flag uniforms with non-default values
+bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
+	if (_shader_override_enabled && _shader_override.is_valid()) {
+		Variant default_value = RenderingServer::get_singleton()->shader_get_parameter_default(_shader_override->get_rid(), p_name);
+		Variant current_value = RS->material_get_param(_material, p_name);
+		return default_value.get_type() != Variant::NIL && default_value != current_value;
+	}
+	return false;
+}
+
+// Provide uniform default values
+bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &r_property) const {
+	if (_shader_override_enabled && _shader_override.is_valid()) {
+		r_property = RenderingServer::get_singleton()->shader_get_parameter_default(_shader_override->get_rid(), p_name);
+		return true;
+	}
+	return false;
+}
+
+bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property) {
+	if (_shader_param_list.has(p_name)) {
+		RS->material_set_param(_material, p_name, p_property);
+		return true;
+	} else {
+		return Resource::_set(p_name, p_property);
+	}
+}
+
+bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) const {
+	if (_shader_param_list.has(p_name)) {
+		r_property = RS->material_get_param(_material, p_name);
+		return true;
+	} else {
+		return Resource::_get(p_name, r_property);
+	}
+}
 
 void Terrain3DMaterial::_bind_methods() {
 	// Private, but Public workaround until callable_mp is implemented
