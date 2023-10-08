@@ -162,9 +162,9 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 	RID height_rid = p_args[0];
 	RID control_rid = p_args[1];
 	RID color_rid = p_args[2];
-	RS->material_set_param(_material, "height_maps", height_rid);
-	RS->material_set_param(_material, "control_maps", control_rid);
-	RS->material_set_param(_material, "color_maps", color_rid);
+	RS->material_set_param(_material, "_height_maps", height_rid);
+	RS->material_set_param(_material, "_control_maps", control_rid);
+	RS->material_set_param(_material, "_color_maps", color_rid);
 	LOG(DEBUG, "Height map RID: ", height_rid);
 	LOG(DEBUG, "Control map RID: ", control_rid);
 	LOG(DEBUG, "Color map RID: ", color_rid);
@@ -174,8 +174,8 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 	if (_region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
 		LOG(ERROR, "Expected _region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
 	}
-	RS->material_set_param(_material, "region_map", _region_map);
-	RS->material_set_param(_material, "region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
+	RS->material_set_param(_material, "_region_map", _region_map);
+	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
 	if (Terrain3D::_debug_level >= DEBUG) {
 		LOG(DEBUG, "Region map");
 		for (int i = 0; i < _region_map.size(); i++) {
@@ -187,7 +187,7 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 
 	TypedArray<Vector2i> region_offsets = p_args[4];
 	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
-	RS->material_set_param(_material, "region_offsets", region_offsets);
+	RS->material_set_param(_material, "_region_offsets", region_offsets);
 
 	if (_noise_enabled) {
 		_generate_region_blend_map();
@@ -211,17 +211,17 @@ void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
 	_texture_count = p_args[0];
 	RID albedo_array = p_args[1];
 	RID normal_array = p_args[2];
-	RS->material_set_param(_material, "texture_array_albedo", albedo_array);
-	RS->material_set_param(_material, "texture_array_normal", normal_array);
+	RS->material_set_param(_material, "_texture_array_albedo", albedo_array);
+	RS->material_set_param(_material, "_texture_array_normal", normal_array);
 
 	if (p_args.size() == 6) {
 		PackedFloat32Array uv_scales = p_args[3];
 		PackedFloat32Array uv_rotations = p_args[4];
 		PackedColorArray colors = p_args[5];
 		_texture_count = uv_scales.size();
-		RS->material_set_param(_material, "texture_uv_rotation_array", uv_scales);
-		RS->material_set_param(_material, "texture_uv_scale_array", uv_rotations);
-		RS->material_set_param(_material, "texture_color_array", colors);
+		RS->material_set_param(_material, "_texture_uv_rotation_array", uv_scales);
+		RS->material_set_param(_material, "_texture_uv_scale_array", uv_rotations);
+		RS->material_set_param(_material, "_texture_color_array", colors);
 	}
 
 	// Enable checkered view if texture_count is 0, disable if not
@@ -293,8 +293,8 @@ void Terrain3DMaterial::set_region_size(int p_size) {
 	LOG(INFO, "Setting region size in material: ", p_size);
 	_region_size = CLAMP(p_size, 64, 4096);
 	_region_sizev = Vector2i(_region_size, _region_size);
-	RS->material_set_param(_material, "region_size", float(_region_size));
-	RS->material_set_param(_material, "region_pixel_size", 1.0f / float(_region_size));
+	RS->material_set_param(_material, "_region_size", float(_region_size));
+	RS->material_set_param(_material, "_region_pixel_size", 1.0f / float(_region_size));
 }
 
 void Terrain3DMaterial::set_show_checkered(bool p_enabled) {

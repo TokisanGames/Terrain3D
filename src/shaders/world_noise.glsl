@@ -5,7 +5,7 @@ R"(
 //INSERT: WORLD_NOISE1
 // World Noise
 
-uniform sampler2D region_blend_map : hint_default_black, filter_linear, repeat_disable;
+uniform sampler2D _region_blend_map : hint_default_black, filter_linear, repeat_disable;
 uniform float noise_scale = 2.0;
 uniform float noise_height = 300.0;
 uniform float noise_blend_near = 0.5;
@@ -35,8 +35,8 @@ float noise2D(vec2 st) {
 // World Noise end
 //INSERT: WORLD_NOISE2
 	// World Noise
-	float weight = texture(region_blend_map, (uv/float(region_map_size))+0.5).r;
-	float rmap_half_size = float(region_map_size)*.5;
+	float weight = texture(_region_blend_map, (uv/float(_region_map_size))+0.5).r;
+	float rmap_half_size = float(_region_map_size)*.5;
 	if(abs(uv.x) > rmap_half_size+.5 || abs(uv.y) > rmap_half_size+.5) {
 		weight = 0.;
 	} else {
