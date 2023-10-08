@@ -62,7 +62,7 @@ private:
 
 	// Storage Settings & flags
 
-	float _version = 0.8; // First version, never change
+	float _version = CURRENT_VERSION;
 	bool _modified = false;
 	bool _save_16_bit = false;
 	RegionSize _region_size = SIZE_1024;
@@ -85,8 +85,6 @@ private:
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
-	Ref<Terrain3DTextureList> _texture_list; // DEPRECATED 0.8.3, remove in 0.9-1.0
-
 	// Generated Texture RIDs
 	// These contain the TextureLayered RID from the RenderingServer, no Image
 	GeneratedTex _generated_height_maps;
@@ -96,6 +94,9 @@ private:
 	// Functions
 	void _clear();
 	void _update_regions(bool force_emit = false);
+
+	// DEPRECATED 0.8.3, remove 0.9
+	Ref<Terrain3DTextureList> _texture_list;
 
 public:
 	Terrain3DStorage();
@@ -158,7 +159,7 @@ public:
 	// Testing
 	void print_audit_data();
 
-	// DEPRECATED 0.8.3, remove 0.9-1.0
+	// DEPRECATED 0.8.3, remove 0.9
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
 	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }

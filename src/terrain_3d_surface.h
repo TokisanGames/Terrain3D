@@ -7,7 +7,7 @@
 using namespace godot;
 
 /******************************************************************
- * This class is DEPRECATED in 0.8.3. Remove 0.9-1.0. Do not use.
+ * This class is DEPRECATED in 0.8.3. Remove 0.9. Do not use.
  ******************************************************************/
 
 class Terrain3DSurface : public Resource {

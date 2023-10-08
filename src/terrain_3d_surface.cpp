@@ -5,7 +5,7 @@
 #include "terrain_3d_surface.h"
 
 /******************************************************************
- * This class is DEPRECATED in 0.8.3. Remove 0.9-1.0. Do not use.
+ * This class is DEPRECATED in 0.8.3. Remove 0.9. Do not use.
  ******************************************************************/
 
 ///////////////////////////
