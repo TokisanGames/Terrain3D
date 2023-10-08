@@ -47,6 +47,7 @@ private:
 	String _generate_shader_code();
 	void _update_regions(const Array &p_args);
 	void _update_texture_arrays(const Array &p_args);
+	void _update_shader();
 
 public:
 	Terrain3DMaterial();
@@ -62,11 +63,6 @@ public:
 
 	void set_region_size(int p_size);
 	int get_region_size() const { return _region_size; }
-
-	void set_render_priority(int32_t p_priority);
-	void set_next_pass(const RID &p_next_material);
-
-	void setup_material();
 
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
 

@@ -224,13 +224,26 @@ void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
 	}
 }
 
+void Terrain3DMaterial::_update_shader() {
+	LOG(INFO, "Updating shader");
+	if (_shader_override_enabled && _shader_override.is_valid()) {
+		RS->material_set_shader(_material, _shader_override->get_rid());
+	} else {
+		RS->shader_set_code(_shader, _generate_shader_code());
+		RS->material_set_shader(_material, _shader);
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
 
 Terrain3DMaterial::Terrain3DMaterial() {
 	_preload_shaders();
-	setup_material();
+	_material = RS->material_create();
+	_shader = RS->shader_create();
+	set_region_size(_region_size);
+	_update_shader();
 }
 
 Terrain3DMaterial::~Terrain3DMaterial() {
@@ -243,38 +256,21 @@ void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
 	LOG(INFO, "Enable shader override: ", p_enabled);
 	_shader_override_enabled = p_enabled;
 	if (_shader_override_enabled && _shader_override.is_null()) {
+		_shader_override.instantiate();
 		String code = _generate_shader_code();
-		Ref<Shader> shader_res;
-		shader_res.instantiate();
-		shader_res->set_code(code);
-		set_shader_override(shader_res);
-	} else {
-		setup_material();
+		_shader_override->set_code(code);
 	}
+	_update_shader();
 }
-
-//void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
-//	LOG(INFO, "Enable shader override: ", p_enabled);
-//	_shader_override_enabled = p_enabled;
-//	//if (_shader_override_enabled && _shader_override.is_null()) {
-//	//	String code = _generate_shader_code();
-//	//	Ref<Shader> shader;
-//	//	shader.instantiate();
-//	//	shader->set_code(code);
-//	//	//Ref<Terrain3DMaterial> shader_mat;
-//	//	//shader_mat.instantiate();
-//	//	//shader_mat->set_shader(shader_res);
-//	//	//set_shader_override(shader_mat);
-//	//	set_shader_override(shader);
-//	//} else {
-//	//	return ShaderMaterial::_set(p_name, p_property);
-//	//}
-//}
 
 void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	LOG(INFO, "Setting override shader");
 	_shader_override = p_shader;
-	setup_material();
+	if (_shader_override.is_valid() && _shader_override->get_code().is_empty()) {
+		String code = _generate_shader_code();
+		_shader_override->set_code(code);
+	}
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_region_size(int p_size) {
@@ -285,99 +281,70 @@ void Terrain3DMaterial::set_region_size(int p_size) {
 	RS->material_set_param(_material, "region_pixel_size", 1.0f / float(_region_size));
 }
 
-void Terrain3DMaterial::set_render_priority(int32_t p_priority) {
-	/// fill me in
-}
-
-void Terrain3DMaterial::set_next_pass(const RID &p_next_material) {
-	/// fill me in
-}
-
-void Terrain3DMaterial::setup_material() {
-	LOG(INFO, "Setting up material");
-	if (!_material.is_valid()) {
-		_material = RS->material_create();
-	}
-
-	if (!_shader.is_valid()) {
-		_shader = RS->shader_create();
-	}
-
-	if (_shader_override_enabled && _shader_override.is_valid()) {
-		RS->material_set_shader(_material, _shader_override->get_rid());
-	} else {
-		RS->shader_set_code(_shader, _generate_shader_code());
-		RS->material_set_shader(_material, _shader);
-	}
-
-	RS->material_set_param(_material, "region_size", _region_size);
-	RS->material_set_param(_material, "region_pixel_size", 1.0f / float(_region_size));
-}
-
 void Terrain3DMaterial::set_show_checkered(bool p_enabled) {
 	LOG(INFO, "Enable set_show_checkered: ", p_enabled);
 	_debug_view_checkered = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_grey(bool p_enabled) {
 	LOG(INFO, "Enable show_grey: ", p_enabled);
 	_debug_view_grey = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_heightmap(bool p_enabled) {
 	LOG(INFO, "Enable show_heightmap: ", p_enabled);
 	_debug_view_heightmap = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_colormap(bool p_enabled) {
 	LOG(INFO, "Enable show_colormap: ", p_enabled);
 	_debug_view_colormap = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_roughmap(bool p_enabled) {
 	LOG(INFO, "Enable show_roughmap: ", p_enabled);
 	_debug_view_roughmap = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_controlmap(bool p_enabled) {
 	LOG(INFO, "Enable show_controlmap: ", p_enabled);
 	_debug_view_controlmap = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_height(bool p_enabled) {
 	LOG(INFO, "Enable show_texture_height: ", p_enabled);
 	_debug_view_tex_height = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_normal(bool p_enabled) {
 	LOG(INFO, "Enable show_texture_normal: ", p_enabled);
 	_debug_view_tex_normal = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_rough(bool p_enabled) {
 	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
 	_debug_view_tex_rough = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_vertex_grid(bool p_enabled) {
 	LOG(INFO, "Enable show_vertex_grid: ", p_enabled);
 	_debug_view_vertex_grid = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_noise_enabled(bool p_enabled) {
 	LOG(INFO, "Enable noise: ", p_enabled);
 	_noise_enabled = p_enabled;
-	setup_material();
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_noise_scale(float p_scale) {
@@ -423,7 +390,7 @@ void Terrain3DMaterial::_bind_methods() {
 	// Public
 	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DMaterial::enable_shader_override);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
-	ClassDB::bind_method(D_METHOD("set_shader_override", "shader_material"), &Terrain3DMaterial::set_shader_override);
+	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
 
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
