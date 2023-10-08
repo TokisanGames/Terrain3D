@@ -124,6 +124,26 @@ String Terrain3DMaterial::_generate_shader_code() {
 	return shader;
 }
 
+void Terrain3DMaterial::_generate_region_blend_map() {
+	int rsize = Terrain3DStorage::REGION_MAP_SIZE;
+	if (_region_map.size() == rsize * rsize) {
+		LOG(DEBUG, "Regenerating ", Vector2i(512, 512), " region blend map");
+		Ref<Image> region_blend_img = Image::create(rsize, rsize, false, Image::FORMAT_RH);
+		for (int y = 0; y < rsize; y++) {
+			for (int x = 0; x < rsize; x++) {
+				if (_region_map[y * rsize + x] > 0) {
+					region_blend_img->set_pixel(x, y, COLOR_WHITE);
+				}
+			}
+		}
+		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
+		_generated_region_blend_map.clear();
+		_generated_region_blend_map.create(region_blend_img);
+		RS->material_set_param(_material, "region_blend_map", _generated_region_blend_map.get_rid());
+		Util::dump_gen(_generated_region_blend_map, "blend_map");
+	}
+}
+
 // Array expects
 // 0: height maps texture array RID
 // 1: control maps RID
@@ -147,38 +167,28 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 	LOG(DEBUG, "Control map RID: ", control_rid);
 	LOG(DEBUG, "Color map RID: ", color_rid);
 
-	int REGION_MAP_SIZE = 16;
-	PackedByteArray region_map = p_args[3];
-	LOG(DEBUG, "Region_map size: ", region_map.size());
-	RS->material_set_param(_material, "region_map", region_map);
-	RS->material_set_param(_material, "region_map_size", REGION_MAP_SIZE);
-	TypedArray<Vector2i> region_offsets = p_args[4];
-	RS->material_set_param(_material, "region_offsets", region_offsets);
-
-	LOG(DEBUG, "Dumping material data");
-	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
-	LOG(DEBUG, "Region map");
-	for (int i = 0; i < region_map.size(); i++) {
-		if (region_map[i]) {
-			LOG(DEBUG, "Region id: ", region_map[i], " array index: ", i);
-		}
+	_region_map = p_args[3];
+	LOG(DEBUG, "_region_map.size(): ", _region_map.size());
+	if (_region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
+		LOG(ERROR, "Expected _region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
 	}
-	Util::dump_gen(_generated_region_blend_map, "blend_map");
-
-	if (_noise_enabled && region_map.size() == REGION_MAP_SIZE * REGION_MAP_SIZE) {
-		LOG(DEBUG, "Regenerating ", Vector2i(512, 512), " region blend map");
-		Ref<Image> region_blend_img = Image::create(REGION_MAP_SIZE, REGION_MAP_SIZE, false, Image::FORMAT_RH);
-		for (int y = 0; y < REGION_MAP_SIZE; y++) {
-			for (int x = 0; x < REGION_MAP_SIZE; x++) {
-				if (region_map[y * REGION_MAP_SIZE + x] > 0) {
-					region_blend_img->set_pixel(x, y, COLOR_WHITE);
-				}
+	RS->material_set_param(_material, "region_map", _region_map);
+	RS->material_set_param(_material, "region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
+	if (Terrain3D::_debug_level >= DEBUG) {
+		LOG(DEBUG, "Region map");
+		for (int i = 0; i < _region_map.size(); i++) {
+			if (_region_map[i]) {
+				LOG(DEBUG, "Region id: ", _region_map[i], " array index: ", i);
 			}
 		}
-		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
-		_generated_region_blend_map.clear();
-		_generated_region_blend_map.create(region_blend_img);
-		RS->material_set_param(_material, "region_blend_map", _generated_region_blend_map.get_rid());
+	}
+
+	TypedArray<Vector2i> region_offsets = p_args[4];
+	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
+	RS->material_set_param(_material, "region_offsets", region_offsets);
+
+	if (_noise_enabled) {
+		_generate_region_blend_map();
 	}
 }
 
@@ -344,6 +354,9 @@ void Terrain3DMaterial::set_show_vertex_grid(bool p_enabled) {
 void Terrain3DMaterial::set_noise_enabled(bool p_enabled) {
 	LOG(INFO, "Enable noise: ", p_enabled);
 	_noise_enabled = p_enabled;
+	if (_noise_enabled) {
+		_generate_region_blend_map();
+	}
 	_update_shader();
 }
 

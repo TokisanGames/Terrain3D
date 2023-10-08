@@ -7,14 +7,14 @@
 ///////////////////////////
 
 void Util::dump_gen(GeneratedTex p_gen, String p_name) {
-	LOG(INFO, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
+	LOG(DEBUG, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
 }
 
 void Util::dump_maps(const TypedArray<Image> p_maps, String p_name) {
-	LOG(INFO, "Dumping ", p_name, " map array. Size: ", p_maps.size());
+	LOG(DEBUG, "Dumping ", p_name, " map array. Size: ", p_maps.size());
 	for (int i = 0; i < p_maps.size(); i++) {
 		Ref<Image> img = p_maps[i];
-		LOG(INFO, "[", i, "]: Map size: ", img->get_size(), " format: ", img->get_format(), " ", img);
+		LOG(DEBUG, "[", i, "]: Map size: ", img->get_size(), " format: ", img->get_format(), " ", img);
 	}
 }
 

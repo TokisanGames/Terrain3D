@@ -20,9 +20,6 @@ private:
 	Dictionary _shader_code;
 	int _texture_count = 0;
 
-	int _region_size = 1024;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
@@ -40,11 +37,16 @@ private:
 	float _noise_blend_near = 0.5;
 	float _noise_blend_far = 1.0;
 
+	// Cached data from Storage
+	int _region_size = 1024;
+	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
+	PackedByteArray _region_map;
 	GeneratedTex _generated_region_blend_map; // 512x512 blurred image of region_map
 
 	void _preload_shaders();
 	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
 	String _generate_shader_code();
+	void _generate_region_blend_map();
 	void _update_regions(const Array &p_args);
 	void _update_texture_arrays(const Array &p_args);
 	void _update_shader();
