@@ -34,11 +34,7 @@ private:
 	bool _debug_view_tex_rough = false;
 	bool _debug_view_vertex_grid = false;
 
-	bool _noise_enabled = false;
-	float _noise_scale = 2.0;
-	float _noise_height = 300.0;
-	float _noise_blend_near = 0.5;
-	float _noise_blend_far = 1.0;
+	bool _world_noise_enabled = false;
 
 	// Cached data from Storage
 	int _region_size = 1024;
@@ -92,16 +88,8 @@ public:
 	void set_show_vertex_grid(bool p_enabled);
 	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 
-	void set_noise_enabled(bool p_enabled);
-	bool get_noise_enabled() const { return _noise_enabled; }
-	void set_noise_scale(float p_scale);
-	float get_noise_scale() const { return _noise_scale; };
-	void set_noise_height(float p_height);
-	float get_noise_height() const { return _noise_height; };
-	void set_noise_blend_near(float p_near);
-	float get_noise_blend_near() const { return _noise_blend_near; };
-	void set_noise_blend_far(float p_far);
-	float get_noise_blend_far() const { return _noise_blend_far; };
+	void set_world_noise_enabled(bool p_enabled);
+	bool get_world_noise_enabled() const { return _world_noise_enabled; }
 
 protected:
 	void _get_property_list(List<PropertyInfo> *p_list) const;

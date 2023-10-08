@@ -88,7 +88,7 @@ String Terrain3DMaterial::_parse_shader(String p_shader, String p_name, Array p_
 String Terrain3DMaterial::_generate_shader_code() {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
-	if (!_noise_enabled) {
+	if (!_world_noise_enabled) {
 		excludes.push_back("WORLD_NOISE1");
 		excludes.push_back("WORLD_NOISE2");
 	}
@@ -141,7 +141,7 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
 		_generated_region_blend_map.clear();
 		_generated_region_blend_map.create(region_blend_img);
-		RS->material_set_param(_material, "region_blend_map", _generated_region_blend_map.get_rid());
+		RS->material_set_param(_material, "_region_blend_map", _generated_region_blend_map.get_rid());
 		Util::dump_gen(_generated_region_blend_map, "blend_map");
 	}
 }
@@ -189,7 +189,7 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
 	RS->material_set_param(_material, "_region_offsets", region_offsets);
 
-	if (_noise_enabled) {
+	if (_world_noise_enabled) {
 		_generate_region_blend_map();
 	}
 }
@@ -252,6 +252,7 @@ void Terrain3DMaterial::_update_shader() {
 		RS->shader_set_code(_shader, _generate_shader_code());
 		RS->material_set_shader(_material, _shader);
 	}
+	notify_property_list_changed();
 }
 
 ///////////////////////////
@@ -279,14 +280,12 @@ void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
 		_shader_override.instantiate();
 	}
 	_update_shader();
-	notify_property_list_changed();
 }
 
 void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	LOG(INFO, "Setting override shader");
 	_shader_override = p_shader;
 	_update_shader();
-	notify_property_list_changed();
 }
 
 void Terrain3DMaterial::set_region_size(int p_size) {
@@ -357,43 +356,13 @@ void Terrain3DMaterial::set_show_vertex_grid(bool p_enabled) {
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_noise_enabled(bool p_enabled) {
-	LOG(INFO, "Enable noise: ", p_enabled);
-	_noise_enabled = p_enabled;
-	if (_noise_enabled) {
+void Terrain3DMaterial::set_world_noise_enabled(bool p_enabled) {
+	LOG(INFO, "Enable world noise: ", p_enabled);
+	_world_noise_enabled = p_enabled;
+	if (_world_noise_enabled) {
 		_generate_region_blend_map();
 	}
 	_update_shader();
-}
-
-void Terrain3DMaterial::set_noise_scale(float p_scale) {
-	LOG(INFO, "Setting noise scale: ", p_scale);
-	_noise_scale = p_scale;
-	RS->material_set_param(_material, "noise_scale", _noise_scale);
-}
-
-void Terrain3DMaterial::set_noise_height(float p_height) {
-	LOG(INFO, "Setting noise height: ", p_height);
-	_noise_height = p_height;
-	RS->material_set_param(_material, "noise_height", _noise_height);
-}
-
-void Terrain3DMaterial::set_noise_blend_near(float p_near) {
-	LOG(INFO, "Setting noise blend near: ", p_near);
-	_noise_blend_near = CLAMP(p_near, 0., 1.);
-	if (_noise_blend_near + .05 > _noise_blend_far) {
-		set_noise_blend_far(_noise_blend_near + .051);
-	}
-	RS->material_set_param(_material, "noise_blend_near", _noise_blend_near);
-}
-
-void Terrain3DMaterial::set_noise_blend_far(float p_far) {
-	LOG(INFO, "Setting noise blend far: ", p_far);
-	_noise_blend_far = CLAMP(p_far, 0., 1.);
-	if (_noise_blend_far - .05 < _noise_blend_near) {
-		set_noise_blend_near(_noise_blend_far - .051);
-	}
-	RS->material_set_param(_material, "noise_blend_far", _noise_blend_far);
 }
 
 ///////////////////////////
@@ -403,26 +372,29 @@ void Terrain3DMaterial::set_noise_blend_far(float p_far) {
 // Add shader uniforms to properties. Hides uniforms that begin with _
 void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	Resource::_get_property_list(p_list);
-	if (!_shader_override_enabled || _shader_override.is_null()) {
-		return;
+
+	Array shader_params;
+	if (_shader_override_enabled && _shader_override.is_valid()) {
+		shader_params = _shader_override->get_shader_uniform_list(true);
+	} else {
+		shader_params = RS->get_shader_parameter_list(_shader);
 	}
 
-	Array shader_params = _shader_override->get_shader_uniform_list(true);
 	_shader_param_list.clear();
 	for (int i = 0; i < shader_params.size(); i++) {
-		Dictionary params = shader_params[i];
-		String name = params["name"];
+		Dictionary param = shader_params[i];
+		String name = param["name"];
 		_shader_param_list.push_back(name);
 
 		PropertyInfo pi;
-		pi.name = params["name"];
+		pi.name = param["name"];
 		// Filter out uniforms that start with _
 		if (!pi.name.begins_with("_")) {
-			pi.class_name = params["class_name"];
-			pi.type = Variant::Type(int(params["type"]));
-			pi.hint = params["hint"];
-			pi.hint_string = params["hint_string"];
-			pi.usage = params["usage"];
+			pi.class_name = param["class_name"];
+			pi.type = Variant::Type(int(param["type"]));
+			pi.hint = param["hint"];
+			pi.hint_string = param["hint_string"];
+			pi.usage = param["usage"];
 			p_list->push_back(pi);
 		}
 	}
@@ -431,8 +403,14 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 // Flag uniforms with non-default values
 bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
+	RID shader;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
-		Variant default_value = RenderingServer::get_singleton()->shader_get_parameter_default(_shader_override->get_rid(), p_name);
+		shader = _shader_override->get_rid();
+	} else {
+		shader = _shader;
+	}
+	if (shader.is_valid()) {
+		Variant default_value = RS->shader_get_parameter_default(shader, p_name);
 		Variant current_value = RS->material_get_param(_material, p_name);
 		return default_value.get_type() != Variant::NIL && default_value != current_value;
 	}
@@ -441,8 +419,14 @@ bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
 
 // Provide uniform default values
 bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &r_property) const {
+	RID shader;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
-		r_property = RenderingServer::get_singleton()->shader_get_parameter_default(_shader_override->get_rid(), p_name);
+		shader = _shader_override->get_rid();
+	} else {
+		shader = _shader;
+	}
+	if (shader.is_valid()) {
+		r_property = RS->shader_get_parameter_default(_shader, p_name);
 		return true;
 	}
 	return false;
@@ -520,21 +504,15 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DMaterial::set_show_vertex_grid);
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
 
-	ClassDB::bind_method(D_METHOD("set_noise_enabled", "enabled"), &Terrain3DMaterial::set_noise_enabled);
-	ClassDB::bind_method(D_METHOD("get_noise_enabled"), &Terrain3DMaterial::get_noise_enabled);
-	ClassDB::bind_method(D_METHOD("set_noise_scale", "scale"), &Terrain3DMaterial::set_noise_scale);
-	ClassDB::bind_method(D_METHOD("get_noise_scale"), &Terrain3DMaterial::get_noise_scale);
-	ClassDB::bind_method(D_METHOD("set_noise_height", "height"), &Terrain3DMaterial::set_noise_height);
-	ClassDB::bind_method(D_METHOD("get_noise_height"), &Terrain3DMaterial::get_noise_height);
-	ClassDB::bind_method(D_METHOD("set_noise_blend_near", "fade"), &Terrain3DMaterial::set_noise_blend_near);
-	ClassDB::bind_method(D_METHOD("get_noise_blend_near"), &Terrain3DMaterial::get_noise_blend_near);
-	ClassDB::bind_method(D_METHOD("set_noise_blend_far", "sharpness"), &Terrain3DMaterial::set_noise_blend_far);
-	ClassDB::bind_method(D_METHOD("get_noise_blend_far"), &Terrain3DMaterial::get_noise_blend_far);
+	ClassDB::bind_method(D_METHOD("set_world_noise_enabled", "enabled"), &Terrain3DMaterial::set_world_noise_enabled);
+	ClassDB::bind_method(D_METHOD("get_world_noise_enabled"), &Terrain3DMaterial::get_world_noise_enabled);
 
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
+
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "world_noise_enabled", PROPERTY_HINT_NONE), "set_world_noise_enabled", "get_world_noise_enabled");
 
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");
@@ -547,11 +525,4 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE), "set_show_texture_rough", "get_show_texture_rough");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid", PROPERTY_HINT_NONE), "set_show_vertex_grid", "get_show_vertex_grid");
-
-	ADD_GROUP("World Noise", "noise_");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "noise_enabled", PROPERTY_HINT_NONE), "set_noise_enabled", "get_noise_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_scale", PROPERTY_HINT_RANGE, "0.0, 10.0"), "set_noise_scale", "get_noise_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_height", PROPERTY_HINT_RANGE, "0.0, 1000.0"), "set_noise_height", "get_noise_height");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_near", PROPERTY_HINT_RANGE, "0.0, .95"), "set_noise_blend_near", "get_noise_blend_near");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "noise_blend_far", PROPERTY_HINT_RANGE, "0.05, 1.0"), "set_noise_blend_far", "get_noise_blend_far");
 }

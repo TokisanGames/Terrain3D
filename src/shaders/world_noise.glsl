@@ -6,10 +6,10 @@ R"(
 // World Noise
 
 uniform sampler2D _region_blend_map : hint_default_black, filter_linear, repeat_disable;
-uniform float noise_scale = 2.0;
-uniform float noise_height = 300.0;
-uniform float noise_blend_near = 0.5;
-uniform float noise_blend_far = 1.0;
+uniform float noise_scale : hint_range(0, 20, 0.1) = 2.0;
+uniform float noise_height : hint_range(0, 1000, 0.1) = 300.0;
+uniform float noise_blend_near : hint_range(0, .95, 0.01) = 0.5;
+uniform float noise_blend_far : hint_range(.05, 1, 0.01) = 1.0;
 
 float hashv2(vec2 v) {
 	return fract(1e4 * sin(17.0 * v.x + v.y * 0.1) * (0.1 + abs(sin(v.y * 13.0 + v.x))));
