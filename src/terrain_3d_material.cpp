@@ -1,5 +1,6 @@
 // Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 
 #include "logger.h"
@@ -449,7 +450,23 @@ bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &
 
 bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property) {
 	if (_shader_param_list.has(p_name)) {
-		RS->material_set_param(_material, p_name, p_property);
+		if (p_property.get_type() == Variant::NIL) {
+			RS->material_set_param(_material, p_name, Variant());
+			return true;
+		}
+
+		if (p_property.get_type() == Variant::OBJECT) {
+			Ref<Texture2D> tex = p_property;
+			if (tex.is_valid() && tex->get_width() > 0 && tex->get_height() > 0) {
+				_param_cache[p_name] = tex;
+				RS->material_set_param(_material, p_name, tex->get_rid());
+			} else {
+				RS->material_set_param(_material, p_name, Variant());
+			}
+		} else {
+			RS->material_set_param(_material, p_name, p_property);
+		}
+
 		return true;
 	} else {
 		return Resource::_set(p_name, p_property);
@@ -459,6 +476,11 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) const {
 	if (_shader_param_list.has(p_name)) {
 		r_property = RS->material_get_param(_material, p_name);
+		if (r_property.get_type() == Variant::OBJECT || r_property.get_type() == Variant::RID) {
+			if (_param_cache.has(p_name)) {
+				r_property = _param_cache[p_name];
+			}
+		}
 		return true;
 	} else {
 		return Resource::_get(p_name, r_property);
