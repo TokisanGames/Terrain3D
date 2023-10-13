@@ -1,5 +1,5 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
-//#include <godot_cpp/core/class_db.hpp>
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #include <godot_cpp/classes/rendering_server.hpp>
 
 #include "geoclipmap.h"

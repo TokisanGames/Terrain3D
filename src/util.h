@@ -1,4 +1,5 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #ifndef UTIL_CLASS_H
 #define UTIL_CLASS_H
 

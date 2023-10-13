@@ -1,4 +1,5 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #ifndef LOGGER_CLASS_H
 #define LOGGER_CLASS_H
 

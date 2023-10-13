@@ -1,3 +1,5 @@
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 R"(
 //INSERT: DEBUG_CHECKERED
 	// Show a checkered grid
