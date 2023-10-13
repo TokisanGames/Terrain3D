@@ -1,4 +1,5 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #ifndef TERRAIN3D_CLASS_H
 #define TERRAIN3D_CLASS_H
 
@@ -7,24 +8,11 @@
 #endif
 
 #include <godot_cpp/classes/camera3d.hpp>
-#include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
-#include <godot_cpp/classes/editor_script.hpp>
-#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
-#include <godot_cpp/classes/node3d.hpp>
-#include <godot_cpp/classes/physics_server3d.hpp>
-#include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
-#include <godot_cpp/classes/v_box_container.hpp> // needed for get_editor_main_screen()
-#include <godot_cpp/classes/viewport.hpp>
-#include <godot_cpp/classes/visual_instance3d.hpp>
-#include <godot_cpp/classes/world3d.hpp>
-#include <godot_cpp/core/math.hpp>
-#include <godot_cpp/templates/vector.hpp>
-#include <godot_cpp/variant/utility_functions.hpp>
 
-#include "geoclipmap.h"
+#include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
 
@@ -45,6 +33,7 @@ private:
 	int _clipmap_levels = 7;
 
 	Ref<Terrain3DStorage> _storage;
+	Ref<Terrain3DMaterial> _material;
 	Ref<Terrain3DTextureList> _texture_list;
 
 	// Editor components
@@ -78,12 +67,15 @@ private:
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
 
-	void __ready();
 	void _initialize();
+	void __ready();
 	void __process(double delta);
 
 	void _grab_camera();
 	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
+
+	void _clear(bool p_clear_meshes = true, bool p_clear_collision = true);
+	void _build(int p_clipmap_levels, int p_clipmap_size);
 
 	void _build_collision();
 	void _update_collision();
@@ -105,6 +97,8 @@ public:
 
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
+	void set_material(const Ref<Terrain3DMaterial> &p_material);
+	Ref<Terrain3DMaterial> get_material() const { return _material; }
 	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
 	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
 
@@ -135,8 +129,6 @@ public:
 	real_t get_collision_priority() const { return _collision_priority; }
 
 	// Terrain methods
-	void clear(bool p_clear_meshes = true, bool p_clear_collision = true);
-	void build(int p_clipmap_levels, int p_clipmap_size);
 	void snap(Vector3 p_cam_pos);
 	void update_aabbs();
 	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);

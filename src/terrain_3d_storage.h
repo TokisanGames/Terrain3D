@@ -1,22 +1,17 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #ifndef TERRAIN3D_STORAGE_CLASS_H
 #define TERRAIN3D_STORAGE_CLASS_H
 
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 
-#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9-1.0
+#include "constants.h"
+#include "generated_tex.h"
+#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9
 #include "terrain_3d_texture_list.h"
 
-class Terrain3D;
 using namespace godot;
-
-#define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
-#define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
-#define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
-#define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)
-#define COLOR_CHECKED Color(1.f, 1.f, 1.0f, -1.0f)
-#define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 
 class Terrain3DStorage : public Resource {
 private:
@@ -25,7 +20,7 @@ private:
 
 	// Constants & Definitions
 
-	static inline const float CURRENT_VERSION = 0.83;
+	static inline const float CURRENT_VERSION = 0.84;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
@@ -66,29 +61,13 @@ private:
 		//SIZE_2048 = 2048,
 	};
 
-	class Generated {
-	private:
-		RID _rid = RID();
-		Ref<Image> _image;
-		bool _dirty = false;
-
-	public:
-		void clear();
-		bool is_dirty() { return _dirty; }
-		void create(const TypedArray<Image> &p_layers);
-		void create(const Ref<Image> &p_image);
-		Ref<Image> get_image() const { return _image; }
-		RID get_rid() { return _rid; }
-	};
-
 	// Storage Settings & flags
 
-	RegionSize _region_size = SIZE_1024;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	bool _initialized = false;
+	float _version = CURRENT_VERSION;
 	bool _modified = false;
 	bool _save_16_bit = false;
-	float _version = 0.8; // First version, never change
+	RegionSize _region_size = SIZE_1024;
+	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 
 	// Stored Data
 
@@ -100,71 +79,34 @@ private:
 	 * location is tracked by region_offsets. The region data are combined into one large
 	 * texture in generated_*_maps.
 	 */
+	bool _region_map_dirty = true;
 	PackedByteArray _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
 	TypedArray<Vector2i> _region_offsets; // Array of active region coordinates
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
-	Ref<Terrain3DTextureList> _texture_list; // DEPRECATED 0.8.3, remove in 0.9-1.0
-
-	// Material Settings
-
-	Dictionary _shader_code;
-	RID _material;
-	RID _shader;
-	bool _shader_override_enabled = false;
-	Ref<Shader> _shader_override;
-	bool _debug_view_checkered = false;
-	bool _debug_view_grey = false;
-	bool _debug_view_heightmap = false;
-	bool _debug_view_colormap = false;
-	bool _debug_view_roughmap = false;
-	bool _debug_view_controlmap = false;
-	bool _debug_view_tex_height = false;
-	bool _debug_view_tex_normal = false;
-	bool _debug_view_tex_rough = false;
-	bool _debug_view_vertex_grid = false;
-
-	bool _noise_enabled = false;
-	float _noise_scale = 2.0;
-	float _noise_height = 300.0;
-	float _noise_blend_near = 0.5;
-	float _noise_blend_far = 1.0;
-
-	// Generated Data
-
-	bool _region_map_dirty = true;
-	// These contain an Image described below and a texture RID from the RenderingServer
-	Generated _generated_region_blend_map; // 512x512 blurred version of above for blending
+	// Generated Texture RIDs
 	// These contain the TextureLayered RID from the RenderingServer, no Image
-	Generated _generated_height_maps;
-	Generated _generated_control_maps;
-	Generated _generated_color_maps;
-	Generated _generated_albedo_textures;
-	Generated _generated_normal_textures;
+	GeneratedTex _generated_height_maps;
+	GeneratedTex _generated_control_maps;
+	GeneratedTex _generated_color_maps;
 
 	// Functions
-
 	void _clear();
+	void _update_regions(bool force_emit = false);
 
-	void _update_texture_data(const Ref<Terrain3DTextureList> &p_textures, bool p_update_textures, bool p_update_values);
-	void _update_regions();
-	void _update_material();
-	void _preload_shaders();
-	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
-	String _generate_shader_code();
+	// DEPRECATED 0.8.3, remove 0.9
+	Ref<Terrain3DTextureList> _texture_list;
 
 public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
-	void set_region_size(RegionSize p_size);
-	RegionSize get_region_size() const { return _region_size; }
-	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
-	inline bool get_save_16_bit() const { return _save_16_bit; }
 	inline void set_version(float p_version) { _version = p_version; }
 	inline float get_version() const { return _version; }
+	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
+	inline bool get_save_16_bit() const { return _save_16_bit; }
 
 	inline void set_height_range(Vector2 p_range) { _height_range = p_range; }
 	inline Vector2 get_height_range() const { return _height_range; }
@@ -173,6 +115,8 @@ public:
 	void update_height_range();
 
 	// Regions
+	void set_region_size(RegionSize p_size);
+	RegionSize get_region_size() const { return _region_size; }
 	void set_region_offsets(const TypedArray<Vector2i> &p_offsets);
 	TypedArray<Vector2i> get_region_offsets() const { return _region_offsets; }
 	int get_region_count() const { return _region_offsets.size(); }
@@ -183,7 +127,6 @@ public:
 	void remove_region(Vector3 p_global_position, bool p_update = true);
 
 	// Maps
-
 	void set_map_region(MapType p_map_type, int p_region_index, const Ref<Image> p_image);
 	Ref<Image> get_map_region(MapType p_map_type, int p_region_index) const;
 	void set_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
@@ -200,12 +143,10 @@ public:
 	inline Color get_color(Vector3 p_global_position);
 	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
 	inline float get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
-
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	// File I/O
-
 	void save();
 	void clear_modified() { _modified = false; }
 	void set_modified() { _modified = true; }
@@ -215,60 +156,11 @@ public:
 			float p_offset = 0.0, float p_scale = 1.0);
 	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);
 	Ref<Image> layered_to_image(MapType p_map_type);
-	static Vector2 get_min_max(const Ref<Image> p_image);
-	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
-	static Ref<Image> get_filled_image(Vector2i p_size, Color p_color = COLOR_BLACK, bool create_mipmaps = true, Image::Format format = FORMAT[TYPE_HEIGHT]);
-
-	// Terrain Material
-
-	RID get_material() const { return _material; }
-	void set_shader_override(const Ref<Shader> &p_shader);
-	Ref<Shader> get_shader_override() const { return _shader_override; }
-	void enable_shader_override(bool p_enabled);
-	bool is_shader_override_enabled() const { return _shader_override_enabled; }
-	void set_show_checkered(bool p_enabled);
-	bool get_show_checkered() const { return _debug_view_checkered; }
-	void set_show_grey(bool p_enabled);
-	bool get_show_grey() const { return _debug_view_grey; }
-	void set_show_heightmap(bool p_enabled);
-	bool get_show_heightmap() const { return _debug_view_heightmap; }
-	void set_show_colormap(bool p_enabled);
-	bool get_show_colormap() const { return _debug_view_colormap; }
-	void set_show_roughmap(bool p_enabled);
-	bool get_show_roughmap() const { return _debug_view_roughmap; }
-	void set_show_controlmap(bool p_enabled);
-	bool get_show_controlmap() const { return _debug_view_controlmap; }
-	void set_show_texture_height(bool p_enabled);
-	bool get_show_texture_height() const { return _debug_view_tex_height; }
-	void set_show_texture_normal(bool p_enabled);
-	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
-	void set_show_texture_rough(bool p_enabled);
-	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
-	void set_show_vertex_grid(bool p_enabled);
-	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
-
-	void set_noise_enabled(bool p_enabled);
-	bool get_noise_enabled() const { return _noise_enabled; }
-	void set_noise_scale(float p_scale);
-	float get_noise_scale() const { return _noise_scale; };
-	void set_noise_height(float p_height);
-	float get_noise_height() const { return _noise_height; };
-	void set_noise_blend_near(float p_near);
-	float get_noise_blend_near() const { return _noise_blend_near; };
-	void set_noise_blend_far(float p_far);
-	float get_noise_blend_far() const { return _noise_blend_far; };
-	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
-
-	// Private. Public workaround until callable_mp is implemented
-	// https://github.com/godotengine/godot-cpp/pull/1155
-	void _update_textures(const Ref<Terrain3DTextureList> &p_textures);
-	void _update_texture_files(const Ref<Terrain3DTextureList> &p_textures);
-	void _update_texture_settings(const Ref<Terrain3DTextureList> &p_textures);
 
 	// Testing
 	void print_audit_data();
 
-	// DEPRECATED 0.8.3, remove 0.9-1.0
+	// DEPRECATED 0.8.3, remove 0.9
 	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
 	TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
 	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }

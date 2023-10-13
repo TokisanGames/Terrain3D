@@ -1,4 +1,5 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/defs.hpp>
@@ -7,6 +8,7 @@
 #include "register_types.h"
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 
 using namespace godot;
@@ -16,8 +18,9 @@ void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 		return;
 	}
 	ClassDB::register_class<Terrain3D>();
+	ClassDB::register_class<Terrain3DMaterial>();
 	ClassDB::register_class<Terrain3DStorage>();
-	ClassDB::register_class<Terrain3DSurface>(); // DEPRECATED 0.8.3, remove 0.9-1.0
+	ClassDB::register_class<Terrain3DSurface>(); // DEPRECATED 0.8.3, remove 0.9
 	ClassDB::register_class<Terrain3DTexture>();
 	ClassDB::register_class<Terrain3DTextureList>();
 	ClassDB::register_class<Terrain3DEditor>();

@@ -1,15 +1,15 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #ifndef GEOCLIPMAP_CLASS_H
 #define GEOCLIPMAP_CLASS_H
 
-#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/templates/vector.hpp>
 
 using namespace godot;
 
 class GeoClipMap {
 private:
-	static inline const char *__class__ = "GeoClipMap";
+	static inline const char *__class__ = "Terrain3DGeoClipMap";
 
 	static inline int _patch_2d(int x, int y, int res);
 	static RID _create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb);

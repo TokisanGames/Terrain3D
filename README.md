@@ -61,5 +61,5 @@ Geometry clipmap mesh code created by [Mike J. Savage](https://mikejsavage.co.uk
 
 ## License
 
-This plugin has been released under the [MIT License](https://github.com/TokisanGames/Terrain3D/blob/main/LICENSE).
+This plugin has been released under the [MIT License](https://github.com/TokisanGames/Terrain3D/blob/main/LICENSE.txt).
 

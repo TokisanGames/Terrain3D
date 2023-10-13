@@ -1,11 +1,21 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #include <godot_cpp/classes/collision_shape3d.hpp>
+#include <godot_cpp/classes/editor_interface.hpp>
+#include <godot_cpp/classes/editor_script.hpp>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/classes/v_box_container.hpp> // for get_editor_main_screen()
+#include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
+#include "geoclipmap.h"
+#include "logger.h"
 #include "terrain_3d.h"
-#include "terrain_3d_logger.h"
+#include "util.h"
 
 ///////////////////////////
 // Private Functions
@@ -14,25 +24,20 @@
 // Initialize static member variable
 int Terrain3D::_debug_level{ ERROR };
 
-void Terrain3D::__ready() {
-	_initialize();
-	_storage->clear_modified();
-	set_process(true);
-}
-
 void Terrain3D::_initialize() {
 	LOG(INFO, "Checking storage, texture list, signal, and terrain initialization");
 
-	// Make blank storage / texture list if needed
+	// Make blank objects if needed
+	if (_material.is_null()) {
+		LOG(DEBUG, "Creating blank material");
+		_material.instantiate();
+	}
 	if (_storage.is_null()) {
 		LOG(DEBUG, "Creating blank storage");
 		_storage.instantiate();
 	} else if (_texture_list.is_null() && _storage->get_version() < 0.83f) {
-		// DEPREPCATED 0.8.3, remove 0.9-1.0
-		LOG(WARN, "Storage version ", vformat("%.2f", _storage->get_version()), " will be updated upon save");
-		set_texture_list(_storage->get_texture_list());
-		_storage->set_modified();
-		return;
+		// DEPREPCATED 0.8.3, remove 0.9
+		_texture_list = _storage->get_texture_list();
 	}
 	if (_texture_list.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -40,22 +45,43 @@ void Terrain3D::_initialize() {
 	}
 
 	// Connect signals
+	if (!_texture_list->is_connected("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"))) {
+		LOG(DEBUG, "Connecting texture_list.textures_changed to _storage._update_texture_arrays()");
+		_texture_list->connect("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"));
+	}
+	if (!_storage->is_connected("region_size_changed", Callable(_material.ptr(), "set_region_size"))) {
+		LOG(DEBUG, "Connecting region_size_changed signal to set_region_size()");
+		_storage->connect("region_size_changed", Callable(_material.ptr(), "set_region_size"));
+	}
+	if (!_storage->is_connected("regions_changed", Callable(_material.ptr(), "_update_regions"))) {
+		LOG(DEBUG, "Connecting regions_changed signal to _update_regions()");
+		_storage->connect("regions_changed", Callable(_material.ptr(), "_update_regions"));
+	}
 	if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
 		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
 	}
-	if (!_texture_list->is_connected("textures_changed", Callable(_storage.ptr(), "_update_textures"))) {
-		LOG(DEBUG, "Connecting textures_changed to _storage._update_textures()");
-		_texture_list->connect("textures_changed",
-				Callable(_storage.ptr(), "_update_textures").bindv(Array::make(_texture_list)));
-	}
 
-	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
-		build(_clipmap_levels, _clipmap_size);
+	// Initialize the system
+	if (!_initialized && _is_inside_world && is_inside_tree()) {
+		_material->set_region_size(_storage->get_region_size());
+		_storage->_update_regions(true); // generate map arrays
+		_texture_list->_update_list(); // generate texture arrays
+		_build(_clipmap_levels, _clipmap_size);
 		_build_collision();
+		_initialized = true;
 	}
+}
 
-	_storage->_update_textures(_texture_list);
+void Terrain3D::__ready() {
+	_initialize();
+	if (_storage->get_version() < Terrain3DStorage::CURRENT_VERSION) {
+		LOG(WARN, "Storage version ", vformat("%.2f", _storage->get_version()), " will be updated upon save");
+		_storage->set_modified();
+	} else {
+		_storage->clear_modified();
+	}
+	set_process(true);
 }
 
 /**
@@ -123,8 +149,104 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 	}
 }
 
+void Terrain3D::_clear(bool p_clear_meshes, bool p_clear_collision) {
+	LOG(INFO, "Clearing the terrain");
+	if (p_clear_meshes) {
+		for (const RID rid : _meshes) {
+			RS->free_rid(rid);
+		}
+		RS->free_rid(_data.cross);
+		for (const RID rid : _data.tiles) {
+			RS->free_rid(rid);
+		}
+		for (const RID rid : _data.fillers) {
+			RS->free_rid(rid);
+		}
+		for (const RID rid : _data.trims) {
+			RS->free_rid(rid);
+		}
+		for (const RID rid : _data.seams) {
+			RS->free_rid(rid);
+		}
+
+		_meshes.clear();
+		_data.tiles.clear();
+		_data.fillers.clear();
+		_data.trims.clear();
+		_data.seams.clear();
+		_initialized = false;
+	}
+
+	if (p_clear_collision) {
+		_destroy_collision();
+	}
+}
+
+void Terrain3D::_build(int p_clipmap_levels, int p_clipmap_size) {
+	if (!is_inside_tree() || !_storage.is_valid()) {
+		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
+		return;
+	}
+	LOG(INFO, "Building the terrain meshes");
+
+	// Generate terrain meshes, lods, seams
+	_meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
+	ERR_FAIL_COND(_meshes.is_empty());
+
+	// Set the current terrain material on all meshes
+	RID material_rid = _material->get_material_rid();
+	for (const RID rid : _meshes) {
+		RS->mesh_surface_set_material(rid, 0, material_rid);
+	}
+
+	LOG(DEBUG, "Creating mesh instances");
+
+	// Get current visual scenario so the instances appear in the scene
+	RID scenario = get_world_3d()->get_scenario();
+
+	_data.cross = RS->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
+	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RS->instance_set_layer_mask(_data.cross, _render_layers);
+
+	for (int l = 0; l < p_clipmap_levels; l++) {
+		for (int x = 0; x < 4; x++) {
+			for (int y = 0; y < 4; y++) {
+				if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
+					continue;
+				}
+
+				RID tile = RS->instance_create2(_meshes[GeoClipMap::TILE], scenario);
+				RS->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_shadow_casting));
+				RS->instance_set_layer_mask(tile, _render_layers);
+				_data.tiles.push_back(tile);
+			}
+		}
+
+		RID filler = RS->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
+		RS->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(filler, _render_layers);
+		_data.fillers.push_back(filler);
+
+		if (l != p_clipmap_levels - 1) {
+			RID trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
+			RS->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RS->instance_set_layer_mask(trim, _render_layers);
+			_data.trims.push_back(trim);
+
+			RID seam = RS->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
+			RS->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RS->instance_set_layer_mask(seam, _render_layers);
+			_data.seams.push_back(seam);
+		}
+	}
+
+	update_aabbs();
+	// Force a snap update
+	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
+}
+
 void Terrain3D::_build_collision() {
-	if (!_collision_enabled || !_initialized || !_is_inside_world || !is_inside_tree()) {
+	if (!_collision_enabled || !_is_inside_world || !is_inside_tree()) {
 		return;
 	}
 	// Create collision only in game, unless showing debug
@@ -314,37 +436,37 @@ void Terrain3D::_update_instances() {
 	RID _scenario = get_world_3d()->get_scenario();
 
 	bool v = is_visible_in_tree();
-	RenderingServer::get_singleton()->instance_set_visible(_data.cross, v);
-	RenderingServer::get_singleton()->instance_set_scenario(_data.cross, _scenario);
-	RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
-	RenderingServer::get_singleton()->instance_set_layer_mask(_data.cross, _render_layers);
+	RS->instance_set_visible(_data.cross, v);
+	RS->instance_set_scenario(_data.cross, _scenario);
+	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RS->instance_set_layer_mask(_data.cross, _render_layers);
 
 	for (const RID rid : _data.tiles) {
-		RenderingServer::get_singleton()->instance_set_visible(rid, v);
-		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.fillers) {
-		RenderingServer::get_singleton()->instance_set_visible(rid, v);
-		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.trims) {
-		RenderingServer::get_singleton()->instance_set_visible(rid, v);
-		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.seams) {
-		RenderingServer::get_singleton()->instance_set_visible(rid, v);
-		RenderingServer::get_singleton()->instance_set_scenario(rid, _scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(rid, _render_layers);
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 }
 
@@ -369,7 +491,7 @@ void Terrain3D::set_clipmap_levels(int p_count) {
 	if (_clipmap_levels != p_count) {
 		LOG(INFO, "Setting clipmap levels: ", p_count);
 		_clipmap_levels = p_count;
-		clear();
+		_clear();
 		_initialize();
 	}
 }
@@ -378,8 +500,18 @@ void Terrain3D::set_clipmap_size(int p_size) {
 	if (_clipmap_size != p_size) {
 		LOG(INFO, "Setting clipmap size: ", p_size);
 		_clipmap_size = p_size;
-		clear();
+		_clear();
 		_initialize();
+	}
+}
+
+void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
+	if (_storage != p_material) {
+		LOG(INFO, "Setting material");
+		_material = p_material;
+		_clear();
+		_initialize();
+		emit_signal("material_changed");
 	}
 }
 
@@ -390,7 +522,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 		if (_storage.is_valid()) {
 			LOG(INFO, "Loaded storage version: ", vformat("%.2f", p_storage->get_version()));
 		}
-		clear();
+		_clear();
 		_initialize();
 		emit_signal("storage_changed");
 	}
@@ -400,7 +532,7 @@ void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list
 	if (_texture_list != p_texture_list) {
 		LOG(INFO, "Setting texture list");
 		_texture_list = p_texture_list;
-		clear();
+		_clear();
 		_initialize();
 		emit_signal("texture_list_changed");
 	}
@@ -457,111 +589,6 @@ void Terrain3D::set_show_debug_collision(bool p_enabled) {
 	}
 }
 
-void Terrain3D::clear(bool p_clear_meshes, bool p_clear_collision) {
-	LOG(INFO, "Clearing the terrain");
-	if (p_clear_meshes) {
-		for (const RID rid : _meshes) {
-			RenderingServer::get_singleton()->free_rid(rid);
-		}
-
-		RenderingServer::get_singleton()->free_rid(_data.cross);
-
-		for (const RID rid : _data.tiles) {
-			RenderingServer::get_singleton()->free_rid(rid);
-		}
-
-		for (const RID rid : _data.fillers) {
-			RenderingServer::get_singleton()->free_rid(rid);
-		}
-
-		for (const RID rid : _data.trims) {
-			RenderingServer::get_singleton()->free_rid(rid);
-		}
-
-		for (const RID rid : _data.seams) {
-			RenderingServer::get_singleton()->free_rid(rid);
-		}
-
-		_meshes.clear();
-
-		_data.tiles.clear();
-		_data.fillers.clear();
-		_data.trims.clear();
-		_data.seams.clear();
-
-		_initialized = false;
-	}
-
-	if (p_clear_collision) {
-		_destroy_collision();
-	}
-}
-
-void Terrain3D::build(int p_clipmap_levels, int p_clipmap_size) {
-	if (!is_inside_tree() || !_storage.is_valid()) {
-		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
-		return;
-	}
-
-	LOG(INFO, "Building the terrain meshes");
-
-	// Generate terrain meshes, lods, seams
-	_meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
-	ERR_FAIL_COND(_meshes.is_empty());
-
-	// Set the current terrain material on all meshes
-	RID material_rid = _storage->get_material();
-	for (const RID rid : _meshes) {
-		RenderingServer::get_singleton()->mesh_surface_set_material(rid, 0, material_rid);
-	}
-
-	LOG(DEBUG, "Creating mesh instances");
-
-	// Get current visual scenario so the instances appear in the scene
-	RID scenario = get_world_3d()->get_scenario();
-
-	_data.cross = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
-	RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
-	RenderingServer::get_singleton()->instance_set_layer_mask(_data.cross, _render_layers);
-
-	for (int l = 0; l < p_clipmap_levels; l++) {
-		for (int x = 0; x < 4; x++) {
-			for (int y = 0; y < 4; y++) {
-				if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
-					continue;
-				}
-
-				RID tile = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::TILE], scenario);
-				RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_shadow_casting));
-				RenderingServer::get_singleton()->instance_set_layer_mask(tile, _render_layers);
-				_data.tiles.push_back(tile);
-			}
-		}
-
-		RID filler = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
-		RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RenderingServer::get_singleton()->instance_set_layer_mask(filler, _render_layers);
-		_data.fillers.push_back(filler);
-
-		if (l != p_clipmap_levels - 1) {
-			RID trim = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
-			RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_shadow_casting));
-			RenderingServer::get_singleton()->instance_set_layer_mask(trim, _render_layers);
-			_data.trims.push_back(trim);
-
-			RID seam = RenderingServer::get_singleton()->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
-			RenderingServer::get_singleton()->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_shadow_casting));
-			RenderingServer::get_singleton()->instance_set_layer_mask(seam, _render_layers);
-			_data.seams.push_back(seam);
-		}
-	}
-
-	_initialized = true;
-	update_aabbs();
-	// Force a snap update
-	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
-}
-
 /**
  * Centers the terrain and LODs on a provided position. Y height is ignored.
  */
@@ -570,7 +597,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 	LOG(DEBUG_CONT, "Snapping terrain to: ", String(p_cam_pos));
 
 	Transform3D t = Transform3D(Basis(), p_cam_pos.floor());
-	RenderingServer::get_singleton()->instance_set_transform(_data.cross, t);
+	RS->instance_set_transform(_data.cross, t);
 
 	int edge = 0;
 	int tile = 0;
@@ -595,7 +622,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
 				t.origin = tile_tl;
 
-				RenderingServer::get_singleton()->instance_set_transform(_data.tiles[tile], t);
+				RS->instance_set_transform(_data.tiles[tile], t);
 
 				tile++;
 			}
@@ -603,7 +630,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 		{
 			Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
 			t.origin = snapped_pos;
-			RenderingServer::get_singleton()->instance_set_transform(_data.fillers[l], t);
+			RS->instance_set_transform(_data.fillers[l], t);
 		}
 
 		if (l != _clipmap_levels - 1) {
@@ -625,7 +652,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 				Transform3D t = Transform3D().rotated(Vector3(0, 1, 0), -angle);
 				t = t.scaled(Vector3(scale, 1, scale));
 				t.origin = tile_center;
-				RenderingServer::get_singleton()->instance_set_transform(_data.trims[edge], t);
+				RS->instance_set_transform(_data.trims[edge], t);
 			}
 
 			// Position seams
@@ -633,7 +660,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 				Vector3 next_base = next_snapped_pos - Vector3(float(_clipmap_size << (l + 1)), 0, float(_clipmap_size << (l + 1)));
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
 				t.origin = next_base;
-				RenderingServer::get_singleton()->instance_set_transform(_data.seams[edge], t);
+				RS->instance_set_transform(_data.seams[edge], t);
 			}
 			edge++;
 		}
@@ -641,49 +668,49 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::update_aabbs() {
-	ERR_FAIL_COND_MSG(!_initialized, "Terrain meshes have not been built yet");
+	ERR_FAIL_COND_MSG(_meshes.is_empty(), "Terrain meshes have not been built yet");
 	ERR_FAIL_COND_MSG(!_storage.is_valid(), "Terrain3DStorage is not valid");
 
 	Vector2 height_range = _storage->get_height_range();
 	LOG(DEBUG_CONT, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
 	height_range.y += abs(height_range.x); // Add below zero to total size
 
-	AABB aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
+	AABB aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
 	aabb.position.y = height_range.x;
 	aabb.size.y = height_range.y;
-	RenderingServer::get_singleton()->instance_set_custom_aabb(_data.cross, aabb);
-	RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.cross, _cull_margin);
+	RS->instance_set_custom_aabb(_data.cross, aabb);
+	RS->instance_set_extra_visibility_margin(_data.cross, _cull_margin);
 
-	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::TILE]);
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TILE]);
 	aabb.position.y = height_range.x;
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.tiles.size(); i++) {
-		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.tiles[i], aabb);
-		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.tiles[i], _cull_margin);
+		RS->instance_set_custom_aabb(_data.tiles[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.tiles[i], _cull_margin);
 	}
 
-	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::FILLER]);
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::FILLER]);
 	aabb.position.y = height_range.x;
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.fillers.size(); i++) {
-		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.fillers[i], aabb);
-		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.fillers[i], _cull_margin);
+		RS->instance_set_custom_aabb(_data.fillers[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.fillers[i], _cull_margin);
 	}
 
-	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::TRIM]);
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TRIM]);
 	aabb.position.y = height_range.x;
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.trims.size(); i++) {
-		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.trims[i], aabb);
-		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.trims[i], _cull_margin);
+		RS->instance_set_custom_aabb(_data.trims[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.trims[i], _cull_margin);
 	}
 
-	aabb = RenderingServer::get_singleton()->mesh_get_custom_aabb(_meshes[GeoClipMap::SEAM]);
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::SEAM]);
 	aabb.position.y = height_range.x;
 	aabb.size.y = height_range.y;
 	for (int i = 0; i < _data.seams.size(); i++) {
-		RenderingServer::get_singleton()->instance_set_custom_aabb(_data.seams[i], aabb);
-		RenderingServer::get_singleton()->instance_set_extra_visibility_margin(_data.seams[i], _cull_margin);
+		RS->instance_set_custom_aabb(_data.seams[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.seams[i], _cull_margin);
 	}
 }
 
@@ -745,7 +772,7 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_PREDELETE: {
 			LOG(INFO, "NOTIFICATION_PREDELETE");
-			clear();
+			_clear();
 			break;
 		}
 
@@ -757,7 +784,7 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_EXIT_TREE: {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
-			clear();
+			_clear();
 			break;
 		}
 
@@ -815,6 +842,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_clipmap_size", "size"), &Terrain3D::set_clipmap_size);
 	ClassDB::bind_method(D_METHOD("get_clipmap_size"), &Terrain3D::get_clipmap_size);
 
+	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
+	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
 	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
 	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
@@ -843,14 +872,17 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
 	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
 
-	ClassDB::bind_method(D_METHOD("clear", "clear_meshes", "clear_collision"), &Terrain3D::clear);
-	ClassDB::bind_method(D_METHOD("build", "clipmap_levels", "clipmap_size"), &Terrain3D::build);
+	// Utility functions
+	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_min_max", "image"), &Util::get_min_max);
+	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_thumbnail", "image", "size"), &Util::get_thumbnail, DEFVAL(Vector2i(256, 256)));
+	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Util::get_filled_image); //, DEFVAL(Vector2i(256, 256)));
 
 	// Expose 'update_aabbs' so it can be used in Callable. Not ideal.
 	ClassDB::bind_method(D_METHOD("update_aabbs"), &Terrain3D::update_aabbs);
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), "set_texture_list", "get_texture_list");
 
 	ADD_GROUP("Renderer", "render_");
@@ -872,6 +904,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 
+	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("storage_changed"));
 	ADD_SIGNAL(MethodInfo("texture_list_changed"));
 }

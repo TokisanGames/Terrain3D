@@ -1,14 +1,14 @@
-// Copyright © 2023 Roope Palmroos, Cory Petkovsek, and Contributors. All rights reserved. See LICENSE.
+// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 #ifndef TERRAIN3D_SURFACE_CLASS_H
 #define TERRAIN3D_SURFACE_CLASS_H
 
-#include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 
 using namespace godot;
 
 /******************************************************************
- * This class is DEPRECATED in 0.8.3. Remove 0.9-1.0. Do not use.
+ * This class is DEPRECATED in 0.8.3. Remove 0.9. Do not use.
  ******************************************************************/
 
 class Terrain3DSurface : public Resource {
