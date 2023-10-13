@@ -288,12 +288,26 @@ void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_param_cache(const Dictionary &p_dict) {
+	LOG(INFO, "Setting param cache dictionary: ", p_dict.size());
+	_param_cache = p_dict;
+}
+
 void Terrain3DMaterial::set_region_size(int p_size) {
 	LOG(INFO, "Setting region size in material: ", p_size);
 	_region_size = CLAMP(p_size, 64, 4096);
 	_region_sizev = Vector2i(_region_size, _region_size);
 	RS->material_set_param(_material, "_region_size", float(_region_size));
 	RS->material_set_param(_material, "_region_pixel_size", 1.0f / float(_region_size));
+}
+
+void Terrain3DMaterial::set_world_noise_enabled(bool p_enabled) {
+	LOG(INFO, "Enable world noise: ", p_enabled);
+	_world_noise_enabled = p_enabled;
+	if (_world_noise_enabled) {
+		_generate_region_blend_map();
+	}
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_checkered(bool p_enabled) {
@@ -353,15 +367,6 @@ void Terrain3DMaterial::set_show_texture_rough(bool p_enabled) {
 void Terrain3DMaterial::set_show_vertex_grid(bool p_enabled) {
 	LOG(INFO, "Enable show_vertex_grid: ", p_enabled);
 	_debug_view_vertex_grid = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_world_noise_enabled(bool p_enabled) {
-	LOG(INFO, "Enable world noise: ", p_enabled);
-	_world_noise_enabled = p_enabled;
-	if (_world_noise_enabled) {
-		_generate_region_blend_map();
-	}
 	_update_shader();
 }
 
@@ -436,6 +441,7 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 	if (_shader_param_list.has(p_name)) {
 		if (p_property.get_type() == Variant::NIL) {
 			RS->material_set_param(_material, p_name, Variant());
+			_param_cache.erase(p_name);
 			return true;
 		}
 
@@ -448,6 +454,7 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 				RS->material_set_param(_material, p_name, Variant());
 			}
 		} else {
+			_param_cache[p_name] = p_property;
 			RS->material_set_param(_material, p_name, p_property);
 		}
 
@@ -478,10 +485,21 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_update_texture_arrays", "args"), &Terrain3DMaterial::_update_texture_arrays);
 
 	// Public
+	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
+	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
+
 	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DMaterial::enable_shader_override);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
+
+	ClassDB::bind_method(D_METHOD("set_param_cache", "dict"), &Terrain3DMaterial::set_param_cache);
+	ClassDB::bind_method(D_METHOD("get_param_cache"), &Terrain3DMaterial::get_param_cache);
+
+	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
+
+	ClassDB::bind_method(D_METHOD("set_world_noise_enabled", "enabled"), &Terrain3DMaterial::set_world_noise_enabled);
+	ClassDB::bind_method(D_METHOD("get_world_noise_enabled"), &Terrain3DMaterial::get_world_noise_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DMaterial::get_show_checkered);
@@ -504,15 +522,11 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DMaterial::set_show_vertex_grid);
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
 
-	ClassDB::bind_method(D_METHOD("set_world_noise_enabled", "enabled"), &Terrain3DMaterial::set_world_noise_enabled);
-	ClassDB::bind_method(D_METHOD("get_world_noise_enabled"), &Terrain3DMaterial::get_world_noise_enabled);
-
-	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
-
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "world_noise_enabled", PROPERTY_HINT_NONE), "set_world_noise_enabled", "get_world_noise_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "param_cache", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT), "set_param_cache", "get_param_cache");
 
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");

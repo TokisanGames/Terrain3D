@@ -62,10 +62,15 @@ public:
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return _shader_override; }
 
+	void set_param_cache(const Dictionary &p_dict);
+	Dictionary get_param_cache() const { return _param_cache; }
+
 	void set_region_size(int p_size);
 	int get_region_size() const { return _region_size; }
-
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
+
+	void set_world_noise_enabled(bool p_enabled);
+	bool get_world_noise_enabled() const { return _world_noise_enabled; }
 
 	void set_show_checkered(bool p_enabled);
 	bool get_show_checkered() const { return _debug_view_checkered; }
@@ -87,9 +92,6 @@ public:
 	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
 	void set_show_vertex_grid(bool p_enabled);
 	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
-
-	void set_world_noise_enabled(bool p_enabled);
-	bool get_world_noise_enabled() const { return _world_noise_enabled; }
 
 protected:
 	void _get_property_list(List<PropertyInfo> *p_list) const;
