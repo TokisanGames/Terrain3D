@@ -668,8 +668,10 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 }
 
 void Terrain3D::update_aabbs() {
-	ERR_FAIL_COND_MSG(_meshes.is_empty(), "Terrain meshes have not been built yet");
-	ERR_FAIL_COND_MSG(!_storage.is_valid(), "Terrain3DStorage is not valid");
+	if (_meshes.is_empty() || _storage.is_null()) {
+		LOG(DEBUG, "Update AABB called before terrain meshes built. Returning.");
+		return;
+	}
 
 	Vector2 height_range = _storage->get_height_range();
 	LOG(DEBUG_CONT, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
