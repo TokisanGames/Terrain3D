@@ -20,7 +20,7 @@ private:
 	Ref<Shader> _shader_override;
 	Dictionary _shader_code;
 	mutable TypedArray<StringName> _shader_param_list;
-	Dictionary _param_cache;
+	mutable Dictionary _param_cache;
 
 	int _texture_count = 0;
 	bool _debug_view_checkered = false;

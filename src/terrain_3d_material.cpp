@@ -189,9 +189,7 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
 	RS->material_set_param(_material, "_region_offsets", region_offsets);
 
-	if (_world_noise_enabled) {
-		_generate_region_blend_map();
-	}
+	_generate_region_blend_map();
 }
 
 // Expected Arguments are as follows, * set is optional
@@ -304,9 +302,6 @@ void Terrain3DMaterial::set_region_size(int p_size) {
 void Terrain3DMaterial::set_world_noise_enabled(bool p_enabled) {
 	LOG(INFO, "Enable world noise: ", p_enabled);
 	_world_noise_enabled = p_enabled;
-	if (_world_noise_enabled) {
-		_generate_region_blend_map();
-	}
 	_update_shader();
 }
 
@@ -380,8 +375,10 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 	Array shader_params;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
+		// Get shader parameters from custom shader
 		shader_params = _shader_override->get_shader_uniform_list(true);
 	} else {
+		// Get shader parameters from default shader (eg world_noise)
 		shader_params = RS->get_shader_parameter_list(_shader);
 	}
 
@@ -399,14 +396,22 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 			pi.type = Variant::Type(int(param["type"]));
 			pi.hint = param["hint"];
 			pi.hint_string = param["hint_string"];
-			pi.usage = param["usage"];
+			pi.usage = PROPERTY_USAGE_EDITOR;
 			p_list->push_back(pi);
+
+			// Property usage above changed to EDITOR, so its not saved in the resource
+			// Save this parameter w/ default value in our dictionary, 
+			// which is saved in the resource
+			if (!_param_cache.has(name)) {
+				_property_get_revert(name, _param_cache[name]);
+			}
 		}
 	}
 	return;
 }
 
 // Flag uniforms with non-default values
+// This is called 10x more than the others, so be efficient
 bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
 	RID shader;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
@@ -417,7 +422,7 @@ bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
 	if (shader.is_valid()) {
 		Variant default_value = RS->shader_get_parameter_default(shader, p_name);
 		Variant current_value = RS->material_get_param(_material, p_name);
-		return default_value.get_type() != Variant::NIL && default_value != current_value;
+		return default_value != current_value;
 	}
 	return false;
 }
@@ -431,7 +436,7 @@ bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &
 		shader = _shader;
 	}
 	if (shader.is_valid()) {
-		r_property = RS->shader_get_parameter_default(_shader, p_name);
+		r_property = RS->shader_get_parameter_default(shader, p_name);
 		return true;
 	}
 	return false;
@@ -445,6 +450,8 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 			return true;
 		}
 
+		// If value is an object, assume a texture. Also true if tested as an RID, 
+		// but then we don't get the texture object, only the RID
 		if (p_property.get_type() == Variant::OBJECT) {
 			Ref<Texture2D> tex = p_property;
 			if (tex.is_valid() && tex->get_width() > 0 && tex->get_height() > 0) {
@@ -454,23 +461,41 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 				RS->material_set_param(_material, p_name, Variant());
 			}
 		} else {
-			_param_cache[p_name] = p_property;
-			RS->material_set_param(_material, p_name, p_property);
+			if (!p_name.begins_with("_")) {
+				_param_cache[p_name] = p_property;
+			}
+			RS->material_set_param(_material, p_name, p_property); // include in above conditional?
 		}
-
 		return true;
 	} else {
 		return Resource::_set(p_name, p_property);
 	}
 }
 
+// This is called 200x more than the others, every second the material is open in the 
+// inspector, so be efficient
 bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) const {
 	if (_shader_param_list.has(p_name)) {
 		r_property = RS->material_get_param(_material, p_name);
-		if (r_property.get_type() == Variant::OBJECT || r_property.get_type() == Variant::RID) {
+		// If property is an object like a texture, or the server doesn't have it set yet (default)
+		int type = r_property.get_type();
+		if (type == Variant::OBJECT || type == Variant::RID || type == Variant::NIL) {
 			if (_param_cache.has(p_name)) {
 				r_property = _param_cache[p_name];
+
+				// If in param_cache and RS is null, RS has wrong value.
+				// Wasn't set initially. If user changes default in shader 
+				// will update display though RS reports null
+				if(type == Variant::NIL) {
+					if (r_property.get_type() == Variant::OBJECT) {
+						Ref<Texture2D> tex = r_property;
+						RS->material_set_param(_material, p_name, tex->get_rid());
+					} else {
+						RS->material_set_param(_material, p_name, r_property);
+					}
+				}
 			}
+	
 		}
 		return true;
 	} else {
@@ -522,10 +547,10 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DMaterial::set_show_vertex_grid);
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
 
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "world_noise_enabled", PROPERTY_HINT_NONE), "set_world_noise_enabled", "get_world_noise_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "world_noise_enabled", PROPERTY_HINT_NONE), "set_world_noise_enabled", "get_world_noise_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "param_cache", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT), "set_param_cache", "get_param_cache");
 
 	ADD_GROUP("Debug Views", "show_");
