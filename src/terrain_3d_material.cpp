@@ -619,8 +619,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
-	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
-	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "param_cache", PROPERTY_HINT_NONE, "", ro_flags), "set_shader_params", "get_shader_params");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "shader_params", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_shader_params", "get_shader_params");
 
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");
