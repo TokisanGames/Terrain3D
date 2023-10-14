@@ -153,6 +153,9 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 // 3: region map packedByteArray
 // 4: region offsets array
 void Terrain3DMaterial::_update_regions(const Array &p_args) {
+	if (!_initialized) {
+		return;
+	}
 	LOG(INFO, "Updating region maps in shader");
 	if (p_args.size() != 5) {
 		LOG(ERROR, "Expected 5 arguments. Received: ", p_args.size());
@@ -200,6 +203,9 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 // 4: uv scale array *
 // 5: uv color array *
 void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
+	if (!_initialized) {
+		return;
+	}
 	LOG(INFO, "Updating texture arrays in shader");
 	if (p_args.size() < 3) {
 		LOG(ERROR, "Expecting at least 2 arguments");
@@ -230,25 +236,51 @@ void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
 		}
 	} else {
 		set_show_checkered(false);
-		LOG(DEBUG, "Texture count >0, disabling checkered view");
+		LOG(DEBUG, "Texture count >0: ", _texture_count, ", disabling checkered view");
 	}
 }
 
 void Terrain3DMaterial::_update_shader() {
+	if (!_initialized) {
+		return;
+	}
 	LOG(INFO, "Updating shader");
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		if (_shader_override->get_code().is_empty()) {
 			String code = _generate_shader_code();
 			_shader_override->set_code(code);
 		}
-		if (!_shader_override->is_connected("changed", Callable(this, "notify_property_list_changed"))) {
-			LOG(DEBUG, "Connecting changed signal to notify_property_list_changed()");
-			_shader_override->connect("changed", Callable(this, "notify_property_list_changed"));
+		if (!_shader_override->is_connected("changed", Callable(this, "_update_shader"))) {
+			LOG(DEBUG, "Connecting changed signal to _update_shader()");
+			_shader_override->connect("changed", Callable(this, "_update_shader"));
 		}
 		RS->material_set_shader(_material, _shader_override->get_rid());
+		LOG(DEBUG, "Mat rid: ", _material, ", _shader_override rid: ", _shader_override->get_rid());
 	} else {
 		RS->shader_set_code(_shader, _generate_shader_code());
 		RS->material_set_shader(_material, _shader);
+		LOG(DEBUG, "Mat rid: ", _material, ", _shader rid: ", _shader);
+	}
+	// Update custom shader params in RenderingServer
+	// Populate _active_params
+	_get_property_list(&(List<PropertyInfo>()));
+	LOG(DEBUG, "_active_params: ", _active_params);
+	LOG(DEBUG, "_shader_params keys: ", _shader_params.keys());
+	LOG(DEBUG, "_shader_params values: ", _shader_params.values());
+
+	for (int i = 0; i < _active_params.size(); i++) {
+		StringName param = _active_params[i];
+		Variant value = _shader_params[param];
+		if (value.get_type() == Variant::OBJECT) {
+			Ref<Texture> tex = value;
+			if (tex.is_valid()) {
+				RS->material_set_param(_material, param, tex->get_rid());
+			} else {
+				RS->material_set_param(_material, param, Variant());
+			}
+		} else {
+			RS->material_set_param(_material, param, value);
+		}
 	}
 	notify_property_list_changed();
 }
@@ -257,18 +289,24 @@ void Terrain3DMaterial::_update_shader() {
 // Public Functions
 ///////////////////////////
 
-Terrain3DMaterial::Terrain3DMaterial() {
+void Terrain3DMaterial::initialize(int p_region_size) {
+	LOG(INFO, "Initializing material");
 	_preload_shaders();
 	_material = RS->material_create();
 	_shader = RS->shader_create();
-	set_region_size(_region_size);
+	set_region_size(p_region_size);
+	LOG(DEBUG, "Mat RID: ", _material, ", _shader RID: ", _shader);
+	_initialized = true;
 	_update_shader();
 }
 
 Terrain3DMaterial::~Terrain3DMaterial() {
-	RS->free_rid(_material);
-	RS->free_rid(_shader);
-	_generated_region_blend_map.clear();
+	LOG(INFO, "Destroying material");
+	if (_initialized) {
+		RS->free_rid(_material);
+		RS->free_rid(_shader);
+		_generated_region_blend_map.clear();
+	}
 }
 
 void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
@@ -276,6 +314,7 @@ void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
 	_shader_override_enabled = p_enabled;
 	if (_shader_override_enabled && _shader_override.is_null()) {
 		_shader_override.instantiate();
+		LOG(DEBUG, "_shader_override RID: ", _shader_override->get_rid());
 	}
 	_update_shader();
 }
@@ -286,9 +325,9 @@ void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_param_cache(const Dictionary &p_dict) {
+void Terrain3DMaterial::set_shader_params(const Dictionary &p_dict) {
 	LOG(INFO, "Setting param cache dictionary: ", p_dict.size());
-	_param_cache = p_dict;
+	_shader_params = p_dict;
 }
 
 void Terrain3DMaterial::set_region_size(int p_size) {
@@ -372,39 +411,78 @@ void Terrain3DMaterial::set_show_vertex_grid(bool p_enabled) {
 // Add shader uniforms to properties. Hides uniforms that begin with _
 void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	Resource::_get_property_list(p_list);
-
-	Array shader_params;
-	if (_shader_override_enabled && _shader_override.is_valid()) {
-		// Get shader parameters from custom shader
-		shader_params = _shader_override->get_shader_uniform_list(true);
-	} else {
-		// Get shader parameters from default shader (eg world_noise)
-		shader_params = RS->get_shader_parameter_list(_shader);
+	if (!_initialized) {
+		return;
 	}
 
-	_shader_param_list.clear();
-	for (int i = 0; i < shader_params.size(); i++) {
-		Dictionary param = shader_params[i];
-		String name = param["name"];
-		_shader_param_list.push_back(name);
+	Array param_list;
+	Array param_list2;
+	if (_shader_override_enabled && _shader_override.is_valid()) {
+		// Get shader parameters from custom shader
+		param_list = _shader_override->get_shader_uniform_list(true);
+		param_list2 = RS->get_shader_parameter_list(_shader);
+	} else {
+		// Get shader parameters from default shader (eg world_noise)
+		param_list = RS->get_shader_parameter_list(_shader);
+		if (_shader_override.is_valid()) {
+			param_list2 = _shader_override->get_shader_uniform_list(true);
+		}
+	}
 
-		PropertyInfo pi;
-		pi.name = param["name"];
-		// Filter out uniforms that start with _
-		if (!pi.name.begins_with("_")) {
-			pi.class_name = param["class_name"];
-			pi.type = Variant::Type(int(param["type"]));
-			pi.hint = param["hint"];
-			pi.hint_string = param["hint_string"];
+	_active_params.clear();
+	for (int i = 0; i < param_list.size(); i++) {
+		Dictionary dict = param_list[i];
+		StringName name = dict["name"];
+		// Filter out private uniforms that start with _
+		if (!name.begins_with("_")) {
+			// Populate Godot's property list
+			PropertyInfo pi;
+			pi.name = name;
+			pi.class_name = dict["class_name"];
+			pi.type = Variant::Type(int(dict["type"]));
+			pi.hint = dict["hint"];
+			pi.hint_string = dict["hint_string"];
 			pi.usage = PROPERTY_USAGE_EDITOR;
 			p_list->push_back(pi);
 
-			// Property usage above changed to EDITOR, so its not saved in the resource
-			// Save this parameter w/ default value in our dictionary, 
-			// which is saved in the resource
-			if (!_param_cache.has(name)) {
-				_property_get_revert(name, _param_cache[name]);
+			// Populate list of public parameters for current shader
+			_active_params.push_back(name);
+
+			// Store this param and default value in param dict
+			// It gets saved in this dictionary in the resource. Property usage
+			// above set to EDITOR so it won't be redundantly saved
+			if (!_shader_params.has(name)) {
+				_property_get_revert(name, _shader_params[name]);
 			}
+		}
+	}
+
+	// Remove entries that don't exist in the current or override shader
+	Array keys = _shader_params.keys();
+	for (int i = 0; i < keys.size(); i++) {
+		bool has = false;
+		StringName name = keys[i];
+		for (int j = 0; j < param_list.size() || j < param_list2.size(); j++) {
+			Dictionary dict;
+			StringName dname;
+			if (j < param_list.size()) {
+				dict = param_list[j];
+				dname = dict["name"];
+				if (name == dname) {
+					has = true;
+				}
+			}
+			if (j < param_list2.size()) {
+				dict = param_list2[j];
+				dname = dict["name"];
+				if (name == dname) {
+					has = true;
+				}
+			}
+		}
+		if (!has) {
+			LOG(DEBUG, "'", name, "' not found in shader parameters. Removing from cache.");
+			_shader_params.erase(name);
 		}
 	}
 	return;
@@ -413,6 +491,9 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 // Flag uniforms with non-default values
 // This is called 10x more than the others, so be efficient
 bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
+	if (!_initialized || !_active_params.has(p_name)) {
+		return Resource::_property_can_revert(p_name);
+	}
 	RID shader;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		shader = _shader_override->get_rid();
@@ -429,6 +510,9 @@ bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
 
 // Provide uniform default values
 bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &r_property) const {
+	if (!_initialized || !_active_params.has(p_name)) {
+		return Resource::_property_get_revert(p_name, r_property);
+	}
 	RID shader;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		shader = _shader_override->get_rid();
@@ -443,64 +527,47 @@ bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &
 }
 
 bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property) {
-	if (_shader_param_list.has(p_name)) {
-		if (p_property.get_type() == Variant::NIL) {
-			RS->material_set_param(_material, p_name, Variant());
-			_param_cache.erase(p_name);
-			return true;
-		}
-
-		// If value is an object, assume a texture. Also true if tested as an RID, 
-		// but then we don't get the texture object, only the RID
-		if (p_property.get_type() == Variant::OBJECT) {
-			Ref<Texture2D> tex = p_property;
-			if (tex.is_valid() && tex->get_width() > 0 && tex->get_height() > 0) {
-				_param_cache[p_name] = tex;
-				RS->material_set_param(_material, p_name, tex->get_rid());
-			} else {
-				RS->material_set_param(_material, p_name, Variant());
-			}
-		} else {
-			if (!p_name.begins_with("_")) {
-				_param_cache[p_name] = p_property;
-			}
-			RS->material_set_param(_material, p_name, p_property); // include in above conditional?
-		}
-		return true;
-	} else {
+	if (!_initialized || !_active_params.has(p_name)) {
 		return Resource::_set(p_name, p_property);
 	}
+
+	if (p_property.get_type() == Variant::NIL) {
+		RS->material_set_param(_material, p_name, Variant());
+		_shader_params.erase(p_name);
+		return true;
+	}
+
+	// If value is an object, assume a texture. RS only wants RIDs, but
+	// Inspector wants the object, so save the latter and set the former
+	if (p_property.get_type() == Variant::OBJECT) {
+		Ref<Texture> tex = p_property;
+		if (tex.is_valid()) {
+			_shader_params[p_name] = tex;
+			RS->material_set_param(_material, p_name, tex->get_rid());
+		} else {
+			RS->material_set_param(_material, p_name, Variant());
+		}
+	} else {
+		_shader_params[p_name] = p_property;
+		RS->material_set_param(_material, p_name, p_property);
+	}
+	return true;
 }
 
-// This is called 200x more than the others, every second the material is open in the 
+// This is called 200x more than the others, every second the material is open in the
 // inspector, so be efficient
 bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) const {
-	if (_shader_param_list.has(p_name)) {
-		r_property = RS->material_get_param(_material, p_name);
-		// If property is an object like a texture, or the server doesn't have it set yet (default)
-		int type = r_property.get_type();
-		if (type == Variant::OBJECT || type == Variant::RID || type == Variant::NIL) {
-			if (_param_cache.has(p_name)) {
-				r_property = _param_cache[p_name];
-
-				// If in param_cache and RS is null, RS has wrong value.
-				// Wasn't set initially. If user changes default in shader 
-				// will update display though RS reports null
-				if(type == Variant::NIL) {
-					if (r_property.get_type() == Variant::OBJECT) {
-						Ref<Texture2D> tex = r_property;
-						RS->material_set_param(_material, p_name, tex->get_rid());
-					} else {
-						RS->material_set_param(_material, p_name, r_property);
-					}
-				}
-			}
-	
-		}
-		return true;
-	} else {
+	if (!_initialized || !_active_params.has(p_name)) {
 		return Resource::_get(p_name, r_property);
 	}
+
+	r_property = RS->material_get_param(_material, p_name);
+	// Material server only has RIDs, but inspector needs objects for things like textures
+	// So if its an RID, return the object
+	if (r_property.get_type() == Variant::RID && _shader_params.has(p_name)) {
+		r_property = _shader_params[p_name];
+	}
+	return true;
 }
 
 void Terrain3DMaterial::_bind_methods() {
@@ -508,6 +575,7 @@ void Terrain3DMaterial::_bind_methods() {
 	// https://github.com/godotengine/godot-cpp/pull/1155
 	ClassDB::bind_method(D_METHOD("_update_regions", "args"), &Terrain3DMaterial::_update_regions);
 	ClassDB::bind_method(D_METHOD("_update_texture_arrays", "args"), &Terrain3DMaterial::_update_texture_arrays);
+	ClassDB::bind_method(D_METHOD("_update_shader"), &Terrain3DMaterial::_update_shader);
 
 	// Public
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
@@ -518,8 +586,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
 
-	ClassDB::bind_method(D_METHOD("set_param_cache", "dict"), &Terrain3DMaterial::set_param_cache);
-	ClassDB::bind_method(D_METHOD("get_param_cache"), &Terrain3DMaterial::get_param_cache);
+	ClassDB::bind_method(D_METHOD("set_shader_params", "dict"), &Terrain3DMaterial::set_shader_params);
+	ClassDB::bind_method(D_METHOD("get_shader_params"), &Terrain3DMaterial::get_shader_params);
 
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
@@ -551,7 +619,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
-	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "param_cache", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT), "set_param_cache", "get_param_cache");
+	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "param_cache", PROPERTY_HINT_NONE, "", ro_flags), "set_shader_params", "get_shader_params");
 
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");

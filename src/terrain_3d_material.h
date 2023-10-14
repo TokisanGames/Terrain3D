@@ -14,15 +14,17 @@ private:
 	GDCLASS(Terrain3DMaterial, Resource);
 	static inline const char *__class__ = "Terrain3DMaterial";
 
+	bool _initialized = false;
 	RID _material;
 	RID _shader;
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
 	Dictionary _shader_code;
-	mutable TypedArray<StringName> _shader_param_list;
-	mutable Dictionary _param_cache;
+	mutable TypedArray<StringName> _active_params;
+	mutable Dictionary _shader_params;
 
-	int _texture_count = 0;
+	// Built in alternate shaders
+	bool _world_noise_enabled = false;
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
@@ -34,14 +36,14 @@ private:
 	bool _debug_view_tex_rough = false;
 	bool _debug_view_vertex_grid = false;
 
-	bool _world_noise_enabled = false;
-
 	// Cached data from Storage
+	int _texture_count = 0;
 	int _region_size = 1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	PackedByteArray _region_map;
 	GeneratedTex _generated_region_blend_map; // 512x512 blurred image of region_map
 
+	// Functions
 	void _preload_shaders();
 	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
 	String _generate_shader_code();
@@ -51,7 +53,8 @@ private:
 	void _update_shader();
 
 public:
-	Terrain3DMaterial();
+	Terrain3DMaterial(){};
+	void initialize(int p_region_size);
 	~Terrain3DMaterial();
 
 	RID get_material_rid() const { return _material; }
@@ -62,8 +65,8 @@ public:
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return _shader_override; }
 
-	void set_param_cache(const Dictionary &p_dict);
-	Dictionary get_param_cache() const { return _param_cache; }
+	void set_shader_params(const Dictionary &p_dict);
+	Dictionary get_shader_params() const { return _shader_params; }
 
 	void set_region_size(int p_size);
 	int get_region_size() const { return _region_size; }

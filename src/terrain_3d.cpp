@@ -25,7 +25,7 @@
 int Terrain3D::_debug_level{ ERROR };
 
 void Terrain3D::_initialize() {
-	LOG(INFO, "Checking storage, texture list, signal, and terrain initialization");
+	LOG(INFO, "Checking material, storage, texture_list, signal, and mesh initialization");
 
 	// Make blank objects if needed
 	if (_material.is_null()) {
@@ -46,15 +46,15 @@ void Terrain3D::_initialize() {
 
 	// Connect signals
 	if (!_texture_list->is_connected("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"))) {
-		LOG(DEBUG, "Connecting texture_list.textures_changed to _storage._update_texture_arrays()");
+		LOG(DEBUG, "Connecting texture_list.textures_changed to _material->_update_texture_arrays()");
 		_texture_list->connect("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"));
 	}
 	if (!_storage->is_connected("region_size_changed", Callable(_material.ptr(), "set_region_size"))) {
-		LOG(DEBUG, "Connecting region_size_changed signal to set_region_size()");
+		LOG(DEBUG, "Connecting region_size_changed signal to _material->set_region_size()");
 		_storage->connect("region_size_changed", Callable(_material.ptr(), "set_region_size"));
 	}
 	if (!_storage->is_connected("regions_changed", Callable(_material.ptr(), "_update_regions"))) {
-		LOG(DEBUG, "Connecting regions_changed signal to _update_regions()");
+		LOG(DEBUG, "Connecting regions_changed signal to _material->_update_regions()");
 		_storage->connect("regions_changed", Callable(_material.ptr(), "_update_regions"));
 	}
 	if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
@@ -64,7 +64,7 @@ void Terrain3D::_initialize() {
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
-		_material->set_region_size(_storage->get_region_size());
+		_material->initialize(_storage->get_region_size());
 		_storage->_update_regions(true); // generate map arrays
 		_texture_list->_update_list(); // generate texture arrays
 		_build(_clipmap_levels, _clipmap_size);

@@ -7,6 +7,13 @@
 // Public Functions
 ///////////////////////////
 
+void Util::print_dict(const Dictionary &p_dict, int level) {
+	Array keys = p_dict.keys();
+	for (int i = 0; i < keys.size(); i++) {
+		LOG(level, "Key: ", keys[i], ", Value: ", p_dict[keys[i]]);
+	}
+}
+
 void Util::dump_gen(GeneratedTex p_gen, String p_name) {
 	LOG(DEBUG, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
 }
