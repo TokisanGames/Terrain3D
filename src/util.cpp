@@ -7,7 +7,8 @@
 // Public Functions
 ///////////////////////////
 
-void Util::print_dict(const Dictionary &p_dict, int level) {
+void Util::print_dict(String p_name, const Dictionary &p_dict, int level) {
+	LOG(level, "Printing Dictionary: ", p_name);
 	Array keys = p_dict.keys();
 	for (int i = 0; i < keys.size(); i++) {
 		LOG(level, "Key: ", keys[i], ", Value: ", p_dict[keys[i]]);

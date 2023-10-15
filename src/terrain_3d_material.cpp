@@ -261,12 +261,15 @@ void Terrain3DMaterial::_update_shader() {
 		RS->material_set_shader(_material, _shader);
 		LOG(DEBUG, "Mat rid: ", _material, ", _shader rid: ", _shader);
 	}
+
 	// Update custom shader params in RenderingServer
-	// Populate _active_params
-	_get_property_list(&(List<PropertyInfo>()));
-	LOG(DEBUG, "_active_params: ", _active_params);
-	LOG(DEBUG, "_shader_params keys: ", _shader_params.keys());
-	LOG(DEBUG, "_shader_params values: ", _shader_params.values());
+	{
+		// Populate _active_params
+		List<PropertyInfo> pi;
+		_get_property_list(&pi);
+		LOG(DEBUG, "_active_params: ", _active_params);
+		Util::print_dict("_shader_params", _shader_params, DEBUG);
+	}
 
 	for (int i = 0; i < _active_params.size(); i++) {
 		StringName param = _active_params[i];
