@@ -18,18 +18,12 @@ uniform float _texture_uv_scale_array[32];
 uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
 
-//INSERT: WORLD_NOISE1
+varying vec3 v_camera_pos;
+varying float v_xz_dist;
 
-vec3 unpack_normal(vec4 rgba) {
-	vec3 n = rgba.xzy * 2.0 - vec3(1.0);
-	n.z *= -1.0;
-	return n;
-}
-
-vec4 pack_normal(vec3 n, float a) {
-	n.z *= -1.0;
-	return vec4((n.xzy + vec3(1.0)) * 0.5, a);
-}
+////////////////////////
+// Vertex
+////////////////////////
 
 // Takes location in world space coordinates, returns ivec3 with:
 // XY: (0-_region_size) coordinates within the region
@@ -47,6 +41,8 @@ vec3 get_regionf(vec2 uv) {
 	return vec3(uv - _region_offsets[index], float(index));
 }
 
+//INSERT: WORLD_NOISE1
+
 float get_height(vec2 uv) {
 	float height = 0.0;
 	vec3 region = get_regionf(uv);
@@ -55,6 +51,38 @@ float get_height(vec2 uv) {
 	}
 //INSERT: WORLD_NOISE2
  	return height;
+}
+
+void vertex() {
+	// Get camera pos in world vertex coords
+    v_camera_pos = INV_VIEW_MATRIX[3].xyz;
+
+    // Get vertex in world coordinates
+    vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// Get camera XZ distance to vertex
+    v_xz_dist = length(world_vertex.xz - v_camera_pos.xz);
+
+    // Scale world UV coordinates down, so individual material UVs can be larger
+    UV = world_vertex.xz * 0.5;
+    UV2 = ((world_vertex.xz + vec2(0.5)) / vec2(_region_size));
+	VERTEX.y = get_height(UV2);
+
+	NORMAL = vec3(0, 1, 0);
+}
+
+////////////////////////
+// Fragment
+////////////////////////
+
+vec3 unpack_normal(vec4 rgba) {
+	vec3 n = rgba.xzy * 2.0 - vec3(1.0);
+	n.z *= -1.0;
+	return n;
+}
+
+vec4 pack_normal(vec3 n, float a) {
+	n.z *= -1.0;
+	return vec4((n.xzy + vec3(1.0)) * 0.5, a);
 }
 
 float random(in vec2 xy) {
@@ -86,9 +114,9 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 	float left = get_height(uv + vec2(-_region_pixel_size, 0));
 	float right = get_height(uv + vec2(_region_pixel_size, 0));
 	float back = get_height(uv + vec2(0, -_region_pixel_size));
-	float fore = get_height(uv + vec2(0, _region_pixel_size));
+	float front = get_height(uv + vec2(0, _region_pixel_size));
 	vec3 horizontal = vec3(2.0, right - left, 0.0);
-	vec3 vertical = vec3(0.0, back - fore, 2.0);
+	vec3 vertical = vec3(0.0, back - front, 2.0);
 	vec3 normal = normalize(cross(vertical, horizontal));
 	normal.z *= -1.0;
 	tangent = cross(normal, vec3(0, 0, 1));
@@ -131,16 +159,8 @@ vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float
 	return albedo * weight;
 }
 
-void vertex() {
-	vec3 world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	UV = world_vertex.xz * 0.5;	// Without this, individual material UV needs to be very small.
-	UV2 = ((world_vertex.xz + vec2(0.5)) / vec2(_region_size));
-	VERTEX.y = get_height(UV2);
-	NORMAL = vec3(0, 1, 0);
-}
-
 void fragment() {
-	// Calculate Terrain World Normals
+    // Calculate Terrain Normals
 	vec3 w_tangent, w_binormal;
 	vec3 w_normal = get_normal(UV2, w_tangent, w_binormal);
 	NORMAL = mat3(VIEW_MATRIX) * w_normal;
