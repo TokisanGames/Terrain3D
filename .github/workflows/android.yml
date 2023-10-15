@@ -1,5 +1,5 @@
 ﻿name: 🤖 Android Builds
-on: [ workflow_call, workflow_dispatch ]
+on: [ push, workflow_call, workflow_dispatch ]
 
 jobs:
   build:
