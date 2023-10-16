@@ -288,8 +288,8 @@ void Terrain3DTextureList::set_textures(const TypedArray<Terrain3DTexture> &p_te
 
 void Terrain3DTextureList::save() {
 	String path = get_path();
-	LOG(DEBUG, "Attempting to save texture list to: " + path);
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
+		LOG(DEBUG, "Attempting to save texture list to external file: " + path);
 		Error err;
 		err = ResourceSaver::get_singleton()->save(this, path);
 		ERR_FAIL_COND(err);

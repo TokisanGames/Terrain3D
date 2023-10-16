@@ -816,15 +816,20 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
-			if (!_texture_list.is_valid()) {
-				LOG(DEBUG, "Save requested, but no valid texture list. Skipping");
-			} else {
-				_texture_list->save();
-			}
 			if (!_storage.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
 			} else {
 				_storage->save();
+			}
+			if (!_material.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid material. Skipping");
+			} else {
+				_material->save();
+			}
+			if (!_texture_list.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid texture list. Skipping");
+			} else {
+				_texture_list->save();
 			}
 			break;
 		}

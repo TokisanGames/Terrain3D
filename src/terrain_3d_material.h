@@ -60,6 +60,8 @@ public:
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader; }
 
+	void save();
+
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
 	void set_shader_override(const Ref<Shader> &p_shader);

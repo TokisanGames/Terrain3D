@@ -16,4 +16,4 @@
 #define COLOR_CHECKED Color(1.f, 1.f, 1.0f, -1.0f)
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 
-#endif CONSTANTS_CLASS_H
+#endif // CONSTANTS_CLASS_H

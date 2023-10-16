@@ -2,6 +2,7 @@
 
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
 #include "terrain_3d_material.h"
@@ -309,6 +310,18 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 		RS->free_rid(_material);
 		RS->free_rid(_shader);
 		_generated_region_blend_map.clear();
+	}
+}
+
+void Terrain3DMaterial::save() {
+	String path = get_path();
+	if (path.get_extension() == "tres" || path.get_extension() == "res") {
+		LOG(DEBUG, "Attempting to save material to external file: " + path);
+		Error err;
+		err = ResourceSaver::get_singleton()->save(this, path);
+		ERR_FAIL_COND(err);
+		LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
+		LOG(INFO, "Finished saving material");
 	}
 }
 

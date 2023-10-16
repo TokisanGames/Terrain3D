@@ -503,8 +503,9 @@ void Terrain3DStorage::save() {
 		return;
 	}
 	String path = get_path();
-	LOG(DEBUG, "Attempting to save terrain data to: " + path);
+	// Initiate save to external file. The scene will save itself.
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
+		LOG(DEBUG, "Attempting to save terrain data to external file: " + path);
 		LOG(DEBUG, "Saving storage version: ", vformat("%.2f", CURRENT_VERSION));
 		set_version(CURRENT_VERSION);
 		Error err;
@@ -531,6 +532,8 @@ void Terrain3DStorage::save() {
 			_modified = false;
 		}
 		LOG(INFO, "Finished saving terrain data");
+	} else {
+		LOG(WARN, "Storage resource is saving in the scene file. Save it as an external binary .res file");
 	}
 }
 
