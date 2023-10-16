@@ -5,11 +5,11 @@ R"(
 //INSERT: WORLD_NOISE1
 // World Noise
 
-uniform sampler2D region_blend_map : hint_default_black, filter_linear, repeat_disable;
-uniform float noise_scale = 2.0;
-uniform float noise_height = 300.0;
-uniform float noise_blend_near = 0.5;
-uniform float noise_blend_far = 1.0;
+uniform sampler2D _region_blend_map : hint_default_black, filter_linear, repeat_disable;
+uniform float noise_scale : hint_range(0, 20, 0.1) = 2.0;
+uniform float noise_height : hint_range(0, 1000, 0.1) = 300.0;
+uniform float noise_blend_near : hint_range(0, .95, 0.01) = 0.5;
+uniform float noise_blend_far : hint_range(.05, 1, 0.01) = 1.0;
 
 float hashv2(vec2 v) {
 	return fract(1e4 * sin(17.0 * v.x + v.y * 0.1) * (0.1 + abs(sin(v.y * 13.0 + v.x))));
@@ -35,8 +35,8 @@ float noise2D(vec2 st) {
 // World Noise end
 //INSERT: WORLD_NOISE2
 	// World Noise
-	float weight = texture(region_blend_map, (uv/float(region_map_size))+0.5).r;
-	float rmap_half_size = float(region_map_size)*.5;
+	float weight = texture(_region_blend_map, (uv/float(_region_map_size))+0.5).r;
+	float rmap_half_size = float(_region_map_size)*.5;
 	if(abs(uv.x) > rmap_half_size+.5 || abs(uv.y) > rmap_half_size+.5) {
 		weight = 0.;
 	} else {

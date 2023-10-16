@@ -14,13 +14,17 @@ private:
 	GDCLASS(Terrain3DMaterial, Resource);
 	static inline const char *__class__ = "Terrain3DMaterial";
 
+	bool _initialized = false;
 	RID _material;
 	RID _shader;
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
 	Dictionary _shader_code;
-	int _texture_count = 0;
+	mutable TypedArray<StringName> _active_params;
+	mutable Dictionary _shader_params;
 
+	// Built in alternate shaders
+	bool _world_noise_enabled = false;
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
@@ -32,18 +36,14 @@ private:
 	bool _debug_view_tex_rough = false;
 	bool _debug_view_vertex_grid = false;
 
-	bool _noise_enabled = false;
-	float _noise_scale = 2.0;
-	float _noise_height = 300.0;
-	float _noise_blend_near = 0.5;
-	float _noise_blend_far = 1.0;
-
 	// Cached data from Storage
+	int _texture_count = 0;
 	int _region_size = 1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	PackedByteArray _region_map;
 	GeneratedTex _generated_region_blend_map; // 512x512 blurred image of region_map
 
+	// Functions
 	void _preload_shaders();
 	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
 	String _generate_shader_code();
@@ -53,21 +53,29 @@ private:
 	void _update_shader();
 
 public:
-	Terrain3DMaterial();
+	Terrain3DMaterial(){};
+	void initialize(int p_region_size);
 	~Terrain3DMaterial();
 
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader; }
+
+	void save();
 
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return _shader_override; }
 
+	void set_shader_params(const Dictionary &p_dict);
+	Dictionary get_shader_params() const { return _shader_params; }
+
 	void set_region_size(int p_size);
 	int get_region_size() const { return _region_size; }
-
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
+
+	void set_world_noise_enabled(bool p_enabled);
+	bool get_world_noise_enabled() const { return _world_noise_enabled; }
 
 	void set_show_checkered(bool p_enabled);
 	bool get_show_checkered() const { return _debug_view_checkered; }
@@ -90,18 +98,13 @@ public:
 	void set_show_vertex_grid(bool p_enabled);
 	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 
-	void set_noise_enabled(bool p_enabled);
-	bool get_noise_enabled() const { return _noise_enabled; }
-	void set_noise_scale(float p_scale);
-	float get_noise_scale() const { return _noise_scale; };
-	void set_noise_height(float p_height);
-	float get_noise_height() const { return _noise_height; };
-	void set_noise_blend_near(float p_near);
-	float get_noise_blend_near() const { return _noise_blend_near; };
-	void set_noise_blend_far(float p_far);
-	float get_noise_blend_far() const { return _noise_blend_far; };
-
 protected:
+	void _get_property_list(List<PropertyInfo> *p_list) const;
+	bool _property_can_revert(const StringName &p_name) const;
+	bool _property_get_revert(const StringName &p_name, Variant &r_property) const;
+	bool _set(const StringName &p_name, const Variant &p_property);
+	bool _get(const StringName &p_name, Variant &r_property) const;
+
 	static void _bind_methods();
 };
 
