@@ -314,6 +314,39 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 }
 
 void Terrain3DMaterial::save() {
+	LOG(DEBUG, "Generating parameter list from shaders");
+	// Get shader parameters from default shader (eg world_noise)
+	Array param_list;
+	param_list = RS->get_shader_parameter_list(_shader);
+	// Get shader parameters from custom shader if present
+	if (_shader_override.is_valid()) {
+		param_list.append_array(_shader_override->get_shader_uniform_list(true));
+	}
+
+	// Remove saved shader params that don't exist in either shader
+	Array keys = _shader_params.keys();
+	for (int i = 0; i < keys.size(); i++) {
+		bool has = false;
+		StringName name = keys[i];
+		for (int j = 0; j < param_list.size(); j++) {
+			Dictionary dict;
+			StringName dname;
+			if (j < param_list.size()) {
+				dict = param_list[j];
+				dname = dict["name"];
+				if (name == dname) {
+					has = true;
+					break;
+				}
+			}
+		}
+		if (!has) {
+			LOG(DEBUG, "'", name, "' not found in shader parameters. Removing from cache.");
+			_shader_params.erase(name);
+		}
+	}
+
+	// Save to external resource file if used
 	String path = get_path();
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
 		LOG(DEBUG, "Attempting to save material to external file: " + path);
@@ -432,17 +465,12 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	}
 
 	Array param_list;
-	Array param_list2;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		// Get shader parameters from custom shader
 		param_list = _shader_override->get_shader_uniform_list(true);
-		param_list2 = RS->get_shader_parameter_list(_shader);
 	} else {
 		// Get shader parameters from default shader (eg world_noise)
 		param_list = RS->get_shader_parameter_list(_shader);
-		if (_shader_override.is_valid()) {
-			param_list2 = _shader_override->get_shader_uniform_list(true);
-		}
 	}
 
 	_active_params.clear();
@@ -464,41 +492,14 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 			// Populate list of public parameters for current shader
 			_active_params.push_back(name);
 
-			// Store this param and default value in param dict
-			// It gets saved in this dictionary in the resource. Property usage
-			// above set to EDITOR so it won't be redundantly saved
+			// Store this param in a dictionary that is saved in the resource file
+			// Initially set with default value
+			// Also acts as a cache for _get
+			// Property usage above set to EDITOR so it won't be redundantly saved,
+			// which won't get loaded since there is no bound property.
 			if (!_shader_params.has(name)) {
 				_property_get_revert(name, _shader_params[name]);
 			}
-		}
-	}
-
-	// Remove entries that don't exist in the current or override shader
-	Array keys = _shader_params.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		bool has = false;
-		StringName name = keys[i];
-		for (int j = 0; j < param_list.size() || j < param_list2.size(); j++) {
-			Dictionary dict;
-			StringName dname;
-			if (j < param_list.size()) {
-				dict = param_list[j];
-				dname = dict["name"];
-				if (name == dname) {
-					has = true;
-				}
-			}
-			if (j < param_list2.size()) {
-				dict = param_list2[j];
-				dname = dict["name"];
-				if (name == dname) {
-					has = true;
-				}
-			}
-		}
-		if (!has) {
-			LOG(DEBUG, "'", name, "' not found in shader parameters. Removing from cache.");
-			_shader_params.erase(name);
 		}
 	}
 	return;
@@ -553,8 +554,8 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 		return true;
 	}
 
-	// If value is an object, assume a texture. RS only wants RIDs, but
-	// Inspector wants the object, so save the latter and set the former
+	// If value is an object, assume a Texture. RS only wants RIDs, but
+	// Inspector wants the object, so set the RID and save the latter for _get
 	if (p_property.get_type() == Variant::OBJECT) {
 		Ref<Texture> tex = p_property;
 		if (tex.is_valid()) {
@@ -578,7 +579,7 @@ bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) cons
 	}
 
 	r_property = RS->material_get_param(_material, p_name);
-	// Material server only has RIDs, but inspector needs objects for things like textures
+	// Material server only has RIDs, but inspector needs objects for things like Textures
 	// So if its an RID, return the object
 	if (r_property.get_type() == Variant::RID && _shader_params.has(p_name)) {
 		r_property = _shader_params[p_name];
