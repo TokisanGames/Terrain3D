@@ -1,91 +1,146 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="2. Shaders">
+      <UniqueIdentifier>{fa4f3a1c-e2a4-4421-9b19-e15c14fce184}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
+    <Filter Include="3. Headers">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
+    <Filter Include="4. C++">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="1. Project Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\terrain_3d_texture_list.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\geoclipmap.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\register_types.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_editor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\terrain_3d_logger.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_storage.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_surface.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_texture.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_material.h">
-      <Filter>Header Files</Filter>
+      <Filter>3. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\generated.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\constants.h">
+      <Filter>3. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generated_tex.h">
+      <Filter>3. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\logger.h">
+      <Filter>3. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\util.h">
+      <Filter>3. Headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\geoclipmap.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\register_types.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_editor.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_storage.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_surface.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_texture.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_texture_list.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_material.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>4. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\generated.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\generated_tex.cpp">
+      <Filter>4. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\util.cpp">
+      <Filter>4. C++</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\world_noise.glsl" />
-    <None Include="src\shaders\main.glsl" />
-    <None Include="src\shaders\debug_views.glsl" />
-    <None Include="project\addons\terrain_3d\plugin.cfg" />
-    <None Include="project\addons\terrain_3d\terrain.gdextension" />
+    <None Include=".github\actions\windows-deps\action.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\actions\build-cache\action.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\actions\base-deps\action.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\actions\android-deps\action.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\workflows\android.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\workflows\build.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\workflows\linux.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\workflows\macos.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="project\addons\terrain_3d\plugin.cfg">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\workflows\windows.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="project\addons\terrain_3d\terrain.gdextension">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="src\shaders\debug_views.glsl">
+      <Filter>2. Shaders</Filter>
+    </None>
+    <None Include="src\shaders\main.glsl">
+      <Filter>2. Shaders</Filter>
+    </None>
+    <None Include="src\shaders\world_noise.glsl">
+      <Filter>2. Shaders</Filter>
+    </None>
+    <None Include=".gitignore">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="SConstruct">
+      <Filter>1. Project Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

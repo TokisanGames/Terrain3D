@@ -167,6 +167,16 @@
     <ClCompile Include="src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".github\actions\android-deps\action.yml" />
+    <None Include=".github\actions\base-deps\action.yml" />
+    <None Include=".github\actions\build-cache\action.yml" />
+    <None Include=".github\actions\windows-deps\action.yml" />
+    <None Include=".github\workflows\android.yml" />
+    <None Include=".github\workflows\build.yml" />
+    <None Include=".github\workflows\linux.yml" />
+    <None Include=".github\workflows\macos.yml" />
+    <None Include=".github\workflows\windows.yml" />
+    <None Include=".gitignore" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />
     <None Include="src\shaders\debug_views.glsl" />

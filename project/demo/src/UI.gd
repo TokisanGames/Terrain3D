@@ -12,7 +12,7 @@ func _process(delta) -> void:
 	$Label.text = "FPS: %s\n" % str(Engine.get_frames_per_second())
 	$Label.text += "Move Speed: %.1f\n" % player.MOVE_SPEED if player else ""
 	$Label.text += "Position: %.1v\n" % player.global_position if player else ""
-	$Label.text += "Move: WASDEQ/Mouse\nMove speed: Wheel,+/-\nCamera View: V\n"
+	$Label.text += "Move: WASDEQ/Shift/Mouse\nMove speed: Wheel,+/-\nCamera View: V\n"
 	$Label.text += "Gravity toggle: G\nCollision toggle: C\n"
 	$Label.text += "Full screen: F11\nMouse toggle: Escape\nQuit: F8\n"
 
