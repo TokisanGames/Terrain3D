@@ -289,6 +289,19 @@ void Terrain3DMaterial::_update_shader() {
 	notify_property_list_changed();
 }
 
+void Terrain3DMaterial::_set_region_size(int p_size) {
+	LOG(INFO, "Setting region size in material: ", p_size);
+	_region_size = CLAMP(p_size, 64, 4096);
+	_region_sizev = Vector2i(_region_size, _region_size);
+	RS->material_set_param(_material, "_region_size", float(_region_size));
+	RS->material_set_param(_material, "_region_pixel_size", 1.0f / float(_region_size));
+}
+
+void Terrain3DMaterial::_set_shader_param_cache(const Dictionary &p_dict) {
+	LOG(INFO, "Setting param cache dictionary: ", p_dict.size());
+	_shader_params = p_dict;
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -298,7 +311,7 @@ void Terrain3DMaterial::initialize(int p_region_size) {
 	_preload_shaders();
 	_material = RS->material_create();
 	_shader = RS->shader_create();
-	set_region_size(p_region_size);
+	_set_region_size(p_region_size);
 	LOG(DEBUG, "Mat RID: ", _material, ", _shader RID: ", _shader);
 	_initialized = true;
 	_update_shader();
@@ -384,19 +397,6 @@ Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 	Variant value;
 	_get(p_name, value);
 	return value;
-}
-
-void Terrain3DMaterial::set_shader_param_cache(const Dictionary &p_dict) {
-	LOG(INFO, "Setting param cache dictionary: ", p_dict.size());
-	_shader_params = p_dict;
-}
-
-void Terrain3DMaterial::set_region_size(int p_size) {
-	LOG(INFO, "Setting region size in material: ", p_size);
-	_region_size = CLAMP(p_size, 64, 4096);
-	_region_sizev = Vector2i(_region_size, _region_size);
-	RS->material_set_param(_material, "_region_size", float(_region_size));
-	RS->material_set_param(_material, "_region_pixel_size", 1.0f / float(_region_size));
 }
 
 void Terrain3DMaterial::set_world_noise_enabled(bool p_enabled) {
@@ -605,6 +605,11 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_update_regions", "args"), &Terrain3DMaterial::_update_regions);
 	ClassDB::bind_method(D_METHOD("_update_texture_arrays", "args"), &Terrain3DMaterial::_update_texture_arrays);
 	ClassDB::bind_method(D_METHOD("_update_shader"), &Terrain3DMaterial::_update_shader);
+	ClassDB::bind_method(D_METHOD("_set_region_size", "width"), &Terrain3DMaterial::_set_region_size);
+
+	ClassDB::bind_method(D_METHOD("_set_shader_param_cache", "dict"), &Terrain3DMaterial::_set_shader_param_cache);
+	ClassDB::bind_method(D_METHOD("_get_shader_param_cache"), &Terrain3DMaterial::_get_shader_param_cache);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_shader_param_cache", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_shader_param_cache", "_get_shader_param_cache");
 
 	// Public
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
@@ -617,11 +622,7 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
 	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
-	ClassDB::bind_method(D_METHOD("set_shader_param_cache", "dict"), &Terrain3DMaterial::set_shader_param_cache);
-	ClassDB::bind_method(D_METHOD("get_shader_param_cache"), &Terrain3DMaterial::get_shader_param_cache);
 
-	ClassDB::bind_method(D_METHOD("set_region_size"), &Terrain3DMaterial::set_region_size);
-	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DMaterial::get_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
 	ClassDB::bind_method(D_METHOD("set_world_noise_enabled", "enabled"), &Terrain3DMaterial::set_world_noise_enabled);
@@ -651,8 +652,6 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "world_noise_enabled", PROPERTY_HINT_NONE), "set_world_noise_enabled", "get_world_noise_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-
-	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "shader_params", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_shader_param_cache", "get_shader_param_cache");
 
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");

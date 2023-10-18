@@ -51,6 +51,9 @@ private:
 	void _update_regions(const Array &p_args);
 	void _update_texture_arrays(const Array &p_args);
 	void _update_shader();
+	void _set_region_size(int p_size);
+	void _set_shader_param_cache(const Dictionary &p_dict);
+	Dictionary _get_shader_param_cache() const { return _shader_params; }
 
 public:
 	Terrain3DMaterial(){};
@@ -69,11 +72,7 @@ public:
 
 	void set_shader_param(const StringName &p_name, const Variant &p_value);
 	Variant get_shader_param(const StringName &p_name) const;
-	void set_shader_param_cache(const Dictionary &p_dict);
-	Dictionary get_shader_param_cache() const { return _shader_params; }
 
-	void set_region_size(int p_size);
-	int get_region_size() const { return _region_size; }
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
 
 	void set_world_noise_enabled(bool p_enabled);

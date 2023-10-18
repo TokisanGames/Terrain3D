@@ -49,9 +49,9 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting texture_list.textures_changed to _material->_update_texture_arrays()");
 		_texture_list->connect("textures_changed", Callable(_material.ptr(), "_update_texture_arrays"));
 	}
-	if (!_storage->is_connected("region_size_changed", Callable(_material.ptr(), "set_region_size"))) {
-		LOG(DEBUG, "Connecting region_size_changed signal to _material->set_region_size()");
-		_storage->connect("region_size_changed", Callable(_material.ptr(), "set_region_size"));
+	if (!_storage->is_connected("region_size_changed", Callable(_material.ptr(), "_set_region_size"))) {
+		LOG(DEBUG, "Connecting region_size_changed signal to _material->_set_region_size()");
+		_storage->connect("region_size_changed", Callable(_material.ptr(), "_set_region_size"));
 	}
 	if (!_storage->is_connected("regions_changed", Callable(_material.ptr(), "_update_regions"))) {
 		LOG(DEBUG, "Connecting regions_changed signal to _material->_update_regions()");
