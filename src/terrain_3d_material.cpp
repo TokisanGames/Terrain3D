@@ -297,7 +297,7 @@ void Terrain3DMaterial::_set_region_size(int p_size) {
 	RS->material_set_param(_material, "_region_pixel_size", 1.0f / float(_region_size));
 }
 
-void Terrain3DMaterial::_set_shader_param_cache(const Dictionary &p_dict) {
+void Terrain3DMaterial::_set_shader_parameters(const Dictionary &p_dict) {
 	LOG(INFO, "Setting param cache dictionary: ", p_dict.size());
 	_shader_params = p_dict;
 }
@@ -607,9 +607,9 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_update_shader"), &Terrain3DMaterial::_update_shader);
 	ClassDB::bind_method(D_METHOD("_set_region_size", "width"), &Terrain3DMaterial::_set_region_size);
 
-	ClassDB::bind_method(D_METHOD("_set_shader_param_cache", "dict"), &Terrain3DMaterial::_set_shader_param_cache);
-	ClassDB::bind_method(D_METHOD("_get_shader_param_cache"), &Terrain3DMaterial::_get_shader_param_cache);
-	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_shader_param_cache", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_shader_param_cache", "_get_shader_param_cache");
+	ClassDB::bind_method(D_METHOD("_set_shader_parameters", "dict"), &Terrain3DMaterial::_set_shader_parameters);
+	ClassDB::bind_method(D_METHOD("_get_shader_parameters"), &Terrain3DMaterial::_get_shader_parameters);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_shader_parameters", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_shader_parameters", "_get_shader_parameters");
 
 	// Public
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);

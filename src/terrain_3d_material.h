@@ -52,8 +52,8 @@ private:
 	void _update_texture_arrays(const Array &p_args);
 	void _update_shader();
 	void _set_region_size(int p_size);
-	void _set_shader_param_cache(const Dictionary &p_dict);
-	Dictionary _get_shader_param_cache() const { return _shader_params; }
+	void _set_shader_parameters(const Dictionary &p_dict);
+	Dictionary _get_shader_parameters() const { return _shader_params; }
 
 public:
 	Terrain3DMaterial(){};
