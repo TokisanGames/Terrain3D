@@ -67,8 +67,10 @@ public:
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return _shader_override; }
 
-	void set_shader_params(const Dictionary &p_dict);
-	Dictionary get_shader_params() const { return _shader_params; }
+	void set_shader_param(const StringName &p_name, const Variant &p_value);
+	Variant get_shader_param(const StringName &p_name) const;
+	void set_shader_param_cache(const Dictionary &p_dict);
+	Dictionary get_shader_param_cache() const { return _shader_params; }
 
 	void set_region_size(int p_size);
 	int get_region_size() const { return _region_size; }

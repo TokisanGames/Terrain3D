@@ -374,7 +374,19 @@ void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_shader_params(const Dictionary &p_dict) {
+void Terrain3DMaterial::set_shader_param(const StringName &p_name, const Variant &p_value) {
+	LOG(INFO, "Setting shader parameter: ", p_name);
+	_set(p_name, p_value);
+}
+
+Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
+	LOG(INFO, "Setting shader parameter: ", p_name);
+	Variant value;
+	_get(p_name, value);
+	return value;
+}
+
+void Terrain3DMaterial::set_shader_param_cache(const Dictionary &p_dict) {
 	LOG(INFO, "Setting param cache dictionary: ", p_dict.size());
 	_shader_params = p_dict;
 }
@@ -603,8 +615,10 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
 
-	ClassDB::bind_method(D_METHOD("set_shader_params", "dict"), &Terrain3DMaterial::set_shader_params);
-	ClassDB::bind_method(D_METHOD("get_shader_params"), &Terrain3DMaterial::get_shader_params);
+	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
+	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
+	ClassDB::bind_method(D_METHOD("set_shader_param_cache", "dict"), &Terrain3DMaterial::set_shader_param_cache);
+	ClassDB::bind_method(D_METHOD("get_shader_param_cache"), &Terrain3DMaterial::get_shader_param_cache);
 
 	ClassDB::bind_method(D_METHOD("set_region_size"), &Terrain3DMaterial::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DMaterial::get_region_size);
@@ -638,7 +652,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
-	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "shader_params", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_shader_params", "get_shader_params");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "shader_params", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_shader_param_cache", "get_shader_param_cache");
 
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");
