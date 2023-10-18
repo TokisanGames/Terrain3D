@@ -606,6 +606,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_params", "dict"), &Terrain3DMaterial::set_shader_params);
 	ClassDB::bind_method(D_METHOD("get_shader_params"), &Terrain3DMaterial::get_shader_params);
 
+	ClassDB::bind_method(D_METHOD("set_region_size"), &Terrain3DMaterial::set_region_size);
+	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DMaterial::get_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
 	ClassDB::bind_method(D_METHOD("set_world_noise_enabled", "enabled"), &Terrain3DMaterial::set_world_noise_enabled);
