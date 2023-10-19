@@ -81,8 +81,8 @@ Ref<Image> Util::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
 
 	// Get minimum and maximum height values on the scaled image
 	Vector2 minmax = get_min_max(img);
-	float hmin = minmax.x;
-	float hmax = minmax.y;
+	real_t hmin = minmax.x;
+	real_t hmax = minmax.y;
 	// Define maximum range
 	hmin = abs(hmin);
 	hmax = abs(hmax) + hmin;

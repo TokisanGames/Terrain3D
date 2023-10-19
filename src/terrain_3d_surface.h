@@ -22,8 +22,8 @@ private:
 		Color _albedo = Color(1.0, 1.0, 1.0, 1.0);
 		Ref<Texture2D> _albedo_texture;
 		Ref<Texture2D> _normal_texture;
-		float _uv_scale = 0.1f;
-		float _uv_rotation = 0.0f;
+		real_t _uv_scale = 0.1f;
+		real_t _uv_rotation = 0.0f;
 	} _data;
 
 	bool _texture_is_valid(const Ref<Texture2D> &p_texture) const;
@@ -51,11 +51,11 @@ public:
 	void set_normal_texture(const Ref<Texture2D> &p_texture);
 	Ref<Texture2D> get_normal_texture() const { return _data._normal_texture; }
 
-	void set_uv_scale(float p_scale);
-	float get_uv_scale() const { return _data._uv_scale; }
+	void set_uv_scale(real_t p_scale);
+	real_t get_uv_scale() const { return _data._uv_scale; }
 
-	void set_uv_rotation(float p_rotation);
-	float get_uv_rotation() const { return _data._uv_rotation; }
+	void set_uv_rotation(real_t p_rotation);
+	real_t get_uv_rotation() const { return _data._uv_rotation; }
 
 protected:
 	static void _bind_methods();

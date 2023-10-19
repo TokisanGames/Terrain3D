@@ -40,7 +40,7 @@ private:
 	EditorPlugin *_plugin = nullptr;
 	// Current editor or gameplay camera we are centering the terrain on.
 	Camera3D *_camera = nullptr;
-	// X,Z Position of the camera during the previous snapping. Set to max float value to force a snap update.
+	// X,Z Position of the camera during the previous snapping. Set to max real_t value to force a snap update.
 	Vector2 _camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
 
 	// Meshes and Mesh instances
@@ -56,7 +56,7 @@ private:
 	// Renderer settings
 	uint32_t _render_layers = 1;
 	GeometryInstance3D::ShadowCastingSetting _shadow_casting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
-	float _cull_margin = 0.0;
+	real_t _cull_margin = 0.0;
 
 	// Physics body and settings
 	RID _static_body;
@@ -113,8 +113,8 @@ public:
 	uint32_t get_render_layers() const { return _render_layers; };
 	void set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting);
 	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _shadow_casting; };
-	void set_cull_margin(float p_margin);
-	float get_cull_margin() const { return _cull_margin; };
+	void set_cull_margin(real_t p_margin);
+	real_t get_cull_margin() const { return _cull_margin; };
 
 	// Physics body settings
 	void set_collision_enabled(bool p_enabled);

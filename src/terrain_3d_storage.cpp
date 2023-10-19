@@ -86,7 +86,7 @@ Terrain3DStorage::~Terrain3DStorage() {
 	_clear();
 }
 
-void Terrain3DStorage::update_heights(float p_height) {
+void Terrain3DStorage::update_heights(real_t p_height) {
 	if (p_height < _height_range.x) {
 		_height_range.x = p_height;
 	} else if (p_height > _height_range.y) {
@@ -132,7 +132,7 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets)
 
 /** Returns a region offset given a location */
 Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
-	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / float(_region_size)).floor());
+	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / real_t(_region_size)).floor());
 }
 
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
@@ -577,7 +577,7 @@ Ref<Image> Terrain3DStorage::load_image(String p_file_name, int p_cache_mode, Ve
 		img = Image::create(p_r16_size.x, p_r16_size.y, false, FORMAT[TYPE_HEIGHT]);
 		for (int y = 0; y < p_r16_size.y; y++) {
 			for (int x = 0; x < p_r16_size.x; x++) {
-				float h = float(file->get_16()) / 65535.0f;
+				real_t h = real_t(file->get_16()) / 65535.0f;
 				h = h * (p_r16_height_range.y - p_r16_height_range.x) + p_r16_height_range.x;
 				img->set_pixel(x, y, Color(h, 0, 0));
 			}
@@ -615,7 +615,7 @@ Ref<Image> Terrain3DStorage::load_image(String p_file_name, int p_cache_mode, Ve
  *	p_offset - Add this factor to all height values, can be negative
  *	p_scale - Scale all height values by this factor (applied after offset)
  */
-void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 p_global_position, float p_offset, float p_scale) {
+void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 p_global_position, real_t p_offset, real_t p_scale) {
 	if (p_images.size() != TYPE_MAX) {
 		LOG(ERROR, "p_images.size() is ", p_images.size(), ". It should be ", TYPE_MAX, " even if some Images are blank or null");
 		return;
@@ -680,8 +680,8 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 	}
 
 	// Slice up incoming image into segments of region_size^2, and pad any remainder
-	int slices_width = ceil(float(img_size.x) / float(_region_size));
-	int slices_height = ceil(float(img_size.y) / float(_region_size));
+	int slices_width = ceil(real_t(img_size.x) / real_t(_region_size));
+	int slices_height = ceil(real_t(img_size.y) / real_t(_region_size));
 	slices_width = CLAMP(slices_width, 1, REGION_MAP_SIZE);
 	slices_height = CLAMP(slices_height, 1, REGION_MAP_SIZE);
 	LOG(DEBUG, "Creating ", Vector2i(slices_width, slices_height), " slices for ", img_size, " images.");
@@ -768,9 +768,9 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 	if (ext == "r16" || ext == "raw") {
 		Vector2i minmax = Util::get_min_max(img);
 		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::WRITE);
-		float height_min = minmax.x;
-		float height_max = minmax.y;
-		float hscale = 65535.0 / (height_max - height_min);
+		real_t height_min = minmax.x;
+		real_t height_max = minmax.y;
+		real_t hscale = 65535.0 / (height_max - height_min);
 		for (int y = 0; y < img->get_height(); y++) {
 			for (int x = 0; x < img->get_width(); x++) {
 				int h = int((img->get_pixel(x, y).r - height_min) * hscale);

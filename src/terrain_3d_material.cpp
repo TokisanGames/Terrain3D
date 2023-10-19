@@ -293,8 +293,8 @@ void Terrain3DMaterial::_set_region_size(int p_size) {
 	LOG(INFO, "Setting region size in material: ", p_size);
 	_region_size = CLAMP(p_size, 64, 4096);
 	_region_sizev = Vector2i(_region_size, _region_size);
-	RS->material_set_param(_material, "_region_size", float(_region_size));
-	RS->material_set_param(_material, "_region_pixel_size", 1.0f / float(_region_size));
+	RS->material_set_param(_material, "_region_size", real_t(_region_size));
+	RS->material_set_param(_material, "_region_pixel_size", 1.0f / real_t(_region_size));
 }
 
 void Terrain3DMaterial::_set_shader_parameters(const Dictionary &p_dict) {
