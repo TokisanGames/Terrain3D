@@ -62,12 +62,12 @@ private:
 		Vector2 _img_size;
 		int _size = 0;
 		int _index = 0;
-		float _opacity = 0.0;
-		float _height = 0.0;
+		real_t _opacity = 0.0;
+		real_t _height = 0.0;
 		Color _color = COLOR_ROUGHNESS;
-		float _roughness = 0.5;
-		float _jitter = 0.0;
-		float _gamma = 1.0;
+		real_t _roughness = 0.5;
+		real_t _jitter = 0.0;
+		real_t _gamma = 1.0;
 		bool _align_to_view = false;
 		bool _auto_regions = false;
 
@@ -76,15 +76,15 @@ private:
 		Ref<Image> get_image() const { return _image; }
 		Vector2 get_image_size() const { return _img_size; }
 		void set_data(Dictionary p_data);
-		float get_alpha(Vector2i p_position) { return _image->get_pixelv(p_position).r; }
+		real_t get_alpha(Vector2i p_position) { return _image->get_pixelv(p_position).r; }
 		int get_size() const { return _size; }
 		int get_index() const { return _index; }
-		float get_opacity() const { return _opacity; }
-		float get_height() const { return _height; }
+		real_t get_opacity() const { return _opacity; }
+		real_t get_height() const { return _height; }
 		Color get_color() const { return _color; }
-		float get_roughness() const { return _roughness; }
-		float get_jitter() const { return _jitter; }
-		float get_gamma() const { return _gamma; }
+		real_t get_roughness() const { return _roughness; }
+		real_t get_jitter() const { return _jitter; }
+		real_t get_gamma() const { return _gamma; }
 		bool is_aligned_to_view() const { return _align_to_view; }
 		bool auto_regions_enabled() const { return _auto_regions; }
 	};
@@ -98,17 +98,17 @@ private:
 	Tool _tool = REGION;
 	Operation _operation = ADD;
 	Vector3 _operation_position = Vector3();
-	float _operation_interval = 0.0f;
+	real_t _operation_interval = 0.0f;
 	Brush _brush;
 
 	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range
 
 private:
 	void _operate_region(Vector3 p_global_position);
-	void _operate_map(Vector3 p_global_position, float p_camera_direction);
+	void _operate_map(Vector3 p_global_position, real_t p_camera_direction);
 	bool _is_in_bounds(Vector2i p_position, Vector2i p_max_position);
 	Vector2 _get_uv_position(Vector3 p_global_position, int p_region_size);
-	Vector2 _rotate_uv(Vector2 p_uv, float p_angle);
+	Vector2 _rotate_uv(Vector2 p_uv, real_t p_angle);
 
 public:
 	Terrain3DEditor();
@@ -122,7 +122,7 @@ public:
 	Tool get_tool() const { return _tool; }
 	void set_operation(Operation p_operation) { _operation = p_operation; }
 	Operation get_operation() const { return _operation; }
-	void operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation);
+	void operate(Vector3 p_global_position, real_t p_camera_direction, bool p_continuous_operation);
 
 	void setup_undo();
 	void store_undo();

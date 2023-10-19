@@ -564,7 +564,7 @@ void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shad
 	_update_instances();
 }
 
-void Terrain3D::set_cull_margin(float p_margin) {
+void Terrain3D::set_cull_margin(real_t p_margin) {
 	LOG(INFO, "Setting extra cull margin: ", p_margin);
 	_cull_margin = p_margin;
 	update_aabbs();
@@ -603,10 +603,10 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 	int tile = 0;
 
 	for (int l = 0; l < _clipmap_levels; l++) {
-		float scale = float(1 << l);
+		real_t scale = real_t(1 << l);
 		Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
-		Vector3 tile_size = Vector3(float(_clipmap_size << l), 0, float(_clipmap_size << l));
-		Vector3 base = snapped_pos - Vector3(float(_clipmap_size << (l + 1)), 0, float(_clipmap_size << (l + 1)));
+		Vector3 tile_size = Vector3(real_t(_clipmap_size << l), 0, real_t(_clipmap_size << l));
+		Vector3 base = snapped_pos - Vector3(real_t(_clipmap_size << (l + 1)), 0, real_t(_clipmap_size << (l + 1)));
 
 		// Position tiles
 		for (int x = 0; x < 4; x++) {
@@ -634,7 +634,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 		}
 
 		if (l != _clipmap_levels - 1) {
-			float next_scale = scale * 2.0f;
+			real_t next_scale = scale * 2.0f;
 			Vector3 next_snapped_pos = (p_cam_pos / next_scale).floor() * next_scale;
 
 			// Position trims
@@ -646,9 +646,9 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 				r |= d.x >= scale ? 0 : 2;
 				r |= d.z >= scale ? 0 : 1;
 
-				float rotations[4] = { 0.0, 270.0, 90, 180.0 };
+				real_t rotations[4] = { 0.0, 270.0, 90, 180.0 };
 
-				float angle = UtilityFunctions::deg_to_rad(rotations[r]);
+				real_t angle = UtilityFunctions::deg_to_rad(rotations[r]);
 				Transform3D t = Transform3D().rotated(Vector3(0, 1, 0), -angle);
 				t = t.scaled(Vector3(scale, 1, scale));
 				t.origin = tile_center;
@@ -657,7 +657,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 
 			// Position seams
 			{
-				Vector3 next_base = next_snapped_pos - Vector3(float(_clipmap_size << (l + 1)), 0, float(_clipmap_size << (l + 1)));
+				Vector3 next_base = next_snapped_pos - Vector3(real_t(_clipmap_size << (l + 1)), 0, real_t(_clipmap_size << (l + 1)));
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
 				t.origin = next_base;
 				RS->instance_set_transform(_data.seams[edge], t);
@@ -727,7 +727,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 	Vector3 test_point = p_position;
 	p_direction.normalize();
 
-	float highest_dotp = 0.f;
+	real_t highest_dotp = 0.f;
 	Vector3 highest_point;
 
 	if (_storage.is_valid()) {
@@ -736,7 +736,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 			test_point.y = _storage->get_height(test_point);
 			Vector3 test_vec = (test_point - p_position).normalized();
 
-			float test_dotp = p_direction.dot(test_vec);
+			real_t test_dotp = p_direction.dot(test_vec);
 			if (test_dotp > highest_dotp) {
 				highest_dotp = test_dotp;
 				highest_point = test_point;

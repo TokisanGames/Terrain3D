@@ -20,7 +20,7 @@ private:
 
 	// Constants & Definitions
 
-	static inline const float CURRENT_VERSION = 0.84;
+	static inline const real_t CURRENT_VERSION = 0.84;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
@@ -63,7 +63,7 @@ private:
 
 	// Storage Settings & flags
 
-	float _version = CURRENT_VERSION;
+	real_t _version = CURRENT_VERSION;
 	bool _modified = false;
 	bool _save_16_bit = false;
 	RegionSize _region_size = SIZE_1024;
@@ -103,14 +103,14 @@ public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
-	inline void set_version(float p_version) { _version = p_version; }
-	inline float get_version() const { return _version; }
+	inline void set_version(real_t p_version) { _version = p_version; }
+	inline real_t get_version() const { return _version; }
 	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
 	inline bool get_save_16_bit() const { return _save_16_bit; }
 
 	inline void set_height_range(Vector2 p_range) { _height_range = p_range; }
 	inline Vector2 get_height_range() const { return _height_range; }
-	void update_heights(float p_height);
+	void update_heights(real_t p_height);
 	void update_heights(Vector2 p_heights);
 	void update_height_range();
 
@@ -139,10 +139,10 @@ public:
 	void set_color_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
 	Color get_pixel(MapType p_map_type, Vector3 p_global_position);
-	inline float get_height(Vector3 p_global_position) { return get_pixel(TYPE_HEIGHT, p_global_position).r; }
+	inline real_t get_height(Vector3 p_global_position) { return get_pixel(TYPE_HEIGHT, p_global_position).r; }
 	inline Color get_color(Vector3 p_global_position);
 	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
-	inline float get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
+	inline real_t get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
@@ -153,7 +153,7 @@ public:
 	static Ref<Image> load_image(String p_file_name, int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
 			Vector2 p_r16_height_range = Vector2(0, 255), Vector2i p_r16_size = Vector2i(0, 0));
 	void import_images(const TypedArray<Image> &p_images, Vector3 p_global_position = Vector3(0, 0, 0),
-			float p_offset = 0.0, float p_scale = 1.0);
+			real_t p_offset = 0.0, real_t p_scale = 1.0);
 	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);
 	Ref<Image> layered_to_image(MapType p_map_type);
 

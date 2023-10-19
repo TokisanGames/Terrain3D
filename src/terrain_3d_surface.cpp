@@ -77,11 +77,11 @@ void Terrain3DSurface::set_normal_texture(const Ref<Texture2D> &p_texture) {
 	}
 }
 
-void Terrain3DSurface::set_uv_scale(float p_scale) {
+void Terrain3DSurface::set_uv_scale(real_t p_scale) {
 	_data._uv_scale = p_scale;
 }
 
-void Terrain3DSurface::set_uv_rotation(float p_rotation) {
+void Terrain3DSurface::set_uv_rotation(real_t p_rotation) {
 	_data._uv_rotation = CLAMP(p_rotation, 0.0f, 1.0f);
 }
 

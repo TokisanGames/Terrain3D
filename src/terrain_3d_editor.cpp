@@ -54,7 +54,7 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 	}
 }
 
-void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_direction) {
+void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_direction) {
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
@@ -96,14 +96,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 	int brush_size = _brush.get_size();
 	int index = _brush.get_index();
 	Vector2 img_size = _brush.get_image_size();
-	float opacity = _brush.get_opacity();
-	float height = _brush.get_height();
+	real_t opacity = _brush.get_opacity();
+	real_t height = _brush.get_height();
 	Color color = _brush.get_color();
-	float roughness = _brush.get_roughness();
-	float gamma = _brush.get_gamma();
+	real_t roughness = _brush.get_roughness();
+	real_t gamma = _brush.get_gamma();
 
-	float randf = UtilityFunctions::randf();
-	float rot = randf * Math_PI * _brush.get_jitter();
+	real_t randf = UtilityFunctions::randf();
+	real_t rot = randf * Math_PI * _brush.get_jitter();
 	if (_brush.is_aligned_to_view()) {
 		rot += p_camera_direction;
 	}
@@ -112,7 +112,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 	for (int x = 0; x < brush_size; x++) {
 		for (int y = 0; y < brush_size; y++) {
 			Vector2i brush_offset = Vector2i(x, y) - (Vector2i(brush_size, brush_size) / 2);
-			Vector3 brush_global_position = Vector3(p_global_position.x + float(brush_offset.x), p_global_position.y, p_global_position.z + float(brush_offset.y));
+			Vector3 brush_global_position = Vector3(p_global_position.x + real_t(brush_offset.x), p_global_position.y, p_global_position.z + real_t(brush_offset.y));
 
 			int new_region_index = storage->get_region_index(brush_global_position);
 
@@ -136,20 +136,20 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 			Vector2i map_pixel_position = Vector2i(uv_position * region_size);
 
 			if (_is_in_bounds(map_pixel_position, region_vsize)) {
-				Vector2 brush_uv = Vector2(x, y) / float(brush_size);
+				Vector2 brush_uv = Vector2(x, y) / real_t(brush_size);
 				Vector2i brush_pixel_position = Vector2i(_rotate_uv(brush_uv, rot) * img_size);
 
 				if (!_is_in_bounds(brush_pixel_position, Vector2i(img_size))) {
 					continue;
 				}
 
-				float brush_alpha = float(Math::pow(double(_brush.get_alpha(brush_pixel_position)), double(gamma)));
+				real_t brush_alpha = real_t(Math::pow(double(_brush.get_alpha(brush_pixel_position)), double(gamma)));
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
 				if (map_type == Terrain3DStorage::TYPE_HEIGHT) {
-					float srcf = src.r;
-					float destf = dest.r;
+					real_t srcf = src.r;
+					real_t destf = dest.r;
 
 					switch (_operation) {
 						case ADD:
@@ -173,14 +173,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 							Vector3 down_position = brush_global_position - Vector3(0, 0, 1);
 							Vector3 up_position = brush_global_position + Vector3(0, 0, 1);
 
-							float left = srcf, right = srcf, up = srcf, down = srcf;
+							real_t left = srcf, right = srcf, up = srcf, down = srcf;
 
 							left = storage->get_pixel(map_type, left_position).r;
 							right = storage->get_pixel(map_type, right_position).r;
 							up = storage->get_pixel(map_type, up_position).r;
 							down = storage->get_pixel(map_type, down_position).r;
 
-							float avg = (srcf + left + right + up + down) * 0.2;
+							real_t avg = (srcf + left + right + up + down) * 0.2;
 							destf = Math::lerp(srcf, avg, brush_alpha * opacity);
 							break;
 						}
@@ -191,7 +191,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 					storage->update_heights(destf);
 
 				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
-					float alpha_clip = (brush_alpha < 0.1f) ? 0.0f : 1.0f;
+					real_t alpha_clip = (brush_alpha < 0.1f) ? 0.0f : 1.0f;
 					int index_base = int(src.r * 255.0f);
 					int index_overlay = int(src.g * 255.0f);
 					int dest_index = 0;
@@ -201,17 +201,17 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 							// Spray Overlay
 							dest_index = int(Math::lerp(index_overlay, index, alpha_clip));
 							if (dest_index == index_base) {
-								dest.b = Math::lerp(src.b, 0.0f, alpha_clip * opacity * .5f);
+								dest.b = Math::lerp(real_t(src.b), real_t(0.0f), alpha_clip * opacity * real_t(0.5f));
 							} else {
-								dest.g = float(dest_index) / 255.0f;
-								dest.b = Math::lerp(src.b, CLAMP(src.b + brush_alpha, 0.0f, 1.0f), brush_alpha * opacity * .5f);
+								dest.g = dest_index / 255.0f;
+								dest.b = Math::lerp(real_t(src.b), CLAMP(src.b + brush_alpha, real_t(0.0f), real_t(1.0f)), brush_alpha * opacity * real_t(0.5f));
 							}
 							break;
 						case Terrain3DEditor::REPLACE:
 							// Base Paint
 							dest_index = int(Math::lerp(index_base, index, alpha_clip));
-							dest.r = float(dest_index) / 255.0f;
-							dest.b = Math::lerp(src.b, 0.0f, alpha_clip * opacity);
+							dest.r = dest_index / 255.0f;
+							dest.b = Math::lerp(real_t(src.b), real_t(0.0f), alpha_clip * opacity);
 							break;
 						default:
 							break;
@@ -230,7 +230,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, float p_camera_dir
 							 * We round the final amount in tool_settings.gd:_on_picked().
 							 * Tip: One can round to 2 decimal places like so: 0.01*round(100.0*a)
 							 */
-							dest.a = Math::lerp(src.a, .5f + .5f * .01f * roughness, brush_alpha * opacity);
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f *.01f) * roughness, brush_alpha * opacity);
 							break;
 						default:
 							break;
@@ -252,14 +252,14 @@ bool Terrain3DEditor::_is_in_bounds(Vector2i p_position, Vector2i p_max_position
 
 Vector2 Terrain3DEditor::_get_uv_position(Vector3 p_global_position, int p_region_size) {
 	Vector2 global_position_2d = Vector2(p_global_position.x, p_global_position.z);
-	Vector2 region_position = global_position_2d / float(p_region_size);
+	Vector2 region_position = global_position_2d / real_t(p_region_size);
 	region_position = region_position.floor();
-	Vector2 uv_position = (global_position_2d / float(p_region_size)) - region_position;
+	Vector2 uv_position = (global_position_2d / real_t(p_region_size)) - region_position;
 
 	return uv_position;
 }
 
-Vector2 Terrain3DEditor::_rotate_uv(Vector2 p_uv, float p_angle) {
+Vector2 Terrain3DEditor::_rotate_uv(Vector2 p_uv, real_t p_angle) {
 	Vector2 rotation_offset = Vector2(0.5, 0.5);
 	p_uv = (p_uv - rotation_offset).rotated(p_angle) + rotation_offset;
 	return p_uv.clamp(Vector2(0, 0), Vector2(1, 1));
@@ -282,7 +282,7 @@ void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 	_brush.set_data(p_data);
 }
 
-void Terrain3DEditor::operate(Vector3 p_global_position, float p_camera_direction, bool p_continuous_operation) {
+void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction, bool p_continuous_operation) {
 	if (_operation_position == Vector3()) {
 		_operation_position = p_global_position;
 	}
