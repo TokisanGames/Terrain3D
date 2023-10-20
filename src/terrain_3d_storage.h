@@ -20,7 +20,7 @@ private:
 
 	// Constants & Definitions
 
-	static inline const real_t CURRENT_VERSION = 0.841;
+	static inline const real_t CURRENT_VERSION = 0.842;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
@@ -33,7 +33,7 @@ private:
 
 	static inline const Image::Format FORMAT[] = {
 		Image::FORMAT_RF, // TYPE_HEIGHT
-		Image::FORMAT_RGB8, // TYPE_CONTROL
+		Image::FORMAT_RF, // TYPE_CONTROL
 		Image::FORMAT_RGBA8, // TYPE_COLOR
 		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
 	};
@@ -105,6 +105,7 @@ private:
 	Ref<Terrain3DTextureList> _texture_list;
 	// DEPRECATED 0.8.4, remove 0.9
 	bool _841_colormap_upgraded = false;
+	bool _842_controlmap_upgraded = false;
 
 public:
 	Terrain3DStorage();

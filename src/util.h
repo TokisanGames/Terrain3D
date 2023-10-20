@@ -14,9 +14,12 @@ class Util {
 	static inline const char *__class__ = "Terrain3DUtil";
 
 public:
+	// Print info to the console
 	static void print_dict(String name, const Dictionary &p_dict, int p_level = 1); // Defaults to INFO
 	static void dump_gen(GeneratedTex p_gen, String name = "");
 	static void dump_maps(const TypedArray<Image> p_maps, String p_name = "");
+
+	// Image operations
 	static Vector2 get_min_max(const Ref<Image> p_image);
 	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
 	static Ref<Image> get_filled_image(Vector2i p_size,
