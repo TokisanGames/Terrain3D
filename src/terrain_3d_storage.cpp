@@ -95,6 +95,9 @@ inline void Terrain3DStorage::set_version(real_t p_version) {
 	if (_version >= 0.841f) {
 		_841_colormap_upgraded = true;
 	}
+	if (_version >= 0.842f) {
+		_842_controlmap_upgraded = true;
+	}
 	if (_version < CURRENT_VERSION) {
 		LOG(WARN, "Storage version ", vformat("%.3f", _version), " will be updated to ", vformat("%.3f", CURRENT_VERSION), " upon save");
 		_modified = true;
@@ -396,7 +399,32 @@ void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
 
 void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting control maps: ", p_maps.size());
-	_control_maps = sanitize_maps(TYPE_CONTROL, p_maps);
+	TypedArray<Image> maps = p_maps;
+	// DEPRECATED 0.8.4 Remove 0.9
+	// Convert old RGB8 control format <0.841 to bit based format 0.8.42
+	if (_version < 0.842 && !_842_controlmap_upgraded && maps.size() > 0 &&
+			(Ref<Image>(maps[0])->get_format() != FORMAT[TYPE_CONTROL])) {
+		LOG(WARN, "Converting control maps to int format: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
+		for (int i = 0; i < maps.size(); i++) {
+			Ref<Image> old_img = maps[i];
+			PackedByteArray pba;
+			pba.resize(_region_size * _region_size * sizeof(uint32_t));
+			for (int x = 0; x < old_img->get_width(); x++) {
+				for (int y = 0; y < old_img->get_height(); y++) {
+					Color pixel = old_img->get_pixel(x, y);
+					uint32_t base = (pixel.get_r8() & 0x1F) << 27; // 5 bits 32-28
+					uint32_t over = (pixel.get_g8() & 0x1F) << 22; // 5 bits 27-23
+					uint32_t blend = (pixel.get_b8() & 0xFF) << 14; // 8 bits 22-15
+					uint32_t value = base | over | blend;
+					pba.encode_u32((y * _region_size + x) * sizeof(uint32_t), value);
+				}
+			}
+			Ref<Image> new_img = Image::create_from_data(_region_size, _region_size, false, Image::FORMAT_RF, pba);
+			maps[i] = new_img;
+		}
+		_842_controlmap_upgraded = true;
+	}
+	_control_maps = sanitize_maps(TYPE_CONTROL, maps);
 	force_update_maps(TYPE_CONTROL);
 }
 
@@ -406,7 +434,7 @@ void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	// DEPRECATED 0.8.4 Remove 0.9
 	// Convert colormap from linear <0.84 to srgb 0.841
 	if (_version < 0.841 && !_841_colormap_upgraded && maps.size() > 0) {
-		LOG(WARN, "Converting color maps from linear to srgb. ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
+		LOG(WARN, "Converting color maps from linear to srgb: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
 		for (int i = 0; i < maps.size(); i++) {
 			Ref<Image> img = maps[i];
 			for (int x = 0; x < img->get_width(); x++) {
