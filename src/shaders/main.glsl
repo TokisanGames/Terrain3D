@@ -6,6 +6,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 uniform float _region_size = 1024.0;
 uniform float _region_pixel_size = 0.0009765625; // 1.0 / 1024.0
 uniform int _region_map_size = 16;
+uniform int _region_uv_limit = 8;
 uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
 uniform sampler2DArray _height_maps : filter_linear_mipmap, repeat_disable;
@@ -50,7 +51,7 @@ vec3 get_regionf(vec2 uv) {
 float get_height(vec2 uv) {
 	float height = 0.0;
 	vec3 region = get_regionf(uv);
-	if (region.z >= 0.) {
+	if (region.z >= 0. && abs(uv.x) < float(_region_uv_limit) && abs(uv.y) < float(_region_uv_limit)) {
 		height = texture(_height_maps, region).r;
 	}
 //INSERT: WORLD_NOISE2
