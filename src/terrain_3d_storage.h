@@ -20,7 +20,7 @@ private:
 
 	// Constants & Definitions
 
-	static inline const real_t CURRENT_VERSION = 0.84;
+	static inline const real_t CURRENT_VERSION = 0.841;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 

@@ -377,7 +377,25 @@ void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 
 void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting color maps: ", p_maps.size());
-	_color_maps = sanitize_maps(TYPE_COLOR, p_maps);
+
+	TypedArray<Image> maps = p_maps;
+	// DEPRECATED 0.8.4 Remove 0.9
+	// Convert colormap from linear <0.8.4 to srgb 0.8.41
+	if (_version < CURRENT_VERSION && maps.size() > 0) {
+		LOG(WARN, "Color maps are being converted from linear to srgb. Upgrading: ", vformat("%.2f", _version), "->", vformat("%.2f", CURRENT_VERSION));
+		for (int i = 0; i < maps.size(); i++) {
+			Ref<Image> img = maps[i];
+			for (int x = 0; x < img->get_width(); x++) {
+				for (int y = 0; y < img->get_height(); y++) {
+					Color c = img->get_pixel(x, y);
+					img->set_pixel(x, y, c.linear_to_srgb());
+				}
+			}
+			maps[i] = img;
+		}
+		_version = CURRENT_VERSION; // Prevent running again on focus
+	}
+	_color_maps = sanitize_maps(TYPE_COLOR, maps);
 	force_update_maps(TYPE_COLOR);
 }
 

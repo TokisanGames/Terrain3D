@@ -11,7 +11,7 @@ uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
 uniform sampler2DArray _height_maps : filter_linear_mipmap, repeat_disable;
 uniform sampler2DArray _control_maps : filter_linear_mipmap, repeat_disable;
-uniform sampler2DArray _color_maps : filter_linear_mipmap, repeat_disable;
+uniform sampler2DArray _color_maps : source_color, filter_linear, repeat_disable;
 
 uniform sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;

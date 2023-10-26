@@ -213,7 +213,7 @@ func update_decal() -> void:
 					_:
 						decal.modulate = Color.WHITE
 			Terrain3DEditor.COLOR:
-				decal.modulate = brush_data["color"]
+				decal.modulate = brush_data["color"].srgb_to_linear()*.5
 			Terrain3DEditor.ROUGHNESS:
 				decal.modulate = COLOR_ROUGHNESS
 			_:
@@ -222,7 +222,6 @@ func update_decal() -> void:
 	decal.modulate.a = max(.3, brush_data["opacity"])
 	decal.albedo_mix = 1.0
 	decal_timer.start()
-
 
 
 func set_decal_rotation(rot: float) -> void:

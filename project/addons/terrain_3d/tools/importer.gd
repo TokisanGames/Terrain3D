@@ -67,6 +67,7 @@ func start_import(value: bool) -> void:
 				material.show_checkered = false
 				material.show_colormap = true
 		storage.import_images(imported_images, import_position, import_offset, import_scale)
+		print("Import finished")
 
 
 @export_group("Export File")

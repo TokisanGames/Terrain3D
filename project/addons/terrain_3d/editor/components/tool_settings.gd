@@ -271,7 +271,6 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 func get_setting(p_setting: String) -> Variant:
 	var object: Object = settings[p_setting]
 	var value: Variant
-	
 	if object is Range:
 		value = object.get_value()
 	elif object is DoubleSlider:
@@ -283,8 +282,7 @@ func get_setting(p_setting: String) -> Variant:
 	elif object is CheckBox:
 		value = object.is_pressed()
 	elif object is ColorPickerButton:
-		value = object.color.srgb_to_linear()
-		
+		value = object.color
 	return value
 
 
