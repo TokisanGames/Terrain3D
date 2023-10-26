@@ -2,7 +2,7 @@
 extends Terrain3D
 
 
-@export var clear: bool = false : set = reset_settings
+@export var clear_all: bool = false : set = reset_settings
 @export var clear_terrain: bool = false : set = reset_terrain
 @export var update_height_range: bool = false : set = update_heights
 
@@ -18,6 +18,8 @@ func reset_settings(value) -> void:
 		r16_range = Vector2(0, 1)
 		r16_size = Vector2i(1024, 1024)
 		storage = null
+		material = null
+		texture_list = null
 
 
 func reset_terrain(value) -> void:
@@ -61,6 +63,9 @@ func start_import(value: bool) -> void:
 		if color_file_name:
 			img = Terrain3DStorage.load_image(color_file_name, ResourceLoader.CACHE_MODE_IGNORE)
 			imported_images[Terrain3DStorage.TYPE_COLOR] = img
+			if texture_list.get_texture_count() == 0:
+				material.show_checkered = false
+				material.show_colormap = true
 		storage.import_images(imported_images, import_position, import_offset, import_scale)
 
 
