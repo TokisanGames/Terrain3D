@@ -1,8 +1,8 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=5 format=3 uid="uid://cofnhdcclon1w"]
 
 [ext_resource type="Script" path="res://demo/src/CodeGenerated.gd" id="1_h7vyv"]
 [ext_resource type="PackedScene" path="res://demo/components/Player.tscn" id="2_3v2uf"]
-[ext_resource type="PackedScene" path="res://demo/components/World.tscn" id="3_71ikj"]
+[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="3_71ikj"]
 [ext_resource type="PackedScene" path="res://demo/components/UI.tscn" id="4_x5ge4"]
 
 [node name="CodeGenerated" type="Node"]
@@ -11,7 +11,7 @@ script = ExtResource("1_h7vyv")
 [node name="World" parent="." instance=ExtResource("3_71ikj")]
 
 [node name="Player" parent="." instance=ExtResource("2_3v2uf")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1000, 1000, 1000)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 500, 1000, 500)
 
 [node name="UI" parent="." instance=ExtResource("4_x5ge4")]
 
