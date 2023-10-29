@@ -5,15 +5,14 @@ body:
 - type: markdown
   attributes:
     value: |
-      Have you reviewed the [status](https://github.com/TokisanGames/Terrain3D/wiki#project-status) of current and pending features?
-      Terrain3D is a heightmap based terrain. Realtime modification is technically possible, that's how we edit it, but most gamedevs who want destructable terrains are better served with [Zylann's Voxel Tools](https://github.com/Zylann/godot_voxel).
+      Have you reviewed the [status of current and pending features](https://github.com/TokisanGames/Terrain3D/wiki#project-status)?
 
 - type: textarea
   attributes:
     label: Description
     description: |
       Please describe the feature you would like to see in Terrain3D, how it might work, and why it's helpful.
-      Include examples of other terrain systems, GDC talks, white papers, and links to blogs or code that will be good reference information to start from.
+      Include examples of other terrain systems, GDC talks, white papers, and links to blogs or code that will be good reference info.
   validations:
     required: true
 
@@ -22,8 +21,8 @@ body:
   attributes:
     label: Are you willing to help create this feature?
     description: |
-      If so, this issue and our conversations on discord will help make sure your efforts are aligned with other plans.
-      If not, the feature will be considered by contributors, but no promises.
+      If so, this issue and our conversations on discord will help ensure your efforts are aligned with other plans.
+      If not, the feature will be considered, but no promises.
     options:
       - ''
       - 'Yes'
