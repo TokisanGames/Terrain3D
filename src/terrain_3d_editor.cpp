@@ -291,17 +291,35 @@ void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 	_brush.set_data(p_data);
 }
 
-void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction, bool p_continuous_operation) {
+void Terrain3DEditor::start_operation(Vector3 p_global_position) {
+	setup_undo();
+	_pending_undo = true;
+	if (_tool == REGION) {
+		_operate_region(p_global_position);
+	}
+}
+
+void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction) {
 	if (_operation_position == Vector3()) {
 		_operation_position = p_global_position;
 	}
 	_operation_interval = p_global_position.distance_to(_operation_position);
 	_operation_position = p_global_position;
 
-	if (_tool == REGION && !p_continuous_operation) {
+	if (_tool == REGION && _pending_undo) {
 		_operate_region(p_global_position);
-	} else if (_tool >= 0 && _tool < REGION && p_continuous_operation) {
+	} else if (_tool >= 0 && _tool < REGION) {
+		if (!_pending_undo) {
+			start_operation(p_global_position);
+		}
 		_operate_map(p_global_position, p_camera_direction);
+	}
+}
+
+void Terrain3DEditor::stop_operation() {
+	if (_pending_undo) {
+		store_undo();
+		_pending_undo = false;
 	}
 }
 
@@ -409,7 +427,9 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tool"), &Terrain3DEditor::get_tool);
 	ClassDB::bind_method(D_METHOD("set_operation", "operation"), &Terrain3DEditor::set_operation);
 	ClassDB::bind_method(D_METHOD("get_operation"), &Terrain3DEditor::get_operation);
-	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction", "continuous_operation"), &Terrain3DEditor::operate);
+	ClassDB::bind_method(D_METHOD("start_operation", "position"), &Terrain3DEditor::start_operation);
+	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction"), &Terrain3DEditor::operate);
+	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 
 	ClassDB::bind_method(D_METHOD("setup_undo"), &Terrain3DEditor::setup_undo);
 	ClassDB::bind_method(D_METHOD("store_undo"), &Terrain3DEditor::store_undo);
