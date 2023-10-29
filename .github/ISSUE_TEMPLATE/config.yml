@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Documentation
+    url: https://github.com/TokisanGames/Terrain3D/wiki
+    about: Many questions and issues are already answered, including status of features and troubleshooting.
+  - name: Questions on Discord
+    url: https://tokisan.com/discord
+    about: Just have a question about features? Please use discord.
