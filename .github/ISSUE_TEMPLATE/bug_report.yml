@@ -5,24 +5,23 @@ body:
 - type: markdown
   attributes:
     value: |
-      - Please your issue hasn't been addressed in the documentation: [Troubleshooting](https://github.com/TokisanGames/Terrain3D/wiki/Troubleshooting), [Tips](https://github.com/TokisanGames/Terrain3D/wiki/Tips), [Setting up textures](https://github.com/TokisanGames/Terrain3D/wiki/Setting-Up-Textures), and other pages.
-      - The following fields will help you provide the information we need to resolve the issue.
-
-- type: input
-  attributes:
-    label: Godot version
-    description: >
-      Specify the exact version of Godot. Inside Godot, click the version shown on the bottom bar to copy it.
-    placeholder: v4.1.2.stable.official [399c9dc39]
-  validations:
-    required: true
+      Has your issue already been addressed in [Setting up textures](https://github.com/TokisanGames/Terrain3D/wiki/Setting-Up-Textures), [Troubleshooting](https://github.com/TokisanGames/Terrain3D/wiki/Troubleshooting), or [Tips](https://github.com/TokisanGames/Terrain3D/wiki/Tips)?
 
 - type: input
   attributes:
     label: Terrain3D version
     description: >
-      Specify the version of Terrain3D. Either the name of a release, or the commit string if using a development build.
+      Enter either the name of a release, or the commit string if using a development build.
     placeholder: v0.8.3-alpha_gd4.1.1
+  validations:
+    required: true
+
+- type: input
+  attributes:
+    label: Godot version
+    description: >
+      Inside Godot, click the version on the bottom bar to copy it.
+    placeholder: v4.1.2.stable.official [399c9dc39]
   validations:
     required: true
 
@@ -31,7 +30,7 @@ body:
     label: System information
     description: |
       - Specify the OS version, GPU and rendering backend (Vulkan Forward+, Mobile, Compatibility/WebGL).
-      - **Starting with Godot 4.1, you can copy this information to your clipboard by using *Help > Copy System Info* at the top of the editor window.**
+      - Starting with Godot 4.1, you can copy this information to your clipboard by using *Help > Copy System Info* at the top of the editor window.
     placeholder: Windows 10/64 - Vulkan (Forward+) - dedicated NVIDIA GeForce GTX 970 (nvidia, 510.85.02)
   validations:
     required: true
@@ -43,6 +42,7 @@ body:
     description: |
       Try to isolate the problem. E.g. If you're having issues with a texture, put it in the demo and see if it causes the same issue.
     options:
+      - ''
       - 'Yes'
       - 'No'
       - 'Not applicable'
@@ -53,8 +53,8 @@ body:
   attributes:
     label: Issue description
     description: |
-      Describe your issue briefly. What doesn't work, what are you expecting, and what have you tried for troubleshooting?
-      You can paste or drag in images or videos. Format code with <code>```</code> before and after on their own lines.
+      Briefly describe the issue. What doesn't work, what are you expecting, and what have you done to troubleshooting it?
+      You can paste or drag in screenshots or videos. Format code with <code>```</code> before and after on their own lines.
   validations:
     required: true
     
@@ -62,8 +62,7 @@ body:
   attributes:
     label: Logs
     description: |
-      Terrain3D has [extensive logging](https://github.com/TokisanGames/Terrain3D/wiki/Troubleshooting#debug-logs). Enable it and attach a text file, or copy the logs here. 
-      Format them with <code>```</code> before and after on their own lines.
+      Terrain3D has [extensive logging](https://github.com/TokisanGames/Terrain3D/wiki/Troubleshooting#debug-logs). Enable it and attach a text file, or copy the logs here. Format logs with <code>```</code> before and after on their own lines.
   validations:
     required: false
     
