@@ -152,7 +152,7 @@ public:
 	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
 	inline real_t get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
 	Vector3 get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position);
-
+	Vector3 get_texture_id(Vector3 p_global_position);
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 

@@ -507,6 +507,26 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 }
 
 /**
+ * Returns:
+ * X = base index
+ * Y = overlay index
+ * Z = percentage blend between X and Y. Limited to the fixed values in RANGE.
+ * Interpretation of this data is up to the gamedev. Unfortunately due to blending, this isn't
+ * pixel perfect. I would have your player print this location as you walk around to see how the
+ * blending values look, then consider that the overlay texture is visible starting at a blend
+ * value of .3-.5, otherwise it's the base texture.
+ **/
+Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
+	// Get bit field from pixel
+	uint32_t bits;
+	*(real_t *)&bits = get_pixel(TYPE_CONTROL, p_global_position).r;
+	uint32_t base_index = bits >> 27u & 0x1Fu;
+	uint32_t overlay_index = bits >> 22u & 0x1Fu;
+	real_t blend = real_t(bits >> 14u & 0xFFu) / 255.0f;
+	return Vector3(real_t(base_index), real_t(overlay_index), blend);
+}
+
+/**
  * Returns sanitized maps of either a region set or a uniform set
  * Verifies size, vailidity, and format of maps
  * Creates filled blanks if lacking
@@ -1038,6 +1058,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DStorage::get_control);
 	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DStorage::get_roughness);
 	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DStorage::get_mesh_vertex);
+	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DStorage::get_texture_id);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DStorage::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(Vector2i(0, 0)));
