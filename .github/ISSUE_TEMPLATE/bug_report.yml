@@ -1,5 +1,5 @@
-name: Report a bug or issue
-description: Report a potential bug or technical issues in Terrain3D
+name: Report a technical issue
+description: Report a potential bug or technical issue in Terrain3D
 body:
 
 - type: markdown
