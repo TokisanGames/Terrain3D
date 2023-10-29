@@ -102,10 +102,10 @@ private:
 
 	Tool _tool = REGION;
 	Operation _operation = ADD;
+	Brush _brush;
 	Vector3 _operation_position = Vector3();
 	real_t _operation_interval = 0.0f;
-	Brush _brush;
-
+	bool _pending_undo = false;
 	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range
 
 private:
@@ -127,7 +127,10 @@ public:
 	Tool get_tool() const { return _tool; }
 	void set_operation(Operation p_operation) { _operation = p_operation; }
 	Operation get_operation() const { return _operation; }
-	void operate(Vector3 p_global_position, real_t p_camera_direction, bool p_continuous_operation);
+
+	void start_operation(Vector3 p_global_position);
+	void operate(Vector3 p_global_position, real_t p_camera_direction);
+	void stop_operation();
 
 	void setup_undo();
 	void store_undo();
