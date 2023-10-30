@@ -24,6 +24,7 @@ private:
 	static inline const char *__class__ = "Terrain3D";
 
 	// Terrain state
+	String _version = "0.8.4-dev";
 	bool _is_inside_world = false;
 	bool _initialized = false;
 
@@ -88,6 +89,7 @@ public:
 	~Terrain3D();
 
 	// Terrain settings
+	String get_version() const { return _version; }
 	void set_debug_level(int p_level);
 	int get_debug_level() const { return _debug_level; }
 	void set_clipmap_levels(int p_count);

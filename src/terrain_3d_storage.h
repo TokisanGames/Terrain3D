@@ -63,7 +63,7 @@ private:
 
 	// Storage Settings & flags
 
-	real_t _version = CURRENT_VERSION;
+	real_t _version = 0.8; // Set to ensure Godot always saves this
 	bool _modified = false;
 	bool _save_16_bit = false;
 	RegionSize _region_size = SIZE_1024;
@@ -98,17 +98,19 @@ private:
 
 	// DEPRECATED 0.8.3, remove 0.9
 	Ref<Terrain3DTextureList> _texture_list;
+	// DEPRECATED 0.8.4, remove 0.9
+	bool _841_colormap_upgraded = false;
 
 public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
-	inline void set_version(real_t p_version) { _version = p_version; }
+	inline void set_version(real_t p_version);
 	inline real_t get_version() const { return _version; }
-	inline void set_save_16_bit(bool p_enabled) { _save_16_bit = p_enabled; }
+	inline void set_save_16_bit(bool p_enabled);
 	inline bool get_save_16_bit() const { return _save_16_bit; }
 
-	inline void set_height_range(Vector2 p_range) { _height_range = p_range; }
+	inline void set_height_range(Vector2 p_range);
 	inline Vector2 get_height_range() const { return _height_range; }
 	void update_heights(real_t p_height);
 	void update_heights(Vector2 p_heights);

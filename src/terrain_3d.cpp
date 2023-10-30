@@ -35,6 +35,7 @@ void Terrain3D::_initialize() {
 	if (_storage.is_null()) {
 		LOG(DEBUG, "Creating blank storage");
 		_storage.instantiate();
+		_storage->set_version(Terrain3DStorage::CURRENT_VERSION);
 	} else if (_texture_list.is_null() && _storage->get_version() < 0.83f) {
 		// DEPREPCATED 0.8.3, remove 0.9
 		_texture_list = _storage->get_texture_list();
@@ -75,12 +76,6 @@ void Terrain3D::_initialize() {
 
 void Terrain3D::__ready() {
 	_initialize();
-	if (_storage->get_version() < Terrain3DStorage::CURRENT_VERSION) {
-		LOG(WARN, "Storage version ", vformat("%.2f", _storage->get_version()), " will be updated upon save");
-		_storage->set_modified();
-	} else {
-		_storage->clear_modified();
-	}
 	set_process(true);
 }
 
@@ -515,12 +510,15 @@ void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 	}
 }
 
+// This is run after the object has loaded and initialized
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	if (_storage != p_storage) {
-		LOG(INFO, "Setting storage");
 		_storage = p_storage;
 		if (_storage.is_valid()) {
-			LOG(INFO, "Loaded storage version: ", vformat("%.2f", p_storage->get_version()));
+			// DEPRECATED 0.8.4 remove 0.9 - Version redundant w/ set_version after 0.8.4
+			LOG(INFO, "Loaded storage version: ", vformat("%.3f", p_storage->get_version()));
+		} else {
+			LOG(INFO, "Clearing storage");
 		}
 		_clear();
 		_initialize();
@@ -842,6 +840,7 @@ void Terrain3D::_notification(int p_what) {
 }
 
 void Terrain3D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
 	ClassDB::bind_method(D_METHOD("set_clipmap_levels", "count"), &Terrain3D::set_clipmap_levels);
@@ -888,6 +887,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_aabbs"), &Terrain3D::update_aabbs);
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), "set_texture_list", "get_texture_list");

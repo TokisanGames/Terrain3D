@@ -86,6 +86,31 @@ Terrain3DStorage::~Terrain3DStorage() {
 	_clear();
 }
 
+// Lots of the upgrade process requires this to run first
+// It only runs if the version is saved in the file, which only happens if it was
+// different from the in the file is different from _version
+inline void Terrain3DStorage::set_version(real_t p_version) {
+	LOG(INFO, vformat("%.3f", p_version));
+	_version = p_version;
+	if (_version >= 0.841f) {
+		_841_colormap_upgraded = true;
+	}
+	if (_version < CURRENT_VERSION) {
+		LOG(WARN, "Storage version ", vformat("%.3f", _version), " will be updated to ", vformat("%.3f", CURRENT_VERSION), " upon save");
+		_modified = true;
+	}
+}
+
+inline void Terrain3DStorage::set_save_16_bit(bool p_enabled) {
+	LOG(INFO, p_enabled);
+	_save_16_bit = p_enabled;
+}
+
+inline void Terrain3DStorage::set_height_range(Vector2 p_range) {
+	LOG(INFO, vformat("%.2v", p_range));
+	_height_range = p_range;
+}
+
 void Terrain3DStorage::update_heights(real_t p_height) {
 	if (p_height < _height_range.x) {
 		_height_range.x = p_height;
@@ -114,7 +139,7 @@ void Terrain3DStorage::update_height_range() {
 }
 
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
-	LOG(INFO, "Setting region size: ", p_size);
+	LOG(INFO, p_size);
 	//ERR_FAIL_COND(p_size < SIZE_64);
 	//ERR_FAIL_COND(p_size > SIZE_2048);
 	ERR_FAIL_COND(p_size != SIZE_1024);
@@ -377,12 +402,11 @@ void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 
 void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting color maps: ", p_maps.size());
-
 	TypedArray<Image> maps = p_maps;
 	// DEPRECATED 0.8.4 Remove 0.9
-	// Convert colormap from linear <0.8.4 to srgb 0.8.41
-	if (_version < CURRENT_VERSION && maps.size() > 0) {
-		LOG(WARN, "Color maps are being converted from linear to srgb. Upgrading: ", vformat("%.2f", _version), "->", vformat("%.2f", CURRENT_VERSION));
+	// Convert colormap from linear <0.84 to srgb 0.841
+	if (_version < 0.841 && !_841_colormap_upgraded && maps.size() > 0) {
+		LOG(WARN, "Converting color maps from linear to srgb. ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
 		for (int i = 0; i < maps.size(); i++) {
 			Ref<Image> img = maps[i];
 			for (int x = 0; x < img->get_width(); x++) {
@@ -393,7 +417,7 @@ void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 			}
 			maps[i] = img;
 		}
-		_version = CURRENT_VERSION; // Prevent running again on focus
+		_841_colormap_upgraded = true;
 	}
 	_color_maps = sanitize_maps(TYPE_COLOR, maps);
 	force_update_maps(TYPE_COLOR);
@@ -517,14 +541,14 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 
 void Terrain3DStorage::save() {
 	if (!_modified) {
-		LOG(DEBUG, "Save requested, but not modified. Skipping");
+		LOG(INFO, "Save requested, but not modified. Skipping");
 		return;
 	}
 	String path = get_path();
 	// Initiate save to external file. The scene will save itself.
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
 		LOG(DEBUG, "Attempting to save terrain data to external file: " + path);
-		LOG(DEBUG, "Saving storage version: ", vformat("%.2f", CURRENT_VERSION));
+		LOG(DEBUG, "Saving storage version: ", vformat("%.3f", CURRENT_VERSION));
 		set_version(CURRENT_VERSION);
 		Error err;
 		if (_save_16_bit) {
@@ -551,7 +575,7 @@ void Terrain3DStorage::save() {
 		}
 		LOG(INFO, "Finished saving terrain data");
 	} else {
-		LOG(WARN, "Storage resource is saving in the scene file. Save it as an external binary .res file");
+		LOG(WARN, "Storage resource saved in the scene file. Save it as an external, binary .res file");
 	}
 }
 
@@ -871,7 +895,6 @@ void Terrain3DStorage::print_audit_data() {
 // DEPRECATED 0.8.3, remove 0.9
 void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
 	LOG(WARN, "Converting old Surfaces to separate TextureList resource");
-	_version = 0.8;
 	_texture_list.instantiate();
 	TypedArray<Terrain3DTexture> textures;
 	textures.resize(p_surfaces.size());
@@ -958,12 +981,11 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);
 
+	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
-
-	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_offsets", "get_region_offsets");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_height_maps", "get_height_maps");
