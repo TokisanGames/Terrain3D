@@ -5,6 +5,7 @@ extends Node
 # Includes
 const Toolbar: Script = preload("res://addons/terrain_3d/editor/components/toolbar.gd")
 const ToolSettings: Script = preload("res://addons/terrain_3d/editor/components/tool_settings.gd")
+const Baker: Script = preload("res://addons/terrain_3d/editor/components/baker.gd")
 const RING1: String = "res://addons/terrain_3d/editor/brushes/ring1.exr"
 const COLOR_RAISE := Color.WHITE
 const COLOR_LOWER := Color.BLACK
@@ -23,6 +24,7 @@ const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var toolbar: Toolbar
 var toolbar_settings: ToolSettings
+var baker: Baker
 var setting_has_changed: bool = false
 var visible: bool = false
 var picking: int = Terrain3DEditor.TOOL_MAX
@@ -43,8 +45,13 @@ func _enter_tree() -> void:
 	toolbar_settings.connect("picking", _on_picking)
 	toolbar_settings.hide()
 
+	baker = Baker.new()
+	baker.plugin = plugin
+	baker.hide()
+
 	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, toolbar_settings)
+	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, baker)
 
 	decal = Decal.new()
 	add_child(decal)
@@ -61,6 +68,7 @@ func _exit_tree() -> void:
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, toolbar_settings)
 	toolbar.queue_free()
 	toolbar_settings.queue_free()
+	baker.queue_free()
 	decal.queue_free()
 	decal_timer.queue_free()
 
@@ -68,6 +76,7 @@ func _exit_tree() -> void:
 func set_visible(p_visible: bool) -> void:
 	visible = p_visible
 	toolbar.set_visible(p_visible)
+	baker.set_visible(p_visible)
 	
 	if p_visible:
 		p_visible = plugin.editor.get_tool() != Terrain3DEditor.REGION

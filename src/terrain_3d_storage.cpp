@@ -448,6 +448,37 @@ Color Terrain3DStorage::get_color(Vector3 p_global_position) {
 }
 
 /**
+ * Returns the location of a terrain vertex at a certain LOD.
+ * p_lod (0-8): Determines how many heights around the given global position will be sampled.
+ * p_filter:
+ *  HEIGHT_FILTER_NEAREST: Samples the height map at the exact coordinates given.
+ *  HEIGHT_FILTER_MINIMUM: Samples (1 << p_lod) ** 2 heights around the given coordinates and returns the lowest.
+ * p_global_position: X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
+ */
+Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position) {
+	LOG(INFO, "Calculating vertex location");
+	int32_t step = 1 << CLAMP(p_lod, 0, 8);
+	real_t height = 0.0;
+	switch (p_filter) {
+		case HEIGHT_FILTER_NEAREST: {
+			height = get_height(p_global_position);
+		} break;
+		case HEIGHT_FILTER_MINIMUM: {
+			height = get_height(p_global_position);
+			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
+				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
+					real_t h = get_height(p_global_position + Vector3(dx, 0.0, dz));
+					if (h < height) {
+						height = h;
+					}
+				}
+			}
+		} break;
+	}
+	return Vector3(p_global_position.x, height, p_global_position.z);
+}
+
+/**
  * Returns sanitized maps of either a region set or a uniform set
  * Verifies size, vailidity, and format of maps
  * Creates filled blanks if lacking
@@ -937,6 +968,9 @@ void Terrain3DStorage::_bind_methods() {
 	BIND_ENUM_CONSTANT(SIZE_1024);
 	//BIND_ENUM_CONSTANT(SIZE_2048);
 
+	BIND_ENUM_CONSTANT(HEIGHT_FILTER_NEAREST);
+	BIND_ENUM_CONSTANT(HEIGHT_FILTER_MINIMUM);
+
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DStorage::set_version);
@@ -975,6 +1009,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DStorage::get_color);
 	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DStorage::get_control);
 	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DStorage::get_roughness);
+	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DStorage::get_mesh_vertex);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DStorage::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(Vector2i(0, 0)));

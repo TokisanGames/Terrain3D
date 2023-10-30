@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
+#include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 
 #include "terrain_3d_material.h"
@@ -134,6 +135,9 @@ public:
 	void snap(Vector3 p_cam_pos);
 	void update_aabbs();
 	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);
+
+	// Baking methods
+	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
 
 protected:
 	void _notification(int p_what);

@@ -61,6 +61,11 @@ private:
 		//SIZE_2048 = 2048,
 	};
 
+	enum HeightFilter {
+		HEIGHT_FILTER_NEAREST,
+		HEIGHT_FILTER_MINIMUM
+	};
+
 	// Storage Settings & flags
 
 	real_t _version = 0.8; // Set to ensure Godot always saves this
@@ -145,6 +150,8 @@ public:
 	inline Color get_color(Vector3 p_global_position);
 	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
 	inline real_t get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
+	Vector3 get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position);
+
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
@@ -173,5 +180,6 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DStorage::MapType);
 VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
+VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
 #endif // TERRAIN3D_STORAGE_CLASS_H

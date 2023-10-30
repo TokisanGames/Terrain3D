@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/v_box_container.hpp> // for get_editor_main_screen()
 #include <godot_cpp/classes/viewport.hpp>
@@ -753,6 +754,64 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 	return Vector3(__FLT_MAX__, __FLT_MAX__, __FLT_MAX__);
 }
 
+/**
+ * Generates a static ArrayMesh for the terrain.
+ * p_lod (0-8): Determines the granularity of the generated mesh.
+ * p_filter: Controls how vertices' Y coordinates are generated from the height map.
+ *  HEIGHT_FILTER_NEAREST: Samples the height map in a 'nearest neighbour' fashion.
+ *  HEIGHT_FILTER_MINIMUM: Samples a range of heights around each vertex and returns the lowest.
+ *   This takes longer than ..._NEAREST, but can be used to create occluders, since it can guarantee the
+ *   generated mesh will not extend above or outside the clipmap at any LOD.
+ */
+Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter) const {
+	LOG(INFO, "Baking mesh at lod: ", p_lod, " with filter: ", p_filter);
+	Ref<Mesh> result;
+	ERR_FAIL_COND_V(!_storage.is_valid(), result);
+
+	int32_t region_size = (int)_storage->get_region_size();
+	int32_t step = 1 << CLAMP(p_lod, 0, 8);
+
+	Ref<SurfaceTool> st;
+	st.instantiate();
+	st->begin(Mesh::PRIMITIVE_TRIANGLES);
+
+	TypedArray<Vector2i> region_offsets = _storage->get_region_offsets();
+	for (int r = 0; r < region_offsets.size(); ++r) {
+		Vector2i region_offset = (Vector2i)region_offsets[r] * region_size;
+
+		for (int32_t z = region_offset.y; z < region_offset.y + region_size; z += step) {
+			for (int32_t x = region_offset.x; x < region_offset.x + region_size; x += step) {
+				Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
+				Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
+				Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step));
+				st->set_uv(Vector2(v1.x, v1.z));
+				st->add_vertex(v1);
+				st->set_uv(Vector2(v2.x, v2.z));
+				st->add_vertex(v2);
+				st->set_uv(Vector2(v3.x, v3.z));
+				st->add_vertex(v3);
+
+				v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
+				v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z));
+				v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
+				st->set_uv(Vector2(v1.x, v1.z));
+				st->add_vertex(v1);
+				st->set_uv(Vector2(v2.x, v2.z));
+				st->add_vertex(v2);
+				st->set_uv(Vector2(v3.x, v3.z));
+				st->add_vertex(v3);
+			}
+		}
+	}
+
+	st->index();
+	st->generate_normals();
+	st->generate_tangents();
+	st->optimize_indices_for_cache();
+	result = st->commit();
+	return result;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -886,6 +945,7 @@ void Terrain3D::_bind_methods() {
 	// Expose 'update_aabbs' so it can be used in Callable. Not ideal.
 	ClassDB::bind_method(D_METHOD("update_aabbs"), &Terrain3D::update_aabbs);
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
+	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
