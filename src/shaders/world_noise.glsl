@@ -33,6 +33,7 @@ float noise2D(vec2 st) {
 }
 
 // World Noise end
+
 //INSERT: WORLD_NOISE2
 	// World Noise
 	float weight = texture(_region_blend_map, (uv/float(_region_map_size))+0.5).r;
