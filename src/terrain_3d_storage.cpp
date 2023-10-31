@@ -894,7 +894,8 @@ void Terrain3DStorage::print_audit_data() {
 
 // DEPRECATED 0.8.3, remove 0.9
 void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
-	LOG(WARN, "Converting old Surfaces to separate TextureList resource");
+	set_version(0.8f);
+	LOG(WARN, "Converting Surfaces to separate TextureList: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
 	_texture_list.instantiate();
 	TypedArray<Terrain3DTexture> textures;
 	textures.resize(p_surfaces.size());
