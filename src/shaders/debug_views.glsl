@@ -26,38 +26,37 @@ R"(
 
 //INSERT: DEBUG_COLORMAP
 	// Show colormap
-	ALBEDO = color_tex.rgb;
+	ALBEDO = color_map.rgb;
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
 //INSERT: DEBUG_ROUGHMAP
 	// Show roughness map
-	ALBEDO = vec3(color_tex.a);
+	ALBEDO = vec3(color_map.a);
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
 //INSERT: DEBUG_CONTROLMAP
 	// Show control map
-	index00.rg *= 8.;	// Since there are only 32 colors, emphasize change between each one
-	ALBEDO = index00.rgb;
+	ALBEDO = vec3(float(mat[0].base)/32., float(mat[0].over)/32., mat[0].blend);
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
 //INSERT: DEBUG_TEXTURE_HEIGHT
 	// Show height textures
-	ALBEDO = vec3(color.a);
+	ALBEDO = vec3(albedo_height.a);
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
 //INSERT: DEBUG_TEXTURE_NORMAL
 	// Show normal map textures
-	ALBEDO = normal.rgb;
+	ALBEDO = normal_rough.rgb;
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
 //INSERT: DEBUG_TEXTURE_ROUGHNESS
 	// Show roughness textures
-	ALBEDO = vec3(normal.a);
+	ALBEDO = vec3(normal_rough.a);
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
