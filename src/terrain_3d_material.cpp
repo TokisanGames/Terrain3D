@@ -70,12 +70,12 @@ String Terrain3DMaterial::_parse_shader(String p_shader, String p_name, Array p_
 			// Process the insert
 			if (!p_name.is_empty()) {
 				// Load mode
-				if (!id.is_empty()) {
+				if (!id.is_empty() && !segment[1].is_empty()) {
 					_shader_code[id] = segment[1];
 				}
 			} else {
 				// Apply mode
-				if (!id.is_empty() && !p_excludes.has(id)) {
+				if (!id.is_empty() && !p_excludes.has(id) && _shader_code.has(id)) {
 					String str = _shader_code[id];
 					shader += str;
 				}
@@ -117,8 +117,11 @@ String Terrain3DMaterial::_generate_shader_code() {
 	if (!_debug_view_tex_rough) {
 		excludes.push_back("DEBUG_TEXTURE_ROUGHNESS");
 	}
-	if (!_debug_view_controlmap) {
-		excludes.push_back("DEBUG_CONTROLMAP");
+	if (!_debug_view_control_texture) {
+		excludes.push_back("DEBUG_CONTROL_TEXTURE");
+	}
+	if (!_debug_view_control_blend) {
+		excludes.push_back("DEBUG_CONTROL_BLEND");
 	}
 	if (!_debug_view_vertex_grid) {
 		excludes.push_back("DEBUG_VERTEX_GRID");
@@ -436,9 +439,15 @@ void Terrain3DMaterial::set_show_roughmap(bool p_enabled) {
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_show_controlmap(bool p_enabled) {
-	LOG(INFO, "Enable show_controlmap: ", p_enabled);
-	_debug_view_controlmap = p_enabled;
+void Terrain3DMaterial::set_show_control_texture(bool p_enabled) {
+	LOG(INFO, "Enable show_control_texture: ", p_enabled);
+	_debug_view_control_texture = p_enabled;
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_show_control_blend(bool p_enabled) {
+	LOG(INFO, "Enable show_control_blend: ", p_enabled);
+	_debug_view_control_blend = p_enabled;
 	_update_shader();
 }
 
@@ -639,8 +648,10 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_colormap"), &Terrain3DMaterial::get_show_colormap);
 	ClassDB::bind_method(D_METHOD("set_show_roughmap", "enabled"), &Terrain3DMaterial::set_show_roughmap);
 	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DMaterial::get_show_roughmap);
-	ClassDB::bind_method(D_METHOD("set_show_controlmap", "enabled"), &Terrain3DMaterial::set_show_controlmap);
-	ClassDB::bind_method(D_METHOD("get_show_controlmap"), &Terrain3DMaterial::get_show_controlmap);
+	ClassDB::bind_method(D_METHOD("set_show_control_texture", "enabled"), &Terrain3DMaterial::set_show_control_texture);
+	ClassDB::bind_method(D_METHOD("get_show_control_texture"), &Terrain3DMaterial::get_show_control_texture);
+	ClassDB::bind_method(D_METHOD("set_show_control_blend", "enabled"), &Terrain3DMaterial::set_show_control_blend);
+	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3DMaterial::get_show_control_blend);
 	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3DMaterial::set_show_texture_height);
 	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3DMaterial::get_show_texture_height);
 	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3DMaterial::set_show_texture_normal);
@@ -660,7 +671,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_heightmap", PROPERTY_HINT_NONE), "set_show_heightmap", "get_show_heightmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap", PROPERTY_HINT_NONE), "set_show_colormap", "get_show_colormap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE), "set_show_roughmap", "get_show_roughmap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_controlmap", PROPERTY_HINT_NONE), "set_show_controlmap", "get_show_controlmap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture", PROPERTY_HINT_NONE), "set_show_control_texture", "get_show_control_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend", PROPERTY_HINT_NONE), "set_show_control_blend", "get_show_control_blend");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE), "set_show_texture_rough", "get_show_texture_rough");
