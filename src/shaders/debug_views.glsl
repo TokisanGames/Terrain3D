@@ -36,10 +36,31 @@ R"(
 	ROUGHNESS = 0.7;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
-//INSERT: DEBUG_CONTROLMAP
-	// Show control map
-	ALBEDO = vec3(float(mat[0].base)/32., float(mat[0].over)/32., mat[0].blend);
-	ROUGHNESS = 0.7;
+//INSERT: DEBUG_CONTROL_TEXTURE
+	// Show control map texture selection
+	float ctrl_base = weight_inv * (
+	float(mat[0].base)/32. * weights.x +
+	float(mat[1].base)/32. * weights.y +
+	float(mat[2].base)/32. * weights.z +
+	float(mat[3].base)/32. * weights.w );
+	float ctrl_over = weight_inv * (
+	float(mat[0].over)/32. * weights.x +
+	float(mat[1].over)/32. * weights.y +
+	float(mat[2].over)/32. * weights.z +
+	float(mat[3].over)/32. * weights.w );
+	ALBEDO = vec3(ctrl_base, ctrl_over, 0.);
+	ROUGHNESS = 0.9;
+	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+
+//INSERT: DEBUG_CONTROL_BLEND
+	// Show control map blend values
+	float ctrl_blend = weight_inv * (
+	float(mat[0].blend) * weights.x +
+	float(mat[1].blend) * weights.y +
+	float(mat[2].blend) * weights.z +
+	float(mat[3].blend) * weights.w );
+	ALBEDO = vec3(ctrl_blend);
+	ROUGHNESS = 1.0;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
 //INSERT: DEBUG_TEXTURE_HEIGHT
@@ -84,8 +105,8 @@ R"(
 		}
 
 		// Draw Vertices
-		if ( mod(UV.x*2. + _grid_line*_vertex_size*.5, _grid_step) < _grid_line*_vertex_size &&
-		  	 mod(UV.y*2. + _grid_line*_vertex_size*.5, _grid_step) < _grid_line*_vertex_size ) { 
+		if ( mod(UV.x + _grid_line*_vertex_size*.5, _grid_step) < _grid_line*_vertex_size &&
+		  	 mod(UV.y + _grid_line*_vertex_size*.5, _grid_step) < _grid_line*_vertex_size ) { 
 				ALBEDO += vec3(0.15);
 		}
 	}

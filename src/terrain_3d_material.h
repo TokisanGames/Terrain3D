@@ -30,7 +30,8 @@ private:
 	bool _debug_view_heightmap = false;
 	bool _debug_view_colormap = false;
 	bool _debug_view_roughmap = false;
-	bool _debug_view_controlmap = false;
+	bool _debug_view_control_texture = false;
+	bool _debug_view_control_blend = false;
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
@@ -88,8 +89,10 @@ public:
 	bool get_show_colormap() const { return _debug_view_colormap; }
 	void set_show_roughmap(bool p_enabled);
 	bool get_show_roughmap() const { return _debug_view_roughmap; }
-	void set_show_controlmap(bool p_enabled);
-	bool get_show_controlmap() const { return _debug_view_controlmap; }
+	void set_show_control_texture(bool p_enabled);
+	bool get_show_control_texture() const { return _debug_view_control_texture; }
+	void set_show_control_blend(bool p_enabled);
+	bool get_show_control_blend() const { return _debug_view_control_blend; }
 	void set_show_texture_height(bool p_enabled);
 	bool get_show_texture_height() const { return _debug_view_tex_height; }
 	void set_show_texture_normal(bool p_enabled);

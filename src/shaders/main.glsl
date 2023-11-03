@@ -237,6 +237,7 @@ void fragment() {
 	vec2 weights1 = clamp(texel_pos - texel_pos_floor, 0, 1);
 	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);
 	vec2 weights0 = vec2(1.0) - weights1;
+	// Then adjust the weights based upon the texture height
 	vec4 weights;
 	weights.x = blend_weights(weights0.x * weights0.y, mat[0].alb_ht.a);
 	weights.y = blend_weights(weights0.x * weights1.y, mat[1].alb_ht.a);
@@ -279,7 +280,8 @@ void fragment() {
 //INSERT: DEBUG_HEIGHTMAP
 //INSERT: DEBUG_COLORMAP
 //INSERT: DEBUG_ROUGHMAP
-//INSERT: DEBUG_CONTROLMAP
+//INSERT: DEBUG_CONTROL_TEXTURE
+//INSERT: DEBUG_CONTROL_BLEND
 //INSERT: DEBUG_TEXTURE_HEIGHT
 //INSERT: DEBUG_TEXTURE_NORMAL
 //INSERT: DEBUG_TEXTURE_ROUGHNESS
