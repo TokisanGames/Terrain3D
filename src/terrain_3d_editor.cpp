@@ -47,11 +47,13 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 	if (_operation == ADD) {
 		if (!has_region) {
 			_terrain->get_storage()->add_region(p_global_position);
+			_modified = true;
 		}
 	}
 	if (_operation == SUBTRACT) {
 		if (has_region) {
 			_terrain->get_storage()->remove_region(p_global_position);
+			_modified = true;
 		}
 	}
 }
@@ -68,6 +70,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 		} else {
 			LOG(DEBUG, "No region to operate on, attempting to add");
 			storage->add_region(p_global_position);
+			_modified = true;
 			region_size = storage->get_region_size();
 			region_index = storage->get_region_index(p_global_position);
 			if (region_index == -1) {
@@ -250,6 +253,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 			}
 		}
 	}
+	_modified = true;
 	storage->force_update_maps(map_type);
 }
 
@@ -291,35 +295,42 @@ void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 	_brush.set_data(p_data);
 }
 
+// Called on mouse click
 void Terrain3DEditor::start_operation(Vector3 p_global_position) {
 	setup_undo();
 	_pending_undo = true;
+	_modified = false;
 	if (_tool == REGION) {
 		_operate_region(p_global_position);
 	}
 }
 
+// Called on mouse movement with left mouse button down
 void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction) {
+	if (!_pending_undo) {
+		return;
+	}
+
+	// Calculate distance moved from the click, but this isn't used anywhere
 	if (_operation_position == Vector3()) {
 		_operation_position = p_global_position;
 	}
 	_operation_interval = p_global_position.distance_to(_operation_position);
 	_operation_position = p_global_position;
 
-	if (_tool == REGION && _pending_undo) {
+	if (_tool == REGION) {
 		_operate_region(p_global_position);
 	} else if (_tool >= 0 && _tool < REGION) {
-		if (!_pending_undo) {
-			start_operation(p_global_position);
-		}
 		_operate_map(p_global_position, p_camera_direction);
 	}
 }
 
+// Called on left mouse button released
 void Terrain3DEditor::stop_operation() {
-	if (_pending_undo) {
+	if (_pending_undo && _modified) {
 		store_undo();
 		_pending_undo = false;
+		_modified = false;
 	}
 }
 
@@ -397,6 +408,8 @@ void Terrain3DEditor::apply_undo(const Array &p_set) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
 		_terrain->get_plugin()->call("update_grid");
 	}
+	_pending_undo = false;
+	_modified = false;
 }
 
 ///////////////////////////
