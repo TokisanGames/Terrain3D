@@ -58,18 +58,23 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
-	int region_index = storage->get_region_index(p_global_position);
 
+	int region_index = storage->get_region_index(p_global_position);
 	if (region_index == -1) {
-		LOG(DEBUG, "No region to operate on, attempting to add");
-		storage->add_region(p_global_position);
-		region_size = storage->get_region_size();
-		region_index = storage->get_region_index(p_global_position);
-		if (region_index == -1) {
-			LOG(ERROR, "Failed to add region, no region to operate on");
+		if (!_brush.auto_regions_enabled()) {
 			return;
+		} else {
+			LOG(DEBUG, "No region to operate on, attempting to add");
+			storage->add_region(p_global_position);
+			region_size = storage->get_region_size();
+			region_index = storage->get_region_index(p_global_position);
+			if (region_index == -1) {
+				LOG(ERROR, "Failed to add region, no region to operate on");
+				return;
+			}
 		}
-	} else if (_tool < 0 || _tool >= REGION) {
+	}
+	if (_tool < 0 || _tool >= REGION) {
 		LOG(ERROR, "Invalid tool selected");
 		return;
 	}
@@ -114,8 +119,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 			Vector2i brush_offset = Vector2i(x, y) - (Vector2i(brush_size, brush_size) / 2);
 			Vector3 brush_global_position = Vector3(p_global_position.x + real_t(brush_offset.x), p_global_position.y, p_global_position.z + real_t(brush_offset.y));
 
+			// If we're brushing across a region boundary, possibly add a region, and get the other map
 			int new_region_index = storage->get_region_index(brush_global_position);
-
 			if (new_region_index == -1) {
 				if (!_brush.auto_regions_enabled()) {
 					continue;
@@ -132,6 +137,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 				map = storage->get_map_region(map_type, region_index);
 			}
 
+			// Identify position on map image
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size);
 			Vector2i map_pixel_position = Vector2i(uv_position * region_size);
 
@@ -143,6 +149,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					continue;
 				}
 
+				// Start brushing on the map
 				real_t brush_alpha = real_t(Math::pow(double(_brush.get_alpha(brush_pixel_position)), double(gamma)));
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
