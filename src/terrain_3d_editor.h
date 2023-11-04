@@ -116,6 +116,10 @@ private:
 	Vector2 _get_uv_position(Vector3 p_global_position, int p_region_size);
 	Vector2 _rotate_uv(Vector2 p_uv, real_t p_angle);
 
+	void _setup_undo();
+	void _store_undo();
+	void _apply_undo(const Array &p_set);
+
 public:
 	Terrain3DEditor();
 	~Terrain3DEditor();
@@ -132,10 +136,6 @@ public:
 	void start_operation(Vector3 p_global_position);
 	void operate(Vector3 p_global_position, real_t p_camera_direction);
 	void stop_operation();
-
-	void setup_undo();
-	void store_undo();
-	void apply_undo(const Array &p_set);
 
 protected:
 	static void _bind_methods();

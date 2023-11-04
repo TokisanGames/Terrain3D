@@ -278,68 +278,12 @@ Vector2 Terrain3DEditor::_rotate_uv(Vector2 p_uv, real_t p_angle) {
 	return p_uv.clamp(Vector2(0, 0), Vector2(1, 1));
 }
 
-///////////////////////////
-// Public Functions
-///////////////////////////
-
-Terrain3DEditor::Terrain3DEditor() {
-}
-
-Terrain3DEditor::~Terrain3DEditor() {
-}
-
-void Terrain3DEditor::set_brush_data(Dictionary p_data) {
-	if (p_data.is_empty()) {
-		return;
-	}
-	_brush.set_data(p_data);
-}
-
-// Called on mouse click
-void Terrain3DEditor::start_operation(Vector3 p_global_position) {
-	setup_undo();
-	_pending_undo = true;
-	_modified = false;
-	if (_tool == REGION) {
-		_operate_region(p_global_position);
-	}
-}
-
-// Called on mouse movement with left mouse button down
-void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction) {
-	if (!_pending_undo) {
-		return;
-	}
-
-	// Calculate distance moved from the click, but this isn't used anywhere
-	if (_operation_position == Vector3()) {
-		_operation_position = p_global_position;
-	}
-	_operation_interval = p_global_position.distance_to(_operation_position);
-	_operation_position = p_global_position;
-
-	if (_tool == REGION) {
-		_operate_region(p_global_position);
-	} else if (_tool >= 0 && _tool < REGION) {
-		_operate_map(p_global_position, p_camera_direction);
-	}
-}
-
-// Called on left mouse button released
-void Terrain3DEditor::stop_operation() {
-	if (_pending_undo && _modified) {
-		store_undo();
-		_pending_undo = false;
-		_modified = false;
-	}
-}
-
 /* Stored in the _undo_set is:
  * 0-2: map 0,1,2
  * 3: Region offsets
  * 4: height range
  */
-void Terrain3DEditor::setup_undo() {
+void Terrain3DEditor::_setup_undo() {
 	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
 	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
 	if (_tool < 0 || _tool > REGION) {
@@ -357,7 +301,7 @@ void Terrain3DEditor::setup_undo() {
 	_undo_set[Terrain3DStorage::TYPE_MAX + 1] = _terrain->get_storage()->get_height_range();
 }
 
-void Terrain3DEditor::store_undo() {
+void Terrain3DEditor::_store_undo() {
 	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
 	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
 	if (_tool < 0 || _tool > REGION) {
@@ -391,7 +335,7 @@ void Terrain3DEditor::store_undo() {
 	undo_redo->commit_action(false);
 }
 
-void Terrain3DEditor::apply_undo(const Array &p_set) {
+void Terrain3DEditor::_apply_undo(const Array &p_set) {
 	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
 	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
 	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
@@ -410,6 +354,62 @@ void Terrain3DEditor::apply_undo(const Array &p_set) {
 	}
 	_pending_undo = false;
 	_modified = false;
+}
+
+///////////////////////////
+// Public Functions
+///////////////////////////
+
+Terrain3DEditor::Terrain3DEditor() {
+}
+
+Terrain3DEditor::~Terrain3DEditor() {
+}
+
+void Terrain3DEditor::set_brush_data(Dictionary p_data) {
+	if (p_data.is_empty()) {
+		return;
+	}
+	_brush.set_data(p_data);
+}
+
+// Called on mouse click
+void Terrain3DEditor::start_operation(Vector3 p_global_position) {
+	_setup_undo();
+	_pending_undo = true;
+	_modified = false;
+	if (_tool == REGION) {
+		_operate_region(p_global_position);
+	}
+}
+
+// Called on mouse movement with left mouse button down
+void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction) {
+	if (!_pending_undo) {
+		return;
+	}
+
+	// Calculate distance moved from the click, but this isn't used anywhere
+	if (_operation_position == Vector3()) {
+		_operation_position = p_global_position;
+	}
+	_operation_interval = p_global_position.distance_to(_operation_position);
+	_operation_position = p_global_position;
+
+	if (_tool == REGION) {
+		_operate_region(p_global_position);
+	} else if (_tool >= 0 && _tool < REGION) {
+		_operate_map(p_global_position, p_camera_direction);
+	}
+}
+
+// Called on left mouse button released
+void Terrain3DEditor::stop_operation() {
+	if (_pending_undo && _modified) {
+		_store_undo();
+		_pending_undo = false;
+		_modified = false;
+	}
 }
 
 ///////////////////////////
@@ -444,7 +444,5 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction"), &Terrain3DEditor::operate);
 	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 
-	ClassDB::bind_method(D_METHOD("setup_undo"), &Terrain3DEditor::setup_undo);
-	ClassDB::bind_method(D_METHOD("store_undo"), &Terrain3DEditor::store_undo);
-	ClassDB::bind_method(D_METHOD("apply_undo", "maps"), &Terrain3DEditor::apply_undo);
+	ClassDB::bind_method(D_METHOD("apply_undo", "maps"), &Terrain3DEditor::_apply_undo);
 }
