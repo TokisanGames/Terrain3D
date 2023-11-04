@@ -106,6 +106,7 @@ private:
 	Vector3 _operation_position = Vector3();
 	real_t _operation_interval = 0.0f;
 	bool _pending_undo = false;
+	bool _modified = false;
 	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range
 
 private:
