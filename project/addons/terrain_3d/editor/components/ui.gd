@@ -44,7 +44,7 @@ func _enter_tree() -> void:
 	toolbar_settings.hide()
 
 	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
-	plugin.add_control_to_bottom(toolbar_settings)
+	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, toolbar_settings)
 
 	decal = Decal.new()
 	add_child(decal)
@@ -58,7 +58,7 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
-	toolbar_settings.get_parent().remove_child(toolbar_settings)
+	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, toolbar_settings)
 	toolbar.queue_free()
 	toolbar_settings.queue_free()
 	decal.queue_free()

@@ -213,14 +213,6 @@ func update_region_grid() -> void:
 	region_gizmo.region_size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
 
-	
-func add_control_to_bottom(control: Control) -> void:
-	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, control)
-	var container = control.get_parent().get_parent().get_parent().get_parent()
-	control.get_parent().remove_child(control)
-	container.add_child(control)
-	container.move_child(control, 2)
-
 
 # Signal handlers
 
