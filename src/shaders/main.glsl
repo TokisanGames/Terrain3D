@@ -25,10 +25,9 @@ uniform int _region_map_size = 16;
 uniform int _region_uv_limit = 8;
 uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
-uniform sampler2DArray _height_maps : filter_linear_mipmap, repeat_disable;
-uniform sampler2DArray _control_maps : filter_linear_mipmap, repeat_disable;
-uniform sampler2DArray _color_maps : source_color, filter_linear, repeat_disable;
-
+uniform sampler2DArray _height_maps : repeat_disable;
+uniform usampler2DArray _control_maps : repeat_disable;
+uniform sampler2DArray _color_maps : source_color, repeat_disable;
 uniform sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float _texture_uv_scale_array[32];
@@ -142,33 +141,34 @@ vec2 rotate(vec2 v, float cosa, float sina) {
 }
 
 // 2-4 lookups
-vec4 get_material(vec2 uv, vec4 index, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {
-	float material = index.r * 255.0;
+vec4 get_material(vec2 uv, uint control, vec2 uv_center, float weight, inout float total_weight, inout vec4 out_normal) {
+	uint base_tex = control>>27u & 0x1Fu;
 	float r = random(uv_center) * PI;
-	float rand = r * _texture_uv_rotation_array[int(material)];
+	float rand = r * _texture_uv_rotation_array[base_tex];
 	vec2 rot = vec2(cos(rand), sin(rand));
 	uv *= .5; // Allow larger numbers on uv scale array - move to C++
-	vec2 matUV = rotate(uv, rot.x, rot.y) * _texture_uv_scale_array[int(material)];
+	vec2 matUV = rotate(uv, rot.x, rot.y) * _texture_uv_scale_array[base_tex];
 
-	vec4 albedo = texture(_texture_array_albedo, vec3(matUV, material));
-	albedo.rgb *= _texture_color_array[int(material)].rgb;
-	vec4 normal = texture(_texture_array_normal, vec3(matUV, material));
+	vec4 albedo = texture(_texture_array_albedo, vec3(matUV, float(base_tex)));
+	albedo.rgb *= _texture_color_array[base_tex].rgb;
+	vec4 normal = texture(_texture_array_normal, vec3(matUV, float(base_tex)));
 	vec3 n = unpack_normal(normal);
 	normal.xz = rotate(n.xz, rot.x, -rot.y);
 
-	if (index.b > 0.0) {
-		float materialOverlay = index.g * 255.0;
-		float rand2 = r * _texture_uv_rotation_array[int(materialOverlay)];
+	float blend = float(control >>14u & 0xFFu) * 0.003921568627450f; // X/255.0
+	if (blend > 0.f) {
+		uint over_tex =  control >> 22u & 0x1Fu;
+		float rand2 = r * _texture_uv_rotation_array[over_tex];
 		vec2 rot2 = vec2(cos(rand2), sin(rand2));
-		vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * _texture_uv_scale_array[int(materialOverlay)];
-		vec4 albedo2 = texture(_texture_array_albedo, vec3(matUV2, materialOverlay));
-		albedo2.rgb *= _texture_color_array[int(materialOverlay)].rgb;
-		vec4 normal2 = texture(_texture_array_normal, vec3(matUV2, materialOverlay));
+		vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * _texture_uv_scale_array[over_tex];
+		vec4 albedo2 = texture(_texture_array_albedo, vec3(matUV2, float(over_tex)));
+		albedo2.rgb *= _texture_color_array[over_tex].rgb;
+		vec4 normal2 = texture(_texture_array_normal, vec3(matUV2, float(over_tex)));
 		n = unpack_normal(normal2);
 		normal2.xz = rotate(n.xz, rot2.x, -rot2.y);
 
-		albedo = height_blend(albedo, albedo.a, albedo2, albedo2.a, index.b);
-		normal = height_blend(normal, albedo.a, normal2, albedo2.a, index.b);
+		albedo = height_blend(albedo, albedo.a, albedo2, albedo2.a, blend);
+		normal = height_blend(normal, albedo.a, normal2, albedo2.a, blend);
 	}
 
 	normal = pack_normal(normal.xyz, normal.a);
@@ -202,10 +202,10 @@ void fragment() {
 	ivec3 index10UV = get_region_uv(texel_pos_floor + mirror.zy);
 	ivec3 index11UV = get_region_uv(texel_pos_floor + mirror.zw);
 
-	vec4 control00 = texelFetch(_control_maps, index00UV, 0);
-	vec4 control01 = texelFetch(_control_maps, index01UV, 0);
-	vec4 control10 = texelFetch(_control_maps, index10UV, 0);
-	vec4 control11 = texelFetch(_control_maps, index11UV, 0);
+	uint control00 = texelFetch(_control_maps, index00UV, 0).r;
+	uint control01 = texelFetch(_control_maps, index01UV, 0).r;
+	uint control10 = texelFetch(_control_maps, index10UV, 0).r;
+	uint control11 = texelFetch(_control_maps, index11UV, 0).r;
 
 	// Calculate weight for the pixel position between the vertices
 	// Bilinear interpolate difference of UV and floor UV
