@@ -57,36 +57,41 @@ private:
 
 	class Brush {
 	private:
-		Ref<ImageTexture> _texture;
 		Ref<Image> _image;
 		Vector2 _img_size;
+		Ref<ImageTexture> _texture;
+
 		int _size = 0;
-		int _index = 0;
 		real_t _opacity = 0.0;
 		real_t _height = 0.0;
 		Color _color = COLOR_ROUGHNESS;
 		real_t _roughness = 0.5;
-		real_t _jitter = 0.0;
-		real_t _gamma = 1.0;
-		bool _align_to_view = false;
+		int _texture_index = 0;
+
 		bool _auto_regions = false;
+		bool _align_to_view = false;
+		real_t _gamma = 1.0;
+		real_t _jitter = 0.0;
 
 	public:
+		void set_data(Dictionary p_data);
+		real_t get_alpha(Vector2i p_position) { return _image->get_pixelv(p_position).r; }
+
 		Ref<ImageTexture> get_texture() const { return _texture; }
 		Ref<Image> get_image() const { return _image; }
 		Vector2 get_image_size() const { return _img_size; }
-		void set_data(Dictionary p_data);
-		real_t get_alpha(Vector2i p_position) { return _image->get_pixelv(p_position).r; }
+
 		int get_size() const { return _size; }
-		int get_index() const { return _index; }
 		real_t get_opacity() const { return _opacity; }
 		real_t get_height() const { return _height; }
 		Color get_color() const { return _color; }
 		real_t get_roughness() const { return _roughness; }
-		real_t get_jitter() const { return _jitter; }
-		real_t get_gamma() const { return _gamma; }
-		bool is_aligned_to_view() const { return _align_to_view; }
+		int get_texture_index() const { return _texture_index; }
+
 		bool auto_regions_enabled() const { return _auto_regions; }
+		bool is_aligned_to_view() const { return _align_to_view; }
+		real_t get_gamma() const { return _gamma; }
+		real_t get_jitter() const { return _jitter; }
 	};
 
 	// Object references

@@ -143,15 +143,15 @@ func _on_setting_changed() -> void:
 	brush_data = {
 		"size": int(toolbar_settings.get_setting("size")),
 		"opacity": toolbar_settings.get_setting("opacity") / 100.0,
+		"height": toolbar_settings.get_setting("height"),
 		"color": toolbar_settings.get_setting("color"),
 		"roughness": toolbar_settings.get_setting("roughness"),
-		"gamma": toolbar_settings.get_setting("gamma"),
-		"height": toolbar_settings.get_setting("height"),
-		"jitter": toolbar_settings.get_setting("jitter"),
+		"texture_index": plugin.texture_dock.get_selected_index(),
 		"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
 		"align_with_view": toolbar_settings.get_setting("align_with_view"),
 		"show_cursor_while_painting": toolbar_settings.get_setting("show_cursor_while_painting"),
-		"index": plugin.texture_dock.get_selected_index(),
+		"gamma": toolbar_settings.get_setting("gamma"),
+		"jitter": toolbar_settings.get_setting("jitter"),
 	}
 	var brush_imgs: Array = toolbar_settings.get_setting("brush")
 	brush_data["image"] = brush_imgs[0]

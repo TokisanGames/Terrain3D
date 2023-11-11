@@ -16,23 +16,25 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	for (int i = 0; i < ks.size(); i++) {
 		LOG(DEBUG, ks[i], ": ", p_data[ks[i]]);
 	}
-	_size = p_data["size"];
-	_index = p_data["index"];
-	_opacity = p_data["opacity"];
-	_height = p_data["height"];
-	_color = p_data["color"];
-	_roughness = p_data["roughness"];
-	_gamma = p_data["gamma"];
-	_jitter = p_data["jitter"];
-	_texture = p_data["texture"];
 	_image = p_data["image"];
 	if (_image.is_valid()) {
 		_img_size = Vector2(_image->get_size());
 	} else {
 		_img_size = Vector2(0, 0);
 	}
-	_align_to_view = p_data["align_with_view"];
+	_texture = p_data["texture"];
+
+	_size = p_data["size"];
+	_opacity = p_data["opacity"];
+	_height = p_data["height"];
+	_color = p_data["color"];
+	_roughness = p_data["roughness"];
+	_texture_index = p_data["texture_index"];
+
 	_auto_regions = p_data["automatic_regions"];
+	_align_to_view = p_data["align_with_view"];
+	_gamma = p_data["gamma"];
+	_jitter = p_data["jitter"];
 }
 
 ///////////////////////////
@@ -99,7 +101,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 	Ref<Image> map = storage->get_map_region(map_type, region_index);
 	int brush_size = _brush.get_size();
-	int index = _brush.get_index();
+	int texture_id = _brush.get_texture_index();
 	Vector2 img_size = _brush.get_image_size();
 	real_t opacity = _brush.get_opacity();
 	real_t height = _brush.get_height();
@@ -206,7 +208,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					switch (_operation) {
 						case Terrain3DEditor::ADD:
 							// Spray Overlay
-							dest_index = int(Math::lerp(index_overlay, index, alpha_clip));
+							dest_index = int(Math::lerp(index_overlay, texture_id, alpha_clip));
 							if (dest_index == index_base) {
 								dest.b = Math::lerp(real_t(src.b), real_t(0.0f), alpha_clip * opacity * real_t(0.5f));
 							} else {
@@ -216,7 +218,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							break;
 						case Terrain3DEditor::REPLACE:
 							// Base Paint
-							dest_index = int(Math::lerp(index_base, index, alpha_clip));
+							dest_index = int(Math::lerp(index_base, texture_id, alpha_clip));
 							dest.r = dest_index / 255.0f;
 							dest.b = Math::lerp(real_t(src.b), real_t(0.0f), alpha_clip * opacity);
 							break;
@@ -237,7 +239,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							 * We round the final amount in tool_settings.gd:_on_picked().
 							 * Tip: One can round to 2 decimal places like so: 0.01*round(100.0*a)
 							 */
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f *.01f) * roughness, brush_alpha * opacity);
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * .01f) * roughness, brush_alpha * opacity);
 							break;
 						default:
 							break;
