@@ -166,6 +166,9 @@ public:
 	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);
 	Ref<Image> layered_to_image(MapType p_map_type);
 
+	// Utility
+	Vector3 get_normal(Vector3 global_position);
+
 	// Testing
 	void print_audit_data();
 
