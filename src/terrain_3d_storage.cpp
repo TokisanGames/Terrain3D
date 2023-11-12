@@ -952,6 +952,18 @@ Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
 	return img;
 }
 
+Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
+	real_t left = get_height(p_global_position + Vector3(-1.0f, 0.0f, 0.0f));
+	real_t right = get_height(p_global_position + Vector3(1.0f, 0.0f, 0.0f));
+	real_t back = get_height(p_global_position + Vector3(0.f, 0.f, -1.0f));
+	real_t front = get_height(p_global_position + Vector3(0.f, 0.f, 1.0f));
+	Vector3 horizontal = Vector3(2.0f, right - left, 0.0f);
+	Vector3 vertical = Vector3(0.0f, back - front, 2.0f);
+	Vector3 normal = vertical.cross(horizontal).normalized();
+	normal.z *= -1.0f;
+	return normal;
+}
+
 void Terrain3DStorage::print_audit_data() {
 	LOG(INFO, "Dumping storage data");
 	LOG(INFO, "_modified: ", _modified);
@@ -1065,6 +1077,7 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);
+	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DStorage::get_normal);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
