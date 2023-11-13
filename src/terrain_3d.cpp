@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/editor_script.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/time.hpp>
@@ -477,6 +478,23 @@ void Terrain3D::_update_instances() {
 
 Terrain3D::Terrain3D() {
 	set_notify_transform(true);
+	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
+	for (int i = args.size() - 1; i >= 0; i--) {
+		String arg = args[i];
+		if (arg.begins_with("--terrain3d-debug=")) {
+			String value = arg.lstrip("--terrain3d-debug=");
+			if (value == "ERROR") {
+				set_debug_level(ERROR);
+			} else if (value == "INFO") {
+				set_debug_level(INFO);
+			} else if (value == "DEBUG") {
+				set_debug_level(DEBUG);
+			} else if (value == "DEBUG_CONT") {
+				set_debug_level(DEBUG_CONT);
+			}
+			break;
+		}
+	}
 }
 
 Terrain3D::~Terrain3D() {
