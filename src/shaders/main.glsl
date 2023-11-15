@@ -36,7 +36,11 @@ uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
 
 // Public uniforms
-uniform float height_blend_sharpness : hint_range(0.001, 1) = 0.13;
+
+uniform bool height_blending = true;
+uniform float blend_sharpness : hint_range(0, 1) = 0.87;
+uniform float noise_scale : hint_range(0, 0.5) = 0.1;
+uniform sampler2D noise_texture : source_color, filter_linear, repeat_enable;
 
 // Varyings & Types
 
@@ -107,12 +111,6 @@ void vertex() {
 // Fragment
 ////////////////////////
 
-float blend_weights(float weight, float detail) {
-	weight = sqrt(weight * 0.5);
-	float result = max(0.1 * weight, 10.0 * (weight + detail) + 1.0f - (detail + 10.0));
-	return result;
-}
-
 // 4 lookups
 vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 	float left = get_height(uv + vec2(-_region_texel_size, 0));
@@ -147,11 +145,17 @@ vec2 rotate(vec2 v, float cosa, float sina) {
 	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);
 }
 
-vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, float t) {
-	float ma = max(a_height + (1.0 - t), b_height + t) - height_blend_sharpness;
-    float b1 = max(a_height + (1.0 - t) - ma, 0.0);
-    float b2 = max(b_height + t - ma, 0.0);
-    return (a_value * b1 + b_value * b2) / (b1 + b2);
+vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, float blend) {
+	if(height_blending) {
+		float ma = max(a_height + (1.0 - blend), b_height + blend) - (1.001 - blend_sharpness);
+	    float b1 = max(a_height + (1.0 - blend) - ma, 0.0);
+	    float b2 = max(b_height + blend - ma, 0.0);
+	    return (a_value * b1 + b_value * b2) / (b1 + b2);
+	} else {
+		float contrast = 1.0 - blend_sharpness;
+		float factor = (blend - contrast) / contrast;
+		return mix(a_value, b_value, clamp(factor, 0.0, 1.0));
+	}
 }
 
 // 2-4 lookups
@@ -196,6 +200,12 @@ void get_material(vec2 uv, uint control, ivec2 iuv_center, out Material out_mat)
 	return;
 }
 
+float blend_weights(float weight, float detail) {
+	weight = sqrt(weight * 0.5);
+	float result = max(0.1 * weight, 10.0 * (weight + detail) + 1.0f - (detail + 10.0));
+	return result;
+}
+
 void fragment() {
 	// Calculate Terrain Normals. 4 lookups
 	vec3 w_tangent, w_binormal;
@@ -237,12 +247,13 @@ void fragment() {
 	vec2 weights1 = clamp(texel_pos - texel_pos_floor, 0, 1);
 	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);
 	vec2 weights0 = vec2(1.0) - weights1;
-	// Then adjust the weights based upon the texture height
+	// Adjust final weights by noise. 1 lookup
+	vec3 noise = texture(noise_texture, UV*noise_scale).rgb;
 	vec4 weights;
-	weights.x = blend_weights(weights0.x * weights0.y, mat[0].alb_ht.a);
-	weights.y = blend_weights(weights0.x * weights1.y, mat[1].alb_ht.a);
-	weights.z = blend_weights(weights1.x * weights0.y, mat[2].alb_ht.a);
-	weights.w = blend_weights(weights1.x * weights1.y, mat[3].alb_ht.a);
+	weights.x = blend_weights(weights0.x * weights0.y, noise.r);
+	weights.y = blend_weights(weights0.x * weights1.y, noise.r);
+	weights.z = blend_weights(weights1.x * weights0.y, noise.r);
+	weights.w = blend_weights(weights1.x * weights1.y, noise.r);
 	float weight_sum = weights.x + weights.y + weights.z + weights.w;
 	float weight_inv = 1.0/weight_sum;
 
