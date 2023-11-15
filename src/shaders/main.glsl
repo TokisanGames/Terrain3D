@@ -147,11 +147,11 @@ vec2 rotate(vec2 v, float cosa, float sina) {
 	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);
 }
 
-vec3 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, float t) {
+vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, float t) {
 	float ma = max(a_height + (1.0 - t), b_height + t) - height_blend_sharpness;
     float b1 = max(a_height + (1.0 - t) - ma, 0.0);
     float b2 = max(b_height + t - ma, 0.0);
-    return (a_value.rgb * b1 + b_value.rgb * b2) / (b1 + b2);
+    return (a_value * b1 + b_value * b2) / (b1 + b2);
 }
 
 // 2-4 lookups
@@ -186,8 +186,8 @@ void get_material(vec2 uv, uint control, ivec2 iuv_center, out Material out_mat)
 		n = unpack_normal(normal_rg2);
 		normal_rg2.xz = rotate(n.xz, rot2.x, -rot2.y);
 
-		albedo_ht.rgb = height_blend(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, blend);
-		normal_rg.rgb = height_blend(normal_rg, albedo_ht.a, normal_rg2, albedo_ht2.a, blend);
+		albedo_ht = height_blend(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, blend);
+		normal_rg = height_blend(normal_rg, albedo_ht.a, normal_rg2, albedo_ht2.a, blend);
 	}
 
 	normal_rg = pack_normal(normal_rg.xyz, normal_rg.a);
