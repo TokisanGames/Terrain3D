@@ -26,21 +26,32 @@ In addition:
 
 ### GLSL
 
-* Similar to C++ below
+* Similar to C++ formatting below, except use `float` and no clang-format
 * Private uniforms are prefaced with `_` and are hidden from the inspector and not accessible via set/get_shader_param()
 
 ### C++
 
 In general, follow the [Godot C++ style guidelines](https://docs.godotengine.org/en/latest/contributing/development/code_style_guidelines.html).
 In addition:
-* One blank line between functions
-* Everything braced - no if/for one-liners
+
+Floats:
+* Use `real_t` instead of `float`
+* Format float literals like `0.0f`
+* Float literals and `real_t` variables can share operations (e.g. `mydouble += 1.0f`) unless the compiler complains. e.g. `Math::lerp(mydouble, real_t(0.0f), real_t(1.0f))`
+
+Braces:
+* Everything braced - no if/for one-liners. Including switch cases
 * One line setters/getters can go in the header file
 * Opening brace on the initial line (eg. `if (condition) {`), and ending brace at the same tab stop as the initial line
+
+Private & Public:
 * Private variables/functions prefaced with `_`
-* Private/public/protected explicit and grouped together in that order, in header and cpp files.
+* Private/public/protected explicit and grouped together in that order, in header and cpp files
 * Functions in h and cpp files in same order
-* All code passed through clang-format. See below.
+
+Other formatting:
+* One blank line between functions
+* All code passed through clang-format. See below
 
 #### clang-format
 

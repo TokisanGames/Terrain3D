@@ -115,6 +115,8 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_hide.push_back("roughness")
 			to_hide.push_back("roughness picker")
 			to_hide.push_back("slope")
+			if p_operation == Terrain3DEditor.REPLACE:
+				to_hide.push_back("opacity")
 
 		elif p_tool == Terrain3DEditor.COLOR:
 			to_hide.push_back("height")

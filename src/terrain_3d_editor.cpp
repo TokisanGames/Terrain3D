@@ -203,31 +203,54 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					storage->update_heights(destf);
 
 				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
+					// Get bit field from pixel
+					uint32_t bits;
+					*(float *)&bits = src.r; // Must be a 32-bit float, no double/real_t
+					uint32_t base_index = bits >> 27 & 0x1F;
+					uint32_t overlay_index = bits >> 22 & 0x1F;
+					real_t blend = real_t(bits >> 14 & 0xFF) / 255.0f;
+
 					real_t alpha_clip = (brush_alpha < 0.1f) ? 0.0f : 1.0f;
-					int index_base = int(src.r * 255.0f);
-					int index_overlay = int(src.g * 255.0f);
-					int dest_index = 0;
+					uint32_t dest_index = uint32_t(Math::lerp(base_index, texture_id, alpha_clip));
 
 					switch (_operation) {
-						case Terrain3DEditor::ADD:
-							// Spray Overlay
-							dest_index = int(Math::lerp(index_overlay, texture_id, alpha_clip));
-							if (dest_index == index_base) {
-								dest.b = Math::lerp(real_t(src.b), real_t(0.0f), alpha_clip * opacity * real_t(0.5f));
+						// Base Paint
+						case Terrain3DEditor::REPLACE: {
+							// Set base texture
+							base_index = dest_index;
+							// Erase blend value
+							blend = Math::lerp(blend, real_t(0.0f), alpha_clip);
+						} break;
+
+						// Overlay Spray
+						case Terrain3DEditor::ADD: {
+							real_t spray_opacity = CLAMP(opacity * 0.025f, 0.003f, 0.025f);
+							real_t brush_value = CLAMP(brush_alpha * spray_opacity, 0.0f, 1.0f);
+							// If overlay and base texture are the same, reduce blend value
+							if (dest_index == base_index) {
+								blend = CLAMP(blend - brush_value, 0.0f, 1.0f);
 							} else {
-								dest.g = dest_index / 255.0f;
-								dest.b = Math::lerp(real_t(src.b), CLAMP(src.b + brush_alpha, real_t(0.0f), real_t(1.0f)), brush_alpha * opacity * real_t(0.5f));
+								// Else overlay and base are separate, set overlay texture and increase blend value
+								overlay_index = dest_index;
+								blend = CLAMP(blend + brush_value, 0.0f, 1.0f);
 							}
-							break;
-						case Terrain3DEditor::REPLACE:
-							// Base Paint
-							dest_index = int(Math::lerp(index_base, texture_id, alpha_clip));
-							dest.r = dest_index / 255.0f;
-							dest.b = Math::lerp(real_t(src.b), real_t(0.0f), alpha_clip * opacity);
-							break;
-						default:
-							break;
+						} break;
+
+						default: {
+						} break;
 					}
+
+					// Convert back to bit field
+					uint32_t base = (base_index & 0x1F) << 27; // 5 bits 32-28
+					uint32_t over = (overlay_index & 0x1F) << 22; // 5 bits 27-23
+					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.0f), 0.0f, 255.0f));
+					blend_int = (blend_int & 0xFF) << 14; // 8 bits 22-15
+					bits = base | over | blend_int;
+
+					// Write back to pixel in FORMAT_RF
+					float out_float = *(float *)&bits; // Must be a 32-bit float, no double/real_t
+					dest = Color(out_float, 0.f, 0.f, 1.0f);
+
 				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
 					switch (_tool) {
 						case COLOR:
