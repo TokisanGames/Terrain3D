@@ -150,7 +150,7 @@ func _on_setting_changed() -> void:
 		"roughness": toolbar_settings.get_setting("roughness"),
 		"texture_index": plugin.texture_dock.get_selected_index(),
 		"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
-		"align_with_view": toolbar_settings.get_setting("align_with_view"),
+		"align_to_view": toolbar_settings.get_setting("align_to_view"),
 		"show_cursor_while_painting": toolbar_settings.get_setting("show_cursor_while_painting"),
 		"gamma": toolbar_settings.get_setting("gamma"),
 		"jitter": toolbar_settings.get_setting("jitter"),
@@ -178,7 +178,7 @@ func update_decal() -> void:
 		decal.visible = true
 
 	decal.size = Vector3.ONE * brush_data["size"]
-	if brush_data["align_with_view"]:
+	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
 		if (cam):
 			decal.rotation.y =cam.rotation.y
