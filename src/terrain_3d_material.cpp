@@ -1,6 +1,8 @@
 // Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/fast_noise_lite.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/noise_texture2d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 
@@ -290,6 +292,20 @@ void Terrain3DMaterial::_update_shader() {
 			RS->material_set_param(_material, param, value);
 		}
 	}
+
+	if (_active_params.has("noise_texture") && RS->material_get_param(_material, "noise_texture").get_type() == Variant::NIL) {
+		LOG(INFO, "Generating default noise_texture for shader");
+		Ref<FastNoiseLite> fnoise;
+		fnoise.instantiate();
+		fnoise->set_noise_type(FastNoiseLite::TYPE_SIMPLEX);
+		Ref<NoiseTexture2D> noise_tex;
+		noise_tex.instantiate();
+		noise_tex->set_seamless(true);
+		noise_tex->set_generate_mipmaps(false);
+		noise_tex->set_noise(fnoise);
+		_set("noise_texture", noise_tex);
+	}
+
 	notify_property_list_changed();
 }
 
@@ -310,6 +326,9 @@ void Terrain3DMaterial::_set_shader_parameters(const Dictionary &p_dict) {
 // Public Functions
 ///////////////////////////
 
+// This function serves as the constructor which is initialized by the class Terrain3D.
+// Godot likes to create resource objects at startup, so this prevents it from creating
+// uninitialized materials.
 void Terrain3DMaterial::initialize(int p_region_size) {
 	LOG(INFO, "Initializing material");
 	_preload_shaders();
