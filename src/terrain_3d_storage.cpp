@@ -22,58 +22,6 @@ void Terrain3DStorage::_clear() {
 	_generated_color_maps.clear();
 }
 
-void Terrain3DStorage::_update_regions(bool force_emit) {
-	if (_generated_height_maps.is_dirty()) {
-		LOG(DEBUG_CONT, "Regenerating height layered texture from ", _height_maps.size(), " maps");
-		_generated_height_maps.create(_height_maps);
-		force_emit = true;
-		_modified = true;
-		emit_signal("height_maps_changed");
-	}
-
-	if (_generated_control_maps.is_dirty()) {
-		LOG(DEBUG_CONT, "Regenerating control layered texture from ", _control_maps.size(), " maps");
-		_generated_control_maps.create(_control_maps);
-		force_emit = true;
-		_modified = true;
-	}
-
-	if (_generated_color_maps.is_dirty()) {
-		LOG(DEBUG_CONT, "Regenerating color layered texture from ", _color_maps.size(), " maps");
-		_generated_color_maps.create(_color_maps);
-		force_emit = true;
-		_modified = true;
-	}
-
-	if (_region_map_dirty) {
-		LOG(DEBUG_CONT, "Regenerating ", REGION_MAP_VSIZE, " region map array");
-		_region_map.clear();
-		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
-		_region_map_dirty = false;
-		for (int i = 0; i < _region_offsets.size(); i++) {
-			Vector2i ofs = _region_offsets[i];
-			Vector2i pos = Vector2i(ofs + (REGION_MAP_VSIZE / 2));
-			if (pos.x >= REGION_MAP_SIZE || pos.y >= REGION_MAP_SIZE || pos.x < 0 || pos.y < 0) {
-				continue;
-			}
-			_region_map[pos.y * REGION_MAP_SIZE + pos.x] = i + 1; // 0 = no region
-		}
-		force_emit = true;
-		_modified = true;
-	}
-
-	// Don't emit if no changes and not requested
-	if (force_emit) {
-		Array region_signal_args;
-		region_signal_args.push_back(_generated_height_maps.get_rid());
-		region_signal_args.push_back(_generated_control_maps.get_rid());
-		region_signal_args.push_back(_generated_color_maps.get_rid());
-		region_signal_args.push_back(_region_map);
-		region_signal_args.push_back(_region_offsets);
-		emit_signal("regions_changed", region_signal_args);
-	}
-}
-
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -155,7 +103,7 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets)
 	LOG(INFO, "Setting region offsets with array sized: ", p_offsets.size());
 	_region_offsets = p_offsets;
 	_region_map_dirty = true;
-	_update_regions();
+	update_regions();
 }
 
 /** Returns a region offset given a location */
@@ -231,11 +179,11 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 		_generated_height_maps.clear();
 		_generated_control_maps.clear();
 		_generated_color_maps.clear();
-		_update_regions();
+		update_regions();
 		notify_property_list_changed();
 		emit_changed();
 	} else {
-		_update_regions();
+		update_regions();
 	}
 	return OK;
 }
@@ -266,11 +214,63 @@ void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
 		_generated_height_maps.clear();
 		_generated_control_maps.clear();
 		_generated_color_maps.clear();
-		_update_regions();
+		update_regions();
 		notify_property_list_changed();
 		emit_changed();
 	} else {
-		_update_regions();
+		update_regions();
+	}
+}
+
+void Terrain3DStorage::update_regions(bool force_emit) {
+	if (_generated_height_maps.is_dirty()) {
+		LOG(DEBUG_CONT, "Regenerating height layered texture from ", _height_maps.size(), " maps");
+		_generated_height_maps.create(_height_maps);
+		force_emit = true;
+		_modified = true;
+		emit_signal("height_maps_changed");
+	}
+
+	if (_generated_control_maps.is_dirty()) {
+		LOG(DEBUG_CONT, "Regenerating control layered texture from ", _control_maps.size(), " maps");
+		_generated_control_maps.create(_control_maps);
+		force_emit = true;
+		_modified = true;
+	}
+
+	if (_generated_color_maps.is_dirty()) {
+		LOG(DEBUG_CONT, "Regenerating color layered texture from ", _color_maps.size(), " maps");
+		_generated_color_maps.create(_color_maps);
+		force_emit = true;
+		_modified = true;
+	}
+
+	if (_region_map_dirty) {
+		LOG(DEBUG_CONT, "Regenerating ", REGION_MAP_VSIZE, " region map array");
+		_region_map.clear();
+		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
+		_region_map_dirty = false;
+		for (int i = 0; i < _region_offsets.size(); i++) {
+			Vector2i ofs = _region_offsets[i];
+			Vector2i pos = Vector2i(ofs + (REGION_MAP_VSIZE / 2));
+			if (pos.x >= REGION_MAP_SIZE || pos.y >= REGION_MAP_SIZE || pos.x < 0 || pos.y < 0) {
+				continue;
+			}
+			_region_map[pos.y * REGION_MAP_SIZE + pos.x] = i + 1; // 0 = no region
+		}
+		force_emit = true;
+		_modified = true;
+	}
+
+	// Don't emit if no changes and not requested
+	if (force_emit) {
+		Array region_signal_args;
+		region_signal_args.push_back(_generated_height_maps.get_rid());
+		region_signal_args.push_back(_generated_control_maps.get_rid());
+		region_signal_args.push_back(_generated_color_maps.get_rid());
+		region_signal_args.push_back(_region_map);
+		region_signal_args.push_back(_region_offsets);
+		emit_signal("regions_changed", region_signal_args);
 	}
 }
 
@@ -615,7 +615,7 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 			_generated_color_maps.clear();
 			break;
 	}
-	_update_regions();
+	update_regions();
 }
 
 void Terrain3DStorage::save() {

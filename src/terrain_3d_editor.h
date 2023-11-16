@@ -11,11 +11,11 @@
 using namespace godot;
 
 class Terrain3DEditor : public Object {
-private:
 	GDCLASS(Terrain3DEditor, Object);
-	static inline const char *__class__ = "Terrain3DEditor";
 
-	// Constants & Definitions
+public:
+	// Constants
+	static inline const char *__class__ = "Terrain3DEditor";
 
 	enum Operation {
 		ADD,
@@ -94,12 +94,11 @@ private:
 		real_t get_jitter() const { return _jitter; }
 	};
 
+private:
 	// Object references
-
 	Terrain3D *_terrain = nullptr;
 
 	// Painter settings & variables
-
 	Tool _tool = REGION;
 	Operation _operation = ADD;
 	Brush _brush;
@@ -109,7 +108,6 @@ private:
 	bool _modified = false;
 	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range
 
-private:
 	void _operate_region(Vector3 p_global_position);
 	void _operate_map(Vector3 p_global_position, real_t p_camera_direction);
 	bool _is_in_bounds(Vector2i p_position, Vector2i p_max_position);

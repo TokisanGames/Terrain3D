@@ -46,7 +46,8 @@ Braces:
 
 Private & Public:
 * Private variables/functions prefaced with `_`
-* Private/public/protected explicit and grouped together in that order, in header and cpp files
+* One initial public section for constants
+* Private/public/protected for members and functions in that order, in header and cpp files
 * Functions in h and cpp files in same order
 
 Other formatting:

@@ -12,8 +12,10 @@ using namespace godot;
  ******************************************************************/
 
 class Terrain3DSurface : public Resource {
-private:
 	GDCLASS(Terrain3DSurface, Resource);
+
+public:
+	// Constants
 	static inline const char *__class__ = "Terrain3DSurface";
 
 	struct Settings {
@@ -24,7 +26,10 @@ private:
 		Ref<Texture2D> _normal_texture;
 		real_t _uv_scale = 0.1f;
 		real_t _uv_rotation = 0.0f;
-	} _data;
+	};
+
+private:
+	Settings _data;
 
 	bool _texture_is_valid(const Ref<Texture2D> &p_texture) const;
 

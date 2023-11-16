@@ -11,9 +11,9 @@
 using namespace godot;
 
 class Util {
+public:
 	static inline const char *__class__ = "Terrain3DUtil";
 
-public:
 	// Print info to the console
 	static void print_dict(String name, const Dictionary &p_dict, int p_level = 1); // Defaults to INFO
 	static void dump_gen(GeneratedTex p_gen, String name = "");

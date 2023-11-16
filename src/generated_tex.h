@@ -8,8 +8,11 @@
 using namespace godot;
 
 class GeneratedTex {
-private:
+public:
+	// Constants
 	static inline const char *__class__ = "Terrain3DGeneratedTex";
+
+private:
 	RID _rid = RID();
 	Ref<Image> _image;
 	bool _dirty = false;

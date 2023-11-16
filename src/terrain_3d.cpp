@@ -23,7 +23,7 @@
 ///////////////////////////
 
 // Initialize static member variable
-int Terrain3D::_debug_level{ ERROR };
+int Terrain3D::debug_level{ ERROR };
 
 void Terrain3D::_initialize() {
 	LOG(INFO, "Checking material, storage, texture_list, signal, and mesh initialization");
@@ -67,8 +67,8 @@ void Terrain3D::_initialize() {
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		_material->initialize(_storage->get_region_size());
-		_storage->_update_regions(true); // generate map arrays
-		_texture_list->_update_list(); // generate texture arrays
+		_storage->update_regions(true); // generate map arrays
+		_texture_list->update_list(); // generate texture arrays
 		_build(_clipmap_levels, _clipmap_size);
 		_build_collision();
 		_initialized = true;
@@ -480,7 +480,7 @@ Terrain3D::~Terrain3D() {
 
 void Terrain3D::set_debug_level(int p_level) {
 	LOG(INFO, "Setting debug level: ", p_level);
-	_debug_level = CLAMP(p_level, 0, DEBUG_MAX);
+	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
 }
 
 void Terrain3D::set_clipmap_levels(int p_count) {

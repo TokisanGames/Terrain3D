@@ -11,7 +11,7 @@
 
 void GeneratedTex::create(const TypedArray<Image> &p_layers) {
 	if (!p_layers.is_empty()) {
-		if (Terrain3D::_debug_level >= DEBUG) {
+		if (Terrain3D::debug_level >= DEBUG) {
 			LOG(DEBUG, "RenderingServer creating Texture2DArray, layers size: ", p_layers.size());
 			for (int i = 0; i < p_layers.size(); i++) {
 				Ref<Image> img = p_layers[i];

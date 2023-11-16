@@ -28,7 +28,7 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/main.glsl"
 	);
 
-	if (Terrain3D::_debug_level >= DEBUG) {
+	if (Terrain3D::debug_level >= DEBUG) {
 		Array keys = _shader_code.keys();
 		for (int i = 0; i < keys.size(); i++) {
 			LOG(DEBUG, "Loaded shader insert: ", keys[i]);
@@ -186,7 +186,7 @@ void Terrain3DMaterial::_update_regions(const Array &p_args) {
 	RS->material_set_param(_material, "_region_map", _region_map);
 	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
 	RS->material_set_param(_material, "_region_uv_limit", Terrain3DStorage::REGION_MAP_SIZE / 2);
-	if (Terrain3D::_debug_level >= DEBUG) {
+	if (Terrain3D::debug_level >= DEBUG) {
 		LOG(DEBUG, "Region map");
 		for (int i = 0; i < _region_map.size(); i++) {
 			if (_region_map[i]) {

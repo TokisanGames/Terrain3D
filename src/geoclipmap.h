@@ -8,9 +8,11 @@
 using namespace godot;
 
 class GeoClipMap {
-private:
+public:
+	// Constants
 	static inline const char *__class__ = "Terrain3DGeoClipMap";
 
+private:
 	static inline int _patch_2d(int x, int y, int res);
 	static RID _create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb);
 

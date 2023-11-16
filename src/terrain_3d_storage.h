@@ -14,11 +14,11 @@
 using namespace godot;
 
 class Terrain3DStorage : public Resource {
-private:
 	GDCLASS(Terrain3DStorage, Resource);
-	static inline const char *__class__ = "Terrain3DStorage";
 
-	// Constants & Definitions
+public:
+	// Constants
+	static inline const char *__class__ = "Terrain3DStorage";
 
 	static inline const real_t CURRENT_VERSION = 0.842;
 	static inline const int REGION_MAP_SIZE = 16;
@@ -66,8 +66,8 @@ private:
 		HEIGHT_FILTER_MINIMUM
 	};
 
+private:
 	// Storage Settings & flags
-
 	real_t _version = 0.8; // Set to ensure Godot always saves this
 	bool _modified = false;
 	bool _save_16_bit = false;
@@ -75,7 +75,6 @@ private:
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 
 	// Stored Data
-
 	Vector2 _height_range = Vector2(0, 0);
 
 	/**
@@ -99,7 +98,6 @@ private:
 
 	// Functions
 	void _clear();
-	void _update_regions(bool force_emit = false);
 
 	// DEPRECATED 0.8.3, remove 0.9
 	Ref<Terrain3DTextureList> _texture_list;
@@ -133,6 +131,7 @@ public:
 	bool has_region(Vector3 p_global_position) { return get_region_index(p_global_position) != -1; }
 	Error add_region(Vector3 p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
 	void remove_region(Vector3 p_global_position, bool p_update = true);
+	void update_regions(bool force_emit = false);
 
 	// Maps
 	void set_map_region(MapType p_map_type, int p_region_index, const Ref<Image> p_image);

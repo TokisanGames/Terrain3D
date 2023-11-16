@@ -20,17 +20,19 @@
 using namespace godot;
 
 class Terrain3D : public Node3D {
-private:
 	GDCLASS(Terrain3D, Node3D);
+
+public:
+	// Constants
 	static inline const char *__class__ = "Terrain3D";
 
+private:
 	// Terrain state
 	String _version = "0.8.4-dev";
 	bool _is_inside_world = false;
 	bool _initialized = false;
 
 	// Terrain settings
-	static int _debug_level;
 	int _clipmap_size = 48;
 	int _clipmap_levels = 7;
 
@@ -86,13 +88,15 @@ private:
 	void _update_instances();
 
 public:
+	static int debug_level;
+
 	Terrain3D();
 	~Terrain3D();
 
 	// Terrain settings
 	String get_version() const { return _version; }
 	void set_debug_level(int p_level);
-	int get_debug_level() const { return _debug_level; }
+	int get_debug_level() const { return debug_level; }
 	void set_clipmap_levels(int p_count);
 	int get_clipmap_levels() const { return _clipmap_levels; }
 	void set_clipmap_size(int p_size);

@@ -10,10 +10,13 @@
 using namespace godot;
 
 class Terrain3DMaterial : public Resource {
-private:
 	GDCLASS(Terrain3DMaterial, Resource);
+
+public:
+	// Constants
 	static inline const char *__class__ = "Terrain3DMaterial";
 
+private:
 	bool _initialized = false;
 	RID _material;
 	RID _shader;

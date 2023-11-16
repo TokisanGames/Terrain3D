@@ -32,30 +32,7 @@ void Terrain3DTextureList::_swap_textures(int p_old_id, int p_new_id) {
 	_textures[p_new_id] = texture_a;
 	_textures[p_old_id] = texture_b;
 
-	_update_list();
-}
-
-void Terrain3DTextureList::_update_list() {
-	LOG(INFO, "Reconnecting texture signals");
-	for (int i = 0; i < _textures.size(); i++) {
-		Ref<Terrain3DTexture> texture_set = _textures[i];
-
-		if (texture_set.is_null()) {
-			LOG(ERROR, "Texture at index ", i, " is null, but shouldn't be.");
-			continue;
-		}
-		if (!texture_set->is_connected("file_changed", Callable(this, "_update_texture_files"))) {
-			LOG(DEBUG, "Connecting file_changed signal");
-			texture_set->connect("file_changed", Callable(this, "_update_texture_files"));
-		}
-		if (!texture_set->is_connected("setting_changed", Callable(this, "_update_texture_settings"))) {
-			LOG(DEBUG, "Connecting setting_changed signal");
-			texture_set->connect("setting_changed", Callable(this, "_update_texture_settings"));
-		}
-	}
-	_generated_albedo_textures.clear();
-	_generated_normal_textures.clear();
-	_update_texture_data(true, true);
+	update_list();
 }
 
 void Terrain3DTextureList::_update_texture_files() {
@@ -215,6 +192,29 @@ Terrain3DTextureList::~Terrain3DTextureList() {
 	_generated_normal_textures.clear();
 }
 
+void Terrain3DTextureList::update_list() {
+	LOG(INFO, "Reconnecting texture signals");
+	for (int i = 0; i < _textures.size(); i++) {
+		Ref<Terrain3DTexture> texture_set = _textures[i];
+
+		if (texture_set.is_null()) {
+			LOG(ERROR, "Texture at index ", i, " is null, but shouldn't be.");
+			continue;
+		}
+		if (!texture_set->is_connected("file_changed", Callable(this, "_update_texture_files"))) {
+			LOG(DEBUG, "Connecting file_changed signal");
+			texture_set->connect("file_changed", Callable(this, "_update_texture_files"));
+		}
+		if (!texture_set->is_connected("setting_changed", Callable(this, "_update_texture_settings"))) {
+			LOG(DEBUG, "Connecting setting_changed signal");
+			texture_set->connect("setting_changed", Callable(this, "_update_texture_settings"));
+		}
+	}
+	_generated_albedo_textures.clear();
+	_generated_normal_textures.clear();
+	_update_texture_data(true, true);
+}
+
 void Terrain3DTextureList::set_texture(int p_index, const Ref<Terrain3DTexture> &p_texture) {
 	LOG(INFO, "Setting texture index: ", p_index);
 	if (p_index < 0 || p_index >= MAX_TEXTURES) {
@@ -248,7 +248,7 @@ void Terrain3DTextureList::set_texture(int p_index, const Ref<Terrain3DTexture> 
 			_textures[p_index] = p_texture;
 		}
 	}
-	_update_list();
+	update_list();
 }
 
 /**
@@ -283,7 +283,7 @@ void Terrain3DTextureList::set_textures(const TypedArray<Terrain3DTexture> &p_te
 			texture->connect("id_changed", Callable(this, "_swap_textures"));
 		}
 	}
-	_update_list();
+	update_list();
 }
 
 void Terrain3DTextureList::save() {

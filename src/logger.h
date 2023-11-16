@@ -30,7 +30,7 @@
 		UtilityFunctions::push_error(__class__, "::", __func__, ": ", __VA_ARGS__);   \
 	else if (level == WARN)                                                           \
 		UtilityFunctions::push_warning(__class__, "::", __func__, ": ", __VA_ARGS__); \
-	else if (Terrain3D::_debug_level >= level)                                        \
+	else if (Terrain3D::debug_level >= level)                                         \
 		UtilityFunctions::print(__class__, "::", __func__, ": ", __VA_ARGS__);
 
 #endif // LOGGER_CLASS_H
