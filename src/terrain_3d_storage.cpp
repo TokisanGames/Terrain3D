@@ -519,7 +519,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
 	// Get bit field from pixel
 	uint32_t bits;
-	*(real_t *)&bits = get_pixel(TYPE_CONTROL, p_global_position).r;
+	*(float *)&bits = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
 	uint32_t base_index = bits >> 27u & 0x1Fu;
 	uint32_t overlay_index = bits >> 22u & 0x1Fu;
 	real_t blend = real_t(bits >> 14u & 0xFFu) / 255.0f;

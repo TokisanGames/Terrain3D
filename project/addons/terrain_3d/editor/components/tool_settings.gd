@@ -56,7 +56,7 @@ func _ready() -> void:
 	## Advanced Settings Menu
 	advanced_list = create_submenu(list, "Advanced", Layout.VERTICAL)
 	add_setting(SettingType.CHECKBOX, "automatic_regions", true, advanced_list)
-	add_setting(SettingType.CHECKBOX, "align_with_view", true, advanced_list)
+	add_setting(SettingType.CHECKBOX, "align_to_view", true, advanced_list)
 	add_setting(SettingType.CHECKBOX, "show_cursor_while_painting", true, advanced_list)
 	advanced_list.add_child(HSeparator.new(), true)
 	add_setting(SettingType.SLIDER, "gamma", 1.0, advanced_list, "γ", 0.1, 2.0, 0.01)

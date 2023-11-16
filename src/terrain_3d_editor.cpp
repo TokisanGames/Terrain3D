@@ -32,7 +32,7 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	_texture_index = p_data["texture_index"];
 
 	_auto_regions = p_data["automatic_regions"];
-	_align_to_view = p_data["align_with_view"];
+	_align_to_view = p_data["align_to_view"];
 	_gamma = p_data["gamma"];
 	_jitter = p_data["jitter"];
 }
