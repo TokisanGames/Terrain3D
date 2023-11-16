@@ -39,15 +39,15 @@ R"(
 //INSERT: DEBUG_CONTROL_TEXTURE
 	// Show control map texture selection
 	float ctrl_base = weight_inv * (
-	float(mat[0].base)/32. * weights.x +
-	float(mat[1].base)/32. * weights.y +
-	float(mat[2].base)/32. * weights.z +
-	float(mat[3].base)/32. * weights.w );
+	float(mat[0].base) * weights.x +
+	float(mat[1].base) * weights.y +
+	float(mat[2].base) * weights.z +
+	float(mat[3].base) * weights.w )/96.;
 	float ctrl_over = weight_inv * (
-	float(mat[0].over)/32. * weights.x +
-	float(mat[1].over)/32. * weights.y +
-	float(mat[2].over)/32. * weights.z +
-	float(mat[3].over)/32. * weights.w );
+	float(mat[0].over) * weights.x +
+	float(mat[1].over) * weights.y +
+	float(mat[2].over) * weights.z +
+	float(mat[3].over) * weights.w )/96.;
 	ALBEDO = vec3(ctrl_base, ctrl_over, 0.);
 	ROUGHNESS = 0.9;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
