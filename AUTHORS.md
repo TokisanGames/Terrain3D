@@ -7,6 +7,7 @@ Project Leads
 * Roope Palmroos @outobugi
 
 Contributors
+* Tom Coxon @tcoxon
 * Loïc Chen (陳明佑) @painfulexistence
 * Lorenz Wildberg @lw64
 * Sven Cannivy @svencan
