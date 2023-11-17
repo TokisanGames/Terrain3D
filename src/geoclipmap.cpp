@@ -19,6 +19,16 @@ RID GeoClipMap::_create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_i
 	arrays[RenderingServer::ARRAY_VERTEX] = p_vertices;
 	arrays[RenderingServer::ARRAY_INDEX] = p_indices;
 
+	PackedVector3Array normals;
+	normals.resize(p_vertices.size());
+	normals.fill(Vector3(0, 1, 0));
+	arrays[RenderingServer::ARRAY_NORMAL] = normals;
+
+	PackedFloat32Array tangents;
+	tangents.resize(p_vertices.size() * 4);
+	tangents.fill(0.0f);
+	arrays[RenderingServer::ARRAY_TANGENT] = tangents;
+
 	LOG(DEBUG, "Creating mesh via the Rendering server");
 	RID mesh = RS->mesh_create();
 	RS->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
