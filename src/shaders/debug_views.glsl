@@ -63,6 +63,18 @@ R"(
 	ROUGHNESS = 1.0;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
+//INSERT: DEBUG_AUTOSHADER
+	float autoshader = float(control00 & 0x1u);
+	ALBEDO = vec3(autoshader);
+
+//INSERT: DEBUG_HOLES
+	float holes = float(control00 >>2u & 0x1u);
+	ALBEDO = vec3(holes);
+
+//INSERT: DEBUG_NAVIGATION
+	float navigation = float(control00 >>1u & 0x1u);
+	ALBEDO = vec3(navigation);
+
 //INSERT: DEBUG_TEXTURE_HEIGHT
 	// Show height textures
 	ALBEDO = vec3(albedo_height.a);

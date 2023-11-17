@@ -27,9 +27,10 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	_size = p_data["size"];
 	_opacity = p_data["opacity"];
 	_height = p_data["height"];
+	_texture_index = p_data["texture_index"];
 	_color = p_data["color"];
 	_roughness = p_data["roughness"];
-	_texture_index = p_data["texture_index"];
+	_enable = p_data["enable"];
 
 	_auto_regions = p_data["automatic_regions"];
 	_align_to_view = p_data["align_to_view"];
@@ -90,11 +91,12 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 			map_type = Terrain3DStorage::TYPE_HEIGHT;
 			break;
 		case TEXTURE:
+		case AUTOSHADER:
+		case HOLES:
+		case NAVIGATION:
 			map_type = Terrain3DStorage::TYPE_CONTROL;
 			break;
 		case COLOR:
-			map_type = Terrain3DStorage::TYPE_COLOR;
-			break;
 		case ROUGHNESS:
 			map_type = Terrain3DStorage::TYPE_COLOR;
 			break;
@@ -110,6 +112,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	real_t height = _brush.get_height();
 	Color color = _brush.get_color();
 	real_t roughness = _brush.get_roughness();
+	bool enable = _brush.get_enable();
 	real_t gamma = _brush.get_gamma();
 
 	real_t randf = UtilityFunctions::randf();
@@ -179,7 +182,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 						case REPLACE:
 							destf = Math::lerp(srcf, height, brush_alpha * opacity);
 							break;
-						case Terrain3DEditor::AVERAGE: {
+						case AVERAGE: {
 							Vector3 left_position = brush_global_position - Vector3(1, 0, 0);
 							Vector3 right_position = brush_global_position + Vector3(1, 0, 0);
 							Vector3 down_position = brush_global_position - Vector3(0, 0, 1);
@@ -206,46 +209,74 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					// Get bit field from pixel
 					uint32_t bits;
 					*(float *)&bits = src.r; // Must be a 32-bit float, no double/real_t
-					uint32_t base_index = bits >> 27 & 0x1F;
-					uint32_t overlay_index = bits >> 22 & 0x1F;
-					real_t blend = real_t(bits >> 14 & 0xFF) / 255.0f;
+					uint32_t base_id = bits >> 27 & 0x1F; // 5 bits #32-28
+					uint32_t overlay_id = bits >> 22 & 0x1F; // 5 bits #27-23
+					real_t blend = real_t(bits >> 14 & 0xFF) / 255.0f; // 8 bits #22-15
+					// Reserved 11 bits #4-14
+					uint8_t holes = bits >> 2 & 0x1; // 1 bit #3
+					uint8_t navigation = bits >> 1 & 0x1; // 1 bit #2
+					uint8_t autoshader = bits & 0x1; // 1 bit #1
 
-					real_t alpha_clip = (brush_alpha < 0.1f) ? 0.0f : 1.0f;
-					uint32_t dest_index = uint32_t(Math::lerp(base_index, texture_id, alpha_clip));
+					real_t alpha_clip = (brush_alpha > 0.1f) ? 1.0f : 0.0f;
+					uint32_t dest_id = uint32_t(Math::lerp(base_id, texture_id, alpha_clip));
 
-					switch (_operation) {
-						// Base Paint
-						case Terrain3DEditor::REPLACE: {
-							// Set base texture
-							base_index = dest_index;
-							// Erase blend value
-							blend = Math::lerp(blend, real_t(0.0f), alpha_clip);
-						} break;
+					switch (_tool) {
+						case TEXTURE:
+							switch (_operation) {
+								// Base Paint
+								case REPLACE: {
+									// Set base texture
+									base_id = dest_id;
+									// Erase blend value
+									blend = Math::lerp(blend, real_t(0.0f), alpha_clip);
+								} break;
 
-						// Overlay Spray
-						case Terrain3DEditor::ADD: {
-							real_t spray_opacity = CLAMP(opacity * 0.025f, 0.003f, 0.025f);
-							real_t brush_value = CLAMP(brush_alpha * spray_opacity, 0.0f, 1.0f);
-							// If overlay and base texture are the same, reduce blend value
-							if (dest_index == base_index) {
-								blend = CLAMP(blend - brush_value, 0.0f, 1.0f);
-							} else {
-								// Else overlay and base are separate, set overlay texture and increase blend value
-								overlay_index = dest_index;
-								blend = CLAMP(blend + brush_value, 0.0f, 1.0f);
+								// Overlay Spray
+								case ADD: {
+									real_t spray_opacity = CLAMP(opacity * 0.025f, 0.003f, 0.025f);
+									real_t brush_value = CLAMP(brush_alpha * spray_opacity, 0.0f, 1.0f);
+									// If overlay and base texture are the same, reduce blend value
+									if (dest_id == base_id) {
+										blend = CLAMP(blend - brush_value, 0.0f, 1.0f);
+									} else {
+										// Else overlay and base are separate, set overlay texture and increase blend value
+										overlay_id = dest_id;
+										blend = CLAMP(blend + brush_value, 0.0f, 1.0f);
+									}
+								} break;
+
+								default: {
+								} break;
 							}
-						} break;
-
-						default: {
-						} break;
+							break;
+						case AUTOSHADER:
+							if (brush_alpha > 0.1f) {
+								autoshader = enable;
+							}
+							break;
+						case HOLES:
+							if (brush_alpha > 0.1f) {
+								holes = enable;
+							}
+							break;
+						case NAVIGATION:
+							if (brush_alpha > 0.1f) {
+								navigation = enable;
+							}
+							break;
+						default:
+							break;
 					}
 
 					// Convert back to bit field
-					uint32_t base = (base_index & 0x1F) << 27; // 5 bits 32-28
-					uint32_t over = (overlay_index & 0x1F) << 22; // 5 bits 27-23
+					base_id = (base_id & 0x1F) << 27;
+					overlay_id = (overlay_id & 0x1F) << 22;
 					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.0f), 0.0f, 255.0f));
-					blend_int = (blend_int & 0xFF) << 14; // 8 bits 22-15
-					bits = base | over | blend_int;
+					blend_int = (blend_int & 0xFF) << 14;
+					holes = (holes & 0x1) << 2;
+					navigation = (navigation & 0x1) << 1;
+					autoshader = (autoshader & 0x1);
+					bits = base_id | overlay_id | blend_int | holes | navigation | autoshader;
 
 					// Write back to pixel in FORMAT_RF
 					float out_float = *(float *)&bits; // Must be a 32-bit float, no double/real_t
@@ -309,7 +340,7 @@ Vector2 Terrain3DEditor::_rotate_uv(Vector2 p_uv, real_t p_angle) {
 void Terrain3DEditor::_setup_undo() {
 	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
 	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
-	if (_tool < 0 || _tool > REGION) {
+	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return;
 	}
 	LOG(INFO, "Setting up undo snapshot...");
@@ -327,7 +358,7 @@ void Terrain3DEditor::_setup_undo() {
 void Terrain3DEditor::_store_undo() {
 	ERR_FAIL_COND_MSG(_terrain == nullptr, "terrain is null, returning");
 	ERR_FAIL_COND_MSG(_terrain->get_plugin() == nullptr, "terrain->plugin is null, returning");
-	if (_tool < 0 || _tool > REGION) {
+	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return;
 	}
 	LOG(INFO, "Storing undo snapshot...");
@@ -452,6 +483,9 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(TEXTURE);
 	BIND_ENUM_CONSTANT(COLOR);
 	BIND_ENUM_CONSTANT(ROUGHNESS);
+	BIND_ENUM_CONSTANT(AUTOSHADER);
+	BIND_ENUM_CONSTANT(HOLES);
+	BIND_ENUM_CONSTANT(NAVIGATION);
 	BIND_ENUM_CONSTANT(REGION);
 	BIND_ENUM_CONSTANT(TOOL_MAX);
 

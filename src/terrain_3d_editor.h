@@ -42,6 +42,9 @@ public:
 		TEXTURE,
 		COLOR,
 		ROUGHNESS,
+		AUTOSHADER,
+		HOLES,
+		NAVIGATION,
 		REGION,
 		TOOL_MAX,
 	};
@@ -51,6 +54,9 @@ public:
 		"Texture",
 		"Color",
 		"Roughness",
+		"Auto Shader",
+		"Holes",
+		"Navigation",
 		"Region",
 		"TOOL_MAX",
 	};
@@ -64,9 +70,10 @@ public:
 		int _size = 0;
 		real_t _opacity = 0.0;
 		real_t _height = 0.0;
+		int _texture_index = 0;
 		Color _color = COLOR_ROUGHNESS;
 		real_t _roughness = 0.5;
-		int _texture_index = 0;
+		bool _enable = false;
 
 		bool _auto_regions = false;
 		bool _align_to_view = false;
@@ -84,9 +91,10 @@ public:
 		int get_size() const { return _size; }
 		real_t get_opacity() const { return _opacity; }
 		real_t get_height() const { return _height; }
+		int get_texture_index() const { return _texture_index; }
 		Color get_color() const { return _color; }
 		real_t get_roughness() const { return _roughness; }
-		int get_texture_index() const { return _texture_index; }
+		real_t get_enable() const { return _enable; }
 
 		bool auto_regions_enabled() const { return _auto_regions; }
 		bool is_aligned_to_view() const { return _align_to_view; }

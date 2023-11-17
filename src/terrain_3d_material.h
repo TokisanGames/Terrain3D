@@ -35,6 +35,9 @@ private:
 	bool _debug_view_roughmap = false;
 	bool _debug_view_control_texture = false;
 	bool _debug_view_control_blend = false;
+	bool _debug_view_autoshader = false;
+	bool _debug_view_holes = false;
+	bool _debug_view_navigation = false;
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
@@ -96,6 +99,12 @@ public:
 	bool get_show_control_texture() const { return _debug_view_control_texture; }
 	void set_show_control_blend(bool p_enabled);
 	bool get_show_control_blend() const { return _debug_view_control_blend; }
+	void set_show_autoshader(bool p_enabled);
+	bool get_show_autoshader() const { return _debug_view_autoshader; }
+	void set_show_holes(bool p_enabled);
+	bool get_show_holes() const { return _debug_view_holes; }
+	void set_show_navigation(bool p_enabled);
+	bool get_show_navigation() const { return _debug_view_navigation; }
 	void set_show_texture_height(bool p_enabled);
 	bool get_show_texture_height() const { return _debug_view_tex_height; }
 	void set_show_texture_normal(bool p_enabled);

@@ -13,8 +13,11 @@ const ICON_HEIGHT_FLAT: String = "res://addons/terrain_3d/icons/icon_height_flat
 const ICON_HEIGHT_SMOOTH: String = "res://addons/terrain_3d/icons/icon_height_smooth.svg"
 const ICON_PAINT_TEXTURE: String = "res://addons/terrain_3d/icons/icon_brush.svg"
 const ICON_SPRAY_TEXTURE: String = "res://addons/terrain_3d/icons/icon_spray.svg"
-const ICON_PAINT_COLOR: String = "res://addons/terrain_3d/icons/icon_color.svg"
-const ICON_PAINT_ROUGHNESS: String = "res://addons/terrain_3d/icons/icon_roughness.svg"
+const ICON_COLOR: String = "res://addons/terrain_3d/icons/icon_color.svg"
+const ICON_ROUGHNESS: String = "res://addons/terrain_3d/icons/icon_roughness.svg"
+const ICON_AUTOSHADER: String = "res://addons/terrain_3d/icons/icon_terrain_material.svg"
+const ICON_HOLES: String = "res://addons/terrain_3d/icons/icon_holes.svg"
+const ICON_NAVIGATION: String = "res://addons/terrain_3d/icons/icon_navigation.svg"
 
 var tool_group: ButtonGroup = ButtonGroup.new()
 
@@ -39,8 +42,12 @@ func _ready() -> void:
 	add_tool_button(Terrain3DEditor.TEXTURE, Terrain3DEditor.REPLACE, "Paint Base Texture", load(ICON_PAINT_TEXTURE), tool_group)
 	add_tool_button(Terrain3DEditor.TEXTURE, Terrain3DEditor.ADD, "Spray Overlay Texture", load(ICON_SPRAY_TEXTURE), tool_group)
 	add_child(HSeparator.new())
-	add_tool_button(Terrain3DEditor.COLOR, Terrain3DEditor.REPLACE, "Paint Color", load(ICON_PAINT_COLOR), tool_group)
-	add_tool_button(Terrain3DEditor.ROUGHNESS, Terrain3DEditor.REPLACE, "Paint Roughness", load(ICON_PAINT_ROUGHNESS), tool_group)
+	add_tool_button(Terrain3DEditor.COLOR, Terrain3DEditor.REPLACE, "Paint Color", load(ICON_COLOR), tool_group)
+	add_tool_button(Terrain3DEditor.ROUGHNESS, Terrain3DEditor.REPLACE, "Paint Roughness", load(ICON_ROUGHNESS), tool_group)
+	add_child(HSeparator.new())
+	add_tool_button(Terrain3DEditor.AUTOSHADER, Terrain3DEditor.REPLACE, "Automatic / Manual Textures", load(ICON_AUTOSHADER), tool_group)
+	add_tool_button(Terrain3DEditor.HOLES, Terrain3DEditor.REPLACE, "Create / Fill Holes", load(ICON_HOLES), tool_group)
+	add_tool_button(Terrain3DEditor.NAVIGATION, Terrain3DEditor.REPLACE, "Define Navigable Areas", load(ICON_NAVIGATION), tool_group)
 
 	var buttons: Array[BaseButton] = tool_group.get_buttons()
 	buttons[0].set_pressed(true)
