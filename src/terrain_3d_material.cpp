@@ -120,6 +120,21 @@ String Terrain3DMaterial::_generate_shader_code() {
 	if (!_debug_view_roughmap) {
 		excludes.push_back("DEBUG_ROUGHMAP");
 	}
+	if (!_debug_view_control_texture) {
+		excludes.push_back("DEBUG_CONTROL_TEXTURE");
+	}
+	if (!_debug_view_control_blend) {
+		excludes.push_back("DEBUG_CONTROL_BLEND");
+	}
+	if (!_debug_view_autoshader) {
+		excludes.push_back("DEBUG_AUTOSHADER");
+	}
+	if (!_debug_view_holes) {
+		excludes.push_back("DEBUG_HOLES");
+	}
+	if (!_debug_view_navigation) {
+		excludes.push_back("DEBUG_NAVIGATION");
+	}
 	if (!_debug_view_tex_height) {
 		excludes.push_back("DEBUG_TEXTURE_HEIGHT");
 	}
@@ -128,12 +143,6 @@ String Terrain3DMaterial::_generate_shader_code() {
 	}
 	if (!_debug_view_tex_rough) {
 		excludes.push_back("DEBUG_TEXTURE_ROUGHNESS");
-	}
-	if (!_debug_view_control_texture) {
-		excludes.push_back("DEBUG_CONTROL_TEXTURE");
-	}
-	if (!_debug_view_control_blend) {
-		excludes.push_back("DEBUG_CONTROL_BLEND");
 	}
 	if (!_debug_view_vertex_grid) {
 		excludes.push_back("DEBUG_VERTEX_GRID");
@@ -486,6 +495,24 @@ void Terrain3DMaterial::set_show_control_blend(bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_show_autoshader(bool p_enabled) {
+	LOG(INFO, "Enable show_autoshader: ", p_enabled);
+	_debug_view_autoshader = p_enabled;
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_show_holes(bool p_enabled) {
+	LOG(INFO, "Enable show_holes: ", p_enabled);
+	_debug_view_holes = p_enabled;
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_show_navigation(bool p_enabled) {
+	LOG(INFO, "Enable show_navigation: ", p_enabled);
+	_debug_view_navigation = p_enabled;
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_show_texture_height(bool p_enabled) {
 	LOG(INFO, "Enable show_texture_height: ", p_enabled);
 	_debug_view_tex_height = p_enabled;
@@ -693,6 +720,12 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_control_texture"), &Terrain3DMaterial::get_show_control_texture);
 	ClassDB::bind_method(D_METHOD("set_show_control_blend", "enabled"), &Terrain3DMaterial::set_show_control_blend);
 	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3DMaterial::get_show_control_blend);
+	ClassDB::bind_method(D_METHOD("set_show_autoshader", "enabled"), &Terrain3DMaterial::set_show_autoshader);
+	ClassDB::bind_method(D_METHOD("get_show_autoshader"), &Terrain3DMaterial::get_show_autoshader);
+	ClassDB::bind_method(D_METHOD("set_show_holes", "enabled"), &Terrain3DMaterial::set_show_holes);
+	ClassDB::bind_method(D_METHOD("get_show_holes"), &Terrain3DMaterial::get_show_holes);
+	ClassDB::bind_method(D_METHOD("set_show_navigation", "enabled"), &Terrain3DMaterial::set_show_navigation);
+	ClassDB::bind_method(D_METHOD("get_show_navigation"), &Terrain3DMaterial::get_show_navigation);
 	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3DMaterial::set_show_texture_height);
 	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3DMaterial::get_show_texture_height);
 	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3DMaterial::set_show_texture_normal);
@@ -715,6 +748,9 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE), "set_show_roughmap", "get_show_roughmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture", PROPERTY_HINT_NONE), "set_show_control_texture", "get_show_control_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend", PROPERTY_HINT_NONE), "set_show_control_blend", "get_show_control_blend");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader", PROPERTY_HINT_NONE), "set_show_autoshader", "get_show_autoshader");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_holes", PROPERTY_HINT_NONE), "set_show_holes", "get_show_holes");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation", PROPERTY_HINT_NONE), "set_show_navigation", "get_show_navigation");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE), "set_show_texture_rough", "get_show_texture_rough");
