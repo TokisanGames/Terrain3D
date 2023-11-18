@@ -84,7 +84,7 @@ private:
 	 * texture in generated_*_maps.
 	 */
 	bool _region_map_dirty = true;
-	PackedByteArray _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
+	PackedInt32Array _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
 	TypedArray<Vector2i> _region_offsets; // Array of active region coordinates
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
