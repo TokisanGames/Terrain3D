@@ -44,7 +44,7 @@ private:
 	int _texture_count = 0;
 	int _region_size = 1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	PackedByteArray _region_map;
+	PackedInt32Array _region_map;
 	GeneratedTex _generated_region_blend_map; // 512x512 blurred image of region_map
 
 	// Functions
