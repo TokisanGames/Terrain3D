@@ -16,6 +16,12 @@ public:
 	// Constants
 	static inline const char *__class__ = "Terrain3DMaterial";
 
+	enum WorldBackground {
+		NONE,
+		FLAT,
+		NOISE,
+	};
+
 	enum TextureFiltering {
 		LINEAR,
 		NEAREST,
@@ -31,10 +37,10 @@ private:
 	mutable TypedArray<StringName> _active_params;
 	mutable Dictionary _shader_params;
 
+	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
 
 	// Built in alternate shaders
-	bool _world_noise_enabled = false;
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
@@ -89,9 +95,8 @@ public:
 
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
 
-	void set_world_noise_enabled(bool p_enabled);
-	bool get_world_noise_enabled() const { return _world_noise_enabled; }
-
+	void set_world_background(WorldBackground p_background);
+	WorldBackground get_world_background() const { return _world_background; }
 	void set_texture_filtering(TextureFiltering p_filtering);
 	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
 
@@ -111,8 +116,6 @@ public:
 	bool get_show_control_blend() const { return _debug_view_control_blend; }
 	void set_show_autoshader(bool p_enabled);
 	bool get_show_autoshader() const { return _debug_view_autoshader; }
-	void set_show_holes(bool p_enabled);
-	bool get_show_holes() const { return _debug_view_holes; }
 	void set_show_navigation(bool p_enabled);
 	bool get_show_navigation() const { return _debug_view_navigation; }
 	void set_show_texture_height(bool p_enabled);
@@ -134,6 +137,7 @@ protected:
 	static void _bind_methods();
 };
 
+VARIANT_ENUM_CAST(Terrain3DMaterial::WorldBackground);
 VARIANT_ENUM_CAST(Terrain3DMaterial::TextureFiltering);
 
 #endif // TERRAIN3D_MATERIAL_CLASS_H
