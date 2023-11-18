@@ -23,7 +23,6 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1./1024.
 uniform int _region_map_size = 16;
-uniform int _region_uv_limit = 8;
 uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
 uniform sampler2DArray _height_maps : repeat_disable;
@@ -65,7 +64,8 @@ varying vec3 v_vertex;	// World coordinate vertex location
 ivec3 get_region_uv(vec2 uv) {
 	uv *= _region_texel_size;
 	ivec2 pos = ivec2(floor(uv)) + (_region_map_size / 2);
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] - 1;
+	int bounds = int(pos.x>=0 && pos.x<_region_map_size && pos.y>=0 && pos.y<_region_map_size);
+	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return ivec3(ivec2((uv - _region_offsets[layer_index]) * _region_size), layer_index);
 }
 
@@ -74,7 +74,8 @@ ivec3 get_region_uv(vec2 uv) {
 // Z: layer index used for texturearrays, -1 if not in a region
 vec3 get_region_uv2(vec2 uv) {
 	ivec2 pos = ivec2(floor(uv)) + (_region_map_size / 2);
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] - 1;
+	int bounds = int(pos.x>=0 && pos.x<_region_map_size && pos.y>=0 && pos.y<_region_map_size);
+	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return vec3(uv - _region_offsets[layer_index], float(layer_index));
 }
 
@@ -83,7 +84,7 @@ vec3 get_region_uv2(vec2 uv) {
 float get_height(vec2 uv) {
 	highp float height = 0.0;
 	vec3 region = get_region_uv2(uv);
-	if (region.z >= 0. && abs(uv.x) < float(_region_uv_limit) && abs(uv.y) < float(_region_uv_limit)) {
+	if (region.z >= 0.) {
 		height = texture(_height_maps, region).r;
 	}
 //INSERT: WORLD_NOISE2
@@ -101,7 +102,7 @@ void vertex() {
 	ivec3 ruv = get_region_uv(UV);
 	uint control = texelFetch(_control_maps, ruv, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
-	if ( hole || ( !_infinite_background && ruv.z < 0 ) ) {
+	if ( hole || (!_infinite_background && ruv.z < 0) ) {
 		VERTEX.x = 0./0.;
 	} else {
 		// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
