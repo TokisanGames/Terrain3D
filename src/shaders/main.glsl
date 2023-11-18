@@ -34,6 +34,7 @@ uniform sampler2DArray _color_maps : source_color, repeat_disable;
 uniform float _texture_uv_scale_array[32];
 uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
+uniform bool _infinite_background = true;
 
 // Public uniforms
 
@@ -96,15 +97,20 @@ void vertex() {
 	// UV coordinates in world space. Values are 0 to _region_size within regions
 	UV = v_vertex.xz;
 
-	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
-	UV2 = (UV + vec2(0.5)) * _region_texel_size;
+	// Discard vertices if designated as a hole or background disabled. 1 lookup.
+	ivec3 ruv = get_region_uv(UV);
+	uint control = texelFetch(_control_maps, ruv, 0).r;
+	bool hole = bool(control >>2u & 0x1u);
+	if ( hole || ( !_infinite_background && ruv.z < 0 ) ) {
+		VERTEX.x = 0./0.;
+	} else {
+		// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
+		UV2 = (UV + vec2(0.5)) * _region_texel_size;
 
-	// Get final vertex location and save it
-	VERTEX.y = get_height(UV2);
-	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-
-	// Flatten normal to be calculated in fragment()
-	NORMAL = vec3(0, 1, 0);
+		// Get final vertex location and save it
+		VERTEX.y = get_height(UV2);
+		v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	}
 }
 
 ////////////////////////
@@ -294,7 +300,6 @@ void fragment() {
 //INSERT: DEBUG_CONTROL_TEXTURE
 //INSERT: DEBUG_CONTROL_BLEND
 //INSERT: DEBUG_AUTOSHADER
-//INSERT: DEBUG_HOLES
 //INSERT: DEBUG_NAVIGATION
 //INSERT: DEBUG_TEXTURE_HEIGHT
 //INSERT: DEBUG_TEXTURE_NORMAL

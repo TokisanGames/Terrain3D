@@ -67,10 +67,6 @@ R"(
 	float autoshader = float(control00 & 0x1u);
 	ALBEDO = vec3(autoshader);
 
-//INSERT: DEBUG_HOLES
-	float holes = float(control00 >>2u & 0x1u);
-	ALBEDO = vec3(holes);
-
 //INSERT: DEBUG_NAVIGATION
 	float navigation = float(control00 >>1u & 0x1u);
 	ALBEDO = vec3(navigation);
