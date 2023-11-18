@@ -5,6 +5,7 @@
 
 #include "logger.h"
 #include "terrain_3d_editor.h"
+#include "util.h"
 
 ///////////////////////////
 // Subclass Functions
@@ -209,15 +210,12 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
 					// Get bit field from pixel
-					uint32_t bits;
-					*(float *)&bits = src.r; // Must be a 32-bit float, no double/real_t
-					uint32_t base_id = bits >> 27 & 0x1F; // 5 bits #32-28
-					uint32_t overlay_id = bits >> 22 & 0x1F; // 5 bits #27-23
-					real_t blend = real_t(bits >> 14 & 0xFF) / 255.0f; // 8 bits #22-15
-					// Reserved 11 bits #4-14
-					uint8_t holes = bits >> 2 & 0x1; // 1 bit #3
-					uint8_t navigation = bits >> 1 & 0x1; // 1 bit #2
-					uint8_t autoshader = bits & 0x1; // 1 bit #1
+					uint32_t base_id = Util::get_base(src.r);
+					uint32_t overlay_id = Util::get_overlay(src.r);
+					real_t blend = real_t(Util::get_blend(src.r)) / 255.0f; // 8 bits #22-15
+					bool hole = Util::is_hole(src.r);
+					bool navigation = Util::is_nav(src.r);
+					bool autoshader = Util::is_auto(src.r);
 
 					real_t alpha_clip = (brush_alpha > 0.1f) ? 1.0f : 0.0f;
 					uint32_t dest_id = uint32_t(Math::lerp(base_id, texture_id, alpha_clip));
@@ -258,7 +256,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							break;
 						case HOLES:
 							if (brush_alpha > 0.1f) {
-								holes = enable;
+								hole = enable;
 							}
 							break;
 						case NAVIGATION:
@@ -270,19 +268,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							break;
 					}
 
-					// Convert back to bit field
-					base_id = (base_id & 0x1F) << 27;
-					overlay_id = (overlay_id & 0x1F) << 22;
+					// Convert back to bitfield
 					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.0f), 0.0f, 255.0f));
-					blend_int = (blend_int & 0xFF) << 14;
-					holes = (holes & 0x1) << 2;
-					navigation = (navigation & 0x1) << 1;
-					autoshader = (autoshader & 0x1);
-					bits = base_id | overlay_id | blend_int | holes | navigation | autoshader;
+					uint32_t bits = Util::enc_base(base_id) | Util::enc_overlay(overlay_id) |
+							Util::enc_blend(blend_int) | Util::enc_hole(hole) |
+							Util::enc_nav(navigation) | Util::enc_auto(autoshader);
 
-					// Write back to pixel in FORMAT_RF
-					float out_float = *(float *)&bits; // Must be a 32-bit float, no double/real_t
-					dest = Color(out_float, 0.f, 0.f, 1.0f);
+					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
+					dest = Color(*(float *)&bits, 0.f, 0.f, 1.0f);
 
 				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
 					switch (_tool) {

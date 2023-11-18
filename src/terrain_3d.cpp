@@ -300,19 +300,24 @@ void Terrain3D::_update_collision() {
 		Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size;
 		Vector3 global_pos = Vector3(global_offset.x, 0, global_offset.y);
 
-		Ref<Image> map, map_plusx, map_plusz, map_plusxz;
+		Ref<Image> map, map_x, map_z, map_xz;
+		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
 		map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
+		cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, i);
 		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0, global_pos.z));
 		if (region >= 0) {
-			map_plusx = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+			map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+			cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
 		}
 		region = _storage->get_region_index(Vector3(global_pos.x, 0, global_pos.z + region_size));
 		if (region >= 0) {
-			map_plusz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+			map_z = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+			cmap_z = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
 		}
 		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0, global_pos.z + region_size));
 		if (region >= 0) {
-			map_plusxz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+			map_xz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+			cmap_xz = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
 		}
 
 		for (int z = 0; z < shape_size; z++) {
@@ -326,22 +331,22 @@ void Terrain3D::_update_collision() {
 
 				// Set heights on local map, or adjacent maps if on the last row/col
 				if (x < region_size && z < region_size) {
-					map_data[index] = map->get_pixel(x, z).r;
+					map_data[index] = (Util::is_hole(cmap->get_pixel(x, z).r)) ? NAN : map->get_pixel(x, z).r;
 				} else if (x == region_size && z < region_size) {
-					if (map_plusx.is_valid()) {
-						map_data[index] = map_plusx->get_pixel(0, z).r;
+					if (map_x.is_valid()) {
+						map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, z).r)) ? NAN : map_x->get_pixel(0, z).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (z == region_size && x < region_size) {
-					if (map_plusz.is_valid()) {
-						map_data[index] = map_plusz->get_pixel(x, 0).r;
+					if (map_z.is_valid()) {
+						map_data[index] = (Util::is_hole(cmap_z->get_pixel(x, 0).r)) ? NAN : map_z->get_pixel(x, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (x == region_size && z == region_size) {
-					if (map_plusxz.is_valid()) {
-						map_data[index] = map_plusxz->get_pixel(0, 0).r;
+					if (map_xz.is_valid()) {
+						map_data[index] = (Util::is_hole(cmap_xz->get_pixel(0, 0).r)) ? NAN : map_xz->get_pixel(0, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
