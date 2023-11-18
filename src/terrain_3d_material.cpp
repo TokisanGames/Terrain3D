@@ -91,7 +91,7 @@ String Terrain3DMaterial::_parse_shader(String p_shader, String p_name, Array p_
 String Terrain3DMaterial::_generate_shader_code() {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
-	if (!_world_noise_enabled) {
+	if (_world_background != NOISE) {
 		excludes.push_back("WORLD_NOISE1");
 		excludes.push_back("WORLD_NOISE2");
 	}
@@ -118,9 +118,6 @@ String Terrain3DMaterial::_generate_shader_code() {
 	}
 	if (!_debug_view_autoshader) {
 		excludes.push_back("DEBUG_AUTOSHADER");
-	}
-	if (!_debug_view_holes) {
-		excludes.push_back("DEBUG_HOLES");
 	}
 	if (!_debug_view_navigation) {
 		excludes.push_back("DEBUG_NAVIGATION");
@@ -287,6 +284,7 @@ void Terrain3DMaterial::_update_shader() {
 		Util::print_dict("_shader_params", _shader_params, DEBUG);
 	}
 
+	// Fetch saved shader parameters, converting textures to RIDs
 	for (int i = 0; i < _active_params.size(); i++) {
 		StringName param = _active_params[i];
 		Variant value = _shader_params[param];
@@ -301,6 +299,9 @@ void Terrain3DMaterial::_update_shader() {
 			RS->material_set_param(_material, param, value);
 		}
 	}
+
+	// Set world background noise/flat/none
+	RS->material_set_param(_material, "_infinite_background", _world_background != NONE);
 
 	if (_active_params.has("noise_texture") && RS->material_get_param(_material, "noise_texture").get_type() == Variant::NIL) {
 		LOG(INFO, "Generating default noise_texture for shader");
@@ -431,9 +432,9 @@ Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 	return value;
 }
 
-void Terrain3DMaterial::set_world_noise_enabled(bool p_enabled) {
-	LOG(INFO, "Enable world noise: ", p_enabled);
-	_world_noise_enabled = p_enabled;
+void Terrain3DMaterial::set_world_background(WorldBackground p_background) {
+	LOG(INFO, "Enable world background: ", p_background);
+	_world_background = p_background;
 	_update_shader();
 }
 
@@ -482,12 +483,6 @@ void Terrain3DMaterial::set_show_control_blend(bool p_enabled) {
 void Terrain3DMaterial::set_show_autoshader(bool p_enabled) {
 	LOG(INFO, "Enable show_autoshader: ", p_enabled);
 	_debug_view_autoshader = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_holes(bool p_enabled) {
-	LOG(INFO, "Enable show_holes: ", p_enabled);
-	_debug_view_holes = p_enabled;
 	_update_shader();
 }
 
@@ -656,6 +651,10 @@ bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) cons
 }
 
 void Terrain3DMaterial::_bind_methods() {
+	BIND_ENUM_CONSTANT(NONE);
+	BIND_ENUM_CONSTANT(FLAT);
+	BIND_ENUM_CONSTANT(NOISE);
+
 	// Private, but Public workaround until callable_mp is implemented
 	// https://github.com/godotengine/godot-cpp/pull/1155
 	ClassDB::bind_method(D_METHOD("_update_regions", "args"), &Terrain3DMaterial::_update_regions);
@@ -681,8 +680,8 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
-	ClassDB::bind_method(D_METHOD("set_world_noise_enabled", "enabled"), &Terrain3DMaterial::set_world_noise_enabled);
-	ClassDB::bind_method(D_METHOD("get_world_noise_enabled"), &Terrain3DMaterial::get_world_noise_enabled);
+	ClassDB::bind_method(D_METHOD("set_world_background", "background"), &Terrain3DMaterial::set_world_background);
+	ClassDB::bind_method(D_METHOD("get_world_background"), &Terrain3DMaterial::get_world_background);
 
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DMaterial::get_show_checkered);
@@ -700,8 +699,6 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3DMaterial::get_show_control_blend);
 	ClassDB::bind_method(D_METHOD("set_show_autoshader", "enabled"), &Terrain3DMaterial::set_show_autoshader);
 	ClassDB::bind_method(D_METHOD("get_show_autoshader"), &Terrain3DMaterial::get_show_autoshader);
-	ClassDB::bind_method(D_METHOD("set_show_holes", "enabled"), &Terrain3DMaterial::set_show_holes);
-	ClassDB::bind_method(D_METHOD("get_show_holes"), &Terrain3DMaterial::get_show_holes);
 	ClassDB::bind_method(D_METHOD("set_show_navigation", "enabled"), &Terrain3DMaterial::set_show_navigation);
 	ClassDB::bind_method(D_METHOD("get_show_navigation"), &Terrain3DMaterial::get_show_navigation);
 	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3DMaterial::set_show_texture_height);
@@ -713,7 +710,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DMaterial::set_show_vertex_grid);
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
 
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "world_noise_enabled", PROPERTY_HINT_NONE), "set_world_noise_enabled", "get_world_noise_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
@@ -726,7 +723,6 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture", PROPERTY_HINT_NONE), "set_show_control_texture", "get_show_control_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend", PROPERTY_HINT_NONE), "set_show_control_blend", "get_show_control_blend");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader", PROPERTY_HINT_NONE), "set_show_autoshader", "get_show_autoshader");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_holes", PROPERTY_HINT_NONE), "set_show_holes", "get_show_holes");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation", PROPERTY_HINT_NONE), "set_show_navigation", "get_show_navigation");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE), "set_show_texture_normal", "get_show_texture_normal");
