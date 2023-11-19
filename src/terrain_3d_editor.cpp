@@ -126,7 +126,9 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	for (int x = 0; x < brush_size; x++) {
 		for (int y = 0; y < brush_size; y++) {
 			Vector2i brush_offset = Vector2i(x, y) - (Vector2i(brush_size, brush_size) / 2);
-			Vector3 brush_global_position = Vector3(p_global_position.x + real_t(brush_offset.x), p_global_position.y, p_global_position.z + real_t(brush_offset.y));
+			Vector3 brush_global_position = Vector3(0.5f, 0.f, 0.5f) +
+					Vector3(p_global_position.x + real_t(brush_offset.x), p_global_position.y,
+							p_global_position.z + real_t(brush_offset.y));
 
 			// If we're brushing across a region boundary, possibly add a region, and get the other map
 			int new_region_index = storage->get_region_index(brush_global_position);
