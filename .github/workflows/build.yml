@@ -92,7 +92,7 @@ jobs:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
         with:
             attempt_limit: 3
-            attempt_delay: 500
+            attempt_delay: 1000
             command: |
               scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
@@ -114,7 +114,7 @@ jobs:
         with:
             action: actions/upload-artifact@v3
             attempt_limit: 3
-            attempt_delay: 500
+            attempt_delay: 1000
             with: |
               name: ${{ github.event.repository.name }}
               path: ${{ github.workspace }}/project/
