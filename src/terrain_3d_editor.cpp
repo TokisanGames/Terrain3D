@@ -263,9 +263,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
 							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
 							 * We round the final amount in tool_settings.gd:_on_picked().
-							 * Tip: One can round to 2 decimal places like so: 0.01*round(100.0*a)
 							 */
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * .01f) * roughness, brush_alpha * opacity);
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f) + real_t(.5f * .01f) * roughness, brush_alpha * opacity);
 							break;
 						default:
 							break;
