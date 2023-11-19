@@ -22,9 +22,10 @@ jobs:
 
     steps:
       - name: Checkout Terrain3D
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
+          lfs: true
 
       - name: Setup Android Dependencies
         if: startsWith(matrix.identifier, 'android-')

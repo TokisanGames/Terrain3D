@@ -1,6 +1,10 @@
 name: 🛠️ Build All
 on: [push, workflow_dispatch]
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   build:
     name: ${{ matrix.name }}
@@ -10,47 +14,54 @@ jobs:
       matrix:
         include:
           - identifier: linux-debug
-            name: Linux Debug
+            name: 🐧 Linux Debug
             runner: ubuntu-20.04
             target: template_debug
             platform: linux
             arch: x86_64
+
           - identifier: linux-release
-            name: Linux Release
+            name: 🐧 Linux Release
             runner: ubuntu-20.04
             target: template_release
             platform: linux
             arch: x86_64
+
           - identifier: windows-debug
-            name: Windows Debug
+            name: 🪟 Windows Debug
             runner: ubuntu-20.04
             target: template_debug
             platform: windows
             arch: x86_64
+
           - identifier: windows-release
-            name: Windows Release
+            name: 🪟 Windows Release
             runner: ubuntu-20.04
             target: template_release
             platform: windows
             arch: x86_64
+
           - identifier: macos-debug
-            name: macOS Debug
+            name: 🍎 macOS Debug
             runner: macos-latest
             target: template_debug
             platform: macos
+
           - identifier: macos-release
-            name: macOS Release
+            name: 🍎 macOS Release
             runner: macos-latest
             target: template_release
             platform: macos
+
           - identifier: android-debug
-            name: Android Debug
+            name: 🤖 Android Debug
             runner: ubuntu-20.04
             target: template_debug
             platform: android
             arch: arm64
+
           - identifier: android-release
-            name: Android Release
+            name: 🤖 Android Release
             runner: ubuntu-20.04
             target: template_release
             platform: android
@@ -58,17 +69,21 @@ jobs:
 
     steps:
       - name: Checkout Terrain3D
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
+          lfs: true
 
       - name: Setup Windows Dependencies
         if: startsWith(matrix.identifier, 'windows-')
         uses: ./.github/actions/windows-deps
-
-      - name: Setup Android Dependencies
+        
+      - name: Setup Android dependencies
         if: startsWith(matrix.identifier, 'android-')
-        uses: ./.github/actions/android-deps
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r23c
+          link-to-sdk: true
 
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
@@ -80,12 +95,11 @@ jobs:
         continue-on-error: true
 
       - name: Build Terrain3D
-        shell: sh
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-            SCONS_CACHE_LIMIT: 7168
+        shell: sh
         run: |
-          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+            scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
       - name: Strip Libraries (Windows/Linux)
         if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')
@@ -101,8 +115,11 @@ jobs:
           cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload Package
-        uses: actions/upload-artifact@v3
+        uses: Wandalen/wretry.action@master
         with:
-          name: ${{ github.event.repository.name }}
-          path: |
-            ${{ github.workspace }}/project/
+            action: actions/upload-artifact@v3
+            attempt_limit: 3
+            attempt_delay: 1000
+            with: |
+              name: ${{ github.event.repository.name }}
+              path: ${{ github.workspace }}/project/
