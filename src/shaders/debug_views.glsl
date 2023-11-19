@@ -91,9 +91,8 @@ R"(
 
 //INSERT: DEBUG_VERTEX_GRID
 	// Show region and vertex grids
-	vec3 _camera_pos = INV_VIEW_MATRIX[3].xyz;
 	vec3 _pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
-	float _camera_dist = length(_camera_pos - _pixel_pos);
+	float _camera_dist = length(v_camera_pos - _pixel_pos);
 	float _region_line = 0.5;		// Region line thickness
 	float _grid_line = 0.05;		// Vertex grid line thickness
 	float _grid_step = 1.0;			// Vertex grid size, 1.0 == integer units
