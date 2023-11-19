@@ -11,7 +11,7 @@ script = ExtResource("1_h7vyv")
 [node name="World" parent="." instance=ExtResource("3_71ikj")]
 
 [node name="Player" parent="." instance=ExtResource("2_3v2uf")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 500, 1000, 500)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 0)
 
 [node name="UI" parent="." instance=ExtResource("4_x5ge4")]
 
