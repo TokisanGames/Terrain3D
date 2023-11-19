@@ -87,11 +87,14 @@ jobs:
         continue-on-error: true
 
       - name: Build Terrain3D
-        shell: sh
+        uses: Wandalen/wretry.action@master
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-        run: |
-          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+        with:
+            attempt_limit: 3
+            attempt_delay: 5
+            command: |
+              scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
       - name: Strip Libraries (Windows/Linux)
         if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')
