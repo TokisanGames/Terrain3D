@@ -139,8 +139,22 @@
     <None Include=".gitignore">
       <Filter>1. Project Files</Filter>
     </None>
+    <None Include="AUTHORS.md">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="CONTRIBUTING.md">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="README.md">
+      <Filter>1. Project Files</Filter>
+    </None>
     <None Include="SConstruct">
       <Filter>1. Project Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="LICENSE.txt">
+      <Filter>1. Project Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

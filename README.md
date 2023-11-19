@@ -1,7 +1,7 @@
 <img src="https://outobugi.com/images/terrain3d.png">
 
 # Terrain3D
-A high performance, editable terrain system for Godot 4, written in C++.
+A high performance, editable terrain system for Godot 4.
 
 ## Features
 * Written in C++ as a GDExtension plugin, which works with official engine builds
@@ -10,7 +10,7 @@ A high performance, editable terrain system for Godot 4, written in C++.
 * Up to 16k x 16k in 1k regions (imagine multiple islands without paying for 16k^2 vram)
 * Up to 10 Levels of Detail (LODs)
 * Up to 32 texture sets using albedo, normal, roughness, height
-* Sculpting, texture painting, texture detiling, painting colors and wetness, undo/redo
+* Sculpting, holes, texture painting, texture detiling, painting colors and wetness
 * Supports importing heightmaps from [HTerrain](https://github.com/Zylann/godot_heightmap_plugin/), WorldMachine, Unity, Unreal and any tool that can export a heightmap (raw/r16/exr/+). See [importing](https://github.com/TokisanGames/Terrain3D/wiki/Importing-&-Exporting-Data)  
 
 See the [Wiki](https://github.com/TokisanGames/Terrain3D/wiki) for project status, design, and usage.

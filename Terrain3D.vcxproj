@@ -177,11 +177,18 @@
     <None Include=".github\workflows\macos.yml" />
     <None Include=".github\workflows\windows.yml" />
     <None Include=".gitignore" />
+    <None Include="AUTHORS.md" />
+    <None Include="CONTRIBUTING.md" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />
+    <None Include="README.md" />
+    <None Include="SConstruct" />
     <None Include="src\shaders\debug_views.glsl" />
     <None Include="src\shaders\main.glsl" />
     <None Include="src\shaders\world_noise.glsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="LICENSE.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
