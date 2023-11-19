@@ -92,7 +92,7 @@ jobs:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
         with:
             attempt_limit: 3
-            attempt_delay: 5
+            attempt_delay: 500
             command: |
               scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
@@ -109,5 +109,12 @@ jobs:
         run: |
           cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
-      - name: Upload Artifact
-        uses: ./.github/actions/upload-artifact
+      - name: Upload Package
+        uses: Wandalen/wretry.action@master
+        with:
+            action: actions/upload-artifact@v3
+            attempt_limit: 3
+            attempt_delay: 500
+            with: |
+              name: ${{ github.event.repository.name }}
+              path: ${{ github.workspace }}/project/
