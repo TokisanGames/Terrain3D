@@ -7,9 +7,6 @@ func _ready():
 	if has_node("RunThisSceneLabel3D"):
 		$RunThisSceneLabel3D.queue_free()
 	
-	if has_node("Player"):
-		$Player.gravity_enabled = false
-
 	# Create a terrain
 	var terrain := Terrain3D.new()
 	terrain.set_collision_enabled(false)
@@ -17,19 +14,16 @@ func _ready():
 	terrain.texture_list = Terrain3DTextureList.new()
 	terrain.name = "Terrain3D"
 	add_child(terrain, true)
-	terrain.material.world_noise_enabled = true
+	terrain.material.world_background = Terrain3DMaterial.NONE
 	
-	# Create blank regions
-	terrain.storage.add_region(Vector3(1024, 0, 0))
-	terrain.storage.add_region(Vector3(2048, 0, 0))
-	terrain.storage.add_region(Vector3(1024, 0, 1024))
-	terrain.storage.add_region(Vector3(2048, 0, 1024))
-	
-	# Generate 8-bit noise (looks terrible) and import it with scale
+	# Generate 32-bit noise and import it with scale
 	var noise := FastNoiseLite.new()
-	noise.frequency = 0.001
-	var img: Image = noise.get_image(1024, 3072)
-	terrain.storage.import_images([img, null, null], Vector3(0, 0, 0), 0.0, 300.0)
+	noise.frequency = 0.0005
+	var img: Image = Image.create(2048, 2048, false, Image.FORMAT_RF)
+	for x in 2048:
+		for y in 2048:
+			img.set_pixel(x, y, Color(noise.get_noise_2d(x, y), 0., 0., 1.))
+	terrain.storage.import_images([img, null, null], Vector3(-1024, 0, -1024), 0.0, 300.0)
 
 	# Enable collision. Enable the first if you wish to see it with Debug/Visible Collision Shapes
 #	terrain.set_show_debug_collision(true)
