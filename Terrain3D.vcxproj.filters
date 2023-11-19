@@ -100,10 +100,10 @@
     <None Include=".github\actions\build-cache\action.yml">
       <Filter>1. Project Files</Filter>
     </None>
-    <None Include=".github\actions\base-deps\action.yml">
+    <None Include=".github\actions\upload-artifact\action.yml">
       <Filter>1. Project Files</Filter>
     </None>
-    <None Include=".github\actions\android-deps\action.yml">
+    <None Include=".github\actions\base-deps\action.yml">
       <Filter>1. Project Files</Filter>
     </None>
     <None Include=".github\workflows\android.yml">
@@ -145,16 +145,14 @@
     <None Include="CONTRIBUTING.md">
       <Filter>1. Project Files</Filter>
     </None>
+    <None Include="LICENSE.txt">
+      <Filter>1. Project Files</Filter>
+    </None>
     <None Include="README.md">
       <Filter>1. Project Files</Filter>
     </None>
     <None Include="SConstruct">
       <Filter>1. Project Files</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="LICENSE.txt">
-      <Filter>1. Project Files</Filter>
-    </Text>
   </ItemGroup>
 </Project>

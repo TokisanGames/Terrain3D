@@ -22,12 +22,9 @@ jobs:
 
     steps:
       - name: Checkout Terrain3D
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Setup Android Dependencies
-        uses: ./.github/actions/android-deps
 
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
@@ -42,7 +39,6 @@ jobs:
         shell: sh
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-            SCONS_CACHE_LIMIT: 7168
         run: |
           scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
