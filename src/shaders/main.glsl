@@ -53,6 +53,8 @@ struct Material {
 };
 
 varying vec3 v_vertex;	// World coordinate vertex location
+varying vec3 v_camera_pos;
+varying float v_xz_dist;
 
 ////////////////////////
 // Vertex
