@@ -87,12 +87,11 @@ jobs:
         continue-on-error: true
 
       - name: Build Terrain3D
-        uses: Wandalen/wretry.action@master
+        uses: nick-fields/retry@v2
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
         with:
-            attempt_limit: 3
-            attempt_delay: 1000
+            max_attempts: 3
             command: |
               scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
