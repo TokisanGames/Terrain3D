@@ -331,22 +331,22 @@ void Terrain3D::_update_collision() {
 
 				// Set heights on local map, or adjacent maps if on the last row/col
 				if (x < region_size && z < region_size) {
-					map_data[index] = (Util::is_hole(cmap->get_pixel(x, z).r)) ? NAN : map->get_pixel(x, z).r;
+					map_data[index] = (Util::is_hole(cmap->get_pixel(x, z).r)) ? __FLT_MAX__ : map->get_pixel(x, z).r;
 				} else if (x == region_size && z < region_size) {
 					if (map_x.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, z).r)) ? NAN : map_x->get_pixel(0, z).r;
+						map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, z).r)) ? __FLT_MAX__ : map_x->get_pixel(0, z).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (z == region_size && x < region_size) {
 					if (map_z.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_z->get_pixel(x, 0).r)) ? NAN : map_z->get_pixel(x, 0).r;
+						map_data[index] = (Util::is_hole(cmap_z->get_pixel(x, 0).r)) ? __FLT_MAX__ : map_z->get_pixel(x, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (x == region_size && z == region_size) {
 					if (map_xz.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_xz->get_pixel(0, 0).r)) ? NAN : map_xz->get_pixel(0, 0).r;
+						map_data[index] = (Util::is_hole(cmap_xz->get_pixel(0, 0).r)) ? __FLT_MAX__ : map_xz->get_pixel(0, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
