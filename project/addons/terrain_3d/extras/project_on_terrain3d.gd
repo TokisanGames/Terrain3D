@@ -2,6 +2,7 @@
 # It allows Scatter to detect the terrain height from Terrain3D
 # Copy this file into /addons/proton_scatter/src/modifiers
 # Then uncomment everything below
+# In the editor, add this modifier, then set your Terrain3D node
 
 #@tool
 #extends "base_modifier.gd"
@@ -11,6 +12,7 @@
 #
 #
 #@export var terrain_node : NodePath
+#@export var align_with_collision_normal := false
 #
 #var _terrain: Terrain3D
 #
@@ -30,6 +32,16 @@
 #
 #		This modifier must have terrain_node set to a Terrain3D node.")
 #
+#	var p := documentation.add_parameter("Terrain Node")
+#	p.set_type("NodePath")
+#	p.set_description("Set your Terrain3D node.")
+#
+#	p = documentation.add_parameter("Align with collision normal")
+#	p.set_type("bool")
+#	p.set_description(
+#		"Rotate the transform to align it with the collision normal in case
+#		the ray cast hit a collider.")
+#
 #
 #func _process_transforms(transforms, domain, _seed) -> void:
 #	if transforms.is_empty():
@@ -46,10 +58,20 @@
 #		warning += """Terrain3D storage is not initialized"""
 #		return
 #
-#	var domain_xform: Transform3D = domain.get_global_transform()
+#	# Get global transform
+#	var gt: Transform3D = domain.get_global_transform()
+#	var gt_inverse := gt.affine_inverse()
 #	for i in transforms.list.size():
-#		var height: float = _terrain.storage.get_height(( domain_xform * transforms.list[i]).origin)
-#		transforms.list[i].origin.y = height - domain_xform.origin.y
+#		var location: Vector3 = (gt * transforms.list[i]).origin
+#		var height: float = _terrain.storage.get_height(location)
+#		var normal: Vector3 = _terrain.storage.get_normal(location)
+#
+#		if align_with_collision_normal:
+#			transforms.list[i].basis.y = normal
+#			transforms.list[i].basis.x = -transforms.list[i].basis.z.cross(normal)
+#			transforms.list[i].basis = transforms.list[i].basis.orthonormalized()
+#
+#		transforms.list[i].origin.y = height - gt.origin.y
 #
 #	if transforms.is_empty():
 #		warning += """Every point has been removed. Possible reasons include: \n
@@ -59,3 +81,4 @@
 #		+ Collision mask is not set properly.
 #		+ Max slope is too low.
 #		"""
+
