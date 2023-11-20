@@ -87,14 +87,7 @@ jobs:
         continue-on-error: true
 
       - name: Build Terrain3D
-        uses: nick-fields/retry@v2
-        env:
-            SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-        with:
-            max_attempts: 3
-            timeout_minutes: 40
-            command: |
-              scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+        uses: ./.github/actions/run-scons
 
       - name: Strip Libraries (Windows/Linux)
         if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')

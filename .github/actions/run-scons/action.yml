@@ -1,0 +1,33 @@
+name: Build Terrain3D
+description: Uploads built package
+runs:
+  using: "composite"
+  steps:
+    - name: Run Scons, 1st attempt
+      id: scons1
+      continue-on-error: true
+      env:
+        SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+      shell: sh
+      run: |
+        scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+
+    - name: Run Scons, 2nd attempt
+      id: scons2
+      if: failure()
+      continue-on-error: true
+      env:
+        SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+      shell: sh
+      run: |
+        scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+
+    - name: Run Scons, 3rd attempt
+      id: scons3
+      if: failure()
+      env:
+        SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+      shell: sh
+      run: |
+        scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+
