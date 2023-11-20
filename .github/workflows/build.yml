@@ -92,6 +92,7 @@ jobs:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
         with:
             max_attempts: 3
+            timeout_minutes: 40
             command: |
               scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
