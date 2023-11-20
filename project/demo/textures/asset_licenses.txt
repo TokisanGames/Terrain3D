@@ -1,6 +1,6 @@
 All ambientCG assets are provided under the
 Creative Commons CC0 1.0 Universal License.
-https://docs.ambientcg.com/books/website-licensing/page/license-information
+https://docs.ambientcg.com/license/
 
 Grass:
 https://ambientcg.com/view?id=Ground037
