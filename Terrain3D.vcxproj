@@ -169,6 +169,7 @@
   <ItemGroup>
     <None Include=".github\actions\base-deps\action.yml" />
     <None Include=".github\actions\build-cache\action.yml" />
+    <None Include=".github\actions\run-scons\action.yml" />
     <None Include=".github\actions\windows-deps\action.yml" />
     <None Include=".github\workflows\android.yml" />
     <None Include=".github\workflows\build.yml" />
