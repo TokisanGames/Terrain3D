@@ -74,6 +74,7 @@ void Terrain3D::_initialize() {
 		_build_collision();
 		_initialized = true;
 	}
+	update_configuration_warnings();
 }
 
 void Terrain3D::__ready() {
@@ -833,6 +834,22 @@ Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filte
 	st->optimize_indices_for_cache();
 	result = st->commit();
 	return result;
+}
+
+PackedStringArray Terrain3D::_get_configuration_warnings() const {
+	PackedStringArray psa;
+	if (_storage.is_valid()) {
+		String ext = _storage->get_path().get_extension();
+		if (ext.is_empty()) {
+			psa.push_back("Storage resource is saved in the scene. Click the arrow to the right of Storage, Save as a .res file.");
+		} else if (ext != "res") {
+			psa.push_back("Storage resource is saved as a ." + ext + ". Click the arrow to the right of Storage, Make Unique, then Save as a .res file.");
+		}
+	}
+	if (!psa.is_empty()) {
+		psa.push_back("Deselect Terrain3D and reselect in the Scene Tree to update this message.");
+	}
+	return psa;
 }
 
 ///////////////////////////
