@@ -34,6 +34,7 @@ uniform float _texture_uv_scale_array[32];
 uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
 uniform bool _infinite_background = true;
+uniform bool _show_navigation = true;
 
 // Public uniforms
 
@@ -288,12 +289,16 @@ void fragment() {
 	}
 
 	// Apply PBR
-
 	ALBEDO = albedo_height.rgb * color_map.rgb;
 	// Rougness + (rough_modifier-.5)*2 // Calc converts (0 to 1) to (-1 to 1)
 	ROUGHNESS = clamp(fma(color_map.a-0.5, 2.0, normal_rough.a), 0., 1.);
 	NORMAL_MAP = normal_rough.rgb;
 	NORMAL_MAP_DEPTH = 1.0;
+
+	// Editor functions
+	if(_show_navigation && bool(control00 >>1u & 0x1u)) {
+		ALBEDO *= vec3(.5, .0, .85);
+	}
 
 //INSERT: DEBUG_CHECKERED
 //INSERT: DEBUG_GREY
@@ -303,7 +308,6 @@ void fragment() {
 //INSERT: DEBUG_CONTROL_TEXTURE
 //INSERT: DEBUG_CONTROL_BLEND
 //INSERT: DEBUG_AUTOSHADER
-//INSERT: DEBUG_NAVIGATION
 //INSERT: DEBUG_TEXTURE_HEIGHT
 //INSERT: DEBUG_TEXTURE_NORMAL
 //INSERT: DEBUG_TEXTURE_ROUGHNESS
