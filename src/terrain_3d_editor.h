@@ -134,7 +134,7 @@ public:
 	inline Terrain3D *get_terrain() const { return _terrain; }
 
 	void set_brush_data(Dictionary data);
-	void set_tool(Tool p_tool) { _tool = p_tool; }
+	void set_tool(Tool p_tool);
 	Tool get_tool() const { return _tool; }
 	void set_operation(Operation p_operation) { _operation = p_operation; }
 	Operation get_operation() const { return _operation; }

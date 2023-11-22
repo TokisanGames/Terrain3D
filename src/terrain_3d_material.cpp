@@ -129,9 +129,6 @@ String Terrain3DMaterial::_generate_shader_code() {
 	if (!_debug_view_autoshader) {
 		excludes.push_back("DEBUG_AUTOSHADER");
 	}
-	if (!_debug_view_navigation) {
-		excludes.push_back("DEBUG_NAVIGATION");
-	}
 	if (!_debug_view_tex_height) {
 		excludes.push_back("DEBUG_TEXTURE_HEIGHT");
 	}
@@ -309,9 +306,11 @@ void Terrain3DMaterial::_update_shader() {
 		}
 	}
 
-	// Set world background noise/flat/none
+	// Set specific shader parameters
 	RS->material_set_param(_material, "_infinite_background", _world_background != NONE);
+	RS->material_set_param(_material, "_show_navigation", _show_navigation);
 
+	// If no noise texture, generate one
 	if (_active_params.has("noise_texture") && RS->material_get_param(_material, "noise_texture").get_type() == Variant::NIL) {
 		LOG(INFO, "Generating default noise_texture for shader");
 		Ref<FastNoiseLite> fnoise;
@@ -503,7 +502,7 @@ void Terrain3DMaterial::set_show_autoshader(bool p_enabled) {
 
 void Terrain3DMaterial::set_show_navigation(bool p_enabled) {
 	LOG(INFO, "Enable show_navigation: ", p_enabled);
-	_debug_view_navigation = p_enabled;
+	_show_navigation = p_enabled;
 	_update_shader();
 }
 

@@ -67,10 +67,6 @@ R"(
 	float autoshader = float(control00 & 0x1u);
 	ALBEDO = vec3(autoshader);
 
-//INSERT: DEBUG_NAVIGATION
-	float navigation = float(control00 >>1u & 0x1u);
-	ALBEDO = vec3(navigation);
-
 //INSERT: DEBUG_TEXTURE_HEIGHT
 	// Show height textures
 	ALBEDO = vec3(albedo_height.a);

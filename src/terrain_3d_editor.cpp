@@ -421,6 +421,11 @@ void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 	_brush.set_data(p_data);
 }
 
+void Terrain3DEditor::set_tool(Tool p_tool) {
+	_tool = p_tool;
+	_terrain->get_material()->set_show_navigation(_tool == NAVIGATION);
+}
+
 // Called on mouse click
 void Terrain3DEditor::start_operation(Vector3 p_global_position) {
 	_setup_undo();
