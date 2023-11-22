@@ -21,7 +21,6 @@ Read through our [documentation](https://terrain3d.readthedocs.io/en/latest/inde
 
 For support, read [Getting Help](https://terrain3d.readthedocs.io/en/latest/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
 
-
 ## Credit
 Developed for the Godot community by:
 

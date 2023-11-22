@@ -653,8 +653,9 @@ void Terrain3DStorage::save() {
 			_modified = false;
 		}
 		LOG(INFO, "Finished saving terrain data");
-	} else {
-		LOG(WARN, "Storage resource saved in the scene file. Save it as an external, binary .res file");
+	}
+	if (path.get_extension() != "res") {
+		LOG(WARN, "Storage resource is not saved as an external, binary .res file");
 	}
 }
 
