@@ -39,6 +39,7 @@ private:
 
 	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
+	bool _show_navigation = false;
 
 	// Built in alternate shaders
 	bool _debug_view_checkered = false;
@@ -50,7 +51,6 @@ private:
 	bool _debug_view_control_blend = false;
 	bool _debug_view_autoshader = false;
 	bool _debug_view_holes = false;
-	bool _debug_view_navigation = false;
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
@@ -117,7 +117,7 @@ public:
 	void set_show_autoshader(bool p_enabled);
 	bool get_show_autoshader() const { return _debug_view_autoshader; }
 	void set_show_navigation(bool p_enabled);
-	bool get_show_navigation() const { return _debug_view_navigation; }
+	bool get_show_navigation() const { return _show_navigation; }
 	void set_show_texture_height(bool p_enabled);
 	bool get_show_texture_height() const { return _debug_view_tex_height; }
 	void set_show_texture_normal(bool p_enabled);
