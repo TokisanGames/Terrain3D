@@ -478,6 +478,82 @@ void Terrain3D::_update_instances() {
 	}
 }
 
+void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool p_require_nav, AABB const &p_global_aabb) const {
+	ERR_FAIL_COND(!_storage.is_valid());
+	int32_t step = 1 << CLAMP(p_lod, 0, 8);
+
+	if (!p_global_aabb.has_volume()) {
+		int32_t region_size = (int)_storage->get_region_size();
+
+		TypedArray<Vector2i> region_offsets = _storage->get_region_offsets();
+		for (int r = 0; r < region_offsets.size(); ++r) {
+			Vector2i region_offset = (Vector2i)region_offsets[r] * region_size;
+
+			for (int32_t z = region_offset.y; z < region_offset.y + region_size; z += step) {
+				for (int32_t x = region_offset.x; x < region_offset.x + region_size; x += step) {
+					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
+				}
+			}
+		}
+	} else {
+		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z);
+		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z) + 1;
+		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x);
+		int32_t x_end = (int32_t)Math::floor(p_global_aabb.get_end().x) + 1;
+
+		for (int32_t z = z_start; z < z_end; ++z) {
+			for (int32_t x = x_start; x < x_end; ++x) {
+				real_t height = _storage->get_height(Vector3(x, 0.0, z));
+				if (height >= p_global_aabb.position.y && height <= p_global_aabb.get_end().y) {
+					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
+				}
+			}
+		}
+	}
+}
+
+void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool p_require_nav, int32_t x, int32_t z) const {
+	int32_t step = 1 << CLAMP(p_lod, 0, 8);
+
+	uint32_t control1 = _storage->get_control(Vector3(x, 0.0, z));
+	uint32_t control2 = _storage->get_control(Vector3(x + step, 0.0, z + step));
+	uint32_t control3 = _storage->get_control(Vector3(x, 0.0, z + step));
+	if (!Util::is_hole(control1) && !Util::is_hole(control2) && !Util::is_hole(control3)) {
+		if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
+			Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
+			Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
+			Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step));
+			p_vertices.push_back(v1);
+			p_vertices.push_back(v2);
+			p_vertices.push_back(v3);
+			if (p_uvs != nullptr) {
+				p_uvs->push_back(Vector2(v1.x, v1.z));
+				p_uvs->push_back(Vector2(v2.x, v2.z));
+				p_uvs->push_back(Vector2(v3.x, v3.z));
+			}
+		}
+	}
+
+	control1 = _storage->get_control(Vector3(x, 0.0, z));
+	control2 = _storage->get_control(Vector3(x + step, 0.0, z));
+	control3 = _storage->get_control(Vector3(x + step, 0.0, z + step));
+	if (!Util::is_hole(control1) && !Util::is_hole(control2) && !Util::is_hole(control3)) {
+		if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
+			Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
+			Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z));
+			Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
+			p_vertices.push_back(v1);
+			p_vertices.push_back(v2);
+			p_vertices.push_back(v3);
+			if (p_uvs != nullptr) {
+				p_uvs->push_back(Vector2(v1.x, v1.z));
+				p_uvs->push_back(Vector2(v2.x, v2.z));
+				p_uvs->push_back(Vector2(v3.x, v3.z));
+			}
+		}
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -797,50 +873,18 @@ Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filte
 	Ref<Mesh> result;
 	ERR_FAIL_COND_V(!_storage.is_valid(), result);
 
-	int32_t region_size = (int)_storage->get_region_size();
-	int32_t step = 1 << CLAMP(p_lod, 0, 8);
-
 	Ref<SurfaceTool> st;
 	st.instantiate();
 	st->begin(Mesh::PRIMITIVE_TRIANGLES);
 
-	TypedArray<Vector2i> region_offsets = _storage->get_region_offsets();
-	for (int r = 0; r < region_offsets.size(); ++r) {
-		Vector2i region_offset = (Vector2i)region_offsets[r] * region_size;
-
-		for (int32_t z = region_offset.y; z < region_offset.y + region_size; z += step) {
-			for (int32_t x = region_offset.x; x < region_offset.x + region_size; x += step) {
-				float control1 = _storage->get_control(Vector3(x, 0.0, z)).r;
-				float control2 = _storage->get_control(Vector3(x + step, 0.0, z + step)).r;
-				float control3 = _storage->get_control(Vector3(x, 0.0, z + step)).r;
-				if (!Util::is_hole(control1) && !Util::is_hole(control2) && !Util::is_hole(control3)) {
-					Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
-					Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
-					Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step));
-					st->set_uv(Vector2(v1.x, v1.z));
-					st->add_vertex(v1);
-					st->set_uv(Vector2(v2.x, v2.z));
-					st->add_vertex(v2);
-					st->set_uv(Vector2(v3.x, v3.z));
-					st->add_vertex(v3);
-				}
-
-				control1 = _storage->get_control(Vector3(x, 0.0, z)).r;
-				control2 = _storage->get_control(Vector3(x + step, 0.0, z)).r;
-				control3 = _storage->get_control(Vector3(x + step, 0.0, z + step)).r;
-				if (!Util::is_hole(control1) && !Util::is_hole(control2) && !Util::is_hole(control3)) {
-					Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
-					Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z));
-					Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
-					st->set_uv(Vector2(v1.x, v1.z));
-					st->add_vertex(v1);
-					st->set_uv(Vector2(v2.x, v2.z));
-					st->add_vertex(v2);
-					st->set_uv(Vector2(v3.x, v3.z));
-					st->add_vertex(v3);
-				}
-			}
-		}
+	PackedVector3Array vertices;
+	PackedVector2Array uvs;
+	_generate_triangles(vertices, &uvs, p_lod, p_filter, false, AABB());
+	
+	ERR_FAIL_COND_V(vertices.size() != uvs.size(), result);
+	for (int i = 0; i < vertices.size(); ++i) {
+		st->set_uv(uvs[i]);
+		st->add_vertex(vertices[i]);
 	}
 
 	st->index();
@@ -849,6 +893,22 @@ Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filte
 	st->optimize_indices_for_cache();
 	result = st->commit();
 	return result;
+}
+
+/**
+ * Generates source geometry faces for input to nav mesh baking. Geometry is only generated where there
+ * are no holes and the terrain has been painted as navigable.
+ * p_global_aabb: If non-empty, geometry will be generated only within this AABB. If empty, geometry
+ *  will be generated for the entire terrain.
+ * p_require_nav: If true, this function will only generate geometry for terrain marked navigable.
+ *  Otherwise, geometry is generated for the entire terrain within the AABB (which can be useful for
+ *  dynamic and/or runtime nav mesh baking).
+ */
+PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav) const {
+	LOG(INFO, "Generating NavMesh source geometry from terrain");
+	PackedVector3Array faces;
+	_generate_triangles(faces, nullptr, 0, Terrain3DStorage::HEIGHT_FILTER_NEAREST, p_require_nav, p_global_aabb);
+	return faces;
 }
 
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
@@ -1001,6 +1061,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_aabbs"), &Terrain3D::update_aabbs);
 	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
+	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
