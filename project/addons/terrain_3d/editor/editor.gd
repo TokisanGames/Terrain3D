@@ -9,12 +9,14 @@ const RegionGizmo: Script = preload("res://addons/terrain_3d/editor/components/r
 const TextureDock: Script = preload("res://addons/terrain_3d/editor/components/texture_dock.gd")
 
 var terrain: Terrain3D
+var nav_region: NavigationRegion3D
 
 var editor: Terrain3DEditor
 var ui: Node # Terrain3DUI see Godot #75388
 var texture_dock: TextureDock
 var texture_dock_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
 
+var visible: bool
 var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
@@ -46,7 +48,7 @@ func _exit_tree() -> void:
 
 	
 func _handles(object: Object) -> bool:
-	return object is Terrain3D
+	return object is Terrain3D or object is NavigationRegion3D
 
 
 func _edit(object: Object) -> void:
@@ -68,14 +70,28 @@ func _edit(object: Object) -> void:
 		if not terrain.storage_changed.is_connected(_load_storage):
 			terrain.storage_changed.connect(_load_storage)
 		_load_storage()
+	else:
+		terrain = null
+	
+	if object is NavigationRegion3D:
+		nav_region = object
+	else:
+		nav_region = null
+	
+	_update_visibility()
 
 		
 func _make_visible(visible: bool) -> void:
-	ui.set_visible(visible)
-	texture_dock.set_visible(visible)
-	update_region_grid()
-	region_gizmo.set_hidden(!visible)
+	self.visible = visible
+	_update_visibility()
 
+
+func _update_visibility() -> void:
+	ui.set_visible(visible)
+	texture_dock.set_visible(visible and terrain)
+	if terrain:
+		update_region_grid()
+	region_gizmo.set_hidden(not visible or not terrain)
 	
 func _clear() -> void:
 	if is_terrain_valid():

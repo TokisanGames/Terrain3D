@@ -78,17 +78,17 @@ func _exit_tree() -> void:
 
 func set_visible(p_visible: bool) -> void:
 	visible = p_visible
-	toolbar.set_visible(p_visible)
+	toolbar.set_visible(p_visible and plugin.terrain)
 	terrain_tools.set_visible(p_visible)
 	
-	if p_visible:
+	if p_visible and plugin.terrain:
 		p_visible = plugin.editor.get_tool() != Terrain3DEditor.REGION
-	toolbar_settings.set_visible(p_visible)
+	toolbar_settings.set_visible(p_visible and plugin.terrain)
 	update_decal()
 
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
-	if not visible:
+	if not visible or not plugin.terrain:
 		return
 
 	if plugin.editor:
@@ -157,7 +157,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 
 
 func _on_setting_changed() -> void:
-	if not visible:
+	if not visible or not plugin.terrain:
 		return
 	brush_data = {
 		"size": int(toolbar_settings.get_setting("size")),
@@ -184,6 +184,7 @@ func _on_setting_changed() -> void:
 func update_decal() -> void:
 	var mouse_buttons: int = Input.get_mouse_button_mask()
 	if not visible or \
+			not plugin.terrain or \
 			brush_data.is_empty() or \
 			mouse_buttons & MOUSE_BUTTON_RIGHT or \
 			(mouse_buttons & MOUSE_BUTTON_LEFT and not brush_data["show_cursor_while_painting"]) or \
