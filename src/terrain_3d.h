@@ -87,6 +87,9 @@ private:
 
 	void _update_instances();
 
+	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
+	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
+
 public:
 	static int debug_level;
 
@@ -142,6 +145,7 @@ public:
 
 	// Baking methods
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
+	PackedVector3Array generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav = true) const;
 
 	PackedStringArray _get_configuration_warnings() const override;
 
