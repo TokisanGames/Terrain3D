@@ -810,25 +810,35 @@ Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filte
 
 		for (int32_t z = region_offset.y; z < region_offset.y + region_size; z += step) {
 			for (int32_t x = region_offset.x; x < region_offset.x + region_size; x += step) {
-				Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
-				Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
-				Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step));
-				st->set_uv(Vector2(v1.x, v1.z));
-				st->add_vertex(v1);
-				st->set_uv(Vector2(v2.x, v2.z));
-				st->add_vertex(v2);
-				st->set_uv(Vector2(v3.x, v3.z));
-				st->add_vertex(v3);
+				float control1 = _storage->get_control(Vector3(x, 0.0, z)).r;
+				float control2 = _storage->get_control(Vector3(x + step, 0.0, z + step)).r;
+				float control3 = _storage->get_control(Vector3(x, 0.0, z + step)).r;
+				if (!Util::is_hole(control1) && !Util::is_hole(control2) && !Util::is_hole(control3)) {
+					Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
+					Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
+					Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step));
+					st->set_uv(Vector2(v1.x, v1.z));
+					st->add_vertex(v1);
+					st->set_uv(Vector2(v2.x, v2.z));
+					st->add_vertex(v2);
+					st->set_uv(Vector2(v3.x, v3.z));
+					st->add_vertex(v3);
+				}
 
-				v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
-				v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z));
-				v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
-				st->set_uv(Vector2(v1.x, v1.z));
-				st->add_vertex(v1);
-				st->set_uv(Vector2(v2.x, v2.z));
-				st->add_vertex(v2);
-				st->set_uv(Vector2(v3.x, v3.z));
-				st->add_vertex(v3);
+				control1 = _storage->get_control(Vector3(x, 0.0, z)).r;
+				control2 = _storage->get_control(Vector3(x + step, 0.0, z)).r;
+				control3 = _storage->get_control(Vector3(x + step, 0.0, z + step)).r;
+				if (!Util::is_hole(control1) && !Util::is_hole(control2) && !Util::is_hole(control3)) {
+					Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
+					Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z));
+					Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
+					st->set_uv(Vector2(v1.x, v1.z));
+					st->add_vertex(v1);
+					st->set_uv(Vector2(v2.x, v2.z));
+					st->add_vertex(v2);
+					st->set_uv(Vector2(v3.x, v3.z));
+					st->add_vertex(v3);
+				}
 			}
 		}
 	}
