@@ -21,22 +21,28 @@ public:
 	static inline uint32_t as_uint(float value) { return *(uint32_t *)&value; }
 	static inline uint32_t get_mask(float pixel, uint32_t mask) { return as_uint(pixel) & mask; }
 
-	static inline uint8_t get_base(float pixel) { return as_uint(pixel) >> 27 & 0x1F; }
+	static inline uint8_t get_base(float pixel) { return get_base(as_uint(pixel)); }
+	static inline uint8_t get_base(uint32_t pixel) { return pixel >> 27 & 0x1F; }
 	static inline uint32_t enc_base(uint8_t base) { return (base & 0x1F) << 27; }
 
-	static inline uint8_t get_overlay(float pixel) { return as_uint(pixel) >> 22 & 0x1F; }
+	static inline uint8_t get_overlay(float pixel) { return get_overlay(as_uint(pixel)); }
+	static inline uint8_t get_overlay(uint32_t pixel) { return pixel >> 22 & 0x1F; }
 	static inline uint32_t enc_overlay(uint8_t over) { return (over & 0x1F) << 22; }
 
-	static inline uint8_t get_blend(float pixel) { return as_uint(pixel) >> 14 & 0xFF; }
+	static inline uint8_t get_blend(float pixel) { return get_blend(as_uint(pixel)); }
+	static inline uint8_t get_blend(uint32_t pixel) { return pixel >> 14 & 0xFF; }
 	static inline uint32_t enc_blend(uint8_t blend) { return (blend & 0xFF) << 14; }
 
-	static inline bool is_hole(float pixel) { return (as_uint(pixel) >> 2 & 0x1) == 1; }
+	static inline bool is_hole(float pixel) { return is_hole(as_uint(pixel)); }
+	static inline bool is_hole(uint32_t pixel) { return (pixel >> 2 & 0x1) == 1; }
 	static inline uint32_t enc_hole(bool hole) { return (hole & 0x1) << 2; }
 
-	static inline bool is_nav(float pixel) { return (as_uint(pixel) >> 1 & 0x1) == 1; }
+	static inline bool is_nav(float pixel) { return is_nav(as_uint(pixel)); }
+	static inline bool is_nav(uint32_t pixel) { return (pixel >> 1 & 0x1) == 1; }
 	static inline uint32_t enc_nav(bool nav) { return (nav & 0x1) << 1; }
 
-	static inline bool is_auto(float pixel) { return (as_uint(pixel) & 0x1) == 1; }
+	static inline bool is_auto(float pixel) { return is_auto(as_uint(pixel)); }
+	static inline bool is_auto(uint32_t pixel) { return (pixel & 0x1) == 1; }
 	static inline uint32_t enc_auto(bool autosh) { return autosh & 0x1; }
 
 	// Print info to the console
