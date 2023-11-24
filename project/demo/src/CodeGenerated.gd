@@ -29,6 +29,10 @@ func _ready():
 #	terrain.set_show_debug_collision(true)
 	terrain.set_collision_enabled(true)
 	
+	# Enable runtime navigation baking using the terrain
+	$RuntimeNavigationBaker.terrain = terrain
+	$RuntimeNavigationBaker.enabled = true
+	
 	# Retreive 512x512 region blur map showing where the regions are
 	var rbmap_rid: RID = terrain.material.get_region_blend_map()
 	img = RenderingServer.texture_2d_get(rbmap_rid)
