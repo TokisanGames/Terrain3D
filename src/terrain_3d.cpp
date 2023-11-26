@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/time.hpp>
@@ -293,6 +294,10 @@ void Terrain3D::_update_collision() {
 	int time = Time::get_singleton()->get_ticks_msec();
 	int region_size = _storage->get_region_size();
 	int shape_size = region_size + 1;
+	float hole_const = NAN;
+	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
+		hole_const = __FLT_MAX__;
+	}
 
 	for (int i = 0; i < _storage->get_region_count(); i++) {
 		PackedFloat32Array map_data = PackedFloat32Array();
@@ -332,22 +337,22 @@ void Terrain3D::_update_collision() {
 
 				// Set heights on local map, or adjacent maps if on the last row/col
 				if (x < region_size && z < region_size) {
-					map_data[index] = (Util::is_hole(cmap->get_pixel(x, z).r)) ? __FLT_MAX__ : map->get_pixel(x, z).r;
+					map_data[index] = (Util::is_hole(cmap->get_pixel(x, z).r)) ? hole_const : map->get_pixel(x, z).r;
 				} else if (x == region_size && z < region_size) {
 					if (map_x.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, z).r)) ? __FLT_MAX__ : map_x->get_pixel(0, z).r;
+						map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, z).r)) ? hole_const : map_x->get_pixel(0, z).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (z == region_size && x < region_size) {
 					if (map_z.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_z->get_pixel(x, 0).r)) ? __FLT_MAX__ : map_z->get_pixel(x, 0).r;
+						map_data[index] = (Util::is_hole(cmap_z->get_pixel(x, 0).r)) ? hole_const : map_z->get_pixel(x, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (x == region_size && z == region_size) {
 					if (map_xz.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_xz->get_pixel(0, 0).r)) ? __FLT_MAX__ : map_xz->get_pixel(0, 0).r;
+						map_data[index] = (Util::is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
