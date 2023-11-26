@@ -1,4 +1,4 @@
-extends HBoxContainer
+extends Object
 
 const BakeDialog: PackedScene = preload("res://addons/terrain_3d/editor/components/bake_dialog.tscn")
 const BAKE_MESH_DESCRIPTION: String = "This will create a child MeshInstance3D. LOD4+ is recommended. LOD0 is slow and dense with vertices every 1 unit. It is not an optimal mesh."
@@ -7,27 +7,15 @@ const BAKE_OCCLUDER_DESCRIPTION: String = "This will create a child OccluderInst
 var plugin: EditorPlugin
 var bake_method: Callable
 var bake_dialog: ConfirmationDialog
-var bake_mesh_btn: Button
-var bake_occluder_btn: Button
 
 
-func _enter_tree() -> void:
+func _init() -> void:
 	bake_dialog = BakeDialog.instantiate()
 	bake_dialog.hide()
 	bake_dialog.confirmed.connect(func(): bake_method.call())
 
-	bake_mesh_btn = Button.new()
-	bake_mesh_btn.text = "Bake ArrayMesh"
-	bake_mesh_btn.pressed.connect(_on_bake_mesh_btn_pressed)
-	add_child(bake_mesh_btn)
 
-	bake_occluder_btn = Button.new()
-	bake_occluder_btn.text = "Bake Occluder3D"
-	bake_occluder_btn.pressed.connect(_on_bake_occluder_btn_pressed)
-	add_child(bake_occluder_btn)
-
-
-func _on_bake_mesh_btn_pressed() -> void:
+func bake_mesh_popup() -> void:
 	if plugin.terrain:
 		bake_method = _bake_mesh
 		bake_dialog.description = BAKE_MESH_DESCRIPTION
@@ -54,7 +42,7 @@ func _bake_mesh() -> void:
 	undo.commit_action()
 
 
-func _on_bake_occluder_btn_pressed() -> void:
+func bake_occluder_popup() -> void:
 	if plugin.terrain:
 		bake_method = _bake_occluder
 		bake_dialog.description = BAKE_OCCLUDER_DESCRIPTION

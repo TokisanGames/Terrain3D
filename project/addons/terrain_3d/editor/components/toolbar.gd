@@ -46,7 +46,7 @@ func _ready() -> void:
 	buttons[0].set_pressed(true)
 
 
-func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation, 
+func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation,
 		p_tip: String, p_icon: Texture2D, p_group: ButtonGroup) -> void:
 		
 	var button: Button = Button.new()
@@ -59,8 +59,7 @@ func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.
 	button.set_toggle_mode(true)
 	button.set_h_size_flags(SIZE_SHRINK_END)
 	add_child(button)
-		
+
 
 func _on_tool_selected(p_button: BaseButton) -> void:
 	emit_signal("tool_changed", p_button.get_meta("Tool", -1), p_button.get_meta("Operation", -1))
-	
