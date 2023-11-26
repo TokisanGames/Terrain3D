@@ -853,10 +853,55 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 		LOG(ERROR, "No file specified. Nothing to export");
 		return FAILED;
 	}
+
 	if (get_region_count() == 0) {
 		LOG(ERROR, "No valid regions. Nothing to export");
 		return FAILED;
 	}
+
+	// Simple file name validation
+	static String bad_chars = "!@%^*~|\"";
+	for (int i = 0; i < bad_chars.length(); ++i)
+	{
+		for (int j = 0; j < p_file_name.length(); ++j)
+		{
+			if (bad_chars[i] == p_file_name[j])
+			{
+				LOG(ERROR, "Invalid file name '" + p_file_name + "'");
+				return FAILED;
+			}
+		}
+	}
+
+	// Update path delimeter
+	p_file_name = p_file_name.replace("\\", "/");
+
+	// Check if p_file_name is simple filename
+	bool isSimpleFileName = true;
+	for (int i = 0; i < p_file_name.length(); ++i)
+	{
+		char32_t c = p_file_name[i];
+		if (c == '/' || c == ':')
+		{
+			isSimpleFileName = false;
+			break;
+		}
+	}
+
+	if (isSimpleFileName)
+	{
+		// For simple filenames prepend "res://"
+		p_file_name = "res://" + p_file_name;
+	}
+
+	// Check if the file could be opened for writing
+	Ref<FileAccess> fileRef = FileAccess::open(p_file_name, FileAccess::ModeFlags::WRITE);
+	if (fileRef.is_null())
+	{
+		LOG(ERROR, "Could not open file '" + p_file_name + "' for writing");
+		return FAILED;
+	}
+	fileRef->close();
 
 	Ref<Image> img;
 	switch (p_map_type) {
