@@ -849,6 +849,11 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
  * res/tres allow storage in any of Godot's native Image formats.
  */
 Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
+	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
+		LOG(ERROR, "Invalid map type specified: ", p_map_type, " max: ", TYPE_MAX - 1);
+		return FAILED;
+	}
+
 	if (p_file_name.is_empty()) {
 		LOG(ERROR, "No file specified. Nothing to export");
 		return FAILED;
@@ -860,14 +865,11 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 	}
 
 	// Simple file name validation
-	static String bad_chars = "!@%^*~|\"";
-	for (int i = 0; i < bad_chars.length(); ++i)
-	{
-		for (int j = 0; j < p_file_name.length(); ++j)
-		{
-			if (bad_chars[i] == p_file_name[j])
-			{
-				LOG(ERROR, "Invalid file name '" + p_file_name + "'");
+	static const String bad_chars = "?*|%<>\"";
+	for (int i = 0; i < bad_chars.length(); ++i) {
+		for (int j = 0; j < p_file_name.length(); ++j) {
+			if (bad_chars[i] == p_file_name[j]) {
+				LOG(ERROR, "Invalid file path '" + p_file_name + "'");
 				return FAILED;
 			}
 		}
@@ -876,53 +878,29 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 	// Update path delimeter
 	p_file_name = p_file_name.replace("\\", "/");
 
-	// Check if p_file_name is simple filename
-	bool isSimpleFileName = true;
-	for (int i = 0; i < p_file_name.length(); ++i)
-	{
+	// Check if p_file_name has a path and prepend "res://" if not
+	bool is_simple_filename = true;
+	for (int i = 0; i < p_file_name.length(); ++i) {
 		char32_t c = p_file_name[i];
-		if (c == '/' || c == ':')
-		{
-			isSimpleFileName = false;
+		if (c == '/' || c == ':') {
+			is_simple_filename = false;
 			break;
 		}
 	}
-
-	if (isSimpleFileName)
-	{
-		// For simple filenames prepend "res://"
+	if (is_simple_filename) {
 		p_file_name = "res://" + p_file_name;
 	}
 
 	// Check if the file could be opened for writing
-	Ref<FileAccess> fileRef = FileAccess::open(p_file_name, FileAccess::ModeFlags::WRITE);
-	if (fileRef.is_null())
-	{
+	Ref<FileAccess> file_ref = FileAccess::open(p_file_name, FileAccess::ModeFlags::WRITE);
+	if (file_ref.is_null()) {
 		LOG(ERROR, "Could not open file '" + p_file_name + "' for writing");
 		return FAILED;
 	}
-	fileRef->close();
+	file_ref->close();
 
-	Ref<Image> img;
-	switch (p_map_type) {
-		case TYPE_HEIGHT:
-			img = _generated_height_maps.get_image();
-			break;
-		case TYPE_CONTROL:
-			img = _generated_control_maps.get_image();
-			break;
-		case TYPE_COLOR:
-			img = _generated_color_maps.get_image();
-			break;
-		default:
-			LOG(ERROR, "Invalid map type specified: ", p_map_type, " max: ", TYPE_MAX - 1);
-			return FAILED;
-	}
-
-	if (img.is_null()) {
-		LOG(DEBUG, "Generated image is invalid or empty");
-		img = layered_to_image(p_map_type);
-	}
+	// Filename is validated. Begin export image generation
+	Ref<Image> img = layered_to_image(p_map_type);
 	if (img.is_null() || img->is_empty()) {
 		LOG(ERROR, "Could not create an export image for map type: ", TYPESTR[p_map_type]);
 		return FAILED;
@@ -957,6 +935,7 @@ Error Terrain3DStorage::export_image(String p_file_name, MapType p_map_type) {
 		return ResourceSaver::get_singleton()->save(img, p_file_name, ResourceSaver::FLAG_COMPRESS);
 	}
 
+	LOG(ERROR, "No recognized file type. See docs for valid extensions");
 	return FAILED;
 }
 
