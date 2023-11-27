@@ -232,7 +232,7 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 				slider.suffix = p_suffix
 				slider.connect("value_changed", _on_setting_changed)
 			
-			control.set_custom_minimum_size(Vector2(70, 0))
+			control.set_custom_minimum_size(Vector2(75, 0))
 			slider.set_max(max_value)
 			slider.set_min(min_value)
 			slider.set_step(step)
