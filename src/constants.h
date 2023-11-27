@@ -15,5 +15,6 @@
 #define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)
 #define COLOR_CHECKED Color(1.f, 1.f, 1.0f, -1.0f)
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
+#define COLOR_CONTROL Color(Util::as_float(Util::enc_auto(true)), 0.f, 0.f, 1.0f)
 
 #endif // CONSTANTS_CLASS_H
