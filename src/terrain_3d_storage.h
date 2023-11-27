@@ -10,6 +10,7 @@
 #include "generated_tex.h"
 #include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9
 #include "terrain_3d_texture_list.h"
+#include "util.h"
 
 using namespace godot;
 
@@ -47,7 +48,7 @@ public:
 
 	static inline const Color COLOR[] = {
 		COLOR_BLACK, // TYPE_HEIGHT
-		COLOR_BLACK, // TYPE_CONTROL
+		COLOR_CONTROL, // TYPE_CONTROL
 		COLOR_ROUGHNESS, // TYPE_COLOR
 		COLOR_ZERO, // TYPE_MAX, unused just in case someone indexes the array
 	};

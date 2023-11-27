@@ -7,7 +7,6 @@
 
 #include "logger.h"
 #include "terrain_3d_storage.h"
-#include "util.h"
 
 ///////////////////////////
 // Private Functions

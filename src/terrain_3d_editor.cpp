@@ -248,6 +248,9 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 								default: {
 								} break;
 							}
+							if (brush_alpha > 0.1f) {
+								autoshader = false;
+							}
 							break;
 						case AUTOSHADER:
 							if (brush_alpha > 0.1f) {
