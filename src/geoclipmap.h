@@ -28,4 +28,10 @@ public:
 	static Vector<RID> generate(int p_resolution, int p_clipmap_levels);
 };
 
+// Inline Functions
+
+inline int GeoClipMap::_patch_2d(int x, int y, int res) {
+	return y * res + x;
+}
+
 #endif // GEOCLIPMAP_CLASS_H

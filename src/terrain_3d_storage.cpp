@@ -36,7 +36,7 @@ Terrain3DStorage::~Terrain3DStorage() {
 // Lots of the upgrade process requires this to run first
 // It only runs if the version is saved in the file, which only happens if it was
 // different from the in the file is different from _version
-inline void Terrain3DStorage::set_version(real_t p_version) {
+void Terrain3DStorage::set_version(real_t p_version) {
 	LOG(INFO, vformat("%.3f", p_version));
 	_version = p_version;
 	if (_version >= 0.841f) {
@@ -51,12 +51,12 @@ inline void Terrain3DStorage::set_version(real_t p_version) {
 	}
 }
 
-inline void Terrain3DStorage::set_save_16_bit(bool p_enabled) {
+void Terrain3DStorage::set_save_16_bit(bool p_enabled) {
 	LOG(INFO, p_enabled);
 	_save_16_bit = p_enabled;
 }
 
-inline void Terrain3DStorage::set_height_range(Vector2 p_range) {
+void Terrain3DStorage::set_height_range(Vector2 p_range) {
 	LOG(INFO, vformat("%.2v", p_range));
 	_height_range = p_range;
 }
@@ -450,6 +450,24 @@ void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	force_update_maps(TYPE_COLOR);
 }
 
+void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel) {
+	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
+		LOG(ERROR, "Specified map type out of range");
+		return;
+	}
+	int region = get_region_index(p_global_position);
+	if (region < 0 || region >= _region_offsets.size()) {
+		return;
+	}
+	Ref<Image> map = get_map_region(p_map_type, region);
+	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
+	Vector2i img_pos = Vector2i(
+			Vector2(p_global_position.x - global_offset.x,
+					p_global_position.z - global_offset.y)
+					.floor());
+	map->set_pixelv(img_pos, p_pixel);
+}
+
 Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position) {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
@@ -468,43 +486,6 @@ Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position)
 	return map->get_pixelv(img_pos);
 }
 
-Color Terrain3DStorage::get_color(Vector3 p_global_position) {
-	Color clr = get_pixel(TYPE_COLOR, p_global_position);
-	clr.a = 1.0;
-	return clr;
-}
-
-/**
- * Returns the location of a terrain vertex at a certain LOD.
- * p_lod (0-8): Determines how many heights around the given global position will be sampled.
- * p_filter:
- *  HEIGHT_FILTER_NEAREST: Samples the height map at the exact coordinates given.
- *  HEIGHT_FILTER_MINIMUM: Samples (1 << p_lod) ** 2 heights around the given coordinates and returns the lowest.
- * p_global_position: X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
- */
-Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position) {
-	LOG(INFO, "Calculating vertex location");
-	int32_t step = 1 << CLAMP(p_lod, 0, 8);
-	real_t height = 0.0;
-	switch (p_filter) {
-		case HEIGHT_FILTER_NEAREST: {
-			height = get_height(p_global_position);
-		} break;
-		case HEIGHT_FILTER_MINIMUM: {
-			height = get_height(p_global_position);
-			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
-				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					real_t h = get_height(p_global_position + Vector3(dx, 0.0, dz));
-					if (h < height) {
-						height = h;
-					}
-				}
-			}
-		} break;
-	}
-	return Vector3(p_global_position.x, height, p_global_position.z);
-}
-
 /**
  * Returns:
  * X = base index
@@ -516,13 +497,11 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
  * value of .3-.5, otherwise it's the base texture.
  **/
 Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
-	// Get bit field from pixel
-	uint32_t bits;
-	*(float *)&bits = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
-	uint32_t base_index = bits >> 27u & 0x1Fu;
-	uint32_t overlay_index = bits >> 22u & 0x1Fu;
-	real_t blend = real_t(bits >> 14u & 0xFFu) / 255.0f;
-	return Vector3(real_t(base_index), real_t(overlay_index), blend);
+	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
+	uint32_t base_id = Util::get_base(src);
+	uint32_t overlay_id = Util::get_overlay(src);
+	real_t blend = real_t(Util::get_blend(src)) / 255.0f;
+	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
 /**
@@ -976,6 +955,37 @@ Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
 	return img;
 }
 
+/**
+ * Returns the location of a terrain vertex at a certain LOD.
+ * p_lod (0-8): Determines how many heights around the given global position will be sampled.
+ * p_filter:
+ *  HEIGHT_FILTER_NEAREST: Samples the height map at the exact coordinates given.
+ *  HEIGHT_FILTER_MINIMUM: Samples (1 << p_lod) ** 2 heights around the given coordinates and returns the lowest.
+ * p_global_position: X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
+ */
+Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position) {
+	LOG(INFO, "Calculating vertex location");
+	int32_t step = 1 << CLAMP(p_lod, 0, 8);
+	real_t height = 0.0;
+	switch (p_filter) {
+		case HEIGHT_FILTER_NEAREST: {
+			height = get_height(p_global_position);
+		} break;
+		case HEIGHT_FILTER_MINIMUM: {
+			height = get_height(p_global_position);
+			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
+				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
+					real_t h = get_height(p_global_position + Vector3(dx, 0.0, dz));
+					if (h < height) {
+						height = h;
+					}
+				}
+			}
+		} break;
+	}
+	return Vector3(p_global_position.x, height, p_global_position.z);
+}
+
 Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
 	real_t left = get_height(p_global_position + Vector3(-1.0f, 0.0f, 0.0f));
 	real_t right = get_height(p_global_position + Vector3(1.0f, 0.0f, 0.0f));
@@ -1088,12 +1098,16 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DStorage::get_control_maps);
 	ClassDB::bind_method(D_METHOD("set_color_maps", "maps"), &Terrain3DStorage::set_color_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DStorage::get_color_maps);
+	ClassDB::bind_method(D_METHOD("set_pixel", "map_type", "global_position", "pixel"), &Terrain3DStorage::set_pixel);
 	ClassDB::bind_method(D_METHOD("get_pixel", "map_type", "global_position"), &Terrain3DStorage::get_pixel);
+	ClassDB::bind_method(D_METHOD("set_height", "global_position", "height"), &Terrain3DStorage::set_height);
 	ClassDB::bind_method(D_METHOD("get_height", "global_position"), &Terrain3DStorage::get_height);
+	ClassDB::bind_method(D_METHOD("set_color", "global_position", "color"), &Terrain3DStorage::set_color);
 	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DStorage::get_color);
+	ClassDB::bind_method(D_METHOD("set_control", "global_position", "control"), &Terrain3DStorage::set_control);
 	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DStorage::get_control);
+	ClassDB::bind_method(D_METHOD("set_roughness", "global_position", "roughness"), &Terrain3DStorage::set_roughness);
 	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DStorage::get_roughness);
-	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DStorage::get_mesh_vertex);
 	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DStorage::get_texture_id);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
@@ -1102,6 +1116,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);
+
+	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DStorage::get_mesh_vertex);
 	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DStorage::get_normal);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;

@@ -130,8 +130,8 @@ public:
 	Terrain3DEditor();
 	~Terrain3DEditor();
 
-	inline void set_terrain(Terrain3D *p_terrain) { _terrain = p_terrain; }
-	inline Terrain3D *get_terrain() const { return _terrain; }
+	void set_terrain(Terrain3D *p_terrain) { _terrain = p_terrain; }
+	Terrain3D *get_terrain() const { return _terrain; }
 
 	void set_brush_data(Dictionary data);
 	void set_tool(Tool p_tool);
