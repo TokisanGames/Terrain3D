@@ -9,10 +9,6 @@
 // Private Functions
 ///////////////////////////
 
-int GeoClipMap::_patch_2d(int x, int y, int res) {
-	return y * res + x;
-}
-
 RID GeoClipMap::_create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb) {
 	Array arrays;
 	arrays.resize(RenderingServer::ARRAY_MAX);

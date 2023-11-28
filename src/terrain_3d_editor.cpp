@@ -212,7 +212,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					// Get bit field from pixel
 					uint32_t base_id = Util::get_base(src.r);
 					uint32_t overlay_id = Util::get_overlay(src.r);
-					real_t blend = real_t(Util::get_blend(src.r)) / 255.0f; // 8 bits #22-15
+					real_t blend = real_t(Util::get_blend(src.r)) / 255.0f;
 					bool hole = Util::is_hole(src.r);
 					bool navigation = Util::is_nav(src.r);
 					bool autoshader = Util::is_auto(src.r);

@@ -110,13 +110,13 @@ public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
 
-	inline void set_version(real_t p_version);
-	inline real_t get_version() const { return _version; }
-	inline void set_save_16_bit(bool p_enabled);
-	inline bool get_save_16_bit() const { return _save_16_bit; }
+	void set_version(real_t p_version);
+	real_t get_version() const { return _version; }
+	void set_save_16_bit(bool p_enabled);
+	bool get_save_16_bit() const { return _save_16_bit; }
 
-	inline void set_height_range(Vector2 p_range);
-	inline Vector2 get_height_range() const { return _height_range; }
+	void set_height_range(Vector2 p_range);
+	Vector2 get_height_range() const { return _height_range; }
 	void update_heights(real_t p_height);
 	void update_heights(Vector2 p_heights);
 	void update_height_range();
@@ -129,7 +129,7 @@ public:
 	int get_region_count() const { return _region_offsets.size(); }
 	Vector2i get_region_offset(Vector3 p_global_position);
 	int get_region_index(Vector3 p_global_position);
-	bool has_region(Vector3 p_global_position) { return get_region_index(p_global_position) != -1; }
+	bool has_region(Vector3 p_global_position);
 	Error add_region(Vector3 p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
 	void remove_region(Vector3 p_global_position, bool p_update = true);
 	void update_regions(bool force_emit = false);
@@ -146,12 +146,16 @@ public:
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
 	void set_color_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
+	void set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel);
 	Color get_pixel(MapType p_map_type, Vector3 p_global_position);
-	inline real_t get_height(Vector3 p_global_position) { return get_pixel(TYPE_HEIGHT, p_global_position).r; }
-	inline Color get_color(Vector3 p_global_position);
-	inline Color get_control(Vector3 p_global_position) { return get_pixel(TYPE_CONTROL, p_global_position); }
-	inline real_t get_roughness(Vector3 p_global_position) { return get_pixel(TYPE_COLOR, p_global_position).a; }
-	Vector3 get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position);
+	void set_height(Vector3 p_global_position, real_t p_height);
+	real_t get_height(Vector3 p_global_position);
+	void set_color(Vector3 p_global_position, Color p_color);
+	Color get_color(Vector3 p_global_position);
+	void set_control(Vector3 p_global_position, uint32_t p_control);
+	uint32_t get_control(Vector3 p_global_position);
+	void set_roughness(Vector3 p_global_position, real_t p_roughness);
+	real_t get_roughness(Vector3 p_global_position);
 	Vector3 get_texture_id(Vector3 p_global_position);
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
@@ -168,9 +172,8 @@ public:
 	Ref<Image> layered_to_image(MapType p_map_type);
 
 	// Utility
+	Vector3 get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position);
 	Vector3 get_normal(Vector3 global_position);
-
-	// Testing
 	void print_audit_data();
 
 	// DEPRECATED 0.8.3, remove 0.9
@@ -185,5 +188,48 @@ protected:
 VARIANT_ENUM_CAST(Terrain3DStorage::MapType);
 VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
+
+// Inline Functions
+
+inline bool Terrain3DStorage::has_region(Vector3 p_global_position) {
+	return get_region_index(p_global_position) != -1;
+}
+
+inline void Terrain3DStorage::set_height(Vector3 p_global_position, real_t p_height) {
+	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0., 0., 1.));
+}
+
+inline real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
+	return get_pixel(TYPE_HEIGHT, p_global_position).r;
+}
+
+inline void Terrain3DStorage::set_color(Vector3 p_global_position, Color p_color) {
+	p_color.a = get_roughness(p_global_position);
+	set_pixel(TYPE_COLOR, p_global_position, p_color);
+}
+
+inline Color Terrain3DStorage::get_color(Vector3 p_global_position) {
+	Color clr = get_pixel(TYPE_COLOR, p_global_position);
+	clr.a = 1.0f;
+	return clr;
+}
+
+inline void Terrain3DStorage::set_control(Vector3 p_global_position, uint32_t p_control) {
+	set_pixel(TYPE_CONTROL, p_global_position, Color(Util::as_float(p_control), 0.f, 0.f, 1.f));
+}
+
+inline uint32_t Terrain3DStorage::get_control(Vector3 p_global_position) {
+	return Util::as_uint(get_pixel(TYPE_CONTROL, p_global_position).r);
+}
+
+inline void Terrain3DStorage::set_roughness(Vector3 p_global_position, real_t p_roughness) {
+	Color clr = get_pixel(TYPE_COLOR, p_global_position);
+	clr.a = p_roughness;
+	set_pixel(TYPE_COLOR, p_global_position, clr);
+}
+
+inline real_t Terrain3DStorage::get_roughness(Vector3 p_global_position) {
+	return get_pixel(TYPE_COLOR, p_global_position).a;
+}
 
 #endif // TERRAIN3D_STORAGE_CLASS_H
