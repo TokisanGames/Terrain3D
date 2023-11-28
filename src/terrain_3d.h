@@ -143,7 +143,7 @@ public:
 	// Baking methods
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
 
-	PackedStringArray _get_configuration_warnings() const;
+	PackedStringArray _get_configuration_warnings() const override;
 
 protected:
 	void _notification(int p_what);

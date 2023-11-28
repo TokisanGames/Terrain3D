@@ -78,7 +78,7 @@ jobs:
         if: startsWith(matrix.identifier, 'windows-')
         uses: ./.github/actions/windows-deps
         
-      - name: Setup Android dependencies
+      - name: Setup Android Dependencies
         if: startsWith(matrix.identifier, 'android-')
         uses: nttld/setup-ndk@v1
         with:
