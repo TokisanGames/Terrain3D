@@ -26,7 +26,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Android dependencies
+      - name: Setup Android Dependencies
         if: startsWith(matrix.identifier, 'android-')
         uses: nttld/setup-ndk@v1
         with:
