@@ -176,3 +176,34 @@ Ref<Image> Util::get_filled_image(Vector2i p_size, Color p_color, bool p_create_
 	}
 	return img;
 }
+
+/* From source RGB and R channels, create a new RGBA image. If p_invert_green_channel is true,
+ * the destination green channel will be 1.0 - input green channel.
+ */
+Ref<Image> Util::pack_image(const Ref<Image> p_src_rgb, const Ref<Image> p_src_r, bool p_invert_green_channel) {
+	if (!p_src_rgb.is_valid() || !p_src_r.is_valid()) {
+		LOG(ERROR, "Provided images are not valid. Cannot pack.");
+		return Ref<Image>();
+	}
+	if (p_src_rgb->get_size() != p_src_r->get_size()) {
+		LOG(ERROR, "Provided images are not the same size. Cannot pack.");
+		return Ref<Image>();
+	}
+	if (p_src_rgb->is_empty() || p_src_r->is_empty()) {
+		LOG(ERROR, "Provided images are empty. Cannot pack.");
+		return Ref<Image>();
+	}
+	Ref<Image> dst = Image::create(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGBA8);
+	LOG(INFO, "Creating image from source RGB + R images.");
+	for (int y = 0; y < p_src_rgb->get_height(); y++) {
+		for (int x = 0; x < p_src_rgb->get_width(); x++) {
+			Color col = p_src_rgb->get_pixel(x, y);
+			col.a = p_src_r->get_pixel(x, y).r;
+			if (p_invert_green_channel) {
+				col.g = 1.0f - col.g;
+			}
+			dst->set_pixel(x, y, col);
+		}
+	}
+	return dst;
+}
