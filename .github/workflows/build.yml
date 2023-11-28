@@ -76,6 +76,13 @@ jobs:
       - name: Setup Windows Dependencies
         if: startsWith(matrix.identifier, 'windows-')
         uses: ./.github/actions/windows-deps
+        
+      - name: Setup Android dependencies
+        if: startsWith(matrix.identifier, 'android-')
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r23c
+          link-to-sdk: true
 
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
@@ -87,7 +94,11 @@ jobs:
         continue-on-error: true
 
       - name: Build Terrain3D
-        uses: ./.github/actions/run-scons
+        env:
+            SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+        shell: sh
+        run: |
+            scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
       - name: Strip Libraries (Windows/Linux)
         if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')
