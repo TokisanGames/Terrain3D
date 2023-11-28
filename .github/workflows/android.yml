@@ -27,7 +27,11 @@ jobs:
           submodules: recursive
 
       - name: Setup Android Dependencies
-        uses: ./.github/actions/android-deps
+        if: startsWith(matrix.identifier, 'android-')
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r23c
+          link-to-sdk: true
 
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
@@ -42,7 +46,6 @@ jobs:
         shell: sh
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-            SCONS_CACHE_LIMIT: 7168
         run: |
           scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
 
