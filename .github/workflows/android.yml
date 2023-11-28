@@ -26,6 +26,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Android dependencies
+        if: startsWith(matrix.identifier, 'android-')
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r23c
+          link-to-sdk: true
+
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
 
