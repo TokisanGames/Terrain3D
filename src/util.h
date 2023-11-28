@@ -57,6 +57,7 @@ public:
 			Color p_color = COLOR_BLACK,
 			bool p_create_mipmaps = true,
 			Image::Format p_format = Image::FORMAT_MAX);
+	static Ref<Image> pack_image(const Ref<Image> p_src_rgb, const Ref<Image> p_src_r, bool p_invert_green_channel = false);
 };
 
 #endif // UTIL_CLASS_H
