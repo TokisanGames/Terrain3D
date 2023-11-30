@@ -9,6 +9,9 @@ project/tests/
 patches/
 *.zip
 
+# Docs
+doc/_build
+
 # Godot-specific ignores
 /project/.import/
 /project/.godot/

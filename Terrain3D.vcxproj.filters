@@ -1,96 +1,102 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="2. Shaders">
-      <UniqueIdentifier>{fa4f3a1c-e2a4-4421-9b19-e15c14fce184}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="3. Headers">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="4. C++">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
     <Filter Include="1. Project Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="2. Docs">
+      <UniqueIdentifier>{cddadac5-d2a5-45b0-947d-d3e2b055c87c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3. Shaders">
+      <UniqueIdentifier>{fa4f3a1c-e2a4-4421-9b19-e15c14fce184}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="4. Headers">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="5. C++">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="2. Docs\XML">
+      <UniqueIdentifier>{0d771ba6-8e4a-4985-895c-d9b8eec8b3fd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\terrain_3d_texture_list.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\geoclipmap.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\register_types.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_editor.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_storage.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_surface.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_texture.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_material.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\constants.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\generated_tex.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\logger.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\util.h">
-      <Filter>3. Headers</Filter>
+      <Filter>4. Headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\geoclipmap.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\register_types.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_editor.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_storage.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_surface.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_texture.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_texture_list.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_material.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\generated_tex.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\util.cpp">
-      <Filter>4. C++</Filter>
+      <Filter>5. C++</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -128,19 +134,107 @@
       <Filter>1. Project Files</Filter>
     </None>
     <None Include="src\shaders\debug_views.glsl">
-      <Filter>2. Shaders</Filter>
+      <Filter>3. Shaders</Filter>
     </None>
     <None Include="src\shaders\main.glsl">
-      <Filter>2. Shaders</Filter>
+      <Filter>3. Shaders</Filter>
     </None>
     <None Include="src\shaders\world_noise.glsl">
-      <Filter>2. Shaders</Filter>
+      <Filter>3. Shaders</Filter>
     </None>
     <None Include=".gitignore">
       <Filter>1. Project Files</Filter>
     </None>
-    <None Include="SConstruct">
-      <Filter>1. Project Files</Filter>
+    <None Include="README.md">
+      <Filter>2. Docs</Filter>
     </None>
+    <None Include="CONTRIBUTING.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="AUTHORS.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\index.rst">
+      <Filter>2. Docs</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include=".readthedocs.yaml">
+      <Filter>1. Project Files</Filter>
+    </Text>
+    <Text Include="LICENSE.txt">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\building_from_source.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\import_export.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\integrating.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\occlusion_culling.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\previous_engines.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\project_status.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\shader_design.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\system_architecture.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\textures.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\tips.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\troubleshooting.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\installation.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\controlmap_format.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\storage_format.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\docs\getting_help.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\_static\theme_overrides.css">
+      <Filter>1. Project Files</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="doc\classes\Terrain3D.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DEditor.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DMaterial.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DStorage.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DSurface.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DTexture.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DTextureList.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
   </ItemGroup>
 </Project>

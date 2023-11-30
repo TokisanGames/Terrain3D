@@ -1,4 +1,4 @@
-<img src="https://outobugi.com/images/terrain3d.png">
+<img src="doc/docs/images/terrain3d.png">
 
 # Terrain3D
 A high performance, editable terrain system for Godot 4, written in C++.
@@ -36,7 +36,7 @@ See the [Wiki](https://github.com/TokisanGames/Terrain3D/wiki) for project statu
 6. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
 7. Select `Project / Reload Current Project` to restart once more.
 8. Create or open a 3D scene and add a new Terrain3D node.
-9. Select Terrain3D in the scene tree. In the inspector, click the down arrow to the right of the `storage` resource and save it as a binary `.res` file. This is optional, but highly recommended. Otherwise it will save terrain data as text in the current scene file. The other resources can be left as is or saved as text `.tres`. These external files can be shared with other scenes.
+9. Select Terrain3D in the Scene panel. In the Inspector, click the down arrow to the right of the `storage` resource and save it as a binary `.res` file. The other resources can be left as is or saved as text `.tres`. These external files can be shared with other scenes.
 10. Read the [Wiki](https://github.com/TokisanGames/Terrain3D/wiki) to learn how to properly [set up your textures](https://github.com/TokisanGames/Terrain3D/wiki/Setting-Up-Textures), [import data](https://github.com/TokisanGames/Terrain3D/wiki/Importing-&-Exporting-Data) and more. 
 
 ## Getting Support

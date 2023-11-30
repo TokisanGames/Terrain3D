@@ -177,11 +177,44 @@
     <None Include=".github\workflows\macos.yml" />
     <None Include=".github\workflows\windows.yml" />
     <None Include=".gitignore" />
+    <None Include="AUTHORS.md" />
+    <None Include="CONTRIBUTING.md" />
+    <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />
+    <None Include="README.md" />
     <None Include="src\shaders\debug_views.glsl" />
     <None Include="src\shaders\main.glsl" />
     <None Include="src\shaders\world_noise.glsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include=".readthedocs.yaml" />
+    <Text Include="doc\docs\project_status.md" />
+    <Text Include="doc\docs\import_export.md" />
+    <Text Include="doc\docs\integrating.md" />
+    <Text Include="doc\docs\occlusion_culling.md" />
+    <Text Include="doc\docs\shader_design.md" />
+    <Text Include="doc\docs\system_architecture.md" />
+    <Text Include="doc\docs\installation.md" />
+    <Text Include="doc\docs\controlmap_format.md" />
+    <Text Include="doc\docs\storage_format.md" />
+    <Text Include="doc\docs\getting_help.md" />
+    <Text Include="doc\docs\troubleshooting.md" />
+    <Text Include="doc\docs\tips.md" />
+    <Text Include="doc\docs\textures.md" />
+    <Text Include="doc\docs\previous_engines.md" />
+    <Text Include="doc\docs\building_from_source.md" />
+    <Text Include="doc\_static\theme_overrides.css" />
+    <Text Include="LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="doc\classes\Terrain3D.xml" />
+    <Xml Include="doc\classes\Terrain3DEditor.xml" />
+    <Xml Include="doc\classes\Terrain3DMaterial.xml" />
+    <Xml Include="doc\classes\Terrain3DStorage.xml" />
+    <Xml Include="doc\classes\Terrain3DSurface.xml" />
+    <Xml Include="doc\classes\Terrain3DTexture.xml" />
+    <Xml Include="doc\classes\Terrain3DTextureList.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

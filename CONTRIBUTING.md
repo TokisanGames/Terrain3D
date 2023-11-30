@@ -76,3 +76,14 @@ We use Godot's clang-format hooks that will format your code upon making a commi
 * See what changes would be made: `git-clang-format --diff <filenames>`
 * Change the files in place: `clang-format -i <filenames>`
 
+
+# Documentation
+
+## Usage Docs
+Documentation lives under doc/docs. Each file can be created as a Markdown file. Media is stored in and linked to the media/ directory. The file also needs to be included in doc/index.rst. Readthedocs should then be able to find it and build it.
+
+## Class Reference
+Godot's doc-tool is used to extract a class reference in XML files. These can be modified, then `build_docs.sh` can be used to generate the API rst files.
+
+Edit class reference according to the [Godot class reference primer](https://docs.godotengine.org/en/stable/contributing/documentation/class_reference_primer.html#doc-class-reference-primer).
+
