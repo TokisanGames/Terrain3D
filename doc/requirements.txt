@@ -1,1 +1,2 @@
 docutils>=0.17
+myst-parser>=2.0.0
