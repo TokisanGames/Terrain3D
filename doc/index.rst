@@ -4,6 +4,7 @@
    contain the root `toctree` directive.
 
 .. |logo| image:: docs/images/terrain3d.png
+   :target: _images/terrain3d.png
 
 |logo|
 
@@ -12,10 +13,10 @@ Terrain3D Documentation
 
 `Terrain3D <https://github.com/TokisanGames/Terrain3D>`_ is a high performance, editable terrain system for Godot 4.
 
-Installation
--------------
+Usage
+--------
 
-See :doc:`Installation <docs/installation>`.
+Read all of the documents in the Getting Started section on the left, beginning with :doc:`Installation <docs/installation>`.
 
 Credit
 -------------
@@ -114,12 +115,3 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :caption: API
 
    api/index
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

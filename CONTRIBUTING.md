@@ -2,13 +2,13 @@
 
 We need your help to make this the best terrain plugin for Godot.
 
-Please see [System Design](https://github.com/TokisanGames/Terrain3D/wiki/System-Design) to gain an understanding of how the system works. Then review the [roadmap](https://github.com/users/TokisanGames/projects/3) for priority of issues.
+Please see [System Architecture](https://terrain3d.readthedocs.io/en/latest/docs/system_architecture.html) to gain an understanding of how the system works. Then review the [roadmap](https://github.com/users/TokisanGames/projects/3) for priority of issues.
 
 If you wish to take on a major component, it's best to join our discord and discuss your plans with Cory to make sure your efforts are aligned to other plans.
 
 ## Setup Your System
 
-Make sure you are setup to [build the plugin from source](https://github.com/TokisanGames/Terrain3D/wiki/Building-From-Source). 
+Make sure you are setup to [build the plugin from source](https://terrain3d.readthedocs.io/en/latest/docs/building_from_source.html). 
 
 ## PR Workflow
 

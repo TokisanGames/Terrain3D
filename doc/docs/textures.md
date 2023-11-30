@@ -3,11 +3,11 @@ Texturing the Terrain
 
 Terrain3D supports up to 32 texture sets using albedo, height, normal, and roughness textures. This page describes everything you need to know to set them up. 
 
-TLDR: Just read channel pack with Gimp.
+TLDR: Just read channel pack textures with Gimp.
 
 **Table of Contents**
 * [Required Texture Format](#required-texture-format)
-* [Channel pack images with Gimp](#channel-pack-textures-with-gimp)
+* [Channel pack textures with Gimp](#channel-pack-textures-with-gimp)
 * [Where to get textures](#where-to-get-textures)
 * [Frequently Asked Questions](#faq)
 
