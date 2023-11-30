@@ -17,9 +17,9 @@ See [Project Status](https://terrain3d.readthedocs.io/en/latest/docs/project_sta
 
 ## Getting Started
 
-Read all of the documentation in the Getting Started section in the documentation, beginning with [Installation](https://terrain3d.readthedocs.io/en/latest/docs/installation.html).
+Read through our [documentation](https://terrain3d.readthedocs.io/en/latest/index.html), starting with [Installation](https://terrain3d.readthedocs.io/en/latest/docs/installation.html).
 
-[Getting Help](https://terrain3d.readthedocs.io/en/latest/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
+For support, read [Getting Help](https://terrain3d.readthedocs.io/en/latest/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
 
 
 ## Credit
@@ -36,7 +36,7 @@ Geometry clipmap mesh code created by [Mike J. Savage](https://mikejsavage.co.uk
 
 ## Contributing
 
-We need your help to make Terrain3D the best terrain plugin for Godot 4. Please see [CONTRIBUTING.md](https://github.com/TokisanGames/Terrain3D/blob/main/CONTRIBUTING.md) if you would like to help.
+Please see [CONTRIBUTING.md](https://github.com/TokisanGames/Terrain3D/blob/main/CONTRIBUTING.md) if you would like to help make Terrain3D the best terrain system for Godot.
 
 
 ## License

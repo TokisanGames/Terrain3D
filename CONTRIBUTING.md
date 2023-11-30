@@ -4,12 +4,41 @@ We need your help to make this the best terrain plugin for Godot.
 
 Please see [System Architecture](https://terrain3d.readthedocs.io/en/latest/docs/system_architecture.html) to gain an understanding of how the system works. Then review the [roadmap](https://github.com/users/TokisanGames/projects/3) for priority of issues.
 
-If you wish to take on a major component, it's best to join our discord and discuss your plans with Cory to make sure your efforts are aligned to other plans.
+If you wish to take on a major component, it's best to join our [discord server](https://tokisan.com/discord) and discuss your plans with Cory to make sure your efforts are aligned with other plans.
+
+**Table of Contents**
+* [Setup Your System](#setup-your-system)
+* [PR Workflow](#pr-workflow)
+* [Code Style](#code-style)
+* [Documentation](#documentation)
 
 ## Setup Your System
 
 Make sure you are setup to [build the plugin from source](https://terrain3d.readthedocs.io/en/latest/docs/building_from_source.html). 
 
+### Install clang-format
+
+clang-format will adjust the style of your code to a consistent standard. Once you install it you can manually run it on all of your code to see or apply changes, and you can set it up to run automatically upon each commit.
+
+#### Installing clang-format binary onto your system.
+* Download version 13 or later
+* Make sure the LLVM binary directory where `clang-format` is stored gets added to the `PATH` during installation
+* Linux/OSX: Install the `clang-format` package, or all of `LLVM` or `clang` if your distribution doesn't provide the standalone tool
+* Windows: Download LLVM for Windows from <https://releases.llvm.org/download.html>
+
+#### Using clang-format automatically
+
+We use Godot's clang-format hooks that will format your code upon making a commit. Install the hooks into your repo after cloning.
+
+* Copy `tools/hooks/*` into `.git/hooks` or run `python tools/install-hooks.py`
+
+#### Using clang-format manually
+
+* View a formatted file, no changes on disk: `clang-format <filenames>`
+* See what changes would be made: `git-clang-format --diff <filenames>`
+* Change the files in place: `clang-format -i <filenames>`
+
+ 
 ## PR Workflow
 
 We use the standard [Godot PR workflow](https://docs.godotengine.org/en/stable/contributing/workflow/pr_workflow.html). Please submit PRs according to the same process Godot uses.
@@ -54,36 +83,16 @@ Other formatting:
 * One blank line between functions
 * All code passed through clang-format. See below
 
-#### clang-format
 
-clang-format will adjust the style of your code to a consistent standard. Once you install it you can manually run it on all of your code to see or apply changes, and you can set it up to run automatically upon each commit.
+## Documentation
 
-##### Installing clang-format binary onto your system.
-* Download version 13 or later
-* Make sure the LLVM binary directory where `clang-format` is stored gets added to the `PATH` during installation
-* Linux/OSX: Install the `clang-format` package, or all of `LLVM` or `clang` if your distribution doesn't provide the standalone tool
-* Windows: Download LLVM for Windows from <https://releases.llvm.org/download.html>
+### User Manual
+The usage documentation lives in [doc/docs](https://github.com/TokisanGames/Terrain3D/tree/main/doc/docs) and is written in Markdown. Images are stored in images and videos are stored [_static/video](https://github.com/TokisanGames/Terrain3D/tree/main/doc/_static/video). 
 
-##### Using clang-format automatically
+Man pages need to also be included in doc/index.rst. Readthedocs should then be able to find everything and build it upon a commit.
 
-We use Godot's clang-format hooks that will format your code upon making a commit. Install the hooks into your repo after cloning.
+### Class Reference
+Godot's doc-tool is used to extract or update the class reference in [XML files](https://github.com/TokisanGames/Terrain3D/tree/main/doc/classes). These files are edited for class documentation. Then `build_docs.sh` can be used to generate the API rst files and the html files.
 
-* Copy `tools/hooks/*` into `.git/hooks` or run `python tools/install-hooks.py`
-
-##### Using clang-format manually
-
-* View a formatted file, no changes on disk: `clang-format <filenames>`
-* See what changes would be made: `git-clang-format --diff <filenames>`
-* Change the files in place: `clang-format -i <filenames>`
-
-
-# Documentation
-
-## Usage Docs
-Documentation lives under doc/docs. Each file can be created as a Markdown file. Media is stored in and linked to the media/ directory. The file also needs to be included in doc/index.rst. Readthedocs should then be able to find it and build it.
-
-## Class Reference
-Godot's doc-tool is used to extract a class reference in XML files. These can be modified, then `build_docs.sh` can be used to generate the API rst files.
-
-Edit class reference according to the [Godot class reference primer](https://docs.godotengine.org/en/stable/contributing/documentation/class_reference_primer.html#doc-class-reference-primer).
+Edit the class reference according to the [Godot class reference primer](https://docs.godotengine.org/en/stable/contributing/documentation/class_reference_primer.html#doc-class-reference-primer).
 
