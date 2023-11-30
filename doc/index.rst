@@ -13,10 +13,12 @@ Terrain3D Documentation
 
 `Terrain3D <https://github.com/TokisanGames/Terrain3D>`_ is a high performance, editable terrain system for Godot 4.
 
+See :doc:`Project Status <docs/project_status>` for development progress.
+
 Usage
 --------
 
-Read all of the documents in the Getting Started section on the left, beginning with :doc:`Installation <docs/installation>`.
+Read the documentation in the Getting Started section, beginning with :doc:`Installation <docs/installation>`.
 
 Credit
 -------------
@@ -64,7 +66,7 @@ Developed for the Godot community by:
    :target: https://www.youtube.com/@outobugi
    :width: 24
 
-And other contributors displayed on the right of the github page and in :doc:`authors`.
+And other contributors displayed on `github contributors <https://github.com/TokisanGames/Terrain3D/graphs/contributors>`_ and in :doc:`authors`.
 
 Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk/blog/geometry-clipmaps.html>`_. Blog and repository code released under the MIT license per email communication with Mike.
 
@@ -73,6 +75,7 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :maxdepth: 1
    :caption: About
 
+   docs/project_status
    authors
    license
 
@@ -93,7 +96,6 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :maxdepth: 1
    :caption: Advanced Usage
 
-   docs/project_status
    docs/integrating
    docs/occlusion_culling
 
