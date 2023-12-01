@@ -12,14 +12,22 @@ func _process(p_delta) -> void:
 	$Label.text = "FPS: %s\n" % str(Engine.get_frames_per_second())
 	$Label.text += "Move Speed: %.1f\n" % player.MOVE_SPEED if player else ""
 	$Label.text += "Position: %.1v\n" % player.global_position if player else ""
-	$Label.text += "Move: WASDEQ/Shift/Mouse\nMove speed: Wheel,+/-\nCamera View: V\n"
-	$Label.text += "Gravity toggle: G\nCollision toggle: C\n"
-	$Label.text += "Full screen: F11\nMouse toggle: Escape\nQuit: F8\n"
+	$Label.text += "Move: WASDEQ/Space/Shift/Mouse\n"
+	$Label.text += "Move speed: Wheel,+/-\n"
+	$Label.text += "Camera View: V\n"
+	$Label.text += "Gravity toggle: G\n"
+	$Label.text += "Collision toggle: C\n"
+	$Label.text += "Hide UI: H\n"
+	$Label.text += "Full screen: F11\n"
+	$Label.text += "Mouse toggle: Escape\n"
+	$Label.text += "Quit: F8\n"
 
 
 func _unhandled_key_input(p_event: InputEvent) -> void:
 	if p_event is InputEventKey and p_event.pressed:
 		match p_event.keycode:
+			KEY_H:
+				visible = ! visible
 			KEY_F8:
 				get_tree().quit()
 			KEY_F10:

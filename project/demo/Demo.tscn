@@ -1,46 +1,60 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=12 format=3 uid="uid://chol2xlfbq7cu"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
-[ext_resource type="PackedScene" path="res://demo/components/World.tscn" id="2_2yeq8"]
-[ext_resource type="PackedScene" path="res://demo/components/Borders.tscn" id="3_cw38j"]
-[ext_resource type="PackedScene" path="res://demo/components/Player.tscn" id="3_ht63y"]
-[ext_resource type="PackedScene" path="res://demo/components/UI.tscn" id="4_gk532"]
-[ext_resource type="Terrain3DStorage" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
-[ext_resource type="Texture2D" path="res://demo/textures/ground037_alb_ht.dds" id="7_hqga3"]
-[ext_resource type="Texture2D" path="res://demo/textures/ground037_nrm_rgh.dds" id="8_pd4vo"]
-[ext_resource type="Texture2D" path="res://demo/textures/rock028_alb_ht.dds" id="9_rm006"]
-[ext_resource type="Texture2D" path="res://demo/textures/rock028_nrm_rgh.dds" id="10_i3tb8"]
+[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="2_75yik"]
+[ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_nqak5"]
+[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_cw38j"]
+[ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="3_ht63y"]
+[ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="3_kdh0b"]
+[ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
+[ext_resource type="Terrain3DTextureList" uid="uid://dal3jhw6241qg" path="res://demo/data/texture_list.tres" id="8_g2of2"]
 
-[sub_resource type="Terrain3DTexture" id="Terrain3DTexture_56fwf"]
-name = "Grass"
-albedo_color = Color(0.784314, 0.8, 0.776471, 1)
-albedo_texture = ExtResource("7_hqga3")
-normal_texture = ExtResource("8_pd4vo")
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_7glc1"]
+noise_type = 0
 
-[sub_resource type="Terrain3DTexture" id="Terrain3DTexture_x74kb"]
-name = "Rock"
-texture_id = 1
-albedo_color = Color(0.815686, 0.815686, 0.815686, 1)
-albedo_texture = ExtResource("9_rm006")
-normal_texture = ExtResource("10_i3tb8")
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_pvx8q"]
+generate_mipmaps = false
+seamless = true
+noise = SubResource("FastNoiseLite_7glc1")
 
-[sub_resource type="Terrain3DTextureList" id="Terrain3DTextureList_6biym"]
-textures = Array[Terrain3DTexture]([SubResource("Terrain3DTexture_56fwf"), SubResource("Terrain3DTexture_x74kb")])
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_jrc01"]
+_shader_parameters = {
+"auto_base_texture": 0,
+"auto_height_reduction": 0.1,
+"auto_overlay_texture": 1,
+"auto_slope": 1.0,
+"blend_sharpness": 0.87,
+"dual_scale_far": 170.0,
+"dual_scale_near": 100.0,
+"dual_scale_reduction": 0.3,
+"dual_scale_texture": 0,
+"height_blending": true,
+"noise_scale": 0.1,
+"noise_texture": SubResource("NoiseTexture2D_pvx8q"),
+"tri_scale_reduction": 0.3
+}
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")
 
-[node name="World" parent="." instance=ExtResource("2_2yeq8")]
+[node name="UI" parent="." instance=ExtResource("2_nqak5")]
+
+[node name="World" parent="." instance=ExtResource("2_75yik")]
 
 [node name="Borders" parent="." instance=ExtResource("3_cw38j")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 0, 512)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -3, 512)
+collision_mask = 3
+
+[node name="Tunnel" parent="." instance=ExtResource("3_kdh0b")]
 
 [node name="Player" parent="." instance=ExtResource("3_ht63y")]
-transform = Transform3D(0.0774673, 0, -0.996995, 0, 1, 0, 0.996995, 0, 0.0774673, 253.094, 115.487, -1838.16)
-
-[node name="UI" parent="." instance=ExtResource("4_gk532")]
+transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
 storage = ExtResource("5_sl43a")
-texture_list = SubResource("Terrain3DTextureList_6biym")
+material = SubResource("Terrain3DMaterial_jrc01")
+texture_list = ExtResource("8_g2of2")
+render_cull_margin = 916.383
 collision_mask = 3
+clipmap_size = 64
+transform = Transform3D(1, 0, 1.49012e-08, 0, 1, 0, -1.49012e-08, 0, 1, -3.05176e-05, 0, 0)
