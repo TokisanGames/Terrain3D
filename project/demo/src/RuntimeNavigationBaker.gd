@@ -2,25 +2,25 @@ extends Node
 
 signal bake_finished
 
-@export var enabled := true : set = set_enabled
-@export var enter_cost := 0.0 : set = set_enter_cost
-@export var travel_cost := 1.0 : set = set_travel_cost
-@export_flags_3d_navigation var navigation_layers := 1 : set = set_navigation_layers
+@export var enabled: bool = true : set = set_enabled
+@export var enter_cost: float = 0.0 : set = set_enter_cost
+@export var travel_cost: float = 1.0 : set = set_travel_cost
+@export_flags_3d_navigation var navigation_layers: int = 1 : set = set_navigation_layers
 @export var template: NavigationMesh : set = set_template
 @export var terrain: Terrain3D
 @export var player: Node3D
 @export var mesh_size := Vector3(256, 512, 256)
-@export var min_rebake_distance := 64.0
-@export var bake_cooldown := 1.0
+@export var min_rebake_distance: float = 64.0
+@export var bake_cooldown: float = 1.0
 @export_group("Debug")
-@export var log_timing := false
+@export var log_timing: bool = false
 
 var _scene_geometry: NavigationMeshSourceGeometryData3D
 var _current_center := Vector3(INF,INF,INF)
 
 var _bake_task_id = null
-var _bake_task_timer := 0.0
-var _bake_cooldown_timer := 0.0
+var _bake_task_timer: float = 0.0
+var _bake_cooldown_timer: float = 0.0
 var _nav_region: NavigationRegion3D
 
 
@@ -46,33 +46,33 @@ func _ready():
 	parse_scene.call_deferred()
 
 
-func set_enabled(value: bool) -> void:
-	enabled = value
+func set_enabled(p_value: bool) -> void:
+	enabled = p_value
 	if _nav_region:
 		_nav_region.enabled = enabled
 	set_process(enabled and template)
 
 
-func set_enter_cost(value: bool) -> void:
-	enter_cost = value
+func set_enter_cost(p_value: bool) -> void:
+	enter_cost = p_value
 	if _nav_region:
 		_nav_region.enter_cost = enter_cost
 
 
-func set_travel_cost(value: bool) -> void:
-	travel_cost = value
+func set_travel_cost(p_value: bool) -> void:
+	travel_cost = p_value
 	if _nav_region:
 		_nav_region.travel_cost = travel_cost
 
 
-func set_navigation_layers(value: int) -> void:
-	navigation_layers = value
+func set_navigation_layers(p_value: int) -> void:
+	navigation_layers = p_value
 	if _nav_region:
 		_nav_region.navigation_layers = navigation_layers
 
 
-func set_template(value: NavigationMesh) -> void:
-	template = value
+func set_template(p_value: NavigationMesh) -> void:
+	template = p_value
 	set_process(enabled and template)
 	_update_map_cell_size()
 
@@ -89,15 +89,15 @@ func _update_map_cell_size() -> void:
 		NavigationServer3D.map_set_cell_height(map, template.cell_height)
 
 
-func _process(delta: float) -> void:
+func _process(p_delta: float) -> void:
 	if _bake_task_id != null:
-		_bake_task_timer += delta
+		_bake_task_timer += p_delta
 	
 	if not player or _bake_task_id != null:
 		return
 	
 	if _bake_cooldown_timer > 0.0:
-		_bake_cooldown_timer -= delta
+		_bake_cooldown_timer -= p_delta
 		return
 	
 	var track_pos := player.global_position
@@ -110,23 +110,24 @@ func _process(delta: float) -> void:
 		_rebake(_current_center)
 
 
-func _rebake(center: Vector3) -> void:
+func _rebake(p_center: Vector3) -> void:
 	assert(template != null)
-	_bake_task_id = WorkerThreadPool.add_task(_task_bake.bind(center), false, "RuntimeNavigationBaker")
+	_bake_task_id = WorkerThreadPool.add_task(_task_bake.bind(p_center), false, "RuntimeNavigationBaker")
 	_bake_task_timer = 0.0
 	_bake_cooldown_timer = bake_cooldown
 
 
-func _task_bake(center: Vector3) -> void:
+func _task_bake(p_center: Vector3) -> void:
 	var nav_mesh: NavigationMesh = template.duplicate()
 	nav_mesh.filter_baking_aabb = AABB(-mesh_size * 0.5, mesh_size)
-	nav_mesh.filter_baking_aabb_offset = center
-	var source_geometry := _scene_geometry.duplicate()
+	nav_mesh.filter_baking_aabb_offset = p_center
+	var source_geometry: NavigationMeshSourceGeometryData3D
+	source_geometry = _scene_geometry.duplicate()
 	
 	if terrain:
-		var aabb := nav_mesh.filter_baking_aabb
+		var aabb: AABB = nav_mesh.filter_baking_aabb
 		aabb.position += nav_mesh.filter_baking_aabb_offset
-		var faces := terrain.generate_nav_mesh_source_geometry(aabb, false)
+		var faces: PackedVector3Array = terrain.generate_nav_mesh_source_geometry(aabb, false)
 		source_geometry.add_faces(faces, Transform3D.IDENTITY)
 	
 	if source_geometry.has_data():
@@ -136,15 +137,15 @@ func _task_bake(center: Vector3) -> void:
 		_bake_finished.call_deferred(null)
 
 
-func _bake_finished(nav_mesh: NavigationMesh) -> void:
+func _bake_finished(p_nav_mesh: NavigationMesh) -> void:
 	if log_timing:
 		print("Navigation bake took ", _bake_task_timer, "s")
 	
 	_bake_task_timer = 0.0
 	_bake_task_id = null
 	
-	if nav_mesh:
-		_nav_region.navigation_mesh = nav_mesh
+	if p_nav_mesh:
+		_nav_region.navigation_mesh = p_nav_mesh
 	
 	bake_finished.emit()
 	assert(!NavigationServer3D.region_get_use_edge_connections(_nav_region.get_region_rid()))

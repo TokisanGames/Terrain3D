@@ -60,7 +60,7 @@
 #
 #	# Get global transform
 #	var gt: Transform3D = domain.get_global_transform()
-#	var gt_inverse := gt.affine_inverse()
+#	var gt_inverse: Transform3D = gt.affine_inverse()
 #	for i in transforms.list.size():
 #		var location: Vector3 = (gt * transforms.list[i]).origin
 #		var height: float = _terrain.storage.get_height(location)
@@ -81,4 +81,3 @@
 #		+ Collision mask is not set properly.
 #		+ Max slope is too low.
 #		"""
-

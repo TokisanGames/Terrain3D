@@ -269,11 +269,11 @@ func update_decal() -> void:
 	decal_timer.start()
 
 
-func set_decal_rotation(rot: float) -> void:
-	decal.rotation.y = rot
+func set_decal_rotation(p_rot: float) -> void:
+	decal.rotation.y = p_rot
 
 
-func _on_picking(type: int, callback: Callable) -> void:
-	picking = type
-	picking_callback = callback
+func _on_picking(p_type: int, p_callback: Callable) -> void:
+	picking = p_type
+	picking_callback = p_callback
 	update_decal()

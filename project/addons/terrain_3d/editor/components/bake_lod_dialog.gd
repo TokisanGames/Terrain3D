@@ -24,5 +24,5 @@ func _on_visibility_changed() -> void:
 		%DescriptionLabel.text = description
 
 
-func _on_lod_box_value_changed(value) -> void:
+func _on_lod_box_value_changed(p_value: float) -> void:
 	lod = %LodBox.value

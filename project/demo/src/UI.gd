@@ -8,7 +8,7 @@ func _init() -> void:
 	RenderingServer.set_debug_generate_wireframes(true)
 
 
-func _process(delta) -> void:
+func _process(p_delta) -> void:
 	$Label.text = "FPS: %s\n" % str(Engine.get_frames_per_second())
 	$Label.text += "Move Speed: %.1f\n" % player.MOVE_SPEED if player else ""
 	$Label.text += "Position: %.1v\n" % player.global_position if player else ""
@@ -17,9 +17,9 @@ func _process(delta) -> void:
 	$Label.text += "Full screen: F11\nMouse toggle: Escape\nQuit: F8\n"
 
 
-func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed:
-		match event.keycode:
+func _unhandled_key_input(p_event: InputEvent) -> void:
+	if p_event is InputEventKey and p_event.pressed:
+		match p_event.keycode:
 			KEY_F8:
 				get_tree().quit()
 			KEY_F10:

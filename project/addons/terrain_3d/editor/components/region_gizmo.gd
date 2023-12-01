@@ -13,6 +13,7 @@ var secondary_color: Color = Color.RED
 var grid_color: Color = Color.WHITE
 var border_color: Color = Color.BLUE
 
+
 func _init() -> void:
 	material = StandardMaterial3D.new()
 	material.set_flag(BaseMaterial3D.FLAG_DISABLE_DEPTH_TEST, true)
@@ -44,8 +45,9 @@ func _redraw() -> void:
 		draw_rect(Vector2(region_size,region_size)*.5 + grid_tile_position, region_size, material, grid_color)
 		
 	draw_rect(Vector2.ZERO, region_size * 16.0, material, border_color)
-	
-func draw_rect(pos: Vector2, size: float, material: StandardMaterial3D, modulate: Color) -> void:
+
+
+func draw_rect(p_pos: Vector2, p_size: float, p_material: StandardMaterial3D, p_modulate: Color) -> void:
 	var lines: PackedVector3Array = [
 		Vector3(-1, 0, -1),
 		Vector3(-1, 0, 1),
@@ -58,7 +60,7 @@ func draw_rect(pos: Vector2, size: float, material: StandardMaterial3D, modulate
 	]
 	
 	for i in lines.size():
-		lines[i] = ((lines[i] / 2.0) * size) + Vector3(pos.x, 0, pos.y)
+		lines[i] = ((lines[i] / 2.0) * p_size) + Vector3(p_pos.x, 0, p_pos.y)
 	
-	add_lines(lines, material, false, modulate)
+	add_lines(lines, p_material, false, p_modulate)
 		

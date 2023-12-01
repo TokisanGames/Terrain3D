@@ -1,21 +1,21 @@
 extends CharacterBody3D
 
-const RETARGET_COOLDOWN = 1.0
+const RETARGET_COOLDOWN: float = 1.0
 
 @export var MOVE_SPEED: float = 50.0
 @export var target: Node3D
 
 @onready var nav_agent: NavigationAgent3D = $NavigationAgent3D
 
-var _retarget_timer := 1.0
+var _retarget_timer: float = 1.0
 
 
 func _ready() -> void:
 	nav_agent.velocity_computed.connect(_on_velocity_computed)
 
 
-func _process(delta: float) -> void:
-	_retarget_timer += delta
+func _process(p_delta: float) -> void:
+	_retarget_timer += p_delta
 	if _retarget_timer > RETARGET_COOLDOWN and target:
 		# Don't reset the target position every frame. It triggers an A* search, which is expensive.
 		_retarget_timer = 0.0
@@ -27,7 +27,7 @@ func is_on_nav_mesh() -> bool:
 	return global_position.distance_squared_to(closest_point) < nav_agent.path_max_distance ** 2
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(p_delta: float) -> void:
 	if nav_agent.is_navigation_finished() or not nav_agent.is_target_reachable() or not is_on_nav_mesh():
 		velocity.x = 0.0
 		velocity.z = 0.0
@@ -38,7 +38,7 @@ func _physics_process(delta: float) -> void:
 		velocity.x = velocity_xz.x
 		velocity.z = velocity_xz.z
 	
-	velocity.y -= 40 * delta
+	velocity.y -= 40 * p_delta
 	
 	if nav_agent.avoidance_enabled:
 		nav_agent.set_velocity(velocity)
@@ -46,7 +46,7 @@ func _physics_process(delta: float) -> void:
 		_on_velocity_computed(velocity)
 
 
-func _on_velocity_computed(safe_velocity: Vector3) -> void:
-	velocity.x = safe_velocity.x
-	velocity.z = safe_velocity.z
+func _on_velocity_computed(p_safe_velocity: Vector3) -> void:
+	velocity.x = p_safe_velocity.x
+	velocity.z = p_safe_velocity.z
 	move_and_slide()
