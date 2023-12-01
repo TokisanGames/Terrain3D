@@ -47,18 +47,18 @@ func _exit_tree() -> void:
 	editor.free()
 
 	
-func _handles(object: Object) -> bool:
-	return object is Terrain3D or object is NavigationRegion3D
+func _handles(p_object: Object) -> bool:
+	return p_object is Terrain3D or p_object is NavigationRegion3D
 
 
-func _edit(object: Object) -> void:
-	if !object:
+func _edit(p_object: Object) -> void:
+	if !p_object:
 		_clear()
 		
-	if object is Terrain3D:
-		if object == terrain:
+	if p_object is Terrain3D:
+		if p_object == terrain:
 			return
-		terrain = object
+		terrain = p_object
 		editor.set_terrain(terrain)
 		region_gizmo.set_node_3d(terrain)
 		terrain.add_gizmo(region_gizmo)
@@ -73,16 +73,16 @@ func _edit(object: Object) -> void:
 	else:
 		terrain = null
 	
-	if object is NavigationRegion3D:
-		nav_region = object
+	if p_object is NavigationRegion3D:
+		nav_region = p_object
 	else:
 		nav_region = null
 	
 	_update_visibility()
 
 		
-func _make_visible(visible: bool) -> void:
-	self.visible = visible
+func _make_visible(p_visible: bool) -> void:
+	visible = p_visible
 	_update_visibility()
 
 
@@ -92,7 +92,8 @@ func _update_visibility() -> void:
 	if terrain:
 		update_region_grid()
 	region_gizmo.set_hidden(not visible or not terrain)
-	
+
+
 func _clear() -> void:
 	if is_terrain_valid():
 		terrain.storage_changed.disconnect(_load_storage)
@@ -194,7 +195,7 @@ func is_terrain_valid() -> bool:
 	return valid
 
 
-func update_texture_dock(args: Array) -> void:
+func update_texture_dock(p_args: Array) -> void:
 	texture_dock.clear()
 	
 	if is_terrain_valid() and terrain.texture_list:

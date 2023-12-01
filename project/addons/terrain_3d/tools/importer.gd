@@ -7,8 +7,8 @@ extends Terrain3D
 @export var update_height_range: bool = false : set = update_heights
 
 
-func reset_settings(value) -> void:
-	if value:
+func reset_settings(p_value) -> void:
+	if p_value:
 		height_file_name = ""
 		control_file_name = ""
 		color_file_name = ""
@@ -22,13 +22,13 @@ func reset_settings(value) -> void:
 		texture_list = null
 
 
-func reset_terrain(value) -> void:
-	if value:
+func reset_terrain(p_value) -> void:
+	if p_value:
 		storage = null
 
 
-func update_heights(value) -> void:
-	if value and storage:
+func update_heights(p_value) -> void:
+	if p_value and storage:
 		storage.update_height_range()
 
 
@@ -43,9 +43,9 @@ func update_heights(value) -> void:
 @export var r16_size: Vector2i = Vector2i(1024, 1024)
 @export var run_import: bool = false : set = start_import
 
-func start_import(value: bool) -> void:
-	if value:
-		print("Importing files:\n\t%s\n\t%s\n\t%s" % [ height_file_name, control_file_name, color_file_name])
+func start_import(p_value: bool) -> void:
+	if p_value:
+		print("Terrain3DImporter: Importing files:\n\t%s\n\t%s\n\t%s" % [ height_file_name, control_file_name, color_file_name])
 		if not storage:
 			storage = Terrain3DStorage.new()
 
@@ -67,7 +67,7 @@ func start_import(value: bool) -> void:
 				material.show_checkered = false
 				material.show_colormap = true
 		storage.import_images(imported_images, import_position, import_offset, import_scale)
-		print("Import finished")
+		print("Terrain3DImporter: Import finished")
 
 
 @export_group("Export File")
@@ -76,7 +76,7 @@ enum { TYPE_HEIGHT, TYPE_CONTROL, TYPE_COLOR }
 @export var file_name_out: String = ""
 @export var run_export: bool = false : set = start_export
 
-func start_export(value: bool) -> void:
+func start_export(p_value: bool) -> void:
 	var err: int = storage.export_image(file_name_out, map_type)
-	print("Export error status: ", err, " ", error_string(err))
+	print("Terrain3DImporter: Export error status: ", err, " ", error_string(err))
 	

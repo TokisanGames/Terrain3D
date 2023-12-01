@@ -12,7 +12,7 @@ enum {
 	MENU_BAKE_OCCLUDER,
 	MENU_BAKE_NAV_MESH,
 	MENU_SEPARATOR,
-	MENU_SET_UP_NAVIGATION
+	MENU_SET_UP_NAVIGATION,
 }
 
 
@@ -31,8 +31,8 @@ func _enter_tree() -> void:
 	add_child(menu_button)
 
 
-func _on_menu_pressed(id: int) -> void:
-	match id:
+func _on_menu_pressed(p_id: int) -> void:
+	match p_id:
 		MENU_BAKE_ARRAY_MESH:
 			baker.bake_mesh_popup()
 		MENU_BAKE_OCCLUDER:
@@ -48,11 +48,11 @@ func _on_menu_about_to_popup() -> void:
 	menu_button.get_popup().set_item_disabled(MENU_BAKE_OCCLUDER, not plugin.terrain)
 	
 	if plugin.terrain:
-		var nav_regions := baker.find_terrain_nav_regions(plugin.terrain)
+		var nav_regions: Array[NavigationRegion3D] = baker.find_terrain_nav_regions(plugin.terrain)
 		menu_button.get_popup().set_item_disabled(MENU_BAKE_NAV_MESH, nav_regions.size() == 0)
 		menu_button.get_popup().set_item_disabled(MENU_SET_UP_NAVIGATION, nav_regions.size() != 0)
 	elif plugin.nav_region:
-		var terrains := baker.find_nav_region_terrains(plugin.nav_region)
+		var terrains: Array[Terrain3D] = baker.find_nav_region_terrains(plugin.nav_region)
 		menu_button.get_popup().set_item_disabled(MENU_BAKE_NAV_MESH, terrains.size() == 0)
 		menu_button.get_popup().set_item_disabled(MENU_SET_UP_NAVIGATION, true)
 	else:
