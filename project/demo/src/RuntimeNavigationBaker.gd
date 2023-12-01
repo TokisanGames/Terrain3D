@@ -18,7 +18,7 @@ signal bake_finished
 var _scene_geometry: NavigationMeshSourceGeometryData3D
 var _current_center := Vector3(INF,INF,INF)
 
-var _bake_task_id = null
+var _bake_task_id: int = -1
 var _bake_task_timer: float = 0.0
 var _bake_cooldown_timer: float = 0.0
 var _nav_region: NavigationRegion3D
@@ -90,10 +90,10 @@ func _update_map_cell_size() -> void:
 
 
 func _process(p_delta: float) -> void:
-	if _bake_task_id != null:
+	if _bake_task_id != -1:
 		_bake_task_timer += p_delta
 	
-	if not player or _bake_task_id != null:
+	if not player or _bake_task_id != -1:
 		return
 	
 	if _bake_cooldown_timer > 0.0:
@@ -142,7 +142,7 @@ func _bake_finished(p_nav_mesh: NavigationMesh) -> void:
 		print("Navigation bake took ", _bake_task_timer, "s")
 	
 	_bake_task_timer = 0.0
-	_bake_task_id = null
+	_bake_task_id = -1
 	
 	if p_nav_mesh:
 		_nav_region.navigation_mesh = p_nav_mesh
