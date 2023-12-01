@@ -172,6 +172,10 @@ func _bake_nav_region_nav_mesh(p_nav_region: NavigationRegion3D) -> void:
 	p_nav_region.set_navigation_mesh(null)
 	p_nav_region.set_navigation_mesh(nav_mesh)
 	
+	# Trigger save to disk if it is saved as an external file
+	if not nav_mesh.get_path().is_empty():
+		ResourceSaver.save(nav_mesh, nav_mesh.get_path(), ResourceSaver.FLAG_COMPRESS)
+	
 	# Let other editor plugins and tool scripts know the nav mesh was just baked:
 	p_nav_region.bake_finished.emit()
 
