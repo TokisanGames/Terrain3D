@@ -35,4 +35,5 @@ player = NodePath("../Player")
 [node name="RunThisSceneLabel3D" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, 30)
 pixel_size = 1.0
+billboard = 1
 text = "Run This Scene"

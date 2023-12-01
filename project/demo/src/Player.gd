@@ -1,6 +1,6 @@
 extends CharacterBody3D
 
-@export var MOVE_SPEED: float = 100.0
+@export var MOVE_SPEED: float = 50.0
 @export var JUMP_SPEED: float = 2.0
 @export var first_person: bool = false : 
 	set(p_value):
