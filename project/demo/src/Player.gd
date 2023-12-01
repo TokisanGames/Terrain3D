@@ -1,6 +1,6 @@
 extends CharacterBody3D
 
-@export var MOVE_SPEED: float = 100.0
+@export var MOVE_SPEED: float = 50.0
 @export var JUMP_SPEED: float = 2.0
 @export var first_person: bool = false : 
 	set(p_value):
@@ -8,7 +8,7 @@ extends CharacterBody3D
 		if first_person:
 			$CameraManager/Arm.spring_length = 0.0
 		else:
-			$CameraManager/Arm.spring_length = 4.0
+			$CameraManager/Arm.spring_length = 6.0
 
 @export var gravity_enabled: bool = true :
 	set(p_value):
@@ -51,18 +51,18 @@ func get_camera_relative_input() -> Vector3:
 	if Input.is_action_pressed("down"):
 		velocity.y -= JUMP_SPEED + MOVE_SPEED*.016
 	if Input.is_key_pressed(KEY_KP_ADD) or Input.is_key_pressed(KEY_EQUAL):
-		MOVE_SPEED = clamp(MOVE_SPEED + .5, 0, 9999)
+		MOVE_SPEED = clamp(MOVE_SPEED + .5, 5, 9999)
 	if Input.is_key_pressed(KEY_KP_SUBTRACT) or Input.is_key_pressed(KEY_MINUS):
-		MOVE_SPEED = clamp(MOVE_SPEED - .5, 0, 9999)
+		MOVE_SPEED = clamp(MOVE_SPEED - .5, 5, 9999)
 	return input_dir		
 
 
 func _input(p_event: InputEvent) -> void:
 	if p_event is InputEventMouseButton and p_event.pressed:
 		if p_event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			MOVE_SPEED = clamp(MOVE_SPEED + 5, 0, 9999)
+			MOVE_SPEED = clamp(MOVE_SPEED + 5, 5, 9999)
 		elif p_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			MOVE_SPEED = clamp(MOVE_SPEED - 5, 0, 9999)
+			MOVE_SPEED = clamp(MOVE_SPEED - 5, 5, 9999)
 	
 	elif p_event is InputEventKey:
 		if p_event.pressed and p_event.keycode == KEY_V:

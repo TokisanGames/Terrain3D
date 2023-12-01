@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=7 format=3 uid="uid://domhm87hbhbg1"]
 
 [ext_resource type="Script" path="res://demo/src/Player.gd" id="1_nm1yx"]
 [ext_resource type="Script" path="res://demo/src/CameraManager.gd" id="2_loos7"]
@@ -23,12 +23,13 @@ script = ExtResource("2_loos7")
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 2.32515, -0.0321627)
 shape = SubResource("SphereShape3D_smq6u")
-spring_length = 4.0
+spring_length = 6.0
 margin = 0.5
 
 [node name="Camera3D" type="Camera3D" parent="CameraManager/Arm"]
 unique_name_in_owner = true
-far = 32768.0
+near = 0.25
+far = 16384.0
 
 [node name="CollisionShapeBody" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)

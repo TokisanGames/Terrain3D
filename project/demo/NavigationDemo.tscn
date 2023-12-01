@@ -1,0 +1,67 @@
+[gd_scene load_steps=14 format=3 uid="uid://x34e4v60vdmy"]
+
+[ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_po4vw"]
+[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="2_i74wg"]
+[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_3upu0"]
+[ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="4_fk3ul"]
+[ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="5_2lvlr"]
+[ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="5_rc7e2"]
+[ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="7_d7eri"]
+[ext_resource type="NavigationMesh" uid="uid://yf3fu23666k8" path="res://demo/data/nav_mesh.res" id="7_jmtvv"]
+[ext_resource type="Terrain3DTextureList" uid="uid://dal3jhw6241qg" path="res://demo/data/texture_list.tres" id="10_qmhh8"]
+[ext_resource type="PackedScene" uid="uid://di5fovhcyd7re" path="res://demo/components/Enemy.tscn" id="12_b2xl8"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_i4tyq"]
+noise_type = 0
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_8x4ho"]
+generate_mipmaps = false
+seamless = true
+noise = SubResource("FastNoiseLite_i4tyq")
+
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_5dxhb"]
+_shader_parameters = {
+"auto_base_texture": 0,
+"auto_height_reduction": 0.1,
+"auto_overlay_texture": 1,
+"auto_slope": 1.0,
+"blend_sharpness": 0.87,
+"dual_scale_far": 170.0,
+"dual_scale_near": 100.0,
+"dual_scale_reduction": 0.3,
+"dual_scale_texture": 0,
+"height_blending": true,
+"noise_scale": 0.1,
+"noise_texture": SubResource("NoiseTexture2D_8x4ho"),
+"tri_scale_reduction": 1.0
+}
+world_background = 0
+
+[node name="Demo" type="Node"]
+script = ExtResource("1_po4vw")
+
+[node name="UI" parent="." instance=ExtResource("5_rc7e2")]
+
+[node name="World" parent="." instance=ExtResource("2_i74wg")]
+
+[node name="Borders" parent="." instance=ExtResource("3_3upu0")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -2.5, 512)
+
+[node name="Tunnel" parent="." instance=ExtResource("5_2lvlr")]
+
+[node name="Player" parent="." instance=ExtResource("4_fk3ul")]
+transform = Transform3D(0.0774673, 0, -0.996995, 0, 1, 0, 0.996995, 0, 0.0774673, 253.094, 115.487, -1838.16)
+
+[node name="Enemy" parent="." node_paths=PackedStringArray("target") instance=ExtResource("12_b2xl8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192.727, 105.171, -1787.81)
+target = NodePath("../Player")
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
+navigation_mesh = ExtResource("7_jmtvv")
+
+[node name="Terrain3D" type="Terrain3D" parent="NavigationRegion3D"]
+storage = ExtResource("7_d7eri")
+material = SubResource("Terrain3DMaterial_5dxhb")
+texture_list = ExtResource("10_qmhh8")
+collision_mask = 3
+clipmap_size = 64

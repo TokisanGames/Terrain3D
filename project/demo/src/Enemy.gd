@@ -28,7 +28,7 @@ func is_on_nav_mesh() -> bool:
 
 
 func _physics_process(p_delta: float) -> void:
-	if nav_agent.is_navigation_finished() or not nav_agent.is_target_reachable() or not is_on_nav_mesh():
+	if nav_agent.is_navigation_finished():
 		velocity.x = 0.0
 		velocity.z = 0.0
 	else:
