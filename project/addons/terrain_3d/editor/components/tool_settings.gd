@@ -21,8 +21,8 @@ const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain_3d/editor/brushes"
 const PICKER_ICON: String = "res://addons/terrain_3d/icons/icon_picker.svg"
 
-const NONE = 0x0
-const ALLOW_OUT_OF_BOUNDS = 0x1
+const NONE: int = 0x0
+const ALLOW_OUT_OF_BOUNDS: int = 0x1
 
 var brush_preview_material: ShaderMaterial
 
@@ -64,9 +64,9 @@ func _ready() -> void:
 	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
 
 
-func create_submenu(parent: Control, button_name: String, layout: Layout) -> Container:
+func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) -> Container:
 	var menu_button: Button = Button.new()
-	menu_button.set_text(button_name)
+	menu_button.set_text(p_button_name)
 	menu_button.set_toggle_mode(true)
 	menu_button.set_v_size_flags(SIZE_SHRINK_CENTER)
 	menu_button.connect("toggled", _on_show_submenu.bind(menu_button))
@@ -76,7 +76,7 @@ func create_submenu(parent: Control, button_name: String, layout: Layout) -> Con
 	submenu.set("theme_override_styles/panel", get_theme_stylebox("panel", "PopupMenu"))
 	
 	var sublist: Container
-	match(layout):
+	match(p_layout):
 		Layout.GRID:
 			sublist = GridContainer.new()
 		Layout.VERTICAL:
@@ -84,23 +84,23 @@ func create_submenu(parent: Control, button_name: String, layout: Layout) -> Con
 		Layout.HORIZONTAL, _:
 			sublist = HBoxContainer.new()
 	
-	parent.add_child(menu_button, true)
+	p_parent.add_child(menu_button, true)
 	menu_button.add_child(submenu, true)
 	submenu.add_child(sublist, true)
 	
 	return sublist
 
 
-func _on_show_submenu(toggled: bool, button: Button):
-	var popup: PopupPanel = button.get_child(0)
-	var popup_pos: Vector2 = button.get_screen_transform().origin
-	popup.set_visible(toggled)
+func _on_show_submenu(p_toggled: bool, p_button: Button) -> void:
+	var popup: PopupPanel = p_button.get_child(0)
+	var popup_pos: Vector2 = p_button.get_screen_transform().origin
+	popup.set_visible(p_toggled)
 	popup_pos.y -= popup.get_size().y
 	popup.set_position(popup_pos)
 
 
-func add_brushes(parent: Control) -> void:
-	var brush_list: GridContainer = create_submenu(parent, "Brush", Layout.GRID)
+func add_brushes(p_parent: Control) -> void:
+	var brush_list: GridContainer = create_submenu(p_parent, "Brush", Layout.GRID)
 	brush_list.name = "BrushList"
 
 	var brush_button_group: ButtonGroup = ButtonGroup.new()
@@ -159,35 +159,35 @@ func add_brushes(parent: Control) -> void:
 #	select_brush_btn.set_expand_icon(true)
 
 
-func _on_brush_hover(hovering: bool, button: Button) -> void:
-	if button.get_child_count() > 0:
-		var child = button.get_child(0)
+func _on_brush_hover(p_hovering: bool, p_button: Button) -> void:
+	if p_button.get_child_count() > 0:
+		var child = p_button.get_child(0)
 		if child is Label:
-			if hovering:
+			if p_hovering:
 				child.visible = true
 			else:
 				child.visible = false
 
 
-func _on_pick(type: Terrain3DEditor.Tool) -> void:
-	emit_signal("picking", type, _on_picked)
+func _on_pick(p_type: Terrain3DEditor.Tool) -> void:
+	emit_signal("picking", p_type, _on_picked)
 
 
-func _on_picked(type: Terrain3DEditor.Tool, color: Color) -> void:
-	match type:
+func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color) -> void:
+	match p_type:
 		Terrain3DEditor.HEIGHT:
-			settings["height"].value = color.r
+			settings["height"].value = p_color.r
 		Terrain3DEditor.COLOR:
-			settings["color"].color = color
+			settings["color"].color = p_color
 		Terrain3DEditor.ROUGHNESS:
 			# 200... -.5 converts 0,1 to -100,100
-			settings["roughness"].value = round(200 * (color.a - 0.5))
+			settings["roughness"].value = round(200 * (p_color.a - 0.5))
 	_on_setting_changed()
 
 
-func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent: Control, 
-		p_suffix: String = "", min_value: float = 0.0, max_value: float = 0.0, step: float = 1.0,
-		flags: int = NONE) -> void:
+func add_setting(p_type: SettingType, p_name: StringName, p_value: Variant, p_parent: Control, 
+		p_suffix: String = "", p_min_value: float = 0.0, p_max_value: float = 0.0, p_step: float = 1.0,
+		p_flags: int = NONE) -> void:
 
 	var container: HBoxContainer = HBoxContainer.new()
 	var label: Label = Label.new()
@@ -210,16 +210,16 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 				control.set_flat(true)
 				control.set_hide_slider(true)
 				control.connect("value_changed", _on_setting_changed)
-				control.set_max(max_value)
-				control.set_min(min_value)
-				control.set_step(step)
-				control.set_value(value)
+				control.set_max(p_max_value)
+				control.set_min(p_min_value)
+				control.set_step(p_step)
+				control.set_value(p_value)
 				control.set_suffix(p_suffix)
 				control.set_v_size_flags(SIZE_SHRINK_CENTER)
 			
 				slider = HSlider.new()
 				slider.share(control)
-				if flags & ALLOW_OUT_OF_BOUNDS:
+				if p_flags & ALLOW_OUT_OF_BOUNDS:
 					slider.set_allow_greater(true)
 					slider.set_allow_lesser(true)
 					
@@ -233,10 +233,10 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 				slider.connect("value_changed", _on_setting_changed)
 			
 			control.set_custom_minimum_size(Vector2(75, 0))
-			slider.set_max(max_value)
-			slider.set_min(min_value)
-			slider.set_step(step)
-			slider.set_value(value)
+			slider.set_max(p_max_value)
+			slider.set_min(p_min_value)
+			slider.set_step(p_step)
+			slider.set_value(p_value)
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 			slider.set_h_size_flags(SIZE_SHRINK_END | SIZE_EXPAND)
 			slider.set_custom_minimum_size(Vector2(100, 10))
@@ -246,7 +246,7 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 		SettingType.CHECKBOX:
 			control = CheckBox.new()
 			control.set_text(p_name.capitalize())
-			control.set_pressed_no_signal(value)
+			control.set_pressed_no_signal(p_value)
 			control.connect("pressed", _on_setting_changed)
 			
 		SettingType.COLOR_SELECT:
@@ -261,10 +261,10 @@ func add_setting(p_type: SettingType, p_name: StringName, value: Variant, parent
 			control = Button.new()
 			control.icon = load(PICKER_ICON)
 			control.tooltip_text = "Pick value from the Terrain"
-			control.connect("pressed", _on_pick.bind(value))
+			control.connect("pressed", _on_pick.bind(p_value))
 			
 	container.add_child(control, true)
-	parent.add_child(container, true)
+	p_parent.add_child(container, true)
 	
 	settings[p_name] = control
 
@@ -287,7 +287,7 @@ func get_setting(p_setting: String) -> Variant:
 	return value
 
 
-func hide_settings(p_settings: PackedStringArray):
+func hide_settings(p_settings: PackedStringArray) -> void:
 	for setting in settings.keys():
 		var object: Object = settings[setting]
 		if object is Control:
@@ -339,15 +339,15 @@ func _get_brush_preview_material() -> ShaderMaterial:
 	return brush_preview_material
 
 
-func _black_to_alpha(image: Image) -> void:
-	if image.get_format() != Image.FORMAT_RGBAF:
-		image.convert(Image.FORMAT_RGBAF)
+func _black_to_alpha(p_image: Image) -> void:
+	if p_image.get_format() != Image.FORMAT_RGBAF:
+		p_image.convert(Image.FORMAT_RGBAF)
 
-	for y in image.get_height():
-		for x in image.get_width():
-			var color: Color = image.get_pixel(x,y)
+	for y in p_image.get_height():
+		for x in p_image.get_width():
+			var color: Color = p_image.get_pixel(x,y)
 			color.a = color.get_luminance()
-			image.set_pixel(x, y, color)
+			p_image.set_pixel(x, y, color)
 
 
 #### Sub Class DoubleSlider
@@ -360,7 +360,7 @@ class DoubleSlider extends Range:
 	var _max_value: float
 	
 	
-	func _gui_input(p_event: InputEvent):
+	func _gui_input(p_event: InputEvent) -> void:
 		if p_event is InputEventMouseButton:
 			if p_event.get_button_index() == MOUSE_BUTTON_LEFT:
 				grabbed = p_event.is_pressed()
@@ -392,18 +392,18 @@ class DoubleSlider extends Range:
 			draw_texture(grabber, maxpos)
 			
 			
-	func set_max(value: float):
-		max_value = value
+	func set_max(p_value: float) -> void:
+		max_value = p_value
 		if _max_value == 0:
 			_max_value = max_value
 		update_label()
 		
 		
-	func set_min_max(xpos: float):
+	func set_min_max(p_xpos: float) -> void:
 		var mid_value_normalized: float = ((max_value + min_value) / 2.0) / _max_value
 		var mid_value: float = size.x * mid_value_normalized
-		var min_active: bool = xpos < mid_value
-		var xpos_ranged: float = snappedf((xpos / size.x) * _max_value, step)
+		var min_active: bool = p_xpos < mid_value
+		var xpos_ranged: float = snappedf((p_xpos / size.x) * _max_value, step)
 		
 		if min_active:
 			min_value = xpos_ranged
@@ -418,6 +418,6 @@ class DoubleSlider extends Range:
 		queue_redraw()
 		
 		
-	func update_label():
+	func update_label() -> void:
 		if label:
 			label.set_text(str(min_value) + suffix + "/" + str(max_value) + suffix)

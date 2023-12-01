@@ -35,7 +35,7 @@ func _enter_tree() -> void:
 	confirm_dialog.set_unparent_when_invisible(true)
 
 
-func _exit_tree():
+func _exit_tree() -> void:
 	bake_lod_dialog.queue_free()
 	confirm_dialog.queue_free()
 
@@ -52,7 +52,7 @@ func _bake_mesh() -> void:
 	if !mesh:
 		push_error("Failed to bake mesh from Terrain3D")
 		return
-	var undo := plugin.get_undo_redo()
+	var undo: EditorUndoRedoManager = plugin.get_undo_redo()
 
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = &"MeshInstance3D"
@@ -81,10 +81,10 @@ func _bake_occluder() -> void:
 		return
 	assert(mesh.get_surface_count() == 1)
 
-	var undo := plugin.get_undo_redo()
+	var undo: EditorUndoRedoManager = plugin.get_undo_redo()
 
 	var occluder := ArrayOccluder3D.new()
-	var arrays := mesh.surface_get_arrays(0)
+	var arrays: Array = mesh.surface_get_arrays(0)
 	assert(arrays.size() > Mesh.ARRAY_INDEX)
 	assert(arrays[Mesh.ARRAY_INDEX] != null)
 	occluder.set_arrays(arrays[Mesh.ARRAY_VERTEX], arrays[Mesh.ARRAY_INDEX])
@@ -101,17 +101,18 @@ func _bake_occluder() -> void:
 	undo.commit_action()
 
 
-func find_nav_region_terrains(nav_region: NavigationRegion3D) -> Array[Terrain3D]:
+func find_nav_region_terrains(p_nav_region: NavigationRegion3D) -> Array[Terrain3D]:
 	var result: Array[Terrain3D] = []
-	if not nav_region.navigation_mesh:
+	if not p_nav_region.navigation_mesh:
 		return result
 	
-	var source_mode := nav_region.navigation_mesh.geometry_source_geometry_mode
+	var source_mode: NavigationMesh.SourceGeometryMode
+	source_mode = p_nav_region.navigation_mesh.geometry_source_geometry_mode
 	if source_mode == NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN:
-		result.append_array(nav_region.find_children("", "Terrain3D", true, true))
+		result.append_array(p_nav_region.find_children("", "Terrain3D", true, true))
 		return result
 	
-	var group_nodes := nav_region.get_tree().get_nodes_in_group(nav_region.navigation_mesh.geometry_source_group_name)
+	var group_nodes: Array = p_nav_region.get_tree().get_nodes_in_group(p_nav_region.navigation_mesh.geometry_source_group_name)
 	for node in group_nodes:
 		if node is Terrain3D:
 			result.push_back(node)
@@ -121,13 +122,13 @@ func find_nav_region_terrains(nav_region: NavigationRegion3D) -> Array[Terrain3D
 	return result
 
 
-func find_terrain_nav_regions(terrain: Terrain3D) -> Array[NavigationRegion3D]:
+func find_terrain_nav_regions(p_terrain: Terrain3D) -> Array[NavigationRegion3D]:
 	var result: Array[NavigationRegion3D] = []
-	var root := plugin.get_editor_interface().get_edited_scene_root()
+	var root: Node = plugin.get_editor_interface().get_edited_scene_root()
 	if not root:
 		return result
 	for nav_region in root.find_children("", "NavigationRegion3D", true, true):
-		if find_nav_region_terrains(nav_region).has(terrain):
+		if find_nav_region_terrains(nav_region).has(p_terrain):
 			result.push_back(nav_region)
 	return result
 
@@ -136,7 +137,7 @@ func bake_nav_mesh() -> void:
 	if plugin.nav_region:
 		# A NavigationRegion3D is selected. We only need to bake that one navmesh.
 		_bake_nav_region_nav_mesh(plugin.nav_region)
-		print("Baking one NavigationMesh - finished.")
+		print("Terrain3DNavigation: Finished baking 1 NavigationMesh.")
 	
 	elif plugin.terrain:
 		# A Terrain3D is selected. There are potentially multiple navmeshes to bake and we need to
@@ -144,35 +145,35 @@ func bake_nav_mesh() -> void:
 		# geometry. Each navmesh in this case would define its own, non-overlapping, baking AABB, to
 		# cut down on the amount of geometry to bake. In a large open-world RPG, for instance, there
 		# could be a navmesh for each town.)
-		var nav_regions := find_terrain_nav_regions(plugin.terrain)
+		var nav_regions: Array[NavigationRegion3D] = find_terrain_nav_regions(plugin.terrain)
 		for nav_region in nav_regions:
 			_bake_nav_region_nav_mesh(nav_region)
-		print("Baking %d NavigationMesh(es) - finished." % nav_regions.size())
+		print("Terrain3DNavigation: Finished baking %d NavigationMesh(es)." % nav_regions.size())
 
 
-func _bake_nav_region_nav_mesh(nav_region: NavigationRegion3D) -> void:
-	var nav_mesh := nav_region.navigation_mesh
+func _bake_nav_region_nav_mesh(p_nav_region: NavigationRegion3D) -> void:
+	var nav_mesh: NavigationMesh = p_nav_region.navigation_mesh
 	assert(nav_mesh != null)
 	
 	var source_geometry_data := NavigationMeshSourceGeometryData3D.new()
-	NavigationMeshGenerator.parse_source_geometry_data(nav_mesh, source_geometry_data, nav_region)
+	NavigationMeshGenerator.parse_source_geometry_data(nav_mesh, source_geometry_data, p_nav_region)
 	
-	for terrain in find_nav_region_terrains(nav_region):
-		var aabb := nav_mesh.filter_baking_aabb
+	for terrain in find_nav_region_terrains(p_nav_region):
+		var aabb: AABB = nav_mesh.filter_baking_aabb
 		aabb.position += nav_mesh.filter_baking_aabb_offset
-		aabb = nav_region.global_transform * aabb
-		var faces := terrain.generate_nav_mesh_source_geometry(aabb)
+		aabb = p_nav_region.global_transform * aabb
+		var faces: PackedVector3Array = terrain.generate_nav_mesh_source_geometry(aabb)
 		if not faces.is_empty():
-			source_geometry_data.add_faces(faces, nav_region.global_transform.inverse())
+			source_geometry_data.add_faces(faces, p_nav_region.global_transform.inverse())
 	
 	NavigationMeshGenerator.bake_from_source_geometry_data(nav_mesh, source_geometry_data)
 	
 	# Assign null first to force the debug display to actually update:
-	nav_region.set_navigation_mesh(null)
-	nav_region.set_navigation_mesh(nav_mesh)
+	p_nav_region.set_navigation_mesh(null)
+	p_nav_region.set_navigation_mesh(nav_mesh)
 	
 	# Let other editor plugins and tool scripts know the nav mesh was just baked:
-	nav_region.bake_finished.emit()
+	p_nav_region.bake_finished.emit()
 
 
 func set_up_navigation_popup() -> void:
@@ -190,7 +191,7 @@ func _set_up_navigation() -> void:
 	nav_region.name = &"NavigationRegion3D"
 	nav_region.navigation_mesh = NavigationMesh.new()
 	
-	var undo_redo := plugin.get_undo_redo()
+	var undo_redo: EditorUndoRedoManager = plugin.get_undo_redo()
 	
 	undo_redo.create_action("Terrain3D Set up Navigation")
 	undo_redo.add_do_method(self, &"_do_set_up_navigation", nav_region, terrain)
@@ -204,32 +205,32 @@ func _set_up_navigation() -> void:
 	bake_nav_mesh()
 
 
-func _do_set_up_navigation(nav_region: NavigationRegion3D, terrain: Terrain3D) -> void:
-	var parent := terrain.get_parent()
-	var index := terrain.get_index()
-	var owner := terrain.owner
+func _do_set_up_navigation(p_nav_region: NavigationRegion3D, p_terrain: Terrain3D) -> void:
+	var parent: Node = p_terrain.get_parent()
+	var index: int = p_terrain.get_index()
+	var t_owner: Node = p_terrain.owner
 	
-	parent.remove_child(terrain)
-	nav_region.add_child(terrain)
+	parent.remove_child(p_terrain)
+	p_nav_region.add_child(p_terrain)
 	
-	parent.add_child(nav_region, true)
-	parent.move_child(nav_region, index)
+	parent.add_child(p_nav_region, true)
+	parent.move_child(p_nav_region, index)
 	
-	nav_region.owner = owner
-	terrain.owner = owner
+	p_nav_region.owner = t_owner
+	p_terrain.owner = t_owner
 
 
-func _undo_set_up_navigation(nav_region: NavigationRegion3D, terrain: Terrain3D) -> void:
-	assert(terrain.get_parent() == nav_region)
+func _undo_set_up_navigation(p_nav_region: NavigationRegion3D, p_terrain: Terrain3D) -> void:
+	assert(p_terrain.get_parent() == p_nav_region)
 	
-	var parent := nav_region.get_parent()
-	var index := nav_region.get_index()
-	var owner := nav_region.get_owner()
+	var parent: Node = p_nav_region.get_parent()
+	var index: int = p_nav_region.get_index()
+	var t_owner: Node = p_nav_region.get_owner()
 	
-	parent.remove_child(nav_region)
-	nav_region.remove_child(terrain)
+	parent.remove_child(p_nav_region)
+	p_nav_region.remove_child(p_terrain)
 	
-	parent.add_child(terrain, true)
-	parent.move_child(terrain, index)
+	parent.add_child(p_terrain, true)
+	parent.move_child(p_terrain, index)
 	
-	terrain.owner = owner
+	p_terrain.owner = t_owner

@@ -47,30 +47,30 @@ func clear() -> void:
 	entries.clear()
 
 
-func add_item(resource: Resource = null) -> void:
+func add_item(p_resource: Resource = null) -> void:
 	var entry: ListEntry = ListEntry.new()
 	var index: int = entries.size()
 	
-	entry.set_edited_resource(resource)
+	entry.set_edited_resource(p_resource)
 	entry.selected.connect(set_selected_index.bind(index))
 	entry.inspected.connect(notify_resource_inspected)
 	entry.changed.connect(notify_resource_changed.bind(index))
 	
-	if resource:
+	if p_resource:
 		entry.set_selected(index == selected_index)
-		if not resource.id_changed.is_connected(set_selected_after_swap):
-			resource.id_changed.connect(set_selected_after_swap)
+		if not p_resource.id_changed.is_connected(set_selected_after_swap):
+			p_resource.id_changed.connect(set_selected_after_swap)
 	
 	list.add_child(entry)
 	entries.push_back(entry)
 
 
-func set_selected_after_swap(old_index: int, new_index: int) -> void:
-	set_selected_index(clamp(new_index, 0, entries.size() - 2))
+func set_selected_after_swap(p_old_index: int, p_new_index: int) -> void:
+	set_selected_index(clamp(p_new_index, 0, entries.size() - 2))
 
 
-func set_selected_index(index: int) -> void:
-	selected_index = index
+func set_selected_index(p_index: int) -> void:
+	selected_index = p_index
 	emit_signal("resource_selected")
 	
 	for i in entries.size():
@@ -82,15 +82,15 @@ func get_selected_index() -> int:
 	return selected_index
 
 
-func notify_resource_inspected(resource: Resource) -> void:
-	emit_signal("resource_inspected", resource)
+func notify_resource_inspected(p_resource: Resource) -> void:
+	emit_signal("resource_inspected", p_resource)
 
 
-func notify_resource_changed(resource: Resource, index: int) -> void:
-	emit_signal("resource_changed", resource, index)
-	if !resource:
+func notify_resource_changed(p_resource: Resource, p_index: int) -> void:
+	emit_signal("resource_changed", p_resource, p_index)
+	if !p_resource:
 		var last_offset: int = 2
-		if index == entries.size()-2:
+		if p_index == entries.size()-2:
 			last_offset = 3
 		selected_index = clamp(selected_index, 0, entries.size() - last_offset)	
 
@@ -103,8 +103,8 @@ func notify_resource_changed(resource: Resource, index: int) -> void:
 class ListContainer extends Container:
 	var height: float = 0
 	
-	func _notification(what) -> void:
-		if what == NOTIFICATION_SORT_CHILDREN:
+	func _notification(p_what) -> void:
+		if p_what == NOTIFICATION_SORT_CHILDREN:
 			height = 0
 			var index: int = 0
 			var separation: float = 4
@@ -180,8 +180,8 @@ class ListEntry extends VBoxContainer:
 		name_label.text = "Add New"
 		
 		
-	func _notification(what) -> void:
-		match what:
+	func _notification(p_what) -> void:
+		match p_what:
 			NOTIFICATION_DRAW:
 				var rect: Rect2 = Rect2(Vector2.ZERO, get_size())
 				if !resource:
@@ -212,10 +212,10 @@ class ListEntry extends VBoxContainer:
 				queue_redraw()
 
 	
-	func _gui_input(event: InputEvent) -> void:
-		if event is InputEventMouseButton:
-			if event.is_pressed():
-				match event.get_button_index():
+	func _gui_input(p_event: InputEvent) -> void:
+		if p_event is InputEventMouseButton:
+			if p_event.is_pressed():
+				match p_event.get_button_index():
 					MOUSE_BUTTON_LEFT:
 						# If `Add new` is clicked
 						if !resource:
@@ -231,18 +231,18 @@ class ListEntry extends VBoxContainer:
 							clear()
 
 
-	func _can_drop_data(at_position: Vector2, data: Variant) -> bool:
+	func _can_drop_data(p_at_position: Vector2, p_data: Variant) -> bool:
 		drop_data = false
-		if typeof(data) == TYPE_DICTIONARY:
-			if data.files.size() == 1:
+		if typeof(p_data) == TYPE_DICTIONARY:
+			if p_data.files.size() == 1:
 				queue_redraw()
 				drop_data = true
 		return drop_data
 
 		
-	func _drop_data(at_position: Vector2, data: Variant) -> void:
-		if typeof(data) == TYPE_DICTIONARY:
-			var res: Resource = load(data.files[0])
+	func _drop_data(p_at_position: Vector2, p_data: Variant) -> void:
+		if typeof(p_data) == TYPE_DICTIONARY:
+			var res: Resource = load(p_data.files[0])
 			if res is Terrain3DTexture:
 				set_edited_resource(res, false)
 			if res is Texture2D:
@@ -251,8 +251,8 @@ class ListEntry extends VBoxContainer:
 				set_edited_resource(surf, false)
 
 	
-	func set_edited_resource(res: Terrain3DTexture, no_signal: bool = true) -> void:
-		resource = res
+	func set_edited_resource(p_res: Terrain3DTexture, p_no_signal: bool = true) -> void:
+		resource = p_res
 		if resource:
 			resource.setting_changed.connect(_on_texture_changed)
 			resource.file_changed.connect(_on_texture_changed)
@@ -261,7 +261,7 @@ class ListEntry extends VBoxContainer:
 			button_clear.set_visible(resource != null)
 			
 		queue_redraw()
-		if !no_signal:
+		if !p_no_signal:
 			emit_signal("changed", resource)
 
 

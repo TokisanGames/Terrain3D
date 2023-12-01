@@ -3,27 +3,27 @@ extends CharacterBody3D
 @export var MOVE_SPEED: float = 100.0
 @export var JUMP_SPEED: float = 2.0
 @export var first_person: bool = false : 
-	set(value):
-		first_person = value
+	set(p_value):
+		first_person = p_value
 		if first_person:
 			$CameraManager/Arm.spring_length = 0.0
 		else:
 			$CameraManager/Arm.spring_length = 4.0
 
 @export var gravity_enabled: bool = true :
-	set(value):
-		gravity_enabled = value
+	set(p_value):
+		gravity_enabled = p_value
 		if not gravity_enabled:
 			velocity.y = 0
 			
 @export var collision_enabled: bool = true :
-	set(value):
-		collision_enabled = value
+	set(p_value):
+		collision_enabled = p_value
 		$CollisionShapeBody.disabled = ! collision_enabled
 		$CollisionShapeRay.disabled = ! collision_enabled
 
 
-func _physics_process(delta) -> void:
+func _physics_process(p_delta) -> void:
 	var direction: Vector3 = get_camera_relative_input()
 	var h_veloc: Vector2 = Vector2(direction.x, direction.z) * MOVE_SPEED
 	if Input.is_action_pressed("sprint"):
@@ -31,7 +31,7 @@ func _physics_process(delta) -> void:
 	velocity.x = h_veloc.x
 	velocity.z = h_veloc.y
 	if gravity_enabled:
-		velocity.y -= 40 * delta
+		velocity.y -= 40 * p_delta
 	move_and_slide()
 
 
@@ -57,20 +57,20 @@ func get_camera_relative_input() -> Vector3:
 	return input_dir		
 
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+func _input(p_event: InputEvent) -> void:
+	if p_event is InputEventMouseButton and p_event.pressed:
+		if p_event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			MOVE_SPEED = clamp(MOVE_SPEED + 5, 0, 9999)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		elif p_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			MOVE_SPEED = clamp(MOVE_SPEED - 5, 0, 9999)
 	
-	elif event is InputEventKey:
-		if event.pressed and event.keycode == KEY_V:
+	elif p_event is InputEventKey:
+		if p_event.pressed and p_event.keycode == KEY_V:
 			first_person = ! first_person
-		if event.pressed and event.keycode == KEY_G:
+		if p_event.pressed and p_event.keycode == KEY_G:
 			gravity_enabled = ! gravity_enabled
-		if event.pressed and event.keycode == KEY_C:
+		if p_event.pressed and p_event.keycode == KEY_C:
 			collision_enabled = ! collision_enabled
 
-		elif event.is_action_released("down") or event.is_action_released("up"):
+		elif p_event.is_action_released("down") or p_event.is_action_released("up"):
 			velocity.y = 0
