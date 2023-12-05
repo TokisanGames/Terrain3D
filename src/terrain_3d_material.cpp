@@ -307,7 +307,7 @@ void Terrain3DMaterial::_update_shader() {
 	}
 
 	// Set specific shader parameters
-	RS->material_set_param(_material, "_infinite_background", _world_background != NONE);
+	RS->material_set_param(_material, "_background_mode", _world_background);
 	RS->material_set_param(_material, "_show_navigation", _show_navigation);
 
 	// If no noise texture, generate one

@@ -33,7 +33,7 @@ uniform sampler2DArray _color_maps : source_color, repeat_disable;
 uniform float _texture_uv_scale_array[32];
 uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
-uniform bool _infinite_background = true;
+uniform int _background_mode = 1;  // NONE = 0, FLAT = 1, NOISE = 2
 uniform bool _show_navigation = true;
 
 // Public uniforms
@@ -105,7 +105,7 @@ void vertex() {
 	ivec3 ruv = get_region_uv(UV);
 	uint control = texelFetch(_control_maps, ruv, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
-	if ( hole || (!_infinite_background && ruv.z < 0) ) {
+	if ( hole || (_background_mode == 0 && ruv.z < 0) ) {
 		VERTEX.x = 0./0.;
 	} else {
 		// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
