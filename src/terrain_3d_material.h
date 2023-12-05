@@ -16,6 +16,11 @@ public:
 	// Constants
 	static inline const char *__class__ = "Terrain3DMaterial";
 
+	enum TextureFiltering {
+		LINEAR,
+		NEAREST,
+	};
+
 private:
 	bool _initialized = false;
 	RID _material;
@@ -25,6 +30,8 @@ private:
 	Dictionary _shader_code;
 	mutable TypedArray<StringName> _active_params;
 	mutable Dictionary _shader_params;
+
+	TextureFiltering _texture_filtering = LINEAR;
 
 	// Built in alternate shaders
 	bool _world_noise_enabled = false;
@@ -82,6 +89,9 @@ public:
 	void set_world_noise_enabled(bool p_enabled);
 	bool get_world_noise_enabled() const { return _world_noise_enabled; }
 
+	void set_texture_filtering(TextureFiltering p_filtering);
+	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
+
 	void set_show_checkered(bool p_enabled);
 	bool get_show_checkered() const { return _debug_view_checkered; }
 	void set_show_grey(bool p_enabled);
@@ -114,5 +124,7 @@ protected:
 
 	static void _bind_methods();
 };
+
+VARIANT_ENUM_CAST(Terrain3DMaterial::TextureFiltering);
 
 #endif // TERRAIN3D_MATERIAL_CLASS_H

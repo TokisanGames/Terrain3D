@@ -29,8 +29,8 @@ uniform vec2 _region_offsets[256];
 uniform sampler2DArray _height_maps : repeat_disable;
 uniform usampler2DArray _control_maps : repeat_disable;
 uniform sampler2DArray _color_maps : source_color, repeat_disable;
-uniform sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+//INSERT: TEXTURE_SAMPLERS_NEAREST
+//INSERT: TEXTURE_SAMPLERS_LINEAR
 uniform float _texture_uv_scale_array[32];
 uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
