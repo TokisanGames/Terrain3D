@@ -296,7 +296,7 @@ void fragment() {
 	NORMAL_MAP_DEPTH = 1.0;
 
 	// Editor functions
-	if(_show_navigation && bool(control00 >>1u & 0x1u)) {
+	if(_show_navigation && bool(texelFetch(_control_maps, get_region_uv(floor(UV)), 0).r >>1u & 0x1u)) {
 		ALBEDO *= vec3(.5, .0, .85);
 	}
 
