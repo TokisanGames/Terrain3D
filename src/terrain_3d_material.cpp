@@ -16,6 +16,11 @@
 
 void Terrain3DMaterial::_preload_shaders() {
 	// Preprocessor loading of external shader inserts
+
+	_parse_shader(
+#include "shaders/uniforms.glsl"
+			, "uniforms");
+
 	_parse_shader(
 #include "shaders/world_noise.glsl"
 			, "world_noise");
@@ -94,6 +99,11 @@ String Terrain3DMaterial::_generate_shader_code() {
 	if (!_world_noise_enabled) {
 		excludes.push_back("WORLD_NOISE1");
 		excludes.push_back("WORLD_NOISE2");
+	}
+	if (_texture_filtering == LINEAR) {
+		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+	} else {
+		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
 	}
 	if (!_debug_view_checkered) {
 		excludes.push_back("DEBUG_CHECKERED");
@@ -428,6 +438,12 @@ void Terrain3DMaterial::set_world_noise_enabled(bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_texture_filtering(TextureFiltering p_filtering) {
+	LOG(INFO, "Setting texture filtering: ", p_filtering);
+	_texture_filtering = p_filtering;
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_show_checkered(bool p_enabled) {
 	LOG(INFO, "Enable set_show_checkered: ", p_enabled);
 	_debug_view_checkered = p_enabled;
@@ -629,6 +645,9 @@ bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) cons
 }
 
 void Terrain3DMaterial::_bind_methods() {
+	BIND_ENUM_CONSTANT(LINEAR);
+	BIND_ENUM_CONSTANT(NEAREST);
+
 	// Private, but Public workaround until callable_mp is implemented
 	// https://github.com/godotengine/godot-cpp/pull/1155
 	ClassDB::bind_method(D_METHOD("_update_regions", "args"), &Terrain3DMaterial::_update_regions);
@@ -657,6 +676,9 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_world_noise_enabled", "enabled"), &Terrain3DMaterial::set_world_noise_enabled);
 	ClassDB::bind_method(D_METHOD("get_world_noise_enabled"), &Terrain3DMaterial::get_world_noise_enabled);
 
+	ClassDB::bind_method(D_METHOD("set_texture_filtering", "filtering"), &Terrain3DMaterial::set_texture_filtering);
+	ClassDB::bind_method(D_METHOD("get_texture_filtering"), &Terrain3DMaterial::get_texture_filtering);
+
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DMaterial::get_show_checkered);
 	ClassDB::bind_method(D_METHOD("set_show_grey", "enabled"), &Terrain3DMaterial::set_show_grey);
@@ -681,6 +703,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "world_noise_enabled", PROPERTY_HINT_NONE), "set_world_noise_enabled", "get_world_noise_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
