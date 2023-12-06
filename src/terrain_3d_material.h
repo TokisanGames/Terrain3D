@@ -65,7 +65,8 @@ private:
 
 	// Functions
 	void _preload_shaders();
-	String _parse_shader(String p_shader, String p_name = String(), Array p_excludes = Array());
+	void _parse_shader(String p_shader, String p_name);
+	String _apply_inserts(String p_shader, Array p_excludes = Array());
 	String _generate_shader_code();
 	void _generate_region_blend_map();
 	void _update_regions(const Array &p_args);
