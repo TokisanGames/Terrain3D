@@ -156,120 +156,6 @@ String Terrain3DMaterial::_generate_shader_code() {
 	return shader;
 }
 
-void Terrain3DMaterial::_generate_region_blend_map() {
-	int rsize = Terrain3DStorage::REGION_MAP_SIZE;
-	if (_region_map.size() == rsize * rsize) {
-		LOG(DEBUG, "Regenerating ", Vector2i(512, 512), " region blend map");
-		Ref<Image> region_blend_img = Image::create(rsize, rsize, false, Image::FORMAT_RH);
-		for (int y = 0; y < rsize; y++) {
-			for (int x = 0; x < rsize; x++) {
-				if (_region_map[y * rsize + x] > 0) {
-					region_blend_img->set_pixel(x, y, COLOR_WHITE);
-				}
-			}
-		}
-		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
-		_generated_region_blend_map.clear();
-		_generated_region_blend_map.create(region_blend_img);
-		RS->material_set_param(_material, "_region_blend_map", _generated_region_blend_map.get_rid());
-		Util::dump_gen(_generated_region_blend_map, "blend_map");
-	}
-}
-
-// Array expects
-// 0: height maps texture array RID
-// 1: control maps RID
-// 2: color maps RID
-// 3: region map packedByteArray
-// 4: region offsets array
-void Terrain3DMaterial::_update_regions(const Array &p_args) {
-	if (!_initialized) {
-		return;
-	}
-	LOG(INFO, "Updating region maps in shader");
-	if (p_args.size() != 5) {
-		LOG(ERROR, "Expected 5 arguments. Received: ", p_args.size());
-		return;
-	}
-
-	RID height_rid = p_args[0];
-	RID control_rid = p_args[1];
-	RID color_rid = p_args[2];
-	RS->material_set_param(_material, "_height_maps", height_rid);
-	RS->material_set_param(_material, "_control_maps", control_rid);
-	RS->material_set_param(_material, "_color_maps", color_rid);
-	LOG(DEBUG, "Height map RID: ", height_rid);
-	LOG(DEBUG, "Control map RID: ", control_rid);
-	LOG(DEBUG, "Color map RID: ", color_rid);
-
-	_region_map = p_args[3];
-	LOG(DEBUG, "_region_map.size(): ", _region_map.size());
-	if (_region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
-		LOG(ERROR, "Expected _region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
-	}
-	RS->material_set_param(_material, "_region_map", _region_map);
-	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
-	if (Terrain3D::debug_level >= DEBUG) {
-		LOG(DEBUG, "Region map");
-		for (int i = 0; i < _region_map.size(); i++) {
-			if (_region_map[i]) {
-				LOG(DEBUG, "Region id: ", _region_map[i], " array index: ", i);
-			}
-		}
-	}
-
-	TypedArray<Vector2i> region_offsets = p_args[4];
-	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
-	RS->material_set_param(_material, "_region_offsets", region_offsets);
-
-	_generate_region_blend_map();
-}
-
-// Expected Arguments are as follows, * set is optional
-// 0: texture count
-// 1: albedo tex array
-// 2: normal tex array
-// 3: uv rotation array *
-// 4: uv scale array *
-// 5: uv color array *
-void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
-	if (!_initialized) {
-		return;
-	}
-	LOG(INFO, "Updating texture arrays in shader");
-	if (p_args.size() < 3) {
-		LOG(ERROR, "Expecting at least 2 arguments");
-		return;
-	}
-
-	_texture_count = p_args[0];
-	RID albedo_array = p_args[1];
-	RID normal_array = p_args[2];
-	RS->material_set_param(_material, "_texture_array_albedo", albedo_array);
-	RS->material_set_param(_material, "_texture_array_normal", normal_array);
-
-	if (p_args.size() == 6) {
-		PackedFloat32Array uv_scales = p_args[3];
-		PackedFloat32Array uv_rotations = p_args[4];
-		PackedColorArray colors = p_args[5];
-		_texture_count = uv_scales.size();
-		RS->material_set_param(_material, "_texture_uv_rotation_array", uv_scales);
-		RS->material_set_param(_material, "_texture_uv_scale_array", uv_rotations);
-		RS->material_set_param(_material, "_texture_color_array", colors);
-	}
-
-	// Enable checkered view if texture_count is 0, disable if not
-	if (_texture_count == 0) {
-		if (_debug_view_checkered == false) {
-			set_show_checkered(true);
-			LOG(DEBUG, "No textures, enabling checkered view");
-		}
-	} else {
-		set_show_checkered(false);
-		LOG(DEBUG, "Texture count >0: ", _texture_count, ", disabling checkered view");
-	}
-}
-
 void Terrain3DMaterial::_update_shader() {
 	if (!_initialized) {
 		return;
@@ -336,6 +222,120 @@ void Terrain3DMaterial::_update_shader() {
 	}
 
 	notify_property_list_changed();
+}
+
+// Array expects
+// 0: height maps texture array RID
+// 1: control maps RID
+// 2: color maps RID
+// 3: region map packedByteArray
+// 4: region offsets array
+void Terrain3DMaterial::_update_regions(const Array &p_args) {
+	if (!_initialized) {
+		return;
+	}
+	LOG(INFO, "Updating region maps in shader");
+	if (p_args.size() != 5) {
+		LOG(ERROR, "Expected 5 arguments. Received: ", p_args.size());
+		return;
+	}
+
+	RID height_rid = p_args[0];
+	RID control_rid = p_args[1];
+	RID color_rid = p_args[2];
+	RS->material_set_param(_material, "_height_maps", height_rid);
+	RS->material_set_param(_material, "_control_maps", control_rid);
+	RS->material_set_param(_material, "_color_maps", color_rid);
+	LOG(DEBUG, "Height map RID: ", height_rid);
+	LOG(DEBUG, "Control map RID: ", control_rid);
+	LOG(DEBUG, "Color map RID: ", color_rid);
+
+	_region_map = p_args[3];
+	LOG(DEBUG, "_region_map.size(): ", _region_map.size());
+	if (_region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
+		LOG(ERROR, "Expected _region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
+	}
+	RS->material_set_param(_material, "_region_map", _region_map);
+	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
+	if (Terrain3D::debug_level >= DEBUG) {
+		LOG(DEBUG, "Region map");
+		for (int i = 0; i < _region_map.size(); i++) {
+			if (_region_map[i]) {
+				LOG(DEBUG, "Region id: ", _region_map[i], " array index: ", i);
+			}
+		}
+	}
+
+	TypedArray<Vector2i> region_offsets = p_args[4];
+	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
+	RS->material_set_param(_material, "_region_offsets", region_offsets);
+
+	_generate_region_blend_map();
+}
+
+void Terrain3DMaterial::_generate_region_blend_map() {
+	int rsize = Terrain3DStorage::REGION_MAP_SIZE;
+	if (_region_map.size() == rsize * rsize) {
+		LOG(DEBUG, "Regenerating ", Vector2i(512, 512), " region blend map");
+		Ref<Image> region_blend_img = Image::create(rsize, rsize, false, Image::FORMAT_RH);
+		for (int y = 0; y < rsize; y++) {
+			for (int x = 0; x < rsize; x++) {
+				if (_region_map[y * rsize + x] > 0) {
+					region_blend_img->set_pixel(x, y, COLOR_WHITE);
+				}
+			}
+		}
+		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
+		_generated_region_blend_map.clear();
+		_generated_region_blend_map.create(region_blend_img);
+		RS->material_set_param(_material, "_region_blend_map", _generated_region_blend_map.get_rid());
+		Util::dump_gen(_generated_region_blend_map, "blend_map");
+	}
+}
+
+// Expected Arguments are as follows, * set is optional
+// 0: texture count
+// 1: albedo tex array
+// 2: normal tex array
+// 3: uv rotation array *
+// 4: uv scale array *
+// 5: uv color array *
+void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
+	if (!_initialized) {
+		return;
+	}
+	LOG(INFO, "Updating texture arrays in shader");
+	if (p_args.size() < 3) {
+		LOG(ERROR, "Expecting at least 2 arguments");
+		return;
+	}
+
+	_texture_count = p_args[0];
+	RID albedo_array = p_args[1];
+	RID normal_array = p_args[2];
+	RS->material_set_param(_material, "_texture_array_albedo", albedo_array);
+	RS->material_set_param(_material, "_texture_array_normal", normal_array);
+
+	if (p_args.size() == 6) {
+		PackedFloat32Array uv_scales = p_args[3];
+		PackedFloat32Array uv_rotations = p_args[4];
+		PackedColorArray colors = p_args[5];
+		_texture_count = uv_scales.size();
+		RS->material_set_param(_material, "_texture_uv_rotation_array", uv_scales);
+		RS->material_set_param(_material, "_texture_uv_scale_array", uv_rotations);
+		RS->material_set_param(_material, "_texture_color_array", colors);
+	}
+
+	// Enable checkered view if texture_count is 0, disable if not
+	if (_texture_count == 0) {
+		if (_debug_view_checkered == false) {
+			set_show_checkered(true);
+			LOG(DEBUG, "No textures, enabling checkered view");
+		}
+	} else {
+		set_show_checkered(false);
+		LOG(DEBUG, "Texture count >0: ", _texture_count, ", disabling checkered view");
+	}
 }
 
 void Terrain3DMaterial::_set_region_size(int p_size) {
