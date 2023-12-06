@@ -33,6 +33,7 @@ private:
 	RID _shader;
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override;
+	Ref<Shader> _shader_tmp;
 	Dictionary _shader_code;
 	mutable TypedArray<StringName> _active_params;
 	mutable Dictionary _shader_params;
@@ -68,6 +69,7 @@ private:
 	void _parse_shader(String p_shader, String p_name);
 	String _apply_inserts(String p_shader, Array p_excludes = Array());
 	String _generate_shader_code();
+	String _inject_editor_code(String p_shader);
 	void _update_shader();
 	void _update_regions(const Array &p_args);
 	void _generate_region_blend_map();
