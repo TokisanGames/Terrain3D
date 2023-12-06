@@ -24,11 +24,11 @@ void Terrain3DMaterial::_preload_shaders() {
 	_parse_shader(
 #include "shaders/world_noise.glsl"
 			, "world_noise");
-
 	_parse_shader(
 #include "shaders/debug_views.glsl"
 			, "debug_views");
 
+	// Load main code
 	_shader_code["main"] = String(
 #include "shaders/main.glsl"
 	);
@@ -42,30 +42,49 @@ void Terrain3DMaterial::_preload_shaders() {
 }
 
 /**
- * Dual use function that uses the same parsing mechanics for different purposes
- * if p_name has a value, Reading mode:
- *	any //INSERT: ID in p_shader is loaded into the DB _shader_code
- *	returns String()
- * else
- *	Apply mode: any //INSERT: ID is replaced by the entry in the DB
+ *	Any `//INSERT: ID` in p_shader is loaded into the DB _shader_code
+ */
+void Terrain3DMaterial::_parse_shader(String p_shader, String p_name) {
+	if (p_name.is_empty()) {
+		LOG(ERROR, "No dictionary key for saving shader snippets specified");
+		return;
+	}
+	PackedStringArray parsed = p_shader.split("//INSERT:");
+	for (int i = 0; i < parsed.size(); i++) {
+		// First section of the file before any //INSERT:
+		if (i == 0) {
+			_shader_code[p_name] = parsed[0];
+		} else {
+			// There is at least one //INSERT:
+			// Get the first ID on the first line
+			PackedStringArray segment = parsed[i].split("\n", true, 1);
+			// If there isn't an ID AND body, skip this insert
+			if (segment.size() < 2) {
+				continue;
+			}
+			String id = segment[0].strip_edges();
+			// Process the insert
+			if (!id.is_empty() && !segment[1].is_empty()) {
+				_shader_code[id] = segment[1];
+			}
+		}
+	}
+	return;
+}
+
+/**
+ *	Any //INSERT: ID in p_shader is replaced by the entry in the DB
  *	returns a shader string with inserts applied
  */
-String Terrain3DMaterial::_parse_shader(String p_shader, String p_name, Array p_excludes) {
+String Terrain3DMaterial::_apply_inserts(String p_shader, Array p_excludes) {
 	PackedStringArray parsed = p_shader.split("//INSERT:");
-
 	String shader;
 	for (int i = 0; i < parsed.size(); i++) {
 		// First section of the file before any //INSERT:
 		if (i == 0) {
-			if (!p_name.is_empty()) {
-				// Load mode
-				_shader_code[p_name] = parsed[0];
-			} else {
-				// Apply mode
-				shader = parsed[0];
-			}
+			shader = parsed[0];
 		} else {
-			// If there is at least one //INSERT:
+			// There is at least one //INSERT:
 			// Get the first ID on the first line
 			PackedStringArray segment = parsed[i].split("\n", true, 1);
 			// If there isn't an ID AND body, skip this insert
@@ -75,19 +94,11 @@ String Terrain3DMaterial::_parse_shader(String p_shader, String p_name, Array p_
 			String id = segment[0].strip_edges();
 
 			// Process the insert
-			if (!p_name.is_empty()) {
-				// Load mode
-				if (!id.is_empty() && !segment[1].is_empty()) {
-					_shader_code[id] = segment[1];
-				}
-			} else {
-				// Apply mode
-				if (!id.is_empty() && !p_excludes.has(id) && _shader_code.has(id)) {
-					String str = _shader_code[id];
-					shader += str;
-				}
-				shader += segment[1];
+			if (!id.is_empty() && !p_excludes.has(id) && _shader_code.has(id)) {
+				String str = _shader_code[id];
+				shader += str;
 			}
+			shader += segment[1];
 		}
 	}
 	return shader;
@@ -141,7 +152,7 @@ String Terrain3DMaterial::_generate_shader_code() {
 	if (!_debug_view_vertex_grid) {
 		excludes.push_back("DEBUG_VERTEX_GRID");
 	}
-	String shader = _parse_shader(_shader_code["main"], "", excludes);
+	String shader = _apply_inserts(_shader_code["main"], excludes);
 	return shader;
 }
 
