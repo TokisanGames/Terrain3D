@@ -40,6 +40,20 @@ uniform bool _show_navigation = true;
 
 uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
+
+uniform bool auto_shader = true;
+uniform float auto_slope : hint_range(0,10) = 1.0;
+uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
+uniform int auto_base_texture : hint_range(0,31) = 0;
+uniform int auto_overlay_texture : hint_range(0,31) = 1;
+
+uniform bool dual_scaling = true;
+uniform int dual_scale_texture : hint_range(0,31) = 0;
+uniform float dual_scale_reduction : hint_range(0.001,1) = 0.3;
+uniform float tri_scale_reduction : hint_range(0.001,1) = 0.3;
+uniform float dual_scale_far : hint_range(0,1000) = 170.0;
+uniform float dual_scale_near : hint_range(0,1000) = 100.0;
+
 uniform float noise_scale : hint_range(0, 0.5) = 0.1;
 uniform sampler2D noise_texture : source_color, filter_linear, repeat_enable;
 
@@ -48,14 +62,17 @@ uniform sampler2D noise_texture : source_color, filter_linear, repeat_enable;
 struct Material {
 	vec4 alb_ht;
 	vec4 nrm_rg;
-	uint base;
-	uint over;
+	int base;
+	int over;
 	float blend;
 };
 
 varying vec3 v_vertex;	// World coordinate vertex location
 varying vec3 v_camera_pos;
 varying float v_xz_dist;
+varying float v_vertex_dist;
+varying flat ivec3 v_region;
+varying float v_far_factor;
 
 ////////////////////////
 // Vertex
@@ -95,17 +112,21 @@ float get_height(vec2 uv) {
 }
 
 void vertex() {
+	// Get camera pos in world vertex coords
+    v_camera_pos = INV_VIEW_MATRIX[3].xyz;
+
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_xz_dist = length(v_vertex.xz - v_camera_pos.xz);
 	
 	// UV coordinates in world space. Values are 0 to _region_size within regions
 	UV = v_vertex.xz;
 
 	// Discard vertices if designated as a hole or background disabled. 1 lookup.
-	ivec3 ruv = get_region_uv(UV);
-	uint control = texelFetch(_control_maps, ruv, 0).r;
+	v_region = get_region_uv(UV);
+	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
-	if ( hole || (_background_mode == 0 && ruv.z < 0) ) {
+	if ( hole || (_background_mode == 0 && v_region.z < 0) ) {
 		VERTEX.x = 0./0.;
 	} else {
 		// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
@@ -114,6 +135,8 @@ void vertex() {
 		// Get final vertex location and save it
 		VERTEX.y = get_height(UV2);
 		v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		v_vertex_dist = length(v_vertex - v_camera_pos);
+		v_far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, v_vertex_dist), 0.0, 1.0);
 	}
 }
 
@@ -169,41 +192,92 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 }
 
 // 2-4 lookups
-void get_material(vec2 uv, uint control, ivec2 iuv_center, out Material out_mat) {
-	out_mat = Material(vec4(0.), vec4(0.), 0u, 0u, 0.0);
-	uint base_tex = control>>27u & 0x1Fu;
-	out_mat.base = base_tex;
-	vec2 uv_center = vec2(iuv_center);
+void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
+	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0);
+	vec2 uv_center = vec2(iuv_center.xy);
+	int region = iuv_center.z;
+
+	// Enable Autoshader if outside regions or painted in regions
+	if(auto_shader && (region<0 || bool(control & 0x1u))) {
+		out_mat.base = auto_base_texture;
+		out_mat.over = auto_overlay_texture;
+		out_mat.blend = clamp(
+			dot(vec3(0., 1., 0.), normal * auto_slope*2. - (auto_slope*2.-1.)) 
+			- auto_height_reduction*.01*v_vertex.y // Reduce as vertices get higher
+			, 0., 1.);
+	} else {
+		// Manually painted
+		out_mat.base = int(control >>27u & 0x1Fu);
+		out_mat.over = int(control >> 22u & 0x1Fu);
+		out_mat.blend = float(control >>14u & 0xFFu) * 0.003921568627450; // 1./255.0
+	}
+
 	float r = random(uv_center) * PI;
-	float rand = r * _texture_uv_rotation_array[base_tex];
+	float rand = r * _texture_uv_rotation_array[out_mat.base];
 	vec2 rot = vec2(cos(rand), sin(rand));
 	uv *= .5; // Allow larger numbers on uv scale array - move to C++
-	vec2 matUV = rotate(uv, rot.x, rot.y) * _texture_uv_scale_array[base_tex];
+	vec2 matUV = rotate(uv, rot.x, rot.y) * _texture_uv_scale_array[out_mat.base];
 
-	vec4 albedo_ht = texture(_texture_array_albedo, vec3(matUV, float(base_tex)));
-	albedo_ht.rgb *= _texture_color_array[base_tex].rgb;
-	vec4 normal_rg = texture(_texture_array_normal, vec3(matUV, float(base_tex)));
+	vec4 albedo_ht = vec4(0.);
+	vec4 normal_rg = vec4(0.5f, 0.5f, 1.0f, 1.0f);
+	vec4 albedo_far = vec4(0.);
+	vec4 normal_far = vec4(0.5f, 0.5f, 1.0f, 1.0f);
+
+	// If dual scaling, apply to base texture
+	if(dual_scaling) {
+		if(region < 0) {
+			matUV *= tri_scale_reduction;
+		}
+		albedo_ht = texture(_texture_array_albedo, vec3(matUV, float(out_mat.base)));
+		normal_rg = texture(_texture_array_normal, vec3(matUV, float(out_mat.base)));
+		if(out_mat.base == dual_scale_texture || out_mat.over == dual_scale_texture) {
+			albedo_far = texture(_texture_array_albedo, vec3(matUV*dual_scale_reduction, float(dual_scale_texture)));
+			normal_far = texture(_texture_array_normal, vec3(matUV*dual_scale_reduction, float(dual_scale_texture)));
+		}
+		if(out_mat.base == dual_scale_texture) {
+			albedo_ht = mix(albedo_ht, albedo_far, v_far_factor);
+			normal_rg = mix(normal_rg, normal_far, v_far_factor);
+		}
+	} else {
+		albedo_ht = texture(_texture_array_albedo, vec3(matUV, float(out_mat.base)));
+		normal_rg = texture(_texture_array_normal, vec3(matUV, float(out_mat.base)));
+	}
+	
+	// Apply color to base
+	albedo_ht.rgb *= _texture_color_array[out_mat.base].rgb;
+
+	// Unpack base normal for blending
 	vec3 n = unpack_normal(normal_rg);
 	normal_rg.xz = rotate(n.xz, rot.x, -rot.y);
 
-	float blend = float(control >>14u & 0xFFu) * 0.003921568627450; // 1./255.0
-	out_mat.blend = blend;
-	if (blend > 0.f) {
-		uint over_tex =  control >> 22u & 0x1Fu;
-		out_mat.over = over_tex;
-		float rand2 = r * _texture_uv_rotation_array[over_tex];
+	// If any overlay texture from manual painting or auto shader
+	if (out_mat.blend > 0.f) {
+		float rand2 = r * _texture_uv_rotation_array[out_mat.over];
 		vec2 rot2 = vec2(cos(rand2), sin(rand2));
-		vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * _texture_uv_scale_array[over_tex];
-		vec4 albedo_ht2 = texture(_texture_array_albedo, vec3(matUV2, float(over_tex)));
-		albedo_ht2.rgb *= _texture_color_array[over_tex].rgb;
-		vec4 normal_rg2 = texture(_texture_array_normal, vec3(matUV2, float(over_tex)));
+		vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * _texture_uv_scale_array[out_mat.over];
+
+		vec4 albedo_ht2 = texture(_texture_array_albedo, vec3(matUV2, float(out_mat.over)));
+		vec4 normal_rg2 = texture(_texture_array_normal, vec3(matUV2, float(out_mat.over)));
+
+		// If dual scaling, apply to overlay texture
+		if(dual_scaling && out_mat.over == dual_scale_texture) {
+			albedo_ht2 = mix(albedo_ht2, albedo_far, v_far_factor);
+			normal_rg2 = mix(normal_rg2, normal_far, v_far_factor);
+		}
+
+		// Apply color to overlay
+		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
+		
+		// Unpack overlay normal for blending
 		n = unpack_normal(normal_rg2);
 		normal_rg2.xz = rotate(n.xz, rot2.x, -rot2.y);
 
-		albedo_ht = height_blend(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, blend);
-		normal_rg = height_blend(normal_rg, albedo_ht.a, normal_rg2, albedo_ht2.a, blend);
+		// Blend overlay and base
+		albedo_ht = height_blend(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, out_mat.blend);
+		normal_rg = height_blend(normal_rg, albedo_ht.a, normal_rg2, albedo_ht2.a, out_mat.blend);
 	}
-
+	
+	// Repack normals and return material
 	normal_rg = pack_normal(normal_rg.xyz, normal_rg.a);
 	out_mat.alb_ht = albedo_ht;
 	out_mat.nrm_rg = normal_rg;
@@ -247,10 +321,11 @@ void fragment() {
 
 	// Get the textures for each vertex. 8-16 lookups (2-4 ea)
 	Material mat[4];
-	get_material(UV, control00, index00UV.xy, mat[0]);
-	get_material(UV, control01, index01UV.xy, mat[1]);
-	get_material(UV, control10, index10UV.xy, mat[2]);
-	get_material(UV, control11, index11UV.xy, mat[3]);
+	get_material(UV, control00, index00UV, w_normal, mat[0]);
+	get_material(UV, control01, index01UV, w_normal, mat[1]);
+	get_material(UV, control10, index10UV, w_normal, mat[2]);
+	get_material(UV, control11, index11UV, w_normal, mat[3]);
+
 
 	// Calculate weight for the pixel position between the vertices
 	// Bilinear interpolation of difference of UV and floor(UV)
@@ -281,11 +356,13 @@ void fragment() {
 		mat[2].nrm_rg * weights.z +
 		mat[3].nrm_rg * weights.w );
 
+	// Determine if we're in a region or not (region_uv.z>0)
+	vec3 region_uv = get_region_uv2(UV2);
+
 	// Get Colormap. 1 lookup
-	vec3 ruv = get_region_uv2(UV2);
 	vec4 color_map = vec4(1., 1., 1., .5);
-	if (ruv.z >= 0.) {
-		color_map = texture(_color_maps, ruv);
+	if (region_uv.z >= 0.) {
+		color_map = texture(_color_maps, region_uv);
 	}
 
 	// Apply PBR
