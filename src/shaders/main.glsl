@@ -7,6 +7,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
  * The terrain function depends on this shader. So don't change:
  * - vertex positioning in vertex()
  * - terrain normal calculation in fragment()
+ * - the last function being fragment() as the editor injects code before the closing }
  *
  * Most will only want to customize the material calculation and PBR application in fragment()
  *
@@ -372,23 +373,6 @@ void fragment() {
 	NORMAL_MAP = normal_rough.rgb;
 	NORMAL_MAP_DEPTH = 1.0;
 
-	// Editor functions
-	if(_show_navigation && bool(texelFetch(_control_maps, get_region_uv(floor(UV)), 0).r >>1u & 0x1u)) {
-		ALBEDO *= vec3(.5, .0, .85);
-	}
-
-//INSERT: DEBUG_CHECKERED
-//INSERT: DEBUG_GREY
-//INSERT: DEBUG_HEIGHTMAP
-//INSERT: DEBUG_COLORMAP
-//INSERT: DEBUG_ROUGHMAP
-//INSERT: DEBUG_CONTROL_TEXTURE
-//INSERT: DEBUG_CONTROL_BLEND
-//INSERT: DEBUG_AUTOSHADER
-//INSERT: DEBUG_TEXTURE_HEIGHT
-//INSERT: DEBUG_TEXTURE_NORMAL
-//INSERT: DEBUG_TEXTURE_ROUGHNESS
-//INSERT: DEBUG_VERTEX_GRID
 }
 
 )"

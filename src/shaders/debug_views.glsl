@@ -1,5 +1,8 @@
 // Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+// These DEBUG_* are special inserts that injected into the shader code before the last `}`
+// which is assumed to belong to fragment()
+
 R"(
 //INSERT: DEBUG_CHECKERED
 	// Show a checkered grid

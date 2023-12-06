@@ -106,9 +106,6 @@
     <None Include=".github\actions\build-cache\action.yml">
       <Filter>1. Project Files</Filter>
     </None>
-    <None Include=".github\actions\upload-artifact\action.yml">
-      <Filter>1. Project Files</Filter>
-    </None>
     <None Include=".github\actions\base-deps\action.yml">
       <Filter>1. Project Files</Filter>
     </None>
@@ -241,5 +238,10 @@
     <Xml Include="doc\classes\Terrain3DTextureList.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="src\shaders\editor_functions.glsl">
+      <Filter>2. Shaders</Filter>
+    </Text>
   </ItemGroup>
 </Project>

@@ -27,6 +27,9 @@ void Terrain3DMaterial::_preload_shaders() {
 	_parse_shader(
 #include "shaders/debug_views.glsl"
 			, "debug_views");
+	_parse_shader(
+#include "shaders/editor_functions.glsl"
+			, "debug_views");
 
 	// Load main code
 	_shader_code["main"] = String(
@@ -42,7 +45,7 @@ void Terrain3DMaterial::_preload_shaders() {
 }
 
 /**
- *	Any `//INSERT: ID` in p_shader is loaded into the DB _shader_code
+ *	All `//INSERT: ID` blocks in p_shader are loaded into the DB _shader_code
  */
 void Terrain3DMaterial::_parse_shader(String p_shader, String p_name) {
 	if (p_name.is_empty()) {
@@ -73,8 +76,9 @@ void Terrain3DMaterial::_parse_shader(String p_shader, String p_name) {
 }
 
 /**
- *	Any //INSERT: ID in p_shader is replaced by the entry in the DB
+ *	`//INSERT: ID` blocks in p_shader are replaced by the entry in the DB
  *	returns a shader string with inserts applied
+ *  Skips `EDITOR_*` and `DEBUG_*` inserts
  */
 String Terrain3DMaterial::_apply_inserts(String p_shader, Array p_excludes) {
 	PackedStringArray parsed = p_shader.split("//INSERT:");
@@ -95,8 +99,10 @@ String Terrain3DMaterial::_apply_inserts(String p_shader, Array p_excludes) {
 
 			// Process the insert
 			if (!id.is_empty() && !p_excludes.has(id) && _shader_code.has(id)) {
-				String str = _shader_code[id];
-				shader += str;
+				if (!id.begins_with("DEBUG_") && !id.begins_with("EDITOR_")) {
+					String str = _shader_code[id];
+					shader += str;
+				}
 			}
 			shader += segment[1];
 		}
@@ -116,43 +122,61 @@ String Terrain3DMaterial::_generate_shader_code() {
 	} else {
 		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
 	}
-	if (!_debug_view_checkered) {
-		excludes.push_back("DEBUG_CHECKERED");
-	}
-	if (!_debug_view_grey) {
-		excludes.push_back("DEBUG_GREY");
-	}
-	if (!_debug_view_heightmap) {
-		excludes.push_back("DEBUG_HEIGHTMAP");
-	}
-	if (!_debug_view_colormap) {
-		excludes.push_back("DEBUG_COLORMAP");
-	}
-	if (!_debug_view_roughmap) {
-		excludes.push_back("DEBUG_ROUGHMAP");
-	}
-	if (!_debug_view_control_texture) {
-		excludes.push_back("DEBUG_CONTROL_TEXTURE");
-	}
-	if (!_debug_view_control_blend) {
-		excludes.push_back("DEBUG_CONTROL_BLEND");
-	}
-	if (!_debug_view_autoshader) {
-		excludes.push_back("DEBUG_AUTOSHADER");
-	}
-	if (!_debug_view_tex_height) {
-		excludes.push_back("DEBUG_TEXTURE_HEIGHT");
-	}
-	if (!_debug_view_tex_normal) {
-		excludes.push_back("DEBUG_TEXTURE_NORMAL");
-	}
-	if (!_debug_view_tex_rough) {
-		excludes.push_back("DEBUG_TEXTURE_ROUGHNESS");
-	}
-	if (!_debug_view_vertex_grid) {
-		excludes.push_back("DEBUG_VERTEX_GRID");
-	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
+	return shader;
+}
+
+String Terrain3DMaterial::_inject_editor_code(String p_shader) {
+	String shader = p_shader;
+	int idx = p_shader.rfind("}");
+	if (idx < 0) {
+		return shader;
+	}
+	Array insert_names;
+	if (_debug_view_checkered) {
+		insert_names.push_back("DEBUG_CHECKERED");
+	}
+	if (_debug_view_grey) {
+		insert_names.push_back("DEBUG_GREY");
+	}
+	if (_debug_view_heightmap) {
+		insert_names.push_back("DEBUG_HEIGHTMAP");
+	}
+	if (_debug_view_colormap) {
+		insert_names.push_back("DEBUG_COLORMAP");
+	}
+	if (_debug_view_roughmap) {
+		insert_names.push_back("DEBUG_ROUGHMAP");
+	}
+	if (_debug_view_control_texture) {
+		insert_names.push_back("DEBUG_CONTROL_TEXTURE");
+	}
+	if (_debug_view_control_blend) {
+		insert_names.push_back("DEBUG_CONTROL_BLEND");
+	}
+	if (_debug_view_autoshader) {
+		insert_names.push_back("DEBUG_AUTOSHADER");
+	}
+	if (_debug_view_tex_height) {
+		insert_names.push_back("DEBUG_TEXTURE_HEIGHT");
+	}
+	if (_debug_view_tex_normal) {
+		insert_names.push_back("DEBUG_TEXTURE_NORMAL");
+	}
+	if (_debug_view_tex_rough) {
+		insert_names.push_back("DEBUG_TEXTURE_ROUGHNESS");
+	}
+	if (_debug_view_vertex_grid) {
+		insert_names.push_back("DEBUG_VERTEX_GRID");
+	}
+	if (_show_navigation) {
+		insert_names.push_back("EDITOR_NAVIGATION");
+	}
+	for (int i = 0; i < insert_names.size(); i++) {
+		String insert = _shader_code[insert_names[i]];
+		shader = shader.insert(idx - 1, "\n" + insert);
+		idx += insert.length();
+	}
 	return shader;
 }
 
@@ -161,6 +185,7 @@ void Terrain3DMaterial::_update_shader() {
 		return;
 	}
 	LOG(INFO, "Updating shader");
+	RID shader_rid;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		if (_shader_override->get_code().is_empty()) {
 			String code = _generate_shader_code();
@@ -170,13 +195,16 @@ void Terrain3DMaterial::_update_shader() {
 			LOG(DEBUG, "Connecting changed signal to _update_shader()");
 			_shader_override->connect("changed", Callable(this, "_update_shader"));
 		}
-		RS->material_set_shader(_material, _shader_override->get_rid());
-		LOG(DEBUG, "Mat rid: ", _material, ", _shader_override rid: ", _shader_override->get_rid());
+		String code = _shader_override->get_code();
+		_shader_tmp->set_code(_inject_editor_code(code));
+		shader_rid = _shader_tmp->get_rid();
 	} else {
-		RS->shader_set_code(_shader, _generate_shader_code());
-		RS->material_set_shader(_material, _shader);
-		LOG(DEBUG, "Mat rid: ", _material, ", _shader rid: ", _shader);
+		String code = _generate_shader_code();
+		RS->shader_set_code(_shader, _inject_editor_code(code));
+		shader_rid = _shader;
 	}
+	RS->material_set_shader(_material, shader_rid);
+	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", shader_rid);
 
 	// Update custom shader params in RenderingServer
 	{
@@ -205,7 +233,6 @@ void Terrain3DMaterial::_update_shader() {
 
 	// Set specific shader parameters
 	RS->material_set_param(_material, "_background_mode", _world_background);
-	RS->material_set_param(_material, "_show_navigation", _show_navigation);
 
 	// If no noise texture, generate one
 	if (_active_params.has("noise_texture") && RS->material_get_param(_material, "noise_texture").get_type() == Variant::NIL) {
@@ -363,6 +390,7 @@ void Terrain3DMaterial::initialize(int p_region_size) {
 	_preload_shaders();
 	_material = RS->material_create();
 	_shader = RS->shader_create();
+	_shader_tmp.instantiate();
 	_set_region_size(p_region_size);
 	LOG(DEBUG, "Mat RID: ", _material, ", _shader RID: ", _shader);
 	_initialized = true;
