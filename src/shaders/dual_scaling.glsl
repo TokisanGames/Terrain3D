@@ -42,5 +42,4 @@ varying float v_far_factor;
 			normal_rg2 = mix(normal_rg2, normal_far, v_far_factor);
 		}
 
-
 )"
