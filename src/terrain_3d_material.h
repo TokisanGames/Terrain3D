@@ -88,6 +88,17 @@ public:
 
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const;
+	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
+
+	// Material settings
+	void set_world_background(WorldBackground p_background);
+	WorldBackground get_world_background() const { return _world_background; }
+	void set_texture_filtering(TextureFiltering p_filtering);
+	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
+	void set_auto_shader(bool p_enabled);
+	bool get_auto_shader() const { return _auto_shader; }
+	void set_dual_scaling(bool p_enabled);
+	bool get_dual_scaling() const { return _dual_scaling; }
 
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
@@ -97,17 +108,7 @@ public:
 	void set_shader_param(const StringName &p_name, const Variant &p_value);
 	Variant get_shader_param(const StringName &p_name) const;
 
-	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
-
-	void set_world_background(WorldBackground p_background);
-	WorldBackground get_world_background() const { return _world_background; }
-	void set_texture_filtering(TextureFiltering p_filtering);
-	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
-
-	void set_auto_shader(bool p_enabled);
-	bool get_auto_shader() const { return _auto_shader; }
-	void set_dual_scaling(bool p_enabled);
-	bool get_dual_scaling() const { return _dual_scaling; }
+	// Editor functions / Debug views
 	void set_show_checkered(bool p_enabled);
 	bool get_show_checkered() const { return _debug_view_checkered; }
 	void set_show_grey(bool p_enabled);

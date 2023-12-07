@@ -433,6 +433,29 @@ RID Terrain3DMaterial::get_shader_rid() const {
 	}
 }
 
+void Terrain3DMaterial::set_world_background(WorldBackground p_background) {
+	LOG(INFO, "Enable world background: ", p_background);
+	_world_background = p_background;
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_texture_filtering(TextureFiltering p_filtering) {
+	LOG(INFO, "Setting texture filtering: ", p_filtering);
+	_texture_filtering = p_filtering;
+}
+
+void Terrain3DMaterial::set_auto_shader(bool p_enabled) {
+	LOG(INFO, "Enable auto shader: ", p_enabled);
+	_auto_shader = p_enabled;
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_dual_scaling(bool p_enabled) {
+	LOG(INFO, "Enable dual scaling: ", p_enabled);
+	_dual_scaling = p_enabled;
+	_update_shader();
+}
+
 void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
 	LOG(INFO, "Enable shader override: ", p_enabled);
 	_shader_override_enabled = p_enabled;
@@ -459,29 +482,6 @@ Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 	Variant value;
 	_get(p_name, value);
 	return value;
-}
-
-void Terrain3DMaterial::set_world_background(WorldBackground p_background) {
-	LOG(INFO, "Enable world background: ", p_background);
-	_world_background = p_background;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_texture_filtering(TextureFiltering p_filtering) {
-	LOG(INFO, "Setting texture filtering: ", p_filtering);
-	_texture_filtering = p_filtering;
-}
-
-void Terrain3DMaterial::set_auto_shader(bool p_enabled) {
-	LOG(INFO, "Enable auto shader: ", p_enabled);
-	_auto_shader = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_dual_scaling(bool p_enabled) {
-	LOG(INFO, "Enable dual scaling: ", p_enabled);
-	_dual_scaling = p_enabled;
-	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_checkered(bool p_enabled) {
@@ -762,15 +762,6 @@ void Terrain3DMaterial::_bind_methods() {
 	// Public
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
-
-	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DMaterial::enable_shader_override);
-	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
-	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
-	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
-
-	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
-	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
-
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
 	ClassDB::bind_method(D_METHOD("set_world_background", "background"), &Terrain3DMaterial::set_world_background);
@@ -781,6 +772,14 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_auto_shader"), &Terrain3DMaterial::get_auto_shader);
 	ClassDB::bind_method(D_METHOD("set_dual_scaling", "enabled"), &Terrain3DMaterial::set_dual_scaling);
 	ClassDB::bind_method(D_METHOD("get_dual_scaling"), &Terrain3DMaterial::get_dual_scaling);
+
+	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DMaterial::enable_shader_override);
+	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
+	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
+	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
+
+	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
+	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
 
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DMaterial::get_show_checkered);
