@@ -15,6 +15,13 @@
 			<description>
 			</description>
 		</method>
+		<method name="generate_nav_mesh_source_geometry">
+			<return type="PackedVector3Array" />
+			<param index="0" name="global_aabb" type="AABB" />
+			<param index="1" name="require_nav" type="bool" default="true" />
+			<description>
+			</description>
+		</method>
 		<method name="get_camera">
 			<return type="Camera3D" />
 			<description>
@@ -73,10 +80,6 @@
 		</method>
 	</methods>
 	<members>
-		<member name="clipmap_levels" type="int" setter="set_clipmap_levels" getter="get_clipmap_levels" default="7">
-		</member>
-		<member name="clipmap_size" type="int" setter="set_clipmap_size" getter="get_clipmap_size" default="48">
-		</member>
 		<member name="collision_enabled" type="bool" setter="set_collision_enabled" getter="get_collision_enabled" default="true">
 		</member>
 		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="1">
@@ -90,6 +93,10 @@
 		<member name="debug_show_collision" type="bool" setter="set_show_debug_collision" getter="get_show_debug_collision" default="false">
 		</member>
 		<member name="material" type="Terrain3DMaterial" setter="set_material" getter="get_material">
+		</member>
+		<member name="mesh_lods" type="int" setter="set_mesh_lods" getter="get_mesh_lods" default="7">
+		</member>
+		<member name="mesh_size" type="int" setter="set_mesh_size" getter="get_mesh_size" default="48">
 		</member>
 		<member name="render_cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="GeometryInstance3D.ShadowCastingSetting" default="1">
 		</member>

@@ -41,6 +41,8 @@ Methods
    +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`                           | :ref:`get_texture_count<class_Terrain3DTextureList_method_get_texture_count>` **(** **)**                                                                          |
    +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | void                                            | :ref:`save<class_Terrain3DTextureList_method_save>` **(** **)**                                                                                                    |
+   +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | void                                            | :ref:`set_texture<class_Terrain3DTextureList_method_set_texture>` **(** :ref:`int<class_int>` index, :ref:`Terrain3DTexture<class_Terrain3DTexture>` texture **)** |
    +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
@@ -132,6 +134,20 @@ Method Descriptions
 .. rst-class:: classref-method
 
 :ref:`int<class_int>` **get_texture_count** **(** **)**
+
+.. container:: contribute
+
+	There is currently no description for this method. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureList_method_save:
+
+.. rst-class:: classref-method
+
+void **save** **(** **)**
 
 .. container:: contribute
 

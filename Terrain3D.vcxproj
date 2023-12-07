@@ -186,6 +186,7 @@
     <None Include="SConstruct" />
     <None Include="src\shaders\debug_views.glsl" />
     <None Include="src\shaders\main.glsl" />
+    <None Include="src\shaders\uniforms.glsl" />
     <None Include="src\shaders\world_noise.glsl" />
     <None Include="src\shaders\editor_functions.glsl" />
     <None Include="src\shaders\dual_scaling.glsl" />
@@ -210,6 +211,7 @@
     <Text Include="doc\docs\building_from_source.md" />
     <Text Include="doc\_static\theme_overrides.css" />
     <Text Include="LICENSE.txt" />
+    <Text Include="doc\docs\navigation.md" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml" />

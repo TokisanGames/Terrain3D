@@ -23,10 +23,6 @@ Properties
    :widths: auto
 
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`clipmap_levels<class_Terrain3D_property_clipmap_levels>`             | ``7``           |
-   +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`clipmap_size<class_Terrain3D_property_clipmap_size>`                 | ``48``          |
-   +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`bool<class_bool>`                                                   | :ref:`collision_enabled<class_Terrain3D_property_collision_enabled>`       | ``true``        |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`int<class_int>`                                                     | :ref:`collision_layer<class_Terrain3D_property_collision_layer>`           | ``1``           |
@@ -40,6 +36,10 @@ Properties
    | :ref:`bool<class_bool>`                                                   | :ref:`debug_show_collision<class_Terrain3D_property_debug_show_collision>` | ``false``       |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DMaterial<class_Terrain3DMaterial>`                         | :ref:`material<class_Terrain3D_property_material>`                         |                 |
+   +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                     | :ref:`mesh_lods<class_Terrain3D_property_mesh_lods>`                       | ``7``           |
+   +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                     | :ref:`mesh_size<class_Terrain3D_property_mesh_size>`                       | ``48``          |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` | :ref:`render_cast_shadows<class_Terrain3D_property_render_cast_shadows>`   | ``1``           |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
@@ -62,27 +62,29 @@ Methods
 .. table::
    :widths: auto
 
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Mesh<class_Mesh>`                 | :ref:`bake_mesh<class_Terrain3D_method_bake_mesh>` **(** :ref:`int<class_int>` lod, :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>` filter **)**                                                                                     |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Camera3D<class_Camera3D>`         | :ref:`get_camera<class_Terrain3D_method_get_camera>` **(** **)**                                                                                                                                                                             |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`               | :ref:`get_filled_image<class_Terrain3D_method_get_filled_image>` **(** :ref:`Vector2i<class_Vector2i>` size, :ref:`Color<class_Color>` color, :ref:`bool<class_bool>` create_mipmaps, :ref:`Format<enum_Image_Format>` format **)** |static| |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector3<class_Vector3>`           | :ref:`get_intersection<class_Terrain3D_method_get_intersection>` **(** :ref:`Vector3<class_Vector3>` position, :ref:`Vector3<class_Vector3>` direction **)**                                                                                 |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector2<class_Vector2>`           | :ref:`get_min_max<class_Terrain3D_method_get_min_max>` **(** :ref:`Image<class_Image>` image **)** |static|                                                                                                                                  |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`EditorPlugin<class_EditorPlugin>` | :ref:`get_plugin<class_Terrain3D_method_get_plugin>` **(** **)**                                                                                                                                                                             |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`               | :ref:`get_thumbnail<class_Terrain3D_method_get_thumbnail>` **(** :ref:`Image<class_Image>` image, :ref:`Vector2i<class_Vector2i>` size=Vector2i(256, 256) **)** |static|                                                                     |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                    | :ref:`set_camera<class_Terrain3D_method_set_camera>` **(** :ref:`Camera3D<class_Camera3D>` camera **)**                                                                                                                                      |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                    | :ref:`set_plugin<class_Terrain3D_method_set_plugin>` **(** :ref:`EditorPlugin<class_EditorPlugin>` plugin **)**                                                                                                                              |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                    | :ref:`update_aabbs<class_Terrain3D_method_update_aabbs>` **(** **)**                                                                                                                                                                         |
-   +-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Mesh<class_Mesh>`                             | :ref:`bake_mesh<class_Terrain3D_method_bake_mesh>` **(** :ref:`int<class_int>` lod, :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>` filter **)**                                                                                     |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`PackedVector3Array<class_PackedVector3Array>` | :ref:`generate_nav_mesh_source_geometry<class_Terrain3D_method_generate_nav_mesh_source_geometry>` **(** :ref:`AABB<class_AABB>` global_aabb, :ref:`bool<class_bool>` require_nav=true **)**                                                 |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Camera3D<class_Camera3D>`                     | :ref:`get_camera<class_Terrain3D_method_get_camera>` **(** **)**                                                                                                                                                                             |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Image<class_Image>`                           | :ref:`get_filled_image<class_Terrain3D_method_get_filled_image>` **(** :ref:`Vector2i<class_Vector2i>` size, :ref:`Color<class_Color>` color, :ref:`bool<class_bool>` create_mipmaps, :ref:`Format<enum_Image_Format>` format **)** |static| |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Vector3<class_Vector3>`                       | :ref:`get_intersection<class_Terrain3D_method_get_intersection>` **(** :ref:`Vector3<class_Vector3>` position, :ref:`Vector3<class_Vector3>` direction **)**                                                                                 |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Vector2<class_Vector2>`                       | :ref:`get_min_max<class_Terrain3D_method_get_min_max>` **(** :ref:`Image<class_Image>` image **)** |static|                                                                                                                                  |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`EditorPlugin<class_EditorPlugin>`             | :ref:`get_plugin<class_Terrain3D_method_get_plugin>` **(** **)**                                                                                                                                                                             |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Image<class_Image>`                           | :ref:`get_thumbnail<class_Terrain3D_method_get_thumbnail>` **(** :ref:`Image<class_Image>` image, :ref:`Vector2i<class_Vector2i>` size=Vector2i(256, 256) **)** |static|                                                                     |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | void                                                | :ref:`set_camera<class_Terrain3D_method_set_camera>` **(** :ref:`Camera3D<class_Camera3D>` camera **)**                                                                                                                                      |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | void                                                | :ref:`set_plugin<class_Terrain3D_method_set_plugin>` **(** :ref:`EditorPlugin<class_EditorPlugin>` plugin **)**                                                                                                                              |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | void                                                | :ref:`update_aabbs<class_Terrain3D_method_update_aabbs>` **(** **)**                                                                                                                                                                         |
+   +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -139,44 +141,6 @@ Signals
 
 Property Descriptions
 ---------------------
-
-.. _class_Terrain3D_property_clipmap_levels:
-
-.. rst-class:: classref-property
-
-:ref:`int<class_int>` **clipmap_levels** = ``7``
-
-.. rst-class:: classref-property-setget
-
-- void **set_clipmap_levels** **(** :ref:`int<class_int>` value **)**
-- :ref:`int<class_int>` **get_clipmap_levels** **(** **)**
-
-.. container:: contribute
-
-	There is currently no description for this property. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_clipmap_size:
-
-.. rst-class:: classref-property
-
-:ref:`int<class_int>` **clipmap_size** = ``48``
-
-.. rst-class:: classref-property-setget
-
-- void **set_clipmap_size** **(** :ref:`int<class_int>` value **)**
-- :ref:`int<class_int>` **get_clipmap_size** **(** **)**
-
-.. container:: contribute
-
-	There is currently no description for this property. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
-
-.. rst-class:: classref-item-separator
-
-----
 
 .. _class_Terrain3D_property_collision_enabled:
 
@@ -311,6 +275,44 @@ Property Descriptions
 
 ----
 
+.. _class_Terrain3D_property_mesh_lods:
+
+.. rst-class:: classref-property
+
+:ref:`int<class_int>` **mesh_lods** = ``7``
+
+.. rst-class:: classref-property-setget
+
+- void **set_mesh_lods** **(** :ref:`int<class_int>` value **)**
+- :ref:`int<class_int>` **get_mesh_lods** **(** **)**
+
+.. container:: contribute
+
+	There is currently no description for this property. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_mesh_size:
+
+.. rst-class:: classref-property
+
+:ref:`int<class_int>` **mesh_size** = ``48``
+
+.. rst-class:: classref-property-setget
+
+- void **set_mesh_size** **(** :ref:`int<class_int>` value **)**
+- :ref:`int<class_int>` **get_mesh_size** **(** **)**
+
+.. container:: contribute
+
+	There is currently no description for this property. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_render_cast_shadows:
 
 .. rst-class:: classref-property
@@ -434,6 +436,20 @@ Method Descriptions
 .. rst-class:: classref-method
 
 :ref:`Mesh<class_Mesh>` **bake_mesh** **(** :ref:`int<class_int>` lod, :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>` filter **)**
+
+.. container:: contribute
+
+	There is currently no description for this method. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_method_generate_nav_mesh_source_geometry:
+
+.. rst-class:: classref-method
+
+:ref:`PackedVector3Array<class_PackedVector3Array>` **generate_nav_mesh_source_geometry** **(** :ref:`AABB<class_AABB>` global_aabb, :ref:`bool<class_bool>` require_nav=true **)**
 
 .. container:: contribute
 

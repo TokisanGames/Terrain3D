@@ -36,6 +36,11 @@
 				Returns the RID of the built in shader used with the Rendering Server. This is different from any shader override which has its own RID.
 			</description>
 		</method>
+		<method name="save">
+			<return type="void" />
+			<description>
+			</description>
+		</method>
 		<method name="set_shader_param">
 			<return type="void" />
 			<param index="0" name="name" type="StringName" />
@@ -47,6 +52,10 @@
 	</methods>
 	<members>
 		<member name="_shader_parameters" type="Dictionary" setter="_set_shader_parameters" getter="_get_shader_parameters" default="{}">
+		</member>
+		<member name="auto_shader" type="bool" setter="set_auto_shader" getter="get_auto_shader" default="true">
+		</member>
+		<member name="dual_scaling" type="bool" setter="set_dual_scaling" getter="get_dual_scaling" default="true">
 		</member>
 		<member name="shader_override" type="Shader" setter="set_shader_override" getter="get_shader_override">
 			If shader_override_enabled is true and this Shader is valid, the material will use this custom shader code. If this is blank when you enable the override, the system will generate a shader with the current settings. So if you have a debug view enabled, the generated shader will have all of that code. A visual shader will also work here. However we only generate a text based shader so currently a visual shader needs to be constructed with the base code before it can work.
@@ -94,6 +103,8 @@
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
 			Show a grid on the vertices, overlaying any above shader.
 		</member>
+		<member name="texture_filtering" type="int" setter="set_texture_filtering" getter="get_texture_filtering" enum="Terrain3DMaterial.TextureFiltering" default="0">
+		</member>
 		<member name="world_background" type="int" setter="set_world_background" getter="get_world_background" enum="Terrain3DMaterial.WorldBackground" default="1">
 			See the [enum WorldBackground] for options.
 		</member>
@@ -107,6 +118,10 @@
 		</constant>
 		<constant name="NOISE" value="2" enum="WorldBackground">
 			Outside of the defined regions, generate visual-only hills.
+		</constant>
+		<constant name="LINEAR" value="0" enum="TextureFiltering">
+		</constant>
+		<constant name="NEAREST" value="1" enum="TextureFiltering">
 		</constant>
 	</constants>
 </class>
