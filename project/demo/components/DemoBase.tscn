@@ -30,17 +30,8 @@ _shader_parameters = {
 "height_blending": true,
 "noise_scale": 0.1,
 "noise_texture": SubResource("NoiseTexture2D_rl0jm"),
-"tri_scale_reduction": 0.3,
-"world_noise_blend_far": 1.0,
-"world_noise_blend_near": 0.5,
-"world_noise_height": 64.0,
-"world_noise_lod_distance": 7500.0,
-"world_noise_max_octaves": 4,
-"world_noise_min_octaves": 2,
-"world_noise_offset": Vector3(0, 0, 0),
-"world_noise_scale": 5.0
+"tri_scale_reduction": 0.3
 }
-world_background = 2
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")
