@@ -20,7 +20,6 @@ void Terrain3DMaterial::_preload_shaders() {
 	_parse_shader(
 #include "shaders/uniforms.glsl"
 			, "uniforms");
-
 	_parse_shader(
 #include "shaders/world_noise.glsl"
 			, "world_noise");
@@ -426,48 +425,11 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 	}
 }
 
-void Terrain3DMaterial::save() {
-	LOG(DEBUG, "Generating parameter list from shaders");
-	// Get shader parameters from default shader (eg world_noise)
-	Array param_list;
-	param_list = RS->get_shader_parameter_list(_shader);
-	// Get shader parameters from custom shader if present
-	if (_shader_override.is_valid()) {
-		param_list.append_array(_shader_override->get_shader_uniform_list(true));
-	}
-
-	// Remove saved shader params that don't exist in either shader
-	Array keys = _shader_params.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		bool has = false;
-		StringName name = keys[i];
-		for (int j = 0; j < param_list.size(); j++) {
-			Dictionary dict;
-			StringName dname;
-			if (j < param_list.size()) {
-				dict = param_list[j];
-				dname = dict["name"];
-				if (name == dname) {
-					has = true;
-					break;
-				}
-			}
-		}
-		if (!has) {
-			LOG(DEBUG, "'", name, "' not found in shader parameters. Removing from cache.");
-			_shader_params.erase(name);
-		}
-	}
-
-	// Save to external resource file if used
-	String path = get_path();
-	if (path.get_extension() == "tres" || path.get_extension() == "res") {
-		LOG(DEBUG, "Attempting to save material to external file: " + path);
-		Error err;
-		err = ResourceSaver::get_singleton()->save(this, path);
-		ERR_FAIL_COND(err);
-		LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
-		LOG(INFO, "Finished saving material");
+RID Terrain3DMaterial::get_shader_rid() const {
+	if (_shader_override_enabled) {
+		return _shader_tmp->get_rid();
+	} else {
+		return _shader;
 	}
 }
 
@@ -598,6 +560,51 @@ void Terrain3DMaterial::set_show_vertex_grid(bool p_enabled) {
 	LOG(INFO, "Enable show_vertex_grid: ", p_enabled);
 	_debug_view_vertex_grid = p_enabled;
 	_update_shader();
+}
+
+void Terrain3DMaterial::save() {
+	LOG(DEBUG, "Generating parameter list from shaders");
+	// Get shader parameters from default shader (eg world_noise)
+	Array param_list;
+	param_list = RS->get_shader_parameter_list(_shader);
+	// Get shader parameters from custom shader if present
+	if (_shader_override.is_valid()) {
+		param_list.append_array(_shader_override->get_shader_uniform_list(true));
+	}
+
+	// Remove saved shader params that don't exist in either shader
+	Array keys = _shader_params.keys();
+	for (int i = 0; i < keys.size(); i++) {
+		bool has = false;
+		StringName name = keys[i];
+		for (int j = 0; j < param_list.size(); j++) {
+			Dictionary dict;
+			StringName dname;
+			if (j < param_list.size()) {
+				dict = param_list[j];
+				dname = dict["name"];
+				if (name == dname) {
+					has = true;
+					break;
+				}
+			}
+		}
+		if (!has) {
+			LOG(DEBUG, "'", name, "' not found in shader parameters. Removing from cache.");
+			_shader_params.erase(name);
+		}
+	}
+
+	// Save to external resource file if used
+	String path = get_path();
+	if (path.get_extension() == "tres" || path.get_extension() == "res") {
+		LOG(DEBUG, "Attempting to save material to external file: " + path);
+		Error err;
+		err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
+		ERR_FAIL_COND(err);
+		LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
+		LOG(INFO, "Finished saving material");
+	}
 }
 
 ///////////////////////////
@@ -801,6 +808,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3DMaterial::get_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DMaterial::set_show_vertex_grid);
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
+
+	ClassDB::bind_method(D_METHOD("save"), &Terrain3DMaterial::save);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");

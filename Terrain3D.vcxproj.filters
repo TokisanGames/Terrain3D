@@ -156,6 +156,7 @@
     </None>
     <None Include="doc\index.rst">
       <Filter>2. Docs</Filter>
+    </None>
     <None Include="LICENSE.txt">
       <Filter>2. Docs</Filter>
     </None>
