@@ -71,7 +71,7 @@ void Terrain3D::_initialize() {
 		_material->initialize(_storage->get_region_size());
 		_storage->update_regions(true); // generate map arrays
 		_texture_list->update_list(); // generate texture arrays
-		_build(_clipmap_levels, _clipmap_size);
+		_build(_mesh_lods, _mesh_size);
 		_build_collision();
 		_initialized = true;
 	}
@@ -181,7 +181,7 @@ void Terrain3D::_clear(bool p_clear_meshes, bool p_clear_collision) {
 	}
 }
 
-void Terrain3D::_build(int p_clipmap_levels, int p_clipmap_size) {
+void Terrain3D::_build(int p_mesh_lods, int p_mesh_size) {
 	if (!is_inside_tree() || !_storage.is_valid()) {
 		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
 		return;
@@ -189,7 +189,7 @@ void Terrain3D::_build(int p_clipmap_levels, int p_clipmap_size) {
 	LOG(INFO, "Building the terrain meshes");
 
 	// Generate terrain meshes, lods, seams
-	_meshes = GeoClipMap::generate(p_clipmap_size, p_clipmap_levels);
+	_meshes = GeoClipMap::generate(p_mesh_size, p_mesh_lods);
 	ERR_FAIL_COND(_meshes.is_empty());
 
 	// Set the current terrain material on all meshes
@@ -207,7 +207,7 @@ void Terrain3D::_build(int p_clipmap_levels, int p_clipmap_size) {
 	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
 	RS->instance_set_layer_mask(_data.cross, _render_layers);
 
-	for (int l = 0; l < p_clipmap_levels; l++) {
+	for (int l = 0; l < p_mesh_lods; l++) {
 		for (int x = 0; x < 4; x++) {
 			for (int y = 0; y < 4; y++) {
 				if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
@@ -226,7 +226,7 @@ void Terrain3D::_build(int p_clipmap_levels, int p_clipmap_size) {
 		RS->instance_set_layer_mask(filler, _render_layers);
 		_data.fillers.push_back(filler);
 
-		if (l != p_clipmap_levels - 1) {
+		if (l != p_mesh_lods - 1) {
 			RID trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
 			RS->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_shadow_casting));
 			RS->instance_set_layer_mask(trim, _render_layers);
@@ -588,19 +588,19 @@ void Terrain3D::set_debug_level(int p_level) {
 	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
 }
 
-void Terrain3D::set_clipmap_levels(int p_count) {
-	if (_clipmap_levels != p_count) {
-		LOG(INFO, "Setting clipmap levels: ", p_count);
-		_clipmap_levels = p_count;
+void Terrain3D::set_mesh_lods(int p_count) {
+	if (_mesh_lods != p_count) {
+		LOG(INFO, "Setting mesh levels: ", p_count);
+		_mesh_lods = p_count;
 		_clear();
 		_initialize();
 	}
 }
 
-void Terrain3D::set_clipmap_size(int p_size) {
-	if (_clipmap_size != p_size) {
-		LOG(INFO, "Setting clipmap size: ", p_size);
-		_clipmap_size = p_size;
+void Terrain3D::set_mesh_size(int p_size) {
+	if (_mesh_size != p_size) {
+		LOG(INFO, "Setting mesh size: ", p_size);
+		_mesh_size = p_size;
 		_clear();
 		_initialize();
 	}
@@ -706,11 +706,11 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 	int edge = 0;
 	int tile = 0;
 
-	for (int l = 0; l < _clipmap_levels; l++) {
+	for (int l = 0; l < _mesh_lods; l++) {
 		real_t scale = real_t(1 << l);
 		Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
-		Vector3 tile_size = Vector3(real_t(_clipmap_size << l), 0, real_t(_clipmap_size << l));
-		Vector3 base = snapped_pos - Vector3(real_t(_clipmap_size << (l + 1)), 0, real_t(_clipmap_size << (l + 1)));
+		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l));
+		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1)));
 
 		// Position tiles
 		for (int x = 0; x < 4; x++) {
@@ -737,7 +737,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 			RS->instance_set_transform(_data.fillers[l], t);
 		}
 
-		if (l != _clipmap_levels - 1) {
+		if (l != _mesh_lods - 1) {
 			real_t next_scale = scale * 2.0f;
 			Vector3 next_snapped_pos = (p_cam_pos / next_scale).floor() * next_scale;
 
@@ -761,7 +761,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 
 			// Position seams
 			{
-				Vector3 next_base = next_snapped_pos - Vector3(real_t(_clipmap_size << (l + 1)), 0, real_t(_clipmap_size << (l + 1)));
+				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1)));
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
 				t.origin = next_base;
 				RS->instance_set_transform(_data.seams[edge], t);
@@ -880,7 +880,7 @@ Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filte
 	PackedVector3Array vertices;
 	PackedVector2Array uvs;
 	_generate_triangles(vertices, &uvs, p_lod, p_filter, false, AABB());
-	
+
 	ERR_FAIL_COND_V(vertices.size() != uvs.size(), result);
 	for (int i = 0; i < vertices.size(); ++i) {
 		st->set_uv(uvs[i]);
@@ -1017,10 +1017,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
-	ClassDB::bind_method(D_METHOD("set_clipmap_levels", "count"), &Terrain3D::set_clipmap_levels);
-	ClassDB::bind_method(D_METHOD("get_clipmap_levels"), &Terrain3D::get_clipmap_levels);
-	ClassDB::bind_method(D_METHOD("set_clipmap_size", "size"), &Terrain3D::set_clipmap_size);
-	ClassDB::bind_method(D_METHOD("get_clipmap_size"), &Terrain3D::get_clipmap_size);
+	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
+	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
+	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
+	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
 
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
@@ -1079,9 +1079,9 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
 
-	ADD_GROUP("Mesh", "clipmap_");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_levels", PROPERTY_HINT_RANGE, "1,10,1"), "set_clipmap_levels", "get_clipmap_levels");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "clipmap_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_clipmap_size", "get_clipmap_size");
+	ADD_GROUP("Mesh", "mesh_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_mesh_size", "get_mesh_size");
 
 	ADD_GROUP("Debug", "debug_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");

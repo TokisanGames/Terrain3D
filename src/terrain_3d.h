@@ -33,8 +33,8 @@ private:
 	bool _initialized = false;
 
 	// Terrain settings
-	int _clipmap_size = 48;
-	int _clipmap_levels = 7;
+	int _mesh_size = 48;
+	int _mesh_lods = 7;
 
 	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DMaterial> _material;
@@ -79,7 +79,7 @@ private:
 	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
 	void _clear(bool p_clear_meshes = true, bool p_clear_collision = true);
-	void _build(int p_clipmap_levels, int p_clipmap_size);
+	void _build(int p_mesh_lods, int p_mesh_size);
 
 	void _build_collision();
 	void _update_collision();
@@ -100,10 +100,10 @@ public:
 	String get_version() const { return _version; }
 	void set_debug_level(int p_level);
 	int get_debug_level() const { return debug_level; }
-	void set_clipmap_levels(int p_count);
-	int get_clipmap_levels() const { return _clipmap_levels; }
-	void set_clipmap_size(int p_size);
-	int get_clipmap_size() const { return _clipmap_size; }
+	void set_mesh_lods(int p_count);
+	int get_mesh_lods() const { return _mesh_lods; }
+	void set_mesh_size(int p_size);
+	int get_mesh_size() const { return _mesh_size; }
 
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
