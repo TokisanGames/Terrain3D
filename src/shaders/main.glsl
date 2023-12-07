@@ -35,26 +35,13 @@ uniform float _texture_uv_scale_array[32];
 uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
 uniform int _background_mode = 1;  // NONE = 0, FLAT = 1, NOISE = 2
-uniform bool _show_navigation = true;
 
 // Public uniforms
 
 uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
-
-uniform bool auto_shader = true;
-uniform float auto_slope : hint_range(0,10) = 1.0;
-uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
-uniform int auto_base_texture : hint_range(0,31) = 0;
-uniform int auto_overlay_texture : hint_range(0,31) = 1;
-
-uniform bool dual_scaling = true;
-uniform int dual_scale_texture : hint_range(0,31) = 0;
-uniform float dual_scale_reduction : hint_range(0.001,1) = 0.3;
-uniform float tri_scale_reduction : hint_range(0.001,1) = 0.3;
-uniform float dual_scale_far : hint_range(0,1000) = 170.0;
-uniform float dual_scale_near : hint_range(0,1000) = 100.0;
-
+//INSERT: AUTO_SHADER_UNIFORMS
+//INSERT: DUAL_SCALING_UNIFORMS
 uniform float noise_scale : hint_range(0, 0.5) = 0.1;
 uniform sampler2D noise_texture : source_color, filter_linear, repeat_enable;
 
@@ -71,9 +58,7 @@ struct Material {
 varying vec3 v_vertex;	// World coordinate vertex location
 varying vec3 v_camera_pos;
 varying float v_xz_dist;
-varying float v_vertex_dist;
 varying flat ivec3 v_region;
-varying float v_far_factor;
 
 ////////////////////////
 // Vertex
@@ -136,8 +121,7 @@ void vertex() {
 		// Get final vertex location and save it
 		VERTEX.y = get_height(UV2);
 		v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-		v_vertex_dist = length(v_vertex - v_camera_pos);
-		v_far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, v_vertex_dist), 0.0, 1.0);
+//INSERT: DUAL_SCALING_VERTEX
 	}
 }
 
@@ -198,21 +182,8 @@ void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Mate
 	vec2 uv_center = vec2(iuv_center.xy);
 	int region = iuv_center.z;
 
-	// Enable Autoshader if outside regions or painted in regions
-	if(auto_shader && (region<0 || bool(control & 0x1u))) {
-		out_mat.base = auto_base_texture;
-		out_mat.over = auto_overlay_texture;
-		out_mat.blend = clamp(
-			dot(vec3(0., 1., 0.), normal * auto_slope*2. - (auto_slope*2.-1.)) 
-			- auto_height_reduction*.01*v_vertex.y // Reduce as vertices get higher
-			, 0., 1.);
-	} else {
-		// Manually painted
-		out_mat.base = int(control >>27u & 0x1Fu);
-		out_mat.over = int(control >> 22u & 0x1Fu);
-		out_mat.blend = float(control >>14u & 0xFFu) * 0.003921568627450; // 1./255.0
-	}
-
+//INSERT: AUTO_SHADER_TEXTURE_ID
+//INSERT: TEXTURE_ID
 	float r = random(uv_center) * PI;
 	float rand = r * _texture_uv_rotation_array[out_mat.base];
 	vec2 rot = vec2(cos(rand), sin(rand));
@@ -223,27 +194,9 @@ void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Mate
 	vec4 normal_rg = vec4(0.5f, 0.5f, 1.0f, 1.0f);
 	vec4 albedo_far = vec4(0.);
 	vec4 normal_far = vec4(0.5f, 0.5f, 1.0f, 1.0f);
-
-	// If dual scaling, apply to base texture
-	if(dual_scaling) {
-		if(region < 0) {
-			matUV *= tri_scale_reduction;
-		}
-		albedo_ht = texture(_texture_array_albedo, vec3(matUV, float(out_mat.base)));
-		normal_rg = texture(_texture_array_normal, vec3(matUV, float(out_mat.base)));
-		if(out_mat.base == dual_scale_texture || out_mat.over == dual_scale_texture) {
-			albedo_far = texture(_texture_array_albedo, vec3(matUV*dual_scale_reduction, float(dual_scale_texture)));
-			normal_far = texture(_texture_array_normal, vec3(matUV*dual_scale_reduction, float(dual_scale_texture)));
-		}
-		if(out_mat.base == dual_scale_texture) {
-			albedo_ht = mix(albedo_ht, albedo_far, v_far_factor);
-			normal_rg = mix(normal_rg, normal_far, v_far_factor);
-		}
-	} else {
-		albedo_ht = texture(_texture_array_albedo, vec3(matUV, float(out_mat.base)));
-		normal_rg = texture(_texture_array_normal, vec3(matUV, float(out_mat.base)));
-	}
 	
+//INSERT: UNI_SCALING_BASE
+//INSERT: DUAL_SCALING_BASE
 	// Apply color to base
 	albedo_ht.rgb *= _texture_color_array[out_mat.base].rgb;
 
@@ -260,12 +213,7 @@ void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Mate
 		vec4 albedo_ht2 = texture(_texture_array_albedo, vec3(matUV2, float(out_mat.over)));
 		vec4 normal_rg2 = texture(_texture_array_normal, vec3(matUV2, float(out_mat.over)));
 
-		// If dual scaling, apply to overlay texture
-		if(dual_scaling && out_mat.over == dual_scale_texture) {
-			albedo_ht2 = mix(albedo_ht2, albedo_far, v_far_factor);
-			normal_rg2 = mix(normal_rg2, normal_far, v_far_factor);
-		}
-
+//INSERT: DUAL_SCALING_OVERLAY
 		// Apply color to overlay
 		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
 		

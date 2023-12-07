@@ -188,7 +188,9 @@
     <None Include="src\shaders\debug_views.glsl" />
     <None Include="src\shaders\main.glsl" />
     <None Include="src\shaders\world_noise.glsl" />
-    <Text Include="src\shaders\editor_functions.glsl" />
+    <None Include="src\shaders\editor_functions.glsl" />
+    <None Include="src\shaders\dual_scaling.glsl" />
+    <None Include="src\shaders\auto_shader.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml" />
