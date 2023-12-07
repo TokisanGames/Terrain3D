@@ -38,12 +38,13 @@ private:
 	mutable TypedArray<StringName> _active_params;
 	mutable Dictionary _shader_params;
 
+	// Material Features
 	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
-
-	// Built in shader enablers
 	bool _auto_shader = true;
 	bool _dual_scaling = true;
+
+	// Editor Functions / Debug views
 	bool _show_navigation = false;
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
@@ -86,9 +87,7 @@ public:
 	~Terrain3DMaterial();
 
 	RID get_material_rid() const { return _material; }
-	RID get_shader_rid() const { return _shader; }
-
-	void save();
+	RID get_shader_rid() const;
 
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
@@ -135,6 +134,8 @@ public:
 	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
 	void set_show_vertex_grid(bool p_enabled);
 	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
+
+	void save();
 
 protected:
 	void _get_property_list(List<PropertyInfo> *p_list) const;
