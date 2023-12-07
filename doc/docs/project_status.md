@@ -8,7 +8,7 @@ See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for 
 
 | Feature | Status | 
 | ------------- | ------------- | 
-| **Platforms** | Terrain editing and exported games work on Windows, Linux, macOS. Other export platforms are pending: [IOS](https://github.com/TokisanGames/Terrain3D/issues/218), [Android](https://github.com/TokisanGames/Terrain3D/issues/197), [Steam Deck](https://github.com/TokisanGames/Terrain3D/issues/220), [WebGL](https://github.com/TokisanGames/Terrain3D/issues/217)
+| **Platforms** | Terrain editing and exported games work on Windows, Linux, macOS. Experimental in 4.2: [Steam Deck](https://github.com/TokisanGames/Terrain3D/issues/220#issuecomment-1837552459), [Android](https://github.com/TokisanGames/Terrain3D/issues/197#issuecomment-1815513064). Pending: [IOS](https://github.com/TokisanGames/Terrain3D/pull/219), [WebGL](https://github.com/TokisanGames/Terrain3D/issues/217)
 | **Languages** | GDScript, C++, C# all work, as should any language Godot supports. See [Integrating With Terrain3D](integrating.md)
 | **Editing** |
 | Sculpting Operations | Raise, Lower, Flatten, Expand (Multiply away from 0), Reduce (Divide towards 0), Smooth. Needs refinement
@@ -25,7 +25,7 @@ See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for 
 | **Physics** |
 | Godot | Works within regions you define in your world. No collision outside of those.
 | Jolt | [Godot-Jolt](https://github.com/godot-jolt/godot-jolt) v0.6+ works as a drop-in replacement for Godot Physics. The above restriction applies.
-| **Navigation Server** | Pending. See [#46](https://github.com/TokisanGames/Terrain3D/issues/46), [#176](https://github.com/TokisanGames/Terrain3D/pull/176), [#253](https://github.com/TokisanGames/Terrain3D/pull/253)
+| **Navigation Server** | Supported. See [Navigation](navigation.md)
 | **Data** |
 | Large terrains | 8k^2 works, maybe a little more, though [collision will take up ~3GB RAM](https://github.com/TokisanGames/Terrain3D/issues/161). 16k x 8k up to 16k^2 works in memory, but cannot be saved due to an [engine bug](https://github.com/TokisanGames/Terrain3D/issues/159).
 | Importing / Exporting | Works. See [Importing data](import_export.md)

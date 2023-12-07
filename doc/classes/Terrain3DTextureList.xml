@@ -18,6 +18,11 @@
 			<description>
 			</description>
 		</method>
+		<method name="save">
+			<return type="void" />
+			<description>
+			</description>
+		</method>
 		<method name="set_texture">
 			<return type="void" />
 			<param index="0" name="index" type="int" />

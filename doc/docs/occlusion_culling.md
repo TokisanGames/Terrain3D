@@ -15,10 +15,11 @@ First, enable `use_occlusion_culling` in the project settings.
 Then in the editor:
 
 * Select Terrain3D.
-* Click `Bake Occluder3D` in the top menu. On the popup window accept the default, LOD 4.
+* Click `Terrain3D Tools`, then `Bake Occluder3D` in the top menu. 
+* On the popup window accept the default, LOD 4.
 
-```{image} images/oc_t3d_menu.png
-:target: ../_images/oc_t3d_menu.png
+```{image} images/terrain3d_tools.png
+:target: ../_images/terrain3d_tools.png
 ```
 
 * Select the OccluderInstance3D child node.
