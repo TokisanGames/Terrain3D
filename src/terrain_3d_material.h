@@ -40,9 +40,11 @@ private:
 
 	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
-	bool _show_navigation = false;
 
-	// Built in alternate shaders
+	// Built in shader enablers
+	bool _auto_shader = true;
+	bool _dual_scaling = true;
+	bool _show_navigation = false;
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
@@ -103,6 +105,10 @@ public:
 	void set_texture_filtering(TextureFiltering p_filtering);
 	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
 
+	void set_auto_shader(bool p_enabled);
+	bool get_auto_shader() const { return _auto_shader; }
+	void set_dual_scaling(bool p_enabled);
+	bool get_dual_scaling() const { return _dual_scaling; }
 	void set_show_checkered(bool p_enabled);
 	bool get_show_checkered() const { return _debug_view_checkered; }
 	void set_show_grey(bool p_enabled);

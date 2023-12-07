@@ -25,11 +25,17 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/world_noise.glsl"
 			, "world_noise");
 	_parse_shader(
+#include "shaders/auto_shader.glsl"
+			, "auto_shader");
+	_parse_shader(
+#include "shaders/dual_scaling.glsl"
+			, "dual_scaling");
+	_parse_shader(
 #include "shaders/debug_views.glsl"
 			, "debug_views");
 	_parse_shader(
 #include "shaders/editor_functions.glsl"
-			, "debug_views");
+			, "editor_functions");
 
 	// Load main code
 	_shader_code["main"] = String(
@@ -121,6 +127,20 @@ String Terrain3DMaterial::_generate_shader_code() {
 		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
 	} else {
 		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+	}
+	if (_auto_shader) {
+		excludes.push_back("TEXTURE_ID");
+	} else {
+		excludes.push_back("AUTO_SHADER_UNIFORMS");
+		excludes.push_back("AUTO_SHADER_TEXTURE_ID");
+	}
+	if (_dual_scaling) {
+		excludes.push_back("UNI_SCALING_BASE");
+	} else {
+		excludes.push_back("DUAL_SCALING_UNIFORMS");
+		excludes.push_back("DUAL_SCALING_VERTEX");
+		excludes.push_back("DUAL_SCALING_BASE");
+		excludes.push_back("DUAL_SCALING_OVERLAY");
 	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
 	return shader;
@@ -488,6 +508,17 @@ void Terrain3DMaterial::set_world_background(WorldBackground p_background) {
 void Terrain3DMaterial::set_texture_filtering(TextureFiltering p_filtering) {
 	LOG(INFO, "Setting texture filtering: ", p_filtering);
 	_texture_filtering = p_filtering;
+}
+
+void Terrain3DMaterial::set_auto_shader(bool p_enabled) {
+	LOG(INFO, "Enable auto shader: ", p_enabled);
+	_auto_shader = p_enabled;
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_dual_scaling(bool p_enabled) {
+	LOG(INFO, "Enable dual scaling: ", p_enabled);
+	_dual_scaling = p_enabled;
 	_update_shader();
 }
 
@@ -737,9 +768,12 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_world_background", "background"), &Terrain3DMaterial::set_world_background);
 	ClassDB::bind_method(D_METHOD("get_world_background"), &Terrain3DMaterial::get_world_background);
-
 	ClassDB::bind_method(D_METHOD("set_texture_filtering", "filtering"), &Terrain3DMaterial::set_texture_filtering);
 	ClassDB::bind_method(D_METHOD("get_texture_filtering"), &Terrain3DMaterial::get_texture_filtering);
+	ClassDB::bind_method(D_METHOD("set_auto_shader", "enabled"), &Terrain3DMaterial::set_auto_shader);
+	ClassDB::bind_method(D_METHOD("get_auto_shader"), &Terrain3DMaterial::get_auto_shader);
+	ClassDB::bind_method(D_METHOD("set_dual_scaling", "enabled"), &Terrain3DMaterial::set_dual_scaling);
+	ClassDB::bind_method(D_METHOD("get_dual_scaling"), &Terrain3DMaterial::get_dual_scaling);
 
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DMaterial::get_show_checkered);
@@ -770,6 +804,8 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader", PROPERTY_HINT_NONE), "set_auto_shader", "get_auto_shader");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling", PROPERTY_HINT_NONE), "set_dual_scaling", "get_dual_scaling");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 

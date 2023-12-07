@@ -243,5 +243,7 @@
     <Text Include="src\shaders\editor_functions.glsl">
       <Filter>2. Shaders</Filter>
     </Text>
+    <Text Include="src\shaders\dual_scaling.glsl" />
+    <Text Include="src\shaders\auto_shader.glsl" />
   </ItemGroup>
 </Project>
