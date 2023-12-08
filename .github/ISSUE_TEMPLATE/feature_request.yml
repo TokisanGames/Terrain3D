@@ -5,7 +5,7 @@ body:
 - type: markdown
   attributes:
     value: |
-      Have you reviewed the [status of current and pending features](https://github.com/TokisanGames/Terrain3D/wiki#project-status)?
+      Have you reviewed the [status of current and pending features](https://terrain3d.readthedocs.io/en/latest/docs/project_status.html)?
 
 - type: textarea
   attributes:

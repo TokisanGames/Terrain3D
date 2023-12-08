@@ -5,7 +5,7 @@ body:
 - type: markdown
   attributes:
     value: |
-      Has your issue already been addressed in [Setting up textures](https://github.com/TokisanGames/Terrain3D/wiki/Setting-Up-Textures), [Troubleshooting](https://github.com/TokisanGames/Terrain3D/wiki/Troubleshooting), or [Tips](https://github.com/TokisanGames/Terrain3D/wiki/Tips)?
+      Has your issue already been addressed in [Setting up textures](https://terrain3d.readthedocs.io/en/latest/docs/textures.html), [Troubleshooting](https://terrain3d.readthedocs.io/en/latest/docs/troubleshooting.html), or [Tips](https://terrain3d.readthedocs.io/en/latest/docs/tips.html)?
 
 - type: input
   attributes:
@@ -62,7 +62,7 @@ body:
   attributes:
     label: Logs
     description: |
-      Terrain3D has [extensive logging](https://github.com/TokisanGames/Terrain3D/wiki/Troubleshooting#debug-logs). Enable it and attach a text file, or copy the logs here. Format logs with <code>```</code> before and after on their own lines.
+      Terrain3D has [extensive logging](https://terrain3d.readthedocs.io/en/latest/docs/troubleshooting.html#debug-logs). Enable it and attach a text file, or copy the logs here. Format logs with <code>```</code> before and after on their own lines.
   validations:
     required: false
     

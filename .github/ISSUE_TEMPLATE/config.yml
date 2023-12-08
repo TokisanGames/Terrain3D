@@ -2,7 +2,7 @@ blank_issues_enabled: false
 
 contact_links:
   - name: Documentation
-    url: https://github.com/TokisanGames/Terrain3D/wiki
+    url: https://terrain3d.readthedocs.io/
     about: Many questions and issues have already been answered, including status, tips, and troubleshooting.
   - name: Ask questions on Discord
     url: https://tokisan.com/discord
