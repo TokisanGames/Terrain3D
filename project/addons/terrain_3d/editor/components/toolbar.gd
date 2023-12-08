@@ -41,11 +41,11 @@ func _ready() -> void:
 	add_child(HSeparator.new())
 	add_tool_button(Terrain3DEditor.TEXTURE, Terrain3DEditor.REPLACE, "Paint Base Texture", load(ICON_PAINT_TEXTURE), tool_group)
 	add_tool_button(Terrain3DEditor.TEXTURE, Terrain3DEditor.ADD, "Spray Overlay Texture", load(ICON_SPRAY_TEXTURE), tool_group)
+	add_tool_button(Terrain3DEditor.AUTOSHADER, Terrain3DEditor.REPLACE, "Automatic / Manual Textures", load(ICON_AUTOSHADER), tool_group)
 	add_child(HSeparator.new())
 	add_tool_button(Terrain3DEditor.COLOR, Terrain3DEditor.REPLACE, "Paint Color", load(ICON_COLOR), tool_group)
 	add_tool_button(Terrain3DEditor.ROUGHNESS, Terrain3DEditor.REPLACE, "Paint Roughness", load(ICON_ROUGHNESS), tool_group)
 	add_child(HSeparator.new())
-	add_tool_button(Terrain3DEditor.AUTOSHADER, Terrain3DEditor.REPLACE, "Automatic / Manual Textures", load(ICON_AUTOSHADER), tool_group)
 	add_tool_button(Terrain3DEditor.HOLES, Terrain3DEditor.REPLACE, "Create / Fill Holes", load(ICON_HOLES), tool_group)
 	add_tool_button(Terrain3DEditor.NAVIGATION, Terrain3DEditor.REPLACE, "Define Navigable Areas", load(ICON_NAVIGATION), tool_group)
 
