@@ -442,6 +442,7 @@ void Terrain3DMaterial::set_world_background(WorldBackground p_background) {
 void Terrain3DMaterial::set_texture_filtering(TextureFiltering p_filtering) {
 	LOG(INFO, "Setting texture filtering: ", p_filtering);
 	_texture_filtering = p_filtering;
+	_update_shader();
 }
 
 void Terrain3DMaterial::set_auto_shader(bool p_enabled) {

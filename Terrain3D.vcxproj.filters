@@ -157,8 +157,20 @@
     <None Include="doc\index.rst">
       <Filter>2. Docs</Filter>
     </None>
-    <None Include="LICENSE.txt">
-      <Filter>2. Docs</Filter>
+    <None Include=".github\actions\run-scons\action.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="src\shaders\auto_shader.glsl">
+      <Filter>3. Shaders</Filter>
+    </None>
+    <None Include="src\shaders\dual_scaling.glsl">
+      <Filter>3. Shaders</Filter>
+    </None>
+    <None Include="src\shaders\editor_functions.glsl">
+      <Filter>3. Shaders</Filter>
+    </None>
+    <None Include="src\shaders\uniforms.glsl">
+      <Filter>3. Shaders</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -216,6 +228,9 @@
     <Text Include="doc\_static\theme_overrides.css">
       <Filter>1. Project Files</Filter>
     </Text>
+    <Text Include="doc\docs\navigation.md">
+      <Filter>2. Docs</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml">
@@ -239,12 +254,5 @@
     <Xml Include="doc\classes\Terrain3DTextureList.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="src\shaders\editor_functions.glsl">
-      <Filter>2. Shaders</Filter>
-    </Text>
-    <Text Include="src\shaders\dual_scaling.glsl" />
-    <Text Include="src\shaders\auto_shader.glsl" />
   </ItemGroup>
 </Project>
