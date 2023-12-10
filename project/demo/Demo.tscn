@@ -42,6 +42,8 @@ _shader_parameters = {
 "world_noise_scale": 9.85
 }
 world_background = 2
+auto_shader = true
+dual_scaling = true
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")

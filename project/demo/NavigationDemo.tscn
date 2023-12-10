@@ -33,9 +33,11 @@ _shader_parameters = {
 "height_blending": true,
 "noise_scale": 0.1,
 "noise_texture": SubResource("NoiseTexture2D_8x4ho"),
-"tri_scale_reduction": 1.0
+"tri_scale_reduction": 0.3
 }
 world_background = 0
+auto_shader = true
+dual_scaling = true
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_po4vw")
@@ -64,4 +66,4 @@ storage = ExtResource("7_d7eri")
 material = SubResource("Terrain3DMaterial_5dxhb")
 texture_list = ExtResource("10_qmhh8")
 collision_mask = 3
-clipmap_size = 64
+mesh_size = 64
