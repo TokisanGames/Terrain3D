@@ -52,18 +52,33 @@ func _bake_mesh() -> void:
 	if !mesh:
 		push_error("Failed to bake mesh from Terrain3D")
 		return
+
 	var undo: EditorUndoRedoManager = plugin.get_undo_redo()
-
-	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.name = &"MeshInstance3D"
-	mesh_instance.mesh = mesh
-	mesh_instance.set_skeleton_path(NodePath())
-
 	undo.create_action("Terrain3D Bake ArrayMesh")
-	undo.add_do_method(plugin.terrain, &"add_child", mesh_instance, true)
-	undo.add_undo_method(plugin.terrain, &"remove_child", mesh_instance)
-	undo.add_do_property(mesh_instance, &"owner", plugin.terrain.owner)
-	undo.add_do_reference(mesh_instance)
+	
+	var mesh_instance := plugin.terrain.get_node_or_null(^"MeshInstance3D") as MeshInstance3D
+	if !mesh_instance:
+		mesh_instance = MeshInstance3D.new()
+		mesh_instance.name = &"MeshInstance3D"
+		mesh_instance.set_skeleton_path(NodePath())
+		mesh_instance.mesh = mesh
+		
+		undo.add_do_method(plugin.terrain, &"add_child", mesh_instance, true)
+		undo.add_undo_method(plugin.terrain, &"remove_child", mesh_instance)
+		undo.add_do_property(mesh_instance, &"owner", plugin.terrain.owner)
+		undo.add_do_reference(mesh_instance)
+	
+	else:
+		undo.add_do_property(mesh_instance, &"mesh", mesh)
+		undo.add_undo_property(mesh_instance, &"mesh", mesh_instance.mesh)
+		
+		if mesh_instance.mesh.resource_path:
+			var path := mesh_instance.mesh.resource_path
+			undo.add_do_method(mesh, &"take_over_path", path)
+			undo.add_undo_method(mesh_instance.mesh, &"take_over_path", path)
+			undo.add_do_method(ResourceSaver, &"save", mesh)
+			undo.add_undo_method(ResourceSaver, &"save", mesh_instance.mesh)
+	
 	undo.commit_action()
 
 
@@ -82,6 +97,7 @@ func _bake_occluder() -> void:
 	assert(mesh.get_surface_count() == 1)
 
 	var undo: EditorUndoRedoManager = plugin.get_undo_redo()
+	undo.create_action("Terrain3D Bake Occluder3D")
 
 	var occluder := ArrayOccluder3D.new()
 	var arrays: Array = mesh.surface_get_arrays(0)
@@ -89,15 +105,28 @@ func _bake_occluder() -> void:
 	assert(arrays[Mesh.ARRAY_INDEX] != null)
 	occluder.set_arrays(arrays[Mesh.ARRAY_VERTEX], arrays[Mesh.ARRAY_INDEX])
 
-	var occluder_instance := OccluderInstance3D.new()
-	occluder_instance.name = &"OccluderInstance3D"
-	occluder_instance.occluder = occluder
+	var occluder_instance := plugin.terrain.get_node_or_null(^"OccluderInstance3D") as OccluderInstance3D
+	if !occluder_instance:
+		occluder_instance = OccluderInstance3D.new()
+		occluder_instance.name = &"OccluderInstance3D"
+		occluder_instance.occluder = occluder
 
-	undo.create_action("Terrain3D Bake Occluder3D")
-	undo.add_do_method(plugin.terrain, &"add_child", occluder_instance, true)
-	undo.add_undo_method(plugin.terrain, &"remove_child", occluder_instance)
-	undo.add_do_property(occluder_instance, &"owner", plugin.terrain.owner)
-	undo.add_do_reference(occluder_instance)
+		undo.add_do_method(plugin.terrain, &"add_child", occluder_instance, true)
+		undo.add_undo_method(plugin.terrain, &"remove_child", occluder_instance)
+		undo.add_do_property(occluder_instance, &"owner", plugin.terrain.owner)
+		undo.add_do_reference(occluder_instance)
+	
+	else:
+		undo.add_do_property(occluder_instance, &"occluder", occluder)
+		undo.add_undo_property(occluder_instance, &"occluder", occluder_instance.occluder)
+		
+		if occluder_instance.occluder.resource_path:
+			var path := occluder_instance.occluder.resource_path
+			undo.add_do_method(occluder, &"take_over_path", path)
+			undo.add_undo_method(occluder_instance.occluder, &"take_over_path", path)
+			undo.add_do_method(ResourceSaver, &"save", occluder)
+			undo.add_undo_method(ResourceSaver, &"save", occluder_instance.occluder)
+	
 	undo.commit_action()
 
 
