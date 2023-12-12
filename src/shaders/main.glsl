@@ -43,7 +43,6 @@ uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
 uniform float noise_scale : hint_range(0, 0.5) = 0.1;
-uniform sampler2D noise_texture : source_color, filter_linear, repeat_enable;
 
 // Varyings & Types
 
