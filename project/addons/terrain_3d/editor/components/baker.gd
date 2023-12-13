@@ -244,7 +244,7 @@ func _postprocess_nav_mesh_round_vertices(p_nav_mesh: NavigationMesh) -> PackedV
 	
 	var vertices: PackedVector3Array = p_nav_mesh.get_vertices()
 	for i in range(vertices.size()):
-		vertices[i] = (vertices[i] / round_factor).round() * round_factor
+		vertices[i] = (vertices[i] / round_factor).floor() * round_factor
 	return vertices
 
 
