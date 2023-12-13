@@ -24,11 +24,26 @@ Godot also has an `Output` panel at the bottom of the screen, but it is slow, wi
 
 Terrain3D has debug logs for everything, which it can dump to the [console](#use-the-console). These logs *may* also be saved to Godot's log files on disk.
 
-Set `Terrain3D.debug_level` to `Info` or `Debug` and you'll get copious logs of activity that will help troubleshoot problems.
+Set `Terrain3D.debug_level` to `Info` or `Debug` and you'll get copious activity logs that will help troubleshoot problems.
 
-You can also debugging from the command line by running Godot with `--terrain3d-debug=<LEVEL>` where `<LEVEL>` is one of `ERROR`, `INFO`, `DEBUG`, `DEBUG_CONT`. Debug Continuous (DEBUG_CONT) is for repetitive messages as occur on camera movements and such.
+You can also enable debugging from the command line by running Godot with `--terrain3d-debug=<LEVEL>` where `<LEVEL>` is one of `ERROR`, `INFO`, `DEBUG`, `DEBUG_CONT`. Debug Continuous (DEBUG_CONT) is for repetitive messages such as those that appear on camera movement.
 
-When asking for help on anything you can't solve yourself, you'll need to provide a full log from your console or file system. As long as Godot doesn't crash, it saves the log files on your drive. In Godot select, `Editor, Open Editor Data/Settings Menu`. On windows this opens `%appdata%\Godot` (e.g. `C:\Users\%username%\AppData\Roaming\Godot`). Look under `app_userdata\<your_project_name>\logs`. Otherwise, you can copy and paste from the console window.
+To run the demo from the command line with debugging, open a terminal, and change to the project folder (where `project.godot` is):
+
+```
+# Adjust the file paths to your system. The console executable is not needed since you're already running these commands in a terminal window.
+
+# Change to the demo project folder, eg.
+cd /c/gd/Terrain3D/project
+
+# Run the demo scene with debug messages
+/c/gd/bin/Godot_v4.1.3-stable_win64.exe --terrain3d-debug=DEBUG
+
+# Load the editor with debug messages
+/c/gd/bin/Godot_v4.1.3-stable_win64.exe -e --terrain3d-debug=DEBUG
+```
+
+When asking for help on anything you can't solve yourself, you'll need to provide a full log from your console or file system. As long as Godot doesn't crash, it saves the log files on your drive. In Godot select, `Editor, Open Editor Data/Settings Menu`. On windows this opens `%appdata%\Godot` (e.g. `C:\Users\%username%\AppData\Roaming\Godot`). Look under `app_userdata\<your_project_name>\logs`. Otherwise, you can copy and paste messages from the console window above.
 
 ## Common Issues
 

@@ -12,7 +12,7 @@ Terrain3DStorage
 
 **Inherits:** :ref:`Resource<class_Resource>` **<** :ref:`RefCounted<class_RefCounted>` **<** :ref:`Object<class_Object>`
 
-A resource that stores all data for Terrain3D. Also see `Controlmap Format <../docs/controlmap_format.md>`__ and `Storage Format Changelog <../docs/storage_format.html>`__.
+A resource that stores all data for Terrain3D. Also see `Controlmap Format <../docs/controlmap_format.html>`__ and `Storage Format Changelog <../docs/storage_format.html>`__.
 
 .. rst-class:: classref-reftable-group
 
@@ -324,7 +324,7 @@ Array of images of format: FORMAT_RGBA8, 32-bits per pixel as four 8-bit compone
 
 Array of images of format: FORMAT_RF, 32-bit per pixel as full-precision floating-point.
 
-      However we interpret these images as format: `RenderingDevice.DATA_FORMAT_R32_UINT <https://docs.godotengine.org/en/stable/classes/class_renderingdevice.html#class-renderingdevice-constant-data-format-r32-uint>`__ aka OpenGL RG32UI 32-bit per pixel as unsigned integer.
+      However we interpret these images as format: `RenderingDevice.DATA_FORMAT_R32_UINT <https://docs.godotengine.org/en/stable/classes/class_renderingdevice.html#class-renderingdevice-constant-data-format-r32-uint>`__ aka OpenGL RG32UI 32-bit per pixel as unsigned integer. See `Control map format <../docs/controlmap_format.html>`__.
 
 .. rst-class:: classref-item-separator
 

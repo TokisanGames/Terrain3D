@@ -36,9 +36,9 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`Dictionary<class_Dictionary>`                              | :ref:`_shader_parameters<class_Terrain3DMaterial_property__shader_parameters>`           | ``{}``    |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | :ref:`bool<class_bool>`                                          | :ref:`auto_shader<class_Terrain3DMaterial_property_auto_shader>`                         | ``true``  |
+   | :ref:`bool<class_bool>`                                          | :ref:`auto_shader<class_Terrain3DMaterial_property_auto_shader>`                         | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | :ref:`bool<class_bool>`                                          | :ref:`dual_scaling<class_Terrain3DMaterial_property_dual_scaling>`                       | ``true``  |
+   | :ref:`bool<class_bool>`                                          | :ref:`dual_scaling<class_Terrain3DMaterial_property_dual_scaling>`                       | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`Shader<class_Shader>`                                      | :ref:`shader_override<class_Terrain3DMaterial_property_shader_override>`                 |           |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
@@ -189,7 +189,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`bool<class_bool>` **auto_shader** = ``true``
+:ref:`bool<class_bool>` **auto_shader** = ``false``
 
 .. rst-class:: classref-property-setget
 
@@ -208,7 +208,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`bool<class_bool>` **dual_scaling** = ``true``
+:ref:`bool<class_bool>` **dual_scaling** = ``false``
 
 .. rst-class:: classref-property-setget
 

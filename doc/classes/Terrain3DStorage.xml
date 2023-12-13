@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="Terrain3DStorage" inherits="Resource" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		A resource that stores all data for Terrain3D. Also see [url=../docs/controlmap_format.md]Controlmap Format[/url] and [url=../docs/storage_format.html]Storage Format Changelog[/url].
+		A resource that stores all data for Terrain3D. Also see [url=../docs/controlmap_format.html]Controlmap Format[/url] and [url=../docs/storage_format.html]Storage Format Changelog[/url].
 	</brief_description>
 	<description>
 	</description>
@@ -224,7 +224,7 @@
 		</member>
 		<member name="control_maps" type="Image[]" setter="set_control_maps" getter="get_control_maps" default="[]">
 			Array of images of format: FORMAT_RF, 32-bit per pixel as full-precision floating-point.
-			      However we interpret these images as format: [url=https://docs.godotengine.org/en/stable/classes/class_renderingdevice.html#class-renderingdevice-constant-data-format-r32-uint]RenderingDevice.DATA_FORMAT_R32_UINT[/url] aka OpenGL RG32UI 32-bit per pixel as unsigned integer.
+      However we interpret these images as format: [url=https://docs.godotengine.org/en/stable/classes/class_renderingdevice.html#class-renderingdevice-constant-data-format-r32-uint]RenderingDevice.DATA_FORMAT_R32_UINT[/url] aka OpenGL RG32UI 32-bit per pixel as unsigned integer. See [url=../docs/controlmap_format.html]Control map format[/url].
 		</member>
 		<member name="data_color_maps" type="Image[]" setter="set_color_maps" getter="get_color_maps" is_deprecated="true">
 			[i]Deprecated.[/i] See [member color_maps].
