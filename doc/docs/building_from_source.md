@@ -169,6 +169,14 @@ scons: done building targets.
 
 The `scons` build system has additional useful options. These come from the GDExtension template we are using, so some options may not be supported or work properly for this particular plugin. e.g. The platform.
 
+### Debug Symbols
+
+Build the extension with debug symbols. See [debugging](#debugging-the-source-code) below.
+```
+scons dev_build=yes
+```
+
+
 ### Clean up build files
 ```
 # Linux, other Unix, Git bash on Windows
@@ -201,6 +209,19 @@ scons -H
 ```
 
 ## Troubleshooting
+
+### Debugging the source code
+In addition to the [debug logs](troubleshooting.md#debug-logs) dumped to the console, it is possible to debug Godot and Terrain3D, stepping through the full source code for both projects, viewing the callstack, and watching variables. We do it in MSVC regularly with these steps.
+
+* Build Terrain3D with `scons dev_build=yes`.
+* Build Godot with `scons debug_symbols=true`.
+* Start Godot with the debugger from within the Godot source project, rather than the Terrain3D project.
+* The debugger will attach to the Project Manager. After you load your project in the editor, or your game scene, `Debug/Attach to Process...` to reattach the debugger to the new process. Alternatively, adjust your debug startup command so Godot loads your project in the editor or runs your game scene directly and the debugger will attach to it on startup.
+* Since you started in the Godot project, upon hitting a breakpoint in Terrain3D, it will ask for the location of the file. Once found, it should have no problem loading the source code.
+
+If you have problems, use `Debug/Windows/Modules` to display the dependent libraries and ensure the symbols for Godot and Terrain3D are loaded.
+
+You can also debug only Terrain3D, using the official Godot binary. You'll be able to view and step through Terrain3D code. Any calls to Godot will be processed, but you won't be able to step through the code or watch variables without the symbols.
 
 ### When running scons, I get these errors:
 
