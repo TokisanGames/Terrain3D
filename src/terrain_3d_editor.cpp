@@ -229,6 +229,9 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 									base_id = dest_id;
 									// Erase blend value
 									blend = Math::lerp(blend, real_t(0.0f), alpha_clip);
+									if (brush_alpha > 0.1f) {
+										autoshader = false;
+									}
 								} break;
 
 								// Overlay Spray
@@ -243,13 +246,13 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 										overlay_id = dest_id;
 										blend = CLAMP(blend + brush_value, 0.0f, 1.0f);
 									}
+									if (brush_alpha * opacity * 11.f > 0.1f) {
+										autoshader = false;
+									}
 								} break;
 
 								default: {
 								} break;
-							}
-							if (brush_alpha > 0.1f) {
-								autoshader = false;
 							}
 							break;
 						case AUTOSHADER:
