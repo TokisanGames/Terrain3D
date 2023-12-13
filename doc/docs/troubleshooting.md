@@ -89,11 +89,11 @@ Make sure you have both the debug and release binaries on your system, or have b
 
 #### WARNING: Terrain3D::_texture_is_valid: Invalid format. Expected DXT5 RGBA8.
 
-Read [Texturing the Terrain](textures.md) to learn how to properly channel pack your textures.
+Read [Setting Up Textures](texture_prep.md) to learn how to properly channel pack your textures.
 
 #### Albedo/Normal textures do not have same size! and the terrain turns white
 
-Read [Texturing the Terrain](textures.md) and review your textures for odd sizes. All textures must be the same size. eg. If the first set is 2k, all other textures need to be 2k as well.
+Read [Setting Up Textures](texture_prep.md) and review your textures for odd sizes. All textures must be the same size. eg. If the first set is 2k, all other textures need to be 2k as well.
 
 
 ## Debug Collision

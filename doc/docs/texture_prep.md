@@ -1,7 +1,7 @@
-Texturing the Terrain
+Preparing Textures
 =========================
 
-Terrain3D supports up to 32 texture sets using albedo, height, normal, and roughness textures. This page describes everything you need to know to set them up. 
+Terrain3D supports up to 32 texture sets using albedo, height, normal, and roughness textures. This page describes everything you need to know to prepare your texture files. Continue on to [Texture Painting](texture_painting.md) to learn how to use them.
 
 TLDR: Just read channel pack textures with Gimp.
 

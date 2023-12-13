@@ -179,6 +179,7 @@
     <None Include=".gitignore" />
     <None Include="AUTHORS.md" />
     <None Include="CONTRIBUTING.md" />
+    <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />
@@ -206,7 +207,7 @@
     <Text Include="doc\docs\getting_help.md" />
     <Text Include="doc\docs\troubleshooting.md" />
     <Text Include="doc\docs\tips.md" />
-    <Text Include="doc\docs\textures.md" />
+    <Text Include="doc\docs\texture_prep.md" />
     <Text Include="doc\docs\previous_engines.md" />
     <Text Include="doc\docs\building_from_source.md" />
     <Text Include="doc\_static\theme_overrides.css" />

@@ -86,7 +86,7 @@ The position of the pixel within its grid square is used to bilinear interpolate
 
 * HTerrain - 4 textures can technically be blended per vertex. Generally, painting 3-4 textures in an area works fine. However, some combinations of 3 textures (depending on their position in the texture array) and sometimes adding in a 4th introduces artifacts. 
 
-* Terrain3D - Getting 3 or 4 textures in an area is feasible as long as only 2 textures are blending per grid point (vertex). It's possible to achieve a natural looking result with [the right technique](tips.md#recommended-painting-technique).
+* Terrain3D - Getting 3 or 4 textures in an area is feasible as long as only 2 textures are blending per grid point (vertex). It's possible to achieve a natural looking result with [the right technique](texture_painting.md#manual-painting-technique).
 
 ### Calculating weights
 

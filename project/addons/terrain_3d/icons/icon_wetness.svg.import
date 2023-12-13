@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bv4f7kijr12yr"
-path="res://.godot/imported/icon_roughness.svg-adb49cc44259f9cdf845c6a385f23d7b.ctex"
+path="res://.godot/imported/icon_wetness.svg-6c67b1e4e9435c1aa106bee56f000e06.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/terrain_3d/icons/icon_roughness.svg"
-dest_files=["res://.godot/imported/icon_roughness.svg-adb49cc44259f9cdf845c6a385f23d7b.ctex"]
+source_file="res://addons/terrain_3d/icons/icon_wetness.svg"
+dest_files=["res://.godot/imported/icon_wetness.svg-6c67b1e4e9435c1aa106bee56f000e06.ctex"]
 
 [params]
 

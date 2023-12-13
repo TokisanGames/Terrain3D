@@ -172,6 +172,9 @@
     <None Include="src\shaders\uniforms.glsl">
       <Filter>3. Shaders</Filter>
     </None>
+    <None Include="doc\docs\texture_painting.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -204,7 +207,7 @@
     <Text Include="doc\docs\system_architecture.md">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\docs\textures.md">
+    <Text Include="doc\docs\texture_prep.md">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\tips.md">

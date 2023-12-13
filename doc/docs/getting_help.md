@@ -1,7 +1,7 @@
 Getting Help
 ===================
 
-**Read the docs**: Many questions have already been addressed in this documentation, especially in [Troubleshooting](troubleshooting.md) and [Texturing the terrain](textures.md).
+**Read the docs**: Many questions have already been addressed in this documentation, especially in [Troubleshooting](troubleshooting.md) and [Setting Up Textures](texture_prep.md).
 
 **Discord**: For questions or technical issues, join the [Tokisan discord server](https://tokisan.com/discord) and ask in the #terrain-help channel.
 

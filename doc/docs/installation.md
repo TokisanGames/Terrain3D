@@ -23,6 +23,6 @@ If it isn't working for you, see [Troubleshooting](troubleshooting.md) and [Gett
 7. Select `Project / Reload Current Project` to restart once more.
 8. Create or open a 3D scene and add a new Terrain3D node.
 9. Select Terrain3D in the Scene panel. In the Inspector, click the down arrow to the right of the `storage` resource and save it as a binary `.res` file. The other resources can be left as is or saved as text `.tres`. These external files can be shared with other scenes.
-10. Click Next to learn how to properly [set up your textures](textures.md), or skip to [import data](import_export.md).
+10. Click Next to learn how to properly [set up your textures](texture_prep.md), or skip to [import data](import_export.md).
 
 If it isn't working for you, see [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
