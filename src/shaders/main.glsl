@@ -42,6 +42,8 @@ uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
+uniform float macro_variation_shade : hint_range(0, 1) = 1.;
+uniform vec3 macro_variation_tint : source_color = vec3(1.);
 uniform float noise_scale : hint_range(0, 0.5) = 0.1;
 
 // Varyings & Types
@@ -280,13 +282,15 @@ void fragment() {
 	vec2 weights1 = clamp(texel_pos - texel_pos_floor, 0, 1);
 	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);
 	vec2 weights0 = vec2(1.0) - weights1;
-	// Adjust final weights by noise. 1 lookup
-	vec3 noise = texture(noise_texture, UV*noise_scale).rgb;
+	// Adjust final weights by noise. 3 lookups
+	float noise1 = texture(noise_texture, UV*noise_scale*.05).r;
+	float noise2 = texture(noise_texture, UV*noise_scale*.03 + vec2(.1)).r;
+	float noise3 = texture(noise_texture, UV*noise_scale*.01 + vec2(.2)).r;
 	vec4 weights;
-	weights.x = blend_weights(weights0.x * weights0.y, noise.r);
-	weights.y = blend_weights(weights0.x * weights1.y, noise.r);
-	weights.z = blend_weights(weights1.x * weights0.y, noise.r);
-	weights.w = blend_weights(weights1.x * weights1.y, noise.r);
+	weights.x = blend_weights(weights0.x * weights0.y, noise1);
+	weights.y = blend_weights(weights0.x * weights1.y, noise1);
+	weights.z = blend_weights(weights1.x * weights0.y, noise1);
+	weights.w = blend_weights(weights1.x * weights1.y, noise1);
 	float weight_sum = weights.x + weights.y + weights.z + weights.w;
 	float weight_inv = 1.0/weight_sum;
 
@@ -316,8 +320,12 @@ void fragment() {
 	// Apply wetness/roughness modifier, converting 0-1 range to -1 to 1 range
 	float roughness = fma(color_map.a-0.5, 2.0, normal_rough.a);
 
+	// Calculate macro variation
+	float macrov_shade = mix(macro_variation_shade, 1., clamp( ((noise1+noise2)*.5) + v_xz_dist*.0002, 0., 1.));
+	vec3 macrov = mix(macro_variation_tint, vec3(1.), clamp(noise3 + v_xz_dist*.0002, 0., 1.)) * macrov_shade;
+
 	// Apply PBR
-	ALBEDO = albedo_height.rgb * color_map.rgb;
+	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
 	ROUGHNESS = roughness;
 	SPECULAR = 1.-normal_rough.a;
 	NORMAL_MAP = normal_rough.rgb;

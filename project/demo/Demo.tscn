@@ -9,13 +9,27 @@
 [ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
 [ext_resource type="Terrain3DTextureList" uid="uid://dal3jhw6241qg" path="res://demo/data/texture_list.tres" id="8_g2of2"]
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_7glc1"]
-noise_type = 0
 
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_pvx8q"]
-generate_mipmaps = false
+[sub_resource type="Gradient" id="Gradient_bb1ae"]
+offsets = PackedFloat32Array(0.3, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_lw1pk"]
+noise_type = 2
+frequency = 0.03
+cellular_jitter = 3.0
+cellular_return_type = 0
+domain_warp_enabled = true
+domain_warp_type = 1
+domain_warp_amplitude = 50.0
+domain_warp_fractal_type = 2
+domain_warp_fractal_lacunarity = 1.5
+domain_warp_fractal_gain = 1.0
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_g7djb"]
 seamless = true
-noise = SubResource("FastNoiseLite_7glc1")
+color_ramp = SubResource("Gradient_bb1ae")
+noise = SubResource("FastNoiseLite_lw1pk")
 
 [sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_jrc01"]
 _shader_parameters = {
@@ -29,8 +43,10 @@ _shader_parameters = {
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
 "height_blending": true,
+"macro_variation_shade": 0.6,
+"macro_variation_tint": Color(0.9, 0.89, 0.81, 1),
 "noise_scale": 0.1,
-"noise_texture": SubResource("NoiseTexture2D_pvx8q"),
+"noise_texture": SubResource("NoiseTexture2D_g7djb"),
 "tri_scale_reduction": 0.3,
 "world_noise_blend_far": 1.0,
 "world_noise_blend_near": 0.7,

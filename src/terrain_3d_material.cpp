@@ -1,6 +1,7 @@
 // Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/fast_noise_lite.hpp>
+#include <godot_cpp/classes/gradient.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/noise_texture2d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
@@ -258,12 +259,34 @@ void Terrain3DMaterial::_update_shader() {
 		LOG(INFO, "Generating default noise_texture for shader");
 		Ref<FastNoiseLite> fnoise;
 		fnoise.instantiate();
-		fnoise->set_noise_type(FastNoiseLite::TYPE_SIMPLEX);
+		fnoise->set_noise_type(FastNoiseLite::TYPE_CELLULAR);
+		fnoise->set_frequency(0.03f);
+		fnoise->set_cellular_jitter(3.0f);
+		fnoise->set_cellular_return_type(FastNoiseLite::RETURN_CELL_VALUE);
+		fnoise->set_domain_warp_enabled(true);
+		fnoise->set_domain_warp_type(FastNoiseLite::DOMAIN_WARP_SIMPLEX_REDUCED);
+		fnoise->set_domain_warp_amplitude(50.f);
+		fnoise->set_domain_warp_fractal_type(FastNoiseLite::DOMAIN_WARP_FRACTAL_INDEPENDENT);
+		fnoise->set_domain_warp_fractal_lacunarity(1.5f);
+		fnoise->set_domain_warp_fractal_gain(1.f);
+
+		Ref<Gradient> curve;
+		curve.instantiate();
+		PackedFloat32Array pfa;
+		pfa.push_back(0.3f);
+		pfa.push_back(1.0f);
+		curve->set_offsets(pfa);
+		PackedColorArray pca;
+		pca.push_back(Color(1., 1., 1., 1.));
+		pca.push_back(Color(0., 0., 0., 1.));
+		curve->set_colors(pca);
+
 		Ref<NoiseTexture2D> noise_tex;
 		noise_tex.instantiate();
 		noise_tex->set_seamless(true);
-		noise_tex->set_generate_mipmaps(false);
+		noise_tex->set_generate_mipmaps(true);
 		noise_tex->set_noise(fnoise);
+		noise_tex->set_color_ramp(curve);
 		_set("noise_texture", noise_tex);
 	}
 
