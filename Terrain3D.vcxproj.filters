@@ -157,9 +157,6 @@
     <None Include="doc\index.rst">
       <Filter>2. Docs</Filter>
     </None>
-    <None Include=".github\actions\run-scons\action.yml">
-      <Filter>1. Project Files</Filter>
-    </None>
     <None Include="src\shaders\auto_shader.glsl">
       <Filter>3. Shaders</Filter>
     </None>
