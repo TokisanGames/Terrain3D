@@ -116,7 +116,7 @@ jobs:
       - name: Upload Package
         uses: Wandalen/wretry.action@master
         with:
-            action: actions/upload-artifact@v4
+            action: actions/upload-artifact@v3
             attempt_limit: 3
             attempt_delay: 1000
             with: |
