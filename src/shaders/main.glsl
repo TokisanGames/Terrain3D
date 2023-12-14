@@ -43,7 +43,6 @@ uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
 uniform float noise_scale : hint_range(0, 0.5) = 0.1;
-uniform float specular : hint_range(0, 1) = 0.2;	// Going lower reduces wetness
 
 // Varyings & Types
 
@@ -320,7 +319,7 @@ void fragment() {
 	// Apply PBR
 	ALBEDO = albedo_height.rgb * color_map.rgb;
 	ROUGHNESS = roughness;
-	SPECULAR = specular;
+	SPECULAR = 1.-normal_rough.a;
 	NORMAL_MAP = normal_rough.rgb;
 	NORMAL_MAP_DEPTH = 1.0;
 
