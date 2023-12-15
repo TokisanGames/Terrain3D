@@ -41,9 +41,11 @@ uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
-uniform float macro_variation_shade : hint_range(0, 1) = 1.;
-uniform vec3 macro_variation_tint : source_color = vec3(1.);
-uniform float noise_scale : hint_range(0, 0.5) = 0.1;
+uniform vec3 macro_variation1 : source_color = vec3(1.);
+uniform vec3 macro_variation2 : source_color = vec3(1.);
+uniform float noise1_scale : hint_range(0, 0.3) = 0.05;
+uniform float noise2_scale : hint_range(0, 0.3) = 0.03;
+uniform float noise3_scale : hint_range(0, 0.3) = 0.01;
 
 // Varyings & Types
 
@@ -282,9 +284,9 @@ void fragment() {
 	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);
 	vec2 weights0 = vec2(1.0) - weights1;
 	// Adjust final weights by noise. 3 lookups
-	float noise1 = texture(noise_texture, UV*noise_scale*.05).r;
-	float noise2 = texture(noise_texture, UV*noise_scale*.03 + vec2(.1)).r;
-	float noise3 = texture(noise_texture, UV*noise_scale*.01 + vec2(.2)).r;
+	float noise1 = texture(noise_texture, UV*noise1_scale*.1).r;
+	float noise2 = texture(noise_texture, UV*noise2_scale*.1).r;
+	float noise3 = texture(noise_texture, UV*noise3_scale*.1).r;
 	vec4 weights;
 	weights.x = blend_weights(weights0.x * weights0.y, noise1);
 	weights.y = blend_weights(weights0.x * weights1.y, noise1);
@@ -316,12 +318,12 @@ void fragment() {
 		color_map = texture(_color_maps, region_uv);
 	}
 
+	// Calculate macro variation
+	vec3 macrov = mix(macro_variation1, vec3(1.), clamp( ((noise1+noise2)*.5) + v_xz_dist*.0002, 0., 1.));
+	macrov *= mix(macro_variation2, vec3(1.), clamp(noise3 + v_xz_dist*.0002, 0., 1.));
+
 	// Apply wetness/roughness modifier, converting 0-1 range to -1 to 1 range
 	float roughness = fma(color_map.a-0.5, 2.0, normal_rough.a);
-
-	// Calculate macro variation
-	float macrov_shade = mix(macro_variation_shade, 1., clamp( ((noise1+noise2)*.5) + v_xz_dist*.0002, 0., 1.));
-	vec3 macrov = mix(macro_variation_tint, vec3(1.), clamp(noise3 + v_xz_dist*.0002, 0., 1.)) * macrov_shade;
 
 	// Apply PBR
 	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
