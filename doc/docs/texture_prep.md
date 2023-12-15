@@ -46,6 +46,8 @@ Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. You can co
 
 ### Other Notes
 
+* Make sure you have seamless textures that can be repeated without an obvious seam.
+
 * Textures can be channel packed in in tools like Photoshop, Krita, [Gimp](https://www.gimp.org/), or many similar tools. Working with alpha channels in Photoshop and Krita can be a bit challenging, so we recommend Gimp. See [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp) below.
 
 * Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting it. You can tell which is which just by looking at distinctive textures. If it's glass it should be mostly black, which is near 0 roughness. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. Smoothness would be the opposite. 
