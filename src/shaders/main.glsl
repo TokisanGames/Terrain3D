@@ -28,7 +28,6 @@ uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
 uniform sampler2DArray _height_maps : repeat_disable;
 uniform usampler2DArray _control_maps : repeat_disable;
-uniform sampler2DArray _color_maps : source_color, repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
 uniform float _texture_uv_scale_array[32];
