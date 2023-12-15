@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://x34e4v60vdmy"]
+[gd_scene load_steps=15 format=3 uid="uid://x34e4v60vdmy"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_po4vw"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="2_i74wg"]
@@ -7,19 +7,32 @@
 [ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="5_2lvlr"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="5_rc7e2"]
 [ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="7_d7eri"]
-[ext_resource type="NavigationMesh" uid="uid://yf3fu23666k8" path="res://demo/data/nav_mesh.res" id="7_jmtvv"]
+[ext_resource type="NavigationMesh" uid="uid://yf3fu23666k8" path="res://demo/data/nav_mesh.res" id="8_6jfdr"]
 [ext_resource type="Terrain3DTextureList" uid="uid://dal3jhw6241qg" path="res://demo/data/texture_list.tres" id="10_qmhh8"]
 [ext_resource type="PackedScene" uid="uid://di5fovhcyd7re" path="res://demo/components/Enemy.tscn" id="12_b2xl8"]
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_i4tyq"]
-noise_type = 0
+[sub_resource type="Gradient" id="Gradient_vr1m7"]
+offsets = PackedFloat32Array(0.3, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
 
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_8x4ho"]
-generate_mipmaps = false
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_d8lcj"]
+noise_type = 2
+frequency = 0.03
+cellular_jitter = 3.0
+cellular_return_type = 0
+domain_warp_enabled = true
+domain_warp_type = 1
+domain_warp_amplitude = 50.0
+domain_warp_fractal_type = 2
+domain_warp_fractal_lacunarity = 1.5
+domain_warp_fractal_gain = 1.0
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_bov7h"]
 seamless = true
-noise = SubResource("FastNoiseLite_i4tyq")
+color_ramp = SubResource("Gradient_vr1m7")
+noise = SubResource("FastNoiseLite_d8lcj")
 
-[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_5dxhb"]
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_l5u3p"]
 _shader_parameters = {
 "auto_base_texture": 0,
 "auto_height_reduction": 0.1,
@@ -31,11 +44,23 @@ _shader_parameters = {
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
 "height_blending": true,
-"noise_scale": 0.1,
-"noise_texture": SubResource("NoiseTexture2D_8x4ho"),
-"tri_scale_reduction": 0.3
+"macro_variation1": Color(0.811765, 0.854902, 0.901961, 1),
+"macro_variation2": Color(0.901961, 0.901961, 0.811765, 1),
+"noise1_scale": 0.05,
+"noise2_scale": 0.03,
+"noise3_scale": 0.01,
+"noise_texture": SubResource("NoiseTexture2D_bov7h"),
+"tri_scale_reduction": 0.3,
+"world_noise_blend_far": 1.0,
+"world_noise_blend_near": 0.7,
+"world_noise_height": 34.0,
+"world_noise_lod_distance": 7500.0,
+"world_noise_max_octaves": 4,
+"world_noise_min_octaves": 2,
+"world_noise_offset": Vector3(1.485, -1.01, 1.9),
+"world_noise_scale": 9.85
 }
-world_background = 0
+world_background = 2
 auto_shader = true
 dual_scaling = true
 
@@ -52,18 +77,18 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -2.5, 512)
 [node name="Tunnel" parent="." instance=ExtResource("5_2lvlr")]
 
 [node name="Player" parent="." instance=ExtResource("4_fk3ul")]
-transform = Transform3D(0.0774673, 0, -0.996995, 0, 1, 0, 0.996995, 0, 0.0774673, 253.094, 115.487, -1838.16)
+transform = Transform3D(0.0774673, 0, -0.996995, 0, 1, 0, 0.996995, 0, 0.0774673, 229.418, 104.956, -1838.16)
 
 [node name="Enemy" parent="." node_paths=PackedStringArray("target") instance=ExtResource("12_b2xl8")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192.727, 105.171, -1787.81)
 target = NodePath("../Player")
 
 [node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
-navigation_mesh = ExtResource("7_jmtvv")
+navigation_mesh = ExtResource("8_6jfdr")
 
 [node name="Terrain3D" type="Terrain3D" parent="NavigationRegion3D"]
 storage = ExtResource("7_d7eri")
-material = SubResource("Terrain3DMaterial_5dxhb")
+material = SubResource("Terrain3DMaterial_l5u3p")
 texture_list = ExtResource("10_qmhh8")
 collision_mask = 3
 mesh_size = 64

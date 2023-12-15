@@ -1,20 +1,19 @@
-[gd_scene load_steps=12 format=3 uid="uid://chol2xlfbq7cu"]
+[gd_scene load_steps=13 format=3 uid="uid://chol2xlfbq7cu"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
-[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="2_75yik"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_nqak5"]
 [ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_cw38j"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="3_ht63y"]
 [ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="3_kdh0b"]
+[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="3_yqldq"]
 [ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
 [ext_resource type="Terrain3DTextureList" uid="uid://dal3jhw6241qg" path="res://demo/data/texture_list.tres" id="8_g2of2"]
 
-
-[sub_resource type="Gradient" id="Gradient_bb1ae"]
+[sub_resource type="Gradient" id="Gradient_vr1m7"]
 offsets = PackedFloat32Array(0.3, 1)
 colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_lw1pk"]
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_d8lcj"]
 noise_type = 2
 frequency = 0.03
 cellular_jitter = 3.0
@@ -26,10 +25,10 @@ domain_warp_fractal_type = 2
 domain_warp_fractal_lacunarity = 1.5
 domain_warp_fractal_gain = 1.0
 
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_g7djb"]
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_bov7h"]
 seamless = true
-color_ramp = SubResource("Gradient_bb1ae")
-noise = SubResource("FastNoiseLite_lw1pk")
+color_ramp = SubResource("Gradient_vr1m7")
+noise = SubResource("FastNoiseLite_d8lcj")
 
 [sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_jrc01"]
 _shader_parameters = {
@@ -43,10 +42,12 @@ _shader_parameters = {
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
 "height_blending": true,
-"macro_variation_shade": 0.6,
-"macro_variation_tint": Color(0.9, 0.89, 0.81, 1),
-"noise_scale": 0.1,
-"noise_texture": SubResource("NoiseTexture2D_g7djb"),
+"macro_variation1": Color(0.811765, 0.854902, 0.901961, 1),
+"macro_variation2": Color(0.901961, 0.901961, 0.811765, 1),
+"noise1_scale": 0.05,
+"noise2_scale": 0.03,
+"noise3_scale": 0.01,
+"noise_texture": SubResource("NoiseTexture2D_bov7h"),
 "tri_scale_reduction": 0.3,
 "world_noise_blend_far": 1.0,
 "world_noise_blend_near": 0.7,
@@ -66,7 +67,7 @@ script = ExtResource("1_k7qca")
 
 [node name="UI" parent="." instance=ExtResource("2_nqak5")]
 
-[node name="World" parent="." instance=ExtResource("2_75yik")]
+[node name="World" parent="." instance=ExtResource("3_yqldq")]
 
 [node name="Borders" parent="." instance=ExtResource("3_cw38j")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -3, 512)
@@ -81,7 +82,7 @@ transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 22
 storage = ExtResource("5_sl43a")
 material = SubResource("Terrain3DMaterial_jrc01")
 texture_list = ExtResource("8_g2of2")
-render_cull_margin = 916.383
+render_cull_margin = 1000.0
 collision_mask = 3
 mesh_size = 64
 transform = Transform3D(1, 0, 1.49012e-08, 0, 1, 0, -1.49012e-08, 0, 1, -3.05176e-05, 0, 0)

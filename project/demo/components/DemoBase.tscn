@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://dyt8c2xqmddo2"]
+[gd_scene load_steps=12 format=3 uid="uid://dyt8c2xqmddo2"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="2_2yeq8"]
@@ -8,29 +8,37 @@
 [ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
 [ext_resource type="Terrain3DTextureList" uid="uid://dal3jhw6241qg" path="res://demo/data/texture_list.tres" id="7_mnexy"]
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_20lj2"]
-noise_type = 0
+[sub_resource type="Gradient" id="Gradient_vs32v"]
+offsets = PackedFloat32Array(0.3, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
 
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_rl0jm"]
-generate_mipmaps = false
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_7glc1"]
+noise_type = 2
+frequency = 0.03
+cellular_jitter = 3.0
+cellular_return_type = 0
+domain_warp_enabled = true
+domain_warp_type = 1
+domain_warp_amplitude = 50.0
+domain_warp_fractal_type = 2
+domain_warp_fractal_lacunarity = 1.5
+domain_warp_fractal_gain = 1.0
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_pvx8q"]
 seamless = true
-noise = SubResource("FastNoiseLite_20lj2")
+color_ramp = SubResource("Gradient_vs32v")
+noise = SubResource("FastNoiseLite_7glc1")
 
-[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_dljqs"]
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_q2wt2"]
 _shader_parameters = {
-"auto_base_texture": 0,
-"auto_height_reduction": 0.1,
-"auto_overlay_texture": 1,
-"auto_slope": 1.0,
 "blend_sharpness": 0.87,
-"dual_scale_far": 170.0,
-"dual_scale_near": 100.0,
-"dual_scale_reduction": 0.3,
-"dual_scale_texture": 0,
 "height_blending": true,
-"noise_scale": 0.1,
-"noise_texture": SubResource("NoiseTexture2D_rl0jm"),
-"tri_scale_reduction": 0.3
+"macro_variation1": Color(1, 1, 1, 1),
+"macro_variation2": Color(1, 1, 1, 1),
+"noise1_scale": 0.05,
+"noise2_scale": 0.03,
+"noise3_scale": 0.01,
+"noise_texture": SubResource("NoiseTexture2D_pvx8q")
 }
 
 [node name="Demo" type="Node"]
@@ -48,7 +56,6 @@ transform = Transform3D(0.134125, 0, -0.990965, 0, 1, 0, 0.990965, 0, 0.134125, 
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
 storage = ExtResource("5_sl43a")
-material = SubResource("Terrain3DMaterial_dljqs")
+material = SubResource("Terrain3DMaterial_q2wt2")
 texture_list = ExtResource("7_mnexy")
 collision_mask = 3
-clipmap_size = 64

@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" path="res://demo/assets/textures/rock030_nrm_rgh.dds" id="2_yyurh"]
 
 [resource]
-albedo_color = Color(1, 0.984314, 0.941176, 1)
+albedo_color = Color(1, 0.976471, 0.921569, 1)
 albedo_texture = ExtResource("1_j5sdo")
 normal_enabled = true
 normal_texture = ExtResource("2_yyurh")

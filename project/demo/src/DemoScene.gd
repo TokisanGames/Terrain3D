@@ -2,4 +2,5 @@ extends Node
 
 
 func _ready():
-	$UI.player = $Player
+	if has_node("UI"):
+		$UI.player = $Player

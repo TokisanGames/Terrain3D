@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://bb2lp50sjndus"]
+[gd_scene load_steps=5 format=3 uid="uid://bb2lp50sjndus"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_vibap"]
 sky_top_color = Color(0.192157, 0.282353, 0.509804, 1)
@@ -17,12 +17,16 @@ ambient_light_source = 3
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_sky_contribution = 0.5
 ambient_light_energy = 0.5
-tonemap_mode = 2
+tonemap_mode = 3
+
+[sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_s4bex"]
+exposure_multiplier = 2.0
 
 [node name="World" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_tv25c")
+camera_attributes = SubResource("CameraAttributesPractical_s4bex")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.866024, -0.433016, 0.250001, 0, 0.499998, 0.866026, -0.500003, 0.749999, -0.43301, 0, 0, 0)
