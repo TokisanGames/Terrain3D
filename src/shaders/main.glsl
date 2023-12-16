@@ -206,15 +206,18 @@ void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Mate
 	vec3 n = unpack_normal(normal_rg);
 	normal_rg.xz = rotate(n.xz, rot.x, -rot.y);
 
-	// If any overlay texture from manual painting or auto shader
+	// Setup overlay texture to blend
+	float rand2 = r * _texture_uv_rotation_array[out_mat.over];
+	vec2 rot2 = vec2(cos(rand2), sin(rand2));
+	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * _texture_uv_scale_array[out_mat.over];
+
+	vec4 albedo_ht2 = texture(_texture_array_albedo, vec3(matUV2, float(out_mat.over)));
+	vec4 normal_rg2 = texture(_texture_array_normal, vec3(matUV2, float(out_mat.over)));
+
+	// Though it would seem having the above lookups in this block, or removing the branch would
+	// be more optimal, the first introduces artifacts #276, and the second is noticably slower. 
+	// It seems the branching off dual scaling and the color array lookup is more optimal.
 	if (out_mat.blend > 0.f) {
-		float rand2 = r * _texture_uv_rotation_array[out_mat.over];
-		vec2 rot2 = vec2(cos(rand2), sin(rand2));
-		vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * _texture_uv_scale_array[out_mat.over];
-
-		vec4 albedo_ht2 = texture(_texture_array_albedo, vec3(matUV2, float(out_mat.over)));
-		vec4 normal_rg2 = texture(_texture_array_normal, vec3(matUV2, float(out_mat.over)));
-
 //INSERT: DUAL_SCALING_OVERLAY
 		// Apply color to overlay
 		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
@@ -276,7 +279,6 @@ void fragment() {
 	get_material(UV, control01, index01UV, w_normal, mat[1]);
 	get_material(UV, control10, index10UV, w_normal, mat[2]);
 	get_material(UV, control11, index11UV, w_normal, mat[3]);
-
 
 	// Calculate weight for the pixel position between the vertices
 	// Bilinear interpolation of difference of UV and floor(UV)
