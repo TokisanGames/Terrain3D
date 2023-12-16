@@ -12,16 +12,7 @@ body:
     label: Terrain3D version
     description: >
       Enter either the name of a release, or the commit string if using a development build.
-    placeholder: v0.8.3-alpha_gd4.1.1
-  validations:
-    required: true
-
-- type: input
-  attributes:
-    label: Godot version
-    description: >
-      Inside Godot, click the version on the bottom bar to copy it.
-    placeholder: v4.1.2.stable.official [399c9dc39]
+    placeholder: v0.9.0
   validations:
     required: true
 
@@ -29,9 +20,9 @@ body:
   attributes:
     label: System information
     description: |
-      - Specify the OS version, GPU and rendering backend (Vulkan Forward+, Mobile, Compatibility/WebGL).
+      - Specify the version of Godot and your OS, GPU and rendering backend (Vulkan Forward+, Mobile, Compatibility/WebGL).
       - Starting with Godot 4.1, you can copy this information to your clipboard by using *Help > Copy System Info* at the top of the editor window.
-    placeholder: Windows 10/64 - Vulkan (Forward+) - dedicated NVIDIA GeForce GTX 970 (nvidia, 510.85.02)
+    placeholder: Godot v4.1.3.stable - Windows 10/64 - Vulkan (Forward+) - dedicated NVIDIA GeForce RTX 3070 Laptop GPU (NVIDIA; 31.0.15.4633)
   validations:
     required: true
 

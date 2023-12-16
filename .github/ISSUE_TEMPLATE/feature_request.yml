@@ -15,17 +15,3 @@ body:
       Include examples of other terrain systems, GDC talks, white papers, and links to blogs or code that will be good reference info.
   validations:
     required: true
-
-- type: dropdown
-  id: volunteering
-  attributes:
-    label: Are you willing to help create this feature?
-    description: |
-      If so, this issue and our conversations on discord will help ensure your efforts are aligned with other plans.
-      If not, the feature will be considered, but no promises.
-    options:
-      - ''
-      - 'Yes'
-      - 'No'
-  validations:
-    required: true

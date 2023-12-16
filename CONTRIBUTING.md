@@ -2,7 +2,7 @@
 
 We need your help to make this the best terrain plugin for Godot.
 
-Please see [System Architecture](https://terrain3d.readthedocs.io/en/latest/docs/system_architecture.html) to gain an understanding of how the system works. Then review the [roadmap](https://github.com/users/TokisanGames/projects/3) for priority of issues.
+Please see [System Architecture](https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html) to gain an understanding of how the system works. Then review the [roadmap](https://github.com/users/TokisanGames/projects/3) for priority of issues.
 
 If you wish to take on a major component, it's best to join our [discord server](https://tokisan.com/discord) and discuss your plans with Cory to make sure your efforts are aligned with other plans.
 
@@ -14,7 +14,7 @@ If you wish to take on a major component, it's best to join our [discord server]
 
 ## Setup Your System
 
-Make sure you are setup to [build the plugin from source](https://terrain3d.readthedocs.io/en/latest/docs/building_from_source.html). 
+Make sure you are setup to [build the plugin from source](https://terrain3d.readthedocs.io/en/stable/docs/building_from_source.html). 
 
 ### Install clang-format
 
@@ -60,7 +60,7 @@ In addition:
 
 ### C++
 
-In general, follow the [Godot C++ style guidelines](https://docs.godotengine.org/en/latest/contributing/development/code_style_guidelines.html).
+In general, follow the [Godot C++ style guidelines](https://docs.godotengine.org/en/stable/contributing/development/code_style_guidelines.html).
 In addition:
 
 Floats:

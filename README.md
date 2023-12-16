@@ -6,20 +6,20 @@ A high performance, editable terrain system for Godot 4.
 ## Features
 * Written in C++ as a GDExtension plugin, which works with official engine builds
 * Can be accessed by GDScript, C#, and any language Godot supports
-* Geometric Clipmap Mesh Terrain, as used in The Witcher 3. See [System Architecture](https://terrain3d.readthedocs.io/en/latest/docs/system_architecture.html) 
+* Geometric Clipmap Mesh Terrain, as used in The Witcher 3. See [System Architecture](https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html) 
 * Up to 16k x 16k in 1k regions (imagine multiple islands without paying for 16k^2 vram)
 * Up to 10 Levels of Detail (LODs)
 * Up to 32 texture sets using albedo, normal, roughness, height
 * Sculpting, holes, texture painting, texture detiling, painting colors and wetness
-* Supports importing heightmaps from [HTerrain](https://github.com/Zylann/godot_heightmap_plugin/), WorldMachine, Unity, Unreal and any tool that can export a heightmap (raw/r16/exr/+). See [importing data](https://terrain3d.readthedocs.io/en/latest/docs/import_export.html)
+* Supports importing heightmaps from [HTerrain](https://github.com/Zylann/godot_heightmap_plugin/), WorldMachine, Unity, Unreal and any tool that can export a heightmap (raw/r16/exr/+). See [importing data](https://terrain3d.readthedocs.io/en/stable/docs/import_export.html)
 
-See [Project Status](https://terrain3d.readthedocs.io/en/latest/docs/project_status.html) for details.
+See [Project Status](https://terrain3d.readthedocs.io/en/stable/docs/project_status.html) for details.
 
 ## Getting Started
 
-Read through our [documentation](https://terrain3d.readthedocs.io/en/latest/index.html), starting with [Installation](https://terrain3d.readthedocs.io/en/latest/docs/installation.html).
+Read through our [documentation](https://terrain3d.readthedocs.io/en/stable/index.html), starting with [Installation](https://terrain3d.readthedocs.io/en/stable/docs/installation.html).
 
-For support, read [Getting Help](https://terrain3d.readthedocs.io/en/latest/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
+For support, read [Getting Help](https://terrain3d.readthedocs.io/en/stable/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
 
 ## Credit
 Developed for the Godot community by:

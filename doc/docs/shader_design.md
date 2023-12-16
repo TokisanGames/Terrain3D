@@ -1,8 +1,6 @@
 Shader Design
 ==============
 
-Before reading about the shader, please understand how the [terrain system architecture](system_architecture.md) for the whole plugin.
-
 Our shader combines a lot of ideas and code from [cdxntchou's IndexMapTerrain](https://github.com/cdxntchou/IndexMapTerrain) for Unity, [Zylann's HTerrain](https://github.com/Zylann/godot_heightmap_plugin/) for Godot, the Witcher 3 talk linked in the System Design page, and our own thoughts and optimizations.
 
 ## Uniforms
