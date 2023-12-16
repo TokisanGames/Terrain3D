@@ -36,8 +36,8 @@ public: // Constants
 	};
 
 	enum CollisionMode {
-		//DYNAMIC_GAME,
-		//DYNAMIC_EDITOR,
+		DYNAMIC_GAME,
+		DYNAMIC_EDITOR,
 		FULL_GAME,
 		FULL_EDITOR,
 	};
@@ -70,9 +70,13 @@ private:
 
 	// Collision
 	RID _static_body;
-	StaticBody3D *_debug_static_body = nullptr;
+	StaticBody3D *_editor_static_body = nullptr;
 	bool _collision_enabled = true;
-	CollisionMode _collision_mode = FULL_GAME;
+	CollisionMode _collision_mode = DYNAMIC_GAME;
+	bool _collision_initialized = false;
+	Array _collision_shapes_unused = Array();
+	uint32_t _collision_dynamic_shape_size = 16;
+	real_t _collision_dynamic_distance = 64.0f;
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0f;
@@ -118,9 +122,10 @@ private:
 
 	void _destroy_instancer();
 
-	bool _is_collision_editor() const { return _collision_mode == FULL_EDITOR; }
+	bool _is_collision_editor() const { return _collision_mode == DYNAMIC_EDITOR || _collision_mode == FULL_EDITOR; }
+	bool _is_collision_dynamic() const { return _collision_mode == DYNAMIC_GAME || _collision_mode == DYNAMIC_EDITOR; }
 	void _build_collision();
-	void _update_collision();
+	void _update_collision(Vector3 p_cam_pos = Vector3());
 	void _destroy_collision();
 
 	void _build_meshes(const int p_mesh_lods, const int p_mesh_size);
@@ -180,6 +185,10 @@ public:
 	bool get_collision_enabled() const { return _collision_enabled; }
 	void set_collision_mode(const CollisionMode p_mode);
 	CollisionMode get_collision_mode() const { return _collision_mode; }
+	void set_collision_dynamic_shape_size(const uint32_t p_size);
+	uint32_t get_collision_dynamic_shape_size() const { return _collision_dynamic_shape_size; }
+	void set_collision_dynamic_distance(const real_t p_distance);
+	real_t get_collision_dynamic_distance() const { return _collision_dynamic_distance; }
 	void set_collision_layer(const uint32_t p_layers);
 	uint32_t get_collision_layer() const { return _collision_layer; };
 	void set_collision_mask(const uint32_t p_mask);
