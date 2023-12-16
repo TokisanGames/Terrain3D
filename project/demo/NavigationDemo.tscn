@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://di5fovhcyd7re" path="res://demo/components/Enemy.tscn" id="12_b2xl8"]
 
 [sub_resource type="Gradient" id="Gradient_vr1m7"]
-offsets = PackedFloat32Array(0.3, 1)
+offsets = PackedFloat32Array(0.2, 1)
 colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_d8lcj"]
@@ -32,7 +32,7 @@ seamless = true
 color_ramp = SubResource("Gradient_vr1m7")
 noise = SubResource("FastNoiseLite_d8lcj")
 
-[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_l5u3p"]
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_s5mq5"]
 _shader_parameters = {
 "auto_base_texture": 0,
 "auto_height_reduction": 0.1,
@@ -44,23 +44,17 @@ _shader_parameters = {
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
 "height_blending": true,
-"macro_variation1": Color(0.811765, 0.854902, 0.901961, 1),
-"macro_variation2": Color(0.901961, 0.901961, 0.811765, 1),
-"noise1_scale": 0.05,
-"noise2_scale": 0.03,
-"noise3_scale": 0.01,
+"macro_variation1": Color(0.878431, 0.862745, 0.901961, 1),
+"macro_variation2": Color(0.898039, 0.898039, 0.803922, 1),
+"noise1_angle": 0.1,
+"noise1_offset": Vector2(0.5, 0.5),
+"noise1_scale": 0.04,
+"noise2_scale": 0.076,
+"noise3_scale": 0.225,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
-"tri_scale_reduction": 0.3,
-"world_noise_blend_far": 1.0,
-"world_noise_blend_near": 0.7,
-"world_noise_height": 34.0,
-"world_noise_lod_distance": 7500.0,
-"world_noise_max_octaves": 4,
-"world_noise_min_octaves": 2,
-"world_noise_offset": Vector3(1.485, -1.01, 1.9),
-"world_noise_scale": 9.85
+"tri_scale_reduction": 0.3
 }
-world_background = 2
+world_background = 0
 auto_shader = true
 dual_scaling = true
 
@@ -88,7 +82,7 @@ navigation_mesh = ExtResource("8_6jfdr")
 
 [node name="Terrain3D" type="Terrain3D" parent="NavigationRegion3D"]
 storage = ExtResource("7_d7eri")
-material = SubResource("Terrain3DMaterial_l5u3p")
+material = SubResource("Terrain3DMaterial_s5mq5")
 texture_list = ExtResource("10_qmhh8")
 collision_mask = 3
 mesh_size = 64

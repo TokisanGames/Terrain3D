@@ -43,9 +43,12 @@ uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: DUAL_SCALING_UNIFORMS
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
-uniform float noise1_scale : hint_range(0, 0.3) = 0.05;
-uniform float noise2_scale : hint_range(0, 0.3) = 0.03;
-uniform float noise3_scale : hint_range(0, 0.3) = 0.01;
+// Generic noise at 3 scales, which can be used for anything 
+uniform float noise1_scale : hint_range(0.001, 1.) = 0.04;	// Used for macro variation 1. Scaled up 10x
+uniform float noise1_angle : hint_range(0, 6.283) = 0.;
+uniform vec2 noise1_offset = vec2(0.5);
+uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;	// Used for macro variation 2. Scaled up 10x
+uniform float noise3_scale : hint_range(0.001, 1.) = 0.225;  // Used for texture blending edge.
 
 // Varyings & Types
 
@@ -285,26 +288,24 @@ void fragment() {
 	vec2 weights1 = clamp(texel_pos - texel_pos_floor, 0, 1);
 	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);
 	vec2 weights0 = vec2(1.0) - weights1;
-	// Adjust final weights by noise. 3 lookups
-	float noise1 = texture(noise_texture, UV*noise1_scale*.1).r;
-	float noise2 = texture(noise_texture, UV*noise2_scale*.1).r;
-	float noise3 = texture(noise_texture, UV*noise3_scale*.1).r;
+	// Adjust final weights by noise. 1 lookup
+	float noise3 = texture(noise_texture, UV*noise3_scale).r;
 	vec4 weights;
-	weights.x = blend_weights(weights0.x * weights0.y, noise1);
-	weights.y = blend_weights(weights0.x * weights1.y, noise1);
-	weights.z = blend_weights(weights1.x * weights0.y, noise1);
-	weights.w = blend_weights(weights1.x * weights1.y, noise1);
+	weights.x = blend_weights(weights0.x * weights0.y, noise3);
+	weights.y = blend_weights(weights0.x * weights1.y, noise3);
+	weights.z = blend_weights(weights1.x * weights0.y, noise3);
+	weights.w = blend_weights(weights1.x * weights1.y, noise3);
 	float weight_sum = weights.x + weights.y + weights.z + weights.w;
 	float weight_inv = 1.0/weight_sum;
 
-	// Calculate weighted average of albedo & height
+	// Weighted average of albedo & height
 	vec4 albedo_height = weight_inv * (
 		mat[0].alb_ht * weights.x +
 		mat[1].alb_ht * weights.y +
 		mat[2].alb_ht * weights.z +
 		mat[3].alb_ht * weights.w );
 
-	// Calculate weighted average of normal & rough
+	// Weighted average of normal & rough
 	vec4 normal_rough = weight_inv * (
 		mat[0].nrm_rg * weights.x +
 		mat[1].nrm_rg * weights.y +
@@ -314,17 +315,19 @@ void fragment() {
 	// Determine if we're in a region or not (region_uv.z>0)
 	vec3 region_uv = get_region_uv2(UV2);
 
-	// Get Colormap. 1 lookup
+	// Colormap. 1 lookup
 	vec4 color_map = vec4(1., 1., 1., .5);
 	if (region_uv.z >= 0.) {
 		color_map = texture(_color_maps, region_uv);
 	}
 
-	// Calculate macro variation
-	vec3 macrov = mix(macro_variation1, vec3(1.), clamp( ((noise1+noise2)*.5) + v_xz_dist*.0002, 0., 1.));
-	macrov *= mix(macro_variation2, vec3(1.), clamp(noise3 + v_xz_dist*.0002, 0., 1.));
+	// Macro variation. 2 Lookups
+	float noise1 = texture(noise_texture, rotate(UV*noise1_scale*.1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
+	float noise2 = texture(noise_texture, UV*noise2_scale*.1).r;
+	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_xz_dist*.0002, 0., 1.));
+	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_xz_dist*.0002, 0., 1.));
 
-	// Apply wetness/roughness modifier, converting 0-1 range to -1 to 1 range
+	// Wetness/roughness modifier, converting 0-1 range to -1 to 1 range
 	float roughness = fma(color_map.a-0.5, 2.0, normal_rough.a);
 
 	// Apply PBR

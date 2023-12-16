@@ -273,7 +273,7 @@ void Terrain3DMaterial::_update_shader() {
 		Ref<Gradient> curve;
 		curve.instantiate();
 		PackedFloat32Array pfa;
-		pfa.push_back(0.3f);
+		pfa.push_back(0.2f);
 		pfa.push_back(1.0f);
 		curve->set_offsets(pfa);
 		PackedColorArray pca;
