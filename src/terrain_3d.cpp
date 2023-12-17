@@ -307,18 +307,38 @@ void Terrain3D::_update_collision() {
 		hole_const = __FLT_MAX__;
 	}
 
+	float maximum_distance = 64.0;
+	Vector3 camera_pos;
+	Array existing = Array();
+	if (_dynamic_collision) {
+		camera_pos = _camera->get_global_position();
+		camera_pos.y = 0.0f;
+	}
+
 	// destroy previous collision shapes
 	if (_debug_static_body != nullptr) {
-		for (int i = 0; i < _debug_static_body->get_child_count(); i++) {
-			Node *child = _debug_static_body->get_child(i);
+		for (int i = _debug_static_body->get_child_count() - 1; i >= 0; i--) {
+			Node3D *child = (Node3D*) _debug_static_body->get_child(i);
+			Vector3 child_pos = child->get_global_position();
+			if (_dynamic_collision && child_pos.distance_to(camera_pos) <= maximum_distance) {
+				existing.append(child_pos);
+				continue;
+			}
 			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
 			_debug_static_body->remove_child(child);
 			memfree(child);
 		}
 	}
 	if (_static_body.is_valid() && PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) > 0) {
-		RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, 0);
-		PhysicsServer3D::get_singleton()->free_rid(shape);
+		for (int i = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) - 1; i >= 0; i--) {
+		    RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, i);
+		    Vector3 position = PhysicsServer3D::get_singleton()->body_get_shape_transform(_static_body, i).origin;
+		    if (_dynamic_collision && position.distance_to(camera_pos) <= maximum_distance) {
+				existing.append(position);
+				continue;
+			}
+		    PhysicsServer3D::get_singleton()->free_rid(shape);
+		}
 	}
 
 	for (int i = 0; i < _storage->get_region_count(); i++) {
@@ -328,12 +348,8 @@ void Terrain3D::_update_collision() {
 				Vector3 global_pos = Vector3(global_offset.x, 0, global_offset.y);
 				Vector3 global_middle_pos = global_pos + Vector3(collision_region_size, 0, collision_region_size) * .5;
 
-				if (_dynamic_collision) {
-					Vector3 camera_pos = _camera->get_global_position();
-					camera_pos.y = 0.0f;
-					if (global_middle_pos.distance_to(camera_pos) > 64.0) {
-						continue;
-					}
+				if (_dynamic_collision && (global_middle_pos.distance_to(camera_pos) > maximum_distance || existing.has(global_middle_pos))) {
+					continue;
 				}
 
 				PackedFloat32Array map_data = PackedFloat32Array();
