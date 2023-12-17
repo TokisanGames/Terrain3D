@@ -17,9 +17,14 @@ See [Project Status](https://terrain3d.readthedocs.io/en/stable/docs/project_sta
 
 ## Getting Started
 
-Read through our [documentation](https://terrain3d.readthedocs.io/en/stable/index.html), starting with [Installation](https://terrain3d.readthedocs.io/en/stable/docs/installation.html).
+1. Read through our [documentation](https://terrain3d.readthedocs.io/en/stable/index.html), starting with [Installation](https://terrain3d.readthedocs.io/en/stable/docs/installation.html).
 
-For support, read [Getting Help](https://terrain3d.readthedocs.io/en/stable/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
+2. For support, read [Getting Help](https://terrain3d.readthedocs.io/en/stable/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
+
+3. Watch the tutorial video:
+
+[![Using Terrain3D - Part 1](https://i.ytimg.com/vi/oV8c9alXVwU/hqdefault.jpg)](https://www.youtube.com/watch?v=oV8c9alXVwU)
+
 
 ## Credit
 Developed for the Godot community by:
