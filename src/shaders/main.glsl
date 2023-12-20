@@ -22,7 +22,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 // Private uniforms
 uniform float _region_size = 1024.0;
-uniform float _region_texel_size = 0.0009765625; // = 1./1024.
+uniform float _region_texel_size = 0.0009765625; // = 1/1024
 uniform int _region_map_size = 16;
 uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
@@ -62,7 +62,7 @@ struct Material {
 
 varying vec3 v_vertex;	// World coordinate vertex location
 varying vec3 v_camera_pos;
-varying float v_xz_dist;
+varying float v_vertex_dist;
 varying flat ivec3 v_region;
 
 ////////////////////////
@@ -108,7 +108,6 @@ void vertex() {
 
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	v_xz_dist = length(v_vertex.xz - v_camera_pos.xz);
 	
 	// UV coordinates in world space. Values are 0 to _region_size within regions
 	UV = v_vertex.xz;
@@ -126,6 +125,7 @@ void vertex() {
 		// Get final vertex location and save it
 		VERTEX.y = get_height(UV2);
 		v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		v_vertex_dist = length(v_vertex - v_camera_pos);
 //INSERT: DUAL_SCALING_VERTEX
 	}
 }
@@ -318,14 +318,16 @@ void fragment() {
 	// Colormap. 1 lookup
 	vec4 color_map = vec4(1., 1., 1., .5);
 	if (region_uv.z >= 0.) {
-		color_map = texture(_color_maps, region_uv);
+		float lod = textureQueryLod(_color_maps, region_uv.xy).y;
+		lod = clamp(lod, 0., v_vertex_dist * .0006510416); // 1/1536. See #284
+		color_map = textureLod(_color_maps, region_uv, lod);
 	}
 
 	// Macro variation. 2 Lookups
 	float noise1 = texture(noise_texture, rotate(UV*noise1_scale*.1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
 	float noise2 = texture(noise_texture, UV*noise2_scale*.1).r;
-	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_xz_dist*.0002, 0., 1.));
-	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_xz_dist*.0002, 0., 1.));
+	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_dist*.0002, 0., 1.));
+	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_dist*.0002, 0., 1.));
 
 	// Wetness/roughness modifier, converting 0-1 range to -1 to 1 range
 	float roughness = fma(color_map.a-0.5, 2.0, normal_rough.a);
