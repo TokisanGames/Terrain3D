@@ -172,6 +172,9 @@
     <None Include="doc\docs\texture_painting.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\conf.py">
+      <Filter>1. Project Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -229,6 +232,9 @@
       <Filter>1. Project Files</Filter>
     </Text>
     <Text Include="doc\docs\navigation.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="doc\update_process.txt">
       <Filter>2. Docs</Filter>
     </Text>
   </ItemGroup>
