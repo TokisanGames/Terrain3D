@@ -8,7 +8,6 @@
 
 #include "constants.h"
 #include "generated_tex.h"
-#include "terrain_3d_surface.h" // DEPRECATED 0.8.3, remove 0.9
 #include "terrain_3d_texture_list.h"
 #include "util.h"
 
@@ -100,12 +99,6 @@ private:
 	// Functions
 	void _clear();
 
-	// DEPRECATED 0.8.3, remove 0.9
-	Ref<Terrain3DTextureList> _texture_list;
-	// DEPRECATED 0.8.4, remove 0.9
-	bool _841_colormap_upgraded = false;
-	bool _842_controlmap_upgraded = false;
-
 public:
 	Terrain3DStorage();
 	~Terrain3DStorage();
@@ -175,11 +168,6 @@ public:
 	Vector3 get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position);
 	Vector3 get_normal(Vector3 global_position);
 	void print_audit_data();
-
-	// DEPRECATED 0.8.3, remove 0.9
-	void set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces);
-	TypedArray<Terrain3DSurface> get_surfaces() const { return TypedArray<Terrain3DSurface>(); }
-	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
 
 protected:
 	static void _bind_methods();

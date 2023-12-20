@@ -42,9 +42,6 @@
     <ClInclude Include="src\terrain_3d_storage.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\terrain_3d_surface.h">
-      <Filter>4. Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\terrain_3d_texture.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
@@ -78,9 +75,6 @@
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_storage.cpp">
-      <Filter>5. C++</Filter>
-    </ClCompile>
-    <ClCompile Include="src\terrain_3d_surface.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_texture.cpp">

@@ -39,9 +39,6 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Creating blank storage");
 		_storage.instantiate();
 		_storage->set_version(Terrain3DStorage::CURRENT_VERSION);
-	} else if (_texture_list.is_null() && _storage->get_version() < 0.83f) {
-		// DEPREPCATED 0.8.3, remove 0.9
-		_texture_list = _storage->get_texture_list();
 	}
 	if (_texture_list.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -620,10 +617,7 @@ void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	if (_storage != p_storage) {
 		_storage = p_storage;
-		if (_storage.is_valid()) {
-			// DEPRECATED 0.8.4 remove 0.9 - Version redundant w/ set_version after 0.8.4
-			LOG(INFO, "Loaded storage version: ", vformat("%.3f", p_storage->get_version()));
-		} else {
+		if (_storage.is_null()) {
 			LOG(INFO, "Clearing storage");
 		}
 		_clear();

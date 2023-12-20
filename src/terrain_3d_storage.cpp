@@ -39,12 +39,6 @@ Terrain3DStorage::~Terrain3DStorage() {
 void Terrain3DStorage::set_version(real_t p_version) {
 	LOG(INFO, vformat("%.3f", p_version));
 	_version = p_version;
-	if (_version >= 0.841f) {
-		_841_colormap_upgraded = true;
-	}
-	if (_version >= 0.842f) {
-		_842_controlmap_upgraded = true;
-	}
 	if (_version < CURRENT_VERSION) {
 		LOG(WARN, "Storage version ", vformat("%.3f", _version), " will be updated to ", vformat("%.3f", CURRENT_VERSION), " upon save");
 		_modified = true;
@@ -405,30 +399,6 @@ void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
 void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting control maps: ", p_maps.size());
 	TypedArray<Image> maps = p_maps;
-	// DEPRECATED 0.8.4 Remove 0.9
-	// Convert old RGB8 control format <0.841 to bit based format 0.8.42
-	if (_version < 0.842 && !_842_controlmap_upgraded && maps.size() > 0 &&
-			(Ref<Image>(maps[0])->get_format() != FORMAT[TYPE_CONTROL])) {
-		LOG(WARN, "Converting control maps to int format: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
-		for (int i = 0; i < maps.size(); i++) {
-			Ref<Image> old_img = maps[i];
-			PackedByteArray pba;
-			pba.resize(_region_size * _region_size * sizeof(uint32_t));
-			for (int x = 0; x < old_img->get_width(); x++) {
-				for (int y = 0; y < old_img->get_height(); y++) {
-					Color pixel = old_img->get_pixel(x, y);
-					uint32_t base = (pixel.get_r8() & 0x1F) << 27; // 5 bits 32-28
-					uint32_t over = (pixel.get_g8() & 0x1F) << 22; // 5 bits 27-23
-					uint32_t blend = (pixel.get_b8() & 0xFF) << 14; // 8 bits 22-15
-					uint32_t value = base | over | blend;
-					pba.encode_u32((y * _region_size + x) * sizeof(uint32_t), value);
-				}
-			}
-			Ref<Image> new_img = Image::create_from_data(_region_size, _region_size, false, Image::FORMAT_RF, pba);
-			maps[i] = new_img;
-		}
-		_842_controlmap_upgraded = true;
-	}
 	_control_maps = sanitize_maps(TYPE_CONTROL, maps);
 	force_update_maps(TYPE_CONTROL);
 }
@@ -436,22 +406,6 @@ void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
 void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
 	LOG(INFO, "Setting color maps: ", p_maps.size());
 	TypedArray<Image> maps = p_maps;
-	// DEPRECATED 0.8.4 Remove 0.9
-	// Convert colormap from linear <0.84 to srgb 0.841
-	if (_version < 0.841 && !_841_colormap_upgraded && maps.size() > 0) {
-		LOG(WARN, "Converting color maps from linear to srgb: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
-		for (int i = 0; i < maps.size(); i++) {
-			Ref<Image> img = maps[i];
-			for (int x = 0; x < img->get_width(); x++) {
-				for (int y = 0; y < img->get_height(); y++) {
-					Color c = img->get_pixel(x, y);
-					img->set_pixel(x, y, c.linear_to_srgb());
-				}
-			}
-			maps[i] = img;
-		}
-		_841_colormap_upgraded = true;
-	}
 	_color_maps = sanitize_maps(TYPE_COLOR, maps);
 	force_update_maps(TYPE_COLOR);
 }
@@ -1023,34 +977,6 @@ void Terrain3DStorage::print_audit_data() {
 	Util::dump_gen(_generated_color_maps, "color");
 }
 
-// DEPRECATED 0.8.3, remove 0.9
-void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
-	set_version(0.8f);
-	LOG(WARN, "Converting Surfaces to separate TextureList: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
-	_texture_list.instantiate();
-	TypedArray<Terrain3DTexture> textures;
-	textures.resize(p_surfaces.size());
-
-	for (int i = 0; i < p_surfaces.size(); i++) {
-		LOG(DEBUG, "Converting surface: ", i);
-		Ref<Terrain3DSurface> sfc = p_surfaces[i];
-		Ref<Terrain3DTexture> tex;
-		tex.instantiate();
-
-		Terrain3DTexture::Settings *tex_data = tex->get_data();
-		Terrain3DSurface::Settings *sfc_data = sfc->get_data();
-		tex_data->_name = sfc_data->_name;
-		tex_data->_texture_id = sfc_data->_surface_id;
-		tex_data->_albedo_color = sfc_data->_albedo;
-		tex_data->_albedo_texture = sfc_data->_albedo_texture;
-		tex_data->_normal_texture = sfc_data->_normal_texture;
-		tex_data->_uv_scale = sfc_data->_uv_scale;
-		tex_data->_uv_rotation = sfc_data->_uv_rotation;
-		textures[i] = tex;
-	}
-	_texture_list->set_textures(textures);
-}
-
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1140,16 +1066,4 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_size_changed"));
 	ADD_SIGNAL(MethodInfo("regions_changed"));
-
-	// DEPRECATED 0.8.4, Remove 0.9
-	int flags = PROPERTY_USAGE_NONE;
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "data_version", PROPERTY_HINT_NONE, "", flags), "set_version", "get_version");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "data_height_range", PROPERTY_HINT_NONE, "", flags), "set_height_range", "get_height_range");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), flags), "set_region_offsets", "get_region_offsets");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_height_maps", "get_height_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_control_maps", "get_control_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_color_maps", "get_color_maps");
-	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
-	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), flags), "set_surfaces", "get_surfaces");
 }

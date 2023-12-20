@@ -149,7 +149,6 @@
     <ClInclude Include="src\util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
     <ClInclude Include="src\terrain_3d_storage.h" />
-    <ClInclude Include="src\terrain_3d_surface.h" />
     <ClInclude Include="src\terrain_3d_texture.h" />
     <ClInclude Include="src\terrain_3d_texture_list.h" />
   </ItemGroup>
@@ -161,7 +160,6 @@
     <ClCompile Include="src\terrain_3d_editor.cpp" />
     <ClCompile Include="src\terrain_3d_material.cpp" />
     <ClCompile Include="src\terrain_3d_storage.cpp" />
-    <ClCompile Include="src\terrain_3d_surface.cpp" />
     <ClCompile Include="src\terrain_3d_texture.cpp" />
     <ClCompile Include="src\terrain_3d_texture_list.cpp" />
     <ClCompile Include="src\util.cpp" />
