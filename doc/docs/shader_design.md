@@ -3,6 +3,8 @@ Shader Design
 
 Our shader combines a lot of ideas and code from [cdxntchou's IndexMapTerrain](https://github.com/cdxntchou/IndexMapTerrain) for Unity, [Zylann's HTerrain](https://github.com/Zylann/godot_heightmap_plugin/) for Godot, the Witcher 3 talk linked in the System Design page, and our own thoughts and optimizations.
 
+Note that you can find the minimum shader needed to enable the terrain to function in `addons/terrain_3D/extras/minimum.gdshader`.
+
 ## Uniforms
 
 [Terrain3DMaterial](../api/class_terrain3dmaterial.rst) exposes uniforms found in the shader, whether we put them there or you do with your own custom shader. Uniforms that begin with `_` are considered private and are not exposed. However you can access them via code. You can create your own private uniforms.
