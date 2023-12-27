@@ -58,14 +58,14 @@ jobs:
             runner: ubuntu-20.04
             target: template_debug
             platform: android
-            arch: arm64
+            arch: [arm64, arm32, x64, x86]
 
           - identifier: android-release
             name: 🤖 Android Release
             runner: ubuntu-20.04
             target: template_release
             platform: android
-            arch: arm64
+            arch: [arm64, arm32, x64, x86]
 
     steps:
       - name: Checkout Terrain3D
