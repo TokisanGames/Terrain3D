@@ -13,12 +13,12 @@ jobs:
             name: Android Debug
             target: template_debug
             platform: android
-            arch: [arm64, arm32, x64, x86]
+            arch: [arm64, arm32, x86_64, x86_32]
           - identifier: android-release
             name: Android Release
             target: template_release
             platform: android
-            arch: [arm64, arm32, x64, x86]
+            arch: [arm64, arm32, x86_64, x86_32]
 
     steps:
       - name: Checkout Terrain3D
