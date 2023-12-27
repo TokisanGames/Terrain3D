@@ -10,15 +10,28 @@ jobs:
       matrix:
         include:
           - identifier: android-debug
-            name: Android Debug
+            name: 🤖 Android 64-bit Debug
             target: template_debug
             platform: android
-            arch: [arm64, arm32, x86_64, x86_32]
+            arch: arm64
+
           - identifier: android-release
-            name: Android Release
+            name: 🤖 Android 64-bit Release
             target: template_release
             platform: android
-            arch: [arm64, arm32, x86_64, x86_32]
+            arch: arm64
+
+          - identifier: android-debug
+            name: 🤖 Android 32-bit Debug
+            target: template_debug
+            platform: android
+            arch: arm32
+
+          - identifier: android-release
+            name: 🤖 Android 32-bit Release
+            target: template_release
+            platform: android
+            arch: arm32
 
     steps:
       - name: Checkout Terrain3D
