@@ -12,30 +12,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux, windows, macos, android]
+        identifier: [linux, windows, macos, android-arm32, android-arm64]
         target: [debug, release]
         include:
-          - platform: linux
+          - identifier: linux
+            platform: linux
             name: 🐧 Linux
             runner: ubuntu-20.04
             arch: x86_64
             
-          - platform: windows
+          - identifier: windows
+            platform: windows
             name: 🪟 Windows
             runner: ubuntu-20.04
             arch: x86_64
 
-          - platform: macos
+          - identifier: macos
+            platform: macos
             name: 🍎 macOS
             runner: macos-latest
             arch: universal
 
-          - platform: android
+          - identifier: android-arm64
+            platform: android
             name: 🤖 Android Arm64
             runner: ubuntu-20.04
             arch: arm64
 
-          - platform: android
+          - identifier: android-arm32
+            platform: android
             name: 🤖 Android Arm32
             runner: ubuntu-20.04
             arch: arm32
@@ -63,7 +68,7 @@ jobs:
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
         with:
-          cache-name: ${{ matrix.platform }}-${{ matrix.target }}
+          cache-name: ${{ matrix.identifier }}-${{ matrix.target }}
         continue-on-error: true
 
       - name: Build Terrain3D
