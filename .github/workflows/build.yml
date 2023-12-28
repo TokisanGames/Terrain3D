@@ -7,7 +7,7 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.name }} ${{ matrix.arch }} ${{ matrix.target }}
+    name: ${{ matrix.name }} ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -31,11 +31,17 @@ jobs:
             runner: macos-latest
             platform: macos
 
-          - identifier: android
-            name: 🤖 Android
+          - identifier: android-arm64
+            name: 🤖 Android Arm64
             runner: ubuntu-20.04
             platform: android
-            arch: [arm64, arm32]
+            arch: arm64
+
+          - identifier: android-arm32
+            name: 🤖 Android Arm32
+            runner: ubuntu-20.04
+            platform: android
+            arch: arm32
 
     steps:
       - name: Checkout Terrain3D
@@ -60,7 +66,7 @@ jobs:
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
         with:
-          cache-name: ${{ matrix.identifier }}
+          cache-name: ${{ matrix.identifier }}-${{ matrix.target }}
         continue-on-error: true
 
       - name: Build Terrain3D
