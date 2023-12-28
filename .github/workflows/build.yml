@@ -12,30 +12,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        platform: [linux, windows, macos, android]
         target: [debug, release]
         include:
-          - name: 🐧 Linux
+          - platform: linux
+            name: 🐧 Linux
             runner: ubuntu-20.04
-            platform: linux
             arch: x86_64
             
-          - name: 🪟 Windows
+          - platform: windows
+            name: 🪟 Windows
             runner: ubuntu-20.04
-            platform: windows
             arch: x86_64
 
-          - name: 🍎 macOS
+          - platform: macos
+            name: 🍎 macOS
             runner: macos-latest
-            platform: macos
+            arch: universal
 
-          - name: 🤖 Android Arm64
+          - platform: android
+            name: 🤖 Android Arm64
             runner: ubuntu-20.04
-            platform: android
             arch: arm64
 
-          - name: 🤖 Android Arm32
+          - platform: android
+            name: 🤖 Android Arm32
             runner: ubuntu-20.04
-            platform: android
             arch: arm32
 
     steps:
@@ -45,11 +47,11 @@ jobs:
           submodules: recursive
 
       - name: Setup Windows Dependencies
-        if: matrix.platform == 'windows'
+        if: ${{ matrix.platform == 'windows' }}
         uses: ./.github/actions/windows-deps
         
       - name: Setup Android Dependencies
-        if: matrix.platform == 'android'
+        if: ${{ matrix.platform == 'android' }}
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r23c
@@ -74,7 +76,7 @@ jobs:
             scons target=$TARGET platform='${{ matrix.platform }}' arch=$ARCH debug_symbols=no -j2
 
       - name: Strip Libraries (Windows/Linux)
-        if: matrix.platform == 'windows' || matrix.platform == 'linux'
+        if: ${{ matrix.platform == 'windows' || matrix.platform == 'linux' }}
         shell: sh
         run: |
           ls -l project/addons/terrain_3d/bin/
