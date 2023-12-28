@@ -7,79 +7,39 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.name }} ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        release: [debug, release]
         include:
-          - identifier: linux-debug
-            name: 🐧 Linux Debug
+          - identifier: linux-${{ matrix.release }}
+            name: 🐧 Linux ${{ matrix.release }}
             runner: ubuntu-20.04
-            target: template_debug
+            target: template_${{ matrix.release }}
             platform: linux
             arch: x86_64
-
-          - identifier: linux-release
-            name: 🐧 Linux Release
+            
+          - identifier: windows-${{ matrix.release }}
+            name: 🪟 Windows ${{ matrix.release }}
             runner: ubuntu-20.04
-            target: template_release
-            platform: linux
-            arch: x86_64
-
-          - identifier: windows-debug
-            name: 🪟 Windows Debug
-            runner: ubuntu-20.04
-            target: template_debug
+            target: template_${{ matrix.release }}
             platform: windows
             arch: x86_64
 
-          - identifier: windows-release
-            name: 🪟 Windows Release
-            runner: ubuntu-20.04
-            target: template_release
-            platform: windows
-            arch: x86_64
-
-          - identifier: macos-debug
-            name: 🍎 macOS Debug
+          - identifier: macos-${{ matrix.release }}
+            name: 🍎 macOS ${{ matrix.release }}
             runner: macos-latest
-            target: template_debug
+            target: template_${{ matrix.release }}
             platform: macos
 
-          - identifier: macos-release
-            name: 🍎 macOS Release
-            runner: macos-latest
-            target: template_release
-            platform: macos
-
-          - identifier: android-debug
-            name: 🤖 Android 64-bit Debug
+          - identifier: android-${{ matrix.release }}
+            name: 🤖 Android ${{ matrix.release }}
             runner: ubuntu-20.04
-            target: template_debug
+            target: template_${{ matrix.release}}
             platform: android
-            arch: arm64
-
-          - identifier: android-release
-            name: 🤖 Android 64-bit Release
-            runner: ubuntu-20.04
-            target: template_release
-            platform: android
-            arch: arm64
-
-          - identifier: android-debug
-            name: 🤖 Android 32-bit Debug
-            runner: ubuntu-20.04
-            target: template_debug
-            platform: android
-            arch: arm32
-
-          - identifier: android-release
-            name: 🤖 Android 32-bit Release
-            runner: ubuntu-20.04
-            target: template_release
-            platform: android
-            arch: arm32
+            arch: [arm64, arm32]
 
     steps:
       - name: Checkout Terrain3D
@@ -110,9 +70,10 @@ jobs:
       - name: Build Terrain3D
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+            ARCH: ${{ matrix.arch }}
         shell: sh
         run: |
-            scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+            scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='$ARCH' debug_symbols=no -j2
 
       - name: Strip Libraries (Windows/Linux)
         if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')
