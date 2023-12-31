@@ -293,21 +293,20 @@ void Terrain3D::_update_collision() {
 
 	int time = Time::get_singleton()->get_ticks_msec();
 	int region_size = _storage->get_region_size();
-	int collision_region_size = region_size;
+	int collision_shape_size = region_size;
 	if (_dynamic_collision) {
 		if (!UtilityFunctions::is_instance_valid(_camera) || !_camera->is_inside_tree()) {
 			return;
 		}
-		collision_region_size = 16; // TODO parameter
+		collision_shape_size = _collision_dynamic_shape_size;
 	}
-	int divisor = region_size / collision_region_size;
-	int shape_size = collision_region_size + 1;
+	int shapes_per_region = region_size / collision_shape_size;
+	int shape_size = collision_shape_size + 1;
 	float hole_const = NAN;
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
 		hole_const = __FLT_MAX__;
 	}
 
-	float maximum_distance = 64.0;
 	Vector3 camera_pos;
 	Array existing = Array();
 	if (_dynamic_collision) {
@@ -318,42 +317,57 @@ void Terrain3D::_update_collision() {
 	// destroy previous collision shapes
 	if (_debug_static_body != nullptr) {
 		for (int i = _debug_static_body->get_child_count() - 1; i >= 0; i--) {
-			Node3D *child = (Node3D*) _debug_static_body->get_child(i);
+			Node3D *child = (Node3D *)_debug_static_body->get_child(i);
 			Vector3 child_pos = child->get_global_position();
-			if (_dynamic_collision && child_pos.distance_to(camera_pos) <= maximum_distance) {
+			if (_dynamic_collision && child_pos.distance_to(camera_pos) <= _collision_dynamic_distance) {
 				existing.append(child_pos);
 				continue;
 			}
 			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
 			_debug_static_body->remove_child(child);
-			memfree(child);
+			_unused_collision_shapes.append(child);
 		}
 	}
 	if (_static_body.is_valid() && PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) > 0) {
 		for (int i = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) - 1; i >= 0; i--) {
-		    RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, i);
-		    Vector3 position = PhysicsServer3D::get_singleton()->body_get_shape_transform(_static_body, i).origin;
-		    if (_dynamic_collision && position.distance_to(camera_pos) <= maximum_distance) {
+			RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, i);
+			Vector3 position = PhysicsServer3D::get_singleton()->body_get_shape_transform(_static_body, i).origin;
+			if (_dynamic_collision && position.distance_to(camera_pos) <= _collision_dynamic_distance) {
 				existing.append(position);
 				continue;
 			}
-		    PhysicsServer3D::get_singleton()->free_rid(shape);
+			_unused_collision_shapes.append(shape);
 		}
 	}
 
 	for (int i = 0; i < _storage->get_region_count(); i++) {
-		for (int jx = 0; jx < divisor; jx++) {
-			for (int jz = 0; jz < divisor; jz++) {
-				Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size + Vector2i(collision_region_size * jx, collision_region_size * jz);
+		for (int jx = 0; jx < shapes_per_region; jx++) {
+			for (int jz = 0; jz < shapes_per_region; jz++) {
+				Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size + Vector2i(collision_shape_size * jx, collision_shape_size * jz);
 				Vector3 global_pos = Vector3(global_offset.x, 0, global_offset.y);
-				Vector3 global_middle_pos = global_pos + Vector3(collision_region_size, 0, collision_region_size) * .5;
+				Vector3 global_middle_pos = global_pos + Vector3(collision_shape_size, 0, collision_shape_size) * .5;
 
-				if (_dynamic_collision && (global_middle_pos.distance_to(camera_pos) > maximum_distance || existing.has(global_middle_pos))) {
+				if (_dynamic_collision && (global_middle_pos.distance_to(camera_pos) > _collision_dynamic_distance || existing.has(global_middle_pos))) {
 					continue;
 				}
 
-				PackedFloat32Array map_data = PackedFloat32Array();
-				map_data.resize(shape_size * shape_size);
+				PackedFloat32Array map_data;
+				CollisionShape3D *debug_col_shape = nullptr;
+				RID col_shape = RID();
+				if (_dynamic_collision && !_unused_collision_shapes.is_empty()) {
+					if (!_show_debug_collision) {
+						col_shape = _unused_collision_shapes.pop_back();
+						Dictionary shape_data = PhysicsServer3D::get_singleton()->shape_get_data(col_shape);
+						map_data = shape_data["heights"];
+					} else {
+						debug_col_shape = Object::cast_to<CollisionShape3D>(_unused_collision_shapes.pop_back());
+						Ref<HeightMapShape3D> hshape = debug_col_shape->get_shape();
+						map_data = hshape->get_map_data();
+					}
+				} else {
+					map_data = PackedFloat32Array();
+					map_data.resize(shape_size * shape_size);
+				}
 
 				Ref<Image> map, map_x, map_z, map_xz;
 				Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
@@ -384,24 +398,24 @@ void Terrain3D::_update_collision() {
 						// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
 						int index = shape_size - 1 - z + x * shape_size;
 
-						int x_in_region = x + jx * collision_region_size;
-						int z_in_region = z + jz * collision_region_size;
+						int shape_global_x = x + jx * collision_shape_size;
+						int shape_global_z = z + jz * collision_shape_size;
 						// Set heights on local map, or adjacent maps if on the last row/col
-						if (x_in_region < region_size && z_in_region < region_size) {
-							map_data[index] = (Util::is_hole(cmap->get_pixel(x_in_region, z_in_region).r)) ? hole_const : map->get_pixel(x_in_region, z_in_region).r;
-						} else if (x_in_region == region_size && z_in_region < region_size) {
+						if (shape_global_x < region_size && shape_global_z < region_size) {
+							map_data[index] = (Util::is_hole(cmap->get_pixel(shape_global_x, shape_global_z).r)) ? hole_const : map->get_pixel(shape_global_x, shape_global_z).r;
+						} else if (shape_global_x == region_size && shape_global_z < region_size) {
 							if (map_x.is_valid()) {
-								map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, z_in_region).r)) ? hole_const : map_x->get_pixel(0, z_in_region).r;
+								map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, shape_global_z).r)) ? hole_const : map_x->get_pixel(0, shape_global_z).r;
 							} else {
 								map_data[index] = 0.0f;
 							}
-						} else if (z_in_region == region_size && x_in_region < region_size) {
+						} else if (shape_global_z == region_size && shape_global_x < region_size) {
 							if (map_z.is_valid()) {
-								map_data[index] = (Util::is_hole(cmap_z->get_pixel(x_in_region, 0).r)) ? hole_const : map_z->get_pixel(x_in_region, 0).r;
+								map_data[index] = (Util::is_hole(cmap_z->get_pixel(shape_global_x, 0).r)) ? hole_const : map_z->get_pixel(shape_global_x, 0).r;
 							} else {
 								map_data[index] = 0.0f;
 							}
-						} else if (x_in_region == region_size && z_in_region == region_size) {
+						} else if (shape_global_x == region_size && shape_global_z == region_size) {
 							if (map_xz.is_valid()) {
 								map_data[index] = (Util::is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
 							} else {
@@ -417,33 +431,39 @@ void Terrain3D::_update_collision() {
 				Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5), global_middle_pos);
 
 				if (!_show_debug_collision) {
-					RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
-					Dictionary shape_data;
-					shape_data["width"] = shape_size;
-					shape_data["depth"] = shape_size;
-					shape_data["heights"] = map_data;
-					Vector2 min_max = _storage->get_height_range();
-					shape_data["min_height"] = min_max.x;
-					shape_data["max_height"] = min_max.y;
-					PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
-					PhysicsServer3D::get_singleton()->body_add_shape(_static_body, shape);
-					PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, i, xform);
+					if (_dynamic_collision && col_shape.is_valid()) {
+					} else {
+						col_shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
+						Dictionary shape_data;
+						shape_data["width"] = shape_size;
+						shape_data["depth"] = shape_size;
+						shape_data["heights"] = map_data;
+						Vector2 min_max = _storage->get_height_range();
+						shape_data["min_height"] = min_max.x;
+						shape_data["max_height"] = min_max.y;
+						PhysicsServer3D::get_singleton()->shape_set_data(col_shape, shape_data);
+					}
+					int shape_id = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body);
+					PhysicsServer3D::get_singleton()->body_set_shape(_static_body, shape_id, col_shape);
+					PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, shape_id, xform);
 					PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
 					PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
 					PhysicsServer3D::get_singleton()->body_set_collision_priority(_static_body, _collision_priority);
 				} else {
-					CollisionShape3D *debug_col_shape;
-					debug_col_shape = memnew(CollisionShape3D);
-					debug_col_shape->set_name("CollisionShape3D");
+					Ref<HeightMapShape3D> hshape;
+					if (_dynamic_collision && debug_col_shape != nullptr) {
+						hshape = debug_col_shape->get_shape();
+					} else {
+						debug_col_shape = memnew(CollisionShape3D);
+						debug_col_shape->set_name("CollisionShape3D");
+						hshape.instantiate();
+						hshape->set_map_width(shape_size);
+						hshape->set_map_depth(shape_size);
+						debug_col_shape->set_shape(hshape);
+					}
 					_debug_static_body->add_child(debug_col_shape, true);
 					debug_col_shape->set_owner(this);
-
-					Ref<HeightMapShape3D> hshape;
-					hshape.instantiate();
-					hshape->set_map_width(shape_size);
-					hshape->set_map_depth(shape_size);
 					hshape->set_map_data(map_data);
-					debug_col_shape->set_shape(hshape);
 					debug_col_shape->set_global_transform(xform);
 					_debug_static_body->set_collision_mask(_collision_mask);
 					_debug_static_body->set_collision_layer(_collision_layer);
@@ -458,10 +478,16 @@ void Terrain3D::_update_collision() {
 void Terrain3D::_destroy_collision() {
 	if (_static_body.is_valid()) {
 		LOG(INFO, "Freeing physics body");
-		RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, 0);
-		PhysicsServer3D::get_singleton()->free_rid(shape);
+		for (int i = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) - 1; i >= 0; i--) {
+			RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, i);
+			PhysicsServer3D::get_singleton()->free_rid(shape);
+		}
 		PhysicsServer3D::get_singleton()->free_rid(_static_body);
 		_static_body = RID();
+
+		for (int i = _unused_collision_shapes.size() - 1; i >= 0; i--) {
+			PhysicsServer3D::get_singleton()->free_rid(_unused_collision_shapes.pop_at(i));
+		}
 	}
 
 	if (_debug_static_body != nullptr) {
@@ -470,6 +496,12 @@ void Terrain3D::_destroy_collision() {
 			Node *child = _debug_static_body->get_child(i);
 			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
 			_debug_static_body->remove_child(child);
+			memfree(child);
+		}
+
+		for (int i = _unused_collision_shapes.size() - 1; i >= 0; i--) {
+			Node *child = Object::cast_to<Node>(_unused_collision_shapes.pop_at(i));
+			LOG(DEBUG, "Freeing cached dsb child ", i, " ", child->get_name());
 			memfree(child);
 		}
 
@@ -748,6 +780,18 @@ void Terrain3D::set_show_debug_collision(bool p_enabled) {
 void Terrain3D::set_dynamic_collision(bool p_enabled) {
 	LOG(INFO, "Setting dynamic collision: ", p_enabled);
 	_dynamic_collision = p_enabled;
+	_update_collision();
+}
+
+void Terrain3D::set_collision_dynamic_shape_size(int size) {
+	LOG(INFO, "Setting collision dynamic shape size: ", size);
+	_collision_dynamic_shape_size = size;
+	_update_collision();
+}
+
+void Terrain3D::set_collision_dynamic_distance(float distance) {
+	LOG(INFO, "Setting collision dynamic distance: ", distance);
+	_collision_dynamic_distance = distance;
 	_update_collision();
 }
 
@@ -1115,6 +1159,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_mask"), &Terrain3D::get_collision_mask);
 	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
 	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
+	ClassDB::bind_method(D_METHOD("set_collision_dynamic_shape_size", "size"), &Terrain3D::set_collision_dynamic_shape_size);
+	ClassDB::bind_method(D_METHOD("get_collision_dynamic_shape_size"), &Terrain3D::get_collision_dynamic_shape_size);
+	ClassDB::bind_method(D_METHOD("set_collision_dynamic_distance", "distance"), &Terrain3D::set_collision_dynamic_distance);
+	ClassDB::bind_method(D_METHOD("get_collision_dynamic_distance"), &Terrain3D::get_collision_dynamic_distance);
 
 	// Utility functions
 	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_min_max", "image"), &Util::get_min_max);
@@ -1143,6 +1191,8 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_dynamic_shape_size"), "set_collision_dynamic_shape_size", "get_collision_dynamic_shape_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_dynamic_distance"), "set_collision_dynamic_distance", "get_collision_dynamic_distance");
 
 	ADD_GROUP("Mesh", "mesh_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");

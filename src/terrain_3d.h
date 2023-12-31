@@ -71,6 +71,9 @@ private:
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
+	int _collision_dynamic_shape_size = 16;
+	float _collision_dynamic_distance = 64.0f;
+	Array _unused_collision_shapes = Array();
 
 	void _initialize();
 	void __ready();
@@ -140,6 +143,10 @@ public:
 	uint32_t get_collision_mask() const { return _collision_mask; };
 	void set_collision_priority(real_t p_priority) { _collision_priority = p_priority; }
 	real_t get_collision_priority() const { return _collision_priority; }
+	void set_collision_dynamic_shape_size(int size);
+	int get_collision_dynamic_shape_size() { return _collision_dynamic_shape_size; }
+	void set_collision_dynamic_distance(float distance);
+	float get_collision_dynamic_distance() { return _collision_dynamic_distance; }
 
 	// Terrain methods
 	void snap(Vector3 p_cam_pos);
