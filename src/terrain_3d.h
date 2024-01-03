@@ -19,19 +19,19 @@
 
 using namespace godot;
 
-enum {
-	TERRAIN3D_COLLISION_MODE_DYNAMIC_EDITOR,
-	TERRAIN3D_COLLISION_MODE_DYNAMIC,
-	TERRAIN3D_COLLISION_MODE_FULL_EDITOR,
-	TERRAIN3D_COLLISION_MODE_FULL
-};
-
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 
 public:
 	// Constants
 	static inline const char *__class__ = "Terrain3D";
+
+	enum CollisionMode {
+		DYNAMIC_GAME,
+		DYNAMIC_EDITOR,
+		FULL_GAME,
+		FULL_EDITOR,
+	};
 
 private:
 	// Terrain state
@@ -71,14 +71,14 @@ private:
 
 	// Physics body and settings
 	RID _static_body;
-	StaticBody3D *_debug_static_body = nullptr;
+	StaticBody3D *_editor_static_body = nullptr;
 	bool _collision_enabled = true;
-	int _collision_mode = TERRAIN3D_COLLISION_MODE_DYNAMIC;
+	CollisionMode _collision_mode = DYNAMIC_GAME;
+	uint32_t _collision_dynamic_shape_size = 16;
+	real_t _collision_dynamic_distance = 64.0f;
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
-	real_t _collision_priority = 1.0;
-	int _collision_dynamic_shape_size = 16;
-	float _collision_dynamic_distance = 64.0f;
+	real_t _collision_priority = 1.0f;
 	Array _unused_collision_shapes = Array();
 
 	void _initialize();
@@ -91,6 +91,8 @@ private:
 	void _clear(bool p_clear_meshes = true, bool p_clear_collision = true);
 	void _build(int p_mesh_lods, int p_mesh_size);
 
+	bool _is_collision_editor();
+	bool _is_collision_dynamic();
 	void _build_collision();
 	void _update_collision();
 	void _destroy_collision();
@@ -99,9 +101,6 @@ private:
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
-
-	bool get_show_debug_collision();
-	bool get_dynamic_collision();
 
 public:
 	static int debug_level;
@@ -142,18 +141,18 @@ public:
 	// Physics body settings
 	void set_collision_enabled(bool p_enabled);
 	bool get_collision_enabled() const { return _collision_enabled; }
+	void set_collision_mode(CollisionMode mode);
+	CollisionMode get_collision_mode() { return _collision_mode; }
+	void set_collision_dynamic_shape_size(uint32_t size);
+	uint32_t get_collision_dynamic_shape_size() { return _collision_dynamic_shape_size; }
+	void set_collision_dynamic_distance(real_t distance);
+	real_t get_collision_dynamic_distance() { return _collision_dynamic_distance; }
 	void set_collision_layer(uint32_t p_layers) { _collision_layer = p_layers; }
 	uint32_t get_collision_layer() const { return _collision_layer; };
 	void set_collision_mask(uint32_t p_mask) { _collision_mask = p_mask; }
 	uint32_t get_collision_mask() const { return _collision_mask; };
 	void set_collision_priority(real_t p_priority) { _collision_priority = p_priority; }
 	real_t get_collision_priority() const { return _collision_priority; }
-	void set_collision_dynamic_shape_size(int size);
-	int get_collision_dynamic_shape_size() { return _collision_dynamic_shape_size; }
-	void set_collision_dynamic_distance(float distance);
-	float get_collision_dynamic_distance() { return _collision_dynamic_distance; }
-	void set_collision_mode(int mode);
-	int get_collision_mode() { return _collision_mode; }
 
 	// Terrain methods
 	void snap(Vector3 p_cam_pos);
@@ -170,5 +169,7 @@ protected:
 	void _notification(int p_what);
 	static void _bind_methods();
 };
+
+VARIANT_ENUM_CAST(Terrain3D::CollisionMode);
 
 #endif // TERRAIN3D_CLASS_H
