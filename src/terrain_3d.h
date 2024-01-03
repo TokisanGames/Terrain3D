@@ -19,6 +19,13 @@
 
 using namespace godot;
 
+enum {
+	TERRAIN3D_COLLISION_MODE_DYNAMIC_EDITOR,
+	TERRAIN3D_COLLISION_MODE_DYNAMIC,
+	TERRAIN3D_COLLISION_MODE_FULL_EDITOR,
+	TERRAIN3D_COLLISION_MODE_FULL
+};
+
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 
@@ -66,8 +73,7 @@ private:
 	RID _static_body;
 	StaticBody3D *_debug_static_body = nullptr;
 	bool _collision_enabled = true;
-	bool _show_debug_collision = false;
-	bool _dynamic_collision = false;
+	int _collision_mode = TERRAIN3D_COLLISION_MODE_DYNAMIC;
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0;
@@ -93,6 +99,9 @@ private:
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
+
+	bool get_show_debug_collision();
+	bool get_dynamic_collision();
 
 public:
 	static int debug_level;
@@ -133,10 +142,6 @@ public:
 	// Physics body settings
 	void set_collision_enabled(bool p_enabled);
 	bool get_collision_enabled() const { return _collision_enabled; }
-	void set_show_debug_collision(bool p_enabled);
-	bool get_show_debug_collision() const { return _show_debug_collision; }
-	void set_dynamic_collision(bool p_enabled);
-	bool get_dynamic_collision() const { return _dynamic_collision; }
 	void set_collision_layer(uint32_t p_layers) { _collision_layer = p_layers; }
 	uint32_t get_collision_layer() const { return _collision_layer; };
 	void set_collision_mask(uint32_t p_mask) { _collision_mask = p_mask; }
@@ -147,6 +152,8 @@ public:
 	int get_collision_dynamic_shape_size() { return _collision_dynamic_shape_size; }
 	void set_collision_dynamic_distance(float distance);
 	float get_collision_dynamic_distance() { return _collision_dynamic_distance; }
+	void set_collision_mode(int mode);
+	int get_collision_mode() { return _collision_mode; }
 
 	// Terrain methods
 	void snap(Vector3 p_cam_pos);
