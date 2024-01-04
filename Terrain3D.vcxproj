@@ -177,6 +177,7 @@
     <None Include="AUTHORS.md" />
     <None Include="CONTRIBUTING.md" />
     <None Include="doc\conf.py" />
+    <None Include="doc\docs\press.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
@@ -218,7 +219,6 @@
     <Xml Include="doc\classes\Terrain3DEditor.xml" />
     <Xml Include="doc\classes\Terrain3DMaterial.xml" />
     <Xml Include="doc\classes\Terrain3DStorage.xml" />
-    <Xml Include="doc\classes\Terrain3DSurface.xml" />
     <Xml Include="doc\classes\Terrain3DTexture.xml" />
     <Xml Include="doc\classes\Terrain3DTextureList.xml" />
   </ItemGroup>

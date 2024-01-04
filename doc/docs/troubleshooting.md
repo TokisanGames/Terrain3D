@@ -1,6 +1,11 @@
 Troubleshooting
 =================
 
+## Tutorial Videos
+
+Make sure to watch the [tutorial videos](installation.md#tutorial-videos) which show proper installation and setup.
+
+
 ## Use the Console
 
 As a gamedev, you should always be running with the console open. This means you ran `Godot_v4.*_console.exe` or ran Godot in a terminal window.

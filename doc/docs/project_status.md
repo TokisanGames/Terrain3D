@@ -1,10 +1,10 @@
 ﻿# Project Status
 
-Terrain3D has been public since July 2023 and is approaching Beta. We have hundreds of users and are using it in our games. It is stable, it's just missing advanced features.
+Terrain3D has been available and usable since the alpha was released in July, 2023. We have hundreds of users and are using it in our game, [Out of the Ashes](https://tokisan.com/out-of-the-ashes/). It is stable and just needs advanced features.
 
-Status of various features are shown in the table below.
+The status of various features are shown in the table below.
 
-See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for priorities. See [Contributing](../contributing.rst) if you would like to help the project move faster.
+See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for priorities. See [Contributing](contributing.rst) if you would like to help the project move faster.
 
 | Feature | Status | 
 | ------------- | ------------- | 
