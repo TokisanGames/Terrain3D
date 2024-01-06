@@ -79,7 +79,7 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 				if (alb_format == Image::FORMAT_MAX) {
 					alb_format = format;
 				} else {
-					ERR_FAIL_COND_MSG(alb_format != format, "Albedo textures do not have same format! See documentation for format specification");
+					ERR_FAIL_COND_MSG(alb_format != format, "Albedo textures do not have same format! See documentation for format specification.");
 				}
 			}
 			if (nor_tex.is_valid()) {
@@ -93,7 +93,7 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 				if (nor_format == Image::FORMAT_MAX) {
 					nor_format = format;
 				} else {
-					ERR_FAIL_COND_MSG(nor_format != format, "Normal map textures do not have same format! See documentation for format specification");
+					ERR_FAIL_COND_MSG(nor_format != format, "Normal map textures do not have same format! See documentation for format specification.");
 				}
 			}
 		}
@@ -122,12 +122,8 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 				Ref<Image> img;
 
 				if (tex.is_null()) {
-					if (alb_format == Image::FORMAT_MAX || alb_format == Image::FORMAT_DXT5) {
-						img = Util::get_filled_image(albedo_size, COLOR_CHECKED, true, Image::FORMAT_RGBA8);
-						img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
-					} else {
-						img = Image::create(albedo_size.x, albedo_size.y, true, alb_format);
-					}
+					img = Util::get_filled_image(albedo_size, COLOR_CHECKED, true,
+							alb_format == Image::FORMAT_MAX ? Image::FORMAT_DXT5 : alb_format);
 					LOG(DEBUG, "ID ", i, " albedo texture is null. Creating a new one. Format: ", img->get_format());
 					texture_set->get_data()->_albedo_texture = ImageTexture::create_from_image(img);
 				} else {
@@ -156,12 +152,8 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 				Ref<Image> img;
 
 				if (tex.is_null()) {
-					if (nor_format == Image::FORMAT_MAX || nor_format == Image::FORMAT_DXT5) {
-						img = Util::get_filled_image(normal_size, COLOR_NORMAL, true, Image::FORMAT_RGBA8);
-						img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
-					} else {
-						img = Image::create(normal_size.x, normal_size.y, true, nor_format);
-					}
+					img = Util::get_filled_image(normal_size, COLOR_NORMAL, true,
+							nor_format == Image::FORMAT_MAX ? Image::FORMAT_DXT5 : nor_format);
 					LOG(DEBUG, "ID ", i, " normal texture is null. Creating a new one. Format: ", img->get_format());
 					texture_set->get_data()->_normal_texture = ImageTexture::create_from_image(img);
 				} else {
