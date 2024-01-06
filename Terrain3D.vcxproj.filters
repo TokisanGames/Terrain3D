@@ -169,6 +169,9 @@
     <None Include="doc\conf.py">
       <Filter>1. Project Files</Filter>
     </None>
+    <None Include="doc\docs\press.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -243,9 +246,6 @@
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DStorage.xml">
-      <Filter>2. Docs\XML</Filter>
-    </Xml>
-    <Xml Include="doc\classes\Terrain3DSurface.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DTexture.xml">

@@ -7,8 +7,9 @@ TLDR: Just read channel pack textures with Gimp.
 
 **Table of Contents**
 * [Required Texture Format](#required-texture-format)
-* [Channel pack textures with Gimp](#channel-pack-textures-with-gimp)
-* [Where to get textures](#where-to-get-textures)
+* [Texture Content](#texture-content)
+* [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp)
+* [Where to Get Textures](#where-to-get-textures)
 * [Frequently Asked Questions](#faq)
 
 
@@ -22,41 +23,53 @@ You need two files per texture set, channel packed as follows:
 | albedo_texture | RGB: Albedo texture, A: Height texture
 | normal_texture| RGB: Normal map texture ([OpenGL +Y](#normal-map-format)), A: Roughness texture
 
+Textures can be channel packed in in tools like Photoshop, [Krita](https://krita.org/), [Gimp](https://www.gimp.org/), or similar tools. Working with alpha channels in Photoshop and Krita can be a bit challenging, so we recommend Gimp. See [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp) below.
+
 ### Texture Sizes
-All albedo textures and all normal textures must be the same size.
+All packed albedo textures must be the same size, and all packed normal textures must be the same size. Each type gets combined into separate texture array, so their sizes can differ.
 
-All texture sizes should be a power of 2 (128, 256, 512, 1024, 2048, 4096).
-
-The albedo textures can be a different size than the normal textures. This is because all of the albedo+height textures are combined into a TextureArray and the normal+roughness textures are combined into another.
-
-### Normal Map Format
-Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. You can convert DirectX to OpenGL by inverting the green channel in a photo editing app. You can visually tell which type of normal map you have by whether the bumps are sticking out towards you (OpenGL) or pushed in away from you (DirectX). The left shapes are the clearest examples.
-
-```{image} images/tex_normalmap.png
-:target: ../_images/tex_normalmap.png
-```
+For GPU efficiency, it is recommended that all textures have dimensions that are a power of 2 (128, 256, 512, 1024, 2048, 4096, 8192), but this isn't required.
 
 ### Compression Format
 
 | Type | Supports | Format |
 | - | - | - |
-| **DDS** | Desktop | BC3 / DXT5, linear (not srgb), Color + alpha, Generate Mipmaps. These are accepted instantly by Godot with no import settings. **Highly recommended** |
-| **PNG** | Desktop, Mobile | Standard RGBA. In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, then reimport each file. For mobile, enable `Project Settings: rendering/textures/vram_compression/import_etc2_astc`.
-| **Others** | | Other formats like KTX and TGA are probably supported as long as you match similar settings above.
+| **DDS** | Desktop | BC3 / DXT5, linear (not srgb), Color + alpha, Generate Mipmaps. These files are used directly by Godot and are not converted. There are no import settings. **Recommended for desktop** |
+| **PNG** | Desktop, Mobile | Standard RGBA. In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, then reimport each file.
+| **Others** | | Other [Godot supported formats](https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_images.html#supported-image-formats) like KTX and TGA should work as long as you match similar settings to PNG.
 
-### Other Notes
+For mobile, enable `Project Settings: rendering/textures/vram_compression/import_etc2_astc`, and use a format that Godot imports (converts), like PNG/TGA, not DDS.
 
-* Make sure you have seamless textures that can be repeated without an obvious seam.
+You can create DDS files by:
+  * Exporting directly from Gimp
+  * Exporting from Photoshop with [Intel's DDS plugin](https://www.intel.com/content/www/us/en/developer/articles/tool/intel-texture-works-plugin.html)
+  * Converting RGBA PNGs using [NVidia's Texture Tools](https://developer.nvidia.com/nvidia-texture-tools-exporter)
 
-* Textures can be channel packed in in tools like Photoshop, Krita, [Gimp](https://www.gimp.org/), or many similar tools. Working with alpha channels in Photoshop and Krita can be a bit challenging, so we recommend Gimp. See [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp) below.
+You can create KTX files with [Khronos' KTX tools](https://github.com/KhronosGroup/KTX-Software/releases).
 
-* Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting it. You can tell which is which just by looking at distinctive textures. If it's glass it should be mostly black, which is near 0 roughness. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. Smoothness would be the opposite. 
+## Texture Content
 
-* You can create DDS files by exporting them directly from Gimp, exporting from Photoshop with [Intel's DDS plugin](https://www.intel.com/content/www/us/en/developer/articles/tool/intel-texture-works-plugin.html), or converting RGBA PNGs using [NVidia's Texture Tools](https://developer.nvidia.com/nvidia-texture-tools-exporter).
+### Seamless Textures
 
-* Once you've created the textures externally, place them in your Godot project folder. Then create a new texture slot in the Textures panel and drag your files from the FileSystem panel into the appropriate texture slot.
+Make sure you have seamless textures that can be repeated without an obvious seam.
 
-* It's best to remove unused texture slots to save memory. You can only remove them from the end of the list. You can reorder textures by changing their ID.
+### Normal Map Format
+
+Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. 
+
+They can often be identified visually by whether bumps appear to sticking out (OpenGL) or appear pushed in (DirectX). The sphere and pyramid on the left in the image below are the clearest examples. Natural textures like rock or grass can be very difficult to tell.
+
+DirectX can be converted to OpenGL and vice versa by inverting the green channel in a photo editing app. 
+
+```{image} images/tex_normalmap.png
+:target: ../_images/tex_normalmap.png
+```
+
+### Roughness vs Smoothness
+
+Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting the image.
+
+You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values are near 0 and should appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite. 
 
 
 ## Channel Pack Textures with Gimp
@@ -92,7 +105,7 @@ Also recommended is to export directly into your Godot project folder. Then drag
 :target: ../_images/io_gimp_png_export.png
 ```
 
-## Where to get textures
+## Where to Get Textures
 
 ### Tools
 
