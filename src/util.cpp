@@ -107,6 +107,21 @@ Ref<Image> Util::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
  * If alpha < 0, fill with checkered pattern multiplied by rgb
  */
 Ref<Image> Util::get_filled_image(Vector2i p_size, Color p_color, bool p_create_mipmaps, Image::Format p_format) {
+	if (p_format >= Image::Format::FORMAT_DXT1) {
+		// Compressed formats.
+		if (p_format == Image::Format::FORMAT_DXT5) {
+			Ref<Image> img = Util::get_filled_image(p_size, p_color, p_create_mipmaps, Image::Format::FORMAT_RGBA8);
+			img->compress_from_channels(Image::COMPRESS_S3TC, Image::USED_CHANNELS_RGBA);
+			return img;
+		}
+		if (p_format == Image::Format::FORMAT_BPTC_RGBA) {
+			Ref<Image> img = Util::get_filled_image(p_size, p_color, p_create_mipmaps, Image::Format::FORMAT_RGBA8);
+			img->compress_from_channels(Image::COMPRESS_BPTC, Image::USED_CHANNELS_RGBA);
+			return img;
+		}
+		// For other compressed formats, just return a blank image.
+		return Image::create(p_size.x, p_size.y, p_create_mipmaps, p_format);
+	}
 	Ref<Image> img = Image::create(p_size.x, p_size.y, p_create_mipmaps, p_format);
 	if (p_color.a < 0.0f) {
 		p_color.a = 1.0f;
