@@ -21,7 +21,7 @@ bool Terrain3DTexture::_is_texture_valid(const Ref<Texture2D> &p_texture) const 
 		format = img->get_format();
 	}
 	if (format < 0 || format >= Image::FORMAT_MAX) {
-		LOG(ERROR, "Expects an actual texture file. See documentation for format specification.");
+		LOG(ERROR, "Invalid texture format. See documentation for format specification.");
 		return false;
 	}
 
