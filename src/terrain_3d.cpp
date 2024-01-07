@@ -1049,7 +1049,7 @@ void Terrain3D::_bind_methods() {
 	// Utility functions
 	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_min_max", "image"), &Util::get_min_max);
 	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_thumbnail", "image", "size"), &Util::get_thumbnail, DEFVAL(Vector2i(256, 256)));
-	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Util::get_filled_image); //, DEFVAL(Vector2i(256, 256)));
+	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Util::get_filled_image);
 
 	// Expose 'update_aabbs' so it can be used in Callable. Not ideal.
 	ClassDB::bind_method(D_METHOD("update_aabbs"), &Terrain3D::update_aabbs);
