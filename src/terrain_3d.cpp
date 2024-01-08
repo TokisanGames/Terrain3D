@@ -292,6 +292,7 @@ void Terrain3D::_update_collision() {
 	int region_size = _storage->get_region_size();
 	int shape_size = region_size + 1;
 	float hole_const = NAN;
+	// DEPRECATED - Jolt v0.12 supports NAN. Remove check when it's old.
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
 		hole_const = __FLT_MAX__;
 	}

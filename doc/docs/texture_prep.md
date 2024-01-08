@@ -6,39 +6,47 @@ Terrain3D supports up to 32 texture sets using albedo, height, normal, and rough
 TLDR: Just read channel pack textures with Gimp.
 
 **Table of Contents**
-* [Required Texture Format](#required-texture-format)
+* [Texture Requirements](#texture-requirements)
 * [Texture Content](#texture-content)
 * [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp)
 * [Where to Get Textures](#where-to-get-textures)
 * [Frequently Asked Questions](#faq)
 
 
-## Required Texture Format
+## Texture Requirements
 
 ### Texture Files
-You need two files per texture set, channel packed as follows:
+You need two files per texture set. Terrain3D is designed for textures channel packed as follows:
 
 | Name | Format |
 | - | - |
 | albedo_texture | RGB: Albedo texture, A: Height texture
 | normal_texture| RGB: Normal map texture ([OpenGL +Y](#normal-map-format)), A: Roughness texture
 
+The system does work without the alpha channels, however your terrain won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic terrain.
+
 Textures can be channel packed in in tools like Photoshop, [Krita](https://krita.org/), [Gimp](https://www.gimp.org/), or similar tools. Working with alpha channels in Photoshop and Krita can be a bit challenging, so we recommend Gimp. See [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp) below.
 
 ### Texture Sizes
-All packed albedo textures must be the same size, and all packed normal textures must be the same size. Each type gets combined into separate texture array, so their sizes can differ.
+All albedo textures must be the same size, and all normal textures must be the same size. Each type gets combined into separate texture array, so their sizes can differ.
 
 For GPU efficiency, it is recommended that all textures have dimensions that are a power of 2 (128, 256, 512, 1024, 2048, 4096, 8192), but this isn't required.
 
 ### Compression Format
 
+All albedo textures must be the same format, and all normal textures must be the same format. They are combined into separate TextureArrays, so the two can have different formats.
+
+Godot converts files on import, so it is entirely possible that DDS, PNG, and TGA textures will all end up converted to DXT5 RGBA8. In these cases, the different filetypes can all be used in the same albedo or normal texture array because the compression format is the same. Double-clicking a texture file in the inspector will display the current format for the file. They also need to match mipmaps or not.
+
 | Type | Supports | Format |
 | - | - | - |
 | **DDS** | Desktop | BC3 / DXT5, linear (not srgb), Color + alpha, Generate Mipmaps. These files are used directly by Godot and are not converted. There are no import settings. **Recommended for desktop** |
-| **PNG** | Desktop, Mobile | Standard RGBA. In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, then reimport each file.
+| **PNG** | Desktop, Mobile | Standard RGBA. In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, then reimport each file. Optionally check `high quality`.
 | **Others** | | Other [Godot supported formats](https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_images.html#supported-image-formats) like KTX and TGA should work as long as you match similar settings to PNG.
 
-For mobile, enable `Project Settings: rendering/textures/vram_compression/import_etc2_astc`, and use a format that Godot imports (converts), like PNG/TGA, not DDS.
+For mobile platforms, see [mobile & web support](mobile_web.md).
+
+DDS (BC3/DXT5) is recommended for desktop platforms as it tends to be higher quality than the default PNG to BC3 conversion in Godot. You can mark PNGs as high quality which will convert them to BC6/BPTC. Also when creating DDS files in Gimp you have a lot more conversion options, such as different filter algorithms for mipmaps which can be useful when removing artifacts in reflections (eg try Mitchell).
 
 You can create DDS files by:
   * Exporting directly from Gimp

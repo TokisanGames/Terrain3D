@@ -172,6 +172,12 @@
     <None Include="doc\docs\press.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\docs\mobile_web.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include=".github\workflows\ios.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">

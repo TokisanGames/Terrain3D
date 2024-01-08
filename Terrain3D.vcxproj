@@ -170,6 +170,7 @@
     <None Include=".github\actions\windows-deps\action.yml" />
     <None Include=".github\workflows\android.yml" />
     <None Include=".github\workflows\build.yml" />
+    <None Include=".github\workflows\ios.yml" />
     <None Include=".github\workflows\linux.yml" />
     <None Include=".github\workflows\macos.yml" />
     <None Include=".github\workflows\windows.yml" />
@@ -177,6 +178,7 @@
     <None Include="AUTHORS.md" />
     <None Include="CONTRIBUTING.md" />
     <None Include="doc\conf.py" />
+    <None Include="doc\docs\mobile_web.md" />
     <None Include="doc\docs\press.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />

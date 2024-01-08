@@ -8,7 +8,7 @@ See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for 
 
 | Feature | Status | 
 | ------------- | ------------- | 
-| **Platforms** | Terrain editing and exported games work on Windows, Linux, macOS. Experimental in 4.2: [Steam Deck](https://github.com/TokisanGames/Terrain3D/issues/220#issuecomment-1837552459), [Android](https://github.com/TokisanGames/Terrain3D/issues/197#issuecomment-1815513064). Pending: [IOS](https://github.com/TokisanGames/Terrain3D/pull/219), [WebGL](https://github.com/TokisanGames/Terrain3D/issues/217)
+| **Platforms** | Terrain editing and exported games work on Windows, Linux, macOS. [Mobile and web platforms](mobile_web.md) are experimental.
 | **Languages** | GDScript, C++, C# all work, as should any language Godot supports. See [Integrating With Terrain3D](integrating.md)
 | **Editing** |
 | Sculpting Operations | Raise, Lower, Flatten, Expand (Multiply away from 0), Reduce (Divide towards 0), Smooth. Needs refinement
