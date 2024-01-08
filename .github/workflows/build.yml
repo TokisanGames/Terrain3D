@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        identifier: [linux, windows, macos, android-arm32, android-arm64]
+        identifier: [linux, windows, macos, ios, android-arm32, android-arm64]
         target: [debug, release]
         include:
           - identifier: linux
