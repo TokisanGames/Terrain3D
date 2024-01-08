@@ -6,7 +6,8 @@ project/addons/terrain_3d/editor/gterrain-ui/
 project/_dev/
 project/_export/
 project/tests/
-patches/
+_misc/
+_patches/
 *.zip
 
 # Docs
