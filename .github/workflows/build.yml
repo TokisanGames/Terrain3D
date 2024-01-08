@@ -33,6 +33,12 @@ jobs:
             runner: macos-latest
             arch: universal
 
+          - identifier: ios
+            platform: ios
+            name: 🍏 iOS
+            runner: macos-latest
+            arch: universal
+
           - identifier: android-arm64
             platform: android
             name: 🤖 Android Arm64

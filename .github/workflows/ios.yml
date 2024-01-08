@@ -10,6 +10,7 @@ jobs:
       matrix:
         platform: [ios]
         target: [debug, release]
+        arch: [universal]
 
     steps:
       - name: Checkout Terrain3D
