@@ -229,7 +229,7 @@ func update_decal() -> void:
 		await get_tree().create_timer(.05).timeout 
 		decal.visible = true
 
-	decal.size = Vector3.ONE * brush_data["size"]
+	decal.size = Vector3.ONE * brush_data["size"] * plugin.terrain.get_mesh_vertex_spacing()
 	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
 		if (cam):
@@ -311,7 +311,7 @@ func update_decal() -> void:
 			if point != Vector3.ZERO:
 				var point_decal: Decal = _get_gradient_decal(index)
 				point_decal.visible = true
-				point_decal.position = point
+				point_decal.position = point * plugin.terrain.get_mesh_vertex_spacing()
 				index += 1
 
 

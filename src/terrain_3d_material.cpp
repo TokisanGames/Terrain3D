@@ -508,6 +508,13 @@ Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 	return value;
 }
 
+void Terrain3DMaterial::set_mesh_vertex_spacing(real_t p_spacing) {
+	LOG(INFO, "Setting mesh vertex spacing in material: ", p_spacing);
+	_mesh_vertex_spacing = p_spacing;
+	RS->material_set_param(_material, "_mesh_vertex_spacing", p_spacing);
+	RS->material_set_param(_material, "_mesh_vertex_density", 1.0f / p_spacing);
+}
+
 void Terrain3DMaterial::set_show_checkered(bool p_enabled) {
 	LOG(INFO, "Enable set_show_checkered: ", p_enabled);
 	_debug_view_checkered = p_enabled;
