@@ -66,6 +66,7 @@ void Terrain3D::_initialize() {
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		_material->initialize(_storage->get_region_size());
+		_material->set_mesh_vertex_spacing(_mesh_vertex_spacing);
 		_storage->update_regions(true); // generate map arrays
 		_texture_list->update_list(); // generate texture arrays
 		_build(_mesh_lods, _mesh_size);
@@ -363,6 +364,7 @@ void Terrain3D::_update_collision() {
 		// Rotated shape Y=90 for -90 rotated array index
 		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5),
 				global_pos + Vector3(region_size, 0, region_size) * .5);
+		xform.scale(Vector3(_mesh_vertex_spacing, 1, _mesh_vertex_spacing));
 
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
@@ -494,10 +496,10 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 			}
 		}
 	} else {
-		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z);
-		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z) + 1;
-		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x);
-		int32_t x_end = (int32_t)Math::floor(p_global_aabb.get_end().x) + 1;
+		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z / _mesh_vertex_spacing);
+		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z / _mesh_vertex_spacing) + 1;
+		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x / _mesh_vertex_spacing);
+		int32_t x_end = (int32_t)Math::floor(p_global_aabb.get_end().x / _mesh_vertex_spacing) + 1;
 
 		for (int32_t z = z_start; z < z_end; ++z) {
 			for (int32_t x = x_start; x < x_end; ++x) {
@@ -516,10 +518,11 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	uint32_t control1 = _storage->get_control(Vector3(x, 0.0, z));
 	uint32_t control2 = _storage->get_control(Vector3(x + step, 0.0, z + step));
 	uint32_t control3 = _storage->get_control(Vector3(x, 0.0, z + step));
+	Vector3 vertex_scaler = Vector3(_mesh_vertex_spacing, 1.0, _mesh_vertex_spacing);
 	if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
-		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
-		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
-		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step));
+		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z)) * vertex_scaler;
+		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step)) * vertex_scaler;
+		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step)) * vertex_scaler;
 		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
@@ -536,9 +539,9 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	control2 = _storage->get_control(Vector3(x + step, 0.0, z));
 	control3 = _storage->get_control(Vector3(x + step, 0.0, z + step));
 	if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
-		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z));
-		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z));
-		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step));
+		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z)) * vertex_scaler;
+		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z)) * vertex_scaler;
+		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step)) * vertex_scaler;
 		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
@@ -601,6 +604,19 @@ void Terrain3D::set_mesh_size(int p_size) {
 		_mesh_size = p_size;
 		_clear();
 		_initialize();
+	}
+}
+
+void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
+	p_spacing = CLAMP(p_spacing, 0.25f, 100.0f);
+	if (_mesh_vertex_spacing != p_spacing) {
+		LOG(INFO, "Setting mesh vertex spacing: ", p_spacing);
+		_mesh_vertex_spacing = p_spacing;
+		_clear();
+		_initialize();
+	}
+	if (Engine::get_singleton()->is_editor_hint() && _plugin != nullptr) {
+		_plugin->call("update_region_grid");
 	}
 }
 
@@ -695,17 +711,19 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 	p_cam_pos.y = 0;
 	LOG(DEBUG_CONT, "Snapping terrain to: ", String(p_cam_pos));
 
-	Transform3D t = Transform3D(Basis(), p_cam_pos.floor());
+	Vector3 snapped_pos = (p_cam_pos / _mesh_vertex_spacing).floor() * _mesh_vertex_spacing;
+	Transform3D t = Transform3D().scaled(Vector3(_mesh_vertex_spacing, 1, _mesh_vertex_spacing));
+	t.origin = snapped_pos;
 	RS->instance_set_transform(_data.cross, t);
 
 	int edge = 0;
 	int tile = 0;
 
 	for (int l = 0; l < _mesh_lods; l++) {
-		real_t scale = real_t(1 << l);
+		real_t scale = real_t(1 << l) * _mesh_vertex_spacing;
 		Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
-		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l));
-		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1)));
+		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l)) * _mesh_vertex_spacing;
+		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
 
 		// Position tiles
 		for (int x = 0; x < 4; x++) {
@@ -756,7 +774,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 
 			// Position seams
 			{
-				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1)));
+				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
 				t.origin = next_base;
 				RS->instance_set_transform(_data.seams[edge], t);
@@ -832,7 +850,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
 	if (_storage.is_valid()) {
 		for (int i = 0; i < 3000; i++) {
 			test_point += test_dir;
-			test_point.y = _storage->get_height(test_point);
+			test_point.y = _storage->get_height(test_point / _mesh_vertex_spacing);
 			Vector3 test_vec = (test_point - p_position).normalized();
 
 			real_t test_dotp = p_direction.dot(test_vec);
@@ -1016,6 +1034,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_mesh_vertex_spacing", "scale"), &Terrain3D::set_mesh_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("get_mesh_vertex_spacing"), &Terrain3D::get_mesh_vertex_spacing);
 
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
@@ -1077,6 +1097,7 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Mesh", "mesh_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "mesh_vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_mesh_vertex_spacing", "get_mesh_vertex_spacing");
 
 	ADD_GROUP("Debug", "debug_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");

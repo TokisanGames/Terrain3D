@@ -35,6 +35,7 @@ private:
 	// Terrain settings
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
+	real_t _mesh_vertex_spacing = 1.0f;
 
 	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DMaterial> _material;
@@ -104,6 +105,8 @@ public:
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(int p_size);
 	int get_mesh_size() const { return _mesh_size; }
+	void set_mesh_vertex_spacing(real_t p_spacing);
+	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }

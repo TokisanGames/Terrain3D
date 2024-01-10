@@ -23,6 +23,8 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 // Private uniforms
 uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1/1024
+uniform float _mesh_vertex_spacing = 1.0;
+uniform float _mesh_vertex_density = 1.0; // = 1/_mesh_vertex_spacing
 uniform int _region_map_size = 16;
 uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
@@ -60,10 +62,12 @@ struct Material {
 	float blend;
 };
 
-varying vec3 v_vertex;	// World coordinate vertex location
-varying vec3 v_camera_pos;
-varying float v_vertex_dist;
+varying flat vec3 v_vertex;	// World coordinate vertex location
+varying flat vec3 v_camera_pos;
+varying flat float v_vertex_dist;
 varying flat ivec3 v_region;
+varying flat vec2 v_uv_offset;
+varying flat vec2 v_uv2_offset;
 
 ////////////////////////
 // Vertex
@@ -110,7 +114,7 @@ void vertex() {
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	
 	// UV coordinates in world space. Values are 0 to _region_size within regions
-	UV = v_vertex.xz;
+	UV = round(v_vertex.xz * _mesh_vertex_density);
 
 	// Discard vertices if designated as a hole or background disabled. 1 lookup.
 	v_region = get_region_uv(UV);
@@ -128,6 +132,12 @@ void vertex() {
 		v_vertex_dist = length(v_vertex - v_camera_pos);
 //INSERT: DUAL_SCALING_VERTEX
 	}
+
+	// Transform UVs to local to avoid poor precision during varying interpolation.
+	v_uv_offset = MODEL_MATRIX[3].xz * _mesh_vertex_density;
+	UV -= v_uv_offset;
+	v_uv2_offset = v_uv_offset * _region_texel_size;
+	UV2 -= v_uv2_offset;
 }
 
 ////////////////////////
@@ -140,8 +150,8 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 	float right = get_height(uv + vec2(_region_texel_size, 0));
 	float back = get_height(uv + vec2(0, -_region_texel_size));
 	float front = get_height(uv + vec2(0, _region_texel_size));
-	vec3 horizontal = vec3(2.0, right - left, 0.0);
-	vec3 vertical = vec3(0.0, back - front, 2.0);
+	vec3 horizontal = vec3(2.0 * _mesh_vertex_spacing, right - left, 0.0);
+	vec3 vertical = vec3(0.0, back - front, 2.0 * _mesh_vertex_spacing);
 	vec3 normal = normalize(cross(vertical, horizontal));
 	normal.z *= -1.0;
 	tangent = cross(normal, vec3(0, 0, 1));
@@ -248,16 +258,20 @@ float blend_weights(float weight, float detail) {
 }
 
 void fragment() {
+	// Recover UVs
+	vec2 uv = UV + v_uv_offset;
+	vec2 uv2 = UV2 + v_uv2_offset;
+
 	// Calculate Terrain Normals. 4 lookups
 	vec3 w_tangent, w_binormal;
-	vec3 w_normal = get_normal(UV2, w_tangent, w_binormal);
+	vec3 w_normal = get_normal(uv2, w_tangent, w_binormal);
 	NORMAL = mat3(VIEW_MATRIX) * w_normal;
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 
 	// Idenfity 4 vertices surrounding this pixel
-	vec2 texel_pos = UV;
-	highp vec2 texel_pos_floor = floor(UV);
+	vec2 texel_pos = uv;
+	highp vec2 texel_pos_floor = floor(uv);
 	
 	// Create a cross hatch grid of alternating 0/1 horizontal and vertical stripes 1 unit wide in XY 
 	vec4 mirror = vec4(fract(texel_pos_floor * 0.5) * 2.0, 1.0, 1.0);
@@ -278,18 +292,18 @@ void fragment() {
 
 	// Get the textures for each vertex. 8-16 lookups (2-4 ea)
 	Material mat[4];
-	get_material(UV, control00, index00UV, w_normal, mat[0]);
-	get_material(UV, control01, index01UV, w_normal, mat[1]);
-	get_material(UV, control10, index10UV, w_normal, mat[2]);
-	get_material(UV, control11, index11UV, w_normal, mat[3]);
+	get_material(uv, control00, index00UV, w_normal, mat[0]);
+	get_material(uv, control01, index01UV, w_normal, mat[1]);
+	get_material(uv, control10, index10UV, w_normal, mat[2]);
+	get_material(uv, control11, index11UV, w_normal, mat[3]);
 
 	// Calculate weight for the pixel position between the vertices
-	// Bilinear interpolation of difference of UV and floor(UV)
+	// Bilinear interpolation of difference of uv and floor(uv)
 	vec2 weights1 = clamp(texel_pos - texel_pos_floor, 0, 1);
 	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);
 	vec2 weights0 = vec2(1.0) - weights1;
 	// Adjust final weights by noise. 1 lookup
-	float noise3 = texture(noise_texture, UV*noise3_scale).r;
+	float noise3 = texture(noise_texture, uv*noise3_scale).r;
 	vec4 weights;
 	weights.x = blend_weights(weights0.x * weights0.y, noise3);
 	weights.y = blend_weights(weights0.x * weights1.y, noise3);
@@ -313,7 +327,7 @@ void fragment() {
 		mat[3].nrm_rg * weights.w );
 
 	// Determine if we're in a region or not (region_uv.z>0)
-	vec3 region_uv = get_region_uv2(UV2);
+	vec3 region_uv = get_region_uv2(uv2);
 
 	// Colormap. 1 lookup
 	vec4 color_map = vec4(1., 1., 1., .5);
@@ -324,8 +338,8 @@ void fragment() {
 	}
 
 	// Macro variation. 2 Lookups
-	float noise1 = texture(noise_texture, rotate(UV*noise1_scale*.1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
-	float noise2 = texture(noise_texture, UV*noise2_scale*.1).r;
+	float noise1 = texture(noise_texture, rotate(uv*noise1_scale*.1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
+	float noise2 = texture(noise_texture, uv*noise2_scale*.1).r;
 	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_dist*.0002, 0., 1.));
 	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_dist*.0002, 0., 1.));
 

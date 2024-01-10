@@ -130,11 +130,14 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			var t = -Vector3(0, 1, 0).dot(camera_pos) / Vector3(0, 1, 0).dot(camera_dir)
 			mouse_global_position = (camera_pos + t * camera_dir)
 
-		# Update decal
+		## Update decal
 		ui.decal.global_position = mouse_global_position
 		ui.decal.albedo_mix = 1.0
 		ui.decal_timer.start()
 
+		## Incorporate vertex spacing into operations
+		mouse_global_position.x /= terrain.get_mesh_vertex_spacing()
+		mouse_global_position.z /= terrain.get_mesh_vertex_spacing()
 		## Update region highlight
 		var region_size = terrain.get_storage().get_region_size()
 		var region_position: Vector2 = (Vector2(mouse_global_position.x, mouse_global_position.z) / region_size).floor()
@@ -214,7 +217,7 @@ func update_region_grid() -> void:
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
 		region_gizmo.region_position = current_region_position
-		region_gizmo.region_size = terrain.get_storage().get_region_size()
+		region_gizmo.region_size = terrain.get_storage().get_region_size() * terrain.get_mesh_vertex_spacing()
 		region_gizmo.grid = terrain.get_storage().get_region_offsets()
 		
 		terrain.update_gizmos()
