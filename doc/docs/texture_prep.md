@@ -16,14 +16,14 @@ TLDR: Just read channel pack textures with Gimp.
 ## Texture Requirements
 
 ### Texture Files
-You need two files per texture set. Terrain3D is designed for textures channel packed as follows:
+You need two files per texture set. Terrain3D is designed for textures that are channel packed as follows:
 
 | Name | Format |
 | - | - |
 | albedo_texture | RGB: Albedo texture, A: Height texture
 | normal_texture| RGB: Normal map texture ([OpenGL +Y](#normal-map-format)), A: Roughness texture
 
-The system does work without the alpha channels, however your terrain won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic terrain.
+The terrain can work without the alpha channels, however it won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
 
 Textures can be channel packed in in tools like Photoshop, [Krita](https://krita.org/), [Gimp](https://www.gimp.org/), or similar tools. Working with alpha channels in Photoshop and Krita can be a bit challenging, so we recommend Gimp. See [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp) below.
 
@@ -36,17 +36,17 @@ For GPU efficiency, it is recommended that all textures have dimensions that are
 
 All albedo textures must be the same format, and all normal textures must be the same format. They are combined into separate TextureArrays, so the two can have different formats.
 
-Godot converts files on import, so it is entirely possible that DDS, PNG, and TGA textures will all end up converted to DXT5 RGBA8. In these cases, the different filetypes can all be used in the same albedo or normal texture array because the compression format is the same. Double-clicking a texture file in the inspector will display the current format for the file. They also need to match mipmaps or not.
+Godot converts files on import, so it is entirely possible that DDS, PNG, and TGA textures will all end up converted to DXT5 RGBA8. In these cases, the different file types can all be used in the same albedo or normal texture array because the compression format is the same. Double-clicking a texture in the FileSystem panel will display it in the Inspector with the current format of the file. They also need to match whether they have mipmaps or not.
 
 | Type | Supports | Format |
 | - | - | - |
-| **DDS** | Desktop | BC3 / DXT5, linear (not srgb), Color + alpha, Generate Mipmaps. These files are used directly by Godot and are not converted. There are no import settings. **Recommended for desktop** |
-| **PNG** | Desktop, Mobile | Standard RGBA. In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, then reimport each file. Optionally check `high quality`.
+| **DDS** | Desktop | BC3 / DXT5, linear (not srgb), Color + alpha, mipmaps generated. These files are used directly by Godot and are not converted. There are no import settings. **Recommended for desktop.** |
+| **PNG** | Desktop, Mobile | Standard RGBA. In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, optionally check `High Quality`, then reimport each file. 
 | **Others** | | Other [Godot supported formats](https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_images.html#supported-image-formats) like KTX and TGA should work as long as you match similar settings to PNG.
 
 For mobile platforms, see [mobile & web support](mobile_web.md).
 
-DDS (BC3/DXT5) is recommended for desktop platforms as it tends to be higher quality than the default PNG to BC3 conversion in Godot. You can mark PNGs as high quality which will convert them to BC6/BPTC. Also when creating DDS files in Gimp you have a lot more conversion options, such as different filter algorithms for mipmaps which can be useful when removing artifacts in reflections (eg try Mitchell).
+DDS (BC3/DXT5) is recommended for desktop platforms as it tends to be higher quality than the default PNG to BC3 conversion in Godot. When creating DDS files in Gimp you have a lot more conversion options, such as different filter algorithms for mipmaps which can be useful when removing artifacts in reflections (eg try Mitchell). Though, you can mark PNGs as high quality which will convert them to BC6/BPTC and makes them on par with Gimp BC3. Godot does not currently support anything higher than BC3/DXT5 in DDS files.
 
 You can create DDS files by:
   * Exporting directly from Gimp
@@ -65,7 +65,7 @@ Make sure you have seamless textures that can be repeated without an obvious sea
 
 Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. 
 
-They can often be identified visually by whether bumps appear to sticking out (OpenGL) or appear pushed in (DirectX). The sphere and pyramid on the left in the image below are the clearest examples. Natural textures like rock or grass can be very difficult to tell.
+They can often be identified visually by whether bumps appear to stick out (OpenGL) or appear pushed in (DirectX). The sphere and pyramid on the left in the image below are the clearest examples. Natural textures like rock or grass can be very difficult to tell.
 
 DirectX can be converted to OpenGL and vice versa by inverting the green channel in a photo editing app. 
 
@@ -139,11 +139,13 @@ There are numerous websites where you can download high quality, royalty free te
 
 ### Why can't we just use regular textures? Why is this so difficult / impossible to do?
 
+Regular textures are now supported from v0.9.1. However if you want a realistic terrain with height blending and roughness, you need to channel pack textures.
+
 We provide easy, [5-step instructions](#channel-pack-textures-with-gimp) that take less than 2 minutes once you're familiar with the process. 
 
 Channel packing is a very common task done by professional game developers. Every pro asset pack you've used has channel packed textures. When you download texture packs from websites, they provide individual textures so you can pack them how you want. They are not intended to be used individually!
 
-We want high performance games, right? Then, we need to optimize our systems for the graphics hardware. The shader can retrieve four channels RGBA from a texture at once. Albedo and normal textures only have RGB. Thus, reading Alpha is free, and a waste if not used. So, we put height / roughness in the Alpha channel.
+We want high performance games, right? Then, we need to optimize our systems for the graphics hardware. A shader can retrieve four channels RGBA from a texture at once. Albedo and normal textures only have RGB. Thus, reading Alpha is free, and a waste if not used. So, we put height / roughness in the Alpha channel.
 
 Efficiency is also why we want power of 2 textures.
 
