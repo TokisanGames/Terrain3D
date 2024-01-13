@@ -256,15 +256,17 @@ void Terrain3D::_build_collision() {
 	if (!_collision_enabled || !_is_inside_world || !is_inside_tree()) {
 		return;
 	}
-	// Create collision only in game, unless requested for editor
-	if (Engine::get_singleton()->is_editor_hint() && !_is_collision_editor()) {
+
+	_destroy_collision();
+
+	// Create collision only in game, unless showing debug
+	if (Engine::get_singleton()->is_editor_hint() && !get_show_debug_collision()) {
 		return;
 	}
 	if (_storage.is_null()) {
 		LOG(ERROR, "Storage missing, cannot create collision");
 		return;
 	}
-	_destroy_collision();
 
 	if (!_is_collision_editor()) {
 		LOG(INFO, "Building collision with physics server");
@@ -785,13 +787,19 @@ void Terrain3D::set_collision_mode(CollisionMode mode) {
 void Terrain3D::set_collision_dynamic_shape_size(uint32_t size) {
 	LOG(INFO, "Setting collision dynamic shape size: ", size);
 	_collision_dynamic_shape_size = size;
-	_update_collision();
+	_build_collision();
 }
 
 void Terrain3D::set_collision_dynamic_distance(real_t distance) {
 	LOG(INFO, "Setting collision dynamic distance: ", distance);
 	_collision_dynamic_distance = distance;
-	_update_collision();
+	_build_collision();
+}
+
+void Terrain3D::set_collision_mode(int mode) {
+	LOG(INFO, "Setting collision mode: ", mode);
+	_collision_mode = mode;
+	_build_collision();
 }
 
 /**
