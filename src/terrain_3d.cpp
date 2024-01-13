@@ -454,7 +454,7 @@ void Terrain3D::_update_collision() {
 						PhysicsServer3D::get_singleton()->shape_set_data(col_shape, shape_data);
 					}
 					int shape_id = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body);
-					PhysicsServer3D::get_singleton()->body_set_shape(_static_body, shape_id, col_shape);
+					PhysicsServer3D::get_singleton()->body_add_shape(_static_body, col_shape);
 					PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, shape_id, xform);
 					PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
 					PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
