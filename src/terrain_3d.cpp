@@ -260,7 +260,7 @@ void Terrain3D::_build_collision() {
 	_destroy_collision();
 
 	// Create collision only in game, unless showing debug
-	if (Engine::get_singleton()->is_editor_hint() && !get_show_debug_collision()) {
+	if (Engine::get_singleton()->is_editor_hint() && !_is_collision_editor()) {
 		return;
 	}
 	if (_storage.is_null()) {
@@ -776,12 +776,6 @@ void Terrain3D::set_collision_enabled(bool p_enabled) {
 	} else {
 		_destroy_collision();
 	}
-}
-
-void Terrain3D::set_collision_mode(CollisionMode mode) {
-	LOG(INFO, "Setting collision mode: ", mode);
-	_collision_mode = mode;
-	_update_collision();
 }
 
 void Terrain3D::set_collision_dynamic_shape_size(uint32_t size) {
