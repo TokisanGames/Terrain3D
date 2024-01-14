@@ -206,6 +206,7 @@
     <Text Include="doc\docs\controlmap_format.md" />
     <Text Include="doc\docs\storage_format.md" />
     <Text Include="doc\docs\getting_help.md" />
+    <Text Include="doc\docs\tutorial_videos.md" />
     <Text Include="doc\docs\troubleshooting.md" />
     <Text Include="doc\docs\tips.md" />
     <Text Include="doc\docs\texture_prep.md" />
