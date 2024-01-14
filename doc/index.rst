@@ -84,6 +84,7 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :maxdepth: 1
    :caption: Getting Started
 
+   docs/tutorial_videos
    docs/installation
    docs/texture_prep
    docs/texture_painting

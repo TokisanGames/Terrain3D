@@ -17,7 +17,19 @@ See [Project Status](https://terrain3d.readthedocs.io/en/stable/docs/project_sta
 
 ## Getting Started
 
-Read through our [documentation](https://terrain3d.readthedocs.io/en/stable/index.html), starting with [Installation](https://terrain3d.readthedocs.io/en/stable/docs/installation.html).
+1. Read through our [documentation](https://terrain3d.readthedocs.io/en/stable/index.html), starting with [Installation](https://terrain3d.readthedocs.io/en/stable/docs/installation.html).
+
+2. For support, read [Getting Help](https://terrain3d.readthedocs.io/en/stable/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
+
+3. Watch the tutorial videos:
+
+**Installation, Setup, Basic Usage**
+
+[![Using Terrain3D - Part 1](https://i.ytimg.com/vi/oV8c9alXVwU/hqdefault.jpg)](https://youtu.be/oV8c9alXVwU)
+
+**Texture Painting, Holes, Navigation, Advanced Usage**
+
+[![Using Terrain3D - Part 2](https://i.ytimg.com/vi/YtiAI2F6Xkk/hqdefault.jpg)](https://youtu.be/YtiAI2F6Xkk)
 
 For support, read [Getting Help](https://terrain3d.readthedocs.io/en/stable/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
 

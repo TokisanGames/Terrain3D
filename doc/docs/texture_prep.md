@@ -108,7 +108,7 @@ You can make textures in dedicated texture tools, such as those below. There are
 
 There are numerous websites where you can download high quality, royalty free textures for free or pay. These textures come as individual maps, with the expectation that you will download only the maps you need and then channel pack them. Here are just a few:
 
-* [PolyHaven](https://polyhaven.com/textures) - many free textures
+* [PolyHaven](https://polyhaven.com/textures) - many free textures (Download PNG, not EXR)
 * [AmbientCG](https://ambientcg.com/) - many free textures
 * [Poliigon](https://www.poliigon.com/textures/free) - free and commercial
 * [GameTextures](https://gametextures.com/) - commercial
