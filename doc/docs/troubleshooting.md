@@ -3,7 +3,7 @@ Troubleshooting
 
 ## Tutorial Videos
 
-Make sure to watch the [tutorial videos](tutorial_videos) which show proper installation and setup.
+Make sure to watch the [tutorial videos](tutorial_videos.md) which show proper installation and setup.
 
 
 ## Use the Console

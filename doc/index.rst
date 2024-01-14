@@ -100,9 +100,9 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :caption: Advanced Usage
 
    docs/integrating
-   docs/occlusion_culling
-   docs/navigation
    docs/mobile_web
+   docs/navigation
+   docs/occlusion_culling
 
 .. toctree::
    :maxdepth: 1

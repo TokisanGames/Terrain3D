@@ -240,7 +240,9 @@
     <Text Include="doc\update_process.txt">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\docs\tutorial_videos.md" />
+    <Text Include="doc\docs\tutorial_videos.md">
+      <Filter>2. Docs</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml">
