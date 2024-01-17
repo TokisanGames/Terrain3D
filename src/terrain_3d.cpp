@@ -330,7 +330,7 @@ void Terrain3D::_update_collision() {
 			Node3D *child = (Node3D *)_editor_static_body->get_child(i);
 			Vector3 child_pos = child->get_global_position();
 			if (_is_collision_dynamic() && child_pos.distance_to(camera_pos) <= _collision_dynamic_distance) {
-				existing.append(child_pos);
+				existing.append(Vector3i(child_pos.round()));
 				continue;
 			}
 			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
@@ -343,7 +343,7 @@ void Terrain3D::_update_collision() {
 			RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, i);
 			Vector3 position = PhysicsServer3D::get_singleton()->body_get_shape_transform(_static_body, i).origin;
 			if (_is_collision_dynamic() && position.distance_to(camera_pos) <= _collision_dynamic_distance) {
-				existing.append(position);
+				existing.append(Vector3i(position.round()));
 				continue;
 			}
 			_unused_collision_shapes.append(shape);
@@ -354,10 +354,10 @@ void Terrain3D::_update_collision() {
 		for (int jx = 0; jx < shapes_per_region; jx++) {
 			for (int jz = 0; jz < shapes_per_region; jz++) {
 				Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size + Vector2i(collision_shape_size * jx, collision_shape_size * jz);
-				Vector3 global_pos = Vector3(global_offset.x, 0, global_offset.y);
-				Vector3 global_middle_pos = global_pos + Vector3(collision_shape_size, 0, collision_shape_size) * .5;
+				Vector3i global_pos = Vector3i(global_offset.x, 0, global_offset.y);
+				Vector3i global_middle_pos = global_pos + Vector3i(collision_shape_size, 0, collision_shape_size) / 2;
 
-				if (_is_collision_dynamic() && (global_middle_pos.distance_to(camera_pos) > _collision_dynamic_distance || existing.has(global_middle_pos))) {
+				if (_is_collision_dynamic() && (Vector3(global_middle_pos).distance_to(camera_pos) > _collision_dynamic_distance || existing.has(global_middle_pos))) {
 					continue;
 				}
 
