@@ -340,13 +340,14 @@ void Terrain3D::_update_collision() {
 	}
 	if (_static_body.is_valid() && PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) > 0) {
 		for (int i = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) - 1; i >= 0; i--) {
-			RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, i);
 			Vector3 position = PhysicsServer3D::get_singleton()->body_get_shape_transform(_static_body, i).origin;
 			if (_is_collision_dynamic() && position.distance_to(camera_pos) <= _collision_dynamic_distance) {
+				PhysicsServer3D::get_singleton()->body_set_shape_disabled(_static_body, i, false);
 				existing.append(Vector3i(position.round()));
 				continue;
 			}
-			_unused_collision_shapes.append(shape);
+			PhysicsServer3D::get_singleton()->body_set_shape_disabled(_static_body, i, true);
+			_unused_collision_shapes.append(i);
 		}
 	}
 
@@ -364,9 +365,13 @@ void Terrain3D::_update_collision() {
 				PackedFloat32Array map_data;
 				CollisionShape3D *debug_col_shape = nullptr;
 				RID col_shape = RID();
+				bool reuse_shape = false;
+				int shape_id;
 				if (_is_collision_dynamic() && !_unused_collision_shapes.is_empty()) {
+					reuse_shape = true;
 					if (!_is_collision_editor()) {
-						col_shape = _unused_collision_shapes.pop_back();
+						shape_id = _unused_collision_shapes.pop_back();
+						col_shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, shape_id);
 						Dictionary shape_data = PhysicsServer3D::get_singleton()->shape_get_data(col_shape);
 						map_data = shape_data["heights"];
 					} else {
@@ -441,21 +446,23 @@ void Terrain3D::_update_collision() {
 				Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5), global_middle_pos);
 
 				if (!_is_collision_editor()) {
-					if (_is_collision_dynamic() && col_shape.is_valid()) {
-					} else {
+					if (!reuse_shape) {
 						col_shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
-						Dictionary shape_data;
-						shape_data["width"] = shape_size;
-						shape_data["depth"] = shape_size;
-						shape_data["heights"] = map_data;
-						Vector2 min_max = _storage->get_height_range();
-						shape_data["min_height"] = min_max.x;
-						shape_data["max_height"] = min_max.y;
-						PhysicsServer3D::get_singleton()->shape_set_data(col_shape, shape_data);
 					}
-					int shape_id = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body);
-					PhysicsServer3D::get_singleton()->body_add_shape(_static_body, col_shape);
-					PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, shape_id, xform);
+					Dictionary shape_data;
+					shape_data["width"] = shape_size;
+					shape_data["depth"] = shape_size;
+					shape_data["heights"] = map_data;
+					Vector2 min_max = _storage->get_height_range();
+					shape_data["min_height"] = min_max.x;
+					shape_data["max_height"] = min_max.y;
+					PhysicsServer3D::get_singleton()->shape_set_data(col_shape, shape_data);
+					if (reuse_shape) {
+						PhysicsServer3D::get_singleton()->body_set_shape_disabled(_static_body, shape_id, false);
+						PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, shape_id, xform);
+					} else {
+						PhysicsServer3D::get_singleton()->body_add_shape(_static_body, col_shape, xform);
+					}
 					PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
 					PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
 					PhysicsServer3D::get_singleton()->body_set_collision_priority(_static_body, _collision_priority);
