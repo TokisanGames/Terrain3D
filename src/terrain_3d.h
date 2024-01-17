@@ -72,14 +72,14 @@ private:
 	// Physics body and settings
 	RID _static_body;
 	StaticBody3D *_editor_static_body = nullptr;
+	Array _collision_shapes_unused = Array();
 	bool _collision_enabled = true;
-	int _collision_mode = DYNAMIC_GAME;
+	CollisionMode _collision_mode = DYNAMIC_GAME;
 	uint32_t _collision_dynamic_shape_size = 16;
 	real_t _collision_dynamic_distance = 64.0f;
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0f;
-	Array _unused_collision_shapes = Array();
 
 	void _initialize();
 	void __ready();
@@ -141,11 +141,11 @@ public:
 	// Physics body settings
 	void set_collision_enabled(bool p_enabled);
 	bool get_collision_enabled() const { return _collision_enabled; }
-	void set_collision_mode(int mode);
-	int get_collision_mode() { return _collision_mode; }
-	void set_collision_dynamic_shape_size(uint32_t size);
+	void set_collision_mode(CollisionMode p_mode);
+	CollisionMode get_collision_mode() { return _collision_mode; }
+	void set_collision_dynamic_shape_size(uint32_t p_size);
 	uint32_t get_collision_dynamic_shape_size() { return _collision_dynamic_shape_size; }
-	void set_collision_dynamic_distance(real_t distance);
+	void set_collision_dynamic_distance(real_t p_distance);
 	real_t get_collision_dynamic_distance() { return _collision_dynamic_distance; }
 	void set_collision_layer(uint32_t p_layers) { _collision_layer = p_layers; }
 	uint32_t get_collision_layer() const { return _collision_layer; };
