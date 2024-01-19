@@ -797,12 +797,29 @@ void Terrain3D::set_collision_enabled(bool p_enabled) {
 }
 
 void Terrain3D::set_collision_dynamic_shape_size(uint32_t p_size) {
+	// Round up to nearest power of 2
+	{
+		p_size--;
+		p_size |= p_size >> 1;
+		p_size |= p_size >> 2;
+		p_size |= p_size >> 4;
+		p_size |= p_size >> 8;
+		p_size |= p_size >> 16;
+		p_size++;
+	}
+	p_size = CLAMP(p_size, 8, 256);
 	LOG(INFO, "Setting collision dynamic shape size: ", p_size);
 	_collision_dynamic_shape_size = p_size;
-	_build_collision();
+	if (p_size > _collision_dynamic_distance) {
+		set_collision_dynamic_distance(p_size);
+	} else {
+		_build_collision();
+	}
 }
 
 void Terrain3D::set_collision_dynamic_distance(real_t p_distance) {
+	p_distance = MAX(_collision_dynamic_shape_size, p_distance);
+	p_distance = CLAMP(p_distance, 24.0, 256);
 	LOG(INFO, "Setting collision dynamic distance: ", p_distance);
 	_collision_dynamic_distance = p_distance;
 	_build_collision();
@@ -1210,8 +1227,8 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_dynamic_shape_size"), "set_collision_dynamic_shape_size", "get_collision_dynamic_shape_size");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_dynamic_distance"), "set_collision_dynamic_distance", "get_collision_dynamic_distance");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_dynamic_shape_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_collision_dynamic_shape_size", "get_collision_dynamic_shape_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_dynamic_distance", PROPERTY_HINT_RANGE, "24,256,1"), "set_collision_dynamic_distance", "get_collision_dynamic_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
