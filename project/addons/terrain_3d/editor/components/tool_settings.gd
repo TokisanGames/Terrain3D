@@ -22,7 +22,9 @@ const BRUSH_PATH: String = "res://addons/terrain_3d/editor/brushes"
 const PICKER_ICON: String = "res://addons/terrain_3d/icons/icon_picker.svg"
 
 const NONE: int = 0x0
-const ALLOW_OUT_OF_BOUNDS: int = 0x1
+const ALLOW_LARGER: int = 0x1
+const ALLOW_SMALLER: int = 0x2
+const ALLOW_OUT_OF_BOUNDS: int = 0x3
 
 var brush_preview_material: ShaderMaterial
 
@@ -37,7 +39,7 @@ func _ready() -> void:
 	
 	add_brushes(list)
 
-	add_setting(SettingType.SLIDER, "size", 50, list, "m", 2, 200, 1, ALLOW_OUT_OF_BOUNDS)
+	add_setting(SettingType.SLIDER, "size", 50, list, "m", 4, 200, 1, ALLOW_LARGER)
 	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 1, 100)
 	add_setting(SettingType.CHECKBOX, "enable", true, list)
 	
@@ -220,8 +222,9 @@ func add_setting(p_type: SettingType, p_name: StringName, p_value: Variant, p_pa
 			
 				slider = HSlider.new()
 				slider.share(control)
-				if p_flags & ALLOW_OUT_OF_BOUNDS:
+				if p_flags & ALLOW_LARGER:
 					slider.set_allow_greater(true)
+				if p_flags & ALLOW_SMALLER:
 					slider.set_allow_lesser(true)
 					
 			else:
