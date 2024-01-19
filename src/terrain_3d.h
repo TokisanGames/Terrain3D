@@ -72,6 +72,7 @@ private:
 	// Physics body and settings
 	RID _static_body;
 	StaticBody3D *_editor_static_body = nullptr;
+	bool _collision_initialized = false;
 	Array _collision_shapes_unused = Array();
 	bool _collision_enabled = true;
 	CollisionMode _collision_mode = DYNAMIC_GAME;
@@ -94,7 +95,7 @@ private:
 	bool _is_collision_editor();
 	bool _is_collision_dynamic();
 	void _build_collision();
-	void _update_collision();
+	void _update_collision(Vector3 p_cam_pos = Vector3());
 	void _destroy_collision();
 
 	void _update_instances();

@@ -117,6 +117,7 @@ void Terrain3D::__process(double delta) {
  */
 void Terrain3D::_grab_camera() {
 	if (Engine::get_singleton()->is_editor_hint()) {
+		// TODO - In 4.2 EditorInterface is a singleton
 		EditorScript temp_editor_script;
 		EditorInterface *editor_interface = temp_editor_script.get_editor_interface();
 		TypedArray<Camera3D> cam_array = TypedArray<Camera3D>();
@@ -290,26 +291,19 @@ void Terrain3D::_build_collision() {
 		add_child(_editor_static_body, true);
 		_editor_static_body->set_owner(this);
 	}
-	_update_collision();
+	_collision_initialized = true;
+	Vector3 cam_pos = (_camera != nullptr) ? _camera->get_global_position() : Vector3();
+	cam_pos.y = 0.0f;
+	_update_collision(cam_pos);
 }
 
-void Terrain3D::_update_collision() {
-	// Skip if not enabled or in tree
-	if (!_collision_enabled || !is_inside_tree()) {
-		return;
-	}
-	// Skip if in editor and not using an editor mode
-	if (Engine::get_singleton()->is_editor_hint() && !_is_collision_editor()) {
-		return;
-	}
-	// Build if collision is not setup for mode
-	if ((!_is_collision_editor() && !_static_body.is_valid()) ||
-			(_is_collision_editor() && _editor_static_body == nullptr)) {
-		_build_collision();
+void Terrain3D::_update_collision(Vector3 p_cam_pos) {
+	if (!_collision_initialized) {
+		LOG(ERROR, "Collision not initialized, returning");
 		return;
 	}
 
-	int time = Time::get_singleton()->get_ticks_msec();
+	int time = Time::get_singleton()->get_ticks_usec();
 	int region_size = _storage->get_region_size();
 	int collision_shape_size = region_size;
 	if (_is_collision_dynamic()) {
@@ -322,27 +316,16 @@ void Terrain3D::_update_collision() {
 		hole_const = __FLT_MAX__;
 	}
 
-	Vector3 camera_pos;
 	Array existing = Array();
-	if (_is_collision_dynamic()) {
-		if (!UtilityFunctions::is_instance_valid(_camera) || !_camera->is_inside_tree()) {
-			LOG(ERROR, "Can't find valid camera to follow. Returning");
-			return;
-		}
-		camera_pos = _camera->get_global_position();
-		camera_pos.y = 0.0f;
-	}
-
 	// Track collision shapes in range, archive the rest
 	if (_editor_static_body != nullptr) {
 		for (int i = _editor_static_body->get_child_count() - 1; i >= 0; i--) {
 			Node3D *child = Object::cast_to<Node3D>(_editor_static_body->get_child(i));
 			Vector3 child_pos = child->get_global_position();
-			if (_is_collision_dynamic() && child_pos.distance_to(camera_pos) <= _collision_dynamic_distance) {
+			if (_is_collision_dynamic() && child_pos.distance_to(p_cam_pos) <= _collision_dynamic_distance) {
 				existing.push_back(Vector3i(child_pos.round()));
 				continue;
 			}
-			LOG(DEBUG, "Archiving esb child ", i, " ", child->get_name());
 			_editor_static_body->remove_child(child);
 			_collision_shapes_unused.push_back(child);
 		}
@@ -350,7 +333,7 @@ void Terrain3D::_update_collision() {
 	if (_static_body.is_valid() && PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) > 0) {
 		for (int i = PhysicsServer3D::get_singleton()->body_get_shape_count(_static_body) - 1; i >= 0; i--) {
 			Vector3 position = PhysicsServer3D::get_singleton()->body_get_shape_transform(_static_body, i).origin;
-			if (_is_collision_dynamic() && position.distance_to(camera_pos) <= _collision_dynamic_distance) {
+			if (_is_collision_dynamic() && position.distance_to(p_cam_pos) <= _collision_dynamic_distance) {
 				PhysicsServer3D::get_singleton()->body_set_shape_disabled(_static_body, i, false);
 				existing.push_back(Vector3i(position.round()));
 				continue;
@@ -367,7 +350,7 @@ void Terrain3D::_update_collision() {
 				Vector3i global_pos = Vector3i(global_offset.x, 0, global_offset.y);
 				Vector3i global_middle_pos = global_pos + Vector3i(collision_shape_size, 0, collision_shape_size) / 2;
 
-				if (_is_collision_dynamic() && (Vector3(global_middle_pos).distance_to(camera_pos) > _collision_dynamic_distance || existing.has(global_middle_pos))) {
+				if (_is_collision_dynamic() && (Vector3(global_middle_pos).distance_to(p_cam_pos) > _collision_dynamic_distance || existing.has(global_middle_pos))) {
 					continue;
 				}
 
@@ -498,7 +481,7 @@ void Terrain3D::_update_collision() {
 			}
 		}
 	}
-	LOG(DEBUG_CONT, "Collision creation time: ", Time::get_singleton()->get_ticks_msec() - time, " ms");
+	LOG(DEBUG_CONT, "Collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }
 
 void Terrain3D::_destroy_collision() {
@@ -789,6 +772,7 @@ void Terrain3D::set_cull_margin(real_t p_margin) {
 void Terrain3D::set_collision_enabled(bool p_enabled) {
 	LOG(INFO, "Setting collision enabled: ", p_enabled);
 	_collision_enabled = p_enabled;
+	_collision_initialized = false;
 	if (_collision_enabled) {
 		_build_collision();
 	} else {
@@ -810,6 +794,7 @@ void Terrain3D::set_collision_dynamic_shape_size(uint32_t p_size) {
 	p_size = CLAMP(p_size, 8, 256);
 	LOG(INFO, "Setting collision dynamic shape size: ", p_size);
 	_collision_dynamic_shape_size = p_size;
+	_collision_initialized = false;
 	if (p_size > _collision_dynamic_distance) {
 		set_collision_dynamic_distance(p_size);
 	} else {
@@ -822,12 +807,14 @@ void Terrain3D::set_collision_dynamic_distance(real_t p_distance) {
 	p_distance = CLAMP(p_distance, 24.0, 256);
 	LOG(INFO, "Setting collision dynamic distance: ", p_distance);
 	_collision_dynamic_distance = p_distance;
+	_collision_initialized = false;
 	_build_collision();
 }
 
 void Terrain3D::set_collision_mode(CollisionMode p_mode) {
 	LOG(INFO, "Setting collision mode: ", p_mode);
 	_collision_mode = p_mode;
+	_collision_initialized = false;
 	_build_collision();
 }
 
@@ -909,7 +896,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 	}
 
 	if (_is_collision_dynamic()) {
-		_update_collision();
+		_update_collision(p_cam_pos);
 	}
 }
 
