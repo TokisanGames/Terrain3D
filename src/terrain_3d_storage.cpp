@@ -82,6 +82,20 @@ void Terrain3DStorage::update_height_range() {
 	LOG(INFO, "Updated terrain height range: ", _height_range);
 }
 
+void Terrain3DStorage::clear_edited_area() {
+	_edited_area = AABB();
+}
+
+void Terrain3DStorage::add_edited_area(AABB p_area) {
+	if (_edited_area.has_surface()) {
+		_edited_area = _edited_area.merge(p_area);
+	} else {
+		_edited_area = p_area;
+	}
+	emit_signal("maps_edited", p_area);
+}
+
+
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
 	LOG(INFO, p_size);
 	//ERR_FAIL_COND(p_size < SIZE_64);
@@ -1076,4 +1090,5 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_size_changed"));
 	ADD_SIGNAL(MethodInfo("regions_changed"));
+	ADD_SIGNAL(MethodInfo("maps_edited", PropertyInfo(Variant::AABB, "edited_area")));
 }

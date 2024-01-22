@@ -132,23 +132,9 @@ private:
 	void _store_undo();
 	void _apply_undo(const Array &p_set);
 
-	// Singleton
-	friend void initialize_terrain_3d(ModuleInitializationLevel p_level);
-	friend void uninitialize_terrain_3d(ModuleInitializationLevel p_level);
-
-	static Terrain3DEditor *_singleton;
-
-	static void create() { _singleton = memnew(Terrain3DEditor); }
-	static void free() {
-		memdelete(_singleton);
-		_singleton = nullptr;
-	}
-
+public:
 	Terrain3DEditor();
 	~Terrain3DEditor();
-
-public:
-	static Terrain3DEditor *get_singleton() { return _singleton; }
 
 	void set_terrain(Terrain3D *p_terrain) { _terrain = p_terrain; }
 	Terrain3D *get_terrain() const { return _terrain; }

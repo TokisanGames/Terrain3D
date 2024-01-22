@@ -76,6 +76,7 @@ private:
 
 	// Stored Data
 	Vector2 _height_range = Vector2(0, 0);
+	AABB _edited_area;
 
 	/**
 	 * These arrays house all of the map data.
@@ -113,6 +114,10 @@ public:
 	void update_heights(real_t p_height);
 	void update_heights(Vector2 p_heights);
 	void update_height_range();
+
+	void clear_edited_area();
+	void add_edited_area(AABB p_area);
+	AABB get_edited_area() const { return _edited_area; }
 
 	// Regions
 	void set_region_size(RegionSize p_size);
