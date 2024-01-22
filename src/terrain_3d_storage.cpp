@@ -916,7 +916,8 @@ Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
 }
 
 /**
- * Returns the location of a terrain vertex at a certain LOD.
+ * Returns the location of a terrain vertex at a certain LOD. If there is a hole at the position, it returns
+ * NAN in the vector's Y coordinate.
  * p_lod (0-8): Determines how many heights around the given global position will be sampled.
  * p_filter:
  *  HEIGHT_FILTER_NEAREST: Samples the height map at the exact coordinates given.
@@ -927,15 +928,25 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 	LOG(INFO, "Calculating vertex location");
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 	real_t height = 0.0;
+
 	switch (p_filter) {
 		case HEIGHT_FILTER_NEAREST: {
-			height = get_height(p_global_position);
+			if (Util::is_hole(get_control(p_global_position))) {
+				height = NAN;
+			} else {
+				height = get_height(p_global_position);
+			}
 		} break;
 		case HEIGHT_FILTER_MINIMUM: {
 			height = get_height(p_global_position);
 			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
 				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					real_t h = get_height(p_global_position + Vector3(dx, 0.0, dz));
+					Vector3 position = p_global_position + Vector3(dx, 0.0, dz);
+					if (Util::is_hole(get_control(position))) {
+						height = NAN;
+						break;
+					}
+					real_t h = get_height(position);
 					if (h < height) {
 						height = h;
 					}
@@ -943,6 +954,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 			}
 		} break;
 	}
+
 	return Vector3(p_global_position.x, height, p_global_position.z);
 }
 
