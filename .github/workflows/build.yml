@@ -100,7 +100,7 @@ jobs:
           cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload Package
-        uses: Wandalen/wretry.action@v1.3.0_js_action
+        uses: Wandalen/wretry.action@js_action
         with:
             action: actions/upload-artifact@v3
             attempt_limit: 3
