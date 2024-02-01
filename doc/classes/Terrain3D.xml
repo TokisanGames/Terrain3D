@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="Terrain3D" inherits="Node3D" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		A high performance, editable terrain system for Godot 4.
 	</brief_description>
 	<description>
+		Terrain3D is a high performance, editable terrain system for Godot 4. It provides a clipmap based terrain that supports up to 16k terrains with multiple LODs, 32 textures, and editor tools for importing or creating terrains.
+    This class handles mesh and collision generation, and management of the whole system. See [url=../docs/system_architecture.html]System Architecture[/url] for design details.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -14,8 +15,8 @@
 			<param index="1" name="filter" type="int" enum="Terrain3DStorage.HeightFilter" />
 			<description>
 				Generates a static ArrayMesh for the terrain.
-				        [code]lod[/code] - (0-8) Determines the granularity of the generated mesh. 4 is recommended.
-				        [code]filter[/code] - Controls how vertices' Y coordinates are generated from the height map. See [enum Terrain3DStorage.HeightFilter]
+				[code]lod[/code] - Determines the granularity of the generated mesh. The range is 0-8. 4 is recommended.
+				[code]filter[/code] - Controls how vertex Y coordinates are generated from the height map. See [enum Terrain3DStorage.HeightFilter].
 			</description>
 		</method>
 		<method name="generate_nav_mesh_source_geometry">
@@ -44,8 +45,8 @@
 				A utility function that returns an Image filled with a specified color and format.
 				        If [code]color.a &lt; 0[/code], its filled with a checkered pattern multiplied by [code]color.rgb[/code].
 				The behavior changes if a compressed format is requested:
-				* If the editor is running and format is DXT1/5, BPTC_RGBA, it returns a filled image in the requested format.
-				* Otherwise, it returns a blank image in that format.
+				- If the editor is running and the format is DXT1, DXT5, or BPTC_RGBA, it returns a filled image in the requested color and format.
+				- All other compressed formats return a blank image in that format.
 				The reason for this is the Image compression library is available only in the editor. And it is unreliable, offering little control over the output format, choosing automatically and often wrong. We have selected a few compressed formats it gets right.
 			</description>
 		</method>
@@ -85,9 +86,9 @@
 			<param index="2" name="invert_green_channel" type="bool" default="false" />
 			<description>
 				A utility function that returns an Image with the following content:
-				        * RGB channels from [code]src_rgb[/code]
-				        * A channel from [code]src_r[/code]
-				        * G inverted, if specified (eg for converting normal maps between DirectX and OpenGL).
+				- RGB channels from [code]src_rgb[/code].
+				- A channel from [code]src_r[/code].
+				- G inverted, if specified (eg for converting normal maps between DirectX and OpenGL).
 			</description>
 		</method>
 		<method name="set_camera">

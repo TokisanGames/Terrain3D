@@ -416,7 +416,7 @@ void Terrain3DMaterial::_set_region_size(int p_size) {
 }
 
 void Terrain3DMaterial::_set_shader_parameters(const Dictionary &p_dict) {
-	LOG(INFO, "Setting param cache dictionary: ", p_dict.size());
+	LOG(INFO, "Setting shader params dictionary: ", p_dict.size());
 	_shader_params = p_dict;
 }
 
@@ -621,7 +621,7 @@ void Terrain3DMaterial::save() {
 			}
 		}
 		if (!has) {
-			LOG(DEBUG, "'", name, "' not found in shader parameters. Removing from cache.");
+			LOG(DEBUG, "'", name, "' not found in shader parameters. Removing from dictionary.");
 			_shader_params.erase(name);
 		}
 	}

@@ -95,7 +95,6 @@ void Terrain3DStorage::add_edited_area(AABB p_area) {
 	emit_signal("maps_edited", p_area);
 }
 
-
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
 	LOG(INFO, p_size);
 	//ERR_FAIL_COND(p_size < SIZE_64);
@@ -273,7 +272,7 @@ void Terrain3DStorage::update_regions(bool force_emit) {
 		_modified = true;
 	}
 
-	// Don't emit if no changes and not requested
+	// Emit if requested or changes were made
 	if (force_emit) {
 		Array region_signal_args;
 		region_signal_args.push_back(_generated_height_maps.get_rid());

@@ -11,7 +11,7 @@ See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for 
 | **Platforms** | Terrain editing and exported games work on Windows, Linux, macOS. [Mobile and web platforms](mobile_web.md) are experimental.
 | **Languages** | GDScript, C++, C# all work, as should any language Godot supports. See [Integrating With Terrain3D](integrating.md)
 | **Editing** |
-| Sculpting Operations | Raise, Lower, Flatten, Expand (Multiply away from 0), Reduce (Divide towards 0), Smooth. Needs refinement
+| Sculpting Operations | Raise, Lower, Flatten, Expand (Multiply away from 0), Reduce (Divide towards 0), Slope and Smooth. It can be improved over time.
 | Painting Operations | Texture, Color, Wetness (roughness) with Height blending.
 | GPU Sculpting| [Pending](https://github.com/TokisanGames/Terrain3D/issues/174). Currently painting occurs on the CPU in C++. It's reasonably fast, but we limit the brush size to 200 as larger lags too much.
 | Advanced texturing| [Pending](https://github.com/TokisanGames/Terrain3D/discussions/64) and [this](https://github.com/TokisanGames/Terrain3D/discussions/4). eg. Paintable uv scale / slope / rotation, 2-layer texture blending, 3D projection. We intend to implement all of these and adopt techniques provided by The Witcher 3 team. (See [System Architecture](system_architecture.md))
@@ -28,7 +28,7 @@ See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for 
 | **Navigation Server** | Supported. See [Navigation](navigation.md)
 | **Data** |
 | Large terrains | 8k^2 works, maybe a little more, though [collision will take up ~3GB RAM](https://github.com/TokisanGames/Terrain3D/issues/161). 16k x 8k up to 16k^2 works in memory, but cannot be saved due to an [engine bug](https://github.com/TokisanGames/Terrain3D/issues/159).
-| Importing / Exporting | [Works. See [Importing data](import_export.md)
+| Importing / Exporting | Works. See [Importing data](import_export.md)
 | Double precision floats | [Needs testing](https://github.com/TokisanGames/Terrain3D/issues/30)
 | **Rendering** |
 | Frustum Culling | The terrain is made up of several meshes, so half can be culled if the camera is near the ground.

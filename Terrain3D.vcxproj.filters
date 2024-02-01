@@ -178,6 +178,9 @@
     <None Include=".github\workflows\ios.yml">
       <Filter>1. Project Files</Filter>
     </None>
+    <None Include="doc\docs\nightly_builds.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">

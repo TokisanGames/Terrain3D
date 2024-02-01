@@ -179,6 +179,7 @@
     <None Include="CONTRIBUTING.md" />
     <None Include="doc\conf.py" />
     <None Include="doc\docs\mobile_web.md" />
+    <None Include="doc\docs\nightly_builds.md" />
     <None Include="doc\docs\press.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />
