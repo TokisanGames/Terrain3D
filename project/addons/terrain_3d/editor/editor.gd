@@ -118,7 +118,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 		## Get mouse location on terrain
 		var mouse_pos: Vector2 = p_event.position
-		var camera_pos: Vector3 = p_viewport_camera.global_position
+		var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
 		var camera_dir: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
 		
 		# If mouse intersected terrain within 3000 units (3.4e38 is Double max val)
