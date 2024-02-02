@@ -54,7 +54,7 @@ func _handles(p_object: Object) -> bool:
 func _edit(p_object: Object) -> void:
 	if !p_object:
 		_clear()
-		
+
 	if p_object is Terrain3D:
 		if p_object == terrain:
 			return
@@ -111,25 +111,32 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 	
-	# Handle mouse movement
+	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 			return AFTER_GUI_INPUT_PASS
 
 		## Get mouse location on terrain
-		var mouse_pos: Vector2 = p_event.position
+	
+		# Snap terrain to current camera 
+		terrain.set_camera(p_viewport_camera)
+		
+		# Detect if viewport is set to half_resolution
+		# Structure is: Node3DEditorViewportContainer/Node3DEditorViewport/SubViewportContainer/SubViewport/Camera3D
+		var editor_vpc: SubViewportContainer = p_viewport_camera.get_parent().get_parent()
+		var full_resolution: bool = false if editor_vpc.stretch_shrink == 2 else true
+
+		# Project 2D mouse position to 3D position and direction
+		var mouse_pos: Vector2 = p_event.position if full_resolution else p_event.position/2
 		var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
 		var camera_dir: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
-		
-		# If mouse intersected terrain within 3000 units (3.4e38 is Double max val)
-		var intersection_point: Vector3 = terrain.get_intersection(camera_pos, camera_dir)
-		if intersection_point.x < 3.4e38:
-			mouse_global_position = intersection_point
-		else:
-			# Else, grab mouse position without considering height
-			var t = -Vector3(0, 1, 0).dot(camera_pos) / Vector3(0, 1, 0).dot(camera_dir)
-			mouse_global_position = (camera_pos + t * camera_dir)
 
+		# If mouse intersected with terrain get point
+		var intersection_point: Vector3 = terrain.get_intersection(camera_pos, camera_dir)
+		if intersection_point.z > 3.4e38: # double max
+			return AFTER_GUI_INPUT_STOP
+		mouse_global_position = intersection_point
+		
 		## Update decal
 		ui.decal.global_position = mouse_global_position
 		ui.decal.albedo_mix = 1.0
