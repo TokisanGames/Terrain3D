@@ -38,7 +38,6 @@ uniform vec4 _texture_color_array[32];
 uniform int _background_mode = 1;  // NONE = 0, FLAT = 1, NOISE = 2
 
 // Public uniforms
-
 uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
@@ -178,6 +177,13 @@ vec2 rotate(vec2 v, float cosa, float sina) {
 	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);
 }
 
+// Moves a point around a pivot point.
+vec2 rotate_around(vec2 point, vec2 pivot, float angle){
+	float x = pivot.x + (point.x - pivot.x) * cos(angle) - (point.y - pivot.y) * sin(angle);
+	float y = pivot.y + (point.x - pivot.x) * sin(angle) + (point.y - pivot.y) * cos(angle);
+	return vec2(x, y);
+}
+
 vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, float blend) {
 	if(height_blending) {
 		float ma = max(a_height + (1.0 - blend), b_height + blend) - (1.001 - blend_sharpness);
@@ -192,18 +198,18 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 }
 
 // 2-4 lookups
-void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
+void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
 	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0);
 	vec2 uv_center = vec2(iuv_center.xy);
 	int region = iuv_center.z;
 
 //INSERT: AUTO_SHADER_TEXTURE_ID
 //INSERT: TEXTURE_ID
-	float r = random(uv_center) * PI;
-	float rand = r * _texture_uv_rotation_array[out_mat.base];
-	vec2 rot = vec2(cos(rand), sin(rand));
-	uv *= .5; // Allow larger numbers on uv scale array - move to C++
-	vec2 matUV = rotate(uv, rot.x, rot.y) * _texture_uv_scale_array[out_mat.base];
+	float random_value = random(uv_center);
+	float random_angle = (random_value - 0.5) * TAU; // -180deg to 180deg
+	base_uv *= .5; // Allow larger numbers on uv scale array - move to C++
+	vec2 uv1 = base_uv * _texture_uv_scale_array[out_mat.base];
+	vec2 matUV = rotate_around(uv1, uv1 - 0.5, random_angle * _texture_uv_rotation_array[out_mat.base]);
 
 	vec4 albedo_ht = vec4(0.);
 	vec4 normal_rg = vec4(0.5f, 0.5f, 1.0f, 1.0f);
@@ -216,13 +222,11 @@ void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Mate
 	albedo_ht.rgb *= _texture_color_array[out_mat.base].rgb;
 
 	// Unpack base normal for blending
-	vec3 n = unpack_normal(normal_rg);
-	normal_rg.xz = rotate(n.xz, rot.x, -rot.y);
+	normal_rg.xz = unpack_normal(normal_rg).xz;
 
 	// Setup overlay texture to blend
-	float rand2 = r * _texture_uv_rotation_array[out_mat.over];
-	vec2 rot2 = vec2(cos(rand2), sin(rand2));
-	vec2 matUV2 = rotate(uv, rot2.x, rot2.y) * _texture_uv_scale_array[out_mat.over];
+	vec2 uv2 = base_uv * _texture_uv_scale_array[out_mat.over];
+	vec2 matUV2 = rotate_around(uv2, uv2 - 0.5, random_angle * _texture_uv_rotation_array[out_mat.over]);
 
 	vec4 albedo_ht2 = texture(_texture_array_albedo, vec3(matUV2, float(out_mat.over)));
 	vec4 normal_rg2 = texture(_texture_array_normal, vec3(matUV2, float(out_mat.over)));
@@ -236,8 +240,7 @@ void get_material(vec2 uv, uint control, ivec3 iuv_center, vec3 normal, out Mate
 		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
 		
 		// Unpack overlay normal for blending
-		n = unpack_normal(normal_rg2);
-		normal_rg2.xz = rotate(n.xz, rot2.x, -rot2.y);
+		normal_rg2.xz = unpack_normal(normal_rg2).xz;
 
 		// Blend overlay and base
 		albedo_ht = height_blend(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, out_mat.blend);
@@ -302,13 +305,13 @@ void fragment() {
 	vec2 weights1 = clamp(texel_pos - texel_pos_floor, 0, 1);
 	weights1 = mix(weights1, vec2(1.0) - weights1, mirror.xy);
 	vec2 weights0 = vec2(1.0) - weights1;
-	// Adjust final weights by noise. 1 lookup
+	// Adjust final weights by texture's height/depth + noise. 1 lookup
 	float noise3 = texture(noise_texture, uv*noise3_scale).r;
 	vec4 weights;
-	weights.x = blend_weights(weights0.x * weights0.y, noise3);
-	weights.y = blend_weights(weights0.x * weights1.y, noise3);
-	weights.z = blend_weights(weights1.x * weights0.y, noise3);
-	weights.w = blend_weights(weights1.x * weights1.y, noise3);
+	weights.x = blend_weights(weights0.x * weights0.y, clamp(mat[0].alb_ht.a + noise3, 0., 1.));
+	weights.y = blend_weights(weights0.x * weights1.y, clamp(mat[1].alb_ht.a + noise3, 0., 1.));
+	weights.z = blend_weights(weights1.x * weights0.y, clamp(mat[2].alb_ht.a + noise3, 0., 1.));
+	weights.w = blend_weights(weights1.x * weights1.y, clamp(mat[3].alb_ht.a + noise3, 0., 1.));
 	float weight_sum = weights.x + weights.y + weights.z + weights.w;
 	float weight_inv = 1.0/weight_sum;
 
