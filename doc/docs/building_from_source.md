@@ -140,12 +140,15 @@ scons: done building targets.
 
 ## 6. Set up the extension in Godot
 
-* Close Godot. (Not required the first time, but necessary when updating the files on subsequent builds.)
-* Copy `project/addons/terrain_3d` to your own project folder as `/addons/terrain_3d`. 
-* Upon opening or switching back to Godot, it should prompt to restart. Do so.
-* To finalize resource importing and clear out error messages, it's best to reload the project a second time. 
-* Create or open a 3D scene and add a new Terrain3D node.
-* Select Terrain3D in the scene tree. In the inspector, click the down arrow to the right of the storage resource and save it as a binary .res file. This is optional, but highly recommended. Otherwise it will save terrain data as text in the current scene file. The other resources can be left as is or saved as text .tres. These external files can be shared with other scenes.
+1. Build Terrain3D, then ensure binary libraries exist in `project/addons/terrain_3d/bin`.
+2. Close Godot. (Not required the first time, but necessary when updating the files on subsequent builds.)
+3. Copy `project/addons/terrain_3d` to your own project folder as `/addons/terrain_3d`. 
+4. Run Godot, using the console executable so you can see error messages. Restart when it prompts.
+5. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
+6. Select `Project / Reload Current Project` to restart once more.
+7. Create or open a 3D scene and add a new Terrain3D node.
+8. Select Terrain3D in the Scene panel. In the Inspector, click the down arrow to the right of the `storage` resource and save it as a binary `.res` file. The other resources can be left as is or saved as text `.tres`. These external files can be shared with other scenes.
+9. Learn how to properly [set up your textures](texture_prep.md), or skip to [importing data](import_export.md).
 
 ## Other Build Options
 
@@ -180,6 +183,12 @@ This plugin supports Windows, Linux and macOS. We've received successful reports
 
 scons platform=linux
 ```
+
+### Using C++20
+The C++ standard used in Godot and Godot-cpp is C++17. However you may use C++20 for building GDExtensions if desired.
+
+The [SConstruct](https://github.com/TokisanGames/Terrain3D/blob/main/SConstruct) file has some commented code at the bottom that will replace update the standard.
+
 
 ### See all options
 ```

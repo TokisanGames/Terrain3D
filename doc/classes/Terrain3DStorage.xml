@@ -14,7 +14,12 @@
 			<param index="1" name="images" type="Image[]" default="[]" />
 			<param index="2" name="update" type="bool" default="true" />
 			<description>
-				Adds a region for sculpting and painting. This allocates new [member region_size] sized textures in memory and on disk to store sculpting and texture painting data.
+				Adds a region for sculpting and painting. This allocates new set of [member region_size] sized image maps in memory and on disk to store sculpting and texture painting data.
+				If the region already exists and image maps are included, the current maps will be overwritten. This means that if some maps are null, existing maps will be removed.
+				Parameters:
+				-	p_global_position - the world location to place the region, which gets rounded down to the nearest region_size multiple. That means adding a region at (1500, 0, 1500) is the same as adding it at (1024, 0, 1024) when region_size is 1024.
+				-	p_images - Optional array of { Height, Control, Color } with region_sized images. See [enum MapType].
+				-	p_update - rebuild the maps if true. Set to false if bulk adding many regions, then true on the last one or use [method force_update_maps].
 			</description>
 		</method>
 		<method name="export_image">

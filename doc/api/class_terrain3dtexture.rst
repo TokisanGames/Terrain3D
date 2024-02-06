@@ -201,7 +201,7 @@ The user settable ID of the texture, between 0 and 31. You can change this to re
 - void **set_uv_rotation** **(** :ref:`float<class_float>` value **)**
 - :ref:`float<class_float>` **get_uv_rotation** **(** **)**
 
-The shader rotates UV lookups in a detiling pattern based on this value. However, it does not work well and is not recommended at this time.
+The shader rotates UV lookups in a detiling pattern based on this value.
 
 .. rst-class:: classref-item-separator
 

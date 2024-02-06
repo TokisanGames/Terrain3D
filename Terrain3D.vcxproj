@@ -178,6 +178,7 @@
     <None Include="AUTHORS.md" />
     <None Include="CONTRIBUTING.md" />
     <None Include="doc\conf.py" />
+    <None Include="doc\docs\double_precision.md" />
     <None Include="doc\docs\mobile_web.md" />
     <None Include="doc\docs\nightly_builds.md" />
     <None Include="doc\docs\press.md" />
