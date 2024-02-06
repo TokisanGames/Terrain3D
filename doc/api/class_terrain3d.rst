@@ -19,7 +19,7 @@ Description
 
 Terrain3D is a high performance, editable terrain system for Godot 4. It provides a clipmap based terrain that supports up to 16k terrains with multiple LODs, 32 textures, and editor tools for importing or creating terrains.
 
-    This class handles mesh and collision generation, and management of the whole system. See `System Architecture <../docs/system_architecture.html>`__ for design details.
+This class handles mesh and collision generation, and management of the whole system. See `System Architecture <../docs/system_architecture.html>`__ for design details.
 
 .. rst-class:: classref-reftable-group
 
@@ -54,7 +54,9 @@ Properties
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`float<class_float>`                                                 | :ref:`render_cull_margin<class_Terrain3D_property_render_cull_margin>`     | ``0.0``         |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`render_layers<class_Terrain3D_property_render_layers>`               | ``1``           |
+   | :ref:`int<class_int>`                                                     | :ref:`render_layers<class_Terrain3D_property_render_layers>`               | ``2147483649``  |
+   +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                     | :ref:`render_mouse_layer<class_Terrain3D_property_render_mouse_layer>`     | ``32``          |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DStorage<class_Terrain3DStorage>`                           | :ref:`storage<class_Terrain3D_property_storage>`                           |                 |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
@@ -80,7 +82,7 @@ Methods
    +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Image<class_Image>`                           | :ref:`get_filled_image<class_Terrain3D_method_get_filled_image>` **(** :ref:`Vector2i<class_Vector2i>` size, :ref:`Color<class_Color>` color, :ref:`bool<class_bool>` create_mipmaps, :ref:`Format<enum_Image_Format>` format **)** |static| |
    +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector3<class_Vector3>`                       | :ref:`get_intersection<class_Terrain3D_method_get_intersection>` **(** :ref:`Vector3<class_Vector3>` position, :ref:`Vector3<class_Vector3>` direction **)**                                                                                 |
+   | :ref:`Vector3<class_Vector3>`                       | :ref:`get_intersection<class_Terrain3D_method_get_intersection>` **(** :ref:`Vector3<class_Vector3>` src_pos, :ref:`Vector3<class_Vector3>` direction **)**                                                                                  |
    +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Vector2<class_Vector2>`                       | :ref:`get_min_max<class_Terrain3D_method_get_min_max>` **(** :ref:`Image<class_Image>` image **)** |static|                                                                                                                                  |
    +-----------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -355,14 +357,37 @@ This margin is added to the terrain bounding box (AABB). The terrain already set
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **render_layers** = ``1``
+:ref:`int<class_int>` **render_layers** = ``2147483649``
 
 .. rst-class:: classref-property-setget
 
 - void **set_render_layers** **(** :ref:`int<class_int>` value **)**
 - :ref:`int<class_int>` **get_render_layers** **(** **)**
 
-The render layers the terrain is drawn on. This sets ``VisualInstance3D.layers`` in the engine.
+The render layers the terrain is drawn on. This sets ``VisualInstance3D.layers`` in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for :ref:`render_mouse_layer<class_Terrain3D_property_render_mouse_layer>` is included, or set that variable again after this so that the mouse cursor works.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_render_mouse_layer:
+
+.. rst-class:: classref-property
+
+:ref:`int<class_int>` **render_mouse_layer** = ``32``
+
+.. rst-class:: classref-property-setget
+
+- void **set_mouse_layer** **(** :ref:`int<class_int>` value **)**
+- :ref:`int<class_int>` **get_mouse_layer** **(** **)**
+
+Godot supports 32 render layers. For most objects, only layers 1-20 are available for selection in the inspector. 21-32 are settable via code, and are considered reserved for editor plugins.
+
+This variable sets the editor render layer (21-32) to be used by ``get_intersection``, which the mouse cursor uses.
+
+You may place other objects on this layer, however ``get_intersection`` will report intersections with them. So either dedicate this layer to Terrain3D, or if you must use all 32 layers, dedicate this one during editing or when using ``get_intersection``, and then you can use it during game play.
+
+See :ref:`get_intersection<class_Terrain3D_method_get_intersection>`.
 
 .. rst-class:: classref-item-separator
 
@@ -475,7 +500,7 @@ Returns the camera the terrain is currently snapping to.
 
 A utility function that returns an Image filled with a specified color and format.
 
-        If ``color.a < 0``, its filled with a checkered pattern multiplied by ``color.rgb``.
+If ``color.a < 0``, its filled with a checkered pattern multiplied by ``color.rgb``.
 
 The behavior changes if a compressed format is requested:
 
@@ -493,9 +518,23 @@ The reason for this is the Image compression library is available only in the ed
 
 .. rst-class:: classref-method
 
-:ref:`Vector3<class_Vector3>` **get_intersection** **(** :ref:`Vector3<class_Vector3>` position, :ref:`Vector3<class_Vector3>` direction **)**
+:ref:`Vector3<class_Vector3>` **get_intersection** **(** :ref:`Vector3<class_Vector3>` src_pos, :ref:`Vector3<class_Vector3>` direction **)**
 
-Returns the terrain intersection point that a given camera position and direction is looking at. Currently this works out to a maximum of about 3000 units. It returns ``>3.4e38`` (max float value) if there is no hit.
+Casts a ray from ``src_pos`` pointing towards ``direction``, attempting to intersect the terrain.
+
+Possible return values:
+
+- If the terrain is hit, the intersection point is returned.
+
+- If there is no intersection, eg. the ray points towards the sky, it returns the maximum double float value ``Vector3(3.402823466e+38F,...)``. You can check this case with this code: ``if point.z > 3.4e38:``\ 
+
+- On error, it returns ``Vector3(NAN, NAN, NAN)`` and prints a message to the console.
+
+This ray cast does not use physics, so enabling collision is unnecessary. It places a camera at the specified point and "looks" at the terrain. It then uses the renderer's depth texture to determine how far away the intersection point is.
+
+This function is used by the editor plugin to place the mouse cursor. It can also be used by 3rd party plugins, and even during gameplay, such as a space ship firing lasers at the terrain and causing an explosion at the hit point.
+
+It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See :ref:`render_mouse_layer<class_Terrain3D_property_render_mouse_layer>`.
 
 .. rst-class:: classref-item-separator
 

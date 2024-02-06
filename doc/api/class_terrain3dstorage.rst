@@ -462,7 +462,17 @@ Method Descriptions
 
 godot.Error **add_region** **(** :ref:`Vector3<class_Vector3>` global_position, :ref:`Image[]<class_Image>` images=[], :ref:`bool<class_bool>` update=true **)**
 
-Adds a region for sculpting and painting. This allocates new :ref:`region_size<class_Terrain3DStorage_property_region_size>` sized textures in memory and on disk to store sculpting and texture painting data.
+Adds a region for sculpting and painting. This allocates new set of :ref:`region_size<class_Terrain3DStorage_property_region_size>` sized image maps in memory and on disk to store sculpting and texture painting data.
+
+If the region already exists and image maps are included, the current maps will be overwritten. This means that if some maps are null, existing maps will be removed.
+
+Parameters:
+
+-	p_global_position - the world location to place the region, which gets rounded down to the nearest region_size multiple. That means adding a region at (1500, 0, 1500) is the same as adding it at (1024, 0, 1024) when region_size is 1024.
+
+-	p_images - Optional array of { Height, Control, Color } with region_sized images. See :ref:`MapType<enum_Terrain3DStorage_MapType>`.
+
+-	p_update - rebuild the maps if true. Set to false if bulk adding many regions, then true on the last one or use :ref:`force_update_maps<class_Terrain3DStorage_method_force_update_maps>`.
 
 .. rst-class:: classref-item-separator
 

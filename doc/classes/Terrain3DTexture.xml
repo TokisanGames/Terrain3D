@@ -32,7 +32,7 @@
 			The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
 		</member>
 		<member name="uv_rotation" type="float" setter="set_uv_rotation" getter="get_uv_rotation" default="0.0">
-			The shader rotates UV lookups in a detiling pattern based on this value. However, it does not work well and is not recommended at this time.
+			The shader rotates UV lookups in a detiling pattern based on this value.
 		</member>
 		<member name="uv_scale" type="float" setter="set_uv_scale" getter="get_uv_scale" default="0.1">
 			The scale of the textures.
