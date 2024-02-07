@@ -4,14 +4,18 @@
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_script.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/environment.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/quad_mesh.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/v_box_container.hpp> // for get_editor_main_screen()
 #include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
@@ -69,6 +73,7 @@ void Terrain3D::_initialize() {
 		_material->set_mesh_vertex_spacing(_mesh_vertex_spacing);
 		_storage->update_regions(true); // generate map arrays
 		_texture_list->update_list(); // generate texture arrays
+		_setup_mouse_picking();
 		_build(_mesh_lods, _mesh_size);
 		_build_collision();
 		_initialized = true;
@@ -106,6 +111,71 @@ void Terrain3D::__process(double delta) {
 	}
 }
 
+void Terrain3D::_setup_mouse_picking() {
+	LOG(INFO, "Setting up mouse picker and get_intersection viewport, camera & screen quad");
+	_mouse_vp = memnew(SubViewport);
+	_mouse_vp->set_name("SubViewport");
+	add_child(_mouse_vp, true);
+	_mouse_vp->set_owner(this);
+	_mouse_vp->set_size(Vector2i(2, 2));
+	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	_mouse_vp->set_handle_input_locally(false);
+	_mouse_vp->set_canvas_cull_mask(0);
+	// DEPRECATED Enable in 4.2 and disable texture srgb->linear
+	//_mouse_vp->set_use_hdr_2d(true);
+	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+	_mouse_vp->set_positional_shadow_atlas_size(0);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(0, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(1, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(2, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(3, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+
+	_mouse_cam = memnew(Camera3D);
+	_mouse_cam->set_name("MouseCamera3D");
+	_mouse_vp->add_child(_mouse_cam, true);
+	_mouse_cam->set_owner(this);
+	Ref<Environment> env;
+	env.instantiate();
+	env->set_tonemapper(Environment::TONE_MAPPER_LINEAR);
+	_mouse_cam->set_environment(env);
+	_mouse_cam->set_projection(Camera3D::PROJECTION_ORTHOGONAL);
+	_mouse_cam->set_size(0.1f);
+	_mouse_cam->set_far(100000.f);
+
+	_mouse_quad = memnew(MeshInstance3D);
+	_mouse_quad->set_name("ScreenQuad");
+	_mouse_cam->add_child(_mouse_quad, true);
+	_mouse_quad->set_owner(this);
+	Ref<QuadMesh> quad;
+	quad.instantiate();
+	quad->set_size(Vector2(0.1f, 0.1f));
+	_mouse_quad->set_mesh(quad);
+	String shader_code = String(
+#include "shaders/gpu_depth.glsl"
+	);
+	Ref<Shader> shader;
+	shader.instantiate();
+	shader->set_code(shader_code);
+	Ref<ShaderMaterial> shader_material;
+	shader_material.instantiate();
+	shader_material->set_shader(shader);
+	_mouse_quad->set_surface_override_material(0, shader_material);
+	_mouse_quad->set_position(Vector3(0.f, 0.f, -0.5f));
+
+	// Set terrain, terrain shader, mouse camera, and screen quad to mouse layer
+	set_mouse_layer(_mouse_layer);
+}
+
+void Terrain3D::_destroy_mouse_picking() {
+	LOG(DEBUG, "Freeing mouse_quad");
+	memdelete_safely(_mouse_quad);
+	LOG(DEBUG, "Freeing mouse_cam");
+	memdelete_safely(_mouse_cam);
+	LOG(DEBUG, "memdelete mouse_vp");
+	memdelete_safely(_mouse_vp);
+	LOG(DEBUG, "finished");
+}
+
 /**
  * If running in the editor, recurses into the editor scene tree to find the editor cameras and grabs the first one.
  * The edited_scene_root is excluded in case the user already has a Camera3D in their scene.
@@ -132,6 +202,7 @@ void Terrain3D::_grab_camera() {
 
 /**
  * Recursive helper function for _grab_camera().
+ * DEPRECATED - Remove when moving to 4.2 and use EditorInterface.get_editor_viewport_3d(i).get_camera_3d()
  */
 void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array) {
 	for (int i = 0; i < from_nodes.size(); i++) {
@@ -418,12 +489,12 @@ void Terrain3D::_destroy_collision() {
 			Node *child = _debug_static_body->get_child(i);
 			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
 			_debug_static_body->remove_child(child);
-			memfree(child);
+			memfree(child); // TODO should be memdelete, this is a leak
 		}
 
 		LOG(DEBUG, "Freeing static body");
 		remove_child(_debug_static_body);
-		memfree(_debug_static_body);
+		memfree(_debug_static_body); // TODO should be memdelete, this is a leak
 		_debug_static_body = nullptr;
 	}
 }
@@ -621,7 +692,7 @@ void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 }
 
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
-	if (_storage != p_material) {
+	if (_material != p_material) {
 		LOG(INFO, "Setting material");
 		_material = p_material;
 		_clear();
@@ -670,8 +741,32 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 }
 
 void Terrain3D::set_render_layers(uint32_t p_layers) {
+	LOG(INFO, "Setting terrain render layers to: ", p_layers);
 	_render_layers = p_layers;
 	_update_instances();
+}
+
+void Terrain3D::set_mouse_layer(uint32_t p_layer) {
+	p_layer = CLAMP(p_layer, 21, 32);
+	_mouse_layer = p_layer;
+	uint32_t mouse_mask = 1 << (_mouse_layer - 1);
+	LOG(INFO, "Setting mouse layer: ", p_layer, " (", mouse_mask, ") on terrain mesh, material, mouse camera, mouse quad");
+
+	// Set terrain meshes to mouse layer
+	// Mask off editor render layers by ORing user layers 1-20 and current mouse layer
+	set_render_layers((_render_layers & 0xFFFFF) | mouse_mask);
+	// Set terrain shader to exclude mouse camera from showing holes
+	if (_material != nullptr) {
+		_material->set_shader_param("_mouse_layer", mouse_mask);
+	}
+	// Set mouse camera to see only mouse layer
+	if (_mouse_cam != nullptr) {
+		_mouse_cam->set_cull_mask(mouse_mask);
+	}
+	// Set screenquad to mouse layer
+	if (_mouse_quad != nullptr) {
+		_mouse_quad->set_layer_mask(mouse_mask);
+	}
 }
 
 void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting) {
@@ -834,42 +929,62 @@ void Terrain3D::update_aabbs() {
 }
 
 /* Iterate over ground to find intersection point between two rays:
- *	p_position (camera position)
+ *	p_src_pos (camera position)
  *	p_direction (camera direction looking at the terrain)
  *	test_dir (camera direction 0 Y, traversing terrain along height
  * Returns vec3(Double max 3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
-Vector3 Terrain3D::get_intersection(Vector3 p_position, Vector3 p_direction) {
-	Vector3 test_dir = Vector3(p_direction.x, 0., p_direction.z).normalized();
-	Vector3 test_point = p_position;
+Vector3 Terrain3D::get_intersection(Vector3 p_src_pos, Vector3 p_direction) {
+	if (_camera == nullptr) {
+		LOG(ERROR, "Invalid camera");
+		return Vector3(NAN, NAN, NAN);
+	}
+	if (_mouse_cam == nullptr) {
+		LOG(ERROR, "Invalid mouse camera");
+		return Vector3(NAN, NAN, NAN);
+	}
 	p_direction.normalize();
 
-	real_t highest_dotp = 0.f;
-	Vector3 highest_point;
+	Vector3 point;
 
-	if (_storage.is_valid()) {
-		for (int i = 0; i < 3000; i++) {
-			test_point += test_dir;
-			test_point.y = _storage->get_height(test_point / _mesh_vertex_spacing);
-			Vector3 test_vec = (test_point - p_position).normalized();
+	// Position mouse cam one unit behind the requested position
+	_mouse_cam->set_global_position(p_src_pos - p_direction);
 
-			real_t test_dotp = p_direction.dot(test_vec);
-			if (test_dotp > highest_dotp) {
-				highest_dotp = test_dotp;
-				highest_point = test_point;
-			}
-			// Highest accuracy hits most of the time
-			if (test_dotp > 0.9999) {
-				return test_point;
-			}
+	// If looking straight down (eg orthogonal camera), look_at won't work
+	if ((p_direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
+		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
+		point = p_src_pos;
+		point.y = _storage->get_height(p_src_pos);
+	} else {
+		// Get depth from perspective camera snapshot
+		_mouse_cam->look_at(_mouse_cam->get_global_position() + p_direction, Vector3(0.f, 1.f, 0.f));
+		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+		Ref<ViewportTexture> vp_tex = _mouse_vp->get_texture();
+		Ref<Image> vp_img = vp_tex->get_image();
+
+		// Read the depth pixel from the camera viewport
+		// DEPRECATED - remove srgb_to_linear and use HDR viewport for Godot 4.2 +
+		Color screen_depth = vp_img->get_pixel(0, 0).srgb_to_linear();
+
+		// Get position from depth packed in RG - unpack back to float.
+		// Needed for Mobile renderer
+		// https://gamedev.stackexchange.com/questions/201151/24bit-float-to-rgb
+		Vector2 screen_rg = Vector2(screen_depth.r, screen_depth.g);
+		real_t normalized_distance = screen_rg.dot(Vector2(1.f, 1.f / 255.f));
+		if (normalized_distance < 0.00001f) {
+			return Vector3(__FLT_MAX__, __FLT_MAX__, __FLT_MAX__);
+		}
+		// Necessary for a correct value depth = 1
+		if (normalized_distance > 0.9999f) {
+			normalized_distance = 1.0f;
 		}
 
-		// Good enough fallback (the above test often overshoots, so this grabs the highest we did hit)
-		if (highest_dotp >= 0.999) {
-			return highest_point;
-		}
+		// Denormalize distance to get real depth and terrain position
+		real_t depth = normalized_distance * _mouse_cam->get_far();
+		point = _mouse_cam->get_global_position() + p_direction * depth;
 	}
-	return Vector3(__FLT_MAX__, __FLT_MAX__, __FLT_MAX__);
+
+	return point;
 }
 
 /**
@@ -972,6 +1087,7 @@ void Terrain3D::_notification(int p_what) {
 		case NOTIFICATION_EXIT_TREE: {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			_clear();
+			_destroy_mouse_picking();
 			break;
 		}
 
@@ -1051,6 +1167,8 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
 	ClassDB::bind_method(D_METHOD("get_render_layers"), &Terrain3D::get_render_layers);
+	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Terrain3D::set_mouse_layer);
+	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Terrain3D::get_mouse_layer);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
 	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
@@ -1075,7 +1193,7 @@ void Terrain3D::_bind_methods() {
 
 	// Expose 'update_aabbs' so it can be used in Callable. Not ideal.
 	ClassDB::bind_method(D_METHOD("update_aabbs"), &Terrain3D::update_aabbs);
-	ClassDB::bind_method(D_METHOD("get_intersection", "position", "direction"), &Terrain3D::get_intersection);
+	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Terrain3D::get_intersection);
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 
@@ -1086,6 +1204,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Renderer", "render_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "render_cull_margin", PROPERTY_HINT_RANGE, "0, 10000, 1, or_greater"), "set_cull_margin", "get_cull_margin");
 
