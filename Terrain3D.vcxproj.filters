@@ -246,6 +246,9 @@
     <Text Include="doc\docs\tutorial_videos.md">
       <Filter>2. Docs</Filter>
     </Text>
+    <Text Include="src\shaders\gpu_depth.glsl">
+      <Filter>3. Shaders</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml">

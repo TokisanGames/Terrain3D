@@ -35,8 +35,8 @@ private:
 	Ref<Shader> _shader_override;
 	Ref<Shader> _shader_tmp;
 	Dictionary _shader_code;
-	mutable TypedArray<StringName> _active_params;
-	mutable Dictionary _shader_params;
+	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
+	mutable Dictionary _shader_params; // Public shader params saved to disk
 
 	// Material Features
 	WorldBackground _world_background = FLAT;

@@ -21,6 +21,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
  */
 
 // Private uniforms
+
 uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1/1024
 uniform float _mesh_vertex_spacing = 1.0;
@@ -35,7 +36,8 @@ uniform usampler2DArray _control_maps : repeat_disable;
 uniform float _texture_uv_scale_array[32];
 uniform float _texture_uv_rotation_array[32];
 uniform vec4 _texture_color_array[32];
-uniform int _background_mode = 1;  // NONE = 0, FLAT = 1, NOISE = 2
+uniform uint _background_mode = 1u;  // NONE = 0, FLAT = 1, NOISE = 2
+uniform uint _mouse_layer = 0x80000000u; // Layer 32
 
 // Public uniforms
 uniform bool height_blending = true;
@@ -115,11 +117,13 @@ void vertex() {
 	// UV coordinates in world space. Values are 0 to _region_size within regions
 	UV = round(v_vertex.xz * _mesh_vertex_density);
 
-	// Discard vertices if designated as a hole or background disabled. 1 lookup.
+	// Discard vertices for Holes. 1 lookup
 	v_region = get_region_uv(UV);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
-	if ( hole || (_background_mode == 0 && v_region.z < 0) ) {
+	// Show holes to all cameras except mouse camera (on exactly 1 layer)
+	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
+			(hole || (_background_mode == 0u && v_region.z < 0)) ) {
 		VERTEX.x = 0./0.;
 	} else {
 		// UV coordinates in region space + texel offset. Values are 0 to 1 within regions

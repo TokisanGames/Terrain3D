@@ -11,7 +11,9 @@
 #include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
+#include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
+#include <godot_cpp/classes/sub_viewport.hpp>
 
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
@@ -59,9 +61,15 @@ private:
 	} _data;
 
 	// Renderer settings
-	uint32_t _render_layers = 1;
+	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
 	GeometryInstance3D::ShadowCastingSetting _shadow_casting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	real_t _cull_margin = 0.0;
+
+	// Mouse cursor
+	SubViewport *_mouse_vp = nullptr;
+	Camera3D *_mouse_cam = nullptr;
+	MeshInstance3D *_mouse_quad = nullptr;
+	uint32_t _mouse_layer = 32;
 
 	// Physics body and settings
 	RID _static_body;
@@ -76,6 +84,8 @@ private:
 	void __ready();
 	void __process(double delta);
 
+	void _setup_mouse_picking();
+	void _destroy_mouse_picking();
 	void _grab_camera();
 	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
@@ -124,6 +134,8 @@ public:
 	// Renderer settings
 	void set_render_layers(uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; };
+	void set_mouse_layer(uint32_t p_layer);
+	uint32_t get_mouse_layer() const { return _mouse_layer; };
 	void set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting);
 	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _shadow_casting; };
 	void set_cull_margin(real_t p_margin);
@@ -144,7 +156,7 @@ public:
 	// Terrain methods
 	void snap(Vector3 p_cam_pos);
 	void update_aabbs();
-	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);
+	Vector3 get_intersection(Vector3 p_src_pos, Vector3 p_direction);
 
 	// Baking methods
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;

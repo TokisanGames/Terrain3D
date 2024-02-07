@@ -217,6 +217,7 @@
     <Text Include="doc\_static\theme_overrides.css" />
     <Text Include="LICENSE.txt" />
     <Text Include="doc\docs\navigation.md" />
+    <Text Include="src\shaders\gpu_depth.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml" />
