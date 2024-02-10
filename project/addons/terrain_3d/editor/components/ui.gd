@@ -65,8 +65,8 @@ func _enter_tree() -> void:
 	add_child(decal)
 	decal_timer = Timer.new()
 	decal_timer.wait_time = .5
+	decal_timer.one_shot = true
 	decal_timer.timeout.connect(Callable(func(node):
-		decal_timer.stop()
 		if node:
 			get_tree().create_tween().tween_property(node, "albedo_mix", 0.0, 0.15)).bind(decal))
 	add_child(decal_timer)
@@ -230,6 +230,8 @@ func update_decal() -> void:
 		decal.visible = true
 
 	decal.size = Vector3.ONE * brush_data["size"] * plugin.terrain.get_mesh_vertex_spacing()
+	decal.size.y = max(1000, decal.size.y)
+	decal.cull_mask = 1 << plugin.terrain.render_mouse_layer - 1
 	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
 		if (cam):

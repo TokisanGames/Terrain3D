@@ -117,7 +117,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			return AFTER_GUI_INPUT_PASS
 
 		## Get mouse location on terrain
-	
+
 		# Snap terrain to current camera 
 		terrain.set_camera(p_viewport_camera)
 		
@@ -131,16 +131,24 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
 		var camera_dir: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
 
-		# If mouse intersected with terrain get point
-		var intersection_point: Vector3 = terrain.get_intersection(camera_pos, camera_dir)
-		if intersection_point.z > 3.4e38: # double max
-			return AFTER_GUI_INPUT_STOP
-		mouse_global_position = intersection_point
+		# If region tool, grab mouse position without considering height
+		if editor.get_tool() == Terrain3DEditor.REGION:
+			var t = -Vector3(0, 1, 0).dot(camera_pos) / Vector3(0, 1, 0).dot(camera_dir)
+			mouse_global_position = (camera_pos + t * camera_dir)
+		else:			
+			# Else look for intersection with terrain
+			var intersection_point: Vector3 = terrain.get_intersection(camera_pos, camera_dir)
+			if intersection_point.z > 3.4e38: # double max
+				return AFTER_GUI_INPUT_STOP
+			mouse_global_position = intersection_point
 		
 		## Update decal
 		ui.decal.global_position = mouse_global_position
 		ui.decal.albedo_mix = 1.0
-		ui.decal_timer.start()
+		if ui.decal_timer.is_stopped():
+			ui.update_decal()
+		else:
+			ui.decal_timer.start()
 
 		## Incorporate vertex spacing into operations
 		mouse_global_position.x /= terrain.get_mesh_vertex_spacing()
