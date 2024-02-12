@@ -339,8 +339,7 @@ void fragment() {
 	// Colormap. 1 lookup
 	vec4 color_map = vec4(1., 1., 1., .5);
 	if (region_uv.z >= 0.) {
-		float lod = textureQueryLod(_color_maps, region_uv.xy).y;
-		lod = clamp(lod, 0., v_vertex_dist * .0006510416); // 1/1536. See #284
+		float lod = textureQueryLod(_color_maps, uv2.xy).y;
 		color_map = textureLod(_color_maps, region_uv, lod);
 	}
 
