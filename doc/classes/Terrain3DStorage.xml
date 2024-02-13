@@ -166,7 +166,7 @@
 			<description>
 				Imports an Image set (Height, Control, Color) into this resource. It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
 				[code skip-lint]images[/code] - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null.
-				[code skip-lint]global_position[/code] - X,0,Z location on the region map. Valid range is ~ (+/-8192, +/-8192).
+				[code skip-lint]global_position[/code] - X,0,Z location on the region map. Valid range is (+/-8192, +/-8192) * [member Terrain3D.mesh_vertex_spacing].
 				[code skip-lint]offset[/code] - Add this factor to all height values, can be negative.
 				[code skip-lint]scale[/code] - Scale all height values by this factor (applied after offset).
 			</description>
@@ -302,7 +302,7 @@
 			And [method get_region_offset] which converts a location in world space to a region space, which is what is stored in this array. Eg. [code skip-lint]get_region_offset(Vector3(1500, 0, 1500))[/code] would return (1, 1).
 		</member>
 		<member name="region_size" type="int" setter="set_region_size" getter="get_region_size" enum="Terrain3DStorage.RegionSize" default="1024">
-			The size of each region. Limited to 1024 for now.
+			The number of vertices in each sculptable region, and the number of pixels for each layer in the TextureArrays that store the height, control, and color maps. Limited to 1024 for now. This does not factor in [member Terrain3D.mesh_vertex_spacing].
 		</member>
 		<member name="save_16_bit" type="bool" setter="set_save_16_bit" getter="get_save_16_bit" default="false">
 			Heightmaps are loaded and edited in 32-bit. This option converts the file to 16-bit upon saving to reduce file size. This process is lossy.

@@ -11,10 +11,14 @@
 #include "terrain_3d_texture_list.h"
 #include "util.h"
 
+class Terrain3D;
+
 using namespace godot;
 
 class Terrain3DStorage : public Resource {
 	GDCLASS(Terrain3DStorage, Resource);
+
+	friend class Terrain3D;
 
 public:
 	// Constants
@@ -73,6 +77,7 @@ private:
 	bool _save_16_bit = false;
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
+	real_t _mesh_vertex_spacing = 1.0f; // Set by Terrain3D for get_normal()
 
 	// Stored Data
 	Vector2 _height_range = Vector2(0.f, 0.f);
@@ -117,7 +122,7 @@ public:
 
 	void clear_edited_area();
 	void add_edited_area(AABB p_area);
-	AABB get_edited_area() const { return _edited_area; }
+	AABB get_edited_area() const;
 
 	// Regions
 	void set_region_size(RegionSize p_size);

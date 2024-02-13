@@ -66,7 +66,7 @@ public:
 	class Brush {
 	private:
 		Ref<Image> _image;
-		Vector2 _img_size;
+		Vector2i _img_size;
 		Ref<ImageTexture> _texture;
 
 		int _size = 0;
@@ -89,7 +89,7 @@ public:
 
 		Ref<ImageTexture> get_texture() const { return _texture; }
 		Ref<Image> get_image() const { return _image; }
-		Vector2 get_image_size() const { return _img_size; }
+		Vector2i get_image_size() const { return _img_size; }
 
 		int get_size() const { return _size; }
 		real_t get_opacity() const { return _opacity; }

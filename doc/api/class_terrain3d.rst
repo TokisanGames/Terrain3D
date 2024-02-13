@@ -315,6 +315,12 @@ The correlated size of the terrain meshes. Lod0 has ``4*mesh_size + 2`` quads pe
 
 The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
 
+This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
+
+All Terrain3D functions with a global_position expect an absolute global value. If you would normally use :ref:`Terrain3DStorage.import_images<class_Terrain3DStorage_method_import_images>` to import an image in the region at (-1024, -1024), with a mesh_vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
+
+To scale heights, export the height map and reimport it with a new height scale.
+
 .. rst-class:: classref-item-separator
 
 ----

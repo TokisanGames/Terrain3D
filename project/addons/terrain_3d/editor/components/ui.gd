@@ -229,9 +229,7 @@ func update_decal() -> void:
 		await get_tree().create_timer(.05).timeout 
 		decal.visible = true
 
-	decal.size = Vector3.ONE * brush_data["size"] * plugin.terrain.get_mesh_vertex_spacing()
-	decal.size.y = max(1000, decal.size.y)
-	decal.cull_mask = 1 << plugin.terrain.render_mouse_layer - 1
+	decal.size = Vector3.ONE * brush_data["size"]
 	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
 		if (cam):
@@ -242,7 +240,7 @@ func update_decal() -> void:
 	# Set texture and color
 	if picking != Terrain3DEditor.TOOL_MAX:
 		decal.texture_albedo = picker_texture
-		decal.size = Vector3.ONE*10.
+		decal.size = Vector3.ONE * 10. * plugin.terrain.get_mesh_vertex_spacing()
 		match picking:
 			Terrain3DEditor.HEIGHT:
 				decal.modulate = COLOR_PICK_HEIGHT
@@ -301,7 +299,9 @@ func update_decal() -> void:
 			_:
 				decal.modulate = Color.WHITE
 				decal.modulate.a = max(.3, brush_data["opacity"])
+	decal.size.y = max(1000, decal.size.y)
 	decal.albedo_mix = 1.0
+	decal.cull_mask = 1 << ( plugin.terrain.get_mouse_layer() - 1 )
 	decal_timer.start()
 	
 	for gradient_decal in gradient_decals:
@@ -313,7 +313,7 @@ func update_decal() -> void:
 			if point != Vector3.ZERO:
 				var point_decal: Decal = _get_gradient_decal(index)
 				point_decal.visible = true
-				point_decal.position = point * plugin.terrain.get_mesh_vertex_spacing()
+				point_decal.position = point
 				index += 1
 
 
@@ -325,7 +325,9 @@ func _get_gradient_decal(index: int) -> Decal:
 	gradient_decal = Decal.new()
 	gradient_decal.texture_albedo = picker_texture
 	gradient_decal.modulate = COLOR_SLOPE
-	gradient_decal.size = Vector3(10, 1000, 10)
+	gradient_decal.size = Vector3.ONE * 10. * plugin.terrain.get_mesh_vertex_spacing()
+	gradient_decal.size.y = 1000.
+	gradient_decal.cull_mask = decal.cull_mask
 	add_child(gradient_decal)
 	
 	gradient_decals.push_back(gradient_decal)
