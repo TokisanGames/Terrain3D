@@ -116,7 +116,6 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp = memnew(SubViewport);
 	_mouse_vp->set_name("SubViewport");
 	add_child(_mouse_vp, true);
-	_mouse_vp->set_owner(this);
 	_mouse_vp->set_size(Vector2i(2, 2));
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 	_mouse_vp->set_handle_input_locally(false);
@@ -133,7 +132,6 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_cam = memnew(Camera3D);
 	_mouse_cam->set_name("MouseCamera3D");
 	_mouse_vp->add_child(_mouse_cam, true);
-	_mouse_cam->set_owner(this);
 	Ref<Environment> env;
 	env.instantiate();
 	env->set_tonemapper(Environment::TONE_MAPPER_LINEAR);
@@ -145,7 +143,6 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_quad = memnew(MeshInstance3D);
 	_mouse_quad->set_name("ScreenQuad");
 	_mouse_cam->add_child(_mouse_quad, true);
-	_mouse_quad->set_owner(this);
 	Ref<QuadMesh> quad;
 	quad.instantiate();
 	quad->set_size(Vector2(0.1f, 0.1f));
@@ -338,7 +335,6 @@ void Terrain3D::_build_collision() {
 		_debug_static_body = memnew(StaticBody3D);
 		_debug_static_body->set_name("StaticBody3D");
 		add_child(_debug_static_body, true);
-		_debug_static_body->set_owner(this);
 	}
 	_update_collision();
 }
@@ -457,7 +453,7 @@ void Terrain3D::_update_collision() {
 			debug_col_shape = memnew(CollisionShape3D);
 			debug_col_shape->set_name("CollisionShape3D");
 			_debug_static_body->add_child(debug_col_shape, true);
-			debug_col_shape->set_owner(this);
+			debug_col_shape->set_owner(_debug_static_body);
 
 			Ref<HeightMapShape3D> hshape;
 			hshape.instantiate();
@@ -730,13 +726,15 @@ void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
 }
 
 void Terrain3D::set_camera(Camera3D *p_camera) {
-	_camera = p_camera;
-	if (p_camera == nullptr) {
-		LOG(DEBUG, "Received null camera. Calling _grab_camera");
-		_grab_camera();
-	} else {
-		LOG(DEBUG, "Setting camera: ", p_camera);
+	if (_camera != p_camera) {
 		_camera = p_camera;
+		if (p_camera == nullptr) {
+			LOG(DEBUG, "Received null camera. Calling _grab_camera");
+			_grab_camera();
+		} else {
+			LOG(DEBUG, "Setting camera: ", p_camera);
+			_camera = p_camera;
+		}
 	}
 }
 
