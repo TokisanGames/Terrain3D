@@ -147,16 +147,30 @@ void vertex() {
 // Fragment
 ////////////////////////
 
-// 4 lookups
+// 3 lookups
 vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
-	float left = get_height(uv + vec2(-_region_texel_size, 0));
-	float right = get_height(uv + vec2(_region_texel_size, 0));
-	float back = get_height(uv + vec2(0, -_region_texel_size));
-	float front = get_height(uv + vec2(0, _region_texel_size));
-	vec3 horizontal = vec3(2.0 * _mesh_vertex_spacing, right - left, 0.0);
-	vec3 vertical = vec3(0.0, back - front, 2.0 * _mesh_vertex_spacing);
-	vec3 normal = normalize(cross(vertical, horizontal));
-	normal.z *= -1.0;
+	// Get the height of the current vertex
+	float height = get_height(uv);
+
+	// Get the heights to the right and in front, but because of hardware 
+	// interpolation on the edges of the heightmaps, the values are off
+	// causing the normal map to look weird. So, near the edges of the map
+	// get the heights to the left or behind instead. Hacky solution that 
+	// reduces the artifact, but doesn't fix it entirely. See #185.
+	float u, v;
+	if(mod(uv.y*_region_size, _region_size) > _region_size-2.) {
+		v = get_height(uv + vec2(0, -_region_texel_size)) - height;
+	} else {
+		v = height - get_height(uv + vec2(0, _region_texel_size));
+	}
+	if(mod(uv.x*_region_size, _region_size) > _region_size-2.) {
+		u = get_height(uv + vec2(-_region_texel_size, 0)) - height;		
+	} else {
+		u = height - get_height(uv + vec2(_region_texel_size, 0));
+	}
+
+	vec3 normal = vec3(u, _mesh_vertex_spacing, v);
+	normal = normalize(normal);
 	tangent = cross(normal, vec3(0, 0, 1));
 	binormal = cross(normal, tangent);
 	return normal;
