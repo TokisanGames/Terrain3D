@@ -489,12 +489,12 @@ void Terrain3D::_destroy_collision() {
 			Node *child = _debug_static_body->get_child(i);
 			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
 			_debug_static_body->remove_child(child);
-			memfree(child); // TODO should be memdelete, this is a leak
+			memdelete(child);
 		}
 
 		LOG(DEBUG, "Freeing static body");
 		remove_child(_debug_static_body);
-		memfree(_debug_static_body); // TODO should be memdelete, this is a leak
+		memdelete(_debug_static_body);
 		_debug_static_body = nullptr;
 	}
 }
