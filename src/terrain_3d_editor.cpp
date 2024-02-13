@@ -19,9 +19,9 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	}
 	_image = p_data["image"];
 	if (_image.is_valid()) {
-		_img_size = Vector2(_image->get_size());
+		_img_size = _image->get_size();
 	} else {
-		_img_size = Vector2(0, 0);
+		_img_size = Vector2i(0, 0);
 	}
 	_texture = p_data["texture"];
 
@@ -51,6 +51,8 @@ void Terrain3DEditor::_region_modified(Vector3 p_global_position, Vector2 p_heig
 	AABB edited_area;
 	edited_area.position = Vector3(region_offset.x * region_size, p_height_range.x, region_offset.y * region_size);
 	edited_area.size = Vector3(region_size, p_height_range.y - p_height_range.x, region_size);
+	edited_area.position *= _terrain->get_mesh_vertex_spacing();
+	edited_area.size *= _terrain->get_mesh_vertex_spacing();
 
 	_modified = true;
 	_terrain->get_storage()->add_edited_area(edited_area);
@@ -131,7 +133,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	Ref<Image> map = storage->get_map_region(map_type, region_index);
 	int brush_size = _brush.get_size();
 	int texture_id = _brush.get_texture_index();
-	Vector2 img_size = _brush.get_image_size();
+	Vector2i img_size = _brush.get_image_size();
 	real_t opacity = _brush.get_opacity();
 	real_t height = _brush.get_height();
 	Color color = _brush.get_color();
@@ -151,12 +153,13 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) / 2.f;
 	edited_area.size = Vector3(brush_size, 0.f, brush_size);
 
-	for (int x = 0; x < brush_size; x++) {
-		for (int y = 0; y < brush_size; y++) {
-			Vector2i brush_offset = Vector2i(x, y) - (Vector2i(brush_size, brush_size) / 2);
-			Vector3 brush_global_position = Vector3(0.5f, 0.f, 0.5f) +
-					Vector3(p_global_position.x + real_t(brush_offset.x), p_global_position.y,
-							p_global_position.z + real_t(brush_offset.y));
+	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
+	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
+		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
+			Vector2 brush_offset = Vector2(x, y) - (Vector2(brush_size, brush_size) / 2.f);
+			Vector3 brush_global_position =
+					Vector3(p_global_position.x + brush_offset.x + .5f, p_global_position.y,
+							p_global_position.z + brush_offset.y + .5f);
 
 			// If we're brushing across a region boundary, possibly add a region, and get the other map
 			int new_region_index = storage->get_region_index(brush_global_position);
@@ -185,7 +188,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 				Vector2 brush_uv = Vector2(x, y) / real_t(brush_size);
 				Vector2i brush_pixel_position = Vector2i(_rotate_uv(brush_uv, rot) * img_size);
 
-				if (!_is_in_bounds(brush_pixel_position, Vector2i(img_size))) {
+				if (!_is_in_bounds(brush_pixel_position, img_size)) {
 					continue;
 				}
 
@@ -219,10 +222,10 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							destf = Math::lerp(srcf, height, brush_alpha * opacity);
 							break;
 						case AVERAGE: {
-							Vector3 left_position = brush_global_position - Vector3(1, 0, 0);
-							Vector3 right_position = brush_global_position + Vector3(1, 0, 0);
-							Vector3 down_position = brush_global_position - Vector3(0, 0, 1);
-							Vector3 up_position = brush_global_position + Vector3(0, 0, 1);
+							Vector3 left_position = brush_global_position - Vector3(vertex_spacing, 0.f, 0.f);
+							Vector3 right_position = brush_global_position + Vector3(vertex_spacing, 0.f, 0.f);
+							Vector3 down_position = brush_global_position - Vector3(0.f, 0.f, vertex_spacing);
+							Vector3 up_position = brush_global_position + Vector3(0.f, 0.f, vertex_spacing);
 
 							real_t left = srcf, right = srcf, up = srcf, down = srcf;
 
@@ -381,11 +384,10 @@ bool Terrain3DEditor::_is_in_bounds(Vector2i p_position, Vector2i p_max_position
 }
 
 Vector2 Terrain3DEditor::_get_uv_position(Vector3 p_global_position, int p_region_size) {
-	Vector2 global_position_2d = Vector2(p_global_position.x, p_global_position.z);
-	Vector2 region_position = global_position_2d / real_t(p_region_size);
+	Vector2 descaled_position_2d = Vector2(p_global_position.x, p_global_position.z) / _terrain->get_mesh_vertex_spacing();
+	Vector2 region_position = descaled_position_2d / real_t(p_region_size);
 	region_position = region_position.floor();
-	Vector2 uv_position = (global_position_2d / real_t(p_region_size)) - region_position;
-
+	Vector2 uv_position = (descaled_position_2d / real_t(p_region_size)) - region_position;
 	return uv_position;
 }
 

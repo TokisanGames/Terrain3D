@@ -376,17 +376,17 @@ void Terrain3D::_update_collision() {
 		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
 		map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
 		cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, i);
-		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z));
+		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
 		if (region >= 0) {
 			map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
 			cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x, 0.f, global_pos.z + region_size));
+		region = _storage->get_region_index(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
 		if (region >= 0) {
 			map_z = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
 			cmap_z = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size));
+		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
 		if (region >= 0) {
 			map_xz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
 			cmap_xz = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
@@ -582,14 +582,18 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool p_require_nav, int32_t x, int32_t z) const {
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
-	uint32_t control1 = _storage->get_control(Vector3(x, 0.0, z));
-	uint32_t control2 = _storage->get_control(Vector3(x + step, 0.0, z + step));
-	uint32_t control3 = _storage->get_control(Vector3(x, 0.0, z + step));
-	Vector3 vertex_scaler = Vector3(_mesh_vertex_spacing, 1.0, _mesh_vertex_spacing);
+	Vector3 xz = Vector3(x, 0.0f, z) * _mesh_vertex_spacing;
+	Vector3 xsz = Vector3(x + step, 0.0f, z) * _mesh_vertex_spacing;
+	Vector3 xzs = Vector3(x, 0.0f, z + step) * _mesh_vertex_spacing;
+	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _mesh_vertex_spacing;
+
+	uint32_t control1 = _storage->get_control(xz);
+	uint32_t control2 = _storage->get_control(xszs);
+	uint32_t control3 = _storage->get_control(xzs);
 	if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
-		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z)) * vertex_scaler;
-		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step)) * vertex_scaler;
-		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z + step)) * vertex_scaler;
+		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
+		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
+		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xzs);
 		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
@@ -602,13 +606,13 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		}
 	}
 
-	control1 = _storage->get_control(Vector3(x, 0.0, z));
-	control2 = _storage->get_control(Vector3(x + step, 0.0, z));
-	control3 = _storage->get_control(Vector3(x + step, 0.0, z + step));
+	control1 = _storage->get_control(xz);
+	control2 = _storage->get_control(xsz);
+	control3 = _storage->get_control(xszs);
 	if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
-		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x, 0.0, z)) * vertex_scaler;
-		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z)) * vertex_scaler;
-		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, Vector3(x + step, 0.0, z + step)) * vertex_scaler;
+		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
+		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xsz);
+		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
 		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
@@ -679,6 +683,9 @@ void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 	if (_mesh_vertex_spacing != p_spacing) {
 		LOG(INFO, "Setting mesh vertex spacing: ", p_spacing);
 		_mesh_vertex_spacing = p_spacing;
+		if (_storage != nullptr) {
+			_storage->_mesh_vertex_spacing = p_spacing;
+		}
 		_clear();
 		_initialize();
 	}

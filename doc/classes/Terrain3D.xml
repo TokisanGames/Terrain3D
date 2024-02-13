@@ -149,6 +149,9 @@
 		</member>
 		<member name="mesh_vertex_spacing" type="float" setter="set_mesh_vertex_spacing" getter="get_mesh_vertex_spacing" default="1.0">
 			The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
+			This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
+			All Terrain3D functions with a global_position expect an absolute global value. If you would normally use [method Terrain3DStorage.import_images] to import an image in the region at (-1024, -1024), with a mesh_vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
+			To scale heights, export the height map and reimport it with a new height scale.
 		</member>
 		<member name="render_cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="GeometryInstance3D.ShadowCastingSetting" default="1">
 			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.

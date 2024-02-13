@@ -417,7 +417,7 @@ And :ref:`get_region_offset<class_Terrain3DStorage_method_get_region_offset>` wh
 - void **set_region_size** **(** :ref:`RegionSize<enum_Terrain3DStorage_RegionSize>` value **)**
 - :ref:`RegionSize<enum_Terrain3DStorage_RegionSize>` **get_region_size** **(** **)**
 
-The size of each region. Limited to 1024 for now.
+The number of vertices in each sculptable region, and the number of pixels for each layer in the TextureArrays that store the height, control, and color maps. Limited to 1024 for now. This does not factor in :ref:`Terrain3D.mesh_vertex_spacing<class_Terrain3D_property_mesh_vertex_spacing>`.
 
 .. rst-class:: classref-item-separator
 
@@ -614,7 +614,7 @@ Returns the location of a terrain vertex at a certain LOD. If there is a hole at
 
 :ref:`Vector3<class_Vector3>` **get_normal** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the terrain normal at the specified location.
+Returns the terrain normal at the specified location. This function uses :ref:`get_height<class_Terrain3DStorage_method_get_height>`, which is not currently accurate between vertices. Therefore, this function may also be inacurate between vertices.
 
 Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outside of defined regions.
 
@@ -722,7 +722,7 @@ Imports an Image set (Height, Control, Color) into this resource. It does NOT no
 
 \ ``images`` - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null.
 
-\ ``global_position`` - X,0,Z location on the region map. Valid range is ~ (+/-8192, +/-8192).
+\ ``global_position`` - X,0,Z location on the region map. Valid range is (+/-8192, +/-8192) \* :ref:`Terrain3D.mesh_vertex_spacing<class_Terrain3D_property_mesh_vertex_spacing>`.
 
 \ ``offset`` - Add this factor to all height values, can be negative.
 

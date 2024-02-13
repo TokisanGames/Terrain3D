@@ -87,12 +87,22 @@ void Terrain3DStorage::clear_edited_area() {
 }
 
 void Terrain3DStorage::add_edited_area(AABB p_area) {
+	AABB descaled_area = p_area;
+	descaled_area.position /= _mesh_vertex_spacing;
+	descaled_area.size /= _mesh_vertex_spacing;
 	if (_edited_area.has_surface()) {
 		_edited_area = _edited_area.merge(p_area);
 	} else {
 		_edited_area = p_area;
 	}
-	emit_signal("maps_edited", p_area);
+	emit_signal("maps_edited", get_edited_area());
+}
+
+AABB Terrain3DStorage::get_edited_area() const {
+	AABB area = _edited_area;
+	area.position *= _mesh_vertex_spacing;
+	area.size *= _mesh_vertex_spacing;
+	return area;
 }
 
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
@@ -114,7 +124,8 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets)
 
 /** Returns a region offset given a location */
 Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
-	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / real_t(_region_size)).floor());
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
+	return Vector2i((Vector2(descaled_position.x, descaled_position.z) / real_t(_region_size)).floor());
 }
 
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
@@ -143,7 +154,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 
 	Vector2i region_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
 	if (region_pos.x >= REGION_MAP_SIZE || region_pos.y >= REGION_MAP_SIZE || region_pos.x < 0 || region_pos.y < 0) {
-		LOG(ERROR, "Specified position outside of maximum region map size: +/-", REGION_MAP_SIZE / 2 * _region_size);
+		LOG(ERROR, "Specified position outside of maximum region map size: +/-", real_t((REGION_MAP_SIZE / 2) * _region_size) * _mesh_vertex_spacing);
 		return FAILED;
 	}
 
@@ -412,12 +423,13 @@ void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, 
 	if (region < 0 || region >= _region_offsets.size()) {
 		return;
 	}
-	Ref<Image> map = get_map_region(p_map_type, region);
 	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(
-			Vector2(p_global_position.x - global_offset.x,
-					p_global_position.z - global_offset.y)
+			Vector2(descaled_position.x - global_offset.x,
+					descaled_position.z - global_offset.y)
 					.floor());
+	Ref<Image> map = get_map_region(p_map_type, region);
 	map->set_pixelv(img_pos, p_pixel);
 }
 
@@ -430,12 +442,13 @@ Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position)
 	if (region < 0 || region >= _region_offsets.size()) {
 		return COLOR_NAN;
 	}
-	Ref<Image> map = get_map_region(p_map_type, region);
 	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(
-			Vector2(p_global_position.x - global_offset.x,
-					p_global_position.z - global_offset.y)
+			Vector2(descaled_position.x - global_offset.x,
+					descaled_position.z - global_offset.y)
 					.floor());
+	Ref<Image> map = get_map_region(p_map_type, region);
 	return map->get_pixelv(img_pos);
 }
 
@@ -695,15 +708,16 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 		return;
 	}
 
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
-	if ((abs(p_global_position.x) > max_dimension) || (abs(p_global_position.z) > max_dimension)) {
-		LOG(ERROR, "Specify a position within +/-", Vector3i(max_dimension, 0, max_dimension));
+	if ((abs(descaled_position.x) > max_dimension) || (abs(descaled_position.z) > max_dimension)) {
+		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _mesh_vertex_spacing);
 		return;
 	}
-	if ((p_global_position.x + img_size.x > max_dimension) ||
-			(p_global_position.z + img_size.y > max_dimension)) {
+	if ((descaled_position.x + img_size.x > max_dimension) ||
+			(descaled_position.z + img_size.y > max_dimension)) {
 		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -img_size / 2, " to center");
+				". Try ", -(img_size * _mesh_vertex_spacing) / 2.f, " to center");
 		return;
 	}
 
@@ -769,8 +783,8 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 				images[i] = img_slice;
 			}
 			// Add the heightmap slice and only regenerate on the last one
-			Vector3 position = Vector3(p_global_position.x + start_coords.x, 0.f, p_global_position.z + start_coords.y);
-			add_region(position, images, (x == slices_width - 1 && y == slices_height - 1));
+			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y);
+			add_region(position * _mesh_vertex_spacing, images, (x == slices_width - 1 && y == slices_height - 1));
 		}
 	} // for y < slices_height, x < slices_width
 }
@@ -934,7 +948,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 			height = get_height(p_global_position);
 			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
 				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					Vector3 position = p_global_position + Vector3(dx, 0.f, dz);
+					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _mesh_vertex_spacing;
 					if (Util::is_hole(get_control(position))) {
 						height = NAN;
 						break;
@@ -959,10 +973,17 @@ Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
 	real_t right = get_height(p_global_position + Vector3(1.0f, 0.0f, 0.0f));
 	real_t back = get_height(p_global_position + Vector3(0.f, 0.f, -1.0f));
 	real_t front = get_height(p_global_position + Vector3(0.f, 0.f, 1.0f));
-	Vector3 horizontal = Vector3(2.0f, right - left, 0.0f);
-	Vector3 vertical = Vector3(0.0f, back - front, 2.0f);
+	Vector3 horizontal = Vector3(2.0f * _mesh_vertex_spacing, right - left, 0.0f);
+	Vector3 vertical = Vector3(0.0f, back - front, 2.0f * _mesh_vertex_spacing);
 	Vector3 normal = vertical.cross(horizontal).normalized();
 	normal.z *= -1.0f;
+
+	// TODO - When get_height interpolates, change this function to a 3-lookup method
+	//real_t height = get_height(p_global_position);
+	//real_t u = height - get_height(p_global_position + Vector3(1.f, 0.0f, 0.0f));
+	//real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, 1.f));
+	//Vector3 normal = Vector3(u, _mesh_vertex_spacing, v);
+	//normal.normalize();
 	return normal;
 }
 
