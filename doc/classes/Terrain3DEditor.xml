@@ -91,20 +91,28 @@
 	</methods>
 	<constants>
 		<constant name="ADD" value="0" enum="Operation">
+			Additive operations.
 		</constant>
 		<constant name="SUBTRACT" value="1" enum="Operation">
+			Subtractive operations.
 		</constant>
 		<constant name="MULTIPLY" value="2" enum="Operation">
+			Multiplicative operations.
 		</constant>
 		<constant name="DIVIDE" value="3" enum="Operation">
+			Divisive operations.
 		</constant>
 		<constant name="REPLACE" value="4" enum="Operation">
+			Replacing operations.
 		</constant>
 		<constant name="AVERAGE" value="5" enum="Operation">
+			Averaging operations.
 		</constant>
 		<constant name="GRADIENT" value="6" enum="Operation">
+			Gradient operations.
 		</constant>
 		<constant name="OP_MAX" value="7" enum="Operation">
+			The number of elements in this enum.
 		</constant>
 		<constant name="HEIGHT" value="0" enum="Tool">
 			Sculpt heights.
@@ -131,6 +139,7 @@
 			Add/remove regions.
 		</constant>
 		<constant name="TOOL_MAX" value="8" enum="Tool">
+			The number of elements in this enum.
 		</constant>
 	</constants>
 </class>

@@ -3,7 +3,7 @@
 	<brief_description>
 	</brief_description>
 	<description>
-		This class contains an array of [code]Terrain3DTexture[/code] objects in 32 slots. It is a savable resource, so you can save it to disk and use the same texture list in multiple scenes that use Terrain3D. The amount of data is small, so it can be saved as a git-friendly, text based .tres file or left within the scene file.
+		This class contains an array of [code skip-lint]Terrain3DTexture[/code] objects in 32 slots. It is a savable resource, so you can save it to disk and use the same texture list in multiple scenes that use Terrain3D. The amount of data is small, so it can be saved as a git-friendly, text based .tres file or left within the scene file.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -24,7 +24,7 @@
 		<method name="save">
 			<return type="void" />
 			<description>
-				Saves this texture list resource to disk, if saved as an external [code].tres[/code] or [code].res[/code] resource file.
+				Saves this texture list resource to disk, if saved as an external [code skip-lint].tres[/code] or [code skip-lint].res[/code] resource file.
 			</description>
 		</method>
 		<method name="set_texture">
