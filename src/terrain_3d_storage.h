@@ -127,7 +127,7 @@ public:
 	int get_region_count() const { return _region_offsets.size(); }
 	Vector2i get_region_offset(Vector3 p_global_position);
 	int get_region_index(Vector3 p_global_position);
-	bool has_region(Vector3 p_global_position);
+	bool has_region(Vector3 p_global_position) { return get_region_index(p_global_position) != -1; }
 	Error add_region(Vector3 p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
 	void remove_region(Vector3 p_global_position, bool p_update = true);
 	void update_regions(bool force_emit = false);
@@ -138,11 +138,11 @@ public:
 	void set_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_maps(MapType p_map_type) const;
 	TypedArray<Image> get_maps_copy(MapType p_map_type) const;
-	void set_height_maps(const TypedArray<Image> &p_maps);
+	void set_height_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_HEIGHT, p_maps); }
 	TypedArray<Image> get_height_maps() const { return _height_maps; }
-	void set_control_maps(const TypedArray<Image> &p_maps);
+	void set_control_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_CONTROL, p_maps); }
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
-	void set_color_maps(const TypedArray<Image> &p_maps);
+	void set_color_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_COLOR, p_maps); }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
 	void set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel);
 	Color get_pixel(MapType p_map_type, Vector3 p_global_position);
@@ -183,10 +183,6 @@ VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
 // Inline Functions
-
-inline bool Terrain3DStorage::has_region(Vector3 p_global_position) {
-	return get_region_index(p_global_position) != -1;
-}
 
 inline void Terrain3DStorage::set_height(Vector3 p_global_position, real_t p_height) {
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0., 0., 1.));

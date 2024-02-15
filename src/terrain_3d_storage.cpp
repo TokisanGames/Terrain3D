@@ -348,19 +348,21 @@ Ref<Image> Terrain3DStorage::get_map_region(MapType p_map_type, int p_region_ind
 
 void Terrain3DStorage::set_maps(MapType p_map_type, const TypedArray<Image> &p_maps) {
 	ERR_FAIL_COND_MSG(p_map_type < 0 || p_map_type >= TYPE_MAX, "Specified map type out of range");
+	LOG(INFO, "Setting ", TYPESTR[p_map_type], " maps: ", p_maps.size());
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
-			set_height_maps(p_maps);
+			_height_maps = sanitize_maps(TYPE_HEIGHT, p_maps);
 			break;
 		case TYPE_CONTROL:
-			set_control_maps(p_maps);
+			_control_maps = sanitize_maps(TYPE_CONTROL, p_maps);
 			break;
 		case TYPE_COLOR:
-			set_color_maps(p_maps);
+			_color_maps = sanitize_maps(TYPE_COLOR, p_maps);
 			break;
 		default:
 			break;
 	}
+	force_update_maps(p_map_type);
 }
 
 TypedArray<Image> Terrain3DStorage::get_maps(MapType p_map_type) const {
@@ -399,26 +401,6 @@ TypedArray<Image> Terrain3DStorage::get_maps_copy(MapType p_map_type) const {
 		newmaps[i] = img;
 	}
 	return newmaps;
-}
-
-void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
-	LOG(INFO, "Setting height maps: ", p_maps.size());
-	_height_maps = sanitize_maps(TYPE_HEIGHT, p_maps);
-	force_update_maps(TYPE_HEIGHT);
-}
-
-void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
-	LOG(INFO, "Setting control maps: ", p_maps.size());
-	TypedArray<Image> maps = p_maps;
-	_control_maps = sanitize_maps(TYPE_CONTROL, maps);
-	force_update_maps(TYPE_CONTROL);
-}
-
-void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
-	LOG(INFO, "Setting color maps: ", p_maps.size());
-	TypedArray<Image> maps = p_maps;
-	_color_maps = sanitize_maps(TYPE_COLOR, maps);
-	force_update_maps(TYPE_COLOR);
 }
 
 void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel) {
