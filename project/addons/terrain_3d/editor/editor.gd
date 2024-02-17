@@ -194,6 +194,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				
 				# Mouse clicked, start editing
 				editor.start_operation(mouse_global_position)
+				editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
 				return AFTER_GUI_INPUT_STOP
 			
 			elif editor.is_operating():
