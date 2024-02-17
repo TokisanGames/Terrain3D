@@ -424,11 +424,11 @@ void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, 
 Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position) {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
-		return COLOR_ZERO;
+		return COLOR_NAN;
 	}
 	int region = get_region_index(p_global_position);
 	if (region < 0 || region >= _region_offsets.size()) {
-		return COLOR_ZERO;
+		return COLOR_NAN;
 	}
 	Ref<Image> map = get_map_region(p_map_type, region);
 	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
@@ -947,11 +947,14 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 			}
 		} break;
 	}
-
 	return Vector3(p_global_position.x, height, p_global_position.z);
 }
 
 Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
+	int region = get_region_index(p_global_position);
+	if (region < 0 || region >= _region_offsets.size() || Util::is_hole(get_control(p_global_position))) {
+		return Vector3(NAN, NAN, NAN);
+	}
 	real_t left = get_height(p_global_position + Vector3(-1.0f, 0.0f, 0.0f));
 	real_t right = get_height(p_global_position + Vector3(1.0f, 0.0f, 0.0f));
 	real_t back = get_height(p_global_position + Vector3(0.f, 0.f, -1.0f));

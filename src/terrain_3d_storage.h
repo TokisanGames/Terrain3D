@@ -49,7 +49,7 @@ public:
 		COLOR_BLACK, // TYPE_HEIGHT
 		COLOR_CONTROL, // TYPE_CONTROL
 		COLOR_ROUGHNESS, // TYPE_COLOR
-		COLOR_ZERO, // TYPE_MAX, unused just in case someone indexes the array
+		COLOR_NAN, // TYPE_MAX, unused just in case someone indexes the array
 	};
 
 	enum RegionSize {
@@ -189,6 +189,9 @@ inline void Terrain3DStorage::set_height(Vector3 p_global_position, real_t p_hei
 }
 
 inline real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
+	if (Util::is_hole(get_control(p_global_position))) {
+		return NAN;
+	}
 	return get_pixel(TYPE_HEIGHT, p_global_position).r;
 }
 
