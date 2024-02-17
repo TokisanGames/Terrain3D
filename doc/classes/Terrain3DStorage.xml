@@ -58,7 +58,9 @@
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the associated pixel on the height map at the requested location. Calls [method get_pixel].
+				Returns the associated pixel on the height map at the requested location. This function is only accurate at vertex coordinates, and on flat areas. It does not currently interpolate heights between vertices, while mesh faces do. Locations between vertices will return the height of the vertex at the floored coordinates. See [url="https://github.com/TokisanGames/Terrain3D/issues/324"]issue 324[/url].
+				Returns NAN if the requested position is a hole.
+				Calls [method get_pixel].
 			</description>
 		</method>
 		<method name="get_map_region">
@@ -99,7 +101,8 @@
 			<return type="Vector3" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the terrain normal at the specified location.
+				Returns the terrain normal at the specified location. This function uses [method get_height], which is not currently accurate between vertices. Therefore, this function may also be inacurate between vertices.
+				Returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] if the requested position is a hole or outside of defined regions.
 			</description>
 		</method>
 		<method name="get_pixel">
@@ -108,6 +111,7 @@
 			<param index="1" name="global_position" type="Vector3" />
 			<description>
 				Returns the pixel for the map type associated with the specified location.
+				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
 			</description>
 		</method>
 		<method name="get_region_count">

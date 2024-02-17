@@ -544,7 +544,11 @@ Returns the associated pixel on the control map at the requested location. Calls
 
 :ref:`float<class_float>` **get_height** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the associated pixel on the height map at the requested location. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Returns the associated pixel on the height map at the requested location. This function is only accurate at vertex coordinates, and on flat areas. It does not currently interpolate heights between vertices, while mesh faces do. Locations between vertices will return the height of the vertex at the floored coordinates. See `issue 324 <"https://github.com/TokisanGames/Terrain3D/issues/324">`__.
+
+Returns NAN if the requested position is a hole.
+
+Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -612,6 +616,8 @@ Returns the location of a terrain vertex at a certain LOD. If there is a hole at
 
 Returns the terrain normal at the specified location.
 
+Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outside of defined regions.
+
 .. rst-class:: classref-item-separator
 
 ----
@@ -623,6 +629,8 @@ Returns the terrain normal at the specified location.
 :ref:`Color<class_Color>` **get_pixel** **(** :ref:`MapType<enum_Terrain3DStorage_MapType>` map_type, :ref:`Vector3<class_Vector3>` global_position **)**
 
 Returns the pixel for the map type associated with the specified location.
+
+Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regions.
 
 .. rst-class:: classref-item-separator
 
