@@ -41,7 +41,7 @@ Vector2 Util::get_min_max(const Ref<Image> p_image) {
 		return Vector2(INFINITY, INFINITY);
 	}
 
-	Vector2 min_max = Vector2(0, 0);
+	Vector2 min_max = Vector2(0.f, 0.f);
 
 	for (int y = 0; y < p_image->get_height(); y++) {
 		for (int x = 0; x < p_image->get_width(); x++) {
@@ -89,7 +89,7 @@ Ref<Image> Util::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
 	hmin = abs(hmin);
 	hmax = abs(hmax) + hmin;
 	// Avoid divide by zero
-	hmax = (hmax == 0) ? 0.001 : hmax;
+	hmax = (hmax == 0) ? 0.001f : hmax;
 
 	// Create a new image w / normalized values
 	Ref<Image> thumb = Image::create(p_size.x, p_size.y, false, Image::FORMAT_RGB8);

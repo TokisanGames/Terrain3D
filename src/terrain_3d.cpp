@@ -370,23 +370,23 @@ void Terrain3D::_update_collision() {
 		map_data.resize(shape_size * shape_size);
 
 		Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size;
-		Vector3 global_pos = Vector3(global_offset.x, 0, global_offset.y);
+		Vector3 global_pos = Vector3(global_offset.x, 0.f, global_offset.y);
 
 		Ref<Image> map, map_x, map_z, map_xz;
 		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
 		map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
 		cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, i);
-		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0, global_pos.z));
+		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z));
 		if (region >= 0) {
 			map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
 			cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x, 0, global_pos.z + region_size));
+		region = _storage->get_region_index(Vector3(global_pos.x, 0.f, global_pos.z + region_size));
 		if (region >= 0) {
 			map_z = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
 			cmap_z = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0, global_pos.z + region_size));
+		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size));
 		if (region >= 0) {
 			map_xz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
 			cmap_xz = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
@@ -429,9 +429,9 @@ void Terrain3D::_update_collision() {
 		// Non rotated shape for normal array index above
 		//Transform3D xform = Transform3D(Basis(), global_pos);
 		// Rotated shape Y=90 for -90 rotated array index
-		Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5),
-				global_pos + Vector3(region_size, 0, region_size) * .5);
-		xform.scale(Vector3(_mesh_vertex_spacing, 1, _mesh_vertex_spacing));
+		Transform3D xform = Transform3D(Basis(Vector3(0.f, 1.f, 0.f), Math_PI * .5f),
+				global_pos + Vector3(region_size, 0.f, region_size) * .5f);
+		xform.scale(Vector3(_mesh_vertex_spacing, 1.f, _mesh_vertex_spacing));
 
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
@@ -570,7 +570,7 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 
 		for (int32_t z = z_start; z < z_end; ++z) {
 			for (int32_t x = x_start; x < x_end; ++x) {
-				real_t height = _storage->get_height(Vector3(x, 0.0, z));
+				real_t height = _storage->get_height(Vector3(x, 0.f, z));
 				if (height >= p_global_aabb.position.y && height <= p_global_aabb.get_end().y) {
 					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
 				}
@@ -816,7 +816,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 		real_t scale = real_t(1 << l) * _mesh_vertex_spacing;
 		Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
 		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l)) * _mesh_vertex_spacing;
-		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
+		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
 
 		// Position tiles
 		for (int x = 0; x < 4; x++) {
@@ -825,11 +825,11 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 					continue;
 				}
 
-				Vector3 fill = Vector3(x >= 2 ? 1 : 0, 0, y >= 2 ? 1 : 0) * scale;
-				Vector3 tile_tl = base + Vector3(x, 0, y) * tile_size + fill;
+				Vector3 fill = Vector3(x >= 2 ? 1.f : 0.f, 0.f, y >= 2 ? 1.f : 0.f) * scale;
+				Vector3 tile_tl = base + Vector3(x, 0.f, y) * tile_size + fill;
 				//Vector3 tile_br = tile_tl + tile_size;
 
-				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
+				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 				t.origin = tile_tl;
 
 				RS->instance_set_transform(_data.tiles[tile], t);
@@ -838,7 +838,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 			}
 		}
 		{
-			Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
+			Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 			t.origin = snapped_pos;
 			RS->instance_set_transform(_data.fillers[l], t);
 		}
@@ -849,26 +849,26 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 
 			// Position trims
 			{
-				Vector3 tile_center = snapped_pos + (Vector3(scale, 0, scale) * 0.5f);
+				Vector3 tile_center = snapped_pos + (Vector3(scale, 0.f, scale) * 0.5f);
 				Vector3 d = p_cam_pos - next_snapped_pos;
 
 				int r = 0;
 				r |= d.x >= scale ? 0 : 2;
 				r |= d.z >= scale ? 0 : 1;
 
-				real_t rotations[4] = { 0.0, 270.0, 90, 180.0 };
+				real_t rotations[4] = { 0.f, 270.f, 90.f, 180.f };
 
 				real_t angle = UtilityFunctions::deg_to_rad(rotations[r]);
-				Transform3D t = Transform3D().rotated(Vector3(0, 1, 0), -angle);
-				t = t.scaled(Vector3(scale, 1, scale));
+				Transform3D t = Transform3D().rotated(Vector3(0.f, 1.f, 0.f), -angle);
+				t = t.scaled(Vector3(scale, 1.f, scale));
 				t.origin = tile_center;
 				RS->instance_set_transform(_data.trims[edge], t);
 			}
 
 			// Position seams
 			{
-				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
-				Transform3D t = Transform3D().scaled(Vector3(scale, 1, scale));
+				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
+				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 				t.origin = next_base;
 				RS->instance_set_transform(_data.seams[edge], t);
 			}

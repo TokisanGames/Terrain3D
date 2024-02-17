@@ -63,7 +63,7 @@ private:
 	// Renderer settings
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
 	GeometryInstance3D::ShadowCastingSetting _shadow_casting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
-	real_t _cull_margin = 0.0;
+	real_t _cull_margin = 0.0f;
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -78,7 +78,7 @@ private:
 	bool _show_debug_collision = false;
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
-	real_t _collision_priority = 1.0;
+	real_t _collision_priority = 1.0f;
 
 	void _initialize();
 	void __ready();

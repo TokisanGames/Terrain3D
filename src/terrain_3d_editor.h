@@ -70,18 +70,18 @@ public:
 		Ref<ImageTexture> _texture;
 
 		int _size = 0;
-		real_t _opacity = 0.0;
-		real_t _height = 0.0;
+		real_t _opacity = 0.0f;
+		real_t _height = 0.0f;
 		int _texture_index = 0;
 		Color _color = COLOR_ROUGHNESS;
-		real_t _roughness = 0.5;
+		real_t _roughness = 0.5f;
 		PackedVector3Array _gradient_points;
 		bool _enable = false;
 
 		bool _auto_regions = false;
 		bool _align_to_view = false;
-		real_t _gamma = 1.0;
-		real_t _jitter = 0.0;
+		real_t _gamma = 1.0f;
+		real_t _jitter = 0.0f;
 
 	public:
 		void set_data(Dictionary p_data);

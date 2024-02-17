@@ -148,8 +148,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	Object::cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
 
 	AABB edited_area;
-	edited_area.position = p_global_position - Vector3(brush_size, 0.0f, brush_size) / 2.0f;
-	edited_area.size = Vector3(brush_size, 0.0f, brush_size);
+	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) / 2.f;
+	edited_area.size = Vector3(brush_size, 0.f, brush_size);
 
 	for (int x = 0; x < brush_size; x++) {
 		for (int y = 0; y < brush_size; y++) {
@@ -231,7 +231,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							up = storage->get_pixel(map_type, up_position).r;
 							down = storage->get_pixel(map_type, down_position).r;
 
-							real_t avg = (srcf + left + right + up + down) * 0.2;
+							real_t avg = (srcf + left + right + up + down) * 0.2f;
 							destf = Math::lerp(srcf, avg, brush_alpha * opacity);
 							break;
 						}
@@ -244,7 +244,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 								Vector2 point_2_xz = Vector2(point_2.x, point_2.z);
 								Vector2 brush_xz = Vector2(brush_global_position.x, brush_global_position.z);
 
-								if (_operation_movement.length_squared() > 0.0) {
+								if (_operation_movement.length_squared() > 0.f) {
 									// Ramp up/down only in the direction of movement, to avoid giving winding
 									// paths one edge higher than the other.
 									Vector2 movement_xz = Vector2(_operation_movement.x, _operation_movement.z).normalized();
@@ -254,7 +254,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 								Vector2 dir = point_2_xz - point_1_xz;
 								real_t weight = dir.normalized().dot(brush_xz - point_1_xz) / dir.length();
-								weight = Math::clamp(weight, (real_t)0.0, (real_t)1.0);
+								weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
 								real_t height = Math::lerp(point_1.y, point_2.y, weight);
 
 								destf = Math::lerp(srcf, height, brush_alpha * opacity);
@@ -264,7 +264,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 						default:
 							break;
 					}
-					dest = Color(destf, 0.0f, 0.0f, 1.0f);
+					dest = Color(destf, 0.f, 0.f, 1.f);
 					storage->update_heights(destf);
 
 					edited_position.y = destf;
@@ -274,12 +274,12 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					// Get bit field from pixel
 					uint32_t base_id = Util::get_base(src.r);
 					uint32_t overlay_id = Util::get_overlay(src.r);
-					real_t blend = real_t(Util::get_blend(src.r)) / 255.0f;
+					real_t blend = real_t(Util::get_blend(src.r)) / 255.f;
 					bool hole = Util::is_hole(src.r);
 					bool navigation = Util::is_nav(src.r);
 					bool autoshader = Util::is_auto(src.r);
 
-					real_t alpha_clip = (brush_alpha > 0.1f) ? 1.0f : 0.0f;
+					real_t alpha_clip = (brush_alpha > 0.1f) ? 1.f : 0.f;
 					uint32_t dest_id = uint32_t(Math::lerp(base_id, texture_id, alpha_clip));
 
 					switch (_tool) {
@@ -290,7 +290,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 									// Set base texture
 									base_id = dest_id;
 									// Erase blend value
-									blend = Math::lerp(blend, real_t(0.0f), alpha_clip);
+									blend = Math::lerp(blend, real_t(0.f), alpha_clip);
 									if (brush_alpha > 0.1f) {
 										autoshader = false;
 									}
@@ -299,14 +299,14 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 								// Overlay Spray
 								case ADD: {
 									real_t spray_opacity = CLAMP(opacity * 0.025f, 0.003f, 0.025f);
-									real_t brush_value = CLAMP(brush_alpha * spray_opacity, 0.0f, 1.0f);
+									real_t brush_value = CLAMP(brush_alpha * spray_opacity, 0.f, 1.f);
 									// If overlay and base texture are the same, reduce blend value
 									if (dest_id == base_id) {
-										blend = CLAMP(blend - brush_value, 0.0f, 1.0f);
+										blend = CLAMP(blend - brush_value, 0.f, 1.f);
 									} else {
 										// Else overlay and base are separate, set overlay texture and increase blend value
 										overlay_id = dest_id;
-										blend = CLAMP(blend + brush_value, 0.0f, 1.0f);
+										blend = CLAMP(blend + brush_value, 0.f, 1.f);
 									}
 									if (brush_alpha * opacity * 11.f > 0.1f) {
 										autoshader = false;
@@ -337,13 +337,13 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					}
 
 					// Convert back to bitfield
-					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.0f), 0.0f, 255.0f));
+					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.f), 0.f, 255.f));
 					uint32_t bits = Util::enc_base(base_id) | Util::enc_overlay(overlay_id) |
 							Util::enc_blend(blend_int) | Util::enc_hole(hole) |
 							Util::enc_nav(navigation) | Util::enc_auto(autoshader);
 
 					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
-					dest = Color(*(float *)&bits, 0.f, 0.f, 1.0f);
+					dest = Color(*(float *)&bits, 0.f, 0.f, 1.f);
 
 				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
 					switch (_tool) {
@@ -390,9 +390,9 @@ Vector2 Terrain3DEditor::_get_uv_position(Vector3 p_global_position, int p_regio
 }
 
 Vector2 Terrain3DEditor::_rotate_uv(Vector2 p_uv, real_t p_angle) {
-	Vector2 rotation_offset = Vector2(0.5, 0.5);
+	Vector2 rotation_offset = Vector2(0.5f, 0.5f);
 	p_uv = (p_uv - rotation_offset).rotated(p_angle) + rotation_offset;
-	return p_uv.clamp(Vector2(0, 0), Vector2(1, 1));
+	return p_uv.clamp(Vector2(0.f, 0.f), Vector2(1.f, 1.f));
 }
 
 /* Stored in the _undo_set is:

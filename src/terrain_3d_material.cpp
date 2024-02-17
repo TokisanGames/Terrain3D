@@ -279,8 +279,8 @@ void Terrain3DMaterial::_update_shader() {
 		pfa.push_back(1.0f);
 		curve->set_offsets(pfa);
 		PackedColorArray pca;
-		pca.push_back(Color(1., 1., 1., 1.));
-		pca.push_back(Color(0., 0., 0., 1.));
+		pca.push_back(Color(1.f, 1.f, 1.f, 1.f));
+		pca.push_back(Color(0.f, 0.f, 0.f, 1.f));
 		curve->set_colors(pca);
 
 		Ref<NoiseTexture2D> noise_tex;

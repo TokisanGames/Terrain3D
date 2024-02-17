@@ -75,7 +75,7 @@ void Terrain3DStorage::update_heights(Vector2 p_heights) {
 }
 
 void Terrain3DStorage::update_height_range() {
-	_height_range = Vector2(0, 0);
+	_height_range = Vector2(0.f, 0.f);
 	for (int i = 0; i < _height_maps.size(); i++) {
 		update_heights(Util::get_min_max(_height_maps[i]));
 	}
@@ -164,7 +164,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 	}
 
 	// If we're importing data into a region, check its heights for aabbs
-	Vector2 min_max = Vector2(0, 0);
+	Vector2 min_max = Vector2(0.f, 0.f);
 	if (p_images.size() > TYPE_HEIGHT) {
 		min_max = Util::get_min_max(images[TYPE_HEIGHT]);
 		LOG(DEBUG, "Checking imported height range: ", min_max);
@@ -210,7 +210,7 @@ void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
 	LOG(DEBUG, "Removed colormaps, new size: ", _color_maps.size());
 
 	if (_height_maps.size() == 0) {
-		_height_range = Vector2(0, 0);
+		_height_range = Vector2(0.f, 0.f);
 	}
 
 	// Region_map is used by get_region_index so must be updated
@@ -632,7 +632,7 @@ Ref<Image> Terrain3DStorage::load_image(String p_file_name, int p_cache_mode, Ve
 			for (int x = 0; x < p_r16_size.x; x++) {
 				real_t h = real_t(file->get_16()) / 65535.0f;
 				h = h * (p_r16_height_range.y - p_r16_height_range.x) + p_r16_height_range.x;
-				img->set_pixel(x, y, Color(h, 0, 0));
+				img->set_pixel(x, y, Color(h, 0.f, 0.f));
 			}
 		}
 
@@ -718,7 +718,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 		}
 
 		// Apply scale and offsets to a new heightmap if applicable
-		if (i == TYPE_HEIGHT && (p_offset != 0 || p_scale != 1.0)) {
+		if (i == TYPE_HEIGHT && (p_offset != 0.f || p_scale != 1.f)) {
 			LOG(DEBUG, "Creating new temp image to adjust scale: ", p_scale, " offset: ", p_offset);
 			Ref<Image> newimg = Image::create(img->get_size().x, img->get_size().y, false, FORMAT[TYPE_HEIGHT]);
 			for (int y = 0; y < img->get_height(); y++) {
@@ -769,7 +769,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 				images[i] = img_slice;
 			}
 			// Add the heightmap slice and only regenerate on the last one
-			Vector3 position = Vector3(p_global_position.x + start_coords.x, 0, p_global_position.z + start_coords.y);
+			Vector3 position = Vector3(p_global_position.x + start_coords.x, 0.f, p_global_position.z + start_coords.y);
 			add_region(position, images, (x == slices_width - 1 && y == slices_height - 1));
 		}
 	} // for y < slices_height, x < slices_width
@@ -920,7 +920,7 @@ Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
 Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position) {
 	LOG(INFO, "Calculating vertex location");
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
-	real_t height = 0.0;
+	real_t height = 0.0f;
 
 	switch (p_filter) {
 		case HEIGHT_FILTER_NEAREST: {
@@ -934,7 +934,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 			height = get_height(p_global_position);
 			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
 				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					Vector3 position = p_global_position + Vector3(dx, 0.0, dz);
+					Vector3 position = p_global_position + Vector3(dx, 0.f, dz);
 					if (Util::is_hole(get_control(position))) {
 						height = NAN;
 						break;
