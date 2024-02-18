@@ -4,7 +4,10 @@ shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx;
 
 // Private uniforms
+uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1/1024
+uniform float _mesh_vertex_spacing = 1.0;
+uniform float _mesh_vertex_density = 1.0; // = 1/_mesh_vertex_spacing
 uniform int _region_map_size = 16;
 uniform int _region_map[256];
 uniform vec2 _region_offsets[256];
@@ -15,6 +18,17 @@ varying vec3 v_vertex;	// World coordinate vertex location
 ////////////////////////
 // Vertex
 ////////////////////////
+
+// Takes in UV world space coordinates, returns ivec3 with:
+// XY: (0 to _region_size) coordinates within a region
+// Z: layer index used for texturearrays, -1 if not in a region
+ivec3 get_region_uv(vec2 uv) {
+	uv *= _region_texel_size;
+	ivec2 pos = ivec2(floor(uv)) + (_region_map_size / 2);
+	int bounds = int(pos.x>=0 && pos.x<_region_map_size && pos.y>=0 && pos.y<_region_map_size);
+	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
+	return ivec3(ivec2((uv - _region_offsets[layer_index]) * _region_size), layer_index);
+}
 
 // Takes in UV2 region space coordinates, returns vec3 with:
 // XY: (0 to 1) coordinates within a region
@@ -40,14 +54,14 @@ void vertex() {
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	
 	// UV coordinates in world space. Values are 0 to _region_size within regions
-	UV = v_vertex.xz;
+	UV = round(v_vertex.xz * _mesh_vertex_density);
 
 	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
 	UV2 = (UV + vec2(0.5)) * _region_texel_size;
 
 	// Get final vertex location and save it
 	VERTEX.y = get_height(UV2);
-
+	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 ////////////////////////
@@ -55,14 +69,28 @@ void vertex() {
 ////////////////////////
 
 vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
-	float left = get_height(uv + vec2(-_region_texel_size, 0));
-	float right = get_height(uv + vec2(_region_texel_size, 0));
-	float back = get_height(uv + vec2(0, -_region_texel_size));
-	float front = get_height(uv + vec2(0, _region_texel_size));
-	vec3 horizontal = vec3(2.0, right - left, 0.0);
-	vec3 vertical = vec3(0.0, back - front, 2.0);
-	vec3 normal = normalize(cross(vertical, horizontal));
-	normal.z *= -1.0;
+	// Get the height of the current vertex
+	float height = get_height(uv);
+
+	// Get the heights to the right and in front, but because of hardware 
+	// interpolation on the edges of the heightmaps, the values are off
+	// causing the normal map to look weird. So, near the edges of the map
+	// get the heights to the left or behind instead. Hacky solution that 
+	// reduces the artifact, but doesn't fix it entirely. See #185.
+	float u, v;
+	if(mod(uv.y*_region_size, _region_size) > _region_size-2.) {
+		v = get_height(uv + vec2(0, -_region_texel_size)) - height;
+	} else {
+		v = height - get_height(uv + vec2(0, _region_texel_size));
+	}
+	if(mod(uv.x*_region_size, _region_size) > _region_size-2.) {
+		u = get_height(uv + vec2(-_region_texel_size, 0)) - height;		
+	} else {
+		u = height - get_height(uv + vec2(_region_texel_size, 0));
+	}
+
+	vec3 normal = vec3(u, _mesh_vertex_spacing, v);
+	normal = normalize(normal);
 	tangent = cross(normal, vec3(0, 0, 1));
 	binormal = cross(normal, tangent);
 	return normal;
@@ -79,4 +107,3 @@ void fragment() {
 	// Apply PBR
 	ALBEDO=vec3(.2);
 }
-
