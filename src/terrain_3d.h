@@ -30,7 +30,7 @@ public:
 
 private:
 	// Terrain state
-	String _version = "0.9.1-dev";
+	String _version = "0.9.1";
 	bool _is_inside_world = false;
 	bool _initialized = false;
 
