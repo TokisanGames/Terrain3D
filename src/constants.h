@@ -9,7 +9,7 @@
 
 #define RS RenderingServer::get_singleton()
 
-#define COLOR_ZERO Color(0.0f, 0.0f, 0.0f, 0.0f)
+#define COLOR_NAN Color(NAN, NAN, NAN, NAN)
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
 #define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
 #define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)

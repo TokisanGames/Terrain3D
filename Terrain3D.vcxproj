@@ -149,7 +149,6 @@
     <ClInclude Include="src\util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
     <ClInclude Include="src\terrain_3d_storage.h" />
-    <ClInclude Include="src\terrain_3d_surface.h" />
     <ClInclude Include="src\terrain_3d_texture.h" />
     <ClInclude Include="src\terrain_3d_texture_list.h" />
   </ItemGroup>
@@ -161,7 +160,6 @@
     <ClCompile Include="src\terrain_3d_editor.cpp" />
     <ClCompile Include="src\terrain_3d_material.cpp" />
     <ClCompile Include="src\terrain_3d_storage.cpp" />
-    <ClCompile Include="src\terrain_3d_surface.cpp" />
     <ClCompile Include="src\terrain_3d_texture.cpp" />
     <ClCompile Include="src\terrain_3d_texture_list.cpp" />
     <ClCompile Include="src\util.cpp" />
@@ -172,12 +170,18 @@
     <None Include=".github\actions\windows-deps\action.yml" />
     <None Include=".github\workflows\android.yml" />
     <None Include=".github\workflows\build.yml" />
+    <None Include=".github\workflows\ios.yml" />
     <None Include=".github\workflows\linux.yml" />
     <None Include=".github\workflows\macos.yml" />
     <None Include=".github\workflows\windows.yml" />
     <None Include=".gitignore" />
     <None Include="AUTHORS.md" />
     <None Include="CONTRIBUTING.md" />
+    <None Include="doc\conf.py" />
+    <None Include="doc\docs\double_precision.md" />
+    <None Include="doc\docs\mobile_web.md" />
+    <None Include="doc\docs\nightly_builds.md" />
+    <None Include="doc\docs\press.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
@@ -210,16 +214,17 @@
     <Text Include="doc\docs\texture_prep.md" />
     <Text Include="doc\docs\previous_engines.md" />
     <Text Include="doc\docs\building_from_source.md" />
+    <Text Include="doc\update_process.txt" />
     <Text Include="doc\_static\theme_overrides.css" />
     <Text Include="LICENSE.txt" />
     <Text Include="doc\docs\navigation.md" />
+    <Text Include="src\shaders\gpu_depth.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml" />
     <Xml Include="doc\classes\Terrain3DEditor.xml" />
     <Xml Include="doc\classes\Terrain3DMaterial.xml" />
     <Xml Include="doc\classes\Terrain3DStorage.xml" />
-    <Xml Include="doc\classes\Terrain3DSurface.xml" />
     <Xml Include="doc\classes\Terrain3DTexture.xml" />
     <Xml Include="doc\classes\Terrain3DTextureList.xml" />
   </ItemGroup>

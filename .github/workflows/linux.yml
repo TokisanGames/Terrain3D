@@ -3,29 +3,20 @@ on: [ workflow_call, workflow_dispatch ]
 
 jobs:
   build-linux:
-    name: ${{ matrix.name }}
+    name: 🐧 Linux ${{ matrix.arch }} ${{ matrix.target }}
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - identifier: linux-debug
-            name: Linux Debug
-            target: template_debug
-            platform: linux
-            arch: x86_64
-          - identifier: linux-release
-            name: Linux Release
-            target: template_release
-            platform: linux
-            arch: x86_64
+        platform: [linux]
+        target: [debug, release]
+        arch: [x86_64]
 
     steps:
       - name: Checkout Terrain3D
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          lfs: true
 
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
@@ -33,15 +24,17 @@ jobs:
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
         with:
-          cache-name: ${{ matrix.identifier }}
+          cache-name: ${{ matrix.platform }}-${{ matrix.target }}
         continue-on-error: true
 
       - name: Build Terrain3D
-        shell: sh
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+            TARGET: 'template_${{ matrix.target }}'
+            ARCH: '${{ matrix.arch }}'
+        shell: sh
         run: |
-          scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+          scons target=$TARGET platform='${{ matrix.platform }}' arch=$ARCH debug_symbols=no -j2
 
       - name: Prepare Files
         shell: sh

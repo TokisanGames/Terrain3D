@@ -42,9 +42,6 @@
     <ClInclude Include="src\terrain_3d_storage.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\terrain_3d_surface.h">
-      <Filter>4. Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\terrain_3d_texture.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
@@ -78,9 +75,6 @@
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_storage.cpp">
-      <Filter>5. C++</Filter>
-    </ClCompile>
-    <ClCompile Include="src\terrain_3d_surface.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_texture.cpp">
@@ -172,6 +166,24 @@
     <None Include="doc\docs\texture_painting.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\conf.py">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="doc\docs\press.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\mobile_web.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include=".github\workflows\ios.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="doc\docs\nightly_builds.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\double_precision.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -234,7 +246,12 @@
     <Text Include="doc\update_process.txt">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\docs\tutorial_videos.md" />
+    <Text Include="doc\docs\tutorial_videos.md">
+      <Filter>2. Docs</Filter>
+    </Text>
+    <Text Include="src\shaders\gpu_depth.glsl">
+      <Filter>3. Shaders</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml">
@@ -247,9 +264,6 @@
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DStorage.xml">
-      <Filter>2. Docs\XML</Filter>
-    </Xml>
-    <Xml Include="doc\classes\Terrain3DSurface.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DTexture.xml">

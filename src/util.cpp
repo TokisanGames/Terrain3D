@@ -1,7 +1,9 @@
 // Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
 
-#include "util.h"
+#include <godot_cpp/classes/engine.hpp>
+
 #include "logger.h"
+#include "util.h"
 
 ///////////////////////////
 // Public Functions
@@ -39,7 +41,7 @@ Vector2 Util::get_min_max(const Ref<Image> p_image) {
 		return Vector2(INFINITY, INFINITY);
 	}
 
-	Vector2 min_max = Vector2(0, 0);
+	Vector2 min_max = Vector2(0.f, 0.f);
 
 	for (int y = 0; y < p_image->get_height(); y++) {
 		for (int x = 0; x < p_image->get_width(); x++) {
@@ -87,7 +89,7 @@ Ref<Image> Util::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
 	hmin = abs(hmin);
 	hmax = abs(hmax) + hmin;
 	// Avoid divide by zero
-	hmax = (hmax == 0) ? 0.001 : hmax;
+	hmax = (hmax == 0) ? 0.001f : hmax;
 
 	// Create a new image w / normalized values
 	Ref<Image> thumb = Image::create(p_size.x, p_size.y, false, Image::FORMAT_RGB8);
@@ -103,24 +105,105 @@ Ref<Image> Util::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
 	return thumb;
 }
 
-/* Get image filled with your desired color and format
- * If alpha < 0, fill with checkered pattern multiplied by rgb
+/* Get an Image filled with specified color and format
+ * If p_color.a < 0, fill with checkered pattern multiplied by p_color.rgb
+ *
+ * Behavior changes if a compressed format is requested:
+ * If the editor is running and format is DXT1/5, BPTC_RGBA, it returns a filled image.
+ * Otherwise, it returns a blank image in that format.
+ *
+ * The reason is the Image compression library is available only in the editor. And it is
+ * unreliable, offering little control over the output format, choosing automatically and
+ * often wrong. We have selected a few compressed formats it gets right.
  */
 Ref<Image> Util::get_filled_image(Vector2i p_size, Color p_color, bool p_create_mipmaps, Image::Format p_format) {
-	Ref<Image> img = Image::create(p_size.x, p_size.y, p_create_mipmaps, p_format);
-	if (p_color.a < 0.0f) {
-		p_color.a = 1.0f;
-		Color col_a = Color(0.8f, 0.8f, 0.8f, 1.0) * p_color;
-		Color col_b = Color(0.5f, 0.5f, 0.5f, 1.0) * p_color;
-		img->fill_rect(Rect2i(Vector2i(0, 0), p_size / 2), col_a);
-		img->fill_rect(Rect2i(p_size / 2, p_size / 2), col_a);
-		img->fill_rect(Rect2i(Vector2(p_size.x, 0) / 2, p_size / 2), col_b);
-		img->fill_rect(Rect2i(Vector2(0, p_size.y) / 2, p_size / 2), col_b);
-	} else {
-		img->fill(p_color);
+	if (p_format < 0 || p_format >= Image::FORMAT_MAX) {
+		p_format = Image::FORMAT_DXT5;
 	}
-	if (p_create_mipmaps) {
-		img->generate_mipmaps();
+
+	Image::CompressMode compression_format = Image::COMPRESS_MAX;
+	Image::UsedChannels channels = Image::USED_CHANNELS_RGBA;
+	bool compress = false;
+	bool fill_image = true;
+
+	if (p_format >= Image::Format::FORMAT_DXT1) {
+		switch (p_format) {
+			case Image::FORMAT_DXT1:
+				p_format = Image::FORMAT_RGB8;
+				channels = Image::USED_CHANNELS_RGB;
+				compression_format = Image::COMPRESS_S3TC;
+				compress = true;
+				break;
+			case Image::FORMAT_DXT5:
+				p_format = Image::FORMAT_RGBA8;
+				channels = Image::USED_CHANNELS_RGBA;
+				compression_format = Image::COMPRESS_S3TC;
+				compress = true;
+				break;
+			case Image::FORMAT_BPTC_RGBA:
+				p_format = Image::FORMAT_RGBA8;
+				channels = Image::USED_CHANNELS_RGBA;
+				compression_format = Image::COMPRESS_BPTC;
+				compress = true;
+				break;
+			default:
+				compress = false;
+				fill_image = false;
+				break;
+		}
+	}
+
+	Ref<Image> img = Image::create(p_size.x, p_size.y, p_create_mipmaps, p_format);
+
+	if (fill_image) {
+		if (p_color.a < 0.0f) {
+			p_color.a = 1.0f;
+			Color col_a = Color(0.8f, 0.8f, 0.8f, 1.0) * p_color;
+			Color col_b = Color(0.5f, 0.5f, 0.5f, 1.0) * p_color;
+			img->fill_rect(Rect2i(Vector2i(0, 0), p_size / 2), col_a);
+			img->fill_rect(Rect2i(p_size / 2, p_size / 2), col_a);
+			img->fill_rect(Rect2i(Vector2(p_size.x, 0) / 2, p_size / 2), col_b);
+			img->fill_rect(Rect2i(Vector2(0, p_size.y) / 2, p_size / 2), col_b);
+		} else {
+			img->fill(p_color);
+		}
+		if (p_create_mipmaps) {
+			img->generate_mipmaps();
+		}
+	}
+	if (compress && Engine::get_singleton()->is_editor_hint()) {
+		img->compress_from_channels(compression_format, channels);
 	}
 	return img;
+}
+
+/* From source RGB and R channels, create a new RGBA image. If p_invert_green_channel is true,
+ * the destination green channel will be 1.0 - input green channel.
+ */
+Ref<Image> Util::pack_image(const Ref<Image> p_src_rgb, const Ref<Image> p_src_r, bool p_invert_green_channel) {
+	if (!p_src_rgb.is_valid() || !p_src_r.is_valid()) {
+		LOG(ERROR, "Provided images are not valid. Cannot pack.");
+		return Ref<Image>();
+	}
+	if (p_src_rgb->get_size() != p_src_r->get_size()) {
+		LOG(ERROR, "Provided images are not the same size. Cannot pack.");
+		return Ref<Image>();
+	}
+	if (p_src_rgb->is_empty() || p_src_r->is_empty()) {
+		LOG(ERROR, "Provided images are empty. Cannot pack.");
+		return Ref<Image>();
+	}
+	Ref<Image> dst = Image::create(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGBA8);
+	LOG(INFO, "Creating image from source RGB + R images.");
+	for (int y = 0; y < p_src_rgb->get_height(); y++) {
+		for (int x = 0; x < p_src_rgb->get_width(); x++) {
+			Color col = p_src_rgb->get_pixel(x, y);
+			col.a = p_src_r->get_pixel(x, y).r;
+			if (p_invert_green_channel) {
+				col.g = 1.0f - col.g;
+			}
+			dst->set_pixel(x, y, col);
+		}
+	}
+	return dst;
 }

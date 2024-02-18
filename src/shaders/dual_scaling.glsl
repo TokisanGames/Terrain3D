@@ -8,11 +8,9 @@ uniform float dual_scale_reduction : hint_range(0.001,1) = 0.3;
 uniform float tri_scale_reduction : hint_range(0.001,1) = 0.3;
 uniform float dual_scale_far : hint_range(0,1000) = 170.0;
 uniform float dual_scale_near : hint_range(0,1000) = 100.0;
-varying float v_vertex_dist;
 varying float v_far_factor;
 
 //INSERT: DUAL_SCALING_VERTEX
-		v_vertex_dist = length(v_vertex - v_camera_pos);
 		v_far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, v_vertex_dist), 0.0, 1.0);
 
 //INSERT: DUAL_SCALING_BASE

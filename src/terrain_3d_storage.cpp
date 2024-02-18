@@ -39,12 +39,6 @@ Terrain3DStorage::~Terrain3DStorage() {
 void Terrain3DStorage::set_version(real_t p_version) {
 	LOG(INFO, vformat("%.3f", p_version));
 	_version = p_version;
-	if (_version >= 0.841f) {
-		_841_colormap_upgraded = true;
-	}
-	if (_version >= 0.842f) {
-		_842_controlmap_upgraded = true;
-	}
 	if (_version < CURRENT_VERSION) {
 		LOG(WARN, "Storage version ", vformat("%.3f", _version), " will be updated to ", vformat("%.3f", CURRENT_VERSION), " upon save");
 		_modified = true;
@@ -81,11 +75,34 @@ void Terrain3DStorage::update_heights(Vector2 p_heights) {
 }
 
 void Terrain3DStorage::update_height_range() {
-	_height_range = Vector2(0, 0);
+	_height_range = Vector2(0.f, 0.f);
 	for (int i = 0; i < _height_maps.size(); i++) {
 		update_heights(Util::get_min_max(_height_maps[i]));
 	}
 	LOG(INFO, "Updated terrain height range: ", _height_range);
+}
+
+void Terrain3DStorage::clear_edited_area() {
+	_edited_area = AABB();
+}
+
+void Terrain3DStorage::add_edited_area(AABB p_area) {
+	AABB descaled_area = p_area;
+	descaled_area.position /= _mesh_vertex_spacing;
+	descaled_area.size /= _mesh_vertex_spacing;
+	if (_edited_area.has_surface()) {
+		_edited_area = _edited_area.merge(p_area);
+	} else {
+		_edited_area = p_area;
+	}
+	emit_signal("maps_edited", get_edited_area());
+}
+
+AABB Terrain3DStorage::get_edited_area() const {
+	AABB area = _edited_area;
+	area.position *= _mesh_vertex_spacing;
+	area.size *= _mesh_vertex_spacing;
+	return area;
 }
 
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
@@ -107,7 +124,8 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets)
 
 /** Returns a region offset given a location */
 Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
-	return Vector2i((Vector2(p_global_position.x, p_global_position.z) / real_t(_region_size)).floor());
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
+	return Vector2i((Vector2(descaled_position.x, descaled_position.z) / real_t(_region_size)).floor());
 }
 
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
@@ -136,7 +154,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 
 	Vector2i region_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
 	if (region_pos.x >= REGION_MAP_SIZE || region_pos.y >= REGION_MAP_SIZE || region_pos.x < 0 || region_pos.y < 0) {
-		LOG(ERROR, "Specified position outside of maximum region map size: +/-", REGION_MAP_SIZE / 2 * _region_size);
+		LOG(ERROR, "Specified position outside of maximum region map size: +/-", real_t((REGION_MAP_SIZE / 2) * _region_size) * _mesh_vertex_spacing);
 		return FAILED;
 	}
 
@@ -157,7 +175,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 	}
 
 	// If we're importing data into a region, check its heights for aabbs
-	Vector2 min_max = Vector2(0, 0);
+	Vector2 min_max = Vector2(0.f, 0.f);
 	if (p_images.size() > TYPE_HEIGHT) {
 		min_max = Util::get_min_max(images[TYPE_HEIGHT]);
 		LOG(DEBUG, "Checking imported height range: ", min_max);
@@ -203,7 +221,7 @@ void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
 	LOG(DEBUG, "Removed colormaps, new size: ", _color_maps.size());
 
 	if (_height_maps.size() == 0) {
-		_height_range = Vector2(0, 0);
+		_height_range = Vector2(0.f, 0.f);
 	}
 
 	// Region_map is used by get_region_index so must be updated
@@ -241,9 +259,7 @@ void Terrain3DStorage::update_regions(bool force_emit) {
 		LOG(DEBUG_CONT, "Regenerating color layered texture from ", _color_maps.size(), " maps");
 		for (int i = 0; i < _color_maps.size(); i++) {
 			Ref<Image> map = _color_maps[i];
-			if (!map->has_mipmaps()) {
-				map->generate_mipmaps();
-			}
+			map->generate_mipmaps();
 		}
 		_generated_color_maps.create(_color_maps);
 		force_emit = true;
@@ -267,7 +283,7 @@ void Terrain3DStorage::update_regions(bool force_emit) {
 		_modified = true;
 	}
 
-	// Don't emit if no changes and not requested
+	// Emit if requested or changes were made
 	if (force_emit) {
 		Array region_signal_args;
 		region_signal_args.push_back(_generated_height_maps.get_rid());
@@ -343,19 +359,21 @@ Ref<Image> Terrain3DStorage::get_map_region(MapType p_map_type, int p_region_ind
 
 void Terrain3DStorage::set_maps(MapType p_map_type, const TypedArray<Image> &p_maps) {
 	ERR_FAIL_COND_MSG(p_map_type < 0 || p_map_type >= TYPE_MAX, "Specified map type out of range");
+	LOG(INFO, "Setting ", TYPESTR[p_map_type], " maps: ", p_maps.size());
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
-			set_height_maps(p_maps);
+			_height_maps = sanitize_maps(TYPE_HEIGHT, p_maps);
 			break;
 		case TYPE_CONTROL:
-			set_control_maps(p_maps);
+			_control_maps = sanitize_maps(TYPE_CONTROL, p_maps);
 			break;
 		case TYPE_COLOR:
-			set_color_maps(p_maps);
+			_color_maps = sanitize_maps(TYPE_COLOR, p_maps);
 			break;
 		default:
 			break;
 	}
+	force_update_maps(p_map_type);
 }
 
 TypedArray<Image> Terrain3DStorage::get_maps(MapType p_map_type) const {
@@ -396,66 +414,6 @@ TypedArray<Image> Terrain3DStorage::get_maps_copy(MapType p_map_type) const {
 	return newmaps;
 }
 
-void Terrain3DStorage::set_height_maps(const TypedArray<Image> &p_maps) {
-	LOG(INFO, "Setting height maps: ", p_maps.size());
-	_height_maps = sanitize_maps(TYPE_HEIGHT, p_maps);
-	force_update_maps(TYPE_HEIGHT);
-}
-
-void Terrain3DStorage::set_control_maps(const TypedArray<Image> &p_maps) {
-	LOG(INFO, "Setting control maps: ", p_maps.size());
-	TypedArray<Image> maps = p_maps;
-	// DEPRECATED 0.8.4 Remove 0.9
-	// Convert old RGB8 control format <0.841 to bit based format 0.8.42
-	if (_version < 0.842 && !_842_controlmap_upgraded && maps.size() > 0 &&
-			(Ref<Image>(maps[0])->get_format() != FORMAT[TYPE_CONTROL])) {
-		LOG(WARN, "Converting control maps to int format: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
-		for (int i = 0; i < maps.size(); i++) {
-			Ref<Image> old_img = maps[i];
-			PackedByteArray pba;
-			pba.resize(_region_size * _region_size * sizeof(uint32_t));
-			for (int x = 0; x < old_img->get_width(); x++) {
-				for (int y = 0; y < old_img->get_height(); y++) {
-					Color pixel = old_img->get_pixel(x, y);
-					uint32_t base = (pixel.get_r8() & 0x1F) << 27; // 5 bits 32-28
-					uint32_t over = (pixel.get_g8() & 0x1F) << 22; // 5 bits 27-23
-					uint32_t blend = (pixel.get_b8() & 0xFF) << 14; // 8 bits 22-15
-					uint32_t value = base | over | blend;
-					pba.encode_u32((y * _region_size + x) * sizeof(uint32_t), value);
-				}
-			}
-			Ref<Image> new_img = Image::create_from_data(_region_size, _region_size, false, Image::FORMAT_RF, pba);
-			maps[i] = new_img;
-		}
-		_842_controlmap_upgraded = true;
-	}
-	_control_maps = sanitize_maps(TYPE_CONTROL, maps);
-	force_update_maps(TYPE_CONTROL);
-}
-
-void Terrain3DStorage::set_color_maps(const TypedArray<Image> &p_maps) {
-	LOG(INFO, "Setting color maps: ", p_maps.size());
-	TypedArray<Image> maps = p_maps;
-	// DEPRECATED 0.8.4 Remove 0.9
-	// Convert colormap from linear <0.84 to srgb 0.841
-	if (_version < 0.841 && !_841_colormap_upgraded && maps.size() > 0) {
-		LOG(WARN, "Converting color maps from linear to srgb: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
-		for (int i = 0; i < maps.size(); i++) {
-			Ref<Image> img = maps[i];
-			for (int x = 0; x < img->get_width(); x++) {
-				for (int y = 0; y < img->get_height(); y++) {
-					Color c = img->get_pixel(x, y);
-					img->set_pixel(x, y, c.linear_to_srgb());
-				}
-			}
-			maps[i] = img;
-		}
-		_841_colormap_upgraded = true;
-	}
-	_color_maps = sanitize_maps(TYPE_COLOR, maps);
-	force_update_maps(TYPE_COLOR);
-}
-
 void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel) {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
@@ -465,30 +423,32 @@ void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, 
 	if (region < 0 || region >= _region_offsets.size()) {
 		return;
 	}
-	Ref<Image> map = get_map_region(p_map_type, region);
 	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(
-			Vector2(p_global_position.x - global_offset.x,
-					p_global_position.z - global_offset.y)
+			Vector2(descaled_position.x - global_offset.x,
+					descaled_position.z - global_offset.y)
 					.floor());
+	Ref<Image> map = get_map_region(p_map_type, region);
 	map->set_pixelv(img_pos, p_pixel);
 }
 
 Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position) {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
-		return COLOR_ZERO;
+		return COLOR_NAN;
 	}
 	int region = get_region_index(p_global_position);
 	if (region < 0 || region >= _region_offsets.size()) {
-		return COLOR_ZERO;
+		return COLOR_NAN;
 	}
-	Ref<Image> map = get_map_region(p_map_type, region);
 	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(
-			Vector2(p_global_position.x - global_offset.x,
-					p_global_position.z - global_offset.y)
+			Vector2(descaled_position.x - global_offset.x,
+					descaled_position.z - global_offset.y)
 					.floor());
+	Ref<Image> map = get_map_region(p_map_type, region);
 	return map->get_pixelv(img_pos);
 }
 
@@ -685,7 +645,7 @@ Ref<Image> Terrain3DStorage::load_image(String p_file_name, int p_cache_mode, Ve
 			for (int x = 0; x < p_r16_size.x; x++) {
 				real_t h = real_t(file->get_16()) / 65535.0f;
 				h = h * (p_r16_height_range.y - p_r16_height_range.x) + p_r16_height_range.x;
-				img->set_pixel(x, y, Color(h, 0, 0));
+				img->set_pixel(x, y, Color(h, 0.f, 0.f));
 			}
 		}
 
@@ -748,15 +708,16 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 		return;
 	}
 
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
-	if ((abs(p_global_position.x) > max_dimension) || (abs(p_global_position.z) > max_dimension)) {
-		LOG(ERROR, "Specify a position within +/-", Vector3i(max_dimension, 0, max_dimension));
+	if ((abs(descaled_position.x) > max_dimension) || (abs(descaled_position.z) > max_dimension)) {
+		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _mesh_vertex_spacing);
 		return;
 	}
-	if ((p_global_position.x + img_size.x > max_dimension) ||
-			(p_global_position.z + img_size.y > max_dimension)) {
+	if ((descaled_position.x + img_size.x > max_dimension) ||
+			(descaled_position.z + img_size.y > max_dimension)) {
 		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -img_size / 2, " to center");
+				". Try ", -(img_size * _mesh_vertex_spacing) / 2.f, " to center");
 		return;
 	}
 
@@ -771,7 +732,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 		}
 
 		// Apply scale and offsets to a new heightmap if applicable
-		if (i == TYPE_HEIGHT && (p_offset != 0 || p_scale != 1.0)) {
+		if (i == TYPE_HEIGHT && (p_offset != 0.f || p_scale != 1.f)) {
 			LOG(DEBUG, "Creating new temp image to adjust scale: ", p_scale, " offset: ", p_offset);
 			Ref<Image> newimg = Image::create(img->get_size().x, img->get_size().y, false, FORMAT[TYPE_HEIGHT]);
 			for (int y = 0; y < img->get_height(); y++) {
@@ -822,8 +783,8 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 				images[i] = img_slice;
 			}
 			// Add the heightmap slice and only regenerate on the last one
-			Vector3 position = Vector3(p_global_position.x + start_coords.x, 0, p_global_position.z + start_coords.y);
-			add_region(position, images, (x == slices_width - 1 && y == slices_height - 1));
+			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y);
+			add_region(position * _mesh_vertex_spacing, images, (x == slices_width - 1 && y == slices_height - 1));
 		}
 	} // for y < slices_height, x < slices_width
 }
@@ -962,7 +923,8 @@ Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
 }
 
 /**
- * Returns the location of a terrain vertex at a certain LOD.
+ * Returns the location of a terrain vertex at a certain LOD. If there is a hole at the position, it returns
+ * NAN in the vector's Y coordinate.
  * p_lod (0-8): Determines how many heights around the given global position will be sampled.
  * p_filter:
  *  HEIGHT_FILTER_NEAREST: Samples the height map at the exact coordinates given.
@@ -972,16 +934,26 @@ Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
 Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position) {
 	LOG(INFO, "Calculating vertex location");
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
-	real_t height = 0.0;
+	real_t height = 0.0f;
+
 	switch (p_filter) {
 		case HEIGHT_FILTER_NEAREST: {
-			height = get_height(p_global_position);
+			if (Util::is_hole(get_control(p_global_position))) {
+				height = NAN;
+			} else {
+				height = get_height(p_global_position);
+			}
 		} break;
 		case HEIGHT_FILTER_MINIMUM: {
 			height = get_height(p_global_position);
 			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
 				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					real_t h = get_height(p_global_position + Vector3(dx, 0.0, dz));
+					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _mesh_vertex_spacing;
+					if (Util::is_hole(get_control(position))) {
+						height = NAN;
+						break;
+					}
+					real_t h = get_height(position);
 					if (h < height) {
 						height = h;
 					}
@@ -993,14 +965,25 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 }
 
 Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
+	int region = get_region_index(p_global_position);
+	if (region < 0 || region >= _region_offsets.size() || Util::is_hole(get_control(p_global_position))) {
+		return Vector3(NAN, NAN, NAN);
+	}
 	real_t left = get_height(p_global_position + Vector3(-1.0f, 0.0f, 0.0f));
 	real_t right = get_height(p_global_position + Vector3(1.0f, 0.0f, 0.0f));
 	real_t back = get_height(p_global_position + Vector3(0.f, 0.f, -1.0f));
 	real_t front = get_height(p_global_position + Vector3(0.f, 0.f, 1.0f));
-	Vector3 horizontal = Vector3(2.0f, right - left, 0.0f);
-	Vector3 vertical = Vector3(0.0f, back - front, 2.0f);
+	Vector3 horizontal = Vector3(2.0f * _mesh_vertex_spacing, right - left, 0.0f);
+	Vector3 vertical = Vector3(0.0f, back - front, 2.0f * _mesh_vertex_spacing);
 	Vector3 normal = vertical.cross(horizontal).normalized();
 	normal.z *= -1.0f;
+
+	// TODO - When get_height interpolates, change this function to a 3-lookup method
+	//real_t height = get_height(p_global_position);
+	//real_t u = height - get_height(p_global_position + Vector3(1.f, 0.0f, 0.0f));
+	//real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, 1.f));
+	//Vector3 normal = Vector3(u, _mesh_vertex_spacing, v);
+	//normal.normalize();
 	return normal;
 }
 
@@ -1021,34 +1004,6 @@ void Terrain3DStorage::print_audit_data() {
 	Util::dump_gen(_generated_height_maps, "height");
 	Util::dump_gen(_generated_control_maps, "control");
 	Util::dump_gen(_generated_color_maps, "color");
-}
-
-// DEPRECATED 0.8.3, remove 0.9
-void Terrain3DStorage::set_surfaces(const TypedArray<Terrain3DSurface> &p_surfaces) {
-	set_version(0.8f);
-	LOG(WARN, "Converting Surfaces to separate TextureList: ", vformat("%.3f", _version), "->", vformat("%.3f", CURRENT_VERSION));
-	_texture_list.instantiate();
-	TypedArray<Terrain3DTexture> textures;
-	textures.resize(p_surfaces.size());
-
-	for (int i = 0; i < p_surfaces.size(); i++) {
-		LOG(DEBUG, "Converting surface: ", i);
-		Ref<Terrain3DSurface> sfc = p_surfaces[i];
-		Ref<Terrain3DTexture> tex;
-		tex.instantiate();
-
-		Terrain3DTexture::Settings *tex_data = tex->get_data();
-		Terrain3DSurface::Settings *sfc_data = sfc->get_data();
-		tex_data->_name = sfc_data->_name;
-		tex_data->_texture_id = sfc_data->_surface_id;
-		tex_data->_albedo_color = sfc_data->_albedo;
-		tex_data->_albedo_texture = sfc_data->_albedo_texture;
-		tex_data->_normal_texture = sfc_data->_normal_texture;
-		tex_data->_uv_scale = sfc_data->_uv_scale;
-		tex_data->_uv_rotation = sfc_data->_uv_rotation;
-		textures[i] = tex;
-	}
-	_texture_list->set_textures(textures);
 }
 
 ///////////////////////////
@@ -1140,16 +1095,5 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_size_changed"));
 	ADD_SIGNAL(MethodInfo("regions_changed"));
-
-	// DEPRECATED 0.8.4, Remove 0.9
-	int flags = PROPERTY_USAGE_NONE;
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "data_version", PROPERTY_HINT_NONE, "", flags), "set_version", "get_version");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "data_height_range", PROPERTY_HINT_NONE, "", flags), "set_height_range", "get_height_range");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), flags), "set_region_offsets", "get_region_offsets");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_height_maps", "get_height_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_control_maps", "get_control_maps");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), flags), "set_color_maps", "get_color_maps");
-	ClassDB::bind_method(D_METHOD("set_surfaces", "surfaces"), &Terrain3DStorage::set_surfaces);
-	ClassDB::bind_method(D_METHOD("get_surfaces"), &Terrain3DStorage::get_surfaces);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "data_surfaces", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DSurface"), flags), "set_surfaces", "get_surfaces");
+	ADD_SIGNAL(MethodInfo("maps_edited", PropertyInfo(Variant::AABB, "edited_area")));
 }

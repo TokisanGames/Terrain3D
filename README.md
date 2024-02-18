@@ -31,7 +31,6 @@ See [Project Status](https://terrain3d.readthedocs.io/en/stable/docs/project_sta
 
 [![Using Terrain3D - Part 2](https://i.ytimg.com/vi/YtiAI2F6Xkk/hqdefault.jpg)](https://youtu.be/YtiAI2F6Xkk)
 
-For support, read [Getting Help](https://terrain3d.readthedocs.io/en/stable/docs/getting_help.html) or join our [Discord server](https://tokisan.com/discord).
 
 ## Credit
 Developed for the Godot community by:

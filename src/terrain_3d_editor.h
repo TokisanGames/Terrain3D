@@ -24,6 +24,7 @@ public:
 		DIVIDE,
 		REPLACE,
 		AVERAGE,
+		GRADIENT,
 		OP_MAX,
 	};
 
@@ -34,6 +35,7 @@ public:
 		"Divide",
 		"Replace",
 		"Average",
+		"Gradient",
 		"OP_MAX",
 	};
 
@@ -64,21 +66,22 @@ public:
 	class Brush {
 	private:
 		Ref<Image> _image;
-		Vector2 _img_size;
+		Vector2i _img_size;
 		Ref<ImageTexture> _texture;
 
 		int _size = 0;
-		real_t _opacity = 0.0;
-		real_t _height = 0.0;
+		real_t _opacity = 0.0f;
+		real_t _height = 0.0f;
 		int _texture_index = 0;
 		Color _color = COLOR_ROUGHNESS;
-		real_t _roughness = 0.5;
+		real_t _roughness = 0.5f;
+		PackedVector3Array _gradient_points;
 		bool _enable = false;
 
 		bool _auto_regions = false;
 		bool _align_to_view = false;
-		real_t _gamma = 1.0;
-		real_t _jitter = 0.0;
+		real_t _gamma = 1.0f;
+		real_t _jitter = 0.0f;
 
 	public:
 		void set_data(Dictionary p_data);
@@ -86,7 +89,7 @@ public:
 
 		Ref<ImageTexture> get_texture() const { return _texture; }
 		Ref<Image> get_image() const { return _image; }
-		Vector2 get_image_size() const { return _img_size; }
+		Vector2i get_image_size() const { return _img_size; }
 
 		int get_size() const { return _size; }
 		real_t get_opacity() const { return _opacity; }
@@ -94,6 +97,7 @@ public:
 		int get_texture_index() const { return _texture_index; }
 		Color get_color() const { return _color; }
 		real_t get_roughness() const { return _roughness; }
+		PackedVector3Array get_gradient_points() const { return _gradient_points; }
 		real_t get_enable() const { return _enable; }
 
 		bool auto_regions_enabled() const { return _auto_regions; }
@@ -111,11 +115,13 @@ private:
 	Operation _operation = ADD;
 	Brush _brush;
 	Vector3 _operation_position = Vector3();
-	real_t _operation_interval = 0.0f;
+	Vector3 _operation_movement = Vector3();
 	bool _pending_undo = false;
 	bool _modified = false;
-	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range
+	AABB _modified_area;
+	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range, 5: edited AABB
 
+	void _region_modified(Vector3 p_global_position, Vector2 p_height_range = Vector2());
 	void _operate_region(Vector3 p_global_position);
 	void _operate_map(Vector3 p_global_position, real_t p_camera_direction);
 	bool _is_in_bounds(Vector2i p_position, Vector2i p_max_position);
@@ -142,6 +148,7 @@ public:
 	void start_operation(Vector3 p_global_position);
 	void operate(Vector3 p_global_position, real_t p_camera_direction);
 	void stop_operation();
+	bool is_operating() const { return _pending_undo; }
 
 protected:
 	static void _bind_methods();

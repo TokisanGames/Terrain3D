@@ -53,7 +53,7 @@ float world_noise(vec2 p) {
     vec2  d = vec2(0.0);
 
     int octaves = int( clamp(
-	float(world_noise_max_octaves) - floor(v_xz_dist/(world_noise_lod_distance)),
+	float(world_noise_max_octaves) - floor(v_vertex_dist/(world_noise_lod_distance)),
     float(world_noise_min_octaves), float(world_noise_max_octaves)) );
 	
     for( int i=0; i < octaves; i++ ) {
@@ -70,7 +70,7 @@ float world_noise(vec2 p) {
 
 //INSERT: WORLD_NOISE2
 	// World Noise
-   	if(_background_mode == 2) {
+   	if(_background_mode == 2u) {
 	    float weight = texture(_region_blend_map, (uv/float(_region_map_size))+0.5).r;
 	    float rmap_half_size = float(_region_map_size)*.5;
 	    if(abs(uv.x) > rmap_half_size+.5 || abs(uv.y) > rmap_half_size+.5) {

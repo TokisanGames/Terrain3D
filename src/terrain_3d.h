@@ -11,7 +11,9 @@
 #include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
+#include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
+#include <godot_cpp/classes/sub_viewport.hpp>
 
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
@@ -28,13 +30,14 @@ public:
 
 private:
 	// Terrain state
-	String _version = "0.9.0-beta";
+	String _version = "0.9.1";
 	bool _is_inside_world = false;
 	bool _initialized = false;
 
 	// Terrain settings
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
+	real_t _mesh_vertex_spacing = 1.0f;
 
 	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DMaterial> _material;
@@ -58,9 +61,15 @@ private:
 	} _data;
 
 	// Renderer settings
-	uint32_t _render_layers = 1;
+	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
 	GeometryInstance3D::ShadowCastingSetting _shadow_casting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
-	real_t _cull_margin = 0.0;
+	real_t _cull_margin = 0.0f;
+
+	// Mouse cursor
+	SubViewport *_mouse_vp = nullptr;
+	Camera3D *_mouse_cam = nullptr;
+	MeshInstance3D *_mouse_quad = nullptr;
+	uint32_t _mouse_layer = 32;
 
 	// Physics body and settings
 	RID _static_body;
@@ -69,12 +78,14 @@ private:
 	bool _show_debug_collision = false;
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
-	real_t _collision_priority = 1.0;
+	real_t _collision_priority = 1.0f;
 
 	void _initialize();
 	void __ready();
 	void __process(double delta);
 
+	void _setup_mouse_picking();
+	void _destroy_mouse_picking();
 	void _grab_camera();
 	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
@@ -104,6 +115,8 @@ public:
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(int p_size);
 	int get_mesh_size() const { return _mesh_size; }
+	void set_mesh_vertex_spacing(real_t p_spacing);
+	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
@@ -121,6 +134,8 @@ public:
 	// Renderer settings
 	void set_render_layers(uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; };
+	void set_mouse_layer(uint32_t p_layer);
+	uint32_t get_mouse_layer() const { return _mouse_layer; };
 	void set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting);
 	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _shadow_casting; };
 	void set_cull_margin(real_t p_margin);
@@ -141,7 +156,7 @@ public:
 	// Terrain methods
 	void snap(Vector3 p_cam_pos);
 	void update_aabbs();
-	Vector3 get_intersection(Vector3 p_position, Vector3 p_direction);
+	Vector3 get_intersection(Vector3 p_src_pos, Vector3 p_direction);
 
 	// Baking methods
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;

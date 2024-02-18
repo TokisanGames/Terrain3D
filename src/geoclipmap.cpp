@@ -77,7 +77,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 
 		for (int y = 0; y < PATCH_VERT_RESOLUTION; y++) {
 			for (int x = 0; x < PATCH_VERT_RESOLUTION; x++) {
-				vertices[n++] = Vector3(x, 0, y);
+				vertices[n++] = Vector3(x, 0.f, y);
 			}
 		}
 
@@ -95,7 +95,7 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 			}
 		}
 
-		aabb = AABB(Vector3(0, 0, 0), Vector3(PATCH_VERT_RESOLUTION, 0.1, PATCH_VERT_RESOLUTION));
+		aabb = AABB(Vector3(0.f, 0.f, 0.f), Vector3(PATCH_VERT_RESOLUTION, 0.1f, PATCH_VERT_RESOLUTION));
 		tile_mesh = _create_mesh(vertices, indices, aabb);
 	}
 
@@ -112,41 +112,41 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		int offset = TILE_RESOLUTION;
 
 		for (int i = 0; i < PATCH_VERT_RESOLUTION; i++) {
-			vertices[n] = Vector3(offset + i + 1, 0, 0);
+			vertices[n] = Vector3(offset + i + 1.f, 0.f, 0.f);
 			aabb.expand_to(vertices[n]);
 			n++;
 
-			vertices[n] = Vector3(offset + i + 1, 0, 1);
-			aabb.expand_to(vertices[n]);
-			n++;
-		}
-
-		for (int i = 0; i < PATCH_VERT_RESOLUTION; i++) {
-			vertices[n] = Vector3(1, 0, offset + i + 1);
-			aabb.expand_to(vertices[n]);
-			n++;
-
-			vertices[n] = Vector3(0, 0, offset + i + 1);
+			vertices[n] = Vector3(offset + i + 1.f, 0.f, 1.f);
 			aabb.expand_to(vertices[n]);
 			n++;
 		}
 
 		for (int i = 0; i < PATCH_VERT_RESOLUTION; i++) {
-			vertices[n] = Vector3(-real_t(offset + i), 0, 1);
+			vertices[n] = Vector3(1.f, 0.f, offset + i + 1.f);
 			aabb.expand_to(vertices[n]);
 			n++;
 
-			vertices[n] = Vector3(-real_t(offset + i), 0, 0);
+			vertices[n] = Vector3(0.f, 0.f, offset + i + 1.f);
 			aabb.expand_to(vertices[n]);
 			n++;
 		}
 
 		for (int i = 0; i < PATCH_VERT_RESOLUTION; i++) {
-			vertices[n] = Vector3(0, 0, -real_t(offset + i));
+			vertices[n] = Vector3(-real_t(offset + i), 0.f, 1.f);
 			aabb.expand_to(vertices[n]);
 			n++;
 
-			vertices[n] = Vector3(1, 0, -real_t(offset + i));
+			vertices[n] = Vector3(-real_t(offset + i), 0.f, 0.f);
+			aabb.expand_to(vertices[n]);
+			n++;
+		}
+
+		for (int i = 0; i < PATCH_VERT_RESOLUTION; i++) {
+			vertices[n] = Vector3(0.f, 0.f, -real_t(offset + i));
+			aabb.expand_to(vertices[n]);
+			n++;
+
+			vertices[n] = Vector3(1.f, 0.f, -real_t(offset + i));
 			aabb.expand_to(vertices[n]);
 			n++;
 		}
@@ -190,14 +190,14 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		indices.resize((CLIPMAP_VERT_RESOLUTION * 2 - 1) * 6);
 
 		n = 0;
-		Vector3 offset = Vector3(0.5f * real_t(CLIPMAP_VERT_RESOLUTION + 1), 0, 0.5f * real_t(CLIPMAP_VERT_RESOLUTION + 1));
+		Vector3 offset = Vector3(0.5f * real_t(CLIPMAP_VERT_RESOLUTION + 1), 0.f, 0.5f * real_t(CLIPMAP_VERT_RESOLUTION + 1));
 
 		for (int i = 0; i < CLIPMAP_VERT_RESOLUTION + 1; i++) {
-			vertices[n] = Vector3(0, 0, CLIPMAP_VERT_RESOLUTION - i) - offset;
+			vertices[n] = Vector3(0.f, 0.f, CLIPMAP_VERT_RESOLUTION - i) - offset;
 			aabb.expand_to(vertices[n]);
 			n++;
 
-			vertices[n] = Vector3(1, 0, CLIPMAP_VERT_RESOLUTION - i) - offset;
+			vertices[n] = Vector3(1.f, 0.f, CLIPMAP_VERT_RESOLUTION - i) - offset;
 			aabb.expand_to(vertices[n]);
 			n++;
 		}
@@ -205,11 +205,11 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		int start_of_horizontal = n;
 
 		for (int i = 0; i < CLIPMAP_VERT_RESOLUTION; i++) {
-			vertices[n] = Vector3(i + 1, 0, 0) - offset;
+			vertices[n] = Vector3(i + 1.f, 0.f, 0.f) - offset;
 			aabb.expand_to(vertices[n]);
 			n++;
 
-			vertices[n] = Vector3(i + 1, 0, 1) - offset;
+			vertices[n] = Vector3(i + 1.f, 0.f, 1.f) - offset;
 			aabb.expand_to(vertices[n]);
 			n++;
 		}
@@ -251,11 +251,11 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		n = 0;
 
 		for (int i = 0; i < PATCH_VERT_RESOLUTION * 2; i++) {
-			vertices[n] = Vector3(i - real_t(TILE_RESOLUTION), 0, 0);
+			vertices[n] = Vector3(real_t(i - TILE_RESOLUTION), 0.f, 0.f);
 			aabb.expand_to(vertices[n]);
 			n++;
 
-			vertices[n] = Vector3(i - real_t(TILE_RESOLUTION), 0, 1);
+			vertices[n] = Vector3(real_t(i - TILE_RESOLUTION), 0.f, 1.f);
 			aabb.expand_to(vertices[n]);
 			n++;
 		}
@@ -263,11 +263,11 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 		int start_of_vertical = n;
 
 		for (int i = 0; i < PATCH_VERT_RESOLUTION * 2; i++) {
-			vertices[n] = Vector3(0, 0, i - real_t(TILE_RESOLUTION));
+			vertices[n] = Vector3(0.f, 0.f, real_t(i - TILE_RESOLUTION));
 			aabb.expand_to(vertices[n]);
 			n++;
 
-			vertices[n] = Vector3(1, 0, i - real_t(TILE_RESOLUTION));
+			vertices[n] = Vector3(1.f, 0.f, real_t(i - TILE_RESOLUTION));
 			aabb.expand_to(vertices[n]);
 			n++;
 		}
@@ -322,19 +322,19 @@ Vector<RID> GeoClipMap::generate(int p_size, int p_levels) {
 
 		for (int i = 0; i < CLIPMAP_VERT_RESOLUTION; i++) {
 			n = CLIPMAP_VERT_RESOLUTION * 0 + i;
-			vertices[n] = Vector3(i, 0, 0);
+			vertices[n] = Vector3(i, 0.f, 0.f);
 			aabb.expand_to(vertices[n]);
 
 			n = CLIPMAP_VERT_RESOLUTION * 1 + i;
-			vertices[n] = Vector3(CLIPMAP_VERT_RESOLUTION, 0, i);
+			vertices[n] = Vector3(CLIPMAP_VERT_RESOLUTION, 0.f, i);
 			aabb.expand_to(vertices[n]);
 
 			n = CLIPMAP_VERT_RESOLUTION * 2 + i;
-			vertices[n] = Vector3(CLIPMAP_VERT_RESOLUTION - i, 0, CLIPMAP_VERT_RESOLUTION);
+			vertices[n] = Vector3(CLIPMAP_VERT_RESOLUTION - i, 0.f, CLIPMAP_VERT_RESOLUTION);
 			aabb.expand_to(vertices[n]);
 
 			n = CLIPMAP_VERT_RESOLUTION * 3 + i;
-			vertices[n] = Vector3(0, 0, CLIPMAP_VERT_RESOLUTION - i);
+			vertices[n] = Vector3(0.f, 0.f, CLIPMAP_VERT_RESOLUTION - i);
 			aabb.expand_to(vertices[n]);
 		}
 

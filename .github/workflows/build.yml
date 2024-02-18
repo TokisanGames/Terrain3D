@@ -7,65 +7,49 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.name }} ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        identifier: [linux, windows, macos, ios, android-arm32, android-arm64]
+        target: [debug, release]
         include:
-          - identifier: linux-debug
-            name: 🐧 Linux Debug
-            runner: ubuntu-20.04
-            target: template_debug
+          - identifier: linux
             platform: linux
-            arch: x86_64
-
-          - identifier: linux-release
-            name: 🐧 Linux Release
+            name: 🐧 Linux
             runner: ubuntu-20.04
-            target: template_release
-            platform: linux
             arch: x86_64
-
-          - identifier: windows-debug
-            name: 🪟 Windows Debug
-            runner: ubuntu-20.04
-            target: template_debug
+            
+          - identifier: windows
             platform: windows
+            name: 🪟 Windows
+            runner: ubuntu-20.04
             arch: x86_64
 
-          - identifier: windows-release
-            name: 🪟 Windows Release
-            runner: ubuntu-20.04
-            target: template_release
-            platform: windows
-            arch: x86_64
-
-          - identifier: macos-debug
-            name: 🍎 macOS Debug
-            runner: macos-latest
-            target: template_debug
+          - identifier: macos
             platform: macos
-
-          - identifier: macos-release
-            name: 🍎 macOS Release
+            name: 🍎 macOS
             runner: macos-latest
-            target: template_release
-            platform: macos
+            arch: universal
 
-          - identifier: android-debug
-            name: 🤖 Android Debug
-            runner: ubuntu-20.04
-            target: template_debug
+          - identifier: ios
+            platform: ios
+            name: 🍏 iOS
+            runner: macos-latest
+            arch: universal
+
+          - identifier: android-arm64
             platform: android
+            name: 🤖 Android Arm64
+            runner: ubuntu-20.04
             arch: arm64
 
-          - identifier: android-release
-            name: 🤖 Android Release
-            runner: ubuntu-20.04
-            target: template_release
+          - identifier: android-arm32
             platform: android
-            arch: arm64
+            name: 🤖 Android Arm32
+            runner: ubuntu-20.04
+            arch: arm32
 
     steps:
       - name: Checkout Terrain3D
@@ -74,11 +58,11 @@ jobs:
           submodules: recursive
 
       - name: Setup Windows Dependencies
-        if: startsWith(matrix.identifier, 'windows-')
+        if: ${{ matrix.platform == 'windows' }}
         uses: ./.github/actions/windows-deps
         
       - name: Setup Android Dependencies
-        if: startsWith(matrix.identifier, 'android-')
+        if: ${{ matrix.platform == 'android' }}
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r23c
@@ -90,18 +74,20 @@ jobs:
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
         with:
-          cache-name: ${{ matrix.identifier }}
+          cache-name: ${{ matrix.identifier }}-${{ matrix.target }}
         continue-on-error: true
 
       - name: Build Terrain3D
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+            TARGET: 'template_${{ matrix.target }}'
+            ARCH: '${{ matrix.arch }}'
         shell: sh
         run: |
-            scons target='${{ matrix.target }}' platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' debug_symbols=no -j2
+            scons target=$TARGET platform='${{ matrix.platform }}' arch=$ARCH debug_symbols=no -j2
 
       - name: Strip Libraries (Windows/Linux)
-        if: startsWith(matrix.identifier, 'windows-') || startsWith(matrix.identifier, 'linux-')
+        if: ${{ matrix.platform == 'windows' || matrix.platform == 'linux' }}
         shell: sh
         run: |
           ls -l project/addons/terrain_3d/bin/

@@ -20,8 +20,8 @@ bool Terrain3DTexture::_is_texture_valid(const Ref<Texture2D> &p_texture) const 
 	if (img.is_valid()) {
 		format = img->get_format();
 	}
-	if (format != Image::FORMAT_DXT5) {
-		LOG(ERROR, "Invalid format. Expected channel packed DXT5 RGBA8. See documentation for format.");
+	if (format < 0 || format >= Image::FORMAT_MAX) {
+		LOG(ERROR, "Invalid texture format. See documentation for format specification.");
 		return false;
 	}
 
@@ -41,7 +41,7 @@ Terrain3DTexture::~Terrain3DTexture() {
 void Terrain3DTexture::clear() {
 	_data._name = "New Texture";
 	_data._texture_id = 0;
-	_data._albedo_color = Color(1.0, 1.0, 1.0, 1.0);
+	_data._albedo_color = Color(1.0f, 1.0f, 1.0f, 1.0f);
 	_data._albedo_texture.unref();
 	_data._normal_texture.unref();
 	_data._uv_scale = 0.1f;

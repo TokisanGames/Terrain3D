@@ -35,13 +35,21 @@ You can also enable debugging from the command line by running Godot with `--ter
 
 To run the demo from the command line with debugging, open a terminal, and change to the project folder (where `project.godot` is):
 
+Adjust the file paths to your system. The console executable is not needed since you're already running these commands in a terminal window.
+
 ```
-# Adjust the file paths to your system. The console executable is not needed since you're already running these commands in a terminal window.
+# 1. Change to the project folder
+cd <PATH TO PROJECT FOLDER>
 
-# Change to the demo project folder, eg.
+# 2a. Run the project with debugging enabled at startup
+<PATH TO GODOT EXECUTABLE> --terrain3d-debug=DEBUG
+
+# 2b. Or run the editor with debugging enabled at startup
+<PATH TO GODOT EXECUTABLE> -e --terrain3d-debug=DEBUG
+
+
+# E.g. To run the demo with debug messages
 cd /c/gd/Terrain3D/project
-
-# Run the demo scene with debug messages
 /c/gd/bin/Godot_v4.1.3-stable_win64.exe --terrain3d-debug=DEBUG
 
 # Load the editor with debug messages
@@ -53,6 +61,23 @@ When asking for help on anything you can't solve yourself, you'll need to provid
 ## Common Issues
 
 ### Startup Errors
+
+#### After clicking the Terrain3D node, there are no editor tools or texture panel.
+
+Enable the plugin, as described in the [installation instructions](installation.md).
+
+
+#### The editor tools panel is there, but the buttons are blank or missing.
+
+Restart Godot twice before using, as described in the [installation instructions](installation.md).
+
+
+#### Start up is very slow. Or the scene or storage file is huge.
+
+Save the storage resource as a binary `.res` file, as described in the [installation instructions](installation.md). You've likely saved it as text `.tres`, or didn't save it separately at all, which means a ton of terrain data is saved as text in the scene.
+
+Alternatively, you have a large terrain and are generating collision for all of it. Disable collision, or set it to dynamic to create only a small collision around the camera (pending implementation, see [PR #278](https://github.com/TokisanGames/Terrain3D/pull/278)).
+
 
 #### Unable to load addon script from path
 
@@ -94,11 +119,15 @@ Make sure you have both the debug and release binaries on your system, or have b
 
 #### WARNING: Terrain3D::_texture_is_valid: Invalid format. Expected DXT5 RGBA8.
 
-Read [Setting Up Textures](texture_prep.md) to learn how to properly channel pack your textures.
+Read [Preparing Textures](texture_prep.md) to learn how to properly channel pack your textures.
 
 #### Albedo/Normal textures do not have same size! and the terrain turns white
 
-Read [Setting Up Textures](texture_prep.md) and review your textures for odd sizes. All textures must be the same size. eg. If the first set is 2k, all other textures need to be 2k as well.
+Read [Preparing Textures](texture_prep.md) and review your textures for odd sizes. All textures must be the same size. eg. If the first set is 2k, all other textures need to be 2k as well.
+
+#### EXR textures don't work.
+
+EXRs store texture data as 16-bit or 32-bit float. Use PNGs with 8-bit integer data. If all you can get are EXRs, then you'll need to convert the data to 8-bit RGB in a photo editing app, then save in an appropriate file as described in [Preparing Textures](texture_prep.md).
 
 
 ## Debug Collision

@@ -4,7 +4,7 @@ runs:
   using: "composite"
   steps:
     - name: (Windows) Install mingw64
-      if: startsWith(matrix.identifier, 'windows-')
+      if: ${{ matrix.platform == 'windows' }}
       shell: sh
       run: |
           sudo apt-get install mingw-w64
