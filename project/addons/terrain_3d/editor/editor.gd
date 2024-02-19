@@ -38,6 +38,8 @@ func _enter_tree() -> void:
 
 	region_gizmo = RegionGizmo.new()
 
+	scene_changed.connect(_on_scene_changed)
+
 	if ProjectSettings.has_setting(PS_DOCK_POSITION):
 		dock_position = ProjectSettings.get_setting(PS_DOCK_POSITION)
 	asset_dock = load(ASSET_DOCK).instantiate()
@@ -57,9 +59,15 @@ func _exit_tree() -> void:
 	ui.queue_free()
 	editor.free()
 
-	
+	scene_changed.disconnect(_on_scene_changed)
+
+
 func _handles(p_object: Object) -> bool:
-	return p_object is Terrain3D or p_object is NavigationRegion3D
+	if p_object is Terrain3D or p_object is NavigationRegion3D:
+		return true
+	if p_object is Terrain3DObjects or (p_object is Node3D and p_object.get_parent() is Terrain3DObjects):
+		return true
+	return false
 
 
 func _edit(p_object: Object) -> void:
@@ -88,6 +96,11 @@ func _edit(p_object: Object) -> void:
 		nav_region = p_object
 	else:
 		nav_region = null
+
+	if p_object is Terrain3DObjects:
+		p_object.editor_setup(self)
+	elif p_object is Node3D and p_object.get_parent() is Terrain3DObjects:
+		p_object.get_parent().editor_setup(self)
 	
 		
 func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
@@ -311,4 +324,9 @@ func _on_asset_dock_resource_selected() -> void:
 
 func _on_asset_dock_resource_inspected(texture: Resource) -> void:
 	get_editor_interface().inspect_object(texture, "", true)
-	
+
+
+func _on_scene_changed(scene_root: Node) -> void:
+	if scene_root:
+		for node in scene_root.find_children("", "Terrain3DObjects"):
+			node.editor_setup(self)
