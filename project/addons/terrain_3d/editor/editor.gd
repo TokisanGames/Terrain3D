@@ -38,6 +38,8 @@ func _enter_tree() -> void:
 	
 	add_control_to_container(texture_dock_container, texture_dock)
 	texture_dock.get_parent().visibility_changed.connect(_on_texture_dock_visibility_changed)
+	
+	scene_changed.connect(_on_scene_changed)
 
 
 func _exit_tree() -> void:
@@ -45,10 +47,16 @@ func _exit_tree() -> void:
 	texture_dock.queue_free()
 	ui.queue_free()
 	editor.free()
+	
+	scene_changed.disconnect(_on_scene_changed)
 
 	
 func _handles(p_object: Object) -> bool:
-	return p_object is Terrain3D or p_object is NavigationRegion3D
+	if p_object is Terrain3D or p_object is NavigationRegion3D:
+		return true
+	if p_object is Terrain3DObjects or (p_object is Node3D and p_object.get_parent() is Terrain3DObjects):
+		return true
+	return false
 
 
 func _edit(p_object: Object) -> void:
@@ -77,6 +85,11 @@ func _edit(p_object: Object) -> void:
 		nav_region = p_object
 	else:
 		nav_region = null
+	
+	if p_object is Terrain3DObjects:
+		p_object.editor_setup(self)
+	elif p_object is Node3D and p_object.get_parent() is Terrain3DObjects:
+		p_object.get_parent().editor_setup(self)
 	
 	_update_visibility()
 
@@ -280,3 +293,9 @@ func _on_texture_dock_visibility_changed() -> void:
 		if get_editor_interface().is_distraction_free_mode_enabled():
 			texture_dock_container = CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT
 		add_control_to_container(texture_dock_container, texture_dock)
+
+
+func _on_scene_changed(scene_root: Node) -> void:
+	if scene_root:
+		for node in scene_root.find_children("", "Terrain3DObjects"):
+			node.editor_setup(self)
