@@ -122,7 +122,7 @@ public:
 
 	void clear_edited_area();
 	void add_edited_area(AABB p_area);
-	AABB get_edited_area() const;
+	AABB get_edited_area() const { return _edited_area; }
 
 	// Regions
 	void set_region_size(RegionSize p_size);
