@@ -8,6 +8,7 @@ signal resource_selected
 var list: ListContainer
 var entries: Array[ListEntry]
 var selected_index: int = 0
+var focus_style: StyleBox
 
 
 func _init() -> void:
@@ -31,6 +32,10 @@ func _init() -> void:
 	add_child(root)
 	
 	set_custom_minimum_size(Vector2(256, 448))
+	
+	focus_style = get_theme_stylebox("focus", "Button")
+	focus_style.set_border_width_all(1)
+	focus_style.set_border_color(Color.WHITE)
 
 	
 func _ready() -> void:
@@ -49,6 +54,7 @@ func clear() -> void:
 
 func add_item(p_resource: Resource = null) -> void:
 	var entry: ListEntry = ListEntry.new()
+	entry.focus_style = focus_style
 	var index: int = entries.size()
 	
 	entry.set_edited_resource(p_resource)
@@ -143,7 +149,8 @@ class ListEntry extends VBoxContainer:
 	@onready var clear_icon: Texture2D = get_theme_icon("Close", "EditorIcons")
 	@onready var edit_icon: Texture2D = get_theme_icon("Edit", "EditorIcons")
 	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
-	@onready var focus: StyleBox = get_theme_stylebox("focus", "Button")
+	#@onready var focus: StyleBox = get_theme_stylebox("focus", "Button")
+	var focus_style: StyleBox
 	
 
 	func _ready() -> void:
@@ -196,11 +203,11 @@ class ListEntry extends VBoxContainer:
 						texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 				name_label.add_theme_font_size_override("font_size", 4 + rect.size.x/10)
 				if drop_data:
-					draw_style_box(focus, rect)
+					draw_style_box(focus_style, rect)
 				if is_hovered:
 					draw_rect(rect, Color(1,1,1,0.2))
 				if is_selected:
-					draw_style_box(focus, rect)
+					draw_style_box(focus_style, rect)
 			NOTIFICATION_MOUSE_ENTER:
 				is_hovered = true
 				name_label.visible = true
