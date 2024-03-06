@@ -184,6 +184,9 @@
     <None Include="doc\docs\double_precision.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\docs\games.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">

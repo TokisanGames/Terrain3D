@@ -76,8 +76,9 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :caption: About
 
    docs/project_status
-   docs/authors
+   docs/games
    docs/press
+   docs/authors
    docs/license
 
 

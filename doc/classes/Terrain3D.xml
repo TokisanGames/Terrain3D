@@ -174,7 +174,7 @@
 		<member name="texture_list" type="Terrain3DTextureList" setter="set_texture_list" getter="get_texture_list">
 			The list of texture files used by Terrain3D. You can optionally save this as an external [code skip-lint].tres[/code] text file if you wish to share it with instances of Terrain3D in other scenes.
 		</member>
-		<member name="version" type="String" setter="" getter="get_version" default="&quot;0.9.1-dev&quot;">
+		<member name="version" type="String" setter="" getter="get_version" default="&quot;0.9.2-dev&quot;">
 			The current version of Terrain3D.
 		</member>
 	</members>
