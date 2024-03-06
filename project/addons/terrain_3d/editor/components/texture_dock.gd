@@ -33,9 +33,9 @@ func _init() -> void:
 	
 	set_custom_minimum_size(Vector2(256, 448))
 	
-	focus_style = get_theme_stylebox("focus", "Button")
-	focus_style.set_border_width_all(1)
-	focus_style.set_border_color(Color.WHITE)
+	focus_style = get_theme_stylebox("focus", "Button").duplicate()
+	focus_style.set_border_width_all(2)
+	focus_style.set_border_color(Color(1, 1, 1, .67))
 
 	
 func _ready() -> void:
@@ -149,7 +149,6 @@ class ListEntry extends VBoxContainer:
 	@onready var clear_icon: Texture2D = get_theme_icon("Close", "EditorIcons")
 	@onready var edit_icon: Texture2D = get_theme_icon("Edit", "EditorIcons")
 	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
-	#@onready var focus: StyleBox = get_theme_stylebox("focus", "Button")
 	var focus_style: StyleBox
 	
 
