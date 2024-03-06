@@ -546,7 +546,7 @@ Returns the associated pixel on the control map at the requested location. Calls
 
 Returns the associated pixel on the height map at the requested location. This function is only accurate at vertex coordinates, and on flat areas. It does not currently interpolate heights between vertices, while mesh faces do. Locations between vertices will return the height of the vertex at the floored coordinates. See `issue 324 <"https://github.com/TokisanGames/Terrain3D/issues/324">`__.
 
-Returns NAN if the requested position is a hole.
+Returns NAN if the requested position is a hole or outside of defined regions.
 
 Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 

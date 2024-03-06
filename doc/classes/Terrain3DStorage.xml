@@ -59,7 +59,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the associated pixel on the height map at the requested location. This function is only accurate at vertex coordinates, and on flat areas. It does not currently interpolate heights between vertices, while mesh faces do. Locations between vertices will return the height of the vertex at the floored coordinates. See [url="https://github.com/TokisanGames/Terrain3D/issues/324"]issue 324[/url].
-				Returns NAN if the requested position is a hole.
+				Returns NAN if the requested position is a hole or outside of defined regions.
 				Calls [method get_pixel].
 			</description>
 		</method>
