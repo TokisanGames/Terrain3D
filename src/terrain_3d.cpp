@@ -366,7 +366,11 @@ void Terrain3D::_update_collision() {
 	}
 
 	for (int i = 0; i < _storage->get_region_count(); i++) {
+#ifdef REAL_T_IS_DOUBLE
+		PackedFloat64Array map_data = PackedFloat64Array();
+#else
 		PackedFloat32Array map_data = PackedFloat32Array();
+#endif
 		map_data.resize(shape_size * shape_size);
 
 		Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size;
