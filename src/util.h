@@ -68,4 +68,39 @@ _FORCE_INLINE_ void memdelete_safely(TType *&p_ptr) {
 	}
 }
 
+template <typename T>
+T round_multiple(T p_value, T p_multiple) {
+	if (p_multiple == 0) {
+		return p_value;
+	}
+	return static_cast<T>(std::round(static_cast<double>(p_value) / static_cast<double>(p_multiple)) * static_cast<double>(p_multiple));
+}
+
+// Returns the bilinearly interpolated value derived from parameters:
+// * 4 values to be interpolated
+// * Positioned at the 4 corners of the p_pos00 - p_pos11 rectangle
+// * Interpolated to the position p_pos, which is global, not a 0-1 percentage
+inline real_t bilerp(real_t v00, real_t v01, real_t v10, real_t v11,
+		Vector2 pos00, Vector2 pos11, Vector2 pos) {
+	real_t x2x1 = pos11.x - pos00.x;
+	real_t y2y1 = pos11.y - pos00.y;
+	real_t x2x = pos11.x - pos.x;
+	real_t y2y = pos11.y - pos.y;
+	real_t xx1 = pos.x - pos00.x;
+	real_t yy1 = pos.y - pos00.y;
+	return (v00 * x2x * y2y +
+				   v01 * x2x * yy1 +
+				   v10 * xx1 * y2y +
+				   v11 * xx1 * yy1) /
+			(x2x1 * y2y1);
+}
+
+inline real_t bilerp(real_t v00, real_t v01, real_t v10, real_t v11,
+		Vector3 p_pos00, Vector3 p_pos11, Vector3 p_pos) {
+	Vector2 pos00 = Vector2(p_pos00.x, p_pos00.z);
+	Vector2 pos11 = Vector2(p_pos11.x, p_pos11.z);
+	Vector2 pos = Vector2(p_pos.x, p_pos.z);
+	return bilerp(v00, v01, v10, v11, pos00, pos11, pos);
+}
+
 #endif // UTIL_CLASS_H

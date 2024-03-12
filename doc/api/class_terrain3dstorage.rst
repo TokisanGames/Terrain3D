@@ -398,9 +398,9 @@ The highest and lowest heights for the sculpted terrain. Any :ref:`Terrain3DMate
 
 An array of the active regions in region grid coordinates (+/-8, +/-8). e.g. { (0, 0), (-1, 3), (1, 1) }. It is ordered by the sequence in which regions were created, not by location.
 
-Also see :ref:`get_region_index<class_Terrain3DStorage_method_get_region_index>` which returns the index into this array based on location.
+Also see :ref:`get_region_index<class_Terrain3DStorage_method_get_region_index>` which returns the index into this array based on position.
 
-And :ref:`get_region_offset<class_Terrain3DStorage_method_get_region_offset>` which converts a location in world space to a region space, which is what is stored in this array. Eg. ``get_region_offset(Vector3(1500, 0, 1500))`` would return (1, 1).
+And :ref:`get_region_offset<class_Terrain3DStorage_method_get_region_offset>` which converts a position in world space to a region space, which is what is stored in this array. Eg. ``get_region_offset(Vector3(1500, 0, 1500))`` would return (1, 1).
 
 .. rst-class:: classref-item-separator
 
@@ -474,7 +474,7 @@ If the region already exists and image maps are included, the current maps will 
 
 Parameters:
 
--	p_global_position - the world location to place the region, which gets rounded down to the nearest region_size multiple. That means adding a region at (1500, 0, 1500) is the same as adding it at (1024, 0, 1024) when region_size is 1024.
+-	p_global_position - the world position to place the region, which gets rounded down to the nearest region_size multiple. That means adding a region at (1500, 0, 1500) is the same as adding it at (1024, 0, 1024) when region_size is 1024.
 
 -	p_images - Optional array of { Height, Control, Color } with region_sized images. See :ref:`MapType<enum_Terrain3DStorage_MapType>`.
 
@@ -520,7 +520,7 @@ Regenerates the TextureArrays that house the requested map types. Using the defa
 
 :ref:`Color<class_Color>` **get_color** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the associated pixel on the color map at the requested location. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Returns the associated pixel on the color map at the requested position. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -532,7 +532,7 @@ Returns the associated pixel on the color map at the requested location. Calls :
 
 :ref:`int<class_int>` **get_control** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the associated pixel on the control map at the requested location. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Returns the associated pixel on the control map at the requested position. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -544,9 +544,9 @@ Returns the associated pixel on the control map at the requested location. Calls
 
 :ref:`float<class_float>` **get_height** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the associated pixel on the height map at the requested location. This function is only accurate at vertex coordinates, and on flat areas. It does not currently interpolate heights between vertices, while mesh faces do. Locations between vertices will return the height of the vertex at the floored coordinates. See `issue 324 <"https://github.com/TokisanGames/Terrain3D/issues/324">`__.
+Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
 
-Returns NAN if the requested position is a hole or outside of defined regions.
+Returns ``NAN`` if the requested position is a hole or outside of defined regions.
 
 Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
@@ -596,7 +596,7 @@ Returns a copy of the Array of Images containing all of the regions for the spec
 
 :ref:`Vector3<class_Vector3>` **get_mesh_vertex** **(** :ref:`int<class_int>` lod, :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>` filter, :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the location of a terrain vertex at a certain LOD. If there is a hole at the position, it returns NAN in the vector's Y coordinate.
+Returns the position of a terrain vertex at a certain LOD. If there is a hole at the position, it returns ``NAN`` in the vector's Y coordinate.
 
 \ ``lod`` - Determines how many heights around the given global position will be sampled. Range 0 - 8.
 
@@ -614,7 +614,7 @@ Returns the location of a terrain vertex at a certain LOD. If there is a hole at
 
 :ref:`Vector3<class_Vector3>` **get_normal** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the terrain normal at the specified location. This function uses :ref:`get_height<class_Terrain3DStorage_method_get_height>`, which is not currently accurate between vertices. Therefore, this function may also be inacurate between vertices.
+Returns the terrain normal at the specified position. This function uses :ref:`get_height<class_Terrain3DStorage_method_get_height>`.
 
 Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outside of defined regions.
 
@@ -628,7 +628,7 @@ Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outsid
 
 :ref:`Color<class_Color>` **get_pixel** **(** :ref:`MapType<enum_Terrain3DStorage_MapType>` map_type, :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the pixel for the map type associated with the specified location.
+Returns the pixel for the map type associated with the specified position.
 
 Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regions.
 
@@ -654,7 +654,7 @@ Returns the number of allocated regions.
 
 :ref:`int<class_int>` **get_region_index** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the index into the :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>` array for the region associated with the specified location.
+Returns the index into the :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>` array for the region associated with the specified position.
 
 .. rst-class:: classref-item-separator
 
@@ -666,7 +666,7 @@ Returns the index into the :ref:`region_offsets<class_Terrain3DStorage_property_
 
 :ref:`Vector2i<class_Vector2i>` **get_region_offset** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Converts a world space location to region space. For a region_size of 1024 this basically means ``global_position/1024.0``. Also see :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>`.
+Converts a world space position to region space. For a region_size of 1024 this basically means ``global_position/1024.0``. Also see :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>`.
 
 .. rst-class:: classref-item-separator
 
@@ -678,7 +678,7 @@ Converts a world space location to region space. For a region_size of 1024 this 
 
 :ref:`float<class_float>` **get_roughness** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified location. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -706,7 +706,7 @@ This is often used for things like footsteps. Observing how this is done in Witc
 
 :ref:`bool<class_bool>` **has_region** **(** :ref:`Vector3<class_Vector3>` global_position **)**
 
-Returns true if the specified location has a region allocated.
+Returns true if the specified position has a region allocated.
 
 .. rst-class:: classref-item-separator
 
@@ -722,7 +722,7 @@ Imports an Image set (Height, Control, Color) into this resource. It does NOT no
 
 \ ``images`` - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null.
 
-\ ``global_position`` - X,0,Z location on the region map. Valid range is (+/-8192, +/-8192) \* :ref:`Terrain3D.mesh_vertex_spacing<class_Terrain3D_property_mesh_vertex_spacing>`.
+\ ``global_position`` - X,0,Z position on the region map. Valid range is :ref:`Terrain3D.mesh_vertex_spacing<class_Terrain3D_property_mesh_vertex_spacing>` \* (+/-8192, +/-8192).
 
 \ ``offset`` - Add this factor to all height values, can be negative.
 
@@ -770,7 +770,7 @@ Loads a file from disk and returns an Image.
 
 void **remove_region** **(** :ref:`Vector3<class_Vector3>` global_position, :ref:`bool<class_bool>` update=true **)**
 
-Removes the region at the specified location from the :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>` and the height, control, and color map arrays.
+Removes the region at the specified position from the :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>` and the height, control, and color map arrays.
 
 .. rst-class:: classref-item-separator
 
@@ -794,7 +794,7 @@ Saves this storage resource to disk, if saved as an external ``.res`` file, whic
 
 void **set_color** **(** :ref:`Vector3<class_Vector3>` global_position, :ref:`Color<class_Color>` color **)**
 
-Sets the color on the color map pixel associated with the specified location. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the color on the color map pixel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -806,7 +806,7 @@ Sets the color on the color map pixel associated with the specified location. Ca
 
 void **set_control** **(** :ref:`Vector3<class_Vector3>` global_position, :ref:`int<class_int>` control **)**
 
-Sets the value on the control map pixel associated with the specified location. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the value on the control map pixel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -818,7 +818,9 @@ Sets the value on the control map pixel associated with the specified location. 
 
 void **set_height** **(** :ref:`Vector3<class_Vector3>` global_position, :ref:`float<class_float>` height **)**
 
-Sets the height value on the heightmap pixel associated with the specified location. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the height value on the heightmap pixel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+
+Unlike :ref:`get_height<class_Terrain3DStorage_method_get_height>`, which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
 
 .. rst-class:: classref-item-separator
 
@@ -854,7 +856,7 @@ Sets the Array of Images for the specified map type. This method calls :ref:`for
 
 void **set_pixel** **(** :ref:`MapType<enum_Terrain3DStorage_MapType>` map_type, :ref:`Vector3<class_Vector3>` global_position, :ref:`Color<class_Color>` pixel **)**
 
-Sets the pixel for the map type associated with the specified location. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should use :ref:`get_maps<class_Terrain3DStorage_method_get_maps>` or :ref:`get_map_region<class_Terrain3DStorage_method_get_map_region>` and edit the images directly.
+Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should use :ref:`get_maps<class_Terrain3DStorage_method_get_maps>` or :ref:`get_map_region<class_Terrain3DStorage_method_get_map_region>` and edit the images directly.
 
 After setting pixels you need to call :ref:`force_update_maps<class_Terrain3DStorage_method_force_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
 
@@ -868,7 +870,7 @@ After setting pixels you need to call :ref:`force_update_maps<class_Terrain3DSto
 
 void **set_roughness** **(** :ref:`Vector3<class_Vector3>` global_position, :ref:`float<class_float>` roughness **)**
 
-Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified location. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 .. rst-class:: classref-item-separator
 

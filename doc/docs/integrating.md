@@ -128,7 +128,7 @@ You can ask Terrain3DStorage for the height at any given location:
      var height: float = terrain.storage.get_height(global_position)
 ```
 
-This is ideal for one lookup. However, if you wish to look up thousands of heights, it will be significantly faster if you retrieve the heightmap Image for the region and query it directly.
+This is ideal for one lookup. However, if you wish to look up thousands of heights, it might be faster to retrieve the heightmap Image for the region and query it directly. However, note that `get_height()` will interpolate between vertices, while this code will not. 
 
 ```gdscript
      var region_index: int = terrain.storage.get_region_index(global_position)
@@ -138,7 +138,6 @@ This is ideal for one lookup. However, if you wish to look up thousands of heigh
                var height: float = img.get_pixel(x, y).r
 ```
 
-See [Terrain3DStorage.get_height()](https://terrain3d.readthedocs.io/en/latest/api/class_terrain3dstorage.html#class-terrain3dstorage-method-get-height) in the API. Note that this function, and the above map reading method currently do not interpolate heights between vertices. This means if you were to render the terrain based on get_height, it would look terraced.
 
 ### Raycasting with Physics
 

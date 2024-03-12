@@ -452,6 +452,35 @@ Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position)
 	return map->get_pixelv(img_pos);
 }
 
+real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
+	if (Util::is_hole(get_control(p_global_position))) {
+		return NAN;
+	}
+	Vector3 &pos = p_global_position;
+	real_t &step = _mesh_vertex_spacing;
+	pos.y = 0.f;
+	// Round to nearest vertex
+	Vector3 pos_round = Vector3(
+			round_multiple(pos.x, step),
+			0.f,
+			round_multiple(pos.z, step));
+	// If requested position is close to a vertex, return its height
+	if ((pos - pos_round).length() < 0.1f) {
+		return get_pixel(TYPE_HEIGHT, pos).r;
+	} else {
+		// Otherwise, bilinearly interpolate 4 surrounding vertices
+		Vector3 pos00 = Vector3(floor(pos.x / step) * step, 0.f, floor(pos.z / step) * step);
+		real_t ht00 = get_pixel(TYPE_HEIGHT, pos00).r;
+		Vector3 pos01 = pos00 + Vector3(0.f, 0.f, step);
+		real_t ht01 = get_pixel(TYPE_HEIGHT, pos01).r;
+		Vector3 pos10 = pos00 + Vector3(step, 0.f, 0.f);
+		real_t ht10 = get_pixel(TYPE_HEIGHT, pos10).r;
+		Vector3 pos11 = pos00 + Vector3(step, 0.f, step);
+		real_t ht11 = get_pixel(TYPE_HEIGHT, pos11).r;
+		return bilerp(ht00, ht01, ht10, ht11, pos00, pos11, pos);
+	}
+}
+
 /**
  * Returns:
  * X = base index
@@ -969,21 +998,11 @@ Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
 	if (region < 0 || region >= _region_offsets.size() || Util::is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
 	}
-	real_t left = get_height(p_global_position + Vector3(-1.0f, 0.0f, 0.0f));
-	real_t right = get_height(p_global_position + Vector3(1.0f, 0.0f, 0.0f));
-	real_t back = get_height(p_global_position + Vector3(0.f, 0.f, -1.0f));
-	real_t front = get_height(p_global_position + Vector3(0.f, 0.f, 1.0f));
-	Vector3 horizontal = Vector3(2.0f * _mesh_vertex_spacing, right - left, 0.0f);
-	Vector3 vertical = Vector3(0.0f, back - front, 2.0f * _mesh_vertex_spacing);
-	Vector3 normal = vertical.cross(horizontal).normalized();
-	normal.z *= -1.0f;
-
-	// TODO - When get_height interpolates, change this function to a 3-lookup method
-	//real_t height = get_height(p_global_position);
-	//real_t u = height - get_height(p_global_position + Vector3(1.f, 0.0f, 0.0f));
-	//real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, 1.f));
-	//Vector3 normal = Vector3(u, _mesh_vertex_spacing, v);
-	//normal.normalize();
+	real_t height = get_height(p_global_position);
+	real_t u = height - get_height(p_global_position + Vector3(_mesh_vertex_spacing, 0.0f, 0.0f));
+	real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, _mesh_vertex_spacing));
+	Vector3 normal = Vector3(u, _mesh_vertex_spacing, v);
+	normal.normalize();
 	return normal;
 }
 

@@ -193,13 +193,6 @@ inline void Terrain3DStorage::set_height(Vector3 p_global_position, real_t p_hei
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));
 }
 
-inline real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
-	if (Util::is_hole(get_control(p_global_position))) {
-		return NAN;
-	}
-	return get_pixel(TYPE_HEIGHT, p_global_position).r;
-}
-
 inline void Terrain3DStorage::set_color(Vector3 p_global_position, Color p_color) {
 	p_color.a = get_roughness(p_global_position);
 	set_pixel(TYPE_COLOR, p_global_position, p_color);
