@@ -35,21 +35,6 @@
 				Returns the camera the terrain is currently snapping to.
 			</description>
 		</method>
-		<method name="get_filled_image" qualifiers="static">
-			<return type="Image" />
-			<param index="0" name="size" type="Vector2i" />
-			<param index="1" name="color" type="Color" />
-			<param index="2" name="create_mipmaps" type="bool" />
-			<param index="3" name="format" type="int" enum="Image.Format" />
-			<description>
-				A utility function that returns an Image filled with a specified color and format.
-				If [code skip-lint]color.a &lt; 0[/code], its filled with a checkered pattern multiplied by [code skip-lint]color.rgb[/code].
-				The behavior changes if a compressed format is requested:
-				- If the editor is running and the format is DXT1, DXT5, or BPTC_RGBA, it returns a filled image in the requested color and format.
-				- All other compressed formats return a blank image in that format.
-				The reason for this is the Image compression library is available only in the editor. And it is unreliable, offering little control over the output format, choosing automatically and often wrong. We have selected a few compressed formats it gets right.
-			</description>
-		</method>
 		<method name="get_intersection">
 			<return type="Vector3" />
 			<param index="0" name="src_pos" type="Vector3" />
@@ -65,37 +50,10 @@
 				It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See [member render_mouse_layer].
 			</description>
 		</method>
-		<method name="get_min_max" qualifiers="static">
-			<return type="Vector2" />
-			<param index="0" name="image" type="Image" />
-			<description>
-				A utility function that returns the minimum and maximum r channel values of an Image. Used for heightmaps.
-			</description>
-		</method>
 		<method name="get_plugin">
 			<return type="EditorPlugin" />
 			<description>
 				Returns the EditorPlugin connected to Terrain3D.
-			</description>
-		</method>
-		<method name="get_thumbnail" qualifiers="static">
-			<return type="Image" />
-			<param index="0" name="image" type="Image" />
-			<param index="1" name="size" type="Vector2i" default="Vector2i(256, 256)" />
-			<description>
-				A utility function that returns an Image normalized and converted to RGB8. Used for creating a human viewable thumbnail of a heightmap.
-			</description>
-		</method>
-		<method name="pack_image" qualifiers="static">
-			<return type="Image" />
-			<param index="0" name="src_rgb" type="Image" />
-			<param index="1" name="src_r" type="Image" />
-			<param index="2" name="invert_green_channel" type="bool" default="false" />
-			<description>
-				A utility function that returns an Image with the following content:
-				- RGB channels from [code skip-lint]src_rgb[/code].
-				- A channel from [code skip-lint]src_r[/code].
-				- G inverted, if specified (eg for converting normal maps between DirectX and OpenGL).
 			</description>
 		</method>
 		<method name="set_camera">

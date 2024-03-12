@@ -16,6 +16,7 @@ We process the uint as a bit field with the following definition, starting with 
 | Autoshader: 0 manual, 1 auto | 0-1 | 1 | 1 | `x & 0x1` | `x & 0x1`
 
 * Encode/decode work in C++ or GLSL and may need a `u` at the end of literals when working with an unsigned integer. e.g. `x >> 14u & 0xFFu`.
+* Users can use the conversion and testing functions found in Terrain3DUtil defined in [C++](https://github.com/TokisanGames/Terrain3D/blob/main/src/terrain_3d_util.h) and [GDScript](https://terrain3d.readthedocs.io/en/latest/api/class_terrain3dutil.html).
 * Possible future plans for reserved bits:
   * 5 bits - 32 paintable particles
   * 3 bits - paintable uv scale array index+
@@ -28,4 +29,3 @@ We process the uint as a bit field with the following definition, starting with 
 
 The 3 bit indices above are used to select a value from an 8-index array of values between 0-1, such as `{ 0.0f, .125f, .25f, .334f, .5f, .667f, .8f, 1.0f };` This allows us to store full range 0-1 values that would normally require 8 bits (256 values) in only 3 bits (8 values), since the fine gradations are not important. This idea came from the Witcher 3 presentation.
 
-C++ users can use the conversion and testing functions found in [util.h](https://github.com/TokisanGames/Terrain3D/blob/main/src/util.h)

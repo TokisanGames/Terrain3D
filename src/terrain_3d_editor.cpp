@@ -5,7 +5,7 @@
 
 #include "logger.h"
 #include "terrain_3d_editor.h"
-#include "util.h"
+#include "terrain_3d_util.h"
 
 ///////////////////////////
 // Subclass Functions
@@ -275,12 +275,12 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
 					// Get bit field from pixel
-					uint32_t base_id = Util::get_base(src.r);
-					uint32_t overlay_id = Util::get_overlay(src.r);
-					real_t blend = real_t(Util::get_blend(src.r)) / 255.f;
-					bool hole = Util::is_hole(src.r);
-					bool navigation = Util::is_nav(src.r);
-					bool autoshader = Util::is_auto(src.r);
+					uint32_t base_id = get_base(src.r);
+					uint32_t overlay_id = get_overlay(src.r);
+					real_t blend = real_t(get_blend(src.r)) / 255.f;
+					bool hole = is_hole(src.r);
+					bool navigation = is_nav(src.r);
+					bool autoshader = is_auto(src.r);
 
 					real_t alpha_clip = (brush_alpha > 0.1f) ? 1.f : 0.f;
 					uint32_t dest_id = uint32_t(Math::lerp(base_id, texture_id, alpha_clip));
@@ -341,9 +341,9 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 					// Convert back to bitfield
 					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.f), 0.f, 255.f));
-					uint32_t bits = Util::enc_base(base_id) | Util::enc_overlay(overlay_id) |
-							Util::enc_blend(blend_int) | Util::enc_hole(hole) |
-							Util::enc_nav(navigation) | Util::enc_auto(autoshader);
+					uint32_t bits = enc_base(base_id) | enc_overlay(overlay_id) |
+							enc_blend(blend_int) | enc_hole(hole) |
+							enc_nav(navigation) | enc_auto(autoshader);
 
 					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
 					dest = Color(*(float *)&bits, 0.f, 0.f, 1.f);

@@ -198,7 +198,7 @@ func _pack_textures(p_rgb_image: Image, p_a_image: Image, p_dst_path: String, p_
 			_show_error("Textures must be the same size.")
 			return
 
-		var output_image: Image = Terrain3D.pack_image(p_rgb_image, p_a_image, p_invert_green)
+		var output_image: Image = Terrain3DUtil.pack_image(p_rgb_image, p_a_image, p_invert_green)
 
 		if not output_image:
 			_show_error("Failed to pack textures.")

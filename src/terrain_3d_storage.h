@@ -9,7 +9,7 @@
 #include "constants.h"
 #include "generated_tex.h"
 #include "terrain_3d_texture_list.h"
-#include "util.h"
+#include "terrain_3d_util.h"
 
 class Terrain3D;
 
@@ -205,11 +205,11 @@ inline Color Terrain3DStorage::get_color(Vector3 p_global_position) {
 }
 
 inline void Terrain3DStorage::set_control(Vector3 p_global_position, uint32_t p_control) {
-	set_pixel(TYPE_CONTROL, p_global_position, Color(Util::as_float(p_control), 0.f, 0.f, 1.f));
+	set_pixel(TYPE_CONTROL, p_global_position, Color(as_float(p_control), 0.f, 0.f, 1.f));
 }
 
 inline uint32_t Terrain3DStorage::get_control(Vector3 p_global_position) {
-	return Util::as_uint(get_pixel(TYPE_CONTROL, p_global_position).r);
+	return as_uint(get_pixel(TYPE_CONTROL, p_global_position).r);
 }
 
 inline void Terrain3DStorage::set_roughness(Vector3 p_global_position, real_t p_roughness) {

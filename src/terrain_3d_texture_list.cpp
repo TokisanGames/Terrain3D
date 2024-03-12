@@ -5,7 +5,7 @@
 
 #include "logger.h"
 #include "terrain_3d_texture_list.h"
-#include "util.h"
+#include "terrain_3d_util.h"
 
 ///////////////////////////
 // Private Functions

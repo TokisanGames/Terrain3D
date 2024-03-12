@@ -57,7 +57,7 @@
     <ClInclude Include="src\logger.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\util.h">
+    <ClInclude Include="src\terrain_3d_util.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
   </ItemGroup>
@@ -89,7 +89,7 @@
     <ClCompile Include="src\generated_tex.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\util.cpp">
+    <ClCompile Include="src\terrain_3d_util.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
   </ItemGroup>
@@ -273,6 +273,9 @@
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DTextureList.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DUtil.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
   </ItemGroup>

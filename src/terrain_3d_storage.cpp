@@ -454,7 +454,7 @@ Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position)
 }
 
 real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
-	if (Util::is_hole(get_control(p_global_position))) {
+	if (is_hole(get_control(p_global_position))) {
 		return NAN;
 	}
 	Vector3 &pos = p_global_position;
@@ -494,9 +494,9 @@ real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
  **/
 Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
-	uint32_t base_id = Util::get_base(src);
-	uint32_t overlay_id = Util::get_overlay(src);
-	real_t blend = real_t(Util::get_blend(src)) / 255.0f;
+	uint32_t base_id = get_base(src);
+	uint32_t overlay_id = get_overlay(src);
+	real_t blend = real_t(get_blend(src)) / 255.0f;
 	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
@@ -968,7 +968,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 
 	switch (p_filter) {
 		case HEIGHT_FILTER_NEAREST: {
-			if (Util::is_hole(get_control(p_global_position))) {
+			if (is_hole(get_control(p_global_position))) {
 				height = NAN;
 			} else {
 				height = get_height(p_global_position);
@@ -979,7 +979,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
 				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
 					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _mesh_vertex_spacing;
-					if (Util::is_hole(get_control(position))) {
+					if (is_hole(get_control(position))) {
 						height = NAN;
 						break;
 					}
@@ -996,7 +996,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 
 Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
 	int region = get_region_index(p_global_position);
-	if (region < 0 || region >= _region_offsets.size() || Util::is_hole(get_control(p_global_position))) {
+	if (region < 0 || region >= _region_offsets.size() || is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
 	}
 	real_t height = get_height(p_global_position);

@@ -146,7 +146,7 @@
     <ClInclude Include="src\terrain_3d.h" />
     <ClInclude Include="src\terrain_3d_editor.h" />
     <ClInclude Include="src\logger.h" />
-    <ClInclude Include="src\util.h" />
+    <ClInclude Include="src\terrain_3d_util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
     <ClInclude Include="src\terrain_3d_storage.h" />
     <ClInclude Include="src\terrain_3d_texture.h" />
@@ -162,7 +162,7 @@
     <ClCompile Include="src\terrain_3d_storage.cpp" />
     <ClCompile Include="src\terrain_3d_texture.cpp" />
     <ClCompile Include="src\terrain_3d_texture_list.cpp" />
-    <ClCompile Include="src\util.cpp" />
+    <ClCompile Include="src\terrain_3d_util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".github\actions\base-deps\action.yml" />
@@ -228,6 +228,7 @@
     <Xml Include="doc\classes\Terrain3DStorage.xml" />
     <Xml Include="doc\classes\Terrain3DTexture.xml" />
     <Xml Include="doc\classes\Terrain3DTextureList.xml" />
+    <Xml Include="doc\classes\Terrain3DUtil.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

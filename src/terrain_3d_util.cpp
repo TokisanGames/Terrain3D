@@ -3,13 +3,13 @@
 #include <godot_cpp/classes/engine.hpp>
 
 #include "logger.h"
-#include "util.h"
+#include "terrain_3d_util.h"
 
 ///////////////////////////
 // Public Functions
 ///////////////////////////
 
-void Util::print_dict(String p_name, const Dictionary &p_dict, int level) {
+void Terrain3DUtil::print_dict(String p_name, const Dictionary &p_dict, int level) {
 	LOG(level, "Printing Dictionary: ", p_name);
 	Array keys = p_dict.keys();
 	for (int i = 0; i < keys.size(); i++) {
@@ -17,11 +17,11 @@ void Util::print_dict(String p_name, const Dictionary &p_dict, int level) {
 	}
 }
 
-void Util::dump_gen(GeneratedTex p_gen, String p_name) {
+void Terrain3DUtil::dump_gen(GeneratedTex p_gen, String p_name) {
 	LOG(DEBUG, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
 }
 
-void Util::dump_maps(const TypedArray<Image> p_maps, String p_name) {
+void Terrain3DUtil::dump_maps(const TypedArray<Image> p_maps, String p_name) {
 	LOG(DEBUG, "Dumping ", p_name, " map array. Size: ", p_maps.size());
 	for (int i = 0; i < p_maps.size(); i++) {
 		Ref<Image> img = p_maps[i];
@@ -32,7 +32,7 @@ void Util::dump_maps(const TypedArray<Image> p_maps, String p_name) {
 /**
  * Returns the minimum and maximum values for a heightmap (red channel only)
  */
-Vector2 Util::get_min_max(const Ref<Image> p_image) {
+Vector2 Terrain3DUtil::get_min_max(const Ref<Image> p_image) {
 	if (p_image.is_null()) {
 		LOG(ERROR, "Provided image is not valid. Nothing to analyze");
 		return Vector2(INFINITY, INFINITY);
@@ -63,7 +63,7 @@ Vector2 Util::get_min_max(const Ref<Image> p_image) {
  * Returns a Image of a float heightmap normalized to RGB8 greyscale and scaled
  * Minimum of 8x8
  */
-Ref<Image> Util::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
+Ref<Image> Terrain3DUtil::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
 	if (p_image.is_null()) {
 		LOG(ERROR, "Provided image is not valid. Nothing to process.");
 		return Ref<Image>();
@@ -116,7 +116,7 @@ Ref<Image> Util::get_thumbnail(const Ref<Image> p_image, Vector2i p_size) {
  * unreliable, offering little control over the output format, choosing automatically and
  * often wrong. We have selected a few compressed formats it gets right.
  */
-Ref<Image> Util::get_filled_image(Vector2i p_size, Color p_color, bool p_create_mipmaps, Image::Format p_format) {
+Ref<Image> Terrain3DUtil::get_filled_image(Vector2i p_size, Color p_color, bool p_create_mipmaps, Image::Format p_format) {
 	if (p_format < 0 || p_format >= Image::FORMAT_MAX) {
 		p_format = Image::FORMAT_DXT5;
 	}
@@ -180,7 +180,7 @@ Ref<Image> Util::get_filled_image(Vector2i p_size, Color p_color, bool p_create_
 /* From source RGB and R channels, create a new RGBA image. If p_invert_green_channel is true,
  * the destination green channel will be 1.0 - input green channel.
  */
-Ref<Image> Util::pack_image(const Ref<Image> p_src_rgb, const Ref<Image> p_src_r, bool p_invert_green_channel) {
+Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> p_src_rgb, const Ref<Image> p_src_r, bool p_invert_green_channel) {
 	if (!p_src_rgb.is_valid() || !p_src_r.is_valid()) {
 		LOG(ERROR, "Provided images are not valid. Cannot pack.");
 		return Ref<Image>();
@@ -206,4 +206,32 @@ Ref<Image> Util::pack_image(const Ref<Image> p_src_rgb, const Ref<Image> p_src_r
 		}
 	}
 	return dst;
+}
+
+///////////////////////////
+// Protected Functions
+///////////////////////////
+
+void Terrain3DUtil::_bind_methods() {
+	// Control map converters
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("as_float", "value"), &as_float);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("as_uint", "value"), &as_uint);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_base", "pixel"), &gd_get_base);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_base", "base"), &gd_enc_base);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_overlay", "pixel"), &gd_get_overlay);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_overlay", "overlay"), &gd_enc_overlay);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_blend", "pixel"), &gd_get_blend);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_blend", "blend"), &gd_enc_blend);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("is_hole", "pixel"), &gd_is_hole);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_hole", "pixel"), &enc_hole);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("is_nav", "pixel"), &gd_is_nav);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_nav", "pixel"), &enc_nav);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("is_auto", "pixel"), &gd_is_auto);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_auto", "pixel"), &enc_auto);
+
+	// Image handling
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_min_max", "image"), &Terrain3DUtil::get_min_max);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(Vector2i(256, 256)));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_r", "invert_green_channel"), &Terrain3DUtil::pack_image, DEFVAL(false));
 }

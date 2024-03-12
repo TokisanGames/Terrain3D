@@ -9,7 +9,7 @@
 
 #include "logger.h"
 #include "terrain_3d_material.h"
-#include "util.h"
+#include "terrain_3d_util.h"
 
 ///////////////////////////
 // Private Functions

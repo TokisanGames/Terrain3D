@@ -42,4 +42,5 @@ Other objects
 
     class_object
     class_terrain3deditor
+    class_terrain3dutil
 

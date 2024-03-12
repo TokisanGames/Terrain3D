@@ -22,7 +22,7 @@
 #include "geoclipmap.h"
 #include "logger.h"
 #include "terrain_3d.h"
-#include "util.h"
+#include "terrain_3d_util.h"
 
 ///////////////////////////
 // Private Functions
@@ -407,22 +407,22 @@ void Terrain3D::_update_collision() {
 
 				// Set heights on local map, or adjacent maps if on the last row/col
 				if (x < region_size && z < region_size) {
-					map_data[index] = (Util::is_hole(cmap->get_pixel(x, z).r)) ? hole_const : map->get_pixel(x, z).r;
+					map_data[index] = (is_hole(cmap->get_pixel(x, z).r)) ? hole_const : map->get_pixel(x, z).r;
 				} else if (x == region_size && z < region_size) {
 					if (map_x.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, z).r)) ? hole_const : map_x->get_pixel(0, z).r;
+						map_data[index] = (is_hole(cmap_x->get_pixel(0, z).r)) ? hole_const : map_x->get_pixel(0, z).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (z == region_size && x < region_size) {
 					if (map_z.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_z->get_pixel(x, 0).r)) ? hole_const : map_z->get_pixel(x, 0).r;
+						map_data[index] = (is_hole(cmap_z->get_pixel(x, 0).r)) ? hole_const : map_z->get_pixel(x, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (x == region_size && z == region_size) {
 					if (map_xz.is_valid()) {
-						map_data[index] = (Util::is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
+						map_data[index] = (is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
@@ -594,7 +594,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	uint32_t control1 = _storage->get_control(xz);
 	uint32_t control2 = _storage->get_control(xszs);
 	uint32_t control3 = _storage->get_control(xzs);
-	if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
+	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
 		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
 		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xzs);
@@ -613,7 +613,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	control1 = _storage->get_control(xz);
 	control2 = _storage->get_control(xsz);
 	control3 = _storage->get_control(xszs);
-	if (!p_require_nav || (Util::is_nav(control1) && Util::is_nav(control2) && Util::is_nav(control3))) {
+	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
 		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xsz);
 		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
@@ -1193,12 +1193,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_mask"), &Terrain3D::get_collision_mask);
 	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
 	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
-
-	// Utility functions
-	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_min_max", "image"), &Util::get_min_max);
-	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_thumbnail", "image", "size"), &Util::get_thumbnail, DEFVAL(Vector2i(256, 256)));
-	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Util::get_filled_image);
-	ClassDB::bind_static_method("Terrain3D", D_METHOD("pack_image", "src_rgb", "src_r", "invert_green_channel"), &Util::pack_image, DEFVAL(false));
 
 	// Expose 'update_aabbs' so it can be used in Callable. Not ideal.
 	ClassDB::bind_method(D_METHOD("update_aabbs"), &Terrain3D::update_aabbs);
