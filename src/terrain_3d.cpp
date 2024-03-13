@@ -591,19 +591,19 @@ void Terrain3D::_destroy_collision() {
 				CollisionShape3D *child = Object::cast_to<CollisionShape3D>(_collision_shapes[i]);
 				LOG(DEBUG, "Freeing esb child ", i, " ", child->get_name());
 				_editor_static_body->remove_child(child);
-				memfree(child);
+				memdelete(child);
 			}
 		}
 
 		for (int i = _collision_shapes_unused.size() - 1; i >= 0; i--) {
 			Node *child = Object::cast_to<Node>(_collision_shapes_unused.pop_back());
 			LOG(DEBUG, "Freeing cached esb child ", i, " ", child->get_name());
-			memfree(child);
+			memdelete(child);
 		}
 
 		LOG(DEBUG, "Freeing static body");
 		remove_child(_editor_static_body);
-		memfree(_editor_static_body);
+		memdelete(_editor_static_body);
 		_editor_static_body = nullptr;
 	}
 }
