@@ -33,7 +33,7 @@ Or you can instance the class for a shorter alias:
 ::
 
     var bits: int = util.enc_base(base_id) | util.enc_overlay(over_id) | util.enc_blend(blend) | \
-    util.enc_auto(autoshader) | util.enc_nav(navigation) | util.enc_hole(hole)
+        util.enc_auto(autoshader) | util.enc_nav(navigation) | util.enc_hole(hole)
     var color: Color = Color(util.as_float(bits), 0., 0., 1.)
     storage.set_control(global_pos, color)
 

@@ -118,7 +118,7 @@ You can determine if a given location is within a region by using `Terrain3DStor
 
 ## Detecting Terrain Height or Position
 
-There are multiple ways to detect an intersection with the terrain.
+There are multiple ways to detect an intersection with the terrain. After which you may wish to use `Terrain3DStorage.get_normal(global_position)`.
 
 ### Query the height at any position
 

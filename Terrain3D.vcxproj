@@ -183,6 +183,7 @@
     <None Include="doc\docs\mobile_web.md" />
     <None Include="doc\docs\nightly_builds.md" />
     <None Include="doc\docs\press.md" />
+    <None Include="doc\docs\storage_format.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
@@ -207,7 +208,6 @@
     <Text Include="doc\docs\system_architecture.md" />
     <Text Include="doc\docs\installation.md" />
     <Text Include="doc\docs\controlmap_format.md" />
-    <Text Include="doc\docs\storage_format.md" />
     <Text Include="doc\docs\getting_help.md" />
     <Text Include="doc\docs\tutorial_videos.md" />
     <Text Include="doc\docs\troubleshooting.md" />
