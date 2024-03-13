@@ -351,21 +351,21 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
 		hole_const = __FLT_MAX__;
 	}
-	int array_size = ceil((double)_collision_dynamic_distance * 2.0 / (double)collision_shape_size);
+	int array_size = ceil(((double)_collision_dynamic_distance + 1.0) * 2.0 / (double)collision_shape_size);
 	Vector2 camera_position = Vector2(p_cam_pos.x, p_cam_pos.z);
-	Vector2i camera_pos = (camera_position / collision_shape_size).round() * collision_shape_size;
-	Vector2i camera_delta = camera_pos - _old_camera_pos;
+	Vector2i dynamic_region_pos_snapped = (((camera_position) / collision_shape_size).floor() - Vector2i(array_size, array_size) / 2) * collision_shape_size;
+	Vector2i snapped_delta = dynamic_region_pos_snapped - _old_snapped_pos;
 
 	// iterate old array for out of range shapes and disable them
 	for (int i = 0; i < array_size; i++) {
 		for (int j = 0; j < array_size; j++) {
 			int index = i * array_size + j;
 			// offset to the old camera position
-			Vector2i old_position = Vector2i(i, j) + camera_delta;
+			Vector2i old_position = Vector2i(i, j) + snapped_delta;
 			// index for the current position in the new array to the old array
 			int old_index = old_position.x * array_size + old_position.y;
 			bool location_exists_in_old = array_size > old_position.x && old_position.x >= 0 && array_size > old_position.y && old_position.y >= 0;
-			Vector2i shape_location = _old_camera_pos + Vector2i(i * collision_shape_size, j * collision_shape_size);
+			Vector2i shape_location = _old_snapped_pos + Vector2i(i * collision_shape_size, j * collision_shape_size);
 			bool too_far = Vector2(shape_location).distance_to(camera_position) > _collision_dynamic_distance;
 			if (!_is_collision_editor() && (!location_exists_in_old || too_far) && ((RID)_collision_shapes[index]).is_valid()) {
 				_collision_shapes_unused.push_back(_collision_shapes[index]);
@@ -390,11 +390,11 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 			// current index in the new array
 			int index = i * array_size + j;
 			// offset to the old camera position
-			Vector2i old_position = Vector2i(i, j) + camera_delta;
+			Vector2i old_position = Vector2i(i, j) + snapped_delta;
 			// index for the current position in the new array to the old array
 			int old_index = old_position.x * array_size + old_position.y;
 			bool location_exists_in_old = array_size > old_position.x && old_position.x >= 0 && array_size > old_position.y && old_position.y >= 0;
-			Vector2i shape_location = camera_pos + Vector2i(i * collision_shape_size, j * collision_shape_size);
+			Vector2i shape_location = dynamic_region_pos_snapped + Vector2i(((float)i + 0.5) * (float)collision_shape_size, ((float)j + 0.5) * (float)collision_shape_size);
 			Vector3i global_shape_location = Vector3i(shape_location.x, 0.0, shape_location.y);
 			Vector3i global_middle_pos = global_shape_location + Vector3i(collision_shape_size, 0, collision_shape_size) / 2;
 			bool too_far = Vector2(global_shape_location.x, global_shape_location.z).distance_to(camera_position) > _collision_dynamic_distance;
@@ -560,7 +560,7 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 	}
 
 	_collision_shapes = new_array;
-	_old_camera_pos = camera_pos;
+	_old_snapped_pos = dynamic_region_pos_snapped;
 
 	LOG(DEBUG_CONT, "Collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }

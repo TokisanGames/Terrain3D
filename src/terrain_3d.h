@@ -73,7 +73,7 @@ private:
 	RID _static_body;
 	StaticBody3D *_editor_static_body = nullptr;
 	bool _collision_initialized = false;
-	Vector2 _old_camera_pos = Vector2(0.0, 0.0);
+	Vector2 _old_snapped_pos = Vector2(0.0, 0.0);
 	Array _collision_shapes = Array();
 	Array _collision_shapes_unused = Array();
 	bool _collision_enabled = true;
