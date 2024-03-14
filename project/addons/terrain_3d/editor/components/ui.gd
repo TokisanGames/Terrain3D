@@ -61,6 +61,8 @@ func _enter_tree() -> void:
 	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, toolbar_settings)
 	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, terrain_tools)
 
+	_on_tool_changed(Terrain3DEditor.REGION, Terrain3DEditor.ADD)
+	
 	decal = Decal.new()
 	add_child(decal)
 	decal_timer = Timer.new()
@@ -87,112 +89,114 @@ func _exit_tree() -> void:
 
 func set_visible(p_visible: bool) -> void:
 	visible = p_visible
-	toolbar.set_visible(p_visible and plugin.terrain)
 	terrain_tools.set_visible(p_visible)
-	
-	if p_visible and plugin.terrain:
-		p_visible = plugin.editor.get_tool() != Terrain3DEditor.REGION
-	toolbar_settings.set_visible(p_visible and plugin.terrain)
+	toolbar.set_visible(p_visible)
+	toolbar_settings.set_visible(p_visible)
 	update_decal()
 
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	clear_picking()
+
+	# Select which settings to hide. Options in tool_settings.gd:_ready
+	var to_hide: PackedStringArray = []
 	
-	if not visible or not plugin.terrain:
-		return
-
-	if plugin.editor:
-		plugin.editor.set_tool(p_tool)
-		plugin.editor.set_operation(p_operation)
-	
-	if p_tool != Terrain3DEditor.REGION:
-		# Select which settings to hide. Options:
-		# size, opactiy, height, slope, color, roughness, (height|color|roughness) picker
-		var to_hide: PackedStringArray = []
-		
-		if p_tool == Terrain3DEditor.HEIGHT:
-			to_hide.push_back("color")
-			to_hide.push_back("color picker")
-			to_hide.push_back("roughness")
-			to_hide.push_back("roughness picker")
-			to_hide.push_back("slope")
-			to_hide.push_back("enable")
-			if p_operation != Terrain3DEditor.REPLACE:
-				to_hide.push_back("height")
-				to_hide.push_back("height picker")
-			if p_operation != Terrain3DEditor.GRADIENT:
-				to_hide.push_back("gradient_points")
-				to_hide.push_back("drawable")
-
-		elif p_tool == Terrain3DEditor.TEXTURE:
+	if p_tool == Terrain3DEditor.REGION:
+		to_hide.push_back("size")
+		to_hide.push_back("opacity")
+		to_hide.push_back("enable")
+		to_hide.push_back("color")
+		to_hide.push_back("color picker")
+		to_hide.push_back("roughness")
+		to_hide.push_back("roughness picker")
+		to_hide.push_back("height")
+		to_hide.push_back("height picker")
+		to_hide.push_back("slope")
+		to_hide.push_back("gradient_points")
+		to_hide.push_back("drawable")
+				
+	elif p_tool == Terrain3DEditor.HEIGHT:
+		to_hide.push_back("color")
+		to_hide.push_back("color picker")
+		to_hide.push_back("roughness")
+		to_hide.push_back("roughness picker")
+		to_hide.push_back("slope")
+		to_hide.push_back("enable")
+		if p_operation != Terrain3DEditor.REPLACE:
 			to_hide.push_back("height")
 			to_hide.push_back("height picker")
+		if p_operation != Terrain3DEditor.GRADIENT:
 			to_hide.push_back("gradient_points")
 			to_hide.push_back("drawable")
-			to_hide.push_back("color")
-			to_hide.push_back("color picker")
-			to_hide.push_back("roughness")
-			to_hide.push_back("roughness picker")
-			to_hide.push_back("slope")
-			to_hide.push_back("enable")
-			if p_operation == Terrain3DEditor.REPLACE:
-				to_hide.push_back("opacity")
 
-		elif p_tool == Terrain3DEditor.COLOR:
-			to_hide.push_back("height")
-			to_hide.push_back("height picker")
-			to_hide.push_back("gradient_points")
-			to_hide.push_back("drawable")
-			to_hide.push_back("roughness")
-			to_hide.push_back("roughness picker")
-			to_hide.push_back("slope")
-			to_hide.push_back("enable")
-
-		elif p_tool == Terrain3DEditor.ROUGHNESS:
-			to_hide.push_back("height")
-			to_hide.push_back("height picker")
-			to_hide.push_back("gradient_points")
-			to_hide.push_back("drawable")
-			to_hide.push_back("color")
-			to_hide.push_back("color picker")
-			to_hide.push_back("slope")
-			to_hide.push_back("enable")
-	
-		elif p_tool in [ Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION ]:
-			to_hide.push_back("height")
-			to_hide.push_back("height picker")
-			to_hide.push_back("gradient_points")
-			to_hide.push_back("drawable")
-			to_hide.push_back("color")
-			to_hide.push_back("color picker")
-			to_hide.push_back("roughness")
-			to_hide.push_back("roughness picker")
-			to_hide.push_back("slope")
+	elif p_tool == Terrain3DEditor.TEXTURE:
+		to_hide.push_back("height")
+		to_hide.push_back("height picker")
+		to_hide.push_back("gradient_points")
+		to_hide.push_back("drawable")
+		to_hide.push_back("color")
+		to_hide.push_back("color picker")
+		to_hide.push_back("roughness")
+		to_hide.push_back("roughness picker")
+		to_hide.push_back("slope")
+		to_hide.push_back("enable")
+		if p_operation == Terrain3DEditor.REPLACE:
 			to_hide.push_back("opacity")
 
-		toolbar_settings.hide_settings(to_hide)
+	elif p_tool == Terrain3DEditor.COLOR:
+		to_hide.push_back("height")
+		to_hide.push_back("height picker")
+		to_hide.push_back("gradient_points")
+		to_hide.push_back("drawable")
+		to_hide.push_back("roughness")
+		to_hide.push_back("roughness picker")
+		to_hide.push_back("slope")
+		to_hide.push_back("enable")
 
-	toolbar_settings.set_visible(p_tool != Terrain3DEditor.REGION)	
-	
+	elif p_tool == Terrain3DEditor.ROUGHNESS:
+		to_hide.push_back("height")
+		to_hide.push_back("height picker")
+		to_hide.push_back("gradient_points")
+		to_hide.push_back("drawable")
+		to_hide.push_back("color")
+		to_hide.push_back("color picker")
+		to_hide.push_back("slope")
+		to_hide.push_back("enable")
+
+	elif p_tool in [ Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION ]:
+		to_hide.push_back("height")
+		to_hide.push_back("height picker")
+		to_hide.push_back("gradient_points")
+		to_hide.push_back("drawable")
+		to_hide.push_back("color")
+		to_hide.push_back("color picker")
+		to_hide.push_back("roughness")
+		to_hide.push_back("roughness picker")
+		to_hide.push_back("slope")
+		to_hide.push_back("opacity")
+
+	toolbar_settings.hide_settings(to_hide)
+
 	operation_builder = null
 	if p_operation == Terrain3DEditor.GRADIENT:
 		operation_builder = GradientOperationBuilder.new()
 		operation_builder.tool_settings = toolbar_settings
-	
+
+	if plugin.editor:
+		plugin.editor.set_tool(p_tool)
+		plugin.editor.set_operation(p_operation)
+
 	_on_setting_changed()
-	plugin.update_region_grid()
-	
 
 
 func _on_setting_changed() -> void:
-	if not visible or not plugin.terrain:
+	if not plugin.asset_dock:
 		return
 	brush_data = {
 		"size": int(toolbar_settings.get_setting("size")),
 		"opacity": toolbar_settings.get_setting("opacity") / 100.0,
 		"height": toolbar_settings.get_setting("height"),
-		"texture_index": plugin.texture_dock.get_selected_index(),
+		"texture_index": plugin.asset_dock.get_selected_index(),
 		"color": toolbar_settings.get_setting("color"),
 		"roughness": toolbar_settings.get_setting("roughness"),
 		"gradient_points": toolbar_settings.get_setting("gradient_points"),

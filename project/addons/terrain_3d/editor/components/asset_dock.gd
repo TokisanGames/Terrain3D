@@ -1,6 +1,7 @@
+@tool
 extends PanelContainer
 
-
+signal placement_changed(index: int)
 signal resource_changed(resource: Resource, index: int)
 signal resource_inspected(resource: Resource)
 signal resource_selected
@@ -10,39 +11,53 @@ var entries: Array[ListEntry]
 var selected_index: int = 0
 var focus_style: StyleBox
 
+@onready var placement_option: OptionButton = $VBox/PlacementHBox/Options
+@onready var placement_pin: Button = $VBox/PlacementHBox/Pinned
+@onready var size_slider: HSlider = $VBox/SizeSlider
 
-func _init() -> void:
+
+func _ready() -> void:
+	placement_option.item_selected.connect(_on_placement_selected)
+	size_slider.value_changed.connect(_on_slider_changed)
+	
 	list = ListContainer.new()
-	
-	var root: VBoxContainer = VBoxContainer.new()
-	var scroll: ScrollContainer = ScrollContainer.new()
-	var label: Label = Label.new()
-	
-	label.set_text("Textures")
-	label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-	label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
-	scroll.set_v_size_flags(SIZE_EXPAND_FILL)
-	scroll.set_h_size_flags(SIZE_EXPAND_FILL)
 	list.set_v_size_flags(SIZE_EXPAND_FILL)
 	list.set_h_size_flags(SIZE_EXPAND_FILL)
-	
-	scroll.add_child(list)
-	root.add_child(label)
-	root.add_child(scroll)
-	add_child(root)
-	
-	set_custom_minimum_size(Vector2(256, 448))
-	
+	$VBox/ScrollContainer.add_child(list)
+
+	# Copy theme from the editor, but since its a tool script, avoid saving icon resources in tscn
+	if EditorScript.new().get_editor_interface().get_edited_scene_root() != self:
+		set("theme_override_styles/panel", get_theme_stylebox("panel", "Panel"))
+		$VBox/Label.set("theme_override_styles/normal", get_theme_stylebox("bg", "EditorInspectorCategory"))
+		$VBox/Label.set("theme_override_fonts/font", get_theme_font("bold", "EditorFonts"))
+		$VBox/Label.set("theme_override_font_sizes/font_size",get_theme_font_size("bold_size", "EditorFonts"))
+		placement_pin.icon = get_theme_icon("Pin", "EditorIcons")
+		placement_pin.text = ""
+
+	# Setup style for selected assets
 	focus_style = get_theme_stylebox("focus", "Button").duplicate()
 	focus_style.set_border_width_all(2)
 	focus_style.set_border_color(Color(1, 1, 1, .67))
 
-	
-func _ready() -> void:
-	get_child(0).get_child(0).set("theme_override_styles/normal", get_theme_stylebox("bg", "EditorInspectorCategory"))
-	get_child(0).get_child(0).set("theme_override_fonts/font", get_theme_font("bold", "EditorFonts"))
-	get_child(0).get_child(0).set("theme_override_font_sizes/font_size",get_theme_font_size("bold_size", "EditorFonts"))
-	set("theme_override_styles/panel", get_theme_stylebox("panel", "Panel"))
+
+func _on_placement_selected(index: int) -> void:
+	emit_signal("placement_changed", index)
+
+
+func _on_slider_changed(value: float) -> void:
+	if list:
+		list.set_entry_size(value)
+
+
+func move_slider(to_side: bool) -> void:
+	if to_side and size_slider.get_parent() != $VBox:
+		size_slider.reparent($VBox)
+		$VBox.move_child(size_slider, 2)
+		size_slider.custom_minimum_size = Vector2(0, 0)
+	elif not to_side and size_slider.get_parent() == $VBox:
+		size_slider.reparent($VBox/PlacementHBox)
+		$VBox/PlacementHBox.move_child(size_slider, 2)
+		size_slider.custom_minimum_size = Vector2(300, 10)
 
 
 func clear() -> void:
@@ -108,22 +123,37 @@ func notify_resource_changed(p_resource: Resource, p_index: int) -> void:
 	
 class ListContainer extends Container:
 	var height: float = 0
+	var width: float = 83
 	
-	func _notification(p_what) -> void:
-		if p_what == NOTIFICATION_SORT_CHILDREN:
-			height = 0
-			var index: int = 0
-			var separation: float = 4
-			for c in get_children():
-				if is_instance_valid(c):
-					var width: float = size.x / 3
-					c.size = Vector2(width,width) - Vector2(separation, separation)
-					c.position = Vector2(index % 3, index / 3) * width + Vector2(separation/3, separation/3)
-					height = max(height, c.position.y + width)
-					index += 1
-					
+	
+	func set_entry_size(value: float) -> void:
+		width = clamp(value, 56, 256)
+		redraw()
+
+
+	func redraw() -> void:
+		height = 0
+		var index: int = 0
+		var separation: float = 4
+		var columns: int = 3
+		columns = clamp(size.x / width, 1, 100)
+		
+		for c in get_children():
+			if is_instance_valid(c):
+				c.size = Vector2(width, width) - Vector2(separation, separation)
+				c.position = Vector2(index % columns, index / columns) * width + \
+					Vector2(separation / columns, separation / columns)
+				height = max(height, c.position.y + width)
+				index += 1
+
+
 	func _get_minimum_size() -> Vector2:
 		return Vector2(0, height)
+
+		
+	func _notification(p_what) -> void:
+		if p_what == NOTIFICATION_SORT_CHILDREN:
+			redraw()
 
 
 ##############################################################

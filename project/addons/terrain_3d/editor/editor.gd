@@ -6,20 +6,28 @@ extends EditorPlugin
 # Includes
 const UI: Script = preload("res://addons/terrain_3d/editor/components/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/editor/components/region_gizmo.gd")
-const TextureDock: Script = preload("res://addons/terrain_3d/editor/components/texture_dock.gd")
+const ASSET_DOCK: String = "res://addons/terrain_3d/editor/components/asset_dock.tscn"
+const PS_DOCK_POSITION: String = "terrain3d/config/dock_position"
+const PS_DOCK_PINNED: String = "terrain3d/config/dock_pinned"
 
 var terrain: Terrain3D
 var nav_region: NavigationRegion3D
 
 var editor: Terrain3DEditor
 var ui: Node # Terrain3DUI see Godot #75388
-var texture_dock: TextureDock
-var texture_dock_container: CustomControlContainer = CONTAINER_INSPECTOR_BOTTOM
-
-var visible: bool
 var region_gizmo: RegionGizmo
+var visible: bool
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
+
+enum DOCK_STATE {
+	HIDDEN = -1,
+	SIDEBAR = 0,
+	BOTTOM = 1,
+}
+var asset_dock: Control
+var dock_state: DOCK_STATE = -1
+var dock_position: DockSlot = DOCK_SLOT_RIGHT_BL
 
 
 func _enter_tree() -> void:
@@ -28,21 +36,24 @@ func _enter_tree() -> void:
 	ui.plugin = self
 	add_child(ui)
 
-	texture_dock = TextureDock.new()
-	texture_dock.hide()
-	texture_dock.resource_changed.connect(_on_texture_dock_resource_changed)
-	texture_dock.resource_inspected.connect(_on_texture_dock_resource_selected)
-	texture_dock.resource_selected.connect(ui._on_setting_changed)
-	
 	region_gizmo = RegionGizmo.new()
-	
-	add_control_to_container(texture_dock_container, texture_dock)
-	texture_dock.get_parent().visibility_changed.connect(_on_texture_dock_visibility_changed)
 
+	if ProjectSettings.has_setting(PS_DOCK_POSITION):
+		dock_position = ProjectSettings.get_setting(PS_DOCK_POSITION)
+	asset_dock = load(ASSET_DOCK).instantiate()
+	await asset_dock.ready
+	if ProjectSettings.has_setting(PS_DOCK_PINNED):
+		asset_dock.placement_pin.button_pressed = ProjectSettings.get_setting(PS_DOCK_PINNED)
+	asset_dock.placement_pin.toggled.connect(_on_asset_dock_pin_changed)
+	asset_dock.placement_option.selected = dock_position
+	asset_dock.placement_changed.connect(_on_asset_dock_placement_changed)
+	asset_dock.resource_changed.connect(_on_asset_dock_resource_changed)
+	asset_dock.resource_inspected.connect(_on_asset_dock_resource_inspected)
+	asset_dock.resource_selected.connect(_on_asset_dock_resource_selected)
+	
 
 func _exit_tree() -> void:
-	remove_control_from_container(texture_dock_container, texture_dock)
-	texture_dock.queue_free()
+	asset_dock.queue_free()
 	ui.queue_free()
 	editor.free()
 
@@ -78,20 +89,33 @@ func _edit(p_object: Object) -> void:
 	else:
 		nav_region = null
 	
-	_update_visibility()
-
 		
-func _make_visible(p_visible: bool) -> void:
+func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
 	visible = p_visible
-	_update_visibility()
-
-
-func _update_visibility() -> void:
 	ui.set_visible(visible)
-	texture_dock.set_visible(visible and terrain)
 	if terrain:
 		update_region_grid()
 	region_gizmo.set_hidden(not visible or not terrain)
+
+	# Manage Asset Dock position and visibility
+	if visible and dock_state == DOCK_STATE.HIDDEN:
+		if dock_position < DOCK_SLOT_MAX:
+			add_control_to_dock(dock_position, asset_dock)
+			dock_state = DOCK_STATE.SIDEBAR
+			asset_dock.move_slider(true)
+		else:
+			add_control_to_bottom_panel(asset_dock, "Terrain3D")
+			make_bottom_panel_item_visible(asset_dock)
+			dock_state = DOCK_STATE.BOTTOM
+			asset_dock.move_slider(false)
+	elif not visible and dock_state != DOCK_STATE.HIDDEN:
+		var pinned: bool = false
+		if p_redraw or ( asset_dock.placement_pin and not asset_dock.placement_pin.button_pressed):
+			if dock_state == DOCK_STATE.SIDEBAR:
+				remove_control_from_docks(asset_dock)
+			else:
+				remove_control_from_bottom_panel(asset_dock)
+			dock_state = DOCK_STATE.HIDDEN
 
 
 func _clear() -> void:
@@ -204,25 +228,16 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 		
 func is_terrain_valid() -> bool:
-	var valid: bool = false
-	if is_instance_valid(terrain):
-		valid = terrain.get_storage() != null
-	return valid
-
-
-func update_texture_dock(p_args: Array) -> void:
-	texture_dock.clear()
-	
-	if is_terrain_valid() and terrain.texture_list:
-		var texture_count: int = terrain.texture_list.get_texture_count()
-		for i in texture_count:
-			var texture: Terrain3DTexture = terrain.texture_list.get_texture(i)
-			texture_dock.add_item(texture)
-			
-		if texture_count < Terrain3DTextureList.MAX_TEXTURES:
-			texture_dock.add_item()
+	if is_instance_valid(terrain) and terrain.get_storage():
+		return true
+	return false
 
 	
+func _load_storage() -> void:
+	if terrain:
+		update_region_grid()
+
+
 func update_region_grid() -> void:
 	if !region_gizmo.get_node_3d():
 		return
@@ -242,41 +257,58 @@ func update_region_grid() -> void:
 	region_gizmo.grid = [Vector2i.ZERO]
 
 
-# Signal handlers
-
-
 func _load_textures() -> void:
 	if terrain and terrain.texture_list:
-		if not terrain.texture_list.textures_changed.is_connected(update_texture_dock):
-			terrain.texture_list.textures_changed.connect(update_texture_dock)
-		update_texture_dock(Array())				
+		if not terrain.texture_list.textures_changed.is_connected(update_asset_dock):
+			terrain.texture_list.textures_changed.connect(update_asset_dock)
+		update_asset_dock(Array())				
 
 
-func _load_storage() -> void:
-	if terrain:
-		update_region_grid()
+func update_asset_dock(p_args: Array) -> void:
+	asset_dock.clear()
+	
+	if is_terrain_valid() and terrain.texture_list:
+		var texture_count: int = terrain.texture_list.get_texture_count()
+		for i in texture_count:
+			var texture: Terrain3DTexture = terrain.texture_list.get_texture(i)
+			asset_dock.add_item(texture)
+			
+		if texture_count < Terrain3DTextureList.MAX_TEXTURES:
+			asset_dock.add_item()
 
 
-func _on_texture_dock_resource_changed(texture: Resource, index: int) -> void:
+func _on_asset_dock_pin_changed(toggled: bool) -> void:
+	ProjectSettings.set_setting(PS_DOCK_PINNED, toggled)
+	ProjectSettings.save()
+
+	
+func _on_asset_dock_placement_changed(index: int) -> void:
+	dock_position = clamp(index, 0, DOCK_SLOT_MAX)
+	ProjectSettings.set_setting(PS_DOCK_POSITION, dock_position)
+	ProjectSettings.save()
+	_make_visible(false, true) # Hide to redraw
+	_make_visible(true)
+
+
+func _on_asset_dock_resource_changed(p_texture: Resource, p_index: int) -> void:
 	if is_terrain_valid():
 		# If removing last entry and its selected, clear inspector
-		if not texture and index == texture_dock.get_selected_index() and \
-				texture_dock.get_selected_index() == texture_dock.entries.size() - 2:
+		if not p_texture and p_index == asset_dock.get_selected_index() and \
+				asset_dock.get_selected_index() == asset_dock.entries.size() - 2:
 			get_editor_interface().inspect_object(null)			
-		terrain.get_texture_list().set_texture(index, texture)
-		call_deferred("_load_storage")
+		terrain.get_texture_list().set_texture(p_index, p_texture)
 
 
-func _on_texture_dock_resource_selected(texture) -> void:
+func _on_asset_dock_resource_selected() -> void:
+	# If not on a texture painting tool, then switch to Paint
+	if editor.get_tool() != Terrain3DEditor.TEXTURE:
+		var paint_btn: Button = ui.toolbar.get_node_or_null("PaintBaseTexture")
+		if paint_btn:
+			paint_btn.set_pressed(true)
+			ui._on_tool_changed(Terrain3DEditor.TEXTURE, Terrain3DEditor.REPLACE)
+	ui._on_setting_changed()
+
+
+func _on_asset_dock_resource_inspected(texture: Resource) -> void:
 	get_editor_interface().inspect_object(texture, "", true)
-
-
-func _on_texture_dock_visibility_changed() -> void:
-	if texture_dock.get_parent() != null:
-		remove_control_from_container(texture_dock_container, texture_dock)
 	
-	if texture_dock.get_parent() == null:
-		texture_dock_container = CONTAINER_INSPECTOR_BOTTOM
-		if get_editor_interface().is_distraction_free_mode_enabled():
-			texture_dock_container = CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT
-		add_control_to_container(texture_dock_container, texture_dock)

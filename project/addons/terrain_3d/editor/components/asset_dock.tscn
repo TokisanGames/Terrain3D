@@ -1,0 +1,69 @@
+[gd_scene load_steps=2 format=3 uid="uid://dkb6hii5e48m2"]
+
+[ext_resource type="Script" path="res://addons/terrain_3d/editor/components/asset_dock.gd" id="1_e23pg"]
+
+[node name="Terrain3D" type="PanelContainer"]
+custom_minimum_size = Vector2(256, 136)
+offset_right = 256.0
+offset_bottom = 128.0
+script = ExtResource("1_e23pg")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="PlacementHBox" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBox/PlacementHBox"]
+layout_mode = 2
+text = "Dock Position: "
+
+[node name="Options" type="OptionButton" parent="VBox/PlacementHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+item_count = 9
+selected = 5
+popup/item_0/text = "Left_UL"
+popup/item_0/id = 0
+popup/item_1/text = "Left_BL"
+popup/item_1/id = 1
+popup/item_2/text = "Left_UR"
+popup/item_2/id = 2
+popup/item_3/text = "Left_BR"
+popup/item_3/id = 3
+popup/item_4/text = "Right_UL"
+popup/item_4/id = 4
+popup/item_5/text = "Right_BL "
+popup/item_5/id = 5
+popup/item_6/text = "Right_UR"
+popup/item_6/id = 6
+popup/item_7/text = "Right_BR"
+popup/item_7/id = 7
+popup/item_8/text = "Bottom"
+popup/item_8/id = 8
+
+[node name="Pinned" type="Button" parent="VBox/PlacementHBox"]
+layout_mode = 2
+tooltip_text = "Keep panel visible even if Terrain3D is not selected. Useful for keeping dock floating."
+toggle_mode = true
+text = "P"
+flat = true
+
+[node name="Label" type="Label" parent="VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Textures"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SizeSlider" type="HSlider" parent="VBox"]
+custom_minimum_size = Vector2(100, 10)
+layout_mode = 2
+min_value = 56.0
+max_value = 256.0
+value = 83.0
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
