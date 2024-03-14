@@ -510,11 +510,17 @@ void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 
 void Terrain3DEditor::set_tool(Tool p_tool) {
 	_tool = p_tool;
-	_terrain->get_material()->set_show_navigation(_tool == NAVIGATION);
+	if (_terrain) {
+		_terrain->get_material()->set_show_navigation(_tool == NAVIGATION);
+	}
 }
 
 // Called on mouse click
 void Terrain3DEditor::start_operation(Vector3 p_global_position) {
+	if (!_terrain) {
+		LOG(ERROR, "_terrain not set");
+		return;
+	}
 	_setup_undo();
 	_pending_undo = true;
 	_modified = false;
@@ -544,6 +550,10 @@ void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_directi
 
 // Called on left mouse button released
 void Terrain3DEditor::stop_operation() {
+	if (!_terrain) {
+		LOG(ERROR, "_terrain not set");
+		return;
+	}
 	if (_pending_undo && _modified) {
 		_store_undo();
 		_pending_undo = false;

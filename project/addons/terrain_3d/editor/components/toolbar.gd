@@ -59,6 +59,7 @@ func add_tool_button(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.
 		p_tip: String, p_icon: Texture2D, p_group: ButtonGroup) -> void:
 		
 	var button: Button = Button.new()
+	button.set_name(p_tip.to_pascal_case())
 	button.set_meta("Tool", p_tool)
 	button.set_meta("Operation", p_operation)
 	button.set_tooltip_text(p_tip)

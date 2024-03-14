@@ -300,7 +300,7 @@ func add_setting(p_type: SettingType, p_name: StringName, p_value: Variant, p_pa
 
 
 func get_setting(p_setting: String) -> Variant:
-	var object: Object = settings[p_setting]
+	var object: Object = settings.get(p_setting)
 	var value: Variant
 	if object is Range:
 		value = object.get_value()
@@ -316,6 +316,8 @@ func get_setting(p_setting: String) -> Variant:
 		value = object.color
 	elif object is PointPicker:
 		value = object.get_points()
+	if value == null:
+		value = 0
 	return value
 
 
