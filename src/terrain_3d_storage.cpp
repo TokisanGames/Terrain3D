@@ -87,22 +87,12 @@ void Terrain3DStorage::clear_edited_area() {
 }
 
 void Terrain3DStorage::add_edited_area(AABB p_area) {
-	AABB descaled_area = p_area;
-	descaled_area.position /= _mesh_vertex_spacing;
-	descaled_area.size /= _mesh_vertex_spacing;
 	if (_edited_area.has_surface()) {
 		_edited_area = _edited_area.merge(p_area);
 	} else {
 		_edited_area = p_area;
 	}
-	emit_signal("maps_edited", get_edited_area());
-}
-
-AABB Terrain3DStorage::get_edited_area() const {
-	AABB area = _edited_area;
-	area.position *= _mesh_vertex_spacing;
-	area.size *= _mesh_vertex_spacing;
-	return area;
+	emit_signal("maps_edited", _edited_area);
 }
 
 void Terrain3DStorage::set_region_size(RegionSize p_size) {
