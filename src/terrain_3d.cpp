@@ -192,7 +192,7 @@ void Terrain3D::_grab_camera() {
 		_camera = get_viewport()->get_camera_3d();
 	}
 	if (!_camera) {
-		set_process(false);
+		set_process(false); // disable snapping
 		LOG(ERROR, "Cannot find active camera. Stopping _process()");
 	}
 }
@@ -745,6 +745,8 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 		} else {
 			LOG(DEBUG, "Setting camera: ", p_camera);
 			_camera = p_camera;
+			_initialize();
+			set_process(true); // enable __process snapping
 		}
 	}
 }
