@@ -235,8 +235,8 @@ void Terrain3DMaterial::_update_shader() {
 		// Populate _active_params
 		List<PropertyInfo> pi;
 		_get_property_list(&pi);
-		LOG(DEBUG, "_active_params: ", _active_params);
-		Util::print_dict("_shader_params", _shader_params, DEBUG);
+		LOG(DEBUG_CONT, "_active_params: ", _active_params);
+		Util::print_dict("_shader_params", _shader_params, DEBUG_CONT);
 	}
 
 	// Fetch saved shader parameters, converting textures to RIDs
@@ -299,43 +299,43 @@ void Terrain3DMaterial::_update_shader() {
 
 void Terrain3DMaterial::_update_regions() {
 	IS_STORAGE_INIT(NOP);
-	LOG(INFO, "Updating region maps in shader");
+	LOG(DEBUG_CONT, "Updating region maps in shader");
 
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	RS->material_set_param(_material, "_height_maps", storage->get_height_rid());
 	RS->material_set_param(_material, "_control_maps", storage->get_control_rid());
 	RS->material_set_param(_material, "_color_maps", storage->get_color_rid());
-	LOG(DEBUG, "Height map RID: ", storage->get_height_rid());
-	LOG(DEBUG, "Control map RID: ", storage->get_control_rid());
-	LOG(DEBUG, "Color map RID: ", storage->get_color_rid());
+	LOG(DEBUG_CONT, "Height map RID: ", storage->get_height_rid());
+	LOG(DEBUG_CONT, "Control map RID: ", storage->get_control_rid());
+	LOG(DEBUG_CONT, "Color map RID: ", storage->get_color_rid());
 
 	PackedInt32Array region_map = storage->get_region_map();
-	LOG(DEBUG, "region_map.size(): ", region_map.size());
+	LOG(DEBUG_CONT, "region_map.size(): ", region_map.size());
 	if (region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
 		LOG(ERROR, "Expected region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
 	}
 	RS->material_set_param(_material, "_region_map", region_map);
 	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
-	if (Terrain3D::debug_level >= DEBUG) {
-		LOG(DEBUG, "Region map");
+	if (Terrain3D::debug_level >= DEBUG_CONT) {
+		LOG(DEBUG_CONT, "Region map");
 		for (int i = 0; i < region_map.size(); i++) {
 			if (region_map[i]) {
-				LOG(DEBUG, "Region id: ", region_map[i], " array index: ", i);
+				LOG(DEBUG_CONT, "Region id: ", region_map[i], " array index: ", i);
 			}
 		}
 	}
 
 	TypedArray<Vector2i> region_offsets = storage->get_region_offsets();
-	LOG(DEBUG, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
+	LOG(DEBUG_CONT, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
 	RS->material_set_param(_material, "_region_offsets", region_offsets);
 
 	real_t region_size = real_t(storage->get_region_size());
-	LOG(DEBUG, "Setting region size in material: ", region_size);
+	LOG(DEBUG_CONT, "Setting region size in material: ", region_size);
 	RS->material_set_param(_material, "_region_size", region_size);
 	RS->material_set_param(_material, "_region_pixel_size", 1.0f / region_size);
 
 	real_t spacing = _terrain->get_mesh_vertex_spacing();
-	LOG(DEBUG, "Setting mesh vertex spacing in material: ", spacing);
+	LOG(DEBUG_CONT, "Setting mesh vertex spacing in material: ", spacing);
 	RS->material_set_param(_material, "_mesh_vertex_spacing", spacing);
 	RS->material_set_param(_material, "_mesh_vertex_density", 1.0f / spacing);
 
@@ -347,7 +347,7 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 	PackedInt32Array region_map = _terrain->get_storage()->get_region_map();
 	int rsize = Terrain3DStorage::REGION_MAP_SIZE;
 	if (region_map.size() == rsize * rsize) {
-		LOG(DEBUG, "Regenerating ", Vector2i(512, 512), " region blend map");
+		LOG(DEBUG_CONT, "Regenerating ", Vector2i(512, 512), " region blend map");
 		Ref<Image> region_blend_img = Image::create(rsize, rsize, false, Image::FORMAT_RH);
 		for (int y = 0; y < rsize; y++) {
 			for (int x = 0; x < rsize; x++) {
@@ -360,35 +360,35 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 		_generated_region_blend_map.clear();
 		_generated_region_blend_map.create(region_blend_img);
 		RS->material_set_param(_material, "_region_blend_map", _generated_region_blend_map.get_rid());
-		Util::dump_gen(_generated_region_blend_map, "blend_map");
+		Util::dump_gen(_generated_region_blend_map, "blend_map", DEBUG_CONT);
 	}
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list
 void Terrain3DMaterial::_update_texture_arrays() {
 	IS_STORAGE_INIT_MESG("Material not initialized", NOP);
-	Ref<Terrain3DTextureList> texture_list = _terrain->get_texture_list();
+	Ref<Terrain3DAssets> asset_list = _terrain->get_assets();
 	LOG(INFO, "Updating texture arrays in shader");
-	if (texture_list.is_null()) {
-		LOG(ERROR, "Texture_list is null");
+	if (asset_list.is_null()) {
+		LOG(ERROR, "Asset list is null");
 		return;
 	}
 
-	RS->material_set_param(_material, "_texture_array_albedo", texture_list->get_albedo_array_rid());
-	RS->material_set_param(_material, "_texture_array_normal", texture_list->get_normal_array_rid());
-	RS->material_set_param(_material, "_texture_color_array", texture_list->get_texture_colors());
-	RS->material_set_param(_material, "_texture_uv_scale_array", texture_list->get_texture_uv_scales());
-	RS->material_set_param(_material, "_texture_detile_array", texture_list->get_texture_detiles());
+	RS->material_set_param(_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
+	RS->material_set_param(_material, "_texture_array_normal", asset_list->get_normal_array_rid());
+	RS->material_set_param(_material, "_texture_color_array", asset_list->get_texture_colors());
+	RS->material_set_param(_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
+	RS->material_set_param(_material, "_texture_detile_array", asset_list->get_texture_detiles());
 
 	// Enable checkered view if texture_count is 0, disable if not
-	if (texture_list->get_texture_count() == 0) {
+	if (asset_list->get_texture_count() == 0) {
 		if (_debug_view_checkered == false) {
 			set_show_checkered(true);
 			LOG(DEBUG, "No textures, enabling checkered view");
 		}
 	} else {
 		set_show_checkered(false);
-		LOG(DEBUG, "Texture count >0: ", texture_list->get_texture_count(), ", disabling checkered view");
+		LOG(DEBUG, "Texture count >0: ", asset_list->get_texture_count(), ", disabling checkered view");
 	}
 }
 

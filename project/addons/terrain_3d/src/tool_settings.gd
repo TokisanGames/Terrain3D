@@ -103,6 +103,41 @@ func _ready() -> void:
 	add_setting({ "name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false, 
 								"flags":ADD_SEPARATOR })
 	settings["drawable"].toggled.connect(_on_drawable_toggled)
+	
+	## Instancer
+	height_list = create_submenu(main_list, "Height", Layout.VERTICAL)
+	add_setting({ "name":"height_offset", "type":SettingType.SLIDER, "list":height_list, "default":0, 
+								"unit":"m", "range":Vector3(-10, 10, 0.05), "flags":ALLOW_OUT_OF_BOUNDS })
+	add_setting({ "name":"random_height", "label":"Random Height ±", "type":SettingType.SLIDER, 
+								"list":height_list, "default":0, "unit":"m", "range":Vector3(0, 10, 0.05),
+								"flags":ALLOW_OUT_OF_BOUNDS })
+
+	scale_list = create_submenu(main_list, "Scale", Layout.VERTICAL)
+	add_setting({ "name":"fixed_scale", "type":SettingType.SLIDER, "list":scale_list, "default":100, 
+								"unit":"%", "range":Vector3(1, 1000, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+	add_setting({ "name":"random_scale", "label":"Random Scale ±", "type":SettingType.SLIDER, "list":scale_list, 
+								"default":20, "unit":"%", "range":Vector3(0, 99, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+
+	rotation_list = create_submenu(main_list, "Rotation", Layout.VERTICAL)
+	add_setting({ "name":"fixed_spin", "label":"Fixed Spin (Around Y)", "type":SettingType.SLIDER, "list":rotation_list, 
+								"default":0, "unit":"°", "range":Vector3(0, 360, 1) })
+	add_setting({ "name":"random_spin", "type":SettingType.SLIDER, "list":rotation_list, "default":360, 
+								"unit":"°", "range":Vector3(0, 360, 1) })
+	add_setting({ "name":"fixed_angle", "label":"Fixed Angle (From Y)", "type":SettingType.SLIDER, "list":rotation_list, 
+								"default":0, "unit":"°", "range":Vector3(-85, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+	add_setting({ "name":"random_angle", "label":"Random Angle ±", "type":SettingType.SLIDER, "list":rotation_list, 
+								"default":10, "unit":"°", "range":Vector3(0, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+	add_setting({ "name":"align_to_normal", "type":SettingType.CHECKBOX, "list":rotation_list, "default":false })
+	
+	color_list = create_submenu(main_list, "Color", Layout.VERTICAL)
+	add_setting({ "name":"vertex_color", "type":SettingType.COLOR_SELECT, "list":color_list, 
+								"default":Color.WHITE })
+	add_setting({ "name":"random_hue", "label":"Random Hue Shift ±", "type":SettingType.SLIDER, 
+								"list":color_list, "default":0, "unit":"°", "range":Vector3(0, 360, 1) })
+	add_setting({ "name":"random_darken", "type":SettingType.SLIDER, "list":color_list, "default":50, 
+								"unit":"%", "range":Vector3(0, 100, 1) })
+	#add_setting({ "name":"blend_mode", "type":SettingType.OPTION, "list":color_list, "default":0, 
+								#"range":Vector3(0, 3, 1) })
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL

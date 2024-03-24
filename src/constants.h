@@ -64,6 +64,11 @@ typedef PackedFloat32Array PackedRealArray;
 		return ret;                        \
 	}
 
+#define IS_INSTANCER_INIT(ret)                                        \
+	if (_terrain == nullptr || _terrain->get_instancer() == nullptr) { \
+		return ret;                                                 \
+	}
+
 #define IS_STORAGE_INIT(ret)                                        \
 	if (_terrain == nullptr || _terrain->get_storage().is_null()) { \
 		return ret;                                                 \

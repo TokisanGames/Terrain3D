@@ -144,13 +144,16 @@
     <ClInclude Include="src\geoclipmap.h" />
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\terrain_3d.h" />
+    <ClInclude Include="src\terrain_3d_asset_resource.h" />
     <ClInclude Include="src\terrain_3d_editor.h" />
     <ClInclude Include="src\logger.h" />
+    <ClInclude Include="src\terrain_3d_instancer.h" />
+    <ClInclude Include="src\terrain_3d_mesh_asset.h" />
+    <ClInclude Include="src\terrain_3d_texture_asset.h" />
     <ClInclude Include="src\terrain_3d_util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
     <ClInclude Include="src\terrain_3d_storage.h" />
-    <ClInclude Include="src\terrain_3d_texture.h" />
-    <ClInclude Include="src\terrain_3d_texture_list.h" />
+    <ClInclude Include="src\terrain_3d_assets.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\generated_texture.cpp" />
@@ -158,10 +161,12 @@
     <ClCompile Include="src\register_types.cpp" />
     <ClCompile Include="src\terrain_3d.cpp" />
     <ClCompile Include="src\terrain_3d_editor.cpp" />
+    <ClCompile Include="src\terrain_3d_instancer.cpp" />
     <ClCompile Include="src\terrain_3d_material.cpp" />
+    <ClCompile Include="src\terrain_3d_mesh_asset.cpp" />
     <ClCompile Include="src\terrain_3d_storage.cpp" />
-    <ClCompile Include="src\terrain_3d_texture.cpp" />
-    <ClCompile Include="src\terrain_3d_texture_list.cpp" />
+    <ClCompile Include="src\terrain_3d_texture_asset.cpp" />
+    <ClCompile Include="src\terrain_3d_assets.cpp" />
     <ClCompile Include="src\terrain_3d_util.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -224,9 +229,11 @@
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml" />
     <Xml Include="doc\classes\Terrain3DEditor.xml" />
+    <Xml Include="doc\classes\Terrain3DInstancer.xml" />
     <Xml Include="doc\classes\Terrain3DMaterial.xml" />
     <Xml Include="doc\classes\Terrain3DStorage.xml" />
-    <Xml Include="doc\classes\Terrain3DTexture.xml" />
+    <Xml Include="doc\classes\Terrain3DTextureAsset.xml" />
+    <Xml Include="doc\classes\Terrain3DAssets.xml" />
     <Xml Include="doc\classes\Terrain3DTextureList.xml" />
     <Xml Include="doc\classes\Terrain3DUtil.xml" />
   </ItemGroup>

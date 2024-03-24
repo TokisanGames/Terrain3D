@@ -20,6 +20,7 @@ void Terrain3DStorage::_clear() {
 	_generated_height_maps.clear();
 	_generated_control_maps.clear();
 	_generated_color_maps.clear();
+	set_multimeshes(Dictionary());
 }
 
 ///////////////////////////
@@ -128,9 +129,21 @@ Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
 	return Vector2i((Vector2(descaled_position.x, descaled_position.z) / real_t(_region_size)).floor());
 }
 
+// Returns Vector2i(2147483647) if out of range
+Vector2i Terrain3DStorage::get_region_offset_from_index(int p_index) {
+	if (p_index < 0 || p_index >= _region_offsets.size()) {
+		return Vector2i(INT32_MAX, INT32_MAX);
+	}
+	return _region_offsets[p_index];
+}
+
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Vector2i uv_offset = get_region_offset(p_global_position);
-	Vector2i pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
+	return get_region_index_from_offset(uv_offset);
+}
+
+int Terrain3DStorage::get_region_index_from_offset(Vector2i p_region_offset) {
+	Vector2i pos = Vector2i(p_region_offset + (REGION_MAP_VSIZE / 2));
 	int map_index = pos.y * REGION_MAP_SIZE + pos.x;
 	if (map_index < 0 || map_index >= REGION_MAP_SIZE * REGION_MAP_SIZE) {
 		return -1;
@@ -642,6 +655,14 @@ void Terrain3DStorage::force_update_maps(MapType p_map_type) {
 	update_regions();
 }
 
+void Terrain3DStorage::set_multimeshes(Dictionary p_multimeshes) {
+	LOG(INFO, "Loading multimeshes: ", p_multimeshes);
+	if (_multimeshes != p_multimeshes) {
+		_multimeshes = p_multimeshes;
+		emit_signal("multimeshes_changed");
+	}
+}
+
 void Terrain3DStorage::save() {
 	if (!_modified) {
 		LOG(INFO, "Save requested, but not modified. Skipping");
@@ -1055,7 +1076,9 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
 	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DStorage::get_region_count);
 	ClassDB::bind_method(D_METHOD("get_region_offset", "global_position"), &Terrain3DStorage::get_region_offset);
+	ClassDB::bind_method(D_METHOD("get_region_offset_from_index", "region_index"), &Terrain3DStorage::get_region_offset_from_index);
 	ClassDB::bind_method(D_METHOD("get_region_index", "global_position"), &Terrain3DStorage::get_region_index);
+	ClassDB::bind_method(D_METHOD("get_region_index_from_offset", "region_offset"), &Terrain3DStorage::get_region_index_from_offset);
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("add_region", "global_position", "images", "update"), &Terrain3DStorage::add_region, DEFVAL(TypedArray<Image>()), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_region", "global_position", "update"), &Terrain3DStorage::remove_region, DEFVAL(true));
@@ -1086,6 +1109,9 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_scale", "global_position"), &Terrain3DStorage::get_scale);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
+	ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DStorage::set_multimeshes);
+	ClassDB::bind_method(D_METHOD("get_multimeshes"), &Terrain3DStorage::get_multimeshes);
+
 	ClassDB::bind_method(D_METHOD("save"), &Terrain3DStorage::save);
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
@@ -1104,9 +1130,11 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_height_maps", "get_height_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_control_maps", "get_control_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_color_maps", "get_color_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
 
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_size_changed"));
 	ADD_SIGNAL(MethodInfo("regions_changed"));
 	ADD_SIGNAL(MethodInfo("maps_edited", PropertyInfo(Variant::AABB, "edited_area")));
+	ADD_SIGNAL(MethodInfo("multimeshes_changed"));
 }

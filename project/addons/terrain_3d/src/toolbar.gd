@@ -19,6 +19,7 @@ const ICON_WETNESS: String = "res://addons/terrain_3d/icons/wetness.svg"
 const ICON_AUTOSHADER: String = "res://addons/terrain_3d/icons/autoshader.svg"
 const ICON_HOLES: String = "res://addons/terrain_3d/icons/holes.svg"
 const ICON_NAVIGATION: String = "res://addons/terrain_3d/icons/navigation.svg"
+const ICON_INSTANCER: String = "res://addons/terrain_3d/icons/multimesh.svg"
 
 var tool_group: ButtonGroup = ButtonGroup.new()
 
@@ -31,7 +32,7 @@ func _ready() -> void:
 	tool_group.connect("pressed", _on_tool_selected)
 	
 	add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.ADD, "Add Region", load(ICON_REGION_ADD), tool_group)
-	add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.SUBTRACT, "Delete Region", load(ICON_REGION_REMOVE), tool_group)
+	add_tool_button(Terrain3DEditor.REGION, Terrain3DEditor.SUBTRACT, "Remove Region", load(ICON_REGION_REMOVE), tool_group)
 	add_child(HSeparator.new())
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.ADD, "Raise", load(ICON_HEIGHT_ADD), tool_group)
 	add_tool_button(Terrain3DEditor.HEIGHT, Terrain3DEditor.SUBTRACT, "Lower", load(ICON_HEIGHT_SUB), tool_group)
@@ -50,6 +51,7 @@ func _ready() -> void:
 	add_child(HSeparator.new())
 	add_tool_button(Terrain3DEditor.HOLES, Terrain3DEditor.REPLACE, "Create Holes", load(ICON_HOLES), tool_group)
 	add_tool_button(Terrain3DEditor.NAVIGATION, Terrain3DEditor.REPLACE, "Paint Navigable Area", load(ICON_NAVIGATION), tool_group)
+	add_tool_button(Terrain3DEditor.INSTANCER, Terrain3DEditor.ADD, "Instance Meshes", load(ICON_INSTANCER), tool_group)
 
 	var buttons: Array[BaseButton] = tool_group.get_buttons()
 	buttons[0].set_pressed(true)

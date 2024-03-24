@@ -10,16 +10,16 @@
 // Public Functions
 ///////////////////////////
 
-void Terrain3DUtil::print_dict(String p_name, const Dictionary &p_dict, int level) {
-	LOG(level, "Printing Dictionary: ", p_name);
+void Terrain3DUtil::print_dict(String p_name, const Dictionary &p_dict, int p_level) {
+	LOG(p_level, "Printing Dictionary: ", p_name);
 	Array keys = p_dict.keys();
 	for (int i = 0; i < keys.size(); i++) {
-		LOG(level, "Key: ", keys[i], ", Value: ", p_dict[keys[i]]);
+		LOG(p_level, "Key: ", keys[i], ", Value: ", p_dict[keys[i]]);
 	}
 }
 
-void Terrain3DUtil::dump_gen(GeneratedTexture p_gen, String p_name) {
-	LOG(DEBUG, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
+void Terrain3DUtil::dump_gen(GeneratedTexture p_gen, String p_name, int p_level) {
+	LOG(p_level, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
 }
 
 void Terrain3DUtil::dump_maps(const TypedArray<Image> p_maps, String p_name) {

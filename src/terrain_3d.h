@@ -12,9 +12,10 @@
 #include <godot_cpp/classes/sub_viewport.hpp>
 
 #include "constants.h"
+#include "terrain_3d_assets.h"
+#include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
-#include "terrain_3d_texture_list.h"
 
 using namespace godot;
 
@@ -32,9 +33,10 @@ class Terrain3D : public Node3D {
 	int _mesh_lods = 7;
 	real_t _mesh_vertex_spacing = 1.0f;
 
-	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DMaterial> _material;
-	Ref<Terrain3DTextureList> _texture_list;
+	Ref<Terrain3DStorage> _storage;
+	Ref<Terrain3DAssets> _assets;
+	Terrain3DInstancer *_instancer = nullptr;
 
 	// Editor components
 	EditorPlugin *_plugin = nullptr;
@@ -81,14 +83,15 @@ class Terrain3D : public Node3D {
 	void _destroy_mouse_picking();
 	void _grab_camera();
 
-	void _clear(bool p_clear_meshes = true, bool p_clear_collision = true);
-	void _build(int p_mesh_lods, int p_mesh_size);
+	void _build_meshes(int p_mesh_lods, int p_mesh_size);
+	void _update_mesh_instances();
+	void _clear_meshes();
 
 	void _build_collision();
 	void _update_collision();
 	void _destroy_collision();
 
-	void _update_instances();
+	void _destroy_instancer();
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
@@ -110,12 +113,13 @@ public:
 	void set_mesh_vertex_spacing(real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
-	void set_storage(const Ref<Terrain3DStorage> &p_storage);
-	Ref<Terrain3DStorage> get_storage() const { return _storage; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
-	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
-	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
+	void set_storage(const Ref<Terrain3DStorage> &p_storage);
+	Ref<Terrain3DStorage> get_storage() const { return _storage; }
+	void set_assets(const Ref<Terrain3DAssets> &p_assets);
+	Ref<Terrain3DAssets> get_assets() const { return _assets; }
+	Terrain3DInstancer *get_instancer() const { return _instancer; }
 
 	// Editor components
 	void set_plugin(EditorPlugin *p_plugin);
@@ -154,7 +158,12 @@ public:
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav = true) const;
 
+	// Misc
 	PackedStringArray _get_configuration_warnings() const override;
+
+	// DEPRECATED 0.9.2 - Remove 0.9.3+
+	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
+	Ref<Terrain3DTextureList> get_texture_list() { return Ref<Terrain3DTextureList>(); }
 
 protected:
 	void _notification(int p_what);

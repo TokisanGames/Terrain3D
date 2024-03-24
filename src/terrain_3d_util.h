@@ -16,8 +16,8 @@ class Terrain3DUtil : public Object {
 
 public:
 	// Print info to the console
-	static void print_dict(String name, const Dictionary &p_dict, int p_level = 1); // Defaults to INFO
-	static void dump_gen(GeneratedTexture p_gen, String name = "");
+	static void print_dict(String name, const Dictionary &p_dict, int p_level = 2); // Level 2: DEBUG
+	static void dump_gen(GeneratedTexture p_gen, String name = "", int p_level = 2);
 	static void dump_maps(const TypedArray<Image> p_maps, String p_name = "");
 
 	// Image operations
@@ -120,7 +120,7 @@ inline bool is_auto(uint32_t pixel) { return (pixel & 0x1) == 1; }
 inline bool is_auto(float pixel) { return is_auto(as_uint(pixel)); }
 inline uint32_t enc_auto(bool autosh) { return autosh & 0x1; }
 
-// Aliases for GDScript
+// Aliases for GDScript since it can't handle overridden functions
 inline uint32_t gd_get_base(uint32_t pixel) { return get_base(pixel); }
 inline uint32_t gd_enc_base(uint32_t base) { return enc_base(base); }
 inline uint32_t gd_get_overlay(uint32_t pixel) { return get_overlay(pixel); }
@@ -141,11 +141,25 @@ inline uint32_t gd_enc_uv_scale(uint32_t scale) { return enc_uv_rotation(scale);
 ///////////////////////////
 
 template <typename TType>
-_FORCE_INLINE_ void memdelete_safely(TType *&p_ptr) {
+_FORCE_INLINE_ bool memdelete_safely(TType *&p_ptr) {
 	if (p_ptr != nullptr) {
 		memdelete(p_ptr);
 		p_ptr = nullptr;
+		return true;
 	}
+	return false;
+}
+
+_FORCE_INLINE_ bool remove_from_tree(Node *p_node) {
+	// Note: is_in_tree() doesn't work in Godot-cpp 4.1.3
+	if (p_node != nullptr) {
+		Node *parent = p_node->get_parent();
+		if (parent != nullptr) {
+			parent->remove_child(p_node);
+			return true;
+		}
+	}
+	return false;
 }
 
 #endif // TERRAIN3D_UTIL_CLASS_H
