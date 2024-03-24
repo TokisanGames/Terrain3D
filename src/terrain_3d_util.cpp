@@ -29,6 +29,21 @@ void Terrain3DUtil::dump_maps(const TypedArray<Image> p_maps, String p_name) {
 	}
 }
 
+Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> p_image) {
+	if (p_image.is_null()) {
+		return Ref<Image>();
+	}
+	Ref<Image> img = Image::create(p_image->get_width(), p_image->get_height(), p_image->has_mipmaps(), Image::FORMAT_RGBAF);
+	for (int y = 0; y < img->get_height(); y++) {
+		for (int x = 0; x < img->get_width(); x++) {
+			Color pixel = p_image->get_pixel(x, y);
+			pixel.a = pixel.get_luminance();
+			img->set_pixel(x, y, pixel);
+		}
+	}
+	return img;
+}
+
 /**
  * Returns the minimum and maximum values for a heightmap (red channel only)
  */
@@ -230,6 +245,7 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_auto", "pixel"), &enc_auto);
 
 	// Image handling
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("black_to_alpha", "image"), &Terrain3DUtil::black_to_alpha);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_min_max", "image"), &Terrain3DUtil::get_min_max);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);

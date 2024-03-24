@@ -29,6 +29,7 @@ const ALLOW_SMALLER: int = 0x2
 const ALLOW_OUT_OF_BOUNDS: int = 0x3
 
 var brush_preview_material: ShaderMaterial
+var select_brush_button: Button
 
 var list: HBoxContainer
 var advanced_list: VBoxContainer
@@ -124,7 +125,7 @@ func add_brushes(p_parent: Control) -> void:
 		while file_name != "":
 			if !dir.current_is_dir() and file_name.ends_with(".exr"):
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
-				_black_to_alpha(img)
+				img = Terrain3DUtil.black_to_alpha(img)
 				var tex: ImageTexture = ImageTexture.create_from_image(img)
 
 				var btn: Button = Button.new()
@@ -161,12 +162,12 @@ func add_brushes(p_parent: Control) -> void:
 	
 	settings["brush"] = brush_button_group
 
+	select_brush_button = brush_list.get_parent().get_parent()
 	# Optionally erase the main brush button text and replace it with the texture
-#	var select_brush_btn: Button = brush_list.get_parent().get_parent()
-#	select_brush_btn.set_button_icon(default_brush_btn.get_button_icon())
-#	select_brush_btn.set_custom_minimum_size(Vector2.ONE * 36)
-#	select_brush_btn.set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-#	select_brush_btn.set_expand_icon(true)
+#	select_brush_button.set_button_icon(default_brush_btn.get_button_icon())
+#	select_brush_button.set_custom_minimum_size(Vector2.ONE * 36)
+#	select_brush_button.set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER)
+#	select_brush_button.set_expand_icon(true)
 
 
 func _on_brush_hover(p_hovering: bool, p_button: Button) -> void:
@@ -329,6 +330,11 @@ func show_settings(p_settings: PackedStringArray) -> void:
 				object.get_parent().show()
 			else:
 				object.get_parent().hide()
+	if select_brush_button:
+		if not "brush" in p_settings:
+			select_brush_button.hide()
+		else:
+			select_brush_button.show()
 
 
 func _on_setting_changed(p_data: Variant = null) -> void:
@@ -375,15 +381,6 @@ func _get_brush_preview_material() -> ShaderMaterial:
 	return brush_preview_material
 
 
-func _black_to_alpha(p_image: Image) -> void:
-	if p_image.get_format() != Image.FORMAT_RGBAF:
-		p_image.convert(Image.FORMAT_RGBAF)
-
-	for y in p_image.get_height():
-		for x in p_image.get_width():
-			var color: Color = p_image.get_pixel(x,y)
-			color.a = color.get_luminance()
-			p_image.set_pixel(x, y, color)
 
 
 #### Sub Class DoubleSlider

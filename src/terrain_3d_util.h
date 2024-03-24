@@ -22,6 +22,7 @@ public:
 	static void dump_maps(const TypedArray<Image> p_maps, String p_name = "");
 
 	// Image operations
+	static Ref<Image> black_to_alpha(const Ref<Image> p_image);
 	static Vector2 get_min_max(const Ref<Image> p_image);
 	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
 	static Ref<Image> get_filled_image(Vector2i p_size,
