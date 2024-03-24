@@ -47,6 +47,7 @@ public: // Constants
 		AUTOSHADER,
 		HOLES,
 		NAVIGATION,
+		INSTANCER,
 		REGION,
 		TOOL_MAX,
 	};
@@ -61,64 +62,9 @@ public: // Constants
 		"Auto Shader",
 		"Holes",
 		"Navigation",
+		"Instancer",
 		"Region",
 		"TOOL_MAX",
-	};
-
-	class Brush {
-		CLASS_NAME_STATIC("Terrain3DEditor::Brush");
-
-		Ref<Image> _image;
-		Vector2i _img_size;
-		Ref<ImageTexture> _texture;
-
-		int _size = 0;
-		real_t _strength = 0.0f;
-		real_t _height = 0.0f;
-		int _texture_index = 0;
-		Color _color = COLOR_ROUGHNESS;
-		real_t _roughness = 0.5f;
-		PackedVector3Array _gradient_points;
-		bool _enable = false;
-
-		bool _enable_texture = true;
-		bool _enable_angle = true;
-		bool _dynamic_angle = false;
-		real_t _angle = 0.0f;
-		bool _enable_scale = true;
-		real_t _scale = 0.0f;
-
-		bool _auto_regions = false;
-		bool _align_to_view = false;
-		real_t _gamma = 1.0f;
-		real_t _jitter = 0.0f;
-
-	public:
-		void set_data(Dictionary p_data);
-		real_t get_alpha(Vector2i p_position) { return _image->get_pixelv(p_position).r; }
-
-		Ref<ImageTexture> get_texture() const { return _texture; }
-		Ref<Image> get_image() const { return _image; }
-		Vector2i get_image_size() const { return _img_size; }
-
-		int get_size() const { return _size; }
-		real_t get_strength() const { return _strength; }
-		real_t get_height() const { return _height; }
-		int get_texture_index() const { return _texture_index; }
-		Color get_color() const { return _color; }
-		real_t get_roughness() const { return _roughness; }
-		PackedVector3Array get_gradient_points() const { return _gradient_points; }
-		real_t get_enable() const { return _enable; }
-		bool get_enable_texture() const { return _enable_texture; }
-		bool get_enable_angle() const { return _enable_angle; }
-		bool get_dynamic_angle() const { return _dynamic_angle; }
-		real_t get_angle() const { return _angle; }
-		bool get_enable_scale() const { return _enable_scale; }
-		real_t get_scale() const { return _scale; }
-		bool auto_regions_enabled() const { return _auto_regions; }
-		bool is_aligned_to_view() const { return _align_to_view; }
-		real_t get_gamma() const { return _gamma; }
-		real_t get_jitter() const { return _jitter; }
 	};
 
 private:
@@ -127,7 +73,8 @@ private:
 	// Painter settings & variables
 	Tool _tool = REGION;
 	Operation _operation = ADD;
-	Brush _brush;
+	Ref<Image> _brush_image;
+	Dictionary _brush_data;
 	Vector3 _operation_position = Vector3();
 	Vector3 _operation_movement = Vector3();
 	Array _operation_movement_history;
@@ -136,6 +83,7 @@ private:
 	AABB _modified_area;
 	Dictionary _undo_set; // See _collect_undo_data for definition
 
+	real_t _get_brush_alpha(Vector2i p_position);
 	void _region_modified(Vector3 p_global_position, Vector2 p_height_range = Vector2());
 	void _operate_region(Vector3 p_global_position);
 	void _operate_map(Vector3 p_global_position, real_t p_camera_direction);
@@ -154,7 +102,7 @@ public:
 	void set_terrain(Terrain3D *p_terrain) { _terrain = p_terrain; }
 	Terrain3D *get_terrain() const { return _terrain; }
 
-	void set_brush_data(Dictionary data);
+	void set_brush_data(Dictionary p_data);
 	void set_tool(Tool p_tool);
 	Tool get_tool() const { return _tool; }
 	void set_operation(Operation p_operation) { _operation = p_operation; }

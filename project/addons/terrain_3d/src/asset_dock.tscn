@@ -3,26 +3,45 @@
 [ext_resource type="Script" path="res://addons/terrain_3d/src/asset_dock.gd" id="1_e23pg"]
 
 [node name="Terrain3D" type="PanelContainer"]
-custom_minimum_size = Vector2(256, 136)
-offset_right = 256.0
-offset_bottom = 128.0
+custom_minimum_size = Vector2(256, 95)
+offset_right = 766.0
+offset_bottom = 100.0
 script = ExtResource("1_e23pg")
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="Box" type="BoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+vertical = true
+
+[node name="Buttons" type="BoxContainer" parent="Box"]
 layout_mode = 2
 
-[node name="PlacementHBox" type="HBoxContainer" parent="VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="VBox/PlacementHBox"]
-layout_mode = 2
-text = "Dock Position: "
-
-[node name="Options" type="OptionButton" parent="VBox/PlacementHBox"]
+[node name="TexturesBtn" type="Button" parent="Box/Buttons"]
+custom_minimum_size = Vector2(80, 30)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_font_sizes/font_size = 16
+toggle_mode = true
+button_pressed = true
+text = "Textures"
+
+[node name="MeshesBtn" type="Button" parent="Box/Buttons"]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_font_sizes/font_size = 16
+toggle_mode = true
+text = "Meshes"
+
+[node name="PlacementOpt" type="OptionButton" parent="Box/Buttons"]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
 item_count = 9
-selected = 5
+selected = 7
 popup/item_0/text = "Left_UL"
 popup/item_0/id = 0
 popup/item_1/text = "Left_BL"
@@ -42,28 +61,33 @@ popup/item_7/id = 7
 popup/item_8/text = "Bottom"
 popup/item_8/id = 8
 
-[node name="Pinned" type="Button" parent="VBox/PlacementHBox"]
+[node name="SizeSlider" type="HSlider" parent="Box/Buttons"]
+custom_minimum_size = Vector2(80, 10)
 layout_mode = 2
-tooltip_text = "Keep panel visible even if Terrain3D is not selected. Useful for keeping dock floating."
+size_flags_horizontal = 3
+min_value = 56.0
+max_value = 230.0
+value = 83.0
+
+[node name="Floating" type="Button" parent="Box/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+tooltip_text = "Pop this dock out to a floating window."
+toggle_mode = true
+text = "F"
+flat = true
+
+[node name="Pinned" type="Button" parent="Box/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+tooltip_text = "Make this window \"Always on top\"."
 toggle_mode = true
 text = "P"
 flat = true
 
-[node name="Label" type="Label" parent="VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Textures"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="SizeSlider" type="HSlider" parent="VBox"]
-custom_minimum_size = Vector2(100, 10)
-layout_mode = 2
-min_value = 56.0
-max_value = 256.0
-value = 83.0
-
-[node name="ScrollContainer" type="ScrollContainer" parent="VBox"]
+[node name="ScrollContainer" type="ScrollContainer" parent="Box"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3

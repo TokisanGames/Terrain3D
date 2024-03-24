@@ -7,6 +7,8 @@
 
 #include "terrain_3d.h"
 
+using namespace godot;
+
 /**
  * Prints warnings, errors, and regular messages to the console.
  * Regular messages are filtered based on the user specified debug level.

@@ -8,7 +8,6 @@
 
 #include "constants.h"
 #include "generated_texture.h"
-#include "terrain_3d_texture_list.h"
 #include "terrain_3d_util.h"
 
 class Terrain3D;
@@ -20,7 +19,7 @@ class Terrain3DStorage : public Resource {
 	CLASS_NAME();
 
 public: // Constants
-	static inline const real_t CURRENT_VERSION = 0.842f;
+	static inline const real_t CURRENT_VERSION = 0.915f; // Dev version
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
@@ -69,16 +68,25 @@ public: // Constants
 private:
 	Terrain3D *_terrain = nullptr;
 
-	// Storage Settings & flags
-	real_t _version = 0.8f; // Set to ensure Godot always saves this
+	// Work data
 	bool _modified = false;
-	bool _save_16_bit = false;
-	RegionSize _region_size = SIZE_1024;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
+	bool _region_map_dirty = true;
+	PackedInt32Array _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
+	// Generated Texture RIDs
+	// These contain the TextureLayered RID from the RenderingServer, no Image
+	GeneratedTexture _generated_height_maps;
+	GeneratedTexture _generated_control_maps;
+	GeneratedTexture _generated_color_maps;
+
+	AABB _edited_area;
+	uint64_t _last_region_bounds_error = 0;
 
 	// Stored Data
+	real_t _version = 0.8f; // Set to ensure Godot always saves this
+	RegionSize _region_size = SIZE_1024;
+	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
+	bool _save_16_bit = false;
 	Vector2 _height_range = Vector2(0.f, 0.f);
-	AABB _edited_area;
 
 	/**
 	 * These arrays house all of the map data.
@@ -86,20 +94,14 @@ private:
 	 * location is tracked by region_offsets. The region data are combined into one large
 	 * texture in generated_*_maps.
 	 */
-	bool _region_map_dirty = true;
-	PackedInt32Array _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
 	TypedArray<Vector2i> _region_offsets; // Array of active region coordinates
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
-	// Generated Texture RIDs
-	// These contain the TextureLayered RID from the RenderingServer, no Image
-	GeneratedTexture _generated_height_maps;
-	GeneratedTexture _generated_control_maps;
-	GeneratedTexture _generated_color_maps;
-
-	uint64_t _last_region_bounds_error = 0;
+	// Foliage Instancer contains MultiMeshes saved to disk
+	// Dictionary[region_offset:Vector2i] -> Dictionary[mesh_id:int] -> MultiMesh
+	Dictionary _multimeshes;
 
 	// Functions
 	void _clear();
@@ -133,7 +135,9 @@ public:
 	PackedInt32Array get_region_map() const { return _region_map; }
 	int get_region_count() const { return _region_offsets.size(); }
 	Vector2i get_region_offset(Vector3 p_global_position);
+	Vector2i get_region_offset_from_index(int p_index);
 	int get_region_index(Vector3 p_global_position);
+	int get_region_index_from_offset(Vector2i p_region_offset);
 	bool has_region(Vector3 p_global_position) { return get_region_index(p_global_position) != -1; }
 	Error add_region(Vector3 p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
 	void remove_region(Vector3 p_global_position, bool p_update = true);
@@ -169,6 +173,10 @@ public:
 	real_t get_scale(Vector3 p_global_position);
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
+
+	// Instancer
+	void set_multimeshes(Dictionary p_multimeshes);
+	Dictionary get_multimeshes() { return _multimeshes; }
 
 	// File I/O
 	void save();

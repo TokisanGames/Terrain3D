@@ -29,7 +29,7 @@
 int Terrain3D::debug_level{ ERROR };
 
 void Terrain3D::_initialize() {
-	LOG(INFO, "Checking material, storage, texture_list, signal, and mesh initialization");
+	LOG(INFO, "Checking instancer, material, storage, assets, signal, and mesh initialization");
 
 	// Make blank objects if needed
 	if (_material.is_null()) {
@@ -41,37 +41,54 @@ void Terrain3D::_initialize() {
 		_storage.instantiate();
 		_storage->set_version(Terrain3DStorage::CURRENT_VERSION);
 	}
-	if (_texture_list.is_null()) {
+	if (_assets.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
-		_texture_list.instantiate();
+		_assets.instantiate();
+	}
+	if (_instancer == nullptr) {
+		LOG(DEBUG, "Creating blank instancer");
+		_instancer = memnew(Terrain3DInstancer);
 	}
 
 	// Connect signals
-	if (!_texture_list->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
-		LOG(DEBUG, "Connecting texture_list.textures_changed to _material->_update_texture_arrays()");
-		_texture_list->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
+	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
+		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
+		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
+	}
+	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis))) {
+		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
+		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis));
 	}
 	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
 		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
 		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
 	}
 	if (!_storage->is_connected("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
-		LOG(DEBUG, "Connecting regions_changed signal to _material->_update_regions()");
+		LOG(DEBUG, "Connecting _storage::regions_changed signal to _material->_update_regions()");
 		_storage->connect("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
 	}
 	if (!_storage->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
-		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
+		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
 	}
+	if (!_storage->is_connected("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis))) {
+		LOG(DEBUG, "Connecting _storage::multimeshes_changed signal to _rebuild_mmis()");
+		_storage->connect("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis));
+	}
+	//if (!_storage->is_connected("edited_area", callable_mp(_instancer.ptr(), &Terrain3D::update_aabbs))) {
+	//	LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
+	//	_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
+	//}
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		_storage->initialize(this);
 		_material->initialize(this);
 		_material->_update_regions();
-		_texture_list->update_list(); // generate texture arrays
+		_assets->initialize(this);
+		_instancer->initialize(this);
 		_setup_mouse_picking();
-		_build(_mesh_lods, _mesh_size);
+		_build_meshes(_mesh_lods, _mesh_size);
 		_build_collision();
 		_initialized = true;
 	}
@@ -111,7 +128,7 @@ void Terrain3D::__process(double delta) {
 void Terrain3D::_setup_mouse_picking() {
 	LOG(INFO, "Setting up mouse picker and get_intersection viewport, camera & screen quad");
 	_mouse_vp = memnew(SubViewport);
-	_mouse_vp->set_name("SubViewport");
+	_mouse_vp->set_name("MouseViewport");
 	add_child(_mouse_vp, true);
 	_mouse_vp->set_size(Vector2i(2, 2));
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
@@ -127,7 +144,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(3, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
 
 	_mouse_cam = memnew(Camera3D);
-	_mouse_cam->set_name("MouseCamera3D");
+	_mouse_cam->set_name("MouseCamera");
 	_mouse_vp->add_child(_mouse_cam, true);
 	Ref<Environment> env;
 	env.instantiate();
@@ -138,7 +155,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_cam->set_far(100000.f);
 
 	_mouse_quad = memnew(MeshInstance3D);
-	_mouse_quad->set_name("ScreenQuad");
+	_mouse_quad->set_name("MouseQuad");
 	_mouse_cam->add_child(_mouse_quad, true);
 	Ref<QuadMesh> quad;
 	quad.instantiate();
@@ -187,40 +204,7 @@ void Terrain3D::_grab_camera() {
 	}
 }
 
-void Terrain3D::_clear(bool p_clear_meshes, bool p_clear_collision) {
-	LOG(INFO, "Clearing the terrain");
-	if (p_clear_meshes) {
-		for (const RID rid : _meshes) {
-			RS->free_rid(rid);
-		}
-		RS->free_rid(_data.cross);
-		for (const RID rid : _data.tiles) {
-			RS->free_rid(rid);
-		}
-		for (const RID rid : _data.fillers) {
-			RS->free_rid(rid);
-		}
-		for (const RID rid : _data.trims) {
-			RS->free_rid(rid);
-		}
-		for (const RID rid : _data.seams) {
-			RS->free_rid(rid);
-		}
-
-		_meshes.clear();
-		_data.tiles.clear();
-		_data.fillers.clear();
-		_data.trims.clear();
-		_data.seams.clear();
-		_initialized = false;
-	}
-
-	if (p_clear_collision) {
-		_destroy_collision();
-	}
-}
-
-void Terrain3D::_build(int p_mesh_lods, int p_mesh_size) {
+void Terrain3D::_build_meshes(int p_mesh_lods, int p_mesh_size) {
 	if (!is_inside_tree() || !_storage.is_valid()) {
 		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
 		return;
@@ -281,6 +265,82 @@ void Terrain3D::_build(int p_mesh_lods, int p_mesh_size) {
 	update_aabbs();
 	// Force a snap update
 	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
+}
+
+/**
+ * Make all mesh instances visible or not
+ * Update all mesh instances with the new world scenario so they appear
+ */
+void Terrain3D::_update_mesh_instances() {
+	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
+		return;
+	}
+	if (_static_body.is_valid()) {
+		RID _space = get_world_3d()->get_space();
+		PhysicsServer3D::get_singleton()->body_set_space(_static_body, _space);
+	}
+
+	RID _scenario = get_world_3d()->get_scenario();
+
+	bool v = is_visible_in_tree();
+	RS->instance_set_visible(_data.cross, v);
+	RS->instance_set_scenario(_data.cross, _scenario);
+	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RS->instance_set_layer_mask(_data.cross, _render_layers);
+
+	for (const RID rid : _data.tiles) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+
+	for (const RID rid : _data.fillers) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+
+	for (const RID rid : _data.trims) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+
+	for (const RID rid : _data.seams) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+}
+
+void Terrain3D::_clear_meshes() {
+	LOG(INFO, "Clearing the terrain meshes");
+	for (const RID rid : _meshes) {
+		RS->free_rid(rid);
+	}
+	RS->free_rid(_data.cross);
+	for (const RID rid : _data.tiles) {
+		RS->free_rid(rid);
+	}
+	for (const RID rid : _data.fillers) {
+		RS->free_rid(rid);
+	}
+	for (const RID rid : _data.trims) {
+		RS->free_rid(rid);
+	}
+	for (const RID rid : _data.seams) {
+		RS->free_rid(rid);
+	}
+	_meshes.clear();
+	_data.tiles.clear();
+	_data.fillers.clear();
+	_data.trims.clear();
+	_data.seams.clear();
+	_initialized = false;
 }
 
 void Terrain3D::_build_collision() {
@@ -468,53 +528,9 @@ void Terrain3D::_destroy_collision() {
 	}
 }
 
-/**
- * Make all mesh instances visible or not
- * Update all mesh instances with the new world scenario so they appear
- */
-void Terrain3D::_update_instances() {
-	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
-		return;
-	}
-	if (_static_body.is_valid()) {
-		RID _space = get_world_3d()->get_space();
-		PhysicsServer3D::get_singleton()->body_set_space(_static_body, _space);
-	}
-
-	RID _scenario = get_world_3d()->get_scenario();
-
-	bool v = is_visible_in_tree();
-	RS->instance_set_visible(_data.cross, v);
-	RS->instance_set_scenario(_data.cross, _scenario);
-	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
-	RS->instance_set_layer_mask(_data.cross, _render_layers);
-
-	for (const RID rid : _data.tiles) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RS->instance_set_layer_mask(rid, _render_layers);
-	}
-
-	for (const RID rid : _data.fillers) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RS->instance_set_layer_mask(rid, _render_layers);
-	}
-
-	for (const RID rid : _data.trims) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RS->instance_set_layer_mask(rid, _render_layers);
-	}
-
-	for (const RID rid : _data.seams) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
-		RS->instance_set_layer_mask(rid, _render_layers);
+void Terrain3D::_destroy_instancer() {
+	if (_instancer != nullptr) {
+		_instancer->destroy();
 	}
 }
 
@@ -567,7 +583,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
 		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xzs);
-		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
+		if (!std::isnan(v1.y) && !std::isnan(v2.y) && !std::isnan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
 			p_vertices.push_back(v3);
@@ -586,7 +602,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xsz);
 		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
-		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
+		if (!std::isnan(v1.y) && !std::isnan(v2.y) && !std::isnan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
 			p_vertices.push_back(v3);
@@ -625,6 +641,7 @@ Terrain3D::Terrain3D() {
 }
 
 Terrain3D::~Terrain3D() {
+	memdelete_safely(_instancer);
 	_destroy_collision();
 }
 
@@ -635,18 +652,20 @@ void Terrain3D::set_debug_level(int p_level) {
 
 void Terrain3D::set_mesh_lods(int p_count) {
 	if (_mesh_lods != p_count) {
+		_clear_meshes();
+		_destroy_collision();
 		LOG(INFO, "Setting mesh levels: ", p_count);
 		_mesh_lods = p_count;
-		_clear();
 		_initialize();
 	}
 }
 
 void Terrain3D::set_mesh_size(int p_size) {
 	if (_mesh_size != p_size) {
+		_clear_meshes();
+		_destroy_collision();
 		LOG(INFO, "Setting mesh size: ", p_size);
 		_mesh_size = p_size;
-		_clear();
 		_initialize();
 	}
 }
@@ -656,7 +675,9 @@ void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 	if (_mesh_vertex_spacing != p_spacing) {
 		LOG(INFO, "Setting mesh vertex spacing: ", p_spacing);
 		_mesh_vertex_spacing = p_spacing;
-		_clear();
+		_clear_meshes();
+		_destroy_collision();
+		_destroy_instancer();
 		_initialize();
 	}
 	if (Engine::get_singleton()->is_editor_hint() && _plugin != nullptr) {
@@ -666,9 +687,9 @@ void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 	if (_material != p_material) {
+		_clear_meshes();
 		LOG(INFO, "Setting material");
 		_material = p_material;
-		_clear();
 		_initialize();
 		emit_signal("material_changed");
 	}
@@ -677,23 +698,23 @@ void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 // This is run after the object has loaded and initialized
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	if (_storage != p_storage) {
+		_clear_meshes();
+		_destroy_collision();
+		_destroy_instancer();
+		LOG(INFO, "Setting storage");
 		_storage = p_storage;
-		if (_storage.is_null()) {
-			LOG(INFO, "Clearing storage");
-		}
-		_clear();
 		_initialize();
 		emit_signal("storage_changed");
 	}
 }
 
-void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
-	if (_texture_list != p_texture_list) {
-		LOG(INFO, "Setting texture list");
-		_texture_list = p_texture_list;
-		_clear();
+void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
+	if (_assets != p_assets) {
+		_clear_meshes();
+		LOG(INFO, "Setting asset list");
+		_assets = p_assets;
 		_initialize();
-		emit_signal("texture_list_changed");
+		emit_signal("assets_changed");
 	}
 }
 
@@ -720,7 +741,7 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 void Terrain3D::set_render_layers(uint32_t p_layers) {
 	LOG(INFO, "Setting terrain render layers to: ", p_layers);
 	_render_layers = p_layers;
-	_update_instances();
+	_update_mesh_instances();
 }
 
 void Terrain3D::set_mouse_layer(uint32_t p_layer) {
@@ -748,7 +769,7 @@ void Terrain3D::set_mouse_layer(uint32_t p_layer) {
 
 void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting) {
 	_shadow_casting = p_shadow_casting;
-	_update_instances();
+	_update_mesh_instances();
 }
 
 void Terrain3D::set_cull_margin(real_t p_margin) {
@@ -1067,9 +1088,23 @@ PackedStringArray Terrain3D::_get_configuration_warnings() const {
 		}
 	}
 	if (!psa.is_empty()) {
-		psa.push_back("Deselect Terrain3D and reselect in the Scene Tree to update this message.");
+		psa.push_back("To update this message, deselect and reselect Terrain3D in the Scene panel.");
 	}
 	return psa;
+}
+
+// DEPRECATED 0.9.2 - Remove 0.9.3+
+void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
+	if (p_texture_list.is_null()) {
+		LOG(ERROR, "Attempted to upgrade Terrain3DTextureList, but received null (perhaps already a Terrain3DAssets). Reconnect manually and save.");
+		return;
+	}
+	LOG(WARN, "Loaded Terrain3DTextureList. Converting to Terrain3DAssets. Save this scene to complete.");
+	Ref<Terrain3DAssets> assets;
+	assets.instantiate();
+	assets->set_texture_list(p_texture_list->get_textures());
+	assets->take_over_path(p_texture_list->get_path());
+	set_assets(assets);
 }
 
 ///////////////////////////
@@ -1091,7 +1126,9 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_PREDELETE: {
 			LOG(INFO, "NOTIFICATION_PREDELETE");
-			_clear();
+			_clear_meshes();
+			_destroy_collision();
+			_destroy_instancer();
 			break;
 		}
 
@@ -1103,7 +1140,8 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_EXIT_TREE: {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
-			_clear();
+			_clear_meshes();
+			_destroy_collision();
 			_destroy_mouse_picking();
 			break;
 		}
@@ -1111,7 +1149,7 @@ void Terrain3D::_notification(int p_what) {
 		case NOTIFICATION_ENTER_WORLD: {
 			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
 			_is_inside_world = true;
-			_update_instances();
+			_update_mesh_instances();
 			break;
 		}
 
@@ -1128,7 +1166,7 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
-			_update_instances();
+			_update_mesh_instances();
 			break;
 		}
 
@@ -1144,10 +1182,10 @@ void Terrain3D::_notification(int p_what) {
 			} else {
 				_material->save();
 			}
-			if (!_texture_list.is_valid()) {
+			if (!_assets.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid texture list. Skipping");
 			} else {
-				_texture_list->save();
+				_assets->save();
 			}
 			break;
 		}
@@ -1173,8 +1211,9 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
 	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
 	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
-	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
-	ClassDB::bind_method(D_METHOD("get_texture_list"), &Terrain3D::get_texture_list);
+	ClassDB::bind_method(D_METHOD("set_assets", "assets"), &Terrain3D::set_assets);
+	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
+	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
 
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
 	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
@@ -1208,7 +1247,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), "set_texture_list", "get_texture_list");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
 
 	ADD_GROUP("Renderer", "render_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
@@ -1233,5 +1272,10 @@ void Terrain3D::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("storage_changed"));
-	ADD_SIGNAL(MethodInfo("texture_list_changed"));
+	ADD_SIGNAL(MethodInfo("assets_changed"));
+
+	// DEPRECATED 0.9.2 - Remove 0.9.3+
+	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
+	ClassDB::bind_method(D_METHOD("get_texture_list"), &Terrain3D::get_texture_list);
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList", PROPERTY_USAGE_NONE), "set_texture_list", "get_texture_list");
 }

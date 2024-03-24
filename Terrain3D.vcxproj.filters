@@ -24,7 +24,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\terrain_3d_texture_list.h">
+    <ClInclude Include="src\terrain_3d_assets.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\geoclipmap.h">
@@ -42,9 +42,6 @@
     <ClInclude Include="src\terrain_3d_storage.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\terrain_3d_texture.h">
-      <Filter>4. Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\terrain_3d_material.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
@@ -58,6 +55,18 @@
       <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\terrain_3d_util.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_instancer.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_mesh_asset.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_texture_asset.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_asset_resource.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
   </ItemGroup>
@@ -77,10 +86,10 @@
     <ClCompile Include="src\terrain_3d_storage.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\terrain_3d_texture.cpp">
+    <ClCompile Include="src\terrain_3d_texture_asset.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\terrain_3d_texture_list.cpp">
+    <ClCompile Include="src\terrain_3d_assets.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_material.cpp">
@@ -90,6 +99,12 @@
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_util.cpp">
+      <Filter>5. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_3d_instancer.cpp">
+      <Filter>5. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_3d_mesh_asset.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
   </ItemGroup>
@@ -269,13 +284,19 @@
     <Xml Include="doc\classes\Terrain3DStorage.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DTexture.xml">
+    <Xml Include="doc\classes\Terrain3DTextureAsset.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DTextureList.xml">
+    <Xml Include="doc\classes\Terrain3DAssets.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DUtil.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DInstancer.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DTextureList.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
   </ItemGroup>

@@ -21,6 +21,7 @@ const COLOR_ROUGHNESS := Color.ROYAL_BLUE
 const COLOR_AUTOSHADER := Color.DODGER_BLUE
 const COLOR_HOLES := Color.BLACK
 const COLOR_NAVIGATION := Color.REBECCA_PURPLE
+const COLOR_INSTANCER := Color.CRIMSON
 const COLOR_PICK_COLOR := Color.WHITE
 const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
@@ -95,8 +96,18 @@ func set_visible(p_visible: bool) -> void:
 	update_decal()
 
 
+func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
+	if p_list:
+		p_list.get_parent().get_parent().visible = p_visible
+	
+
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	clear_picking()
+	set_menu_visibility(toolbar_settings.advanced_list, true)
+	set_menu_visibility(toolbar_settings.scale_list, false)
+	set_menu_visibility(toolbar_settings.rotation_list, false)
+	set_menu_visibility(toolbar_settings.height_list, false)
+	set_menu_visibility(toolbar_settings.color_list, false)
 
 	# Select which settings to show. Options in tool_settings.gd:_ready
 	var to_show: PackedStringArray = []
@@ -146,6 +157,27 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("size")
 			to_show.push_back("enable")
 
+		Terrain3DEditor.INSTANCER:
+			to_show.push_back("size")
+			to_show.push_back("strength")
+			to_show.push_back("enable")
+			set_menu_visibility(toolbar_settings.height_list, true)
+			to_show.push_back("height_offset")
+			to_show.push_back("random_height")
+			set_menu_visibility(toolbar_settings.scale_list, true)
+			to_show.push_back("fixed_scale")
+			to_show.push_back("random_scale")
+			set_menu_visibility(toolbar_settings.rotation_list, true)
+			to_show.push_back("fixed_spin")
+			to_show.push_back("random_spin")
+			to_show.push_back("fixed_angle")
+			to_show.push_back("random_angle")
+			to_show.push_back("align_to_normal")
+			set_menu_visibility(toolbar_settings.color_list, true)
+			to_show.push_back("vertex_color")
+			to_show.push_back("random_darken")
+			to_show.push_back("random_hue")
+
 		_:
 			pass
 
@@ -174,8 +206,7 @@ func _on_setting_changed() -> void:
 	if not plugin.asset_dock:
 		return
 	brush_data = toolbar_settings.get_settings()
-	brush_data["strength"] /= 100.0
-	brush_data["texture_index"] = plugin.asset_dock.get_selected_index()
+	brush_data["asset_id"] = plugin.asset_dock.get_current_list().get_selected_id()
 	update_decal()
 	plugin.editor.set_brush_data(brush_data)
 
@@ -239,7 +270,7 @@ func update_decal() -> void:
 						decal.modulate = COLOR_SLOPE
 					_:
 						decal.modulate = Color.WHITE
-				decal.modulate.a = max(.3, brush_data["strength"])
+				decal.modulate.a = max(.3, brush_data["strength"] * .01)
 			Terrain3DEditor.TEXTURE:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.REPLACE:
@@ -247,15 +278,15 @@ func update_decal() -> void:
 						decal.modulate.a = 1.0
 					Terrain3DEditor.ADD:
 						decal.modulate = COLOR_SPRAY
-						decal.modulate.a = max(.3, brush_data["strength"])
+						decal.modulate.a = max(.3, brush_data["strength"] * .01)
 					_:
 						decal.modulate = Color.WHITE
 			Terrain3DEditor.COLOR:
 				decal.modulate = brush_data["color"].srgb_to_linear()*.5
-				decal.modulate.a = max(.3, brush_data["strength"])
+				decal.modulate.a = max(.3, brush_data["strength"] * .01)
 			Terrain3DEditor.ROUGHNESS:
 				decal.modulate = COLOR_ROUGHNESS
-				decal.modulate.a = max(.3, brush_data["strength"])
+				decal.modulate.a = max(.3, brush_data["strength"] * .01)
 			Terrain3DEditor.AUTOSHADER:
 				decal.modulate = COLOR_AUTOSHADER
 				decal.modulate.a = 1.0
@@ -265,9 +296,13 @@ func update_decal() -> void:
 			Terrain3DEditor.NAVIGATION:
 				decal.modulate = COLOR_NAVIGATION
 				decal.modulate.a = 1.0
+			Terrain3DEditor.INSTANCER:
+				decal.texture_albedo = ring_texture
+				decal.modulate = COLOR_INSTANCER
+				decal.modulate.a = 1.0
 			_:
 				decal.modulate = Color.WHITE
-				decal.modulate.a = max(.3, brush_data["strength"])
+				decal.modulate.a = max(.3, brush_data["strength"] * .01)
 	decal.size.y = max(1000, decal.size.y)
 	decal.albedo_mix = 1.0
 	decal.cull_mask = 1 << ( plugin.terrain.get_mouse_layer() - 1 )
