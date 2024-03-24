@@ -17,4 +17,10 @@
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 #define COLOR_CONTROL Color(as_float(enc_auto(true)), 0.f, 0.f, 1.0f)
 
+#ifdef REAL_T_IS_DOUBLE
+typedef PackedFloat64Array PackedRealArray;
+#else
+typedef PackedFloat32Array PackedRealArray;
+#endif
+
 #endif // CONSTANTS_CLASS_H
