@@ -466,7 +466,7 @@ real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
 			0.f,
 			round_multiple(pos.z, step));
 	// If requested position is close to a vertex, return its height
-	if ((pos - pos_round).length() < 0.1f) {
+	if ((pos - pos_round).length() < 0.01f) {
 		return get_pixel(TYPE_HEIGHT, pos).r;
 	} else {
 		// Otherwise, bilinearly interpolate 4 surrounding vertices
