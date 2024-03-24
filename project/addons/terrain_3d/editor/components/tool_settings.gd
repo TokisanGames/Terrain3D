@@ -42,7 +42,7 @@ func _ready() -> void:
 	add_brushes(list)
 
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 2, 200, 1, ALLOW_LARGER)
-	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 1, 100)
+	add_setting(SettingType.SLIDER, "strength", 10, list, "%", 1, 100, 1, ALLOW_LARGER)
 	add_setting(SettingType.CHECKBOX, "enable", true, list)
 	
 	add_setting(SettingType.COLOR_SELECT, "color", Color.WHITE, list)
@@ -321,16 +321,13 @@ func get_setting(p_setting: String) -> Variant:
 	return value
 
 
-func hide_settings(p_settings: PackedStringArray) -> void:
+func show_settings(p_settings: PackedStringArray) -> void:
 	for setting in settings.keys():
 		var object: Object = settings[setting]
 		if object is Control:
-			object.get_parent().show()
-	
-	for setting in p_settings:
-		if settings.has(setting):
-			var object: Object = settings[setting]
-			if object is Control:
+			if setting in p_settings:
+				object.get_parent().show()
+			else:
 				object.get_parent().hide()
 
 

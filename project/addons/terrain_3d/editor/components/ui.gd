@@ -98,84 +98,52 @@ func set_visible(p_visible: bool) -> void:
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	clear_picking()
 
-	# Select which settings to hide. Options in tool_settings.gd:_ready
-	var to_hide: PackedStringArray = []
+	# Select which settings to show. Options in tool_settings.gd:_ready
+	var to_show: PackedStringArray = []
 	
-	if p_tool == Terrain3DEditor.REGION:
-		to_hide.push_back("size")
-		to_hide.push_back("opacity")
-		to_hide.push_back("enable")
-		to_hide.push_back("color")
-		to_hide.push_back("color picker")
-		to_hide.push_back("roughness")
-		to_hide.push_back("roughness picker")
-		to_hide.push_back("height")
-		to_hide.push_back("height picker")
-		to_hide.push_back("slope")
-		to_hide.push_back("gradient_points")
-		to_hide.push_back("drawable")
-				
-	elif p_tool == Terrain3DEditor.HEIGHT:
-		to_hide.push_back("color")
-		to_hide.push_back("color picker")
-		to_hide.push_back("roughness")
-		to_hide.push_back("roughness picker")
-		to_hide.push_back("slope")
-		to_hide.push_back("enable")
-		if p_operation != Terrain3DEditor.REPLACE:
-			to_hide.push_back("height")
-			to_hide.push_back("height picker")
-		if p_operation != Terrain3DEditor.GRADIENT:
-			to_hide.push_back("gradient_points")
-			to_hide.push_back("drawable")
+	match p_tool:
+		Terrain3DEditor.HEIGHT:
+			to_show.push_back("size")
+			to_show.push_back("strength")
+			if p_operation == Terrain3DEditor.REPLACE:
+				to_show.push_back("height")
+				to_show.push_back("height picker")
+			if p_operation == Terrain3DEditor.GRADIENT:
+				to_show.push_back("gradient_points")
+				to_show.push_back("drawable")
+		
+		Terrain3DEditor.TEXTURE:
+			to_show.push_back("size")
+			if p_operation == Terrain3DEditor.ADD:
+				to_show.push_back("strength")
 
-	elif p_tool == Terrain3DEditor.TEXTURE:
-		to_hide.push_back("height")
-		to_hide.push_back("height picker")
-		to_hide.push_back("gradient_points")
-		to_hide.push_back("drawable")
-		to_hide.push_back("color")
-		to_hide.push_back("color picker")
-		to_hide.push_back("roughness")
-		to_hide.push_back("roughness picker")
-		to_hide.push_back("slope")
-		to_hide.push_back("enable")
-		if p_operation == Terrain3DEditor.REPLACE:
-			to_hide.push_back("opacity")
+		Terrain3DEditor.COLOR:
+			to_show.push_back("size")
+			to_show.push_back("strength")
+			to_show.push_back("color")
+			to_show.push_back("color picker")
 
-	elif p_tool == Terrain3DEditor.COLOR:
-		to_hide.push_back("height")
-		to_hide.push_back("height picker")
-		to_hide.push_back("gradient_points")
-		to_hide.push_back("drawable")
-		to_hide.push_back("roughness")
-		to_hide.push_back("roughness picker")
-		to_hide.push_back("slope")
-		to_hide.push_back("enable")
+		Terrain3DEditor.ROUGHNESS:
+			to_show.push_back("size")
+			to_show.push_back("strength")
+			to_show.push_back("roughness")
+			to_show.push_back("roughness picker")
 
-	elif p_tool == Terrain3DEditor.ROUGHNESS:
-		to_hide.push_back("height")
-		to_hide.push_back("height picker")
-		to_hide.push_back("gradient_points")
-		to_hide.push_back("drawable")
-		to_hide.push_back("color")
-		to_hide.push_back("color picker")
-		to_hide.push_back("slope")
-		to_hide.push_back("enable")
+		Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION:
+			to_show.push_back("size")
+			to_show.push_back("enable")
 
-	elif p_tool in [ Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION ]:
-		to_hide.push_back("height")
-		to_hide.push_back("height picker")
-		to_hide.push_back("gradient_points")
-		to_hide.push_back("drawable")
-		to_hide.push_back("color")
-		to_hide.push_back("color picker")
-		to_hide.push_back("roughness")
-		to_hide.push_back("roughness picker")
-		to_hide.push_back("slope")
-		to_hide.push_back("opacity")
 
-	toolbar_settings.hide_settings(to_hide)
+		_:
+			pass
+
+	# Advanced menu settings
+	to_show.push_back("automatic_regions")
+	to_show.push_back("align_to_view")
+	to_show.push_back("show_cursor_while_painting")
+	to_show.push_back("gamma")
+	to_show.push_back("jitter")
+	toolbar_settings.show_settings(to_show)
 
 	operation_builder = null
 	if p_operation == Terrain3DEditor.GRADIENT:
@@ -194,7 +162,7 @@ func _on_setting_changed() -> void:
 		return
 	brush_data = {
 		"size": int(toolbar_settings.get_setting("size")),
-		"opacity": toolbar_settings.get_setting("opacity") / 100.0,
+		"strength": toolbar_settings.get_setting("strength") / 100.0,
 		"height": toolbar_settings.get_setting("height"),
 		"texture_index": plugin.asset_dock.get_selected_index(),
 		"color": toolbar_settings.get_setting("color"),
@@ -274,7 +242,7 @@ func update_decal() -> void:
 						decal.modulate = COLOR_SLOPE
 					_:
 						decal.modulate = Color.WHITE
-				decal.modulate.a = max(.3, brush_data["opacity"])
+				decal.modulate.a = max(.3, brush_data["strength"])
 			Terrain3DEditor.TEXTURE:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.REPLACE:
@@ -282,15 +250,15 @@ func update_decal() -> void:
 						decal.modulate.a = 1.0
 					Terrain3DEditor.ADD:
 						decal.modulate = COLOR_SPRAY
-						decal.modulate.a = max(.3, brush_data["opacity"])
+						decal.modulate.a = max(.3, brush_data["strength"])
 					_:
 						decal.modulate = Color.WHITE
 			Terrain3DEditor.COLOR:
 				decal.modulate = brush_data["color"].srgb_to_linear()*.5
-				decal.modulate.a = max(.3, brush_data["opacity"])
+				decal.modulate.a = max(.3, brush_data["strength"])
 			Terrain3DEditor.ROUGHNESS:
 				decal.modulate = COLOR_ROUGHNESS
-				decal.modulate.a = max(.3, brush_data["opacity"])
+				decal.modulate.a = max(.3, brush_data["strength"])
 			Terrain3DEditor.AUTOSHADER:
 				decal.modulate = COLOR_AUTOSHADER
 				decal.modulate.a = 1.0
@@ -302,7 +270,7 @@ func update_decal() -> void:
 				decal.modulate.a = 1.0
 			_:
 				decal.modulate = Color.WHITE
-				decal.modulate.a = max(.3, brush_data["opacity"])
+				decal.modulate.a = max(.3, brush_data["strength"])
 	decal.size.y = max(1000, decal.size.y)
 	decal.albedo_mix = 1.0
 	decal.cull_mask = 1 << ( plugin.terrain.get_mouse_layer() - 1 )
