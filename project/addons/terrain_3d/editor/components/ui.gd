@@ -8,7 +8,6 @@ const ToolSettings: Script = preload("res://addons/terrain_3d/editor/components/
 const TerrainTools: Script = preload("res://addons/terrain_3d/editor/components/terrain_tools.gd")
 const OperationBuilder: Script = preload("res://addons/terrain_3d/editor/components/operation_builder.gd")
 const GradientOperationBuilder: Script = preload("res://addons/terrain_3d/editor/components/gradient_operation_builder.gd")
-const RING1: String = "res://addons/terrain_3d/editor/brushes/ring1.exr"
 const COLOR_RAISE := Color.WHITE
 const COLOR_LOWER := Color.BLACK
 const COLOR_SMOOTH := Color(0.5, 0, .1)
@@ -27,6 +26,8 @@ const COLOR_PICK_COLOR := Color.WHITE
 const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 
+const RING1: String = "res://addons/terrain_3d/editor/brushes/ring1.exr"
+@onready var ring_texture := ImageTexture.create_from_image(Terrain3DUtil.black_to_alpha(Image.load_from_file(RING1)))
 
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var toolbar: Toolbar
@@ -41,7 +42,6 @@ var decal_timer: Timer
 var gradient_decals: Array[Decal]
 var brush_data: Dictionary
 var operation_builder: OperationBuilder
-@onready var picker_texture: ImageTexture =  ImageTexture.create_from_image(Image.load_from_file(RING1))
 
 
 func _enter_tree() -> void:
@@ -104,6 +104,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	
 	match p_tool:
 		Terrain3DEditor.HEIGHT:
+			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			if p_operation == Terrain3DEditor.REPLACE:
@@ -114,23 +115,27 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 				to_show.push_back("drawable")
 		
 		Terrain3DEditor.TEXTURE:
+			to_show.push_back("brush")
 			to_show.push_back("size")
 			if p_operation == Terrain3DEditor.ADD:
 				to_show.push_back("strength")
 
 		Terrain3DEditor.COLOR:
+			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			to_show.push_back("color")
 			to_show.push_back("color picker")
 
 		Terrain3DEditor.ROUGHNESS:
+			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			to_show.push_back("roughness")
 			to_show.push_back("roughness picker")
 
 		Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION:
+			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("enable")
 
@@ -216,7 +221,7 @@ func update_decal() -> void:
 
 	# Set texture and color
 	if picking != Terrain3DEditor.TOOL_MAX:
-		decal.texture_albedo = picker_texture
+		decal.texture_albedo = ring_texture
 		decal.size = Vector3.ONE * 10. * plugin.terrain.get_mesh_vertex_spacing()
 		match picking:
 			Terrain3DEditor.HEIGHT:
@@ -274,6 +279,7 @@ func update_decal() -> void:
 				decal.modulate = COLOR_NAVIGATION
 				decal.modulate.a = 1.0
 			Terrain3DEditor.FOLIAGE:
+				decal.texture_albedo = ring_texture
 				decal.modulate = COLOR_FOLIAGE
 				decal.modulate.a = 1.0
 			_:
@@ -303,7 +309,7 @@ func _get_gradient_decal(index: int) -> Decal:
 	
 	var gradient_decal := Decal.new()
 	gradient_decal = Decal.new()
-	gradient_decal.texture_albedo = picker_texture
+	gradient_decal.texture_albedo = ring_texture
 	gradient_decal.modulate = COLOR_SLOPE
 	gradient_decal.size = Vector3.ONE * 10. * plugin.terrain.get_mesh_vertex_spacing()
 	gradient_decal.size.y = 1000.

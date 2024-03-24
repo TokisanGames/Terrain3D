@@ -135,10 +135,13 @@
 		<constant name="NAVIGATION" value="6" enum="Tool">
 			Paint where navigation will be generated.
 		</constant>
-		<constant name="REGION" value="7" enum="Tool">
+		<constant name="FOLIAGE" value="7" enum="Tool">
+			Paint instancable assets like foliage on the terrain.
+		</constant>
+		<constant name="REGION" value="8" enum="Tool">
 			Add/remove regions.
 		</constant>
-		<constant name="TOOL_MAX" value="8" enum="Tool">
+		<constant name="TOOL_MAX" value="9" enum="Tool">
 			The number of elements in this enum.
 		</constant>
 	</constants>

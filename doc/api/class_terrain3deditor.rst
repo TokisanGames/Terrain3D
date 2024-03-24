@@ -198,11 +198,19 @@ Paint where vertices will be invalidated to leave holes.
 
 Paint where navigation will be generated.
 
+.. _class_Terrain3DEditor_constant_FOLIAGE:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **FOLIAGE** = ``7``
+
+Paint instancable assets like foliage on the terrain.
+
 .. _class_Terrain3DEditor_constant_REGION:
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``7``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``8``
 
 Add/remove regions.
 
@@ -210,7 +218,7 @@ Add/remove regions.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``8``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``9``
 
 The number of elements in this enum.
 

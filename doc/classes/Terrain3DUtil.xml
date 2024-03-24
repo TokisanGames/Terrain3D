@@ -41,6 +41,13 @@
 				See [method as_float] for the opposite.
 			</description>
 		</method>
+		<method name="black_to_alpha" qualifiers="static">
+			<return type="Image" />
+			<param index="0" name="image" type="Image" />
+			<description>
+				Receives an image with a black background and returns one with a transparent background, aka an alpha mask.
+			</description>
+		</method>
 		<method name="enc_auto" qualifiers="static">
 			<return type="int" />
 			<param index="0" name="pixel" type="bool" />
@@ -59,6 +66,7 @@
 			<return type="int" />
 			<param index="0" name="blend" type="int" />
 			<description>
+				Returns a control map uint with the blend value encoded. See the top description for usage.
 			</description>
 		</method>
 		<method name="enc_hole" qualifiers="static">
