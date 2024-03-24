@@ -12,6 +12,8 @@
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
+#include <godot_cpp/classes/multi_mesh.hpp>
+#include <godot_cpp/classes/multi_mesh_instance3d.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
@@ -60,6 +62,10 @@ private:
 		Vector<RID> seams;
 	} _data;
 
+	// Foliage Instancing
+	MultiMeshInstance3D *_multimesh_instance = nullptr;
+	Ref<MultiMesh> _multimesh;
+
 	// Renderer settings
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
 	GeometryInstance3D::ShadowCastingSetting _shadow_casting = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
@@ -96,7 +102,10 @@ private:
 	void _update_collision();
 	void _destroy_collision();
 
-	void _update_instances();
+	void _setup_foliage();
+	void _destroy_foliage();
+
+	void _update_mesh_instances();
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
@@ -162,6 +171,11 @@ public:
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav = true) const;
 
+	// Foliage
+	Ref<MultiMesh> get_multimesh() { return _multimesh; };
+	void add_mm_transforms(TypedArray<Transform3D> p_transforms);
+
+	// Misc
 	PackedStringArray _get_configuration_warnings() const override;
 
 protected:

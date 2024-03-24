@@ -47,6 +47,7 @@ public:
 		AUTOSHADER,
 		HOLES,
 		NAVIGATION,
+		FOLIAGE,
 		REGION,
 		TOOL_MAX,
 	};
@@ -59,6 +60,7 @@ public:
 		"Auto Shader",
 		"Holes",
 		"Navigation",
+		"Foliage",
 		"Region",
 		"TOOL_MAX",
 	};
@@ -120,6 +122,8 @@ private:
 	bool _modified = false;
 	AABB _modified_area;
 	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range, 5: edited AABB
+
+	uint32_t _instance_counter = 0; // work varible, not data
 
 	void _region_modified(Vector3 p_global_position, Vector2 p_height_range = Vector2());
 	void _operate_region(Vector3 p_global_position);

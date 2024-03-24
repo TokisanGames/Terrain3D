@@ -11,6 +11,7 @@
 #include <godot_cpp/classes/quad_mesh.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
+#include <godot_cpp/classes/standard_material3d.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/v_box_container.hpp> // for get_editor_main_screen()
@@ -76,6 +77,7 @@ void Terrain3D::_initialize() {
 		_setup_mouse_picking();
 		_build(_mesh_lods, _mesh_size);
 		_build_collision();
+		_setup_foliage();
 		_initialized = true;
 	}
 	update_configuration_warnings();
@@ -494,11 +496,46 @@ void Terrain3D::_destroy_collision() {
 	}
 }
 
+void Terrain3D::_setup_foliage() {
+	if (!_storage.is_valid()) {
+		return;
+	}
+
+	_multimesh.instantiate();
+	_multimesh->set_transform_format(MultiMesh::TRANSFORM_3D);
+	_multimesh->set_instance_count(0);
+	Ref<QuadMesh> mesh;
+	mesh.instantiate();
+	mesh->set_size(Vector2(.5f, 2.f));
+	mesh->set_subdivide_depth(3);
+	Ref<StandardMaterial3D> mat;
+	mat.instantiate();
+	mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
+	mat->set_albedo(Color(0.f, .624f, .016f));
+	mat->set_feature(BaseMaterial3D::FEATURE_BACKLIGHT, true);
+	mat->set_backlight(Color(.5f, .5f, .5f));
+	/*mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_DITHER);
+	mat->set_distance_fade_max_distance(20.f);
+	mat->set_distance_fade_min_distance(30.f);*/
+
+	mesh->surface_set_material(0, mat);
+	_multimesh->set_mesh(mesh);
+	_multimesh_instance = memnew(MultiMeshInstance3D);
+	_multimesh_instance->set_multimesh(_multimesh);
+	add_child(_multimesh_instance);
+}
+
+
+void Terrain3D::_destroy_foliage() {
+	LOG(DEBUG, "Freeing _multimesh_instance");
+	memdelete_safely(_multimesh_instance);
+}
+
 /**
  * Make all mesh instances visible or not
  * Update all mesh instances with the new world scenario so they appear
  */
-void Terrain3D::_update_instances() {
+void Terrain3D::_update_mesh_instances() {
 	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
 		return;
 	}
@@ -749,7 +786,7 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 void Terrain3D::set_render_layers(uint32_t p_layers) {
 	LOG(INFO, "Setting terrain render layers to: ", p_layers);
 	_render_layers = p_layers;
-	_update_instances();
+	_update_mesh_instances();
 }
 
 void Terrain3D::set_mouse_layer(uint32_t p_layer) {
@@ -777,7 +814,7 @@ void Terrain3D::set_mouse_layer(uint32_t p_layer) {
 
 void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting) {
 	_shadow_casting = p_shadow_casting;
-	_update_instances();
+	_update_mesh_instances();
 }
 
 void Terrain3D::set_cull_margin(real_t p_margin) {
@@ -1045,6 +1082,25 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(AABB const &p_gl
 	return faces;
 }
 
+void Terrain3D::add_mm_transforms(TypedArray<Transform3D> p_transforms) {
+	uint32_t old_count = _multimesh->get_instance_count();
+	for (int i = 0; i < old_count; i++) {
+		p_transforms.push_back(_multimesh->get_instance_transform(i));
+	}
+	Ref<Mesh> mesh = _multimesh->get_mesh();
+	Ref<MultiMesh> mm;
+	mm.instantiate();
+	mm->set_transform_format(MultiMesh::TRANSFORM_3D);
+	mm->set_instance_count(p_transforms.size());
+	mm->set_mesh(mesh);
+	for (int i = 0; i < p_transforms.size(); i++) {
+		mm->set_instance_transform(i, p_transforms[i]);
+	}
+
+	_multimesh = mm;
+	_multimesh_instance->set_multimesh(_multimesh);
+}
+
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_storage.is_valid()) {
@@ -1094,13 +1150,14 @@ void Terrain3D::_notification(int p_what) {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			_clear();
 			_destroy_mouse_picking();
+			_destroy_foliage();
 			break;
 		}
 
 		case NOTIFICATION_ENTER_WORLD: {
 			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
 			_is_inside_world = true;
-			_update_instances();
+			_update_mesh_instances();
 			break;
 		}
 
@@ -1117,7 +1174,7 @@ void Terrain3D::_notification(int p_what) {
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
-			_update_instances();
+			_update_mesh_instances();
 			break;
 		}
 

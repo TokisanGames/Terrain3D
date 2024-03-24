@@ -86,10 +86,10 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 }
 
 void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_direction) {
+	LOG(DEBUG, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
-
 	int region_index = storage->get_region_index(p_global_position);
 	if (region_index == -1) {
 		if (!_brush.auto_regions_enabled()) {
@@ -114,6 +114,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	Terrain3DStorage::MapType map_type;
 	switch (_tool) {
 		case HEIGHT:
+		case FOLIAGE:
 			map_type = Terrain3DStorage::TYPE_HEIGHT;
 			break;
 		case TEXTURE:
@@ -150,9 +151,67 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	Object::cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
 
 	AABB edited_area;
-	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) / 2.f;
+	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) * .5f;
 	edited_area.size = Vector3(brush_size, 0.f, brush_size);
 
+	// FOLIAGE
+	if (_tool == FOLIAGE) {
+		switch (_operation) {
+			case ADD: {
+				Ref<MultiMesh> mm = _terrain->get_multimesh();
+				TypedArray<Transform3D> xforms;
+				real_t bsize = MAX(1.f, real_t(brush_size) / 2.f);
+				Vector3 base_pos = p_global_position - Vector3(bsize, 0.f, bsize) * .5f;
+				// _instance_counter allows us to instance every X operations for sparse placement
+				int density = 0;
+				if (strength < 1.f && _instance_counter++ % int(1.f / strength) == 0) {
+					density = 1;
+				} else if (strength >= 1.f) {
+					density = int(bsize * strength);
+				}
+				for (int i = 0; i < density; i++) {
+					Vector3 rvec = Vector3(UtilityFunctions::randf(), 0.f, UtilityFunctions::randf());
+					Transform3D t;
+					t.origin = base_pos + rvec * bsize;
+
+					Vector3 normal = _terrain->get_storage()->get_normal(t.origin);
+					if (UtilityFunctions::is_nan(normal.x)) {
+						normal = Vector3(0.f, 1.f, 0.f);
+					}
+					normal = normal.normalized();
+
+					Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
+					Vector3 crossp = -z_axis.cross(normal);
+					t.basis = Basis(crossp, normal, z_axis).orthonormalized();
+					t.basis = t.basis.rotated(normal, UtilityFunctions::randf() * Math_TAU);
+
+					real_t height = _terrain->get_storage()->get_height(t.origin);
+					if (UtilityFunctions::is_nan(height)) {
+						continue;
+					} else {
+						t.origin.y = height;
+						t.origin += normal * 1.f; // only for center origin, need offset
+					}
+					xforms.push_back(t);
+				}
+				if (xforms.size() > 0) {
+					_terrain->add_mm_transforms(xforms);
+				}
+				break;
+			}
+			case SUBTRACT:
+				break;
+			default:
+				return;
+				break;
+		}
+
+		return;
+		_modified = true;
+		storage->add_edited_area(edited_area);
+	}
+
+	// MAP Operations
 	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
@@ -583,6 +642,7 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(AUTOSHADER);
 	BIND_ENUM_CONSTANT(HOLES);
 	BIND_ENUM_CONSTANT(NAVIGATION);
+	BIND_ENUM_CONSTANT(FOLIAGE);
 	BIND_ENUM_CONSTANT(REGION);
 	BIND_ENUM_CONSTANT(TOOL_MAX);
 

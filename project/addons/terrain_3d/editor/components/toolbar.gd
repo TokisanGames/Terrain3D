@@ -19,6 +19,7 @@ const ICON_WETNESS: String = "res://addons/terrain_3d/icons/icon_wetness.svg"
 const ICON_AUTOSHADER: String = "res://addons/terrain_3d/icons/icon_terrain_material.svg"
 const ICON_HOLES: String = "res://addons/terrain_3d/icons/icon_holes.svg"
 const ICON_NAVIGATION: String = "res://addons/terrain_3d/icons/icon_navigation.svg"
+const ICON_FOLIAGE: String = "res://addons/terrain_3d/icons/icon_multimesh.svg"
 
 var tool_group: ButtonGroup = ButtonGroup.new()
 
@@ -50,6 +51,7 @@ func _ready() -> void:
 	add_child(HSeparator.new())
 	add_tool_button(Terrain3DEditor.HOLES, Terrain3DEditor.REPLACE, "Create Holes", load(ICON_HOLES), tool_group)
 	add_tool_button(Terrain3DEditor.NAVIGATION, Terrain3DEditor.REPLACE, "Paint Navigable Area", load(ICON_NAVIGATION), tool_group)
+	add_tool_button(Terrain3DEditor.FOLIAGE, Terrain3DEditor.ADD, "Paint Foliage", load(ICON_FOLIAGE), tool_group)
 
 	var buttons: Array[BaseButton] = tool_group.get_buttons()
 	buttons[0].set_pressed(true)
