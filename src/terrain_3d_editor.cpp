@@ -160,8 +160,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 			case ADD: {
 				Ref<MultiMesh> mm = _terrain->get_multimesh();
 				TypedArray<Transform3D> xforms;
-				real_t bsize = MAX(1.f, real_t(brush_size) / 2.f);
-				Vector3 base_pos = p_global_position - Vector3(bsize, 0.f, bsize) * .5f;
+				real_t bsize = MAX(1.f, real_t(brush_size) * .4f);
 				// _instance_counter allows us to instance every X operations for sparse placement
 				int density = 0;
 				if (strength < 1.f && _instance_counter++ % int(1.f / strength) == 0) {
@@ -170,9 +169,11 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					density = int(bsize * strength);
 				}
 				for (int i = 0; i < density; i++) {
-					Vector3 rvec = Vector3(UtilityFunctions::randf(), 0.f, UtilityFunctions::randf());
+					float theta = UtilityFunctions::randf() * Math_TAU;
+					float radius = sqrt(UtilityFunctions::randf());
+					Vector3 rvec = Vector3(radius * cos(theta), 0.f, radius * sin(theta));
 					Transform3D t;
-					t.origin = base_pos + rvec * bsize;
+					t.origin = p_global_position + rvec * bsize;
 
 					Vector3 normal = _terrain->get_storage()->get_normal(t.origin);
 					if (UtilityFunctions::is_nan(normal.x)) {
