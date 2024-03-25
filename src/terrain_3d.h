@@ -23,6 +23,8 @@
 
 using namespace godot;
 
+void print_multimesh_buffer(MultiMeshInstance3D *p_mmi);
+
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 

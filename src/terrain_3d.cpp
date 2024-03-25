@@ -525,6 +525,27 @@ void Terrain3D::_setup_foliage() {
 	add_child(_multimesh_instance);
 }
 
+void print_multimesh_buffer(MultiMeshInstance3D *p_mmi) {
+	if (p_mmi == nullptr) {
+		return;
+	}
+	Ref<MultiMesh> mm = p_mmi->get_multimesh();
+	PackedRealArray b = mm->get_buffer();
+	UtilityFunctions::print("MM instance count: ", mm->get_instance_count());
+	int mmsize = b.size();
+	if (mmsize <= 12 || mmsize % 12 != 0) {
+		UtilityFunctions::print("MM buffer size not a multiple of 12: ", mmsize);
+		return;
+	}
+	for (int i = 0; i < mmsize; i += 12) {
+		Transform3D tfm;
+		tfm.set(b[i + 0], b[i + 1], b[i + 2], // basis x
+				b[i + 4], b[i + 5], b[i + 6], // basis y
+				b[i + 8], b[i + 9], b[i + 10], // basis z
+				b[i + 3], b[i + 7], b[i + 11]); // origin
+		UtilityFunctions::print(i / 12, ": ", tfm);
+	}
+}
 
 void Terrain3D::_destroy_foliage() {
 	LOG(DEBUG, "Freeing _multimesh_instance");
