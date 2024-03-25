@@ -1183,7 +1183,7 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_TRANSFORM_CHANGED: {
-			//LOG(INFO, "NOTIFICATION_TRANSFORM_CHANGED");
+			set_transform(Transform3D());
 			break;
 		}
 
@@ -1220,7 +1220,6 @@ void Terrain3D::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_EDITOR_POST_SAVE: {
-			//LOG(INFO, "NOTIFICATION_EDITOR_POST_SAVE");
 			break;
 		}
 	}
