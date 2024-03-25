@@ -143,8 +143,9 @@ func add_brushes(p_parent: Control) -> void:
 					default_brush_btn = btn 
 				
 				var lbl: Label = Label.new()
+				btn.name = file_name.get_basename().to_pascal_case()
 				btn.add_child(lbl, true)
-				lbl.text = file_name.get_basename()
+				lbl.text = btn.name
 				lbl.visible = false
 				lbl.position.y = 70
 				lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
@@ -294,6 +295,7 @@ func add_setting(p_type: SettingType, p_name: StringName, p_value: Variant, p_pa
 			control.connect("pressed", _on_point_pick.bind(p_value, p_name))
 			control.connect("value_changed", _on_setting_changed)
 		
+	control.name = p_name.to_pascal_case()
 	container.add_child(control, true)
 	p_parent.add_child(container, true)
 	
@@ -320,6 +322,27 @@ func get_setting(p_setting: String) -> Variant:
 	if value == null:
 		value = 0
 	return value
+
+
+func set_setting(p_setting: String, p_value: Variant) -> void:
+	var object: Object = settings.get(p_setting)
+	if object is Range:
+		object.set_value(p_value)
+	elif object is DoubleSlider: # Expects p_value is Vector2
+		object.set_min_value(p_value.x)
+		object.set_max_value(p_value.y)
+	elif object is ButtonGroup: # Expects p_value is Array [ "button name", boolean ]
+		if p_value is Array and p_value.size() == 2:
+			for button in object.get_buttons():
+				if button.name == p_value[0]:
+					button.button_pressed = p_value[1]
+	elif object is CheckBox:
+		object.button_pressed = p_value
+	elif object is ColorPickerButton:
+		object.color = p_value
+	elif object is PointPicker: # Expects p_value is PackedVector3Array
+		object.points = p_value
+	_on_setting_changed(object)
 
 
 func show_settings(p_settings: PackedStringArray) -> void:

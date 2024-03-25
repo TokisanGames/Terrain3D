@@ -29,6 +29,11 @@ var asset_dock: Control
 var dock_state: DOCK_STATE = -1
 var dock_position: DockSlot = DOCK_SLOT_RIGHT_BL
 
+# Track negative input (CTRL)
+var _negative_input: bool = false
+# Track state prior to pressing CTRL: -1 not tracked, 0 false, 1 true
+var _prev_enable_state: int = -1
+
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
@@ -135,21 +140,39 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 	
+	## Track negative input (CTRL)
+	if p_event is InputEventKey and not p_event.echo and p_event.keycode == KEY_CTRL:
+		if p_event.is_pressed():
+			_negative_input = true
+			_prev_enable_state = int(ui.toolbar_settings.get_setting("enable"))
+			ui.toolbar_settings.set_setting("enable", false)
+		else:
+			_negative_input = false
+			ui.toolbar_settings.set_setting("enable", bool(_prev_enable_state))
+			_prev_enable_state = -1
+	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 			return AFTER_GUI_INPUT_PASS
 
-		## Get mouse location on terrain
+		if _prev_enable_state >= 0 and not Input.is_key_pressed(KEY_CTRL):
+			_negative_input = false
+			ui.toolbar_settings.set_setting("enable", bool(_prev_enable_state))
+			_prev_enable_state = -1
 
+		## Setup for active camera & viewport
+		
 		# Snap terrain to current camera 
 		terrain.set_camera(p_viewport_camera)
-		
+
 		# Detect if viewport is set to half_resolution
-		# Structure is: Node3DEditorViewportContainer/Node3DEditorViewport/SubViewportContainer/SubViewport/Camera3D
+		# Structure is: Node3DEditorViewportContainer/Node3DEditorViewport(4)/SubViewportContainer/SubViewport/Camera3D
 		var editor_vpc: SubViewportContainer = p_viewport_camera.get_parent().get_parent()
 		var full_resolution: bool = false if editor_vpc.stretch_shrink == 2 else true
 
+		## Get mouse location on terrain
+		
 		# Project 2D mouse position to 3D position and direction
 		var mouse_pos: Vector2 = p_event.position if full_resolution else p_event.position/2
 		var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
