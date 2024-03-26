@@ -305,10 +305,14 @@ void Terrain3D::_build_collision() {
 	if (_is_collision_dynamic()) {
 		collision_shape_size = _collision_dynamic_shape_size;
 	}
-	int array_size = ceil((double)_collision_dynamic_distance * 2.0 / (double)collision_shape_size);
+	int array_size = ceil(((double)_collision_dynamic_distance + 1.0) * 2.0 / (double)collision_shape_size);
+	// make array_size an even number
+	array_size = (array_size % 2 == 0) ? array_size : array_size + 1.0;
+
 	_collision_shapes.resize(array_size * array_size);
 	_collision_shapes.fill(Variant());
-	if (true) { //_is_collision_dynamic()) {
+
+	if (_is_collision_dynamic()) {
 		for (int i = 0; i < array_size * array_size; i++) {
 			if (_is_collision_editor()) {
 				CollisionShape3D *debug_col_shape = memnew(CollisionShape3D);
@@ -351,10 +355,42 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
 		hole_const = __FLT_MAX__;
 	}
-	int array_size = ceil(((double)_collision_dynamic_distance + 1.0) * 2.0 / (double)collision_shape_size);
+	int array_size = Math::ceil(((double)_collision_dynamic_distance + 1.0) * 2.0 / (double)collision_shape_size);
+	// make array_size an even number
+	array_size = (array_size % 2 == 0) ? array_size : array_size + 1.0;
+
 	Vector2 camera_position = Vector2(p_cam_pos.x, p_cam_pos.z);
-	Vector2i dynamic_region_pos_snapped = (((camera_position) / collision_shape_size).floor() - Vector2i(array_size, array_size) / 2) * collision_shape_size;
+	Vector2i dynamic_region_pos_snapped;
+	float positive_camera_position_x = (camera_position.x < 0.0) ? -camera_position.x : camera_position.x;
+    if (Math::fract(positive_camera_position_x / collision_shape_size) >= 0.5) {
+        if (camera_position.x < 0.0) {
+            dynamic_region_pos_snapped.x = Math::floor(camera_position.x / collision_shape_size) * collision_shape_size;
+        } else {
+            dynamic_region_pos_snapped.x = Math::ceil(camera_position.x / collision_shape_size) * collision_shape_size;
+        }
+    } else {
+        if (camera_position.x < 0.0) {
+            dynamic_region_pos_snapped.x = Math::floor(camera_position.x / collision_shape_size) * collision_shape_size;
+        } else {
+            dynamic_region_pos_snapped.x = Math::floor(camera_position.x / collision_shape_size) * collision_shape_size;
+        }
+    }
+    float positive_camera_position_y = (camera_position.y < 0.0) ? -camera_position.y : camera_position.y;
+    if (Math::fract(positive_camera_position_y / collision_shape_size) >= 0.5) {
+        if (camera_position.y < 0.0) {
+            dynamic_region_pos_snapped.y = Math::floor(camera_position.y / collision_shape_size) * collision_shape_size;
+        } else {
+            dynamic_region_pos_snapped.y = Math::ceil(camera_position.y / collision_shape_size) * collision_shape_size;
+        }
+    } else {
+        if (camera_position.y < 0.0) {
+            dynamic_region_pos_snapped.y = Math::ceil(camera_position.y / collision_shape_size) * collision_shape_size;
+        } else {
+            dynamic_region_pos_snapped.y = Math::floor(camera_position.y / collision_shape_size) * collision_shape_size;
+        }
+    }
 	Vector2i snapped_delta = dynamic_region_pos_snapped - _old_snapped_pos;
+	LOG(INFO, snapped_delta);
 
 	// iterate old array for out of range shapes and disable them
 	for (int i = 0; i < array_size; i++) {
@@ -394,7 +430,7 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 			// index for the current position in the new array to the old array
 			int old_index = old_position.x * array_size + old_position.y;
 			bool location_exists_in_old = array_size > old_position.x && old_position.x >= 0 && array_size > old_position.y && old_position.y >= 0;
-			Vector2i shape_location = dynamic_region_pos_snapped + Vector2i(((float)i + 0.5) * (float)collision_shape_size, ((float)j + 0.5) * (float)collision_shape_size);
+			Vector2i shape_location = dynamic_region_pos_snapped + Vector2i((i - array_size * 0.5) * collision_shape_size, (j - array_size * 0.5) * collision_shape_size);
 			Vector3i global_shape_location = Vector3i(shape_location.x, 0.0, shape_location.y);
 			Vector3i global_middle_pos = global_shape_location + Vector3i(collision_shape_size, 0, collision_shape_size) / 2;
 			bool too_far = Vector2(global_shape_location.x, global_shape_location.z).distance_to(camera_position) > _collision_dynamic_distance;
@@ -435,6 +471,7 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 						col_shape = _collision_shapes_unused.pop_back();
 						Dictionary shape_data = PhysicsServer3D::get_singleton()->shape_get_data(col_shape);
 						map_data = shape_data["heights"];
+						map_data.resize(shape_size * shape_size);
 					} else {
 						debug_col_shape = Object::cast_to<CollisionShape3D>(_collision_shapes_unused.pop_back());
 						Ref<HeightMapShape3D> hshape = debug_col_shape->get_shape();
@@ -447,8 +484,13 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 
 				Ref<Image> map, map_x, map_z, map_xz;
 				Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
-				map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
-				cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+				if (region >= 0) {
+				    map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
+				    cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+				} else {
+				    break;
+				}
+				region = _storage->get_region_index(Vector3(shape_location.x + region_size, 0, shape_location.y));
 				if (region >= 0) {
 					map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
 					cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
@@ -483,7 +525,12 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 						}
 						// Set heights on local map, or adjacent maps if on the last row/col
 						if (shape_global_x < region_size && shape_global_z < region_size) {
-							map_data[index] = (Util::is_hole(cmap->get_pixel(shape_global_x, shape_global_z).r)) ? hole_const : map->get_pixel(shape_global_x, shape_global_z).r;
+							map_data[index] = 0.0;
+							map_data[index] =
+							    (Util::is_hole(cmap->get_pixel(shape_global_x, shape_global_z).r)) ?
+							    hole_const :
+							    map->get_pixel(shape_global_x, shape_global_z)
+							    .r;
 						} else if (shape_global_x == region_size && shape_global_z < region_size) {
 							if (map_x.is_valid()) {
 								map_data[index] = (Util::is_hole(cmap_x->get_pixel(0, shape_global_z).r)) ? hole_const : map_x->get_pixel(0, shape_global_z).r;
