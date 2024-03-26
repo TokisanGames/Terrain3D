@@ -157,45 +157,17 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	if (_tool == FOLIAGE) {
 		real_t bsize = MAX(1.f, real_t(brush_size) * .4f);
 		// _instance_counter allows us to instance every X operations for sparse placement
-		int density = 0;
-		if (strength < 1.f && _instance_counter++ % int(1.f / strength) == 0) {
-			density = 1;
-		} else if (strength >= 1.f) {
-			density = int(bsize * strength);
+		real_t density = bsize * strength;
+		int count = 0;
+		if (density < 1.f && _instance_counter++ % int(1.f / density) == 0) {
+			count = 1;
+		} else if (density >= 1.f) {
+			count = int(density);
 		}
 		if (enable) {
-			TypedArray<Transform3D> xforms;
-			for (int i = 0; i < density; i++) {
-				float theta = UtilityFunctions::randf() * Math_TAU;
-				float radius = sqrt(UtilityFunctions::randf());
-				Vector3 rvec = Vector3(radius * cos(theta), 0.f, radius * sin(theta));
-				Transform3D t;
-				t.origin = p_global_position + rvec * bsize;
-
-				Vector3 normal = _terrain->get_storage()->get_normal(t.origin);
-				if (UtilityFunctions::is_nan(normal.x)) {
-					normal = Vector3(0.f, 1.f, 0.f);
-				}
-				normal = normal.normalized();
-				Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
-				Vector3 crossp = -z_axis.cross(normal);
-				t.basis = Basis(crossp, normal, z_axis).orthonormalized();
-				t.basis = t.basis.rotated(normal, UtilityFunctions::randf() * Math_TAU);
-
-				real_t height = _terrain->get_storage()->get_height(t.origin);
-				if (UtilityFunctions::is_nan(height)) {
-					continue;
-				} else {
-					t.origin.y = height;
-					t.origin += normal * 1.f; // Multiply object height offset, if has center origin
-				}
-				xforms.push_back(t);
-			}
-			if (xforms.size() > 0) {
-				_terrain->add_mm_transforms(xforms);
-			}
+			_terrain->get_instancer()->add_instances(p_global_position, brush_size * .4f, count);
 		} else {
-			_terrain->erase_mm_transforms(p_global_position, bsize, density);
+			_terrain->get_instancer()->remove_instances(p_global_position, brush_size * .5f, count);
 		}
 
 		//switch (_operation) {

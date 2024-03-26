@@ -11,7 +11,6 @@
 #include <godot_cpp/classes/quad_mesh.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
-#include <godot_cpp/classes/standard_material3d.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/v_box_container.hpp> // for get_editor_main_screen()
@@ -33,7 +32,7 @@
 int Terrain3D::debug_level{ ERROR };
 
 void Terrain3D::_initialize() {
-	LOG(INFO, "Checking material, storage, texture_list, signal, and mesh initialization");
+	LOG(INFO, "Checking instancer, material, storage, texture_list, signal, and mesh initialization");
 
 	// Make blank objects if needed
 	if (_material.is_null()) {
@@ -48,6 +47,10 @@ void Terrain3D::_initialize() {
 	if (_texture_list.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
 		_texture_list.instantiate();
+	}
+	if (_instancer.is_null()) {
+		LOG(DEBUG, "Creating blank instancer");
+		_instancer.instantiate();
 	}
 
 	// Connect signals
@@ -67,6 +70,11 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
 	}
+	//if (!_storage->is_connected("edited_area", Callable(_instancer.ptr(), "update_aabbs"))) {
+	//	LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
+	//	_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
+	//}
+	// Make sure still connected after new storage
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
@@ -74,10 +82,10 @@ void Terrain3D::_initialize() {
 		_material->set_mesh_vertex_spacing(_mesh_vertex_spacing);
 		_storage->update_regions(true); // generate map arrays
 		_texture_list->update_list(); // generate texture arrays
+		_instancer->initialize(this);
 		_setup_mouse_picking();
 		_build(_mesh_lods, _mesh_size);
 		_build_collision();
-		_setup_foliage();
 		_initialized = true;
 	}
 	update_configuration_warnings();
@@ -243,6 +251,9 @@ void Terrain3D::_clear(bool p_clear_meshes, bool p_clear_collision) {
 		_initialized = false;
 	}
 
+	if (_instancer.is_valid()) {
+		_instancer->destroy();
+	}
 	if (p_clear_collision) {
 		_destroy_collision();
 	}
@@ -496,62 +507,6 @@ void Terrain3D::_destroy_collision() {
 	}
 }
 
-void Terrain3D::_setup_foliage() {
-	if (!_storage.is_valid()) {
-		return;
-	}
-
-	_multimesh.instantiate();
-	_multimesh->set_transform_format(MultiMesh::TRANSFORM_3D);
-	_multimesh->set_instance_count(0);
-	Ref<QuadMesh> mesh;
-	mesh.instantiate();
-	mesh->set_size(Vector2(.5f, 2.f));
-	mesh->set_subdivide_depth(3);
-	Ref<StandardMaterial3D> mat;
-	mat.instantiate();
-	mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
-	mat->set_albedo(Color(0.f, .624f, .016f));
-	mat->set_feature(BaseMaterial3D::FEATURE_BACKLIGHT, true);
-	mat->set_backlight(Color(.5f, .5f, .5f));
-	/*mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_DITHER);
-	mat->set_distance_fade_max_distance(20.f);
-	mat->set_distance_fade_min_distance(30.f);*/
-
-	mesh->surface_set_material(0, mat);
-	_multimesh->set_mesh(mesh);
-	_multimesh_instance = memnew(MultiMeshInstance3D);
-	_multimesh_instance->set_multimesh(_multimesh);
-	add_child(_multimesh_instance);
-}
-
-void print_multimesh_buffer(MultiMeshInstance3D *p_mmi) {
-	if (p_mmi == nullptr) {
-		return;
-	}
-	Ref<MultiMesh> mm = p_mmi->get_multimesh();
-	PackedRealArray b = mm->get_buffer();
-	UtilityFunctions::print("MM instance count: ", mm->get_instance_count());
-	int mmsize = b.size();
-	if (mmsize <= 12 || mmsize % 12 != 0) {
-		UtilityFunctions::print("MM buffer size not a multiple of 12: ", mmsize);
-		return;
-	}
-	for (int i = 0; i < mmsize; i += 12) {
-		Transform3D tfm;
-		tfm.set(b[i + 0], b[i + 1], b[i + 2], // basis x
-				b[i + 4], b[i + 5], b[i + 6], // basis y
-				b[i + 8], b[i + 9], b[i + 10], // basis z
-				b[i + 3], b[i + 7], b[i + 11]); // origin
-		UtilityFunctions::print(i / 12, ": ", tfm);
-	}
-}
-
-void Terrain3D::_destroy_foliage() {
-	LOG(DEBUG, "Freeing _multimesh_instance");
-	memdelete_safely(_multimesh_instance);
-}
-
 /**
  * Make all mesh instances visible or not
  * Update all mesh instances with the new world scenario so they appear
@@ -748,6 +703,17 @@ void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 	}
 	if (Engine::get_singleton()->is_editor_hint() && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
+	}
+}
+
+void Terrain3D::set_instancer(const Ref<Terrain3DInstancer> &p_instancer) {
+	if (_instancer != p_instancer) {
+		LOG(INFO, "Setting instancer");
+		//_instancer->destroy();
+		_instancer = p_instancer;
+		_clear();
+		_initialize();
+		emit_signal("material_changed");
 	}
 }
 
@@ -1103,53 +1069,6 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(AABB const &p_gl
 	return faces;
 }
 
-void Terrain3D::add_mm_transforms(TypedArray<Transform3D> p_transforms) {
-	uint32_t old_count = _multimesh->get_instance_count();
-	for (int i = 0; i < old_count; i++) {
-		p_transforms.push_back(_multimesh->get_instance_transform(i));
-	}
-	Ref<Mesh> mesh = _multimesh->get_mesh();
-	Ref<MultiMesh> mm;
-	mm.instantiate();
-	mm->set_transform_format(MultiMesh::TRANSFORM_3D);
-	mm->set_instance_count(p_transforms.size());
-	mm->set_mesh(mesh);
-	for (int i = 0; i < p_transforms.size(); i++) {
-		mm->set_instance_transform(i, p_transforms[i]);
-	}
-
-	_multimesh = mm;
-	_multimesh_instance->set_multimesh(_multimesh);
-}
-
-void Terrain3D::erase_mm_transforms(Vector3 p_global_position, real_t radius, uint32_t count) {
-	TypedArray<Transform3D> transforms;
-	count = 3 * MIN(1, count);
-	for (int i = 0; i < _multimesh->get_instance_count(); i++) {
-		Transform3D t = _multimesh->get_instance_transform(i);
-		// If quota not yet met and instance within radius, exclude it
-		if (count > 0 && (t.origin - p_global_position).length() < radius) {
-			count--;
-			continue;
-		} else {
-			transforms.push_back(t);
-		}
-	}
-
-	Ref<Mesh> mesh = _multimesh->get_mesh();
-	Ref<MultiMesh> mm;
-	mm.instantiate();
-	mm->set_transform_format(MultiMesh::TRANSFORM_3D);
-	mm->set_instance_count(transforms.size());
-	mm->set_mesh(mesh);
-	for (int i = 0; i < transforms.size(); i++) {
-		mm->set_instance_transform(i, transforms[i]);
-	}
-
-	_multimesh = mm;
-	_multimesh_instance->set_multimesh(_multimesh);
-}
-
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_storage.is_valid()) {
@@ -1160,8 +1079,16 @@ PackedStringArray Terrain3D::_get_configuration_warnings() const {
 			psa.push_back("Storage resource is saved as a ." + ext + ". Click the arrow to the right of Storage, Make Unique, then Save as a .res file.");
 		}
 	}
+	if (_instancer.is_valid()) {
+		String ext = _instancer->get_path().get_extension();
+		if (ext.is_empty()) {
+			psa.push_back("Instancer resource is saved in the scene. Click the arrow to the right of Instancer, Save as a .res file.");
+		} else if (ext != "res") {
+			psa.push_back("Instancer resource is saved as a ." + ext + ". Click the arrow to the right of Instancer, Make Unique, then Save as a .res file.");
+		}
+	}
 	if (!psa.is_empty()) {
-		psa.push_back("Deselect Terrain3D and reselect in the Scene Tree to update this message.");
+		psa.push_back("To update this message, deselect and reselect Terrain3D in the Scene panel.");
 	}
 	return psa;
 }
@@ -1199,7 +1126,6 @@ void Terrain3D::_notification(int p_what) {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			_clear();
 			_destroy_mouse_picking();
-			_destroy_foliage();
 			break;
 		}
 
@@ -1264,6 +1190,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_mesh_vertex_spacing", "scale"), &Terrain3D::set_mesh_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_mesh_vertex_spacing"), &Terrain3D::get_mesh_vertex_spacing);
 
+	ClassDB::bind_method(D_METHOD("set_instancer", "instancer"), &Terrain3D::set_instancer);
+	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
 	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
@@ -1306,6 +1234,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), "set_texture_list", "get_texture_list");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DInstancer"), "set_instancer", "get_instancer");
 
 	ADD_GROUP("Renderer", "render_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");

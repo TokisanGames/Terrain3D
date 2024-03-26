@@ -12,18 +12,15 @@
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
-#include <godot_cpp/classes/multi_mesh.hpp>
-#include <godot_cpp/classes/multi_mesh_instance3d.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
+#include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
 
 using namespace godot;
-
-void print_multimesh_buffer(MultiMeshInstance3D *p_mmi);
 
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
@@ -43,8 +40,9 @@ private:
 	int _mesh_lods = 7;
 	real_t _mesh_vertex_spacing = 1.0f;
 
-	Ref<Terrain3DStorage> _storage;
+	Ref<Terrain3DInstancer> _instancer;
 	Ref<Terrain3DMaterial> _material;
+	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DTextureList> _texture_list;
 
 	// Editor components
@@ -63,10 +61,6 @@ private:
 		Vector<RID> trims;
 		Vector<RID> seams;
 	} _data;
-
-	// Foliage Instancing
-	MultiMeshInstance3D *_multimesh_instance = nullptr;
-	Ref<MultiMesh> _multimesh;
 
 	// Renderer settings
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
@@ -104,9 +98,6 @@ private:
 	void _update_collision();
 	void _destroy_collision();
 
-	void _setup_foliage();
-	void _destroy_foliage();
-
 	void _update_mesh_instances();
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
@@ -129,10 +120,12 @@ public:
 	void set_mesh_vertex_spacing(real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
-	void set_storage(const Ref<Terrain3DStorage> &p_storage);
-	Ref<Terrain3DStorage> get_storage() const { return _storage; }
+	void set_instancer(const Ref<Terrain3DInstancer> &p_instancer);
+	Ref<Terrain3DInstancer> get_instancer() const { return _instancer; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
+	void set_storage(const Ref<Terrain3DStorage> &p_storage);
+	Ref<Terrain3DStorage> get_storage() const { return _storage; }
 	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
 	Ref<Terrain3DTextureList> get_texture_list() const { return _texture_list; }
 
@@ -172,11 +165,6 @@ public:
 	// Baking methods
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav = true) const;
-
-	// Foliage
-	Ref<MultiMesh> get_multimesh() { return _multimesh; };
-	void add_mm_transforms(TypedArray<Transform3D> p_transforms);
-	void erase_mm_transforms(Vector3 p_global_position, real_t radius, uint32_t count);
 
 	// Misc
 	PackedStringArray _get_configuration_warnings() const override;
