@@ -176,6 +176,7 @@ public:
 	// Foliage
 	Ref<MultiMesh> get_multimesh() { return _multimesh; };
 	void add_mm_transforms(TypedArray<Transform3D> p_transforms);
+	void erase_mm_transforms(Vector3 p_global_position, real_t radius, uint32_t count);
 
 	// Misc
 	PackedStringArray _get_configuration_warnings() const override;

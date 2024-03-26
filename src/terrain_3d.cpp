@@ -1122,6 +1122,34 @@ void Terrain3D::add_mm_transforms(TypedArray<Transform3D> p_transforms) {
 	_multimesh_instance->set_multimesh(_multimesh);
 }
 
+void Terrain3D::erase_mm_transforms(Vector3 p_global_position, real_t radius, uint32_t count) {
+	TypedArray<Transform3D> transforms;
+	count = 3 * MIN(1, count);
+	for (int i = 0; i < _multimesh->get_instance_count(); i++) {
+		Transform3D t = _multimesh->get_instance_transform(i);
+		// If quota not yet met and instance within radius, exclude it
+		if (count > 0 && (t.origin - p_global_position).length() < radius) {
+			count--;
+			continue;
+		} else {
+			transforms.push_back(t);
+		}
+	}
+
+	Ref<Mesh> mesh = _multimesh->get_mesh();
+	Ref<MultiMesh> mm;
+	mm.instantiate();
+	mm->set_transform_format(MultiMesh::TRANSFORM_3D);
+	mm->set_instance_count(transforms.size());
+	mm->set_mesh(mesh);
+	for (int i = 0; i < transforms.size(); i++) {
+		mm->set_instance_transform(i, transforms[i]);
+	}
+
+	_multimesh = mm;
+	_multimesh_instance->set_multimesh(_multimesh);
+}
+
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_storage.is_valid()) {
