@@ -12,6 +12,23 @@
 // Private Functions
 ///////////////////////////
 
+void Terrain3DInstancer::_set_instances(Dictionary p_instances) {
+	LOG(INFO, ": Setting instance()");
+	if (!p_instances.has("first")) {
+		return;
+	}
+	Ref<MultiMesh> mm = p_instances["first"];
+	if (mm.is_valid()) {
+		LOG(DEBUG, "Setting instance dictionary with ", mm->get_instance_count(), " instances");
+		destroy();
+		_instances = p_instances;
+		_multimesh = mm;
+		if (_multimesh_instance) {
+			_multimesh_instance->set_multimesh(_multimesh);
+		}
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -30,34 +47,49 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 		LOG(ERROR, "Terrain or storage not ready yet");
 		return;
 	}
+	LOG(INFO, "Initializing instancer");
+	if (_multimesh.is_null()) { // May already be set by set_instances
+		LOG(DEBUG, "Generating basic grass _multimesh");
+		Ref<QuadMesh> mesh;
+		mesh.instantiate();
+		mesh->set_size(Vector2(.5f, 2.f));
+		mesh->set_subdivide_depth(3);
+		Ref<StandardMaterial3D> mat;
+		mat.instantiate();
+		mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
+		mat->set_albedo(Color(0.f, .624f, .016f));
+		mat->set_feature(BaseMaterial3D::FEATURE_BACKLIGHT, true);
+		mat->set_backlight(Color(.5f, .5f, .5f));
+		/*mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_DITHER);
+		mat->set_distance_fade_max_distance(20.f);
+		mat->set_distance_fade_min_distance(30.f);*/
+		mesh->surface_set_material(0, mat);
 
-	_multimesh.instantiate();
-	_multimesh->set_transform_format(MultiMesh::TRANSFORM_3D);
-	_multimesh->set_instance_count(0);
-	Ref<QuadMesh> mesh;
-	mesh.instantiate();
-	mesh->set_size(Vector2(.5f, 2.f));
-	mesh->set_subdivide_depth(3);
-	Ref<StandardMaterial3D> mat;
-	mat.instantiate();
-	mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
-	mat->set_albedo(Color(0.f, .624f, .016f));
-	mat->set_feature(BaseMaterial3D::FEATURE_BACKLIGHT, true);
-	mat->set_backlight(Color(.5f, .5f, .5f));
-	/*mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_DITHER);
-	mat->set_distance_fade_max_distance(20.f);
-	mat->set_distance_fade_min_distance(30.f);*/
-
-	mesh->surface_set_material(0, mat);
-	_multimesh->set_mesh(mesh);
-	_multimesh_instance = memnew(MultiMeshInstance3D);
-	_multimesh_instance->set_multimesh(_multimesh);
-	_terrain->add_child(_multimesh_instance);
+		_multimesh.instantiate();
+		_multimesh->set_transform_format(MultiMesh::TRANSFORM_3D);
+		_multimesh->set_instance_count(0);
+		_multimesh->set_mesh(mesh);
+	} else {
+		LOG(DEBUG, "Using existing _multimesh");
+	}
+	if (_multimesh_instance == nullptr) {
+		LOG(DEBUG, "Allocating memory for new _multimesh_instance, attaching to tree");
+		_multimesh_instance = memnew(MultiMeshInstance3D);
+		_multimesh_instance->set_multimesh(_multimesh);
+		_terrain->add_child(_multimesh_instance);
+		_instances["first"] = _multimesh;
+	}
 }
 
 void Terrain3DInstancer::destroy() {
-	LOG(DEBUG, "Freeing _multimesh_instance");
-	memdelete_safely(_multimesh_instance);
+	if (_multimesh_instance) {
+		LOG(DEBUG, "Removing MMI from tree");
+		remove_from_tree(_multimesh_instance);
+		LOG(DEBUG, "Deleting MMI");
+		memdelete_safely(_multimesh_instance);
+		LOG(DEBUG, "Emptying instances dictionary");
+		_instances.clear();
+	}
 }
 
 void Terrain3DInstancer::add_instances(Vector3 p_global_position, real_t p_radius, uint32_t p_count) {
@@ -113,6 +145,7 @@ void Terrain3DInstancer::add_instances(Vector3 p_global_position, real_t p_radiu
 
 		_multimesh = mm;
 		_multimesh_instance->set_multimesh(_multimesh);
+		_instances["first"] = _multimesh;
 	}
 }
 
@@ -141,6 +174,7 @@ void Terrain3DInstancer::remove_instances(Vector3 p_global_position, real_t p_ra
 
 	_multimesh = mm;
 	_multimesh_instance->set_multimesh(_multimesh);
+	_instances["first"] = _multimesh;
 }
 
 void Terrain3DInstancer::save() {
@@ -182,6 +216,8 @@ void Terrain3DInstancer::print_multimesh_buffer(MultiMeshInstance3D *p_mmi) {
 ///////////////////////////
 
 void Terrain3DInstancer::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("_set_instances", "instances"), &Terrain3DInstancer::_set_instances);
+	ClassDB::bind_method(D_METHOD("_get_instances"), &Terrain3DInstancer::_get_instances);
 
 	// Public
 	ClassDB::bind_method(D_METHOD("get_multimesh"), &Terrain3DInstancer::get_multimesh);
@@ -191,7 +227,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("save"), &Terrain3DInstancer::save);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
-	//ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "textures", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DInstancer"), ro_flags), "set_textures", "get_textures");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "instances", PROPERTY_HINT_NONE, "", ro_flags), "_set_instances", "_get_instances");
 
 	//BIND_CONSTANT(MAX_TEXTURES);
 

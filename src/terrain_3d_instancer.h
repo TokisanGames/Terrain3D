@@ -25,7 +25,11 @@ private:
 	MultiMeshInstance3D *_multimesh_instance = nullptr;
 	Ref<MultiMesh> _multimesh;
 
+	Dictionary _instances;
 	//TypedArray<Terrain3DInstance> _instances;
+
+	void _set_instances(Dictionary p_instances);
+	Dictionary _get_instances() { return _instances; }
 
 public:
 	Terrain3DInstancer();

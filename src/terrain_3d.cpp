@@ -223,9 +223,9 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 	}
 }
 
-void Terrain3D::_clear(bool p_clear_meshes, bool p_clear_collision) {
+void Terrain3D::_clear(bool p_meshes, bool p_collision, bool p_instances) {
 	LOG(INFO, "Clearing the terrain");
-	if (p_clear_meshes) {
+	if (p_meshes) {
 		for (const RID rid : _meshes) {
 			RS->free_rid(rid);
 		}
@@ -251,11 +251,12 @@ void Terrain3D::_clear(bool p_clear_meshes, bool p_clear_collision) {
 		_initialized = false;
 	}
 
-	if (_instancer.is_valid()) {
-		_instancer->destroy();
-	}
-	if (p_clear_collision) {
+	if (p_collision) {
 		_destroy_collision();
+	}
+
+	if (p_instances && _instancer.is_valid()) {
+		_instancer->destroy();
 	}
 }
 
@@ -674,18 +675,18 @@ void Terrain3D::set_debug_level(int p_level) {
 
 void Terrain3D::set_mesh_lods(int p_count) {
 	if (_mesh_lods != p_count) {
+		_clear(true, true, false); // +Mesh, +collision, -foliage
 		LOG(INFO, "Setting mesh levels: ", p_count);
 		_mesh_lods = p_count;
-		_clear();
 		_initialize();
 	}
 }
 
 void Terrain3D::set_mesh_size(int p_size) {
 	if (_mesh_size != p_size) {
+		_clear(true, true, false); // +Mesh, +collision, -foliage
 		LOG(INFO, "Setting mesh size: ", p_size);
 		_mesh_size = p_size;
-		_clear();
 		_initialize();
 	}
 }
@@ -693,12 +694,12 @@ void Terrain3D::set_mesh_size(int p_size) {
 void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 	p_spacing = CLAMP(p_spacing, 0.25f, 100.0f);
 	if (_mesh_vertex_spacing != p_spacing) {
+		_clear(true, true, true); // +Mesh, +collision, +foliage
 		LOG(INFO, "Setting mesh vertex spacing: ", p_spacing);
 		_mesh_vertex_spacing = p_spacing;
 		if (_storage != nullptr) {
 			_storage->_mesh_vertex_spacing = p_spacing;
 		}
-		_clear();
 		_initialize();
 	}
 	if (Engine::get_singleton()->is_editor_hint() && _plugin != nullptr) {
@@ -708,20 +709,20 @@ void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 
 void Terrain3D::set_instancer(const Ref<Terrain3DInstancer> &p_instancer) {
 	if (_instancer != p_instancer) {
-		LOG(INFO, "Setting instancer");
-		//_instancer->destroy();
+		_clear(false, false, true); // -Mesh, -collision, +foliage
+		LOG(INFO, "Setting new instancer");
 		_instancer = p_instancer;
-		_clear();
 		_initialize();
-		emit_signal("material_changed");
+		_instancer->initialize(this);
+		emit_signal("instancer_changed");
 	}
 }
 
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 	if (_material != p_material) {
+		_clear(true, false, false); // +Mesh, -collision, -foliage
 		LOG(INFO, "Setting material");
 		_material = p_material;
-		_clear();
 		_initialize();
 		emit_signal("material_changed");
 	}
@@ -730,11 +731,9 @@ void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 // This is run after the object has loaded and initialized
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	if (_storage != p_storage) {
+		_clear(true, true, true); // +Mesh, -collision, -foliage
+		LOG(INFO, "Setting storage");
 		_storage = p_storage;
-		if (_storage.is_null()) {
-			LOG(INFO, "Clearing storage");
-		}
-		_clear();
 		_initialize();
 		emit_signal("storage_changed");
 	}
@@ -742,9 +741,9 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 
 void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
 	if (_texture_list != p_texture_list) {
+		_clear(true, false, false); // +Mesh, -collision, -foliage
 		LOG(INFO, "Setting texture list");
 		_texture_list = p_texture_list;
-		_clear();
 		_initialize();
 		emit_signal("texture_list_changed");
 	}
@@ -1170,6 +1169,11 @@ void Terrain3D::_notification(int p_what) {
 			} else {
 				_texture_list->save();
 			}
+			if (!_instancer.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid instancer. Skipping");
+			} else {
+				_instancer->save();
+			}
 			break;
 		}
 
@@ -1257,6 +1261,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 
+	ADD_SIGNAL(MethodInfo("instancer_changed"));
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("storage_changed"));
 	ADD_SIGNAL(MethodInfo("texture_list_changed"));

@@ -91,7 +91,7 @@ private:
 	void _grab_camera();
 	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
-	void _clear(bool p_clear_meshes = true, bool p_clear_collision = true);
+	void _clear(bool p_meshes = true, bool p_collision = true, bool p_instances = true);
 	void _build(int p_mesh_lods, int p_mesh_size);
 
 	void _build_collision();

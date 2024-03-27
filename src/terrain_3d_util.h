@@ -134,4 +134,12 @@ _FORCE_INLINE_ void memdelete_safely(TType *&p_ptr) {
 	}
 }
 
+_FORCE_INLINE_ void remove_from_tree(Node *p_node) {
+	// Note: is_in_tree() doesn't work in Godot-cpp 4.1.3
+	Node *parent = p_node->get_parent();
+	if (parent != nullptr) {
+		parent->remove_child(p_node);
+	}
+}
+
 #endif // TERRAIN3D_UTIL_CLASS_H
