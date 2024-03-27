@@ -60,6 +60,9 @@
     <ClInclude Include="src\terrain_3d_util.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\terrain_3d_instancer.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\geoclipmap.cpp">
@@ -90,6 +93,9 @@
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_util.cpp">
+      <Filter>5. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_3d_instancer.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
   </ItemGroup>

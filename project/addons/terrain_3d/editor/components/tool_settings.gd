@@ -29,6 +29,7 @@ const ALLOW_SMALLER: int = 0x2
 const ALLOW_OUT_OF_BOUNDS: int = 0x3
 
 var brush_preview_material: ShaderMaterial
+var select_brush_button: Button
 
 var list: HBoxContainer
 var advanced_list: VBoxContainer
@@ -42,7 +43,7 @@ func _ready() -> void:
 	add_brushes(list)
 
 	add_setting(SettingType.SLIDER, "size", 50, list, "m", 2, 200, 1, ALLOW_LARGER)
-	add_setting(SettingType.SLIDER, "opacity", 10, list, "%", 1, 100)
+	add_setting(SettingType.SLIDER, "strength", 10, list, "%", 1, 100, 1, ALLOW_LARGER)
 	add_setting(SettingType.CHECKBOX, "enable", true, list)
 	
 	add_setting(SettingType.COLOR_SELECT, "color", Color.WHITE, list)
@@ -124,7 +125,7 @@ func add_brushes(p_parent: Control) -> void:
 		while file_name != "":
 			if !dir.current_is_dir() and file_name.ends_with(".exr"):
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
-				_black_to_alpha(img)
+				img = Terrain3DUtil.black_to_alpha(img)
 				var tex: ImageTexture = ImageTexture.create_from_image(img)
 
 				var btn: Button = Button.new()
@@ -142,8 +143,9 @@ func add_brushes(p_parent: Control) -> void:
 					default_brush_btn = btn 
 				
 				var lbl: Label = Label.new()
+				btn.name = file_name.get_basename().to_pascal_case()
 				btn.add_child(lbl, true)
-				lbl.text = file_name.get_basename()
+				lbl.text = btn.name
 				lbl.visible = false
 				lbl.position.y = 70
 				lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
@@ -161,12 +163,12 @@ func add_brushes(p_parent: Control) -> void:
 	
 	settings["brush"] = brush_button_group
 
+	select_brush_button = brush_list.get_parent().get_parent()
 	# Optionally erase the main brush button text and replace it with the texture
-#	var select_brush_btn: Button = brush_list.get_parent().get_parent()
-#	select_brush_btn.set_button_icon(default_brush_btn.get_button_icon())
-#	select_brush_btn.set_custom_minimum_size(Vector2.ONE * 36)
-#	select_brush_btn.set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-#	select_brush_btn.set_expand_icon(true)
+#	select_brush_button.set_button_icon(default_brush_btn.get_button_icon())
+#	select_brush_button.set_custom_minimum_size(Vector2.ONE * 36)
+#	select_brush_button.set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER)
+#	select_brush_button.set_expand_icon(true)
 
 
 func _on_brush_hover(p_hovering: bool, p_button: Button) -> void:
@@ -293,6 +295,7 @@ func add_setting(p_type: SettingType, p_name: StringName, p_value: Variant, p_pa
 			control.connect("pressed", _on_point_pick.bind(p_value, p_name))
 			control.connect("value_changed", _on_setting_changed)
 		
+	control.name = p_name.to_pascal_case()
 	container.add_child(control, true)
 	p_parent.add_child(container, true)
 	
@@ -321,17 +324,40 @@ func get_setting(p_setting: String) -> Variant:
 	return value
 
 
-func hide_settings(p_settings: PackedStringArray) -> void:
+func set_setting(p_setting: String, p_value: Variant) -> void:
+	var object: Object = settings.get(p_setting)
+	if object is Range:
+		object.set_value(p_value)
+	elif object is DoubleSlider: # Expects p_value is Vector2
+		object.set_min_value(p_value.x)
+		object.set_max_value(p_value.y)
+	elif object is ButtonGroup: # Expects p_value is Array [ "button name", boolean ]
+		if p_value is Array and p_value.size() == 2:
+			for button in object.get_buttons():
+				if button.name == p_value[0]:
+					button.button_pressed = p_value[1]
+	elif object is CheckBox:
+		object.button_pressed = p_value
+	elif object is ColorPickerButton:
+		object.color = p_value
+	elif object is PointPicker: # Expects p_value is PackedVector3Array
+		object.points = p_value
+	_on_setting_changed(object)
+
+
+func show_settings(p_settings: PackedStringArray) -> void:
 	for setting in settings.keys():
 		var object: Object = settings[setting]
 		if object is Control:
-			object.get_parent().show()
-	
-	for setting in p_settings:
-		if settings.has(setting):
-			var object: Object = settings[setting]
-			if object is Control:
+			if setting in p_settings:
+				object.get_parent().show()
+			else:
 				object.get_parent().hide()
+	if select_brush_button:
+		if not "brush" in p_settings:
+			select_brush_button.hide()
+		else:
+			select_brush_button.show()
 
 
 func _on_setting_changed(p_data: Variant = null) -> void:
@@ -378,15 +404,6 @@ func _get_brush_preview_material() -> ShaderMaterial:
 	return brush_preview_material
 
 
-func _black_to_alpha(p_image: Image) -> void:
-	if p_image.get_format() != Image.FORMAT_RGBAF:
-		p_image.convert(Image.FORMAT_RGBAF)
-
-	for y in p_image.get_height():
-		for x in p_image.get_width():
-			var color: Color = p_image.get_pixel(x,y)
-			color.a = color.get_luminance()
-			p_image.set_pixel(x, y, color)
 
 
 #### Sub Class DoubleSlider

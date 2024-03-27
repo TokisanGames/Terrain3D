@@ -26,7 +26,7 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	_texture = p_data["texture"];
 
 	_size = p_data["size"];
-	_opacity = p_data["opacity"];
+	_strength = p_data["strength"];
 	_height = p_data["height"];
 	_texture_index = p_data["texture_index"];
 	_color = p_data["color"];
@@ -86,10 +86,10 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 }
 
 void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_direction) {
+	LOG(DEBUG, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
-
 	int region_index = storage->get_region_index(p_global_position);
 	if (region_index == -1) {
 		if (!_brush.auto_regions_enabled()) {
@@ -114,6 +114,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	Terrain3DStorage::MapType map_type;
 	switch (_tool) {
 		case HEIGHT:
+		case FOLIAGE:
 			map_type = Terrain3DStorage::TYPE_HEIGHT;
 			break;
 		case TEXTURE:
@@ -134,7 +135,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	int brush_size = _brush.get_size();
 	int texture_id = _brush.get_texture_index();
 	Vector2i img_size = _brush.get_image_size();
-	real_t opacity = _brush.get_opacity();
+	real_t strength = _brush.get_strength();
 	real_t height = _brush.get_height();
 	Color color = _brush.get_color();
 	real_t roughness = _brush.get_roughness();
@@ -150,9 +151,43 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	Object::cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
 
 	AABB edited_area;
-	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) / 2.f;
+	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) * .5f;
 	edited_area.size = Vector3(brush_size, 0.f, brush_size);
 
+	if (_tool == FOLIAGE) {
+		real_t bsize = MAX(1.f, real_t(brush_size) * .4f);
+		// _instance_counter allows us to instance every X operations for sparse placement
+		real_t density = bsize * strength;
+		int count = 0;
+		if (density < 1.f && _instance_counter++ % int(1.f / density) == 0) {
+			count = 1;
+		} else if (density >= 1.f) {
+			count = int(density);
+		}
+		if (enable) {
+			_terrain->get_instancer()->add_instances(p_global_position, brush_size * .4f, count);
+		} else {
+			_terrain->get_instancer()->remove_instances(p_global_position, brush_size * .5f, count);
+		}
+
+		//switch (_operation) {
+		//case ADD: {
+		// Change to ADD/SUBTRACT
+		//		break;
+		//	}
+		//	case SUBTRACT:
+		//		break;
+		//	default:
+		//		return;
+		//		break;
+		//}
+
+		return;
+		_modified = true;
+		storage->add_edited_area(edited_area);
+	}
+
+	// MAP Operations
 	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
@@ -207,19 +242,19 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 					switch (_operation) {
 						case ADD:
-							destf = srcf + (brush_alpha * opacity * 10.f);
+							destf = srcf + (brush_alpha * strength * 10.f);
 							break;
 						case SUBTRACT:
-							destf = srcf - (brush_alpha * opacity * 10.f);
+							destf = srcf - (brush_alpha * strength * 10.f);
 							break;
 						case MULTIPLY:
-							destf = srcf * (brush_alpha * opacity * .01f + 1.0f);
+							destf = srcf * (brush_alpha * strength * .01f + 1.0f);
 							break;
 						case DIVIDE:
-							destf = srcf * (-brush_alpha * opacity * .01f + 1.0f);
+							destf = srcf * (-brush_alpha * strength * .01f + 1.0f);
 							break;
 						case REPLACE:
-							destf = Math::lerp(srcf, height, brush_alpha * opacity);
+							destf = Math::lerp(srcf, height, brush_alpha * strength);
 							break;
 						case AVERAGE: {
 							Vector3 left_position = brush_global_position - Vector3(vertex_spacing, 0.f, 0.f);
@@ -235,7 +270,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							down = storage->get_pixel(map_type, down_position).r;
 
 							real_t avg = (srcf + left + right + up + down) * 0.2f;
-							destf = Math::lerp(srcf, avg, brush_alpha * opacity);
+							destf = Math::lerp(srcf, avg, brush_alpha * strength);
 							break;
 						}
 						case GRADIENT: {
@@ -260,7 +295,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 								weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
 								real_t height = Math::lerp(point_1.y, point_2.y, weight);
 
-								destf = Math::lerp(srcf, height, brush_alpha * opacity);
+								destf = Math::lerp(srcf, height, brush_alpha * strength);
 							}
 							break;
 						}
@@ -301,8 +336,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 								// Overlay Spray
 								case ADD: {
-									real_t spray_opacity = CLAMP(opacity * 0.025f, 0.003f, 0.025f);
-									real_t brush_value = CLAMP(brush_alpha * spray_opacity, 0.f, 1.f);
+									real_t spray_strength = CLAMP(strength * 0.025f, 0.003f, 0.025f);
+									real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
 									// If overlay and base texture are the same, reduce blend value
 									if (dest_id == base_id) {
 										blend = CLAMP(blend - brush_value, 0.f, 1.f);
@@ -311,7 +346,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 										overlay_id = dest_id;
 										blend = CLAMP(blend + brush_value, 0.f, 1.f);
 									}
-									if (brush_alpha * opacity * 11.f > 0.1f) {
+									if (brush_alpha * strength * 11.f > 0.1f) {
 										autoshader = false;
 									}
 								} break;
@@ -351,7 +386,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
 					switch (_tool) {
 						case COLOR:
-							dest = src.lerp(color, brush_alpha * opacity);
+							dest = src.lerp(color, brush_alpha * strength);
 							dest.a = src.a;
 							break;
 						case ROUGHNESS:
@@ -361,7 +396,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
 							 * We round the final amount in tool_settings.gd:_on_picked().
 							 */
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f) + real_t(.5f * .01f) * roughness, brush_alpha * opacity);
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f) + real_t(.5f * .01f) * roughness, brush_alpha * strength);
 							break;
 						default:
 							break;
@@ -583,6 +618,7 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(AUTOSHADER);
 	BIND_ENUM_CONSTANT(HOLES);
 	BIND_ENUM_CONSTANT(NAVIGATION);
+	BIND_ENUM_CONSTANT(FOLIAGE);
 	BIND_ENUM_CONSTANT(REGION);
 	BIND_ENUM_CONSTANT(TOOL_MAX);
 

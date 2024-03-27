@@ -22,6 +22,7 @@ public:
 	static void dump_maps(const TypedArray<Image> p_maps, String p_name = "");
 
 	// Image operations
+	static Ref<Image> black_to_alpha(const Ref<Image> p_image);
 	static Vector2 get_min_max(const Ref<Image> p_image);
 	static Ref<Image> get_thumbnail(const Ref<Image> p_image, Vector2i p_size = Vector2i(256, 256));
 	static Ref<Image> get_filled_image(Vector2i p_size,
@@ -130,6 +131,14 @@ _FORCE_INLINE_ void memdelete_safely(TType *&p_ptr) {
 	if (p_ptr != nullptr) {
 		memdelete(p_ptr);
 		p_ptr = nullptr;
+	}
+}
+
+_FORCE_INLINE_ void remove_from_tree(Node *p_node) {
+	// Note: is_in_tree() doesn't work in Godot-cpp 4.1.3
+	Node *parent = p_node->get_parent();
+	if (parent != nullptr) {
+		parent->remove_child(p_node);
 	}
 }
 

@@ -47,6 +47,7 @@ public:
 		AUTOSHADER,
 		HOLES,
 		NAVIGATION,
+		FOLIAGE,
 		REGION,
 		TOOL_MAX,
 	};
@@ -59,6 +60,7 @@ public:
 		"Auto Shader",
 		"Holes",
 		"Navigation",
+		"Foliage",
 		"Region",
 		"TOOL_MAX",
 	};
@@ -70,7 +72,7 @@ public:
 		Ref<ImageTexture> _texture;
 
 		int _size = 0;
-		real_t _opacity = 0.0f;
+		real_t _strength = 0.0f;
 		real_t _height = 0.0f;
 		int _texture_index = 0;
 		Color _color = COLOR_ROUGHNESS;
@@ -92,7 +94,7 @@ public:
 		Vector2i get_image_size() const { return _img_size; }
 
 		int get_size() const { return _size; }
-		real_t get_opacity() const { return _opacity; }
+		real_t get_strength() const { return _strength; }
 		real_t get_height() const { return _height; }
 		int get_texture_index() const { return _texture_index; }
 		Color get_color() const { return _color; }
@@ -120,6 +122,8 @@ private:
 	bool _modified = false;
 	AABB _modified_area;
 	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range, 5: edited AABB
+
+	uint32_t _instance_counter = 0; // work varible, not data
 
 	void _region_modified(Vector3 p_global_position, Vector2 p_height_range = Vector2());
 	void _operate_region(Vector3 p_global_position);

@@ -50,6 +50,8 @@ Methods
    +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`         | :ref:`as_uint<class_Terrain3DUtil_method_as_uint>` **(** :ref:`float<class_float>` value **)** |static|                                                                                                                                          |
    +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Image<class_Image>`     | :ref:`black_to_alpha<class_Terrain3DUtil_method_black_to_alpha>` **(** :ref:`Image<class_Image>` image **)** |static|                                                                                                                            |
+   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`         | :ref:`enc_auto<class_Terrain3DUtil_method_enc_auto>` **(** :ref:`bool<class_bool>` pixel **)** |static|                                                                                                                                          |
    +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`         | :ref:`enc_base<class_Terrain3DUtil_method_enc_base>` **(** :ref:`int<class_int>` base **)** |static|                                                                                                                                             |
@@ -128,6 +130,18 @@ See :ref:`as_float<class_Terrain3DUtil_method_as_float>` for the opposite.
 
 ----
 
+.. _class_Terrain3DUtil_method_black_to_alpha:
+
+.. rst-class:: classref-method
+
+:ref:`Image<class_Image>` **black_to_alpha** **(** :ref:`Image<class_Image>` image **)** |static|
+
+Receives an image with a black background and returns one with a transparent background, aka an alpha mask.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DUtil_method_enc_auto:
 
 .. rst-class:: classref-method
@@ -158,9 +172,7 @@ Returns a control map uint with the base texture ID encoded. See the top descrip
 
 :ref:`int<class_int>` **enc_blend** **(** :ref:`int<class_int>` blend **)** |static|
 
-.. container:: contribute
-
-	There is currently no description for this method. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+Returns a control map uint with the blend value encoded. See the top description for usage.
 
 .. rst-class:: classref-item-separator
 

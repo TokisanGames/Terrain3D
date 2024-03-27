@@ -3,6 +3,8 @@
 #ifndef CONSTANTS_CLASS_H
 #define CONSTANTS_CLASS_H
 
+using namespace godot;
+
 //////////////////////////////////////
 // Macro Constants & Syntactic Sugar
 //////////////////////////////////////
