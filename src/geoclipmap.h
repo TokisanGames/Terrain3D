@@ -5,14 +5,13 @@
 
 #include <godot_cpp/templates/vector.hpp>
 
+#include "constants.h"
+
 using namespace godot;
 
 class GeoClipMap {
-public:
-	// Constants
-	static inline const char *__class__ = "Terrain3DGeoClipMap";
+	CLASS_NAME_STATIC("Terrain3DGeoClipMap");
 
-private:
 	static inline int _patch_2d(int x, int y, int res);
 	static RID _create_mesh(PackedVector3Array p_vertices, PackedInt32Array p_indices, AABB p_aabb);
 

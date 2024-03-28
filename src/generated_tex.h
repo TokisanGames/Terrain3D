@@ -5,12 +5,12 @@
 
 #include <godot_cpp/classes/image.hpp>
 
+#include "constants.h"
+
 using namespace godot;
 
 class GeneratedTex {
-public:
-	// Constants
-	static inline const char *__class__ = "Terrain3DGeneratedTex";
+	CLASS_NAME_STATIC("Terrain3DGenTex");
 
 private:
 	RID _rid = RID();

@@ -25,12 +25,12 @@
 #define DEBUG 2
 #define DEBUG_CONT 3
 #define DEBUG_MAX 3
-#define LOG(level, ...)                                                               \
-	if (level == ERROR)                                                               \
-		UtilityFunctions::push_error(__class__, "::", __func__, ": ", __VA_ARGS__);   \
-	else if (level == WARN)                                                           \
-		UtilityFunctions::push_warning(__class__, "::", __func__, ": ", __VA_ARGS__); \
-	else if (Terrain3D::debug_level >= level)                                         \
-		UtilityFunctions::print(__class__, "::", __func__, ": ", __VA_ARGS__);
+#define LOG(level, ...)                                                              \
+	if (level == ERROR)                                                              \
+		UtilityFunctions::push_error(__class__, ":", __func__, ": ", __VA_ARGS__);   \
+	else if (level == WARN)                                                          \
+		UtilityFunctions::push_warning(__class__, ":", __func__, ": ", __VA_ARGS__); \
+	else if (Terrain3D::debug_level >= level)                                        \
+		UtilityFunctions::print(__class__, ":", __func__, ": ", __VA_ARGS__);
 
 #endif // LOGGER_CLASS_H

@@ -12,10 +12,9 @@ using namespace godot;
 
 class Terrain3DUtil : public Object {
 	GDCLASS(Terrain3DUtil, Object);
+	CLASS_NAME_STATIC("Terrain3DUtil");
 
 public:
-	static inline const char *__class__ = "Terrain3DUtil";
-
 	// Print info to the console
 	static void print_dict(String name, const Dictionary &p_dict, int p_level = 1); // Defaults to INFO
 	static void dump_gen(GeneratedTex p_gen, String name = "");
@@ -29,6 +28,8 @@ public:
 			Color p_color = COLOR_BLACK,
 			bool p_create_mipmaps = true,
 			Image::Format p_format = Image::FORMAT_MAX);
+	static Ref<Image> load_image(String p_file_name, int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
+			Vector2 p_r16_height_range = Vector2(0.f, 255.f), Vector2i p_r16_size = Vector2i(0, 0));
 	static Ref<Image> pack_image(const Ref<Image> p_src_rgb, const Ref<Image> p_src_r, bool p_invert_green_channel = false);
 
 protected:

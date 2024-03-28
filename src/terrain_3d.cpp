@@ -207,7 +207,7 @@ void Terrain3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, 
 			_find_cameras(node->get_children(), excluded_node, cam_array);
 		}
 		if (node->is_class("Camera3D")) {
-			LOG(DEBUG, "Found a Camera3D at: ", node->get_path());
+			LOG(DEBUG, "Found Camera3D: ", i);
 			cam_array.push_back(node);
 		}
 	}

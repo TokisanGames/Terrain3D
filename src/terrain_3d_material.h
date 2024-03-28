@@ -5,6 +5,7 @@
 
 #include <godot_cpp/classes/shader.hpp>
 
+#include "constants.h"
 #include "generated_tex.h"
 
 class Terrain3D;
@@ -14,12 +15,10 @@ using namespace godot;
 
 class Terrain3DMaterial : public Resource {
 	GDCLASS(Terrain3DMaterial, Resource);
+	CLASS_NAME();
 	friend class Terrain3D;
 
-public:
-	// Constants
-	static inline const char *__class__ = "Terrain3DMaterial";
-
+public: // Constants
 	enum WorldBackground {
 		NONE,
 		FLAT,

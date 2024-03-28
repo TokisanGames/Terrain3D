@@ -5,15 +5,15 @@
 
 #include <godot_cpp/classes/texture2d.hpp>
 
+#include "constants.h"
+
 using namespace godot;
 
 class Terrain3DTexture : public Resource {
 	GDCLASS(Terrain3DTexture, Resource);
+	CLASS_NAME();
 
-public:
-	// Constants
-	static inline const char *__class__ = "Terrain3DTexture";
-
+public: // Constants
 	struct Settings {
 		String _name = "New Texture";
 		int _texture_id = 0;

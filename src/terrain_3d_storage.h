@@ -17,13 +17,11 @@ using namespace godot;
 
 class Terrain3DStorage : public Resource {
 	GDCLASS(Terrain3DStorage, Resource);
+	CLASS_NAME();
 
 	friend class Terrain3D;
 
-public:
-	// Constants
-	static inline const char *__class__ = "Terrain3DStorage";
-
+public: // Constants
 	static inline const real_t CURRENT_VERSION = 0.842f;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
@@ -169,8 +167,6 @@ public:
 	void save();
 	void clear_modified() { _modified = false; }
 	void set_modified() { _modified = true; }
-	static Ref<Image> load_image(String p_file_name, int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
-			Vector2 p_r16_height_range = Vector2(0.f, 255.f), Vector2i p_r16_size = Vector2i(0, 0));
 	void import_images(const TypedArray<Image> &p_images, Vector3 p_global_position = Vector3(0.f, 0.f, 0.f),
 			real_t p_offset = 0.f, real_t p_scale = 1.f);
 	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);

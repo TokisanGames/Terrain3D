@@ -3,6 +3,7 @@
 #ifndef TERRAIN3D_TEXTURE_LIST_CLASS_H
 #define TERRAIN3D_TEXTURE_LIST_CLASS_H
 
+#include "constants.h"
 #include "generated_tex.h"
 #include "terrain_3d_texture.h"
 
@@ -10,11 +11,9 @@ using namespace godot;
 
 class Terrain3DTextureList : public Resource {
 	GDCLASS(Terrain3DTextureList, Resource);
+	CLASS_NAME();
 
-public:
-	// Constants
-	static inline const char *__class__ = "Terrain3DTextureList";
-
+public: // Constants
 	static inline const int MAX_TEXTURES = 32;
 
 private:

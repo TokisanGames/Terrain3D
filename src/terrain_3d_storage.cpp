@@ -629,75 +629,6 @@ void Terrain3DStorage::save() {
 }
 
 /**
- * Loads a file from disk and returns an Image
- * Parameters:
- *	p_filename - file on disk to load. EXR, R16/RAW, PNG, or a ResourceLoader format (jpg, res, tres, etc)
- *	p_cache_mode - Send this flag to the resource loader to force caching or not
- *	p_height_range - R16 format: x=Min & y=Max value ranges. Required for R16 import
- *	p_size - R16 format: Image dimensions. Default (0,0) auto detects f/ square images. Required f/ non-square R16
- */
-Ref<Image> Terrain3DStorage::load_image(String p_file_name, int p_cache_mode, Vector2 p_r16_height_range, Vector2i p_r16_size) {
-	if (p_file_name.is_empty()) {
-		LOG(ERROR, "No file specified. Nothing imported.");
-		return Ref<Image>();
-	}
-	if (!FileAccess::file_exists(p_file_name)) {
-		LOG(ERROR, "File ", p_file_name, " does not exist. Nothing to import.");
-		return Ref<Image>();
-	}
-
-	// Load file based on extension
-	Ref<Image> img;
-	LOG(INFO, "Attempting to load: ", p_file_name);
-	String ext = p_file_name.get_extension().to_lower();
-	PackedStringArray imgloader_extensions = PackedStringArray(Array::make("bmp", "dds", "exr", "hdr", "jpg", "jpeg", "png", "tga", "svg", "webp"));
-
-	// If R16 integer format (read/writeable by Krita)
-	if (ext == "r16" || ext == "raw") {
-		LOG(DEBUG, "Loading file as an r16");
-		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::READ);
-		// If p_size is zero, assume square and try to auto detect size
-		if (p_r16_size <= Vector2i(0, 0)) {
-			file->seek_end();
-			int fsize = file->get_position();
-			int fwidth = sqrt(fsize / 2);
-			p_r16_size = Vector2i(fwidth, fwidth);
-			LOG(DEBUG, "Total file size is: ", fsize, " calculated width: ", fwidth, " dimensions: ", p_r16_size);
-			file->seek(0);
-		}
-		img = Image::create(p_r16_size.x, p_r16_size.y, false, FORMAT[TYPE_HEIGHT]);
-		for (int y = 0; y < p_r16_size.y; y++) {
-			for (int x = 0; x < p_r16_size.x; x++) {
-				real_t h = real_t(file->get_16()) / 65535.0f;
-				h = h * (p_r16_height_range.y - p_r16_height_range.x) + p_r16_height_range.x;
-				img->set_pixel(x, y, Color(h, 0.f, 0.f));
-			}
-		}
-
-		// If an Image extension, use Image loader
-	} else if (imgloader_extensions.has(ext)) {
-		LOG(DEBUG, "ImageFormatLoader loading recognized file type: ", ext);
-		img = Image::load_from_file(p_file_name);
-
-		// Else, see if Godot's resource loader will read it as an image: RES, TRES, etc
-	} else {
-		LOG(DEBUG, "Loading file as a resource");
-		img = ResourceLoader::get_singleton()->load(p_file_name, "", static_cast<ResourceLoader::CacheMode>(p_cache_mode));
-	}
-
-	if (!img.is_valid()) {
-		LOG(ERROR, "File", p_file_name, " could not be loaded.");
-		return Ref<Image>();
-	}
-	if (img->is_empty()) {
-		LOG(ERROR, "File", p_file_name, " is empty.");
-		return Ref<Image>();
-	}
-	LOG(DEBUG, "Loaded Image size: ", img->get_size(), " format: ", img->get_format());
-	return img;
-}
-
-/**
  * Imports an Image set (Height, Control, Color) into Terrain3DStorage
  * It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
  * Parameters:
@@ -1088,7 +1019,6 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	ClassDB::bind_method(D_METHOD("save"), &Terrain3DStorage::save);
-	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DStorage::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(Vector2i(0, 0)));
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);

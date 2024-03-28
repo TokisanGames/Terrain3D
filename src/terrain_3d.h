@@ -3,10 +3,6 @@
 #ifndef TERRAIN3D_CLASS_H
 #define TERRAIN3D_CLASS_H
 
-#ifndef __FLT_MAX__
-#define __FLT_MAX__ FLT_MAX
-#endif
-
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
@@ -15,6 +11,7 @@
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
+#include "constants.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
@@ -23,12 +20,8 @@ using namespace godot;
 
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
+	CLASS_NAME();
 
-public:
-	// Constants
-	static inline const char *__class__ = "Terrain3D";
-
-private:
 	// Terrain state
 	String _version = "0.9.2-dev";
 	bool _is_inside_world = false;
