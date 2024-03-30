@@ -1,7 +1,7 @@
 // Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
 
-#ifndef GENERATEDTEX_CLASS_H
-#define GENERATEDTEX_CLASS_H
+#ifndef GENERATEDTEXTURE_CLASS_H
+#define GENERATEDTEXTURE_CLASS_H
 
 #include <godot_cpp/classes/image.hpp>
 
@@ -9,7 +9,7 @@
 
 using namespace godot;
 
-class GeneratedTex {
+class GeneratedTexture {
 	CLASS_NAME_STATIC("Terrain3DGenTex");
 
 private:
@@ -20,10 +20,10 @@ private:
 public:
 	void clear();
 	bool is_dirty() { return _dirty; }
-	void create(const TypedArray<Image> &p_layers);
-	void create(const Ref<Image> &p_image);
+	RID create(const TypedArray<Image> &p_layers);
+	RID create(const Ref<Image> &p_image);
 	Ref<Image> get_image() const { return _image; }
 	RID get_rid() { return _rid; }
 };
 
-#endif // GENERATEDTEX_CLASS_H
+#endif // GENERATEDTEXTURE_CLASS_H

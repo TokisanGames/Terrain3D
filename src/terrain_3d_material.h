@@ -6,7 +6,7 @@
 #include <godot_cpp/classes/shader.hpp>
 
 #include "constants.h"
-#include "generated_tex.h"
+#include "generated_texture.h"
 
 class Terrain3D;
 class Terrain3DTextureList;
@@ -68,7 +68,7 @@ private:
 	real_t _mesh_vertex_spacing = 1.0f;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	PackedInt32Array _region_map;
-	GeneratedTex _generated_region_blend_map; // 512x512 blurred image of region_map
+	GeneratedTexture _generated_region_blend_map; // 512x512 blurred image of region_map
 
 	// Functions
 	void _preload_shaders();

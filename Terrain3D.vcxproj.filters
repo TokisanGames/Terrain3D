@@ -51,7 +51,7 @@
     <ClInclude Include="src\constants.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\generated_tex.h">
+    <ClInclude Include="src\generated_texture.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\logger.h">
@@ -86,7 +86,7 @@
     <ClCompile Include="src\terrain_3d_material.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\generated_tex.cpp">
+    <ClCompile Include="src\generated_texture.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_util.cpp">

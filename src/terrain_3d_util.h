@@ -6,7 +6,7 @@
 #include <godot_cpp/classes/image.hpp>
 
 #include "constants.h"
-#include "generated_tex.h"
+#include "generated_texture.h"
 
 using namespace godot;
 
@@ -17,7 +17,7 @@ class Terrain3DUtil : public Object {
 public:
 	// Print info to the console
 	static void print_dict(String name, const Dictionary &p_dict, int p_level = 1); // Defaults to INFO
-	static void dump_gen(GeneratedTex p_gen, String name = "");
+	static void dump_gen(GeneratedTexture p_gen, String name = "");
 	static void dump_maps(const TypedArray<Image> p_maps, String p_name = "");
 
 	// Image operations

@@ -7,7 +7,7 @@
 #include <godot_cpp/classes/shader.hpp>
 
 #include "constants.h"
-#include "generated_tex.h"
+#include "generated_texture.h"
 #include "terrain_3d_texture_list.h"
 #include "terrain_3d_util.h"
 
@@ -96,9 +96,9 @@ private:
 
 	// Generated Texture RIDs
 	// These contain the TextureLayered RID from the RenderingServer, no Image
-	GeneratedTex _generated_height_maps;
-	GeneratedTex _generated_control_maps;
-	GeneratedTex _generated_color_maps;
+	GeneratedTexture _generated_height_maps;
+	GeneratedTexture _generated_control_maps;
+	GeneratedTexture _generated_color_maps;
 
 	uint64_t _last_region_bounds_error = 0;
 
