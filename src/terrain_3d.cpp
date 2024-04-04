@@ -1049,10 +1049,8 @@ PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_storage.is_valid()) {
 		String ext = _storage->get_path().get_extension();
-		if (ext.is_empty()) {
-			psa.push_back("Storage resource is saved in the scene. Click the arrow to the right of Storage, Save as a .res file.");
-		} else if (ext != "res") {
-			psa.push_back("Storage resource is saved as a ." + ext + ". Click the arrow to the right of Storage, Make Unique, then Save as a .res file.");
+		if (ext != "res") {
+			psa.push_back("Storage resource is not saved as a binary resource file. Click the arrow to the right of `Storage`, then `Save As...` a `*.res` file.");
 		}
 	}
 	if (!psa.is_empty()) {

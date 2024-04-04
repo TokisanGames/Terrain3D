@@ -134,7 +134,7 @@ This is ideal for one lookup. However, if you wish to look up thousands of heigh
      var region_index: int = terrain.storage.get_region_index(global_position)
      var img: Image = terrain.storage.get_map_region(Terrain3DStorage.TYPE_HEIGHT, region_index)
      for y in img.get_height():
-          fox x in img.get_width():
+          for x in img.get_width():
                var height: float = img.get_pixel(x, y).r
 ```
 
