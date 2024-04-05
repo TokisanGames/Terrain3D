@@ -13,6 +13,7 @@
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 
+#include "collision_chunk_manager.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
@@ -70,12 +71,7 @@ private:
 	real_t _cull_margin = 0.0;
 
 	// Physics body and settings
-	RID _static_body;
-	StaticBody3D *_editor_static_body = nullptr;
 	bool _collision_initialized = false;
-	Vector2 _old_snapped_pos = Vector2(0.0, 0.0);
-	Array _collision_shapes = Array();
-	Array _collision_shapes_unused = Array();
 	bool _collision_enabled = true;
 	CollisionMode _collision_mode = DYNAMIC_GAME;
 	uint32_t _collision_dynamic_shape_size = 16;
@@ -83,6 +79,7 @@ private:
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0f;
+	CollisionChunkManager *_chunk_manager = nullptr;
 
 	void _initialize();
 	void __ready();
