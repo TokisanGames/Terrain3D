@@ -3,7 +3,7 @@ Preparing Textures
 
 Terrain3D supports up to 32 texture sets using albedo, height, normal, and roughness textures. This page describes everything you need to know to prepare your texture files. Continue on to [Texture Painting](texture_painting.md) to learn how to use them.
 
-TLDR: Just read channel pack textures with Gimp.
+TLDR: Read the Texture Requirements, then use Terrain3D Tools / Pack Textures tool in the menu at the top of the viewport.
 
 **Table of Contents**
 * [Texture Requirements](#texture-requirements)
@@ -25,7 +25,7 @@ You need two files per texture set. Terrain3D is designed for textures that are 
 
 The terrain can work without the alpha channels, however it won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
 
-Textures can be channel packed in in tools like Photoshop, [Krita](https://krita.org/), [Gimp](https://www.gimp.org/), or similar tools. Working with alpha channels in Photoshop and Krita can be a bit challenging, so we recommend Gimp. See [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp) below.
+Textures can be channel packed using the Pack Textures option in the Terrain3D Tools menu at the top of the viewport, or in tools like [Gimp](https://www.gimp.org/). Photoshop or [Krita](https://krita.org/) are possible, but working with alpha channels can be a bit challenging. See [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp) below.
 
 ### Texture Sizes
 All albedo textures must be the same size, and all normal textures must be the same size. Each type gets combined into separate Texture2DArrays, so their sizes can differ.
@@ -141,17 +141,19 @@ There are numerous websites where you can download high quality, royalty free te
 
 ### Why can't we just use regular textures? Why is this so difficult / impossible to do?
 
+Channel packing is a very common task done by professional game developers. Every pro asset pack you've used has channel packed textures. When you download texture packs from websites, they provide individual textures so you can pack them how you want. They are not intended to be used individually!
+
 Regular textures are now supported from v0.9.1. However if you want a realistic terrain with height blending and roughness, you need to channel pack textures.
 
-We provide easy, [5-step instructions](#channel-pack-textures-with-gimp) that take less than 2 minutes once you're familiar with the process. 
+There is now a Pack Textures tool built in, found in the Terrain3D Tools menu at the top of the viewport that facilitate the texture creation process.
 
-Channel packing is a very common task done by professional game developers. Every pro asset pack you've used has channel packed textures. When you download texture packs from websites, they provide individual textures so you can pack them how you want. They are not intended to be used individually!
+Finally, we provide easy, [5-step instructions for packing textures with Gimp](#channel-pack-textures-with-gimp) which take less than 2 minutes once you're familiar with the process. 
 
 We want high performance games, right? Then, we need to optimize our systems for the graphics hardware. A shader can retrieve four channels RGBA from a texture at once. Albedo and normal textures only have RGB. Thus, reading Alpha is free, and a waste if not used. So, we put height / roughness in the Alpha channel.
 
-Efficiency is also why we want power of 2 textures.
+Efficiency is also why we want textures sized in powers of 2.
 
-We could have the system channel pack for you, however that would mean processing up to 128 images every time any scene with Terrain3D loads, both in the editor and running games. Exported games may not even work since Godot's image compression libraries only exist in the editor. The most reasonable path is for gamedevs to learn a simple process that they'll use for their entire career and use it to set up terrain textures one time. In the future we may add a [channel packing tool](https://github.com/TokisanGames/Terrain3D/issues/125) to facilitate file creation within Godot.
+We could have the system channel pack for you at startup, however that would mean processing up to 128 images every time any scene with Terrain3D loads, both in the editor and running games. Exported games may not even work since Godot's image compression libraries only exist in the editor. The most reasonable path is for gamedevs to learn a simple process that they'll use for their entire career and use it to set up terrain textures one time.
 
 ### What about AO, Emissive, Metal, and other texture maps?
 
