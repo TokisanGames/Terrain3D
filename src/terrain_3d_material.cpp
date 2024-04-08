@@ -364,13 +364,14 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 	}
 }
 
+// Called from signal connected in Terrain3D, emitted by texture_list
 // Expected Arguments are as follows, * set is optional
 // 0: texture count
 // 1: albedo tex array
 // 2: normal tex array
-// 3: uv rotation array *
+// 3: uv color array *
 // 4: uv scale array *
-// 5: uv color array *
+// 5: uv rotation array *
 void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
 	if (!_initialized) {
 		return;
@@ -388,13 +389,13 @@ void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
 	RS->material_set_param(_material, "_texture_array_normal", normal_array);
 
 	if (p_args.size() == 6) {
-		PackedFloat32Array uv_scales = p_args[3];
-		PackedFloat32Array uv_rotations = p_args[4];
-		PackedColorArray colors = p_args[5];
+		PackedColorArray colors = p_args[3];
+		PackedFloat32Array uv_scales = p_args[4];
+		PackedFloat32Array uv_rotations = p_args[5];
 		_texture_count = uv_scales.size();
-		RS->material_set_param(_material, "_texture_uv_rotation_array", uv_scales);
-		RS->material_set_param(_material, "_texture_uv_scale_array", uv_rotations);
 		RS->material_set_param(_material, "_texture_color_array", colors);
+		RS->material_set_param(_material, "_texture_uv_scale_array", uv_scales);
+		RS->material_set_param(_material, "_texture_uv_rotation_array", uv_rotations);
 	}
 
 	// Enable checkered view if texture_count is 0, disable if not

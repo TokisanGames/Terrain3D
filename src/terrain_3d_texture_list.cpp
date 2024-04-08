@@ -183,22 +183,22 @@ void Terrain3DTextureList::_update_texture_data(bool p_textures, bool p_settings
 
 	if (!_textures.is_empty() && p_settings) {
 		LOG(INFO, "Updating terrain color and scale arrays");
+		PackedColorArray colors;
 		PackedFloat32Array uv_scales;
 		PackedFloat32Array uv_rotations;
-		PackedColorArray colors;
 
 		for (int i = 0; i < _textures.size(); i++) {
 			Ref<Terrain3DTexture> texture_set = _textures[i];
 			if (texture_set.is_null()) {
 				continue;
 			}
+			colors.push_back(texture_set->get_albedo_color());
 			uv_scales.push_back(texture_set->get_uv_scale());
 			uv_rotations.push_back(texture_set->get_uv_rotation());
-			colors.push_back(texture_set->get_albedo_color());
 		}
-		signal_args.push_back(uv_rotations);
-		signal_args.push_back(uv_scales);
 		signal_args.push_back(colors);
+		signal_args.push_back(uv_scales);
+		signal_args.push_back(uv_rotations);
 	}
 
 	emit_signal("textures_changed", signal_args);
