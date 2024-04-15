@@ -1,4 +1,4 @@
-Preparing Textures
+﻿Preparing Textures
 =========================
 
 Terrain3D supports up to 32 texture sets using albedo, height, normal, and roughness textures. This page describes everything you need to know to prepare your texture files. Continue on to [Texture Painting](texture_painting.md) to learn how to use them.
@@ -62,17 +62,38 @@ You can create KTX files with [Khronos' KTX tools](https://github.com/KhronosGro
 
 Make sure you have seamless textures that can be repeated without an obvious seam.
 
+### Height Textures
+
+If creating your own height textures, aim for a central point of grey (0.5) with bumps and divots above and below that value. Adjust the contrast so that troughs and peaks reach just about 0 and 1.
+
 ### Normal Map Format
 
 Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. 
 
-They can often be identified visually by whether bumps appear to stick out (OpenGL) or appear pushed in (DirectX). The sphere and pyramid on the left in the image below are the clearest examples. Natural textures like rock or grass can be very difficult to tell.
+DirectX can be converted to OpenGL and vice versa by inverting the green channel in a photo editing app.
 
-DirectX can be converted to OpenGL and vice versa by inverting the green channel in a photo editing app. 
+They can often be identified visually by whether bumps appear to stick out (OpenGL) or appear pushed in (DirectX). The sphere and pyramid on the left in the image below are the clearest examples. 
 
 ```{image} images/tex_normalmap.png
 :target: ../_images/tex_normalmap.png
 ```
+
+Natural textures like rock or grass can be very difficult to tell. However if you get assets made for a certain engine like Unreal or Unity, you can generally assume their format and convert as needed. On occasion artists get it wrong though, so if the lighting looks off on your object, try inverting the normal map.
+
+| Software | DirectX | OpenGL |
+|----------|---------|--------|
+| 3DS Max				| ✓ | |
+| Blender				| | ✓ |
+| Cinema 4D				| | ✓ |
+| CryEngine				| ✓ | |
+| Godot Engine			| | ✓ |
+| Houdini				| | ✓ |
+| Marmoset Toolbag		| | ✓ |
+| Maya					| | ✓ |
+| Substance Painter		| ✓ | |
+| Unity					| | ✓ |
+| Unreal Engine			| ✓ | |
+| Zbrush				| | ✓ |
 
 ### Roughness vs Smoothness
 
