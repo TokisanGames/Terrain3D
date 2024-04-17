@@ -102,6 +102,7 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
 
    docs/double_precision
    docs/integrating
+   docs/misc
    docs/mobile_web
    docs/navigation
    docs/occlusion_culling

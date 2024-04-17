@@ -190,6 +190,9 @@
     <None Include="doc\docs\storage_format.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\docs\misc.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
