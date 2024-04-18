@@ -187,6 +187,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 		plugin.editor.set_operation(p_operation)
 
 	_on_setting_changed()
+	plugin.update_region_grid()
 
 
 func _on_setting_changed() -> void:

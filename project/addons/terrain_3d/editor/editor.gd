@@ -106,9 +106,7 @@ func _edit(p_object: Object) -> void:
 func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
 	visible = p_visible
 	ui.set_visible(visible)
-	if terrain:
-		update_region_grid()
-	region_gizmo.set_hidden(not visible or not terrain)
+	update_region_grid()
 
 	# Manage Asset Dock position and visibility
 	if visible and dock_state == DOCK_STATE.HIDDEN:
@@ -254,9 +252,10 @@ func _load_storage() -> void:
 func update_region_grid() -> void:
 	if !region_gizmo.get_node_3d():
 		return
-		
+
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
+		region_gizmo.set_hidden(not visible or not region_gizmo.show_rect)
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
 		region_gizmo.region_position = current_region_position
 		region_gizmo.region_size = terrain.get_storage().get_region_size() * terrain.get_mesh_vertex_spacing()
@@ -268,6 +267,7 @@ func update_region_grid() -> void:
 	region_gizmo.show_rect = false
 	region_gizmo.region_size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
+	region_gizmo.set_hidden(true)
 
 
 func _load_textures() -> void:
