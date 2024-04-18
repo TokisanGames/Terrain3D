@@ -3,6 +3,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "logger.h"
@@ -144,7 +145,11 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 
 	Vector2i region_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
 	if (region_pos.x >= REGION_MAP_SIZE || region_pos.y >= REGION_MAP_SIZE || region_pos.x < 0 || region_pos.y < 0) {
-		LOG(ERROR, "Specified position outside of maximum region map size: +/-", real_t((REGION_MAP_SIZE / 2) * _region_size) * _mesh_vertex_spacing);
+		uint64_t time = Time::get_singleton()->get_ticks_msec();
+		if (time - _last_region_bounds_error > 1000) {
+			_last_region_bounds_error = time;
+			LOG(ERROR, "Specified position outside of maximum region map size: +/-", real_t((REGION_MAP_SIZE / 2) * _region_size) * _mesh_vertex_spacing);
+		}
 		return FAILED;
 	}
 

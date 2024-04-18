@@ -253,9 +253,10 @@ func update_region_grid() -> void:
 	if not region_gizmo:
 		return
 
+	region_gizmo.set_hidden(not visible)
+	
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
-		region_gizmo.set_hidden(not visible or not region_gizmo.show_rect)
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
 		region_gizmo.region_position = current_region_position
 		region_gizmo.region_size = terrain.get_storage().get_region_size() * terrain.get_mesh_vertex_spacing()
@@ -267,7 +268,6 @@ func update_region_grid() -> void:
 	region_gizmo.show_rect = false
 	region_gizmo.region_size = 1024
 	region_gizmo.grid = [Vector2i.ZERO]
-	region_gizmo.set_hidden(true)
 
 
 func _load_textures() -> void:

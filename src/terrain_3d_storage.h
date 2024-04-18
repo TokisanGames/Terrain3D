@@ -102,6 +102,8 @@ private:
 	GeneratedTex _generated_control_maps;
 	GeneratedTex _generated_color_maps;
 
+	uint64_t _last_region_bounds_error = 0;
+
 	// Functions
 	void _clear();
 
