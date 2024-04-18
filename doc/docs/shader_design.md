@@ -24,7 +24,7 @@ Optionally, world noise is inserted here, which generates fractal brownian noise
 
 `get_height()` returns the value of the heightmap at the given location. If world noise is enabled, it is blended into the height here.
 
-Finally `vertex()` sets the UV and UV2 coordinates, and the height of the mesh vertex. Elsewhere the CPU creates flat meshe components and a mountainous collision mesh. Here is where the flat meshe vertices have their heights set to match the collision mesh with `VERTEX.y = get_height(UV2)`.
+Finally `vertex()` sets the UV and UV2 coordinates, and the height of the mesh vertex. Elsewhere the CPU creates flat mesh components and a mountainous collision mesh. Here is where the flat mesh vertices have their heights set to match the collision mesh with `VERTEX.y = get_height(UV2)`.
 
 ## Fragment()
 
@@ -32,9 +32,11 @@ Finally `vertex()` sets the UV and UV2 coordinates, and the height of the mesh v
 
 ### Normal calculation
 
-The first step is calculating the terrain normals. This is not done at all in `vertex()`. On other terrain systems there might be optimizations to be had by doing so, however this does not work on a clipmap terrain because the vertices spread out on lower LODs. Certain things like normals look strange when you look in the distance and the vertices used for calculation suddenly separate on further LODs. So we calculate normals per pixel.
+The first step is calculating the terrain normals. This shared between the `vertex()` and `fragment()` functions. Clipmap terrain vertices spread out at lower LODs causing certain things like normals look strange when you look in the distance as the vertices used for calculation suddenly separate at further LODs. So we switch from vertex based to per pixel to calculate normals after a given threshold.
 
-Normally, generating normals in the shader works fine and modern GPUs can handle the load of 4 additional height lookups and the on-the-fly calculations. However, because we do some processing by region, there is an evasive bug in [#185](https://github.com/TokisanGames/Terrain3D/issues/185) that is caused by the GPU's linear interpolation of the edges of our region maps when calculating heights using pixels across region boundaries. So we may have to switch to generating normal maps on the CPU and passing them in as a texture as many terrain systems do. The difference is 4 fewer texture lookups per pixel vs consuming another 3-4MB VRAM per region.
+The exact distance that the transition from per vertex to per pixel normal calculations occurs can be adjusted from the default of 192m via the `vertex_normals_distance` uniform.
+
+Generating normals in the shader works fine and modern GPUs can handle the load of 2 - 3 additional height lookups and the on-the-fly calculations. Doing this saves 3-4MB VRAM per region.
 
 ### Grid creation
 
