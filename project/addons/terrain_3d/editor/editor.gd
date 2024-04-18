@@ -250,7 +250,7 @@ func _load_storage() -> void:
 
 
 func update_region_grid() -> void:
-	if !region_gizmo.get_node_3d():
+	if not region_gizmo:
 		return
 
 	if is_terrain_valid():
