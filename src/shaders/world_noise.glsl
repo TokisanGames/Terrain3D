@@ -53,7 +53,7 @@ float world_noise(vec2 p) {
     vec2  d = vec2(0.0);
 
     int octaves = int( clamp(
-	float(world_noise_max_octaves) - floor(v_vertex_dist/(world_noise_lod_distance)),
+	float(world_noise_max_octaves) - floor(v_vertex_xz_dist/(world_noise_lod_distance)),
     float(world_noise_min_octaves), float(world_noise_max_octaves)) );
 	
     for( int i=0; i < octaves; i++ ) {

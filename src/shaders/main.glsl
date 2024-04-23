@@ -40,9 +40,9 @@ uniform uint _background_mode = 1u;  // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
 
 // Public uniforms
+uniform float vertex_normals_distance : hint_range(0, 1024) = 128.0;
 uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
-uniform float vertex_normals_distance : hint_range(0, 1024) = 192.0;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
 uniform vec3 macro_variation1 : source_color = vec3(1.);
@@ -66,7 +66,7 @@ struct Material {
 
 varying flat vec3 v_vertex;	// World coordinate vertex location
 varying flat vec3 v_camera_pos;
-varying float v_vertex_dist;
+varying float v_vertex_xz_dist;
 varying flat ivec3 v_region;
 varying flat vec2 v_uv_offset;
 varying flat vec2 v_uv2_offset;
@@ -121,14 +121,14 @@ void vertex() {
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
+	// Camera distance to vertex on flat plane
+	v_vertex_xz_dist = length(v_vertex.xz - v_camera_pos.xz);
+
 	// UV coordinates in world space. Values are 0 to _region_size within regions
 	UV = round(v_vertex.xz * _mesh_vertex_density);
 
 	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
 	UV2 = (UV + vec2(0.5)) * _region_texel_size;
-
-	//camera distance to vertex
-	v_vertex_dist = length(v_vertex - v_camera_pos);
 
 	// Discard vertices for Holes. 1 lookup
 	v_region = get_region_uv(UV);
@@ -151,9 +151,8 @@ void vertex() {
 		// Due to a bug caused by the GPUs linear interpolation across edges of region maps,
 		// mask region edges and use vertex normals only across region boundaries.
 		v_region_border_mask = mod(UV.x+2.5,_region_size) - fract(UV.x) < 5.0 || mod(UV.y+2.5,_region_size) - fract(UV.y) < 5.0 ? 1. : 0.;
-		
-//INSERT: DUAL_SCALING_VERTEX
 	}
+		
 	// Transform UVs to local to avoid poor precision during varying interpolation.
 	v_uv_offset = MODEL_MATRIX[3].xz * _mesh_vertex_density;
 	UV -= v_uv_offset;
@@ -170,7 +169,7 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 	float u, v, height;
 	vec3 normal;
 	// Use vertex normals within radius of vertex_normals_distance, and along region borders.
-	if (v_region_border_mask > 0.5 || v_vertex_dist < vertex_normals_distance) {
+	if (v_region_border_mask > 0.5 || v_vertex_xz_dist < vertex_normals_distance) {
 		normal = normalize(v_normal);
 	} else {
 		height = get_height(uv);
@@ -367,8 +366,8 @@ void fragment() {
 	// Macro variation. 2 Lookups
 	float noise1 = texture(noise_texture, rotate(uv*noise1_scale*.1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
 	float noise2 = texture(noise_texture, uv*noise2_scale*.1).r;
-	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_dist*.0002, 0., 1.));
-	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_dist*.0002, 0., 1.));
+	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_xz_dist*.0002, 0., 1.));
+	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_xz_dist*.0002, 0., 1.));
 
 	// Wetness/roughness modifier, converting 0-1 range to -1 to 1 range
 	float roughness = fma(color_map.a-0.5, 2.0, normal_rough.a);
