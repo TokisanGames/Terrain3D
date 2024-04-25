@@ -52,6 +52,7 @@ _shader_parameters = {
 "noise3_scale": 0.225,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
 "tri_scale_reduction": 0.3,
+"vertex_normals_distance": 128.0,
 "world_noise_blend_far": 1.0,
 "world_noise_blend_near": 0.7,
 "world_noise_height": 34.0,

@@ -24,7 +24,7 @@ var tool_group: ButtonGroup = ButtonGroup.new()
 
 
 func _init() -> void:
-	set_custom_minimum_size(Vector2(32, 0))
+	set_custom_minimum_size(Vector2(20, 0))
 
 
 func _ready() -> void:
