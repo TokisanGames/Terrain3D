@@ -83,19 +83,19 @@ Methods
 .. table::
    :widths: auto
 
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`         | :ref:`get_material_rid<class_Terrain3DMaterial_method_get_material_rid>` **(** **)**                                                                               |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`         | :ref:`get_region_blend_map<class_Terrain3DMaterial_method_get_region_blend_map>` **(** **)**                                                                       |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Variant<class_Variant>` | :ref:`get_shader_param<class_Terrain3DMaterial_method_get_shader_param>` **(** :ref:`StringName<class_StringName>` name **)**                                      |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`         | :ref:`get_shader_rid<class_Terrain3DMaterial_method_get_shader_rid>` **(** **)**                                                                                   |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                          | :ref:`save<class_Terrain3DMaterial_method_save>` **(** **)**                                                                                                       |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                          | :ref:`set_shader_param<class_Terrain3DMaterial_method_set_shader_param>` **(** :ref:`StringName<class_StringName>` name, :ref:`Variant<class_Variant>` value **)** |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`RID<class_RID>`         | :ref:`get_material_rid<class_Terrain3DMaterial_method_get_material_rid>`\ (\ )                                                                                    |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`RID<class_RID>`         | :ref:`get_region_blend_map<class_Terrain3DMaterial_method_get_region_blend_map>`\ (\ )                                                                            |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Variant<class_Variant>` | :ref:`get_shader_param<class_Terrain3DMaterial_method_get_shader_param>`\ (\ name\: :ref:`StringName<class_StringName>`\ )                                        |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`RID<class_RID>`         | :ref:`get_shader_rid<class_Terrain3DMaterial_method_get_shader_rid>`\ (\ )                                                                                        |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                        | :ref:`save<class_Terrain3DMaterial_method_save>`\ (\ )                                                                                                            |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                        | :ref:`set_shader_param<class_Terrain3DMaterial_method_set_shader_param>`\ (\ name\: :ref:`StringName<class_StringName>`, value\: :ref:`Variant<class_Variant>`\ ) |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -191,8 +191,8 @@ This private dictionary stores all of the shader parameters in the resource. It 
 
 .. rst-class:: classref-property-setget
 
-- void **set_auto_shader** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_auto_shader** **(** **)**
+- |void| **set_auto_shader**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_auto_shader**\ (\ )
 
 Enables selecting two texture IDs that will automatically be applied to the terrain based upon slope.
 
@@ -208,8 +208,8 @@ Enables selecting two texture IDs that will automatically be applied to the terr
 
 .. rst-class:: classref-property-setget
 
-- void **set_dual_scaling** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_dual_scaling** **(** **)**
+- |void| **set_dual_scaling**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_dual_scaling**\ (\ )
 
 Enables selecting one texture ID that will have multiple scales applied based upon camera distance. Use it for something like a rock texture so up close it will be nicely detailed, and far away mountains can be covered in the same rock texture. The two blend together at a specified distance.
 
@@ -225,8 +225,8 @@ Enables selecting one texture ID that will have multiple scales applied based up
 
 .. rst-class:: classref-property-setget
 
-- void **set_shader_override** **(** :ref:`Shader<class_Shader>` value **)**
-- :ref:`Shader<class_Shader>` **get_shader_override** **(** **)**
+- |void| **set_shader_override**\ (\ value\: :ref:`Shader<class_Shader>`\ )
+- :ref:`Shader<class_Shader>` **get_shader_override**\ (\ )
 
 If shader_override_enabled is true and this Shader is valid, the material will use this custom shader code. If this is blank when you enable the override, the system will generate a shader with the current settings. So if you have a debug view enabled, the generated shader will have all of that code. A visual shader will also work here. However we only generate a text based shader so currently a visual shader needs to be constructed with the base code before it can work.
 
@@ -242,8 +242,8 @@ If shader_override_enabled is true and this Shader is valid, the material will u
 
 .. rst-class:: classref-property-setget
 
-- void **enable_shader_override** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **is_shader_override_enabled** **(** **)**
+- |void| **enable_shader_override**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **is_shader_override_enabled**\ (\ )
 
 Enables use of the :ref:`shader_override<class_Terrain3DMaterial_property_shader_override>` shader code. Generates default code if shader_override is blank.
 
@@ -259,8 +259,8 @@ Enables use of the :ref:`shader_override<class_Terrain3DMaterial_property_shader
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_autoshader** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_autoshader** **(** **)**
+- |void| **set_show_autoshader**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_autoshader**\ (\ )
 
 Display the area designated for use by the autoshader, which shows materials based upon slope.
 
@@ -276,8 +276,8 @@ Display the area designated for use by the autoshader, which shows materials bas
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_checkered** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_checkered** **(** **)**
+- |void| **set_show_checkered**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_checkered**\ (\ )
 
 Shows a checkerboard display using a shader rendered pattern. This is turned on if the Texture List is empty.
 
@@ -295,8 +295,8 @@ Note that when a blank texture slot is created, a 1k checkerboard texture is gen
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_colormap** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_colormap** **(** **)**
+- |void| **set_show_colormap**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_colormap**\ (\ )
 
 Places the color map in the albedo channel.
 
@@ -312,8 +312,8 @@ Places the color map in the albedo channel.
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_control_blend** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_control_blend** **(** **)**
+- |void| **set_show_control_blend**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_control_blend**\ (\ )
 
 Albedo shows the blend value used to blend the base and overlay textures as greyscale. This is especially helpful to see how the noise texture adjusts the blending edges.
 
@@ -329,8 +329,8 @@ Albedo shows the blend value used to blend the base and overlay textures as grey
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_control_texture** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_control_texture** **(** **)**
+- |void| **set_show_control_texture**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_control_texture**\ (\ )
 
 Albedo shows the base and overlay texture indices defined by the control map. Red pixels indicate the base texture, with brightness showing texture ids 0 to 31. Green pixels indicate the overlay texture. Yellow indicates both.
 
@@ -346,8 +346,8 @@ Albedo shows the base and overlay texture indices defined by the control map. Re
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_grey** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_grey** **(** **)**
+- |void| **set_show_grey**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_grey**\ (\ )
 
 Albedo is set to 0.2 grey.
 
@@ -363,8 +363,8 @@ Albedo is set to 0.2 grey.
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_heightmap** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_heightmap** **(** **)**
+- |void| **set_show_heightmap**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_heightmap**\ (\ )
 
 Albedo is a white to black gradient depending on height. The gradient is scaled to a height of 300, so above that or far below 0 will be all white or black.
 
@@ -380,8 +380,8 @@ Albedo is a white to black gradient depending on height. The gradient is scaled 
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_navigation** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_navigation** **(** **)**
+- |void| **set_show_navigation**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_navigation**\ (\ )
 
 Displays the area designated for generating the navigation mesh.
 
@@ -397,8 +397,8 @@ Displays the area designated for generating the navigation mesh.
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_roughmap** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_roughmap** **(** **)**
+- |void| **set_show_roughmap**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_roughmap**\ (\ )
 
 Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
 
@@ -414,8 +414,8 @@ Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_texture_height** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_texture_height** **(** **)**
+- |void| **set_show_texture_height**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_texture_height**\ (\ )
 
 Albedo is set to the painted Height textures.
 
@@ -431,8 +431,8 @@ Albedo is set to the painted Height textures.
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_texture_normal** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_texture_normal** **(** **)**
+- |void| **set_show_texture_normal**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_texture_normal**\ (\ )
 
 Albedo is set to the painted Normal textures.
 
@@ -448,8 +448,8 @@ Albedo is set to the painted Normal textures.
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_texture_rough** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_texture_rough** **(** **)**
+- |void| **set_show_texture_rough**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_texture_rough**\ (\ )
 
 Albedo is set to the painted Roughness textures. This is different from the roughness modification map above.
 
@@ -465,8 +465,8 @@ Albedo is set to the painted Roughness textures. This is different from the roug
 
 .. rst-class:: classref-property-setget
 
-- void **set_show_vertex_grid** **(** :ref:`bool<class_bool>` value **)**
-- :ref:`bool<class_bool>` **get_show_vertex_grid** **(** **)**
+- |void| **set_show_vertex_grid**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_vertex_grid**\ (\ )
 
 Show a grid on the vertices, overlaying any above shader.
 
@@ -482,8 +482,8 @@ Show a grid on the vertices, overlaying any above shader.
 
 .. rst-class:: classref-property-setget
 
-- void **set_texture_filtering** **(** :ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` value **)**
-- :ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **get_texture_filtering** **(** **)**
+- |void| **set_texture_filtering**\ (\ value\: :ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>`\ )
+- :ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **get_texture_filtering**\ (\ )
 
 Sets how the renderer should filter textures. See :ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` for options.
 
@@ -499,8 +499,8 @@ Sets how the renderer should filter textures. See :ref:`TextureFiltering<enum_Te
 
 .. rst-class:: classref-property-setget
 
-- void **set_world_background** **(** :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>` value **)**
-- :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>` **get_world_background** **(** **)**
+- |void| **set_world_background**\ (\ value\: :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>`\ )
+- :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>` **get_world_background**\ (\ )
 
 Sets how the mesh outside of defined regions behave. See :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>` for options.
 
@@ -517,7 +517,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-:ref:`RID<class_RID>` **get_material_rid** **(** **)**
+:ref:`RID<class_RID>` **get_material_rid**\ (\ )
 
 Returns the RID of the material used with the Rendering Server. This is set per instance of this class.
 
@@ -529,7 +529,7 @@ Returns the RID of the material used with the Rendering Server. This is set per 
 
 .. rst-class:: classref-method
 
-:ref:`RID<class_RID>` **get_region_blend_map** **(** **)**
+:ref:`RID<class_RID>` **get_region_blend_map**\ (\ )
 
 Returns the RID of the 512x512 texture used with the RenderingServer. It depicts a blurry map of region locations and is used for smoothly blending world noise into sculpted terrain.
 
@@ -541,7 +541,7 @@ Returns the RID of the 512x512 texture used with the RenderingServer. It depicts
 
 .. rst-class:: classref-method
 
-:ref:`Variant<class_Variant>` **get_shader_param** **(** :ref:`StringName<class_StringName>` name **)**
+:ref:`Variant<class_Variant>` **get_shader_param**\ (\ name\: :ref:`StringName<class_StringName>`\ )
 
 Retrieve a parameter from the active shader (built-in or override shader).
 
@@ -553,7 +553,7 @@ Retrieve a parameter from the active shader (built-in or override shader).
 
 .. rst-class:: classref-method
 
-:ref:`RID<class_RID>` **get_shader_rid** **(** **)**
+:ref:`RID<class_RID>` **get_shader_rid**\ (\ )
 
 Returns the RID of the built in shader used with the Rendering Server. This is different from any shader override which has its own RID.
 
@@ -565,7 +565,7 @@ Returns the RID of the built in shader used with the Rendering Server. This is d
 
 .. rst-class:: classref-method
 
-void **save** **(** **)**
+|void| **save**\ (\ )
 
 Saves this material resource to disk, if saved as an external ``.tres`` or ``.res`` resource file.
 
@@ -577,7 +577,7 @@ Saves this material resource to disk, if saved as an external ``.tres`` or ``.re
 
 .. rst-class:: classref-method
 
-void **set_shader_param** **(** :ref:`StringName<class_StringName>` name, :ref:`Variant<class_Variant>` value **)**
+|void| **set_shader_param**\ (\ name\: :ref:`StringName<class_StringName>`, value\: :ref:`Variant<class_Variant>`\ )
 
 Set a parameter in the active shader (built-in or override shader).
 
@@ -588,3 +588,4 @@ Set a parameter in the active shader (built-in or override shader).
 .. |static| replace:: :abbr:`static (This method doesn't need an instance to be called, so it can be called directly using the class name.)`
 .. |operator| replace:: :abbr:`operator (This method describes a valid operator to use with this type as left-hand operand.)`
 .. |bitfield| replace:: :abbr:`BitField (This value is an integer composed as a bitmask of the following flags.)`
+.. |void| replace:: :abbr:`void (No return value.)`

@@ -27,9 +27,9 @@ Properties
 .. table::
    :widths: auto
 
-   +---------------------------------------------------+---------------------------------------------------------------+--------+
-   | :ref:`Terrain3DTexture[]<class_Terrain3DTexture>` | :ref:`textures<class_Terrain3DTextureList_property_textures>` | ``[]`` |
-   +---------------------------------------------------+---------------------------------------------------------------+--------+
+   +------------------------------------------------------------------------------+---------------------------------------------------------------+--------+
+   | :ref:`Array<class_Array>`\[:ref:`Terrain3DTexture<class_Terrain3DTexture>`\] | :ref:`textures<class_Terrain3DTextureList_property_textures>` | ``[]`` |
+   +------------------------------------------------------------------------------+---------------------------------------------------------------+--------+
 
 .. rst-class:: classref-reftable-group
 
@@ -39,15 +39,15 @@ Methods
 .. table::
    :widths: auto
 
-   +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3DTexture<class_Terrain3DTexture>` | :ref:`get_texture<class_Terrain3DTextureList_method_get_texture>` **(** :ref:`int<class_int>` index **)**                                                          |
-   +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`                           | :ref:`get_texture_count<class_Terrain3DTextureList_method_get_texture_count>` **(** **)**                                                                          |
-   +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                            | :ref:`save<class_Terrain3DTextureList_method_save>` **(** **)**                                                                                                    |
-   +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                            | :ref:`set_texture<class_Terrain3DTextureList_method_set_texture>` **(** :ref:`int<class_int>` index, :ref:`Terrain3DTexture<class_Terrain3DTexture>` texture **)** |
-   +-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +-------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Terrain3DTexture<class_Terrain3DTexture>` | :ref:`get_texture<class_Terrain3DTextureList_method_get_texture>`\ (\ index\: :ref:`int<class_int>`\ )                                                            |
+   +-------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`                           | :ref:`get_texture_count<class_Terrain3DTextureList_method_get_texture_count>`\ (\ )                                                                               |
+   +-------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                          | :ref:`save<class_Terrain3DTextureList_method_save>`\ (\ )                                                                                                         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                          | :ref:`set_texture<class_Terrain3DTextureList_method_set_texture>`\ (\ index\: :ref:`int<class_int>`, texture\: :ref:`Terrain3DTexture<class_Terrain3DTexture>`\ ) |
+   +-------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -62,7 +62,7 @@ Signals
 
 .. rst-class:: classref-signal
 
-**textures_changed** **(** **)**
+**textures_changed**\ (\ )
 
 Emitted when this list is updated due to changes in the texture slots, or the files or settings in any of the Terrain3DTextures.
 
@@ -96,12 +96,12 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`Terrain3DTexture[]<class_Terrain3DTexture>` **textures** = ``[]``
+:ref:`Array<class_Array>`\[:ref:`Terrain3DTexture<class_Terrain3DTexture>`\] **textures** = ``[]``
 
 .. rst-class:: classref-property-setget
 
-- void **set_textures** **(** :ref:`Terrain3DTexture[]<class_Terrain3DTexture>` value **)**
-- :ref:`Terrain3DTexture[]<class_Terrain3DTexture>` **get_textures** **(** **)**
+- |void| **set_textures**\ (\ value\: :ref:`Array<class_Array>`\[:ref:`Terrain3DTexture<class_Terrain3DTexture>`\]\ )
+- :ref:`Array<class_Array>`\[:ref:`Terrain3DTexture<class_Terrain3DTexture>`\] **get_textures**\ (\ )
 
 The array of Terrain3DTextures.
 
@@ -118,7 +118,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3DTexture<class_Terrain3DTexture>` **get_texture** **(** :ref:`int<class_int>` index **)**
+:ref:`Terrain3DTexture<class_Terrain3DTexture>` **get_texture**\ (\ index\: :ref:`int<class_int>`\ )
 
 Returns the Terrain3DTexture with the requested ID.
 
@@ -130,7 +130,7 @@ Returns the Terrain3DTexture with the requested ID.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_texture_count** **(** **)**
+:ref:`int<class_int>` **get_texture_count**\ (\ )
 
 Returns the number of texture slots used.
 
@@ -142,7 +142,7 @@ Returns the number of texture slots used.
 
 .. rst-class:: classref-method
 
-void **save** **(** **)**
+|void| **save**\ (\ )
 
 Saves this texture list resource to disk, if saved as an external ``.tres`` or ``.res`` resource file.
 
@@ -154,7 +154,7 @@ Saves this texture list resource to disk, if saved as an external ``.tres`` or `
 
 .. rst-class:: classref-method
 
-void **set_texture** **(** :ref:`int<class_int>` index, :ref:`Terrain3DTexture<class_Terrain3DTexture>` texture **)**
+|void| **set_texture**\ (\ index\: :ref:`int<class_int>`, texture\: :ref:`Terrain3DTexture<class_Terrain3DTexture>`\ )
 
 Adds a Terrain3DTexture at the specified ID slot. The texture can be null to clear the slot, or remove it if its the last in the list. If the specified slot is full, it will be swapped with the source texture ID, or will find the next available ID.
 
@@ -165,3 +165,4 @@ Adds a Terrain3DTexture at the specified ID slot. The texture can be null to cle
 .. |static| replace:: :abbr:`static (This method doesn't need an instance to be called, so it can be called directly using the class name.)`
 .. |operator| replace:: :abbr:`operator (This method describes a valid operator to use with this type as left-hand operand.)`
 .. |bitfield| replace:: :abbr:`BitField (This value is an integer composed as a bitmask of the following flags.)`
+.. |void| replace:: :abbr:`void (No return value.)`

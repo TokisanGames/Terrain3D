@@ -9,7 +9,7 @@
 	</tutorials>
 	<methods>
 		<method name="add_region">
-			<return type="int" enum="godot.Error" />
+			<return type="int" enum="Error" />
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="images" type="Image[]" default="[]" />
 			<param index="2" name="update" type="bool" default="true" />
@@ -23,7 +23,7 @@
 			</description>
 		</method>
 		<method name="export_image">
-			<return type="int" enum="godot.Error" />
+			<return type="int" enum="Error" />
 			<param index="0" name="file_name" type="String" />
 			<param index="1" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
 			<description>

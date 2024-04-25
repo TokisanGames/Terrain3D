@@ -45,43 +45,43 @@ Methods
 .. table::
    :widths: auto
 
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`float<class_float>`     | :ref:`as_float<class_Terrain3DUtil_method_as_float>` **(** :ref:`int<class_int>` value **)** |static|                                                                                                                                            |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`as_uint<class_Terrain3DUtil_method_as_uint>` **(** :ref:`float<class_float>` value **)** |static|                                                                                                                                          |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`enc_auto<class_Terrain3DUtil_method_enc_auto>` **(** :ref:`bool<class_bool>` pixel **)** |static|                                                                                                                                          |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`enc_base<class_Terrain3DUtil_method_enc_base>` **(** :ref:`int<class_int>` base **)** |static|                                                                                                                                             |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`enc_blend<class_Terrain3DUtil_method_enc_blend>` **(** :ref:`int<class_int>` blend **)** |static|                                                                                                                                          |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`enc_hole<class_Terrain3DUtil_method_enc_hole>` **(** :ref:`bool<class_bool>` pixel **)** |static|                                                                                                                                          |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`enc_nav<class_Terrain3DUtil_method_enc_nav>` **(** :ref:`bool<class_bool>` pixel **)** |static|                                                                                                                                            |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`enc_overlay<class_Terrain3DUtil_method_enc_overlay>` **(** :ref:`int<class_int>` overlay **)** |static|                                                                                                                                    |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`get_base<class_Terrain3DUtil_method_get_base>` **(** :ref:`int<class_int>` pixel **)** |static|                                                                                                                                            |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`get_blend<class_Terrain3DUtil_method_get_blend>` **(** :ref:`int<class_int>` pixel **)** |static|                                                                                                                                          |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`     | :ref:`get_filled_image<class_Terrain3DUtil_method_get_filled_image>` **(** :ref:`Vector2i<class_Vector2i>` size, :ref:`Color<class_Color>` color, :ref:`bool<class_bool>` create_mipmaps, :ref:`Format<enum_Image_Format>` format **)** |static| |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector2<class_Vector2>` | :ref:`get_min_max<class_Terrain3DUtil_method_get_min_max>` **(** :ref:`Image<class_Image>` image **)** |static|                                                                                                                                  |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`         | :ref:`get_overlay<class_Terrain3DUtil_method_get_overlay>` **(** :ref:`int<class_int>` pixel **)** |static|                                                                                                                                      |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`     | :ref:`get_thumbnail<class_Terrain3DUtil_method_get_thumbnail>` **(** :ref:`Image<class_Image>` image, :ref:`Vector2i<class_Vector2i>` size=Vector2i(256, 256) **)** |static|                                                                     |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`bool<class_bool>`       | :ref:`is_auto<class_Terrain3DUtil_method_is_auto>` **(** :ref:`int<class_int>` pixel **)** |static|                                                                                                                                              |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`bool<class_bool>`       | :ref:`is_hole<class_Terrain3DUtil_method_is_hole>` **(** :ref:`int<class_int>` pixel **)** |static|                                                                                                                                              |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`bool<class_bool>`       | :ref:`is_nav<class_Terrain3DUtil_method_is_nav>` **(** :ref:`int<class_int>` pixel **)** |static|                                                                                                                                                |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`     | :ref:`pack_image<class_Terrain3DUtil_method_pack_image>` **(** :ref:`Image<class_Image>` src_rgb, :ref:`Image<class_Image>` src_r, :ref:`bool<class_bool>` invert_green_channel=false **)** |static|                                             |
-   +-------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`float<class_float>`     | :ref:`as_float<class_Terrain3DUtil_method_as_float>`\ (\ value\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                  |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`as_uint<class_Terrain3DUtil_method_as_uint>`\ (\ value\: :ref:`float<class_float>`\ ) |static|                                                                                                                                                |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_auto<class_Terrain3DUtil_method_enc_auto>`\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|                                                                                                                                                |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_base<class_Terrain3DUtil_method_enc_base>`\ (\ base\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                   |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_blend<class_Terrain3DUtil_method_enc_blend>`\ (\ blend\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_hole<class_Terrain3DUtil_method_enc_hole>`\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|                                                                                                                                                |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_nav<class_Terrain3DUtil_method_enc_nav>`\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|                                                                                                                                                  |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_overlay<class_Terrain3DUtil_method_enc_overlay>`\ (\ overlay\: :ref:`int<class_int>`\ ) |static|                                                                                                                                          |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`get_base<class_Terrain3DUtil_method_get_base>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                  |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`get_blend<class_Terrain3DUtil_method_get_blend>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Image<class_Image>`     | :ref:`get_filled_image<class_Terrain3DUtil_method_get_filled_image>`\ (\ size\: :ref:`Vector2i<class_Vector2i>`, color\: :ref:`Color<class_Color>`, create_mipmaps\: :ref:`bool<class_bool>`, format\: :ref:`Format<enum_Image_Format>`\ ) |static| |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Vector2<class_Vector2>` | :ref:`get_min_max<class_Terrain3DUtil_method_get_min_max>`\ (\ image\: :ref:`Image<class_Image>`\ ) |static|                                                                                                                                        |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`get_overlay<class_Terrain3DUtil_method_get_overlay>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                            |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Image<class_Image>`     | :ref:`get_thumbnail<class_Terrain3DUtil_method_get_thumbnail>`\ (\ image\: :ref:`Image<class_Image>`, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(256, 256)\ ) |static|                                                                       |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`       | :ref:`is_auto<class_Terrain3DUtil_method_is_auto>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                    |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`       | :ref:`is_hole<class_Terrain3DUtil_method_is_hole>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                    |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`       | :ref:`is_nav<class_Terrain3DUtil_method_is_nav>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                      |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Image<class_Image>`     | :ref:`pack_image<class_Terrain3DUtil_method_pack_image>`\ (\ src_rgb\: :ref:`Image<class_Image>`, src_r\: :ref:`Image<class_Image>`, invert_green_channel\: :ref:`bool<class_bool>` = false\ ) |static|                                             |
+   +-------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -96,7 +96,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-:ref:`float<class_float>` **as_float** **(** :ref:`int<class_int>` value **)** |static|
+:ref:`float<class_float>` **as_float**\ (\ value\: :ref:`int<class_int>`\ ) |static|
 
 Returns a float typed variable with the contents of the memory stored in value, an integer typed variable.
 
@@ -114,7 +114,7 @@ See :ref:`as_uint<class_Terrain3DUtil_method_as_uint>` for the opposite.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **as_uint** **(** :ref:`float<class_float>` value **)** |static|
+:ref:`int<class_int>` **as_uint**\ (\ value\: :ref:`float<class_float>`\ ) |static|
 
 Returns an integer typed variable with the contents of the memory stored in value, a float typed variable.
 
@@ -132,7 +132,7 @@ See :ref:`as_float<class_Terrain3DUtil_method_as_float>` for the opposite.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_auto** **(** :ref:`bool<class_bool>` pixel **)** |static|
+:ref:`int<class_int>` **enc_auto**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|
 
 Returns a control map uint with the auto shader bit set. See the top description for usage.
 
@@ -144,7 +144,7 @@ Returns a control map uint with the auto shader bit set. See the top description
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_base** **(** :ref:`int<class_int>` base **)** |static|
+:ref:`int<class_int>` **enc_base**\ (\ base\: :ref:`int<class_int>`\ ) |static|
 
 Returns a control map uint with the base texture ID encoded. See the top description for usage.
 
@@ -156,7 +156,7 @@ Returns a control map uint with the base texture ID encoded. See the top descrip
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_blend** **(** :ref:`int<class_int>` blend **)** |static|
+:ref:`int<class_int>` **enc_blend**\ (\ blend\: :ref:`int<class_int>`\ ) |static|
 
 .. container:: contribute
 
@@ -170,7 +170,7 @@ Returns a control map uint with the base texture ID encoded. See the top descrip
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_hole** **(** :ref:`bool<class_bool>` pixel **)** |static|
+:ref:`int<class_int>` **enc_hole**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|
 
 Returns a control map uint with the hole bit set. See the top description for usage.
 
@@ -182,7 +182,7 @@ Returns a control map uint with the hole bit set. See the top description for us
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_nav** **(** :ref:`bool<class_bool>` pixel **)** |static|
+:ref:`int<class_int>` **enc_nav**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|
 
 Returns a control map uint with the nav bit set. See the top description for usage.
 
@@ -194,7 +194,7 @@ Returns a control map uint with the nav bit set. See the top description for usa
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_overlay** **(** :ref:`int<class_int>` overlay **)** |static|
+:ref:`int<class_int>` **enc_overlay**\ (\ overlay\: :ref:`int<class_int>`\ ) |static|
 
 Returns a control map uint with the overlay texture ID encoded. See the top description for usage.
 
@@ -206,7 +206,7 @@ Returns a control map uint with the overlay texture ID encoded. See the top desc
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_base** **(** :ref:`int<class_int>` pixel **)** |static|
+:ref:`int<class_int>` **get_base**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
 
 Returns the base texture ID from a control map pixel.
 
@@ -218,7 +218,7 @@ Returns the base texture ID from a control map pixel.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_blend** **(** :ref:`int<class_int>` pixel **)** |static|
+:ref:`int<class_int>` **get_blend**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
 
 Returns the blend value from a control map pixel.
 
@@ -230,7 +230,7 @@ Returns the blend value from a control map pixel.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **get_filled_image** **(** :ref:`Vector2i<class_Vector2i>` size, :ref:`Color<class_Color>` color, :ref:`bool<class_bool>` create_mipmaps, :ref:`Format<enum_Image_Format>` format **)** |static|
+:ref:`Image<class_Image>` **get_filled_image**\ (\ size\: :ref:`Vector2i<class_Vector2i>`, color\: :ref:`Color<class_Color>`, create_mipmaps\: :ref:`bool<class_bool>`, format\: :ref:`Format<enum_Image_Format>`\ ) |static|
 
 Returns an Image filled with a specified color and format.
 
@@ -252,7 +252,7 @@ The reason for this is the Image compression library is available only in the ed
 
 .. rst-class:: classref-method
 
-:ref:`Vector2<class_Vector2>` **get_min_max** **(** :ref:`Image<class_Image>` image **)** |static|
+:ref:`Vector2<class_Vector2>` **get_min_max**\ (\ image\: :ref:`Image<class_Image>`\ ) |static|
 
 Returns the minimum and maximum r channel values of an Image. Used for heightmaps.
 
@@ -264,7 +264,7 @@ Returns the minimum and maximum r channel values of an Image. Used for heightmap
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_overlay** **(** :ref:`int<class_int>` pixel **)** |static|
+:ref:`int<class_int>` **get_overlay**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
 
 Returns the overlay texture ID from a control map pixel.
 
@@ -276,7 +276,7 @@ Returns the overlay texture ID from a control map pixel.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **get_thumbnail** **(** :ref:`Image<class_Image>` image, :ref:`Vector2i<class_Vector2i>` size=Vector2i(256, 256) **)** |static|
+:ref:`Image<class_Image>` **get_thumbnail**\ (\ image\: :ref:`Image<class_Image>`, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(256, 256)\ ) |static|
 
 Returns an Image normalized and converted to RGB8. Used for creating a human viewable image of a heightmap, at any size.
 
@@ -288,7 +288,7 @@ Returns an Image normalized and converted to RGB8. Used for creating a human vie
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_auto** **(** :ref:`int<class_int>` pixel **)** |static|
+:ref:`bool<class_bool>` **is_auto**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
 
 Returns true if the control map pixel has the autoshader bit set.
 
@@ -300,7 +300,7 @@ Returns true if the control map pixel has the autoshader bit set.
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_hole** **(** :ref:`int<class_int>` pixel **)** |static|
+:ref:`bool<class_bool>` **is_hole**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
 
 Returns true if the control map pixel has the hole bit set.
 
@@ -312,7 +312,7 @@ Returns true if the control map pixel has the hole bit set.
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_nav** **(** :ref:`int<class_int>` pixel **)** |static|
+:ref:`bool<class_bool>` **is_nav**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
 
 Returns true if the control map pixel has the nav bit set.
 
@@ -324,7 +324,7 @@ Returns true if the control map pixel has the nav bit set.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **pack_image** **(** :ref:`Image<class_Image>` src_rgb, :ref:`Image<class_Image>` src_r, :ref:`bool<class_bool>` invert_green_channel=false **)** |static|
+:ref:`Image<class_Image>` **pack_image**\ (\ src_rgb\: :ref:`Image<class_Image>`, src_r\: :ref:`Image<class_Image>`, invert_green_channel\: :ref:`bool<class_bool>` = false\ ) |static|
 
 Returns an Image with the following content:
 
@@ -341,3 +341,4 @@ Returns an Image with the following content:
 .. |static| replace:: :abbr:`static (This method doesn't need an instance to be called, so it can be called directly using the class name.)`
 .. |operator| replace:: :abbr:`operator (This method describes a valid operator to use with this type as left-hand operand.)`
 .. |bitfield| replace:: :abbr:`BitField (This value is an integer composed as a bitmask of the following flags.)`
+.. |void| replace:: :abbr:`void (No return value.)`

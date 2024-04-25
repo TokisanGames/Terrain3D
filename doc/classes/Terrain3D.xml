@@ -70,12 +70,6 @@
 				Sets the EditorPlugin connected to Terrain3D.
 			</description>
 		</method>
-		<method name="update_aabbs">
-			<return type="void" />
-			<description>
-				Sets the bounding boxes (AABBs) for the terrain meshes so they won't be culled. Also see [member render_cull_margin].
-			</description>
-		</method>
 	</methods>
 	<members>
 		<member name="collision_enabled" type="bool" setter="set_collision_enabled" getter="get_collision_enabled" default="true">

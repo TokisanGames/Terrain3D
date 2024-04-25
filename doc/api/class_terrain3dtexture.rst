@@ -51,9 +51,9 @@ Methods
 .. table::
    :widths: auto
 
-   +------+---------------------------------------------------------------+
-   | void | :ref:`clear<class_Terrain3DTexture_method_clear>` **(** **)** |
-   +------+---------------------------------------------------------------+
+   +--------+---------------------------------------------------------+
+   | |void| | :ref:`clear<class_Terrain3DTexture_method_clear>`\ (\ ) |
+   +--------+---------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -68,7 +68,7 @@ Signals
 
 .. rst-class:: classref-signal
 
-**file_changed** **(** **)**
+**file_changed**\ (\ )
 
 Emitted when :ref:`albedo_texture<class_Terrain3DTexture_property_albedo_texture>` or :ref:`normal_texture<class_Terrain3DTexture_property_normal_texture>` are changed.
 
@@ -80,7 +80,7 @@ Emitted when :ref:`albedo_texture<class_Terrain3DTexture_property_albedo_texture
 
 .. rst-class:: classref-signal
 
-**id_changed** **(** **)**
+**id_changed**\ (\ )
 
 Emitted when :ref:`texture_id<class_Terrain3DTexture_property_texture_id>` is changed.
 
@@ -92,7 +92,7 @@ Emitted when :ref:`texture_id<class_Terrain3DTexture_property_texture_id>` is ch
 
 .. rst-class:: classref-signal
 
-**setting_changed** **(** **)**
+**setting_changed**\ (\ )
 
 Emitted when any setting is changed, other than texture_id, albedo_texture, or normal_texture.
 
@@ -113,8 +113,8 @@ Property Descriptions
 
 .. rst-class:: classref-property-setget
 
-- void **set_albedo_color** **(** :ref:`Color<class_Color>` value **)**
-- :ref:`Color<class_Color>` **get_albedo_color** **(** **)**
+- |void| **set_albedo_color**\ (\ value\: :ref:`Color<class_Color>`\ )
+- :ref:`Color<class_Color>` **get_albedo_color**\ (\ )
 
 This color is multiplied by the albedo texture in the shader.
 
@@ -130,8 +130,8 @@ This color is multiplied by the albedo texture in the shader.
 
 .. rst-class:: classref-property-setget
 
-- void **set_albedo_texture** **(** :ref:`Texture2D<class_Texture2D>` value **)**
-- :ref:`Texture2D<class_Texture2D>` **get_albedo_texture** **(** **)**
+- |void| **set_albedo_texture**\ (\ value\: :ref:`Texture2D<class_Texture2D>`\ )
+- :ref:`Texture2D<class_Texture2D>` **get_albedo_texture**\ (\ )
 
 The texture file with albedo on RGB and height on A.
 
@@ -147,8 +147,8 @@ The texture file with albedo on RGB and height on A.
 
 .. rst-class:: classref-property-setget
 
-- void **set_name** **(** :ref:`String<class_String>` value **)**
-- :ref:`String<class_String>` **get_name** **(** **)**
+- |void| **set_name**\ (\ value\: :ref:`String<class_String>`\ )
+- :ref:`String<class_String>` **get_name**\ (\ )
 
 A user specified name for this texture set.
 
@@ -164,8 +164,8 @@ A user specified name for this texture set.
 
 .. rst-class:: classref-property-setget
 
-- void **set_normal_texture** **(** :ref:`Texture2D<class_Texture2D>` value **)**
-- :ref:`Texture2D<class_Texture2D>` **get_normal_texture** **(** **)**
+- |void| **set_normal_texture**\ (\ value\: :ref:`Texture2D<class_Texture2D>`\ )
+- :ref:`Texture2D<class_Texture2D>` **get_normal_texture**\ (\ )
 
 The texture file with normal on RGB and roughness on A.
 
@@ -181,8 +181,8 @@ The texture file with normal on RGB and roughness on A.
 
 .. rst-class:: classref-property-setget
 
-- void **set_texture_id** **(** :ref:`int<class_int>` value **)**
-- :ref:`int<class_int>` **get_texture_id** **(** **)**
+- |void| **set_texture_id**\ (\ value\: :ref:`int<class_int>`\ )
+- :ref:`int<class_int>` **get_texture_id**\ (\ )
 
 The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
 
@@ -198,8 +198,8 @@ The user settable ID of the texture, between 0 and 31. You can change this to re
 
 .. rst-class:: classref-property-setget
 
-- void **set_uv_rotation** **(** :ref:`float<class_float>` value **)**
-- :ref:`float<class_float>` **get_uv_rotation** **(** **)**
+- |void| **set_uv_rotation**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_uv_rotation**\ (\ )
 
 The shader rotates UV lookups in a detiling pattern based on this value.
 
@@ -215,8 +215,8 @@ The shader rotates UV lookups in a detiling pattern based on this value.
 
 .. rst-class:: classref-property-setget
 
-- void **set_uv_scale** **(** :ref:`float<class_float>` value **)**
-- :ref:`float<class_float>` **get_uv_scale** **(** **)**
+- |void| **set_uv_scale**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_uv_scale**\ (\ )
 
 The scale of the textures.
 
@@ -233,7 +233,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-void **clear** **(** **)**
+|void| **clear**\ (\ )
 
 Clears the texture files and settings.
 
@@ -244,3 +244,4 @@ Clears the texture files and settings.
 .. |static| replace:: :abbr:`static (This method doesn't need an instance to be called, so it can be called directly using the class name.)`
 .. |operator| replace:: :abbr:`operator (This method describes a valid operator to use with this type as left-hand operand.)`
 .. |bitfield| replace:: :abbr:`BitField (This value is an integer composed as a bitmask of the following flags.)`
+.. |void| replace:: :abbr:`void (No return value.)`

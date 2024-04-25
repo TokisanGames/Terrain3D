@@ -27,31 +27,31 @@ Methods
 .. table::
    :widths: auto
 
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`apply_undo<class_Terrain3DEditor_method_apply_undo>` **(** :ref:`Array<class_Array>` maps **)**                                               |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Operation<enum_Terrain3DEditor_Operation>` | :ref:`get_operation<class_Terrain3DEditor_method_get_operation>` **(** **)**                                                                        |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3D<class_Terrain3D>`                | :ref:`get_terrain<class_Terrain3DEditor_method_get_terrain>` **(** **)**                                                                            |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Tool<enum_Terrain3DEditor_Tool>`           | :ref:`get_tool<class_Terrain3DEditor_method_get_tool>` **(** **)**                                                                                  |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`bool<class_bool>`                          | :ref:`is_operating<class_Terrain3DEditor_method_is_operating>` **(** **)**                                                                          |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`operate<class_Terrain3DEditor_method_operate>` **(** :ref:`Vector3<class_Vector3>` position, :ref:`float<class_float>` camera_direction **)** |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`set_brush_data<class_Terrain3DEditor_method_set_brush_data>` **(** :ref:`Dictionary<class_Dictionary>` data **)**                             |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`set_operation<class_Terrain3DEditor_method_set_operation>` **(** :ref:`Operation<enum_Terrain3DEditor_Operation>` operation **)**             |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`set_terrain<class_Terrain3DEditor_method_set_terrain>` **(** :ref:`Terrain3D<class_Terrain3D>` terrain **)**                                  |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`set_tool<class_Terrain3DEditor_method_set_tool>` **(** :ref:`Tool<enum_Terrain3DEditor_Tool>` tool **)**                                      |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`start_operation<class_Terrain3DEditor_method_start_operation>` **(** :ref:`Vector3<class_Vector3>` position **)**                             |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | void                                             | :ref:`stop_operation<class_Terrain3DEditor_method_stop_operation>` **(** **)**                                                                      |
-   +--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`apply_undo<class_Terrain3DEditor_method_apply_undo>`\ (\ maps\: :ref:`Array<class_Array>`\ )                                                 |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Operation<enum_Terrain3DEditor_Operation>` | :ref:`get_operation<class_Terrain3DEditor_method_get_operation>`\ (\ )                                                                             |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Terrain3D<class_Terrain3D>`                | :ref:`get_terrain<class_Terrain3DEditor_method_get_terrain>`\ (\ )                                                                                 |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Tool<enum_Terrain3DEditor_Tool>`           | :ref:`get_tool<class_Terrain3DEditor_method_get_tool>`\ (\ )                                                                                       |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`                          | :ref:`is_operating<class_Terrain3DEditor_method_is_operating>`\ (\ )                                                                               |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`operate<class_Terrain3DEditor_method_operate>`\ (\ position\: :ref:`Vector3<class_Vector3>`, camera_direction\: :ref:`float<class_float>`\ ) |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`set_brush_data<class_Terrain3DEditor_method_set_brush_data>`\ (\ data\: :ref:`Dictionary<class_Dictionary>`\ )                               |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`set_operation<class_Terrain3DEditor_method_set_operation>`\ (\ operation\: :ref:`Operation<enum_Terrain3DEditor_Operation>`\ )               |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`set_terrain<class_Terrain3DEditor_method_set_terrain>`\ (\ terrain\: :ref:`Terrain3D<class_Terrain3D>`\ )                                    |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`set_tool<class_Terrain3DEditor_method_set_tool>`\ (\ tool\: :ref:`Tool<enum_Terrain3DEditor_Tool>`\ )                                        |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`start_operation<class_Terrain3DEditor_method_start_operation>`\ (\ position\: :ref:`Vector3<class_Vector3>`\ )                               |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                           | :ref:`stop_operation<class_Terrain3DEditor_method_stop_operation>`\ (\ )                                                                           |
+   +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -227,7 +227,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-void **apply_undo** **(** :ref:`Array<class_Array>` maps **)**
+|void| **apply_undo**\ (\ maps\: :ref:`Array<class_Array>`\ )
 
 Undo the previous changes, with the reverted images in the array. Used by Godot, not users.
 
@@ -239,7 +239,7 @@ Undo the previous changes, with the reverted images in the array. Used by Godot,
 
 .. rst-class:: classref-method
 
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **get_operation** **(** **)**
+:ref:`Operation<enum_Terrain3DEditor_Operation>` **get_operation**\ (\ )
 
 Returns the current operation.
 
@@ -251,7 +251,7 @@ Returns the current operation.
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3D<class_Terrain3D>` **get_terrain** **(** **)**
+:ref:`Terrain3D<class_Terrain3D>` **get_terrain**\ (\ )
 
 Returns the instance of Terrain3D this class is conneced to.
 
@@ -263,7 +263,7 @@ Returns the instance of Terrain3D this class is conneced to.
 
 .. rst-class:: classref-method
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **get_tool** **(** **)**
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **get_tool**\ (\ )
 
 Returns the current tool selected in the editor plugin.
 
@@ -275,7 +275,7 @@ Returns the current tool selected in the editor plugin.
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_operating** **(** **)**
+:ref:`bool<class_bool>` **is_operating**\ (\ )
 
 Returns true if currently brushing.
 
@@ -287,7 +287,7 @@ Returns true if currently brushing.
 
 .. rst-class:: classref-method
 
-void **operate** **(** :ref:`Vector3<class_Vector3>` position, :ref:`float<class_float>` camera_direction **)**
+|void| **operate**\ (\ position\: :ref:`Vector3<class_Vector3>`, camera_direction\: :ref:`float<class_float>`\ )
 
 Start brushing.
 
@@ -299,7 +299,7 @@ Start brushing.
 
 .. rst-class:: classref-method
 
-void **set_brush_data** **(** :ref:`Dictionary<class_Dictionary>` data **)**
+|void| **set_brush_data**\ (\ data\: :ref:`Dictionary<class_Dictionary>`\ )
 
 Sets all brush settings used in the editor plugin.
 
@@ -311,7 +311,7 @@ Sets all brush settings used in the editor plugin.
 
 .. rst-class:: classref-method
 
-void **set_operation** **(** :ref:`Operation<enum_Terrain3DEditor_Operation>` operation **)**
+|void| **set_operation**\ (\ operation\: :ref:`Operation<enum_Terrain3DEditor_Operation>`\ )
 
 Sets the tool operation used in the editor plugin.
 
@@ -323,7 +323,7 @@ Sets the tool operation used in the editor plugin.
 
 .. rst-class:: classref-method
 
-void **set_terrain** **(** :ref:`Terrain3D<class_Terrain3D>` terrain **)**
+|void| **set_terrain**\ (\ terrain\: :ref:`Terrain3D<class_Terrain3D>`\ )
 
 Sets the instance of Terrain3D this class is connected to.
 
@@ -335,7 +335,7 @@ Sets the instance of Terrain3D this class is connected to.
 
 .. rst-class:: classref-method
 
-void **set_tool** **(** :ref:`Tool<enum_Terrain3DEditor_Tool>` tool **)**
+|void| **set_tool**\ (\ tool\: :ref:`Tool<enum_Terrain3DEditor_Tool>`\ )
 
 Sets the tool selected in the editor plugin.
 
@@ -347,7 +347,7 @@ Sets the tool selected in the editor plugin.
 
 .. rst-class:: classref-method
 
-void **start_operation** **(** :ref:`Vector3<class_Vector3>` position **)**
+|void| **start_operation**\ (\ position\: :ref:`Vector3<class_Vector3>`\ )
 
 Begin a sculpting or painting operation.
 
@@ -359,7 +359,7 @@ Begin a sculpting or painting operation.
 
 .. rst-class:: classref-method
 
-void **stop_operation** **(** **)**
+|void| **stop_operation**\ (\ )
 
 End a sculpting or painting operation.
 
@@ -370,3 +370,4 @@ End a sculpting or painting operation.
 .. |static| replace:: :abbr:`static (This method doesn't need an instance to be called, so it can be called directly using the class name.)`
 .. |operator| replace:: :abbr:`operator (This method describes a valid operator to use with this type as left-hand operand.)`
 .. |bitfield| replace:: :abbr:`BitField (This value is an integer composed as a bitmask of the following flags.)`
+.. |void| replace:: :abbr:`void (No return value.)`
