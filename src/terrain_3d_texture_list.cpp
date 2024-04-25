@@ -225,13 +225,13 @@ void Terrain3DTextureList::update_list() {
 			LOG(ERROR, "Texture at index ", i, " is null, but shouldn't be.");
 			continue;
 		}
-		if (!texture_set->is_connected("file_changed", Callable(this, "_update_texture_files"))) {
+		if (!texture_set->is_connected("file_changed", callable_mp(this, &Terrain3DTextureList::_update_texture_files))) {
 			LOG(DEBUG, "Connecting file_changed signal");
-			texture_set->connect("file_changed", Callable(this, "_update_texture_files"));
+			texture_set->connect("file_changed", callable_mp(this, &Terrain3DTextureList::_update_texture_files));
 		}
-		if (!texture_set->is_connected("setting_changed", Callable(this, "_update_texture_settings"))) {
+		if (!texture_set->is_connected("setting_changed", callable_mp(this, &Terrain3DTextureList::_update_texture_settings))) {
 			LOG(DEBUG, "Connecting setting_changed signal");
-			texture_set->connect("setting_changed", Callable(this, "_update_texture_settings"));
+			texture_set->connect("setting_changed", callable_mp(this, &Terrain3DTextureList::_update_texture_settings));
 		}
 	}
 	_generated_albedo_textures.clear();
@@ -263,9 +263,9 @@ void Terrain3DTextureList::set_texture(int p_index, const Ref<Terrain3DTexture> 
 		if (p_index >= get_texture_count()) {
 			p_texture->get_data()->_texture_id = get_texture_count();
 			_textures.push_back(p_texture);
-			if (!p_texture->is_connected("id_changed", Callable(this, "_swap_textures"))) {
+			if (!p_texture->is_connected("id_changed", callable_mp(this, &Terrain3DTextureList::_swap_textures))) {
 				LOG(DEBUG, "Connecting to id_changed");
-				p_texture->connect("id_changed", Callable(this, "_swap_textures"));
+				p_texture->connect("id_changed", callable_mp(this, &Terrain3DTextureList::_swap_textures));
 			}
 		} else {
 			// Else overwrite an existing slot
@@ -302,9 +302,9 @@ void Terrain3DTextureList::set_textures(const TypedArray<Terrain3DTexture> &p_te
 				}
 			}
 		}
-		if (!texture->is_connected("id_changed", Callable(this, "_swap_textures"))) {
+		if (!texture->is_connected("id_changed", callable_mp(this, &Terrain3DTextureList::_swap_textures))) {
 			LOG(DEBUG, "Connecting to id_changed");
-			texture->connect("id_changed", Callable(this, "_swap_textures"));
+			texture->connect("id_changed", callable_mp(this, &Terrain3DTextureList::_swap_textures));
 		}
 	}
 	update_list();
@@ -327,13 +327,6 @@ void Terrain3DTextureList::save() {
 ///////////////////////////
 
 void Terrain3DTextureList::_bind_methods() {
-	// Private, but Public workaround until callable_mp is implemented
-	// https://github.com/godotengine/godot-cpp/pull/1155
-	ClassDB::bind_method(D_METHOD("_swap_textures", "old_id", "new_id"), &Terrain3DTextureList::_swap_textures);
-	ClassDB::bind_method(D_METHOD("_update_texture_files"), &Terrain3DTextureList::_update_texture_files);
-	ClassDB::bind_method(D_METHOD("_update_texture_settings"), &Terrain3DTextureList::_update_texture_settings);
-
-	// Public
 	ClassDB::bind_method(D_METHOD("set_texture", "index", "texture"), &Terrain3DTextureList::set_texture);
 	ClassDB::bind_method(D_METHOD("get_texture", "index"), &Terrain3DTextureList::get_texture);
 	ClassDB::bind_method(D_METHOD("set_textures", "textures"), &Terrain3DTextureList::set_textures);

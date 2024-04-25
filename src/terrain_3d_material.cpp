@@ -211,9 +211,9 @@ void Terrain3DMaterial::_update_shader() {
 			String code = _generate_shader_code();
 			_shader_override->set_code(code);
 		}
-		if (!_shader_override->is_connected("changed", Callable(this, "_update_shader"))) {
+		if (!_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
 			LOG(DEBUG, "Connecting changed signal to _update_shader()");
-			_shader_override->connect("changed", Callable(this, "_update_shader"));
+			_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
 		}
 		String code = _shader_override->get_code();
 		_shader_tmp->set_code(_inject_editor_code(code));
@@ -782,13 +782,7 @@ void Terrain3DMaterial::_bind_methods() {
 	BIND_ENUM_CONSTANT(LINEAR);
 	BIND_ENUM_CONSTANT(NEAREST);
 
-	// Private, but Public workaround until callable_mp is implemented
-	// https://github.com/godotengine/godot-cpp/pull/1155
-	ClassDB::bind_method(D_METHOD("_update_regions", "args"), &Terrain3DMaterial::_update_regions);
-	ClassDB::bind_method(D_METHOD("_update_texture_arrays", "args"), &Terrain3DMaterial::_update_texture_arrays);
-	ClassDB::bind_method(D_METHOD("_update_shader"), &Terrain3DMaterial::_update_shader);
-	ClassDB::bind_method(D_METHOD("_set_region_size", "width"), &Terrain3DMaterial::_set_region_size);
-
+	// Private
 	ClassDB::bind_method(D_METHOD("_set_shader_parameters", "dict"), &Terrain3DMaterial::_set_shader_parameters);
 	ClassDB::bind_method(D_METHOD("_get_shader_parameters"), &Terrain3DMaterial::_get_shader_parameters);
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_shader_parameters", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_shader_parameters", "_get_shader_parameters");

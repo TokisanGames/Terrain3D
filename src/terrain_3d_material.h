@@ -7,10 +7,13 @@
 
 #include "generated_tex.h"
 
+class Terrain3D;
+
 using namespace godot;
 
 class Terrain3DMaterial : public Resource {
 	GDCLASS(Terrain3DMaterial, Resource);
+	friend class Terrain3D;
 
 public:
 	// Constants
