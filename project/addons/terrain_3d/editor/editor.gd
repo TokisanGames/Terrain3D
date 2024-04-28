@@ -274,10 +274,10 @@ func _load_textures() -> void:
 	if terrain and terrain.texture_list:
 		if not terrain.texture_list.textures_changed.is_connected(update_asset_dock):
 			terrain.texture_list.textures_changed.connect(update_asset_dock)
-		update_asset_dock(Array())				
+		update_asset_dock()				
 
 
-func update_asset_dock(p_args: Array) -> void:
+func update_asset_dock(p_texture_list: Terrain3DTextureList = null) -> void:
 	asset_dock.clear()
 	
 	if is_terrain_valid() and terrain.texture_list:

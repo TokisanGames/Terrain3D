@@ -8,6 +8,7 @@
 #include "generated_tex.h"
 
 class Terrain3D;
+class Terrain3DTextureList;
 
 using namespace godot;
 
@@ -64,7 +65,6 @@ private:
 	bool _debug_view_vertex_grid = false;
 
 	// Cached data from Storage
-	int _texture_count = 0;
 	int _region_size = 1024;
 	real_t _mesh_vertex_spacing = 1.0f;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
@@ -80,7 +80,7 @@ private:
 	void _update_shader();
 	void _update_regions(const Array &p_args);
 	void _generate_region_blend_map();
-	void _update_texture_arrays(const Array &p_args);
+	void _update_texture_arrays(const Ref<Terrain3DTextureList> p_texture_list);
 	void _set_region_size(int p_size);
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }

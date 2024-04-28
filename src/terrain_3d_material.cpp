@@ -365,48 +365,31 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list
-// Expected Arguments are as follows, * set is optional
-// 0: texture count
-// 1: albedo tex array
-// 2: normal tex array
-// 3: uv color array *
-// 4: uv scale array *
-// 5: uv rotation array *
-void Terrain3DMaterial::_update_texture_arrays(const Array &p_args) {
+void Terrain3DMaterial::_update_texture_arrays(const Ref<Terrain3DTextureList> p_texture_list) {
 	if (!_initialized) {
 		return;
 	}
 	LOG(INFO, "Updating texture arrays in shader");
-	if (p_args.size() < 3) {
-		LOG(ERROR, "Expecting at least 2 arguments");
+	if (p_texture_list.is_null()) {
+		LOG(ERROR, "Received null p_texture_list");
 		return;
 	}
 
-	_texture_count = p_args[0];
-	RID albedo_array = p_args[1];
-	RID normal_array = p_args[2];
-	RS->material_set_param(_material, "_texture_array_albedo", albedo_array);
-	RS->material_set_param(_material, "_texture_array_normal", normal_array);
-
-	if (p_args.size() == 6) {
-		PackedColorArray colors = p_args[3];
-		PackedFloat32Array uv_scales = p_args[4];
-		PackedFloat32Array uv_rotations = p_args[5];
-		_texture_count = uv_scales.size();
-		RS->material_set_param(_material, "_texture_color_array", colors);
-		RS->material_set_param(_material, "_texture_uv_scale_array", uv_scales);
-		RS->material_set_param(_material, "_texture_uv_rotation_array", uv_rotations);
-	}
+	RS->material_set_param(_material, "_texture_array_albedo", p_texture_list->get_albedo_array_rid());
+	RS->material_set_param(_material, "_texture_array_normal", p_texture_list->get_normal_array_rid());
+	RS->material_set_param(_material, "_texture_color_array", p_texture_list->get_texture_colors());
+	RS->material_set_param(_material, "_texture_uv_scale_array", p_texture_list->get_texture_uv_scales());
+	RS->material_set_param(_material, "_texture_uv_rotation_array", p_texture_list->get_texture_uv_rotations());
 
 	// Enable checkered view if texture_count is 0, disable if not
-	if (_texture_count == 0) {
+	if (p_texture_list->get_texture_count() == 0) {
 		if (_debug_view_checkered == false) {
 			set_show_checkered(true);
 			LOG(DEBUG, "No textures, enabling checkered view");
 		}
 	} else {
 		set_show_checkered(false);
-		LOG(DEBUG, "Texture count >0: ", _texture_count, ", disabling checkered view");
+		LOG(DEBUG, "Texture count >0: ", p_texture_list->get_texture_count(), ", disabling checkered view");
 	}
 }
 
