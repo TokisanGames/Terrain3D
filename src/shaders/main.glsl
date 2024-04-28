@@ -221,6 +221,13 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 	}
 }
 
+vec2 uv_detiling(vec2 uv, vec2 uv_center, int mat_id){
+	vec2 rotation_center = floor(uv_center) + 0.5;
+	float random_angle_1 = (random(rotation_center) - 0.5) * 2.0 * TAU; // -180deg to 180deg
+	vec2 outUV = rotate_around(uv, rotation_center, random_angle_1 * _texture_uv_rotation_array[mat_id]);
+	return outUV;
+}
+
 // 2-4 lookups
 void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
 	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0);
@@ -229,16 +236,32 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 
 //INSERT: AUTO_SHADER_TEXTURE_ID
 //INSERT: TEXTURE_ID
-	float random_value = random(uv_center);
-	float random_angle = (random_value - 0.5) * TAU; // -180deg to 180deg
-	base_uv *= .5; // Allow larger numbers on uv scale array - move to C++
-	vec2 uv1 = base_uv * _texture_uv_scale_array[out_mat.base];
-	vec2 matUV = rotate_around(uv1, uv1 - 0.5, random_angle * _texture_uv_rotation_array[out_mat.base]);
+	
+	// Control map scale & rotation, apply to both base and center uv.
+	// To correctly rotate & scale around each control map pixel we must 
+	// translate uv center from "control map space" to "uv space".
+	uv_center += _region_offsets[region] * _region_size;
+	// Define and apply base scale from control map value as array index. 0.5 as baseline.
+	float[8] scale_array = { 0.5, 0.4, 0.3, 0.2, 0.1, 0.8, 0.7, 0.6};
+	float control_scale = scale_array[(control >>7u & 0x7u)];
+	base_uv *= control_scale;
+	uv_center *=  control_scale;
+	// calculate baseline derivatives
+	vec2 ddx = dFdxCoarse(base_uv);
+	vec2 ddy = dFdyCoarse(base_uv);
+	// Apply global uv rotation from control map.
+	float uv_rotation = float(control >>10u & 0xFu) / 16. * TAU;
+	base_uv = rotate_around(base_uv, vec2(0), uv_rotation);
+	uv_center = rotate_around(uv_center, vec2(0), uv_rotation);
 
+	vec2 matUV = base_uv;
 	vec4 albedo_ht = vec4(0.);
 	vec4 normal_rg = vec4(0.5f, 0.5f, 1.0f, 1.0f);
 	vec4 albedo_far = vec4(0.);
 	vec4 normal_far = vec4(0.5f, 0.5f, 1.0f, 1.0f);
+	float mat_scale = _texture_uv_scale_array[out_mat.base];
+	vec2 ddx1 = ddx;
+	vec2 ddy1 = ddy;
 	
 //INSERT: UNI_SCALING_BASE
 //INSERT: DUAL_SCALING_BASE
@@ -249,11 +272,12 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	normal_rg.xz = unpack_normal(normal_rg).xz;
 
 	// Setup overlay texture to blend
-	vec2 uv2 = base_uv * _texture_uv_scale_array[out_mat.over];
-	vec2 matUV2 = rotate_around(uv2, uv2 - 0.5, random_angle * _texture_uv_rotation_array[out_mat.over]);
-
-	vec4 albedo_ht2 = texture(_texture_array_albedo, vec3(matUV2, float(out_mat.over)));
-	vec4 normal_rg2 = texture(_texture_array_normal, vec3(matUV2, float(out_mat.over)));
+	float mat_scale2 = _texture_uv_scale_array[out_mat.over];
+	vec2 matUV2 = uv_detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over);
+	vec2 ddx2 = ddx * mat_scale2;
+	vec2 ddy2 = ddy * mat_scale2;
+	vec4 albedo_ht2 = textureGrad(_texture_array_albedo, vec3(matUV2, float(out_mat.over)), ddx2, ddy2);
+	vec4 normal_rg2 = textureGrad(_texture_array_normal, vec3(matUV2, float(out_mat.over)), ddx2, ddy2);
 
 	// Though it would seem having the above lookups in this block, or removing the branch would
 	// be more optimal, the first introduces artifacts #276, and the second is noticably slower. 
@@ -279,6 +303,7 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 }
 
 float blend_weights(float weight, float detail) {
+	weight = smoothstep(0.0, 1.0, weight);
 	weight = sqrt(weight * 0.5);
 	float result = max(0.1 * weight, 10.0 * (weight + detail) + 1.0f - (detail + 10.0));
 	return result;

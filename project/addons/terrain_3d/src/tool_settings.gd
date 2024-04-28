@@ -32,6 +32,7 @@ const ALLOW_SMALLER: int = 0x2
 const ALLOW_OUT_OF_BOUNDS: int = 0x3 # LARGER|SMALLER
 const NO_LABEL: int = 0x4
 const ADD_SEPARATOR: int = 0x8
+const ADD_SPACER: int = 0x10
 
 var brush_preview_material: ShaderMaterial
 var select_brush_button: Button
@@ -53,7 +54,7 @@ func _ready() -> void:
 	add_brushes(main_list)
 
 	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":50, "unit":"m",
-								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER })
+								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
 		
 	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":10, 
 								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
@@ -74,7 +75,26 @@ func _ready() -> void:
 								"unit":"%", "range":Vector3(-100, 100, 1), "flags":ADD_SEPARATOR })
 	add_setting({ "name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, 
 								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL })
+
+	add_setting({ "name":"enable_texture", "label":"Texture", "type":SettingType.CHECKBOX, 
+								"list":main_list, "default":true })
+
+	add_setting({ "name":"enable_angle", "label":"Angle", "type":SettingType.CHECKBOX, 
+								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
+	add_setting({ "name":"angle", "type":SettingType.SLIDER, "list":main_list, "default":0,
+								"unit":"%", "range":Vector3(0, 337.5, 22.5), "flags":NO_LABEL })
+	add_setting({ "name":"angle_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.ANGLE, "flags":NO_LABEL })
+	add_setting({ "name":"dynamic_angle", "label":"Dynamic", "type":SettingType.CHECKBOX, 
+								"list":main_list, "default":false, "flags":ADD_SPACER })
 	
+	add_setting({ "name":"enable_scale", "label":"Scale ±", "type":SettingType.CHECKBOX, 
+								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
+	add_setting({ "name":"scale", "label":"±", "type":SettingType.SLIDER, "list":main_list, "default":0,
+								"unit":"%", "range":Vector3(-60, 80, 20), "flags":NO_LABEL })
+	add_setting({ "name":"scale_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.SCALE, "flags":NO_LABEL })
+
 	## Slope
 	add_setting({ "name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, 
 								"default":0, "unit":"°", "range":Vector3(0, 180, 1) })
@@ -242,6 +262,10 @@ func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position:
 		Terrain3DEditor.ROUGHNESS:
 			# 200... -.5 converts 0,1 to -100,100
 			settings["roughness"].value = round(200 * (p_color.a - 0.5)) if not is_nan(p_color.r) else 0.499
+		Terrain3DEditor.ANGLE:
+			settings["angle"].value = p_color.r
+		Terrain3DEditor.SCALE:
+			settings["scale"].value = p_color.r
 	_on_setting_changed()
 
 
@@ -328,28 +352,29 @@ func add_setting(p_args: Dictionary) -> void:
 			var slider: Control
 			if p_type == SettingType.SLIDER:
 				# Create an editable value box
-				var spinslider := EditorSpinSlider.new()
-				spinslider.set_flat(true)
-				spinslider.set_hide_slider(true)
-				spinslider.value_changed.connect(_on_setting_changed)
-				spinslider.set_max(p_maximum)
-				spinslider.set_min(p_minimum)
-				spinslider.set_step(p_step)
-				spinslider.set_value(p_default)
-				spinslider.set_suffix(p_suffix)
-				spinslider.set_v_size_flags(SIZE_SHRINK_CENTER)
-				spinslider.set_custom_minimum_size(Vector2(75, 0))
+				var spin_slider := EditorSpinSlider.new()
+				spin_slider.set_flat(false)
+				spin_slider.set_hide_slider(true)
+				spin_slider.value_changed.connect(_on_setting_changed)
+				spin_slider.set_max(p_maximum)
+				spin_slider.set_min(p_minimum)
+				spin_slider.set_step(p_step)
+				spin_slider.set_value(p_default)
+				spin_slider.set_suffix(p_suffix)
+				spin_slider.set_h_size_flags(SIZE_SHRINK_CENTER)
+				spin_slider.set_v_size_flags(SIZE_SHRINK_CENTER)
+				spin_slider.set_custom_minimum_size(Vector2(75, 0))
 
 				# Create horizontal slider linked to the above box
 				slider = HSlider.new()
-				slider.share(spinslider)
+				slider.share(spin_slider)
 				if p_flags & ALLOW_LARGER:
 					slider.set_allow_greater(true)
 				if p_flags & ALLOW_SMALLER:
 					slider.set_allow_lesser(true)
 				pending_children.push_back(slider)
-				pending_children.push_back(spinslider)
-				control = spinslider
+				pending_children.push_back(spin_slider)
+				control = spin_slider
 					
 			else: # DOUBLE_SLIDER
 				var label := Label.new()
@@ -370,7 +395,7 @@ func add_setting(p_args: Dictionary) -> void:
 			slider.set_value(p_default)
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 			slider.set_h_size_flags(SIZE_SHRINK_END | SIZE_EXPAND)
-			slider.set_custom_minimum_size(Vector2(100, 10))
+			slider.set_custom_minimum_size(Vector2(60, 10))
 
 	control.name = p_name.to_pascal_case()
 	settings[p_name] = control
@@ -393,6 +418,10 @@ func add_setting(p_args: Dictionary) -> void:
 	# Add separators to front
 	if p_flags & ADD_SEPARATOR:
 		pending_children.push_front(VSeparator.new())
+	if p_flags & ADD_SPACER:
+		var spacer := Control.new()
+		spacer.set_custom_minimum_size(Vector2(5, 0))
+		pending_children.push_front(spacer)
 
 	# Add all children to container and list
 	for child in pending_children:
@@ -423,6 +452,10 @@ func get_setting(p_setting: String) -> Variant:
 	var value: Variant
 	if object is Range:
 		value = object.get_value()
+		# Adjust widths of all sliders on update of values
+		var digits: float = count_digits(value)
+		var width: float = clamp( (1 + count_digits(value)) * 19., 50, 80) * clamp(EditorInterface.get_editor_scale(), .9, 2)
+		object.set_custom_minimum_size(Vector2(width, 0))
 	elif object is DoubleSlider:
 		value = Vector2(object.get_min_value(), object.get_max_value())
 	elif object is ButtonGroup:
@@ -516,6 +549,28 @@ func _get_brush_preview_material() -> ShaderMaterial:
 		brush_preview_material.set_shader(shader)
 	return brush_preview_material
 
+
+
+# Counts digits of a number including negative sign, decimal points, and up to 3 decimals 
+func count_digits(p_value: float) -> int:
+	var count: int = 1
+	for i in range(5, 0, -1):
+		if abs(p_value) >= pow(10, i):
+			count = i+1
+			break
+	if p_value - floor(p_value) >= .1:
+		count += 1 # For the decimal
+		if p_value*10 - floor(p_value*10.) >= .1: 
+			count += 1
+			if p_value*100 - floor(p_value*100.) >= .1: 
+				count += 1
+				if p_value*1000 - floor(p_value*1000.) >= .1: 
+					count += 1
+	# Negative sign
+	if p_value < 0:
+		count += 1
+	return count
+	
 
 #### Sub Class DoubleSlider
 

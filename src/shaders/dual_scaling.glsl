@@ -12,13 +12,21 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 //INSERT: DUAL_SCALING_BASE
 	// If dual scaling, apply to base texture
 	if(region < 0) {
-		matUV *= tri_scale_reduction;
+		mat_scale *= tri_scale_reduction;
 	}
-	albedo_ht = texture(_texture_array_albedo, vec3(matUV, float(out_mat.base)));
-	normal_rg = texture(_texture_array_normal, vec3(matUV, float(out_mat.base)));
+	//each time we change scale, recalculate antitiling from baseline to maintain continuity.
+	matUV = uv_detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base);
+	ddx1 *= mat_scale;
+	ddy1 *= mat_scale;
+	albedo_ht = textureGrad(_texture_array_albedo, vec3(matUV, float(out_mat.base)), ddx1, ddy1);
+	normal_rg = textureGrad(_texture_array_normal, vec3(matUV, float(out_mat.base)), ddx1, ddy1);
 	if(out_mat.base == dual_scale_texture || out_mat.over == dual_scale_texture) {
-		albedo_far = texture(_texture_array_albedo, vec3(matUV*dual_scale_reduction, float(dual_scale_texture)));
-		normal_far = texture(_texture_array_normal, vec3(matUV*dual_scale_reduction, float(dual_scale_texture)));
+		mat_scale *= dual_scale_reduction;
+		ddx1 *= dual_scale_reduction;
+		ddy1 *= dual_scale_reduction;
+		matUV = uv_detiling(base_uv * mat_scale, uv_center * mat_scale, dual_scale_texture);
+		albedo_far = textureGrad(_texture_array_albedo, vec3(matUV, float(dual_scale_texture)), ddx1, ddy1);
+		normal_far = textureGrad(_texture_array_normal, vec3(matUV, float(dual_scale_texture)), ddx1, ddy1);
 	}
 
 	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - v_camera_pos)), 0.0, 1.0);
@@ -28,8 +36,11 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 	}
 
 //INSERT: UNI_SCALING_BASE
-	albedo_ht = texture(_texture_array_albedo, vec3(matUV, float(out_mat.base)));
-	normal_rg = texture(_texture_array_normal, vec3(matUV, float(out_mat.base)));
+	matUV = uv_detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base);
+	ddx1 *= mat_scale;
+	ddy1 *= mat_scale;
+	albedo_ht = textureGrad(_texture_array_albedo, vec3(matUV, float(out_mat.base)), ddx1, ddy1);
+	normal_rg = textureGrad(_texture_array_normal, vec3(matUV, float(out_mat.base)), ddx1, ddy1);
 
 //INSERT: DUAL_SCALING_OVERLAY
 		// If dual scaling, apply to overlay texture

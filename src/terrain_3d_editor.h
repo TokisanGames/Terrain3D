@@ -42,6 +42,8 @@ public: // Constants
 		TEXTURE,
 		COLOR,
 		ROUGHNESS,
+		ANGLE,
+		SCALE,
 		AUTOSHADER,
 		HOLES,
 		NAVIGATION,
@@ -54,6 +56,8 @@ public: // Constants
 		"Texture",
 		"Color",
 		"Roughness",
+		"Angle",
+		"Scale",
 		"Auto Shader",
 		"Holes",
 		"Navigation",
@@ -77,6 +81,13 @@ public: // Constants
 		PackedVector3Array _gradient_points;
 		bool _enable = false;
 
+		bool _enable_texture = true;
+		bool _enable_angle = true;
+		bool _dynamic_angle = false;
+		real_t _angle = 0.0f;
+		bool _enable_scale = true;
+		real_t _scale = 0.0f;
+
 		bool _auto_regions = false;
 		bool _align_to_view = false;
 		real_t _gamma = 1.0f;
@@ -98,7 +109,12 @@ public: // Constants
 		real_t get_roughness() const { return _roughness; }
 		PackedVector3Array get_gradient_points() const { return _gradient_points; }
 		real_t get_enable() const { return _enable; }
-
+		bool get_enable_texture() const { return _enable_texture; }
+		bool get_enable_angle() const { return _enable_angle; }
+		bool get_dynamic_angle() const { return _dynamic_angle; }
+		real_t get_angle() const { return _angle; }
+		bool get_enable_scale() const { return _enable_scale; }
+		real_t get_scale() const { return _scale; }
 		bool auto_regions_enabled() const { return _auto_regions; }
 		bool is_aligned_to_view() const { return _align_to_view; }
 		real_t get_gamma() const { return _gamma; }
@@ -114,6 +130,7 @@ private:
 	Brush _brush;
 	Vector3 _operation_position = Vector3();
 	Vector3 _operation_movement = Vector3();
+	Array _operation_movement_history;
 	bool _pending_undo = false;
 	bool _modified = false;
 	AABB _modified_area;

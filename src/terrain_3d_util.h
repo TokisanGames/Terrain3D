@@ -100,6 +100,14 @@ inline uint8_t get_blend(uint32_t pixel) { return pixel >> 14 & 0xFF; }
 inline uint8_t get_blend(float pixel) { return get_blend(as_uint(pixel)); }
 inline uint32_t enc_blend(uint8_t blend) { return (blend & 0xFF) << 14; }
 
+inline uint8_t get_uv_rotation(uint32_t pixel) { return pixel >> 10 & 0xF; }
+inline uint8_t get_uv_rotation(float pixel) { return get_uv_rotation(as_uint(pixel)); }
+inline uint32_t enc_uv_rotation(uint8_t rotation) { return (rotation & 0xF) << 10; }
+
+inline uint8_t get_uv_scale(uint32_t pixel) { return pixel >> 7 & 0x7; }
+inline uint8_t get_uv_scale(float pixel) { return get_uv_scale(as_uint(pixel)); }
+inline uint32_t enc_uv_scale(uint8_t scale) { return (scale & 0x7) << 7; }
+
 inline bool is_hole(uint32_t pixel) { return (pixel >> 2 & 0x1) == 1; }
 inline bool is_hole(float pixel) { return is_hole(as_uint(pixel)); }
 inline uint32_t enc_hole(bool hole) { return (hole & 0x1) << 2; }
@@ -122,6 +130,11 @@ inline uint32_t gd_enc_blend(uint32_t blend) { return enc_blend(blend); }
 inline bool gd_is_hole(uint32_t pixel) { return is_hole(pixel); }
 inline bool gd_is_auto(uint32_t pixel) { return is_auto(pixel); }
 inline bool gd_is_nav(uint32_t pixel) { return is_nav(pixel); }
+inline uint32_t gd_get_uv_rotation(uint32_t pixel) { return get_uv_rotation(pixel); }
+inline uint32_t gd_enc_uv_rotation(uint32_t rotation) { return enc_uv_rotation(rotation); }
+inline uint32_t gd_get_uv_scale(uint32_t pixel) { return get_uv_rotation(pixel); }
+inline uint32_t gd_enc_uv_scale(uint32_t scale) { return enc_uv_rotation(scale); }
+
 
 ///////////////////////////
 // Memory
