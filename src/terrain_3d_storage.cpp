@@ -536,6 +536,20 @@ Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
 	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
+real_t Terrain3DStorage::get_angle(Vector3 p_global_position) {
+	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
+	real_t angle = real_t(get_uv_rotation(src));
+	angle *= 22.5; // Return value in degrees.
+	return real_t(angle);
+}
+
+real_t Terrain3DStorage::get_scale(Vector3 p_global_position) {
+	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
+	std::array<real_t, 8> scale_values = { 0.0f, 20.0f, 40.0f, 60.0f, 80.0f, -60.0f, -40.0f, -20.0f };
+	real_t scale = scale_values[get_uv_scale(src)]; //select from array UI return values
+	return real_t(scale);
+}
+
 /**
  * Returns sanitized maps of either a region set or a uniform set
  * Verifies size, vailidity, and format of maps
@@ -1062,6 +1076,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_roughness", "global_position", "roughness"), &Terrain3DStorage::set_roughness);
 	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DStorage::get_roughness);
 	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DStorage::get_texture_id);
+	ClassDB::bind_method(D_METHOD("get_angle", "global_position"), &Terrain3DStorage::get_angle);
+	ClassDB::bind_method(D_METHOD("get_scale", "global_position"), &Terrain3DStorage::get_scale);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	ClassDB::bind_method(D_METHOD("save"), &Terrain3DStorage::save);

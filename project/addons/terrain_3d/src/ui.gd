@@ -116,8 +116,16 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")
 			to_show.push_back("size")
+			to_show.push_back("enable_texture")
 			if p_operation == Terrain3DEditor.ADD:
 				to_show.push_back("strength")
+			to_show.push_back("enable_angle")
+			to_show.push_back("angle")
+			to_show.push_back("angle_picker")
+			to_show.push_back("dynamic_angle")
+			to_show.push_back("enable_scale")
+			to_show.push_back("scale")
+			to_show.push_back("scale_picker")
 
 		Terrain3DEditor.COLOR:
 			to_show.push_back("brush")
@@ -137,7 +145,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("enable")
-
 
 		_:
 			pass
@@ -330,6 +337,10 @@ func pick(p_global_position: Vector3) -> void:
 				color = plugin.terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_COLOR, p_global_position)
 			Terrain3DEditor.COLOR:
 				color = plugin.terrain.get_storage().get_color(p_global_position)
+			Terrain3DEditor.ANGLE:
+				color = Color(plugin.terrain.get_storage().get_angle(p_global_position), 0., 0., 1.)
+			Terrain3DEditor.SCALE:
+				color = Color(plugin.terrain.get_storage().get_scale(p_global_position), 0., 0., 1.)
 			_:
 				push_error("Unsupported picking type: ", picking)
 				return

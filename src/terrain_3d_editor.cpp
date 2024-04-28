@@ -35,6 +35,12 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	_roughness = CLAMP(real_t(p_data["roughness"]), -100.f, 100.f);
 	_gradient_points = p_data["gradient_points"];
 	_enable = p_data["enable"];
+	_enable_texture = p_data["enable_texture"];
+	_enable_angle = p_data["enable_angle"];
+	_dynamic_angle = p_data["dynamic_angle"];
+	_angle = p_data["angle"];
+	_enable_scale = p_data["enable_scale"];
+	_scale = p_data["scale"];
 	_auto_regions = p_data["automatic_regions"];
 	_align_to_view = p_data["align_to_view"];
 	_gamma = CLAMP(real_t(p_data["gamma"]), 0.1f, 2.f);
@@ -121,6 +127,8 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 		case AUTOSHADER:
 		case HOLES:
 		case NAVIGATION:
+		case ANGLE:
+		case SCALE:
 			map_type = Terrain3DStorage::TYPE_CONTROL;
 			break;
 		case COLOR:
@@ -141,6 +149,13 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 	real_t roughness = _brush.get_roughness();
 	PackedVector3Array gradient_points = _brush.get_gradient_points();
 	bool enable = _brush.get_enable();
+	bool enable_texture = _brush.get_enable_texture();
+	bool enable_angle = _brush.get_enable_angle();
+	bool dynamic_angle = _brush.get_dynamic_angle();
+	real_t angle = _brush.get_angle();
+	bool enable_scale = _brush.get_enable_scale();
+	real_t scale = _brush.get_scale();
+
 	real_t gamma = _brush.get_gamma();
 
 	real_t randf = UtilityFunctions::randf();
@@ -291,24 +306,47 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					uint32_t base_id = get_base(src.r);
 					uint32_t overlay_id = get_overlay(src.r);
 					real_t blend = real_t(get_blend(src.r)) / 255.f;
+					uint32_t uvrotation = get_uv_rotation(src.r);
+					uint32_t uvscale = get_uv_scale(src.r);
 					bool hole = is_hole(src.r);
 					bool navigation = is_nav(src.r);
 					bool autoshader = is_auto(src.r);
 
 					real_t alpha_clip = (brush_alpha > 0.1f) ? 1.f : 0.f;
 					uint32_t dest_id = uint32_t(Math::lerp(base_id, texture_id, alpha_clip));
+					// Lookup to shift values saved to control map so that 0 (default) is the first entry
+					// Shader scale array is aligned to match this.
+					std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
 
 					switch (_tool) {
 						case TEXTURE:
 							switch (_operation) {
 								// Base Paint
 								case REPLACE: {
-									// Set base texture
-									base_id = dest_id;
-									// Erase blend value
-									blend = Math::lerp(blend, real_t(0.f), alpha_clip);
 									if (brush_alpha > 0.1f) {
-										autoshader = false;
+										if (enable_texture) {
+											// Set base texture
+											base_id = dest_id;
+											// Erase blend value
+											blend = Math::lerp(blend, real_t(0.f), alpha_clip);
+											autoshader = false;
+										}
+										// Set angle & scale
+										if (enable_angle) {
+											if (dynamic_angle) {
+												// Angle from mouse movement.
+												angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
+												// Avoid negative, align texture "up" with mouse direction.
+												angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
+											}
+											// Convert from degrees to 0 - 15 value range
+											uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
+										}
+										if (enable_scale) {
+											// Offset negative and convert from percentage to 0 - 7 bit value range
+											// Maintain 0 = 0, remap negatives to end.
+											uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
+										}
 									}
 								} break;
 
@@ -316,16 +354,34 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 								case ADD: {
 									real_t spray_strength = CLAMP(strength * 0.025f, 0.003f, 0.025f);
 									real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
-									// If overlay and base texture are the same, reduce blend value
-									if (dest_id == base_id) {
-										blend = CLAMP(blend - brush_value, 0.f, 1.f);
-									} else {
-										// Else overlay and base are separate, set overlay texture and increase blend value
-										overlay_id = dest_id;
-										blend = CLAMP(blend + brush_value, 0.f, 1.f);
+									if (enable_texture) {
+										// If overlay and base texture are the same, reduce blend value
+										if (dest_id == base_id) {
+											blend = CLAMP(blend - brush_value, 0.f, 1.f);
+										} else {
+											// Else overlay and base are separate, set overlay texture and increase blend value
+											overlay_id = dest_id;
+											blend = CLAMP(blend + brush_value, 0.f, 1.f);
+										}
+										autoshader = false;
 									}
 									if (brush_alpha * strength * 11.f > 0.1f) {
-										autoshader = false;
+										// Set angle & scale
+										if (enable_angle) {
+											if (dynamic_angle) {
+												// Angle from mouse movement.
+												angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
+												// Avoid negative, align texture "up" with mouse direction.
+												angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
+											}
+											// Convert from degrees to 0 - 15 value range
+											uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
+										}
+										if (enable_scale) {
+											// Offset negative and convert from percentage to 0 - 7 bit value range
+											// Maintain 0 = 0, remap negatives to end.
+											uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
+										}
 									}
 								} break;
 
@@ -355,11 +411,12 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					// Convert back to bitfield
 					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.f), 0.f, 255.f));
 					uint32_t bits = enc_base(base_id) | enc_overlay(overlay_id) |
-							enc_blend(blend_int) | enc_hole(hole) |
+							enc_blend(blend_int) | enc_uv_rotation(uvrotation) |
+							enc_uv_scale(uvscale) | enc_hole(hole) |
 							enc_nav(navigation) | enc_auto(autoshader);
 
 					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
-					dest = Color(*(float *)&bits, 0.f, 0.f, 1.f);
+					dest = Color(as_float(bits), 0.f, 0.f, 1.f);
 
 				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
 					switch (_tool) {
@@ -545,6 +602,18 @@ void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_directi
 	_operation_movement = p_global_position - _operation_position;
 	_operation_position = p_global_position;
 
+	// Convolve the last 8 movement events, we dont clear on mouse release
+	// so as to make repeated mouse strokes in the same direction consistent
+	_operation_movement_history.append(_operation_movement);
+	if (_operation_movement_history.size() > 8) {
+		_operation_movement_history.pop_front();
+	}
+	// size -1, dont add the last appended entry
+	for (int i = 0; i < _operation_movement_history.size() - 1; i++) {
+		_operation_movement += _operation_movement_history[i];
+	}
+	_operation_movement *= 0.125; // 1/8th
+
 	if (_tool == REGION) {
 		_operate_region(p_global_position);
 	} else if (_tool >= 0 && _tool < REGION) {
@@ -581,6 +650,8 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(TEXTURE);
 	BIND_ENUM_CONSTANT(COLOR);
 	BIND_ENUM_CONSTANT(ROUGHNESS);
+	BIND_ENUM_CONSTANT(ANGLE);
+	BIND_ENUM_CONSTANT(SCALE);
 	BIND_ENUM_CONSTANT(AUTOSHADER);
 	BIND_ENUM_CONSTANT(HOLES);
 	BIND_ENUM_CONSTANT(NAVIGATION);

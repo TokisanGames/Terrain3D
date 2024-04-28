@@ -165,6 +165,8 @@ public:
 	void set_roughness(Vector3 p_global_position, real_t p_roughness);
 	real_t get_roughness(Vector3 p_global_position);
 	Vector3 get_texture_id(Vector3 p_global_position);
+	real_t get_angle(Vector3 p_global_position);
+	real_t get_scale(Vector3 p_global_position);
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
