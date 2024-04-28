@@ -10,14 +10,14 @@
 Terrain3DTexture
 ================
 
-**Inherits:** :ref:`Resource<class_Resource>` **<** :ref:`RefCounted<class_RefCounted>` **<** :ref:`Object<class_Object>`
+**Inherits:** :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` **<** :ref:`Resource<class_Resource>` **<** :ref:`RefCounted<class_RefCounted>` **<** :ref:`Object<class_Object>`
 
 .. rst-class:: classref-introduction-group
 
 Description
 -----------
 
-A set of texture files and settings that gets added to :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`. Textures must be prepared according to the `documentation <../docs/texture_prep.html>`__.
+This class is deprecated and has been replaced by :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`.
 
 .. rst-class:: classref-reftable-group
 
@@ -27,74 +27,11 @@ Properties
 .. table::
    :widths: auto
 
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`Color<class_Color>`         | :ref:`albedo_color<class_Terrain3DTexture_property_albedo_color>`     | ``Color(1, 1, 1, 1)`` |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`Texture2D<class_Texture2D>` | :ref:`albedo_texture<class_Terrain3DTexture_property_albedo_texture>` |                       |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`float<class_float>`         | :ref:`detiling<class_Terrain3DTexture_property_detiling>`             | ``0.0``               |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`String<class_String>`       | :ref:`name<class_Terrain3DTexture_property_name>`                     | ``"New Texture"``     |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`Texture2D<class_Texture2D>` | :ref:`normal_texture<class_Terrain3DTexture_property_normal_texture>` |                       |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`int<class_int>`             | :ref:`texture_id<class_Terrain3DTexture_property_texture_id>`         | ``0``                 |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`float<class_float>`         | :ref:`uv_scale<class_Terrain3DTexture_property_uv_scale>`             | ``0.1``               |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-
-.. rst-class:: classref-reftable-group
-
-Methods
--------
-
-.. table::
-   :widths: auto
-
-   +--------+---------------------------------------------------------+
-   | |void| | :ref:`clear<class_Terrain3DTexture_method_clear>`\ (\ ) |
-   +--------+---------------------------------------------------------+
-
-.. rst-class:: classref-section-separator
-
-----
-
-.. rst-class:: classref-descriptions-group
-
-Signals
--------
-
-.. _class_Terrain3DTexture_signal_file_changed:
-
-.. rst-class:: classref-signal
-
-**file_changed**\ (\ )
-
-Emitted when :ref:`albedo_texture<class_Terrain3DTexture_property_albedo_texture>` or :ref:`normal_texture<class_Terrain3DTexture_property_normal_texture>` are changed.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DTexture_signal_id_changed:
-
-.. rst-class:: classref-signal
-
-**id_changed**\ (\ )
-
-Emitted when :ref:`texture_id<class_Terrain3DTexture_property_texture_id>` is changed.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DTexture_signal_setting_changed:
-
-.. rst-class:: classref-signal
-
-**setting_changed**\ (\ )
-
-Emitted when any setting is changed, other than texture_id, albedo_texture, or normal_texture.
+   +---------------------------+-----------------------------------------------------------------+---------+
+   | :ref:`int<class_int>`     | :ref:`texture_id<class_Terrain3DTexture_property_texture_id>`   |         |
+   +---------------------------+-----------------------------------------------------------------+---------+
+   | :ref:`float<class_float>` | :ref:`uv_rotation<class_Terrain3DTexture_property_uv_rotation>` | ``0.0`` |
+   +---------------------------+-----------------------------------------------------------------+---------+
 
 .. rst-class:: classref-section-separator
 
@@ -105,137 +42,39 @@ Emitted when any setting is changed, other than texture_id, albedo_texture, or n
 Property Descriptions
 ---------------------
 
-.. _class_Terrain3DTexture_property_albedo_color:
-
-.. rst-class:: classref-property
-
-:ref:`Color<class_Color>` **albedo_color** = ``Color(1, 1, 1, 1)``
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_albedo_color**\ (\ value\: :ref:`Color<class_Color>`\ )
-- :ref:`Color<class_Color>` **get_albedo_color**\ (\ )
-
-This color is multiplied by the albedo texture in the shader.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DTexture_property_albedo_texture:
-
-.. rst-class:: classref-property
-
-:ref:`Texture2D<class_Texture2D>` **albedo_texture**
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_albedo_texture**\ (\ value\: :ref:`Texture2D<class_Texture2D>`\ )
-- :ref:`Texture2D<class_Texture2D>` **get_albedo_texture**\ (\ )
-
-The texture file with albedo on RGB and height on A.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DTexture_property_detiling:
-
-.. rst-class:: classref-property
-
-:ref:`float<class_float>` **detiling** = ``0.0``
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_detiling**\ (\ value\: :ref:`float<class_float>`\ )
-- :ref:`float<class_float>` **get_detiling**\ (\ )
-
-The shader rotates UVs for this texture in a detiling pattern based on this value.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DTexture_property_name:
-
-.. rst-class:: classref-property
-
-:ref:`String<class_String>` **name** = ``"New Texture"``
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_name**\ (\ value\: :ref:`String<class_String>`\ )
-- :ref:`String<class_String>` **get_name**\ (\ )
-
-A user specified name for this texture set.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DTexture_property_normal_texture:
-
-.. rst-class:: classref-property
-
-:ref:`Texture2D<class_Texture2D>` **normal_texture**
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_normal_texture**\ (\ value\: :ref:`Texture2D<class_Texture2D>`\ )
-- :ref:`Texture2D<class_Texture2D>` **get_normal_texture**\ (\ )
-
-The texture file with normal on RGB and roughness on A.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3DTexture_property_texture_id:
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **texture_id** = ``0``
+:ref:`int<class_int>` **texture_id**
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_texture_id**\ (\ value\: :ref:`int<class_int>`\ )
-- :ref:`int<class_int>` **get_texture_id**\ (\ )
+- |void| **set_id**\ (\ value\: :ref:`int<class_int>`\ )
+- :ref:`int<class_int>` **get_id**\ (\ )
 
-The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
+.. container:: contribute
+
+	There is currently no description for this property. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
 
 .. rst-class:: classref-item-separator
 
 ----
 
-.. _class_Terrain3DTexture_property_uv_scale:
+.. _class_Terrain3DTexture_property_uv_rotation:
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **uv_scale** = ``0.1``
+:ref:`float<class_float>` **uv_rotation** = ``0.0``
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_uv_scale**\ (\ value\: :ref:`float<class_float>`\ )
-- :ref:`float<class_float>` **get_uv_scale**\ (\ )
+- |void| **set_uv_rotation**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_uv_rotation**\ (\ )
 
-The scale of the textures.
+.. container:: contribute
 
-.. rst-class:: classref-section-separator
-
-----
-
-.. rst-class:: classref-descriptions-group
-
-Method Descriptions
--------------------
-
-.. _class_Terrain3DTexture_method_clear:
-
-.. rst-class:: classref-method
-
-|void| **clear**\ (\ )
-
-Clears the texture files and settings.
+	There is currently no description for this property. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

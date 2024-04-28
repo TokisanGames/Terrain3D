@@ -50,7 +50,7 @@ Terrain3D is instantiated and referenced like any other object.
 ```gdscript
      var terrain: Terrain3D = Terrain3D.new()
      terrain.storage = Terrain3DStorage.new()
-     terrain.texture_list = Terrain3DTextureList.new()
+     terrain.assets = Terrain3DAssets.new()
      print(terrain.get_version())
 ```
 
@@ -63,7 +63,7 @@ You can instantiate through ClassDB, set variables and call it.
 ```c#
      var terrain = ClassDB.Instantiate("Terrain3D");
      terrain.AsGodotObject().Set("storage", ClassDB.Instantiate("Terrain3DStorage"));
-     terrain.AsGodotObject().Set("texture_list", ClassDB.Instantiate("Terrain3DTextureList"));
+     terrain.AsGodotObject().Set("assets", ClassDB.Instantiate("Terrain3DAssets"));
      terrain.AsGodotObject().Call("set_collision_enabled", true);
 ```
 

@@ -10,7 +10,7 @@
 	<methods>
 		<method name="apply_undo">
 			<return type="void" />
-			<param index="0" name="maps" type="Array" />
+			<param index="0" name="maps" type="Dictionary" />
 			<description>
 				Undo the previous changes, with the reverted images in the array. Used by Godot, not users.
 			</description>
@@ -141,10 +141,13 @@
 		<constant name="NAVIGATION" value="8" enum="Tool">
 			Paint where navigation will be generated.
 		</constant>
-		<constant name="REGION" value="9" enum="Tool">
+		<constant name="INSTANCER" value="9" enum="Tool">
+			Paint MultiMesh instances on the ground.
+		</constant>
+		<constant name="REGION" value="10" enum="Tool">
 			Add/remove regions.
 		</constant>
-		<constant name="TOOL_MAX" value="10" enum="Tool">
+		<constant name="TOOL_MAX" value="11" enum="Tool">
 			The number of elements in this enum.
 		</constant>
 	</constants>

@@ -36,6 +36,8 @@ Properties
    +--------------------------------------------------------------+-----------------------------------------------------------------------+-------------------+
    | :ref:`Vector2<class_Vector2>`                                | :ref:`height_range<class_Terrain3DStorage_property_height_range>`     | ``Vector2(0, 0)`` |
    +--------------------------------------------------------------+-----------------------------------------------------------------------+-------------------+
+   | :ref:`Dictionary<class_Dictionary>`                          | :ref:`multimeshes<class_Terrain3DStorage_property_multimeshes>`       | ``{}``            |
+   +--------------------------------------------------------------+-----------------------------------------------------------------------+-------------------+
    | :ref:`Array<class_Array>`\[:ref:`Vector2i<class_Vector2i>`\] | :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>` | ``[]``            |
    +--------------------------------------------------------------+-----------------------------------------------------------------------+-------------------+
    | :ref:`RegionSize<enum_Terrain3DStorage_RegionSize>`          | :ref:`region_size<class_Terrain3DStorage_property_region_size>`       | ``1024``          |
@@ -84,7 +86,11 @@ Methods
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`                                  | :ref:`get_region_index<class_Terrain3DStorage_method_get_region_index>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                  |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`                                  | :ref:`get_region_index_from_offset<class_Terrain3DStorage_method_get_region_index_from_offset>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`\ )                                                                                                                                          |
+   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Vector2i<class_Vector2i>`                        | :ref:`get_region_offset<class_Terrain3DStorage_method_get_region_offset>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                |
+   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Vector2i<class_Vector2i>`                        | :ref:`get_region_offset_from_index<class_Terrain3DStorage_method_get_region_offset_from_index>`\ (\ region_index\: :ref:`int<class_int>`\ )                                                                                                                                                     |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`float<class_float>`                              | :ref:`get_roughness<class_Terrain3DStorage_method_get_roughness>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                        |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -155,6 +161,18 @@ This signal is emitted whenever the editor is used to:
 - undo or redo any of the above operations.
 
 The parameter contains the axis-aligned bounding box of the area edited.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DStorage_signal_multimeshes_changed:
+
+.. rst-class:: classref-signal
+
+**multimeshes_changed**\ (\ )
+
+Emitted when :ref:`multimeshes<class_Terrain3DStorage_property_multimeshes>` is changed.
 
 .. rst-class:: classref-item-separator
 
@@ -382,6 +400,29 @@ The setter calls :ref:`set_maps<class_Terrain3DStorage_method_set_maps>`.
 - :ref:`Vector2<class_Vector2>` **get_height_range**\ (\ )
 
 The highest and lowest heights for the sculpted terrain. Any :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` used that extends the mesh height outside of this range will not change this variable. Also see :ref:`Terrain3D.render_cull_margin<class_Terrain3D_property_render_cull_margin>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DStorage_property_multimeshes:
+
+.. rst-class:: classref-property
+
+:ref:`Dictionary<class_Dictionary>` **multimeshes** = ``{}``
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_multimeshes**\ (\ value\: :ref:`Dictionary<class_Dictionary>`\ )
+- :ref:`Dictionary<class_Dictionary>` **get_multimeshes**\ (\ )
+
+The storage for :ref:`Terrain3DInstancer<class_Terrain3DInstancer>`. Data is stored as a dictionary of dictionaries of MultiMeshes.
+
+First instances are separated by region offsets, which is the first key.
+
+Second, instances are separated by mesh id, which then gives the MultiMesh itself.
+
+`Dictionary{region_offset:Vector2i}` -> `Dictionary{mesh_id:int}` -> `MultiMesh`.
 
 .. rst-class:: classref-item-separator
 
@@ -674,6 +715,18 @@ Returns the index into the :ref:`region_offsets<class_Terrain3DStorage_property_
 
 ----
 
+.. _class_Terrain3DStorage_method_get_region_index_from_offset:
+
+.. rst-class:: classref-method
+
+:ref:`int<class_int>` **get_region_index_from_offset**\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`\ )
+
+Returns the current region ID based on a Vector2i region offset.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DStorage_method_get_region_offset:
 
 .. rst-class:: classref-method
@@ -681,6 +734,18 @@ Returns the index into the :ref:`region_offsets<class_Terrain3DStorage_property_
 :ref:`Vector2i<class_Vector2i>` **get_region_offset**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )
 
 Converts a world space position to region space. For a region_size of 1024 this basically means ``global_position/1024.0``. Also see :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DStorage_method_get_region_offset_from_index:
+
+.. rst-class:: classref-method
+
+:ref:`Vector2i<class_Vector2i>` **get_region_offset_from_index**\ (\ region_index\: :ref:`int<class_int>`\ )
+
+Returns a Vector2i region offset based on the current region ID.
 
 .. rst-class:: classref-item-separator
 
