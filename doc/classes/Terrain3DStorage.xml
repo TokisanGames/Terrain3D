@@ -134,11 +134,25 @@
 				Returns the index into the [member region_offsets] array for the region associated with the specified position.
 			</description>
 		</method>
+		<method name="get_region_index_from_offset">
+			<return type="int" />
+			<param index="0" name="region_offset" type="Vector2i" />
+			<description>
+				Returns the current region ID based on a Vector2i region offset.
+			</description>
+		</method>
 		<method name="get_region_offset">
 			<return type="Vector2i" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Converts a world space position to region space. For a region_size of 1024 this basically means [code skip-lint]global_position/1024.0[/code]. Also see [member region_offsets].
+			</description>
+		</method>
+		<method name="get_region_offset_from_index">
+			<return type="Vector2i" />
+			<param index="0" name="region_index" type="int" />
+			<description>
+				Returns a Vector2i region offset based on the current region ID.
 			</description>
 		</method>
 		<method name="get_roughness">
@@ -299,6 +313,12 @@
 		<member name="height_range" type="Vector2" setter="set_height_range" getter="get_height_range" default="Vector2(0, 0)">
 			The highest and lowest heights for the sculpted terrain. Any [member Terrain3DMaterial.world_background] used that extends the mesh height outside of this range will not change this variable. Also see [member Terrain3D.render_cull_margin].
 		</member>
+		<member name="multimeshes" type="Dictionary" setter="set_multimeshes" getter="get_multimeshes" default="{}">
+			The storage for [Terrain3DInstancer]. Data is stored as a dictionary of dictionaries of MultiMeshes.
+			First instances are separated by region offsets, which is the first key.
+			Second, instances are separated by mesh id, which then gives the MultiMesh itself.
+			`Dictionary{region_offset:Vector2i}` -&gt; `Dictionary{mesh_id:int}` -&gt; `MultiMesh`.
+		</member>
 		<member name="region_offsets" type="Vector2i[]" setter="set_region_offsets" getter="get_region_offsets" default="[]">
 			An array of the active regions in region grid coordinates (+/-8, +/-8). e.g. { (0, 0), (-1, 3), (1, 1) }. It is ordered by the sequence in which regions were created, not by location.
 			Also see [method get_region_index] which returns the index into this array based on position.
@@ -328,6 +348,11 @@
 				- alter a region map with a brush tool,
 				- undo or redo any of the above operations.
 				The parameter contains the axis-aligned bounding box of the area edited.
+			</description>
+		</signal>
+		<signal name="multimeshes_changed">
+			<description>
+				Emitted when [member multimeshes] is changed.
 			</description>
 		</signal>
 		<signal name="region_size_changed">

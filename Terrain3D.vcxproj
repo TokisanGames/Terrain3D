@@ -231,7 +231,9 @@
     <Xml Include="doc\classes\Terrain3DEditor.xml" />
     <Xml Include="doc\classes\Terrain3DInstancer.xml" />
     <Xml Include="doc\classes\Terrain3DMaterial.xml" />
+    <Xml Include="doc\classes\Terrain3DMeshAsset.xml" />
     <Xml Include="doc\classes\Terrain3DStorage.xml" />
+    <Xml Include="doc\classes\Terrain3DTexture.xml" />
     <Xml Include="doc\classes\Terrain3DTextureAsset.xml" />
     <Xml Include="doc\classes\Terrain3DAssets.xml" />
     <Xml Include="doc\classes\Terrain3DTextureList.xml" />

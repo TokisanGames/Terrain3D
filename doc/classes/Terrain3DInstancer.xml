@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Terrain3DInstancer" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+	</brief_description>
+	<description>
+		This class paints mesh instances into MultiMeshInstance3Ds.
+		Data is currently stored as MultiMeshes in [member Terrain3DStorage.multimeshes], per region offset, per mesh type. These MultiMeshes are loaded into MultiMeshInstances, which are attached to the scene tree and managed by this class.
+		The Terrain3DEditor passes along raw tool settings which are interpretted directly here during placement.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="add_instances">
+			<return type="void" />
+			<param index="0" name="global_position" type="Vector3" />
+			<param index="1" name="params" type="Dictionary" />
+			<description>
+				Place instances within the indicated brush position and size. Currently uses the following parameters: asset_id, size, strength, fixed_scale, random_scale, fixed_spin, random_spin, fixed_angle, random_angle, align_to_normal, height_offset, random_height, vertex_color, random_hue, random_darken, all set by tool_settings.gd.
+			</description>
+		</method>
+		<method name="clear_by_mesh">
+			<return type="void" />
+			<param index="0" name="mesh_id" type="int" />
+			<description>
+				Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in Storage for all regions that match mesh id.
+			</description>
+		</method>
+		<method name="clear_by_offset">
+			<return type="void" />
+			<param index="0" name="region_offset" type="Vector2i" />
+			<param index="1" name="mesh_id" type="int" />
+			<description>
+				Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in Storage for the specified region offset and mesh id.
+			</description>
+		</method>
+		<method name="clear_by_region_id">
+			<return type="void" />
+			<param index="0" name="region_id" type="int" />
+			<param index="1" name="mesh_id" type="int" />
+			<description>
+				Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in Storage for the specified region id and mesh id.
+			</description>
+		</method>
+		<method name="remove_instances">
+			<return type="void" />
+			<param index="0" name="global_position" type="Vector3" />
+			<param index="1" name="params" type="Dictionary" />
+			<description>
+				Uses parameters asset_id, size, strength, fixed_scale, random_scale, to randomly remove instances within the indicated brush position and size.
+			</description>
+		</method>
+	</methods>
+</class>

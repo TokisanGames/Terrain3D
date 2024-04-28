@@ -30,6 +30,8 @@ Properties
    :widths: auto
 
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DAssets<class_Terrain3DAssets>`                             | :ref:`assets<class_Terrain3D_property_assets>`                             |                 |
+   +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`bool<class_bool>`                                                   | :ref:`collision_enabled<class_Terrain3D_property_collision_enabled>`       | ``true``        |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`int<class_int>`                                                     | :ref:`collision_layer<class_Terrain3D_property_collision_layer>`           | ``1``           |
@@ -80,6 +82,8 @@ Methods
    +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Camera3D<class_Camera3D>`                     | :ref:`get_camera<class_Terrain3D_method_get_camera>`\ (\ )                                                                                                                                    |
    +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` | :ref:`get_instancer<class_Terrain3D_method_get_instancer>`\ (\ )                                                                                                                              |
+   +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Vector3<class_Vector3>`                       | :ref:`get_intersection<class_Terrain3D_method_get_intersection>`\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`\ )                                    |
    +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`EditorPlugin<class_EditorPlugin>`             | :ref:`get_plugin<class_Terrain3D_method_get_plugin>`\ (\ )                                                                                                                                    |
@@ -97,6 +101,18 @@ Methods
 
 Signals
 -------
+
+.. _class_Terrain3D_signal_assets_changed:
+
+.. rst-class:: classref-signal
+
+**assets_changed**\ (\ )
+
+Emitted when :ref:`assets<class_Terrain3D_property_assets>` is changed.
+
+.. rst-class:: classref-item-separator
+
+----
 
 .. _class_Terrain3D_signal_material_changed:
 
@@ -118,18 +134,6 @@ Emitted when :ref:`material<class_Terrain3D_property_material>` is changed.
 
 Emitted when :ref:`storage<class_Terrain3D_property_storage>` is changed.
 
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_signal_texture_list_changed:
-
-.. rst-class:: classref-signal
-
-**texture_list_changed**\ (\ )
-
-Emitted when :ref:`texture_list<class_Terrain3D_property_texture_list>` is changed.
-
 .. rst-class:: classref-section-separator
 
 ----
@@ -138,6 +142,23 @@ Emitted when :ref:`texture_list<class_Terrain3D_property_texture_list>` is chang
 
 Property Descriptions
 ---------------------
+
+.. _class_Terrain3D_property_assets:
+
+.. rst-class:: classref-property
+
+:ref:`Terrain3DAssets<class_Terrain3DAssets>` **assets**
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_assets**\ (\ value\: :ref:`Terrain3DAssets<class_Terrain3DAssets>`\ )
+- :ref:`Terrain3DAssets<class_Terrain3DAssets>` **get_assets**\ (\ )
+
+The list of texture files used by Terrain3D. You can optionally save this as an external ``.tres`` text file if you wish to share it with instances of Terrain3D in other scenes.
+
+.. rst-class:: classref-item-separator
+
+----
 
 .. _class_Terrain3D_property_collision_enabled:
 
@@ -417,7 +438,7 @@ The object that houses all Terrain3D region, height, control, and color maps. Ma
 - |void| **set_texture_list**\ (\ value\: :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`\ )
 - :ref:`Terrain3DTextureList<class_Terrain3DTextureList>` **get_texture_list**\ (\ )
 
-The list of texture files used by Terrain3D. You can optionally save this as an external ``.tres`` text file if you wish to share it with instances of Terrain3D in other scenes.
+Deprecated. See :ref:`assets<class_Terrain3D_property_assets>`.
 
 .. rst-class:: classref-item-separator
 
@@ -483,6 +504,18 @@ Generates source geometry faces for input to nav mesh baking. Geometry is only g
 :ref:`Camera3D<class_Camera3D>` **get_camera**\ (\ )
 
 Returns the camera the terrain is currently snapping to.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_method_get_instancer:
+
+.. rst-class:: classref-method
+
+:ref:`Terrain3DInstancer<class_Terrain3DInstancer>` **get_instancer**\ (\ )
+
+Returns the active :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` object.
 
 .. rst-class:: classref-item-separator
 

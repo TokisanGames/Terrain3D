@@ -28,7 +28,7 @@ Methods
    :widths: auto
 
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                           | :ref:`apply_undo<class_Terrain3DEditor_method_apply_undo>`\ (\ maps\: :ref:`Array<class_Array>`\ )                                                 |
+   | |void|                                           | :ref:`apply_undo<class_Terrain3DEditor_method_apply_undo>`\ (\ maps\: :ref:`Dictionary<class_Dictionary>`\ )                                       |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Operation<enum_Terrain3DEditor_Operation>` | :ref:`get_operation<class_Terrain3DEditor_method_get_operation>`\ (\ )                                                                             |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -214,11 +214,19 @@ Paint where vertices will be invalidated to leave holes.
 
 Paint where navigation will be generated.
 
+.. _class_Terrain3DEditor_constant_INSTANCER:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **INSTANCER** = ``9``
+
+Paint MultiMesh instances on the ground.
+
 .. _class_Terrain3DEditor_constant_REGION:
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``9``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``10``
 
 Add/remove regions.
 
@@ -226,7 +234,7 @@ Add/remove regions.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``10``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``11``
 
 The number of elements in this enum.
 
@@ -243,7 +251,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-|void| **apply_undo**\ (\ maps\: :ref:`Array<class_Array>`\ )
+|void| **apply_undo**\ (\ maps\: :ref:`Dictionary<class_Dictionary>`\ )
 
 Undo the previous changes, with the reverted images in the array. Used by Godot, not users.
 
