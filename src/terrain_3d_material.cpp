@@ -488,7 +488,7 @@ void Terrain3DMaterial::set_shader_param(const StringName &p_name, const Variant
 }
 
 Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
-	LOG(INFO, "Setting shader parameter: ", p_name);
+	LOG(INFO, "Getting shader parameter: ", p_name);
 	Variant value;
 	_get(p_name, value);
 	return value;
