@@ -2,6 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
+uid="uid://c5004ol65cqti"
+path="res://.godot/imported/icon_multimesh.svg-9447b6c5fe1ee9d406fd55dd3c63e196.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -10,6 +12,7 @@ metadata={
 [deps]
 
 source_file="res://addons/terrain_3d/icons/icon_multimesh.svg"
+dest_files=["res://.godot/imported/icon_multimesh.svg-9447b6c5fe1ee9d406fd55dd3c63e196.ctex"]
 
 [params]
 

@@ -2,6 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
+uid="uid://cyfcx5hwray0d"
+path="res://.godot/imported/icon_terrain3d.svg-39252bb986e607c413d93e00ee31a619.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -10,6 +12,7 @@ metadata={
 [deps]
 
 source_file="res://addons/terrain_3d/icons/icon_terrain3d.svg"
+dest_files=["res://.godot/imported/icon_terrain3d.svg-39252bb986e607c413d93e00ee31a619.ctex"]
 
 [params]
 

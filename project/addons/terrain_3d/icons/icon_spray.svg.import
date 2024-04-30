@@ -2,6 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
+uid="uid://28jdhtmo0tcm"
+path="res://.godot/imported/icon_spray.svg-d9864c87d5d420aa9f80c0d3fdc80e87.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -10,6 +12,7 @@ metadata={
 [deps]
 
 source_file="res://addons/terrain_3d/icons/icon_spray.svg"
+dest_files=["res://.godot/imported/icon_spray.svg-d9864c87d5d420aa9f80c0d3fdc80e87.ctex"]
 
 [params]
 

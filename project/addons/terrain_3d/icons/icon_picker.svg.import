@@ -2,6 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
+uid="uid://iiocbe4njv5s"
+path="res://.godot/imported/icon_picker.svg-9f872a162ed3e0053283f4bf299ac645.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -10,6 +12,7 @@ metadata={
 [deps]
 
 source_file="res://addons/terrain_3d/icons/icon_picker.svg"
+dest_files=["res://.godot/imported/icon_picker.svg-9f872a162ed3e0053283f4bf299ac645.ctex"]
 
 [params]
 
