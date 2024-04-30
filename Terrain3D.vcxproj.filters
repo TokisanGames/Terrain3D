@@ -213,9 +213,6 @@
     <Text Include="doc\docs\occlusion_culling.md">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\docs\previous_engines.md">
-      <Filter>2. Docs</Filter>
-    </Text>
     <Text Include="doc\docs\project_status.md">
       <Filter>2. Docs</Filter>
     </Text>

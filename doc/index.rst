@@ -117,7 +117,6 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    docs/shader_design
    docs/controlmap_format
    docs/storage_format
-   docs/previous_engines
    docs/contributing
 
 
