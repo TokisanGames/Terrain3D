@@ -2,8 +2,6 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c1o6vv5wx3w65"
-path="res://.godot/imported/icon_map_remove.svg-bf5a269f9171f7027b6de1785cc63713.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -12,7 +10,6 @@ metadata={
 [deps]
 
 source_file="res://addons/terrain_3d/icons/icon_map_remove.svg"
-dest_files=["res://.godot/imported/icon_map_remove.svg-bf5a269f9171f7027b6de1785cc63713.ctex"]
 
 [params]
 

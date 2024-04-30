@@ -2,8 +2,6 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ca7l0radlfn5w"
-path="res://.godot/imported/icon_height_add.svg-2928bbcb35ef4816ead056c5bcf5bdbd.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -12,7 +10,6 @@ metadata={
 [deps]
 
 source_file="res://addons/terrain_3d/icons/icon_height_add.svg"
-dest_files=["res://.godot/imported/icon_height_add.svg-2928bbcb35ef4816ead056c5bcf5bdbd.ctex"]
 
 [params]
 
