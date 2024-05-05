@@ -108,7 +108,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("strength")
 			if p_operation == Terrain3DEditor.REPLACE:
 				to_show.push_back("height")
-				to_show.push_back("height picker")
+				to_show.push_back("height_picker")
 			if p_operation == Terrain3DEditor.GRADIENT:
 				to_show.push_back("gradient_points")
 				to_show.push_back("drawable")
@@ -124,14 +124,14 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			to_show.push_back("color")
-			to_show.push_back("color picker")
+			to_show.push_back("color_picker")
 
 		Terrain3DEditor.ROUGHNESS:
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			to_show.push_back("roughness")
-			to_show.push_back("roughness picker")
+			to_show.push_back("roughness_picker")
 
 		Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION:
 			to_show.push_back("brush")

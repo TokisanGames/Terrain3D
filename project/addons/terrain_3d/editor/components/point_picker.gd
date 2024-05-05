@@ -20,10 +20,6 @@ func _init() -> void:
 	icon_picker = load(ICON_PICKER)
 	icon_picker_checked = load(ICON_PICKER_CHECKED)
 	
-	var label := Label.new()
-	label.text = "Points:"
-	add_child(label)
-	
 	points.resize(MAX_POINTS)
 	
 	for i in range(MAX_POINTS):
