@@ -11,11 +11,14 @@ enum Layout {
 
 enum SettingType {
 	CHECKBOX,
-	SLIDER,
-	DOUBLE_SLIDER,
 	COLOR_SELECT,
+	DOUBLE_SLIDER,
+	OPTION,
 	PICKER,
 	POINT_PICKER,
+	SEPARATOR,
+	SLIDER,
+	TYPE_MAX,
 }
 
 const PointPicker: Script = preload("res://addons/terrain_3d/editor/components/point_picker.gd")
@@ -23,56 +26,81 @@ const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain_3d/editor/brushes"
 const PICKER_ICON: String = "res://addons/terrain_3d/icons/icon_picker.svg"
 
+# Add settings flags
 const NONE: int = 0x0
 const ALLOW_LARGER: int = 0x1
 const ALLOW_SMALLER: int = 0x2
-const ALLOW_OUT_OF_BOUNDS: int = 0x3
+const ALLOW_OUT_OF_BOUNDS: int = 0x3 # LARGER|SMALLER
+const NO_LABEL: int = 0x4
 
 var brush_preview_material: ShaderMaterial
 var select_brush_button: Button
 
-var list: HBoxContainer
+var main_list: HBoxContainer
 var advanced_list: VBoxContainer
+var height_list: VBoxContainer
+var scale_list: VBoxContainer
+var rotation_list: VBoxContainer
+var color_list: VBoxContainer
 var settings: Dictionary = {}
 
 
 func _ready() -> void:
-	list = HBoxContainer.new()
-	add_child(list, true)
+	main_list = HBoxContainer.new()
+	add_child(main_list, true)
 	
-	add_brushes(list)
+	## Common Settings
+	add_brushes(main_list)
 
-	add_setting(SettingType.SLIDER, "size", 50, list, "m", 2, 200, 1, ALLOW_LARGER)
-	add_setting(SettingType.SLIDER, "strength", 10, list, "%", 1, 100, 1, ALLOW_LARGER)
-	add_setting(SettingType.CHECKBOX, "enable", true, list)
+	add_setting({"name":"size", "type":SettingType.SLIDER, "list":main_list, "default":50, "unit":"m",
+								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER})
+		
+	add_setting({"name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":10, 
+								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER})
+
+	add_setting({"name":"separator", "type":SettingType.SEPARATOR, "list":main_list, "flags":NO_LABEL})
 	
-	add_setting(SettingType.COLOR_SELECT, "color", Color.WHITE, list)
-	add_setting(SettingType.PICKER, "color picker", Terrain3DEditor.COLOR, list)
+	add_setting({"name":"enable", "type":SettingType.CHECKBOX, "list":main_list, "default":true})
+
+	add_setting({"name":"color", "type":SettingType.COLOR_SELECT, "list":main_list, "default":Color.WHITE})
+	add_setting({"name":"color_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.COLOR, "flags":NO_LABEL})
+
+	add_setting({"name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":0,
+								"unit":"%", "range":Vector3(-100, 100, 1)})
+	add_setting({"name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL})
 	
-	add_setting(SettingType.SLIDER, "roughness", 0, list, "%", -100, 100, 1)
-	add_setting(SettingType.PICKER, "roughness picker", Terrain3DEditor.ROUGHNESS, list)
+	add_setting({"name":"height", "type":SettingType.SLIDER, "list":main_list, "default":50, 
+								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS})
+	add_setting({"name":"height_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.HEIGHT, "flags":NO_LABEL})
+	add_setting({"name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, 
+								"default":0, "unit":"°", "range":Vector3(0, 180, 1)})
 	
-	add_setting(SettingType.SLIDER, "height", 50, list, "m", -500, 500, 0.1, ALLOW_OUT_OF_BOUNDS)
-	add_setting(SettingType.PICKER, "height picker", Terrain3DEditor.HEIGHT, list)
-	add_setting(SettingType.DOUBLE_SLIDER, "slope", 0, list, "°", 0, 180, 1)
-	
-	add_setting(SettingType.POINT_PICKER, "gradient_points", Terrain3DEditor.HEIGHT, list)
-	add_setting(SettingType.CHECKBOX, "drawable", false, list)
-	
+	## Slope
+	add_setting({"name":"gradient_points", "type":SettingType.POINT_PICKER, "label":"Points", 
+								"list":main_list, "default":Terrain3DEditor.HEIGHT})
+	add_setting({"name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false})
 	settings["drawable"].toggled.connect(_on_drawable_toggled)
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_child(spacer, true)
+	main_list.add_child(spacer, true)
 
 	## Advanced Settings Menu
-	advanced_list = create_submenu(list, "Advanced", Layout.VERTICAL)
-	add_setting(SettingType.CHECKBOX, "automatic_regions", true, advanced_list)
-	add_setting(SettingType.CHECKBOX, "align_to_view", true, advanced_list)
-	add_setting(SettingType.CHECKBOX, "show_cursor_while_painting", true, advanced_list)
+	advanced_list = create_submenu(main_list, "Advanced", Layout.VERTICAL)
+	add_setting({"name":"automatic_regions", "type":SettingType.CHECKBOX, "list":advanced_list, 
+								"default":true})
+	add_setting({"name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
+								"default":true})
+	add_setting({"name":"show_cursor_while_painting", "type":SettingType.CHECKBOX, "list":advanced_list, 
+								"default":true})
 	advanced_list.add_child(HSeparator.new(), true)
-	add_setting(SettingType.SLIDER, "gamma", 1.0, advanced_list, "γ", 0.1, 2.0, 0.01)
-	add_setting(SettingType.SLIDER, "jitter", 50, advanced_list, "%", 0, 100)
+	add_setting({"name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
+								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01)})
+	add_setting({"name":"jitter", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
+								"unit":"%", "range":Vector3(0, 100, 1)})
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) -> Container:
@@ -80,11 +108,18 @@ func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) 
 	menu_button.set_text(p_button_name)
 	menu_button.set_toggle_mode(true)
 	menu_button.set_v_size_flags(SIZE_SHRINK_CENTER)
-	menu_button.connect("toggled", _on_show_submenu.bind(menu_button))
-
+	menu_button.toggled.connect(_on_show_submenu.bind(menu_button))
+	
 	var submenu: PopupPanel = PopupPanel.new()
-	submenu.connect("popup_hide", menu_button.set_pressed_no_signal.bind(false))
-	submenu.set("theme_override_styles/panel", get_theme_stylebox("panel", "PopupMenu"))
+	submenu.popup_hide.connect(menu_button.set_pressed_no_signal.bind(false))
+	var panel_style: StyleBox = get_theme_stylebox("panel", "PopupMenu").duplicate()
+	panel_style.set_content_margin_all(10)
+	submenu.set("theme_override_styles/panel", panel_style)
+
+	# Pop up menu on hover, hide on exit
+	menu_button.mouse_entered.connect(_on_show_submenu.bind(true, menu_button))
+	menu_button.mouse_exited.connect(_on_show_submenu.bind(false, menu_button))
+	submenu.mouse_exited.connect(_on_show_submenu.bind(false, menu_button))
 	
 	var sublist: Container
 	match(p_layout):
@@ -103,6 +138,15 @@ func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) 
 
 
 func _on_show_submenu(p_toggled: bool, p_button: Button) -> void:
+	# Hide menu if mouse is not in button or panel 
+	var button_rect: Rect2 = Rect2(p_button.get_screen_transform().origin, p_button.get_global_rect().size)
+	var in_button: bool = button_rect.has_point(DisplayServer.mouse_get_position())
+	var panel: PopupPanel = p_button.get_child(0)
+	var panel_rect: Rect2 = Rect2(panel.position, panel.size)
+	var in_panel: bool = panel_rect.has_point(DisplayServer.mouse_get_position())
+	if not p_toggled and ( in_button or in_panel ):
+		return
+	
 	var popup: PopupPanel = p_button.get_child(0)
 	var popup_pos: Vector2 = p_button.get_screen_transform().origin
 	popup.set_visible(p_toggled)
@@ -115,7 +159,7 @@ func add_brushes(p_parent: Control) -> void:
 	brush_list.name = "BrushList"
 
 	var brush_button_group: ButtonGroup = ButtonGroup.new()
-	brush_button_group.connect("pressed", _on_setting_changed)
+	brush_button_group.pressed.connect(_on_setting_changed)
 	var default_brush_btn: Button
 	
 	var dir: DirAccess = DirAccess.open(BRUSH_PATH)
@@ -188,12 +232,12 @@ func _on_pick(p_type: Terrain3DEditor.Tool) -> void:
 func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position: Vector3) -> void:
 	match p_type:
 		Terrain3DEditor.HEIGHT:
-			settings["height"].value = p_color.r
+			settings["height"].value = p_color.r if not is_nan(p_color.r) else 0
 		Terrain3DEditor.COLOR:
-			settings["color"].color = p_color
+			settings["color"].color = p_color if not is_nan(p_color.r) else Color.WHITE
 		Terrain3DEditor.ROUGHNESS:
 			# 200... -.5 converts 0,1 to -100,100
-			settings["roughness"].value = round(200 * (p_color.a - 0.5))
+			settings["roughness"].value = round(200 * (p_color.a - 0.5)) if not is_nan(p_color.r) else 0.499
 	_on_setting_changed()
 
 
@@ -211,95 +255,151 @@ func _on_point_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_pos
 	_on_setting_changed()
 
 
-func add_setting(p_type: SettingType, p_name: StringName, p_value: Variant, p_parent: Control, 
-		p_suffix: String = "", p_min_value: float = 0.0, p_max_value: float = 0.0, p_step: float = 1.0,
-		p_flags: int = NONE) -> void:
+func add_setting(p_args: Dictionary) -> void:
+	var p_name: StringName = p_args.get("name", "")
+	var p_label: String = p_args.get("label", "") # Optional replacement for name
+	var p_type: SettingType = p_args.get("type", SettingType.TYPE_MAX)
+	var p_list: Control = p_args.get("list")
+	var p_default: Variant = p_args.get("default")
+	var p_suffix: String = p_args.get("unit", "")
+	var p_range: Vector3 = p_args.get("range", Vector3(0, 0, 1))
+	var p_minimum: float = p_range.x
+	var p_maximum: float = p_range.y
+	var p_step: float = p_range.z
+	var p_flags: int = p_args.get("flags", NONE)
+	
+	if p_name.is_empty() or p_type == SettingType.TYPE_MAX:
+		return
 
 	var container: HBoxContainer = HBoxContainer.new()
-	var label: Label = Label.new()
-	var control: Control
-
 	container.set_v_size_flags(SIZE_EXPAND_FILL)
+	var control: Control	# Houses the setting to be saved
+	var pending_children: Array[Control]
 
 	match p_type:
-		SettingType.SLIDER, SettingType.DOUBLE_SLIDER:
-			label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
-			label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-			label.set_custom_minimum_size(Vector2(32, 0))
-			label.set_v_size_flags(SIZE_SHRINK_CENTER)
-			label.set_text(p_name.capitalize() + ": ")
-			container.add_child(label, true)
+		SettingType.CHECKBOX:
+			var checkbox := CheckBox.new()
+			checkbox.set_pressed_no_signal(p_default)
+			checkbox.pressed.connect(_on_setting_changed)
+			pending_children.push_back(checkbox)
+			control = checkbox
 			
+		SettingType.COLOR_SELECT:
+			var picker := ColorPickerButton.new()
+			picker.set_custom_minimum_size(Vector2(100, 25))
+			picker.color = Color.WHITE
+			picker.edit_alpha = false
+			picker.get_picker().set_color_mode(ColorPicker.MODE_HSV)
+			picker.color_changed.connect(_on_setting_changed)
+			var popup: PopupPanel = picker.get_popup()
+			popup.mouse_exited.connect(Callable(func(p): p.hide()).bind(popup))
+			pending_children.push_back(picker)
+			control = picker
+
+		SettingType.PICKER:
+			var button := Button.new()
+			button.icon = load(PICKER_ICON)
+			button.tooltip_text = "Pick value from the Terrain"
+			button.pressed.connect(_on_pick.bind(p_default))
+			pending_children.push_back(button)
+			control = button
+
+		SettingType.POINT_PICKER:
+			var multi_picker: HBoxContainer = PointPicker.new()
+			multi_picker.pressed.connect(_on_point_pick.bind(p_default, p_name))
+			multi_picker.value_changed.connect(_on_setting_changed)
+			pending_children.push_back(multi_picker)
+			control = multi_picker
+
+		SettingType.OPTION:
+			var option := OptionButton.new()
+			for i in int(p_maximum):
+				option.add_item("a", i)
+			option.selected = p_minimum
+			option.item_selected.connect(_on_setting_changed)
+			pending_children.push_back(option)
+			control = option
+			
+		SettingType.SEPARATOR:
+			control = VSeparator.new()
+			pending_children.push_back(control)
+
+		SettingType.SLIDER, SettingType.DOUBLE_SLIDER:			
 			var slider: Control
 			if p_type == SettingType.SLIDER:
-				control = EditorSpinSlider.new()
-				control.set_flat(true)
-				control.set_hide_slider(true)
-				control.connect("value_changed", _on_setting_changed)
-				control.set_max(p_max_value)
-				control.set_min(p_min_value)
-				control.set_step(p_step)
-				control.set_value(p_value)
-				control.set_suffix(p_suffix)
-				control.set_v_size_flags(SIZE_SHRINK_CENTER)
-			
+				# Create an editable value box
+				var spinslider := EditorSpinSlider.new()
+				spinslider.set_flat(true)
+				spinslider.set_hide_slider(true)
+				spinslider.value_changed.connect(_on_setting_changed)
+				spinslider.set_max(p_maximum)
+				spinslider.set_min(p_minimum)
+				spinslider.set_step(p_step)
+				spinslider.set_value(p_default)
+				spinslider.set_suffix(p_suffix)
+				spinslider.set_v_size_flags(SIZE_SHRINK_CENTER)
+				spinslider.set_custom_minimum_size(Vector2(75, 0))
+
+				# Create horizontal slider linked to the above box
 				slider = HSlider.new()
-				slider.share(control)
+				slider.share(spinslider)
 				if p_flags & ALLOW_LARGER:
 					slider.set_allow_greater(true)
 				if p_flags & ALLOW_SMALLER:
 					slider.set_allow_lesser(true)
+				pending_children.push_back(slider)
+				pending_children.push_back(spinslider)
+				control = spinslider
 					
-			else:
-				control = Label.new()
-				control.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-				control.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
+			else: # DOUBLE_SLIDER
+				var label := Label.new()
+				label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
+				label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
+				label.set_custom_minimum_size(Vector2(75, 0))
 				slider = DoubleSlider.new()
-				slider.label = control
+				slider.label = label
 				slider.suffix = p_suffix
-				slider.connect("value_changed", _on_setting_changed)
+				slider.setting_changed.connect(_on_setting_changed)
+				pending_children.push_back(slider)
+				pending_children.push_back(label)
+				control = slider
 			
-			control.set_custom_minimum_size(Vector2(75, 0))
-			slider.set_max(p_max_value)
-			slider.set_min(p_min_value)
+			slider.set_max(p_maximum)
+			slider.set_min(p_minimum)
 			slider.set_step(p_step)
-			slider.set_value(p_value)
+			slider.set_value(p_default)
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 			slider.set_h_size_flags(SIZE_SHRINK_END | SIZE_EXPAND)
 			slider.set_custom_minimum_size(Vector2(100, 10))
-			
-			container.add_child(slider, true)
-				
-		SettingType.CHECKBOX:
-			control = CheckBox.new()
-			control.set_text(p_name.capitalize())
-			control.set_pressed_no_signal(p_value)
-			control.connect("pressed", _on_setting_changed)
-			
-		SettingType.COLOR_SELECT:
-			control = ColorPickerButton.new()
-			control.set_custom_minimum_size(Vector2(100, 10))
-			control.color = Color.WHITE
-			control.edit_alpha = false
-			control.get_picker().set_color_mode(ColorPicker.MODE_HSV)
-			control.connect("color_changed", _on_setting_changed)
-			
-		SettingType.PICKER:
-			control = Button.new()
-			control.icon = load(PICKER_ICON)
-			control.tooltip_text = "Pick value from the Terrain"
-			control.connect("pressed", _on_pick.bind(p_value))
-		
-		SettingType.POINT_PICKER:
-			control = PointPicker.new()
-			control.connect("pressed", _on_point_pick.bind(p_value, p_name))
-			control.connect("value_changed", _on_setting_changed)
-		
-	control.name = p_name.to_pascal_case()
-	container.add_child(control, true)
-	p_parent.add_child(container, true)
-	
+
 	settings[p_name] = control
+	if not (p_flags & NO_LABEL):
+		# Labels are actually buttons styled to look like labels
+		var label := Button.new()
+		label.set("theme_override_styles/normal", get_theme_stylebox("normal", "Label"))
+		label.set("theme_override_styles/hover", get_theme_stylebox("normal", "Label"))
+		label.set("theme_override_styles/pressed", get_theme_stylebox("normal", "Label"))
+		label.set("theme_override_styles/focus", get_theme_stylebox("normal", "Label"))
+		label.pressed.connect(_on_label_pressed.bind(p_name, p_default))
+		if p_label.is_empty():
+			label.set_text(p_name.capitalize() + ": ")
+		else:
+			label.set_text(p_label.capitalize() + ": ")
+		pending_children.push_front(label)
+	for child in pending_children:
+		container.add_child(child, true)
+	p_list.add_child(container, true)
+
+
+# If label button is pressed, reset value to default or toggle checkbox
+func _on_label_pressed(p_name: String, p_default: Variant) -> void:
+	var control: Control = settings.get(p_name)
+	if not control:
+		return
+	if control is CheckBox:
+		set_setting(p_name, !control.button_pressed)
+	elif p_default != null:
+		set_setting(p_name, p_default)
 
 
 func get_setting(p_setting: String) -> Variant:
@@ -308,7 +408,7 @@ func get_setting(p_setting: String) -> Variant:
 	if object is Range:
 		value = object.get_value()
 	elif object is DoubleSlider:
-		value = [object.get_min_value(), object.get_max_value()]
+		value = Vector2(object.get_min_value(), object.get_max_value())
 	elif object is ButtonGroup:
 		var img: Image = object.get_pressed_button().get_meta("image")
 		var tex: Texture2D = object.get_pressed_button().get_button_icon()
@@ -383,10 +483,9 @@ func _on_drawable_toggled(p_button_pressed: bool) -> void:
 func _get_brush_preview_material() -> ShaderMaterial:
 	if !brush_preview_material:
 		brush_preview_material = ShaderMaterial.new()
-		
 		var shader: Shader = Shader.new()
-		var code: String = "shader_type canvas_item;\n"
 		
+		var code: String = "shader_type canvas_item;\n"
 		code += "varying vec4 v_vertex_color;\n"
 		code += "void vertex() {\n"
 		code += "	v_vertex_color = COLOR;\n"
@@ -398,23 +497,19 @@ func _get_brush_preview_material() -> ShaderMaterial:
 		code += "}\n"
 		
 		shader.set_code(code)
-		
 		brush_preview_material.set_shader(shader)
-		
 	return brush_preview_material
-
-
 
 
 #### Sub Class DoubleSlider
 
 class DoubleSlider extends Range:
-	
+	signal setting_changed(Vector2)
 	var label: Label
 	var suffix: String
 	var grabbed: bool = false
 	var _max_value: float
-	
+	# TODO Needs to clamp min and max values. Currently allows max slider to go negative.
 	
 	func _gui_input(p_event: InputEvent) -> void:
 		if p_event is InputEventMouseButton:
@@ -470,7 +565,7 @@ class DoubleSlider extends Range:
 		max_value = clamp(max_value, min_value + 10, _max_value)
 		
 		update_label()
-		emit_signal("setting_changed", value)
+		emit_signal("setting_changed", Vector2(min_value, max_value))
 		queue_redraw()
 		
 		
