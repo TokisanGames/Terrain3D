@@ -1,10 +1,10 @@
-extends "res://addons/terrain_3d/editor/components/operation_builder.gd"
+extends "res://addons/terrain_3d/src/operation_builder.gd"
 
 
-const PointPicker: Script = preload("res://addons/terrain_3d/editor/components/point_picker.gd")
+const MultiPicker: Script = preload("res://addons/terrain_3d/src/multi_picker.gd")
 
 
-func _get_point_picker() -> PointPicker:
+func _get_point_picker() -> MultiPicker:
 	return tool_settings.settings["gradient_points"]
 
 

@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://dkb6hii5e48m2"]
 
-[ext_resource type="Script" path="res://addons/terrain_3d/editor/components/asset_dock.gd" id="1_e23pg"]
+[ext_resource type="Script" path="res://addons/terrain_3d/src/asset_dock.gd" id="1_e23pg"]
 
 [node name="Terrain3D" type="PanelContainer"]
 custom_minimum_size = Vector2(256, 136)

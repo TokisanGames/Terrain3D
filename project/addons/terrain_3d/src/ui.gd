@@ -3,11 +3,11 @@ extends Node
 
 
 # Includes
-const Toolbar: Script = preload("res://addons/terrain_3d/editor/components/toolbar.gd")
-const ToolSettings: Script = preload("res://addons/terrain_3d/editor/components/tool_settings.gd")
-const TerrainTools: Script = preload("res://addons/terrain_3d/editor/components/terrain_tools.gd")
-const OperationBuilder: Script = preload("res://addons/terrain_3d/editor/components/operation_builder.gd")
-const GradientOperationBuilder: Script = preload("res://addons/terrain_3d/editor/components/gradient_operation_builder.gd")
+const Toolbar: Script = preload("res://addons/terrain_3d/src/toolbar.gd")
+const ToolSettings: Script = preload("res://addons/terrain_3d/src/tool_settings.gd")
+const TerrainTools: Script = preload("res://addons/terrain_3d/src/terrain_tools.gd")
+const OperationBuilder: Script = preload("res://addons/terrain_3d/src/operation_builder.gd")
+const GradientOperationBuilder: Script = preload("res://addons/terrain_3d/src/gradient_operation_builder.gd")
 const COLOR_RAISE := Color.WHITE
 const COLOR_LOWER := Color.BLACK
 const COLOR_SMOOTH := Color(0.5, 0, .1)
@@ -25,7 +25,7 @@ const COLOR_PICK_COLOR := Color.WHITE
 const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 
-const RING1: String = "res://addons/terrain_3d/editor/brushes/ring1.exr"
+const RING1: String = "res://addons/terrain_3d/brushes/ring1.exr"
 @onready var ring_texture := ImageTexture.create_from_image(Terrain3DUtil.black_to_alpha(Image.load_from_file(RING1)))
 
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors

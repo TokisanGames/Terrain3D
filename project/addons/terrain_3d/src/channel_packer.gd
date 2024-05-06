@@ -1,7 +1,7 @@
 extends Object
 
-const WINDOW_SCENE: String = "res://addons/terrain_3d/editor/components/channel_packer.tscn"
-const TEMPLATE_PATH: String = "res://addons/terrain_3d/editor/components/channel_packer_import_template.txt"
+const WINDOW_SCENE: String = "res://addons/terrain_3d/src/channel_packer.tscn"
+const TEMPLATE_PATH: String = "res://addons/terrain_3d/src/channel_packer_import_template.txt"
 
 enum { 
   IMAGE_ALBEDO,
