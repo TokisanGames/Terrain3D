@@ -92,7 +92,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 
 	int region_index = storage->get_region_index(p_global_position);
 	if (region_index == -1) {
-		if (!_brush.auto_regions_enabled()) {
+		if (!_brush.auto_regions_enabled() || _tool != HEIGHT) {
 			return;
 		} else {
 			LOG(DEBUG, "No region to operate on, attempting to add");
@@ -164,7 +164,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 			// If we're brushing across a region boundary, possibly add a region, and get the other map
 			int new_region_index = storage->get_region_index(brush_global_position);
 			if (new_region_index == -1) {
-				if (!_brush.auto_regions_enabled()) {
+				if (!_brush.auto_regions_enabled() || _tool != HEIGHT) {
 					continue;
 				}
 				Error err = storage->add_region(brush_global_position);
