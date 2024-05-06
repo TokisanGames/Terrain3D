@@ -1,8 +1,8 @@
 extends HBoxContainer
 
 
-const Baker: Script = preload("res://addons/terrain_3d/editor/components/baker.gd")
-const Packer: Script = preload("res://addons/terrain_3d/editor/components/channel_packer.gd")
+const Baker: Script = preload("res://addons/terrain_3d/src/baker.gd")
+const Packer: Script = preload("res://addons/terrain_3d/src/channel_packer.gd")
 
 var plugin: EditorPlugin
 var menu_button: MenuButton = MenuButton.new()

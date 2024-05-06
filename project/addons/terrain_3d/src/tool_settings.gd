@@ -15,15 +15,15 @@ enum SettingType {
 	DOUBLE_SLIDER,
 	OPTION,
 	PICKER,
-	POINT_PICKER,
+	MULTI_PICKER,
 	SEPARATOR,
 	SLIDER,
 	TYPE_MAX,
 }
 
-const PointPicker: Script = preload("res://addons/terrain_3d/editor/components/point_picker.gd")
+const MultiPicker: Script = preload("res://addons/terrain_3d/src/multi_picker.gd")
 const DEFAULT_BRUSH: String = "circle0.exr"
-const BRUSH_PATH: String = "res://addons/terrain_3d/editor/brushes"
+const BRUSH_PATH: String = "res://addons/terrain_3d/brushes"
 const PICKER_ICON: String = "res://addons/terrain_3d/icons/icon_picker.svg"
 
 # Add settings flags
@@ -79,7 +79,7 @@ func _ready() -> void:
 								"default":0, "unit":"°", "range":Vector3(0, 180, 1)})
 	
 	## Slope
-	add_setting({"name":"gradient_points", "type":SettingType.POINT_PICKER, "label":"Points", 
+	add_setting({"name":"gradient_points", "type":SettingType.MULTI_PICKER, "label":"Points", 
 								"list":main_list, "default":Terrain3DEditor.HEIGHT})
 	add_setting({"name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false})
 	settings["drawable"].toggled.connect(_on_drawable_toggled)
@@ -304,8 +304,8 @@ func add_setting(p_args: Dictionary) -> void:
 			pending_children.push_back(button)
 			control = button
 
-		SettingType.POINT_PICKER:
-			var multi_picker: HBoxContainer = PointPicker.new()
+		SettingType.MULTI_PICKER:
+			var multi_picker: HBoxContainer = MultiPicker.new()
 			multi_picker.pressed.connect(_on_point_pick.bind(p_default, p_name))
 			multi_picker.value_changed.connect(_on_setting_changed)
 			pending_children.push_back(multi_picker)
@@ -417,7 +417,7 @@ func get_setting(p_setting: String) -> Variant:
 		value = object.is_pressed()
 	elif object is ColorPickerButton:
 		value = object.color
-	elif object is PointPicker:
+	elif object is MultiPicker:
 		value = object.get_points()
 	if value == null:
 		value = 0
@@ -440,7 +440,7 @@ func set_setting(p_setting: String, p_value: Variant) -> void:
 		object.button_pressed = p_value
 	elif object is ColorPickerButton:
 		object.color = p_value
-	elif object is PointPicker: # Expects p_value is PackedVector3Array
+	elif object is MultiPicker: # Expects p_value is PackedVector3Array
 		object.points = p_value
 	_on_setting_changed(object)
 

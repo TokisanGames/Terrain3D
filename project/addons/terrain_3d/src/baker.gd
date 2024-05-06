@@ -1,6 +1,6 @@
 extends Node
 
-const BakeLodDialog: PackedScene = preload("res://addons/terrain_3d/editor/components/bake_lod_dialog.tscn")
+const BakeLodDialog: PackedScene = preload("res://addons/terrain_3d/src/bake_lod_dialog.tscn")
 const BAKE_MESH_DESCRIPTION: String = "This will create a child MeshInstance3D. LOD4+ is recommended. LOD0 is slow and dense with vertices every 1 unit. It is not an optimal mesh."
 const BAKE_OCCLUDER_DESCRIPTION: String = "This will create a child OccluderInstance3D. LOD4+ is recommended and will take 5+ seconds per region to generate. LOD0 is unnecessarily dense and slow."
 const SET_UP_NAVIGATION_DESCRIPTION: String = "This operation will:

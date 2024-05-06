@@ -4,9 +4,9 @@ extends EditorPlugin
 
 
 # Includes
-const UI: Script = preload("res://addons/terrain_3d/editor/components/ui.gd")
-const RegionGizmo: Script = preload("res://addons/terrain_3d/editor/components/region_gizmo.gd")
-const ASSET_DOCK: String = "res://addons/terrain_3d/editor/components/asset_dock.tscn"
+const UI: Script = preload("res://addons/terrain_3d/src/ui.gd")
+const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
+const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 const PS_DOCK_POSITION: String = "terrain3d/config/dock_position"
 const PS_DOCK_PINNED: String = "terrain3d/config/dock_pinned"
 
