@@ -138,11 +138,11 @@ public:
 	bool get_collision_enabled() const { return _collision_enabled; }
 	void set_show_debug_collision(bool p_enabled);
 	bool get_show_debug_collision() const { return _show_debug_collision; }
-	void set_collision_layer(uint32_t p_layers) { _collision_layer = p_layers; }
+	void set_collision_layer(uint32_t p_layers);
 	uint32_t get_collision_layer() const { return _collision_layer; };
-	void set_collision_mask(uint32_t p_mask) { _collision_mask = p_mask; }
+	void set_collision_mask(uint32_t p_mask);
 	uint32_t get_collision_mask() const { return _collision_mask; };
-	void set_collision_priority(real_t p_priority) { _collision_priority = p_priority; }
+	void set_collision_priority(real_t p_priority);
 	real_t get_collision_priority() const { return _collision_priority; }
 
 	// Terrain methods
