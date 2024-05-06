@@ -16,7 +16,6 @@ enum SettingType {
 	OPTION,
 	PICKER,
 	MULTI_PICKER,
-	SEPARATOR,
 	SLIDER,
 	TYPE_MAX,
 }
@@ -32,6 +31,7 @@ const ALLOW_LARGER: int = 0x1
 const ALLOW_SMALLER: int = 0x2
 const ALLOW_OUT_OF_BOUNDS: int = 0x3 # LARGER|SMALLER
 const NO_LABEL: int = 0x4
+const ADD_SEPARATOR: int = 0x8
 
 var brush_preview_material: ShaderMaterial
 var select_brush_button: Button
@@ -52,36 +52,36 @@ func _ready() -> void:
 	## Common Settings
 	add_brushes(main_list)
 
-	add_setting({"name":"size", "type":SettingType.SLIDER, "list":main_list, "default":50, "unit":"m",
-								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER})
+	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":50, "unit":"m",
+								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER })
 		
-	add_setting({"name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":10, 
-								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER})
+	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":10, 
+								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
 
-	add_setting({"name":"separator", "type":SettingType.SEPARATOR, "list":main_list, "flags":NO_LABEL})
+	add_setting({ "name":"enable", "type":SettingType.CHECKBOX, "list":main_list, "default":true })
+
+	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":50, 
+								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
+	add_setting({ "name":"height_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.HEIGHT, "flags":NO_LABEL })
 	
-	add_setting({"name":"enable", "type":SettingType.CHECKBOX, "list":main_list, "default":true})
+	add_setting({ "name":"color", "type":SettingType.COLOR_SELECT, "list":main_list, 
+								"default":Color.WHITE, "flags":ADD_SEPARATOR })
+	add_setting({ "name":"color_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.COLOR, "flags":NO_LABEL })
 
-	add_setting({"name":"color", "type":SettingType.COLOR_SELECT, "list":main_list, "default":Color.WHITE})
-	add_setting({"name":"color_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.COLOR, "flags":NO_LABEL})
-
-	add_setting({"name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":0,
-								"unit":"%", "range":Vector3(-100, 100, 1)})
-	add_setting({"name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL})
-	
-	add_setting({"name":"height", "type":SettingType.SLIDER, "list":main_list, "default":50, 
-								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS})
-	add_setting({"name":"height_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.HEIGHT, "flags":NO_LABEL})
-	add_setting({"name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, 
-								"default":0, "unit":"°", "range":Vector3(0, 180, 1)})
+	add_setting({ "name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":0,
+								"unit":"%", "range":Vector3(-100, 100, 1), "flags":ADD_SEPARATOR })
+	add_setting({ "name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL })
 	
 	## Slope
-	add_setting({"name":"gradient_points", "type":SettingType.MULTI_PICKER, "label":"Points", 
-								"list":main_list, "default":Terrain3DEditor.HEIGHT})
-	add_setting({"name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false})
+	add_setting({ "name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, 
+								"default":0, "unit":"°", "range":Vector3(0, 180, 1) })
+	add_setting({ "name":"gradient_points", "type":SettingType.MULTI_PICKER, "label":"Points", 
+								"list":main_list, "default":Terrain3DEditor.HEIGHT, "flags":ADD_SEPARATOR })
+	add_setting({ "name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false, 
+								"flags":ADD_SEPARATOR })
 	settings["drawable"].toggled.connect(_on_drawable_toggled)
 
 	var spacer: Control = Control.new()
@@ -90,17 +90,17 @@ func _ready() -> void:
 
 	## Advanced Settings Menu
 	advanced_list = create_submenu(main_list, "Advanced", Layout.VERTICAL)
-	add_setting({"name":"automatic_regions", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true})
-	add_setting({"name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true})
-	add_setting({"name":"show_cursor_while_painting", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true})
+	add_setting({ "name":"automatic_regions", "type":SettingType.CHECKBOX, "list":advanced_list, 
+								"default":true })
+	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
+								"default":true })
+	add_setting({ "name":"show_cursor_while_painting", "type":SettingType.CHECKBOX, "list":advanced_list, 
+								"default":true })
 	advanced_list.add_child(HSeparator.new(), true)
-	add_setting({"name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
-								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01)})
-	add_setting({"name":"jitter", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
-								"unit":"%", "range":Vector3(0, 100, 1)})
+	add_setting({ "name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
+								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
+	add_setting({ "name":"jitter", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
+								"unit":"%", "range":Vector3(0, 100, 1) })
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) -> Container:
@@ -319,10 +319,6 @@ func add_setting(p_args: Dictionary) -> void:
 			option.item_selected.connect(_on_setting_changed)
 			pending_children.push_back(option)
 			control = option
-			
-		SettingType.SEPARATOR:
-			control = VSeparator.new()
-			pending_children.push_back(control)
 
 		SettingType.SLIDER, SettingType.DOUBLE_SLIDER:			
 			var slider: Control
@@ -372,7 +368,10 @@ func add_setting(p_args: Dictionary) -> void:
 			slider.set_h_size_flags(SIZE_SHRINK_END | SIZE_EXPAND)
 			slider.set_custom_minimum_size(Vector2(100, 10))
 
+	control.name = p_name.to_pascal_case()
 	settings[p_name] = control
+
+	# Setup button labels
 	if not (p_flags & NO_LABEL):
 		# Labels are actually buttons styled to look like labels
 		var label := Button.new()
@@ -386,6 +385,12 @@ func add_setting(p_args: Dictionary) -> void:
 		else:
 			label.set_text(p_label.capitalize() + ": ")
 		pending_children.push_front(label)
+
+	# Add separators to front
+	if p_flags & ADD_SEPARATOR:
+		pending_children.push_front(VSeparator.new())
+
+	# Add all children to container and list
 	for child in pending_children:
 		container.add_child(child, true)
 	p_list.add_child(container, true)
