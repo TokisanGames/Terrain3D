@@ -80,7 +80,6 @@ class Terrain3D : public Node3D {
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
 	void _grab_camera();
-	void _find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array);
 
 	void _clear(bool p_clear_meshes = true, bool p_clear_collision = true);
 	void _build(int p_mesh_lods, int p_mesh_size);
