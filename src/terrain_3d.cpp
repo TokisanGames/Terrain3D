@@ -779,6 +779,48 @@ void Terrain3D::set_show_debug_collision(bool p_enabled) {
 	}
 }
 
+void Terrain3D::set_collision_layer(uint32_t p_layers) {
+	LOG(INFO, "Setting collision layers: ", p_layers);
+	_collision_layer = p_layers;
+	if (_show_debug_collision) {
+		if (_debug_static_body != nullptr) {
+			_debug_static_body->set_collision_layer(_collision_layer);
+		}
+	} else {
+		if (_static_body.is_valid()) {
+			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
+		}
+	}
+}
+
+void Terrain3D::set_collision_mask(uint32_t p_mask) {
+	LOG(INFO, "Setting collision mask: ", p_mask);
+	_collision_mask = p_mask;
+	if (_show_debug_collision) {
+		if (_debug_static_body != nullptr) {
+			_debug_static_body->set_collision_mask(_collision_mask);
+		}
+	} else {
+		if (_static_body.is_valid()) {
+			PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
+		}
+	}
+}
+
+void Terrain3D::set_collision_priority(real_t p_priority) {
+	LOG(INFO, "Setting collision priority: ", p_priority);
+	_collision_priority = p_priority;
+	if (_show_debug_collision) {
+		if (_debug_static_body != nullptr) {
+			_debug_static_body->set_collision_priority(_collision_priority);
+		}
+	} else {
+		if (_static_body.is_valid()) {
+			PhysicsServer3D::get_singleton()->body_set_collision_priority(_static_body, _collision_priority);
+		}
+	}
+}
+
 /**
  * Centers the terrain and LODs on a provided position. Y height is ignored.
  */
