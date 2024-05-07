@@ -166,25 +166,9 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 func _on_setting_changed() -> void:
 	if not plugin.asset_dock:
 		return
-	brush_data = {
-		"size": int(toolbar_settings.get_setting("size")),
-		"strength": toolbar_settings.get_setting("strength") / 100.0,
-		"height": toolbar_settings.get_setting("height"),
-		"texture_index": plugin.asset_dock.get_selected_index(),
-		"color": toolbar_settings.get_setting("color"),
-		"roughness": toolbar_settings.get_setting("roughness"),
-		"gradient_points": toolbar_settings.get_setting("gradient_points"),
-		"enable": toolbar_settings.get_setting("enable"),
-		"automatic_regions": toolbar_settings.get_setting("automatic_regions"),
-		"align_to_view": toolbar_settings.get_setting("align_to_view"),
-		"show_cursor_while_painting": toolbar_settings.get_setting("show_cursor_while_painting"),
-		"gamma": toolbar_settings.get_setting("gamma"),
-		"jitter": toolbar_settings.get_setting("jitter"),
-	}
-	var brush_imgs: Array = toolbar_settings.get_setting("brush")
-	brush_data["image"] = brush_imgs[0]
-	brush_data["texture"] = brush_imgs[1]
-	
+	brush_data = toolbar_settings.get_settings()
+	brush_data["strength"] /= 100.0
+	brush_data["texture_index"] = plugin.asset_dock.get_selected_index()
 	update_decal()
 	plugin.editor.set_brush_data(brush_data)
 
@@ -228,7 +212,7 @@ func update_decal() -> void:
 				decal.modulate = COLOR_PICK_ROUGH
 		decal.modulate.a = 1.0
 	else:
-		decal.texture_albedo = brush_data["texture"]		
+		decal.texture_albedo = brush_data["brush"][1]
 		match plugin.editor.get_tool():
 			Terrain3DEditor.HEIGHT:
 				match plugin.editor.get_operation():

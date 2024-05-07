@@ -17,27 +17,28 @@ void Terrain3DEditor::Brush::set_data(Dictionary p_data) {
 	for (int i = 0; i < ks.size(); i++) {
 		LOG(DEBUG, ks[i], ": ", p_data[ks[i]]);
 	}
-	_image = p_data["image"];
-	if (_image.is_valid()) {
-		_img_size = _image->get_size();
-	} else {
-		_img_size = Vector2i(0, 0);
+	Array brush = p_data["brush"];
+	if (brush.size() == 2) {
+		_image = brush[0];
+		if (_image.is_valid()) {
+			_img_size = _image->get_size();
+		} else {
+			_img_size = Vector2i(0, 0);
+		}
+		_texture = brush[1];
 	}
-	_texture = p_data["texture"];
-
-	_size = p_data["size"];
-	_strength = p_data["strength"];
-	_height = p_data["height"];
+	_size = CLAMP(int(p_data["size"]), 0, 16384);
+	_strength = CLAMP(real_t(p_data["strength"]), 0.f, 1000.f);
+	_height = CLAMP(real_t(p_data["height"]), -65536.f, 65536.f);
 	_texture_index = p_data["texture_index"];
 	_color = p_data["color"];
-	_roughness = p_data["roughness"];
+	_roughness = CLAMP(real_t(p_data["roughness"]), -100.f, 100.f);
 	_gradient_points = p_data["gradient_points"];
 	_enable = p_data["enable"];
-
 	_auto_regions = p_data["automatic_regions"];
 	_align_to_view = p_data["align_to_view"];
-	_gamma = p_data["gamma"];
-	_jitter = p_data["jitter"];
+	_gamma = CLAMP(real_t(p_data["gamma"]), 0.1f, 2.f);
+	_jitter = CLAMP(real_t(p_data["jitter"]), 0.f, 1.f);
 }
 
 ///////////////////////////

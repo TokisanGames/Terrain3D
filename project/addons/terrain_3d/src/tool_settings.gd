@@ -407,6 +407,13 @@ func _on_label_pressed(p_name: String, p_default: Variant) -> void:
 		set_setting(p_name, p_default)
 
 
+func get_settings() -> Dictionary:
+	var dict: Dictionary
+	for key in settings.keys():
+		dict[key] = get_setting(key)
+	return dict
+
+
 func get_setting(p_setting: String) -> Variant:
 	var object: Object = settings.get(p_setting)
 	var value: Variant
