@@ -31,7 +31,8 @@ public: // Constants
 	};
 
 private:
-	bool _initialized = false;
+	Terrain3D *_terrain = nullptr;
+
 	RID _material;
 	RID _shader;
 	bool _shader_override_enabled = false;
@@ -40,6 +41,7 @@ private:
 	Dictionary _shader_code;
 	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
 	mutable Dictionary _shader_params; // Public shader params saved to disk
+	GeneratedTexture _generated_region_blend_map; // 512x512 blurred image of region_map
 
 	// Material Features
 	WorldBackground _world_background = FLAT;
@@ -63,13 +65,6 @@ private:
 	bool _debug_view_tex_rough = false;
 	bool _debug_view_vertex_grid = false;
 
-	// Cached data from Storage
-	int _region_size = 1024;
-	real_t _mesh_vertex_spacing = 1.0f;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	PackedInt32Array _region_map;
-	GeneratedTexture _generated_region_blend_map; // 512x512 blurred image of region_map
-
 	// Functions
 	void _preload_shaders();
 	void _parse_shader(String p_shader, String p_name);
@@ -77,16 +72,15 @@ private:
 	String _generate_shader_code();
 	String _inject_editor_code(String p_shader);
 	void _update_shader();
-	void _update_regions(const Array &p_args);
+	void _update_regions();
 	void _generate_region_blend_map();
-	void _update_texture_arrays(const Ref<Terrain3DTextureList> p_texture_list);
-	void _set_region_size(int p_size);
+	void _update_texture_arrays();
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
 
 public:
 	Terrain3DMaterial(){};
-	void initialize(int p_region_size);
+	void initialize(Terrain3D *p_terrain);
 	~Terrain3DMaterial();
 
 	RID get_material_rid() const { return _material; }
@@ -110,8 +104,6 @@ public:
 
 	void set_shader_param(const StringName &p_name, const Variant &p_value);
 	Variant get_shader_param(const StringName &p_name) const;
-
-	void set_mesh_vertex_spacing(real_t p_spacing);
 
 	// Editor functions / Debug views
 	void set_show_checkered(bool p_enabled);
