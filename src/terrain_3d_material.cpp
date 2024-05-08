@@ -302,7 +302,7 @@ void Terrain3DMaterial::_update_maps() {
 	IS_STORAGE_INIT(VOID);
 	LOG(DEBUG_CONT, "Updating maps in shader");
 
-	Ref<Terrain3DStorage> storage = _terrain->get_storage();
+	Terrain3DStorage *storage = _terrain->get_storage();
 	RS->material_set_param(_material, "_height_maps", storage->get_height_rid());
 	RS->material_set_param(_material, "_control_maps", storage->get_control_rid());
 	RS->material_set_param(_material, "_color_maps", storage->get_color_rid());
