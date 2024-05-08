@@ -6,6 +6,7 @@
 
 #include "logger.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_storage.h"
 #include "terrain_3d_util.h"
 
 ///////////////////////////
@@ -42,7 +43,7 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 			Ref<Image> height_map = _terrain->get_storage()->get_map_region(TYPE_HEIGHT, region_id);
 			height_range = Util::get_min_max(height_map);
 
-			_terrain->get_storage()->remove_region(p_global_position);
+			_terrain->get_storage()->remove_region(p_global_position, true, _terrain->get_storage_directory());
 			modified = true;
 		}
 	}
@@ -54,7 +55,7 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 
 void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_t p_camera_direction) {
 	LOG(DEBUG_CONT, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
-	Ref<Terrain3DStorage> storage = _terrain->get_storage();
+	Terrain3DStorage *storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
 	int region_id = storage->get_region_id(p_global_position);
@@ -461,14 +462,27 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return data;
 	}
+
+	TypedArray<int> e_regions;
+	for (size_t i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
+		bool is_modified = _terrain->get_storage()->get_modified()[i];
+		if (is_modified) {
+			e_regions.append(i);
+		}
+	}
+
+	//= _terrain->get_storage()->get_regions_under_aabb(_terrain->get_storage()->get_edited_area());
+	data["edited_regions"] = e_regions;
+	LOG(DEBUG, "E Regions ", data["edited_regions"]);
 	switch (_tool) {
 		case REGION:
 			LOG(DEBUG, "Storing region locations");
-			data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
+			data["is_add"] = _operation == ADD;
 			if (_operation == SUBTRACT) {
-				data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT);
-				data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL);
-				data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR);
+				data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
+				data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT, e_regions);
+				data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL, e_regions);
+				data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR, e_regions);
 				data["height_range"] = _terrain->get_storage()->get_height_range();
 				data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			}
@@ -477,7 +491,7 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 		case HEIGHT:
 			LOG(DEBUG, "Storing height maps and range");
 			data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
-			data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT);
+			data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT, e_regions);
 			data["height_range"] = _terrain->get_storage()->get_height_range();
 			data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			break;
@@ -490,13 +504,13 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 		case AUTOSHADER:
 		case NAVIGATION:
 			LOG(DEBUG, "Storing control maps");
-			data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL);
+			data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL, e_regions);
 			break;
 
 		case COLOR:
 		case ROUGHNESS:
 			LOG(DEBUG, "Storing color maps");
-			data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR);
+			data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR, e_regions);
 			break;
 
 		case INSTANCER:
@@ -545,32 +559,99 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
 	LOG(DEBUG, "Apply undo received: ", p_set);
 
-	Array keys = p_set.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		String key = keys[i];
-		if (key == "region_offsets") {
-			_terrain->get_storage()->set_region_locations(p_set[key]);
-		} else if (key == "height_map") {
-			_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key]);
-		} else if (key == "control_map") {
-			_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key]);
-		} else if (key == "color_map") {
-			_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key]);
-		} else if (key == "height_range") {
-			_terrain->get_storage()->set_height_range(p_set[key]);
-		} else if (key == "edited_area") {
-			_terrain->get_storage()->clear_edited_area();
-			_terrain->get_storage()->add_edited_area(p_set[key]);
-		} else if (key == "multimeshes") {
-			_terrain->get_storage()->set_multimeshes(p_set[key]);
+	TypedArray<int> regions = p_set["edited_regions"];
+
+	if (p_set.has("is_add")) {
+		// FIXME: This block assumes a lot about the structure of the dictionary and the number of elements
+		bool is_add = p_set["is_add"];
+		if (is_add) {
+			// Remove
+			LOG(DEBUG, "Removing region...");
+
+			TypedArray<int> current;
+			for (size_t i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
+				bool is_modified = _terrain->get_storage()->get_modified()[i];
+				if (is_modified) {
+					current.append(i);
+				}
+			}
+
+			TypedArray<int> diff;
+
+			for (size_t i = 0; i < current.size(); i++) {
+				if (!regions.has(current[i])) {
+					diff.append(current[i]);
+				}
+			}
+
+			for (size_t i = 0; i < diff.size(); i++) {
+				_terrain->get_storage()->remove_region(diff[i]);
+			}
+		} else {
+			// Add region
+			TypedArray<int> current;
+			for (size_t i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
+				bool is_modified = _terrain->get_storage()->get_modified()[i];
+				if (is_modified) {
+					current.append(i);
+				}
+			}
+
+			TypedArray<int> diff;
+
+			for (size_t i = 0; i < current.size(); i++) {
+				if (!regions.has(current[i])) {
+					diff.append(current[i]);
+				}
+			}
+
+			LOG(DEBUG, "Re-adding regions...");
+			for (size_t i = 0; i < diff.size(); i++) {
+				Vector2i new_region = ((TypedArray<Vector2i>)p_set["region_locations"])[regions[0]];
+				int size = _terrain->get_storage()->get_region_size();
+				Vector3 new_region_position = Vector3(new_region.x * size, 0, new_region.y * size);
+
+				TypedArray<Image> map_info = TypedArray<Image>();
+				map_info.resize(3);
+				map_info[TYPE_HEIGHT] = ((TypedArray<Image>)p_set["height_map"])[0];
+				map_info[TYPE_CONTROL] = ((TypedArray<Image>)p_set["control_map"])[0];
+				map_info[TYPE_COLOR] = ((TypedArray<Image>)p_set["color_map"])[0];
+				_terrain->get_storage()->add_region(new_region_position, map_info);
+			}
 		}
+	} else {
+		Array keys = p_set.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			String key = keys[i];
+			if (key == "region_locations") {
+				_terrain->get_storage()->set_region_locations(p_set[key]);
+			} else if (key == "height_map") {
+				_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key], regions);
+			} else if (key == "control_map") {
+				_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key], regions);
+			} else if (key == "color_map") {
+				_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key], regions);
+			} else if (key == "height_range") {
+				_terrain->get_storage()->set_height_range(p_set[key]);
+			} else if (key == "edited_area") {
+				_terrain->get_storage()->clear_edited_area();
+				_terrain->get_storage()->add_edited_area(p_set[key]);
+			} else if (key == "multimeshes") {
+				_terrain->get_storage()->set_multimeshes(p_set[key], regions);
+			}
+		}
+	}
+
+	_terrain->get_storage()->clear_modified();
+	// Roll back to previous modified state
+	for (size_t i = 0; i < regions.size(); i++) {
+		_terrain->get_storage()->set_modified(i);
 	}
 
 	if (_terrain->get_plugin()->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
 		_terrain->get_plugin()->call("update_grid");
 	}
-
 	_pending_undo = false;
 	_modified = false;
 }

@@ -14,8 +14,8 @@ class Terrain3D;
 
 using namespace godot;
 
-class Terrain3DStorage : public Resource {
-	GDCLASS(Terrain3DStorage, Resource);
+class Terrain3DStorage : public Object {
+	GDCLASS(Terrain3DStorage, Object);
 	CLASS_NAME();
 
 public: // Constants
@@ -65,11 +65,55 @@ public: // Constants
 		HEIGHT_FILTER_MINIMUM
 	};
 
+	class Terrain3DRegion : public Resource {
+		GDCLASS(Terrain3DRegion, Resource);
+		CLASS_NAME();
+
+	private:
+		// Map info
+		Ref<Image> _height_map;
+		Ref<Image> _control_map;
+		Ref<Image> _color_map;
+		// Foliage Instancer contains MultiMeshes saved to disk
+		// Dictionary[mesh_id:int] -> MultiMesh
+		Dictionary _multimeshes;
+		real_t _version = 0.8f; // Set to ensure Godot always saves this
+
+	public:
+		// Map Info
+		void set_height_map(Ref<Image> p_map) { _height_map = p_map; }
+		Ref<Image> get_height_map() const { return _height_map; }
+		void set_control_map(Ref<Image> p_map) { _control_map = p_map; }
+		Ref<Image> get_control_map() const { return _control_map; }
+		void set_color_map(Ref<Image> p_map) { _color_map = p_map; }
+		Ref<Image> get_color_map() const { return _color_map; }
+
+		// Foliage Instancer
+		void set_multimeshes(Dictionary p_instances) { _multimeshes = p_instances; }
+		Dictionary get_multimeshes() const { return _multimeshes; }
+
+		void set_version(real_t p_version) { _version = p_version; }
+		real_t get_version() { return _version; }
+
+	protected:
+		static void _bind_methods();
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
+	// Storage Settings & flags
+	real_t _version = 0.8f; // Set to ensure Godot always saves this
+	TypedArray<bool> _modified = TypedArray<bool>(); // TODO: Make sure this is the right size
+	bool _save_16_bit = false;
+	RegionSize _region_size = SIZE_1024;
+	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
+	bool _loading = false; // I am a little hesitant to include state like this.
+
+	// TODO: Should be in Terrain3D so its saved
+	Vector2 _height_range = Vector2(0.f, 0.f);
+
 	// Work data
-	bool _modified = false;
 	bool _region_map_dirty = true;
 	PackedInt32Array _region_map; // 16x16 Region grid with index into region_locations (1 based array)
 	// Generated Texture RIDs
@@ -80,13 +124,6 @@ private:
 
 	AABB _edited_area;
 	uint64_t _last_region_bounds_error = 0;
-
-	// Stored Data
-	real_t _version = 0.8f; // Set to ensure Godot always saves this
-	RegionSize _region_size = SIZE_1024;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	bool _save_16_bit = false;
-	Vector2 _height_range = Vector2(0.f, 0.f);
 
 	/**
 	 * These arrays house all of the map data.
@@ -137,19 +174,31 @@ public:
 	int get_region_count() const { return _region_locations.size(); }
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
 	Vector2i get_region_location_from_id(const int p_region_id) const;
+	Vector2i get_region_location_from_string(const String &p_filename) const;
 	int get_region_id(const Vector3 &p_global_position) const;
 	int get_region_id_from_location(const Vector2i &p_region_loc) const;
+	static String get_region_filename(const Vector2i &p_region_loc);
+	String get_region_filename_from_id(const int p_region_id) const;
 	bool has_region(const Vector3 &p_global_position) const { return get_region_id(p_global_position) != -1; }
-	Error add_region(const Vector3 &p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), const bool p_update = true);
-	void remove_region(const Vector3 &p_global_position, const bool p_update = true);
+	Error add_region(const Vector3 &p_global_position,
+			const TypedArray<Image> &p_images = TypedArray<Image>(), const bool p_update = true,
+			const String &p_path = "");
+	void remove_region(const Vector3 &p_global_position, const bool p_update = true, const String &p_path = "");
+	void remove_region_by_id(const int p_region_id, const bool p_update = true, const String &p_path = "");
 	void update_maps();
+
+	void save_region(const String &p_path, const int p_region_id);
+	void load_region(const String &p_path, const int p_region_id);
+	void load_region_by_location(const String &p_path, const Vector2i &p_region_loc);
+	void register_region(const Ref<Terrain3DRegion> &p_region, const Vector2i &p_region_loc);
+	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
 
 	// Maps
 	void set_map_region(const MapType p_map_type, const int p_region_id, const Ref<Image> &p_image);
 	Ref<Image> get_map_region(const MapType p_map_type, const int p_region_id) const;
-	void set_maps(const MapType p_map_type, const TypedArray<Image> &p_maps);
+	void set_maps(const MapType p_map_type, const TypedArray<Image> &p_maps, const TypedArray<int> &p_region_ids = TypedArray<int>());
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
-	TypedArray<Image> get_maps_copy(const MapType p_map_type) const;
+	TypedArray<Image> get_maps_copy(const MapType p_map_type, const TypedArray<int> &p_region_ids = TypedArray<int>()) const;
 	void set_height_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_HEIGHT, p_maps); }
 	TypedArray<Image> get_height_maps() const { return _height_maps; }
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
@@ -177,12 +226,18 @@ public:
 
 	// Instancer
 	void set_multimeshes(const Dictionary &p_multimeshes);
+	void set_multimeshes(const Dictionary &p_multimeshes, const TypedArray<int> &p_region_ids);
 	Dictionary get_multimeshes() const { return _multimeshes; }
+	Dictionary get_multimeshes(const TypedArray<int> &p_region_ids) const;
 
 	// File I/O
-	void save();
-	void clear_modified() { _modified = false; }
-	void set_modified() { _modified = true; }
+	void save(const String &p_path);
+	void clear_modified() { _modified.fill(false); }
+	void set_all_regions_modified() { _modified.fill(true); }
+	void set_modified(int p_index);
+	TypedArray<bool> get_modified() const { return _modified; }
+	void load_directory(const String &p_dir);
+
 	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = Vector3(0.f, 0.f, 0.f),
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
 	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;

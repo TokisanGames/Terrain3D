@@ -20,6 +20,7 @@ void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DMaterial>();
 	ClassDB::register_class<Terrain3DMeshAsset>();
 	ClassDB::register_class<Terrain3DStorage>();
+	ClassDB::register_class<Terrain3DStorage::Terrain3DRegion>();
 	ClassDB::register_class<Terrain3DTextureAsset>();
 	ClassDB::register_class<Terrain3DUtil>();
 	ClassDB::register_class<Terrain3DTexture>(); // Deprecated 0.9.2 - Remove 0.9.3+

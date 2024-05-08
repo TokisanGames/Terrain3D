@@ -286,7 +286,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
 		append_multimesh(region_loc, mesh_id, xforms, colors);
 	}
-	_terrain->get_storage()->set_modified();
+	_terrain->get_storage()->set_modified(_terrain->get_storage()->get_region_id(p_global_position));
 }
 
 void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
@@ -344,7 +344,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	} else {
 		append_multimesh(region_loc, mesh_id, xforms, colors, true);
 	}
-	_terrain->get_storage()->set_modified();
+	_terrain->get_storage()->set_modified(_terrain->get_storage()->get_region_id(p_global_position));
 }
 
 void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform) {
@@ -397,6 +397,8 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		TypedArray<Color> colors = colors_dict[region_loc];
 		xforms.push_back(trns);
 		colors.push_back(col);
+
+		_terrain->get_storage()->set_modified(_terrain->get_storage()->get_region_id(trns.origin)); // might be stupid
 	}
 
 	// Merge incoming transforms with existing transforms
@@ -408,8 +410,6 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		LOG(DEBUG, "Adding ", xforms.size(), " transforms to region location: ", region_loc);
 		append_multimesh(region_loc, p_mesh_id, xforms, colors);
 	}
-
-	_terrain->get_storage()->set_modified();
 }
 
 // Appends new transforms to existing multimeshes

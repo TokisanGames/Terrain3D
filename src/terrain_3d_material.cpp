@@ -298,18 +298,12 @@ void Terrain3DMaterial::_update_maps() {
 	IS_STORAGE_INIT(VOID);
 	LOG(DEBUG_CONT, "Updating maps in shader");
 
-	Ref<Terrain3DStorage> storage = _terrain->get_storage();
-	RS->material_set_param(_material, "_height_maps", storage->get_height_maps_rid());
-	RS->material_set_param(_material, "_control_maps", storage->get_control_maps_rid());
-	RS->material_set_param(_material, "_color_maps", storage->get_color_maps_rid());
-	LOG(DEBUG_CONT, "Height map RID: ", storage->get_height_maps_rid());
-	LOG(DEBUG_CONT, "Control map RID: ", storage->get_control_maps_rid());
-	LOG(DEBUG_CONT, "Color map RID: ", storage->get_color_maps_rid());
-
+	Terrain3DStorage *storage = _terrain->get_storage();
 	PackedInt32Array region_map = storage->get_region_map();
 	LOG(DEBUG_CONT, "region_map.size(): ", region_map.size());
 	if (region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
 		LOG(ERROR, "Expected region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
+		return;
 	}
 	RS->material_set_param(_material, "_region_map", region_map);
 	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
@@ -330,6 +324,13 @@ void Terrain3DMaterial::_update_maps() {
 	LOG(DEBUG_CONT, "Setting region size in material: ", region_size);
 	RS->material_set_param(_material, "_region_size", region_size);
 	RS->material_set_param(_material, "_region_texel_size", 1.0f / region_size);
+
+	RS->material_set_param(_material, "_height_maps", storage->get_height_maps_rid());
+	RS->material_set_param(_material, "_control_maps", storage->get_control_maps_rid());
+	RS->material_set_param(_material, "_color_maps", storage->get_color_maps_rid());
+	LOG(DEBUG_CONT, "Height map RID: ", storage->get_height_maps_rid());
+	LOG(DEBUG_CONT, "Control map RID: ", storage->get_control_maps_rid());
+	LOG(DEBUG_CONT, "Color map RID: ", storage->get_color_maps_rid());
 
 	real_t spacing = _terrain->get_mesh_vertex_spacing();
 	LOG(DEBUG_CONT, "Setting mesh vertex spacing in material: ", spacing);
