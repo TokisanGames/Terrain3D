@@ -17,26 +17,12 @@
 
 void Terrain3DMaterial::_preload_shaders() {
 	// Preprocessor loading of external shader inserts
-
 	_parse_shader(
-#include "shaders/uniforms.glsl"
-			, "uniforms");
+#include "shaders/__DEFINES.glsl"
+			, "defines");
 	_parse_shader(
-#include "shaders/world_noise.glsl"
-			, "world_noise");
-	_parse_shader(
-#include "shaders/auto_shader.glsl"
-			, "auto_shader");
-	_parse_shader(
-#include "shaders/dual_scaling.glsl"
-			, "dual_scaling");
-	_parse_shader(
-#include "shaders/debug_views.glsl"
-			, "debug_views");
-	_parse_shader(
-#include "shaders/editor_functions.glsl"
-			, "editor_functions");
-
+#include "shaders/__HEADER.glsl"
+			, "header");
 	// Load main code
 	_shader_code["main"] = String(
 #include "shaders/main.glsl"
@@ -116,36 +102,19 @@ String Terrain3DMaterial::_apply_inserts(String p_shader, Array p_excludes) {
 	return shader;
 }
 
-String Terrain3DMaterial::_generate_shader_code() {
+String Terrain3DMaterial::_generate_shader_code(String _explicitDefines) {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
-	if (_world_background != NOISE) {
-		excludes.push_back("WORLD_NOISE1");
-		excludes.push_back("WORLD_NOISE2");
-	}
-	if (_texture_filtering == LINEAR) {
-		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-	} else {
-		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-	}
-	if (_auto_shader) {
-		excludes.push_back("TEXTURE_ID");
-	} else {
-		excludes.push_back("AUTO_SHADER_UNIFORMS");
-		excludes.push_back("AUTO_SHADER_TEXTURE_ID");
-	}
-	if (_dual_scaling) {
-		excludes.push_back("UNI_SCALING_BASE");
-	} else {
-		excludes.push_back("DUAL_SCALING_UNIFORMS");
-		excludes.push_back("DUAL_SCALING_VERTEX");
-		excludes.push_back("DUAL_SCALING_BASE");
-		excludes.push_back("DUAL_SCALING_OVERLAY");
-	}
-	String shader = _apply_inserts(_shader_code["main"], excludes);
-	return shader;
-}
+	// Skeletonized code retained for possible future use
+	//if (_world_background != NOISE) {
+	//	excludes.push_back("WORLD_NOISE1");
+	//	excludes.push_back("WORLD_NOISE2");
+	//}
+	String shader = _add_or_update_header(_apply_inserts(_shader_code["main"], excludes), _explicitDefines);
+	return shader; }
 
+/*
+* Retained for future use, this is a very handy function we just don't need it currently.
 String Terrain3DMaterial::_inject_editor_code(String p_shader) {
 	String shader = p_shader;
 	int idx = p_shader.rfind("}");
@@ -153,42 +122,7 @@ String Terrain3DMaterial::_inject_editor_code(String p_shader) {
 		return shader;
 	}
 	Array insert_names;
-	if (_debug_view_checkered) {
-		insert_names.push_back("DEBUG_CHECKERED");
-	}
-	if (_debug_view_grey) {
-		insert_names.push_back("DEBUG_GREY");
-	}
-	if (_debug_view_heightmap) {
-		insert_names.push_back("DEBUG_HEIGHTMAP");
-	}
-	if (_debug_view_colormap) {
-		insert_names.push_back("DEBUG_COLORMAP");
-	}
-	if (_debug_view_roughmap) {
-		insert_names.push_back("DEBUG_ROUGHMAP");
-	}
-	if (_debug_view_control_texture) {
-		insert_names.push_back("DEBUG_CONTROL_TEXTURE");
-	}
-	if (_debug_view_control_blend) {
-		insert_names.push_back("DEBUG_CONTROL_BLEND");
-	}
-	if (_debug_view_autoshader) {
-		insert_names.push_back("DEBUG_AUTOSHADER");
-	}
-	if (_debug_view_tex_height) {
-		insert_names.push_back("DEBUG_TEXTURE_HEIGHT");
-	}
-	if (_debug_view_tex_normal) {
-		insert_names.push_back("DEBUG_TEXTURE_NORMAL");
-	}
-	if (_debug_view_tex_rough) {
-		insert_names.push_back("DEBUG_TEXTURE_ROUGHNESS");
-	}
-	if (_debug_view_vertex_grid) {
-		insert_names.push_back("DEBUG_VERTEX_GRID");
-	}
+	// One example retained
 	if (_show_navigation) {
 		insert_names.push_back("EDITOR_NAVIGATION");
 	}
@@ -199,30 +133,123 @@ String Terrain3DMaterial::_inject_editor_code(String p_shader) {
 	}
 	return shader;
 }
+*/
+
+String Terrain3DMaterial::_add_if_exists(String _current, String _snippetID_) {
+	if (_current.is_empty()) {
+		_current = ""; }
+	if (!_snippetID_.is_empty() && _snippetID_ != "" && _shader_code.has(_snippetID_)) {
+		_current += _shader_code[_snippetID_]; }
+	return _current; }
+
+String Terrain3DMaterial::_add_if_enabled(String _current, bool _controlVar, String _snippetID_enabled, String _snippetID_disabled) {
+	if (_current.is_empty()) {
+		_current = ""; }
+	if (_controlVar) {
+		if (!_snippetID_enabled.is_empty() && _snippetID_enabled != "" && _shader_code.has(_snippetID_enabled)) {
+			_current += _shader_code[_snippetID_enabled]; } } 
+	else {
+		if (!_snippetID_disabled.is_empty() && _snippetID_disabled != "" && _shader_code.has(_snippetID_disabled)) {
+			_current += _shader_code[_snippetID_disabled]; } }
+	return _current; }
+
+Array Terrain3DMaterial::_add_if_true(Array _toset, bool _condition, String _toadd, String _toadd_if_false) {
+	if (_condition) { 
+		if (!_toadd.is_empty() && _toadd != "") {
+			_toset.push_back(_toadd); } }
+	else {
+		if (!_toadd.is_empty() && _toadd_if_false != "") {
+			_toset.push_back(_toadd_if_false); } }
+	return _toset; }
+
+String Terrain3DMaterial::_get_current_defines() {
+	Array _defs;
+	_add_if_true(_defs, _blending_texture_filtering == LINEAR,	"TEXTURE_SAMPLERS_LINEAR",	"TEXTURE_SAMPLERS_NEAREST");
+	_add_if_true(_defs, _blending_by_height,					"HEIGHT_BLENDING_ENABLED");
+	_add_if_true(_defs, _tinting_enabled,					"NOISE_TINT_ENABLED");
+	_add_if_true(_defs, _auto_texturing_enabled,				"AUTO_TEXTURING_ENABLED");
+	_add_if_true(_defs, _bg_world_fill >= NOISE,				"BG_WORLD_ENABLED");
+	_add_if_true(_defs, _bg_world_fill == FLAT,					"BG_FLAT_ENABLED");
+	_add_if_true(_defs, _bg_world_fill == NONE,					"BG_NONE");
+	_add_if_true(_defs, _multi_scaling_enabled,					"MULTI_SCALING_ENABLED");
+	_add_if_true(_defs, _uv_distortion_enabled,					"UV_DISTORTION_ENABLED");
+	
+	_add_if_true(_defs, _debug_view_checkered,			"DEBUG_CHECKERED");
+	_add_if_true(_defs, _debug_view_grey,				"DEBUG_GREY");
+	_add_if_true(_defs, _debug_view_heightmap,			"DEBUG_HEIGHTMAP");
+	_add_if_true(_defs, _debug_view_colormap,			"DEBUG_COLORMAP");
+	_add_if_true(_defs, _debug_view_roughmap,			"DEBUG_ROUGHMAP");
+	_add_if_true(_defs, _debug_view_control_texture,	"DEBUG_CONTROL_TEXTURE");
+	_add_if_true(_defs, _debug_view_control_blend,		"DEBUG_CONTROL_BLEND");
+	_add_if_true(_defs, _debug_view_autoshader,			"DEBUG_AUTOSHADER");
+	_add_if_true(_defs, _debug_view_holes,				"DEBUG_HOLES");
+	_add_if_true(_defs, _debug_view_texture_height,		"DEBUG_TEXTURE_HEIGHT");
+	_add_if_true(_defs, _debug_view_texture_normal,		"DEBUG_TEXTURE_NORMAL");
+	_add_if_true(_defs, _debug_view_texture_rough,		"DEBUG_TEXTURE_ROUGHNESS");
+	_add_if_true(_defs, _debug_view_vertex_grid,		"DEBUG_VERTEX_GRID");
+	_add_if_true(_defs, _debug_view_navigation,			"EDITOR_NAVIGATION");
+
+	String o= "";
+	for (int d = 0; d < _defs.size(); d++) {
+		o += "#define " + (String)_defs[d] + "\n"; }
+	return o; }
+
+String Terrain3DMaterial::_add_or_update_header(String _to_code, String _explicitDefines) {
+	String o = _explicitDefines != "" ? _explicitDefines : _get_current_defines();
+//	_last_generated_defines = o;
+
+	// Any system level, universal defines would go in the DEFINES snippet.
+	// ( Currently unused, all defines are dynamically populated.  This is probably where per-instance variants of the shader (ie one for distant, one for close) could manage their feature sets, independantly of the user options.  )
+	o = _add_if_exists(o, "DEFINES");
+
+	// The header start mark is just for clarity and currently does not get parsed 
+	// for anything later.  Good place for comment banners etc.
+	o = _add_if_exists(o, "HEADER_START_MARK");
+
+	// The header itself is added next and contains used uniforms, varyins, etc.
+	o = _add_if_exists(o, "HEADER");
+
+	// Very important, add this header end mark so the next step can know how to 
+	// remove the header, next time it updates.  ( Also put a banner over it to 
+	// warn anyone editing the code that anything above the mark may get overwritten.
+	o = _add_if_exists(o, "HEADER_END_MARK_NOTICE");
+	o = _add_if_exists(o, "HEADER_END_MARK");
+
+	// Trim any existing managed header area off the current shader, and replace it
+	String _sliced = _to_code.get_slice(_shader_code["HEADER_END_MARK"], 1);
+	return o + ((_sliced == "") ? _to_code : _sliced);
+}
+
+void Terrain3DMaterial::_update_shader_if_defines_have_changed() {
+	String _currentDefines = _get_current_defines();
+	if (_currentDefines != _last_generated_defines) {
+		_update_shader(); } }
 
 void Terrain3DMaterial::_update_shader() {
-	if (!_initialized) {
-		return;
-	}
+	if (!_initialized || _material == Variant::NIL) {
+		return; }
 	LOG(INFO, "Updating shader");
 	RID shader_rid;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
-		if (_shader_override->get_code().is_empty()) {
-			String code = _generate_shader_code();
-			_shader_override->set_code(code);
-		}
-		if (!_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
-			LOG(DEBUG, "Connecting changed signal to _update_shader()");
-			_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
-		}
-		String code = _shader_override->get_code();
-		_shader_tmp->set_code(_inject_editor_code(code));
-		shader_rid = _shader_tmp->get_rid();
-	} else {
-		String code = _generate_shader_code();
-		RS->shader_set_code(_shader, _inject_editor_code(code));
-		shader_rid = _shader;
-	}
+		_shader_override->set_code(_shader_override->get_code().is_empty()
+			? _generate_shader_code()
+			: _add_or_update_header(_shader_override->get_code()));
+		if (!_shader_override->is_connected("changed", Callable(this, "_update_shader_if_defines_have_changed"))) {
+			LOG(DEBUG, "Connecting changed signal to _update_shader_if_defines_have_changed()");
+			_shader_override->connect("changed", Callable(this, "_update_shader_if_defines_have_changed")); }
+		_shader_tmp->set_code(_shader_override->get_code());
+		shader_rid = _shader_tmp->get_rid(); } 
+	else {
+		//String code = _generate_shader_code();
+		//RS->shader_set_code(_shader, _inject_editor_code(code));
+		//shader_rid = _shader;
+
+		// It seems like the RenderingServer version of setting the shader code does not 
+		// activate the preprocessor?  This solves it fine for my branch but I'm unsure 
+		// if there are regressions from not upkeeping "shader" as expected. - mk
+		_shader_tmp->set_code(_generate_shader_code());
+		shader_rid = _shader_tmp->get_rid(); }
+
 	RS->material_set_shader(_material, shader_rid);
 	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", shader_rid);
 
@@ -253,11 +280,8 @@ void Terrain3DMaterial::_update_shader() {
 		}
 	}
 
-	// Set specific shader parameters
-	RS->material_set_param(_material, "_background_mode", _world_background);
-
 	// If no noise texture, generate one
-	if (_active_params.has("noise_texture") && RS->material_get_param(_material, "noise_texture").get_type() == Variant::NIL) {
+	if (_tinting_texture == Ref<Texture2D>() ) {
 		LOG(INFO, "Generating default noise_texture for shader");
 		Ref<FastNoiseLite> fnoise;
 		fnoise.instantiate();
@@ -289,9 +313,14 @@ void Terrain3DMaterial::_update_shader() {
 		noise_tex->set_generate_mipmaps(true);
 		noise_tex->set_noise(fnoise);
 		noise_tex->set_color_ramp(curve);
-		_set("noise_texture", noise_tex);
+		_tinting_texture = noise_tex;
 	}
 
+	if(_tinting_texture.is_valid()) { RS->material_set_param(_material, "_tinting_texture", _tinting_texture->get_rid() ); }
+	
+	// Set specific managed shader parameters
+	UPDATE_MANAGED_VARS()
+	
 	notify_property_list_changed();
 }
 
@@ -384,11 +413,11 @@ void Terrain3DMaterial::_update_texture_arrays(const Ref<Terrain3DTextureList> p
 	// Enable checkered view if texture_count is 0, disable if not
 	if (p_texture_list->get_texture_count() == 0) {
 		if (_debug_view_checkered == false) {
-			set_show_checkered(true);
+			set_debug_view_checkered(true);
 			LOG(DEBUG, "No textures, enabling checkered view");
 		}
 	} else {
-		set_show_checkered(false);
+		set_debug_view_checkered(false);
 		LOG(DEBUG, "Texture count >0: ", p_texture_list->get_texture_count(), ", disabling checkered view");
 	}
 }
@@ -442,30 +471,6 @@ RID Terrain3DMaterial::get_shader_rid() const {
 	}
 }
 
-void Terrain3DMaterial::set_world_background(WorldBackground p_background) {
-	LOG(INFO, "Enable world background: ", p_background);
-	_world_background = p_background;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_texture_filtering(TextureFiltering p_filtering) {
-	LOG(INFO, "Setting texture filtering: ", p_filtering);
-	_texture_filtering = p_filtering;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_auto_shader(bool p_enabled) {
-	LOG(INFO, "Enable auto shader: ", p_enabled);
-	_auto_shader = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_dual_scaling(bool p_enabled) {
-	LOG(INFO, "Enable dual scaling: ", p_enabled);
-	_dual_scaling = p_enabled;
-	_update_shader();
-}
-
 void Terrain3DMaterial::enable_shader_override(bool p_enabled) {
 	LOG(INFO, "Enable shader override: ", p_enabled);
 	_shader_override_enabled = p_enabled;
@@ -501,87 +506,9 @@ void Terrain3DMaterial::set_mesh_vertex_spacing(real_t p_spacing) {
 	RS->material_set_param(_material, "_mesh_vertex_density", 1.0f / p_spacing);
 }
 
-void Terrain3DMaterial::set_show_checkered(bool p_enabled) {
-	LOG(INFO, "Enable set_show_checkered: ", p_enabled);
-	_debug_view_checkered = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_grey(bool p_enabled) {
-	LOG(INFO, "Enable show_grey: ", p_enabled);
-	_debug_view_grey = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_heightmap(bool p_enabled) {
-	LOG(INFO, "Enable show_heightmap: ", p_enabled);
-	_debug_view_heightmap = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_colormap(bool p_enabled) {
-	LOG(INFO, "Enable show_colormap: ", p_enabled);
-	_debug_view_colormap = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_roughmap(bool p_enabled) {
-	LOG(INFO, "Enable show_roughmap: ", p_enabled);
-	_debug_view_roughmap = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_control_texture(bool p_enabled) {
-	LOG(INFO, "Enable show_control_texture: ", p_enabled);
-	_debug_view_control_texture = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_control_blend(bool p_enabled) {
-	LOG(INFO, "Enable show_control_blend: ", p_enabled);
-	_debug_view_control_blend = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_autoshader(bool p_enabled) {
-	LOG(INFO, "Enable show_autoshader: ", p_enabled);
-	_debug_view_autoshader = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_navigation(bool p_enabled) {
-	LOG(INFO, "Enable show_navigation: ", p_enabled);
-	_show_navigation = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_texture_height(bool p_enabled) {
-	LOG(INFO, "Enable show_texture_height: ", p_enabled);
-	_debug_view_tex_height = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_texture_normal(bool p_enabled) {
-	LOG(INFO, "Enable show_texture_normal: ", p_enabled);
-	_debug_view_tex_normal = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_texture_rough(bool p_enabled) {
-	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
-	_debug_view_tex_rough = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_vertex_grid(bool p_enabled) {
-	LOG(INFO, "Enable show_vertex_grid: ", p_enabled);
-	_debug_view_vertex_grid = p_enabled;
-	_update_shader();
-}
-
 void Terrain3DMaterial::save() {
 	LOG(DEBUG, "Generating parameter list from shaders");
-	// Get shader parameters from default shader (eg world_noise)
+	// Get shader parameters from default shader (eg bg_world)
 	Array param_list;
 	param_list = RS->get_shader_parameter_list(_shader);
 	// Get shader parameters from custom shader if present
@@ -640,7 +567,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 		// Get shader parameters from custom shader
 		param_list = _shader_override->get_shader_uniform_list(true);
 	} else {
-		// Get shader parameters from default shader (eg world_noise)
+		// Get shader parameters from default shader (eg bg_world)
 		param_list = RS->get_shader_parameter_list(_shader);
 	}
 
@@ -758,7 +685,20 @@ bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) cons
 	return true;
 }
 
+String Terrain3DMaterial::_format_string_for_inline_help (String _source) { 
+		return _source.replace("\n\n", "[__TEMP_CRLF__]").replace("\n", "").replace("[__TEMP_CRLF__]", "\n\n"); }
+
+void Terrain3DMaterial::_safe_material_set_param(StringName _param, Variant _value) {
+	if (_initialized && _material.is_valid()) {
+		RS->material_set_param(_material, _param, _value); } }
+
+
+
+
+MAKE_MANAGED_FUNCTIONS()
+
 void Terrain3DMaterial::_bind_methods() {
+	BIND_MANAGED_VARS()
 	BIND_ENUM_CONSTANT(NONE);
 	BIND_ENUM_CONSTANT(FLAT);
 	BIND_ENUM_CONSTANT(NOISE);
@@ -774,72 +714,18 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
-
-	ClassDB::bind_method(D_METHOD("set_world_background", "background"), &Terrain3DMaterial::set_world_background);
-	ClassDB::bind_method(D_METHOD("get_world_background"), &Terrain3DMaterial::get_world_background);
-	ClassDB::bind_method(D_METHOD("set_texture_filtering", "filtering"), &Terrain3DMaterial::set_texture_filtering);
-	ClassDB::bind_method(D_METHOD("get_texture_filtering"), &Terrain3DMaterial::get_texture_filtering);
-	ClassDB::bind_method(D_METHOD("set_auto_shader", "enabled"), &Terrain3DMaterial::set_auto_shader);
-	ClassDB::bind_method(D_METHOD("get_auto_shader"), &Terrain3DMaterial::get_auto_shader);
-	ClassDB::bind_method(D_METHOD("set_dual_scaling", "enabled"), &Terrain3DMaterial::set_dual_scaling);
-	ClassDB::bind_method(D_METHOD("get_dual_scaling"), &Terrain3DMaterial::get_dual_scaling);
-
 	ClassDB::bind_method(D_METHOD("enable_shader_override", "enabled"), &Terrain3DMaterial::enable_shader_override);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
-
 	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
 	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
-
-	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3DMaterial::set_show_checkered);
-	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3DMaterial::get_show_checkered);
-	ClassDB::bind_method(D_METHOD("set_show_grey", "enabled"), &Terrain3DMaterial::set_show_grey);
-	ClassDB::bind_method(D_METHOD("get_show_grey"), &Terrain3DMaterial::get_show_grey);
-	ClassDB::bind_method(D_METHOD("set_show_heightmap", "enabled"), &Terrain3DMaterial::set_show_heightmap);
-	ClassDB::bind_method(D_METHOD("get_show_heightmap"), &Terrain3DMaterial::get_show_heightmap);
-	ClassDB::bind_method(D_METHOD("set_show_colormap", "enabled"), &Terrain3DMaterial::set_show_colormap);
-	ClassDB::bind_method(D_METHOD("get_show_colormap"), &Terrain3DMaterial::get_show_colormap);
-	ClassDB::bind_method(D_METHOD("set_show_roughmap", "enabled"), &Terrain3DMaterial::set_show_roughmap);
-	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DMaterial::get_show_roughmap);
-	ClassDB::bind_method(D_METHOD("set_show_control_texture", "enabled"), &Terrain3DMaterial::set_show_control_texture);
-	ClassDB::bind_method(D_METHOD("get_show_control_texture"), &Terrain3DMaterial::get_show_control_texture);
-	ClassDB::bind_method(D_METHOD("set_show_control_blend", "enabled"), &Terrain3DMaterial::set_show_control_blend);
-	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3DMaterial::get_show_control_blend);
-	ClassDB::bind_method(D_METHOD("set_show_autoshader", "enabled"), &Terrain3DMaterial::set_show_autoshader);
-	ClassDB::bind_method(D_METHOD("get_show_autoshader"), &Terrain3DMaterial::get_show_autoshader);
-	ClassDB::bind_method(D_METHOD("set_show_navigation", "enabled"), &Terrain3DMaterial::set_show_navigation);
-	ClassDB::bind_method(D_METHOD("get_show_navigation"), &Terrain3DMaterial::get_show_navigation);
-	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3DMaterial::set_show_texture_height);
-	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3DMaterial::get_show_texture_height);
-	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3DMaterial::set_show_texture_normal);
-	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3DMaterial::get_show_texture_normal);
-	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3DMaterial::set_show_texture_rough);
-	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3DMaterial::get_show_texture_rough);
-	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DMaterial::set_show_vertex_grid);
-	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
-
 	ClassDB::bind_method(D_METHOD("save"), &Terrain3DMaterial::save);
 
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader", PROPERTY_HINT_NONE), "set_auto_shader", "get_auto_shader");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling", PROPERTY_HINT_NONE), "set_dual_scaling", "get_dual_scaling");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
+	ADD_MANAGED_PROPS()
+	
+	ADD_GROUP("Custom Shader",                 "shader_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL,   "shader_override_enabled", PROPERTY_HINT_NONE), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
-
-	ADD_GROUP("Debug Views", "show_");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE), "set_show_checkered", "get_show_checkered");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grey", PROPERTY_HINT_NONE), "set_show_grey", "get_show_grey");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_heightmap", PROPERTY_HINT_NONE), "set_show_heightmap", "get_show_heightmap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap", PROPERTY_HINT_NONE), "set_show_colormap", "get_show_colormap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE), "set_show_roughmap", "get_show_roughmap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture", PROPERTY_HINT_NONE), "set_show_control_texture", "get_show_control_texture");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend", PROPERTY_HINT_NONE), "set_show_control_blend", "get_show_control_blend");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader", PROPERTY_HINT_NONE), "set_show_autoshader", "get_show_autoshader");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation", PROPERTY_HINT_NONE), "set_show_navigation", "get_show_navigation");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE), "set_show_texture_height", "get_show_texture_height");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE), "set_show_texture_normal", "get_show_texture_normal");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE), "set_show_texture_rough", "get_show_texture_rough");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid", PROPERTY_HINT_NONE), "set_show_vertex_grid", "get_show_vertex_grid");
+	ADD_INLINE_HELP(shader_override, Custom Shader, About Custom Shaders)
 }

@@ -7,6 +7,8 @@
 
 #include "constants.h"
 #include "generated_texture.h"
+#define __TEMPORARY_INLINE_HELP
+#include "propsets/ALL_SETS.h"
 
 class Terrain3D;
 class Terrain3DTextureList;
@@ -31,6 +33,8 @@ public: // Constants
 	};
 
 private:
+	PRIVATE_MANAGED_VARS()
+
 	bool _initialized = false;
 	RID _material;
 	RID _shader;
@@ -38,30 +42,9 @@ private:
 	Ref<Shader> _shader_override;
 	Ref<Shader> _shader_tmp;
 	Dictionary _shader_code;
+	String _last_generated_defines = "";
 	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
 	mutable Dictionary _shader_params; // Public shader params saved to disk
-
-	// Material Features
-	WorldBackground _world_background = FLAT;
-	TextureFiltering _texture_filtering = LINEAR;
-	bool _auto_shader = false;
-	bool _dual_scaling = false;
-
-	// Editor Functions / Debug views
-	bool _show_navigation = false;
-	bool _debug_view_checkered = false;
-	bool _debug_view_grey = false;
-	bool _debug_view_heightmap = false;
-	bool _debug_view_colormap = false;
-	bool _debug_view_roughmap = false;
-	bool _debug_view_control_texture = false;
-	bool _debug_view_control_blend = false;
-	bool _debug_view_autoshader = false;
-	bool _debug_view_holes = false;
-	bool _debug_view_tex_height = false;
-	bool _debug_view_tex_normal = false;
-	bool _debug_view_tex_rough = false;
-	bool _debug_view_vertex_grid = false;
 
 	// Cached data from Storage
 	int _region_size = 1024;
@@ -70,12 +53,15 @@ private:
 	PackedInt32Array _region_map;
 	GeneratedTexture _generated_region_blend_map; // 512x512 blurred image of region_map
 
+	// Static Functions
+	static String _format_string_for_inline_help (String _source);
+
 	// Functions
 	void _preload_shaders();
 	void _parse_shader(String p_shader, String p_name);
 	String _apply_inserts(String p_shader, Array p_excludes = Array());
-	String _generate_shader_code();
-	String _inject_editor_code(String p_shader);
+	String _generate_shader_code(String _explicitDefines = "");
+	//String _inject_editor_code(String p_shader);
 	void _update_shader();
 	void _update_regions(const Array &p_args);
 	void _generate_region_blend_map();
@@ -93,16 +79,6 @@ public:
 	RID get_shader_rid() const;
 	RID get_region_blend_map() { return _generated_region_blend_map.get_rid(); }
 
-	// Material settings
-	void set_world_background(WorldBackground p_background);
-	WorldBackground get_world_background() const { return _world_background; }
-	void set_texture_filtering(TextureFiltering p_filtering);
-	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
-	void set_auto_shader(bool p_enabled);
-	bool get_auto_shader() const { return _auto_shader; }
-	void set_dual_scaling(bool p_enabled);
-	bool get_dual_scaling() const { return _dual_scaling; }
-
 	void enable_shader_override(bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
 	void set_shader_override(const Ref<Shader> &p_shader);
@@ -112,36 +88,16 @@ public:
 	Variant get_shader_param(const StringName &p_name) const;
 
 	void set_mesh_vertex_spacing(real_t p_spacing);
-
-	// Editor functions / Debug views
-	void set_show_checkered(bool p_enabled);
-	bool get_show_checkered() const { return _debug_view_checkered; }
-	void set_show_grey(bool p_enabled);
-	bool get_show_grey() const { return _debug_view_grey; }
-	void set_show_heightmap(bool p_enabled);
-	bool get_show_heightmap() const { return _debug_view_heightmap; }
-	void set_show_colormap(bool p_enabled);
-	bool get_show_colormap() const { return _debug_view_colormap; }
-	void set_show_roughmap(bool p_enabled);
-	bool get_show_roughmap() const { return _debug_view_roughmap; }
-	void set_show_control_texture(bool p_enabled);
-	bool get_show_control_texture() const { return _debug_view_control_texture; }
-	void set_show_control_blend(bool p_enabled);
-	bool get_show_control_blend() const { return _debug_view_control_blend; }
-	void set_show_autoshader(bool p_enabled);
-	bool get_show_autoshader() const { return _debug_view_autoshader; }
-	void set_show_navigation(bool p_enabled);
-	bool get_show_navigation() const { return _show_navigation; }
-	void set_show_texture_height(bool p_enabled);
-	bool get_show_texture_height() const { return _debug_view_tex_height; }
-	void set_show_texture_normal(bool p_enabled);
-	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
-	void set_show_texture_rough(bool p_enabled);
-	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
-	void set_show_vertex_grid(bool p_enabled);
-	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
-
 	void save();
+
+	String _add_if_exists(String _current, String _snippetID_);
+	String _add_if_enabled(String _current, bool _controlVar, String _snippetID_enabled, String _snippetID_disabled = "");
+	Array _add_if_true(Array _toset, bool _condition, String _toadd, String _toadd_if_false = "");
+	String _get_current_defines();
+	String _add_or_update_header(String _to_code, String _explicitDefines = "");
+	void _update_shader_if_defines_have_changed();
+	void _safe_material_set_param(StringName _param, Variant _value);
+	PUBLIC_MANAGED_FUNCS()
 
 protected:
 	void _get_property_list(List<PropertyInfo> *p_list) const;

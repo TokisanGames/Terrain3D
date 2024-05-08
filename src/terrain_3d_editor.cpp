@@ -524,7 +524,7 @@ void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 void Terrain3DEditor::set_tool(Tool p_tool) {
 	_tool = p_tool;
 	if (_terrain) {
-		_terrain->get_material()->set_show_navigation(_tool == NAVIGATION);
+		_terrain->get_material()->set_debug_view_navigation(_tool == NAVIGATION);
 	}
 }
 

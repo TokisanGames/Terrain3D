@@ -142,7 +142,16 @@
     <ClInclude Include="src\constants.h" />
     <ClInclude Include="src\generated_texture.h" />
     <ClInclude Include="src\geoclipmap.h" />
+    <ClInclude Include="src\propsets\ALL_SETS.h" />
+    <ClInclude Include="src\propsets\_AUTO_TEXTURING.h" />
+    <ClInclude Include="src\propsets\_DEBUG_VIEWS.h" />
+    <ClInclude Include="src\propsets\_MULTI_SCALING.h" />
+    <ClInclude Include="src\propsets\_TINTING.h" />
+    <ClInclude Include="src\propsets\_UV_DISTORTION.h" />
+    <ClInclude Include="src\propsets\_BG_WORLD.h" />
+    <ClInclude Include="src\propsets\__PROPSETS.h" />
     <ClInclude Include="src\register_types.h" />
+    <ClInclude Include="src\propsets\_BLENDING.h" />
     <ClInclude Include="src\terrain_3d.h" />
     <ClInclude Include="src\terrain_3d_editor.h" />
     <ClInclude Include="src\logger.h" />
@@ -188,16 +197,22 @@
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
+    <None Include="project\addons\terrain_3d\shader\core\t3d_managed_uniforms.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\core\t3d_managed_varyings.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\core\t3d_material_def.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\core\t3d_standard_functions.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\core\t3d_standard_header.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\mods\t3d_debug_view.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\mods\t3d_uv_distort_funcs.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\vertex\t3d_vertex_apply_standard_varyings.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\vertex\t3d_vertex_early_discard_test.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\vertex\t3d_vertex_init_varyings.gdshaderinc" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />
     <None Include="README.md" />
     <None Include="SConstruct" />
-    <None Include="src\shaders\debug_views.glsl" />
     <None Include="src\shaders\main.glsl" />
-    <None Include="src\shaders\uniforms.glsl" />
-    <None Include="src\shaders\world_noise.glsl" />
-    <None Include="src\shaders\editor_functions.glsl" />
-    <None Include="src\shaders\dual_scaling.glsl" />
-    <None Include="src\shaders\auto_shader.glsl" />
+    <None Include="src\shaders\__DEFINES.glsl" />
+    <None Include="src\shaders\__HEADER.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml" />
