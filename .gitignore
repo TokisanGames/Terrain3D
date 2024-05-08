@@ -37,3 +37,4 @@ export_presets.cfg
 .vscode/
 .vs/
 project/addons/explore-editor-theme/
+/vc140.pdb
