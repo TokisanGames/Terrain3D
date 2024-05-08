@@ -33,9 +33,10 @@ class Terrain3D : public Node3D {
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
 	real_t _mesh_vertex_spacing = 1.0f;
+	String _storage_directory;
 
+	Terrain3DStorage *_storage = nullptr;
 	Ref<Terrain3DMaterial> _material;
-	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DEditor *_editor = nullptr;
@@ -117,11 +118,13 @@ public:
 	int get_mesh_size() const { return _mesh_size; }
 	void set_mesh_vertex_spacing(const real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
+	void set_storage_directory(String p_dir);
+	String get_storage_directory() const;
 
+	void set_storage(Terrain3DStorage *p_storage);
+	Terrain3DStorage *get_storage() const { return _storage; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
-	void set_storage(const Ref<Terrain3DStorage> &p_storage);
-	Ref<Terrain3DStorage> get_storage() const { return _storage; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 
