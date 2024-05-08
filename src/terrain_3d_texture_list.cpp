@@ -40,7 +40,7 @@ void Terrain3DTextureList::_update_texture_files() {
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
 	if (_textures.is_empty()) {
-		emit_signal("textures_changed", Ref<Terrain3DTextureList>(this));
+		emit_signal("textures_changed");
 		return;
 	}
 
@@ -168,7 +168,7 @@ void Terrain3DTextureList::_update_texture_files() {
 		}
 	}
 
-	emit_signal("textures_changed", Ref<Terrain3DTextureList>(this));
+	emit_signal("textures_changed");
 }
 
 void Terrain3DTextureList::_update_texture_settings() {
@@ -189,7 +189,7 @@ void Terrain3DTextureList::_update_texture_settings() {
 			_texture_uv_rotations.push_back(texture_set->get_uv_rotation());
 		}
 	}
-	emit_signal("textures_changed", Ref<Terrain3DTextureList>(this));
+	emit_signal("textures_changed");
 }
 
 ///////////////////////////
