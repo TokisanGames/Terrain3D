@@ -294,7 +294,7 @@ void Terrain3D::_update_collision(Vector3 p_cam_pos) {
 		LOG(ERROR, "Collision not initialized, returning");
 		return;
 	}
-	LOG(INFO, "Updating collision");
+	LOG(DEBUG, "Updating collision");
 
 	int time = Time::get_singleton()->get_ticks_usec();
 	int region_size = _storage->get_region_size();

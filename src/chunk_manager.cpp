@@ -91,13 +91,13 @@ Vector2i ChunkManager::_snap_position(Vector3 p_position) {
 void ChunkManager::_build() {
 	_destroy();
 	_active_chunks.resize(_chunk_count);
+	// smaller sizes might be possible
 	_inactive_chunks.resize(_chunk_count * 2);
 	for (int i = 0; i < _chunk_count; i++) {
 		_inactive_chunks[i] = create_chunk();
 		_inactive_chunks[_chunk_count + i] = create_chunk();
 		_active_chunks[i] = Variant(1);
 	}
-	LOG(INFO, "test6", _inactive_chunks);
 }
 
 void ChunkManager::_destroy() {
@@ -115,6 +115,17 @@ void ChunkManager::set_distance(float p_distance) {
 }
 
 void ChunkManager::set_chunk_size(uint p_size) {
+    // Round up to nearest power of 2
+	{
+		p_size--;
+		p_size |= p_size >> 1;
+		p_size |= p_size >> 2;
+		p_size |= p_size >> 4;
+		p_size |= p_size >> 8;
+		p_size |= p_size >> 16;
+		p_size++;
+	}
+	p_size = CLAMP(p_size, 8, 256);
 	_chunk_size = p_size;
 	_build();
 }

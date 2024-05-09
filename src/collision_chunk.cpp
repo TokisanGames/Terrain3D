@@ -8,15 +8,15 @@ CollisionChunk::CollisionChunk(CollisionChunkManager *p_manager, uint p_size) :
 		BaseChunk(p_manager, p_size) {
 	_col_shape = memnew(CollisionShape3D);
 	_col_shape->set_name("CollisionShape3D");
-	_col_shape->set_visible(true);
+	_col_shape->set_visible(false);
 	Ref<HeightMapShape3D> hshape;
 	hshape.instantiate();
-	hshape->set_map_width(p_size);
-	hshape->set_map_depth(p_size);
+	hshape->set_map_width(p_size + 1);
+	hshape->set_map_depth(p_size + 1);
 	_col_shape->set_shape(hshape);
 	((CollisionChunkManager *)_manager)->_body->add_child(_col_shape);
 	_col_shape->set_owner(((CollisionChunkManager *)_manager)->_body);
-	LOG(INFO, "new chunk");
+	LOG(DEBUG, "new chunk");
 }
 
 CollisionChunk::~CollisionChunk() {
