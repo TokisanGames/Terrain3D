@@ -166,14 +166,19 @@ String Terrain3DMaterial::_get_current_defines() {
 	Array _defs;
 	_add_if_true(_defs, _blending_texture_filtering == LINEAR,	"TEXTURE_SAMPLERS_LINEAR",	"TEXTURE_SAMPLERS_NEAREST");
 	_add_if_true(_defs, _blending_by_height,					"HEIGHT_BLENDING_ENABLED");
-	_add_if_true(_defs, _tinting_enabled,					"NOISE_TINT_ENABLED");
+	_add_if_true(_defs, _tinting_enabled,						"NOISE_TINT_ENABLED");
 	_add_if_true(_defs, _auto_texturing_enabled,				"AUTO_TEXTURING_ENABLED");
+	_add_if_true(_defs, _multi_scaling_enabled,					"MULTI_SCALING_ENABLED");
+	_add_if_true(_defs, _uv_distortion_enabled,					"UV_DISTORTION_ENABLED");
+
 	_add_if_true(_defs, _bg_world_fill >= NOISE,				"BG_WORLD_ENABLED");
 	_add_if_true(_defs, _bg_world_fill == FLAT,					"BG_FLAT_ENABLED");
 	_add_if_true(_defs, _bg_world_fill == NONE,					"BG_NONE");
-	_add_if_true(_defs, _multi_scaling_enabled,					"MULTI_SCALING_ENABLED");
-	_add_if_true(_defs, _uv_distortion_enabled,					"UV_DISTORTION_ENABLED");
-	
+
+	_add_if_true(_defs, _normals_quality == PIXEL,				"NORMALS_PER_PIXEL");
+	_add_if_true(_defs, _normals_quality == VERTEX,				"NORMALS_PER_VERTEX");
+	_add_if_true(_defs, _normals_quality == BY_DISTANCE,		"NORMALS_BY_DISTANCE");
+
 	_add_if_true(_defs, _debug_view_checkered,			"DEBUG_CHECKERED");
 	_add_if_true(_defs, _debug_view_grey,				"DEBUG_GREY");
 	_add_if_true(_defs, _debug_view_heightmap,			"DEBUG_HEIGHTMAP");
@@ -685,15 +690,73 @@ bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) cons
 	return true;
 }
 
+// Original unoptimized version retained for reference (more readable) 
+//float Terrain3DMaterial::hashv2(Vector2 v) {
+//	return Math::fract(10000.0f * sin(17.0f * v.x + v.y * 0.1f) * (0.1f + abs(sin(v.y * 13.0f + v.x)))); }
+
+float Terrain3DMaterial::ihashv2(Vector2i iv) {  
+	Vector2 v = Vector2( iv * Vector2i(17, 13) ) + Vector2( float(iv.y) * 0.1, float(iv.x) );
+	v.x = sin(v.x);
+	v.y = ( abs(sin(v.y)) + 0.1 );
+	return Math::fract( 1e4 * v.x * v.y ); }
+
+// https://iquilezles.org/articles/morenoise/
+Vector3 Terrain3DMaterial::noise2D(Vector2 x) {
+    Vector2 f = Vector2(Math::fract(x.x),Math::fract(x.y));
+    // Quintic Hermine Curve.  Similar to SmoothStep()
+	Vector2 f2 = f*f;
+    Vector2 u = f2*f*(f*(f*6.0f-Vector2(15.0f, 15.0f))+Vector2(10.0f, 10.0f));
+    Vector2 du = 30.0f*f2*(f*(f-Vector2(2.0f, 2.0f))+Vector2(1.0f, 1.0f));
+
+    Vector2i p = Vector2i(Math::floor(x.x), Math::floor(x.y));
+
+	// Four corners in 2D of a tile
+	float a = ihashv2( p );
+    float b = ihashv2( p+Vector2i(1,0) );
+    float c = ihashv2( p+Vector2i(0,1) );
+    float d = ihashv2( p+Vector2i(1,1) );
+
+    // Mix 4 corner percentages
+    float k0 =   a;
+    float k1 =   b - a;
+    float k2 =   c - a;
+    float k3 =   a - b - c + d;
+	Vector2 _direvs = du * ( Vector2(k1, k2) + k3 * Vector2(u.y,u.x) );
+    return Vector3( k0 + k1 * u.x + k2 * u.y + k3 * u.x * u.y, _direvs.x, _direvs.y ); }
+
+int Terrain3DMaterial::get_octaves_by_distance(float d) {
+    return int( Math::clamp(
+	float(_bg_world_max_octaves) - Math::floor(d /(_bg_world_lod_distance)),
+    float(_bg_world_min_octaves), float(_bg_world_max_octaves)) ); }
+
+float Terrain3DMaterial::noise_type1(Vector2 p, int octaves) {
+    float a = 0.0f;
+    float b = 1.0f;
+    Vector2  d = Vector2(0.0f, 0.0f);
+    for( int i=0; i < octaves; i++ ) {
+        Vector3 n = noise2D(p);
+        d += Vector2(n.y, n.z);
+        a += b * n.x / (1.0f + d.dot(d));
+        b *= 0.5f;
+        p = Vector2(0.8f * p.x + 0.6f * p.y, -0.6f * p.x + 0.8f * p.y) *2.0f; }
+    return a; }
+
+float Terrain3DMaterial::get_unweighted_generated_height(Vector3 worldPos, int octaves) {
+	worldPos += _bg_world_offset;
+	float dx, dy;
+	const float _offs = 16.0f * 1024.0f;
+	// Should the half pixel be added before, after, or not at all?  Not at all for now.
+	dx = ((worldPos.x+_offs)/1024.0f)-16.f;
+	dy = ((worldPos.z+_offs)/1024.0f)-16.f;
+	Vector2 uv = Vector2(dx, dy);
+	return noise_type1( uv * _bg_world_scale * .1 , octaves) * (_bg_world_height*10.0f) + (_bg_world_offset.y * 100.f); }
+
 String Terrain3DMaterial::_format_string_for_inline_help (String _source) { 
 		return _source.replace("\n\n", "[__TEMP_CRLF__]").replace("\n", "").replace("[__TEMP_CRLF__]", "\n\n"); }
 
 void Terrain3DMaterial::_safe_material_set_param(StringName _param, Variant _value) {
 	if (_initialized && _material.is_valid()) {
 		RS->material_set_param(_material, _param, _value); } }
-
-
-
 
 MAKE_MANAGED_FUNCTIONS()
 
@@ -704,6 +767,9 @@ void Terrain3DMaterial::_bind_methods() {
 	BIND_ENUM_CONSTANT(NOISE);
 	BIND_ENUM_CONSTANT(LINEAR);
 	BIND_ENUM_CONSTANT(NEAREST);
+	BIND_ENUM_CONSTANT(PIXEL);
+	BIND_ENUM_CONSTANT(VERTEX);
+	BIND_ENUM_CONSTANT(BY_DISTANCE);
 
 	// Private
 	ClassDB::bind_method(D_METHOD("_set_shader_parameters", "dict"), &Terrain3DMaterial::_set_shader_parameters);
@@ -721,6 +787,9 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
 	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
 	ClassDB::bind_method(D_METHOD("save"), &Terrain3DMaterial::save);
+	ClassDB::bind_method(D_METHOD("get_unweighted_generated_height"), &Terrain3DMaterial::get_unweighted_generated_height);
+	ClassDB::bind_method(D_METHOD("get_octaves_by_distance"), &Terrain3DMaterial::get_octaves_by_distance);
+	ClassDB::bind_method(D_METHOD("noise_type1"), &Terrain3DMaterial::noise_type1);
 
 	ADD_MANAGED_PROPS()
 	

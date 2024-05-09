@@ -19,55 +19,10 @@ R"(
  *
  */
 
-#if defined(BG_WORLD_ENABLED)	// WORLD_NOISE1
-
-uniform sampler2D _region_blend_map : hint_default_black, filter_linear, repeat_disable;
-
-float hashf(float f) {
-	return fract(sin(f) * 1e4); }
-
-float hashv2(vec2 v) {
-	return fract(1e4 * sin(17.0 * v.x + v.y * 0.1) * (0.1 + abs(sin(v.y * 13.0 + v.x)))); }
-
-// https://iquilezles.org/articles/morenoise/
-vec3 noise2D(vec2 x) {
-    vec2 f = fract(x);
-    // Quintic Hermine Curve.  Similar to SmoothStep()
-    vec2 u = f*f*f*(f*(f*6.0-15.0)+10.0);
-    vec2 du = 30.0*f*f*(f*(f-2.0)+1.0);
-
-    vec2 p = floor(x);
-
-	// Four corners in 2D of a tile
-	float a = hashv2( p+vec2(0,0) );
-    float b = hashv2( p+vec2(1,0) );
-    float c = hashv2( p+vec2(0,1) );
-    float d = hashv2( p+vec2(1,1) );
-
-    // Mix 4 corner percentages
-    float k0 =   a;
-    float k1 =   b - a;
-    float k2 =   c - a;
-    float k3 =   a - b - c + d;
-    return vec3( k0 + k1 * u.x + k2 * u.y + k3 * u.x * u.y,
-                du * ( vec2(k1, k2) + k3 * u.yx) ); }
-
-float bg_world(vec2 p) {
-    float a = 0.0;
-    float b = 1.0;
-    vec2  d = vec2(0.0);
-    int octaves = int( clamp(
-	float(_bg_world_max_octaves) - floor(v_vertex_xz_dist/(_bg_world_lod_distance)),
-    float(_bg_world_min_octaves), float(_bg_world_max_octaves)) );
-    for( int i=0; i < octaves; i++ ) {
-        vec3 n = noise2D(p);
-        d += n.yz;
-        a += b * n.x / (1.0 + dot(d,d));
-        b *= 0.5;
-        p = mat2( vec2(0.8, -0.6), vec2(0.6, 0.8) ) * p * 2.0; }
-    return a; }
-
-// World Noise end
+#if defined(BG_WORLD_ENABLED)	
+	// WORLD_NOISE_TYPE1_FUNCS
+	uniform sampler2D _region_blend_map : hint_default_black, filter_linear, repeat_disable;
+	#include "res://addons/terrain_3d/shader/vertex/t3d_bg_world_noise_type1_funcs.gdshaderinc"
 #endif
 
 // 1 lookup
@@ -98,8 +53,12 @@ float get_height(vec2 uv) {
 vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 	float u, v, height;
 	vec3 normal;
-	// Use vertex normals within radius of vertex_normals_distance, and along region borders.
-	if (v_region_border_mask > 0.5 || v_vertex_xz_dist < vertex_normals_distance) {
+	// Use vertex normals within radius of _normals_distance, and along region borders.
+	if (v_region_border_mask > 0.5 
+	#if defined(NORMALS_BY_DISTANCE) 
+	|| v_vertex_xz_dist < _normals_distance
+	#endif
+	) {
 		normal = normalize(v_normal);
 	} else {
 		height = get_height(uv);
@@ -278,11 +237,17 @@ void fragment() {
 	vec2 uv2 = UV2 + v_uv2_offset;
 
 	// Calculate Terrain Normals. 4 lookups
-	vec3 w_tangent, w_binormal;
-	vec3 w_normal = get_normal(uv2, w_tangent, w_binormal);
-	NORMAL = mat3(VIEW_MATRIX) * w_normal;
-	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
-	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
+	#if defined(NORMALS_PER_VERTEX)
+		vec3 w_normal	= normalize(v_normal);
+		vec3 w_tangent	= cross(w_normal, vec3(0, 0, 1));
+		vec3 w_binormal	= cross(w_normal, w_tangent);
+	#else
+		vec3 w_tangent, w_binormal;
+		vec3 w_normal	= get_normal(uv2, w_tangent, w_binormal);
+	#endif
+	NORMAL		= mat3(VIEW_MATRIX) * w_normal;
+	TANGENT		= mat3(VIEW_MATRIX) * w_tangent;
+	BINORMAL	= mat3(VIEW_MATRIX) * w_binormal;
 
 	// Idenfity 4 vertices surrounding this pixel
 	vec2 texel_pos = uv;

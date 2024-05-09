@@ -32,6 +32,12 @@ public: // Constants
 		NEAREST,
 	};
 
+	enum NormalCalculation {
+		PIXEL,
+		VERTEX,
+		BY_DISTANCE
+	};
+
 private:
 	PRIVATE_MANAGED_VARS()
 
@@ -69,6 +75,13 @@ private:
 	void _set_region_size(int p_size);
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
+
+	int get_octaves_by_distance(float d);
+	float get_unweighted_generated_height(Vector3 worldPos, int octaves);
+	float noise_type1(Vector2 p, int octaves);
+	Vector3 noise2D(Vector2 x);
+	float ihashv2(Vector2i iv);
+
 
 public:
 	Terrain3DMaterial(){};
@@ -111,5 +124,6 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DMaterial::WorldBackground);
 VARIANT_ENUM_CAST(Terrain3DMaterial::TextureFiltering);
+VARIANT_ENUM_CAST(Terrain3DMaterial::NormalCalculation);
 
 #endif // TERRAIN3D_MATERIAL_CLASS_H

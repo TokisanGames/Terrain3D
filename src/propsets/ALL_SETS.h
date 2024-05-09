@@ -15,6 +15,7 @@
 #include "propsets/_TINTING.h"
 #include "propsets/_AUTO_TEXTURING.h"
 #include "propsets/_UV_DISTORTION.h"
+#include "propsets/_NORMALS.h"
 #include "propsets/_DEBUG_VIEWS.h"
 
 // ################################################################################
@@ -70,10 +71,11 @@ within the generated shader, so if ever this happens it's not a big deal.
 // section. It defines the functions that will provide the values to the placeholder 
 // in-line "help" textareas.
 #define __MAKE_MANAGED_HELP()\
-	HELP_BLEND()\
-	HELP_MULTI()\
 	HELP_BG_WORLD()\
+	HELP_BLEND()\
+	HELP_NORMS()\
 	HELP_TINTING()\
+	HELP_MULTI()\
 	HELP_AUTO_TEXTURING()\
 	HELP_UVDIST()\
 	HELP_DEBUG()\
@@ -81,20 +83,22 @@ within the generated shader, so if ever this happens it's not a big deal.
 
 // This generates all of the actual functions within the class .cpp file.
 #define MAKE_MANAGED_FUNCTIONS()\
-	MAKE_BLENDING_FUNCTIONS()\
-	MAKE_MULTI_SCALING_FUNCTIONS()\
 	MAKE_BG_WORLD_FUNCTIONS()\
+	MAKE_BLENDING_FUNCTIONS()\
+	MAKE_NORMALS_FUNCTIONS()\
 	MAKE_TINTING_FUNCTIONS()\
+	MAKE_MULTI_SCALING_FUNCTIONS()\
 	MAKE_AUTO_TEXTURING_FUNCTIONS()\
 	MAKE_UV_DISTORTION_FUNCTIONS()\
 	MAKE_DEBUG_VIEW_FUNCTIONS()
 
 // This binds the necessary get/set functions for each managed property group.
 #define BIND_MANAGED_VARS()\
-	BIND_BLENDING_VARS()\
-	BIND_MULTI_SCALING_VARS()\
 	BIND_BG_WORLD_VARS()\
+	BIND_BLENDING_VARS()\
+	BIND_NORMALS_VARS()\
 	BIND_TINTING_VARS()\
+	BIND_MULTI_SCALING_VARS()\
 	BIND_AUTO_TEXTURING_VARS()\
 	BIND_UV_DISTORTION_VARS()\
 	BIND_DEBUG_VIEW_VARS()
@@ -103,38 +107,42 @@ within the generated shader, so if ever this happens it's not a big deal.
 // it's probably best to call this after BIND_MANAGED_VARS, but I'm not sure 
 // it really matters.
 #define ADD_MANAGED_PROPS()\
-	PROPS_BLENDING()\
-	PROPS_MULTI_SCALING()\
 	PROPS_BG_WORLD()\
+	PROPS_BLENDING()\
+	PROPS_NORMALS()\
 	PROPS_TINTING()\
+	PROPS_MULTI_SCALING()\
 	PROPS_AUTO_TEXTURING()\
 	PROPS_UV_DISTORTION()\
 	PROPS_DEBUG_VIEW()
 
 #define PRIVATE_MANAGED_VARS()\
-	PRIV_BLENDING_VARS()\
-	PRIV_MULTI_SCALING_VARS()\
 	PRIV_BG_WORLD_VARS()\
+	PRIV_BLENDING_VARS()\
+	PRIV_NORMALS_VARS()\
 	PRIV_TINTING_VARS()\
+	PRIV_MULTI_SCALING_VARS()\
 	PRIV_AUTO_TEXTURING_VARS()\
 	PRIV_UV_DISTORTION_VARS()\
 	PRIV_DEBUG_VIEW_VARS()
 
 #define PUBLIC_MANAGED_FUNCS()\
 	__MAKE_MANAGED_HELP()\
-	PUBLIC_BLENDING_FUNCS()\
-	PUBLIC_MULTI_SCALING_FUNCS()\
 	PUBLIC_BG_WORLD_FUNCS()\
+	PUBLIC_BLENDING_FUNCS()\
+	PUBLIC_NORMALS_FUNCS()\
 	PUBLIC_TINTING_FUNCS()\
+	PUBLIC_MULTI_SCALING_FUNCS()\
 	PUBLIC_AUTO_TEXTURING_FUNCS()\
 	PUBLIC_UV_DISTORTION_FUNCS()\
 	PUBLIC_DEBUG_VIEW_FUNCS()
 
 #define UPDATE_MANAGED_VARS()\
-	UPDATE_BLENDING()\
-	UPDATE_MULTI_SCALING()\
 	UPDATE_BG_WORLD()\
+	UPDATE_BLENDING()\
+	UPDATE_NORMALS()\
 	UPDATE_TINTING()\
+	UPDATE_MULTI_SCALING()\
 	UPDATE_AUTO_TEXTURING()\
 	UPDATE_UV_DISTORTION()
 

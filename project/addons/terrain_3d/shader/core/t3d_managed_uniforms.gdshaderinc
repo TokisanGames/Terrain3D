@@ -51,6 +51,10 @@ uniform uint _mouse_layer = 0x80000000u;			// Layer 32
 // The height-based or default blend sharpness value 
 uniform float _blending_sharpness = 0.87;
 
+// The distance beyond which normals will be calculated per-pixel, if 
+// NORMALS_BY_DISTANCE is defined.
+uniform float _normals_distance;
+
 // *****************************************************************************
 // END: CORE INTERNALS
 // -----------------------------------------------------------------------------
@@ -98,14 +102,5 @@ uniform float _blending_sharpness = 0.87;
 #endif
 // *****************************************************************************
 // END: MOD UNIFORMS
-// -----------------------------------------------------------------------------
-// BEGIN: UNSORTED STAGING AREA
-// *****************************************************************************
-
-// Public uniforms
-uniform float vertex_normals_distance : hint_range(0, 1024) = 128.0;
-
-// *****************************************************************************
-// END: UNSORTED STAGING AREA
 // -----------------------------------------------------------------------------
 #endif

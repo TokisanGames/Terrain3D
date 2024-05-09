@@ -152,6 +152,7 @@
     <ClInclude Include="src\propsets\__PROPSETS.h" />
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\propsets\_BLENDING.h" />
+    <ClInclude Include="src\propsets\_NORMALS.h" />
     <ClInclude Include="src\terrain_3d.h" />
     <ClInclude Include="src\terrain_3d_editor.h" />
     <ClInclude Include="src\logger.h" />
@@ -204,6 +205,7 @@
     <None Include="project\addons\terrain_3d\shader\core\t3d_standard_header.gdshaderinc" />
     <None Include="project\addons\terrain_3d\shader\mods\t3d_debug_view.gdshaderinc" />
     <None Include="project\addons\terrain_3d\shader\mods\t3d_uv_distort_funcs.gdshaderinc" />
+    <None Include="project\addons\terrain_3d\shader\vertex\t3d_bg_world_noise_type1_funcs.gdshaderinc" />
     <None Include="project\addons\terrain_3d\shader\vertex\t3d_vertex_apply_standard_varyings.gdshaderinc" />
     <None Include="project\addons\terrain_3d\shader\vertex\t3d_vertex_early_discard_test.gdshaderinc" />
     <None Include="project\addons\terrain_3d\shader\vertex\t3d_vertex_init_varyings.gdshaderinc" />
