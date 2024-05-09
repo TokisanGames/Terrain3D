@@ -76,32 +76,14 @@ Vector2i ChunkManager::_snap_position(Vector3 p_position) {
 	Vector2 camera_position = Vector2(p_position.x, p_position.z);
 	Vector2i pos_snapped;
 	float positive_camera_position_x = (camera_position.x < 0.0) ? -camera_position.x : camera_position.x;
-	if (Math::fract(positive_camera_position_x / _chunk_size) >= 0.5) {
-		if (camera_position.x < 0.0) {
-			pos_snapped.x = Math::floor(camera_position.x / _chunk_size) * _chunk_size;
-		} else {
-			pos_snapped.x = Math::ceil(camera_position.x / _chunk_size) * _chunk_size;
-		}
-	} else {
-		if (camera_position.x < 0.0) {
-			pos_snapped.x = Math::floor(camera_position.x / _chunk_size) * _chunk_size;
-		} else {
-			pos_snapped.x = Math::floor(camera_position.x / _chunk_size) * _chunk_size;
-		}
+	pos_snapped.x = (Math::floor(positive_camera_position_x / _chunk_size) + 0.5) * _chunk_size;
+	if (camera_position.x < 0.0) {
+	    pos_snapped.x *= -1;
 	}
 	float positive_camera_position_y = (camera_position.y < 0.0) ? -camera_position.y : camera_position.y;
-	if (Math::fract(positive_camera_position_y / _chunk_size) >= 0.5) {
-		if (camera_position.y < 0.0) {
-			pos_snapped.y = Math::floor(camera_position.y / _chunk_size) * _chunk_size;
-		} else {
-			pos_snapped.y = Math::ceil(camera_position.y / _chunk_size) * _chunk_size;
-		}
-	} else {
-		if (camera_position.y < 0.0) {
-			pos_snapped.y = Math::ceil(camera_position.y / _chunk_size) * _chunk_size;
-		} else {
-			pos_snapped.y = Math::floor(camera_position.y / _chunk_size) * _chunk_size;
-		}
+	pos_snapped.y = (Math::floor(positive_camera_position_y / _chunk_size) + 0.5) * _chunk_size;
+	if (camera_position.y < 0.0) {
+	    pos_snapped.y *= -1;
 	}
 	return pos_snapped;
 }
