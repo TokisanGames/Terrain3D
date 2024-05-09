@@ -174,11 +174,27 @@ Paint on the color map.
 
 Paint a roughness modifier, aka wetness.
 
+.. _class_Terrain3DEditor_constant_ANGLE:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **ANGLE** = ``4``
+
+Paint textures rotated by an angle.
+
+.. _class_Terrain3DEditor_constant_SCALE:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **SCALE** = ``5``
+
+Paint textures scaled by a value.
+
 .. _class_Terrain3DEditor_constant_AUTOSHADER:
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **AUTOSHADER** = ``4``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **AUTOSHADER** = ``6``
 
 Paint where the shader automatically textures.
 
@@ -186,7 +202,7 @@ Paint where the shader automatically textures.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **HOLES** = ``5``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **HOLES** = ``7``
 
 Paint where vertices will be invalidated to leave holes.
 
@@ -194,7 +210,7 @@ Paint where vertices will be invalidated to leave holes.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **NAVIGATION** = ``6``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **NAVIGATION** = ``8``
 
 Paint where navigation will be generated.
 
@@ -202,7 +218,7 @@ Paint where navigation will be generated.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``7``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``9``
 
 Add/remove regions.
 
@@ -210,7 +226,7 @@ Add/remove regions.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``8``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``10``
 
 The number of elements in this enum.
 

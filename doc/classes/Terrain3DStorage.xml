@@ -40,6 +40,13 @@
 				Regenerates the TextureArrays that house the requested map types. Using the default [enum MapType] TYPE_MAX(3) will regenerate all map types.
 			</description>
 		</method>
+		<method name="get_angle">
+			<return type="float" />
+			<param index="0" name="global_position" type="Vector3" />
+			<description>
+				Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Calls [method get_pixel].
+			</description>
+		</method>
 		<method name="get_color">
 			<return type="Color" />
 			<param index="0" name="global_position" type="Vector3" />
@@ -139,6 +146,13 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls [method set_pixel].
+			</description>
+		</method>
+		<method name="get_scale">
+			<return type="float" />
+			<param index="0" name="global_position" type="Vector3" />
+			<description>
+				Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Calls [method get_pixel].
 			</description>
 		</method>
 		<method name="get_texture_id">

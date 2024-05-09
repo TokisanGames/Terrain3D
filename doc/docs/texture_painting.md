@@ -64,9 +64,21 @@ Let's say we want to paint a pathway through grass, surrounded by autoshaded hil
 You can see the manual painting technique is the same as above. The key step here is invisibly carving out a manually painted section by laying down a base texture the same as the autoshader. If you go too far out with the manual painting, you can use the `Autoshader` tool to bring it back in.
 
 
+## Painting Angle & Scale
+
+Both the `Paint Base Texture` and `Spray Overlay Texture` tools have Angle and Scale modifiers, which allow painting textures at different angles and scales. This can be useful for creating paths, water embankments, and generally having textures more closely follow terrain features.
+
+These tools have pickers allowing you to select current values from the terrain. Angle also has a `Dynamic` mode which causes the angle to change based upon mouse movement while painting. This ignores any value set by the slider. 
+
+Paint/Spray brushes have toggleable options for Texture, Angle, and Scale, meaning they can be independently applied. This allows you to disable Texture and Scale in order to repaint an area using only Angle modification. This will change texture rotation without affecting the other parameters.
+
+Finally, painting Angle and Scale do affect the autoshader.
+
+
 ## Color Painting
 
 In addition to painting textures, you can also paint colors on the terrain. There are two primary uses for the colormap.
+
 
 ### GIS Applications
 
@@ -75,6 +87,7 @@ You can import a full image such as a satellite photo, and enable the color map 
 ```{image} images/gis.png
 :target: ../_images/gis.png
 ```
+
 
 ### Color Variation
 
