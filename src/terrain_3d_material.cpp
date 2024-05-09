@@ -238,18 +238,16 @@ void Terrain3DMaterial::_update_shader() {
 	// Fetch saved shader parameters, converting textures to RIDs
 	for (int i = 0; i < _active_params.size(); i++) {
 		StringName param = _active_params[i];
-		if (!param.begins_with("_")) {
-			Variant value = _shader_params[param];
-			if (value.get_type() == Variant::OBJECT) {
-				Ref<Texture> tex = value;
-				if (tex.is_valid()) {
-					RS->material_set_param(_material, param, tex->get_rid());
-				} else {
-					RS->material_set_param(_material, param, Variant());
-				}
+		Variant value = _shader_params[param];
+		if (value.get_type() == Variant::OBJECT) {
+			Ref<Texture> tex = value;
+			if (tex.is_valid()) {
+				RS->material_set_param(_material, param, tex->get_rid());
 			} else {
-				RS->material_set_param(_material, param, value);
+				RS->material_set_param(_material, param, Variant());
 			}
+		} else {
+			RS->material_set_param(_material, param, value);
 		}
 	}
 
@@ -660,6 +658,9 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 			pi.usage = PROPERTY_USAGE_EDITOR;
 			p_list->push_back(pi);
 
+			// Populate list of public parameters for current shader
+			_active_params.push_back(name);
+
 			// Store this param in a dictionary that is saved in the resource file
 			// Initially set with default value
 			// Also acts as a cache for _get
@@ -669,9 +670,6 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 				_property_get_revert(name, _shader_params[name]);
 			}
 		}
-
-		// Populate list of public and private parameters for current shader
-		_active_params.push_back(name);
 	}
 	return;
 }
