@@ -38,7 +38,7 @@ Finally `vertex()` sets the UV and UV2 coordinates, and the height of the mesh v
 
 The first step is calculating the terrain normals. This shared between the `vertex()` and `fragment()` functions. Clipmap terrain vertices spread out at lower LODs causing certain things like normals look strange when you look in the distance as the vertices used for calculation suddenly separate at further LODs. So we switch from normals calculated per vertex to per pixel when the pixel is farther than `vertex_normal_distance`.
 
-The exact distance that the transition from per vertex to per pixel normal calculations occurs can be adjusted from the default of 192m via the `vertex_normals_distance` uniform.
+The exact distance that the transition from per vertex to per pixel normal calculations occurs can be adjusted from the default of 192m via the `_normals_distance` uniform.
 
 Generating normals in the shader works fine and modern GPUs can handle the load of 2 - 3 additional height lookups and the on-the-fly calculations. Doing this saves 3-4MB VRAM per region.
 
