@@ -12,8 +12,10 @@
 		[b]Note on uints[/b]: Various functions refer to unsigned integers as uint. Though GDScript doesn't support unsigned integers as a type, the C++ that receives and returns these values will interpret them all as unsigned.
 		[b]Note on bitwise-ORing[/b]: To write back to a control map, encode your values and bitwise OR the results, then reinterpret that uint as a float. The shader will interpret the float as uint and extract the bits.
 		[codeblock]
-		var bits: int = util.enc_base(base_id) | util.enc_overlay(over_id) | util.enc_blend(blend) | \
-		    util.enc_auto(autoshader) | util.enc_nav(navigation) | util.enc_hole(hole)
+		var bits: int = util.enc_base(base_id) | util.enc_overlay(over_id) | \
+		util.enc_blend(blend) | util.enc_uv_rotation(uvrotation) | \
+		util.enc_uv_scale(uvscale) | util.enc_auto(autoshader) | \
+		util.enc_nav(navigation) | util.enc_hole(hole)
 		var color: Color = Color(util.as_float(bits), 0., 0., 1.)
 		storage.set_control(global_pos, color)
 		[/codeblock]
@@ -90,6 +92,20 @@
 				Returns a control map uint with the overlay texture ID encoded. See the top description for usage.
 			</description>
 		</method>
+		<method name="enc_uv_rotation" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="rotation" type="int" />
+			<description>
+				Returns a control map uint with the texture rotation encoded. See the top description for usage.  See [method get_uv_rotation] for values.
+			</description>
+		</method>
+		<method name="enc_uv_scale" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="scale" type="int" />
+			<description>
+				Returns a control map uint with the texture scale encoded. See the top description for usage. See [method get_uv_scale] for values.
+			</description>
+		</method>
 		<method name="get_base" qualifiers="static">
 			<return type="int" />
 			<param index="0" name="pixel" type="int" />
@@ -139,6 +155,20 @@
 			<param index="1" name="size" type="Vector2i" default="Vector2i(256, 256)" />
 			<description>
 				Returns an Image normalized and converted to RGB8. Used for creating a human viewable image of a heightmap, at any size.
+			</description>
+		</method>
+		<method name="get_uv_rotation" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="pixel" type="int" />
+			<description>
+				Returns the texture rotation from a control map pixel. Values are 0 - 15, which provides degrees when multiplied by 22.5. (360/16).
+			</description>
+		</method>
+		<method name="get_uv_scale" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="pixel" type="int" />
+			<description>
+				Returns the texture scale modification from a control map pixel. Values are an index into the array `{ 0, 20, 40, 60, 80, -60, -40, -20 }`. 0 indicates no scale modification. Index 2 indicates a 40% increase in texture scale at that pixel. Index -1 or 7 indicates a -20% texture scale change.
 			</description>
 		</method>
 		<method name="is_auto" qualifiers="static">

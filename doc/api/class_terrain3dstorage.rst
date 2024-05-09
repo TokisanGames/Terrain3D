@@ -60,6 +60,8 @@ Methods
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                 | :ref:`force_update_maps<class_Terrain3DStorage_method_force_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>` = 3\ )                                                                                                                                                   |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`float<class_float>`                              | :ref:`get_angle<class_Terrain3DStorage_method_get_angle>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                                |
+   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Color<class_Color>`                              | :ref:`get_color<class_Terrain3DStorage_method_get_color>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                                |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`                                  | :ref:`get_control<class_Terrain3DStorage_method_get_control>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                            |
@@ -85,6 +87,8 @@ Methods
    | :ref:`Vector2i<class_Vector2i>`                        | :ref:`get_region_offset<class_Terrain3DStorage_method_get_region_offset>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`float<class_float>`                              | :ref:`get_roughness<class_Terrain3DStorage_method_get_roughness>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                        |
+   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`float<class_float>`                              | :ref:`get_scale<class_Terrain3DStorage_method_get_scale>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                                |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Vector3<class_Vector3>`                          | :ref:`get_texture_id<class_Terrain3DStorage_method_get_texture_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                      |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -512,6 +516,18 @@ Regenerates the TextureArrays that house the requested map types. Using the defa
 
 ----
 
+.. _class_Terrain3DStorage_method_get_angle:
+
+.. rst-class:: classref-method
+
+:ref:`float<class_float>` **get_angle**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )
+
+Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DStorage_method_get_color:
 
 .. rst-class:: classref-method
@@ -677,6 +693,18 @@ Converts a world space position to region space. For a region_size of 1024 this 
 :ref:`float<class_float>` **get_roughness**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )
 
 Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DStorage_method_get_scale:
+
+.. rst-class:: classref-method
+
+:ref:`float<class_float>` **get_scale**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )
+
+Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 

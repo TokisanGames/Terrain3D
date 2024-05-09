@@ -32,8 +32,10 @@ Or you can instance the class for a shorter alias:
 
 ::
 
-    var bits: int = util.enc_base(base_id) | util.enc_overlay(over_id) | util.enc_blend(blend) | \
-        util.enc_auto(autoshader) | util.enc_nav(navigation) | util.enc_hole(hole)
+    var bits: int = util.enc_base(base_id) | util.enc_overlay(over_id) | \
+    util.enc_blend(blend) | util.enc_uv_rotation(uvrotation) | \
+    util.enc_uv_scale(uvscale) | util.enc_auto(autoshader) | \
+    util.enc_nav(navigation) | util.enc_hole(hole)
     var color: Color = Color(util.as_float(bits), 0., 0., 1.)
     storage.set_control(global_pos, color)
 
@@ -64,6 +66,10 @@ Methods
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`         | :ref:`enc_overlay<class_Terrain3DUtil_method_enc_overlay>`\ (\ overlay\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                                |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_uv_rotation<class_Terrain3DUtil_method_enc_uv_rotation>`\ (\ rotation\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                       |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`enc_uv_scale<class_Terrain3DUtil_method_enc_uv_scale>`\ (\ scale\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                                |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`         | :ref:`get_base<class_Terrain3DUtil_method_get_base>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                                        |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`         | :ref:`get_blend<class_Terrain3DUtil_method_get_blend>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                                      |
@@ -75,6 +81,10 @@ Methods
    | :ref:`int<class_int>`         | :ref:`get_overlay<class_Terrain3DUtil_method_get_overlay>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                                  |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Image<class_Image>`     | :ref:`get_thumbnail<class_Terrain3DUtil_method_get_thumbnail>`\ (\ image\: :ref:`Image<class_Image>`, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(256, 256)\ ) |static|                                                                                                             |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`get_uv_rotation<class_Terrain3DUtil_method_get_uv_rotation>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                          |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`         | :ref:`get_uv_scale<class_Terrain3DUtil_method_get_uv_scale>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                                |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`bool<class_bool>`       | :ref:`is_auto<class_Terrain3DUtil_method_is_auto>`\ (\ pixel\: :ref:`int<class_int>`\ ) |static|                                                                                                                                                                                          |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -216,6 +226,30 @@ Returns a control map uint with the overlay texture ID encoded. See the top desc
 
 ----
 
+.. _class_Terrain3DUtil_method_enc_uv_rotation:
+
+.. rst-class:: classref-method
+
+:ref:`int<class_int>` **enc_uv_rotation**\ (\ rotation\: :ref:`int<class_int>`\ ) |static|
+
+Returns a control map uint with the texture rotation encoded. See the top description for usage.  See :ref:`get_uv_rotation<class_Terrain3DUtil_method_get_uv_rotation>` for values.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DUtil_method_enc_uv_scale:
+
+.. rst-class:: classref-method
+
+:ref:`int<class_int>` **enc_uv_scale**\ (\ scale\: :ref:`int<class_int>`\ ) |static|
+
+Returns a control map uint with the texture scale encoded. See the top description for usage. See :ref:`get_uv_scale<class_Terrain3DUtil_method_get_uv_scale>` for values.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DUtil_method_get_base:
 
 .. rst-class:: classref-method
@@ -293,6 +327,30 @@ Returns the overlay texture ID from a control map pixel.
 :ref:`Image<class_Image>` **get_thumbnail**\ (\ image\: :ref:`Image<class_Image>`, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(256, 256)\ ) |static|
 
 Returns an Image normalized and converted to RGB8. Used for creating a human viewable image of a heightmap, at any size.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DUtil_method_get_uv_rotation:
+
+.. rst-class:: classref-method
+
+:ref:`int<class_int>` **get_uv_rotation**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+
+Returns the texture rotation from a control map pixel. Values are 0 - 15, which provides degrees when multiplied by 22.5. (360/16).
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DUtil_method_get_uv_scale:
+
+.. rst-class:: classref-method
+
+:ref:`int<class_int>` **get_uv_scale**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+
+Returns the texture scale modification from a control map pixel. Values are an index into the array `{ 0, 20, 40, 60, 80, -60, -40, -20 }`. 0 indicates no scale modification. Index 2 indicates a 40% increase in texture scale at that pixel. Index -1 or 7 indicates a -20% texture scale change.
 
 .. rst-class:: classref-item-separator
 
