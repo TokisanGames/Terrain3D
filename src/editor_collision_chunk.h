@@ -25,6 +25,7 @@ public:
 	~EditorCollisionChunk();
 
 	void refill() override;
+	inline PackedFloat32Array fill_map(Transform3D *xform);
 	void set_enabled(bool enabled) override;
 	void set_position(Vector2i p_position) override;
 

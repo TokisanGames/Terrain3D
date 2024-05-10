@@ -26,6 +26,15 @@ EditorCollisionChunk::~EditorCollisionChunk() {
 }
 
 void EditorCollisionChunk::refill() {
+	Transform3D xform;
+	PackedFloat32Array map_data = fill_map(&xform);
+
+	Ref<HeightMapShape3D> hshape = _col_shape->get_shape();
+	hshape->set_map_data(map_data);
+	_col_shape->set_global_transform(xform);
+}
+
+inline PackedFloat32Array EditorCollisionChunk::fill_map(Transform3D *xform) {
 	Ref<Terrain3DStorage> storage = ((CollisionChunkManager *)_manager)->_terrain->get_storage();
 	float hole_const = NAN;
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
@@ -35,8 +44,8 @@ void EditorCollisionChunk::refill() {
 	int region = storage->get_region_index(Vector3(_position.x, 0, _position.y));
 	int region_size = storage->get_region_size();
 
-	Ref<HeightMapShape3D> hshape = _col_shape->get_shape();
-	PackedFloat32Array map_data = hshape->get_map_data();
+	PackedFloat32Array map_data = PackedFloat32Array();
+	map_data.resize(_size * _size);
 
 	Ref<Image> map, map_x, map_z, map_xz;
 	Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
@@ -109,13 +118,12 @@ void EditorCollisionChunk::refill() {
 		}
 	}
 
-	hshape->set_map_data(map_data);
-
 	// Non rotated shape for normal array index above
 	//Transform3D xform = Transform3D(Basis(), global_pos);
 	// Rotated shape Y=90 for -90 rotated array index
-	Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5), Vector3(_position.x, 0.0, _position.y));
-	_col_shape->set_global_transform(xform);
+	*xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5), Vector3(_position.x, 0.0, _position.y));
+
+	return map_data;
 }
 
 void EditorCollisionChunk::set_position(Vector2i p_position) {
