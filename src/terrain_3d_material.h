@@ -38,6 +38,12 @@ public: // Constants
 		BY_DISTANCE
 	};
 
+	enum FadeByDistance {
+		FADING_DISABLED,
+		IN_TO_OUT,
+		OUT_TO_IN
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
@@ -117,5 +123,6 @@ protected:
 VARIANT_ENUM_CAST(Terrain3DMaterial::WorldBackground);
 VARIANT_ENUM_CAST(Terrain3DMaterial::TextureFiltering);
 VARIANT_ENUM_CAST(Terrain3DMaterial::NormalCalculation);
+VARIANT_ENUM_CAST(Terrain3DMaterial::FadeByDistance);
 
 #endif // TERRAIN3D_MATERIAL_CLASS_H

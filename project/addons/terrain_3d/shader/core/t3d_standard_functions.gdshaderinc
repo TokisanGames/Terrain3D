@@ -78,3 +78,9 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 	float b1 = max(a_height + (1.0 - blend) - ma, 0.0);
 	float b2 = max(b_height + blend - ma, 0.0);
 	return (a_value * b1 + b_value * b2) / (b1 + b2); } 
+
+float get_fade_in_to_out_power(float _current_range, float rangeMin, float rangeMax){
+	return 1.-min(1., max(0., _current_range - rangeMin) / (rangeMax - rangeMin) ); }
+
+float get_fade_out_to_in_power(float _current_range, float rangeMin, float rangeMax){
+	return min(1., max(0., _current_range - rangeMin) / (rangeMax - rangeMin) ); }

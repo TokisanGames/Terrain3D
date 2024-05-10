@@ -105,10 +105,13 @@
     <ClInclude Include="src\propsets\_BLENDING.h">
       <Filter>4. Headers\Property Sets</Filter>
     </ClInclude>
-    <ClInclude Include="src\propsets\_NOISE_TINT.h">
+    <ClInclude Include="src\propsets\_DEBUG_VIEWS.h">
       <Filter>4. Headers\Property Sets</Filter>
     </ClInclude>
-    <ClInclude Include="src\propsets\_DEBUG_VIEWS.h">
+    <ClInclude Include="src\propsets\_TINTING.h">
+      <Filter>4. Headers\Property Sets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\propsets\_NORMALS.h">
       <Filter>4. Headers\Property Sets</Filter>
     </ClInclude>
   </ItemGroup>
@@ -238,7 +241,6 @@
     <None Include="project\addons\terrain_3d\shader\mods\t3d_uv_distort_funcs.gdshaderinc">
       <Filter>3. Shaders\Portions\Modules</Filter>
     </None>
-    <None Include="project\addons\terrain_3d\shader\core\t3d_standard_functions.gdshaderinc" />
     <None Include="project\addons\terrain_3d\shader\core\t3d_managed_uniforms.gdshaderinc">
       <Filter>3. Shaders\Portions\Core</Filter>
     </None>
@@ -262,6 +264,12 @@
     </None>
     <None Include="project\addons\terrain_3d\shader\mods\t3d_debug_view.gdshaderinc">
       <Filter>3. Shaders\Portions\Modules</Filter>
+    </None>
+    <None Include="project\addons\terrain_3d\shader\core\t3d_standard_functions.gdshaderinc">
+      <Filter>3. Shaders\Portions\Core</Filter>
+    </None>
+    <None Include="project\addons\terrain_3d\shader\vertex\t3d_bg_world_noise_type1_funcs.gdshaderinc">
+      <Filter>3. Shaders\Portions\Vertex</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

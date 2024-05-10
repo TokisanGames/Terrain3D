@@ -325,13 +325,24 @@ void fragment() {
 		float lod = textureQueryLod(_color_maps, uv2.xy).y;
 		color_map = textureLod(_color_maps, region_uv, lod);
 	}
-
+	
 	#if defined(NOISE_TINT_ENABLED)
 		// Macro variation. 2 Lookups
 		float noise1 = texture(_tinting_texture, rotate(uv*(1./(_tinting_noise1_scale*10000.)), cos(_tinting_noise1_angle), sin(_tinting_noise1_angle)) + _tinting_noise1_offset).r;
 		float noise2 = texture(_tinting_texture, uv*(1./(_tinting_noise2_scale*10000.))).r;
-		vec3 macrov = mix(_tinting_macro_variation1, vec3(1.), clamp(noise1 + v_vertex_xz_dist*.0002, 0., 1.));
-		macrov *= mix(_tinting_macro_variation2, vec3(1.), clamp(noise2 + v_vertex_xz_dist*.0002, 0., 1.));
+		#if defined(TINT_FADE_IN_TO_OUT) || defined(TINT_FADE_OUT_TO_IN)
+			#if defined(TINT_FADE_IN_TO_OUT)
+				float fadepow = get_fade_in_to_out_power(v_vertex_xz_dist, _tinting_range_min, _tinting_range_max);
+			#else 
+				float fadepow = get_fade_out_to_in_power(v_vertex_xz_dist, _tinting_range_min, _tinting_range_max);
+			#endif
+			vec2 _scaleNoises = (1. - vec2(noise1, noise2)) * fadepow;
+			vec3 macrov = mix( vec3(1.), _tinting_macro_variation1,  _scaleNoises.x);
+			macrov *= mix( vec3(1.), _tinting_macro_variation2, _scaleNoises.y);
+		#else
+			vec3 macrov = mix(_tinting_macro_variation1, vec3(1.), noise1);
+			macrov *= mix(_tinting_macro_variation2, vec3(1.), noise2);
+		#endif
 	#else
 		vec3 macrov = vec3(1.);
 	#endif
@@ -340,7 +351,12 @@ void fragment() {
 	float roughness = fma(color_map.a-0.5, 2.0, normal_rough.a);
 
 	// Apply PBR
-	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
+	#if defined(NOISE_TINT_ENABLED)
+		ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
+	#else
+		ALBEDO = albedo_height.rgb * color_map.rgb;
+	#endif
+
 	ROUGHNESS = roughness;
 	SPECULAR = 1.-normal_rough.a;
 	NORMAL_MAP = normal_rough.rgb;

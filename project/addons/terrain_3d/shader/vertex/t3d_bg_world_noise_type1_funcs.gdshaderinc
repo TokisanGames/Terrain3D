@@ -4,18 +4,12 @@
 //	return fract(1e4 * sin(17.0 * v.x + v.y * 0.1) * (0.1 + abs(sin(v.y * 13.0 + v.x)))); }
 	
 // Explicitly Optimized - changes made should have (mostly) already been inlined by the compiler but why take chances.
-float ihashv2(ivec2 iv) {  
-	vec2 v = sin( vec2( iv * ivec2(17, 13) ) + vec2( float(iv.y) * 0.1, float(iv.x) ) );
-	v.y = ( abs(v.y) + 0.1 );
-	return fract( 1e4 * v.x * v.y ); }
-
-// alternate optimization, unclear which performs better between this and above.
-//float hashv2(ivec2 iv) {
-//	vec2 v = vec2(iv);
-//	v = sin( vec2(
-//		fma( 17., v.x, v.y * 0.1 ),
-//		fma( 13., v.y, v.x ) ) );
-//	return fract( 1e4 * v.x * ( 0.1 + abs(v.y) ) ); }
+float ihashv2(ivec2 iv) {
+	vec2 v = vec2(iv);
+	v = sin( vec2(
+		fma( 17., v.x, v.y * 0.1 ),
+		fma( 13., v.y, v.x ) ) );
+	return fract( 1e4 * v.x * ( 0.1 + abs(v.y) ) ); }
 
 /* vec3 orig_noise2D(vec2 x) {
     vec2 f = fract(x);

@@ -67,6 +67,8 @@ uniform float _normals_distance;
 	// Generic noise at 3 scales, which can be used for anything 
 	uniform vec3	_tinting_macro_variation1;
 	uniform vec3	_tinting_macro_variation2;
+	uniform float	_tinting_range_min;
+	uniform float	_tinting_range_max;
 	uniform float	_tinting_noise1_scale;
 	uniform float	_tinting_noise1_angle;
 	uniform vec2	_tinting_noise1_offset = vec2(0.5);

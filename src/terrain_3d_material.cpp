@@ -179,6 +179,9 @@ String Terrain3DMaterial::_get_current_defines() {
 	_add_if_true(_defs, _normals_quality == VERTEX,				"NORMALS_PER_VERTEX");
 	_add_if_true(_defs, _normals_quality == BY_DISTANCE,		"NORMALS_BY_DISTANCE");
 
+	_add_if_true(_defs, _tinting_distance_fade == IN_TO_OUT,	"TINT_FADE_IN_TO_OUT");
+	_add_if_true(_defs, _tinting_distance_fade == OUT_TO_IN,	"TINT_FADE_OUT_TO_IN");
+
 	_add_if_true(_defs, _debug_view_checkered,			"DEBUG_CHECKERED");
 	_add_if_true(_defs, _debug_view_grey,				"DEBUG_GREY");
 	_add_if_true(_defs, _debug_view_heightmap,			"DEBUG_HEIGHTMAP");
@@ -730,17 +733,24 @@ void Terrain3DMaterial::_safe_material_set_param(StringName _param, Variant _val
 		RS->material_set_param(_material, _param, _value); } }
 
 MAKE_MANAGED_FUNCTIONS()
-
 void Terrain3DMaterial::_bind_methods() {
 	BIND_MANAGED_VARS()
+
+	// Background World type enums
 	BIND_ENUM_CONSTANT(NONE);
 	BIND_ENUM_CONSTANT(FLAT);
 	BIND_ENUM_CONSTANT(NOISE);
+	// Texture Filtering enums
 	BIND_ENUM_CONSTANT(LINEAR);
 	BIND_ENUM_CONSTANT(NEAREST);
+	// Normal Calculation type enums
 	BIND_ENUM_CONSTANT(PIXEL);
 	BIND_ENUM_CONSTANT(VERTEX);
 	BIND_ENUM_CONSTANT(BY_DISTANCE);
+	// Fade-By-Distance enums
+	BIND_ENUM_CONSTANT(FADING_DISABLED);
+	BIND_ENUM_CONSTANT(IN_TO_OUT);
+	BIND_ENUM_CONSTANT(OUT_TO_IN);
 
 	// Private
 	ClassDB::bind_method(D_METHOD("_set_shader_parameters", "dict"), &Terrain3DMaterial::_set_shader_parameters);

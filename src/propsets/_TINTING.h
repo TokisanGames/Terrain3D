@@ -16,13 +16,18 @@
 #pragma region _HELP_
 #define HELP_TINTING()\
 	ADD_HELP_TOPIC_DECL(tinting, R"(
-Adds a two-tone tinting affect to the ground as it approaches the camera. The 
-various Noise1 settings control the placement and size of Macro Variation 1, 
-and Noise2 for Macro Variation 2.  Additionally, Noise 3 adds variation to 
-height blending.  Because of how the colors you select are multiplied against 
-the terrains texture colors, that process reduces overall brightness some.  
-So keep the variation colors you select close to pastels/white to minimize 
-garish tones.
+Adds a two-tone tinting affect to the ground.  Optionally the effect can 
+fade in as it approaches the camera, or fade out. The various Noise1 settings 
+control the placement and size of Macro Variation 1, and Noise2 for Macro 
+Variation 2.  Additionally, Noise 3 adds variation to height blending.  
+Distance Fade lets you select if the tinting should fade in, or fade out, or 
+not fade-by-distance at all.  If active, the ranges used are selected below 
+with range min and max.  Tips: If you need a higher range value than the 
+range sliders allow, you can type one in. Also, because of how the colors 
+you select are multiplied against the terrains texture colors, that process 
+reduces overall brightness some.  So keep the variation colors you select 
+close to pastels/white to minimize garish tones, or gray-ish if you a 
+darkening effect.
 )")
 #pragma endregion _HELP_
 
@@ -44,6 +49,9 @@ garish tones.
 	VAR_NTINT(texture,			Ref<Texture2D>, Ref<Texture2D>())\
 	VAR_NTINT(macro_variation1,	Color,	Color("9fcc9f"))\
 	VAR_NTINT(macro_variation2,	Color,	Color("ab8b72"))\
+	VAR_NTINT(distance_fade,	FadeByDistance,	IN_TO_OUT)\
+	VAR_NTINT(range_min,		float,	0.f)\
+	VAR_NTINT(range_max,		float,	5000.f)\
 	VAR_NTINT(noise1_scale,		float,	0.5f)\
 	VAR_NTINT(noise1_angle,		float,	42.0f)\
 	VAR_NTINT(noise1_offset,	Vector2,Vector2(0.37, 0.12))\
@@ -55,6 +63,9 @@ garish tones.
 	GETR_NTINT(texture,				Ref<Texture2D>)\
 	GETR_NTINT(macro_variation1,	Color)\
 	GETR_NTINT(macro_variation2,	Color)\
+	GETR_NTINT(distance_fade,		FadeByDistance)\
+	GETR_NTINT(range_min,			float)\
+	GETR_NTINT(range_max,			float)\
 	GETR_NTINT(noise1_scale,		float)\
 	GETR_NTINT(noise1_angle,		float)\
 	GETR_NTINT(noise1_offset,		Vector2)\
@@ -66,6 +77,9 @@ garish tones.
 	BIND_NTINT(texture,				texture)\
 	BIND_NTINT(macro_variation1,	color)\
 	BIND_NTINT(macro_variation2,	color)\
+	BIND_NTINT(distance_fade,		distance)\
+	BIND_NTINT(range_min,			size)\
+	BIND_NTINT(range_max,			size)\
 	BIND_NTINT(noise1_scale,		size)\
 	BIND_NTINT(noise1_angle,		radians)\
 	BIND_NTINT(noise1_offset,		offset)\
@@ -78,8 +92,11 @@ garish tones.
 	PROP_NTINT(texture,				OBJECT,	RESOURCE_TYPE, "Texture2D")\
 	PROP_NTINT(macro_variation1,	COLOR,	NONE)\
 	PROP_NTINT(macro_variation2,	COLOR,	NONE)\
-	PROP_NTINT(noise1_scale,		FLOAT,	RANGE, "0.001, 1.0, 0.001, or_greater")\
-	PROP_NTINT(noise1_angle,		FLOAT,	RANGE, "0.25, 20.0, 0.01, or_greater, or_less")\
+	PROP_NTINT(distance_fade,		INT,	ENUM,  "None,In_To_Out,Out_To_In")\
+	PROP_NTINT(range_min,			FLOAT,	RANGE, "0.0,  5000.0, 0.001, or_greater")\
+	PROP_NTINT(range_max,			FLOAT,	RANGE, "1.0, 10000.0, 0.001, or_greater")\
+	PROP_NTINT(noise1_scale,		FLOAT,	RANGE, "0.001,   1.0, 0.001, or_greater")\
+	PROP_NTINT(noise1_angle,		FLOAT,	RANGE, "0.25,   20.0, 0.010, or_greater, or_less")\
 	PROP_NTINT(noise1_offset,		VECTOR2,NONE)\
 	PROP_NTINT(noise2_scale,		FLOAT,	RANGE, "0.001, 1.0, 0.001, or_greater")\
 	PROP_NTINT(noise3_scale,		FLOAT,	RANGE, "0.001, 1.0, 0.001, or_greater")\
@@ -87,6 +104,9 @@ garish tones.
 
 #define MAKE_TINTING_FUNCTIONS() \
 	UPDATE_GRP_START(tinting)\
+		_UPDSH_NTINT(distance_fade)\
+		_UPDSH_NTINT(range_min)\
+		_UPDSH_NTINT(range_max)\
 		_UPDSH_NTINT(macro_variation1)\
 		_UPDSH_NTINT(macro_variation2)\
 		_UPDSH_NTINT(noise1_scale)\
@@ -99,6 +119,9 @@ garish tones.
 	SETUPD_NTINT(texture,			Ref<Texture2D>,	"Texture: ")\
 	_SETPR_NTINT(macro_variation1,	Color,			"Color #1: ")\
 	_SETPR_NTINT(macro_variation2,	Color,			"Color #2: ")\
+	SETUPD_NTINT(distance_fade,		FadeByDistance, "Distance Fade: ")\
+	_SETPR_NTINT(range_min,			float,			"Tinting Min Range: ")\
+	_SETPR_NTINT(range_max,			float,			"Tinting Max Range: ")\
 	_SETPR_NTINT(noise1_scale,		float,			"Phase 1 Scale: ")\
 	_SETPR_NTINT(noise1_angle,		float,			"Phase 1 Angle: ")\
 	_SETPR_NTINT(noise1_offset,		Vector2,		"Phase 1 Offset: ")\
