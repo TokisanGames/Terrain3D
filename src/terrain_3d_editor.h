@@ -106,7 +106,6 @@ public: // Constants
 	};
 
 private:
-	// Object references
 	Terrain3D *_terrain = nullptr;
 
 	// Painter settings & variables
@@ -132,8 +131,8 @@ private:
 	void _apply_undo(const Array &p_set);
 
 public:
-	Terrain3DEditor();
-	~Terrain3DEditor();
+	Terrain3DEditor() {}
+	~Terrain3DEditor() {}
 
 	void set_terrain(Terrain3D *p_terrain) { _terrain = p_terrain; }
 	Terrain3D *get_terrain() const { return _terrain; }

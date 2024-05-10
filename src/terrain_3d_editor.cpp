@@ -508,12 +508,6 @@ void Terrain3DEditor::_apply_undo(const Array &p_set) {
 // Public Functions
 ///////////////////////////
 
-Terrain3DEditor::Terrain3DEditor() {
-}
-
-Terrain3DEditor::~Terrain3DEditor() {
-}
-
 void Terrain3DEditor::set_brush_data(Dictionary p_data) {
 	if (p_data.is_empty()) {
 		return;
@@ -530,10 +524,7 @@ void Terrain3DEditor::set_tool(Tool p_tool) {
 
 // Called on mouse click
 void Terrain3DEditor::start_operation(Vector3 p_global_position) {
-	if (!_terrain) {
-		LOG(ERROR, "_terrain not set");
-		return;
-	}
+	IS_STORAGE_INIT_MESG("Terrain isn't initialized", NOP);
 	_setup_undo();
 	_pending_undo = true;
 	_modified = false;
@@ -547,10 +538,10 @@ void Terrain3DEditor::start_operation(Vector3 p_global_position) {
 
 // Called on mouse movement with left mouse button down
 void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction) {
+	IS_STORAGE_INIT_MESG("Terrain isn't initialized", NOP);
 	if (!_pending_undo) {
 		return;
 	}
-
 	_operation_movement = p_global_position - _operation_position;
 	_operation_position = p_global_position;
 
@@ -563,10 +554,7 @@ void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_directi
 
 // Called on left mouse button released
 void Terrain3DEditor::stop_operation() {
-	if (!_terrain) {
-		LOG(ERROR, "_terrain not set");
-		return;
-	}
+	IS_STORAGE_INIT_MESG("Terrain isn't initialized", NOP);
 	if (_pending_undo && _modified) {
 		_store_undo();
 		_pending_undo = false;

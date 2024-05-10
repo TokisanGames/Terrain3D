@@ -19,8 +19,6 @@ class Terrain3DStorage : public Resource {
 	GDCLASS(Terrain3DStorage, Resource);
 	CLASS_NAME();
 
-	friend class Terrain3D;
-
 public: // Constants
 	static inline const real_t CURRENT_VERSION = 0.842f;
 	static inline const int REGION_MAP_SIZE = 16;
@@ -69,13 +67,14 @@ public: // Constants
 	};
 
 private:
+	Terrain3D *_terrain = nullptr;
+
 	// Storage Settings & flags
 	real_t _version = 0.8f; // Set to ensure Godot always saves this
 	bool _modified = false;
 	bool _save_16_bit = false;
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	real_t _mesh_vertex_spacing = 1.0f; // Set by Terrain3D for get_normal()
 
 	// Stored Data
 	Vector2 _height_range = Vector2(0.f, 0.f);
@@ -106,7 +105,8 @@ private:
 	void _clear();
 
 public:
-	Terrain3DStorage();
+	Terrain3DStorage() {}
+	void initialize(Terrain3D *p_terrain);
 	~Terrain3DStorage();
 
 	void set_version(real_t p_version);
@@ -127,10 +127,12 @@ public:
 	// Regions
 	void set_region_size(RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
+	Vector2i get_region_sizev() const { return _region_sizev; }
 	void set_region_offsets(const TypedArray<Vector2i> &p_offsets);
 	TypedArray<Vector2i> get_region_offsets() const { return _region_offsets; }
 	int get_region_count() const { return _region_offsets.size(); }
 	Vector2i get_region_offset(Vector3 p_global_position);
+	PackedInt32Array get_region_map() const { return _region_map; }
 	int get_region_index(Vector3 p_global_position);
 	bool has_region(Vector3 p_global_position) { return get_region_index(p_global_position) != -1; }
 	Error add_region(Vector3 p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
@@ -145,10 +147,13 @@ public:
 	TypedArray<Image> get_maps_copy(MapType p_map_type) const;
 	void set_height_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_HEIGHT, p_maps); }
 	TypedArray<Image> get_height_maps() const { return _height_maps; }
+	RID get_height_rid() { return _generated_height_maps.get_rid(); }
 	void set_control_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_CONTROL, p_maps); }
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
+	RID get_control_rid() { return _generated_control_maps.get_rid(); }
 	void set_color_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_COLOR, p_maps); }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
+	RID get_color_rid() { return _generated_color_maps.get_rid(); }
 	void set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel);
 	Color get_pixel(MapType p_map_type, Vector3 p_global_position);
 	void set_height(Vector3 p_global_position, real_t p_height);

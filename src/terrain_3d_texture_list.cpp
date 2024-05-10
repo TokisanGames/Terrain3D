@@ -40,6 +40,7 @@ void Terrain3DTextureList::_update_texture_files() {
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
 	if (_textures.is_empty()) {
+		emit_signal("textures_changed");
 		return;
 	}
 
@@ -113,7 +114,6 @@ void Terrain3DTextureList::_update_texture_files() {
 
 	// Generate TextureArrays and replace nulls with a empty image
 
-	bool changed = false;
 	if (_generated_albedo_textures.is_dirty() && albedo_size != Vector2i(0, 0)) {
 		LOG(INFO, "Regenerating albedo texture array");
 		Array albedo_texture_array;
@@ -137,7 +137,6 @@ void Terrain3DTextureList::_update_texture_files() {
 		}
 		if (!albedo_texture_array.is_empty()) {
 			_generated_albedo_textures.create(albedo_texture_array);
-			changed = true;
 		}
 	}
 
@@ -166,35 +165,31 @@ void Terrain3DTextureList::_update_texture_files() {
 		}
 		if (!normal_texture_array.is_empty()) {
 			_generated_normal_textures.create(normal_texture_array);
-			changed = true;
 		}
 	}
 
-	if (changed) {
-		emit_signal("textures_changed", Ref<Terrain3DTextureList>(this));
-	}
+	emit_signal("textures_changed");
 }
 
 void Terrain3DTextureList::_update_texture_settings() {
 	LOG(DEBUG, "Received setting_changed signal");
-	if (_textures.is_empty()) {
-		return;
-	}
-	LOG(INFO, "Updating terrain color and scale arrays");
-	_texture_colors.clear();
-	_texture_uv_scales.clear();
-	_texture_uv_rotations.clear();
+	if (!_textures.is_empty()) {
+		LOG(INFO, "Updating terrain color and scale arrays");
+		_texture_colors.clear();
+		_texture_uv_scales.clear();
+		_texture_uv_rotations.clear();
 
-	for (int i = 0; i < _textures.size(); i++) {
-		Ref<Terrain3DTexture> texture_set = _textures[i];
-		if (texture_set.is_null()) {
-			continue;
+		for (int i = 0; i < _textures.size(); i++) {
+			Ref<Terrain3DTexture> texture_set = _textures[i];
+			if (texture_set.is_null()) {
+				continue;
+			}
+			_texture_colors.push_back(texture_set->get_albedo_color());
+			_texture_uv_scales.push_back(texture_set->get_uv_scale());
+			_texture_uv_rotations.push_back(texture_set->get_uv_rotation());
 		}
-		_texture_colors.push_back(texture_set->get_albedo_color());
-		_texture_uv_scales.push_back(texture_set->get_uv_scale());
-		_texture_uv_rotations.push_back(texture_set->get_uv_rotation());
 	}
-	emit_signal("textures_changed", Ref<Terrain3DTextureList>(this));
+	emit_signal("textures_changed");
 }
 
 ///////////////////////////

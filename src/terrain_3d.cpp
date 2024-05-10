@@ -51,9 +51,9 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting texture_list.textures_changed to _material->_update_texture_arrays()");
 		_texture_list->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
-	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_set_region_size))) {
-		LOG(DEBUG, "Connecting region_size_changed signal to _material->_set_region_size()");
-		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_set_region_size));
+	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
+		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
+		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
 	}
 	if (!_storage->is_connected("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
 		LOG(DEBUG, "Connecting regions_changed signal to _material->_update_regions()");
@@ -66,9 +66,9 @@ void Terrain3D::_initialize() {
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
-		_material->initialize(_storage->get_region_size());
-		_material->set_mesh_vertex_spacing(_mesh_vertex_spacing);
-		_storage->update_regions(true); // generate map arrays
+		_storage->initialize(this);
+		_material->initialize(this);
+		_material->_update_regions();
 		_texture_list->update_list(); // generate texture arrays
 		_setup_mouse_picking();
 		_build(_mesh_lods, _mesh_size);
@@ -656,9 +656,6 @@ void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
 	if (_mesh_vertex_spacing != p_spacing) {
 		LOG(INFO, "Setting mesh vertex spacing: ", p_spacing);
 		_mesh_vertex_spacing = p_spacing;
-		if (_storage != nullptr) {
-			_storage->_mesh_vertex_spacing = p_spacing;
-		}
 		_clear();
 		_initialize();
 	}
