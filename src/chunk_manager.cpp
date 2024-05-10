@@ -60,6 +60,7 @@ void ChunkManager::move(Vector3 p_camera_position) {
 							// create new chunks from inactive
 							BaseChunk *new_chunk = Object::cast_to<BaseChunk>(_inactive_chunks.pop_back());
 							new_chunk->set_position(chunk_location);
+							new_chunk->refill();
 							new_chunk->set_enabled(true);
 							new_array[index] = new_chunk;
 						}
@@ -78,12 +79,12 @@ Vector2i ChunkManager::_snap_position(Vector3 p_position) {
 	float positive_camera_position_x = (camera_position.x < 0.0) ? -camera_position.x : camera_position.x;
 	pos_snapped.x = (Math::floor(positive_camera_position_x / _chunk_size) + 0.5) * _chunk_size;
 	if (camera_position.x < 0.0) {
-	    pos_snapped.x *= -1;
+		pos_snapped.x *= -1;
 	}
 	float positive_camera_position_y = (camera_position.y < 0.0) ? -camera_position.y : camera_position.y;
 	pos_snapped.y = (Math::floor(positive_camera_position_y / _chunk_size) + 0.5) * _chunk_size;
 	if (camera_position.y < 0.0) {
-	    pos_snapped.y *= -1;
+		pos_snapped.y *= -1;
 	}
 	return pos_snapped;
 }
@@ -115,7 +116,7 @@ void ChunkManager::set_distance(float p_distance) {
 }
 
 void ChunkManager::set_chunk_size(uint p_size) {
-    // Round up to nearest power of 2
+	// Round up to nearest power of 2
 	{
 		p_size--;
 		p_size |= p_size >> 1;

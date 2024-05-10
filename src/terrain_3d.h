@@ -18,6 +18,8 @@
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
 
+class CollisionChunkManager;
+
 using namespace godot;
 
 class Terrain3D : public Node3D {

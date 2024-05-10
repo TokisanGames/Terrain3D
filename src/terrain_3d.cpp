@@ -278,6 +278,7 @@ void Terrain3D::_build_collision() {
 	}
 
 	_chunk_manager = memnew(CollisionChunkManager);
+	_chunk_manager->set_terrain(this);
 	_chunk_manager->set_distance(_collision_dynamic_distance);
 	_chunk_manager->set_chunk_size(_collision_dynamic_shape_size);
 	add_child(_chunk_manager);

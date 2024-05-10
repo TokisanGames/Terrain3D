@@ -4,7 +4,10 @@
 #define COLLISIONCHUNKMANAGER_CLASS_H
 
 #include "chunk_manager.h"
+#include "terrain_3d.h"
 #include <godot_cpp/classes/static_body3d.hpp>
+
+class Terrain3D;
 
 using namespace godot;
 
@@ -16,11 +19,13 @@ public:
 	static inline const char *__class__ = "Terrain3DCollisionChunkManager";
 
 	StaticBody3D *_body = nullptr;
+	Terrain3D *_terrain = nullptr;
 
 public:
 	CollisionChunkManager();
 	~CollisionChunkManager();
 
+	void set_terrain(Terrain3D *p_terrain) { _terrain = p_terrain; }
 	BaseChunk *create_chunk() override;
 
 protected:
