@@ -1,11 +1,11 @@
 // Copyright © 2024 Lorenz Wildberg
 
-#include "collision_chunk.h"
+#include "editor_collision_chunk.h"
 #include "logger.h"
 #include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 
-CollisionChunk::CollisionChunk(CollisionChunkManager *p_manager, uint p_size) :
+EditorCollisionChunk::EditorCollisionChunk(EditorCollisionChunkManager *p_manager, uint p_size) :
 		BaseChunk(p_manager, p_size) {
 	_col_shape = memnew(CollisionShape3D);
 	_col_shape->set_name("CollisionShape3D");
@@ -15,17 +15,17 @@ CollisionChunk::CollisionChunk(CollisionChunkManager *p_manager, uint p_size) :
 	hshape->set_map_width(p_size + 1);
 	hshape->set_map_depth(p_size + 1);
 	_col_shape->set_shape(hshape);
-	((CollisionChunkManager *)_manager)->_body->add_child(_col_shape);
-	_col_shape->set_owner(((CollisionChunkManager *)_manager)->_body);
+	((EditorCollisionChunkManager *)_manager)->_body->add_child(_col_shape);
+	_col_shape->set_owner(((EditorCollisionChunkManager *)_manager)->_body);
 	LOG(DEBUG, "new chunk");
 }
 
-CollisionChunk::~CollisionChunk() {
-	((CollisionChunkManager *)_manager)->_body->remove_child(_col_shape);
+EditorCollisionChunk::~EditorCollisionChunk() {
+	((EditorCollisionChunkManager *)_manager)->_body->remove_child(_col_shape);
 	memdelete(_col_shape);
 }
 
-void CollisionChunk::refill() {
+void EditorCollisionChunk::refill() {
 	Ref<Terrain3DStorage> storage = ((CollisionChunkManager *)_manager)->_terrain->get_storage();
 	float hole_const = NAN;
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
@@ -118,11 +118,11 @@ void CollisionChunk::refill() {
 	_col_shape->set_global_transform(xform);
 }
 
-void CollisionChunk::set_position(Vector2i p_position) {
+void EditorCollisionChunk::set_position(Vector2i p_position) {
 	BaseChunk::set_position(p_position);
 	_col_shape->set_position(Vector3(p_position.x, 0.0, p_position.y));
 }
 
-void CollisionChunk::set_enabled(bool enabled) {
+void EditorCollisionChunk::set_enabled(bool enabled) {
 	_col_shape->set_visible(enabled);
 }

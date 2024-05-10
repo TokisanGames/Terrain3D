@@ -13,7 +13,7 @@
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 
-#include "collision_chunk_manager.h"
+#include "editor_collision_chunk_manager.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
 #include "terrain_3d_texture_list.h"
