@@ -138,6 +138,10 @@ func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) 
 
 
 func _on_show_submenu(p_toggled: bool, p_button: Button) -> void:
+	# Don't show if mouse already down (from painting)
+	if p_toggled and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		return
+	
 	# Hide menu if mouse is not in button or panel 
 	var button_rect: Rect2 = Rect2(p_button.get_screen_transform().origin, p_button.get_global_rect().size)
 	var in_button: bool = button_rect.has_point(DisplayServer.mouse_get_position())
