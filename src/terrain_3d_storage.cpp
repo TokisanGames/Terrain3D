@@ -495,10 +495,37 @@ real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
  * value of .3-.5, otherwise it's the base texture.
  **/
 Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
-	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
-	uint32_t base_id = get_base(src);
-	uint32_t overlay_id = get_overlay(src);
-	real_t blend = real_t(get_blend(src)) / 255.0f;
+	// Not in a region.
+	int region = get_region_index(p_global_position);
+	if (region < 0 || region >= _region_offsets.size()) {
+		return Vector3(NAN, NAN, NAN);
+	}
+	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // 32-bit float, not double/real
+	Ref<Terrain3DMaterial> t_material = _terrain->get_material();
+	bool auto_enabled = t_material->get_auto_shader();
+	bool control_auto = is_auto(src);
+	uint32_t base_id;
+	uint32_t overlay_id;
+	real_t blend;
+	// Autoshader is enabled, and is enabled at the current location.
+	if (auto_enabled && control_auto) {
+		real_t auto_slope = real_t(t_material->get_shader_param("auto_slope")) * 2.f - 1.f;
+		real_t auto_height_reduction = real_t(t_material->get_shader_param("auto_height_reduction"));
+		real_t height = get_height(p_global_position);
+		Vector3 normal = get_normal(p_global_position);
+		base_id = t_material->get_shader_param("auto_base_texture");
+		overlay_id = t_material->get_shader_param("auto_overlay_texture");
+		blend = CLAMP(
+				vec3_dot(Vector3(0.f, 1.f, 0.f),
+						normal * auto_slope * 2.f - Vector3(auto_slope, auto_slope, auto_slope)) -
+						auto_height_reduction * .01f * height,
+				0.f, 1.f);
+		// Return control map values.
+	} else {
+		base_id = get_base(src);
+		overlay_id = get_overlay(src);
+		blend = real_t(get_blend(src)) / 255.0f;
+	}
 	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
