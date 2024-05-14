@@ -131,10 +131,15 @@ Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
 int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
 	Vector2i uv_offset = get_region_offset(p_global_position);
 	Vector2i pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
-	if (pos.x >= REGION_MAP_SIZE || pos.y >= REGION_MAP_SIZE || pos.x < 0 || pos.y < 0) {
+	int map_index = pos.y * REGION_MAP_SIZE + pos.x;
+	if (map_index < 0 || map_index >= REGION_MAP_SIZE * REGION_MAP_SIZE) {
 		return -1;
 	}
-	return _region_map[pos.y * REGION_MAP_SIZE + pos.x] - 1;
+	int region_id = _region_map[map_index] - 1; // 0 = no region
+	if (region_id >= _region_offsets.size()) {
+		return -1;
+	}
+	return region_id;
 }
 
 /** Adds a region to the terrain
@@ -279,10 +284,11 @@ void Terrain3DStorage::update_regions(bool force_emit) {
 		for (int i = 0; i < _region_offsets.size(); i++) {
 			Vector2i ofs = _region_offsets[i];
 			Vector2i pos = Vector2i(ofs + (REGION_MAP_VSIZE / 2));
-			if (pos.x >= REGION_MAP_SIZE || pos.y >= REGION_MAP_SIZE || pos.x < 0 || pos.y < 0) {
+			int map_index = pos.y * REGION_MAP_SIZE + pos.x;
+			if (map_index < 0 || map_index >= REGION_MAP_SIZE * REGION_MAP_SIZE) {
 				continue;
 			}
-			_region_map[pos.y * REGION_MAP_SIZE + pos.x] = i + 1; // 0 = no region
+			_region_map[map_index] = i + 1; // 0 = no region
 		}
 		force_emit = true;
 		_modified = true;
@@ -420,10 +426,10 @@ void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, 
 		return;
 	}
 	int region = get_region_index(p_global_position);
-	if (region < 0 || region >= _region_offsets.size()) {
+	if (region < 0) {
 		return;
 	}
-	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
+	Vector2i global_offset = Vector2i(_region_offsets[region]) * _region_size;
 	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
 	Vector2i img_pos = Vector2i(
 			Vector2(descaled_position.x - global_offset.x,
@@ -440,10 +446,10 @@ Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position)
 		return COLOR_NAN;
 	}
 	int region = get_region_index(p_global_position);
-	if (region < 0 || region >= _region_offsets.size()) {
+	if (region < 0) {
 		return COLOR_NAN;
 	}
-	Vector2i global_offset = Vector2i(get_region_offsets()[region]) * _region_size;
+	Vector2i global_offset = Vector2i(_region_offsets[region]) * _region_size;
 	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
 	Vector2i img_pos = Vector2i(
 			Vector2(descaled_position.x - global_offset.x,
@@ -495,9 +501,10 @@ real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
  * value of .3-.5, otherwise it's the base texture.
  **/
 Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
+	IS_INIT_MESG("Storage not initialized", Vector3(NAN, NAN, NAN););
 	// Not in a region.
 	int region = get_region_index(p_global_position);
-	if (region < 0 || region >= _region_offsets.size()) {
+	if (region < 0) {
 		return Vector3(NAN, NAN, NAN);
 	}
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // 32-bit float, not double/real
@@ -960,7 +967,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
 	IS_INIT_MESG("Storage not initialized", Vector3());
 	int region = get_region_index(p_global_position);
-	if (region < 0 || region >= _region_offsets.size() || is_hole(get_control(p_global_position))) {
+	if (region < 0 || is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
 	}
 	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
