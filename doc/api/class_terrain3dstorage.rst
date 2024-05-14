@@ -94,8 +94,6 @@ Methods
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Image<class_Image>`                              | :ref:`layered_to_image<class_Terrain3DStorage_method_layered_to_image>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ )                                                                                                                                                         |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`                              | :ref:`load_image<class_Terrain3DStorage_method_load_image>`\ (\ file_name\: :ref:`String<class_String>`, cache_mode\: :ref:`int<class_int>` = 0, r16_height_range\: :ref:`Vector2<class_Vector2>` = Vector2(0, 255), r16_size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(0, 0)\ ) |static|    |
-   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                 | :ref:`remove_region<class_Terrain3DStorage_method_remove_region>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, update\: :ref:`bool<class_bool>` = true\ )                                                                                                                               |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                 | :ref:`save<class_Terrain3DStorage_method_save>`\ (\ )                                                                                                                                                                                                                                           |
@@ -690,11 +688,15 @@ Returns the roughness modifier (wetness) on the color map alpha channel associat
 
 :ref:`Vector3<class_Vector3>` **get_texture_id**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )
 
-Returns a Vector3 with x = base texture id, y = overlay id, z = blend value.
+Returns ``Vector3(base texture id, overlay id, blend value)``.
 
-It's up to you to determine which is visually apparent based on your shader settings, such as height or alpha blending.
+Returns ``Vector3(NAN, NAN, NAN)`` if the requested area is not in a region.
 
-This is often used for things like footsteps. Observing how this is done in Witcher 3, there are only about 6 sounds used (snow, foliage, dirt, gravel, rock, wood), and they are not pixel perfect, except for wood. However that is easy to do by detecting if the player is walking on wood meshes. The other 5 sounds are played when the player is in an area where the textures are blending. So it might play rock while over a dirt area, but the end result is still a seamless audio visual experience.
+This is often used for playing footstep sounds. It's up to the gamedev to determine which is visually apparent based on shader settings.
+
+Due to blending, it won't be pixel perfect. Try having your player controller print this value while walking around to see how the blending values look. Perhaps you'll find that the overlay texture is visible starting at a blend value of .3 to .5, otherwise the base is visible. You can also observe the control blend debug view with :ref:`Terrain3DMaterial.show_control_blend<class_Terrain3DMaterial_property_show_control_blend>`.
+
+Observing how this is done in The Witcher 3, there are only about 6 sounds used (snow, foliage, dirt, gravel, rock, wood), and except for wood, they are not pixel perfect. Wood is easy to do by detecting if the player is walking on wood meshes. The other 5 sounds are played when the player is in an area where the textures are blending. So it might play rock while over a dirt area. This shows pixel perfect accuracy is not important. It will still provide a seamless audio visual experience.
 
 .. rst-class:: classref-item-separator
 
@@ -739,26 +741,6 @@ Imports an Image set (Height, Control, Color) into this resource. It does NOT no
 :ref:`Image<class_Image>` **layered_to_image**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ )
 
 Returns an Image of the given map type that contains all regions in one large image. If the world has multiple islands, this function will return an image large enough to encompass all used regions, with black areas in between the islands.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DStorage_method_load_image:
-
-.. rst-class:: classref-method
-
-:ref:`Image<class_Image>` **load_image**\ (\ file_name\: :ref:`String<class_String>`, cache_mode\: :ref:`int<class_int>` = 0, r16_height_range\: :ref:`Vector2<class_Vector2>` = Vector2(0, 255), r16_size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(0, 0)\ ) |static|
-
-Loads a file from disk and returns an Image.
-
-\ ``filename`` - The file name on disk to load. Loads EXR, R16/RAW, PNG, or a ResourceLoader format (jpg, res, tres, etc).
-
-\ ``cache_mode`` - Send this flag to the resource loader to force caching or not.
-
-\ ``height_range`` - Heights for R16 format. x=Min & y=Max value ranges. Required for R16 import.
-
-\ ``size`` - Image dimensions for R16 format. Default (0,0) auto detects size, assuming square images. Required for non-square R16.
 
 .. rst-class:: classref-item-separator
 
