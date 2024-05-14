@@ -145,9 +145,11 @@
 			<return type="Vector3" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns a Vector3 with x = base texture id, y = overlay id, z = blend value.
-				It's up to you to determine which is visually apparent based on your shader settings, such as height or alpha blending.
-				This is often used for things like footsteps. Observing how this is done in Witcher 3, there are only about 6 sounds used (snow, foliage, dirt, gravel, rock, wood), and they are not pixel perfect, except for wood. However that is easy to do by detecting if the player is walking on wood meshes. The other 5 sounds are played when the player is in an area where the textures are blending. So it might play rock while over a dirt area, but the end result is still a seamless audio visual experience.
+				Returns [code skip-lint]Vector3(base texture id, overlay id, blend value)[/code].
+				Returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] if the requested area is not in a region.
+				This is often used for playing footstep sounds. It's up to the gamedev to determine which is visually apparent based on shader settings.
+				Due to blending, it won't be pixel perfect. Try having your player controller print this value while walking around to see how the blending values look. Perhaps you'll find that the overlay texture is visible starting at a blend value of .3 to .5, otherwise the base is visible. You can also observe the control blend debug view with [member Terrain3DMaterial.show_control_blend].
+				Observing how this is done in The Witcher 3, there are only about 6 sounds used (snow, foliage, dirt, gravel, rock, wood), and except for wood, they are not pixel perfect. Wood is easy to do by detecting if the player is walking on wood meshes. The other 5 sounds are played when the player is in an area where the textures are blending. So it might play rock while over a dirt area. This shows pixel perfect accuracy is not important. It will still provide a seamless audio visual experience.
 			</description>
 		</method>
 		<method name="has_region">
@@ -176,20 +178,6 @@
 			<param index="0" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
 			<description>
 				Returns an Image of the given map type that contains all regions in one large image. If the world has multiple islands, this function will return an image large enough to encompass all used regions, with black areas in between the islands.
-			</description>
-		</method>
-		<method name="load_image" qualifiers="static">
-			<return type="Image" />
-			<param index="0" name="file_name" type="String" />
-			<param index="1" name="cache_mode" type="int" default="0" />
-			<param index="2" name="r16_height_range" type="Vector2" default="Vector2(0, 255)" />
-			<param index="3" name="r16_size" type="Vector2i" default="Vector2i(0, 0)" />
-			<description>
-				Loads a file from disk and returns an Image.
-				[code skip-lint]filename[/code] - The file name on disk to load. Loads EXR, R16/RAW, PNG, or a ResourceLoader format (jpg, res, tres, etc).
-				[code skip-lint]cache_mode[/code] - Send this flag to the resource loader to force caching or not.
-				[code skip-lint]height_range[/code] - Heights for R16 format. x=Min &amp; y=Max value ranges. Required for R16 import.
-				[code skip-lint]size[/code] - Image dimensions for R16 format. Default (0,0) auto detects size, assuming square images. Required for non-square R16.
 			</description>
 		</method>
 		<method name="remove_region">

@@ -162,6 +162,20 @@
 				Returns true if the control map pixel has the nav bit set.
 			</description>
 		</method>
+		<method name="load_image" qualifiers="static">
+			<return type="Image" />
+			<param index="0" name="file_name" type="String" />
+			<param index="1" name="cache_mode" type="int" default="0" />
+			<param index="2" name="r16_height_range" type="Vector2" default="Vector2(0, 255)" />
+			<param index="3" name="r16_size" type="Vector2i" default="Vector2i(0, 0)" />
+			<description>
+				Loads a file from disk and returns an Image.
+				[code skip-lint]filename[/code] - The file name on disk to load. Loads EXR, R16/RAW, PNG, or a ResourceLoader format (jpg, res, tres, etc).
+				[code skip-lint]cache_mode[/code] - Send this flag to the resource loader to force caching or not.
+				[code skip-lint]height_range[/code] - Heights for R16 format. x=Min &amp; y=Max value ranges. Required for R16 import.
+				[code skip-lint]size[/code] - Image dimensions for R16 format. Default (0,0) auto detects size, assuming square images. Required for non-square R16.
+			</description>
+		</method>
 		<method name="pack_image" qualifiers="static">
 			<return type="Image" />
 			<param index="0" name="src_rgb" type="Image" />
