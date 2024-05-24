@@ -21,7 +21,7 @@ public: // Constants
 		Ref<Texture2D> _albedo_texture;
 		Ref<Texture2D> _normal_texture;
 		real_t _uv_scale = 0.1f;
-		real_t _uv_rotation = 0.0f;
+		real_t _uv_detiling = 0.0f;
 	};
 
 private:
@@ -55,8 +55,8 @@ public:
 	void set_uv_scale(real_t p_scale);
 	real_t get_uv_scale() const { return _data._uv_scale; }
 
-	void set_uv_rotation(real_t p_rotation);
-	real_t get_uv_rotation() const { return _data._uv_rotation; }
+	void set_uv_detiling(real_t p_rotation);
+	real_t get_uv_detiling() const { return _data._uv_detiling; }
 
 protected:
 	static void _bind_methods();
