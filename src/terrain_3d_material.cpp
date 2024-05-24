@@ -372,7 +372,7 @@ void Terrain3DMaterial::_update_texture_arrays() {
 	RS->material_set_param(_material, "_texture_array_normal", texture_list->get_normal_array_rid());
 	RS->material_set_param(_material, "_texture_color_array", texture_list->get_texture_colors());
 	RS->material_set_param(_material, "_texture_uv_scale_array", texture_list->get_texture_uv_scales());
-	RS->material_set_param(_material, "_texture_uv_rotation_array", texture_list->get_texture_uv_rotations());
+	RS->material_set_param(_material, "_texture_detile_array", texture_list->get_texture_detiles());
 
 	// Enable checkered view if texture_count is 0, disable if not
 	if (texture_list->get_texture_count() == 0) {

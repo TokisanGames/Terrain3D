@@ -23,7 +23,7 @@ private:
 	GeneratedTexture _generated_normal_textures;
 	PackedColorArray _texture_colors;
 	PackedFloat32Array _texture_uv_scales;
-	PackedFloat32Array _texture_uv_rotations;
+	PackedFloat32Array _texture_detiles;
 
 	void _swap_textures(int p_old_id, int p_new_id);
 	void _update_texture_files();
@@ -43,7 +43,7 @@ public:
 	RID get_normal_array_rid() { return _generated_normal_textures.get_rid(); }
 	PackedColorArray get_texture_colors() { return _texture_colors; }
 	PackedFloat32Array get_texture_uv_scales() { return _texture_uv_scales; }
-	PackedFloat32Array get_texture_uv_rotations() { return _texture_uv_rotations; }
+	PackedFloat32Array get_texture_detiles() { return _texture_detiles; }
 
 	void save();
 
