@@ -171,6 +171,9 @@ String Terrain3DMaterial::_inject_editor_code(String p_shader) {
 	if (_debug_view_control_texture) {
 		insert_names.push_back("DEBUG_CONTROL_TEXTURE");
 	}
+	if (_debug_view_control_angle) {
+		insert_names.push_back("DEBUG_CONTROL_ANGLE");
+	}
 	if (_debug_view_control_blend) {
 		insert_names.push_back("DEBUG_CONTROL_BLEND");
 	}
@@ -519,6 +522,12 @@ void Terrain3DMaterial::set_show_control_texture(bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_show_control_angle(bool p_enabled) {
+	LOG(INFO, "Enable show_control_angle: ", p_enabled);
+	_debug_view_control_angle = p_enabled;
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_show_control_blend(bool p_enabled) {
 	LOG(INFO, "Enable show_control_blend: ", p_enabled);
 	_debug_view_control_blend = p_enabled;
@@ -774,6 +783,11 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DMaterial::get_show_roughmap);
 	ClassDB::bind_method(D_METHOD("set_show_control_texture", "enabled"), &Terrain3DMaterial::set_show_control_texture);
 	ClassDB::bind_method(D_METHOD("get_show_control_texture"), &Terrain3DMaterial::get_show_control_texture);
+
+	ClassDB::bind_method(D_METHOD("set_show_control_angle", "enabled"), &Terrain3DMaterial::set_show_control_angle);
+	ClassDB::bind_method(D_METHOD("get_show_control_angle"), &Terrain3DMaterial::get_show_control_angle);
+
+
 	ClassDB::bind_method(D_METHOD("set_show_control_blend", "enabled"), &Terrain3DMaterial::set_show_control_blend);
 	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3DMaterial::get_show_control_blend);
 	ClassDB::bind_method(D_METHOD("set_show_autoshader", "enabled"), &Terrain3DMaterial::set_show_autoshader);
@@ -805,6 +819,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap", PROPERTY_HINT_NONE), "set_show_colormap", "get_show_colormap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE), "set_show_roughmap", "get_show_roughmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture", PROPERTY_HINT_NONE), "set_show_control_texture", "get_show_control_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_angle", PROPERTY_HINT_NONE), "set_show_control_angle", "get_show_control_angle");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend", PROPERTY_HINT_NONE), "set_show_control_blend", "get_show_control_blend");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader", PROPERTY_HINT_NONE), "set_show_autoshader", "get_show_autoshader");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation", PROPERTY_HINT_NONE), "set_show_navigation", "get_show_navigation");

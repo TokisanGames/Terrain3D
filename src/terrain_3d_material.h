@@ -57,6 +57,7 @@ private:
 	bool _debug_view_colormap = false;
 	bool _debug_view_roughmap = false;
 	bool _debug_view_control_texture = false;
+	bool _debug_view_control_angle = false;
 	bool _debug_view_control_blend = false;
 	bool _debug_view_autoshader = false;
 	bool _debug_view_holes = false;
@@ -118,6 +119,8 @@ public:
 	bool get_show_roughmap() const { return _debug_view_roughmap; }
 	void set_show_control_texture(bool p_enabled);
 	bool get_show_control_texture() const { return _debug_view_control_texture; }
+	void set_show_control_angle(bool p_enabled);
+	bool get_show_control_angle() const { return _debug_view_control_angle; }
 	void set_show_control_blend(bool p_enabled);
 	bool get_show_control_blend() const { return _debug_view_control_blend; }
 	void set_show_autoshader(bool p_enabled);
