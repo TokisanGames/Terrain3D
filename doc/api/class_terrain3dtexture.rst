@@ -32,13 +32,13 @@ Properties
    +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
    | :ref:`Texture2D<class_Texture2D>` | :ref:`albedo_texture<class_Terrain3DTexture_property_albedo_texture>` |                       |
    +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
+   | :ref:`float<class_float>`         | :ref:`detiling<class_Terrain3DTexture_property_detiling>`             | ``0.0``               |
+   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
    | :ref:`String<class_String>`       | :ref:`name<class_Terrain3DTexture_property_name>`                     | ``"New Texture"``     |
    +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
    | :ref:`Texture2D<class_Texture2D>` | :ref:`normal_texture<class_Terrain3DTexture_property_normal_texture>` |                       |
    +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
    | :ref:`int<class_int>`             | :ref:`texture_id<class_Terrain3DTexture_property_texture_id>`         | ``0``                 |
-   +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
-   | :ref:`float<class_float>`         | :ref:`uv_rotation<class_Terrain3DTexture_property_uv_rotation>`       | ``0.0``               |
    +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
    | :ref:`float<class_float>`         | :ref:`uv_scale<class_Terrain3DTexture_property_uv_scale>`             | ``0.1``               |
    +-----------------------------------+-----------------------------------------------------------------------+-----------------------+
@@ -139,6 +139,23 @@ The texture file with albedo on RGB and height on A.
 
 ----
 
+.. _class_Terrain3DTexture_property_detiling:
+
+.. rst-class:: classref-property
+
+:ref:`float<class_float>` **detiling** = ``0.0``
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_detiling**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_detiling**\ (\ )
+
+The shader rotates UVs for this texture in a detiling pattern based on this value.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DTexture_property_name:
 
 .. rst-class:: classref-property
@@ -185,23 +202,6 @@ The texture file with normal on RGB and roughness on A.
 - :ref:`int<class_int>` **get_texture_id**\ (\ )
 
 The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DTexture_property_uv_rotation:
-
-.. rst-class:: classref-property
-
-:ref:`float<class_float>` **uv_rotation** = ``0.0``
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_uv_rotation**\ (\ value\: :ref:`float<class_float>`\ )
-- :ref:`float<class_float>` **get_uv_rotation**\ (\ )
-
-The shader rotates UV lookups in a detiling pattern based on this value.
 
 .. rst-class:: classref-item-separator
 

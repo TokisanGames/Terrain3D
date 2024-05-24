@@ -50,7 +50,11 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_colormap<class_Terrain3DMaterial_property_show_colormap>`                     | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | :ref:`bool<class_bool>`                                          | :ref:`show_control_angle<class_Terrain3DMaterial_property_show_control_angle>`           | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_control_blend<class_Terrain3DMaterial_property_show_control_blend>`           | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | :ref:`bool<class_bool>`                                          | :ref:`show_control_scale<class_Terrain3DMaterial_property_show_control_scale>`           | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_control_texture<class_Terrain3DMaterial_property_show_control_texture>`       | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
@@ -304,6 +308,23 @@ Places the color map in the albedo channel.
 
 ----
 
+.. _class_Terrain3DMaterial_property_show_control_angle:
+
+.. rst-class:: classref-property
+
+:ref:`bool<class_bool>` **show_control_angle** = ``false``
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_control_angle**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_control_angle**\ (\ )
+
+Albedo shows the painted angle. Orange means 0°, Yellow 270°, Cyan 180°, Violet 90°. Or warm colors towards -Z, cool colors +Z, greens/yellows +X, reds/blues -X. Draw all angles coming from the center of a circle for a better understanding.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DMaterial_property_show_control_blend:
 
 .. rst-class:: classref-property
@@ -316,6 +337,23 @@ Places the color map in the albedo channel.
 - :ref:`bool<class_bool>` **get_show_control_blend**\ (\ )
 
 Albedo shows the blend value used to blend the base and overlay textures as greyscale. This is especially helpful to see how the noise texture adjusts the blending edges.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_show_control_scale:
+
+.. rst-class:: classref-property
+
+:ref:`bool<class_bool>` **show_control_scale** = ``false``
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_control_scale**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_control_scale**\ (\ )
+
+Albedo shows the painted scale. Larger scales are more red, smaller scales are more blue. 0.5 middle grey is the default 100% scale.
 
 .. rst-class:: classref-item-separator
 
