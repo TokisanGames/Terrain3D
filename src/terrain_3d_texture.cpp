@@ -45,7 +45,7 @@ void Terrain3DTexture::clear() {
 	_data._albedo_texture.unref();
 	_data._normal_texture.unref();
 	_data._uv_scale = 0.1f;
-	_data._uv_rotation = 0.0f;
+	_data._detiling = 0.0f;
 }
 
 void Terrain3DTexture::set_name(String p_name) {
@@ -83,8 +83,8 @@ void Terrain3DTexture::set_uv_scale(real_t p_scale) {
 	emit_signal("setting_changed");
 }
 
-void Terrain3DTexture::set_uv_rotation(real_t p_rotation) {
-	_data._uv_rotation = CLAMP(p_rotation, 0.0f, 1.0f);
+void Terrain3DTexture::set_detiling(real_t p_rotation) {
+	_data._detiling = CLAMP(p_rotation, 0.0f, 1.0f);
 	emit_signal("setting_changed");
 }
 
@@ -110,8 +110,8 @@ void Terrain3DTexture::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_normal_texture"), &Terrain3DTexture::get_normal_texture);
 	ClassDB::bind_method(D_METHOD("set_uv_scale", "scale"), &Terrain3DTexture::set_uv_scale);
 	ClassDB::bind_method(D_METHOD("get_uv_scale"), &Terrain3DTexture::get_uv_scale);
-	ClassDB::bind_method(D_METHOD("set_uv_rotation", "scale"), &Terrain3DTexture::set_uv_rotation);
-	ClassDB::bind_method(D_METHOD("get_uv_rotation"), &Terrain3DTexture::get_uv_rotation);
+	ClassDB::bind_method(D_METHOD("set_detiling", "scale"), &Terrain3DTexture::set_detiling);
+	ClassDB::bind_method(D_METHOD("get_detiling"), &Terrain3DTexture::get_detiling);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_id", PROPERTY_HINT_NONE), "set_texture_id", "get_texture_id");
@@ -119,5 +119,5 @@ void Terrain3DTexture::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_albedo_texture", "get_albedo_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_normal_texture", "get_normal_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0"), "set_uv_scale", "get_uv_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_uv_rotation", "get_uv_rotation");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling", "get_detiling");
 }
