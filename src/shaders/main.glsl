@@ -221,11 +221,23 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 	}
 }
 
-vec2 uv_detiling(vec2 uv, vec2 uv_center, int mat_id){
-	vec2 rotation_center = floor(uv_center) + 0.5;
-	float random_angle_1 = (random(rotation_center) - 0.5) * 2.0 * TAU; // -180deg to 180deg
-	vec2 outUV = rotate_around(uv, rotation_center, random_angle_1 * _texture_uv_rotation_array[mat_id]);
-	return outUV;
+vec2 uv_detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
+	if (_texture_uv_rotation_array[mat_id] >= 0.001){
+		uv_center = floor(uv_center)+0.5;
+		float detile = (random(uv_center)-0.5)* 2.0 * TAU * _texture_uv_rotation_array[mat_id]; // -180deg to 180deg
+		uv = rotate_around(uv, uv_center, detile);
+		// Accumulate total rotation for normal rotation
+		normal_rotation += detile;
+	}
+	return uv;
+}
+
+vec2 rotate_normal(vec2 normal, float angle) {
+	angle += PI*0.5;
+	float new_y = dot(vec2(cos(angle),sin(angle)),normal);
+	angle -= PI*0.5;
+	float new_x = dot(vec2(cos(angle),sin(angle)),normal);
+	return vec2(new_x,new_y);
 }
 
 // 2-4 lookups
@@ -237,11 +249,10 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 //INSERT: AUTO_SHADER_TEXTURE_ID
 //INSERT: TEXTURE_ID
 	
-	// Control map scale & rotation, apply to both base and center uv.
-	// To correctly rotate & scale around each control map pixel we must 
-	// translate uv center from "control map space" to "uv space".
+	// Control map scale & rotation, apply to both base and 
+	// uv_center. Translate uv center to the current region.
 	uv_center += _region_offsets[region] * _region_size;
-	// Define and apply base scale from control map value as array index. 0.5 as baseline.
+	// Define base scale from control map value as array index. 0.5 as baseline.
 	float[8] scale_array = { 0.5, 0.4, 0.3, 0.2, 0.1, 0.8, 0.7, 0.6};
 	float control_scale = scale_array[(control >>7u & 0x7u)];
 	base_uv *= control_scale;
@@ -260,6 +271,7 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	vec4 albedo_far = vec4(0.);
 	vec4 normal_far = vec4(0.5f, 0.5f, 1.0f, 1.0f);
 	float mat_scale = _texture_uv_scale_array[out_mat.base];
+	float normal_angle = uv_rotation;
 	vec2 ddx1 = ddx;
 	vec2 ddy1 = ddy;
 	
@@ -268,12 +280,14 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	// Apply color to base
 	albedo_ht.rgb *= _texture_color_array[out_mat.base].rgb;
 
-	// Unpack base normal for blending
+	// Unpack & rotate base normal for blending
 	normal_rg.xz = unpack_normal(normal_rg).xz;
+	normal_rg.xz = rotate_normal(normal_rg.xz,normal_angle);
 
 	// Setup overlay texture to blend
 	float mat_scale2 = _texture_uv_scale_array[out_mat.over];
-	vec2 matUV2 = uv_detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over);
+	float normal_angle2 = uv_rotation;
+	vec2 matUV2 = uv_detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
 	vec2 ddx2 = ddx * mat_scale2;
 	vec2 ddy2 = ddy * mat_scale2;
 	vec4 albedo_ht2 = textureGrad(_texture_array_albedo, vec3(matUV2, float(out_mat.over)), ddx2, ddy2);
@@ -287,8 +301,9 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 		// Apply color to overlay
 		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
 		
-		// Unpack overlay normal for blending
+		// Unpack & rotate overlay normal for blending
 		normal_rg2.xz = unpack_normal(normal_rg2).xz;
+		normal_rg2.xz = rotate_normal(normal_rg2.xz,normal_angle2);
 
 		// Blend overlay and base
 		albedo_ht = height_blend(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, out_mat.blend);
@@ -331,23 +346,27 @@ void fragment() {
 	mirror.zw = vec2(1.0) - mirror.xy;
 
 	// Get the region and control map ID for the vertices
-	ivec3 index00UV = get_region_uv(texel_pos_floor + mirror.xy);
-	ivec3 index01UV = get_region_uv(texel_pos_floor + mirror.xw);
-	ivec3 index10UV = get_region_uv(texel_pos_floor + mirror.zy);
-	ivec3 index11UV = get_region_uv(texel_pos_floor + mirror.zw);
+	ivec3 indexUV[4] = {
+		get_region_uv(texel_pos_floor + mirror.xy),
+		get_region_uv(texel_pos_floor + mirror.xw),
+		get_region_uv(texel_pos_floor + mirror.zy),
+		get_region_uv(texel_pos_floor + mirror.zw)
+	};
 
 	// Lookup adjacent vertices. 4 lookups
-	uint control00 = texelFetch(_control_maps, index00UV, 0).r;
-	uint control01 = texelFetch(_control_maps, index01UV, 0).r;
-	uint control10 = texelFetch(_control_maps, index10UV, 0).r;
-	uint control11 = texelFetch(_control_maps, index11UV, 0).r;
+	uint control[4] = {
+		texelFetch(_control_maps, indexUV[0], 0).r,
+		texelFetch(_control_maps, indexUV[1], 0).r,
+		texelFetch(_control_maps, indexUV[2], 0).r,
+		texelFetch(_control_maps, indexUV[3], 0).r
+	};
 
 	// Get the textures for each vertex. 8-16 lookups (2-4 ea)
 	Material mat[4];
-	get_material(uv, control00, index00UV, w_normal, mat[0]);
-	get_material(uv, control01, index01UV, w_normal, mat[1]);
-	get_material(uv, control10, index10UV, w_normal, mat[2]);
-	get_material(uv, control11, index11UV, w_normal, mat[3]);
+	get_material(uv, control[0], indexUV[0], w_normal, mat[0]);
+	get_material(uv, control[1], indexUV[1], w_normal, mat[1]);
+	get_material(uv, control[2], indexUV[2], w_normal, mat[2]);
+	get_material(uv, control[3], indexUV[3], w_normal, mat[3]);
 
 	// Calculate weight for the pixel position between the vertices
 	// Bilinear interpolation of difference of uv and floor(uv)
