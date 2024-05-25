@@ -247,8 +247,7 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	int region = iuv_center.z;
 
 //INSERT: AUTO_SHADER_TEXTURE_ID
-//INSERT: TEXTURE_ID
-	
+//INSERT: TEXTURE_ID	
 	// Control map scale & rotation, apply to both base and 
 	// uv_center. Translate uv center to the current region.
 	uv_center += _region_offsets[region] * _region_size;
@@ -280,10 +279,6 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	// Apply color to base
 	albedo_ht.rgb *= _texture_color_array[out_mat.base].rgb;
 
-	// Unpack & rotate base normal for blending
-	normal_rg.xz = unpack_normal(normal_rg).xz;
-	normal_rg.xz = rotate_normal(normal_rg.xz,normal_angle);
-
 	// Setup overlay texture to blend
 	float mat_scale2 = _texture_uv_scale_array[out_mat.over];
 	float normal_angle2 = uv_rotation;
@@ -297,13 +292,13 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	// be more optimal, the first introduces artifacts #276, and the second is noticably slower. 
 	// It seems the branching off dual scaling and the color array lookup is more optimal.
 	if (out_mat.blend > 0.f) {
-//INSERT: DUAL_SCALING_OVERLAY
-		// Apply color to overlay
-		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
-		
 		// Unpack & rotate overlay normal for blending
 		normal_rg2.xz = unpack_normal(normal_rg2).xz;
 		normal_rg2.xz = rotate_normal(normal_rg2.xz,normal_angle2);
+
+//INSERT: DUAL_SCALING_OVERLAY
+		// Apply color to overlay
+		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
 
 		// Blend overlay and base
 		albedo_ht = height_blend(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, out_mat.blend);
