@@ -75,8 +75,3 @@ sprint={
 
 textures/vram_compression/import_etc2_astc=true
 occlusion_culling/use_occlusion_culling=true
-
-[terrain3d]
-
-config/dock_position=5
-config/dock_pinned=false
