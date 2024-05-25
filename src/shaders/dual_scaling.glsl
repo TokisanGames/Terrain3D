@@ -23,7 +23,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 
 	// Unpack & rotate base normal for blending
 	normal_rg.xz = unpack_normal(normal_rg).xz;
-	normal_rg.xz = rotate_normal(normal_rg.xz,normal_angle);
+	normal_rg.xz = rotate_normal(normal_rg.xz, normal_angle);
 
 	if(out_mat.base == dual_scale_texture || out_mat.over == dual_scale_texture) {
 		mat_scale *= dual_scale_reduction;
@@ -36,7 +36,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 
 		// Unpack & rotate dual scale normal for blending
 		normal_far.xz = unpack_normal(normal_far).xz;
-		normal_far.xz = rotate_normal(normal_far.xz,dual_scale_normal);
+		normal_far.xz = rotate_normal(normal_far.xz, dual_scale_normal);
 	}
 
 	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - v_camera_pos)), 0.0, 1.0);
@@ -54,7 +54,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 
 	// Unpack & rotate base normal for blending
 	normal_rg.xz = unpack_normal(normal_rg).xz;
-	normal_rg.xz = rotate_normal(normal_rg.xz,normal_angle);
+	normal_rg.xz = rotate_normal(normal_rg.xz, normal_angle);
 
 //INSERT: DUAL_SCALING_OVERLAY
 		// If dual scaling, apply to overlay texture

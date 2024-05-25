@@ -83,7 +83,7 @@ varying float v_region_border_mask;
 ivec3 get_region_uv(vec2 uv) {
 	uv *= _region_texel_size;
 	ivec2 pos = ivec2(floor(uv)) + (_region_map_size / 2);
-	int bounds = int(pos.x>=0 && pos.x<_region_map_size && pos.y>=0 && pos.y<_region_map_size);
+	int bounds = int(pos.x >= 0 && pos.x < _region_map_size && pos.y >= 0 && pos.y < _region_map_size);
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return ivec3(ivec2((uv - _region_offsets[layer_index]) * _region_size), layer_index);
 }
@@ -96,7 +96,7 @@ vec3 get_region_uv2(vec2 uv) {
 	// call this with reclaimed versions of UV2, so to keep the last row/column within the correct
 	// window, take back the half pixel before the floor(). 
 	ivec2 pos = ivec2(floor(uv - vec2(_region_texel_size * 0.5))) + (_region_map_size / 2);
-	int bounds = int(pos.x>=0 && pos.x<_region_map_size && pos.y>=0 && pos.y<_region_map_size);
+	int bounds = int(pos.x >= 0 && pos.x < _region_map_size && pos.y >= 0 && pos.y < _region_map_size);
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	// The return value is still texel-centered.
 	return vec3(uv - _region_offsets[layer_index], float(layer_index));
@@ -138,19 +138,19 @@ void vertex() {
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
 	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
 			(hole || (_background_mode == 0u && v_region.z < 0)) ) {
-		VERTEX.x = 0./0.;
+		VERTEX.x = 0. / 0.;
 	} else {		
 		// Set final vertex height & calculate vertex normals. 3 lookups.
 		VERTEX.y = get_height(UV2);
 		v_vertex.y = VERTEX.y;
 		v_normal = vec3(
-			v_vertex.y - get_height(UV2 + vec2(_region_texel_size,0)),
+			v_vertex.y - get_height(UV2 + vec2(_region_texel_size, 0)),
 			_mesh_vertex_spacing,
-			v_vertex.y - get_height(UV2 + vec2(0,_region_texel_size))
+			v_vertex.y - get_height(UV2 + vec2(0, _region_texel_size))
 		);
 		// Due to a bug caused by the GPUs linear interpolation across edges of region maps,
 		// mask region edges and use vertex normals only across region boundaries.
-		v_region_border_mask = mod(UV.x+2.5,_region_size) - fract(UV.x) < 5.0 || mod(UV.y+2.5,_region_size) - fract(UV.y) < 5.0 ? 1. : 0.;
+		v_region_border_mask = mod(UV.x + 2.5, _region_size) - fract(UV.x) < 5.0 || mod(UV.y + 2.5, _region_size) - fract(UV.y) < 5.0 ? 1. : 0.;
 	}
 		
 	// Transform UVs to local to avoid poor precision during varying interpolation.
@@ -223,8 +223,8 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 
 vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 	if (_texture_detile_array[mat_id] >= 0.001){
-		uv_center = floor(uv_center)+0.5;
-		float detile = (random(uv_center)-0.5)* 2.0 * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
+		uv_center = floor(uv_center) + 0.5;
+		float detile = (random(uv_center) - 0.5) * 2.0 * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
 		uv = rotate_around(uv, uv_center, detile);
 		// Accumulate total rotation for normal rotation
 		normal_rotation += detile;
@@ -233,11 +233,11 @@ vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 }
 
 vec2 rotate_normal(vec2 normal, float angle) {
-	angle += PI*0.5;
-	float new_y = dot(vec2(cos(angle),sin(angle)),normal);
-	angle -= PI*0.5;
-	float new_x = dot(vec2(cos(angle),sin(angle)),normal);
-	return vec2(new_x,new_y);
+	angle += PI * 0.5;
+	float new_y = dot(vec2(cos(angle), sin(angle)), normal);
+	angle -= PI * 0.5;
+	float new_x = dot(vec2(cos(angle) ,sin(angle)) ,normal);
+	return vec2(new_x, new_y);
 }
 
 // 2-4 lookups
@@ -294,7 +294,7 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	if (out_mat.blend > 0.f) {
 		// Unpack & rotate overlay normal for blending
 		normal_rg2.xz = unpack_normal(normal_rg2).xz;
-		normal_rg2.xz = rotate_normal(normal_rg2.xz,normal_angle2);
+		normal_rg2.xz = rotate_normal(normal_rg2.xz, normal_angle2);
 
 //INSERT: DUAL_SCALING_OVERLAY
 		// Apply color to overlay
@@ -376,7 +376,7 @@ void fragment() {
 	weights.z = blend_weights(weights1.x * weights0.y, clamp(mat[2].alb_ht.a + noise3, 0., 1.));
 	weights.w = blend_weights(weights1.x * weights1.y, clamp(mat[3].alb_ht.a + noise3, 0., 1.));
 	float weight_sum = weights.x + weights.y + weights.z + weights.w;
-	float weight_inv = 1.0/weight_sum;
+	float weight_inv = 1.0 / weight_sum;
 
 	// Weighted average of albedo & height
 	vec4 albedo_height = weight_inv * (
@@ -403,18 +403,18 @@ void fragment() {
 	}
 
 	// Macro variation. 2 Lookups
-	float noise1 = texture(noise_texture, rotate(uv*noise1_scale*.1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
-	float noise2 = texture(noise_texture, uv*noise2_scale*.1).r;
-	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_xz_dist*.0002, 0., 1.));
-	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_xz_dist*.0002, 0., 1.));
+	float noise1 = texture(noise_texture, rotate(uv*noise1_scale * .1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
+	float noise2 = texture(noise_texture, uv*noise2_scale * .1).r;
+	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_xz_dist * .0002, 0., 1.));
+	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_xz_dist * .0002, 0., 1.));
 
 	// Wetness/roughness modifier, converting 0-1 range to -1 to 1 range
-	float roughness = fma(color_map.a-0.5, 2.0, normal_rough.a);
+	float roughness = fma(color_map.a - 0.5, 2.0, normal_rough.a);
 
 	// Apply PBR
 	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
 	ROUGHNESS = roughness;
-	SPECULAR = 1.-normal_rough.a;
+	SPECULAR = 1. - normal_rough.a;
 	NORMAL_MAP = normal_rough.rgb;
 	NORMAL_MAP_DEPTH = 1.0;
 
