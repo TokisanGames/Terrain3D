@@ -30,7 +30,8 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		ddx1 *= dual_scale_reduction;
 		ddy1 *= dual_scale_reduction;
 		float dual_scale_normal = uv_rotation; //do not add near & far rotations
-		matUV = detiling(base_uv * mat_scale, uv_center * mat_scale, dual_scale_texture, dual_scale_normal);
+		// Do not apply detiling if tri-scale reduction occurs.
+		matUV = region < 0 ? base_uv * mat_scale : detiling(base_uv * mat_scale, uv_center * mat_scale, dual_scale_texture, dual_scale_normal);
 		albedo_far = textureGrad(_texture_array_albedo, vec3(matUV, float(dual_scale_texture)), ddx1, ddy1);
 		normal_far = textureGrad(_texture_array_normal, vec3(matUV, float(dual_scale_texture)), ddx1, ddy1);
 
