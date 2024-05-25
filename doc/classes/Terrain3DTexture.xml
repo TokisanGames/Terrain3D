@@ -31,7 +31,7 @@
 		<member name="texture_id" type="int" setter="set_texture_id" getter="get_texture_id" default="0">
 			The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
 		</member>
-		<member name="uv_detiling" type="float" setter="set_uv_detiling" getter="get_uv_detiling" default="0.0">
+		<member name="detiling" type="float" setter="set_detiling" getter="get_detiling" default="0.0">
 			The shader rotates UV lookups in a detiling pattern based on this value.
 		</member>
 		<member name="uv_scale" type="float" setter="set_uv_scale" getter="get_uv_scale" default="0.1">

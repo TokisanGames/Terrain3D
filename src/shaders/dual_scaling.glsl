@@ -15,7 +15,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		mat_scale *= tri_scale_reduction;
 	}
 	//each time we change scale, recalculate antitiling from baseline to maintain continuity.
-	matUV = uv_detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base, normal_angle);
+	matUV = detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base, normal_angle);
 	ddx1 *= mat_scale;
 	ddy1 *= mat_scale;
 	albedo_ht = textureGrad(_texture_array_albedo, vec3(matUV, float(out_mat.base)), ddx1, ddy1);
@@ -25,7 +25,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		ddx1 *= dual_scale_reduction;
 		ddy1 *= dual_scale_reduction;
 		float dual_scale_normal = uv_rotation; //do not add near & far rotations
-		matUV = uv_detiling(base_uv * mat_scale, uv_center * mat_scale, dual_scale_texture, dual_scale_normal);
+		matUV = detiling(base_uv * mat_scale, uv_center * mat_scale, dual_scale_texture, dual_scale_normal);
 		albedo_far = textureGrad(_texture_array_albedo, vec3(matUV, float(dual_scale_texture)), ddx1, ddy1);
 		normal_far = textureGrad(_texture_array_normal, vec3(matUV, float(dual_scale_texture)), ddx1, ddy1);
 		normal_angle = dual_scale_normal;
@@ -38,7 +38,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 	}
 
 //INSERT: UNI_SCALING_BASE
-	matUV = uv_detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base, normal_angle);
+	matUV = detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base, normal_angle);
 	ddx1 *= mat_scale;
 	ddy1 *= mat_scale;
 	albedo_ht = textureGrad(_texture_array_albedo, vec3(matUV, float(out_mat.base)), ddx1, ddy1);

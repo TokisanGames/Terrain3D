@@ -34,7 +34,7 @@ uniform usampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
 uniform float _texture_uv_scale_array[32];
-uniform float _texture_uv_detile_array[32];
+uniform float _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
 uniform uint _background_mode = 1u;  // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
@@ -221,10 +221,10 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 	}
 }
 
-vec2 uv_detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
-	if (_texture_uv_detile_array[mat_id] >= 0.001){
+vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
+	if (_texture_detile_array[mat_id] >= 0.001){
 		uv_center = floor(uv_center)+0.5;
-		float detile = (random(uv_center)-0.5)* 2.0 * TAU * _texture_uv_detile_array[mat_id]; // -180deg to 180deg
+		float detile = (random(uv_center)-0.5)* 2.0 * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
 		uv = rotate_around(uv, uv_center, detile);
 		// Accumulate total rotation for normal rotation
 		normal_rotation += detile;
@@ -287,7 +287,7 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 	// Setup overlay texture to blend
 	float mat_scale2 = _texture_uv_scale_array[out_mat.over];
 	float normal_angle2 = uv_rotation;
-	vec2 matUV2 = uv_detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
+	vec2 matUV2 = detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
 	vec2 ddx2 = ddx * mat_scale2;
 	vec2 ddy2 = ddy * mat_scale2;
 	vec4 albedo_ht2 = textureGrad(_texture_array_albedo, vec3(matUV2, float(out_mat.over)), ddx2, ddy2);

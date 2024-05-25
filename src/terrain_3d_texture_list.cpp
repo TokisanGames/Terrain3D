@@ -177,7 +177,7 @@ void Terrain3DTextureList::_update_texture_settings() {
 		LOG(INFO, "Updating terrain color and scale arrays");
 		_texture_colors.clear();
 		_texture_uv_scales.clear();
-		_texture_uv_detiles.clear();
+		_texture_detiles.clear();
 
 		for (int i = 0; i < _textures.size(); i++) {
 			Ref<Terrain3DTexture> texture_set = _textures[i];
@@ -186,7 +186,7 @@ void Terrain3DTextureList::_update_texture_settings() {
 			}
 			_texture_colors.push_back(texture_set->get_albedo_color());
 			_texture_uv_scales.push_back(texture_set->get_uv_scale());
-			_texture_uv_detiles.push_back(texture_set->get_uv_detiling());
+			_texture_detiles.push_back(texture_set->get_detiling());
 		}
 	}
 	emit_signal("textures_changed");
