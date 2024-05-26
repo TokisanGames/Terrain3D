@@ -784,20 +784,26 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 			LOG(DEBUG, "Copying ", size_to_copy, " sized segment");
 			TypedArray<Image> images;
 			images.resize(TYPE_MAX);
+			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y) * vertex_spacing;
+			int region_index = get_region_index(position);
 			for (int i = 0; i < TYPE_MAX; i++) {
 				Ref<Image> img = tmp_images[i];
 				Ref<Image> img_slice;
-				if (img.is_valid() && !img->is_empty()) {
-					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
-					img_slice->blit_rect(tmp_images[i], Rect2i(start_coords, size_to_copy), Vector2i(0, 0));
-				} else {
+				// If not in a region, generate a new empty map.
+				if (region_index == -1) {
 					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, FORMAT[i]);
+				// Otherwise Get the current map.
+				} else {
+					img_slice = get_map_region(MapType(i), region_index);
+				}
+				if (img.is_valid() && !img->is_empty()) {
+					img_slice->convert(img->get_format());
+					img_slice->blit_rect(tmp_images[i], Rect2i(start_coords, size_to_copy), Vector2i(0, 0));
 				}
 				images[i] = img_slice;
 			}
-			// Add the heightmap slice and only regenerate on the last one
-			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y);
-			add_region(position * vertex_spacing, images, (x == slices_width - 1 && y == slices_height - 1));
+			// Add the heightmap slice and only regenerate on the last one			
+			add_region(position, images, (x == slices_width - 1 && y == slices_height - 1));
 		}
 	} // for y < slices_height, x < slices_width
 }
