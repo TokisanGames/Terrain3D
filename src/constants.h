@@ -58,6 +58,12 @@ typedef PackedFloat32Array PackedRealArray;
 		return ret;                    \
 	}
 
+#define IS_INIT_COND_MESG(cond, mesg, ret) \
+	if (_terrain == nullptr || cond) {     \
+		LOG(ERROR, mesg);                  \
+		return ret;                        \
+	}
+
 #define IS_STORAGE_INIT(ret)                                        \
 	if (_terrain == nullptr || _terrain->get_storage().is_null()) { \
 		return ret;                                                 \

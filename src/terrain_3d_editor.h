@@ -134,7 +134,7 @@ private:
 	bool _pending_undo = false;
 	bool _modified = false;
 	AABB _modified_area;
-	Array _undo_set; // 0-2: map 0,1,2, 3: Region offsets, 4: height range, 5: edited AABB
+	Dictionary _undo_set; // See _collect_undo_data for definition
 
 	void _region_modified(Vector3 p_global_position, Vector2 p_height_range = Vector2());
 	void _operate_region(Vector3 p_global_position);
@@ -143,9 +143,9 @@ private:
 	Vector2 _get_uv_position(Vector3 p_global_position, int p_region_size);
 	Vector2 _rotate_uv(Vector2 p_uv, real_t p_angle);
 
-	void _setup_undo();
+	Dictionary _collect_undo_data();
 	void _store_undo();
-	void _apply_undo(const Array &p_set);
+	void _apply_undo(Dictionary p_set);
 
 public:
 	Terrain3DEditor() {}
