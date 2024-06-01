@@ -11,7 +11,7 @@ func _ready():
 	var terrain := Terrain3D.new()
 	terrain.set_collision_enabled(false)
 	terrain.storage = Terrain3DStorage.new()
-	terrain.texture_list = Terrain3DTextureList.new()
+	terrain.assets = Terrain3DAssets.new()
 	terrain.name = "Terrain3D"
 	add_child(terrain, true)
 	terrain.material.world_background = Terrain3DMaterial.NONE
