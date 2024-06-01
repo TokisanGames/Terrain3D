@@ -21,8 +21,7 @@ Currently importing and exporting is possible via code or our import tool. We wi
 
      * You can import multiple times into the greater 16k^2 world map by specifying different locations. So you could import multiple maps as separate islands or combined regions.
      * It will slice and pad odd sized images into region sized chunks ([default is 1024x1024](https://github.com/TokisanGames/Terrain3D/issues/77)). e.g. You could import a 4k x 2k, several 1k x 1ks, and a 5123 x 3769 and position them so they are adjacent.
-     * You can also reimport to the same location to overwrite anything there. 
-     * Each time you import, it will overwrite the height, control and color for the section you imported. Even if you specify only the heightmap and leave control/color blank, it will erase any control/color data in that region. ([will be separated later](https://github.com/TokisanGames/Terrain3D/issues/130))
+     * You can also reimport to the same location to overwrite anything there using individual maps or a complete set of height, control, and/or color.
 
 5) Specify any desired height offset or scale. The scale gets applied first. (eg. 100, -100 would scale the terrain by 100, then lower the whole terrain by 100).
 
