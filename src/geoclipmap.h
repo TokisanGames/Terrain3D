@@ -22,9 +22,11 @@ public:
 		TRIM,
 		CROSS,
 		SEAM,
+		SKIRT,
 	};
 
 	static Vector<RID> generate(int p_resolution, int p_clipmap_levels);
+	static Vector<RID> generate_ocean(int p_resolution, int p_clipmap_levels);
 };
 
 // Inline Functions
