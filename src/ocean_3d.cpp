@@ -488,15 +488,6 @@ void Ocean3D::set_mesh_size(int p_size) {
 	}
 }
 
-void Ocean3D::set_sea_level(int level) {
-	if (sea_level != level) {
-		LOG(INFO, "Setting sea level: ", level);
-		sea_level = level;
-		_clear();
-		_initialize();
-	}
-}
-
 void Ocean3D::set_mesh_vertex_spacing(real_t p_spacing) {
 	p_spacing = CLAMP(p_spacing, 0.25f, 100.0f);
 	if (_mesh_vertex_spacing != p_spacing) {
@@ -888,8 +879,6 @@ void Ocean3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Ocean3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Ocean3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Ocean3D::get_mesh_size);
-	ClassDB::bind_method(D_METHOD("get_sea_level"), &Ocean3D::get_sea_level);
-	ClassDB::bind_method(D_METHOD("set_sea_level"), &Ocean3D::set_sea_level);
 	ClassDB::bind_method(D_METHOD("set_mesh_vertex_spacing", "scale"), &Ocean3D::set_mesh_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_mesh_vertex_spacing"), &Ocean3D::get_mesh_vertex_spacing);
 
@@ -917,7 +906,6 @@ void Ocean3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Ocean3D::get_intersection);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "sea_level", PROPERTY_HINT_RANGE, "0, 10000 , 1 , or_greater"), "set_sea_level", "get_sea_level");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Ocean3DStorage"), "set_storage", "get_storage");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Ocean3DMaterial"), "set_material", "get_material");
 

@@ -101,8 +101,6 @@ public:
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(int p_size);
 	int get_mesh_size() const { return _mesh_size; }
-	void set_sea_level(int level);
-	int get_sea_level() const { return sea_level; }
 	void set_mesh_vertex_spacing(real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
