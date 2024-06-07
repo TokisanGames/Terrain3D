@@ -1,0 +1,940 @@
+#include <godot_cpp/classes/editor_interface.hpp>
+#include <godot_cpp/classes/editor_script.hpp>
+#include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/environment.hpp>
+#include <godot_cpp/classes/height_map_shape3d.hpp>
+#include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/quad_mesh.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
+#include <godot_cpp/classes/surface_tool.hpp>
+#include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/classes/v_box_container.hpp> // for get_editor_main_screen()
+#include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/viewport_texture.hpp>
+#include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/core/class_db.hpp>
+
+#include "geoclipmap.h"
+#include "logger.h"
+#include "ocean_3d.h"
+#include "terrain_3d_util.h"
+
+///////////////////////////
+// Private Functions
+///////////////////////////
+
+// Initialize static member variable
+int Ocean3D::debug_level{ ERROR };
+
+void Ocean3D::_initialize() {
+	LOG(INFO, "Checking material, storage, texture_list, signal, and mesh initialization");
+
+	// Make blank objects if needed
+	if (_material.is_null()) {
+		LOG(DEBUG, "Creating blank material");
+		_material.instantiate();
+	}
+	if (_storage.is_null()) {
+		LOG(DEBUG, "Creating blank storage");
+		_storage.instantiate();
+		// _storage->add_region(CenterPosition);
+		_storage->set_version(Ocean3DStorage::CURRENT_VERSION);
+	}
+	// Connect signals
+	if (!_storage->is_connected("region_size_changed", Callable(_material.ptr(), "_set_region_size"))) {
+		LOG(DEBUG, "Connecting region_size_changed signal to _material->_set_region_size()");
+		_storage->connect("region_size_changed", Callable(_material.ptr(), "_set_region_size"));
+	}
+	if (!_storage->is_connected("regions_changed", Callable(_material.ptr(), "_update_regions"))) {
+		LOG(DEBUG, "Connecting regions_changed signal to _material->_update_regions()");
+		_storage->connect("regions_changed", Callable(_material.ptr(), "_update_regions"));
+	}
+	if (!_storage->is_connected("height_maps_changed", Callable(this, "update_aabbs"))) {
+		LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
+		_storage->connect("height_maps_changed", Callable(this, "update_aabbs"));
+	}
+
+	// Initialize the system
+	if (!_initialized && _is_inside_world && is_inside_tree()) {
+		_material->initialize(_storage->get_region_size());
+		_material->set_mesh_vertex_spacing(_mesh_vertex_spacing);
+		_storage->update_regions(true); // generate map arrays
+		_setup_mouse_picking();
+		_build(_mesh_lods, _mesh_size);
+		_initialized = true;
+	}
+	update_configuration_warnings();
+}
+
+void Ocean3D::__ready() {
+	set_notify_transform(true);
+	_initialize();
+	set_process(true);
+}
+
+/**
+ * This is a proxy for _process(delta) called by _notification() due to
+ * https://github.com/godotengine/godot-cpp/issues/1022
+ */
+void Ocean3D::__process(double delta) {
+	if (!_initialized)
+		return;
+
+	// If the game/editor camera is not set, find it
+	if (!UtilityFunctions::is_instance_valid(_camera)) {
+		LOG(DEBUG, "camera is null, getting the current one");
+		_grab_camera();
+	}
+
+	// If camera has moved enough, re-center the terrain on it.
+	if (UtilityFunctions::is_instance_valid(_camera) && _camera->is_inside_tree()) {
+		Vector3 cam_pos = _camera->get_global_position();
+		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
+		if (_camera_last_position.distance_to(cam_pos_2d) > 0.2f) {
+			snap(cam_pos);
+			_camera_last_position = cam_pos_2d;
+		}
+	}
+}
+
+void Ocean3D::_setup_mouse_picking() {
+	LOG(INFO, "Setting up mouse picker and get_intersection viewport, camera & screen quad");
+	_mouse_vp = memnew(SubViewport);
+	_mouse_vp->set_name("SubViewport");
+	add_child(_mouse_vp, true);
+	_mouse_vp->set_size(Vector2i(2, 2));
+	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	_mouse_vp->set_handle_input_locally(false);
+	_mouse_vp->set_canvas_cull_mask(0);
+	// DEPRECATED Enable in 4.2 and disable texture srgb->linear
+	//_mouse_vp->set_use_hdr_2d(true);
+	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+	_mouse_vp->set_positional_shadow_atlas_size(0);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(0, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(1, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(2, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(3, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+
+	_mouse_cam = memnew(Camera3D);
+	_mouse_cam->set_name("MouseCamera3D");
+	_mouse_vp->add_child(_mouse_cam, true);
+	Ref<Environment> env;
+	env.instantiate();
+	env->set_tonemapper(Environment::TONE_MAPPER_LINEAR);
+	_mouse_cam->set_environment(env);
+	_mouse_cam->set_projection(Camera3D::PROJECTION_ORTHOGONAL);
+	_mouse_cam->set_size(0.1f);
+	_mouse_cam->set_far(100000.f);
+
+	_mouse_quad = memnew(MeshInstance3D);
+	_mouse_quad->set_name("ScreenQuad");
+	_mouse_cam->add_child(_mouse_quad, true);
+	Ref<QuadMesh> quad;
+	quad.instantiate();
+	quad->set_size(Vector2(0.1f, 0.1f));
+	_mouse_quad->set_mesh(quad);
+	String shader_code = String(
+#include "shaders/gpu_depth.glsl"
+	);
+	Ref<Shader> shader;
+	shader.instantiate();
+	shader->set_code(shader_code);
+	Ref<ShaderMaterial> shader_material;
+	shader_material.instantiate();
+	shader_material->set_shader(shader);
+	_mouse_quad->set_surface_override_material(0, shader_material);
+	_mouse_quad->set_position(Vector3(0.f, 0.f, -0.5f));
+
+	// Set terrain, terrain shader, mouse camera, and screen quad to mouse layer
+	set_mouse_layer(_mouse_layer);
+}
+
+void Ocean3D::_destroy_mouse_picking() {
+	LOG(DEBUG, "Freeing mouse_quad");
+	memdelete_safely(_mouse_quad);
+	LOG(DEBUG, "Freeing mouse_cam");
+	memdelete_safely(_mouse_cam);
+	LOG(DEBUG, "memdelete mouse_vp");
+	memdelete_safely(_mouse_vp);
+	LOG(DEBUG, "finished");
+}
+
+/**
+ * If running in the editor, recurses into the editor scene tree to find the editor cameras and grabs the first one.
+ * The edited_scene_root is excluded in case the user already has a Camera3D in their scene.
+ */
+void Ocean3D::_grab_camera() {
+	if (Engine::get_singleton()->is_editor_hint()) {
+		EditorScript temp_editor_script;
+		EditorInterface *editor_interface = temp_editor_script.get_editor_interface();
+		TypedArray<Camera3D> cam_array = TypedArray<Camera3D>();
+		_find_cameras(editor_interface->get_editor_main_screen()->get_children(), editor_interface->get_edited_scene_root(), cam_array);
+		if (!cam_array.is_empty()) {
+			LOG(DEBUG, "Connecting to the first editor camera");
+			_camera = Object::cast_to<Camera3D>(cam_array[0]);
+		}
+	} else {
+		LOG(DEBUG, "Connecting to the in-game viewport camera");
+		_camera = get_viewport()->get_camera_3d();
+	}
+	if (!_camera) {
+		set_process(false);
+		LOG(ERROR, "Cannot find active camera. Stopping _process()");
+	}
+}
+
+/**
+ * Recursive helper function for _grab_camera().
+ * DEPRECATED - Remove when moving to 4.2 and use EditorInterface.get_editor_viewport_3d(i).get_camera_3d()
+ */
+void Ocean3D::_find_cameras(TypedArray<Node> from_nodes, Node *excluded_node, TypedArray<Camera3D> &cam_array) {
+	for (int i = 0; i < from_nodes.size(); i++) {
+		Node *node = Object::cast_to<Node>(from_nodes[i]);
+		if (node != excluded_node) {
+			_find_cameras(node->get_children(), excluded_node, cam_array);
+		}
+		if (node->is_class("Camera3D")) {
+			LOG(DEBUG, "Found a Camera3D at: ", node->get_path());
+			cam_array.push_back(node);
+		}
+	}
+}
+
+void Ocean3D::_clear(bool p_clear_meshes) {
+	LOG(INFO, "Clearing the terrain");
+	if (p_clear_meshes) {
+		for (const RID rid : _meshes) {
+			RS->free_rid(rid);
+		}
+		RS->free_rid(_data.cross);
+		for (const RID rid : _data.tiles) {
+			RS->free_rid(rid);
+		}
+		for (const RID rid : _data.fillers) {
+			RS->free_rid(rid);
+		}
+		for (const RID rid : _data.trims) {
+			RS->free_rid(rid);
+		}
+		for (const RID rid : _data.seams) {
+			RS->free_rid(rid);
+		}
+		for (const RID rid : _data.skirts) {
+			RS->free_rid(rid);
+		}
+
+		_meshes.clear();
+		_data.tiles.clear();
+		_data.fillers.clear();
+		_data.trims.clear();
+		_data.seams.clear();
+		_data.skirts.clear();
+		_initialized = false;
+	}
+}
+
+void Ocean3D::_build(int p_mesh_lods, int p_mesh_size) {
+	if (!is_inside_tree() || !_storage.is_valid()) {
+		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
+		return;
+	}
+	LOG(INFO, "Building the terrain meshes");
+
+	// Generate ocean meshes, lods, seams
+	_meshes = GeoClipMap::generate_ocean(p_mesh_size, p_mesh_lods);
+	ERR_FAIL_COND(_meshes.is_empty());
+
+	// Set the current terrain material on all meshes
+	RID material_rid = _material->get_material_rid();
+	for (const RID rid : _meshes) {
+		RS->mesh_surface_set_material(rid, 0, material_rid);
+	}
+
+	LOG(DEBUG, "Creating mesh instances");
+
+	// Get current visual scenario so the instances appear in the scene
+	RID scenario = get_world_3d()->get_scenario();
+
+	_data.cross = RS->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
+	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RS->instance_set_layer_mask(_data.cross, _render_layers);
+
+	for (int l = 0; l < p_mesh_lods; l++) {
+		for (int x = 0; x < 4; x++) {
+			for (int y = 0; y < 4; y++) {
+				if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
+					continue;
+				}
+
+				RID tile = RS->instance_create2(_meshes[GeoClipMap::TILE], scenario);
+				RS->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_shadow_casting));
+				RS->instance_set_layer_mask(tile, _render_layers);
+				_data.tiles.push_back(tile);
+
+				RID skirt = RS->instance_create2(_meshes[GeoClipMap::SKIRT], scenario);
+				RS->instance_geometry_set_cast_shadows_setting(skirt, RenderingServer::ShadowCastingSetting(_shadow_casting));
+				RS->instance_set_layer_mask(skirt, _render_layers);
+				_data.skirts.push_back(skirt);
+			}
+		}
+
+		RID filler = RS->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
+		RS->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(filler, _render_layers);
+		_data.fillers.push_back(filler);
+
+		if (l != p_mesh_lods - 1) {
+			RID trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
+			RS->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RS->instance_set_layer_mask(trim, _render_layers);
+			_data.trims.push_back(trim);
+
+			RID seam = RS->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
+			RS->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RS->instance_set_layer_mask(seam, _render_layers);
+			_data.seams.push_back(seam);
+		}
+	}
+
+	update_aabbs();
+	// Force a snap update
+	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
+}
+
+/**
+ * Make all mesh instances visible or not
+ * Update all mesh instances with the new world scenario so they appear
+ */
+void Ocean3D::_update_instances() {
+	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
+		return;
+	}
+
+	RID _scenario = get_world_3d()->get_scenario();
+
+	bool v = is_visible_in_tree();
+	RS->instance_set_visible(_data.cross, v);
+	RS->instance_set_scenario(_data.cross, _scenario);
+	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RS->instance_set_layer_mask(_data.cross, _render_layers);
+
+	for (const RID rid : _data.tiles) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+
+	for (const RID rid : _data.fillers) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+
+	for (const RID rid : _data.trims) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+
+	for (const RID rid : _data.seams) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+	for (const RID rid : _data.skirts) {
+		RS->instance_set_visible(rid, v);
+		RS->instance_set_scenario(rid, _scenario);
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_set_layer_mask(rid, _render_layers);
+	}
+}
+
+void Ocean3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Ocean3DStorage::HeightFilter p_filter, bool p_require_nav, AABB const &p_global_aabb) const {
+	ERR_FAIL_COND(!_storage.is_valid());
+	int32_t step = 1 << CLAMP(p_lod, 0, 8);
+
+	if (!p_global_aabb.has_volume()) {
+		int32_t region_size = (int)_storage->get_region_size();
+
+		TypedArray<Vector2i> region_offsets = _storage->get_region_offsets();
+		for (int r = 0; r < region_offsets.size(); ++r) {
+			Vector2i region_offset = (Vector2i)region_offsets[r] * region_size;
+
+			for (int32_t z = region_offset.y; z < region_offset.y + region_size; z += step) {
+				for (int32_t x = region_offset.x; x < region_offset.x + region_size; x += step) {
+					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
+				}
+			}
+		}
+	} else {
+		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z / _mesh_vertex_spacing);
+		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z / _mesh_vertex_spacing) + 1;
+		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x / _mesh_vertex_spacing);
+		int32_t x_end = (int32_t)Math::floor(p_global_aabb.get_end().x / _mesh_vertex_spacing) + 1;
+
+		for (int32_t z = z_start; z < z_end; ++z) {
+			for (int32_t x = x_start; x < x_end; ++x) {
+				real_t height = _storage->get_height(Vector3(x, 0.f, z));
+				if (height >= p_global_aabb.position.y && height <= p_global_aabb.get_end().y) {
+					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
+				}
+			}
+		}
+	}
+}
+
+void Ocean3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Ocean3DStorage::HeightFilter p_filter, bool p_require_nav, int32_t x, int32_t z) const {
+	int32_t step = 1 << CLAMP(p_lod, 0, 8);
+
+	Vector3 xz = Vector3(x, 0.0f, z) * _mesh_vertex_spacing;
+	Vector3 xsz = Vector3(x + step, 0.0f, z) * _mesh_vertex_spacing;
+	Vector3 xzs = Vector3(x, 0.0f, z + step) * _mesh_vertex_spacing;
+	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _mesh_vertex_spacing;
+
+	uint32_t control1 = _storage->get_control(xz);
+	uint32_t control2 = _storage->get_control(xszs);
+	uint32_t control3 = _storage->get_control(xzs);
+	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
+		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
+		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
+		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xzs);
+		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
+			p_vertices.push_back(v1);
+			p_vertices.push_back(v2);
+			p_vertices.push_back(v3);
+			if (p_uvs != nullptr) {
+				p_uvs->push_back(Vector2(v1.x, v1.z));
+				p_uvs->push_back(Vector2(v2.x, v2.z));
+				p_uvs->push_back(Vector2(v3.x, v3.z));
+			}
+		}
+	}
+
+	control1 = _storage->get_control(xz);
+	control2 = _storage->get_control(xsz);
+	control3 = _storage->get_control(xszs);
+	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
+		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
+		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xsz);
+		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
+		if (!UtilityFunctions::is_nan(v1.y) && !UtilityFunctions::is_nan(v2.y) && !UtilityFunctions::is_nan(v3.y)) {
+			p_vertices.push_back(v1);
+			p_vertices.push_back(v2);
+			p_vertices.push_back(v3);
+			if (p_uvs != nullptr) {
+				p_uvs->push_back(Vector2(v1.x, v1.z));
+				p_uvs->push_back(Vector2(v2.x, v2.z));
+				p_uvs->push_back(Vector2(v3.x, v3.z));
+			}
+		}
+	}
+}
+
+///////////////////////////
+// Public Functions
+///////////////////////////
+
+Ocean3D::Ocean3D() {
+	set_notify_transform(true);
+	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
+	for (int i = args.size() - 1; i >= 0; i--) {
+		String arg = args[i];
+		if (arg.begins_with("--terrain3d-debug=")) {
+			String value = arg.lstrip("--terrain3d-debug=");
+			if (value == "ERROR") {
+				set_debug_level(ERROR);
+			} else if (value == "INFO") {
+				set_debug_level(INFO);
+			} else if (value == "DEBUG") {
+				set_debug_level(DEBUG);
+			} else if (value == "DEBUG_CONT") {
+				set_debug_level(DEBUG_CONT);
+			}
+			break;
+		}
+	}
+}
+
+Ocean3D::~Ocean3D() {
+	// Do nothing
+}
+
+void Ocean3D::set_debug_level(int p_level) {
+	LOG(INFO, "Setting debug level: ", p_level);
+	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
+}
+
+void Ocean3D::set_mesh_lods(int p_count) {
+	if (_mesh_lods != p_count) {
+		LOG(INFO, "Setting mesh levels: ", p_count);
+		_mesh_lods = p_count;
+		_clear();
+		_initialize();
+	}
+}
+
+void Ocean3D::set_mesh_size(int p_size) {
+	if (_mesh_size != p_size) {
+		LOG(INFO, "Setting mesh size: ", p_size);
+		_mesh_size = p_size;
+		_clear();
+		_initialize();
+	}
+}
+
+void Ocean3D::set_sea_level(int level) {
+	if (sea_level != level) {
+		LOG(INFO, "Setting sea level: ", level);
+		sea_level = level;
+		_clear();
+		_initialize();
+	}
+}
+
+void Ocean3D::set_mesh_vertex_spacing(real_t p_spacing) {
+	p_spacing = CLAMP(p_spacing, 0.25f, 100.0f);
+	if (_mesh_vertex_spacing != p_spacing) {
+		LOG(INFO, "Setting mesh vertex spacing: ", p_spacing);
+		_mesh_vertex_spacing = p_spacing;
+		if (_storage != nullptr) {
+			// _storage->_mesh_vertex_spacing = p_spacing;
+		}
+		_clear();
+		_initialize();
+	}
+	if (Engine::get_singleton()->is_editor_hint() && _plugin != nullptr) {
+		_plugin->call("update_region_grid");
+	}
+}
+
+void Ocean3D::set_material(const Ref<Ocean3DMaterial> &p_material) {
+	if (_material != p_material) {
+		LOG(INFO, "Setting material");
+		_material = p_material;
+		_clear();
+		_initialize();
+		emit_signal("material_changed");
+	}
+}
+
+// This is run after the object has loaded and initialized
+void Ocean3D::set_storage(const Ref<Ocean3DStorage> &p_storage) {
+	if (_storage != p_storage) {
+		_storage = p_storage;
+		if (_storage.is_null()) {
+			LOG(INFO, "Clearing storage");
+		}
+		_clear();
+		_initialize();
+		emit_signal("storage_changed");
+	}
+}
+
+void Ocean3D::set_plugin(EditorPlugin *p_plugin) {
+	_plugin = p_plugin;
+	LOG(DEBUG, "Received editor plugin: ", p_plugin);
+}
+
+void Ocean3D::set_camera(Camera3D *p_camera) {
+	if (_camera != p_camera) {
+		_camera = p_camera;
+		if (p_camera == nullptr) {
+			LOG(DEBUG, "Received null camera. Calling _grab_camera");
+			_grab_camera();
+		} else {
+			LOG(DEBUG, "Setting camera: ", p_camera);
+			_camera = p_camera;
+		}
+	}
+}
+
+void Ocean3D::set_render_layers(uint32_t p_layers) {
+	LOG(INFO, "Setting terrain render layers to: ", p_layers);
+	_render_layers = p_layers;
+	_update_instances();
+}
+
+void Ocean3D::set_mouse_layer(uint32_t p_layer) {
+	p_layer = CLAMP(p_layer, 21, 32);
+	_mouse_layer = p_layer;
+	uint32_t mouse_mask = 1 << (_mouse_layer - 1);
+	LOG(INFO, "Setting mouse layer: ", p_layer, " (", mouse_mask, ") on terrain mesh, material, mouse camera, mouse quad");
+
+	// Set terrain meshes to mouse layer
+	// Mask off editor render layers by ORing user layers 1-20 and current mouse layer
+	set_render_layers((_render_layers & 0xFFFFF) | mouse_mask);
+	// Set terrain shader to exclude mouse camera from showing holes
+	if (_material != nullptr) {
+		_material->set_shader_param("_mouse_layer", mouse_mask);
+	}
+	// Set mouse camera to see only mouse layer
+	if (_mouse_cam != nullptr) {
+		_mouse_cam->set_cull_mask(mouse_mask);
+	}
+	// Set screenquad to mouse layer
+	if (_mouse_quad != nullptr) {
+		_mouse_quad->set_layer_mask(mouse_mask);
+	}
+}
+
+void Ocean3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting) {
+	_shadow_casting = p_shadow_casting;
+	_update_instances();
+}
+
+void Ocean3D::set_cull_margin(real_t p_margin) {
+	LOG(INFO, "Setting extra cull margin: ", p_margin);
+	_cull_margin = p_margin;
+	update_aabbs();
+}
+
+/**
+ * Centers the terrain and LODs on a provided position. Y height is ignored.
+ */
+void Ocean3D::snap(Vector3 p_cam_pos) {
+	p_cam_pos.y = 0;
+	LOG(DEBUG_CONT, "Snapping terrain to: ", String(p_cam_pos));
+
+	Vector3 snapped_pos = (p_cam_pos / _mesh_vertex_spacing).floor() * _mesh_vertex_spacing;
+	Transform3D t = Transform3D().scaled(Vector3(_mesh_vertex_spacing, 1, _mesh_vertex_spacing));
+	t.origin = snapped_pos;
+	RS->instance_set_transform(_data.cross, t);
+
+	int edge = 0;
+	int tile = 0;
+
+	for (int l = 0; l < _mesh_lods; l++) {
+		real_t scale = real_t(1 << l) * _mesh_vertex_spacing;
+		Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
+		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l)) * _mesh_vertex_spacing;
+		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
+
+		// Position tiles
+		for (int x = 0; x < 4; x++) {
+			for (int y = 0; y < 4; y++) {
+				if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
+					continue;
+				}
+
+				Vector3 fill = Vector3(x >= 2 ? 1.f : 0.f, 0.f, y >= 2 ? 1.f : 0.f) * scale;
+				Vector3 tile_tl = base + Vector3(x, 0.f, y) * tile_size + fill;
+				//Vector3 tile_br = tile_tl + tile_size;
+
+				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
+				t.origin = tile_tl;
+
+				RS->instance_set_transform(_data.tiles[tile], t);
+
+				tile++;
+			}
+		}
+		{
+			Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
+			t.origin = snapped_pos;
+			RS->instance_set_transform(_data.fillers[l], t);
+		}
+
+		if (l != _mesh_lods - 1) {
+			real_t next_scale = scale * 2.0f;
+			Vector3 next_snapped_pos = (p_cam_pos / next_scale).floor() * next_scale;
+
+			// Position trims
+			{
+				Vector3 tile_center = snapped_pos + (Vector3(scale, 0.f, scale) * 0.5f);
+				Vector3 d = p_cam_pos - next_snapped_pos;
+
+				int r = 0;
+				r |= d.x >= scale ? 0 : 2;
+				r |= d.z >= scale ? 0 : 1;
+
+				real_t rotations[4] = { 0.f, 270.f, 90.f, 180.f };
+
+				real_t angle = UtilityFunctions::deg_to_rad(rotations[r]);
+				Transform3D t = Transform3D().rotated(Vector3(0.f, 1.f, 0.f), -angle);
+				t = t.scaled(Vector3(scale, 1.f, scale));
+				t.origin = tile_center;
+				RS->instance_set_transform(_data.trims[edge], t);
+			}
+
+			// Position seams
+			{
+				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
+				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
+				t.origin = next_base;
+				RS->instance_set_transform(_data.seams[edge], t);
+			}
+			edge++;
+		}
+	}
+}
+
+void Ocean3D::update_aabbs() {
+	if (_meshes.is_empty() || _storage.is_null()) {
+		LOG(DEBUG, "Update AABB called before terrain meshes built. Returning.");
+		return;
+	}
+
+	Vector2 height_range = _storage->get_height_range();
+	LOG(DEBUG_CONT, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
+	height_range.y += abs(height_range.x); // Add below zero to total size
+
+	AABB aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
+	RS->instance_set_custom_aabb(_data.cross, aabb);
+	RS->instance_set_extra_visibility_margin(_data.cross, _cull_margin);
+
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TILE]);
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
+	for (int i = 0; i < _data.tiles.size(); i++) {
+		RS->instance_set_custom_aabb(_data.tiles[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.tiles[i], _cull_margin);
+	}
+
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::FILLER]);
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
+	for (int i = 0; i < _data.fillers.size(); i++) {
+		RS->instance_set_custom_aabb(_data.fillers[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.fillers[i], _cull_margin);
+	}
+
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TRIM]);
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
+	for (int i = 0; i < _data.trims.size(); i++) {
+		RS->instance_set_custom_aabb(_data.trims[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.trims[i], _cull_margin);
+	}
+
+	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::SEAM]);
+	aabb.position.y = height_range.x;
+	aabb.size.y = height_range.y;
+	for (int i = 0; i < _data.seams.size(); i++) {
+		RS->instance_set_custom_aabb(_data.seams[i], aabb);
+		RS->instance_set_extra_visibility_margin(_data.seams[i], _cull_margin);
+	}
+}
+
+/* Iterate over ground to find intersection point between two rays:
+ *	p_src_pos (camera position)
+ *	p_direction (camera direction looking at the terrain)
+ *	test_dir (camera direction 0 Y, traversing terrain along height
+ * Returns vec3(Double max 3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
+ */
+Vector3 Ocean3D::get_intersection(Vector3 p_src_pos, Vector3 p_direction) {
+	if (_camera == nullptr) {
+		LOG(ERROR, "Invalid camera");
+		return Vector3(NAN, NAN, NAN);
+	}
+	if (_mouse_cam == nullptr) {
+		LOG(ERROR, "Invalid mouse camera");
+		return Vector3(NAN, NAN, NAN);
+	}
+	p_direction.normalize();
+
+	Vector3 point;
+
+	// Position mouse cam one unit behind the requested position
+	_mouse_cam->set_global_position(p_src_pos - p_direction);
+
+	// If looking straight down (eg orthogonal camera), look_at won't work
+	if ((p_direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
+		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
+		point = p_src_pos;
+		point.y = _storage->get_height(p_src_pos);
+	} else {
+		// Get depth from perspective camera snapshot
+		_mouse_cam->look_at(_mouse_cam->get_global_position() + p_direction, Vector3(0.f, 1.f, 0.f));
+		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+		Ref<ViewportTexture> vp_tex = _mouse_vp->get_texture();
+		Ref<Image> vp_img = vp_tex->get_image();
+
+		// Read the depth pixel from the camera viewport
+		// DEPRECATED - remove srgb_to_linear and use HDR viewport for Godot 4.2 +
+		Color screen_depth = vp_img->get_pixel(0, 0).srgb_to_linear();
+
+		// Get position from depth packed in RG - unpack back to float.
+		// Needed for Mobile renderer
+		// https://gamedev.stackexchange.com/questions/201151/24bit-float-to-rgb
+		Vector2 screen_rg = Vector2(screen_depth.r, screen_depth.g);
+		real_t normalized_distance = screen_rg.dot(Vector2(1.f, 1.f / 255.f));
+		if (normalized_distance < 0.00001f) {
+			return Vector3(__FLT_MAX__, __FLT_MAX__, __FLT_MAX__);
+		}
+		// Necessary for a correct value depth = 1
+		if (normalized_distance > 0.9999f) {
+			normalized_distance = 1.0f;
+		}
+
+		// Denormalize distance to get real depth and terrain position
+		real_t depth = normalized_distance * _mouse_cam->get_far();
+		point = _mouse_cam->get_global_position() + p_direction * depth;
+	}
+
+	return point;
+}
+
+PackedStringArray Ocean3D::_get_configuration_warnings() const {
+	PackedStringArray psa;
+	if (_storage.is_valid()) {
+		String ext = _storage->get_path().get_extension();
+		if (ext.is_empty()) {
+			psa.push_back("Storage resource is saved in the scene. Click the arrow to the right of Storage, Save as a .res file.");
+		} else if (ext != "res") {
+			psa.push_back("Storage resource is saved as a ." + ext + ". Click the arrow to the right of Storage, Make Unique, then Save as a .res file.");
+		}
+	}
+	if (!psa.is_empty()) {
+		psa.push_back("Deselect Ocean3D and reselect in the Scene Tree to update this message.");
+	}
+	return psa;
+}
+
+///////////////////////////
+// Protected Functions
+///////////////////////////
+
+void Ocean3D::_notification(int p_what) {
+	switch (p_what) {
+		case NOTIFICATION_READY: {
+			LOG(INFO, "NOTIFICATION_READY");
+			__ready();
+			break;
+		}
+
+		case NOTIFICATION_PROCESS: {
+			__process(get_process_delta_time());
+			break;
+		}
+
+		case NOTIFICATION_PREDELETE: {
+			LOG(INFO, "NOTIFICATION_PREDELETE");
+			_clear();
+			break;
+		}
+
+		case NOTIFICATION_ENTER_TREE: {
+			LOG(INFO, "NOTIFICATION_ENTER_TREE");
+			_initialize();
+			break;
+		}
+
+		case NOTIFICATION_EXIT_TREE: {
+			LOG(INFO, "NOTIFICATION_EXIT_TREE");
+			_clear();
+			_destroy_mouse_picking();
+			break;
+		}
+
+		case NOTIFICATION_ENTER_WORLD: {
+			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
+			_is_inside_world = true;
+			_update_instances();
+			break;
+		}
+
+		case NOTIFICATION_TRANSFORM_CHANGED: {
+			//LOG(INFO, "NOTIFICATION_TRANSFORM_CHANGED");
+			break;
+		}
+
+		case NOTIFICATION_EXIT_WORLD: {
+			LOG(INFO, "NOTIFICATION_EXIT_WORLD");
+			_is_inside_world = false;
+			break;
+		}
+
+		case NOTIFICATION_VISIBILITY_CHANGED: {
+			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
+			_update_instances();
+			break;
+		}
+
+		case NOTIFICATION_EDITOR_PRE_SAVE: {
+			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
+			if (!_storage.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
+			} else {
+				_storage->save();
+			}
+			if (!_material.is_valid()) {
+				LOG(DEBUG, "Save requested, but no valid material. Skipping");
+			} else {
+				_material->save();
+			}
+			break;
+		}
+
+		case NOTIFICATION_EDITOR_POST_SAVE: {
+			//LOG(INFO, "NOTIFICATION_EDITOR_POST_SAVE");
+			break;
+		}
+	}
+}
+
+void Ocean3D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("get_version"), &Ocean3D::get_version);
+	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Ocean3D::set_debug_level);
+	ClassDB::bind_method(D_METHOD("get_debug_level"), &Ocean3D::get_debug_level);
+	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Ocean3D::set_mesh_lods);
+	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Ocean3D::get_mesh_lods);
+	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Ocean3D::set_mesh_size);
+	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Ocean3D::get_mesh_size);
+	ClassDB::bind_method(D_METHOD("get_sea_level"), &Ocean3D::get_sea_level);
+	ClassDB::bind_method(D_METHOD("set_sea_level"), &Ocean3D::set_sea_level);
+	ClassDB::bind_method(D_METHOD("set_mesh_vertex_spacing", "scale"), &Ocean3D::set_mesh_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("get_mesh_vertex_spacing"), &Ocean3D::get_mesh_vertex_spacing);
+
+	ClassDB::bind_method(D_METHOD("set_material", "material"), &Ocean3D::set_material);
+	ClassDB::bind_method(D_METHOD("get_material"), &Ocean3D::get_material);
+	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Ocean3D::set_storage);
+	ClassDB::bind_method(D_METHOD("get_storage"), &Ocean3D::get_storage);
+
+	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Ocean3D::set_plugin);
+	ClassDB::bind_method(D_METHOD("get_plugin"), &Ocean3D::get_plugin);
+	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Ocean3D::set_camera);
+	ClassDB::bind_method(D_METHOD("get_camera"), &Ocean3D::get_camera);
+
+	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Ocean3D::set_render_layers);
+	ClassDB::bind_method(D_METHOD("get_render_layers"), &Ocean3D::get_render_layers);
+	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Ocean3D::set_mouse_layer);
+	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Ocean3D::get_mouse_layer);
+	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Ocean3D::set_cast_shadows);
+	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Ocean3D::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Ocean3D::set_cull_margin);
+	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Ocean3D::get_cull_margin);
+
+	// Expose 'update_aabbs' so it can be used in Callable. Not ideal.
+	ClassDB::bind_method(D_METHOD("update_aabbs"), &Ocean3D::update_aabbs);
+	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Ocean3D::get_intersection);
+
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "sea_level", PROPERTY_HINT_RANGE, "0, 10000 , 1 , or_greater"), "set_sea_level", "get_sea_level");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Ocean3DStorage"), "set_storage", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Ocean3DMaterial"), "set_material", "get_material");
+
+	ADD_GROUP("Renderer", "render_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "render_cull_margin", PROPERTY_HINT_RANGE, "0, 10000, 1, or_greater"), "set_cull_margin", "get_cull_margin");
+
+	ADD_GROUP("Mesh", "mesh_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "mesh_vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_mesh_vertex_spacing", "get_mesh_vertex_spacing");
+
+	ADD_GROUP("Debug", "debug_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
+
+	ADD_SIGNAL(MethodInfo("material_changed"));
+	ADD_SIGNAL(MethodInfo("storage_changed"));
+}

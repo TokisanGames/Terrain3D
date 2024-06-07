@@ -5,6 +5,7 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
+#include "ocean_3d.h"
 #include "register_types.h"
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
@@ -22,6 +23,9 @@ void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DTexture>();
 	ClassDB::register_class<Terrain3DTextureList>();
 	ClassDB::register_class<Terrain3DUtil>();
+	ClassDB::register_class<Ocean3D>();
+	ClassDB::register_class<Ocean3DMaterial>();
+	ClassDB::register_class<Ocean3DStorage>();
 }
 
 void uninitialize_terrain_3d(ModuleInitializationLevel p_level) {

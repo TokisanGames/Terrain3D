@@ -151,7 +151,9 @@
     <ClInclude Include="src\terrain_3d_storage.h" />
     <ClInclude Include="src\terrain_3d_texture.h" />
     <ClInclude Include="src\terrain_3d_texture_list.h" />
-    <ClInclude Include="src\ocean_clipmap.h" />
+    <ClInclude Include="src\ocean_3d.h" />
+    <ClInclude Include="src\ocean_3d_storage.h" />
+    <ClInclude Include="src\ocean_3d_material.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\generated_texture.cpp" />
@@ -164,7 +166,9 @@
     <ClCompile Include="src\terrain_3d_texture.cpp" />
     <ClCompile Include="src\terrain_3d_texture_list.cpp" />
     <ClCompile Include="src\terrain_3d_util.cpp" />
-    <ClCompile Include="src\ocean_clipmap.cpp" />
+    <ClInclude Include="src\ocean_3d.cpp" />
+    <ClInclude Include="src\ocean_3d_storage.cpp" />
+    <ClInclude Include="src\ocean_3d_material.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".github\actions\base-deps\action.yml" />
