@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bump6ax7j3rp1"
-path="res://.godot/imported/icon_color.svg-b5b52e67ad2f610c27688c5daeb9cd1c.ctex"
+uid="uid://krrmpalen8xu"
+path="res://.godot/imported/color_paint.svg-2a416ebf35da04135017e5c6ef53ea57.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://addons/terrain_3d/icons/icon_color.svg"
-dest_files=["res://.godot/imported/icon_color.svg-b5b52e67ad2f610c27688c5daeb9cd1c.ctex"]
+source_file="res://addons/terrain_3d/icons/color_paint.svg"
+dest_files=["res://.godot/imported/color_paint.svg-2a416ebf35da04135017e5c6ef53ea57.ctex"]
 
 [params]
 

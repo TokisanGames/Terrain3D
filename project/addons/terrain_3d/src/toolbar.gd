@@ -3,22 +3,22 @@ extends VBoxContainer
 	
 signal tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation)
 
-const ICON_REGION_ADD: String = "res://addons/terrain_3d/icons/icon_map_add.svg"
-const ICON_REGION_REMOVE: String = "res://addons/terrain_3d/icons/icon_map_remove.svg"
-const ICON_HEIGHT_ADD: String = "res://addons/terrain_3d/icons/icon_height_add.svg"
-const ICON_HEIGHT_SUB: String = "res://addons/terrain_3d/icons/icon_height_sub.svg"
-const ICON_HEIGHT_MUL: String = "res://addons/terrain_3d/icons/icon_height_mul.svg"
-const ICON_HEIGHT_DIV: String = "res://addons/terrain_3d/icons/icon_height_div.svg"
-const ICON_HEIGHT_FLAT: String = "res://addons/terrain_3d/icons/icon_height_flat.svg"
-const ICON_HEIGHT_SLOPE: String = "res://addons/terrain_3d/icons/icon_height_slope.svg"
-const ICON_HEIGHT_SMOOTH: String = "res://addons/terrain_3d/icons/icon_height_smooth.svg"
-const ICON_PAINT_TEXTURE: String = "res://addons/terrain_3d/icons/icon_brush.svg"
-const ICON_SPRAY_TEXTURE: String = "res://addons/terrain_3d/icons/icon_spray.svg"
-const ICON_COLOR: String = "res://addons/terrain_3d/icons/icon_color.svg"
-const ICON_WETNESS: String = "res://addons/terrain_3d/icons/icon_wetness.svg"
-const ICON_AUTOSHADER: String = "res://addons/terrain_3d/icons/icon_terrain_material.svg"
-const ICON_HOLES: String = "res://addons/terrain_3d/icons/icon_holes.svg"
-const ICON_NAVIGATION: String = "res://addons/terrain_3d/icons/icon_navigation.svg"
+const ICON_REGION_ADD: String = "res://addons/terrain_3d/icons/region_add.svg"
+const ICON_REGION_REMOVE: String = "res://addons/terrain_3d/icons/region_remove.svg"
+const ICON_HEIGHT_ADD: String = "res://addons/terrain_3d/icons/height_add.svg"
+const ICON_HEIGHT_SUB: String = "res://addons/terrain_3d/icons/height_sub.svg"
+const ICON_HEIGHT_MUL: String = "res://addons/terrain_3d/icons/height_mul.svg"
+const ICON_HEIGHT_DIV: String = "res://addons/terrain_3d/icons/height_div.svg"
+const ICON_HEIGHT_FLAT: String = "res://addons/terrain_3d/icons/height_flat.svg"
+const ICON_HEIGHT_SLOPE: String = "res://addons/terrain_3d/icons/height_slope.svg"
+const ICON_HEIGHT_SMOOTH: String = "res://addons/terrain_3d/icons/height_smooth.svg"
+const ICON_PAINT_TEXTURE: String = "res://addons/terrain_3d/icons/texture_paint.svg"
+const ICON_SPRAY_TEXTURE: String = "res://addons/terrain_3d/icons/texture_spray.svg"
+const ICON_COLOR: String = "res://addons/terrain_3d/icons/color_paint.svg"
+const ICON_WETNESS: String = "res://addons/terrain_3d/icons/wetness.svg"
+const ICON_AUTOSHADER: String = "res://addons/terrain_3d/icons/autoshader.svg"
+const ICON_HOLES: String = "res://addons/terrain_3d/icons/holes.svg"
+const ICON_NAVIGATION: String = "res://addons/terrain_3d/icons/navigation.svg"
 
 var tool_group: ButtonGroup = ButtonGroup.new()
 

@@ -23,7 +23,7 @@ enum SettingType {
 const MultiPicker: Script = preload("res://addons/terrain_3d/src/multi_picker.gd")
 const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain_3d/brushes"
-const PICKER_ICON: String = "res://addons/terrain_3d/icons/icon_picker.svg"
+const PICKER_ICON: String = "res://addons/terrain_3d/icons/picker.svg"
 
 # Add settings flags
 const NONE: int = 0x0

@@ -3,6 +3,10 @@
 entry_symbol = "terrain_3d_init"
 compatibility_minimum = 4.2
 
+[icons]
+
+Terrain3D = "res://addons/terrain_3d/icons/terrain3d.svg"
+
 [libraries]
 
 windows.debug.x86_64 = "res://addons/terrain_3d/bin/libterrain.windows.debug.x86_64.dll"

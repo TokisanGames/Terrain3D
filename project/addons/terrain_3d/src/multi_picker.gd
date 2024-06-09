@@ -5,8 +5,8 @@ signal pressed
 signal value_changed
 
 
-const ICON_PICKER: String = "res://addons/terrain_3d/icons/icon_picker.svg"
-const ICON_PICKER_CHECKED: String = "res://addons/terrain_3d/icons/icon_picker_checked.svg"
+const ICON_PICKER: String = "res://addons/terrain_3d/icons/picker.svg"
+const ICON_PICKER_CHECKED: String = "res://addons/terrain_3d/icons/picker_checked.svg"
 const MAX_POINTS: int = 2
 
 

@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://hsoj3vbpdg6d"
-path="res://.godot/imported/icon_terrain_material.svg-ea0cde03d29920e042a4043982714cbe.ctex"
+uid="uid://c0tn453fsckv5"
+path="res://.godot/imported/region_add.svg-a05dc161a452dd3e024f9835a737d9f0.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://addons/terrain_3d/icons/icon_terrain_material.svg"
-dest_files=["res://.godot/imported/icon_terrain_material.svg-ea0cde03d29920e042a4043982714cbe.ctex"]
+source_file="res://addons/terrain_3d/icons/region_add.svg"
+dest_files=["res://.godot/imported/region_add.svg-a05dc161a452dd3e024f9835a737d9f0.ctex"]
 
 [params]
 

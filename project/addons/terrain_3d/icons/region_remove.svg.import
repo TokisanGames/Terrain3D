@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cidqhk7wrkcl7"
-path="res://.godot/imported/icon_wetness.svg-6c67b1e4e9435c1aa106bee56f000e06.ctex"
+uid="uid://cbpo5eamf3bx2"
+path="res://.godot/imported/region_remove.svg-5710e8aeb34f1eaa06e637634f4a7d16.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://addons/terrain_3d/icons/icon_wetness.svg"
-dest_files=["res://.godot/imported/icon_wetness.svg-6c67b1e4e9435c1aa106bee56f000e06.ctex"]
+source_file="res://addons/terrain_3d/icons/region_remove.svg"
+dest_files=["res://.godot/imported/region_remove.svg-5710e8aeb34f1eaa06e637634f4a7d16.ctex"]
 
 [params]
 

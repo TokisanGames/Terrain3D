@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://4qj0x1rs0a83"
-path="res://.godot/imported/icon_holes.svg-fadd8eef4df4cdc393621d5ff25aa8e3.ctex"
+uid="uid://chrbx4xnxyiel"
+path="res://.godot/imported/height_smooth.svg-d8fc43572f5984eef64c886a49988c06.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://addons/terrain_3d/icons/icon_holes.svg"
-dest_files=["res://.godot/imported/icon_holes.svg-fadd8eef4df4cdc393621d5ff25aa8e3.ctex"]
+source_file="res://addons/terrain_3d/icons/height_smooth.svg"
+dest_files=["res://.godot/imported/height_smooth.svg-d8fc43572f5984eef64c886a49988c06.ctex"]
 
 [params]
 
