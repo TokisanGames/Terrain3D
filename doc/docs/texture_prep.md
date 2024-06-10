@@ -177,19 +177,17 @@ There are numerous websites where you can download high quality, royalty free te
 
 ## FAQ
 
-### Why can't we just use regular textures? Why is this so difficult / impossible to do?
-
-Channel packing is a very common task done by professional game developers. Every pro asset pack you've used has channel packed textures. When you download texture packs from websites, they provide individual textures so you can pack them how you want. They are not intended to be used individually!
+### Why do we have to channel pack textures? Why is this so difficult?
 
 Regular textures are now supported from v0.9.1. However if you want a realistic terrain with height blending and roughness, you need to channel pack textures.
 
-There is now a Pack Textures tool built in, found in the Terrain3D Tools menu at the top of the viewport that facilitate the texture creation process.
+Channel packing is a very common task done by professional game developers. Every pro asset pack you've used has channel packed textures. When you download texture packs from websites, they provide individual textures so you can pack them how you want. They are not intended to be used individually!
 
-Finally, we provide easy, [5-step instructions for packing textures with Gimp](#channel-pack-textures-with-gimp) which take less than 2 minutes once you're familiar with the process. 
+We offer a built in `Pack Textures` tool, found in the Terrain3D Tools menu at the top of the viewport that facilitates the texture creation process within Godot.
 
-We want high performance games, right? Then, we need to optimize our systems for the graphics hardware. A shader can retrieve four channels RGBA from a texture at once. Albedo and normal textures only have RGB. Thus, reading Alpha is free, and a waste if not used. So, we put height / roughness in the Alpha channel.
+Finally, we provide easy, 5-step instructions for packing textures with Gimp, which takes less than 2 minutes once you're familiar with the process. 
 
-Efficiency is also why we want textures sized in powers of 2.
+We want high performance games, so we need to optimize our systems for the graphics hardware. A shader can retrieve four channels RGBA from a texture at once. Albedo and normal textures only have RGB. Thus, reading Alpha is free, and a waste if not used. So, we put height / roughness in the Alpha channel.
 
 We could have the system channel pack for you at startup, however that would mean processing up to 128 images every time any scene with Terrain3D loads, both in the editor and running games. Exported games may not even work since Godot's image compression libraries only exist in the editor. The most reasonable path is for gamedevs to learn a simple process that they'll use for their entire career and use it to set up terrain textures one time.
 
