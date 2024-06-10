@@ -187,7 +187,7 @@ void Terrain3DAssets::_update_texture_files() {
 			if (albedo_size.length() == 0.0) {
 				albedo_size = tex_size;
 			} else if (tex_size != albedo_size) {
-				LOG(ERROR, "Texture ID ", i, " albedo size: ", tex_size, " doesn't match first texture: ", albedo_size);
+				LOG(ERROR, "Texture ID ", i, " albedo size: ", tex_size, " doesn't match size of first texture: ", albedo_size, ". They must be identical. Read Texture Prep in docs.");
 				return;
 			}
 			Ref<Image> img = albedo_tex->get_image();
@@ -196,7 +196,7 @@ void Terrain3DAssets::_update_texture_files() {
 				albedo_format = format;
 				albedo_mipmaps = img->has_mipmaps();
 			} else if (format != albedo_format) {
-				LOG(ERROR, "Texture ID ", i, " albedo format: ", format, " doesn't match first texture: ", albedo_format);
+				LOG(ERROR, "Texture ID ", i, " albedo format: ", format, " doesn't match format of first texture: ", albedo_format, ". They must be identical. Read Texture Prep in docs.");
 				return;
 			}
 		}
@@ -205,7 +205,7 @@ void Terrain3DAssets::_update_texture_files() {
 			if (normal_size.length() == 0.0) {
 				normal_size = tex_size;
 			} else if (tex_size != normal_size) {
-				LOG(ERROR, "Texture ID ", i, " normal size: ", tex_size, " doesn't match first texture: ", normal_size);
+				LOG(ERROR, "Texture ID ", i, " normal size: ", tex_size, " doesn't match size of first texture: ", normal_size, ". They must be identical. Read Texture Prep in docs.");
 				return;
 			}
 			Ref<Image> img = normal_tex->get_image();
@@ -214,7 +214,7 @@ void Terrain3DAssets::_update_texture_files() {
 				normal_format = format;
 				normal_mipmaps = img->has_mipmaps();
 			} else if (format != normal_format) {
-				LOG(ERROR, "Texture ID ", i, " normal format: ", format, " doesn't match first texture: ", normal_format);
+				LOG(ERROR, "Texture ID ", i, " normal format: ", format, " doesn't match format of first texture: ", normal_format, ". They must be identical. Read Texture Prep in docs.");
 				return;
 			}
 		}
