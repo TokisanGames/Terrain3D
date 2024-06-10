@@ -3,11 +3,10 @@
 
 Terrain3D supports up to 32 texture sets using albedo, height, normal, and roughness textures. This page describes everything you need to know to prepare your texture files. Continue on to [Texture Painting](texture_painting.md) to learn how to use them.
 
-TLDR: Read the Texture Requirements, then use Terrain3D Tools / Pack Textures tool in the menu at the top of the viewport.
-
 **Table of Contents**
 * [Texture Requirements](#texture-requirements)
 * [Texture Content](#texture-content)
+* [Channel Pack Textures in Terrain3D](#channel-pack-textures-in-terrain3d)
 * [Channel Pack Textures with Gimp](#channel-pack-textures-with-gimp)
 * [Where to Get Textures](#where-to-get-textures)
 * [Frequently Asked Questions](#faq)
@@ -100,6 +99,24 @@ Natural textures like rock or grass can be very difficult to tell. However if yo
 Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting the image.
 
 You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values are near 0 and should appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite. 
+
+
+## Channel Pack Textures in Terrain3D
+
+You can use our built in tool to pack textures for you.
+
+1. At the top of your viewport, click the `Terrain3D Tools` menu, then `Pack Textures`.
+2. Select your textures for albedo and height.
+3. Optionally, also select textures for normal and roughness.
+4. Optionally, convert a DirectX normal map to OpenGL.
+5. Click `Pack Textures As...` and save the resulting PNG files to disk.
+6. Go to the Import tab and one at a time, select your new PNG files, specify the following settings and click `reimport`. 
+	* `Mode: VRAM Compressed`
+	* Optional: `High Quality: On` if you wish BPTC instead of DXT5.
+	* `Normal Map: Disabled`
+	* `Mipmaps Generate: On`
+
+Make sure to reimport both files. Double click each file in the filesystem and ensure the inspector reveals the expected format and size. All of the files you put in your texture list must match.
 
 
 ## Channel Pack Textures with Gimp
