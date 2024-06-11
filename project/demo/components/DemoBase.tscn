@@ -1,11 +1,10 @@
-[gd_scene load_steps=12 format=3 uid="uid://dyt8c2xqmddo2"]
+[gd_scene load_steps=11 format=3 uid="uid://dyt8c2xqmddo2"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="2_2yeq8"]
 [ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_cw38j"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="3_ht63y"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="4_gk532"]
-[ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
 [ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="7_mnexy"]
 
 [sub_resource type="Gradient" id="Gradient_vs32v"]
@@ -41,7 +40,8 @@ _shader_parameters = {
 "noise1_scale": 0.05,
 "noise2_scale": 0.03,
 "noise3_scale": 0.01,
-"noise_texture": SubResource("NoiseTexture2D_pvx8q")
+"noise_texture": SubResource("NoiseTexture2D_pvx8q"),
+"vertex_normals_distance": 128.0
 }
 
 [node name="Demo" type="Node"]
@@ -58,7 +58,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 0, 512)
 transform = Transform3D(0.134125, 0, -0.990965, 0, 1, 0, 0.990965, 0, 0.134125, 568, 85, -1926)
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
-storage = ExtResource("5_sl43a")
+data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_q2wt2")
 assets = ExtResource("7_mnexy")
 collision_mask = 3
+top_level = true
+metadata/_edit_lock_ = true
