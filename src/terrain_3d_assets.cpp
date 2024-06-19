@@ -371,9 +371,11 @@ Terrain3DAssets::~Terrain3DAssets() {
 }
 
 void Terrain3DAssets::set_texture(int p_id, const Ref<Terrain3DTextureAsset> &p_texture) {
-	LOG(INFO, "Setting texture id: ", p_id);
-	_set_asset(TYPE_TEXTURE, p_id, p_texture);
-	update_texture_list();
+	if (_texture_list.is_empty() || p_texture != _texture_list[p_id]) {
+		LOG(INFO, "Setting texture id: ", p_id);
+		_set_asset(TYPE_TEXTURE, p_id, p_texture);
+		update_texture_list();
+	}
 }
 
 void Terrain3DAssets::set_texture_list(const TypedArray<Terrain3DTextureAsset> &p_texture_list) {
