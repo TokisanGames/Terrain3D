@@ -35,12 +35,6 @@
 				Returns the camera the terrain is currently snapping to.
 			</description>
 		</method>
-		<method name="get_instancer">
-			<return type="Terrain3DInstancer" />
-			<description>
-				Returns the active [Terrain3DInstancer] object.
-			</description>
-		</method>
 		<method name="get_intersection">
 			<return type="Vector3" />
 			<param index="0" name="src_pos" type="Vector3" />
@@ -98,6 +92,9 @@
 		</member>
 		<member name="debug_show_collision" type="bool" setter="set_show_debug_collision" getter="get_show_debug_collision" default="false">
 			If collision is enabled, this generates collision in the editor and in game. It can be visible in the editor by enabling [code skip-lint]View Gizmos[/code] in the viewport menu.
+		</member>
+		<member name="instancer" type="Terrain3DInstancer" setter="" getter="get_instancer">
+			The active [Terrain3DInstancer] object.
 		</member>
 		<member name="material" type="Terrain3DMaterial" setter="set_material" getter="get_material">
 			A custom material for Terrain3D. You can optionally save this as an external [code skip-lint].tres[/code] text file if you wish to share it with instances of Terrain3D in other scenes. See [Terrain3DMaterial].

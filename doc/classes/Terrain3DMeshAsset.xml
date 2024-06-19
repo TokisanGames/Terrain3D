@@ -44,11 +44,11 @@
 		</method>
 	</methods>
 	<members>
-		<member name="generated" type="bool" setter="set_is_generated" getter="get_is_generated" default="false">
-			Set this mesh asset to a generated QuadMesh to be used as a texture card.
-		</member>
 		<member name="generated_size" type="Vector2" setter="set_generated_size" getter="get_generated_size" default="Vector2(1, 1)">
 			Sets the base size of the QuadMesh texture card.
+		</member>
+		<member name="generated_type" type="int" setter="set_generated_type" getter="get_generated_type" enum="Terrain3DMeshAsset.GenType" default="0">
+			Set this mesh asset to a generated QuadMesh to be used as a texture card.
 		</member>
 		<member name="height_offset" type="float" setter="set_height_offset" getter="get_height_offset" default="0.0">
 			Vertically offset the origin point of a mesh asset. You can also set this when painting.
@@ -83,4 +83,13 @@
 			</description>
 		</signal>
 	</signals>
+	<constants>
+		<constant name="TYPE_NONE" value="0" enum="GenType">
+		</constant>
+		<constant name="TYPE_TEXTURE_CARD" value="1" enum="GenType">
+			Generate a QuadMesh to be used as a texture card.
+		</constant>
+		<constant name="TYPE_MAX" value="2" enum="GenType">
+		</constant>
+	</constants>
 </class>

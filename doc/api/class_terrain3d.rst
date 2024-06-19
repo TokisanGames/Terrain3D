@@ -44,6 +44,8 @@ Properties
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`bool<class_bool>`                                                   | :ref:`debug_show_collision<class_Terrain3D_property_debug_show_collision>` | ``false``       |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DInstancer<class_Terrain3DInstancer>`                       | :ref:`instancer<class_Terrain3D_property_instancer>`                       |                 |
+   +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DMaterial<class_Terrain3DMaterial>`                         | :ref:`material<class_Terrain3D_property_material>`                         |                 |
    +---------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`int<class_int>`                                                     | :ref:`mesh_lods<class_Terrain3D_property_mesh_lods>`                       | ``7``           |
@@ -81,8 +83,6 @@ Methods
    | :ref:`PackedVector3Array<class_PackedVector3Array>` | :ref:`generate_nav_mesh_source_geometry<class_Terrain3D_method_generate_nav_mesh_source_geometry>`\ (\ global_aabb\: :ref:`AABB<class_AABB>`, require_nav\: :ref:`bool<class_bool>` = true\ ) |
    +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Camera3D<class_Camera3D>`                     | :ref:`get_camera<class_Terrain3D_method_get_camera>`\ (\ )                                                                                                                                    |
-   +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` | :ref:`get_instancer<class_Terrain3D_method_get_instancer>`\ (\ )                                                                                                                              |
    +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Vector3<class_Vector3>`                       | :ref:`get_intersection<class_Terrain3D_method_get_intersection>`\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`\ )                                    |
    +-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -257,6 +257,22 @@ The verbosity of debug messages printed to the console. Errors and warnings are 
 - :ref:`bool<class_bool>` **get_show_debug_collision**\ (\ )
 
 If collision is enabled, this generates collision in the editor and in game. It can be visible in the editor by enabling ``View Gizmos`` in the viewport menu.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_instancer:
+
+.. rst-class:: classref-property
+
+:ref:`Terrain3DInstancer<class_Terrain3DInstancer>` **instancer**
+
+.. rst-class:: classref-property-setget
+
+- :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` **get_instancer**\ (\ )
+
+The active :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` object.
 
 .. rst-class:: classref-item-separator
 
@@ -504,18 +520,6 @@ Generates source geometry faces for input to nav mesh baking. Geometry is only g
 :ref:`Camera3D<class_Camera3D>` **get_camera**\ (\ )
 
 Returns the camera the terrain is currently snapping to.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_method_get_instancer:
-
-.. rst-class:: classref-method
-
-:ref:`Terrain3DInstancer<class_Terrain3DInstancer>` **get_instancer**\ (\ )
-
-Returns the active :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` object.
 
 .. rst-class:: classref-item-separator
 

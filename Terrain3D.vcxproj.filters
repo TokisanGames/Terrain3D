@@ -208,6 +208,9 @@
     <None Include="doc\docs\misc.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\docs\instancer.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -297,6 +300,12 @@
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DTextureList.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DMeshAsset.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DTexture.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
   </ItemGroup>

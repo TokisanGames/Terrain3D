@@ -91,6 +91,7 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    docs/texture_prep
    docs/texture_painting
    docs/import_export
+   docs/instancer
    docs/tips
    docs/troubleshooting
    docs/getting_help
