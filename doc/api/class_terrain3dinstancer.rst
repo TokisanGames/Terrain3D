@@ -17,11 +17,27 @@ Terrain3DInstancer
 Description
 -----------
 
-This class paints mesh instances into MultiMeshInstance3Ds.
+This class places mesh instances into MultiMeshInstance3Ds. When providing a scene file, currently only the first mesh found is used. LODs will be supported later. Multimeshes only support one mesh object, so complex objects like tree trunks and leaves, or a door frame and door either need to be combined into one object with multiple materials, or placed by another method. Read the `Godot MultiMesh docs <https://docs.godotengine.org/en/stable/classes/class_multimesh.html>`__ for more information.
 
-Data is currently stored as MultiMeshes in :ref:`Terrain3DStorage.multimeshes<class_Terrain3DStorage_property_multimeshes>`, per region offset, per mesh type. These MultiMeshes are loaded into MultiMeshInstances, which are attached to the scene tree and managed by this class.
+Data is currently stored in MultiMeshes within a Dictionary :ref:`Terrain3DStorage.multimeshes<class_Terrain3DStorage_property_multimeshes>`, per region offset, per mesh type. These MultiMeshes are loaded into MultiMeshInstances, which are attached to the scene tree and managed by this class.
 
-The Terrain3DEditor passes along raw tool settings which are interpretted directly here during placement.
+The methods available for adding instances are:
+
+\* :ref:`add_instances<class_Terrain3DInstancer_method_add_instances>` - A feature rich function built for hand editing via Terrain3DEditor.
+
+\* :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>` - Accepts your list of transforms and parses them into our storage system.
+
+\* Creating your own MultiMesh resources and inserting them directly into the :ref:`Terrain3DStorage.multimeshes<class_Terrain3DStorage_property_multimeshes>` dictionary. It's not difficult to do this in GDScript, but a thorough understanding of the C++ code in this class is recommended. Specifically look at `update_multimesh()`.
+
+The methods available for removing instances are:
+
+\* :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>` - Like add_instances, this is can be used programmatically but is designed for hand editing.
+
+\* :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`, :ref:`clear_by_region_id<class_Terrain3DInstancer_method_clear_by_region_id>`, :ref:`clear_by_offset<class_Terrain3DInstancer_method_clear_by_offset>` - To erase large sections of instances
+
+\* ``storage.set_multimeshes(Dictionary())`` - This will erase all instancer data and destroy all MultiMeshInstances. Run it in a @tool script to clear the data within the editor.
+
+Note: one caveat about editing MultiMeshes is the instance count cannot be changed after creation. Should you wish to remove 50% of the transforms, you would need to make a new MultiMesh, copy over the mesh and settings, copy the 50% of the transforms you wish to keep, and assign it to the MultiMeshInstance3D. That is how the instancer updates the MMIs in C++.
 
 .. rst-class:: classref-reftable-group
 
@@ -31,17 +47,19 @@ Methods
 .. table::
    :widths: auto
 
-   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`add_instances<class_Terrain3DInstancer_method_add_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )       |
-   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`\ (\ mesh_id\: :ref:`int<class_int>`\ )                                                                     |
-   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`clear_by_offset<class_Terrain3DInstancer_method_clear_by_offset>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`\ )                |
-   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`clear_by_region_id<class_Terrain3DInstancer_method_clear_by_region_id>`\ (\ region_id\: :ref:`int<class_int>`, mesh_id\: :ref:`int<class_int>`\ )                        |
-   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ ) |
-   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`add_instances<class_Terrain3DInstancer_method_add_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )                                                                                            |
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>`\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ ) |
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`\ (\ mesh_id\: :ref:`int<class_int>`\ )                                                                                                                                                          |
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`clear_by_offset<class_Terrain3DInstancer_method_clear_by_offset>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`\ )                                                                                                     |
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`clear_by_region_id<class_Terrain3DInstancer_method_clear_by_region_id>`\ (\ region_id\: :ref:`int<class_int>`, mesh_id\: :ref:`int<class_int>`\ )                                                                                                             |
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )                                                                                      |
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -58,7 +76,21 @@ Method Descriptions
 
 |void| **add_instances**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )
 
-Place instances within the indicated brush position and size. Currently uses the following parameters: asset_id, size, strength, fixed_scale, random_scale, fixed_spin, random_spin, fixed_angle, random_angle, align_to_normal, height_offset, random_height, vertex_color, random_hue, random_darken, all set by tool_settings.gd.
+Used by Terrain3DEditor to place instances given many brush parameters. In addition to the brush position, it also uses the following parameters: asset_id, size, strength, fixed_scale, random_scale, fixed_spin, random_spin, fixed_angle, random_angle, align_to_normal, height_offset, random_height, vertex_color, random_hue, random_darken. All of these settings are set in the editor through tool_settings.gd.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DInstancer_method_add_transforms:
+
+.. rst-class:: classref-method
+
+|void| **add_transforms**\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ )
+
+Allows programmatic placement of meshes. The :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` mesh_id should already be setup. Then you provide the array of Transform3Ds and optional Colors, which will be parsed into our region based storage system and fed directly into the appropriate MultiMeshInstances.
+
+This function adds the :ref:`Terrain3DMeshAsset.height_offset<class_Terrain3DMeshAsset_property_height_offset>` to the transform along its local Y axis.
 
 .. rst-class:: classref-item-separator
 

@@ -33,21 +33,21 @@ Properties
 .. table::
    :widths: auto
 
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`bool<class_bool>`               | :ref:`generated<class_Terrain3DMeshAsset_property_generated>`                 | ``false``         |
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`Vector2<class_Vector2>`         | :ref:`generated_size<class_Terrain3DMeshAsset_property_generated_size>`       | ``Vector2(1, 1)`` |
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`float<class_float>`             | :ref:`height_offset<class_Terrain3DMeshAsset_property_height_offset>`         | ``0.0``           |
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`int<class_int>`                 | :ref:`id<class_Terrain3DMeshAsset_property_id>`                               | ``0``             |
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`Material<class_Material>`       | :ref:`material_override<class_Terrain3DMeshAsset_property_material_override>` |                   |
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`String<class_String>`           | :ref:`name<class_Terrain3DMeshAsset_property_name>`                           | ``"New Mesh"``    |
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`PackedScene<class_PackedScene>` | :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>`               |                   |
-   +---------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`Vector2<class_Vector2>`                   | :ref:`generated_size<class_Terrain3DMeshAsset_property_generated_size>`       | ``Vector2(1, 1)`` |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`GenType<enum_Terrain3DMeshAsset_GenType>` | :ref:`generated_type<class_Terrain3DMeshAsset_property_generated_type>`       | ``0``             |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`float<class_float>`                       | :ref:`height_offset<class_Terrain3DMeshAsset_property_height_offset>`         | ``0.0``           |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`int<class_int>`                           | :ref:`id<class_Terrain3DMeshAsset_property_id>`                               | ``0``             |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`Material<class_Material>`                 | :ref:`material_override<class_Terrain3DMeshAsset_property_material_override>` |                   |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`String<class_String>`                     | :ref:`name<class_Terrain3DMeshAsset_property_name>`                           | ``"New Mesh"``    |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`PackedScene<class_PackedScene>`           | :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>`               |                   |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -116,25 +116,55 @@ Emitted when settings other than id or scene file are changed.
 
 .. rst-class:: classref-descriptions-group
 
-Property Descriptions
----------------------
+Enumerations
+------------
 
-.. _class_Terrain3DMeshAsset_property_generated:
+.. _enum_Terrain3DMeshAsset_GenType:
 
-.. rst-class:: classref-property
+.. rst-class:: classref-enumeration
 
-:ref:`bool<class_bool>` **generated** = ``false``
+enum **GenType**:
 
-.. rst-class:: classref-property-setget
+.. _class_Terrain3DMeshAsset_constant_TYPE_NONE:
 
-- |void| **set_is_generated**\ (\ value\: :ref:`bool<class_bool>`\ )
-- :ref:`bool<class_bool>` **get_is_generated**\ (\ )
+.. rst-class:: classref-enumeration-constant
 
-Set this mesh asset to a generated QuadMesh to be used as a texture card.
+:ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **TYPE_NONE** = ``0``
 
-.. rst-class:: classref-item-separator
+.. container:: contribute
+
+	There is currently no description for this enum. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+
+
+
+.. _class_Terrain3DMeshAsset_constant_TYPE_TEXTURE_CARD:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **TYPE_TEXTURE_CARD** = ``1``
+
+Generate a QuadMesh to be used as a texture card.
+
+.. _class_Terrain3DMeshAsset_constant_TYPE_MAX:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **TYPE_MAX** = ``2``
+
+.. container:: contribute
+
+	There is currently no description for this enum. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+
+
+
+.. rst-class:: classref-section-separator
 
 ----
+
+.. rst-class:: classref-descriptions-group
+
+Property Descriptions
+---------------------
 
 .. _class_Terrain3DMeshAsset_property_generated_size:
 
@@ -148,6 +178,23 @@ Set this mesh asset to a generated QuadMesh to be used as a texture card.
 - :ref:`Vector2<class_Vector2>` **get_generated_size**\ (\ )
 
 Sets the base size of the QuadMesh texture card.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_generated_type:
+
+.. rst-class:: classref-property
+
+:ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **generated_type** = ``0``
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_generated_type**\ (\ value\: :ref:`GenType<enum_Terrain3DMeshAsset_GenType>`\ )
+- :ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **get_generated_type**\ (\ )
+
+Set this mesh asset to a generated QuadMesh to be used as a texture card.
 
 .. rst-class:: classref-item-separator
 
