@@ -97,7 +97,8 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	floating_btn.pressed.connect(make_dock_float)
 	pinned_btn.toggled.connect(_on_pin_changed)
 	pinned_btn.visible = false
-	size_slider.value_changed.connect(_on_slider_changed)	
+	size_slider.value_changed.connect(_on_slider_changed)
+	plugin.ui.toolbar.tool_changed.connect(_on_tool_changed)
 
 	meshes_btn.add_theme_font_size_override("font_size", 16 * EditorInterface.get_editor_scale())
 	textures_btn.add_theme_font_size_override("font_size", 16 * EditorInterface.get_editor_scale())
@@ -276,6 +277,13 @@ func _on_meshes_pressed() -> void:
 	mesh_list.set_selected_id(mesh_list.selected_id)
 	plugin.get_editor_interface().edit_node(plugin.terrain)
 	update_thumbnails()
+
+
+func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
+	if p_tool == Terrain3DEditor.INSTANCER:
+		_on_meshes_pressed()
+	elif p_tool == Terrain3DEditor.TEXTURE:
+		_on_textures_pressed()
 
 
 ## Update Dock Contents
