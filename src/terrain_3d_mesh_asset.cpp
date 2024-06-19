@@ -17,10 +17,10 @@
 ///////////////////////////
 
 // This version doesn't emit a signal
-void Terrain3DMeshAsset::_set_is_generated(bool p_generated) {
-	_is_generated = p_generated;
-	LOG(INFO, "Setting is_generated: ", p_generated);
-	if (_is_generated) {
+void Terrain3DMeshAsset::_set_generated_type(GenType p_type) {
+	_generated_type = p_type;
+	LOG(INFO, "Setting is_generated: ", p_type);
+	if (p_type > TYPE_NONE && p_type < TYPE_MAX) {
 		_packed_scene.unref();
 		_meshes.clear();
 
@@ -85,7 +85,7 @@ void Terrain3DMeshAsset::clear() {
 	_relative_density = 1.f;
 	_packed_scene.unref();
 	_material_override.unref();
-	_set_is_generated(true);
+	_set_generated_type(TYPE_TEXTURE_CARD);
 }
 
 void Terrain3DMeshAsset::set_name(String p_name) {
@@ -117,9 +117,9 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> p_scene_file) {
 			_packed_scene.unref();
 			return;
 		}
-		if (_is_generated) {
+		if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX) {
 			// Reset for receiving a scene file
-			_is_generated = false;
+			_generated_type = TYPE_NONE;
 			_material_override.unref();
 			_height_offset = 0.0f;
 		}
@@ -154,7 +154,7 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> p_scene_file) {
 			LOG(ERROR, "No MeshInstance3D found in scene file");
 		}
 	} else {
-		set_is_generated(true);
+		set_generated_type(TYPE_TEXTURE_CARD);
 	}
 }
 
@@ -164,15 +164,16 @@ void Terrain3DMeshAsset::set_material_override(const Ref<Material> p_material) {
 	emit_signal("setting_changed");
 }
 
-void Terrain3DMeshAsset::set_is_generated(bool p_generated) {
-	_set_is_generated(p_generated);
+void Terrain3DMeshAsset::set_generated_type(GenType p_type) {
+	_set_generated_type(p_type);
 	LOG(DEBUG, "Emitting file_changed");
+	notify_property_list_changed();
 	emit_signal("file_changed");
 }
 
 void Terrain3DMeshAsset::set_generated_size(Vector2 p_size) {
 	_generated_size = p_size;
-	if (_is_generated && _meshes.size() > 0) {
+	if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _meshes.size() > 0) {
 		Ref<QuadMesh> mesh = _meshes[0];
 		if (mesh.is_valid()) {
 			mesh->set_size(p_size);
@@ -193,7 +194,21 @@ Ref<Mesh> Terrain3DMeshAsset::get_mesh(int p_index) {
 // Protected Functions
 ///////////////////////////
 
+void Terrain3DMeshAsset::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == StringName("generated_size")) {
+		if (_generated_type == TYPE_NONE) {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+		} else {
+			p_property.usage = PROPERTY_USAGE_DEFAULT;
+		}
+	}
+}
+
 void Terrain3DMeshAsset::_bind_methods() {
+	BIND_ENUM_CONSTANT(TYPE_NONE);
+	BIND_ENUM_CONSTANT(TYPE_TEXTURE_CARD);
+	BIND_ENUM_CONSTANT(TYPE_MAX);
+
 	ADD_SIGNAL(MethodInfo("id_changed"));
 	ADD_SIGNAL(MethodInfo("file_changed"));
 	ADD_SIGNAL(MethodInfo("setting_changed"));
@@ -209,8 +224,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_scene_file"), &Terrain3DMeshAsset::get_scene_file);
 	ClassDB::bind_method(D_METHOD("set_material_override", "material"), &Terrain3DMeshAsset::set_material_override);
 	ClassDB::bind_method(D_METHOD("get_material_override"), &Terrain3DMeshAsset::get_material_override);
-	ClassDB::bind_method(D_METHOD("set_is_generated", "generated"), &Terrain3DMeshAsset::set_is_generated);
-	ClassDB::bind_method(D_METHOD("get_is_generated"), &Terrain3DMeshAsset::get_is_generated);
+	ClassDB::bind_method(D_METHOD("set_generated_type", "type"), &Terrain3DMeshAsset::set_generated_type);
+	ClassDB::bind_method(D_METHOD("get_generated_type"), &Terrain3DMeshAsset::get_generated_type);
 	ClassDB::bind_method(D_METHOD("set_generated_size", "size"), &Terrain3DMeshAsset::set_generated_size);
 	ClassDB::bind_method(D_METHOD("get_generated_size"), &Terrain3DMeshAsset::get_generated_size);
 	ClassDB::bind_method(D_METHOD("get_mesh", "index"), &Terrain3DMeshAsset::get_mesh, DEFVAL(0));
@@ -223,6 +238,6 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_override", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_override", "get_material_override");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "generated", PROPERTY_HINT_NONE), "set_is_generated", "get_is_generated");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "generated_size", PROPERTY_HINT_NONE), "set_generated_size", "get_generated_size");
 }

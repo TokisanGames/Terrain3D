@@ -19,10 +19,17 @@ class Terrain3DMeshAsset : public Terrain3DAssetResource {
 	CLASS_NAME();
 	friend class Terrain3DAssets;
 
+public:
+	enum GenType {
+		TYPE_NONE,
+		TYPE_TEXTURE_CARD,
+		TYPE_MAX,
+	};
+
 private:
 	// Saved data
 	float _height_offset = 0.f;
-	bool _is_generated = false;
+	GenType _generated_type = TYPE_NONE;
 	Vector2 _generated_size = Vector2(1.f, 1.f);
 	Ref<PackedScene> _packed_scene;
 	Ref<Material> _material_override;
@@ -34,7 +41,7 @@ private:
 	Ref<Texture2D> _thumbnail;
 
 	// No signal versions
-	void _set_is_generated(bool p_generated);
+	void _set_generated_type(GenType p_type);
 	void _set_material_override(const Ref<Material> p_material);
 
 public:
@@ -58,8 +65,8 @@ public:
 	void set_material_override(const Ref<Material> p_material);
 	Ref<Material> get_material_override() const { return _material_override; }
 
-	void set_is_generated(bool p_generated);
-	bool get_is_generated() const { return _is_generated; }
+	void set_generated_type(GenType p_type);
+	GenType get_generated_type() const { return _generated_type; }
 	void set_generated_size(Vector2 p_size);
 	Vector2 get_generated_size() const { return _generated_size; }
 
@@ -69,7 +76,10 @@ public:
 	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
 
 protected:
+	void _validate_property(PropertyInfo &p_property) const;
 	static void _bind_methods();
 };
+
+VARIANT_ENUM_CAST(Terrain3DMeshAsset::GenType);
 
 #endif // TERRAIN3D_MESH_ASSET_CLASS_H
