@@ -8,6 +8,7 @@
 #include "constants.h"
 
 using namespace godot;
+class Terrain3DAssets;
 
 class Terrain3DAssetResource : public Resource {
 	friend class Terrain3DAssets;

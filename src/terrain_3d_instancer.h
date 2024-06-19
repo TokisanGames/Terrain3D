@@ -43,12 +43,15 @@ public:
 	void destroy();
 
 	void set_multimesh(Vector3 p_global_position, int p_mesh_id, Ref<MultiMesh> p_multimesh);
+	void set_multimesh(Vector2i p_region_offset, int p_mesh_id, Ref<MultiMesh> p_multimesh);
 	Ref<MultiMesh> get_multimesh(Vector3 p_global_position, int p_mesh_id);
 	MultiMeshInstance3D *get_multimesh_instance(Vector3 p_global_position, int p_mesh_id);
+	MultiMeshInstance3D *get_multimesh_instance(Vector2i p_region_offset, int p_mesh_id);
 
 	void add_instances(Vector3 p_global_position, Dictionary p_params);
 	void remove_instances(Vector3 p_global_position, Dictionary p_params);
 	void reset_instance_counter() { _instance_counter = 0; }
+	void add_transforms(int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors = TypedArray<Color>());
 
 	void clear_by_mesh(int p_mesh_id);
 	void clear_by_region_id(int p_region_id, int p_mesh_id);
