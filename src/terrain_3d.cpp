@@ -55,10 +55,6 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
 		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
-	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis))) {
-		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
-		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis));
-	}
 	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
 		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
 		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
@@ -70,6 +66,10 @@ void Terrain3D::_initialize() {
 	if (!_storage->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
 		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
+	}
+	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis))) {
+		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
+		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis));
 	}
 	if (!_storage->is_connected("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis))) {
 		LOG(DEBUG, "Connecting _storage::multimeshes_changed signal to _rebuild_mmis()");
@@ -1248,6 +1248,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 
 	ADD_GROUP("Renderer", "render_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
