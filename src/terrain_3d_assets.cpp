@@ -503,7 +503,7 @@ void Terrain3DAssets::update_mesh_list() {
 		_terrain->get_instancer()->destroy();
 		Ref<Terrain3DMeshAsset> new_mesh;
 		new_mesh.instantiate();
-		new_mesh->set_is_generated(true);
+		new_mesh->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
 		set_mesh_asset(0, new_mesh);
 	}
 	LOG(DEBUG, "Reconnecting mesh instance signals");
@@ -523,7 +523,7 @@ void Terrain3DAssets::update_mesh_list() {
 		}
 		if (mesh_asset->get_mesh().is_null()) {
 			LOG(DEBUG, "Terrain3DMeshAsset has no mesh, adding a default");
-			mesh_asset->set_is_generated(true);
+			mesh_asset->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
 		}
 		if (!mesh_asset->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset))) {
 			LOG(DEBUG, "Connecting file_changed signal to _update_thumbnail");
