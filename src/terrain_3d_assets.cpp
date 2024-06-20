@@ -365,7 +365,6 @@ Terrain3DAssets::~Terrain3DAssets() {
 	RS->free_rid(key_light_instance);
 	RS->free_rid(key_light);
 	RS->free_rid(camera);
-	RS->free_rid(viewport_texture);
 	RS->free_rid(viewport);
 	RS->free_rid(scenario);
 }

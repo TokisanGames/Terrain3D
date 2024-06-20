@@ -39,6 +39,12 @@ func _enter_tree() -> void:
 	add_child(menu_button)
 
 
+func _exit_tree() -> void:
+	# TODO: If packer isn't freed, Godot complains about ObjectDB instances leaked and 
+	# resources still in use at exit. Figure out why.
+	packer.free()
+	
+
 func _on_menu_pressed(p_id: int) -> void:
 	match p_id:
 		MENU_BAKE_ARRAY_MESH:
