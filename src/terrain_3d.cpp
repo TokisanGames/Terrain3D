@@ -84,7 +84,6 @@ void Terrain3D::_initialize() {
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		_storage->initialize(this);
 		_material->initialize(this);
-		_material->_update_regions();
 		_assets->initialize(this);
 		_instancer->initialize(this);
 		_setup_mouse_picking();
