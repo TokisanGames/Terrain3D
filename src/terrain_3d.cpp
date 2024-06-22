@@ -133,8 +133,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 	_mouse_vp->set_handle_input_locally(false);
 	_mouse_vp->set_canvas_cull_mask(0);
-	// DEPRECATED Enable in 4.2 and disable texture srgb->linear
-	//_mouse_vp->set_use_hdr_2d(true);
+	_mouse_vp->set_use_hdr_2d(true);
 	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
 	_mouse_vp->set_positional_shadow_atlas_size(0);
 	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(0, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
@@ -1002,8 +1001,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_src_pos, Vector3 p_direction) {
 		Ref<Image> vp_img = vp_tex->get_image();
 
 		// Read the depth pixel from the camera viewport
-		// DEPRECATED - remove srgb_to_linear and use HDR viewport for Godot 4.2 +
-		Color screen_depth = vp_img->get_pixel(0, 0).srgb_to_linear();
+		Color screen_depth = vp_img->get_pixel(0, 0);
 
 		// Get position from depth packed in RG - unpack back to float.
 		// Needed for Mobile renderer
