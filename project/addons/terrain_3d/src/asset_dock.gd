@@ -68,7 +68,9 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	placement_opt = $Box/Buttons/PlacementOpt
 	pinned_btn = $Box/Buttons/Pinned
 	floating_btn = $Box/Buttons/Floating
+	floating_btn.owner = null
 	size_slider = $Box/Buttons/SizeSlider
+	size_slider.owner = null
 	box = $Box
 	buttons = $Box/Buttons
 	textures_btn = $Box/Buttons/TexturesBtn
