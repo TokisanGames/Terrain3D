@@ -263,6 +263,8 @@ func _on_scene_changed(scene_root: Node) -> void:
 		node.editor_setup(self)
 
 	asset_dock.update_assets()
+	await get_tree().create_timer(2).timeout
+	asset_dock.update_thumbnails()
 
 		
 func is_terrain_valid(p_terrain: Terrain3D = null) -> bool:

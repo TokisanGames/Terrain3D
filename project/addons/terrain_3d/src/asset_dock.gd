@@ -241,6 +241,8 @@ func update_thumbnails() -> void:
 			Time.get_ticks_msec() - _last_thumb_update_time > MAX_UPDATE_TIME:
 		plugin.terrain.assets.create_mesh_thumbnails()
 		_last_thumb_update_time = Time.get_ticks_msec()
+		for mesh_asset in mesh_list.entries:
+			mesh_asset.queue_redraw()
 ## Dock Button handlers
 
 
@@ -493,7 +495,8 @@ class ListContainer extends Container:
 
 	func _on_resource_hovered(p_id: int):
 		if type == Terrain3DAssets.TYPE_MESH:
-			plugin.terrain.assets.create_mesh_thumbnails(p_id)
+			if plugin.terrain:
+				plugin.terrain.assets.create_mesh_thumbnails(p_id)
 
 	
 	func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
