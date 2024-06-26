@@ -24,7 +24,6 @@ extends Terrain3D
 
 @export var simple_grass_textured: MultiMeshInstance3D
 @export var assign_mesh_id: int
-@export var height_offset: float
 @export var import: bool = false : set = import_sgt
 @export var clear_instances: bool = false : set = clear_multimeshes
 

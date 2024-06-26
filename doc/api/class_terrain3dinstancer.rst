@@ -31,7 +31,7 @@ The methods available for adding instances are:
 
 The methods available for removing instances are:
 
-\* :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>` - Like add_instances, this is can be used programmatically but is designed for hand editing.
+\* :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>` - Like add_instances, this is can be used procedurally but is designed for hand editing.
 
 \* :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`, :ref:`clear_by_region_id<class_Terrain3DInstancer_method_clear_by_region_id>`, :ref:`clear_by_offset<class_Terrain3DInstancer_method_clear_by_offset>` - To erase large sections of instances
 
@@ -90,9 +90,7 @@ Used by Terrain3DEditor to place instances given many brush parameters. In addit
 
 |void| **add_multimesh**\ (\ mesh_id\: :ref:`int<class_int>`, multimesh\: :ref:`MultiMesh<class_MultiMesh>`, transform\: :ref:`Transform3D<class_Transform3D>` = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_multimesh>`
 
-.. container:: contribute
-
-	There is currently no description for this method. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+Allows procedural placement of meshes. The :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` mesh_id should already be setup. This extracts the instance transforms and colors from a multimesh and passes it to :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>`.
 
 .. rst-class:: classref-item-separator
 
@@ -104,7 +102,7 @@ Used by Terrain3DEditor to place instances given many brush parameters. In addit
 
 |void| **add_transforms**\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_transforms>`
 
-Allows programmatic placement of meshes. The :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` mesh_id should already be setup. Then you provide the array of Transform3Ds and optional Colors, which will be parsed into our region based storage system and fed directly into the appropriate MultiMeshInstances.
+Allows procedural placement of meshes. The :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` mesh_id should already be setup. Then you provide the array of Transform3Ds and optional Colors, which will be parsed into our region based storage system and fed directly into the appropriate MultiMeshInstances.
 
 This function adds the :ref:`Terrain3DMeshAsset.height_offset<class_Terrain3DMeshAsset_property_height_offset>` to the transform along its local Y axis.
 

@@ -130,15 +130,16 @@ One thing you must consider is if it makes sense to use this MultiMesh based ins
 
 ## Importing From Other Tools
 
-You can find a sample script that will import data from SimpleGrassTextured in `project/addons/terrain_3d/extras/import_sgt.gd`. SGT is another MultiMesh management tool, so the only data that we need from it are the transforms. This script serves as an example to learn how to use the API for procedural placement, as well as imports data from a third party app.
+You can find a sample script that will import data from SimpleGrassTextured in `project/addons/terrain_3d/extras/import_sgt.gd`. SGT is another MultiMesh management tool, so the only data that we need from it are the transforms.
 
 **To use it:**
-1. Setup the mesh asset you wish to use.
-1. Attach `import_sgt.gd` to your Terrain3D node.
+1. Setup the mesh asset you wish to use in the asset dock.
 1. Select your Terrain3D node.
-1. At the top of the inspector, assign your SimpleGrassTextured node.
+1. In the inspector, click Script (very bottom) and Quick Load `import_sgt.gd`.
+1. At the very top, assign your SimpleGrassTextured node.
 1. Select the desired mesh asset ID.
-1. Click import and wait. Transfering 50,000 instances might take 30-60 seconds, so plan on waiting a while for the data to process. The slow aspect is processing each instance through GDScript. Your console will report when finished.
+1. Click import. The output window and console will report when finished.
 1. Clear the script from your Terrain3D node, and save your scene. The instance transforms are now stored in your Storage resource.
 
+This script also serves as an example to learn how to use the API for procedural placement. Though this script uses add_multimesh(), you could manually iterate through the SGT multimesh, pull out the transforms, modify them, then send them to the instancer with add_transforms().
 

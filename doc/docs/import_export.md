@@ -49,13 +49,13 @@ We can import any supported image format Godot can read. These include:
 * R16 Height map aka RAW. See below.
 
 ### Height map
-* Only `exr` or `r16/raw` are recommended for heightmaps. Godot PNG only supports 8-bit per channel, so don't use it for heightmaps. It is fine for external editing of control and color maps which are RGBA. See [Terrain3DStorage](../api/class_terrain3dstorage.rst) for details on internal storage.
+* Only `exr` or `r16/raw` are recommended for heightmaps. Godot PNG only supports 8-bit per channel, so don't use it for heightmaps. It is fine for external editing of the color map which is RGBA. See [Terrain3DStorage](../api/class_terrain3dstorage.rst) for details on internal storage.
 * R16: For 16-bit heightmaps read/writable by World Machine, Unity, Krita, etc. The extension should be `r16` or `raw`. Min/Max heights and image size are not stored in the file, so you must keep track of them elsewhere (such as in the name).
 * `Photoshop Raw` is not R16. Use [exr](https://www.exr-io.com/) for photoshop.
 * [Zylann's HTerrain](https://github.com/Zylann/godot_heightmap_plugin/) stores height data in a `res` file which we can import directly. No need to export it, but his tool also exports `exr` and `r16`.
 
 ### Control map
-* Control maps use a proprietary format. We only import our own format. Use `exr` to import an image you have previously exported from this tool.
+* Control maps use a proprietary format. We only import our own format. Use `exr` to export or reimport only from this tool.
 
 ### Color map
 * Any regular color format is fine, `png` is recommended. The alpha channel is interpretted as a [roughness modifier](https://terrain3d.readthedocs.io/en/stable/api/class_terrain3dstorage.html#class-terrain3dstorage-property-color-maps) for wetness.
@@ -79,7 +79,7 @@ We can import any supported image format Godot can read. These include:
 :target: ../_images/io_exporter.png
 ```
 
-5) Select the type of map you wish to extract: Height (32-bit floats), Color (rgba), Control (RGB proprietary).
+5) Select the type of map you wish to extract: Height (32-bit floats), Color (rgba), Control (proprietary).
 
 6) Specify the full path and file name to save. The file type is determined based upon the extension. You can enter any location on your hard drive, or preface the file name with `res://` to save it in your Godot project folder. See [export formats](#supported-export-formats) for recommendations.
 
