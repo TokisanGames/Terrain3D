@@ -66,7 +66,7 @@ Enumerations
 
 .. rst-class:: classref-enumeration
 
-enum **Operation**:
+enum **Operation**: :ref:`🔗<enum_Terrain3DEditor_Operation>`
 
 .. _class_Terrain3DEditor_constant_ADD:
 
@@ -140,7 +140,7 @@ The number of elements in this enum.
 
 .. rst-class:: classref-enumeration
 
-enum **Tool**:
+enum **Tool**: :ref:`🔗<enum_Terrain3DEditor_Tool>`
 
 .. _class_Terrain3DEditor_constant_HEIGHT:
 
@@ -251,7 +251,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-|void| **apply_undo**\ (\ maps\: :ref:`Dictionary<class_Dictionary>`\ )
+|void| **apply_undo**\ (\ maps\: :ref:`Dictionary<class_Dictionary>`\ ) :ref:`🔗<class_Terrain3DEditor_method_apply_undo>`
 
 Undo the previous changes, with the reverted images in the array. Used by Godot, not users.
 
@@ -263,7 +263,7 @@ Undo the previous changes, with the reverted images in the array. Used by Godot,
 
 .. rst-class:: classref-method
 
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **get_operation**\ (\ )
+:ref:`Operation<enum_Terrain3DEditor_Operation>` **get_operation**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_get_operation>`
 
 Returns the current operation.
 
@@ -275,7 +275,7 @@ Returns the current operation.
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3D<class_Terrain3D>` **get_terrain**\ (\ )
+:ref:`Terrain3D<class_Terrain3D>` **get_terrain**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_get_terrain>`
 
 Returns the instance of Terrain3D this class is conneced to.
 
@@ -287,7 +287,7 @@ Returns the instance of Terrain3D this class is conneced to.
 
 .. rst-class:: classref-method
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **get_tool**\ (\ )
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **get_tool**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_get_tool>`
 
 Returns the current tool selected in the editor plugin.
 
@@ -299,7 +299,7 @@ Returns the current tool selected in the editor plugin.
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_operating**\ (\ )
+:ref:`bool<class_bool>` **is_operating**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_is_operating>`
 
 Returns true if currently brushing.
 
@@ -311,7 +311,7 @@ Returns true if currently brushing.
 
 .. rst-class:: classref-method
 
-|void| **operate**\ (\ position\: :ref:`Vector3<class_Vector3>`, camera_direction\: :ref:`float<class_float>`\ )
+|void| **operate**\ (\ position\: :ref:`Vector3<class_Vector3>`, camera_direction\: :ref:`float<class_float>`\ ) :ref:`🔗<class_Terrain3DEditor_method_operate>`
 
 Start brushing.
 
@@ -323,7 +323,7 @@ Start brushing.
 
 .. rst-class:: classref-method
 
-|void| **set_brush_data**\ (\ data\: :ref:`Dictionary<class_Dictionary>`\ )
+|void| **set_brush_data**\ (\ data\: :ref:`Dictionary<class_Dictionary>`\ ) :ref:`🔗<class_Terrain3DEditor_method_set_brush_data>`
 
 Sets all brush settings used in the editor plugin.
 
@@ -335,7 +335,7 @@ Sets all brush settings used in the editor plugin.
 
 .. rst-class:: classref-method
 
-|void| **set_operation**\ (\ operation\: :ref:`Operation<enum_Terrain3DEditor_Operation>`\ )
+|void| **set_operation**\ (\ operation\: :ref:`Operation<enum_Terrain3DEditor_Operation>`\ ) :ref:`🔗<class_Terrain3DEditor_method_set_operation>`
 
 Sets the tool operation used in the editor plugin.
 
@@ -347,7 +347,7 @@ Sets the tool operation used in the editor plugin.
 
 .. rst-class:: classref-method
 
-|void| **set_terrain**\ (\ terrain\: :ref:`Terrain3D<class_Terrain3D>`\ )
+|void| **set_terrain**\ (\ terrain\: :ref:`Terrain3D<class_Terrain3D>`\ ) :ref:`🔗<class_Terrain3DEditor_method_set_terrain>`
 
 Sets the instance of Terrain3D this class is connected to.
 
@@ -359,7 +359,7 @@ Sets the instance of Terrain3D this class is connected to.
 
 .. rst-class:: classref-method
 
-|void| **set_tool**\ (\ tool\: :ref:`Tool<enum_Terrain3DEditor_Tool>`\ )
+|void| **set_tool**\ (\ tool\: :ref:`Tool<enum_Terrain3DEditor_Tool>`\ ) :ref:`🔗<class_Terrain3DEditor_method_set_tool>`
 
 Sets the tool selected in the editor plugin.
 
@@ -371,7 +371,7 @@ Sets the tool selected in the editor plugin.
 
 .. rst-class:: classref-method
 
-|void| **start_operation**\ (\ position\: :ref:`Vector3<class_Vector3>`\ )
+|void| **start_operation**\ (\ position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DEditor_method_start_operation>`
 
 Begin a sculpting or painting operation.
 
@@ -383,7 +383,7 @@ Begin a sculpting or painting operation.
 
 .. rst-class:: classref-method
 
-|void| **stop_operation**\ (\ )
+|void| **stop_operation**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_stop_operation>`
 
 End a sculpting or painting operation.
 

@@ -110,7 +110,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-:ref:`float<class_float>` **as_float**\ (\ value\: :ref:`int<class_int>`\ ) |static|
+:ref:`float<class_float>` **as_float**\ (\ value\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_as_float>`
 
 Returns a float typed variable with the contents of the memory stored in value, an integer typed variable.
 
@@ -128,7 +128,7 @@ See :ref:`as_uint<class_Terrain3DUtil_method_as_uint>` for the opposite.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **as_uint**\ (\ value\: :ref:`float<class_float>`\ ) |static|
+:ref:`int<class_int>` **as_uint**\ (\ value\: :ref:`float<class_float>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_as_uint>`
 
 Returns an integer typed variable with the contents of the memory stored in value, a float typed variable.
 
@@ -146,7 +146,7 @@ See :ref:`as_float<class_Terrain3DUtil_method_as_float>` for the opposite.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **black_to_alpha**\ (\ image\: :ref:`Image<class_Image>`\ ) |static|
+:ref:`Image<class_Image>` **black_to_alpha**\ (\ image\: :ref:`Image<class_Image>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_black_to_alpha>`
 
 Receives an image with a black background and returns one with a transparent background, aka an alpha mask.
 
@@ -158,7 +158,7 @@ Receives an image with a black background and returns one with a transparent bac
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_auto**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|
+:ref:`int<class_int>` **enc_auto**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_auto>`
 
 Returns a control map uint with the auto shader bit set. See the top description for usage.
 
@@ -170,7 +170,7 @@ Returns a control map uint with the auto shader bit set. See the top description
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_base**\ (\ base\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **enc_base**\ (\ base\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_base>`
 
 Returns a control map uint with the base texture ID encoded. See the top description for usage.
 
@@ -182,7 +182,7 @@ Returns a control map uint with the base texture ID encoded. See the top descrip
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_blend**\ (\ blend\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **enc_blend**\ (\ blend\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_blend>`
 
 Returns a control map uint with the blend value encoded. See the top description for usage.
 
@@ -194,7 +194,7 @@ Returns a control map uint with the blend value encoded. See the top description
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_hole**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|
+:ref:`int<class_int>` **enc_hole**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_hole>`
 
 Returns a control map uint with the hole bit set. See the top description for usage.
 
@@ -206,7 +206,7 @@ Returns a control map uint with the hole bit set. See the top description for us
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_nav**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static|
+:ref:`int<class_int>` **enc_nav**\ (\ pixel\: :ref:`bool<class_bool>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_nav>`
 
 Returns a control map uint with the nav bit set. See the top description for usage.
 
@@ -218,7 +218,7 @@ Returns a control map uint with the nav bit set. See the top description for usa
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_overlay**\ (\ overlay\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **enc_overlay**\ (\ overlay\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_overlay>`
 
 Returns a control map uint with the overlay texture ID encoded. See the top description for usage.
 
@@ -230,7 +230,7 @@ Returns a control map uint with the overlay texture ID encoded. See the top desc
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_uv_rotation**\ (\ rotation\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **enc_uv_rotation**\ (\ rotation\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_uv_rotation>`
 
 Returns a control map uint with the texture rotation encoded. See the top description for usage.  See :ref:`get_uv_rotation<class_Terrain3DUtil_method_get_uv_rotation>` for values.
 
@@ -242,7 +242,7 @@ Returns a control map uint with the texture rotation encoded. See the top descri
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **enc_uv_scale**\ (\ scale\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **enc_uv_scale**\ (\ scale\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_uv_scale>`
 
 Returns a control map uint with the texture scale encoded. See the top description for usage. See :ref:`get_uv_scale<class_Terrain3DUtil_method_get_uv_scale>` for values.
 
@@ -254,7 +254,7 @@ Returns a control map uint with the texture scale encoded. See the top descripti
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_base**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **get_base**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_base>`
 
 Returns the base texture ID from a control map pixel.
 
@@ -266,7 +266,7 @@ Returns the base texture ID from a control map pixel.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_blend**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **get_blend**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_blend>`
 
 Returns the blend value from a control map pixel.
 
@@ -278,7 +278,7 @@ Returns the blend value from a control map pixel.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **get_filled_image**\ (\ size\: :ref:`Vector2i<class_Vector2i>`, color\: :ref:`Color<class_Color>`, create_mipmaps\: :ref:`bool<class_bool>`, format\: :ref:`Format<enum_Image_Format>`\ ) |static|
+:ref:`Image<class_Image>` **get_filled_image**\ (\ size\: :ref:`Vector2i<class_Vector2i>`, color\: :ref:`Color<class_Color>`, create_mipmaps\: :ref:`bool<class_bool>`, format\: :ref:`Format<enum_Image_Format>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_filled_image>`
 
 Returns an Image filled with a specified color and format.
 
@@ -300,7 +300,7 @@ The reason for this is the Image compression library is available only in the ed
 
 .. rst-class:: classref-method
 
-:ref:`Vector2<class_Vector2>` **get_min_max**\ (\ image\: :ref:`Image<class_Image>`\ ) |static|
+:ref:`Vector2<class_Vector2>` **get_min_max**\ (\ image\: :ref:`Image<class_Image>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_min_max>`
 
 Returns the minimum and maximum r channel values of an Image. Used for heightmaps.
 
@@ -312,7 +312,7 @@ Returns the minimum and maximum r channel values of an Image. Used for heightmap
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_overlay**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **get_overlay**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_overlay>`
 
 Returns the overlay texture ID from a control map pixel.
 
@@ -324,7 +324,7 @@ Returns the overlay texture ID from a control map pixel.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **get_thumbnail**\ (\ image\: :ref:`Image<class_Image>`, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(256, 256)\ ) |static|
+:ref:`Image<class_Image>` **get_thumbnail**\ (\ image\: :ref:`Image<class_Image>`, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(256, 256)\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_thumbnail>`
 
 Returns an Image normalized and converted to RGB8. Used for creating a human viewable image of a heightmap, at any size.
 
@@ -336,7 +336,7 @@ Returns an Image normalized and converted to RGB8. Used for creating a human vie
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_uv_rotation**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **get_uv_rotation**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_uv_rotation>`
 
 Returns the texture rotation from a control map pixel. Values are 0 - 15, which provides degrees when multiplied by 22.5. (360/16).
 
@@ -348,7 +348,7 @@ Returns the texture rotation from a control map pixel. Values are 0 - 15, which 
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_uv_scale**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`int<class_int>` **get_uv_scale**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_uv_scale>`
 
 Returns the texture scale modification from a control map pixel. Values are an index into the array `{ 0, 20, 40, 60, 80, -60, -40, -20 }`. 0 indicates no scale modification. Index 2 indicates a 40% increase in texture scale at that pixel. Index -1 or 7 indicates a -20% texture scale change.
 
@@ -360,7 +360,7 @@ Returns the texture scale modification from a control map pixel. Values are an i
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_auto**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`bool<class_bool>` **is_auto**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_is_auto>`
 
 Returns true if the control map pixel has the autoshader bit set.
 
@@ -372,7 +372,7 @@ Returns true if the control map pixel has the autoshader bit set.
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_hole**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`bool<class_bool>` **is_hole**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_is_hole>`
 
 Returns true if the control map pixel has the hole bit set.
 
@@ -384,7 +384,7 @@ Returns true if the control map pixel has the hole bit set.
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_nav**\ (\ pixel\: :ref:`int<class_int>`\ ) |static|
+:ref:`bool<class_bool>` **is_nav**\ (\ pixel\: :ref:`int<class_int>`\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_is_nav>`
 
 Returns true if the control map pixel has the nav bit set.
 
@@ -396,7 +396,7 @@ Returns true if the control map pixel has the nav bit set.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **load_image**\ (\ file_name\: :ref:`String<class_String>`, cache_mode\: :ref:`int<class_int>` = 0, r16_height_range\: :ref:`Vector2<class_Vector2>` = Vector2(0, 255), r16_size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(0, 0)\ ) |static|
+:ref:`Image<class_Image>` **load_image**\ (\ file_name\: :ref:`String<class_String>`, cache_mode\: :ref:`int<class_int>` = 0, r16_height_range\: :ref:`Vector2<class_Vector2>` = Vector2(0, 255), r16_size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(0, 0)\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_load_image>`
 
 Loads a file from disk and returns an Image.
 
@@ -416,7 +416,7 @@ Loads a file from disk and returns an Image.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **pack_image**\ (\ src_rgb\: :ref:`Image<class_Image>`, src_r\: :ref:`Image<class_Image>`, invert_green_channel\: :ref:`bool<class_bool>` = false\ ) |static|
+:ref:`Image<class_Image>` **pack_image**\ (\ src_rgb\: :ref:`Image<class_Image>`, src_r\: :ref:`Image<class_Image>`, invert_green_channel\: :ref:`bool<class_bool>` = false\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_pack_image>`
 
 Returns an Image with the following content:
 

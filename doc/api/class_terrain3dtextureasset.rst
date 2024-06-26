@@ -70,7 +70,7 @@ Signals
 
 .. rst-class:: classref-signal
 
-**file_changed**\ (\ )
+**file_changed**\ (\ ) :ref:`🔗<class_Terrain3DTextureAsset_signal_file_changed>`
 
 Emitted when :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_texture>` or :ref:`normal_texture<class_Terrain3DTextureAsset_property_normal_texture>` are changed.
 
@@ -82,7 +82,7 @@ Emitted when :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_te
 
 .. rst-class:: classref-signal
 
-**id_changed**\ (\ )
+**id_changed**\ (\ ) :ref:`🔗<class_Terrain3DTextureAsset_signal_id_changed>`
 
 Emitted when :ref:`id<class_Terrain3DTextureAsset_property_id>` is changed.
 
@@ -94,7 +94,7 @@ Emitted when :ref:`id<class_Terrain3DTextureAsset_property_id>` is changed.
 
 .. rst-class:: classref-signal
 
-**setting_changed**\ (\ )
+**setting_changed**\ (\ ) :ref:`🔗<class_Terrain3DTextureAsset_signal_setting_changed>`
 
 Emitted when any setting is changed, other than id, albedo_texture, or normal_texture.
 
@@ -111,7 +111,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`Color<class_Color>` **albedo_color** = ``Color(1, 1, 1, 1)``
+:ref:`Color<class_Color>` **albedo_color** = ``Color(1, 1, 1, 1)`` :ref:`🔗<class_Terrain3DTextureAsset_property_albedo_color>`
 
 .. rst-class:: classref-property-setget
 
@@ -128,7 +128,7 @@ This color is multiplied by the albedo texture in the shader.
 
 .. rst-class:: classref-property
 
-:ref:`Texture2D<class_Texture2D>` **albedo_texture**
+:ref:`Texture2D<class_Texture2D>` **albedo_texture** :ref:`🔗<class_Terrain3DTextureAsset_property_albedo_texture>`
 
 .. rst-class:: classref-property-setget
 
@@ -145,7 +145,7 @@ The texture file with albedo on RGB and height on A.
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **detiling** = ``0.0``
+:ref:`float<class_float>` **detiling** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_detiling>`
 
 .. rst-class:: classref-property-setget
 
@@ -162,7 +162,7 @@ The shader rotates UV lookups in a detiling pattern based on this value.
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **id** = ``0``
+:ref:`int<class_int>` **id** = ``0`` :ref:`🔗<class_Terrain3DTextureAsset_property_id>`
 
 .. rst-class:: classref-property-setget
 
@@ -179,7 +179,7 @@ The user settable ID of the texture, between 0 and 31. You can change this to re
 
 .. rst-class:: classref-property
 
-:ref:`String<class_String>` **name** = ``"New Texture"``
+:ref:`String<class_String>` **name** = ``"New Texture"`` :ref:`🔗<class_Terrain3DTextureAsset_property_name>`
 
 .. rst-class:: classref-property-setget
 
@@ -196,7 +196,7 @@ A user specified name for this texture set.
 
 .. rst-class:: classref-property
 
-:ref:`Texture2D<class_Texture2D>` **normal_texture**
+:ref:`Texture2D<class_Texture2D>` **normal_texture** :ref:`🔗<class_Terrain3DTextureAsset_property_normal_texture>`
 
 .. rst-class:: classref-property-setget
 
@@ -213,7 +213,7 @@ The texture file with normal on RGB and roughness on A.
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **uv_scale** = ``0.1``
+:ref:`float<class_float>` **uv_scale** = ``0.1`` :ref:`🔗<class_Terrain3DTextureAsset_property_uv_scale>`
 
 .. rst-class:: classref-property-setget
 
@@ -235,7 +235,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-|void| **clear**\ (\ )
+|void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DTextureAsset_method_clear>`
 
 Clears the texture files and settings.
 

@@ -46,7 +46,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **texture_id**
+:ref:`int<class_int>` **texture_id** :ref:`🔗<class_Terrain3DTexture_property_texture_id>`
 
 .. rst-class:: classref-property-setget
 
@@ -65,7 +65,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **uv_rotation** = ``0.0``
+:ref:`float<class_float>` **uv_rotation** = ``0.0`` :ref:`🔗<class_Terrain3DTexture_property_uv_rotation>`
 
 .. rst-class:: classref-property-setget
 

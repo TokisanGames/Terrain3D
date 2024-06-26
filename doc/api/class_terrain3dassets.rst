@@ -72,7 +72,7 @@ Signals
 
 .. rst-class:: classref-signal
 
-**meshes_changed**\ (\ )
+**meshes_changed**\ (\ ) :ref:`🔗<class_Terrain3DAssets_signal_meshes_changed>`
 
 Emitted when the mesh list is updated, which happens as a result of a :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` changing.
 
@@ -84,7 +84,7 @@ Emitted when the mesh list is updated, which happens as a result of a :ref:`Terr
 
 .. rst-class:: classref-signal
 
-**textures_changed**\ (\ )
+**textures_changed**\ (\ ) :ref:`🔗<class_Terrain3DAssets_signal_textures_changed>`
 
 Emitted when this list is updated due to changes in the texture slots, or the files or settings of any :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`.
 
@@ -101,7 +101,7 @@ Enumerations
 
 .. rst-class:: classref-enumeration
 
-enum **AssetType**:
+enum **AssetType**: :ref:`🔗<enum_Terrain3DAssets_AssetType>`
 
 .. _class_Terrain3DAssets_constant_TYPE_TEXTURE:
 
@@ -132,7 +132,7 @@ Constants
 
 .. rst-class:: classref-constant
 
-**MAX_TEXTURES** = ``32``
+**MAX_TEXTURES** = ``32`` :ref:`🔗<class_Terrain3DAssets_constant_MAX_TEXTURES>`
 
 Hard coded maximum number of textures, with IDs in the range of 0-31. Cannot easily be expanded.
 
@@ -140,7 +140,7 @@ Hard coded maximum number of textures, with IDs in the range of 0-31. Cannot eas
 
 .. rst-class:: classref-constant
 
-**MAX_MESHES** = ``128``
+**MAX_MESHES** = ``128`` :ref:`🔗<class_Terrain3DAssets_constant_MAX_MESHES>`
 
 Limit of the maximum number of meshes. Arbitrary, easily expanded.
 
@@ -157,7 +157,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`Array<class_Array>`\[:ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\] **mesh_list** = ``[]``
+:ref:`Array<class_Array>`\[:ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\] **mesh_list** = ``[]`` :ref:`🔗<class_Terrain3DAssets_property_mesh_list>`
 
 .. rst-class:: classref-property-setget
 
@@ -174,7 +174,7 @@ The list of mesh assets.
 
 .. rst-class:: classref-property
 
-:ref:`Array<class_Array>`\[:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\] **texture_list** = ``[]``
+:ref:`Array<class_Array>`\[:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\] **texture_list** = ``[]`` :ref:`🔗<class_Terrain3DAssets_property_texture_list>`
 
 .. rst-class:: classref-property-setget
 
@@ -196,7 +196,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-|void| **create_mesh_thumbnails**\ (\ id\: :ref:`int<class_int>` = -1, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(128, 128)\ )
+|void| **create_mesh_thumbnails**\ (\ id\: :ref:`int<class_int>` = -1, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(128, 128)\ ) :ref:`🔗<class_Terrain3DAssets_method_create_mesh_thumbnails>`
 
 Generates mesh asset preview thumbnails for the asset dock, stored within each mesh asset. Specify id -1 to generate all.
 
@@ -208,7 +208,7 @@ Generates mesh asset preview thumbnails for the asset dock, stored within each m
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` **get_mesh_asset**\ (\ id\: :ref:`int<class_int>`\ )
+:ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` **get_mesh_asset**\ (\ id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DAssets_method_get_mesh_asset>`
 
 Returns the specified Terrain3DMeshAsset resource.
 
@@ -220,7 +220,7 @@ Returns the specified Terrain3DMeshAsset resource.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_mesh_count**\ (\ )
+:ref:`int<class_int>` **get_mesh_count**\ (\ ) :ref:`🔗<class_Terrain3DAssets_method_get_mesh_count>`
 
 Returns the count of mesh assets in the list.
 
@@ -232,7 +232,7 @@ Returns the count of mesh assets in the list.
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` **get_texture**\ (\ id\: :ref:`int<class_int>`\ )
+:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` **get_texture**\ (\ id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DAssets_method_get_texture>`
 
 Returns the Terrain3DTextureAsset with the requested ID.
 
@@ -244,7 +244,7 @@ Returns the Terrain3DTextureAsset with the requested ID.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_texture_count**\ (\ )
+:ref:`int<class_int>` **get_texture_count**\ (\ ) :ref:`🔗<class_Terrain3DAssets_method_get_texture_count>`
 
 Returns the number of texture slots used.
 
@@ -256,7 +256,7 @@ Returns the number of texture slots used.
 
 .. rst-class:: classref-method
 
-|void| **save**\ (\ )
+|void| **save**\ (\ ) :ref:`🔗<class_Terrain3DAssets_method_save>`
 
 Saves this texture list resource to disk, if saved as an external ``.tres`` or ``.res`` resource file.
 
@@ -268,7 +268,7 @@ Saves this texture list resource to disk, if saved as an external ``.tres`` or `
 
 .. rst-class:: classref-method
 
-|void| **set_mesh_asset**\ (\ id\: :ref:`int<class_int>`, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ )
+|void| **set_mesh_asset**\ (\ id\: :ref:`int<class_int>`, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ ) :ref:`🔗<class_Terrain3DAssets_method_set_mesh_asset>`
 
 Assigns the mesh asset to the specified ID slot. It can be null to clear the slot. See :ref:`set_texture<class_Terrain3DAssets_method_set_texture>`.
 
@@ -280,7 +280,7 @@ Assigns the mesh asset to the specified ID slot. It can be null to clear the slo
 
 .. rst-class:: classref-method
 
-|void| **set_texture**\ (\ id\: :ref:`int<class_int>`, texture\: :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\ )
+|void| **set_texture**\ (\ id\: :ref:`int<class_int>`, texture\: :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\ ) :ref:`🔗<class_Terrain3DAssets_method_set_texture>`
 
 Adds a Terrain3DTextureAsset at the specified ID slot. The texture can be null to clear the slot, or remove it if its the last in the list. If the specified slot is full, it will be swapped with the source texture ID, or will find the next available ID.
 

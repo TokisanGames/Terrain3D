@@ -50,6 +50,8 @@ Methods
    +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void| | :ref:`add_instances<class_Terrain3DInstancer_method_add_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )                                                                                            |
    +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`add_multimesh<class_Terrain3DInstancer_method_add_multimesh>`\ (\ mesh_id\: :ref:`int<class_int>`, multimesh\: :ref:`MultiMesh<class_MultiMesh>`, transform\: :ref:`Transform3D<class_Transform3D>` = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)\ )      |
+   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void| | :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>`\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ ) |
    +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void| | :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`\ (\ mesh_id\: :ref:`int<class_int>`\ )                                                                                                                                                          |
@@ -74,9 +76,23 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-|void| **add_instances**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )
+|void| **add_instances**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_instances>`
 
 Used by Terrain3DEditor to place instances given many brush parameters. In addition to the brush position, it also uses the following parameters: asset_id, size, strength, fixed_scale, random_scale, fixed_spin, random_spin, fixed_angle, random_angle, align_to_normal, height_offset, random_height, vertex_color, random_hue, random_darken. All of these settings are set in the editor through tool_settings.gd.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DInstancer_method_add_multimesh:
+
+.. rst-class:: classref-method
+
+|void| **add_multimesh**\ (\ mesh_id\: :ref:`int<class_int>`, multimesh\: :ref:`MultiMesh<class_MultiMesh>`, transform\: :ref:`Transform3D<class_Transform3D>` = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_multimesh>`
+
+.. container:: contribute
+
+	There is currently no description for this method. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
 
 .. rst-class:: classref-item-separator
 
@@ -86,7 +102,7 @@ Used by Terrain3DEditor to place instances given many brush parameters. In addit
 
 .. rst-class:: classref-method
 
-|void| **add_transforms**\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ )
+|void| **add_transforms**\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_transforms>`
 
 Allows programmatic placement of meshes. The :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` mesh_id should already be setup. Then you provide the array of Transform3Ds and optional Colors, which will be parsed into our region based storage system and fed directly into the appropriate MultiMeshInstances.
 
@@ -100,7 +116,7 @@ This function adds the :ref:`Terrain3DMeshAsset.height_offset<class_Terrain3DMes
 
 .. rst-class:: classref-method
 
-|void| **clear_by_mesh**\ (\ mesh_id\: :ref:`int<class_int>`\ )
+|void| **clear_by_mesh**\ (\ mesh_id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_clear_by_mesh>`
 
 Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in Storage for all regions that match mesh id.
 
@@ -112,7 +128,7 @@ Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in St
 
 .. rst-class:: classref-method
 
-|void| **clear_by_offset**\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`\ )
+|void| **clear_by_offset**\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_clear_by_offset>`
 
 Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in Storage for the specified region offset and mesh id.
 
@@ -124,7 +140,7 @@ Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in St
 
 .. rst-class:: classref-method
 
-|void| **clear_by_region_id**\ (\ region_id\: :ref:`int<class_int>`, mesh_id\: :ref:`int<class_int>`\ )
+|void| **clear_by_region_id**\ (\ region_id\: :ref:`int<class_int>`, mesh_id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_clear_by_region_id>`
 
 Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in Storage for the specified region id and mesh id.
 
@@ -136,7 +152,7 @@ Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in St
 
 .. rst-class:: classref-method
 
-|void| **remove_instances**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )
+|void| **remove_instances**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_remove_instances>`
 
 Uses parameters asset_id, size, strength, fixed_scale, random_scale, to randomly remove instances within the indicated brush position and size.
 

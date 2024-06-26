@@ -106,7 +106,7 @@ Signals
 
 .. rst-class:: classref-signal
 
-**assets_changed**\ (\ )
+**assets_changed**\ (\ ) :ref:`🔗<class_Terrain3D_signal_assets_changed>`
 
 Emitted when :ref:`assets<class_Terrain3D_property_assets>` is changed.
 
@@ -118,7 +118,7 @@ Emitted when :ref:`assets<class_Terrain3D_property_assets>` is changed.
 
 .. rst-class:: classref-signal
 
-**material_changed**\ (\ )
+**material_changed**\ (\ ) :ref:`🔗<class_Terrain3D_signal_material_changed>`
 
 Emitted when :ref:`material<class_Terrain3D_property_material>` is changed.
 
@@ -130,7 +130,7 @@ Emitted when :ref:`material<class_Terrain3D_property_material>` is changed.
 
 .. rst-class:: classref-signal
 
-**storage_changed**\ (\ )
+**storage_changed**\ (\ ) :ref:`🔗<class_Terrain3D_signal_storage_changed>`
 
 Emitted when :ref:`storage<class_Terrain3D_property_storage>` is changed.
 
@@ -147,7 +147,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`Terrain3DAssets<class_Terrain3DAssets>` **assets**
+:ref:`Terrain3DAssets<class_Terrain3DAssets>` **assets** :ref:`🔗<class_Terrain3D_property_assets>`
 
 .. rst-class:: classref-property-setget
 
@@ -164,7 +164,7 @@ The list of texture files used by Terrain3D. You can optionally save this as an 
 
 .. rst-class:: classref-property
 
-:ref:`bool<class_bool>` **collision_enabled** = ``true``
+:ref:`bool<class_bool>` **collision_enabled** = ``true`` :ref:`🔗<class_Terrain3D_property_collision_enabled>`
 
 .. rst-class:: classref-property-setget
 
@@ -181,7 +181,7 @@ If enabled, collision is generated according to the mode selected. By default co
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **collision_layer** = ``1``
+:ref:`int<class_int>` **collision_layer** = ``1`` :ref:`🔗<class_Terrain3D_property_collision_layer>`
 
 .. rst-class:: classref-property-setget
 
@@ -198,7 +198,7 @@ The physics layers the terrain lives in. Also see :ref:`collision_mask<class_Ter
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **collision_mask** = ``1``
+:ref:`int<class_int>` **collision_mask** = ``1`` :ref:`🔗<class_Terrain3D_property_collision_mask>`
 
 .. rst-class:: classref-property-setget
 
@@ -215,7 +215,7 @@ The physics layers the terrain scans for colliding objects. Also see :ref:`colli
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **collision_priority** = ``1.0``
+:ref:`float<class_float>` **collision_priority** = ``1.0`` :ref:`🔗<class_Terrain3D_property_collision_priority>`
 
 .. rst-class:: classref-property-setget
 
@@ -232,7 +232,7 @@ The priority used to solve collisions. The higher priority, the lower the penetr
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **debug_level** = ``0``
+:ref:`int<class_int>` **debug_level** = ``0`` :ref:`🔗<class_Terrain3D_property_debug_level>`
 
 .. rst-class:: classref-property-setget
 
@@ -249,7 +249,7 @@ The verbosity of debug messages printed to the console. Errors and warnings are 
 
 .. rst-class:: classref-property
 
-:ref:`bool<class_bool>` **debug_show_collision** = ``false``
+:ref:`bool<class_bool>` **debug_show_collision** = ``false`` :ref:`🔗<class_Terrain3D_property_debug_show_collision>`
 
 .. rst-class:: classref-property-setget
 
@@ -266,7 +266,7 @@ If collision is enabled, this generates collision in the editor and in game. It 
 
 .. rst-class:: classref-property
 
-:ref:`Terrain3DInstancer<class_Terrain3DInstancer>` **instancer**
+:ref:`Terrain3DInstancer<class_Terrain3DInstancer>` **instancer** :ref:`🔗<class_Terrain3D_property_instancer>`
 
 .. rst-class:: classref-property-setget
 
@@ -282,7 +282,7 @@ The active :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` object.
 
 .. rst-class:: classref-property
 
-:ref:`Terrain3DMaterial<class_Terrain3DMaterial>` **material**
+:ref:`Terrain3DMaterial<class_Terrain3DMaterial>` **material** :ref:`🔗<class_Terrain3D_property_material>`
 
 .. rst-class:: classref-property-setget
 
@@ -299,7 +299,7 @@ A custom material for Terrain3D. You can optionally save this as an external ``.
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **mesh_lods** = ``7``
+:ref:`int<class_int>` **mesh_lods** = ``7`` :ref:`🔗<class_Terrain3D_property_mesh_lods>`
 
 .. rst-class:: classref-property-setget
 
@@ -316,7 +316,7 @@ The number of lods generated in the mesh. Enable wireframe mode in the viewport 
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **mesh_size** = ``48``
+:ref:`int<class_int>` **mesh_size** = ``48`` :ref:`🔗<class_Terrain3D_property_mesh_size>`
 
 .. rst-class:: classref-property-setget
 
@@ -333,7 +333,7 @@ The correlated size of the terrain meshes. Lod0 has ``4*mesh_size + 2`` quads pe
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **mesh_vertex_spacing** = ``1.0``
+:ref:`float<class_float>` **mesh_vertex_spacing** = ``1.0`` :ref:`🔗<class_Terrain3D_property_mesh_vertex_spacing>`
 
 .. rst-class:: classref-property-setget
 
@@ -356,7 +356,7 @@ To scale heights, export the height map and reimport it with a new height scale.
 
 .. rst-class:: classref-property
 
-:ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` **render_cast_shadows** = ``1``
+:ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` **render_cast_shadows** = ``1`` :ref:`🔗<class_Terrain3D_property_render_cast_shadows>`
 
 .. rst-class:: classref-property-setget
 
@@ -373,7 +373,7 @@ Tells the renderer how to cast shadows from the terrain onto other objects. This
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **render_cull_margin** = ``0.0``
+:ref:`float<class_float>` **render_cull_margin** = ``0.0`` :ref:`🔗<class_Terrain3D_property_render_cull_margin>`
 
 .. rst-class:: classref-property-setget
 
@@ -390,7 +390,7 @@ This margin is added to the terrain bounding box (AABB). The terrain already set
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **render_layers** = ``2147483649``
+:ref:`int<class_int>` **render_layers** = ``2147483649`` :ref:`🔗<class_Terrain3D_property_render_layers>`
 
 .. rst-class:: classref-property-setget
 
@@ -407,7 +407,7 @@ The render layers the terrain is drawn on. This sets ``VisualInstance3D.layers``
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **render_mouse_layer** = ``32``
+:ref:`int<class_int>` **render_mouse_layer** = ``32`` :ref:`🔗<class_Terrain3D_property_render_mouse_layer>`
 
 .. rst-class:: classref-property-setget
 
@@ -430,7 +430,7 @@ See :ref:`get_intersection<class_Terrain3D_method_get_intersection>`.
 
 .. rst-class:: classref-property
 
-:ref:`Terrain3DStorage<class_Terrain3DStorage>` **storage**
+:ref:`Terrain3DStorage<class_Terrain3DStorage>` **storage** :ref:`🔗<class_Terrain3D_property_storage>`
 
 .. rst-class:: classref-property-setget
 
@@ -447,7 +447,7 @@ The object that houses all Terrain3D region, height, control, and color maps. Ma
 
 .. rst-class:: classref-property
 
-:ref:`Terrain3DTextureList<class_Terrain3DTextureList>` **texture_list**
+:ref:`Terrain3DTextureList<class_Terrain3DTextureList>` **texture_list** :ref:`🔗<class_Terrain3D_property_texture_list>`
 
 .. rst-class:: classref-property-setget
 
@@ -464,7 +464,7 @@ Deprecated. See :ref:`assets<class_Terrain3D_property_assets>`.
 
 .. rst-class:: classref-property
 
-:ref:`String<class_String>` **version** = ``"0.9.2-dev"``
+:ref:`String<class_String>` **version** = ``"0.9.2-dev"`` :ref:`🔗<class_Terrain3D_property_version>`
 
 .. rst-class:: classref-property-setget
 
@@ -485,7 +485,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-:ref:`Mesh<class_Mesh>` **bake_mesh**\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>`\ )
+:ref:`Mesh<class_Mesh>` **bake_mesh**\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>`\ ) :ref:`🔗<class_Terrain3D_method_bake_mesh>`
 
 Generates a static ArrayMesh for the terrain.
 
@@ -501,7 +501,7 @@ Generates a static ArrayMesh for the terrain.
 
 .. rst-class:: classref-method
 
-:ref:`PackedVector3Array<class_PackedVector3Array>` **generate_nav_mesh_source_geometry**\ (\ global_aabb\: :ref:`AABB<class_AABB>`, require_nav\: :ref:`bool<class_bool>` = true\ )
+:ref:`PackedVector3Array<class_PackedVector3Array>` **generate_nav_mesh_source_geometry**\ (\ global_aabb\: :ref:`AABB<class_AABB>`, require_nav\: :ref:`bool<class_bool>` = true\ ) :ref:`🔗<class_Terrain3D_method_generate_nav_mesh_source_geometry>`
 
 Generates source geometry faces for input to nav mesh baking. Geometry is only generated where there are no holes and the terrain has been painted as navigable.
 
@@ -517,7 +517,7 @@ Generates source geometry faces for input to nav mesh baking. Geometry is only g
 
 .. rst-class:: classref-method
 
-:ref:`Camera3D<class_Camera3D>` **get_camera**\ (\ )
+:ref:`Camera3D<class_Camera3D>` **get_camera**\ (\ ) :ref:`🔗<class_Terrain3D_method_get_camera>`
 
 Returns the camera the terrain is currently snapping to.
 
@@ -529,7 +529,7 @@ Returns the camera the terrain is currently snapping to.
 
 .. rst-class:: classref-method
 
-:ref:`Vector3<class_Vector3>` **get_intersection**\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`\ )
+:ref:`Vector3<class_Vector3>` **get_intersection**\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3D_method_get_intersection>`
 
 Casts a ray from ``src_pos`` pointing towards ``direction``, attempting to intersect the terrain.
 
@@ -555,7 +555,7 @@ It does require the use of an editor render layer (21-32) that should be dedicat
 
 .. rst-class:: classref-method
 
-:ref:`EditorPlugin<class_EditorPlugin>` **get_plugin**\ (\ )
+:ref:`EditorPlugin<class_EditorPlugin>` **get_plugin**\ (\ ) :ref:`🔗<class_Terrain3D_method_get_plugin>`
 
 Returns the EditorPlugin connected to Terrain3D.
 
@@ -567,7 +567,7 @@ Returns the EditorPlugin connected to Terrain3D.
 
 .. rst-class:: classref-method
 
-|void| **set_camera**\ (\ camera\: :ref:`Camera3D<class_Camera3D>`\ )
+|void| **set_camera**\ (\ camera\: :ref:`Camera3D<class_Camera3D>`\ ) :ref:`🔗<class_Terrain3D_method_set_camera>`
 
 Sets the camera the terrain snaps to.
 
@@ -579,7 +579,7 @@ Sets the camera the terrain snaps to.
 
 .. rst-class:: classref-method
 
-|void| **set_plugin**\ (\ plugin\: :ref:`EditorPlugin<class_EditorPlugin>`\ )
+|void| **set_plugin**\ (\ plugin\: :ref:`EditorPlugin<class_EditorPlugin>`\ ) :ref:`🔗<class_Terrain3D_method_set_plugin>`
 
 Sets the EditorPlugin connected to Terrain3D.
 

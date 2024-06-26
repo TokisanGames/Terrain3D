@@ -82,7 +82,7 @@ Signals
 
 .. rst-class:: classref-signal
 
-**file_changed**\ (\ )
+**file_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_file_changed>`
 
 Emitted when :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>` is changed, or if the generated mesh is toggled.
 
@@ -94,7 +94,7 @@ Emitted when :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>` is 
 
 .. rst-class:: classref-signal
 
-**id_changed**\ (\ )
+**id_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_id_changed>`
 
 Emitted when :ref:`id<class_Terrain3DMeshAsset_property_id>` is changed.
 
@@ -106,7 +106,7 @@ Emitted when :ref:`id<class_Terrain3DMeshAsset_property_id>` is changed.
 
 .. rst-class:: classref-signal
 
-**setting_changed**\ (\ )
+**setting_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_setting_changed>`
 
 Emitted when settings other than id or scene file are changed.
 
@@ -123,7 +123,7 @@ Enumerations
 
 .. rst-class:: classref-enumeration
 
-enum **GenType**:
+enum **GenType**: :ref:`🔗<enum_Terrain3DMeshAsset_GenType>`
 
 .. _class_Terrain3DMeshAsset_constant_TYPE_NONE:
 
@@ -170,7 +170,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`Vector2<class_Vector2>` **generated_size** = ``Vector2(1, 1)``
+:ref:`Vector2<class_Vector2>` **generated_size** = ``Vector2(1, 1)`` :ref:`🔗<class_Terrain3DMeshAsset_property_generated_size>`
 
 .. rst-class:: classref-property-setget
 
@@ -187,7 +187,7 @@ Sets the base size of the QuadMesh texture card.
 
 .. rst-class:: classref-property
 
-:ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **generated_type** = ``0``
+:ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **generated_type** = ``0`` :ref:`🔗<class_Terrain3DMeshAsset_property_generated_type>`
 
 .. rst-class:: classref-property-setget
 
@@ -204,7 +204,7 @@ Set this mesh asset to a generated QuadMesh to be used as a texture card.
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **height_offset** = ``0.0``
+:ref:`float<class_float>` **height_offset** = ``0.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_height_offset>`
 
 .. rst-class:: classref-property-setget
 
@@ -221,7 +221,7 @@ Vertically offset the origin point of a mesh asset. You can also set this when p
 
 .. rst-class:: classref-property
 
-:ref:`int<class_int>` **id** = ``0``
+:ref:`int<class_int>` **id** = ``0`` :ref:`🔗<class_Terrain3DMeshAsset_property_id>`
 
 .. rst-class:: classref-property-setget
 
@@ -238,7 +238,7 @@ The user settable ID of the mesh. You can change this to reorder meshes in the l
 
 .. rst-class:: classref-property
 
-:ref:`Material<class_Material>` **material_override**
+:ref:`Material<class_Material>` **material_override** :ref:`🔗<class_Terrain3DMeshAsset_property_material_override>`
 
 .. rst-class:: classref-property-setget
 
@@ -255,7 +255,7 @@ This material will override the material on either packed scenes or generated me
 
 .. rst-class:: classref-property
 
-:ref:`String<class_String>` **name** = ``"New Mesh"``
+:ref:`String<class_String>` **name** = ``"New Mesh"`` :ref:`🔗<class_Terrain3DMeshAsset_property_name>`
 
 .. rst-class:: classref-property-setget
 
@@ -272,7 +272,7 @@ A user specified name for this asset.
 
 .. rst-class:: classref-property
 
-:ref:`PackedScene<class_PackedScene>` **scene_file**
+:ref:`PackedScene<class_PackedScene>` **scene_file** :ref:`🔗<class_Terrain3DMeshAsset_property_scene_file>`
 
 .. rst-class:: classref-property-setget
 
@@ -294,7 +294,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-|void| **clear**\ (\ )
+|void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_clear>`
 
 Reset this resource to default settings.
 
@@ -306,7 +306,7 @@ Reset this resource to default settings.
 
 .. rst-class:: classref-method
 
-:ref:`Mesh<class_Mesh>` **get_mesh**\ (\ index\: :ref:`int<class_int>` = 0\ )
+:ref:`Mesh<class_Mesh>` **get_mesh**\ (\ index\: :ref:`int<class_int>` = 0\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_get_mesh>`
 
 Returns the specified Mesh resource indicated. Only id 0 is used currently.
 
@@ -318,7 +318,7 @@ Returns the specified Mesh resource indicated. Only id 0 is used currently.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_mesh_count**\ (\ )
+:ref:`int<class_int>` **get_mesh_count**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_get_mesh_count>`
 
 Returns the number of Mesh resources found in the scene file and stored.
 
@@ -330,7 +330,7 @@ Returns the number of Mesh resources found in the scene file and stored.
 
 .. rst-class:: classref-method
 
-:ref:`float<class_float>` **get_relative_density**\ (\ )
+:ref:`float<class_float>` **get_relative_density**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_get_relative_density>`
 
 Used for regulating placement, calculated as `100.f / mesh.get_aabb().get_volume()`.
 
@@ -342,7 +342,7 @@ Used for regulating placement, calculated as `100.f / mesh.get_aabb().get_volume
 
 .. rst-class:: classref-method
 
-:ref:`Texture2D<class_Texture2D>` **get_thumbnail**\ (\ )
+:ref:`Texture2D<class_Texture2D>` **get_thumbnail**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_get_thumbnail>`
 
 Returns the thumbnail generated by :ref:`Terrain3DAssets<class_Terrain3DAssets>`.
 

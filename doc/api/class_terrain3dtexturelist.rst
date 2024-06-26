@@ -44,7 +44,7 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-:ref:`Array<class_Array>`\[:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\] **textures** = ``[]``
+:ref:`Array<class_Array>`\[:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\] **textures** = ``[]`` :ref:`🔗<class_Terrain3DTextureList_property_textures>`
 
 .. rst-class:: classref-property-setget
 
