@@ -1,6 +1,7 @@
 // Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/resource_saver.hpp>
+#include <map>
 
 #include "logger.h"
 #include "terrain_3d_instancer.h"
@@ -368,12 +369,20 @@ void Terrain3DInstancer::add_transforms(int p_mesh_id, TypedArray<Transform3D> p
 		LOG(ERROR, "Mesh ID out of range: ", p_mesh_id, ", valid: 0 to ", _terrain->get_assets()->get_mesh_count() - 1);
 		return;
 	}
-	LOG(INFO, "Adding ", p_xforms.size(), " transforms and ", p_colors.size(), " colors");
+
+	LOG(INFO, "Separating ", p_xforms.size(), " transforms and ", p_colors.size(), " colors into regions");
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 
 	// Separate incoming transforms/colors into regions
-	Dictionary xforms_dict; // Keyed by region_offset, Value Transform3D array
-	Dictionary colors_dict;
+	// DEPRECATED 0.9.2 - Replace in Godot 4.3
+	// Use std::map because Godot Dictionaries copy TypedArrays
+	// See https://github.com/godotengine/godot-cpp/pull/1483
+	// TODO Check all Dictionaries w/ TypedArrays
+	// Dictionary xforms_dict;
+	// Dictionary colors_dict;
+	std::map<Vector2i, TypedArray<Transform3D>> xforms_dict;
+	std::map<Vector2i, TypedArray<Color>> colors_dict;
+
 	for (int i = 0; i < p_xforms.size(); i++) {
 		// Get xform/color
 		Transform3D trns = p_xforms[i];
@@ -386,24 +395,48 @@ void Terrain3DInstancer::add_transforms(int p_mesh_id, TypedArray<Transform3D> p
 		// Get region
 		Vector2i region_offset = _terrain->get_storage()->get_region_offset(trns.origin);
 
-		// Separate transforms by region
-		TypedArray<Transform3D> xforms = xforms_dict.get(region_offset, TypedArray<Transform3D>());
-		TypedArray<Color> colors = colors_dict.get(region_offset, TypedArray<Color>());
+		// DEPRECATED 0.9.2 - Replace in Godot 4.3
+		//if (!xforms_dict.has(region_offset)) {
+		if (xforms_dict.count(region_offset) == 0) {
+			xforms_dict[region_offset] = TypedArray<Transform3D>();
+			colors_dict[region_offset] = TypedArray<Color>();
+		}
+
+		TypedArray<Transform3D> xforms = xforms_dict[region_offset];
+		TypedArray<Color> colors = colors_dict[region_offset];
 		xforms.push_back(trns);
 		colors.push_back(col);
-		xforms_dict[region_offset] = xforms;
-		colors_dict[region_offset] = colors;
 	}
 
 	// Merge incoming transforms with existing transforms
-	for (int i = 0; i < xforms_dict.keys().size(); i++) {
-		Vector2i region_offset = xforms_dict.keys()[i];
-		TypedArray<Transform3D> xforms = xforms_dict[region_offset];
+
+	// DEPRECATED 0.9.2 - Replace in Godot 4.3
+	//for (int i = 0; i < xforms_dict.keys().size(); i++) {
+	//	Vector2i region_offset = xforms_dict.keys()[i];
+	//	TypedArray<Transform3D> xforms = xforms_dict[region_offset];
+	for (auto const &[region_offset, xforms] : xforms_dict) {
 		TypedArray<Color> colors = colors_dict[region_offset];
 		LOG(DEBUG, "Adding ", xforms.size(), " transforms to region offset: ", region_offset);
 		update_multimesh(region_offset, p_mesh_id, xforms, colors);
 	}
+
 	_terrain->get_storage()->set_modified();
+}
+
+void Terrain3DInstancer::add_multimesh(int p_mesh_id, Ref<MultiMesh> p_multimesh, Transform3D p_xform) {
+	LOG(INFO, "Extracting ", p_multimesh->get_instance_count(), " transforms from multimesh");
+	TypedArray<Transform3D> xforms;
+	TypedArray<Color> colors;
+	for (int i = 0; i < p_multimesh->get_instance_count(); i++) {
+		Transform3D t = p_xform;
+		xforms.push_back(t * p_multimesh->get_instance_transform(i));
+		Color c = COLOR_WHITE;
+		if (p_multimesh->is_using_colors()) {
+			c = p_multimesh->get_instance_color(i);
+		}
+		colors.push_back(c);
+	}
+	add_transforms(p_mesh_id, xforms, colors);
 }
 
 void Terrain3DInstancer::clear_by_mesh(int p_mesh_id) {
@@ -467,4 +500,5 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_instances", "global_position", "params"), &Terrain3DInstancer::add_instances);
 	ClassDB::bind_method(D_METHOD("remove_instances", "global_position", "params"), &Terrain3DInstancer::remove_instances);
 	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(TypedArray<Color>()));
+	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()));
 }

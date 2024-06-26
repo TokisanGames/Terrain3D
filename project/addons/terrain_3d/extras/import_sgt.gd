@@ -1,6 +1,6 @@
 ## Import From SimpleGrassTextured
 # 
-# This script demonstrates how to import transforms from SGT. To use it:
+# This script demonstrates how to import transforms from SimpleGrassTextured. To use it:
 #
 # 1. Assign this script to your Terrain3D node and reselect the node to update the inspector.
 # 2. In the inspector select your SGT node.
@@ -8,11 +8,12 @@
 # 4. Assign that mesh id in the inspector.
 # 5. Click Import.
 #
-# Use clear_instances to erase the whole storage multimesh dictionary.
+# When finished, clear the script from your Terrain3DNode.
 #
-# The add_transforms function applies the height_offset in the Terrain3DMeshAsset. This script
-# provides an additional height offset, and also demonstrates how to move the mesh along its 
-# local Y axis via code.
+# Use clear_instances to erase all instances that match the assign_mesh_id.
+#
+# The add_transforms function (called by add_multimesh) applies the height_offset specified in the 
+# Terrain3DMeshAsset. 
 #
 # The SimpleGrassTextured default mesh is a cross of two texture cards. The default Terrain3D 
 # texture card is a single quadmesh, so assign your own mesh if you wish an exact match. Once the 
@@ -29,31 +30,14 @@ extends Terrain3D
 
 
 func clear_multimeshes(value: bool) -> void:
-	storage.set_multimeshes(Dictionary())
+	get_instancer().clear_by_mesh(assign_mesh_id)
 
 
 func import_sgt(value: bool) -> void:
 	var sgt_mm: MultiMesh = simple_grass_textured.multimesh
-	var global_xform: Transform3D = simple_grass_textured.global_transform
-	var xforms: Array[Transform3D]
-	var colors: Array[Color]
-	
+	var global_xform: Transform3D = simple_grass_textured.global_transform	
 	print("Starting to import %d instances from SimpleGrassTextured using mesh id %d" % [ sgt_mm.instance_count, assign_mesh_id])
-	if sgt_mm.instance_count > 20000:
-		print("This may take a while")
-	
-	for i in sgt_mm.instance_count:
-		var trns: Transform3D = global_xform
-		trns *= sgt_mm.get_instance_transform(i)
-		trns.origin += trns.basis.y * height_offset
-		xforms.push_back(trns)
-		var color := Color.WHITE
-		if sgt_mm.use_colors:
-			color = sgt_mm.get_instance_color(i)
-		colors.push_back(color)
-
-	if xforms.size() > 0:
-		get_instancer().add_transforms(assign_mesh_id, xforms, colors)
-
-	print("Import complete")
+	var time: int = Time.get_ticks_msec()
+	get_instancer().add_multimesh(assign_mesh_id, sgt_mm, simple_grass_textured.global_transform)	
+	print("Import complete in %.2f seconds" % [ float(Time.get_ticks_msec() - time)/1000. ])
 	

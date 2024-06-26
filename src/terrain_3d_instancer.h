@@ -52,6 +52,7 @@ public:
 	void remove_instances(Vector3 p_global_position, Dictionary p_params);
 	void reset_instance_counter() { _instance_counter = 0; }
 	void add_transforms(int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors = TypedArray<Color>());
+	void add_multimesh(int p_mesh_id, Ref<MultiMesh> p_multimesh, Transform3D p_xform = Transform3D());
 
 	void clear_by_mesh(int p_mesh_id);
 	void clear_by_region_id(int p_region_id, int p_mesh_id);
