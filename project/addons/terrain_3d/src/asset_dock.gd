@@ -750,13 +750,15 @@ class ListEntry extends VBoxContainer:
 			if res is Terrain3DTextureAsset:
 				set_edited_resource(res, false)
 			if res is Texture2D:
-				var surf: Terrain3DTextureAsset = Terrain3DTextureAsset.new()
-				surf.set_albedo_texture(res)
-				set_edited_resource(surf, false)
+				var ta := Terrain3DTextureAsset.new()
+				ta.set_albedo_texture(res)
+				set_edited_resource(ta, false)
 			if res is PackedScene:
-				print("Got a packed Scene")
+				var ma := Terrain3DMeshAsset.new()
+				ma.set_scene_file(res)
+				set_edited_resource(ma, false)
 			if res is Terrain3DMeshAsset:
-				print("Got a mesh instance")
+				set_edited_resource(res, false)
 
 
 	func set_edited_resource(p_res: Resource, p_no_signal: bool = true) -> void:
