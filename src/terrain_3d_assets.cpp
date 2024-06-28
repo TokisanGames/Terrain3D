@@ -534,6 +534,10 @@ void Terrain3DAssets::update_mesh_list() {
 			LOG(DEBUG, "Connecting setting_changed signal to _update_thumbnail");
 			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset));
 		}
+		if (!mesh_asset->is_connected("cast_shadows_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::set_cast_shadows))) {
+			LOG(DEBUG, "Connecting cast_shadows_changed signal to set_cast_shadows");
+			mesh_asset->connect("cast_shadows_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::set_cast_shadows));
+		}
 	}
 	LOG(DEBUG, "Emitting meshes_changed");
 	emit_signal("meshes_changed");

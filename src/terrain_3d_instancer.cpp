@@ -69,6 +69,7 @@ void Terrain3DInstancer::_update_mmis() {
 			}
 			mmi = cast_to<MultiMeshInstance3D>(_mmis[mmi_key]);
 			mmi->set_multimesh(mm);
+			mmi->set_cast_shadows_setting(ma->get_cast_shadows());
 		}
 	}
 }
@@ -165,6 +166,7 @@ void Terrain3DInstancer::update_multimesh(Vector2i p_region_offset, int p_mesh_i
 		LOG(DEBUG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
 		mmi = memnew(MultiMeshInstance3D);
 		mmi->set_multimesh(mm);
+		mmi->set_cast_shadows_setting(mesh_asset->get_cast_shadows());
 		_terrain->add_child(mmi);
 		Vector3i key = Vector3i(p_region_offset.x, p_region_offset.y, p_mesh_id);
 		_mmis[key] = mmi;
@@ -439,6 +441,20 @@ void Terrain3DInstancer::add_multimesh(int p_mesh_id, Ref<MultiMesh> p_multimesh
 	add_transforms(p_mesh_id, xforms, colors);
 }
 
+void Terrain3DInstancer::set_cast_shadows(int p_mesh_id, GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
+	LOG(INFO, "Setting shadow casting on MMIS with mesh: ", p_mesh_id, " to mode: ", p_cast_shadows);
+	Array keys = _mmis.keys();
+	for (int i = 0; i < keys.size(); i++) {
+		Vector3i key = keys[i];
+		if (key.z == p_mesh_id) {
+			MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmis[key]);
+			if (mmi) {
+				mmi->set_cast_shadows_setting(p_cast_shadows);
+			}
+		}
+	}
+}
+
 void Terrain3DInstancer::clear_by_mesh(int p_mesh_id) {
 	LOG(INFO, "Deleting Multimeshes in all regions with mesh_id: ", p_mesh_id);
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
@@ -501,4 +517,5 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_instances", "global_position", "params"), &Terrain3DInstancer::remove_instances);
 	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(TypedArray<Color>()));
 	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()));
+	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mesh_id", "mode"), &Terrain3DInstancer::set_cast_shadows);
 }

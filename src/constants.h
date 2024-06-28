@@ -64,15 +64,15 @@ typedef PackedFloat32Array PackedRealArray;
 		return ret;                        \
 	}
 
-#define IS_INSTANCER_INIT(ret)                                        \
+#define IS_INSTANCER_INIT(ret)                                         \
 	if (_terrain == nullptr || _terrain->get_instancer() == nullptr) { \
-		return ret;                                                 \
+		return ret;                                                    \
 	}
 
-#define IS_INSTANCER_INIT_MESG(mesg, ret)                                        \
+#define IS_INSTANCER_INIT_MESG(mesg, ret)                              \
 	if (_terrain == nullptr || _terrain->get_instancer() == nullptr) { \
-		LOG(ERROR, mesg);                                           \
-		return ret;                                                 \
+		LOG(ERROR, mesg);                                              \
+		return ret;                                                    \
 	}
 
 #define IS_STORAGE_INIT(ret)                                        \

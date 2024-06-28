@@ -813,7 +813,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 				// If not in a region, generate a new empty map.
 				if (region_index == -1) {
 					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, FORMAT[i]);
-				// Otherwise Get the current map.
+					// Otherwise Get the current map.
 				} else {
 					img_slice = get_map_region(MapType(i), region_index);
 				}
@@ -823,7 +823,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 
 				}
 				images[i] = img_slice;
 			}
-			// Add the heightmap slice and only regenerate on the last one			
+			// Add the heightmap slice and only regenerate on the last one
 			add_region(position, images, (x == slices_width - 1 && y == slices_height - 1));
 		}
 	} // for y < slices_height, x < slices_width

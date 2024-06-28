@@ -80,7 +80,6 @@ public:
 	int get_mesh_count() const { return _mesh_list.size(); }
 	void create_mesh_thumbnails(int p_id = -1, Vector2i p_size = Vector2i(128, 128)) const;
 	void update_mesh_list();
-
 	void save();
 
 protected:

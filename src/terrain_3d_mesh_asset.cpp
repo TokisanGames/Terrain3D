@@ -82,6 +82,7 @@ void Terrain3DMeshAsset::clear() {
 	_name = "New Mesh";
 	_id = 0;
 	_height_offset = 0.0f;
+	_cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	_relative_density = 1.f;
 	_packed_scene.unref();
 	_material_override.unref();
@@ -105,6 +106,12 @@ void Terrain3DMeshAsset::set_height_offset(real_t p_offset) {
 	_height_offset = CLAMP(p_offset, -50.f, 50.f);
 	LOG(INFO, "Setting height offset: ", _height_offset);
 	emit_signal("setting_changed");
+}
+
+void Terrain3DMeshAsset::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
+	_cast_shadows = p_cast_shadows;
+	LOG(INFO, "Setting shadow casting mode: ", _cast_shadows);
+	emit_signal("cast_shadows_changed", _id, _cast_shadows);
 }
 
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> p_scene_file) {
@@ -212,6 +219,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("id_changed"));
 	ADD_SIGNAL(MethodInfo("file_changed"));
 	ADD_SIGNAL(MethodInfo("setting_changed"));
+	ADD_SIGNAL(MethodInfo("cast_shadows_changed"));
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DMeshAsset::clear);
 	ClassDB::bind_method(D_METHOD("set_name", "name"), &Terrain3DMeshAsset::set_name);
@@ -220,6 +228,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_id"), &Terrain3DMeshAsset::get_id);
 	ClassDB::bind_method(D_METHOD("set_height_offset", "offset"), &Terrain3DMeshAsset::set_height_offset);
 	ClassDB::bind_method(D_METHOD("get_height_offset"), &Terrain3DMeshAsset::get_height_offset);
+	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mode"), &Terrain3DMeshAsset::set_cast_shadows);
+	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3DMeshAsset::get_cast_shadows);
 	ClassDB::bind_method(D_METHOD("set_scene_file", "scene_file"), &Terrain3DMeshAsset::set_scene_file);
 	ClassDB::bind_method(D_METHOD("get_scene_file"), &Terrain3DMeshAsset::get_scene_file);
 	ClassDB::bind_method(D_METHOD("set_material_override", "material"), &Terrain3DMeshAsset::set_material_override);
@@ -240,4 +250,5 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_override", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_override", "get_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "generated_size", PROPERTY_HINT_NONE), "set_generated_size", "get_generated_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
 }

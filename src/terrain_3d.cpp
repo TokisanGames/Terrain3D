@@ -225,7 +225,7 @@ void Terrain3D::_build_meshes(int p_mesh_lods, int p_mesh_size) {
 	RID scenario = get_world_3d()->get_scenario();
 
 	_data.cross = RS->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
-	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_cast_shadows));
 	RS->instance_set_layer_mask(_data.cross, _render_layers);
 
 	for (int l = 0; l < p_mesh_lods; l++) {
@@ -236,25 +236,25 @@ void Terrain3D::_build_meshes(int p_mesh_lods, int p_mesh_size) {
 				}
 
 				RID tile = RS->instance_create2(_meshes[GeoClipMap::TILE], scenario);
-				RS->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_shadow_casting));
+				RS->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_cast_shadows));
 				RS->instance_set_layer_mask(tile, _render_layers);
 				_data.tiles.push_back(tile);
 			}
 		}
 
 		RID filler = RS->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
-		RS->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(filler, _render_layers);
 		_data.fillers.push_back(filler);
 
 		if (l != p_mesh_lods - 1) {
 			RID trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
-			RS->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RS->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_cast_shadows));
 			RS->instance_set_layer_mask(trim, _render_layers);
 			_data.trims.push_back(trim);
 
 			RID seam = RS->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
-			RS->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_shadow_casting));
+			RS->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_cast_shadows));
 			RS->instance_set_layer_mask(seam, _render_layers);
 			_data.seams.push_back(seam);
 		}
@@ -283,34 +283,34 @@ void Terrain3D::_update_mesh_instances() {
 	bool v = is_visible_in_tree();
 	RS->instance_set_visible(_data.cross, v);
 	RS->instance_set_scenario(_data.cross, _scenario);
-	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_shadow_casting));
+	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_cast_shadows));
 	RS->instance_set_layer_mask(_data.cross, _render_layers);
 
 	for (const RID rid : _data.tiles) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.fillers) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.trims) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
 	for (const RID rid : _data.seams) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_shadow_casting));
+		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 }
@@ -765,8 +765,8 @@ void Terrain3D::set_mouse_layer(uint32_t p_layer) {
 	}
 }
 
-void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_shadow_casting) {
-	_shadow_casting = p_shadow_casting;
+void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
+	_cast_shadows = p_cast_shadows;
 	_update_mesh_instances();
 }
 

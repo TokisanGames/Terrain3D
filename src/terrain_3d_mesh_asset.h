@@ -29,6 +29,7 @@ public:
 private:
 	// Saved data
 	float _height_offset = 0.f;
+	GeometryInstance3D::ShadowCastingSetting _cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	GenType _generated_type = TYPE_NONE;
 	Vector2 _generated_size = Vector2(1.f, 1.f);
 	Ref<PackedScene> _packed_scene;
@@ -37,7 +38,6 @@ private:
 	// Working data
 	float _relative_density = 1.f;
 	TypedArray<Mesh> _meshes;
-
 	Ref<Texture2D> _thumbnail;
 
 	// No signal versions
@@ -58,6 +58,9 @@ public:
 
 	void set_height_offset(real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
+
+	void set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
+	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
 
 	void set_scene_file(const Ref<PackedScene> p_scene_file);
 	Ref<PackedScene> get_scene_file() const { return _packed_scene; }
