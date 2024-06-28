@@ -3,8 +3,8 @@
 #ifndef TERRAIN3D_MESH_ASSET_CLASS_H
 #define TERRAIN3D_MESH_ASSET_CLASS_H
 
+#include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/material.hpp>
-#include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
@@ -31,6 +31,7 @@ private:
 	float _height_offset = 0.f;
 	GeometryInstance3D::ShadowCastingSetting _cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	GenType _generated_type = TYPE_NONE;
+	int _generated_faces = 1;
 	Vector2 _generated_size = Vector2(1.f, 1.f);
 	Ref<PackedScene> _packed_scene;
 	Ref<Material> _material_override;
@@ -43,6 +44,8 @@ private:
 	// No signal versions
 	void _set_generated_type(GenType p_type);
 	void _set_material_override(const Ref<Material> p_material);
+	Ref<ArrayMesh> _build_generated_mesh();
+	Ref<Material> _get_material();
 
 public:
 	Terrain3DMeshAsset();
@@ -70,6 +73,8 @@ public:
 
 	void set_generated_type(GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
+	void set_generated_faces(int p_count);
+	int get_generated_faces() const { return _generated_faces; }
 	void set_generated_size(Vector2 p_size);
 	Vector2 get_generated_size() const { return _generated_size; }
 
