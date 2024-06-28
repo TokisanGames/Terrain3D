@@ -433,7 +433,7 @@ TypedArray<Image> Terrain3DStorage::get_maps_copy(MapType p_map_type) const {
 }
 
 void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel) {
-	IS_INIT_MESG("Storage not initialized", NOP);
+	IS_INIT_MESG("Storage not initialized", VOID);
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return;
@@ -714,7 +714,7 @@ void Terrain3DStorage::save() {
  *	p_scale - Scale all height values by this factor (applied after offset)
  */
 void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 p_global_position, real_t p_offset, real_t p_scale) {
-	IS_INIT_MESG("Storage not initialized", NOP);
+	IS_INIT_MESG("Storage not initialized", VOID);
 	if (p_images.size() != TYPE_MAX) {
 		LOG(ERROR, "p_images.size() is ", p_images.size(), ". It should be ", TYPE_MAX, " even if some Images are blank or null");
 		return;

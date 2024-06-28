@@ -18,7 +18,7 @@ void Terrain3DInstancer::_rebuild_mmis() {
 
 // Creates MMIs based on stored Multimeshes
 void Terrain3DInstancer::_update_mmis() {
-	IS_STORAGE_INIT(NOP);
+	IS_STORAGE_INIT(VOID);
 	LOG(INFO, "Updating MMIs");
 	// For all region_offsets
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
@@ -102,13 +102,13 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	}
-	IS_STORAGE_INIT_MESG("Terrain or storage not ready yet", NOP);
+	IS_STORAGE_INIT_MESG("Terrain or storage not ready yet", VOID);
 	LOG(INFO, "Initializing Instancer");
 	_update_mmis();
 }
 
 void Terrain3DInstancer::destroy() {
-	IS_STORAGE_INIT(NOP);
+	IS_STORAGE_INIT(VOID);
 	LOG(INFO, "Destroying all MMIs");
 	while (_mmis.size() > 0) {
 		Vector3i key = _mmis.keys()[0];
@@ -118,7 +118,7 @@ void Terrain3DInstancer::destroy() {
 }
 
 void Terrain3DInstancer::update_multimesh(Vector2i p_region_offset, int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors, bool p_clear) {
-	IS_STORAGE_INIT(NOP);
+	IS_STORAGE_INIT(VOID);
 
 	// Merge with old instances
 	if (!p_clear) {
@@ -198,7 +198,7 @@ MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(Vector2i p_regio
 }
 
 void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_params) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", NOP);
+	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
 
 	int mesh_id = p_params.get("asset_id", 0);
 	if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
@@ -303,7 +303,7 @@ void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_p
 }
 
 void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary p_params) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", NOP);
+	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
 
 	int mesh_id = p_params.get("asset_id", 0);
 	if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
@@ -361,7 +361,7 @@ void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary 
 }
 
 void Terrain3DInstancer::add_transforms(int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", NOP);
+	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
 	if (p_xforms.size() == 0) {
 		return;
 	}

@@ -516,7 +516,7 @@ Dictionary Terrain3DEditor::_collect_undo_data() {
 }
 
 void Terrain3DEditor::_store_undo() {
-	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", NOP);
+	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", VOID);
 	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return;
 	}
@@ -546,7 +546,7 @@ void Terrain3DEditor::_store_undo() {
 }
 
 void Terrain3DEditor::_apply_undo(Dictionary p_set) {
-	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", NOP);
+	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", VOID);
 	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
 	LOG(DEBUG, "Apply undo received: ", p_set);
 
@@ -638,7 +638,7 @@ void Terrain3DEditor::set_tool(Tool p_tool) {
 
 // Called on mouse click
 void Terrain3DEditor::start_operation(Vector3 p_global_position) {
-	IS_STORAGE_INIT_MESG("Terrain isn't initialized", NOP);
+	IS_STORAGE_INIT_MESG("Terrain isn't initialized", VOID);
 	LOG(INFO, "Setting up undo snapshot...");
 	_undo_set.clear();
 	_undo_set = _collect_undo_data();
@@ -656,7 +656,7 @@ void Terrain3DEditor::start_operation(Vector3 p_global_position) {
 
 // Called on mouse movement with left mouse button down
 void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_direction) {
-	IS_STORAGE_INIT_MESG("Terrain isn't initialized", NOP);
+	IS_STORAGE_INIT_MESG("Terrain isn't initialized", VOID);
 	if (!_pending_undo) {
 		return;
 	}
@@ -684,7 +684,7 @@ void Terrain3DEditor::operate(Vector3 p_global_position, real_t p_camera_directi
 
 // Called on left mouse button released
 void Terrain3DEditor::stop_operation() {
-	IS_STORAGE_INIT_MESG("Terrain isn't initialized", NOP);
+	IS_STORAGE_INIT_MESG("Terrain isn't initialized", VOID);
 	if (_pending_undo && _modified) {
 		_store_undo();
 		_pending_undo = false;

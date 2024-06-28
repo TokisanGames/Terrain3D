@@ -40,7 +40,7 @@ typedef PackedFloat32Array PackedRealArray;
 
 // Validation macros
 
-#define NOP // a return value for void, to avoid warnings
+#define VOID // a return value for void, to avoid compiler warnings
 
 #define IS_INIT(ret)           \
 	if (_terrain == nullptr) { \
@@ -66,6 +66,12 @@ typedef PackedFloat32Array PackedRealArray;
 
 #define IS_INSTANCER_INIT(ret)                                        \
 	if (_terrain == nullptr || _terrain->get_instancer() == nullptr) { \
+		return ret;                                                 \
+	}
+
+#define IS_INSTANCER_INIT_MESG(mesg, ret)                                        \
+	if (_terrain == nullptr || _terrain->get_instancer() == nullptr) { \
+		LOG(ERROR, mesg);                                           \
 		return ret;                                                 \
 	}
 

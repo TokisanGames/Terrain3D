@@ -207,7 +207,7 @@ String Terrain3DMaterial::_inject_editor_code(String p_shader) {
 }
 
 void Terrain3DMaterial::_update_shader() {
-	IS_INIT(NOP);
+	IS_INIT(VOID);
 	LOG(INFO, "Updating shader");
 	RID shader_rid;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
@@ -298,7 +298,7 @@ void Terrain3DMaterial::_update_shader() {
 }
 
 void Terrain3DMaterial::_update_regions() {
-	IS_STORAGE_INIT(NOP);
+	IS_STORAGE_INIT(VOID);
 	LOG(DEBUG_CONT, "Updating region maps in shader");
 
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
@@ -343,7 +343,7 @@ void Terrain3DMaterial::_update_regions() {
 }
 
 void Terrain3DMaterial::_generate_region_blend_map() {
-	IS_STORAGE_INIT_MESG("Material not initialized", NOP);
+	IS_STORAGE_INIT_MESG("Material not initialized", VOID);
 	PackedInt32Array region_map = _terrain->get_storage()->get_region_map();
 	int rsize = Terrain3DStorage::REGION_MAP_SIZE;
 	if (region_map.size() == rsize * rsize) {
@@ -366,7 +366,7 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 
 // Called from signal connected in Terrain3D, emitted by texture_list
 void Terrain3DMaterial::_update_texture_arrays() {
-	IS_STORAGE_INIT_MESG("Material not initialized", NOP);
+	IS_STORAGE_INIT_MESG("Material not initialized", VOID);
 	Ref<Terrain3DAssets> asset_list = _terrain->get_assets();
 	LOG(INFO, "Updating texture arrays in shader");
 	if (asset_list.is_null()) {
@@ -422,7 +422,7 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 }
 
 Terrain3DMaterial::~Terrain3DMaterial() {
-	IS_INIT(NOP);
+	IS_INIT(VOID);
 	LOG(INFO, "Destroying material");
 	RS->free_rid(_material);
 	RS->free_rid(_shader);
@@ -631,7 +631,7 @@ void Terrain3DMaterial::save() {
 // Add shader uniforms to properties. Hides uniforms that begin with _
 void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	Resource::_get_property_list(p_list);
-	IS_INIT(NOP);
+	IS_INIT(VOID);
 	Array param_list;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		// Get shader parameters from custom shader
