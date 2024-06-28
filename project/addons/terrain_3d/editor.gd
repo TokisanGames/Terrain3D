@@ -52,10 +52,13 @@ func _exit_tree() -> void:
 
 
 func _handles(p_object: Object) -> bool:
-	if p_object is Terrain3D or p_object is NavigationRegion3D:
+	if p_object is Terrain3D:
 		return true
-	if p_object is Terrain3DObjects or (p_object is Node3D and p_object.get_parent() is Terrain3DObjects):
-		return true
+	if is_instance_valid(_last_terrain) and _last_terrain.is_inside_tree():
+		if p_object is NavigationRegion3D:
+			return true
+		if p_object is Terrain3DObjects or (p_object is Node3D and p_object.get_parent() is Terrain3DObjects):
+			return true
 	return false
 
 
@@ -83,16 +86,17 @@ func _edit(p_object: Object) -> void:
 		_load_storage()
 	else:
 		terrain = null
-	
-	if p_object is NavigationRegion3D:
-		nav_region = p_object
-	else:
-		nav_region = null
 
-	if p_object is Terrain3DObjects:
-		p_object.editor_setup(self)
-	elif p_object is Node3D and p_object.get_parent() is Terrain3DObjects:
-		p_object.get_parent().editor_setup(self)
+	if is_instance_valid(_last_terrain) and _last_terrain.is_inside_tree():
+		if p_object is NavigationRegion3D:
+			nav_region = p_object
+		else:
+			nav_region = null
+
+		if p_object is Terrain3DObjects:
+			p_object.editor_setup(self)
+		elif p_object is Node3D and p_object.get_parent() is Terrain3DObjects:
+			p_object.get_parent().editor_setup(self)
 	
 		
 func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
