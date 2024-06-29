@@ -547,9 +547,8 @@ class ListContainer extends Container:
 				await get_tree().create_timer(.01).timeout
 				plugin.terrain.assets.create_mesh_thumbnails(p_id)
 
-			# If removing last entry and its selected, clear inspector
-			if not p_resource and p_id == get_selected_id() and \
-					get_selected_id() == entries.size() - 2:
+			# If removing an entry, clear inspector
+			if not p_resource:
 				plugin.get_editor_interface().inspect_object(null)			
 				
 		# If null resource, remove last 
@@ -747,18 +746,31 @@ class ListEntry extends VBoxContainer:
 	func _drop_data(p_at_position: Vector2, p_data: Variant) -> void:
 		if typeof(p_data) == TYPE_DICTIONARY:
 			var res: Resource = load(p_data.files[0])
-			if res is Terrain3DTextureAsset:
-				set_edited_resource(res, false)
 			if res is Texture2D:
 				var ta := Terrain3DTextureAsset.new()
+				if resource is Terrain3DTextureAsset:
+					ta.id = resource.id
 				ta.set_albedo_texture(res)
 				set_edited_resource(ta, false)
-			if res is PackedScene:
+				resource = ta
+			elif res is Terrain3DTextureAsset:
+				if resource is Terrain3DTextureAsset:
+					res.id = resource.id
+				set_edited_resource(res, false)
+			elif res is PackedScene:
 				var ma := Terrain3DMeshAsset.new()
+				if resource is Terrain3DMeshAsset:
+					ma.id = resource.id
 				ma.set_scene_file(res)
 				set_edited_resource(ma, false)
-			if res is Terrain3DMeshAsset:
+				resource = ma
+			elif res is Terrain3DMeshAsset:
+				if resource is Terrain3DMeshAsset:
+					res.id = resource.id
 				set_edited_resource(res, false)
+			emit_signal("selected")
+			emit_signal("inspected", resource)
+
 
 
 	func set_edited_resource(p_res: Resource, p_no_signal: bool = true) -> void:
