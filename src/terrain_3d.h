@@ -42,6 +42,8 @@ class Terrain3D : public Node3D {
 	EditorPlugin *_plugin = nullptr;
 	// Current editor or gameplay camera we are centering the terrain on.
 	Camera3D *_camera = nullptr;
+	uint64_t _camera_instance_id = 0;
+
 	// X,Z Position of the camera during the previous snapping. Set to max real_t value to force a snap update.
 	Vector2 _camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
 

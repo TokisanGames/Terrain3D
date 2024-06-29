@@ -135,7 +135,6 @@ inline uint32_t gd_enc_uv_rotation(uint32_t rotation) { return enc_uv_rotation(r
 inline uint32_t gd_get_uv_scale(uint32_t pixel) { return get_uv_rotation(pixel); }
 inline uint32_t gd_enc_uv_scale(uint32_t scale) { return enc_uv_rotation(scale); }
 
-
 ///////////////////////////
 // Memory
 ///////////////////////////
@@ -160,6 +159,18 @@ _FORCE_INLINE_ bool remove_from_tree(Node *p_node) {
 		}
 	}
 	return false;
+}
+
+// UtilityFunctions::is_instance_valid() is faulty and shouldn't be used.
+// Use this version instead on objects that might be freed by the user.
+// See https://github.com/godotengine/godot-cpp/issues/1390#issuecomment-1937570699
+_FORCE_INLINE_ bool is_instance_valid(uint64_t p_instance_id, Object *p_object = nullptr) {
+	Object *obj = ObjectDB::get_instance(p_instance_id);
+	if (p_object != nullptr) {
+		return p_instance_id > 0 && p_object == obj;
+	} else {
+		return p_instance_id > 0 && obj != nullptr;
+	}
 }
 
 #endif // TERRAIN3D_UTIL_CLASS_H

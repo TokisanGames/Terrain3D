@@ -108,13 +108,13 @@ void Terrain3D::__process(double delta) {
 		return;
 
 	// If the game/editor camera is not set, find it
-	if (!UtilityFunctions::is_instance_valid(_camera)) {
-		LOG(DEBUG, "camera is null, getting the current one");
+	if (!is_instance_valid(_camera_instance_id, _camera)) {
+		LOG(DEBUG, "Camera is null, getting the current one");
 		_grab_camera();
 	}
 
 	// If camera has moved enough, re-center the terrain on it.
-	if (UtilityFunctions::is_instance_valid(_camera) && _camera->is_inside_tree()) {
+	if (is_instance_valid(_camera_instance_id) && _camera->is_inside_tree()) {
 		Vector3 cam_pos = _camera->get_global_position();
 		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
 		if (_camera_last_position.distance_to(cam_pos_2d) > 0.2f) {
@@ -190,13 +190,16 @@ void Terrain3D::_destroy_mouse_picking() {
  */
 void Terrain3D::_grab_camera() {
 	if (Engine::get_singleton()->is_editor_hint()) {
-		LOG(DEBUG, "Grabbing the first editor viewport camera");
 		_camera = EditorInterface::get_singleton()->get_editor_viewport_3d(0)->get_camera_3d();
+		LOG(DEBUG, "Grabbing the first editor viewport camera: ", _camera);
 	} else {
-		LOG(DEBUG, "Grabbing the in-game viewport camera");
 		_camera = get_viewport()->get_camera_3d();
+		LOG(DEBUG, "Grabbing the in-game viewport camera: ", _camera);
 	}
-	if (!_camera) {
+	if (_camera) {
+		_camera_instance_id = _camera->get_instance_id();
+	} else {
+		_camera_instance_id = 0;
 		set_process(false); // disable snapping
 		LOG(ERROR, "Cannot find the active camera. Set it manually with Terrain3D.set_camera(). Stopping _process()");
 	}
@@ -725,11 +728,12 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 	if (_camera != p_camera) {
 		_camera = p_camera;
 		if (p_camera == nullptr) {
-			LOG(DEBUG, "Received null camera. Calling _grab_camera");
+			LOG(DEBUG, "Received null camera. Calling _grab_camera()");
 			_grab_camera();
 		} else {
-			LOG(DEBUG, "Setting camera: ", p_camera);
 			_camera = p_camera;
+			_camera_instance_id = _camera->get_instance_id();
+			LOG(DEBUG, "Setting camera: ", _camera);
 			_initialize();
 			set_process(true); // enable __process snapping
 		}
@@ -973,7 +977,7 @@ void Terrain3D::update_aabbs() {
  * Returns vec3(Double max 3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(Vector3 p_src_pos, Vector3 p_direction) {
-	if (_camera == nullptr) {
+	if (!is_instance_valid(_camera_instance_id)) {
 		LOG(ERROR, "Invalid camera");
 		return Vector3(NAN, NAN, NAN);
 	}

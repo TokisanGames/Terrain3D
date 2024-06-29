@@ -168,7 +168,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		else:			
 			# Else look for intersection with terrain
 			var intersection_point: Vector3 = terrain.get_intersection(camera_pos, camera_dir)
-			if intersection_point.z > 3.4e38: # double max
+			if intersection_point.z > 3.4e38 or is_nan(intersection_point.z): # max double or nan
 				return AFTER_GUI_INPUT_STOP
 			mouse_global_position = intersection_point
 		
