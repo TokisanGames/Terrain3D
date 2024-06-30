@@ -22,12 +22,20 @@ void Terrain3DInstancer::_update_mmis() {
 	LOG(INFO, "Updating MMIs");
 	// For all region_offsets
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
-	LOG(DEBUG, "Updating MMIs from regions: ", region_dict);
+	LOG(DEBUG, "Multimeshes: ", region_dict);
+	if (region_dict.has(Variant())) {
+		region_dict.erase(Variant());
+		LOG(WARN, "Removed errant null in MM dictionary");
+	}
+	if (_mmis.has(Variant())) {
+		_mmis.erase(Variant());
+		LOG(WARN, "Removed errant null in MMI dictionary");
+	}
 	Array keys = region_dict.keys();
 	for (int r = 0; r < keys.size(); r++) {
 		Vector2i region_offset = keys[r];
 		Dictionary mesh_dict = region_dict.get(region_offset, Dictionary());
-		LOG(DEBUG, "Updating MMIs from meshes: ", mesh_dict);
+		LOG(DEBUG, "Updating MMIs from: ", region_offset);
 
 		// For all mesh ids
 		for (int m = 0; m < mesh_dict.keys().size(); m++) {
@@ -72,6 +80,8 @@ void Terrain3DInstancer::_update_mmis() {
 			mmi->set_cast_shadows_setting(ma->get_cast_shadows());
 		}
 	}
+	LOG(DEBUG, "mm: ", _terrain->get_storage()->get_multimeshes());
+	LOG(DEBUG, "_mmis: ", _mmis);
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_region_id(int p_region_id, int p_mesh_id) {
@@ -197,6 +207,66 @@ MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(Vector2i p_regio
 	MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmis[key]);
 	LOG(DEBUG_CONT, "Retrieving MultiMeshInstance3D at region: ", p_region_offset, " mesh_id: ", p_mesh_id, " : ", mmi);
 	return mmi;
+}
+
+void Terrain3DInstancer::swap_ids(int p_src_id, int p_dst_id) {
+	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
+	Ref<Terrain3DAssets> assets = _terrain->get_assets();
+	int asset_count = assets->get_mesh_count();
+	LOG(INFO, "Swapping IDs of multimeshes: ", p_src_id, " and ", p_dst_id);
+	if (p_src_id >= 0 && p_src_id < asset_count && p_dst_id >= 0 && p_dst_id < asset_count) {
+		// Change id keys in storage mm dictionary
+		Dictionary multimeshes = _terrain->get_storage()->get_multimeshes();
+		Array mm_keys = multimeshes.keys();
+		for (int i = 0; i < mm_keys.size(); i++) {
+			Vector2i region_offset = mm_keys[i];
+			Dictionary mesh_dict = multimeshes[region_offset];
+			// mesh_dict could have src, src&dst, dst or nothing. All 4 must be considered
+			// Pop out any existing MMs
+			Ref<MultiMesh> mm_src;
+			Ref<MultiMesh> mm_dst;
+			if (mesh_dict.has(p_src_id)) {
+				mm_src = mesh_dict[p_src_id];
+				mesh_dict.erase(p_src_id);
+			}
+			if (mesh_dict.has(p_dst_id)) {
+				mm_dst = mesh_dict[p_dst_id];
+				mesh_dict.erase(p_dst_id);
+			}
+			// If src is ok, insert into dst slot
+			if (mm_src.is_valid()) {
+				mesh_dict[p_dst_id] = mm_src;
+			}
+			// If dst is ok, insert into src slot
+			if (mm_dst.is_valid()) {
+				mesh_dict[p_src_id] = mm_dst;
+			}
+			LOG(DEBUG, "Swapped multimesh ids at: ", region_offset);
+		}
+
+		// Change key in _mmi dictionary
+		Array mmi_keys = _mmis.keys();
+		Dictionary to_src_mmis;
+		Dictionary to_dst_mmis;
+
+		for (int i = 0; i < mmi_keys.size(); i++) {
+			Vector3i key = mmi_keys[i];
+			if (key.z == p_src_id) {
+				Vector3i dst_key = key; // setup destination key
+				dst_key.z = p_dst_id;
+				to_dst_mmis[dst_key] = _mmis[key]; // store MMI under dest key
+				_mmis.erase(key);
+			} else if (key.z == p_dst_id) {
+				Vector3i src_key = key; // setup source key
+				src_key.z = p_src_id;
+				to_src_mmis[src_key] = _mmis[key]; // store MMI under src key
+				_mmis.erase(key);
+			}
+		}
+		_mmis.merge(to_src_mmis);
+		_mmis.merge(to_dst_mmis);
+		LOG(DEBUG, "Swapped multimesh instance ids");
+	}
 }
 
 void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_params) {

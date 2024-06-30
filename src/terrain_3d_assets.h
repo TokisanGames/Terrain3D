@@ -23,7 +23,7 @@ public: // Constants
 	};
 
 	static inline const int MAX_TEXTURES = 32;
-	static inline const int MAX_MESHES = 128;
+	static inline const int MAX_MESHES = 256;
 
 private:
 	Terrain3D *_terrain = nullptr;
@@ -48,7 +48,7 @@ private:
 	RID fill_light_instance;
 	RID mesh_instance;
 
-	void _swap_ids(AssetType p_type, int p_old_id, int p_new_id);
+	void _swap_ids(AssetType p_type, int p_src_id, int p_dst_id);
 	void _set_asset_list(AssetType p_type, const TypedArray<Terrain3DAssetResource> &p_list);
 	void _set_asset(AssetType p_type, int p_id, const Ref<Terrain3DAssetResource> &p_asset);
 

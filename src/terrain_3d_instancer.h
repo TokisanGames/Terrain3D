@@ -48,6 +48,7 @@ public:
 	MultiMeshInstance3D *get_multimesh_instance(Vector3 p_global_position, int p_mesh_id);
 	MultiMeshInstance3D *get_multimesh_instance(Vector2i p_region_offset, int p_mesh_id);
 	Dictionary get_mmis() { return _mmis; }
+	void swap_ids(int p_src_id, int p_dst_id);
 
 	void add_instances(Vector3 p_global_position, Dictionary p_params);
 	void remove_instances(Vector3 p_global_position, Dictionary p_params);

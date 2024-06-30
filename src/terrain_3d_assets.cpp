@@ -13,8 +13,8 @@
 // Private Functions
 ///////////////////////////
 
-void Terrain3DAssets::_swap_ids(AssetType p_type, int p_old_id, int p_new_id) {
-	LOG(INFO, "Swapping asset id: ", p_old_id, " and id:", p_new_id);
+void Terrain3DAssets::_swap_ids(AssetType p_type, int p_src_id, int p_dst_id) {
+	LOG(INFO, "Swapping asset id: ", p_src_id, " and id: ", p_dst_id);
 	Array list;
 	switch (p_type) {
 		case TYPE_TEXTURE:
@@ -27,29 +27,30 @@ void Terrain3DAssets::_swap_ids(AssetType p_type, int p_old_id, int p_new_id) {
 			return;
 	}
 
-	if (p_old_id < 0 || p_old_id >= list.size()) {
-		LOG(ERROR, "Old id out of range: ", p_old_id);
+	if (p_src_id < 0 || p_src_id >= list.size()) {
+		LOG(ERROR, "Source id out of range: ", p_src_id);
 		return;
 	}
-	Ref<Terrain3DAssetResource> res_a = list[p_old_id];
-	p_new_id = CLAMP(p_new_id, 0, list.size() - 1);
-	if (p_new_id == p_old_id) {
+	Ref<Terrain3DAssetResource> res_a = list[p_src_id];
+	p_dst_id = CLAMP(p_dst_id, 0, list.size() - 1);
+	if (p_dst_id == p_src_id) {
 		// Res_a new id was likely out of range, reset it
-		res_a->_id = p_old_id;
+		res_a->_id = p_src_id;
 		return;
 	}
 
-	Ref<Terrain3DAssetResource> res_b = list[p_new_id];
-	res_a->_id = p_new_id;
-	res_b->_id = p_old_id;
-	list[p_new_id] = res_a;
-	list[p_old_id] = res_b;
+	Ref<Terrain3DAssetResource> res_b = list[p_dst_id];
+	res_a->_id = p_dst_id;
+	res_b->_id = p_src_id;
+	list[p_dst_id] = res_a;
+	list[p_src_id] = res_b;
 
 	switch (p_type) {
 		case TYPE_TEXTURE:
 			update_texture_list();
 			break;
 		case TYPE_MESH:
+			_terrain->get_instancer()->swap_ids(p_src_id, p_dst_id);
 			update_mesh_list();
 			break;
 		default:
