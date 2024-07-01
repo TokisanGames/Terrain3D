@@ -85,7 +85,7 @@ func _edit(p_object: Object) -> void:
 			terrain.storage_changed.connect(_load_storage)
 		_load_storage()
 	else:
-		terrain = null
+		_clear()
 
 	if is_instance_valid(_last_terrain) and _last_terrain.is_inside_tree():
 		if p_object is NavigationRegion3D:
