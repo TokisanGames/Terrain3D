@@ -363,6 +363,7 @@ func add_setting(p_args: Dictionary) -> void:
 
 		SettingType.PICKER:
 			var button := Button.new()
+			button.set_v_size_flags(SIZE_SHRINK_CENTER)
 			button.icon = load(PICKER_ICON)
 			button.tooltip_text = "Pick value from the Terrain"
 			button.pressed.connect(_on_pick.bind(p_default))
@@ -398,7 +399,6 @@ func add_setting(p_args: Dictionary) -> void:
 				spin_slider.set_step(p_step)
 				spin_slider.set_value(p_default)
 				spin_slider.set_suffix(p_suffix)
-				spin_slider.set_h_size_flags(SIZE_SHRINK_CENTER)
 				spin_slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 				spin_slider.set_custom_minimum_size(Vector2(75, 0))
 
@@ -415,8 +415,6 @@ func add_setting(p_args: Dictionary) -> void:
 					
 			else: # DOUBLE_SLIDER
 				var label := Label.new()
-				label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-				label.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
 				label.set_custom_minimum_size(Vector2(75, 0))
 				slider = DoubleSlider.new()
 				slider.label = label
@@ -431,7 +429,6 @@ func add_setting(p_args: Dictionary) -> void:
 			slider.set_step(p_step)
 			slider.set_value(p_default)
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
-			slider.set_h_size_flags(SIZE_SHRINK_END | SIZE_EXPAND)
 			slider.set_custom_minimum_size(Vector2(60, 10))
 
 	control.name = p_name.to_pascal_case()
