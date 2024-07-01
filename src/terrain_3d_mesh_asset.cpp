@@ -28,6 +28,7 @@ void Terrain3DMeshAsset::_set_generated_type(GenType p_type) {
 		_set_material_override(_get_material());
 		_height_offset = 0.5f;
 		_relative_density = 1.f;
+		_calculated_density = 1.f;
 	}
 }
 
@@ -153,7 +154,8 @@ void Terrain3DMeshAsset::clear() {
 	_cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	_generated_faces = 1.f;
 	_generated_size = Vector2(1.f, 1.f);
-	_relative_density = 1.f;
+	_relative_density = -1.f;
+	_calculated_density = -1.f;
 	_packed_scene.unref();
 	_material_override.unref();
 	_set_generated_type(TYPE_TEXTURE_CARD);
@@ -177,6 +179,23 @@ void Terrain3DMeshAsset::set_height_offset(real_t p_offset) {
 	_height_offset = CLAMP(p_offset, -50.f, 50.f);
 	LOG(INFO, "Setting height offset: ", _height_offset);
 	emit_signal("setting_changed");
+}
+
+void Terrain3DMeshAsset::set_density(real_t p_density) {
+	LOG(INFO, "Setting mesh density: ", p_density);
+	if (p_density < 0) {
+		_relative_density = _calculated_density;
+	} else {
+		_relative_density = CLAMP(p_density, 0.01f, 10.f);
+	}
+}
+
+real_t Terrain3DMeshAsset::get_density() const {
+	if (_relative_density > 0) {
+		return _relative_density;
+	} else {
+		return _calculated_density;
+	}
 }
 
 void Terrain3DMeshAsset::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
@@ -225,7 +244,8 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> p_scene_file) {
 		}
 		if (_meshes.size() > 0) {
 			Ref<Mesh> mesh = _meshes[0];
-			_relative_density = 100.f / mesh->get_aabb().get_volume();
+			_calculated_density = CLAMP(10.f / mesh->get_aabb().get_volume(), 0.01f, 10.0f);
+			_relative_density = _calculated_density;
 			LOG(DEBUG, "Emitting file_changed");
 			emit_signal("file_changed");
 		} else {
@@ -315,6 +335,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_id"), &Terrain3DMeshAsset::get_id);
 	ClassDB::bind_method(D_METHOD("set_height_offset", "offset"), &Terrain3DMeshAsset::set_height_offset);
 	ClassDB::bind_method(D_METHOD("get_height_offset"), &Terrain3DMeshAsset::get_height_offset);
+	ClassDB::bind_method(D_METHOD("set_density", "density"), &Terrain3DMeshAsset::set_density);
+	ClassDB::bind_method(D_METHOD("get_density"), &Terrain3DMeshAsset::get_density);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mode"), &Terrain3DMeshAsset::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3DMeshAsset::get_cast_shadows);
 	ClassDB::bind_method(D_METHOD("set_scene_file", "scene_file"), &Terrain3DMeshAsset::set_scene_file);
@@ -329,12 +351,12 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_generated_size"), &Terrain3DMeshAsset::get_generated_size);
 	ClassDB::bind_method(D_METHOD("get_mesh", "index"), &Terrain3DMeshAsset::get_mesh, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("get_mesh_count"), &Terrain3DMeshAsset::get_mesh_count);
-	ClassDB::bind_method(D_METHOD("get_relative_density"), &Terrain3DMeshAsset::get_relative_density);
 	ClassDB::bind_method(D_METHOD("get_thumbnail"), &Terrain3DMeshAsset::get_thumbnail);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, ".01,10.0,.005"), "set_density", "get_density");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_override", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_override", "get_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");

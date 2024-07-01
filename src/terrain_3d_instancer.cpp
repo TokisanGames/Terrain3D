@@ -284,7 +284,7 @@ void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_p
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
-	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_relative_density() /
+	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
 					MAX(0.01f, fixed_scale + .5f * random_scale),
 			.001f, 1000.f);
 
@@ -389,7 +389,7 @@ void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary 
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
-	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_relative_density() /
+	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
 					MAX(0.01f, fixed_scale + .5f * random_scale),
 			.001f, 1000.f);
 
