@@ -140,29 +140,34 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\constants.h" />
-    <ClInclude Include="src\generated_tex.h" />
+    <ClInclude Include="src\generated_texture.h" />
     <ClInclude Include="src\geoclipmap.h" />
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\terrain_3d.h" />
+    <ClInclude Include="src\terrain_3d_asset_resource.h" />
     <ClInclude Include="src\terrain_3d_editor.h" />
     <ClInclude Include="src\logger.h" />
-    <ClInclude Include="src\util.h" />
+    <ClInclude Include="src\terrain_3d_instancer.h" />
+    <ClInclude Include="src\terrain_3d_mesh_asset.h" />
+    <ClInclude Include="src\terrain_3d_texture_asset.h" />
+    <ClInclude Include="src\terrain_3d_util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
     <ClInclude Include="src\terrain_3d_storage.h" />
-    <ClInclude Include="src\terrain_3d_texture.h" />
-    <ClInclude Include="src\terrain_3d_texture_list.h" />
+    <ClInclude Include="src\terrain_3d_assets.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\generated_tex.cpp" />
+    <ClCompile Include="src\generated_texture.cpp" />
     <ClCompile Include="src\geoclipmap.cpp" />
     <ClCompile Include="src\register_types.cpp" />
     <ClCompile Include="src\terrain_3d.cpp" />
     <ClCompile Include="src\terrain_3d_editor.cpp" />
+    <ClCompile Include="src\terrain_3d_instancer.cpp" />
     <ClCompile Include="src\terrain_3d_material.cpp" />
+    <ClCompile Include="src\terrain_3d_mesh_asset.cpp" />
     <ClCompile Include="src\terrain_3d_storage.cpp" />
-    <ClCompile Include="src\terrain_3d_texture.cpp" />
-    <ClCompile Include="src\terrain_3d_texture_list.cpp" />
-    <ClCompile Include="src\util.cpp" />
+    <ClCompile Include="src\terrain_3d_texture_asset.cpp" />
+    <ClCompile Include="src\terrain_3d_assets.cpp" />
+    <ClCompile Include="src\terrain_3d_util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".github\actions\base-deps\action.yml" />
@@ -179,9 +184,13 @@
     <None Include="CONTRIBUTING.md" />
     <None Include="doc\conf.py" />
     <None Include="doc\docs\double_precision.md" />
+    <None Include="doc\docs\games.md" />
+    <None Include="doc\docs\instancer.md" />
+    <None Include="doc\docs\misc.md" />
     <None Include="doc\docs\mobile_web.md" />
     <None Include="doc\docs\nightly_builds.md" />
     <None Include="doc\docs\press.md" />
+    <None Include="doc\docs\storage_format.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
@@ -206,15 +215,13 @@
     <Text Include="doc\docs\system_architecture.md" />
     <Text Include="doc\docs\installation.md" />
     <Text Include="doc\docs\controlmap_format.md" />
-    <Text Include="doc\docs\storage_format.md" />
     <Text Include="doc\docs\getting_help.md" />
     <Text Include="doc\docs\tutorial_videos.md" />
     <Text Include="doc\docs\troubleshooting.md" />
     <Text Include="doc\docs\tips.md" />
     <Text Include="doc\docs\texture_prep.md" />
-    <Text Include="doc\docs\previous_engines.md" />
     <Text Include="doc\docs\building_from_source.md" />
-    <Text Include="doc\update_process.txt" />
+    <Text Include="doc\new_release_process.txt" />
     <Text Include="doc\_static\theme_overrides.css" />
     <Text Include="LICENSE.txt" />
     <Text Include="doc\docs\navigation.md" />
@@ -223,10 +230,15 @@
   <ItemGroup>
     <Xml Include="doc\classes\Terrain3D.xml" />
     <Xml Include="doc\classes\Terrain3DEditor.xml" />
+    <Xml Include="doc\classes\Terrain3DInstancer.xml" />
     <Xml Include="doc\classes\Terrain3DMaterial.xml" />
+    <Xml Include="doc\classes\Terrain3DMeshAsset.xml" />
     <Xml Include="doc\classes\Terrain3DStorage.xml" />
     <Xml Include="doc\classes\Terrain3DTexture.xml" />
+    <Xml Include="doc\classes\Terrain3DTextureAsset.xml" />
+    <Xml Include="doc\classes\Terrain3DAssets.xml" />
     <Xml Include="doc\classes\Terrain3DTextureList.xml" />
+    <Xml Include="doc\classes\Terrain3DUtil.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

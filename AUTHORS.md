@@ -8,6 +8,7 @@ Project Leads
 
 Contributors
 * Tom Coxon [@tcoxon](https://github.com/tcoxon)
+* [@XTarsia](https://github.com/XTarsia)
 * Loïc Chen (陳明佑) [@painfulexistence](https://github.com/painfulexistence)
 * Lorenz Wildberg [@lw64](https://github.com/lw64)
 * Sven Cannivy [@svencan](https://github.com/svencan)
@@ -16,3 +17,7 @@ Contributors
 * [@directedchaossoftware](https://github.com/directedchaossoftware)
 * Jacob Coughenour [@jacobcoughenour](https://github.com/jacobcoughenour)
 * [@stakira](https://github.com/stakira) / [@lfxu](https://github.com/lfxu)
+* Brian [@epitaque](https://github.com/epitaque)
+* Matt [@FishOfTheNorthStar](https://github.com/FishOfTheNorthStar)
+* Raven [az-raven](https://github.com/az-raven)
+* [@jeffercize](https://github.com/jeffercize)

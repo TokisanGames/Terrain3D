@@ -1,4 +1,4 @@
-// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_REGISTER_TYPES_H
 #define TERRAIN3D_REGISTER_TYPES_H

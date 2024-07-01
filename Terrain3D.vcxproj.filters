@@ -24,7 +24,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\terrain_3d_texture_list.h">
+    <ClInclude Include="src\terrain_3d_assets.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\geoclipmap.h">
@@ -42,22 +42,31 @@
     <ClInclude Include="src\terrain_3d_storage.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\terrain_3d_texture.h">
-      <Filter>4. Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\terrain_3d_material.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\constants.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\generated_tex.h">
+    <ClInclude Include="src\generated_texture.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\logger.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\util.h">
+    <ClInclude Include="src\terrain_3d_util.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_instancer.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_mesh_asset.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_texture_asset.h">
+      <Filter>4. Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_3d_asset_resource.h">
       <Filter>4. Headers</Filter>
     </ClInclude>
   </ItemGroup>
@@ -77,19 +86,25 @@
     <ClCompile Include="src\terrain_3d_storage.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\terrain_3d_texture.cpp">
+    <ClCompile Include="src\terrain_3d_texture_asset.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\terrain_3d_texture_list.cpp">
+    <ClCompile Include="src\terrain_3d_assets.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_material.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\generated_tex.cpp">
+    <ClCompile Include="src\generated_texture.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
-    <ClCompile Include="src\util.cpp">
+    <ClCompile Include="src\terrain_3d_util.cpp">
+      <Filter>5. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_3d_instancer.cpp">
+      <Filter>5. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_3d_mesh_asset.cpp">
       <Filter>5. C++</Filter>
     </ClCompile>
   </ItemGroup>
@@ -184,6 +199,18 @@
     <None Include="doc\docs\double_precision.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\docs\games.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\storage_format.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\misc.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\instancer.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -202,9 +229,6 @@
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\occlusion_culling.md">
-      <Filter>2. Docs</Filter>
-    </Text>
-    <Text Include="doc\docs\previous_engines.md">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\project_status.md">
@@ -231,9 +255,6 @@
     <Text Include="doc\docs\controlmap_format.md">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\docs\storage_format.md">
-      <Filter>2. Docs</Filter>
-    </Text>
     <Text Include="doc\docs\getting_help.md">
       <Filter>2. Docs</Filter>
     </Text>
@@ -243,7 +264,7 @@
     <Text Include="doc\docs\navigation.md">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\update_process.txt">
+    <Text Include="doc\new_release_process.txt">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\tutorial_videos.md">
@@ -266,10 +287,25 @@
     <Xml Include="doc\classes\Terrain3DStorage.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DTexture.xml">
+    <Xml Include="doc\classes\Terrain3DTextureAsset.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DAssets.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DUtil.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DInstancer.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DTextureList.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DMeshAsset.xml">
+      <Filter>2. Docs\XML</Filter>
+    </Xml>
+    <Xml Include="doc\classes\Terrain3DTexture.xml">
       <Filter>2. Docs\XML</Filter>
     </Xml>
   </ItemGroup>
