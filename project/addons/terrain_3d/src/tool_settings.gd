@@ -170,10 +170,10 @@ func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) 
 	var panel_style: StyleBox = get_theme_stylebox("panel", "PopupMenu").duplicate()
 	panel_style.set_content_margin_all(10)
 	submenu.set("theme_override_styles/panel", panel_style)
+	submenu.add_to_group("terrain3d_submenus")
 
 	# Pop up menu on hover, hide on exit
 	menu_button.mouse_entered.connect(_on_show_submenu.bind(true, menu_button))
-	menu_button.mouse_exited.connect(_on_show_submenu.bind(false, menu_button))
 	submenu.mouse_exited.connect(_on_show_submenu.bind(false, menu_button))
 	
 	var sublist: Container
@@ -206,6 +206,8 @@ func _on_show_submenu(p_toggled: bool, p_button: Button) -> void:
 	if not p_toggled and ( in_button or in_panel ):
 		return
 	
+	# Hide all submenus before possibly enabling the current one
+	get_tree().call_group("terrain3d_submenus", "set_visible", false)
 	var popup: PopupPanel = p_button.get_child(0)
 	var popup_pos: Vector2 = p_button.get_screen_transform().origin
 	popup.set_visible(p_toggled)
