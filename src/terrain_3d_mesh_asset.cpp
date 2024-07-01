@@ -27,8 +27,9 @@ void Terrain3DMeshAsset::_set_generated_type(GenType p_type) {
 		_meshes.push_back(_build_generated_mesh());
 		_set_material_override(_get_material());
 		_height_offset = 0.5f;
-		_relative_density = 1.f;
-		_calculated_density = 1.f;
+		_generated_faces = 2;
+		_relative_density = 10.f;
+		_calculated_density = 10.f;
 	}
 }
 
@@ -152,7 +153,7 @@ void Terrain3DMeshAsset::clear() {
 	_id = 0;
 	_height_offset = 0.f;
 	_cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
-	_generated_faces = 1.f;
+	_generated_faces = 2.f;
 	_generated_size = Vector2(1.f, 1.f);
 	_relative_density = -1.f;
 	_calculated_density = -1.f;

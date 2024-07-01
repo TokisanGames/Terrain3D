@@ -31,7 +31,7 @@ private:
 	real_t _height_offset = 0.f;
 	GeometryInstance3D::ShadowCastingSetting _cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	GenType _generated_type = TYPE_NONE;
-	int _generated_faces = 1;
+	int _generated_faces = 2;
 	Vector2 _generated_size = Vector2(1.f, 1.f);
 	Ref<PackedScene> _packed_scene;
 	Ref<Material> _material_override;
