@@ -264,7 +264,7 @@
     <Text Include="doc\docs\navigation.md">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\update_process.txt">
+    <Text Include="doc\new_release_process.txt">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\tutorial_videos.md">

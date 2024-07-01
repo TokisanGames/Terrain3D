@@ -221,7 +221,7 @@
     <Text Include="doc\docs\tips.md" />
     <Text Include="doc\docs\texture_prep.md" />
     <Text Include="doc\docs\building_from_source.md" />
-    <Text Include="doc\update_process.txt" />
+    <Text Include="doc\new_release_process.txt" />
     <Text Include="doc\_static\theme_overrides.css" />
     <Text Include="LICENSE.txt" />
     <Text Include="doc\docs\navigation.md" />

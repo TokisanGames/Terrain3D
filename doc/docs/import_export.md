@@ -58,7 +58,7 @@ We can import any supported image format Godot can read. These include:
 * Control maps use a proprietary format. We only import our own format. Use `exr` to export or reimport only from this tool.
 
 ### Color map
-* Any regular color format is fine, `png` is recommended. The alpha channel is interpretted as a [roughness modifier](https://terrain3d.readthedocs.io/en/stable/api/class_terrain3dstorage.html#class-terrain3dstorage-property-color-maps) for wetness.
+* Any regular color format is fine, `png` is recommended. The alpha channel is interpretted as a [roughness modifier](../api/class_terrain3dstorage.rst#class-terrain3dstorage-property-color-maps) for wetness.
 
 
 ## Exporting Data
@@ -107,7 +107,7 @@ We can export any supported image format Godot can write. These include:
 * Control maps use a proprietary format. We only import our own. Use `exr`. It won't give you a valid image editable in other tools. This is only for transferring the image to another Terrain3D Storage file. See [Controlmap Format](controlmap_format.md).
 
 ### Color map
-* Use `png` or `webp`, as they are lossless rgba formats that external tools can edit. Use `res` for Godot only use. The alpha channel is interpretted as a [roughness modifier](https://terrain3d.readthedocs.io/en/stable/api/class_terrain3dstorage.html#class-terrain3dstorage-property-color-maps) for wetness. 
+* Use `png` or `webp`, as they are lossless rgba formats that external tools can edit. Use `res` for Godot only use. The alpha channel is interpretted as a [roughness modifier](../api/class_terrain3dstorage.rst#class-terrain3dstorage-property-color-maps) for wetness. 
 
 
 **Exported Image Dimensions**
