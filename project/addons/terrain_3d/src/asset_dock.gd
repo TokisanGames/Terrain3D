@@ -2,6 +2,9 @@
 extends PanelContainer
 #class_name Terrain3DAssetDock
 
+signal confirmation_closed
+signal confirmation_confirmed
+signal confirmation_canceled
 
 const PS_DOCK_SLOT: String = "terrain3d/config/dock_slot"
 const PS_DOCK_TILE_SIZE: String = "terrain3d/config/dock_tile_size"
@@ -25,6 +28,8 @@ var buttons: BoxContainer
 var textures_btn: Button
 var meshes_btn: Button
 var asset_container: ScrollContainer
+var confirm_dialog: ConfirmationDialog
+var _confirmed: bool = false
 
 # Used only for editor, so change to single visible/hiddden
 enum {
@@ -124,6 +129,15 @@ func _ready() -> void:
 		floating_btn.text = ""
 
 	update_thumbnails()
+	confirm_dialog = ConfirmationDialog.new()
+	add_child(confirm_dialog)
+	confirm_dialog.hide()
+	confirm_dialog.confirmed.connect(func(): _confirmed = true; \
+		emit_signal("confirmation_closed"); \
+		emit_signal("confirmation_confirmed") )
+	confirm_dialog.canceled.connect(func(): _confirmed = false; \
+		emit_signal("confirmation_closed"); \
+		emit_signal("confirmation_canceled") )
 
 
 func get_current_list() -> ListContainer:
@@ -535,10 +549,22 @@ class ListContainer extends Container:
 	
 	
 	func _on_resource_changed(p_resource: Resource, p_id: int) -> void:
+		if not p_resource:
+			var asset_dock: Control = get_parent().get_parent().get_parent()
+			if type == Terrain3DAssets.TYPE_TEXTURE:
+				asset_dock.confirm_dialog.dialog_text = "Are you sure you want to clear this texture?"
+			else:
+				asset_dock.confirm_dialog.dialog_text = "Are you sure you want to clear this mesh and delete all instances?"
+			asset_dock.confirm_dialog.popup_centered()
+			await asset_dock.confirmation_closed
+			if not asset_dock._confirmed:
+				update_asset_list()
+				return
+			
 		if not plugin.is_terrain_valid():
 			plugin.select_terrain()
 			await get_tree().create_timer(.01).timeout
-			
+
 		if plugin.is_terrain_valid():
 			if type == Terrain3DAssets.TYPE_TEXTURE:
 				plugin.terrain.get_assets().set_texture(p_id, p_resource)
