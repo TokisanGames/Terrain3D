@@ -746,25 +746,25 @@ class ListEntry extends VBoxContainer:
 	func _drop_data(p_at_position: Vector2, p_data: Variant) -> void:
 		if typeof(p_data) == TYPE_DICTIONARY:
 			var res: Resource = load(p_data.files[0])
-			if res is Texture2D:
+			if res is Texture2D and type == Terrain3DAssets.TYPE_TEXTURE:
 				var ta := Terrain3DTextureAsset.new()
 				if resource is Terrain3DTextureAsset:
 					ta.id = resource.id
 				ta.set_albedo_texture(res)
 				set_edited_resource(ta, false)
 				resource = ta
-			elif res is Terrain3DTextureAsset:
+			elif res is Terrain3DTextureAsset and type == Terrain3DAssets.TYPE_TEXTURE:
 				if resource is Terrain3DTextureAsset:
 					res.id = resource.id
 				set_edited_resource(res, false)
-			elif res is PackedScene:
+			elif res is PackedScene and type == Terrain3DAssets.TYPE_MESH:
 				var ma := Terrain3DMeshAsset.new()
 				if resource is Terrain3DMeshAsset:
 					ma.id = resource.id
 				ma.set_scene_file(res)
 				set_edited_resource(ma, false)
 				resource = ma
-			elif res is Terrain3DMeshAsset:
+			elif res is Terrain3DMeshAsset and type == Terrain3DAssets.TYPE_MESH:
 				if resource is Terrain3DMeshAsset:
 					res.id = resource.id
 				set_edited_resource(res, false)
