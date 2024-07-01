@@ -1,4 +1,4 @@
-// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_STORAGE_CLASS_H
 #define TERRAIN3D_STORAGE_CLASS_H
@@ -19,7 +19,7 @@ class Terrain3DStorage : public Resource {
 	CLASS_NAME();
 
 public: // Constants
-	static inline const real_t CURRENT_VERSION = 0.915f; // Dev version
+	static inline const real_t CURRENT_VERSION = 0.92f;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 

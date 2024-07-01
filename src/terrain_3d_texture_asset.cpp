@@ -1,4 +1,4 @@
-// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/image.hpp>
 
@@ -47,7 +47,7 @@ void Terrain3DTextureAsset::clear() {
 	_albedo_texture.unref();
 	_normal_texture.unref();
 	_uv_scale = 0.1f;
-	_detiling= 0.0f;
+	_detiling = 0.0f;
 }
 
 void Terrain3DTextureAsset::set_name(String p_name) {

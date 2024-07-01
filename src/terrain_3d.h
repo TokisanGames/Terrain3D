@@ -1,4 +1,4 @@
-// Copyright © 2023 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_CLASS_H
 #define TERRAIN3D_CLASS_H
@@ -24,7 +24,7 @@ class Terrain3D : public Node3D {
 	CLASS_NAME();
 
 	// Terrain state
-	String _version = "0.9.2-dev";
+	String _version = "0.9.2";
 	bool _is_inside_world = false;
 	bool _initialized = false;
 
