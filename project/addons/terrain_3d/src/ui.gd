@@ -102,6 +102,7 @@ func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
 	
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
+	plugin.select_terrain()
 	clear_picking()
 	set_menu_visibility(toolbar_settings.advanced_list, true)
 	set_menu_visibility(toolbar_settings.scale_list, false)
