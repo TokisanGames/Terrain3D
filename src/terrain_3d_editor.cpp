@@ -120,6 +120,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	bool enable_scale = _brush_data["enable_scale"];
 	real_t scale = _brush_data["scale"];
 	real_t gamma = _brush_data["gamma"];
+	bool lift_floor = _brush_data["lift_floor"];
+	bool flatten_peaks = _brush_data["flatten_peaks"];
 
 	real_t randf = UtilityFunctions::randf();
 	real_t rot = randf * Math_PI * real_t(_brush_data["jitter"]);
@@ -216,16 +218,34 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 					switch (_operation) {
 						case ADD:
-							destf = srcf + (brush_alpha * strength * 10.f);
+							if (lift_floor && !std::isnan(p_global_position.y)) {
+								real_t brush_center_y = p_global_position.y + brush_alpha * strength;
+								destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
+							} else {
+								destf = srcf + (brush_alpha * strength * 10.f);
+							}
 							break;
 						case SUBTRACT:
-							destf = srcf - (brush_alpha * strength * 10.f);
+							if (flatten_peaks && !std::isnan(p_global_position.y)) {
+								real_t brush_center_y = p_global_position.y - brush_alpha * strength;
+								destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
+							} else {
+								destf = srcf - (brush_alpha * strength * 10.f);
+							}
 							break;
 						case MULTIPLY:
 							destf = srcf * (brush_alpha * strength * .01f + 1.0f);
+							if (lift_floor && !std::isnan(p_global_position.y)) {
+								real_t brush_center_y = p_global_position.y * (brush_alpha * strength * .01f + 1.0f);
+								destf = Math::clamp(brush_center_y, srcf, destf);
+							}
 							break;
 						case DIVIDE:
 							destf = srcf * (-brush_alpha * strength * .01f + 1.0f);
+							if (flatten_peaks && !std::isnan(p_global_position.y)) {
+								real_t brush_center_y = p_global_position.y * (-brush_alpha * strength * .01f + 1.0f);
+								destf = Math::clamp(brush_center_y, destf, srcf);
+							}
 							break;
 						case REPLACE:
 							destf = Math::lerp(srcf, height, brush_alpha * strength);

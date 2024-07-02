@@ -123,6 +123,10 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			if p_operation == Terrain3DEditor.GRADIENT:
 				to_show.push_back("gradient_points")
 				to_show.push_back("drawable")
+			if p_operation == Terrain3DEditor.ADD:
+				to_show.push_back("lift_floor")
+			if p_operation == Terrain3DEditor.SUBTRACT:
+				to_show.push_back("flatten_peaks")
 		
 		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")

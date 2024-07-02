@@ -59,6 +59,11 @@ func _ready() -> void:
 	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":10, 
 								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
 
+	add_setting({ "name":"lift_floor", "type":SettingType.CHECKBOX, "list":main_list,
+								"default":false })
+	add_setting({ "name":"flatten_peaks", "type":SettingType.CHECKBOX, "list":main_list,
+								"default":false })
+
 	add_setting({ "name":"enable", "type":SettingType.CHECKBOX, "list":main_list, "default":true })
 
 	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":50, 
