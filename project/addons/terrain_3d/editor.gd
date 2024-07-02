@@ -9,6 +9,7 @@ const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 const PS_DOCK_POSITION: String = "terrain3d/config/dock_position"
 const PS_DOCK_PINNED: String = "terrain3d/config/dock_pinned"
+const CONVERSION_WIZARD: PackedScene = preload("res://addons/terrain_3d/tools/resource_conversion_tool.tscn")
 
 var terrain: Terrain3D
 var _last_terrain: Terrain3D
@@ -21,6 +22,7 @@ var region_gizmo: RegionGizmo
 var visible: bool
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
+var wizard_popup: Popup
 
 # Track negative input (CTRL)
 var _negative_input: bool = false
@@ -47,8 +49,20 @@ func _exit_tree() -> void:
 	asset_dock.queue_free()
 	ui.queue_free()
 	editor.free()
+	wizard_popup.queue_free()
 
 	scene_changed.disconnect(_on_scene_changed)
+
+
+func _ready() -> void:
+	wizard_popup = Popup.new()
+	wizard_popup.add_child(CONVERSION_WIZARD.instantiate())
+	wizard_popup.unresizable = false
+	
+	EditorInterface.get_base_control().add_child(wizard_popup)
+	add_tool_menu_item("Terrain Conversion Wizard...", func() -> void:
+		wizard_popup.popup_centered(Vector2i(512, 512))
+		)
 
 
 func _handles(p_object: Object) -> bool:

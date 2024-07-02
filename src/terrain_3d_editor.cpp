@@ -5,6 +5,7 @@
 
 #include "logger.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_region_manager.h"
 #include "terrain_3d_util.h"
 
 ///////////////////////////
@@ -13,7 +14,7 @@
 
 void Terrain3DEditor::_region_modified(Vector3 p_global_position, Vector2 p_height_range) {
 	Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
-	Terrain3DStorage::RegionSize region_size = _terrain->get_storage()->get_region_size();
+	Terrain3DRegionManager::RegionSize region_size = _terrain->get_storage()->get_region_size();
 
 	AABB edited_area;
 	edited_area.position = Vector3(region_offset.x * region_size, p_height_range.x, region_offset.y * region_size);
@@ -46,10 +47,10 @@ void Terrain3DEditor::_operate_region(Vector3 p_global_position) {
 	if (_operation == SUBTRACT) {
 		if (has_region) {
 			int region_index = _terrain->get_storage()->get_region_index(p_global_position);
-			Ref<Image> height_map = _terrain->get_storage()->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_index);
+			Ref<Image> height_map = _terrain->get_storage()->get_map_region(Terrain3DRegionManager::TYPE_HEIGHT, region_index);
 			height_range = Util::get_min_max(height_map);
 
-			_terrain->get_storage()->remove_region(p_global_position);
+			_terrain->get_storage()->remove_region(p_global_position, true, _terrain->get_storage_directory());
 			modified = true;
 		}
 	}
@@ -64,7 +65,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 		LOG(ERROR, "Invalid brush image. Returning");
 	}
 	LOG(DEBUG_CONT, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
-	Ref<Terrain3DStorage> storage = _terrain->get_storage();
+	Terrain3DRegionManager *storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
 	int region_index = storage->get_region_index(p_global_position);
@@ -88,11 +89,11 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 		return;
 	}
 
-	Terrain3DStorage::MapType map_type;
+	Terrain3DRegionManager::MapType map_type;
 	switch (_tool) {
 		case HEIGHT:
 		case INSTANCER:
-			map_type = Terrain3DStorage::TYPE_HEIGHT;
+			map_type = Terrain3DRegionManager::TYPE_HEIGHT;
 			break;
 		case TEXTURE:
 		case AUTOSHADER:
@@ -100,11 +101,11 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 		case NAVIGATION:
 		case ANGLE:
 		case SCALE:
-			map_type = Terrain3DStorage::TYPE_CONTROL;
+			map_type = Terrain3DRegionManager::TYPE_CONTROL;
 			break;
 		case COLOR:
 		case ROUGHNESS:
-			map_type = Terrain3DStorage::TYPE_COLOR;
+			map_type = Terrain3DRegionManager::TYPE_COLOR;
 			break;
 		default:
 			return;
@@ -217,7 +218,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
-				if (map_type == Terrain3DStorage::TYPE_HEIGHT) {
+				if (map_type == Terrain3DRegionManager::TYPE_HEIGHT) {
 					real_t srcf = src.r;
 					real_t destf = dest.r;
 
@@ -301,7 +302,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					edited_position.y = destf;
 					edited_area = edited_area.expand(edited_position);
 
-				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
+				} else if (map_type == Terrain3DRegionManager::TYPE_CONTROL) {
 					// Get bit field from pixel
 					uint32_t base_id = get_base(src.r);
 					uint32_t overlay_id = get_overlay(src.r);
@@ -418,7 +419,7 @@ void Terrain3DEditor::_operate_map(Vector3 p_global_position, real_t p_camera_di
 					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
 					dest = Color(as_float(bits), 0.f, 0.f, 1.f);
 
-				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
+				} else if (map_type == Terrain3DRegionManager::TYPE_COLOR) {
 					switch (_tool) {
 						case COLOR:
 							dest = src.lerp(color, brush_alpha * strength);
@@ -472,14 +473,16 @@ Dictionary Terrain3DEditor::_collect_undo_data() {
 	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return data;
 	}
+	TypedArray<int> e_regions = _terrain->get_storage()->get_regions_under_aabb(_terrain->get_storage()->get_edited_area());
+	data["edited_regions"] = e_regions;
 	switch (_tool) {
 		case REGION:
 			LOG(DEBUG, "Storing region offsets");
 			data["region_offsets"] = _terrain->get_storage()->get_region_offsets().duplicate();
 			if (_operation == SUBTRACT) {
-				data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_HEIGHT);
-				data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_CONTROL);
-				data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_COLOR);
+				data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DRegionManager::TYPE_HEIGHT, e_regions);
+				data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DRegionManager::TYPE_CONTROL, e_regions);
+				data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DRegionManager::TYPE_COLOR, e_regions);
 				data["height_range"] = _terrain->get_storage()->get_height_range();
 				data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			}
@@ -488,7 +491,7 @@ Dictionary Terrain3DEditor::_collect_undo_data() {
 		case HEIGHT:
 			LOG(DEBUG, "Storing height maps and range");
 			data["region_offsets"] = _terrain->get_storage()->get_region_offsets().duplicate();
-			data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_HEIGHT);
+			data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DRegionManager::TYPE_HEIGHT, e_regions);
 			data["height_range"] = _terrain->get_storage()->get_height_range();
 			data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			break;
@@ -498,13 +501,13 @@ Dictionary Terrain3DEditor::_collect_undo_data() {
 		case HOLES:
 		case NAVIGATION:
 			LOG(DEBUG, "Storing control maps");
-			data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_CONTROL);
+			data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DRegionManager::TYPE_CONTROL, e_regions);
 			break;
 
 		case COLOR:
 		case ROUGHNESS:
 			LOG(DEBUG, "Storing color maps");
-			data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_COLOR);
+			data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DRegionManager::TYPE_COLOR, e_regions);
 			break;
 
 		case INSTANCER:
@@ -551,31 +554,31 @@ void Terrain3DEditor::_apply_undo(Dictionary p_set) {
 	LOG(DEBUG, "Apply undo received: ", p_set);
 
 	Array keys = p_set.keys();
+	TypedArray<int> regions = p_set["edited_regions"];
 	for (int i = 0; i < keys.size(); i++) {
 		String key = keys[i];
 		if (key == "region_offsets") {
 			_terrain->get_storage()->set_region_offsets(p_set[key]);
 		} else if (key == "height_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_HEIGHT, p_set[key]);
+			_terrain->get_storage()->set_maps(Terrain3DRegionManager::TYPE_HEIGHT, p_set[key], regions);
 		} else if (key == "control_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_CONTROL, p_set[key]);
+			_terrain->get_storage()->set_maps(Terrain3DRegionManager::TYPE_CONTROL, p_set[key], regions);
 		} else if (key == "color_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_COLOR, p_set[key]);
+			_terrain->get_storage()->set_maps(Terrain3DRegionManager::TYPE_COLOR, p_set[key], regions);
 		} else if (key == "height_range") {
 			_terrain->get_storage()->set_height_range(p_set[key]);
 		} else if (key == "edited_area") {
 			_terrain->get_storage()->clear_edited_area();
 			_terrain->get_storage()->add_edited_area(p_set[key]);
 		} else if (key == "multimeshes") {
-			_terrain->get_storage()->set_multimeshes(p_set[key]);
+			_terrain->get_storage()->set_multimeshes(p_set[key], regions);
 		}
 	}
-
+	_terrain->get_storage()->set_all_regions_modified();
 	if (_terrain->get_plugin()->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
 		_terrain->get_plugin()->call("update_grid");
 	}
-
 	_pending_undo = false;
 	_modified = false;
 }

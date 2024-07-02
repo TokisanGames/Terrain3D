@@ -8,6 +8,7 @@
 #include "register_types.h"
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_storage.h"
 
 using namespace godot;
 
@@ -26,6 +27,8 @@ void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DUtil>();
 	ClassDB::register_class<Terrain3DTexture>(); // Deprecated 0.9.2 - Remove 0.9.3+
 	ClassDB::register_class<Terrain3DTextureList>(); // Deprecated 0.9.2 - Remove 0.9.3+
+	ClassDB::register_class<Terrain3DRegionManager>();
+	ClassDB::register_class<Terrain3DRegionManager::Terrain3DRegion>();
 }
 
 void uninitialize_terrain_3d(ModuleInitializationLevel p_level) {

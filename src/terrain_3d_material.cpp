@@ -301,7 +301,7 @@ void Terrain3DMaterial::_update_regions() {
 	IS_STORAGE_INIT(VOID);
 	LOG(DEBUG_CONT, "Updating region maps in shader");
 
-	Ref<Terrain3DStorage> storage = _terrain->get_storage();
+	Terrain3DRegionManager *storage = _terrain->get_storage();
 	RS->material_set_param(_material, "_height_maps", storage->get_height_rid());
 	RS->material_set_param(_material, "_control_maps", storage->get_control_rid());
 	RS->material_set_param(_material, "_color_maps", storage->get_color_rid());
@@ -311,11 +311,11 @@ void Terrain3DMaterial::_update_regions() {
 
 	PackedInt32Array region_map = storage->get_region_map();
 	LOG(DEBUG_CONT, "region_map.size(): ", region_map.size());
-	if (region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
-		LOG(ERROR, "Expected region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
+	if (region_map.size() != Terrain3DRegionManager::REGION_MAP_SIZE * Terrain3DRegionManager::REGION_MAP_SIZE) {
+		LOG(ERROR, "Expected region_map.size() of ", Terrain3DRegionManager::REGION_MAP_SIZE * Terrain3DRegionManager::REGION_MAP_SIZE);
 	}
 	RS->material_set_param(_material, "_region_map", region_map);
-	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
+	RS->material_set_param(_material, "_region_map_size", Terrain3DRegionManager::REGION_MAP_SIZE);
 	if (Terrain3D::debug_level >= DEBUG_CONT) {
 		LOG(DEBUG_CONT, "Region map");
 		for (int i = 0; i < region_map.size(); i++) {
@@ -345,7 +345,7 @@ void Terrain3DMaterial::_update_regions() {
 void Terrain3DMaterial::_generate_region_blend_map() {
 	IS_STORAGE_INIT_MESG("Material not initialized", VOID);
 	PackedInt32Array region_map = _terrain->get_storage()->get_region_map();
-	int rsize = Terrain3DStorage::REGION_MAP_SIZE;
+	int rsize = Terrain3DRegionManager::REGION_MAP_SIZE;
 	if (region_map.size() == rsize * rsize) {
 		LOG(DEBUG_CONT, "Regenerating ", Vector2i(512, 512), " region blend map");
 		Ref<Image> region_blend_img = Image::create(rsize, rsize, false, Image::FORMAT_RH);

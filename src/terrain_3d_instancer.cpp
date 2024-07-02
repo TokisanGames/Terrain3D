@@ -371,7 +371,7 @@ void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_p
 		Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
 		update_multimesh(region_offset, mesh_id, xforms, colors);
 	}
-	_terrain->get_storage()->set_modified();
+	_terrain->get_storage()->set_modified(_terrain->get_storage()->get_region_index(p_global_position));
 }
 
 void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary p_params) {
@@ -429,7 +429,7 @@ void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary 
 	} else {
 		update_multimesh(region_offset, mesh_id, xforms, colors, true);
 	}
-	_terrain->get_storage()->set_modified();
+	_terrain->get_storage()->set_modified(_terrain->get_storage()->get_region_index(p_global_position));
 }
 
 void Terrain3DInstancer::add_transforms(int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors) {

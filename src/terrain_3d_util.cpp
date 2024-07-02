@@ -230,7 +230,7 @@ Ref<Image> Terrain3DUtil::load_image(String p_file_name, int p_cache_mode, Vecto
 			LOG(DEBUG, "Total file size is: ", fsize, " calculated width: ", fwidth, " dimensions: ", p_r16_size);
 			file->seek(0);
 		}
-		img = Image::create(p_r16_size.x, p_r16_size.y, false, Terrain3DStorage::FORMAT[Terrain3DStorage::TYPE_HEIGHT]);
+		img = Image::create(p_r16_size.x, p_r16_size.y, false, Terrain3DRegionManager::FORMAT[Terrain3DRegionManager::TYPE_HEIGHT]);
 		for (int y = 0; y < p_r16_size.y; y++) {
 			for (int x = 0; x < p_r16_size.x; x++) {
 				real_t h = real_t(file->get_16()) / 65535.0f;

@@ -15,7 +15,7 @@
 #include "terrain_3d_assets.h"
 #include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
-#include "terrain_3d_storage.h"
+#include "terrain_3d_region_manager.h"
 
 using namespace godot;
 
@@ -32,9 +32,10 @@ class Terrain3D : public Node3D {
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
 	real_t _mesh_vertex_spacing = 1.0f;
+	String _storage_directory;
 
+	Terrain3DRegionManager *_storage = nullptr;
 	Ref<Terrain3DMaterial> _material;
-	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DInstancer *_instancer = nullptr;
 
@@ -95,8 +96,8 @@ class Terrain3D : public Node3D {
 
 	void _destroy_instancer();
 
-	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
-	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
+	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DRegionManager::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
+	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DRegionManager::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
 
 public:
 	static int debug_level;
@@ -114,11 +115,13 @@ public:
 	int get_mesh_size() const { return _mesh_size; }
 	void set_mesh_vertex_spacing(real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
+	void set_storage_directory(String p_dir);
+	String get_storage_directory() const;
 
+	void set_storage(Terrain3DRegionManager *p_storage);
+	Terrain3DRegionManager *get_storage() const { return _storage; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
-	void set_storage(const Ref<Terrain3DStorage> &p_storage);
-	Ref<Terrain3DStorage> get_storage() const { return _storage; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
@@ -157,7 +160,7 @@ public:
 	Vector3 get_intersection(Vector3 p_src_pos, Vector3 p_direction);
 
 	// Baking methods
-	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
+	Ref<Mesh> bake_mesh(int p_lod, Terrain3DRegionManager::HeightFilter p_filter = Terrain3DRegionManager::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav = true) const;
 
 	// Misc
