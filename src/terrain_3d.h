@@ -24,7 +24,7 @@ class Terrain3D : public Node3D {
 	CLASS_NAME();
 
 	// Terrain state
-	String _version = "0.9.2";
+	String _version = "0.9.3-dev";
 	bool _is_inside_world = false;
 	bool _initialized = false;
 
