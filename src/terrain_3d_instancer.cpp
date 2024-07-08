@@ -89,12 +89,12 @@ void Terrain3DInstancer::_update_mmis() {
 	LOG(DEBUG, "_mmis: ", _mmis);
 }
 
-void Terrain3DInstancer::_destroy_mmi_by_region_id(int p_region_id, int p_mesh_id) {
+void Terrain3DInstancer::_destroy_mmi_by_region_id(const int p_region_id, const int p_mesh_id) {
 	Vector2i region_offset = _terrain->get_storage()->get_region_offset_from_index(p_region_id);
 	_destroy_mmi_by_offset(region_offset, p_mesh_id);
 }
 
-void Terrain3DInstancer::_destroy_mmi_by_offset(Vector2i p_region_offset, int p_mesh_id) {
+void Terrain3DInstancer::_destroy_mmi_by_offset(const Vector2i &p_region_offset, const int p_mesh_id) {
 	Vector3i mmi_key = Vector3i(p_region_offset.x, p_region_offset.y, p_mesh_id);
 	LOG(DEBUG, "Deleting MMI at: ", p_region_offset, " mesh_id: ", p_mesh_id);
 	MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmis[mmi_key]);
@@ -202,12 +202,12 @@ void Terrain3DInstancer::update_multimesh(const Vector2i &p_region_offset, const
 	}
 }
 
-Ref<MultiMesh> Terrain3DInstancer::get_multimesh(Vector3 p_global_position, int p_mesh_id) {
+Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const {
 	Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
 	return get_multimesh(region_offset, p_mesh_id);
 }
 
-Ref<MultiMesh> Terrain3DInstancer::get_multimesh(Vector2i p_region_offset, int p_mesh_id) {
+Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_offset, const int p_mesh_id) const {
 	IS_STORAGE_INIT(Ref<MultiMesh>());
 	Dictionary mesh_dict = _terrain->get_storage()->get_multimeshes().get(p_region_offset, Dictionary());
 	Ref<MultiMesh> mm = mesh_dict.get(p_mesh_id, Ref<MultiMesh>());
@@ -215,19 +215,19 @@ Ref<MultiMesh> Terrain3DInstancer::get_multimesh(Vector2i p_region_offset, int p
 	return mm;
 }
 
-MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(Vector3 p_global_position, int p_mesh_id) {
+MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector3 &p_global_position, const int p_mesh_id) const {
 	Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
 	return get_multimesh_instance(region_offset, p_mesh_id);
 }
 
-MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(Vector2i p_region_offset, int p_mesh_id) {
+MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector2i &p_region_offset, const int p_mesh_id) const {
 	Vector3i key = Vector3i(p_region_offset.x, p_region_offset.y, p_mesh_id);
 	MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmis[key]);
 	LOG(DEBUG_CONT, "Retrieving MultiMeshInstance3D at region: ", p_region_offset, " mesh_id: ", p_mesh_id, " : ", mmi);
 	return mmi;
 }
 
-void Terrain3DInstancer::swap_ids(int p_src_id, int p_dst_id) {
+void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
 	Ref<Terrain3DAssets> assets = _terrain->get_assets();
 	int asset_count = assets->get_mesh_count();
@@ -287,7 +287,7 @@ void Terrain3DInstancer::swap_ids(int p_src_id, int p_dst_id) {
 	}
 }
 
-void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_params) {
+void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
 	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
 
 	int mesh_id = p_params.get("asset_id", 0);
@@ -307,7 +307,7 @@ void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_p
 			.001f, 1000.f);
 
 	// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-	uint32_t count = _get_count(density);
+	uint32_t count = _get_instace_count(density);
 	if (count <= 0) {
 		return;
 	}
@@ -392,7 +392,7 @@ void Terrain3DInstancer::add_instances(Vector3 p_global_position, Dictionary p_p
 	_terrain->get_storage()->set_modified();
 }
 
-void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary p_params) {
+void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
 	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
 
 	int mesh_id = p_params.get("asset_id", 0);
@@ -412,7 +412,7 @@ void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary 
 			.001f, 1000.f);
 
 	// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-	uint32_t count = _get_count(density);
+	uint32_t count = _get_instace_count(density);
 	if (count <= 0) {
 		return;
 	}
@@ -450,7 +450,7 @@ void Terrain3DInstancer::remove_instances(Vector3 p_global_position, Dictionary 
 	_terrain->get_storage()->set_modified();
 }
 
-void Terrain3DInstancer::add_transforms(int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors) {
+void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors) {
 	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
 	if (p_xforms.size() == 0) {
 		return;
@@ -513,7 +513,7 @@ void Terrain3DInstancer::add_transforms(int p_mesh_id, TypedArray<Transform3D> p
 	_terrain->get_storage()->set_modified();
 }
 
-void Terrain3DInstancer::add_multimesh(int p_mesh_id, Ref<MultiMesh> p_multimesh, Transform3D p_xform) {
+void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform) {
 	LOG(INFO, "Extracting ", p_multimesh->get_instance_count(), " transforms from multimesh");
 	TypedArray<Transform3D> xforms;
 	TypedArray<Color> colors;
@@ -529,7 +529,7 @@ void Terrain3DInstancer::add_multimesh(int p_mesh_id, Ref<MultiMesh> p_multimesh
 	add_transforms(p_mesh_id, xforms, colors);
 }
 
-void Terrain3DInstancer::set_cast_shadows(int p_mesh_id, GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
+void Terrain3DInstancer::set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
 	LOG(INFO, "Setting shadow casting on MMIS with mesh: ", p_mesh_id, " to mode: ", p_cast_shadows);
 	Array keys = _mmis.keys();
 	for (int i = 0; i < keys.size(); i++) {
@@ -543,7 +543,7 @@ void Terrain3DInstancer::set_cast_shadows(int p_mesh_id, GeometryInstance3D::Sha
 	}
 }
 
-void Terrain3DInstancer::clear_by_mesh(int p_mesh_id) {
+void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
 	LOG(INFO, "Deleting Multimeshes in all regions with mesh_id: ", p_mesh_id);
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
 	Array offsets = region_dict.keys();
@@ -552,12 +552,12 @@ void Terrain3DInstancer::clear_by_mesh(int p_mesh_id) {
 	}
 }
 
-void Terrain3DInstancer::clear_by_region_id(int p_region_id, int p_mesh_id) {
+void Terrain3DInstancer::clear_by_region_id(const int p_region_id, const int p_mesh_id) {
 	Vector2i region_offset = _terrain->get_storage()->get_region_offset_from_index(p_region_id);
 	clear_by_offset(region_offset, p_mesh_id);
 }
 
-void Terrain3DInstancer::clear_by_offset(Vector2i p_region_offset, int p_mesh_id) {
+void Terrain3DInstancer::clear_by_offset(const Vector2i &p_region_offset, const int p_mesh_id) {
 	LOG(INFO, "Deleting Multimeshes w/ mesh_id: ", p_mesh_id, " in region: ", p_region_offset);
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
 	LOG(DEBUG, "Original region_dict: ", region_dict);
@@ -571,7 +571,7 @@ void Terrain3DInstancer::clear_by_offset(Vector2i p_region_offset, int p_mesh_id
 	_destroy_mmi_by_offset(p_region_offset, p_mesh_id);
 }
 
-void Terrain3DInstancer::print_multimesh_buffer(MultiMeshInstance3D *p_mmi) {
+void Terrain3DInstancer::print_multimesh_buffer(MultiMeshInstance3D *p_mmi) const {
 	if (p_mmi == nullptr) {
 		return;
 	}
