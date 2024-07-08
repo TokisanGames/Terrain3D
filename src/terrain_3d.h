@@ -79,13 +79,13 @@ class Terrain3D : public Node3D {
 
 	void _initialize();
 	void __ready();
-	void __process(double delta);
+	void __process(const double p_delta);
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
 	void _grab_camera();
 
-	void _build_meshes(int p_mesh_lods, int p_mesh_size);
+	void _build_meshes(const int p_mesh_lods, const int p_mesh_size);
 	void _update_mesh_instances();
 	void _clear_meshes();
 
@@ -95,8 +95,10 @@ class Terrain3D : public Node3D {
 
 	void _destroy_instancer();
 
-	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, const AABB &p_global_aabb) const;
-	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
+	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
+			const Terrain3DStorage::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
+	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
+			const Terrain3DStorage::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
 
 public:
 	static int debug_level;
@@ -106,13 +108,13 @@ public:
 
 	// Terrain settings
 	String get_version() const { return _version; }
-	void set_debug_level(int p_level);
+	void set_debug_level(const int p_level);
 	int get_debug_level() const { return debug_level; }
-	void set_mesh_lods(int p_count);
+	void set_mesh_lods(const int p_count);
 	int get_mesh_lods() const { return _mesh_lods; }
-	void set_mesh_size(int p_size);
+	void set_mesh_size(const int p_size);
 	int get_mesh_size() const { return _mesh_size; }
-	void set_mesh_vertex_spacing(real_t p_spacing);
+	void set_mesh_vertex_spacing(const real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
@@ -130,25 +132,25 @@ public:
 	Camera3D *get_camera() const { return _camera; }
 
 	// Renderer settings
-	void set_render_layers(uint32_t p_layers);
+	void set_render_layers(const uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; };
-	void set_mouse_layer(uint32_t p_layer);
+	void set_mouse_layer(const uint32_t p_layer);
 	uint32_t get_mouse_layer() const { return _mouse_layer; };
-	void set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
+	void set_cast_shadows(const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
 	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
-	void set_cull_margin(real_t p_margin);
+	void set_cull_margin(const real_t p_margin);
 	real_t get_cull_margin() const { return _cull_margin; };
 
 	// Physics body settings
-	void set_collision_enabled(bool p_enabled);
+	void set_collision_enabled(const bool p_enabled);
 	bool get_collision_enabled() const { return _collision_enabled; }
-	void set_show_debug_collision(bool p_enabled);
+	void set_show_debug_collision(const bool p_enabled);
 	bool get_show_debug_collision() const { return _show_debug_collision; }
-	void set_collision_layer(uint32_t p_layers);
+	void set_collision_layer(const uint32_t p_layers);
 	uint32_t get_collision_layer() const { return _collision_layer; };
-	void set_collision_mask(uint32_t p_mask);
+	void set_collision_mask(const uint32_t p_mask);
 	uint32_t get_collision_mask() const { return _collision_mask; };
-	void set_collision_priority(real_t p_priority);
+	void set_collision_priority(const real_t p_priority);
 	real_t get_collision_priority() const { return _collision_priority; }
 
 	// Terrain methods
@@ -157,18 +159,18 @@ public:
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction);
 
 	// Baking methods
-	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
-	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, bool p_require_nav = true) const;
+	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
+	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
 
 	// Misc
 	PackedStringArray _get_configuration_warnings() const override;
 
 	// DEPRECATED 0.9.2 - Remove 0.9.3+
 	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
-	Ref<Terrain3DTextureList> get_texture_list() { return Ref<Terrain3DTextureList>(); }
+	Ref<Terrain3DTextureList> get_texture_list() const { return Ref<Terrain3DTextureList>(); }
 
 protected:
-	void _notification(int p_what);
+	void _notification(const int p_what);
 	static void _bind_methods();
 };
 

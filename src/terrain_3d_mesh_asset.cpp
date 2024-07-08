@@ -17,14 +17,14 @@
 ///////////////////////////
 
 // This version doesn't emit a signal
-void Terrain3DMeshAsset::_set_generated_type(GenType p_type) {
+void Terrain3DMeshAsset::_set_generated_type(const GenType p_type) {
 	_generated_type = p_type;
 	LOG(INFO, "Setting is_generated: ", p_type);
 	if (p_type > TYPE_NONE && p_type < TYPE_MAX) {
 		_packed_scene.unref();
 		_meshes.clear();
 		LOG(DEBUG, "Generating card mesh");
-		_meshes.push_back(_build_generated_mesh());
+		_meshes.push_back(_get_generated_mesh());
 		_set_material_override(_get_material());
 		_height_offset = 0.5f;
 		_generated_faces = 2;
@@ -34,7 +34,7 @@ void Terrain3DMeshAsset::_set_generated_type(GenType p_type) {
 }
 
 // This version doesn't emit a signal
-void Terrain3DMeshAsset::_set_material_override(const Ref<Material> p_material) {
+void Terrain3DMeshAsset::_set_material_override(const Ref<Material> &p_material) {
 	LOG(INFO, _name, ": Setting material override: ", p_material);
 	_material_override = p_material;
 	if (_material_override.is_null() && _packed_scene.is_valid()) {
@@ -54,7 +54,7 @@ void Terrain3DMeshAsset::_set_material_override(const Ref<Material> p_material) 
 	}
 }
 
-Ref<ArrayMesh> Terrain3DMeshAsset::_build_generated_mesh() {
+Ref<ArrayMesh> Terrain3DMeshAsset::_get_generated_mesh() const {
 	LOG(DEBUG_CONT, "Regeneratingn new mesh");
 	Ref<ArrayMesh> array_mesh;
 	array_mesh.instantiate();
@@ -163,26 +163,26 @@ void Terrain3DMeshAsset::clear() {
 	notify_property_list_changed();
 }
 
-void Terrain3DMeshAsset::set_name(String p_name) {
+void Terrain3DMeshAsset::set_name(const String &p_name) {
 	LOG(INFO, "Setting name: ", p_name);
 	_name = p_name;
 	emit_signal("setting_changed");
 }
 
-void Terrain3DMeshAsset::set_id(int p_new_id) {
+void Terrain3DMeshAsset::set_id(const int p_new_id) {
 	int old_id = _id;
 	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES);
 	LOG(INFO, "Setting mesh id: ", _id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, p_new_id);
 }
 
-void Terrain3DMeshAsset::set_height_offset(real_t p_offset) {
+void Terrain3DMeshAsset::set_height_offset(const real_t p_offset) {
 	_height_offset = CLAMP(p_offset, -50.f, 50.f);
 	LOG(INFO, "Setting height offset: ", _height_offset);
 	emit_signal("setting_changed");
 }
 
-void Terrain3DMeshAsset::set_density(real_t p_density) {
+void Terrain3DMeshAsset::set_density(const real_t p_density) {
 	LOG(INFO, "Setting mesh density: ", p_density);
 	if (p_density < 0) {
 		_relative_density = _calculated_density;
@@ -199,13 +199,13 @@ real_t Terrain3DMeshAsset::get_density() const {
 	}
 }
 
-void Terrain3DMeshAsset::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
+void Terrain3DMeshAsset::set_cast_shadows(const GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
 	_cast_shadows = p_cast_shadows;
 	LOG(INFO, "Setting shadow casting mode: ", _cast_shadows);
 	emit_signal("cast_shadows_changed", _id, _cast_shadows);
 }
 
-void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> p_scene_file) {
+void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	LOG(INFO, "Setting scene file and instantiating node: ", p_scene_file);
 	_packed_scene = p_scene_file;
 	if (_packed_scene.is_valid()) {
@@ -258,25 +258,25 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> p_scene_file) {
 	}
 }
 
-void Terrain3DMeshAsset::set_material_override(const Ref<Material> p_material) {
+void Terrain3DMeshAsset::set_material_override(const Ref<Material> &p_material) {
 	_set_material_override(p_material);
 	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
-void Terrain3DMeshAsset::set_generated_type(GenType p_type) {
+void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
 	_set_generated_type(p_type);
 	LOG(DEBUG, "Emitting file_changed");
 	notify_property_list_changed();
 	emit_signal("file_changed");
 }
 
-void Terrain3DMeshAsset::set_generated_faces(int p_count) {
+void Terrain3DMeshAsset::set_generated_faces(const int p_count) {
 	if (_generated_faces != p_count) {
 		_generated_faces = CLAMP(p_count, 1, 3);
 		LOG(INFO, "Setting generated face count: ", _generated_faces);
 		if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _meshes.size() == 1) {
-			_meshes[0] = _build_generated_mesh();
+			_meshes[0] = _get_generated_mesh();
 			_set_material_override(_get_material());
 			LOG(DEBUG, "Emitting setting_changed");
 			emit_signal("setting_changed");
@@ -284,12 +284,12 @@ void Terrain3DMeshAsset::set_generated_faces(int p_count) {
 	}
 }
 
-void Terrain3DMeshAsset::set_generated_size(Vector2 p_size) {
+void Terrain3DMeshAsset::set_generated_size(const Vector2 &p_size) {
 	if (_generated_size != p_size) {
 		_generated_size = p_size;
 		LOG(INFO, "Setting generated size: ", _generated_faces);
 		if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _meshes.size() == 1) {
-			_meshes[0] = _build_generated_mesh();
+			_meshes[0] = _get_generated_mesh();
 			_set_material_override(_get_material());
 			LOG(DEBUG, "Emitting setting_changed");
 			emit_signal("setting_changed");
@@ -297,7 +297,7 @@ void Terrain3DMeshAsset::set_generated_size(Vector2 p_size) {
 	}
 }
 
-Ref<Mesh> Terrain3DMeshAsset::get_mesh(int p_index) {
+Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_index) {
 	if (p_index >= 0 && p_index < _meshes.size()) {
 		return _meshes[p_index];
 	}

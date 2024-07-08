@@ -104,7 +104,7 @@ void Terrain3D::__ready() {
  * This is a proxy for _process(delta) called by _notification() due to
  * https://github.com/godotengine/godot-cpp/issues/1022
  */
-void Terrain3D::__process(double delta) {
+void Terrain3D::__process(const double p_delta) {
 	if (!_initialized)
 		return;
 
@@ -206,7 +206,7 @@ void Terrain3D::_grab_camera() {
 	}
 }
 
-void Terrain3D::_build_meshes(int p_mesh_lods, int p_mesh_size) {
+void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 	if (!is_inside_tree() || !_storage.is_valid()) {
 		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
 		return;
@@ -537,7 +537,8 @@ void Terrain3D::_destroy_instancer() {
 	}
 }
 
-void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool p_require_nav, const AABB &p_global_aabb) const {
+void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
+		const Terrain3DStorage::HeightFilter p_filter, const bool p_require_nav, const AABB &p_global_aabb) const {
 	ERR_FAIL_COND(!_storage.is_valid());
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
@@ -571,7 +572,11 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 	}
 }
 
-void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool p_require_nav, int32_t x, int32_t z) const {
+// p_vertices is assumed to exist and the destination for data
+// p_uvs might not exist, so a pointer is fine
+void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs,
+		const int32_t p_lod, const Terrain3DStorage::HeightFilter p_filter, const bool p_require_nav,
+		const int32_t x, const int32_t z) const {
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
 	Vector3 xz = Vector3(x, 0.0f, z) * _mesh_vertex_spacing;
@@ -648,12 +653,12 @@ Terrain3D::~Terrain3D() {
 	_destroy_collision();
 }
 
-void Terrain3D::set_debug_level(int p_level) {
+void Terrain3D::set_debug_level(const int p_level) {
 	LOG(INFO, "Setting debug level: ", p_level);
 	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
 }
 
-void Terrain3D::set_mesh_lods(int p_count) {
+void Terrain3D::set_mesh_lods(const int p_count) {
 	if (_mesh_lods != p_count) {
 		_clear_meshes();
 		_destroy_collision();
@@ -663,7 +668,7 @@ void Terrain3D::set_mesh_lods(int p_count) {
 	}
 }
 
-void Terrain3D::set_mesh_size(int p_size) {
+void Terrain3D::set_mesh_size(const int p_size) {
 	if (_mesh_size != p_size) {
 		_clear_meshes();
 		_destroy_collision();
@@ -673,11 +678,11 @@ void Terrain3D::set_mesh_size(int p_size) {
 	}
 }
 
-void Terrain3D::set_mesh_vertex_spacing(real_t p_spacing) {
-	p_spacing = CLAMP(p_spacing, 0.25f, 100.0f);
-	if (_mesh_vertex_spacing != p_spacing) {
-		LOG(INFO, "Setting mesh vertex spacing: ", p_spacing);
-		_mesh_vertex_spacing = p_spacing;
+void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
+	real_t spacing = CLAMP(p_spacing, 0.25f, 100.0f);
+	if (_mesh_vertex_spacing != spacing) {
+		LOG(INFO, "Setting mesh vertex spacing: ", spacing);
+		_mesh_vertex_spacing = spacing;
 		_clear_meshes();
 		_destroy_collision();
 		_destroy_instancer();
@@ -742,17 +747,17 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 	}
 }
 
-void Terrain3D::set_render_layers(uint32_t p_layers) {
+void Terrain3D::set_render_layers(const uint32_t p_layers) {
 	LOG(INFO, "Setting terrain render layers to: ", p_layers);
 	_render_layers = p_layers;
 	_update_mesh_instances();
 }
 
-void Terrain3D::set_mouse_layer(uint32_t p_layer) {
-	p_layer = CLAMP(p_layer, 21, 32);
-	_mouse_layer = p_layer;
+void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
+	uint32_t layer = CLAMP(p_layer, 21, 32);
+	_mouse_layer = layer;
 	uint32_t mouse_mask = 1 << (_mouse_layer - 1);
-	LOG(INFO, "Setting mouse layer: ", p_layer, " (", mouse_mask, ") on terrain mesh, material, mouse camera, mouse quad");
+	LOG(INFO, "Setting mouse layer: ", layer, " (", mouse_mask, ") on terrain mesh, material, mouse camera, mouse quad");
 
 	// Set terrain meshes to mouse layer
 	// Mask off editor render layers by ORing user layers 1-20 and current mouse layer
@@ -771,18 +776,18 @@ void Terrain3D::set_mouse_layer(uint32_t p_layer) {
 	}
 }
 
-void Terrain3D::set_cast_shadows(GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
+void Terrain3D::set_cast_shadows(const GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
 	_cast_shadows = p_cast_shadows;
 	_update_mesh_instances();
 }
 
-void Terrain3D::set_cull_margin(real_t p_margin) {
+void Terrain3D::set_cull_margin(const real_t p_margin) {
 	LOG(INFO, "Setting extra cull margin: ", p_margin);
 	_cull_margin = p_margin;
 	update_aabbs();
 }
 
-void Terrain3D::set_collision_enabled(bool p_enabled) {
+void Terrain3D::set_collision_enabled(const bool p_enabled) {
 	LOG(INFO, "Setting collision enabled: ", p_enabled);
 	_collision_enabled = p_enabled;
 	if (_collision_enabled) {
@@ -792,7 +797,7 @@ void Terrain3D::set_collision_enabled(bool p_enabled) {
 	}
 }
 
-void Terrain3D::set_show_debug_collision(bool p_enabled) {
+void Terrain3D::set_show_debug_collision(const bool p_enabled) {
 	LOG(INFO, "Setting show collision: ", p_enabled);
 	_show_debug_collision = p_enabled;
 	_destroy_collision();
@@ -801,7 +806,7 @@ void Terrain3D::set_show_debug_collision(bool p_enabled) {
 	}
 }
 
-void Terrain3D::set_collision_layer(uint32_t p_layers) {
+void Terrain3D::set_collision_layer(const uint32_t p_layers) {
 	LOG(INFO, "Setting collision layers: ", p_layers);
 	_collision_layer = p_layers;
 	if (_show_debug_collision) {
@@ -815,7 +820,7 @@ void Terrain3D::set_collision_layer(uint32_t p_layers) {
 	}
 }
 
-void Terrain3D::set_collision_mask(uint32_t p_mask) {
+void Terrain3D::set_collision_mask(const uint32_t p_mask) {
 	LOG(INFO, "Setting collision mask: ", p_mask);
 	_collision_mask = p_mask;
 	if (_show_debug_collision) {
@@ -829,7 +834,7 @@ void Terrain3D::set_collision_mask(uint32_t p_mask) {
 	}
 }
 
-void Terrain3D::set_collision_priority(real_t p_priority) {
+void Terrain3D::set_collision_priority(const real_t p_priority) {
 	LOG(INFO, "Setting collision priority: ", p_priority);
 	_collision_priority = p_priority;
 	if (_show_debug_collision) {
@@ -1041,7 +1046,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
  *   This takes longer than ..._NEAREST, but can be used to create occluders, since it can guarantee the
  *   generated mesh will not extend above or outside the clipmap at any LOD.
  */
-Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter) const {
+Ref<Mesh> Terrain3D::bake_mesh(const int p_lod, const Terrain3DStorage::HeightFilter p_filter) const {
 	LOG(INFO, "Baking mesh at lod: ", p_lod, " with filter: ", p_filter);
 	Ref<Mesh> result;
 	ERR_FAIL_COND_V(!_storage.is_valid(), result);
@@ -1077,7 +1082,7 @@ Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filte
  *  Otherwise, geometry is generated for the entire terrain within the AABB (which can be useful for
  *  dynamic and/or runtime nav mesh baking).
  */
-PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_global_aabb, bool p_require_nav) const {
+PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav) const {
 	LOG(INFO, "Generating NavMesh source geometry from terrain");
 	PackedVector3Array faces;
 	_generate_triangles(faces, nullptr, 0, Terrain3DStorage::HEIGHT_FILTER_NEAREST, p_require_nav, p_global_aabb);
@@ -1116,7 +1121,7 @@ void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list
 // Protected Functions
 ///////////////////////////
 
-void Terrain3D::_notification(int p_what) {
+void Terrain3D::_notification(const int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
 			LOG(INFO, "NOTIFICATION_READY");

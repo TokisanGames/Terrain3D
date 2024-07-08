@@ -50,20 +50,20 @@ void Terrain3DTextureAsset::clear() {
 	_detiling = 0.0f;
 }
 
-void Terrain3DTextureAsset::set_name(String p_name) {
+void Terrain3DTextureAsset::set_name(const String &p_name) {
 	LOG(INFO, "Setting name: ", p_name);
 	_name = p_name;
 	emit_signal("setting_changed");
 }
 
-void Terrain3DTextureAsset::set_id(int p_new_id) {
+void Terrain3DTextureAsset::set_id(const int p_new_id) {
 	int old_id = _id;
 	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_TEXTURES);
 	LOG(INFO, "Setting texture id: ", _id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_TEXTURE, old_id, _id);
 }
 
-void Terrain3DTextureAsset::set_albedo_color(Color p_color) {
+void Terrain3DTextureAsset::set_albedo_color(const Color &p_color) {
 	LOG(INFO, "Setting color: ", p_color);
 	_albedo_color = p_color;
 	emit_signal("setting_changed");
@@ -89,15 +89,15 @@ void Terrain3DTextureAsset::set_normal_texture(const Ref<Texture2D> &p_texture) 
 	}
 }
 
-void Terrain3DTextureAsset::set_uv_scale(real_t p_scale) {
+void Terrain3DTextureAsset::set_uv_scale(const real_t p_scale) {
 	_uv_scale = CLAMP(p_scale, .001f, 2.f);
 	LOG(INFO, "Setting uv_scale: ", _uv_scale);
 	emit_signal("setting_changed");
 }
 
-void Terrain3DTextureAsset::set_detiling(real_t p_detiling) {
+void Terrain3DTextureAsset::set_detiling(const real_t p_detiling) {
 	_detiling = CLAMP(p_detiling, 0.0f, 1.0f);
-	LOG(INFO, "Setting uv_rotation: ", _detiling);
+	LOG(INFO, "Setting detiling: ", _detiling);
 	emit_signal("setting_changed");
 }
 

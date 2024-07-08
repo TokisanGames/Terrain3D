@@ -13,7 +13,7 @@
 // Private Functions
 ///////////////////////////
 
-void Terrain3DAssets::_swap_ids(AssetType p_type, int p_src_id, int p_dst_id) {
+void Terrain3DAssets::_swap_ids(const AssetType p_type, const int p_src_id, const int p_dst_id) {
 	LOG(INFO, "Swapping asset id: ", p_src_id, " and id: ", p_dst_id);
 	Array list;
 	switch (p_type) {
@@ -32,17 +32,17 @@ void Terrain3DAssets::_swap_ids(AssetType p_type, int p_src_id, int p_dst_id) {
 		return;
 	}
 	Ref<Terrain3DAssetResource> res_a = list[p_src_id];
-	p_dst_id = CLAMP(p_dst_id, 0, list.size() - 1);
-	if (p_dst_id == p_src_id) {
+	int dst_id = CLAMP(p_dst_id, 0, list.size() - 1);
+	if (dst_id == p_src_id) {
 		// Res_a new id was likely out of range, reset it
 		res_a->_id = p_src_id;
 		return;
 	}
 
-	Ref<Terrain3DAssetResource> res_b = list[p_dst_id];
-	res_a->_id = p_dst_id;
+	Ref<Terrain3DAssetResource> res_b = list[dst_id];
+	res_a->_id = dst_id;
 	res_b->_id = p_src_id;
-	list[p_dst_id] = res_a;
+	list[dst_id] = res_a;
 	list[p_src_id] = res_b;
 
 	switch (p_type) {
@@ -50,7 +50,7 @@ void Terrain3DAssets::_swap_ids(AssetType p_type, int p_src_id, int p_dst_id) {
 			update_texture_list();
 			break;
 		case TYPE_MESH:
-			_terrain->get_instancer()->swap_ids(p_src_id, p_dst_id);
+			_terrain->get_instancer()->swap_ids(p_src_id, dst_id);
 			update_mesh_list();
 			break;
 		default:
@@ -62,7 +62,7 @@ void Terrain3DAssets::_swap_ids(AssetType p_type, int p_src_id, int p_dst_id) {
  * _set_asset_list attempts to keep the asset id as saved in the resource file.
  * But if an ID is invalid or already taken, the new ID is changed to the next available one
  */
-void Terrain3DAssets::_set_asset_list(AssetType p_type, const TypedArray<Terrain3DAssetResource> &p_list) {
+void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<Terrain3DAssetResource> &p_list) {
 	Array list;
 	int max_size;
 	switch (p_type) {
@@ -106,7 +106,7 @@ void Terrain3DAssets::_set_asset_list(AssetType p_type, const TypedArray<Terrain
 	}
 }
 
-void Terrain3DAssets::_set_asset(AssetType p_type, int p_id, const Ref<Terrain3DAssetResource> &p_asset) {
+void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const Ref<Terrain3DAssetResource> &p_asset) {
 	Array list;
 	int max_size;
 	switch (p_type) {
@@ -311,7 +311,7 @@ void Terrain3DAssets::_update_texture_settings() {
 	emit_signal("textures_changed");
 }
 
-void Terrain3DAssets::_update_thumbnail(Ref<Terrain3DMeshAsset> p_mesh_asset) {
+void Terrain3DAssets::_update_thumbnail(const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
 	if (p_mesh_asset.is_valid()) {
 		create_mesh_thumbnails(p_mesh_asset->get_id());
 	}
@@ -370,7 +370,7 @@ Terrain3DAssets::~Terrain3DAssets() {
 	RS->free_rid(scenario);
 }
 
-void Terrain3DAssets::set_texture(int p_id, const Ref<Terrain3DTextureAsset> &p_texture) {
+void Terrain3DAssets::set_texture(const int p_id, const Ref<Terrain3DTextureAsset> &p_texture) {
 	if (_texture_list.size() <= p_id || p_texture != _texture_list[p_id]) {
 		LOG(INFO, "Setting texture id: ", p_id);
 		_set_asset(TYPE_TEXTURE, p_id, p_texture);
@@ -407,7 +407,7 @@ void Terrain3DAssets::update_texture_list() {
 	_update_texture_settings();
 }
 
-void Terrain3DAssets::set_mesh_asset(int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
+void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
 	LOG(INFO, "Setting mesh id: ", p_id, ", ", p_mesh_asset);
 	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	if (p_mesh_asset.is_null()) {
@@ -417,7 +417,7 @@ void Terrain3DAssets::set_mesh_asset(int p_id, const Ref<Terrain3DMeshAsset> &p_
 	update_mesh_list();
 }
 
-Ref<Terrain3DMeshAsset> Terrain3DAssets::get_mesh_asset(int p_id) const {
+Ref<Terrain3DMeshAsset> Terrain3DAssets::get_mesh_asset(const int p_id) const {
 	if (p_id >= 0 && p_id < _mesh_list.size()) {
 		return _mesh_list[p_id];
 	}
@@ -432,7 +432,7 @@ void Terrain3DAssets::set_mesh_list(const TypedArray<Terrain3DMeshAsset> &p_mesh
 
 // p_id = -1 for all meshes
 // Adapted from godot\editor\plugins\editor_preview_plugins.cpp:EditorMeshPreviewPlugin
-void Terrain3DAssets::create_mesh_thumbnails(int p_id, Vector2i p_size) const {
+void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_size) {
 	int start, end;
 	int max = get_mesh_count();
 	if (p_id < 0) {
@@ -442,7 +442,7 @@ void Terrain3DAssets::create_mesh_thumbnails(int p_id, Vector2i p_size) const {
 		start = CLAMP(p_id, 0, max - 1);
 		end = CLAMP(p_id + 1, 0, max);
 	}
-	p_size = CLAMP(p_size, Vector2i(1, 1), Vector2i(4096, 4096));
+	Vector2i size = CLAMP(p_size, Vector2i(1, 1), Vector2i(4096, 4096));
 
 	LOG(INFO, "Creating thumbnails for ids: ", start, " through ", end - 1);
 	for (int i = start; i < end; i++) {
@@ -478,7 +478,7 @@ void Terrain3DAssets::create_mesh_thumbnails(int p_id, Vector2i p_size) const {
 		xform.origin.z -= rot_aabb.size.z * 2.f;
 		RS->instance_set_transform(mesh_instance, xform);
 
-		RS->viewport_set_size(viewport, p_size.x, p_size.y);
+		RS->viewport_set_size(viewport, size.x, size.y);
 		RS->viewport_set_update_mode(viewport, RenderingServer::VIEWPORT_UPDATE_ONCE);
 		RS->force_draw();
 
