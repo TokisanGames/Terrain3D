@@ -46,7 +46,7 @@ func get_camera_relative_input() -> Vector3:
 		input_dir -= %Camera3D.global_transform.basis.z
 	if Input.is_key_pressed(KEY_S): # Backward
 		input_dir += %Camera3D.global_transform.basis.z
-	if Input.is_key_pressed(KEY_E): # Up
+	if Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_SPACE): # Up
 		velocity.y += JUMP_SPEED + MOVE_SPEED*.016
 	if Input.is_key_pressed(KEY_Q): # Down
 		velocity.y -= JUMP_SPEED + MOVE_SPEED*.016
