@@ -22,11 +22,6 @@ var visible: bool
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 
-# Track negative input (CTRL)
-var _negative_input: bool = false
-# Track state prior to pressing CTRL: -1 not tracked, 0 false, 1 true
-var _prev_enable_state: int = -1
-
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
@@ -124,26 +119,12 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 	
-	## Track negative input (CTRL)
-	if p_event is InputEventKey and not p_event.echo and p_event.keycode == KEY_CTRL:
-		if p_event.is_pressed():
-			_negative_input = true
-			_prev_enable_state = int(ui.toolbar_settings.get_setting("enable"))
-			ui.toolbar_settings.set_setting("enable", false)
-		else:
-			_negative_input = false
-			ui.toolbar_settings.set_setting("enable", bool(_prev_enable_state))
-			_prev_enable_state = -1
+	ui.update_modifiers()
 	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 			return AFTER_GUI_INPUT_PASS
-
-		if _prev_enable_state >= 0 and not Input.is_key_pressed(KEY_CTRL):
-			_negative_input = false
-			ui.toolbar_settings.set_setting("enable", bool(_prev_enable_state))
-			_prev_enable_state = -1
 
 		## Setup for active camera & viewport
 		
