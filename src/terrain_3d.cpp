@@ -996,6 +996,9 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
 		point = p_src_pos;
 		point.y = _storage->get_height(p_src_pos);
+		if (std::isnan(point.y)) {
+			point.y = 0;
+		}
 	} else {
 		// Get depth from perspective camera snapshot
 		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, Vector3(0.f, 1.f, 0.f));
