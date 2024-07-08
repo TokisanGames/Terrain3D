@@ -8,8 +8,9 @@ A high performance, editable terrain system for Godot 4.
 * Can be accessed by GDScript, C#, and any language Godot supports
 * Geometric Clipmap Mesh Terrain, as used in The Witcher 3. See [System Architecture](https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html) 
 * Up to 16k x 16k in 1k regions (imagine multiple islands without paying for 16k^2 vram)
-* Up to 10 Levels of Detail (LODs)
 * Up to 32 texture sets using albedo, normal, roughness, height
+* Up to 10 Levels of Detail (LODs)
+* Foliage instancing with generated or custom meshes
 * Sculpting, holes, texture painting, texture detiling, painting colors and wetness
 * Supports importing heightmaps from [HTerrain](https://github.com/Zylann/godot_heightmap_plugin/), WorldMachine, Unity, Unreal and any tool that can export a heightmap (raw/r16/exr/+). See [importing data](https://terrain3d.readthedocs.io/en/stable/docs/import_export.html)
 
