@@ -123,7 +123,7 @@ public:
 	void update_height_range();
 
 	void clear_edited_area();
-	void add_edited_area(AABB p_area);
+	void add_edited_area(const AABB &p_area);
 	AABB get_edited_area() const { return _edited_area; }
 
 	// Regions
@@ -134,13 +134,13 @@ public:
 	TypedArray<Vector2i> get_region_offsets() const { return _region_offsets; }
 	PackedInt32Array get_region_map() const { return _region_map; }
 	int get_region_count() const { return _region_offsets.size(); }
-	Vector2i get_region_offset(Vector3 p_global_position);
+	Vector2i get_region_offset(const Vector3 &p_global_position);
 	Vector2i get_region_offset_from_index(int p_index);
-	int get_region_index(Vector3 p_global_position);
+	int get_region_index(const Vector3 &p_global_position);
 	int get_region_index_from_offset(Vector2i p_region_offset);
-	bool has_region(Vector3 p_global_position) { return get_region_index(p_global_position) != -1; }
-	Error add_region(Vector3 p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
-	void remove_region(Vector3 p_global_position, bool p_update = true);
+	bool has_region(const Vector3 &p_global_position) { return get_region_index(p_global_position) != -1; }
+	Error add_region(const Vector3 &p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), bool p_update = true);
+	void remove_region(const Vector3 &p_global_position, bool p_update = true);
 	void update_regions(bool force_emit = false);
 
 	// Maps
@@ -158,20 +158,20 @@ public:
 	void set_color_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_COLOR, p_maps); }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
 	RID get_color_rid() { return _generated_color_maps.get_rid(); }
-	void set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel);
-	Color get_pixel(MapType p_map_type, Vector3 p_global_position);
-	void set_height(Vector3 p_global_position, real_t p_height);
-	real_t get_height(Vector3 p_global_position);
-	void set_color(Vector3 p_global_position, Color p_color);
-	Color get_color(Vector3 p_global_position);
-	void set_control(Vector3 p_global_position, uint32_t p_control);
-	uint32_t get_control(Vector3 p_global_position);
-	void set_roughness(Vector3 p_global_position, real_t p_roughness);
-	real_t get_roughness(Vector3 p_global_position);
-	Vector3 get_texture_id(Vector3 p_global_position);
-	real_t get_angle(Vector3 p_global_position);
-	real_t get_scale(Vector3 p_global_position);
 	TypedArray<Image> sanitize_maps(MapType p_map_type, const TypedArray<Image> &p_maps);
+	void set_pixel(MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel);
+	Color get_pixel(MapType p_map_type, const Vector3 &p_global_position);
+	void set_height(const Vector3 &p_global_position, real_t p_height);
+	real_t get_height(const Vector3 &p_global_position);
+	void set_color(const Vector3 &p_global_position, const Color &p_color);
+	Color get_color(const Vector3 &p_global_position);
+	void set_control(const Vector3 &p_global_position, uint32_t p_control);
+	uint32_t get_control(const Vector3 &p_global_position);
+	void set_roughness(const Vector3 &p_global_position, real_t p_roughness);
+	real_t get_roughness(const Vector3 &p_global_position);
+	Vector3 get_texture_id(const Vector3 &p_global_position);
+	real_t get_angle(const Vector3 &p_global_position);
+	real_t get_scale(const Vector3 &p_global_position);
 	void force_update_maps(MapType p_map = TYPE_MAX);
 
 	// Instancer
@@ -182,14 +182,14 @@ public:
 	void save();
 	void clear_modified() { _modified = false; }
 	void set_modified() { _modified = true; }
-	void import_images(const TypedArray<Image> &p_images, Vector3 p_global_position = Vector3(0.f, 0.f, 0.f),
+	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = Vector3(0.f, 0.f, 0.f),
 			real_t p_offset = 0.f, real_t p_scale = 1.f);
 	Error export_image(String p_file_name, MapType p_map_type = TYPE_HEIGHT);
 	Ref<Image> layered_to_image(MapType p_map_type);
 
 	// Utility
-	Vector3 get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position);
-	Vector3 get_normal(Vector3 global_position);
+	Vector3 get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, const Vector3 &p_global_position);
+	Vector3 get_normal(const Vector3 &global_position);
 	void print_audit_data();
 
 protected:
@@ -202,36 +202,37 @@ VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
 // Inline Functions
 
-inline void Terrain3DStorage::set_height(Vector3 p_global_position, real_t p_height) {
+inline void Terrain3DStorage::set_height(const Vector3 &p_global_position, real_t p_height) {
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));
 }
 
-inline void Terrain3DStorage::set_color(Vector3 p_global_position, Color p_color) {
-	p_color.a = get_roughness(p_global_position);
-	set_pixel(TYPE_COLOR, p_global_position, p_color);
+inline void Terrain3DStorage::set_color(const Vector3 &p_global_position, const Color &p_color) {
+	Color clr = p_color;
+	clr.a = get_roughness(p_global_position);
+	set_pixel(TYPE_COLOR, p_global_position, clr);
 }
 
-inline Color Terrain3DStorage::get_color(Vector3 p_global_position) {
+inline Color Terrain3DStorage::get_color(const Vector3 &p_global_position) {
 	Color clr = get_pixel(TYPE_COLOR, p_global_position);
 	clr.a = 1.0f;
 	return clr;
 }
 
-inline void Terrain3DStorage::set_control(Vector3 p_global_position, uint32_t p_control) {
+inline void Terrain3DStorage::set_control(const Vector3 &p_global_position, uint32_t p_control) {
 	set_pixel(TYPE_CONTROL, p_global_position, Color(as_float(p_control), 0.f, 0.f, 1.f));
 }
 
-inline uint32_t Terrain3DStorage::get_control(Vector3 p_global_position) {
+inline uint32_t Terrain3DStorage::get_control(const Vector3 &p_global_position) {
 	return as_uint(get_pixel(TYPE_CONTROL, p_global_position).r);
 }
 
-inline void Terrain3DStorage::set_roughness(Vector3 p_global_position, real_t p_roughness) {
+inline void Terrain3DStorage::set_roughness(const Vector3 &p_global_position, real_t p_roughness) {
 	Color clr = get_pixel(TYPE_COLOR, p_global_position);
 	clr.a = p_roughness;
 	set_pixel(TYPE_COLOR, p_global_position, clr);
 }
 
-inline real_t Terrain3DStorage::get_roughness(Vector3 p_global_position) {
+inline real_t Terrain3DStorage::get_roughness(const Vector3 &p_global_position) {
 	return get_pixel(TYPE_COLOR, p_global_position).a;
 }
 

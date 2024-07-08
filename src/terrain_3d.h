@@ -95,7 +95,7 @@ class Terrain3D : public Node3D {
 
 	void _destroy_instancer();
 
-	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, AABB const &p_global_aabb) const;
+	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, const AABB &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool require_nav, int32_t x, int32_t z) const;
 
 public:
@@ -152,13 +152,13 @@ public:
 	real_t get_collision_priority() const { return _collision_priority; }
 
 	// Terrain methods
-	void snap(Vector3 p_cam_pos);
+	void snap(const Vector3 &p_cam_pos);
 	void update_aabbs();
-	Vector3 get_intersection(Vector3 p_src_pos, Vector3 p_direction);
+	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction);
 
 	// Baking methods
 	Ref<Mesh> bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
-	PackedVector3Array generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav = true) const;
+	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, bool p_require_nav = true) const;
 
 	// Misc
 	PackedStringArray _get_configuration_warnings() const override;

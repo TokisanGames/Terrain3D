@@ -535,7 +535,7 @@ void Terrain3D::_destroy_instancer() {
 	}
 }
 
-void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool p_require_nav, AABB const &p_global_aabb) const {
+void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, int32_t p_lod, Terrain3DStorage::HeightFilter p_filter, bool p_require_nav, const AABB &p_global_aabb) const {
 	ERR_FAIL_COND(!_storage.is_valid());
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
@@ -844,11 +844,11 @@ void Terrain3D::set_collision_priority(real_t p_priority) {
 /**
  * Centers the terrain and LODs on a provided position. Y height is ignored.
  */
-void Terrain3D::snap(Vector3 p_cam_pos) {
-	p_cam_pos.y = 0;
-	LOG(DEBUG_CONT, "Snapping terrain to: ", String(p_cam_pos));
-
-	Vector3 snapped_pos = (p_cam_pos / _mesh_vertex_spacing).floor() * _mesh_vertex_spacing;
+void Terrain3D::snap(const Vector3 &p_cam_pos) {
+	Vector3 cam_pos = p_cam_pos;
+	cam_pos.y = 0;
+	LOG(DEBUG_CONT, "Snapping terrain to: ", String(cam_pos));
+	Vector3 snapped_pos = (cam_pos / _mesh_vertex_spacing).floor() * _mesh_vertex_spacing;
 	Transform3D t = Transform3D().scaled(Vector3(_mesh_vertex_spacing, 1, _mesh_vertex_spacing));
 	t.origin = snapped_pos;
 	RS->instance_set_transform(_data.cross, t);
@@ -858,7 +858,7 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 
 	for (int l = 0; l < _mesh_lods; l++) {
 		real_t scale = real_t(1 << l) * _mesh_vertex_spacing;
-		Vector3 snapped_pos = (p_cam_pos / scale).floor() * scale;
+		snapped_pos = (cam_pos / scale).floor() * scale;
 		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l)) * _mesh_vertex_spacing;
 		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
 
@@ -889,12 +889,12 @@ void Terrain3D::snap(Vector3 p_cam_pos) {
 
 		if (l != _mesh_lods - 1) {
 			real_t next_scale = scale * 2.0f;
-			Vector3 next_snapped_pos = (p_cam_pos / next_scale).floor() * next_scale;
+			Vector3 next_snapped_pos = (cam_pos / next_scale).floor() * next_scale;
 
 			// Position trims
 			{
 				Vector3 tile_center = snapped_pos + (Vector3(scale, 0.f, scale) * 0.5f);
-				Vector3 d = p_cam_pos - next_snapped_pos;
+				Vector3 d = cam_pos - next_snapped_pos;
 
 				int r = 0;
 				r |= d.x >= scale ? 0 : 2;
@@ -976,7 +976,7 @@ void Terrain3D::update_aabbs() {
  *	test_dir (camera direction 0 Y, traversing terrain along height
  * Returns vec3(Double max 3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
-Vector3 Terrain3D::get_intersection(Vector3 p_src_pos, Vector3 p_direction) {
+Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction) {
 	if (!is_instance_valid(_camera_instance_id)) {
 		LOG(ERROR, "Invalid camera");
 		return Vector3(NAN, NAN, NAN);
@@ -985,21 +985,20 @@ Vector3 Terrain3D::get_intersection(Vector3 p_src_pos, Vector3 p_direction) {
 		LOG(ERROR, "Invalid mouse camera");
 		return Vector3(NAN, NAN, NAN);
 	}
-	p_direction.normalize();
-
+	Vector3 direction = p_direction.normalized();
 	Vector3 point;
 
 	// Position mouse cam one unit behind the requested position
-	_mouse_cam->set_global_position(p_src_pos - p_direction);
+	_mouse_cam->set_global_position(p_src_pos - direction);
 
 	// If looking straight down (eg orthogonal camera), look_at won't work
-	if ((p_direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
+	if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
 		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
 		point = p_src_pos;
 		point.y = _storage->get_height(p_src_pos);
 	} else {
 		// Get depth from perspective camera snapshot
-		_mouse_cam->look_at(_mouse_cam->get_global_position() + p_direction, Vector3(0.f, 1.f, 0.f));
+		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, Vector3(0.f, 1.f, 0.f));
 		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 		Ref<ViewportTexture> vp_tex = _mouse_vp->get_texture();
 		Ref<Image> vp_img = vp_tex->get_image();
@@ -1022,7 +1021,7 @@ Vector3 Terrain3D::get_intersection(Vector3 p_src_pos, Vector3 p_direction) {
 
 		// Denormalize distance to get real depth and terrain position
 		real_t depth = normalized_distance * _mouse_cam->get_far();
-		point = _mouse_cam->get_global_position() + p_direction * depth;
+		point = _mouse_cam->get_global_position() + direction * depth;
 	}
 
 	return point;
@@ -1073,7 +1072,7 @@ Ref<Mesh> Terrain3D::bake_mesh(int p_lod, Terrain3DStorage::HeightFilter p_filte
  *  Otherwise, geometry is generated for the entire terrain within the AABB (which can be useful for
  *  dynamic and/or runtime nav mesh baking).
  */
-PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(AABB const &p_global_aabb, bool p_require_nav) const {
+PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_global_aabb, bool p_require_nav) const {
 	LOG(INFO, "Generating NavMesh source geometry from terrain");
 	PackedVector3Array faces;
 	_generate_triangles(faces, nullptr, 0, Terrain3DStorage::HEIGHT_FILTER_NEAREST, p_require_nav, p_global_aabb);

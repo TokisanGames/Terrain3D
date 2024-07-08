@@ -96,7 +96,7 @@ void Terrain3DStorage::clear_edited_area() {
 	_edited_area = AABB();
 }
 
-void Terrain3DStorage::add_edited_area(AABB p_area) {
+void Terrain3DStorage::add_edited_area(const AABB &p_area) {
 	if (_edited_area.has_surface()) {
 		_edited_area = _edited_area.merge(p_area);
 	} else {
@@ -123,7 +123,7 @@ void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets)
 }
 
 /** Returns a region offset given a location */
-Vector2i Terrain3DStorage::get_region_offset(Vector3 p_global_position) {
+Vector2i Terrain3DStorage::get_region_offset(const Vector3 &p_global_position) {
 	IS_INIT_MESG("Storage not initialized", Vector2i());
 	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
 	return Vector2i((Vector2(descaled_position.x, descaled_position.z) / real_t(_region_size)).floor());
@@ -137,7 +137,7 @@ Vector2i Terrain3DStorage::get_region_offset_from_index(int p_index) {
 	return _region_offsets[p_index];
 }
 
-int Terrain3DStorage::get_region_index(Vector3 p_global_position) {
+int Terrain3DStorage::get_region_index(const Vector3 &p_global_position) {
 	Vector2i uv_offset = get_region_offset(p_global_position);
 	return get_region_index_from_offset(uv_offset);
 }
@@ -164,7 +164,7 @@ int Terrain3DStorage::get_region_index_from_offset(Vector2i p_region_offset) {
  *	p_images - Optional array of [ Height, Control, Color ... ] w/ region_sized images
  *	p_update - rebuild the maps if true. Set to false if bulk adding many regions.
  */
-Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<Image> &p_images, bool p_update) {
+Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const TypedArray<Image> &p_images, bool p_update) {
 	IS_INIT_MESG("Storage not initialized", FAILED);
 	Vector2i uv_offset = get_region_offset(p_global_position);
 	LOG(INFO, "Adding region at ", p_global_position, ", uv_offset ", uv_offset,
@@ -228,7 +228,7 @@ Error Terrain3DStorage::add_region(Vector3 p_global_position, const TypedArray<I
 	return OK;
 }
 
-void Terrain3DStorage::remove_region(Vector3 p_global_position, bool p_update) {
+void Terrain3DStorage::remove_region(const Vector3 &p_global_position, bool p_update) {
 	LOG(INFO, "Removing region at ", p_global_position, " Updating: ", p_update ? "yes" : "no");
 	int index = get_region_index(p_global_position);
 	ERR_FAIL_COND_MSG(index == -1, "Map does not exist.");
@@ -432,7 +432,7 @@ TypedArray<Image> Terrain3DStorage::get_maps_copy(MapType p_map_type) const {
 	return newmaps;
 }
 
-void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, Color p_pixel) {
+void Terrain3DStorage::set_pixel(MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel) {
 	IS_INIT_MESG("Storage not initialized", VOID);
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
@@ -452,7 +452,7 @@ void Terrain3DStorage::set_pixel(MapType p_map_type, Vector3 p_global_position, 
 	map->set_pixelv(img_pos, p_pixel);
 }
 
-Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position) {
+Color Terrain3DStorage::get_pixel(MapType p_map_type, const Vector3 &p_global_position) {
 	IS_INIT_MESG("Storage not initialized", COLOR_NAN);
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
@@ -473,12 +473,12 @@ Color Terrain3DStorage::get_pixel(MapType p_map_type, Vector3 p_global_position)
 	return map->get_pixelv(img_pos);
 }
 
-real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
+real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) {
 	IS_INIT_MESG("Storage not initialized", NAN);
 	if (is_hole(get_control(p_global_position))) {
 		return NAN;
 	}
-	Vector3 &pos = p_global_position;
+	Vector3 pos = p_global_position;
 	real_t step = _terrain->get_mesh_vertex_spacing();
 	pos.y = 0.f;
 	// Round to nearest vertex
@@ -513,7 +513,7 @@ real_t Terrain3DStorage::get_height(Vector3 p_global_position) {
  * blending values look, then consider that the overlay texture is visible starting at a blend
  * value of .3-.5, otherwise it's the base texture.
  **/
-Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
+Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) {
 	IS_INIT_MESG("Storage not initialized", Vector3(NAN, NAN, NAN););
 	// Not in a region.
 	int region = get_region_index(p_global_position);
@@ -549,14 +549,14 @@ Vector3 Terrain3DStorage::get_texture_id(Vector3 p_global_position) {
 	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
-real_t Terrain3DStorage::get_angle(Vector3 p_global_position) {
+real_t Terrain3DStorage::get_angle(const Vector3 &p_global_position) {
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
 	real_t angle = real_t(get_uv_rotation(src));
 	angle *= 22.5; // Return value in degrees.
 	return real_t(angle);
 }
 
-real_t Terrain3DStorage::get_scale(Vector3 p_global_position) {
+real_t Terrain3DStorage::get_scale(const Vector3 &p_global_position) {
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
 	std::array<real_t, 8> scale_values = { 0.0f, 20.0f, 40.0f, 60.0f, 80.0f, -60.0f, -40.0f, -20.0f };
 	real_t scale = scale_values[get_uv_scale(src)]; //select from array UI return values
@@ -713,7 +713,7 @@ void Terrain3DStorage::save() {
  *	p_offset - Add this factor to all height values, can be negative
  *	p_scale - Scale all height values by this factor (applied after offset)
  */
-void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, Vector3 p_global_position, real_t p_offset, real_t p_scale) {
+void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position, real_t p_offset, real_t p_scale) {
 	IS_INIT_MESG("Storage not initialized", VOID);
 	if (p_images.size() != TYPE_MAX) {
 		LOG(ERROR, "p_images.size() is ", p_images.size(), ". It should be ", TYPE_MAX, " even if some Images are blank or null");
@@ -971,7 +971,7 @@ Ref<Image> Terrain3DStorage::layered_to_image(MapType p_map_type) {
  *  HEIGHT_FILTER_MINIMUM: Samples (1 << p_lod) ** 2 heights around the given coordinates and returns the lowest.
  * p_global_position: X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
  */
-Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, Vector3 p_global_position) {
+Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, const Vector3 &p_global_position) {
 	IS_INIT_MESG("Storage not initialized", Vector3());
 	LOG(INFO, "Calculating vertex location");
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
@@ -1005,7 +1005,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(int32_t p_lod, HeightFilter p_filter, 
 	return Vector3(p_global_position.x, height, p_global_position.z);
 }
 
-Vector3 Terrain3DStorage::get_normal(Vector3 p_global_position) {
+Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) {
 	IS_INIT_MESG("Storage not initialized", Vector3());
 	int region = get_region_index(p_global_position);
 	if (region < 0 || is_hole(get_control(p_global_position))) {
