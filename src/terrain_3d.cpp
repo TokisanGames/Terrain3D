@@ -96,6 +96,7 @@ void Terrain3D::_initialize() {
 
 void Terrain3D::__ready() {
 	_initialize();
+	set_as_top_level(true);
 	set_process(true);
 }
 
@@ -368,6 +369,7 @@ void Terrain3D::_build_collision() {
 		LOG(WARN, "Building debug collision. Disable this mode for releases");
 		_debug_static_body = memnew(StaticBody3D);
 		_debug_static_body->set_name("StaticBody3D");
+		_debug_static_body->set_as_top_level(true);
 		add_child(_debug_static_body, true);
 	}
 	_update_collision();
