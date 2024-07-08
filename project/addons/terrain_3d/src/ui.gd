@@ -26,6 +26,8 @@ const COLOR_PICK_COLOR := Color.WHITE
 const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 
+const MODIFIER_KEYS := [KEY_CTRL, KEY_SHIFT, KEY_ALT]
+
 const RING1: String = "res://addons/terrain_3d/brushes/ring1.exr"
 @onready var ring_texture := ImageTexture.create_from_image(Terrain3DUtil.black_to_alpha(Image.load_from_file(RING1)))
 
@@ -42,6 +44,8 @@ var decal_timer: Timer
 var gradient_decals: Array[Decal]
 var brush_data: Dictionary
 var operation_builder: OperationBuilder
+var modifier_ctrl: bool
+var modifier_alt: bool
 
 
 func _enter_tree() -> void:
@@ -123,10 +127,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			if p_operation == Terrain3DEditor.GRADIENT:
 				to_show.push_back("gradient_points")
 				to_show.push_back("drawable")
-			if p_operation == Terrain3DEditor.ADD:
-				to_show.push_back("lift_floor")
-			if p_operation == Terrain3DEditor.SUBTRACT:
-				to_show.push_back("flatten_peaks")
 		
 		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")
@@ -200,7 +200,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 
 	if plugin.editor:
 		plugin.editor.set_tool(p_tool)
-		plugin.editor.set_operation(p_operation)
+		plugin.editor.set_operation(_modify_operation(p_operation))
 
 	_on_setting_changed()
 	plugin.update_region_grid()
@@ -389,3 +389,43 @@ func pick(p_global_position: Vector3) -> void:
 	elif operation_builder and operation_builder.is_picking():
 		operation_builder.pick(p_global_position, plugin.terrain)
 
+
+func set_modifier(p_modifier: int, p_pressed: bool) -> void:
+	if p_modifier == KEY_CTRL && modifier_ctrl != p_pressed:
+		# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
+		modifier_ctrl = p_pressed
+		
+		toolbar_settings.set_setting("enable", !toolbar_settings.get_setting("enable"))
+		
+		if plugin.editor:
+			plugin.editor.set_operation(_invert_operation(plugin.editor.get_operation()))
+	
+	if p_modifier == KEY_ALT && modifier_alt != p_pressed:
+		# Alt key. Change the raise/lower operation to lift floors / flatten peaks.
+		modifier_alt = p_pressed
+		
+		toolbar_settings.set_setting("lift_floor", p_pressed)
+		toolbar_settings.set_setting("flatten_peaks", p_pressed)
+
+
+func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
+	if modifier_ctrl:
+		return _invert_operation(p_operation)
+	return p_operation
+
+
+func _invert_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
+	if p_operation == Terrain3DEditor.ADD:
+		return Terrain3DEditor.SUBTRACT
+	elif p_operation == Terrain3DEditor.SUBTRACT:
+		return Terrain3DEditor.ADD
+	elif p_operation == Terrain3DEditor.MULTIPLY:
+		return Terrain3DEditor.DIVIDE
+	elif p_operation == Terrain3DEditor.DIVIDE:
+		return Terrain3DEditor.MULTIPLY
+	return p_operation
+
+
+func update_modifiers() -> void:
+	for key in MODIFIER_KEYS:
+		set_modifier(key, Input.is_key_pressed(key))
