@@ -23,14 +23,6 @@ using namespace godot;
 #define __FLT_MAX__ FLT_MAX
 #endif
 
-// Double precision builds
-
-#ifdef REAL_T_IS_DOUBLE
-typedef PackedFloat64Array PackedRealArray;
-#else
-typedef PackedFloat32Array PackedRealArray;
-#endif
-
 // Set class name for logger.h
 
 #define CLASS_NAME() const String __class__ = get_class_static() + \
