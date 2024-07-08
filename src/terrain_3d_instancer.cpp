@@ -71,6 +71,7 @@ void Terrain3DInstancer::_update_mmis() {
 			if (!_mmis.has(mmi_key)) {
 				LOG(DEBUG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
 				mmi = memnew(MultiMeshInstance3D);
+				mmi->set_as_top_level(true);
 				_terrain->add_child(mmi);
 				_mmis[mmi_key] = mmi;
 				LOG(DEBUG, _mmis);
@@ -78,6 +79,10 @@ void Terrain3DInstancer::_update_mmis() {
 			mmi = cast_to<MultiMeshInstance3D>(_mmis[mmi_key]);
 			mmi->set_multimesh(mm);
 			mmi->set_cast_shadows_setting(ma->get_cast_shadows());
+			if (mmi->get_global_transform() != Transform3D()) {
+				LOG(WARN, "Terrain3D parent nodes have non-zero transform. Resetting instancer global_transform");
+				mmi->set_global_transform(Transform3D());
+			}
 		}
 	}
 	LOG(DEBUG, "mm: ", _terrain->get_storage()->get_multimeshes());
@@ -175,6 +180,7 @@ void Terrain3DInstancer::update_multimesh(Vector2i p_region_offset, int p_mesh_i
 	if (!mmi) {
 		LOG(DEBUG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
 		mmi = memnew(MultiMeshInstance3D);
+		mmi->set_as_top_level(true);
 		mmi->set_multimesh(mm);
 		mmi->set_cast_shadows_setting(mesh_asset->get_cast_shadows());
 		_terrain->add_child(mmi);
@@ -182,6 +188,10 @@ void Terrain3DInstancer::update_multimesh(Vector2i p_region_offset, int p_mesh_i
 		_mmis[key] = mmi;
 	}
 	mmi->set_multimesh(mm);
+	if (mmi->get_global_transform() != Transform3D()) {
+		LOG(WARN, "Terrain3D parent nodes have non-zero transforms. Resetting instancer global_transform");
+		mmi->set_global_transform(Transform3D());
+	}
 }
 
 Ref<MultiMesh> Terrain3DInstancer::get_multimesh(Vector3 p_global_position, int p_mesh_id) {
