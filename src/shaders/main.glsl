@@ -1,7 +1,7 @@
 // Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 R"(shader_type spatial;
-render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx;
+render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
 
 /* This shader is generated based upon the debug views you have selected.
  * The terrain function depends on this shader. So don't change:
@@ -158,6 +158,10 @@ void vertex() {
 	UV -= v_uv_offset;
 	v_uv2_offset = v_uv_offset * _region_texel_size;
 	UV2 -= v_uv2_offset;
+
+	// Convert model space to view space w/ skip_vertex_transform render mode
+	VERTEX = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	VERTEX = (VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 ////////////////////////
