@@ -13,17 +13,16 @@ sky_material = SubResource("ProceduralSkyMaterial_vibap")
 [sub_resource type="Environment" id="Environment_8jcgm"]
 background_mode = 2
 sky = SubResource("Sky_srg7c")
-ambient_light_source = 2
-ambient_light_color = Color(1, 1, 1, 1)
-ambient_light_sky_contribution = 0.5
-ambient_light_energy = 0.2
+ambient_light_source = 3
+ambient_light_color = Color(0.55, 0.55, 0.55, 1)
+ambient_light_sky_contribution = 0.3
 tonemap_mode = 3
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_0gcl0"]
 
 [node name="World" type="Node3D"]
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="Environment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_8jcgm")
 camera_attributes = SubResource("CameraAttributesPractical_0gcl0")
 

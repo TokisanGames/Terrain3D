@@ -89,3 +89,4 @@ assets = ExtResource("8_g2of2")
 render_cull_margin = 1000.0
 collision_mask = 3
 mesh_size = 64
+top_level = true
