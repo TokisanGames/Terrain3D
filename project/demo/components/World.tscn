@@ -30,4 +30,6 @@ camera_attributes = SubResource("CameraAttributesPractical_0gcl0")
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.866024, -0.433016, 0.250001, 0, 0.499998, 0.866026, -0.500003, 0.749999, -0.43301, 0, 0, 0)
 shadow_enabled = true
+shadow_blur = 2.0
+directional_shadow_blend_splits = true
 directional_shadow_max_distance = 256.0
