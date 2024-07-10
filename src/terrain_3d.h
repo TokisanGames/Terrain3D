@@ -123,6 +123,8 @@ public:
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
+
+	// Instancer
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
 
 	// Editor components

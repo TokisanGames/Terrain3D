@@ -534,6 +534,7 @@ void Terrain3D::_destroy_collision() {
 void Terrain3D::_destroy_instancer() {
 	if (_instancer != nullptr) {
 		_instancer->destroy();
+		memdelete_safely(_instancer);
 	}
 }
 
@@ -649,7 +650,7 @@ Terrain3D::Terrain3D() {
 }
 
 Terrain3D::~Terrain3D() {
-	memdelete_safely(_instancer);
+	_destroy_instancer();
 	_destroy_collision();
 }
 
