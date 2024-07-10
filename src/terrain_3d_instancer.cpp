@@ -133,24 +133,27 @@ void Terrain3DInstancer::destroy() {
 	_mmis.clear();
 }
 
-void Terrain3DInstancer::update_multimesh(Vector2i p_region_offset, int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors, bool p_clear) {
+void Terrain3DInstancer::update_multimesh(const Vector2i &p_region_offset, const int p_mesh_id,
+		const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear) {
 	IS_STORAGE_INIT(VOID);
 
-	// Merge with old instances
+	TypedArray<Transform3D> old_xforms;
+	TypedArray<Color> old_colors;
+	// Collect old instances
 	if (!p_clear) {
 		Ref<MultiMesh> multimesh = get_multimesh(p_region_offset, p_mesh_id);
 		if (multimesh.is_valid()) {
 			uint32_t old_count = multimesh->get_instance_count();
 			LOG(DEBUG_CONT, "Merging w/ old instances: ", old_count, ": ", multimesh);
 			for (int i = 0; i < old_count; i++) {
-				p_xforms.push_back(multimesh->get_instance_transform(i));
-				p_colors.push_back(multimesh->get_instance_color(i));
+				old_xforms.push_back(multimesh->get_instance_transform(i));
+				old_colors.push_back(multimesh->get_instance_color(i));
 			}
 		}
 	}
 
 	// Erase empties if no transforms
-	if (p_xforms.size() == 0) {
+	if (old_xforms.size() == 0 && p_xforms.size() == 0) {
 		clear_by_offset(p_region_offset, p_mesh_id);
 		return;
 	}
@@ -160,15 +163,20 @@ void Terrain3DInstancer::update_multimesh(Vector2i p_region_offset, int p_mesh_i
 	mm.instantiate();
 	mm->set_transform_format(MultiMesh::TRANSFORM_3D);
 	mm->set_use_colors(true);
-	mm->set_instance_count(p_xforms.size());
+	int old_count = old_xforms.size();
+	mm->set_instance_count(old_count + p_xforms.size());
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 	Ref<Mesh> mesh = mesh_asset->get_mesh();
 	mm->set_mesh(mesh);
-	for (int i = 0; i < p_xforms.size(); i++) {
-		mm->set_instance_transform(i, p_xforms[i]);
-		mm->set_instance_color(i, p_colors[i]);
+	for (int i = 0; i < old_count; i++) {
+		mm->set_instance_transform(i, old_xforms[i]);
+		mm->set_instance_color(i, old_colors[i]);
 	}
-	LOG(DEBUG_CONT, "Setting multimesh in region: ", p_region_offset, ", mesh_id: ", p_mesh_id, " instance count: ", p_xforms.size(), " mm: ", mm);
+	for (int i = 0; i < p_xforms.size(); i++) {
+		mm->set_instance_transform(i + old_count, p_xforms[i]);
+		mm->set_instance_color(i + old_count, p_colors[i]);
+	}
+	LOG(DEBUG_CONT, "Setting multimesh in region: ", p_region_offset, ", mesh_id: ", p_mesh_id, " instance count: ", mm->get_instance_count(), " mm: ", mm);
 
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
 	Dictionary mesh_dict = region_dict.get(p_region_offset, Dictionary());

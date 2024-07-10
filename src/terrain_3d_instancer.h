@@ -42,7 +42,7 @@ public:
 	void initialize(Terrain3D *p_terrain);
 	void destroy();
 
-	void update_multimesh(Vector2i p_region_offset, int p_mesh_id, TypedArray<Transform3D> p_xforms, TypedArray<Color> p_colors, bool p_clear = false);
+	void update_multimesh(const Vector2i &p_region_offset, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear = false);
 	Ref<MultiMesh> get_multimesh(Vector2i p_region_offset, int p_mesh_id);
 	Ref<MultiMesh> get_multimesh(Vector3 p_global_position, int p_mesh_id);
 	MultiMeshInstance3D *get_multimesh_instance(Vector3 p_global_position, int p_mesh_id);
