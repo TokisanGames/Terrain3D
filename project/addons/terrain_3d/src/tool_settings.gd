@@ -54,7 +54,7 @@ func _ready() -> void:
 	## Common Settings
 	add_brushes(main_list)
 
-	add_setting({ "name":"instructions", "label":"Click the terrain to add a region. CTRL+Click to remove.",
+	add_setting({ "name":"instructions", "label":"Click the terrain to add a region. CTRL+Click to remove. Or select another tool on the left.",
 		"type":SettingType.LABEL, "list":main_list, "flags":NO_LABEL })
 
 	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":50, "unit":"m",
@@ -67,8 +67,6 @@ func _ready() -> void:
 								"default":false })
 	add_setting({ "name":"flatten_peaks", "type":SettingType.CHECKBOX, "list":main_list,
 								"default":false })
-
-	add_setting({ "name":"enable", "label":"Add", "type":SettingType.CHECKBOX, "list":main_list, "default":true, "flags":ADD_SEPARATOR })
 
 	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":50, 
 								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
@@ -147,6 +145,9 @@ func _ready() -> void:
 								"unit":"%", "range":Vector3(0, 100, 1) })
 	#add_setting({ "name":"blend_mode", "type":SettingType.OPTION, "list":color_list, "default":0, 
 								#"range":Vector3(0, 3, 1) })
+
+	if DisplayServer.is_touchscreen_available():
+		add_setting({ "name":"remove", "label":"Invert", "type":SettingType.CHECKBOX, "list":main_list, "default":false, "flags":ADD_SEPARATOR })
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -623,7 +623,6 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	col.a = CLAMP(col.a, 0.f, 1.f);
 	_brush_data["color"] = col;
 	_brush_data["roughness"] = CLAMP(real_t(p_data.get("roughness", 0.f)), -100.f, 100.f) * .01f; // Percentage
-	_brush_data["enable"] = bool(p_data.get("enable", true));
 	_brush_data["auto_regions"] = bool(p_data.get("automatic_regions", true));
 	_brush_data["align_to_view"] = bool(p_data.get("align_to_view", true));
 	_brush_data["gamma"] = CLAMP(real_t(p_data.get("gamma", 1.f)), 0.1f, 2.f);
