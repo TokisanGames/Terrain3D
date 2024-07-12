@@ -117,10 +117,17 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	var to_show: PackedStringArray = []
 	
 	match p_tool:
+		Terrain3DEditor.REGION:
+				to_show.push_back("instructions")
+				to_show.push_back("enable")
+
 		Terrain3DEditor.HEIGHT:
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
+			if p_operation in [Terrain3DEditor.ADD, Terrain3DEditor.SUBTRACT, \
+				Terrain3DEditor.MULTIPLY, Terrain3DEditor.DIVIDE]:
+					to_show.push_back("enable")
 			if p_operation == Terrain3DEditor.REPLACE:
 				to_show.push_back("height")
 				to_show.push_back("height_picker")
@@ -395,7 +402,10 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 		# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
 		modifier_ctrl = p_pressed
 		
-		toolbar_settings.set_setting("enable", !toolbar_settings.get_setting("enable"))
+		toolbar.show_add_buttons(!p_pressed)
+
+		# DEPRECATED - Remove enable when there are touch screen controls and visual indication
+		toolbar_settings.set_setting("enable", !p_pressed)
 		
 		if plugin.editor:
 			plugin.editor.set_operation(_invert_operation(plugin.editor.get_operation()))

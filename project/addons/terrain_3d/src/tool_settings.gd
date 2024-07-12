@@ -17,6 +17,7 @@ enum SettingType {
 	PICKER,
 	MULTI_PICKER,
 	SLIDER,
+	LABEL,
 	TYPE_MAX,
 }
 
@@ -53,6 +54,9 @@ func _ready() -> void:
 	## Common Settings
 	add_brushes(main_list)
 
+	add_setting({ "name":"instructions", "label":"Click the terrain to add a region. CTRL+Click to remove.",
+		"type":SettingType.LABEL, "list":main_list, "flags":NO_LABEL })
+
 	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":50, "unit":"m",
 								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
 		
@@ -64,7 +68,7 @@ func _ready() -> void:
 	add_setting({ "name":"flatten_peaks", "type":SettingType.CHECKBOX, "list":main_list,
 								"default":false })
 
-	add_setting({ "name":"enable", "type":SettingType.CHECKBOX, "list":main_list, "default":true })
+	add_setting({ "name":"enable", "label":"Add", "type":SettingType.CHECKBOX, "list":main_list, "default":true, "flags":ADD_SEPARATOR })
 
 	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":50, 
 								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
@@ -347,6 +351,12 @@ func add_setting(p_args: Dictionary) -> void:
 	var pending_children: Array[Control]
 
 	match p_type:
+		SettingType.LABEL:
+			var label := Label.new()
+			label.set_text(p_label)
+			pending_children.push_back(label)
+			control = label
+
 		SettingType.CHECKBOX:
 			var checkbox := CheckBox.new()
 			checkbox.set_pressed_no_signal(p_default)
