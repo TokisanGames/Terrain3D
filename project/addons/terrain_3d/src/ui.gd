@@ -27,6 +27,9 @@ const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 
 const MODIFIER_KEYS := [KEY_CTRL, KEY_SHIFT, KEY_ALT]
+const OP_NONE: int = 0x0
+const OP_POSITIVE_ONLY: int = 0x01
+const OP_NEGATIVE_ONLY: int = 0x02
 
 const RING1: String = "res://addons/terrain_3d/brushes/ring1.exr"
 @onready var ring_texture := ImageTexture.create_from_image(Terrain3DUtil.black_to_alpha(Image.load_from_file(RING1)))
@@ -119,7 +122,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	match p_tool:
 		Terrain3DEditor.REGION:
 				to_show.push_back("instructions")
-				to_show.push_back("enable")
+				to_show.push_back("remove")
 
 		Terrain3DEditor.HEIGHT:
 			to_show.push_back("brush")
@@ -127,11 +130,11 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("strength")
 			if p_operation in [Terrain3DEditor.ADD, Terrain3DEditor.SUBTRACT, \
 				Terrain3DEditor.MULTIPLY, Terrain3DEditor.DIVIDE]:
-					to_show.push_back("enable")
-			if p_operation == Terrain3DEditor.REPLACE:
+					to_show.push_back("remove")
+			elif p_operation == Terrain3DEditor.REPLACE:
 				to_show.push_back("height")
 				to_show.push_back("height_picker")
-			if p_operation == Terrain3DEditor.GRADIENT:
+			elif p_operation == Terrain3DEditor.GRADIENT:
 				to_show.push_back("gradient_points")
 				to_show.push_back("drawable")
 		
@@ -155,6 +158,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("strength")
 			to_show.push_back("color")
 			to_show.push_back("color_picker")
+			to_show.push_back("remove")
 
 		Terrain3DEditor.ROUGHNESS:
 			to_show.push_back("brush")
@@ -162,16 +166,16 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("strength")
 			to_show.push_back("roughness")
 			to_show.push_back("roughness_picker")
+			to_show.push_back("remove")
 
 		Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION:
 			to_show.push_back("brush")
 			to_show.push_back("size")
-			to_show.push_back("enable")
+			to_show.push_back("remove")
 
 		Terrain3DEditor.INSTANCER:
 			to_show.push_back("size")
 			to_show.push_back("strength")
-			to_show.push_back("enable")
 			set_menu_visibility(toolbar_settings.height_list, true)
 			to_show.push_back("height_offset")
 			to_show.push_back("random_height")
@@ -188,6 +192,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("vertex_color")
 			to_show.push_back("random_darken")
 			to_show.push_back("random_hue")
+			to_show.push_back("remove")
 
 		_:
 			pass
@@ -220,6 +225,7 @@ func _on_setting_changed() -> void:
 	brush_data["asset_id"] = plugin.asset_dock.get_current_list().get_selected_id()
 	update_decal()
 	plugin.editor.set_brush_data(brush_data)
+	plugin.editor.set_operation(_modify_operation(plugin.editor.get_operation()))
 
 
 func update_decal() -> void:
@@ -401,15 +407,10 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 	if p_modifier == KEY_CTRL && modifier_ctrl != p_pressed:
 		# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
 		modifier_ctrl = p_pressed
-		
 		toolbar.show_add_buttons(!p_pressed)
-
-		# DEPRECATED - Remove enable when there are touch screen controls and visual indication
-		toolbar_settings.set_setting("enable", !p_pressed)
-		
 		if plugin.editor:
-			plugin.editor.set_operation(_invert_operation(plugin.editor.get_operation()))
-	
+			plugin.editor.set_operation(_modify_operation(plugin.editor.get_operation()))
+
 	if p_modifier == KEY_ALT && modifier_alt != p_pressed:
 		# Alt key. Change the raise/lower operation to lift floors / flatten peaks.
 		modifier_alt = p_pressed
@@ -419,19 +420,26 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 
 
 func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
-	if modifier_ctrl:
-		return _invert_operation(p_operation)
-	return p_operation
+	var remove_checked: bool = false
+	if DisplayServer.is_touchscreen_available():
+		var remove_tools := [Terrain3DEditor.REGION, Terrain3DEditor.HEIGHT, Terrain3DEditor.AUTOSHADER,
+			Terrain3DEditor.HOLES, Terrain3DEditor.INSTANCER, Terrain3DEditor.NAVIGATION, 
+			Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS]
+		remove_checked = brush_data.get("remove", false) && plugin.editor.get_tool() in remove_tools
+		
+	if modifier_ctrl or remove_checked:
+		return _invert_operation(p_operation, OP_NEGATIVE_ONLY)
+	return _invert_operation(p_operation, OP_POSITIVE_ONLY)
 
 
-func _invert_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
-	if p_operation == Terrain3DEditor.ADD:
+func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_NONE) -> Terrain3DEditor.Operation:
+	if p_operation == Terrain3DEditor.ADD and ! (flags & OP_POSITIVE_ONLY):
 		return Terrain3DEditor.SUBTRACT
-	elif p_operation == Terrain3DEditor.SUBTRACT:
+	elif p_operation == Terrain3DEditor.SUBTRACT and ! (flags & OP_NEGATIVE_ONLY):
 		return Terrain3DEditor.ADD
-	elif p_operation == Terrain3DEditor.MULTIPLY:
+	elif p_operation == Terrain3DEditor.MULTIPLY and ! (flags & OP_POSITIVE_ONLY):
 		return Terrain3DEditor.DIVIDE
-	elif p_operation == Terrain3DEditor.DIVIDE:
+	elif p_operation == Terrain3DEditor.DIVIDE and ! (flags & OP_NEGATIVE_ONLY):
 		return Terrain3DEditor.MULTIPLY
 	return p_operation
 
