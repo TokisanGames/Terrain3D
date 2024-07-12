@@ -1,4 +1,4 @@
-<img src="doc/docs/images/terrain3d.png">
+<img src="https://raw.githubusercontent.com/TokisanGames/Terrain3D/5f5837542a6fff32d8e60c1cca4760afd2f836f6/doc/docs/images/terrain3d.png">
 
 # Terrain3D
 A high performance, editable terrain system for Godot 4.

@@ -33,15 +33,17 @@ Once navigation has been set up, baking and re-baking it is straight-forward:
 1. Select the `Terrain3D` node.
 2. In Terrain3D Tools, click `Bake NavMesh`. This can take a long time to complete.
 
-Note that the standard `Bake NavMesh` button that `NavigationRegion3D` provides will not generate a nav mesh for Terrain3D (see [godot-proposals#5138](https://github.com/godotengine/godot-proposals/issues/5138)). Only use the Terrain3D Tools baker, which appears whenever you click the `Terrain3D` node or any `NavigationRegion3D` nodes.
+Note that the standard `Bake NavMesh` button that `NavigationRegion3D` provides will not generate a nav mesh for Terrain3D (see [godot-proposals#5138](https://github.com/godotengine/godot-proposals/issues/5138)). Only use the Terrain3D Tools baker, which appears whenever you click the `Terrain3D` node or any `NavigationRegion3D` nodes. 
 
 ```{image} images/nav_baking.png
 :target: ../_images/nav_baking.png
 ```
 
+Note: After loading a scene and clicking a NavigationRegion3D, the menu won't appear until Terrain3D has been clicked.
+
 If this is your first time setting up and baking a nav mesh, the only thing left to do is add your navigation agents. See [Godot's very clear and thorough documentation on navigation agents](https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationagents.html), which provides several handy template scripts you can use.
 
-You can also play with the NavigationDemo.tscn and CodeGenerated.tscn scenes which both demonstrate navigation.
+You can also play with the `NavigationDemo.tscn` and `CodeGeneratedDemo.tscn` scenes which both demonstrate navigation.
 
 <figure class="video_container">
  <video width="600px" controls="true" allowfullscreen="true">
@@ -60,9 +62,18 @@ This option enables a blue overlay mesh that displays where the navigation mesh 
 :target: ../_images/nav_debugging.png
 ```
 
+
+### How to remove navigation or hide the purple indication
+
+You can remove navigation from the terrain by painting while holding down <kbd>Ctrl</kbd>
+
+You can hide the purple indication for where navigation is by clicking any tool in the toolbar other than Navigation.
+
+
 ### Save NavigationMesh resources to disk
 
 NavigationMesh resources can bloat the size of your scene. It's recommended to save these resources to disk in binary format with the `.res` extension.
+
 
 ### Use multiple nav meshes in large scenes
 
@@ -81,11 +92,18 @@ If you have a very large scene in, for example, an open world RPG, it's better t
 
 The engine produces this error if there's nothing for a NavigationRegion3D to generate a nav mesh from. The most likely cause, if you're using Terrain3D, is that you haven't painted any parts of the terrain as navigable.
 
+
 ### Navigation map synchronization error
 
 `Navigation map synchronization error. Attempted to merge a navigation mesh polygon edge with another already-merged edge. This is usually caused by crossing edges, overlapping polygons, or a mismatch of the NavigationMesh / NavigationPolygon baked 'cell_size' and navigation map 'cell_size'`
 
 There are several possible causes for this. If the `cell_size` of your nav mesh matches the `cell_size` in your project settings, it's currently believed to be caused by [an engine bug](https://github.com/godotengine/godot/issues/85548). This error message shouldn't affect the usability of your nav meshes.
+
+
+### The Nav mesh is broken over steep slopes
+
+The NavigationRegion3D has settings for adjusting the slope you wish to allow in your nav mesh. Adjust those settings, and review the other settings available in Godot's documentation.
+
 
 ### Agents get stuck on collisions, run in circles, go off the nav mesh, or fail to find obvious paths
 
@@ -100,7 +118,7 @@ Making reasonable fallback behaviors, when you're able to detect in a script tha
 
 If your project has dynamic, or generated terrain, or if the traversable area of your terrain is so gigantic that it can't be baked in the editor, then you might need to use runtime navmesh baking.
 
-Terrain3D contains an example script that shows how to bake terrain nav meshes at runtime, which you can find in the `CodeGenerated.tscn` demo scene. 
+Terrain3D contains an example script that shows how to bake terrain nav meshes at runtime, which you can find in the `CodeGeneratedDemo.tscn` scene. 
 
 <figure class="video_container">
  <video width="600px" controls="true" allowfullscreen="true">

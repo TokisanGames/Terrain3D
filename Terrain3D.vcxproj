@@ -173,6 +173,9 @@
     <None Include=".github\actions\base-deps\action.yml" />
     <None Include=".github\actions\build-cache\action.yml" />
     <None Include=".github\actions\windows-deps\action.yml" />
+    <None Include=".github\ISSUE_TEMPLATE\bug_report.yml" />
+    <None Include=".github\ISSUE_TEMPLATE\config.yml" />
+    <None Include=".github\ISSUE_TEMPLATE\feature_request.yml" />
     <None Include=".github\workflows\android.yml" />
     <None Include=".github\workflows\build.yml" />
     <None Include=".github\workflows\ios.yml" />
@@ -192,6 +195,7 @@
     <None Include="doc\docs\press.md" />
     <None Include="doc\docs\storage_format.md" />
     <None Include="doc\docs\texture_painting.md" />
+    <None Include="doc\docs\user_interface.md" />
     <None Include="doc\index.rst" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />

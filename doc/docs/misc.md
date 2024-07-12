@@ -4,23 +4,6 @@ Miscelaneous Features
 This page collects various features that haven't been fully detailed or made their way into specific pages yet.
 
 
-## Keyboard & Mouse Operations
-Aka keyboard shortcuts, Hotkeys or commands (for searching)
-
-### Asset Dock
-* Left-click to select
-* Middle-click to clear, removal is only possible at the end of the list
-* Right-click to edit
-
-### Foliage instancing
-* Hold `CTRL` while painting to remove
-
-
-### Future, Sculpting
-* Hold CTRL to do the opposite operation
-* Hold SHIFT to use the smooth brush
-
-
 ## Terrain3DObjects
 
 This node allows you to snap objects to the terrain when sculpting or moving.
