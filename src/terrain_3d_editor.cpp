@@ -35,8 +35,7 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 			_terrain->get_storage()->add_region(p_global_position);
 			modified = true;
 		}
-	}
-	if (_operation == SUBTRACT) {
+	} else {
 		if (has_region) {
 			int region_index = _terrain->get_storage()->get_region_index(p_global_position);
 			Ref<Image> height_map = _terrain->get_storage()->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_index);
@@ -112,7 +111,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	Color color = _brush_data["color"];
 	real_t roughness = _brush_data["roughness"];
 	PackedVector3Array gradient_points = _brush_data["gradient_points"];
-	bool enable = _brush_data["enable"];
 	bool enable_texture = _brush_data["enable_texture"];
 	bool enable_angle = _brush_data["enable_angle"];
 	bool dynamic_angle = _brush_data["dynamic_angle"];
@@ -135,25 +133,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	edited_area.size = Vector3(brush_size, 0.f, brush_size);
 
 	if (_tool == INSTANCER) {
-		if (enable) {
+		if (_operation == ADD) {
 			_terrain->get_instancer()->add_instances(p_global_position, _brush_data);
 		} else {
 			_terrain->get_instancer()->remove_instances(p_global_position, _brush_data);
 		}
-
-		// TODO replace Enabled with Add/Subtract operation
-		//switch (_operation) {
-		//case ADD: {
-		// Change to ADD/SUBTRACT
-		//		break;
-		//	}
-		//	case SUBTRACT:
-		//		break;
-		//	default:
-		//		return;
-		//		break;
-		//}
-
 		_modified = true;
 		storage->add_edited_area(edited_area);
 		return;
@@ -404,17 +388,17 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							break;
 						case AUTOSHADER:
 							if (brush_alpha > 0.1f) {
-								autoshader = enable;
+								autoshader = (_operation == ADD);
 							}
 							break;
 						case HOLES:
 							if (brush_alpha > 0.1f) {
-								hole = enable;
+								hole = (_operation == ADD);
 							}
 							break;
 						case NAVIGATION:
 							if (brush_alpha > 0.1f) {
-								navigation = enable;
+								navigation = (_operation == ADD);
 							}
 							break;
 						default:
@@ -434,7 +418,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
 					switch (_tool) {
 						case COLOR:
-							dest = src.lerp(color, brush_alpha * strength);
+							dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
 							dest.a = src.a;
 							break;
 						case ROUGHNESS:
@@ -444,7 +428,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
 							 * We round the final amount in tool_settings.gd:_on_picked().
 							 */
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
+							if (_operation == ADD) {
+								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
+							} else {
+								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
+							}
 							break;
 						default:
 							break;
@@ -647,10 +635,11 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	for (int i = 0; i < keys.size(); i++) {
 		LOG(DEBUG_CONT, keys[i], ": ", _brush_data[keys[i]]);
 	}
+	LOG(DEBUG_CONT, "Setting tool: ", _tool, ", operation: ", _operation);
 }
 
 void Terrain3DEditor::set_tool(const Tool p_tool) {
-	_tool = p_tool;
+	_tool = CLAMP(p_tool, Tool(0), TOOL_MAX);
 	if (_terrain) {
 		_terrain->get_material()->set_show_navigation(_tool == NAVIGATION);
 	}
