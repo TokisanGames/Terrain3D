@@ -11,7 +11,7 @@ body:
   attributes:
     label: Terrain3D version
     description: >
-      Enter either the name of a release, or the commit string if using a development build.
+      Release version or the commit string of a development build. No -dev versions, provide the commit shown in `git log`.
     placeholder: v0.9.0
   validations:
     required: true

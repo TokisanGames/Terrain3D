@@ -211,6 +211,18 @@
     <None Include="doc\docs\instancer.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\docs\user_interface.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include=".github\ISSUE_TEMPLATE\bug_report.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\ISSUE_TEMPLATE\config.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include=".github\ISSUE_TEMPLATE\feature_request.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
