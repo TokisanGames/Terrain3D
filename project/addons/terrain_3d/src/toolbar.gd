@@ -139,6 +139,7 @@ func show_add_buttons(p_enable: bool) -> void:
 
 
 func _on_tool_selected(p_button: BaseButton) -> void:
+	# Select same tool on negative bar
 	var group: ButtonGroup = p_button.get_button_group()
 	var change_group: ButtonGroup = add_tool_group if group == sub_tool_group else sub_tool_group
 	var id: int = p_button.get_meta("ID", -2)
