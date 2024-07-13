@@ -1,7 +1,7 @@
 [gd_scene load_steps=15 format=3 uid="uid://x34e4v60vdmy"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_po4vw"]
-[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/World.tscn" id="2_i74wg"]
+[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="2_i74wg"]
 [ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_3upu0"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="4_fk3ul"]
 [ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="5_2lvlr"]
@@ -53,7 +53,8 @@ _shader_parameters = {
 "noise2_scale": 0.076,
 "noise3_scale": 0.225,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
-"tri_scale_reduction": 0.3
+"tri_scale_reduction": 0.3,
+"vertex_normals_distance": 128.0
 }
 world_background = 0
 auto_shader = true
@@ -64,7 +65,7 @@ script = ExtResource("1_po4vw")
 
 [node name="UI" parent="." instance=ExtResource("5_rc7e2")]
 
-[node name="World" parent="." instance=ExtResource("2_i74wg")]
+[node name="Environment" parent="." instance=ExtResource("2_i74wg")]
 
 [node name="Borders" parent="." instance=ExtResource("3_3upu0")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -2.5, 512)
@@ -87,3 +88,4 @@ material = SubResource("Terrain3DMaterial_s5mq5")
 assets = ExtResource("10_qmhh8")
 collision_mask = 3
 mesh_size = 64
+top_level = true
