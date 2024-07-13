@@ -74,5 +74,5 @@ func _input(p_event: InputEvent) -> void:
 				collision_enabled = ! collision_enabled
 
 		# Else if up/down released
-		elif p_event.keycode == KEY_Q or p_event.keycode == KEY_E:
+		elif p_event.keycode in [ KEY_Q, KEY_E, KEY_SPACE ]:
 			velocity.y = 0

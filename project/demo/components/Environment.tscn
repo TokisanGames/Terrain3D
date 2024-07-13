@@ -20,9 +20,9 @@ tonemap_mode = 3
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_0gcl0"]
 
-[node name="World" type="Node3D"]
+[node name="Environment" type="Node3D"]
 
-[node name="Environment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_8jcgm")
 camera_attributes = SubResource("CameraAttributesPractical_0gcl0")
 
