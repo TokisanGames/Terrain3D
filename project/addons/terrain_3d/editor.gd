@@ -46,21 +46,37 @@ func _exit_tree() -> void:
 	scene_changed.disconnect(_on_scene_changed)
 
 
+## EditorPlugin selection function chain isn't consistent. Here's the map of calls:
+## Assume we handle Terrain3D and NavigationRegion3D  
+# Click Terrain3D: 					_handles(Terrain3D), _make_visible(true), _edit(Terrain3D)
+# Delect:							_make_visible(false), _edit(null)
+# Click other node:					_handles(OtherNode)
+# Click NavRegion3D:				_handles(NavReg3D), _make_visible(true), _edit(NavReg3D)
+# Click NavRegion3D, Terrain3D:		_handles(Terrain3D), _edit(Terrain3D)
+# Click Terrain3D, NavRegion3D:		_handles(NavReg3D), _edit(NavReg3D)
+
 func _handles(p_object: Object) -> bool:
 	if p_object is Terrain3D:
+		return true
+	elif p_object is NavigationRegion3D and is_instance_valid(_last_terrain):
 		return true
 	
 	# Terrain3DObjects requires access to EditorUndoRedoManager. The only way to make sure it
 	# always has it, is to pass it in here. _edit is NOT called if the node is cut and pasted.
-	if p_object is Terrain3DObjects:
+	elif p_object is Terrain3DObjects:
 		p_object.editor_setup(self)
 	elif p_object is Node3D and p_object.get_parent() is Terrain3DObjects:
 		p_object.get_parent().editor_setup(self)
 	
-	if is_instance_valid(_last_terrain) and _last_terrain.is_inside_tree() and p_object is NavigationRegion3D:
-		return true
-	
 	return false
+
+
+func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
+	if p_visible and is_selected():
+		ui.set_visible(true)
+		asset_dock.update_dock(true)
+	else:
+		ui.set_visible(false)
 
 
 func _edit(p_object: Object) -> void:
@@ -76,35 +92,30 @@ func _edit(p_object: Object) -> void:
 		region_gizmo.set_node_3d(terrain)
 		terrain.add_gizmo(region_gizmo)
 		terrain.set_plugin(self)
+		ui.set_visible(true)
 		
 		# Connect to new Assets resource
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
 		# Connect to new Storage resource
-		if not terrain.storage_changed.is_connected(_load_storage):
-			terrain.storage_changed.connect(_load_storage)
-		_load_storage()
+		if not terrain.storage_changed.is_connected(update_region_grid):
+			terrain.storage_changed.connect(update_region_grid)
+		update_region_grid()
 	else:
 		_clear()
 
-	if is_instance_valid(_last_terrain) and _last_terrain.is_inside_tree():
+	if is_terrain_valid(_last_terrain):
 		if p_object is NavigationRegion3D:
+			ui.set_visible(true, true)
 			nav_region = p_object
 		else:
 			nav_region = null
 
-
-func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
-	visible = p_visible
-	ui.set_visible(visible)
-	update_region_grid()
-	asset_dock.update_dock(visible)
-
-
+	
 func _clear() -> void:
 	if is_terrain_valid():
-		terrain.storage_changed.disconnect(_load_storage)
+		terrain.storage_changed.disconnect(update_region_grid)
 		
 		terrain.clear_gizmos()
 		terrain = null
@@ -215,17 +226,13 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	return AFTER_GUI_INPUT_PASS
 
 	
-func _load_storage() -> void:
-	if terrain:
-		update_region_grid()
 
 
 func update_region_grid() -> void:
 	if not region_gizmo:
 		return
-
 	region_gizmo.set_hidden(not visible)
-	
+
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
@@ -267,9 +274,9 @@ func is_terrain_valid(p_terrain: Terrain3D = null) -> bool:
 func is_selected() -> bool:
 	var selected: Array[Node] = get_editor_interface().get_selection().get_selected_nodes()
 	for node in selected:
-		if node.get_instance_id() == _last_terrain.get_instance_id():
-			return true
-			
+		if ( is_instance_valid(_last_terrain) and node.get_instance_id() == _last_terrain.get_instance_id() ) or \
+			node is Terrain3D:
+				return true
 	return false	
 
 

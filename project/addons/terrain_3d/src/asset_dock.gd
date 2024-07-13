@@ -188,9 +188,9 @@ func remove_dock(p_force: bool = false) -> void:
 
 
 func update_dock(p_visible: bool) -> void:
-	update_assets()
-	if not _initialized:
+	if not _initialized or not p_visible:
 		return
+	update_assets()
 
 	if window:
 		return
@@ -282,7 +282,8 @@ func _on_textures_pressed() -> void:
 	textures_btn.button_pressed = true
 	meshes_btn.button_pressed = false
 	texture_list.set_selected_id(texture_list.selected_id)
-	plugin.get_editor_interface().edit_node(plugin.terrain)
+	if plugin.is_terrain_valid():
+		plugin.get_editor_interface().edit_node(plugin.terrain)
 
 
 func _on_meshes_pressed() -> void:
@@ -293,7 +294,8 @@ func _on_meshes_pressed() -> void:
 	meshes_btn.button_pressed = true
 	textures_btn.button_pressed = false
 	mesh_list.set_selected_id(mesh_list.selected_id)
-	plugin.get_editor_interface().edit_node(plugin.terrain)
+	if plugin.is_terrain_valid():
+		plugin.get_editor_interface().edit_node(plugin.terrain)
 	update_thumbnails()
 
 

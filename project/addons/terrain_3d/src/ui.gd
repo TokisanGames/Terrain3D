@@ -95,12 +95,17 @@ func _exit_tree() -> void:
 	gradient_decals.clear()
 
 
-func set_visible(p_visible: bool) -> void:
-	visible = p_visible
+func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 	terrain_tools.set_visible(p_visible)
-	toolbar.set_visible(p_visible)
-	toolbar_settings.set_visible(p_visible)
-	update_decal()
+
+	if p_menu_only:
+		toolbar.set_visible(false)
+		toolbar_settings.set_visible(false)
+	else:
+		visible = p_visible
+		toolbar.set_visible(p_visible)
+		toolbar_settings.set_visible(p_visible)
+		update_decal()
 
 
 func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
