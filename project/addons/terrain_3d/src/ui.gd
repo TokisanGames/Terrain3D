@@ -5,7 +5,7 @@ extends Node
 # Includes
 const Toolbar: Script = preload("res://addons/terrain_3d/src/toolbar.gd")
 const ToolSettings: Script = preload("res://addons/terrain_3d/src/tool_settings.gd")
-const TerrainTools: Script = preload("res://addons/terrain_3d/src/terrain_tools.gd")
+const TerrainMenu: Script = preload("res://addons/terrain_3d/src/terrain_menu.gd")
 const OperationBuilder: Script = preload("res://addons/terrain_3d/src/operation_builder.gd")
 const GradientOperationBuilder: Script = preload("res://addons/terrain_3d/src/gradient_operation_builder.gd")
 const COLOR_RAISE := Color.WHITE
@@ -36,8 +36,8 @@ const RING1: String = "res://addons/terrain_3d/brushes/ring1.exr"
 
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var toolbar: Toolbar
-var toolbar_settings: ToolSettings
-var terrain_tools: TerrainTools
+var tool_settings: ToolSettings
+var terrain_menu: TerrainMenu
 var setting_has_changed: bool = false
 var visible: bool = false
 var picking: int = Terrain3DEditor.TOOL_MAX
@@ -56,18 +56,18 @@ func _enter_tree() -> void:
 	toolbar.hide()
 	toolbar.connect("tool_changed", _on_tool_changed)
 	
-	toolbar_settings = ToolSettings.new()
-	toolbar_settings.connect("setting_changed", _on_setting_changed)
-	toolbar_settings.connect("picking", _on_picking)
-	toolbar_settings.hide()
+	tool_settings = ToolSettings.new()
+	tool_settings.connect("setting_changed", _on_setting_changed)
+	tool_settings.connect("picking", _on_picking)
+	tool_settings.hide()
 
-	terrain_tools = TerrainTools.new()
-	terrain_tools.plugin = plugin
-	terrain_tools.hide()
+	terrain_menu = TerrainMenu.new()
+	terrain_menu.plugin = plugin
+	terrain_menu.hide()
 
 	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
-	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, toolbar_settings)
-	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, terrain_tools)
+	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, tool_settings)
+	plugin.add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, terrain_menu)
 
 	_on_tool_changed(Terrain3DEditor.REGION, Terrain3DEditor.ADD)
 	
@@ -84,10 +84,10 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
-	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, toolbar_settings)
+	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, tool_settings)
 	toolbar.queue_free()
-	toolbar_settings.queue_free()
-	terrain_tools.queue_free()
+	tool_settings.queue_free()
+	terrain_menu.queue_free()
 	decal.queue_free()
 	decal_timer.queue_free()
 	for gradient_decal in gradient_decals:
@@ -96,15 +96,15 @@ func _exit_tree() -> void:
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
-	terrain_tools.set_visible(p_visible)
+	terrain_menu.set_visible(p_visible)
 
 	if p_menu_only:
 		toolbar.set_visible(false)
-		toolbar_settings.set_visible(false)
+		tool_settings.set_visible(false)
 	else:
 		visible = p_visible
 		toolbar.set_visible(p_visible)
-		toolbar_settings.set_visible(p_visible)
+		tool_settings.set_visible(p_visible)
 		update_decal()
 
 
@@ -115,11 +115,11 @@ func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	clear_picking()
-	set_menu_visibility(toolbar_settings.advanced_list, true)
-	set_menu_visibility(toolbar_settings.scale_list, false)
-	set_menu_visibility(toolbar_settings.rotation_list, false)
-	set_menu_visibility(toolbar_settings.height_list, false)
-	set_menu_visibility(toolbar_settings.color_list, false)
+	set_menu_visibility(tool_settings.advanced_list, true)
+	set_menu_visibility(tool_settings.scale_list, false)
+	set_menu_visibility(tool_settings.rotation_list, false)
+	set_menu_visibility(tool_settings.height_list, false)
+	set_menu_visibility(tool_settings.color_list, false)
 
 	# Select which settings to show. Options in tool_settings.gd:_ready
 	var to_show: PackedStringArray = []
@@ -181,19 +181,19 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 		Terrain3DEditor.INSTANCER:
 			to_show.push_back("size")
 			to_show.push_back("strength")
-			set_menu_visibility(toolbar_settings.height_list, true)
+			set_menu_visibility(tool_settings.height_list, true)
 			to_show.push_back("height_offset")
 			to_show.push_back("random_height")
-			set_menu_visibility(toolbar_settings.scale_list, true)
+			set_menu_visibility(tool_settings.scale_list, true)
 			to_show.push_back("fixed_scale")
 			to_show.push_back("random_scale")
-			set_menu_visibility(toolbar_settings.rotation_list, true)
+			set_menu_visibility(tool_settings.rotation_list, true)
 			to_show.push_back("fixed_spin")
 			to_show.push_back("random_spin")
 			to_show.push_back("fixed_angle")
 			to_show.push_back("random_angle")
 			to_show.push_back("align_to_normal")
-			set_menu_visibility(toolbar_settings.color_list, true)
+			set_menu_visibility(tool_settings.color_list, true)
 			to_show.push_back("vertex_color")
 			to_show.push_back("random_darken")
 			to_show.push_back("random_hue")
@@ -208,12 +208,12 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	to_show.push_back("show_cursor_while_painting")
 	to_show.push_back("gamma")
 	to_show.push_back("jitter")
-	toolbar_settings.show_settings(to_show)
+	tool_settings.show_settings(to_show)
 
 	operation_builder = null
 	if p_operation == Terrain3DEditor.GRADIENT:
 		operation_builder = GradientOperationBuilder.new()
-		operation_builder.tool_settings = toolbar_settings
+		operation_builder.tool_settings = tool_settings
 
 	if plugin.editor:
 		plugin.editor.set_tool(p_tool)
@@ -226,7 +226,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 func _on_setting_changed() -> void:
 	if not plugin.asset_dock:
 		return
-	brush_data = toolbar_settings.get_settings()
+	brush_data = tool_settings.get_settings()
 	brush_data["asset_id"] = plugin.asset_dock.get_current_list().get_selected_id()
 	update_decal()
 	plugin.editor.set_brush_data(brush_data)
@@ -420,8 +420,8 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 		# Alt key. Change the raise/lower operation to lift floors / flatten peaks.
 		modifier_alt = p_pressed
 		
-		toolbar_settings.set_setting("lift_floor", p_pressed)
-		toolbar_settings.set_setting("flatten_peaks", p_pressed)
+		tool_settings.set_setting("lift_floor", p_pressed)
+		tool_settings.set_setting("flatten_peaks", p_pressed)
 
 
 func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
