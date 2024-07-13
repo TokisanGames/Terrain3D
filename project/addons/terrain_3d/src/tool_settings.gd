@@ -210,20 +210,21 @@ func _on_show_submenu(p_toggled: bool, p_button: Button) -> void:
 	# Hide menu if mouse is not in button or panel 
 	var button_rect: Rect2 = Rect2(p_button.get_screen_transform().origin, p_button.get_global_rect().size)
 	var in_button: bool = button_rect.has_point(DisplayServer.mouse_get_position())
-	var panel: PopupPanel = p_button.get_child(0)
-	var panel_rect: Rect2 = Rect2(panel.position, panel.size)
-	var in_panel: bool = panel_rect.has_point(DisplayServer.mouse_get_position())
-	if not p_toggled and ( in_button or in_panel ):
+	var popup: PopupPanel = p_button.get_child(0)
+	var popup_rect: Rect2 = Rect2(popup.position, popup.size)
+	var in_popup: bool = popup_rect.has_point(DisplayServer.mouse_get_position())
+	if not p_toggled and ( in_button or in_popup ):
 		return
 	
 	# Hide all submenus before possibly enabling the current one
 	get_tree().call_group("terrain3d_submenus", "set_visible", false)
-	var popup: PopupPanel = p_button.get_child(0)
-	var popup_pos: Vector2 = p_button.get_screen_transform().origin
 	popup.set_visible(p_toggled)
-	popup_pos.y -= popup.get_size().y
+	var popup_pos: Vector2 = p_button.get_screen_transform().origin
+	popup_pos.y -= popup.size.y
+	if popup.get_child_count()>0 and popup.get_child(0) == advanced_list:
+		popup_pos.x -= popup.size.x - p_button.size.x
 	popup.set_position(popup_pos)
-
+	
 
 func add_brushes(p_parent: Control) -> void:
 	var brush_list: GridContainer = create_submenu(p_parent, "Brush", Layout.GRID)
