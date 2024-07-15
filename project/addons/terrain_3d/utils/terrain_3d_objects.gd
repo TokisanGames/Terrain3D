@@ -42,7 +42,7 @@ func editor_setup(p_plugin) -> void:
 func get_terrain() -> Terrain3D:
 	var terrain := instance_from_id(_terrain_id) as Terrain3D
 	if not terrain or terrain.is_queued_for_deletion() or not terrain.is_inside_tree():
-		var terrains: Array[Node] = EditorInterface.get_edited_scene_root().find_children("", "Terrain3D")
+		var terrains: Array[Node] = Engine.get_singleton(&"EditorInterface").get_edited_scene_root().find_children("", "Terrain3D")
 		if terrains.size() > 0:
 			terrain = terrains[0]
 		_terrain_id = terrain.get_instance_id() if terrain else 0
@@ -105,7 +105,7 @@ func _on_child_exiting_tree(p_node: Node) -> void:
 
 
 func _is_node_selected(p_node: Node) -> bool:
-	var editor_sel = EditorInterface.get_selection()
+	var editor_sel = Engine.get_singleton(&"EditorInterface").get_selection()
 	return editor_sel.get_transformable_selected_nodes().has(p_node)
 
 
