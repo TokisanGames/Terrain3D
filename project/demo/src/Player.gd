@@ -6,9 +6,12 @@ extends CharacterBody3D
 	set(p_value):
 		first_person = p_value
 		if first_person:
-			$CameraManager/Arm.spring_length = 0.0
+			var tween: Tween = create_tween()
+			tween.tween_property($CameraManager/Arm, "spring_length", 0.0, .33)
+			tween.tween_callback($Body.set_visible.bind(false))
 		else:
-			$CameraManager/Arm.spring_length = 6.0
+			$Body.visible = true
+			create_tween().tween_property($CameraManager/Arm, "spring_length", 6.0, .33)
 
 @export var gravity_enabled: bool = true :
 	set(p_value):
