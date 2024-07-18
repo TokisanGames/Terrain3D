@@ -1,7 +1,6 @@
 // Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/resource_saver.hpp>
-#include <map>
 
 #include "logger.h"
 #include "terrain_3d_instancer.h"
@@ -20,7 +19,7 @@ void Terrain3DInstancer::_rebuild_mmis() {
 void Terrain3DInstancer::_update_mmis() {
 	IS_STORAGE_INIT(VOID);
 	LOG(INFO, "Updating MMIs");
-	// For all region_offsets
+	// Get region multimeshes dictionary
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
 	LOG(DEBUG, "Multimeshes: ", region_dict);
 	if (region_dict.has(Variant())) {
@@ -31,21 +30,29 @@ void Terrain3DInstancer::_update_mmis() {
 		_mmis.erase(Variant());
 		LOG(WARN, "Removed errant null in MMI dictionary");
 	}
-	Array keys = region_dict.keys();
-	for (int r = 0; r < keys.size(); r++) {
-		Vector2i region_offset = keys[r];
+
+	// For all region_offsets
+	Array region_offsets = region_dict.keys();
+	for (int r = 0; r < region_offsets.size(); r++) {
+		Vector2i region_offset = region_offsets[r];
 		Dictionary mesh_dict = region_dict.get(region_offset, Dictionary());
 		LOG(DEBUG, "Updating MMIs from: ", region_offset);
 
-		// For all mesh ids
-		for (int m = 0; m < mesh_dict.keys().size(); m++) {
-			int mesh_id = mesh_dict.keys()[m];
+		// For all mesh ids in that region
+		Array mesh_types = mesh_dict.keys();
+		for (int m = 0; m < mesh_types.size(); m++) {
+			int mesh_id = mesh_types[m];
 			bool fail = false;
+
+			/// Verify the Multimesh data
+
+			// Verify Multimesh exists. It should since its keyed
 			Ref<MultiMesh> mm = mesh_dict.get(mesh_id, Ref<MultiMesh>());
 			if (mm.is_null()) {
 				LOG(DEBUG, "Dictionary for mesh id ", mesh_id, " is null, skipping");
 				fail = true;
 			}
+			// Verify mesh id is valid and has a mesh
 			Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
 			Ref<Mesh> mesh;
 			if (ma.is_valid()) {
@@ -58,21 +65,25 @@ void Terrain3DInstancer::_update_mmis() {
 				LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
 				fail = true;
 			}
+			// Clear this mesh id for this region and skip if fails the above checks
 			if (fail) {
 				clear_by_offset(region_offset, mesh_id);
 				continue;
 			}
 
-			// Update meshes on all in case IDs changed.
+			/// Data seems good, apply it
+
+			// Update mesh in the Multimesh in case IDs or meshes changed.
 			mm->set_mesh(mesh);
-			// Set MMs in MMIs, creating any missing MMIs
+
+			// Assign MMs to MMIs, creating any missing MMIs
 			Vector3i mmi_key = Vector3i(region_offset.x, region_offset.y, mesh_id);
 			MultiMeshInstance3D *mmi;
 			if (!_mmis.has(mmi_key)) {
 				LOG(DEBUG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
 				mmi = memnew(MultiMeshInstance3D);
 				mmi->set_as_top_level(true);
-				_terrain->add_child(mmi);
+				_terrain->add_child(mmi, true);
 				_mmis[mmi_key] = mmi;
 				LOG(DEBUG, _mmis);
 			}
@@ -133,13 +144,14 @@ void Terrain3DInstancer::destroy() {
 	_mmis.clear();
 }
 
+// Appends new transforms to existing multimeshes
 void Terrain3DInstancer::update_multimesh(const Vector2i &p_region_offset, const int p_mesh_id,
 		const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear) {
 	IS_STORAGE_INIT(VOID);
 
+	// Collect old data
 	TypedArray<Transform3D> old_xforms;
 	TypedArray<Color> old_colors;
-	// Collect old instances
 	if (!p_clear) {
 		Ref<MultiMesh> multimesh = get_multimesh(p_region_offset, p_mesh_id);
 		if (multimesh.is_valid()) {
@@ -152,7 +164,7 @@ void Terrain3DInstancer::update_multimesh(const Vector2i &p_region_offset, const
 		}
 	}
 
-	// Erase empties if no transforms
+	// Erase empties if no transforms in both the old and new data
 	if (old_xforms.size() == 0 && p_xforms.size() == 0) {
 		clear_by_offset(p_region_offset, p_mesh_id);
 		return;
@@ -180,26 +192,11 @@ void Terrain3DInstancer::update_multimesh(const Vector2i &p_region_offset, const
 
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
 	Dictionary mesh_dict = region_dict.get(p_region_offset, Dictionary());
+	// Assign into dictionaries in case these are new resources
 	mesh_dict[p_mesh_id] = mm;
 	region_dict[p_region_offset] = mesh_dict;
 
-	// Set MultiMeshInstance3D
-	MultiMeshInstance3D *mmi = get_multimesh_instance(p_region_offset, p_mesh_id);
-	if (!mmi) {
-		LOG(DEBUG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
-		mmi = memnew(MultiMeshInstance3D);
-		mmi->set_as_top_level(true);
-		mmi->set_multimesh(mm);
-		mmi->set_cast_shadows_setting(mesh_asset->get_cast_shadows());
-		_terrain->add_child(mmi);
-		Vector3i key = Vector3i(p_region_offset.x, p_region_offset.y, p_mesh_id);
-		_mmis[key] = mmi;
-	}
-	mmi->set_multimesh(mm);
-	if (mmi->get_global_transform() != Transform3D()) {
-		LOG(WARN, "Terrain3D parent nodes have non-zero transforms. Resetting instancer global_transform");
-		mmi->set_global_transform(Transform3D());
-	}
+	_update_mmis();
 }
 
 Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const {
@@ -460,21 +457,14 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		return;
 	}
 
-	LOG(INFO, "Separating ", p_xforms.size(), " transforms and ", p_colors.size(), " colors into regions");
+	Dictionary xforms_dict;
+	Dictionary colors_dict;
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 
-	// Separate incoming transforms/colors into regions
-	// DEPRECATED 0.9.2 - Replace in Godot 4.3
-	// Use std::map because Godot Dictionaries copy TypedArrays
-	// See https://github.com/godotengine/godot-cpp/pull/1483
-	// TODO Check all Dictionaries w/ TypedArrays
-	// Dictionary xforms_dict;
-	// Dictionary colors_dict;
-	std::map<Vector2i, TypedArray<Transform3D>> xforms_dict;
-	std::map<Vector2i, TypedArray<Color>> colors_dict;
-
+	// Separate incoming transforms/colors into Dictionary { region_offset => Array[Transform3D] }
+	LOG(INFO, "Separating ", p_xforms.size(), " transforms and ", p_colors.size(), " colors into regions");
 	for (int i = 0; i < p_xforms.size(); i++) {
-		// Get xform/color
+		// Get adjusted xform/color
 		Transform3D trns = p_xforms[i];
 		trns.origin += trns.basis.get_column(1) * mesh_asset->get_height_offset(); // Offset along UP axis
 		Color col = COLOR_WHITE;
@@ -482,16 +472,12 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 			col = p_colors[i];
 		}
 
-		// Get region
+		// Store by region offset
 		Vector2i region_offset = _terrain->get_storage()->get_region_offset(trns.origin);
-
-		// DEPRECATED 0.9.2 - Replace in Godot 4.3
-		//if (!xforms_dict.has(region_offset)) {
-		if (xforms_dict.count(region_offset) == 0) {
+		if (!xforms_dict.has(region_offset)) {
 			xforms_dict[region_offset] = TypedArray<Transform3D>();
 			colors_dict[region_offset] = TypedArray<Color>();
 		}
-
 		TypedArray<Transform3D> xforms = xforms_dict[region_offset];
 		TypedArray<Color> colors = colors_dict[region_offset];
 		xforms.push_back(trns);
@@ -499,12 +485,10 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	}
 
 	// Merge incoming transforms with existing transforms
-
-	// DEPRECATED 0.9.2 - Replace in Godot 4.3
-	//for (int i = 0; i < xforms_dict.keys().size(); i++) {
-	//	Vector2i region_offset = xforms_dict.keys()[i];
-	//	TypedArray<Transform3D> xforms = xforms_dict[region_offset];
-	for (auto const &[region_offset, xforms] : xforms_dict) {
+	Array region_offsets = xforms_dict.keys();
+	for (int i = 0; i < region_offsets.size(); i++) {
+		Vector2i region_offset = region_offsets[i];
+		TypedArray<Transform3D> xforms = xforms_dict[region_offset];
 		TypedArray<Color> colors = colors_dict[region_offset];
 		LOG(DEBUG, "Adding ", xforms.size(), " transforms to region offset: ", region_offset);
 		update_multimesh(region_offset, p_mesh_id, xforms, colors);
@@ -518,8 +502,7 @@ void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh>
 	TypedArray<Transform3D> xforms;
 	TypedArray<Color> colors;
 	for (int i = 0; i < p_multimesh->get_instance_count(); i++) {
-		Transform3D t = p_xform;
-		xforms.push_back(t * p_multimesh->get_instance_transform(i));
+		xforms.push_back(p_xform * p_multimesh->get_instance_transform(i));
 		Color c = COLOR_WHITE;
 		if (p_multimesh->is_using_colors()) {
 			c = p_multimesh->get_instance_color(i);
