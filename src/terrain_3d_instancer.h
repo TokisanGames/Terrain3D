@@ -40,26 +40,24 @@ public:
 
 	void initialize(Terrain3D *p_terrain);
 	void destroy();
+	void clear_by_mesh(const int p_mesh_id);
+	void clear_by_region_id(const int p_region_id, const int p_mesh_id);
+	void clear_by_offset(const Vector2i &p_region_offset, const int p_mesh_id);
 
-	void update_multimesh(const Vector2i &p_region_offset, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear = false);
+	void add_instances(const Vector3 &p_global_position, const Dictionary &p_params);
+	void remove_instances(const Vector3 &p_global_position, const Dictionary &p_params);
+	void add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform = Transform3D());
+	void add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors = TypedArray<Color>());
+	void append_multimesh(const Vector2i &p_region_offset, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear = false);
+
+	void swap_ids(const int p_src_id, const int p_dst_id);
 	Ref<MultiMesh> get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const;
 	Ref<MultiMesh> get_multimesh(const Vector2i &p_region_offset, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instance(const Vector3 &p_global_position, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instance(const Vector2i &p_region_offset, const int p_mesh_id) const;
 	Dictionary get_mmis() const { return _mmis; }
-	void swap_ids(const int p_src_id, const int p_dst_id);
-
-	void add_instances(const Vector3 &p_global_position, const Dictionary &p_params);
-	void remove_instances(const Vector3 &p_global_position, const Dictionary &p_params);
-	void reset_instance_counter() { _instance_counter = 0; }
-	void add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors = TypedArray<Color>());
-	void add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform = Transform3D());
-
 	void set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
-
-	void clear_by_mesh(const int p_mesh_id);
-	void clear_by_region_id(const int p_region_id, const int p_mesh_id);
-	void clear_by_offset(const Vector2i &p_region_offset, const int p_mesh_id);
+	void reset_instance_counter() { _instance_counter = 0; }
 
 	void print_multimesh_buffer(MultiMeshInstance3D *p_mmi) const;
 
