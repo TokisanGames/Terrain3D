@@ -16,9 +16,10 @@ void Terrain3DInstancer::_rebuild_mmis() {
 }
 
 // Creates MMIs based on stored Multimesh data
-void Terrain3DInstancer::_update_mmis() {
+void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_offset, const int p_mesh_id) {
 	IS_STORAGE_INIT(VOID);
-	LOG(INFO, "Updating MMIs");
+	LOG(INFO, "Updating MMIs for ", (p_region_offset.x == INT32_MAX) ? "all regions" : "region " + String(p_region_offset),
+			(p_mesh_id == -1) ? ", all meshes" : ", mesh " + String::num_int64(p_mesh_id));
 	// Get region multimeshes dictionary
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
 	LOG(DEBUG, "Multimeshes: ", region_dict);
@@ -31,15 +32,25 @@ void Terrain3DInstancer::_update_mmis() {
 		LOG(WARN, "Removed errant null in MMI dictionary");
 	}
 
-	// For all region_offsets
-	Array region_offsets = region_dict.keys();
+	// For specified region_offset, or max for all
+	Array region_offsets;
+	if (p_region_offset == Vector2i(INT32_MAX, INT32_MAX)) {
+		region_offsets = region_dict.keys();
+	} else {
+		region_offsets.push_back(p_region_offset);
+	}
 	for (int r = 0; r < region_offsets.size(); r++) {
 		Vector2i region_offset = region_offsets[r];
 		Dictionary mesh_dict = region_dict.get(region_offset, Dictionary());
 		LOG(DEBUG, "Updating MMIs from: ", region_offset);
 
-		// For all mesh ids in that region
-		Array mesh_types = mesh_dict.keys();
+		// For specified mesh id in that region, or -1 for all
+		Array mesh_types;
+		if (p_mesh_id < 0) {
+			mesh_types = mesh_dict.keys();
+		} else {
+			mesh_types.push_back(p_mesh_id);
+		}
 		for (int m = 0; m < mesh_types.size(); m++) {
 			int mesh_id = mesh_types[m];
 			bool fail = false;
@@ -270,6 +281,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		colors.push_back(col);
 	}
 
+	// Append multimesh
 	if (xforms.size() > 0) {
 		Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
 		append_multimesh(region_offset, mesh_id, xforms, colors);
@@ -452,7 +464,9 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_offset, const
 	mesh_dict[p_mesh_id] = mm;
 	region_dict[p_region_offset] = mesh_dict;
 
-	_update_mmis();
+	_update_mmis(p_region_offset, p_mesh_id);
+}
+
 }
 
 // Changes the ID of a mesh, without changing the mesh on the ground

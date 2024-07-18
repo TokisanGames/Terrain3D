@@ -30,7 +30,7 @@ class Terrain3DInstancer : public Object {
 	int _get_instace_count(const real_t p_density);
 
 	void _rebuild_mmis();
-	void _update_mmis();
+	void _update_mmis(const Vector2i &p_region_offset = Vector2i(INT32_MAX, INT32_MAX), const int p_mesh_id = -1);
 	void _destroy_mmi_by_region_id(const int p_region, const int p_mesh_id);
 	void _destroy_mmi_by_offset(const Vector2i &p_region_offset, const int p_mesh_id);
 
