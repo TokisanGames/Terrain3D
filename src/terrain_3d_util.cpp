@@ -18,7 +18,7 @@ void Terrain3DUtil::print_dict(const String &p_name, const Dictionary &p_dict, c
 	}
 }
 
-void Terrain3DUtil::dump_gen(const GeneratedTexture p_gen, const String &p_name, const int p_level) {
+void Terrain3DUtil::dump_gentex(const GeneratedTexture p_gen, const String &p_name, const int p_level) {
 	LOG(p_level, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
 }
 

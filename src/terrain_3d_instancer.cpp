@@ -467,6 +467,56 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_offset, const
 	_update_mmis(p_region_offset, p_mesh_id);
 }
 
+// Review all transforms in one area and adjust their transforms w/ the current height
+void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
+	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
+	LOG(DEBUG_CONT, "Updating transforms for all meshes within ", p_aabb);
+
+	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
+	Array regions = region_dict.keys();
+	Rect2 brush_rect = aabb2rect(p_aabb);
+	for (int r = 0; r < regions.size(); r++) {
+		Vector2i region_offset = regions[r];
+		int region_size = _terrain->get_storage()->get_region_size();
+		Rect2 region_rect;
+		region_rect.set_position(region_offset * region_size);
+		region_rect.set_size(Vector2(region_size, region_size));
+		LOG(DEBUG_CONT, "RO: ", region_offset, " RAABB: ", region_rect, " intersects: ", brush_rect.intersects(region_rect));
+
+		// If specified area includes this region, update all MMs within
+		if (brush_rect.intersects(region_rect)) {
+			Dictionary mesh_dict = region_dict.get(region_offset, Dictionary());
+			LOG(DEBUG_CONT, "Region ", region_offset, " intersect AABB and contains ", mesh_dict.size(), " mesh types");
+			// For all mesh ids
+			for (int m = 0; m < mesh_dict.keys().size(); m++) {
+				int mesh_id = mesh_dict.keys()[m];
+				Ref<MultiMesh> mm = mesh_dict.get(mesh_id, Ref<MultiMesh>());
+				if (mm.is_null()) {
+					continue;
+				}
+				Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
+				TypedArray<Transform3D> xforms;
+				TypedArray<Color> colors;
+				LOG(DEBUG_CONT, "Multimesh ", mesh_id, " has ", mm->get_instance_count(), " to review");
+				for (int i = 0; i < mm->get_instance_count(); i++) {
+					Transform3D t = mm->get_instance_transform(i);
+					if (brush_rect.has_point(Vector2(t.origin.x, t.origin.z))) {
+						// Reset height to terrain height + mesh height offset along UP axis
+						real_t height = _terrain->get_storage()->get_height(t.origin);
+						// If the new height is a nan due to creating a hole, remove the instance
+						if (std::isnan(height)) {
+							continue;
+						}
+						t.origin.y = height + mesh_asset->get_height_offset();
+					}
+					xforms.push_back(t);
+					colors.push_back(mm->get_instance_color(i));
+				}
+				// Replace multimesh
+				append_multimesh(region_offset, mesh_id, xforms, colors, true);
+			}
+		}
+	}
 }
 
 // Changes the ID of a mesh, without changing the mesh on the ground
@@ -605,6 +655,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()));
 	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(TypedArray<Color>()));
 	ClassDB::bind_method(D_METHOD("append_multimesh", "region_offset", "mesh_id", "transforms", "colors", "clear"), &Terrain3DInstancer::append_multimesh, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
 	ClassDB::bind_method(D_METHOD("get_mmis"), &Terrain3DInstancer::get_mmis);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mesh_id", "mode"), &Terrain3DInstancer::set_cast_shadows);
 }

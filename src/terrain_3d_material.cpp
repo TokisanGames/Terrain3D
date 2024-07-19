@@ -360,7 +360,7 @@ void Terrain3DMaterial::_generate_region_blend_map() {
 		_generated_region_blend_map.clear();
 		_generated_region_blend_map.create(region_blend_img);
 		RS->material_set_param(_material, "_region_blend_map", _generated_region_blend_map.get_rid());
-		Util::dump_gen(_generated_region_blend_map, "blend_map", DEBUG_CONT);
+		Util::dump_gentex(_generated_region_blend_map, "blend_map", DEBUG_CONT);
 	}
 }
 
