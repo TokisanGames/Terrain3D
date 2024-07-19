@@ -17,7 +17,7 @@ class Terrain3DUtil : public Object {
 public:
 	// Print info to the console
 	static void print_dict(const String &name, const Dictionary &p_dict, const int p_level = 2); // Level 2: DEBUG
-	static void dump_gen(const GeneratedTexture p_gen, const String &name = "", const int p_level = 2);
+	static void dump_gentex(const GeneratedTexture p_gen, const String &name = "", const int p_level = 2);
 	static void dump_maps(const TypedArray<Image> &p_maps, const String &p_name = "");
 
 	// Image operations
@@ -77,6 +77,13 @@ inline real_t bilerp(const real_t p_v00, const real_t p_v01, const real_t p_v10,
 	Vector2 pos11 = Vector2(p_pos11.x, p_pos11.z);
 	Vector2 pos = Vector2(p_pos.x, p_pos.z);
 	return bilerp(p_v00, p_v01, p_v10, p_v11, pos00, pos11, pos);
+}
+
+inline Rect2 aabb2rect(const AABB &p_aabb) {
+	Rect2 rect;
+	rect.position = Vector2(p_aabb.position.x, p_aabb.position.z);
+	rect.size = Vector2(p_aabb.size.x, p_aabb.size.z);
+	return rect;
 }
 
 ///////////////////////////

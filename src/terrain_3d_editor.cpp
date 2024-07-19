@@ -139,7 +139,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			_terrain->get_instancer()->remove_instances(p_global_position, _brush_data);
 		}
 		_modified = true;
-		storage->add_edited_area(edited_area);
 		return;
 	}
 
@@ -501,9 +500,12 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 			data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			break;
 
+		case HOLES:
+			// Holes can remove instances
+			data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
+			LOG(DEBUG, "Storing Multimesh: ", data["multimeshes"]);
 		case TEXTURE:
 		case AUTOSHADER:
-		case HOLES:
 		case NAVIGATION:
 			LOG(DEBUG, "Storing control maps");
 			data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_CONTROL);

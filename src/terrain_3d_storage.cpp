@@ -68,20 +68,28 @@ void Terrain3DStorage::set_height_range(const Vector2 &p_range) {
 void Terrain3DStorage::update_heights(const real_t p_height) {
 	if (p_height < _height_range.x) {
 		_height_range.x = p_height;
+		_modified = true;
 	} else if (p_height > _height_range.y) {
 		_height_range.y = p_height;
+		_modified = true;
 	}
-	_modified = true;
+	if (_modified) {
+		LOG(DEBUG_CONT, "Expanded height range: ", _height_range);
+	}
 }
 
 void Terrain3DStorage::update_heights(const Vector2 &p_heights) {
 	if (p_heights.x < _height_range.x) {
 		_height_range.x = p_heights.x;
+		_modified = true;
 	}
 	if (p_heights.y > _height_range.y) {
 		_height_range.y = p_heights.y;
+		_modified = true;
 	}
-	_modified = true;
+	if (_modified) {
+		LOG(DEBUG_CONT, "Expanded height range: ", _height_range);
+	}
 }
 
 void Terrain3DStorage::update_height_range() {
@@ -89,7 +97,7 @@ void Terrain3DStorage::update_height_range() {
 	for (int i = 0; i < _height_maps.size(); i++) {
 		update_heights(Util::get_min_max(_height_maps[i]));
 	}
-	LOG(INFO, "Updated terrain height range: ", _height_range);
+	LOG(INFO, "Recalculated terrain height range: ", _height_range);
 }
 
 void Terrain3DStorage::clear_edited_area() {
@@ -1037,9 +1045,9 @@ void Terrain3DStorage::print_audit_data() const {
 	Util::dump_maps(_control_maps, "Control maps");
 	Util::dump_maps(_color_maps, "Color maps");
 
-	Util::dump_gen(_generated_height_maps, "height");
-	Util::dump_gen(_generated_control_maps, "control");
-	Util::dump_gen(_generated_color_maps, "color");
+	Util::dump_gentex(_generated_height_maps, "height");
+	Util::dump_gentex(_generated_control_maps, "control");
+	Util::dump_gentex(_generated_color_maps, "color");
 }
 
 ///////////////////////////

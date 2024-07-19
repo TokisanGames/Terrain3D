@@ -51,18 +51,22 @@ void Terrain3D::_initialize() {
 	}
 
 	// Connect signals
+	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
 		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
+	// Region size changed, update material
 	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
 		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
 		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
 	}
+	// Any map was regenerated or region offsets changed, update material
 	if (!_storage->is_connected("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
 		LOG(DEBUG, "Connecting _storage::regions_changed signal to _material->_update_regions()");
 		_storage->connect("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
 	}
+	// Height map was regenerated - update aabbs - Probably remove and just use maps_edited
 	if (!_storage->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
 		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
@@ -72,14 +76,16 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
 		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1));
 	}
+	// New multimesh added to storage, rebuild instancer
 	if (!_storage->is_connected("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis))) {
 		LOG(DEBUG, "Connecting _storage::multimeshes_changed signal to _rebuild_mmis()");
 		_storage->connect("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis));
 	}
-	//if (!_storage->is_connected("edited_area", callable_mp(_instancer.ptr(), &Terrain3D::update_aabbs))) {
-	//	LOG(DEBUG, "Connecting height_maps_changed signal to update_aabbs()");
-	//	_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
-	//}
+	// Connect height changes to update instances
+	if (!_storage->is_connected("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms))) {
+		LOG(DEBUG, "Connecting maps_edited signal to update_transforms()");
+		_storage->connect("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms));
+	}
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
