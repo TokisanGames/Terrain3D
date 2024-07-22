@@ -111,7 +111,7 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	textures_btn.add_theme_font_size_override("font_size", 16 * EditorInterface.get_editor_scale())
 
 	_initialized = true
-	update_dock(plugin.visible)
+	update_dock()
 	update_layout()
 
 
@@ -154,7 +154,7 @@ func set_slot(p_slot: int) -> void:
 		placement_opt.selected = slot
 		save_editor_settings()
 		plugin.select_terrain()
-		update_dock(plugin.visible)
+		update_dock()
 
 
 func remove_dock(p_force: bool = false) -> void:
@@ -167,50 +167,43 @@ func remove_dock(p_force: bool = false) -> void:
 		state = HIDDEN
 
 	# If windowed and destination is not window or final exit, otherwise leave
-	elif state == WINDOWED and p_force:
-		if not window:
-			return
+	elif state == WINDOWED and p_force and window:
 		var parent: Node = get_parent()
 		if parent:
 			parent.remove_child(self)
-			_godot_editor_window.mouse_entered.disconnect(_on_godot_window_entered)
-			_godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
-			_godot_editor_window.focus_exited.disconnect(_on_godot_focus_exited)
-			window.hide()
-			window.queue_free()
-			window = null
+		_godot_editor_window.mouse_entered.disconnect(_on_godot_window_entered)
+		_godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
+		_godot_editor_window.focus_exited.disconnect(_on_godot_focus_exited)
+		window.hide()
+		window.queue_free()
+		window = null
 		floating_btn.button_pressed = false
 		floating_btn.visible = true
 		pinned_btn.visible = false
 		placement_opt.visible = true
 		state = HIDDEN
-		update_dock(plugin.visible) # return window to side/bottom
+		update_dock() # return window to side/bottom
 
 
-func update_dock(p_visible: bool) -> void:
-	if not _initialized:
+func update_dock() -> void:
+	if not _initialized or window:
 		return
+
 	update_assets()
 
-	if window:
-		return
-	elif floating_btn.button_pressed:
-		# No window, but floating button pressed, occurs when from editor settings
-		make_dock_float()
-		return
-
+	# Move dock to new destination
 	remove_dock()
-	# Add dock to new destination
 	# Sidebar
 	if slot < POS_BOTTOM:
 		state = SIDEBAR
 		plugin.add_control_to_dock(slot, self)
+	# Bottom
 	elif slot == POS_BOTTOM:
 		state = BOTTOM
 		plugin.add_control_to_bottom_panel(self, "Terrain3D")
-		if p_visible:
+		if plugin.ui.visible:
 			plugin.make_bottom_panel_item_visible(self)
-		
+
 
 func update_layout() -> void:
 	if not _initialized:
@@ -257,6 +250,8 @@ func update_thumbnails() -> void:
 		_last_thumb_update_time = Time.get_ticks_msec()
 		for mesh_asset in mesh_list.entries:
 			mesh_asset.queue_redraw()
+
+
 ## Dock Button handlers
 
 
@@ -322,24 +317,34 @@ func update_assets() -> void:
 
 	_current_list.update_asset_list()
 
+
 ## Window Management
 
 
 func make_dock_float() -> void:
-	# If already created (eg from editor Make Floating)	
+	# If not already created (eg from editor panel 'Make Floating' button)	
 	if not window:
 		remove_dock()
 		create_window()
 
 	state = WINDOWED
+	visible = true # Asset dock contents are hidden when popping out of the bottom!
 	pinned_btn.visible = true
 	floating_btn.visible = false
 	placement_opt.visible = false
 	window.title = "Terrain3D Asset Dock"
 	window.always_on_top = pinned_btn.button_pressed
 	window.close_requested.connect(remove_dock.bind(true))
-	visible = true # Is hidden when pops off of bottom. ??
+	window.window_input.connect(_on_window_input)
+	window.focus_exited.connect(save_editor_settings)
+	window.mouse_exited.connect(save_editor_settings)
+	window.size_changed.connect(save_editor_settings)
+	_godot_editor_window.mouse_entered.connect(_on_godot_window_entered)
+	_godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
+	_godot_editor_window.focus_exited.connect(_on_godot_focus_exited)
 	_godot_editor_window.grab_focus()
+	update_assets()
+	save_editor_settings()
 
 
 func create_window() -> void:
@@ -354,11 +359,19 @@ func create_window() -> void:
 	window.set_position(get_setting(PS_DOCK_WINDOW_POSITION, Vector2i(704, 284)))
 	plugin.add_child(window)
 	window.show()
-	window.window_input.connect(_on_window_input)
-	window.focus_exited.connect(_on_window_focus_exited)
-	_godot_editor_window.mouse_entered.connect(_on_godot_window_entered)
-	_godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
-	_godot_editor_window.focus_exited.connect(_on_godot_focus_exited)
+
+
+func clamp_window_position() -> void:
+	if window and window.visible:
+		var bounds: Vector2i
+		if EditorInterface.get_editor_settings().get_setting("interface/editor/single_window_mode"):
+			bounds = EditorInterface.get_base_control().size
+		else:
+			bounds = DisplayServer.screen_get_position(window.current_screen)
+			bounds += DisplayServer.screen_get_size(window.current_screen)
+		var margin: int = 40
+		window.position.x = clamp(window.position.x, -window.size.x + 2*margin, bounds.x - margin)
+		window.position.y = clamp(window.position.y, 25, bounds.y - margin)
 
 
 func _on_window_input(event: InputEvent) -> void:
@@ -366,11 +379,6 @@ func _on_window_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.keycode == KEY_S and event.pressed and event.is_command_or_control_pressed():
 		save_editor_settings()
 		plugin.get_editor_interface().save_scene()
-
-
-func _on_window_focus_exited() -> void:
-	# Capture window position w/o other changes
-	save_editor_settings()
 
 
 func _on_godot_window_entered() -> void:
@@ -407,15 +415,14 @@ func load_editor_settings() -> void:
 	floating_btn.button_pressed = get_setting(PS_DOCK_FLOATING, false)
 	pinned_btn.button_pressed = get_setting(PS_DOCK_PINNED, true)
 	size_slider.value = get_setting(PS_DOCK_TILE_SIZE, 83)
-	set_slot(get_setting(PS_DOCK_SLOT, POS_BOTTOM))
 	_on_slider_changed(size_slider.value)
-	# Window pos/size set on window creation in update_dock
-	update_dock(plugin.visible)
-	
-	
+	set_slot(get_setting(PS_DOCK_SLOT, POS_BOTTOM))
+	if floating_btn.button_pressed:
+		make_dock_float()
 func save_editor_settings() -> void:
 	if not _initialized:
 		return
+	clamp_window_position()
 	editor_settings.set_setting(PS_DOCK_SLOT, slot)
 	editor_settings.set_setting(PS_DOCK_TILE_SIZE, size_slider.value)
 	editor_settings.set_setting(PS_DOCK_FLOATING, floating_btn.button_pressed)
