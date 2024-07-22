@@ -74,7 +74,7 @@ func _handles(p_object: Object) -> bool:
 func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
 	if p_visible and is_selected():
 		ui.set_visible(true)
-		asset_dock.update_dock(true)
+		asset_dock.update_dock()
 	else:
 		ui.set_visible(false)
 
