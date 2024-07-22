@@ -188,7 +188,7 @@ func remove_dock(p_force: bool = false) -> void:
 
 
 func update_dock(p_visible: bool) -> void:
-	if not _initialized or not p_visible:
+	if not _initialized:
 		return
 	update_assets()
 
