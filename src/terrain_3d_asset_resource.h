@@ -15,8 +15,8 @@ class Terrain3DAssetResource : public Resource {
 	friend class Terrain3DAssets;
 
 public:
-	Terrain3DAssetResource(){};
-	~Terrain3DAssetResource(){};
+	Terrain3DAssetResource() {}
+	~Terrain3DAssetResource() {}
 
 	virtual void clear() = 0;
 	virtual void set_name(const String &p_name) = 0;

@@ -37,9 +37,6 @@ Terrain3DTextureAsset::Terrain3DTextureAsset() {
 	clear();
 }
 
-Terrain3DTextureAsset::~Terrain3DTextureAsset() {
-}
-
 void Terrain3DTextureAsset::clear() {
 	_name = "New Texture";
 	_id = 0;

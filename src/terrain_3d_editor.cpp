@@ -464,10 +464,10 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 	}
 
 	TypedArray<int> e_regions;
-	for (size_t i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
+	for (int i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
 		bool is_modified = _terrain->get_storage()->get_modified()[i];
 		if (is_modified) {
-			e_regions.append(i);
+			e_regions.push_back(i);
 		}
 	}
 
@@ -569,44 +569,44 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 			LOG(DEBUG, "Removing region...");
 
 			TypedArray<int> current;
-			for (size_t i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
+			for (int i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
 				bool is_modified = _terrain->get_storage()->get_modified()[i];
 				if (is_modified) {
-					current.append(i);
+					current.push_back(i);
 				}
 			}
 
 			TypedArray<int> diff;
 
-			for (size_t i = 0; i < current.size(); i++) {
+			for (int i = 0; i < current.size(); i++) {
 				if (!regions.has(current[i])) {
-					diff.append(current[i]);
+					diff.push_back(current[i]);
 				}
 			}
 
-			for (size_t i = 0; i < diff.size(); i++) {
+			for (int i = 0; i < diff.size(); i++) {
 				_terrain->get_storage()->remove_region(diff[i]);
 			}
 		} else {
 			// Add region
 			TypedArray<int> current;
-			for (size_t i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
+			for (int i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
 				bool is_modified = _terrain->get_storage()->get_modified()[i];
 				if (is_modified) {
-					current.append(i);
+					current.push_back(i);
 				}
 			}
 
 			TypedArray<int> diff;
 
-			for (size_t i = 0; i < current.size(); i++) {
+			for (int i = 0; i < current.size(); i++) {
 				if (!regions.has(current[i])) {
-					diff.append(current[i]);
+					diff.push_back(current[i]);
 				}
 			}
 
 			LOG(DEBUG, "Re-adding regions...");
-			for (size_t i = 0; i < diff.size(); i++) {
+			for (int i = 0; i < diff.size(); i++) {
 				Vector2i new_region = ((TypedArray<Vector2i>)p_set["region_locations"])[regions[0]];
 				int size = _terrain->get_storage()->get_region_size();
 				Vector3 new_region_position = Vector3(new_region.x * size, 0, new_region.y * size);
@@ -644,7 +644,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 
 	_terrain->get_storage()->clear_modified();
 	// Roll back to previous modified state
-	for (size_t i = 0; i < regions.size(); i++) {
+	for (int i = 0; i < regions.size(); i++) {
 		_terrain->get_storage()->set_modified(i);
 	}
 
@@ -754,7 +754,7 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 
 	// Convolve the last 8 movement events, we dont clear on mouse release
 	// so as to make repeated mouse strokes in the same direction consistent
-	_operation_movement_history.append(_operation_movement);
+	_operation_movement_history.push_back(_operation_movement);
 	if (_operation_movement_history.size() > 8) {
 		_operation_movement_history.pop_front();
 	}
