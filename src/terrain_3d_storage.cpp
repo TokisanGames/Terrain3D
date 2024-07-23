@@ -457,7 +457,7 @@ TypedArray<int> Terrain3DStorage::get_regions_under_aabb(const AABB &p_aabb) {
 			LOG(INFO, "Region id ", region_id, " location ", Vector3(x, 0, y));
 			// If found, append to array
 			if (region_id != -1) {
-				found.append(region_id);
+				found.push_back(region_id);
 			}
 		}
 	}
