@@ -146,6 +146,7 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 Terrain3DMeshAsset::Terrain3DMeshAsset() {
 	_name = "New Mesh";
 	_id = 0;
+	// _clear()? Same as TextureAsset
 }
 
 void Terrain3DMeshAsset::clear() {

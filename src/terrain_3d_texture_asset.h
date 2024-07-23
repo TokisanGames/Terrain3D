@@ -25,7 +25,7 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 
 public:
 	Terrain3DTextureAsset();
-	~Terrain3DTextureAsset();
+	~Terrain3DTextureAsset() {}
 
 	void clear() override;
 
