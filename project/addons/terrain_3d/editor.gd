@@ -18,7 +18,6 @@ var editor: Terrain3DEditor
 var ui: Node # Terrain3DUI see Godot #75388
 var asset_dock: PanelContainer
 var region_gizmo: RegionGizmo
-var visible: bool
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 
@@ -231,7 +230,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 func update_region_grid() -> void:
 	if not region_gizmo:
 		return
-	region_gizmo.set_hidden(not visible)
+	region_gizmo.set_hidden(not ui.visible)
 
 	if is_terrain_valid():
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
