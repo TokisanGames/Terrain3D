@@ -39,7 +39,6 @@ void Terrain3D::_initialize() {
 	if (_storage == nullptr) {
 		LOG(DEBUG, "Creating blank storage");
 		_storage = memnew(Terrain3DStorage);
-		_storage->set_version(Terrain3DStorage::CURRENT_VERSION);
 	}
 	if (_assets.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -694,7 +693,6 @@ void Terrain3D::set_storage_directory(String p_dir) {
 	if (_storage == nullptr) {
 		LOG(DEBUG, "Creating blank storage");
 		_storage = memnew(Terrain3DStorage);
-		_storage->set_version(Terrain3DStorage::CURRENT_VERSION);
 		_storage->initialize(this);
 	}
 	if (_storage_directory != p_dir) {

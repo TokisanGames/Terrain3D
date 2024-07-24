@@ -65,45 +65,54 @@ public: // Constants
 		HEIGHT_FILTER_MINIMUM
 	};
 
+	///////////////////////////
+	// 	Terrain3DRegion
+	///////////////////////////
+
 	class Terrain3DRegion : public Resource {
 		GDCLASS(Terrain3DRegion, Resource);
 		CLASS_NAME();
 
 	private:
-		// Map info
+		bool _modified = false;
+		real_t _version = 0.8f; // Set to first version to ensure Godot always upgrades this
+		// Maps
 		Ref<Image> _height_map;
 		Ref<Image> _control_map;
 		Ref<Image> _color_map;
-		// Foliage Instancer contains MultiMeshes saved to disk
+		// Instancer MultiMeshes saved to disk
 		// Dictionary[mesh_id:int] -> MultiMesh
 		Dictionary _multimeshes;
-		real_t _version = 0.8f; // Set to ensure Godot always saves this
 
 	public:
-		// Map Info
-		void set_height_map(Ref<Image> p_map) { _height_map = p_map; }
+		void set_modified(const bool p_modified) { _modified = p_modified; }
+		bool get_modified() const { return _modified; }
+		bool is_modified() const { return _modified == true; }
+		void set_version(const real_t p_version);
+		real_t get_version() const { return _version; }
+
+		// Maps
+		void set_height_map(const Ref<Image> &p_map) { _height_map = p_map; }
 		Ref<Image> get_height_map() const { return _height_map; }
-		void set_control_map(Ref<Image> p_map) { _control_map = p_map; }
+		void set_control_map(const Ref<Image> &p_map) { _control_map = p_map; }
 		Ref<Image> get_control_map() const { return _control_map; }
-		void set_color_map(Ref<Image> p_map) { _color_map = p_map; }
+		void set_color_map(const Ref<Image> &p_map) { _color_map = p_map; }
 		Ref<Image> get_color_map() const { return _color_map; }
 
-		// Foliage Instancer
-		void set_multimeshes(Dictionary p_instances) { _multimeshes = p_instances; }
+		// Instancer
+		void set_multimeshes(const Dictionary &p_multimeshes) { _multimeshes = p_multimeshes; }
 		Dictionary get_multimeshes() const { return _multimeshes; }
-
-		void set_version(real_t p_version) { _version = p_version; }
-		real_t get_version() { return _version; }
 
 	protected:
 		static void _bind_methods();
 	};
 
+	///////////////////////////
+
 private:
 	Terrain3D *_terrain = nullptr;
 
 	// Storage Settings & flags
-	real_t _version = 0.8f; // Set to ensure Godot always saves this
 	TypedArray<bool> _modified = TypedArray<bool>(); // TODO: Make sure this is the right size
 	bool _save_16_bit = false;
 	RegionSize _region_size = SIZE_1024;
@@ -149,8 +158,6 @@ public:
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DStorage();
 
-	void set_version(const real_t p_version);
-	real_t get_version() const { return _version; }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
 
