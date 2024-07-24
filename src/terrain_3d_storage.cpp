@@ -49,17 +49,6 @@ Terrain3DStorage::~Terrain3DStorage() {
 	_clear();
 }
 
-// Lots of the upgrade process requires this to run first
-// It only runs if the version is saved in the file, which only happens if it was
-// different from the in the file is different from _version
-void Terrain3DStorage::set_version(const real_t p_version) {
-	LOG(INFO, vformat("%.3f", p_version));
-	_version = p_version;
-	if (_version < CURRENT_VERSION) {
-		LOG(WARN, "Storage version ", vformat("%.3f", _version), " will be updated to ", vformat("%.3f", CURRENT_VERSION), " upon save");
-	}
-}
-
 void Terrain3DStorage::set_save_16_bit(const bool p_enabled) {
 	LOG(INFO, p_enabled);
 	_save_16_bit = p_enabled;
@@ -380,7 +369,7 @@ void Terrain3DStorage::save_region(const String &p_path, const int p_region_id) 
 	LOG(INFO, "Saving region at index ", p_region_id);
 	Ref<Terrain3DRegion> region;
 	region.instantiate();
-	region->set_version(_version);
+	region->set_version(CURRENT_VERSION);
 	region->set_height_map(_height_maps[p_region_id]);
 	region->set_control_map(_control_maps[p_region_id]);
 	region->set_color_map(_color_maps[p_region_id]);
@@ -1314,8 +1303,6 @@ void Terrain3DStorage::_bind_methods() {
 
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
-	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DStorage::set_version);
-	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DStorage::get_version);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3DStorage::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3DStorage::get_save_16_bit);
 
@@ -1386,7 +1373,6 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DStorage::get_normal);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
@@ -1407,21 +1393,37 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("multimeshes_changed"));
 }
 
-///////////////////////////////
-// Terrain3DRegion Protected
-///////////////////////////////
+/////////////////////
+// Terrain3DRegion
+/////////////////////
+
+void Terrain3DStorage::Terrain3DRegion::set_version(const real_t p_version) {
+	LOG(INFO, vformat("%.3f", p_version));
+	_version = p_version;
+	if (_version < CURRENT_VERSION) {
+		LOG(WARN, "Region ", get_path(), " version ", vformat("%.3f", _version), " will be updated to ", vformat("%.3f", CURRENT_VERSION), " upon save");
+	}
+}
 
 void Terrain3DStorage::Terrain3DRegion::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("get_modified"), &Terrain3DStorage::Terrain3DRegion::get_modified);
+	ClassDB::bind_method(D_METHOD("is_modified"), &Terrain3DStorage::Terrain3DRegion::is_modified);
+	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DStorage::Terrain3DRegion::get_version);
+
 	ClassDB::bind_method(D_METHOD("set_height_map", "map"), &Terrain3DStorage::Terrain3DRegion::set_height_map);
 	ClassDB::bind_method(D_METHOD("get_height_map"), &Terrain3DStorage::Terrain3DRegion::get_height_map);
 	ClassDB::bind_method(D_METHOD("set_control_map", "map"), &Terrain3DStorage::Terrain3DRegion::set_control_map);
 	ClassDB::bind_method(D_METHOD("get_control_map"), &Terrain3DStorage::Terrain3DRegion::get_control_map);
 	ClassDB::bind_method(D_METHOD("set_color_map", "map"), &Terrain3DStorage::Terrain3DRegion::set_color_map);
 	ClassDB::bind_method(D_METHOD("get_color_map"), &Terrain3DStorage::Terrain3DRegion::get_color_map);
-	ClassDB::bind_method(D_METHOD("set_instances", "instances"), &Terrain3DStorage::Terrain3DRegion::set_multimeshes);
-	ClassDB::bind_method(D_METHOD("get_instances"), &Terrain3DStorage::Terrain3DRegion::get_multimeshes);
-	// Note: Modified is only for C++, don't expose it.
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "heightmap", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "set_height_map", "get_height_map");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "controlmap", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "set_control_map", "get_control_map");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "colormap", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "set_color_map", "get_color_map");
+	ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DStorage::Terrain3DRegion::set_multimeshes);
+	ClassDB::bind_method(D_METHOD("get_multimeshes"), &Terrain3DStorage::Terrain3DRegion::get_multimeshes);
+
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_modified");
+	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "", "get_version");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "heightmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "controlmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "colormap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_color_map", "get_color_map");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
 }
