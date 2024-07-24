@@ -101,7 +101,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_offset, const int
 			mmi = cast_to<MultiMeshInstance3D>(_mmis[mmi_key]);
 			mmi->set_multimesh(mm);
 			mmi->set_cast_shadows_setting(ma->get_cast_shadows());
-			if (mmi->get_global_transform() != Transform3D()) {
+			if (mmi->is_inside_tree() && mmi->get_global_transform() != Transform3D()) {
 				LOG(WARN, "Terrain3D parent nodes have non-zero transform. Resetting instancer global_transform");
 				mmi->set_global_transform(Transform3D());
 			}
