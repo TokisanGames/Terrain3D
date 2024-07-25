@@ -2,7 +2,6 @@
 
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
 #include <godot_cpp/classes/time.hpp>
-#include <godot_cpp/core/class_db.hpp>
 
 #include "logger.h"
 #include "terrain_3d_editor.h"
@@ -29,13 +28,13 @@ void Terrain3DEditor::_region_modified(const Vector3 &p_global_position, const V
 
 void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 	bool has_region = _terrain->get_storage()->has_region(p_global_position);
-	bool modified = false;
+	bool changed = false;
 	Vector2 height_range;
 
 	if (_operation == ADD) {
 		if (!has_region) {
 			_terrain->get_storage()->add_region(p_global_position);
-			modified = true;
+			changed = true;
 		}
 	} else {
 		if (has_region) {
@@ -44,11 +43,11 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 			height_range = Util::get_min_max(height_map);
 
 			_terrain->get_storage()->remove_region(p_global_position, true, _terrain->get_storage_directory());
-			modified = true;
+			changed = true;
 		}
 	}
 
-	if (modified) {
+	if (changed) {
 		_region_modified(p_global_position, height_range);
 	}
 }
@@ -464,8 +463,9 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 	}
 
 	TypedArray<int> e_regions;
-	for (int i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
-		bool is_modified = _terrain->get_storage()->get_modified()[i];
+	Array regions = _terrain->get_storage()->get_regions().values();
+	for (int i = 0; i < regions.size(); i++) {
+		bool is_modified = static_cast<Ref<Terrain3DStorage::Terrain3DRegion>>(regions[i])->is_modified();
 		if (is_modified) {
 			e_regions.push_back(i);
 		}
@@ -559,7 +559,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
 	LOG(DEBUG, "Apply undo received: ", p_set);
 
-	TypedArray<int> regions = p_set["edited_regions"];
+	TypedArray<int> e_regions = p_set["edited_regions"];
 
 	if (p_set.has("is_add")) {
 		// FIXME: This block assumes a lot about the structure of the dictionary and the number of elements
@@ -569,8 +569,9 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 			LOG(DEBUG, "Removing region...");
 
 			TypedArray<int> current;
-			for (int i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
-				bool is_modified = _terrain->get_storage()->get_modified()[i];
+			Array regions = _terrain->get_storage()->get_regions().values();
+			for (int i = 0; i < regions.size(); i++) {
+				bool is_modified = static_cast<Ref<Terrain3DStorage::Terrain3DRegion>>(regions[i])->is_modified();
 				if (is_modified) {
 					current.push_back(i);
 				}
@@ -590,8 +591,9 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 		} else {
 			// Add region
 			TypedArray<int> current;
-			for (int i = 0; i < _terrain->get_storage()->get_region_count(); i++) {
-				bool is_modified = _terrain->get_storage()->get_modified()[i];
+			Array regions = _terrain->get_storage()->get_regions().values();
+			for (int i = 0; i < regions.size(); i++) {
+				bool is_modified = static_cast<Ref<Terrain3DStorage::Terrain3DRegion>>(regions[i])->is_modified();
 				if (is_modified) {
 					current.push_back(i);
 				}
@@ -626,27 +628,28 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 			if (key == "region_locations") {
 				_terrain->get_storage()->set_region_locations(p_set[key]);
 			} else if (key == "height_map") {
-				_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key], regions);
+				_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key], e_regions);
 			} else if (key == "control_map") {
-				_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key], regions);
+				_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key], e_regions);
 			} else if (key == "color_map") {
-				_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key], regions);
+				_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key], e_regions);
 			} else if (key == "height_range") {
 				_terrain->get_storage()->set_height_range(p_set[key]);
 			} else if (key == "edited_area") {
 				_terrain->get_storage()->clear_edited_area();
 				_terrain->get_storage()->add_edited_area(p_set[key]);
 			} else if (key == "multimeshes") {
-				_terrain->get_storage()->set_multimeshes(p_set[key], regions);
+				_terrain->get_storage()->set_multimeshes(p_set[key], e_regions);
 			}
 		}
 	}
 
-	_terrain->get_storage()->clear_modified();
+	/* Rework all of undo
+	_terrain->get_storage()->set_all_regions_modified(false);
 	// Roll back to previous modified state
-	for (int i = 0; i < regions.size(); i++) {
+	for (int i = 0; i < e_regions.size(); i++) {
 		_terrain->get_storage()->set_modified(i);
-	}
+	}*/
 
 	if (_terrain->get_plugin()->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
