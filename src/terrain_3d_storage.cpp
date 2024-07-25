@@ -406,7 +406,8 @@ void Terrain3DStorage::load_region(const String &p_path, const int p_region_id) 
 void Terrain3DStorage::load_region_by_location(const String &p_path, const Vector2i &p_region_loc) {
 	LOG(INFO, "Loading region from location ", p_region_loc);
 	String path = p_path + String("/") + get_region_filename(p_region_loc);
-	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path);
+	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path,
+			"Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
 	if (region.is_null()) {
 		LOG(ERROR, "Could not load region at ", path, " at location", p_region_loc);
 		return;
@@ -1175,33 +1176,41 @@ Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
 }
 
 void Terrain3DStorage::load_directory(const String &p_dir) {
+	if (p_dir.is_empty()) {
+		LOG(ERROR, "Specified data directory is blank");
+		return;
+	}
 	Ref<DirAccess> da = DirAccess::open(p_dir);
 	if (da.is_null()) {
-		LOG(ERROR, "Error reading Terrain3D save directory.");
-		return;
-	} else {
-		_clear();
-		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
-	}
-	if (p_dir.is_empty()) {
+		LOG(ERROR, "Cannot read Terrain3D data directory: ", p_dir);
 		return;
 	}
+	LOG(INFO, "Loading region files from ", p_dir);
+	_clear();
+	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 	_loading = true;
 	PackedStringArray files = da->get_files();
 	for (int i = 0; i < files.size(); i++) {
-		LOG(INFO, "Loading region from ", p_dir, "/", files[i]);
-		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(p_dir + String("/") + files[i]);
-		// 1 - if nil, throw error + handle error
+		String fname = files[i];
+		String path = p_dir + String("/") + fname;
+		if (!fname.begins_with("terrain3d") || !fname.ends_with(".res")) {
+			continue;
+		}
+		LOG(DEBUG, "Loading region from ", path);
+		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(
+				path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
 		if (region.is_null()) {
-			LOG(ERROR, "Region at path ", p_dir, "/", files[i], " failed to load.");
+			LOG(ERROR, "Region file ", path, " failed to load");
 			continue;
 		}
-		// 2 - parse coordinates
-		Vector2i coords = get_region_location_from_string(files[i]);
-		if (coords == Vector2i(INT32_MIN, INT32_MIN)) {
+		Vector2i loc = get_region_location_from_string(fname);
+		if (loc == Vector2i(INT32_MIN, INT32_MIN)) {
+			LOG(ERROR, "Cannot get region location from file name: ", fname);
 			continue;
 		}
-		register_region(region, coords);
+		LOG(DEBUG, "Region version: ", region->get_version(), " location: ", loc);
+		region->set_version(CURRENT_VERSION); // Sends upgrade warning if old version
+		register_region(region, loc);
 	}
 	_loading = false;
 	force_update_maps();
