@@ -123,44 +123,43 @@ void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 	emit_signal("region_size_changed", _region_size);
 }
 
-void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets) {
-	LOG(INFO, "Setting region offsets with array sized: ", p_offsets.size());
-	_region_offsets = p_offsets;
+void Terrain3DStorage::set_region_locations(const TypedArray<Vector2i> &p_locations) {
+	LOG(INFO, "Setting _region_locations with array sized: ", p_locations.size());
+	_region_locations = p_locations;
 	_region_map_dirty = true;
 	update_regions();
 }
 
-/** Returns a region offset given a location */
-Vector2i Terrain3DStorage::get_region_offset(const Vector3 &p_global_position) const {
+/** Returns a region location given a global position*/
+Vector2i Terrain3DStorage::get_region_location(const Vector3 &p_global_position) const {
 	IS_INIT_MESG("Storage not initialized", Vector2i());
 	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
 	return Vector2i((Vector2(descaled_position.x, descaled_position.z) / real_t(_region_size)).floor());
 }
 
 // Returns Vector2i(2147483647) if out of range
-Vector2i Terrain3DStorage::get_region_offset_from_index(const int p_index) const {
-	if (p_index < 0 || p_index >= _region_offsets.size()) {
+Vector2i Terrain3DStorage::get_region_location_from_id(const int p_region_id) const {
+	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
 		return Vector2i(INT32_MAX, INT32_MAX);
 	}
-	return _region_offsets[p_index];
+	return _region_locations[p_region_id];
 }
 
-int Terrain3DStorage::get_region_index(const Vector3 &p_global_position) const {
-	Vector2i uv_offset = get_region_offset(p_global_position);
-	return get_region_index_from_offset(uv_offset);
+int Terrain3DStorage::get_region_id(const Vector3 &p_global_position) const {
+	Vector2i region_loc = get_region_location(p_global_position);
+	return get_region_id_from_location(region_loc);
 }
 
-int Terrain3DStorage::get_region_index_from_offset(const Vector2i &p_region_offset) const {
-	Vector2i pos = Vector2i(p_region_offset + (REGION_MAP_VSIZE / 2));
-	int map_index = pos.y * REGION_MAP_SIZE + pos.x;
-	if (map_index < 0 || map_index >= REGION_MAP_SIZE * REGION_MAP_SIZE) {
-		return -1;
+// Returns -1 if out of bounds, 0 if no region, or region id
+int Terrain3DStorage::get_region_id_from_location(const Vector2i &p_region_loc) const {
+	int map_index = _get_region_map_index(p_region_loc);
+	if (map_index >= 0) {
+		int region_id = _region_map[map_index] - 1; // 0 = no region
+		if (region_id >= 0 && region_id < _region_locations.size()) {
+			return region_id;
+		}
 	}
-	int region_id = _region_map[map_index] - 1; // 0 = no region
-	if (region_id >= _region_offsets.size()) {
-		return -1;
-	}
-	return region_id;
+	return -1;
 }
 
 /** Adds a region to the terrain
@@ -174,17 +173,17 @@ int Terrain3DStorage::get_region_index_from_offset(const Vector2i &p_region_offs
  */
 Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const TypedArray<Image> &p_images, const bool p_update) {
 	IS_INIT_MESG("Storage not initialized", FAILED);
-	Vector2i uv_offset = get_region_offset(p_global_position);
-	LOG(INFO, "Adding region at ", p_global_position, ", uv_offset ", uv_offset,
+	Vector2i region_loc = get_region_location(p_global_position);
+	LOG(INFO, "Adding region at ", p_global_position, ", region_loc ", region_loc,
 			", array size: ", p_images.size(),
 			", update maps: ", p_update ? "yes" : "no");
 
-	Vector2i region_pos = Vector2i(uv_offset + (REGION_MAP_VSIZE / 2));
-	if (region_pos.x >= REGION_MAP_SIZE || region_pos.y >= REGION_MAP_SIZE || region_pos.x < 0 || region_pos.y < 0) {
+	if (_get_region_map_index(region_loc) < 0) {
 		uint64_t time = Time::get_singleton()->get_ticks_msec();
 		if (time - _last_region_bounds_error > 1000) {
 			_last_region_bounds_error = time;
-			LOG(ERROR, "Specified position outside of maximum region map size: +/-", real_t((REGION_MAP_SIZE / 2) * _region_size) * _terrain->get_mesh_vertex_spacing());
+			LOG(ERROR, "Specified position outside of maximum region map size: +/-",
+					real_t((REGION_MAP_SIZE / 2) * _region_size) * _terrain->get_mesh_vertex_spacing());
 		}
 		return FAILED;
 	}
@@ -217,10 +216,10 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 	_height_maps.push_back(images[TYPE_HEIGHT]);
 	_control_maps.push_back(images[TYPE_CONTROL]);
 	_color_maps.push_back(images[TYPE_COLOR]);
-	_region_offsets.push_back(uv_offset);
-	LOG(DEBUG, "Total regions after pushback: ", _region_offsets.size());
+	_region_locations.push_back(region_loc);
+	LOG(DEBUG, "Total regions after pushback: ", _region_locations.size());
 
-	// Region_map is used by get_region_index so must be updated every time
+	// Region_map is used by get_region_id so must be updated every time
 	_region_map_dirty = true;
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
@@ -238,24 +237,24 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 
 void Terrain3DStorage::remove_region(const Vector3 &p_global_position, const bool p_update) {
 	LOG(INFO, "Removing region at ", p_global_position, " Updating: ", p_update ? "yes" : "no");
-	int index = get_region_index(p_global_position);
-	ERR_FAIL_COND_MSG(index == -1, "Map does not exist.");
+	int region_id = get_region_id(p_global_position);
+	ERR_FAIL_COND_MSG(region_id == -1, "Map does not exist.");
 
-	LOG(INFO, "Removing region at: ", get_region_offset(p_global_position));
-	_region_offsets.remove_at(index);
-	LOG(DEBUG, "Removed region_offsets, new size: ", _region_offsets.size());
-	_height_maps.remove_at(index);
+	LOG(INFO, "Removing region at: ", get_region_location(p_global_position));
+	_region_locations.remove_at(region_id);
+	LOG(DEBUG, "Removed region_locations, new size: ", _region_locations.size());
+	_height_maps.remove_at(region_id);
 	LOG(DEBUG, "Removed heightmaps, new size: ", _height_maps.size());
-	_control_maps.remove_at(index);
+	_control_maps.remove_at(region_id);
 	LOG(DEBUG, "Removed control maps, new size: ", _control_maps.size());
-	_color_maps.remove_at(index);
+	_color_maps.remove_at(region_id);
 	LOG(DEBUG, "Removed colormaps, new size: ", _color_maps.size());
 
 	if (_height_maps.size() == 0) {
 		_height_range = Vector2(0.f, 0.f);
 	}
 
-	// Region_map is used by get_region_index so must be updated
+	// Region_map is used by get_region_id so must be updated
 	_region_map_dirty = true;
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
@@ -304,14 +303,11 @@ void Terrain3DStorage::update_regions(const bool p_force_emit) {
 		_region_map.clear();
 		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 		_region_map_dirty = false;
-		for (int i = 0; i < _region_offsets.size(); i++) {
-			Vector2i ofs = _region_offsets[i];
-			Vector2i pos = Vector2i(ofs + (REGION_MAP_VSIZE / 2));
-			int map_index = pos.y * REGION_MAP_SIZE + pos.x;
-			if (map_index < 0 || map_index >= REGION_MAP_SIZE * REGION_MAP_SIZE) {
-				continue;
+		for (int i = 0; i < _region_locations.size(); i++) {
+			int map_index = _get_region_map_index(_region_locations[i]);
+			if (map_index >= 0) {
+				_region_map[map_index] = i + 1; // Begin at 1 since 0 = no region
 			}
-			_region_map[map_index] = i + 1; // 0 = no region
 		}
 		force_emit = true;
 		_modified = true;
@@ -323,30 +319,30 @@ void Terrain3DStorage::update_regions(const bool p_force_emit) {
 	}
 }
 
-void Terrain3DStorage::set_map_region(const MapType p_map_type, const int p_region_index, const Ref<Image> &p_image) {
+void Terrain3DStorage::set_map_region(const MapType p_map_type, const int p_region_id, const Ref<Image> &p_image) {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
-			if (p_region_index >= 0 && p_region_index < _height_maps.size()) {
-				_height_maps[p_region_index] = p_image;
+			if (p_region_id >= 0 && p_region_id < _height_maps.size()) {
+				_height_maps[p_region_id] = p_image;
 				force_update_maps(TYPE_HEIGHT);
 			} else {
-				LOG(ERROR, "Requested index is out of bounds. height_maps size: ", _height_maps.size());
+				LOG(ERROR, "Requested region id is out of bounds. height_maps size: ", _height_maps.size());
 			}
 			break;
 		case TYPE_CONTROL:
-			if (p_region_index >= 0 && p_region_index < _control_maps.size()) {
-				_control_maps[p_region_index] = p_image;
+			if (p_region_id >= 0 && p_region_id < _control_maps.size()) {
+				_control_maps[p_region_id] = p_image;
 				force_update_maps(TYPE_CONTROL);
 			} else {
-				LOG(ERROR, "Requested index is out of bounds. control_maps size: ", _control_maps.size());
+				LOG(ERROR, "Requested region id is out of bounds. control_maps size: ", _control_maps.size());
 			}
 			break;
 		case TYPE_COLOR:
-			if (p_region_index >= 0 && p_region_index < _color_maps.size()) {
-				_color_maps[p_region_index] = p_image;
+			if (p_region_id >= 0 && p_region_id < _color_maps.size()) {
+				_color_maps[p_region_id] = p_image;
 				force_update_maps(TYPE_COLOR);
 			} else {
-				LOG(ERROR, "Requested index is out of bounds. color_maps size: ", _color_maps.size());
+				LOG(ERROR, "Requested region id is out of bounds. color_maps size: ", _color_maps.size());
 			}
 			break;
 		default:
@@ -355,27 +351,27 @@ void Terrain3DStorage::set_map_region(const MapType p_map_type, const int p_regi
 	}
 }
 
-Ref<Image> Terrain3DStorage::get_map_region(const MapType p_map_type, const int p_region_index) const {
+Ref<Image> Terrain3DStorage::get_map_region(const MapType p_map_type, const int p_region_id) const {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
-			if (p_region_index >= 0 && p_region_index < _height_maps.size()) {
-				return _height_maps[p_region_index];
+			if (p_region_id >= 0 && p_region_id < _height_maps.size()) {
+				return _height_maps[p_region_id];
 			} else {
-				LOG(ERROR, "Requested index is out of bounds. height_maps size: ", _height_maps.size());
+				LOG(ERROR, "Requested region id is out of bounds. height_maps size: ", _height_maps.size());
 			}
 			break;
 		case TYPE_CONTROL:
-			if (p_region_index >= 0 && p_region_index < _control_maps.size()) {
-				return _control_maps[p_region_index];
+			if (p_region_id >= 0 && p_region_id < _control_maps.size()) {
+				return _control_maps[p_region_id];
 			} else {
-				LOG(ERROR, "Requested index is out of bounds. control_maps size: ", _control_maps.size());
+				LOG(ERROR, "Requested region id is out of bounds. control_maps size: ", _control_maps.size());
 			}
 			break;
 		case TYPE_COLOR:
-			if (p_region_index >= 0 && p_region_index < _color_maps.size()) {
-				return _color_maps[p_region_index];
+			if (p_region_id >= 0 && p_region_id < _color_maps.size()) {
+				return _color_maps[p_region_id];
 			} else {
-				LOG(ERROR, "Requested index is out of bounds. color_maps size: ", _color_maps.size());
+				LOG(ERROR, "Requested region id is out of bounds. color_maps size: ", _color_maps.size());
 			}
 			break;
 		default:
@@ -448,15 +444,16 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 		LOG(ERROR, "Specified map type out of range");
 		return;
 	}
-	int region = get_region_index(p_global_position);
-	if (region < 0) {
+	int region_id = get_region_id(p_global_position);
+	if (region_id < 0) {
 		return;
 	}
-	Vector2i global_offset = Vector2i(_region_offsets[region]) * _region_size;
+	Vector2i region_loc = _region_locations[region_id];
+	Vector2i global_offset = region_loc * _region_size;
 	Vector3 descaled_pos = p_global_position / _terrain->get_mesh_vertex_spacing();
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
-	Ref<Image> map = get_map_region(p_map_type, region);
+	Ref<Image> map = get_map_region(p_map_type, region_id);
 	map->set_pixelv(img_pos, p_pixel);
 }
 
@@ -466,15 +463,16 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 		LOG(ERROR, "Specified map type out of range");
 		return COLOR_NAN;
 	}
-	int region = get_region_index(p_global_position);
-	if (region < 0) {
+	int region_id = get_region_id(p_global_position);
+	if (region_id < 0) {
 		return COLOR_NAN;
 	}
-	Vector2i global_offset = Vector2i(_region_offsets[region]) * _region_size;
+	Vector2i region_loc = _region_locations[region_id];
+	Vector2i global_offset = region_loc * _region_size;
 	Vector3 descaled_pos = p_global_position / _terrain->get_mesh_vertex_spacing();
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
-	Ref<Image> map = get_map_region(p_map_type, region);
+	Ref<Image> map = get_map_region(p_map_type, region_id);
 	return map->get_pixelv(img_pos);
 }
 
@@ -520,9 +518,9 @@ real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
  **/
 Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) const {
 	IS_INIT_MESG("Storage not initialized", Vector3(NAN, NAN, NAN););
-	// Not in a region.
-	int region = get_region_index(p_global_position);
-	if (region < 0) {
+	int region_id = get_region_id(p_global_position);
+	if (region_id < 0) {
+		// Not in a region
 		return Vector3(NAN, NAN, NAN);
 	}
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // 32-bit float, not double/real
@@ -699,7 +697,6 @@ void Terrain3DStorage::save() {
 			}
 			LOG(DEBUG, "Images converted, saving");
 			err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
-
 			LOG(DEBUG, "Restoring 32-bit maps");
 			_height_maps = original_maps;
 
@@ -820,16 +817,16 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
 			TypedArray<Image> images;
 			images.resize(TYPE_MAX);
 			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y) * vertex_spacing;
-			int region_index = get_region_index(position);
+			int region_id = get_region_id(position);
 			for (int i = 0; i < TYPE_MAX; i++) {
 				Ref<Image> img = tmp_images[i];
 				Ref<Image> img_slice;
 				// If not in a region, generate a new empty map.
-				if (region_index == -1) {
+				if (region_id == -1) {
 					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, FORMAT[i]);
 					// Otherwise Get the current map.
 				} else {
-					img_slice = get_map_region(MapType(i), region_index);
+					img_slice = get_map_region(MapType(i), region_id);
 				}
 				if (img.is_valid() && !img->is_empty()) {
 					img_slice->convert(img->get_format());
@@ -947,18 +944,18 @@ Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
 	}
 	Vector2i top_left = Vector2i(0, 0);
 	Vector2i bottom_right = Vector2i(0, 0);
-	for (int i = 0; i < _region_offsets.size(); i++) {
-		LOG(DEBUG, "Region offsets[", i, "]: ", _region_offsets[i]);
-		Vector2i region = _region_offsets[i];
-		if (region.x < top_left.x) {
-			top_left.x = region.x;
-		} else if (region.x > bottom_right.x) {
-			bottom_right.x = region.x;
+	for (int i = 0; i < _region_locations.size(); i++) {
+		LOG(DEBUG, "Region locations[", i, "]: ", _region_locations[i]);
+		Vector2i region_loc = _region_locations[i];
+		if (region_loc.x < top_left.x) {
+			top_left.x = region_loc.x;
+		} else if (region_loc.x > bottom_right.x) {
+			bottom_right.x = region_loc.x;
 		}
-		if (region.y < top_left.y) {
-			top_left.y = region.y;
-		} else if (region.y > bottom_right.y) {
-			bottom_right.y = region.y;
+		if (region_loc.y < top_left.y) {
+			top_left.y = region_loc.y;
+		} else if (region_loc.y > bottom_right.y) {
+			bottom_right.y = region_loc.y;
 		}
 	}
 
@@ -967,12 +964,12 @@ Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
 	LOG(DEBUG, "Image size: ", img_size);
 	Ref<Image> img = Util::get_filled_image(img_size, COLOR[map_type], false, FORMAT[map_type]);
 
-	for (int i = 0; i < _region_offsets.size(); i++) {
-		Vector2i region = _region_offsets[i];
-		int index = get_region_index(Vector3(region.x, 0, region.y) * _region_size);
-		Vector2i img_location = (region - top_left) * _region_size;
-		LOG(DEBUG, "Region to blit: ", region, " Export image coords: ", img_location);
-		img->blit_rect(get_map_region(map_type, index), Rect2i(Vector2i(0, 0), _region_sizev), img_location);
+	for (int i = 0; i < _region_locations.size(); i++) {
+		Vector2i region_loc = _region_locations[i];
+		Vector2i img_location = (region_loc - top_left) * _region_size;
+		LOG(DEBUG, "Region to blit: ", region_loc, " Export image coords: ", img_location);
+		int region_id = get_region_id(Vector3(region_loc.x, 0, region_loc.y) * _region_size);
+		img->blit_rect(get_map_region(map_type, region_id), Rect2i(Vector2i(0, 0), _region_sizev), img_location);
 	}
 	return img;
 }
@@ -1022,8 +1019,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(const int32_t p_lod, const HeightFilte
 
 Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) const {
 	IS_INIT_MESG("Storage not initialized", Vector3());
-	int region = get_region_index(p_global_position);
-	if (region < 0 || is_hole(get_control(p_global_position))) {
+	if (get_region_id(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
 	}
 	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
@@ -1038,7 +1034,7 @@ Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) const {
 void Terrain3DStorage::print_audit_data() const {
 	LOG(INFO, "Dumping storage data");
 	LOG(INFO, "_modified: ", _modified);
-	LOG(INFO, "Region_offsets size: ", _region_offsets.size(), " ", _region_offsets);
+	LOG(INFO, "Region_locations size: ", _region_locations.size(), " ", _region_locations);
 	LOG(INFO, "Region map");
 	for (int i = 0; i < _region_map.size(); i++) {
 		if (_region_map[i]) {
@@ -1087,19 +1083,19 @@ void Terrain3DStorage::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
-	ClassDB::bind_method(D_METHOD("set_region_offsets", "offsets"), &Terrain3DStorage::set_region_offsets);
-	ClassDB::bind_method(D_METHOD("get_region_offsets"), &Terrain3DStorage::get_region_offsets);
+	ClassDB::bind_method(D_METHOD("set_region_locations", "region_locations"), &Terrain3DStorage::set_region_locations);
+	ClassDB::bind_method(D_METHOD("get_region_locations"), &Terrain3DStorage::get_region_locations);
 	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DStorage::get_region_count);
-	ClassDB::bind_method(D_METHOD("get_region_offset", "global_position"), &Terrain3DStorage::get_region_offset);
-	ClassDB::bind_method(D_METHOD("get_region_offset_from_index", "region_index"), &Terrain3DStorage::get_region_offset_from_index);
-	ClassDB::bind_method(D_METHOD("get_region_index", "global_position"), &Terrain3DStorage::get_region_index);
-	ClassDB::bind_method(D_METHOD("get_region_index_from_offset", "region_offset"), &Terrain3DStorage::get_region_index_from_offset);
+	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DStorage::get_region_location);
+	ClassDB::bind_method(D_METHOD("get_region_location_from_id", "region_id"), &Terrain3DStorage::get_region_location_from_id);
+	ClassDB::bind_method(D_METHOD("get_region_id", "global_position"), &Terrain3DStorage::get_region_id);
+	ClassDB::bind_method(D_METHOD("get_region_id_from_location", "region_location"), &Terrain3DStorage::get_region_id_from_location);
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("add_region", "global_position", "images", "update"), &Terrain3DStorage::add_region, DEFVAL(TypedArray<Image>()), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_region", "global_position", "update"), &Terrain3DStorage::remove_region, DEFVAL(true));
 
-	ClassDB::bind_method(D_METHOD("set_map_region", "map_type", "region_index", "image"), &Terrain3DStorage::set_map_region);
-	ClassDB::bind_method(D_METHOD("get_map_region", "map_type", "region_index"), &Terrain3DStorage::get_map_region);
+	ClassDB::bind_method(D_METHOD("set_map_region", "map_type", "region_id", "image"), &Terrain3DStorage::set_map_region);
+	ClassDB::bind_method(D_METHOD("get_map_region", "map_type", "region_id"), &Terrain3DStorage::get_map_region);
 	ClassDB::bind_method(D_METHOD("set_maps", "map_type", "maps"), &Terrain3DStorage::set_maps);
 	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DStorage::get_maps);
 	ClassDB::bind_method(D_METHOD("get_maps_copy", "map_type"), &Terrain3DStorage::get_maps_copy);
@@ -1144,7 +1140,7 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_offsets", "get_region_offsets");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_locations", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_locations", "get_region_locations");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_height_maps", "get_height_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_control_maps", "get_control_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_color_maps", "get_color_maps");

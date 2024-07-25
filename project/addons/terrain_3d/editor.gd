@@ -247,7 +247,7 @@ func update_region_grid() -> void:
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
 		region_gizmo.region_position = current_region_position
 		region_gizmo.region_size = terrain.get_storage().get_region_size() * terrain.get_mesh_vertex_spacing()
-		region_gizmo.grid = terrain.get_storage().get_region_offsets()
+		region_gizmo.grid = terrain.get_storage().get_region_locations()
 		
 		terrain.update_gizmos()
 		return

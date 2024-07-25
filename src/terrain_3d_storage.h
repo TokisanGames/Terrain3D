@@ -71,7 +71,7 @@ private:
 	// Work data
 	bool _modified = false;
 	bool _region_map_dirty = true;
-	PackedInt32Array _region_map; // 16x16 Region grid with index into region_offsets (1 based array)
+	PackedInt32Array _region_map; // 16x16 Region grid with index into region_locations (1 based array)
 	// Generated Texture RIDs
 	// These contain the TextureLayered RID from the RenderingServer, no Image
 	GeneratedTexture _generated_height_maps;
@@ -91,20 +91,21 @@ private:
 	/**
 	 * These arrays house all of the map data.
 	 * The Image arrays are region_sized slices of all heightmap data. Their world
-	 * location is tracked by region_offsets. The region data are combined into one large
+	 * location is tracked by region_locations. The region data are combined into one large
 	 * texture in generated_*_maps.
 	 */
-	TypedArray<Vector2i> _region_offsets; // Array of active region coordinates
+	TypedArray<Vector2i> _region_locations;
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
 	// Foliage Instancer contains MultiMeshes saved to disk
-	// Dictionary[region_offset:Vector2i] -> Dictionary[mesh_id:int] -> MultiMesh
+	// Dictionary[region_location:Vector2i] -> Dictionary[mesh_id:int] -> MultiMesh
 	Dictionary _multimeshes;
 
 	// Functions
 	void _clear();
+	int _get_region_map_index(const Vector2i &p_region_loc) const;
 
 public:
 	Terrain3DStorage() {}
@@ -130,22 +131,22 @@ public:
 	void set_region_size(const RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
 	Vector2i get_region_sizev() const { return _region_sizev; }
-	void set_region_offsets(const TypedArray<Vector2i> &p_offsets);
-	TypedArray<Vector2i> get_region_offsets() const { return _region_offsets; }
+	void set_region_locations(const TypedArray<Vector2i> &p_locations);
+	TypedArray<Vector2i> get_region_locations() const { return _region_locations; }
 	PackedInt32Array get_region_map() const { return _region_map; }
-	int get_region_count() const { return _region_offsets.size(); }
-	Vector2i get_region_offset(const Vector3 &p_global_position) const;
-	Vector2i get_region_offset_from_index(const int p_index) const;
-	int get_region_index(const Vector3 &p_global_position) const;
-	int get_region_index_from_offset(const Vector2i &p_region_offset) const;
-	bool has_region(const Vector3 &p_global_position) const { return get_region_index(p_global_position) != -1; }
+	int get_region_count() const { return _region_locations.size(); }
+	Vector2i get_region_location(const Vector3 &p_global_position) const;
+	Vector2i get_region_location_from_id(const int p_region_id) const;
+	int get_region_id(const Vector3 &p_global_position) const;
+	int get_region_id_from_location(const Vector2i &p_region_loc) const;
+	bool has_region(const Vector3 &p_global_position) const { return get_region_id(p_global_position) != -1; }
 	Error add_region(const Vector3 &p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), const bool p_update = true);
 	void remove_region(const Vector3 &p_global_position, const bool p_update = true);
 	void update_regions(const bool p_force_emit = false);
 
 	// Maps
-	void set_map_region(const MapType p_map_type, const int p_region_index, const Ref<Image> &p_image);
-	Ref<Image> get_map_region(const MapType p_map_type, const int p_region_index) const;
+	void set_map_region(const MapType p_map_type, const int p_region_id, const Ref<Image> &p_image);
+	Ref<Image> get_map_region(const MapType p_map_type, const int p_region_id) const;
 	void set_maps(const MapType p_map_type, const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
 	TypedArray<Image> get_maps_copy(const MapType p_map_type) const;
@@ -200,7 +201,19 @@ VARIANT_ENUM_CAST(Terrain3DStorage::MapType);
 VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
-// Inline Functions
+/// Inline Functions
+
+// This function verifies the location is within the bounds of the
+// _region_map array and returns the map index if valid, -1 if not
+inline int Terrain3DStorage::_get_region_map_index(const Vector2i &p_region_loc) const {
+	// Offset locations centered on (0,0) to positive only
+	Vector2i loc = Vector2i(p_region_loc + (REGION_MAP_VSIZE / 2));
+	int map_index = loc.y * REGION_MAP_SIZE + loc.x;
+	if (map_index < 0 || map_index >= REGION_MAP_SIZE * REGION_MAP_SIZE) {
+		return -1;
+	}
+	return map_index;
+}
 
 inline void Terrain3DStorage::set_height(const Vector3 &p_global_position, const real_t p_height) {
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));
