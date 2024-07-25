@@ -26,10 +26,10 @@
 ///////////////////////////
 
 // Initialize static member variable
-int Terrain3D::debug_level{ ERROR };
+int Terrain3D::debug_level{ DEBUG };
 
 void Terrain3D::_initialize() {
-	LOG(INFO, "Checking instancer, material, storage, assets, signal, and mesh initialization");
+	LOG(INFO, "Checking initialization of main subsystems");
 
 	// Make blank objects if needed
 	if (_material.is_null()) {
@@ -184,7 +184,7 @@ void Terrain3D::_destroy_mouse_picking() {
 	memdelete_safely(_mouse_quad);
 	LOG(DEBUG, "Freeing mouse_cam");
 	memdelete_safely(_mouse_cam);
-	LOG(DEBUG, "memdelete mouse_vp");
+	LOG(DEBUG, "Freeing mouse_vp");
 	memdelete_safely(_mouse_vp);
 }
 
@@ -682,6 +682,7 @@ void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
 		_destroy_collision();
 		_destroy_instancer();
 		_initialize();
+		_storage->_mesh_vertex_spacing = spacing;
 	}
 	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
@@ -690,17 +691,13 @@ void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
 
 void Terrain3D::set_storage_directory(String p_dir) {
 	LOG(INFO, "Setting storage directory to ", p_dir);
-	if (_storage == nullptr) {
-		LOG(DEBUG, "Creating blank storage");
-		_storage = memnew(Terrain3DStorage);
-		_storage->initialize(this);
-	}
 	if (_storage_directory != p_dir) {
+		_clear_meshes();
+		_destroy_collision();
+		_destroy_instancer();
+		memdelete_safely(_storage);
 		_storage_directory = p_dir;
-		if (!p_dir.is_empty()) {
-			_storage->load_directory(p_dir);
-		}
-		emit_signal("storage_changed");
+		_initialize();
 	}
 }
 
@@ -714,22 +711,6 @@ String Terrain3D::get_storage_directory() const {
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	LOG(INFO, p_enabled);
 	_save_16_bit = p_enabled;
-}
-
-// This is run after the object has loaded and initialized
-void Terrain3D::set_storage(Terrain3DStorage *p_storage) {
-	if (_storage != p_storage) {
-		_clear_meshes();
-		_destroy_collision();
-		_destroy_instancer();
-		LOG(INFO, "Setting storage");
-		_storage = p_storage;
-		if (_storage == nullptr) {
-			LOG(INFO, "Clearing storage");
-		}
-		_initialize();
-		emit_signal("storage_changed");
-	}
 }
 
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
@@ -1128,13 +1109,9 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_gl
 
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
-	//! FIXME
-	/* if (_storage.is_valid()) {
-		String ext = _storage->get_path().get_extension();
-		if (ext != "res") {
-			psa.push_back("Storage resource is not saved as a binary resource file. Click the arrow to the right of `Storage`, then `Save As...` a `*.res` file.");
-		}
-	} */
+	if (_storage_directory.is_empty()) {
+		psa.push_back("No storage directory specified. Select a directory then save the scene to write data.");
+	}
 	if (!psa.is_empty()) {
 		psa.push_back("To update this message, deselect and reselect Terrain3D in the Scene panel.");
 	}
@@ -1188,7 +1165,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_notify_transform(true);
 			set_meta("_edit_lock_", true);
 			_setup_mouse_picking();
-			_initialize();
+			_initialize(); // Rebuild anything freed: meshes, collision, instancer
 			set_process(true);
 			break;
 		}
@@ -1234,7 +1211,7 @@ void Terrain3D::_notification(const int p_what) {
 			if (_storage == nullptr) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
 			} else {
-				_storage->save(_storage_directory);
+				_storage->save_directory(_storage_directory);
 			}
 			if (!_material.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid material. Skipping");
@@ -1269,9 +1246,7 @@ void Terrain3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_process(false);
 			_clear_meshes();
-			_destroy_collision();
 			_destroy_mouse_picking();
-			_destroy_instancer();
 			break;
 		}
 
@@ -1286,6 +1261,9 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_PREDELETE: {
 			// Object is about to be deleted
 			LOG(INFO, "NOTIFICATION_PREDELETE");
+			_destroy_collision();
+			_destroy_instancer();
+			memdelete_safely(_storage);
 			break;
 		}
 
@@ -1379,7 +1357,6 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
-	ADD_SIGNAL(MethodInfo("storage_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
 
 	// DEPRECATED 0.9.2 - Remove 0.9.3+

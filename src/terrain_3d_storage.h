@@ -3,11 +3,9 @@
 #ifndef TERRAIN3D_STORAGE_CLASS_H
 #define TERRAIN3D_STORAGE_CLASS_H
 
-#include <godot_cpp/classes/resource_loader.hpp>
-#include <godot_cpp/classes/shader.hpp>
-
 #include "constants.h"
 #include "generated_texture.h"
+#include "terrain_3d_region.h"
 #include "terrain_3d_util.h"
 
 class Terrain3D;
@@ -17,6 +15,7 @@ using namespace godot;
 class Terrain3DStorage : public Object {
 	GDCLASS(Terrain3DStorage, Object);
 	CLASS_NAME();
+	friend Terrain3D;
 
 public: // Constants
 	static inline const real_t CURRENT_VERSION = 0.92f;
@@ -65,64 +64,14 @@ public: // Constants
 		HEIGHT_FILTER_MINIMUM
 	};
 
-	///////////////////////////
-	// 	Terrain3DRegion
-	///////////////////////////
-
-	class Terrain3DRegion : public Resource {
-		GDCLASS(Terrain3DRegion, Resource);
-		CLASS_NAME();
-
-	private:
-		bool _modified = false;
-		real_t _version = 0.8f; // Set to first version to ensure Godot always upgrades this
-		Vector2i _region_loc = Vector2i(INT32_MIN, INT32_MIN);
-
-		// Maps
-		Ref<Image> _height_map;
-		Ref<Image> _control_map;
-		Ref<Image> _color_map;
-		// Instancer MultiMeshes saved to disk
-		// Dictionary[mesh_id:int] -> MultiMesh
-		Dictionary _multimeshes;
-
-	public:
-		void set_modified(const bool p_modified) { _modified = p_modified; }
-		bool get_modified() const { return _modified; }
-		bool is_modified() const { return _modified == true; }
-		void set_version(const real_t p_version);
-		real_t get_version() const { return _version; }
-		void set_region_loc(const Vector2i &p_region_loc) { _region_loc = p_region_loc; }
-		Vector2i get_region_loc() const { return _region_loc; }
-
-		// Maps
-		void set_height_map(const Ref<Image> &p_map);
-		Ref<Image> get_height_map() const { return _height_map; }
-		void set_control_map(const Ref<Image> &p_map) { _control_map = p_map; }
-		Ref<Image> get_control_map() const { return _control_map; }
-		void set_color_map(const Ref<Image> &p_map) { _color_map = p_map; }
-		Ref<Image> get_color_map() const { return _color_map; }
-
-		// Instancer
-		void set_multimeshes(const Dictionary &p_multimeshes) { _multimeshes = p_multimeshes; }
-		Dictionary get_multimeshes() const { return _multimeshes; }
-
-		// File I/O
-		Error save(const String &p_path = "", const bool p_16_bit = false);
-
-	protected:
-		static void _bind_methods();
-	};
-
-	///////////////////////////
-
 private:
 	Terrain3D *_terrain = nullptr;
 
 	// Storage Settings & flags
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	bool _loading = false; // I am a little hesitant to include state like this.
+	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
+	bool _loading = false; // tracking when we're loading so we don't add_region w/ update
 
 	// TODO: Should be in Terrain3D so its saved
 	Vector2 _height_range = Vector2(0.f, 0.f);
@@ -150,6 +99,7 @@ private:
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
+	// Dictionary[region_location:Vector2i] -> Terrain3DRegion
 	Dictionary _regions;
 
 	// Foliage Instancer contains MultiMeshes saved to disk
@@ -163,7 +113,7 @@ private:
 public:
 	Terrain3DStorage() {}
 	void initialize(Terrain3D *p_terrain);
-	~Terrain3DStorage();
+	~Terrain3DStorage() { _clear(); }
 
 	void set_height_range(const Vector2 &p_range);
 	Vector2 get_height_range() const { return _height_range; }
@@ -177,6 +127,7 @@ public:
 
 	// Regions
 	Dictionary get_regions() { return _regions; }
+	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc);
 	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
 	bool get_region_modified(const Vector2i &p_region_loc) const;
 
@@ -189,11 +140,8 @@ public:
 	int get_region_count() const { return _region_locations.size(); }
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
 	Vector2i get_region_location_from_id(const int p_region_id) const;
-	Vector2i get_region_location_from_string(const String &p_filename) const;
 	int get_region_id(const Vector3 &p_global_position) const;
 	int get_region_id_from_location(const Vector2i &p_region_loc) const;
-	static String get_region_filename(const Vector2i &p_region_loc);
-	String get_region_filename_from_id(const int p_region_id) const;
 	bool has_region(const Vector3 &p_global_position) const { return get_region_id(p_global_position) != -1; }
 	Error add_region(const Vector3 &p_global_position,
 			const TypedArray<Image> &p_images = TypedArray<Image>(),
@@ -241,12 +189,11 @@ public:
 	Dictionary get_multimeshes(const TypedArray<int> &p_region_ids) const;
 
 	// File I/O
-	void save(const String &p_dir);
+	void save_directory(const String &p_dir);
 	void load_directory(const String &p_dir);
 
-	void save_region(const String &p_dir, const int p_region_id, const bool p_16_bit = false);
-	void load_region(const String &p_dir, const int p_region_id);
-	void load_region_by_location(const String &p_path, const Vector2i &p_region_loc);
+	void save_region(const String &p_dir, const Vector2i &p_region_loc, const bool p_16_bit = false);
+	void load_region(const String &p_dir, const Vector2i &p_region_loc);
 	void register_region(const Ref<Terrain3DRegion> &p_region, const Vector2i &p_region_loc);
 	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
 

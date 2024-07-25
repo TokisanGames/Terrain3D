@@ -30,6 +30,28 @@ void Terrain3DUtil::dump_maps(const TypedArray<Image> &p_maps, const String &p_n
 	}
 }
 
+// Expects a filename in a String like: "terrain3d-01_02.res" which returns (-1, 2)
+Vector2i Terrain3DUtil::filename_to_location(const String &p_filename) {
+	String working_string = p_filename.trim_suffix(".res");
+	String y_str = working_string.right(3).replace("_", "");
+	working_string = working_string.erase(working_string.length() - 3, 3);
+	String x_str = working_string.right(3).replace("_", "");
+	if (!x_str.is_valid_int() || !y_str.is_valid_int()) {
+		LOG(ERROR, "Malformed filename at ", p_filename, ": got x ", x_str, " y ", y_str);
+		return Vector2i(INT32_MAX, INT32_MAX);
+	}
+	return Vector2i(x_str.to_int(), y_str.to_int());
+}
+
+String Terrain3DUtil::location_to_filename(const Vector2i &p_region_loc) {
+	const String POS_REGION_FORMAT = "_%02d";
+	const String NEG_REGION_FORMAT = "%03d";
+	String x_str, y_str;
+	x_str = vformat((p_region_loc.x >= 0) ? POS_REGION_FORMAT : NEG_REGION_FORMAT, p_region_loc.x);
+	y_str = vformat((p_region_loc.y >= 0) ? POS_REGION_FORMAT : NEG_REGION_FORMAT, p_region_loc.y);
+	return "terrain3d" + x_str + y_str + ".res";
+}
+
 Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {
 	if (p_image.is_null()) {
 		return Ref<Image>();
@@ -320,6 +342,10 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_uv_rotation", "rotation"), &gd_enc_uv_rotation);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_uv_scale", "pixel"), &gd_get_uv_scale);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_uv_scale", "scale"), &gd_enc_uv_scale);
+
+	// String functions
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("filename_to_location", "filename"), &Terrain3DUtil::filename_to_location);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("location_to_filename", "region_location"), &Terrain3DUtil::location_to_filename);
 
 	// Image handling
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("black_to_alpha", "image"), &Terrain3DUtil::black_to_alpha);
