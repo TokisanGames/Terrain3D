@@ -711,6 +711,11 @@ String Terrain3D::get_storage_directory() const {
 	return _storage_directory;
 }
 
+void Terrain3D::set_save_16_bit(const bool p_enabled) {
+	LOG(INFO, p_enabled);
+	_save_16_bit = p_enabled;
+}
+
 // This is run after the object has loaded and initialized
 void Terrain3D::set_storage(Terrain3DStorage *p_storage) {
 	if (_storage != p_storage) {
@@ -1291,10 +1296,15 @@ void Terrain3D::_notification(const int p_what) {
 
 void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
-	ClassDB::bind_method(D_METHOD("set_storage_directory", "directory"), &Terrain3D::set_storage_directory);
-	ClassDB::bind_method(D_METHOD("get_storage_directory"), &Terrain3D::get_storage_directory);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
+
+	ClassDB::bind_method(D_METHOD("set_storage_directory", "directory"), &Terrain3D::set_storage_directory);
+	ClassDB::bind_method(D_METHOD("get_storage_directory"), &Terrain3D::get_storage_directory);
+	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
+
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
@@ -1304,7 +1314,6 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
-	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 	ClassDB::bind_method(D_METHOD("set_assets", "assets"), &Terrain3D::set_assets);
 	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
 	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
@@ -1343,6 +1352,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "storage_directory", PROPERTY_HINT_DIR), "set_storage_directory", "get_storage_directory");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");

@@ -76,6 +76,8 @@ public: // Constants
 	private:
 		bool _modified = false;
 		real_t _version = 0.8f; // Set to first version to ensure Godot always upgrades this
+		Vector2i _region_loc = Vector2i(INT32_MIN, INT32_MIN);
+
 		// Maps
 		Ref<Image> _height_map;
 		Ref<Image> _control_map;
@@ -90,9 +92,11 @@ public: // Constants
 		bool is_modified() const { return _modified == true; }
 		void set_version(const real_t p_version);
 		real_t get_version() const { return _version; }
+		void set_region_loc(const Vector2i &p_region_loc) { _region_loc = p_region_loc; }
+		Vector2i get_region_loc() const { return _region_loc; }
 
 		// Maps
-		void set_height_map(const Ref<Image> &p_map) { _height_map = p_map; }
+		void set_height_map(const Ref<Image> &p_map);
 		Ref<Image> get_height_map() const { return _height_map; }
 		void set_control_map(const Ref<Image> &p_map) { _control_map = p_map; }
 		Ref<Image> get_control_map() const { return _control_map; }
@@ -102,6 +106,9 @@ public: // Constants
 		// Instancer
 		void set_multimeshes(const Dictionary &p_multimeshes) { _multimeshes = p_multimeshes; }
 		Dictionary get_multimeshes() const { return _multimeshes; }
+
+		// File I/O
+		Error save(const String &p_path = "", const bool p_16_bit = false);
 
 	protected:
 		static void _bind_methods();
@@ -114,7 +121,6 @@ private:
 
 	// Storage Settings & flags
 	TypedArray<bool> _modified = TypedArray<bool>(); // TODO: Make sure this is the right size
-	bool _save_16_bit = false;
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	bool _loading = false; // I am a little hesitant to include state like this.
@@ -145,6 +151,8 @@ private:
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
+	Dictionary _regions;
+
 	// Foliage Instancer contains MultiMeshes saved to disk
 	// Dictionary[region_location:Vector2i] -> Dictionary[mesh_id:int] -> MultiMesh
 	Dictionary _multimeshes;
@@ -157,9 +165,6 @@ public:
 	Terrain3DStorage() {}
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DStorage();
-
-	void set_save_16_bit(const bool p_enabled);
-	bool get_save_16_bit() const { return _save_16_bit; }
 
 	void set_height_range(const Vector2 &p_range);
 	Vector2 get_height_range() const { return _height_range; }
@@ -193,12 +198,6 @@ public:
 	void remove_region(const Vector3 &p_global_position, const bool p_update = true, const String &p_path = "");
 	void remove_region_by_id(const int p_region_id, const bool p_update = true, const String &p_path = "");
 	void update_maps();
-
-	void save_region(const String &p_path, const int p_region_id);
-	void load_region(const String &p_path, const int p_region_id);
-	void load_region_by_location(const String &p_path, const Vector2i &p_region_loc);
-	void register_region(const Ref<Terrain3DRegion> &p_region, const Vector2i &p_region_loc);
-	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
 
 	// Maps
 	void set_map_region(const MapType p_map_type, const int p_region_id, const Ref<Image> &p_image);
@@ -244,6 +243,12 @@ public:
 	void set_modified(int p_index);
 	TypedArray<bool> get_modified() const { return _modified; }
 	void load_directory(const String &p_dir);
+
+	void save_region(const String &p_dir, const int p_region_id, const bool p_16_bit = false);
+	void load_region(const String &p_dir, const int p_region_id);
+	void load_region_by_location(const String &p_path, const Vector2i &p_region_loc);
+	void register_region(const Ref<Terrain3DRegion> &p_region, const Vector2i &p_region_loc);
+	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
 
 	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = Vector3(0.f, 0.f, 0.f),
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);

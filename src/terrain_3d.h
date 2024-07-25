@@ -34,6 +34,7 @@ class Terrain3D : public Node3D {
 	int _mesh_lods = 7;
 	real_t _mesh_vertex_spacing = 1.0f;
 	String _storage_directory;
+	bool _save_16_bit = false;
 
 	Terrain3DStorage *_storage = nullptr;
 	Ref<Terrain3DMaterial> _material;
@@ -120,6 +121,8 @@ public:
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 	void set_storage_directory(String p_dir);
 	String get_storage_directory() const;
+	void set_save_16_bit(const bool p_enabled);
+	bool get_save_16_bit() const { return _save_16_bit; }
 
 	void set_storage(Terrain3DStorage *p_storage);
 	Terrain3DStorage *get_storage() const { return _storage; }

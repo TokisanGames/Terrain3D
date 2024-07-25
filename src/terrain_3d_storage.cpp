@@ -49,11 +49,6 @@ Terrain3DStorage::~Terrain3DStorage() {
 	_clear();
 }
 
-void Terrain3DStorage::set_save_16_bit(const bool p_enabled) {
-	LOG(INFO, p_enabled);
-	_save_16_bit = p_enabled;
-}
-
 void Terrain3DStorage::set_height_range(const Vector2 &p_range) {
 	LOG(INFO, vformat("%.2v", p_range));
 	_height_range = p_range;
@@ -365,23 +360,13 @@ void Terrain3DStorage::update_maps() {
 	}
 }
 
-void Terrain3DStorage::save_region(const String &p_path, const int p_region_id) {
-	LOG(INFO, "Saving region at index ", p_region_id);
-	Ref<Terrain3DRegion> region;
-	region.instantiate();
-	region->set_version(CURRENT_VERSION);
-	region->set_height_map(_height_maps[p_region_id]);
-	region->set_control_map(_control_maps[p_region_id]);
-	region->set_color_map(_color_maps[p_region_id]);
-	// TODO: Instances
-	// region.set_instances(cast_to<Dictionary>(_instances[i]));
-	// Format filename
-	String fname = get_region_filename_from_id(p_region_id);
-	String path = p_path + String("/") + fname;
-	Error err = ResourceSaver::get_singleton()->save(region, path, ResourceSaver::FLAG_COMPRESS);
-	if (err != OK) {
-		LOG(ERROR, "Can't save region file: ", fname, ". Error code: ", ERROR, ". Look up @GlobalScope Error enum in the Godot docs");
-	}
+void Terrain3DStorage::save_region(const String &p_dir, const int p_region_id, const bool p_16_bit) {
+	Vector2i region_loc = _region_locations[p_region_id];
+	Ref<Terrain3DRegion> region = _regions[region_loc];
+	String fname = get_region_filename(region_loc);
+	String path = p_dir + String("/") + fname;
+	LOG(INFO, "Saving file: ", fname, " region id: ", p_region_id, " loc: ", region_loc);
+	region->save(path, p_16_bit);
 }
 
 void Terrain3DStorage::load_region(const String &p_path, const int p_region_id) {
@@ -420,6 +405,11 @@ void Terrain3DStorage::register_region(const Ref<Terrain3DRegion> &p_region, con
 	// Region will get freed afterwards
 	// 3 - Add to region map
 	add_region(global_position, maps);
+
+	// Store region
+	p_region->set_region_loc(p_region_loc);
+	LOG(INFO, "Registered region ", p_region->get_path(), " at ", p_region->get_region_loc(), " - ", p_region_loc);
+	_regions[p_region_loc] = p_region;
 }
 
 TypedArray<int> Terrain3DStorage::get_regions_under_aabb(const AABB &p_aabb) {
@@ -867,37 +857,18 @@ Dictionary Terrain3DStorage::get_multimeshes(const TypedArray<int> &p_region_ids
 	}
 }
 
-void Terrain3DStorage::save(const String &p_path) {
-	if (!_modified.has(true)) {
-		LOG(INFO, "Save requested, but terrain not modified. Skipping");
-		return;
-	}
-
-	if (_save_16_bit) {
-		LOG(DEBUG, "16-bit save requested, converting heightmaps");
-		TypedArray<Image> original_maps;
-		original_maps = get_maps_copy(TYPE_HEIGHT);
-		for (int i = 0; i < _height_maps.size(); i++) {
-			Ref<Image> img = _height_maps[i];
-			img->convert(Image::FORMAT_RH);
-		}
-		LOG(DEBUG, "Images converted, saving");
-		for (int i = 0; i < _height_maps.size(); i++) {
-			// Here we do not do a modified check.
-			save_region(p_path, i);
-		}
-
-		LOG(DEBUG, "Restoring 32-bit maps");
-		_height_maps = original_maps;
-
-	} else {
-		for (int i = 0; i < _height_maps.size(); i++) {
-			if (!_modified[i]) {
-				LOG(INFO, "Save requested, but region not modified. Skipping");
-				continue;
-			}
-			save_region(p_path, i);
-		}
+void Terrain3DStorage::save(const String &p_dir) {
+	LOG(INFO, "Saving data files to ", p_dir);
+	//if (!_modified.has(true)) {
+	//	LOG(INFO, "Save requested, but terrain not modified. Skipping");
+	//	return;
+	//}
+	for (int i = 0; i < _height_maps.size(); i++) {
+		//if (!_modified[i]) {
+		//	LOG(INFO, "Save requested, but region not modified. Skipping");
+		//	continue;
+		//}
+		save_region(p_dir, i, _terrain->get_save_16_bit());
 	}
 	_modified.fill(false); // Reset modified flags
 }
@@ -1303,9 +1274,6 @@ void Terrain3DStorage::_bind_methods() {
 
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
-	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3DStorage::set_save_16_bit);
-	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3DStorage::get_save_16_bit);
-
 	ClassDB::bind_method(D_METHOD("set_height_range", "range"), &Terrain3DStorage::set_height_range);
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DStorage::get_height_range);
 	ClassDB::bind_method(D_METHOD("update_height_range"), &Terrain3DStorage::update_height_range);
@@ -1375,7 +1343,6 @@ void Terrain3DStorage::_bind_methods() {
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_locations", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_locations", "get_region_locations");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_height_maps", "get_height_maps");
@@ -1405,6 +1372,56 @@ void Terrain3DStorage::Terrain3DRegion::set_version(const real_t p_version) {
 	}
 }
 
+void Terrain3DStorage::Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
+	if (p_map.is_valid() && p_map->get_format() != FORMAT[TYPE_HEIGHT]) {
+		LOG(DEBUG, "Converting file format: ", p_map->get_format(), " to ", FORMAT[TYPE_HEIGHT]);
+		if (_height_map.is_null()) {
+			_height_map.instantiate();
+		}
+		_height_map->copy_from(p_map);
+		_height_map->convert(FORMAT[TYPE_HEIGHT]);
+	} else {
+		_height_map = p_map;
+	}
+}
+
+Error Terrain3DStorage::Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
+	// Initiate save to external file. The scene will save itself.
+	if (!_modified) {
+		LOG(INFO, "Save requested, but not modified. Skipping - but not really rn");
+		//return;
+	}
+	if (p_path.is_empty() && get_path().is_empty()) {
+		LOG(ERROR, "No valid path provided");
+		return ERR_FILE_NOT_FOUND;
+	}
+	String path = p_path;
+	if (path.is_empty()) {
+		path = get_path();
+	}
+	set_version(CURRENT_VERSION);
+	LOG(INFO, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _region_loc, " to ", path);
+
+	Error err;
+	if (p_16_bit) {
+		Ref<Image> original_map;
+		original_map.instantiate();
+		original_map->copy_from(_height_map);
+		_height_map->convert(Image::FORMAT_RH);
+		err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
+		_height_map = original_map;
+	} else {
+		err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
+	}
+	if (err == OK) {
+		_modified = false;
+		LOG(INFO, "File saved successfully");
+	} else {
+		LOG(ERROR, "Can't save region file: ", path, ". Error code: ", ERROR, ". Look up @GlobalScope Error enum in the Godot docs");
+	}
+	return err;
+}
+
 void Terrain3DStorage::Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_modified"), &Terrain3DStorage::Terrain3DRegion::get_modified);
 	ClassDB::bind_method(D_METHOD("is_modified"), &Terrain3DStorage::Terrain3DRegion::is_modified);
@@ -1419,7 +1436,9 @@ void Terrain3DStorage::Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DStorage::Terrain3DRegion::set_multimeshes);
 	ClassDB::bind_method(D_METHOD("get_multimeshes"), &Terrain3DStorage::Terrain3DRegion::get_multimeshes);
 
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_modified");
+	ClassDB::bind_method(D_METHOD("save", "path", "16-bit"), &Terrain3DStorage::Terrain3DRegion::save, DEFVAL(""), DEFVAL(false));
+
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "is_modified");
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "heightmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
