@@ -149,6 +149,7 @@
     <ClInclude Include="src\logger.h" />
     <ClInclude Include="src\terrain_3d_instancer.h" />
     <ClInclude Include="src\terrain_3d_mesh_asset.h" />
+    <ClInclude Include="src\terrain_3d_region.h" />
     <ClInclude Include="src\terrain_3d_texture_asset.h" />
     <ClInclude Include="src\terrain_3d_util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
@@ -164,6 +165,7 @@
     <ClCompile Include="src\terrain_3d_instancer.cpp" />
     <ClCompile Include="src\terrain_3d_material.cpp" />
     <ClCompile Include="src\terrain_3d_mesh_asset.cpp" />
+    <ClCompile Include="src\terrain_3d_region.cpp" />
     <ClCompile Include="src\terrain_3d_storage.cpp" />
     <ClCompile Include="src\terrain_3d_texture_asset.cpp" />
     <ClCompile Include="src\terrain_3d_assets.cpp" />
