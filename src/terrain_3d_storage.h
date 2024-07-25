@@ -120,7 +120,6 @@ private:
 	Terrain3D *_terrain = nullptr;
 
 	// Storage Settings & flags
-	TypedArray<bool> _modified = TypedArray<bool>(); // TODO: Make sure this is the right size
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	bool _loading = false; // I am a little hesitant to include state like this.
@@ -177,6 +176,10 @@ public:
 	AABB get_edited_area() const { return _edited_area; }
 
 	// Regions
+	Dictionary get_regions() { return _regions; }
+	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
+	bool get_region_modified(const Vector2i &p_region_loc) const;
+
 	void set_region_size(const RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
 	Vector2i get_region_sizev() const { return _region_sizev; }
@@ -193,7 +196,8 @@ public:
 	String get_region_filename_from_id(const int p_region_id) const;
 	bool has_region(const Vector3 &p_global_position) const { return get_region_id(p_global_position) != -1; }
 	Error add_region(const Vector3 &p_global_position,
-			const TypedArray<Image> &p_images = TypedArray<Image>(), const bool p_update = true,
+			const TypedArray<Image> &p_images = TypedArray<Image>(),
+			const bool p_update = true,
 			const String &p_path = "");
 	void remove_region(const Vector3 &p_global_position, const bool p_update = true, const String &p_path = "");
 	void remove_region_by_id(const int p_region_id, const bool p_update = true, const String &p_path = "");
@@ -237,11 +241,7 @@ public:
 	Dictionary get_multimeshes(const TypedArray<int> &p_region_ids) const;
 
 	// File I/O
-	void save(const String &p_path);
-	void clear_modified() { _modified.fill(false); }
-	void set_all_regions_modified() { _modified.fill(true); }
-	void set_modified(int p_index);
-	TypedArray<bool> get_modified() const { return _modified; }
+	void save(const String &p_dir);
 	void load_directory(const String &p_dir);
 
 	void save_region(const String &p_dir, const int p_region_id, const bool p_16_bit = false);
