@@ -6,10 +6,8 @@
 #include <godot_cpp/classes/engine.hpp>
 
 #include <godot_cpp/classes/file_access.hpp>
-#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/time.hpp>
-#include <godot_cpp/core/class_db.hpp>
 
 #include "logger.h"
 #include "terrain_3d_storage.h"
@@ -22,7 +20,6 @@ void Terrain3DStorage::_clear() {
 	LOG(INFO, "Clearing storage");
 	_region_map_dirty = true;
 	_region_map.clear();
-	_modified.clear();
 	_generated_height_maps.clear();
 	_generated_control_maps.clear();
 	_generated_color_maps.clear();
@@ -102,6 +99,24 @@ void Terrain3DStorage::add_edited_area(const AABB &p_area) {
 		_edited_area = p_area;
 	}
 	emit_signal("maps_edited", _edited_area);
+}
+
+void Terrain3DStorage::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
+	Ref<Terrain3DStorage::Terrain3DRegion> region = _regions.get(p_region_loc, Ref<Terrain3DRegion>());
+	if (region.is_null()) {
+		LOG(ERROR, "Region not found at: ", p_region_loc);
+		return;
+	}
+	return region->set_modified(p_modified);
+}
+
+bool Terrain3DStorage::get_region_modified(const Vector2i &p_region_loc) const {
+	Ref<Terrain3DStorage::Terrain3DRegion> region = _regions.get(p_region_loc, Ref<Terrain3DRegion>());
+	if (region.is_null()) {
+		LOG(ERROR, "Region not found at: ", p_region_loc);
+		return false;
+	}
+	return region->is_modified();
 }
 
 void Terrain3DStorage::set_region_size(const RegionSize p_size) {
@@ -247,7 +262,6 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 
 	// Region_map is used by get_region_id so must be updated every time
 	_region_map_dirty = true;
-	_modified.push_back(!_loading); // If we're loading, these shouldn't be dirty
 	if (!_loading) {
 		if (p_update) {
 			//notify_property_list_changed();
@@ -255,7 +269,6 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 			force_update_maps();
 		} else {
 			update_maps();
-			_modified[_modified.size() - 1] = false; // Is my logic right here?...
 		}
 	}
 	return OK;
@@ -281,7 +294,6 @@ void Terrain3DStorage::remove_region_by_id(const int p_region_id, const bool p_u
 	_color_maps.remove_at(p_region_id);
 	LOG(DEBUG, "Removed colormaps, new size: ", _color_maps.size());
 
-	_modified.remove_at(p_region_id);
 	if (p_path != "") {
 		Ref<DirAccess> da = DirAccess::open(p_path);
 		da->remove(fname);
@@ -314,7 +326,6 @@ void Terrain3DStorage::update_maps() {
 	if (_generated_height_maps.is_dirty()) {
 		LOG(DEBUG_CONT, "Regenerating height layered texture from ", _height_maps.size(), " maps");
 		_generated_height_maps.create(_height_maps);
-		_modified.fill(true);
 		any_changed = true;
 		emit_signal("height_maps_changed");
 	}
@@ -322,7 +333,6 @@ void Terrain3DStorage::update_maps() {
 	if (_generated_control_maps.is_dirty()) {
 		LOG(DEBUG_CONT, "Regenerating control layered texture from ", _control_maps.size(), " maps");
 		_generated_control_maps.create(_control_maps);
-		_modified.fill(true);
 		any_changed = true;
 		emit_signal("control_maps_changed");
 	}
@@ -334,7 +344,6 @@ void Terrain3DStorage::update_maps() {
 			map->generate_mipmaps();
 		}
 		_generated_color_maps.create(_color_maps);
-		_modified.fill(true);
 		any_changed = true;
 		emit_signal("color_maps_changed");
 	}
@@ -350,8 +359,6 @@ void Terrain3DStorage::update_maps() {
 				_region_map[map_index] = i + 1; // Begin at 1 since 0 = no region
 			}
 		}
-		_modified.resize(_region_locations.size());
-		_modified.fill(true);
 		any_changed = true;
 		emit_signal("region_map_changed");
 	}
@@ -450,7 +457,6 @@ void Terrain3DStorage::set_map_region(const MapType p_map_type, const int p_regi
 			if (p_region_id >= 0 && p_region_id < _height_maps.size()) {
 				_height_maps[p_region_id] = p_image;
 				force_update_maps(TYPE_HEIGHT);
-				_modified[p_region_id] = true;
 			} else {
 				LOG(ERROR, "Requested region id is out of bounds. height_maps size: ", _height_maps.size());
 			}
@@ -459,7 +465,6 @@ void Terrain3DStorage::set_map_region(const MapType p_map_type, const int p_regi
 			if (p_region_id >= 0 && p_region_id < _control_maps.size()) {
 				_control_maps[p_region_id] = p_image;
 				force_update_maps(TYPE_CONTROL);
-				_modified[p_region_id] = true;
 			} else {
 				LOG(ERROR, "Requested region id is out of bounds. control_maps size: ", _control_maps.size());
 			}
@@ -468,7 +473,6 @@ void Terrain3DStorage::set_map_region(const MapType p_map_type, const int p_regi
 			if (p_region_id >= 0 && p_region_id < _color_maps.size()) {
 				_color_maps[p_region_id] = p_image;
 				force_update_maps(TYPE_COLOR);
-				_modified[p_region_id] = true;
 			} else {
 				LOG(ERROR, "Requested region id is out of bounds. color_maps size: ", _color_maps.size());
 			}
@@ -612,7 +616,6 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
 	Ref<Image> map = get_map_region(p_map_type, region_id);
 	map->set_pixelv(img_pos, p_pixel);
-	_modified[region_id] = true;
 }
 
 Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const {
@@ -869,16 +872,6 @@ void Terrain3DStorage::save(const String &p_dir) {
 		//	continue;
 		//}
 		save_region(p_dir, i, _terrain->get_save_16_bit());
-	}
-	_modified.fill(false); // Reset modified flags
-}
-
-void Terrain3DStorage::set_modified(const int p_index) {
-	if (p_index < _modified.size() && p_index >= 0) {
-		_modified[p_index] = true;
-	} else {
-		// Seems inconsequential but silent failures are always a PITA to hunt down
-		LOG(ERROR, "Attempted to mark a region as modified that doesn't exist: index ", p_index, " of region count ", _modified.size());
 	}
 }
 
@@ -1235,7 +1228,6 @@ Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) const {
 
 void Terrain3DStorage::print_audit_data() const {
 	LOG(INFO, "Dumping storage data");
-	LOG(INFO, "_modified: ", _modified);
 	LOG(INFO, "Region_locations size: ", _region_locations.size(), " ", _region_locations);
 	LOG(INFO, "Region map");
 	for (int i = 0; i < _region_map.size(); i++) {
