@@ -4,6 +4,7 @@
 #define TERRAIN3D_UTIL_CLASS_H
 
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
 
 #include "constants.h"
 #include "generated_texture.h"

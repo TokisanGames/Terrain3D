@@ -472,7 +472,7 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 	TypedArray<int> e_regions;
 	Array regions = _terrain->get_storage()->get_regions().values();
 	for (int i = 0; i < regions.size(); i++) {
-		bool is_modified = static_cast<Ref<Terrain3DStorage::Terrain3DRegion>>(regions[i])->is_modified();
+		bool is_modified = static_cast<Ref<Terrain3DRegion>>(regions[i])->is_modified();
 		if (is_modified) {
 			e_regions.push_back(i);
 		}
@@ -578,7 +578,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 			TypedArray<int> current;
 			Array regions = _terrain->get_storage()->get_regions().values();
 			for (int i = 0; i < regions.size(); i++) {
-				bool is_modified = static_cast<Ref<Terrain3DStorage::Terrain3DRegion>>(regions[i])->is_modified();
+				bool is_modified = static_cast<Ref<Terrain3DRegion>>(regions[i])->is_modified();
 				if (is_modified) {
 					current.push_back(i);
 				}
@@ -600,7 +600,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 			TypedArray<int> current;
 			Array regions = _terrain->get_storage()->get_regions().values();
 			for (int i = 0; i < regions.size(); i++) {
-				bool is_modified = static_cast<Ref<Terrain3DStorage::Terrain3DRegion>>(regions[i])->is_modified();
+				bool is_modified = static_cast<Ref<Terrain3DRegion>>(regions[i])->is_modified();
 				if (is_modified) {
 					current.push_back(i);
 				}
