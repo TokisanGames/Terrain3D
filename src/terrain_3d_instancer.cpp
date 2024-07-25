@@ -16,9 +16,9 @@ void Terrain3DInstancer::_rebuild_mmis() {
 }
 
 // Creates MMIs based on stored Multimesh data
-void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_offset, const int p_mesh_id) {
+void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_mesh_id) {
 	IS_STORAGE_INIT(VOID);
-	LOG(INFO, "Updating MMIs for ", (p_region_offset.x == INT32_MAX) ? "all regions" : "region " + String(p_region_offset),
+	LOG(INFO, "Updating MMIs for ", (p_region_loc.x == INT32_MAX) ? "all regions" : "region " + String(p_region_loc),
 			(p_mesh_id == -1) ? ", all meshes" : ", mesh " + String::num_int64(p_mesh_id));
 	// Get region multimeshes dictionary
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
@@ -32,17 +32,17 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_offset, const int
 		LOG(WARN, "Removed errant null in MMI dictionary");
 	}
 
-	// For specified region_offset, or max for all
-	Array region_offsets;
-	if (p_region_offset == Vector2i(INT32_MAX, INT32_MAX)) {
-		region_offsets = region_dict.keys();
+	// For specified region_location, or max for all
+	Array region_locations;
+	if (p_region_loc == Vector2i(INT32_MAX, INT32_MAX)) {
+		region_locations = region_dict.keys();
 	} else {
-		region_offsets.push_back(p_region_offset);
+		region_locations.push_back(p_region_loc);
 	}
-	for (int r = 0; r < region_offsets.size(); r++) {
-		Vector2i region_offset = region_offsets[r];
-		Dictionary mesh_dict = region_dict.get(region_offset, Dictionary());
-		LOG(DEBUG, "Updating MMIs from: ", region_offset);
+	for (int r = 0; r < region_locations.size(); r++) {
+		Vector2i region_loc = region_locations[r];
+		Dictionary mesh_dict = region_dict.get(region_loc, Dictionary());
+		LOG(DEBUG, "Updating MMIs from: ", region_loc);
 
 		// For specified mesh id in that region, or -1 for all
 		Array mesh_types;
@@ -78,7 +78,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_offset, const int
 			}
 			// Clear this mesh id for this region and skip if fails the above checks
 			if (fail) {
-				clear_by_offset(region_offset, mesh_id);
+				clear_by_location(region_loc, mesh_id);
 				continue;
 			}
 
@@ -88,7 +88,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_offset, const int
 			mm->set_mesh(mesh);
 
 			// Assign MMs to MMIs, creating any missing MMIs
-			Vector3i mmi_key = Vector3i(region_offset.x, region_offset.y, mesh_id);
+			Vector3i mmi_key = Vector3i(region_loc.x, region_loc.y, mesh_id);
 			MultiMeshInstance3D *mmi;
 			if (!_mmis.has(mmi_key)) {
 				LOG(DEBUG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
@@ -112,13 +112,13 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_offset, const int
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_offset = _terrain->get_storage()->get_region_offset_from_index(p_region_id);
-	_destroy_mmi_by_offset(region_offset, p_mesh_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_location_from_id(p_region_id);
+	_destroy_mmi_by_location(region_loc, p_mesh_id);
 }
 
-void Terrain3DInstancer::_destroy_mmi_by_offset(const Vector2i &p_region_offset, const int p_mesh_id) {
-	Vector3i mmi_key = Vector3i(p_region_offset.x, p_region_offset.y, p_mesh_id);
-	LOG(DEBUG, "Deleting MMI at: ", p_region_offset, " mesh_id: ", p_mesh_id);
+void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
+	Vector3i mmi_key = Vector3i(p_region_loc.x, p_region_loc.y, p_mesh_id);
+	LOG(DEBUG, "Deleting MMI at: ", p_region_loc, " mesh_id: ", p_mesh_id);
 	MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmis[mmi_key]);
 	bool result = _mmis.erase(mmi_key);
 	LOG(DEBUG, "Removing mmi from dictionary: ", mmi, ", success: ", result);
@@ -150,7 +150,7 @@ void Terrain3DInstancer::destroy() {
 	LOG(INFO, "Destroying all MMIs");
 	while (_mmis.size() > 0) {
 		Vector3i key = _mmis.keys()[0];
-		_destroy_mmi_by_offset(Vector2i(key.x, key.y), key.z);
+		_destroy_mmi_by_location(Vector2i(key.x, key.y), key.z);
 	}
 	_mmis.clear();
 }
@@ -158,29 +158,29 @@ void Terrain3DInstancer::destroy() {
 void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
 	LOG(INFO, "Deleting Multimeshes in all regions with mesh_id: ", p_mesh_id);
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
-	Array offsets = region_dict.keys();
-	for (int i = 0; i < offsets.size(); i++) {
-		clear_by_offset(offsets[i], p_mesh_id);
+	Array locations = region_dict.keys();
+	for (int i = 0; i < locations.size(); i++) {
+		clear_by_location(locations[i], p_mesh_id);
 	}
 }
 
 void Terrain3DInstancer::clear_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_offset = _terrain->get_storage()->get_region_offset_from_index(p_region_id);
-	clear_by_offset(region_offset, p_mesh_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_location_from_id(p_region_id);
+	clear_by_location(region_loc, p_mesh_id);
 }
 
-void Terrain3DInstancer::clear_by_offset(const Vector2i &p_region_offset, const int p_mesh_id) {
-	LOG(INFO, "Deleting Multimeshes w/ mesh_id: ", p_mesh_id, " in region: ", p_region_offset);
+void Terrain3DInstancer::clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
+	LOG(INFO, "Deleting Multimeshes w/ mesh_id: ", p_mesh_id, " in region: ", p_region_loc);
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
 	LOG(DEBUG, "Original region_dict: ", region_dict);
-	Dictionary mesh_dict = region_dict[p_region_offset];
+	Dictionary mesh_dict = region_dict[p_region_loc];
 	mesh_dict.erase(p_mesh_id);
 	if (mesh_dict.is_empty()) {
 		LOG(DEBUG, "No more multimeshes in region, removing region dictionary");
-		region_dict.erase(p_region_offset);
+		region_dict.erase(p_region_loc);
 	}
 	LOG(DEBUG, "Final region_dict: ", region_dict);
-	_destroy_mmi_by_offset(p_region_offset, p_mesh_id);
+	_destroy_mmi_by_location(p_region_loc, p_mesh_id);
 }
 
 void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
@@ -283,8 +283,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 
 	// Append multimesh
 	if (xforms.size() > 0) {
-		Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
-		append_multimesh(region_offset, mesh_id, xforms, colors);
+		Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+		append_multimesh(region_loc, mesh_id, xforms, colors);
 	}
 	_terrain->get_storage()->set_modified();
 }
@@ -337,12 +337,12 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		}
 	}
 
-	Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
+	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
 	if (xforms.size() == 0) {
 		LOG(DEBUG, "Removed all instances, erasing multimesh in region");
-		clear_by_offset(region_offset, mesh_id);
+		clear_by_location(region_loc, mesh_id);
 	} else {
-		append_multimesh(region_offset, mesh_id, xforms, colors, true);
+		append_multimesh(region_loc, mesh_id, xforms, colors, true);
 	}
 	_terrain->get_storage()->set_modified();
 }
@@ -376,7 +376,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	Dictionary colors_dict;
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 
-	// Separate incoming transforms/colors into Dictionary { region_offset => Array[Transform3D] }
+	// Separate incoming transforms/colors into Dictionary { region_loc => Array[Transform3D] }
 	LOG(INFO, "Separating ", p_xforms.size(), " transforms and ", p_colors.size(), " colors into regions");
 	for (int i = 0; i < p_xforms.size(); i++) {
 		// Get adjusted xform/color
@@ -388,32 +388,32 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		}
 
 		// Store by region offset
-		Vector2i region_offset = _terrain->get_storage()->get_region_offset(trns.origin);
-		if (!xforms_dict.has(region_offset)) {
-			xforms_dict[region_offset] = TypedArray<Transform3D>();
-			colors_dict[region_offset] = TypedArray<Color>();
+		Vector2i region_loc = _terrain->get_storage()->get_region_location(trns.origin);
+		if (!xforms_dict.has(region_loc)) {
+			xforms_dict[region_loc] = TypedArray<Transform3D>();
+			colors_dict[region_loc] = TypedArray<Color>();
 		}
-		TypedArray<Transform3D> xforms = xforms_dict[region_offset];
-		TypedArray<Color> colors = colors_dict[region_offset];
+		TypedArray<Transform3D> xforms = xforms_dict[region_loc];
+		TypedArray<Color> colors = colors_dict[region_loc];
 		xforms.push_back(trns);
 		colors.push_back(col);
 	}
 
 	// Merge incoming transforms with existing transforms
-	Array region_offsets = xforms_dict.keys();
-	for (int i = 0; i < region_offsets.size(); i++) {
-		Vector2i region_offset = region_offsets[i];
-		TypedArray<Transform3D> xforms = xforms_dict[region_offset];
-		TypedArray<Color> colors = colors_dict[region_offset];
-		LOG(DEBUG, "Adding ", xforms.size(), " transforms to region offset: ", region_offset);
-		append_multimesh(region_offset, p_mesh_id, xforms, colors);
+	Array region_locations = xforms_dict.keys();
+	for (int i = 0; i < region_locations.size(); i++) {
+		Vector2i region_loc = region_locations[i];
+		TypedArray<Transform3D> xforms = xforms_dict[region_loc];
+		TypedArray<Color> colors = colors_dict[region_loc];
+		LOG(DEBUG, "Adding ", xforms.size(), " transforms to region location: ", region_loc);
+		append_multimesh(region_loc, p_mesh_id, xforms, colors);
 	}
 
 	_terrain->get_storage()->set_modified();
 }
 
 // Appends new transforms to existing multimeshes
-void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_offset, const int p_mesh_id,
+void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_loc, const int p_mesh_id,
 		const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear) {
 	IS_STORAGE_INIT(VOID);
 
@@ -421,7 +421,7 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_offset, const
 	TypedArray<Transform3D> old_xforms;
 	TypedArray<Color> old_colors;
 	if (!p_clear) {
-		Ref<MultiMesh> multimesh = get_multimesh(p_region_offset, p_mesh_id);
+		Ref<MultiMesh> multimesh = get_multimesh(p_region_loc, p_mesh_id);
 		if (multimesh.is_valid()) {
 			uint32_t old_count = multimesh->get_instance_count();
 			LOG(DEBUG_CONT, "Merging w/ old instances: ", old_count, ": ", multimesh);
@@ -434,7 +434,7 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_offset, const
 
 	// Erase empties if no transforms in both the old and new data
 	if (old_xforms.size() == 0 && p_xforms.size() == 0) {
-		clear_by_offset(p_region_offset, p_mesh_id);
+		clear_by_location(p_region_loc, p_mesh_id);
 		return;
 	}
 
@@ -456,15 +456,15 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_offset, const
 		mm->set_instance_transform(i + old_count, p_xforms[i]);
 		mm->set_instance_color(i + old_count, p_colors[i]);
 	}
-	LOG(DEBUG_CONT, "Setting multimesh in region: ", p_region_offset, ", mesh_id: ", p_mesh_id, " instance count: ", mm->get_instance_count(), " mm: ", mm);
+	LOG(DEBUG_CONT, "Setting multimesh in region: ", p_region_loc, ", mesh_id: ", p_mesh_id, " instance count: ", mm->get_instance_count(), " mm: ", mm);
 
 	Dictionary region_dict = _terrain->get_storage()->get_multimeshes();
-	Dictionary mesh_dict = region_dict.get(p_region_offset, Dictionary());
+	Dictionary mesh_dict = region_dict.get(p_region_loc, Dictionary());
 	// Assign into dictionaries in case these are new resources
 	mesh_dict[p_mesh_id] = mm;
-	region_dict[p_region_offset] = mesh_dict;
+	region_dict[p_region_loc] = mesh_dict;
 
-	_update_mmis(p_region_offset, p_mesh_id);
+	_update_mmis(p_region_loc, p_mesh_id);
 }
 
 // Review all transforms in one area and adjust their transforms w/ the current height
@@ -476,17 +476,17 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	Array regions = region_dict.keys();
 	Rect2 brush_rect = aabb2rect(p_aabb);
 	for (int r = 0; r < regions.size(); r++) {
-		Vector2i region_offset = regions[r];
+		Vector2i region_loc = regions[r];
 		int region_size = _terrain->get_storage()->get_region_size();
 		Rect2 region_rect;
-		region_rect.set_position(region_offset * region_size);
+		region_rect.set_position(region_loc * region_size);
 		region_rect.set_size(Vector2(region_size, region_size));
-		LOG(DEBUG_CONT, "RO: ", region_offset, " RAABB: ", region_rect, " intersects: ", brush_rect.intersects(region_rect));
+		LOG(DEBUG_CONT, "RO: ", region_loc, " RAABB: ", region_rect, " intersects: ", brush_rect.intersects(region_rect));
 
 		// If specified area includes this region, update all MMs within
 		if (brush_rect.intersects(region_rect)) {
-			Dictionary mesh_dict = region_dict.get(region_offset, Dictionary());
-			LOG(DEBUG_CONT, "Region ", region_offset, " intersect AABB and contains ", mesh_dict.size(), " mesh types");
+			Dictionary mesh_dict = region_dict.get(region_loc, Dictionary());
+			LOG(DEBUG_CONT, "Region ", region_loc, " intersect AABB and contains ", mesh_dict.size(), " mesh types");
 			// For all mesh ids
 			for (int m = 0; m < mesh_dict.keys().size(); m++) {
 				int mesh_id = mesh_dict.keys()[m];
@@ -513,7 +513,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					colors.push_back(mm->get_instance_color(i));
 				}
 				// Replace multimesh
-				append_multimesh(region_offset, mesh_id, xforms, colors, true);
+				append_multimesh(region_loc, mesh_id, xforms, colors, true);
 			}
 		}
 	}
@@ -531,8 +531,8 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 		Dictionary multimeshes = _terrain->get_storage()->get_multimeshes();
 		Array mm_keys = multimeshes.keys();
 		for (int i = 0; i < mm_keys.size(); i++) {
-			Vector2i region_offset = mm_keys[i];
-			Dictionary mesh_dict = multimeshes[region_offset];
+			Vector2i region_loc = mm_keys[i];
+			Dictionary mesh_dict = multimeshes[region_loc];
 			// mesh_dict could have src, src&dst, dst or nothing. All 4 must be considered
 			// Pop out any existing MMs
 			Ref<MultiMesh> mm_src;
@@ -553,7 +553,7 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 			if (mm_dst.is_valid()) {
 				mesh_dict[p_src_id] = mm_dst;
 			}
-			LOG(DEBUG, "Swapped multimesh ids at: ", region_offset);
+			LOG(DEBUG, "Swapped multimesh ids at: ", region_loc);
 		}
 
 		// Change key in _mmi dictionary
@@ -582,27 +582,27 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 }
 
 Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
-	return get_multimesh(region_offset, p_mesh_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	return get_multimesh(region_loc, p_mesh_id);
 }
 
-Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_offset, const int p_mesh_id) const {
+Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_loc, const int p_mesh_id) const {
 	IS_STORAGE_INIT(Ref<MultiMesh>());
-	Dictionary mesh_dict = _terrain->get_storage()->get_multimeshes().get(p_region_offset, Dictionary());
+	Dictionary mesh_dict = _terrain->get_storage()->get_multimeshes().get(p_region_loc, Dictionary());
 	Ref<MultiMesh> mm = mesh_dict.get(p_mesh_id, Ref<MultiMesh>());
-	LOG(DEBUG_CONT, "Retrieving MultiMesh at region: ", p_region_offset, " mesh_id: ", p_mesh_id, " : ", mm);
+	LOG(DEBUG_CONT, "Retrieving MultiMesh at region: ", p_region_loc, " mesh_id: ", p_mesh_id, " : ", mm);
 	return mm;
 }
 
 MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
-	return get_multimesh_instance(region_offset, p_mesh_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	return get_multimesh_instance(region_loc, p_mesh_id);
 }
 
-MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector2i &p_region_offset, const int p_mesh_id) const {
-	Vector3i key = Vector3i(p_region_offset.x, p_region_offset.y, p_mesh_id);
+MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector2i &p_region_loc, const int p_mesh_id) const {
+	Vector3i key = Vector3i(p_region_loc.x, p_region_loc.y, p_mesh_id);
 	MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmis[key]);
-	LOG(DEBUG_CONT, "Retrieving MultiMeshInstance3D at region: ", p_region_offset, " mesh_id: ", p_mesh_id, " : ", mmi);
+	LOG(DEBUG_CONT, "Retrieving MultiMeshInstance3D at region: ", p_region_loc, " mesh_id: ", p_mesh_id, " : ", mmi);
 	return mmi;
 }
 
@@ -649,12 +649,12 @@ void Terrain3DInstancer::print_multimesh_buffer(MultiMeshInstance3D *p_mmi) cons
 void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear_by_mesh", "mesh_id"), &Terrain3DInstancer::clear_by_mesh);
 	ClassDB::bind_method(D_METHOD("clear_by_region_id", "region_id", "mesh_id"), &Terrain3DInstancer::clear_by_region_id);
-	ClassDB::bind_method(D_METHOD("clear_by_offset", "region_offset", "mesh_id"), &Terrain3DInstancer::clear_by_offset);
+	ClassDB::bind_method(D_METHOD("clear_by_location", "region_loc", "mesh_id"), &Terrain3DInstancer::clear_by_location);
 	ClassDB::bind_method(D_METHOD("add_instances", "global_position", "params"), &Terrain3DInstancer::add_instances);
 	ClassDB::bind_method(D_METHOD("remove_instances", "global_position", "params"), &Terrain3DInstancer::remove_instances);
 	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()));
 	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(TypedArray<Color>()));
-	ClassDB::bind_method(D_METHOD("append_multimesh", "region_offset", "mesh_id", "transforms", "colors", "clear"), &Terrain3DInstancer::append_multimesh, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("append_multimesh", "region_loc", "mesh_id", "transforms", "colors", "clear"), &Terrain3DInstancer::append_multimesh, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
 	ClassDB::bind_method(D_METHOD("get_mmis"), &Terrain3DInstancer::get_mmis);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mesh_id", "mode"), &Terrain3DInstancer::set_cast_shadows);

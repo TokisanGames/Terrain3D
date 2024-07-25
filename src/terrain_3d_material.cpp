@@ -322,9 +322,9 @@ void Terrain3DMaterial::_update_regions() {
 		}
 	}
 
-	TypedArray<Vector2i> region_offsets = storage->get_region_offsets();
-	LOG(DEBUG_CONT, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
-	RS->material_set_param(_material, "_region_offsets", region_offsets);
+	TypedArray<Vector2i> region_locations = storage->get_region_locations();
+	LOG(DEBUG_CONT, "Region_locations size: ", region_locations.size(), " ", region_locations);
+	RS->material_set_param(_material, "_region_locations", region_locations);
 
 	real_t region_size = real_t(storage->get_region_size());
 	LOG(DEBUG_CONT, "Setting region size in material: ", region_size);

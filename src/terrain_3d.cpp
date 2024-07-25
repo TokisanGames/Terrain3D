@@ -61,7 +61,7 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
 		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
 	}
-	// Any map was regenerated or region offsets changed, update material
+	// Any map was regenerated or region locations changed, update material
 	if (!_storage->is_connected("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
 		LOG(DEBUG, "Connecting _storage::regions_changed signal to _material->_update_regions()");
 		_storage->connect("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
@@ -409,27 +409,27 @@ void Terrain3D::_update_collision() {
 		PackedRealArray map_data = PackedRealArray();
 		map_data.resize(shape_size * shape_size);
 
-		Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size;
-		Vector3 global_pos = Vector3(global_offset.x, 0.f, global_offset.y);
+		Vector2i global_loc = Vector2i(_storage->get_region_locations()[i]) * region_size;
+		Vector3 global_pos = Vector3(global_loc.x, 0.f, global_loc.y);
 
 		Ref<Image> map, map_x, map_z, map_xz;
 		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
 		map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
 		cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, i);
-		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
-		if (region >= 0) {
-			map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
-			cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+		int region_id = _storage->get_region_id(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
+		if (region_id >= 0) {
+			map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_id);
+			cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region_id);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
-		if (region >= 0) {
-			map_z = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
-			cmap_z = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+		region_id = _storage->get_region_id(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		if (region_id >= 0) {
+			map_z = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_id);
+			cmap_z = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region_id);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
-		if (region >= 0) {
-			map_xz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
-			cmap_xz = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+		region_id = _storage->get_region_id(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		if (region_id >= 0) {
+			map_xz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_id);
+			cmap_xz = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region_id);
 		}
 
 		for (int z = 0; z < shape_size; z++) {
@@ -547,12 +547,12 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 	if (!p_global_aabb.has_volume()) {
 		int32_t region_size = (int)_storage->get_region_size();
 
-		TypedArray<Vector2i> region_offsets = _storage->get_region_offsets();
-		for (int r = 0; r < region_offsets.size(); ++r) {
-			Vector2i region_offset = (Vector2i)region_offsets[r] * region_size;
+		TypedArray<Vector2i> region_locations = _storage->get_region_locations();
+		for (int r = 0; r < region_locations.size(); ++r) {
+			Vector2i region_loc = (Vector2i)region_locations[r] * region_size;
 
-			for (int32_t z = region_offset.y; z < region_offset.y + region_size; z += step) {
-				for (int32_t x = region_offset.x; x < region_offset.x + region_size; x += step) {
+			for (int32_t z = region_loc.y; z < region_loc.y + region_size; z += step) {
+				for (int32_t x = region_loc.x; x < region_loc.x + region_size; x += step) {
 					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
 				}
 			}
