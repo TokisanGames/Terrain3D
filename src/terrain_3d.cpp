@@ -844,6 +844,17 @@ void Terrain3D::set_collision_priority(const real_t p_priority) {
 	}
 }
 
+RID Terrain3D::get_collision_rid() const {
+	if (!_show_debug_collision) {
+		return _static_body;
+	} else {
+		if (_debug_static_body != nullptr) {
+			return _debug_static_body->get_rid();
+		}
+	}
+	return RID();
+}
+
 /**
  * Centers the terrain and LODs on a provided position. Y height is ignored.
  */
@@ -1294,6 +1305,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_mask"), &Terrain3D::get_collision_mask);
 	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &Terrain3D::set_collision_priority);
 	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
+	ClassDB::bind_method(D_METHOD("get_collision_rid"), &Terrain3D::get_collision_rid);
 
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Terrain3D::get_intersection);
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
