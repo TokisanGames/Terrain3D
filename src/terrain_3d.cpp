@@ -93,18 +93,11 @@ void Terrain3D::_initialize() {
 		_material->initialize(this);
 		_assets->initialize(this);
 		_instancer->initialize(this);
-		_setup_mouse_picking();
 		_build_meshes(_mesh_lods, _mesh_size);
 		_build_collision();
 		_initialized = true;
 	}
 	update_configuration_warnings();
-}
-
-void Terrain3D::__ready() {
-	_initialize();
-	set_as_top_level(true);
-	set_process(true);
 }
 
 /**
@@ -133,6 +126,10 @@ void Terrain3D::__process(const double p_delta) {
 }
 
 void Terrain3D::_setup_mouse_picking() {
+	if (!is_inside_tree()) {
+		LOG(ERROR, "Not inside the tree, skipping mouse setup");
+		return;
+	}
 	LOG(INFO, "Setting up mouse picker and get_intersection viewport, camera & screen quad");
 	_mouse_vp = memnew(SubViewport);
 	_mouse_vp->set_name("MouseViewport");
@@ -539,10 +536,7 @@ void Terrain3D::_destroy_collision() {
 }
 
 void Terrain3D::_destroy_instancer() {
-	if (_instancer != nullptr) {
-		_instancer->destroy();
-		memdelete_safely(_instancer);
-	}
+	memdelete_safely(_instancer);
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
@@ -636,7 +630,6 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 ///////////////////////////
 
 Terrain3D::Terrain3D() {
-	set_notify_transform(true);
 	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
 	for (int i = args.size() - 1; i >= 0; i--) {
 		String arg = args[i];
@@ -654,11 +647,6 @@ Terrain3D::Terrain3D() {
 			break;
 		}
 	}
-}
-
-Terrain3D::~Terrain3D() {
-	_destroy_instancer();
-	_destroy_collision();
 }
 
 void Terrain3D::set_debug_level(const int p_level) {
@@ -1129,68 +1117,76 @@ void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list
 // Protected Functions
 ///////////////////////////
 
+// Notifications are defined in individual classes: Object, Node, Node3D
+// Listed below in order of operation
 void Terrain3D::_notification(const int p_what) {
 	switch (p_what) {
-		case NOTIFICATION_READY: {
-			LOG(INFO, "NOTIFICATION_READY");
-			__ready();
-			break;
-		}
+			/// Startup notifications
 
-		case NOTIFICATION_PROCESS: {
-			__process(get_process_delta_time());
-			break;
-		}
-
-		case NOTIFICATION_PREDELETE: {
-			LOG(INFO, "NOTIFICATION_PREDELETE");
-			_clear_meshes();
-			_destroy_collision();
-			_destroy_instancer();
-			break;
-		}
-
-		case NOTIFICATION_ENTER_TREE: {
-			LOG(INFO, "NOTIFICATION_ENTER_TREE");
-			_initialize();
-			break;
-		}
-
-		case NOTIFICATION_EXIT_TREE: {
-			LOG(INFO, "NOTIFICATION_EXIT_TREE");
-			_clear_meshes();
-			_destroy_collision();
-			_destroy_mouse_picking();
+		case NOTIFICATION_POSTINITIALIZE: {
+			// Object initialized, before script is attached
+			LOG(INFO, "NOTIFICATION_POSTINITIALIZE");
 			break;
 		}
 
 		case NOTIFICATION_ENTER_WORLD: {
+			// Node3D registered to new World3D resource
+			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
 			_is_inside_world = true;
 			_update_mesh_instances();
 			break;
 		}
 
+		case NOTIFICATION_ENTER_TREE: {
+			// Node entered a SceneTree
+			// Sent on scene changes
+			LOG(INFO, "NOTIFICATION_ENTER_TREE");
+			set_as_top_level(true); // Don't inherit transforms from parent. Global only.
+			set_notify_transform(true);
+			_setup_mouse_picking();
+			_initialize();
+			set_process(true);
+			break;
+		}
+
+		case NOTIFICATION_READY: {
+			// Node is ready
+			LOG(INFO, "NOTIFICATION_READY");
+			break;
+		}
+
+			/// Game Loop notifications
+
+		case NOTIFICATION_PROCESS: {
+			// Node is processing one frame
+			__process(get_process_delta_time());
+			break;
+		}
+
 		case NOTIFICATION_TRANSFORM_CHANGED: {
+			// Node3D or parent transform changed
 			if (get_transform() != Transform3D()) {
 				set_transform(Transform3D());
 			}
 			break;
 		}
 
-		case NOTIFICATION_EXIT_WORLD: {
-			LOG(INFO, "NOTIFICATION_EXIT_WORLD");
-			_is_inside_world = false;
-			break;
-		}
-
 		case NOTIFICATION_VISIBILITY_CHANGED: {
+			// Node3D visibility changed
 			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
 			_update_mesh_instances();
 			break;
 		}
 
+		case NOTIFICATION_EXTENSION_RELOADED: {
+			// Object finished hot reloading
+			LOG(INFO, "NOTIFICATION_EXTENSION_RELOADED");
+			break;
+		}
+
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
+			// Editor Node is about to the current scene
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
 			if (!_storage.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
@@ -1211,8 +1207,47 @@ void Terrain3D::_notification(const int p_what) {
 		}
 
 		case NOTIFICATION_EDITOR_POST_SAVE: {
+			// Editor Node finished saving current scene
 			break;
 		}
+
+		case NOTIFICATION_CRASH: {
+			// Godot's crash handler reports engine is about to crash
+			// Only on desktop if the crash handler is enabled
+			LOG(WARN, "NOTIFICATION_CRASH");
+			break;
+		}
+
+			/// Shut down notifications
+
+		case NOTIFICATION_EXIT_TREE: {
+			// Node is about to exit a SceneTree
+			// Sent on scene changes
+			LOG(INFO, "NOTIFICATION_EXIT_TREE");
+			set_process(false);
+			_clear_meshes();
+			_destroy_collision();
+			_destroy_mouse_picking();
+			_destroy_instancer();
+			break;
+		}
+
+		case NOTIFICATION_EXIT_WORLD: {
+			// Node3D unregistered from current World3D
+			// Sent on scene changes
+			LOG(INFO, "NOTIFICATION_EXIT_WORLD");
+			_is_inside_world = false;
+			break;
+		}
+
+		case NOTIFICATION_PREDELETE: {
+			// Object is about to be deleted
+			LOG(INFO, "NOTIFICATION_PREDELETE");
+			break;
+		}
+
+		default:
+			break;
 	}
 }
 

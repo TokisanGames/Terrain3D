@@ -78,7 +78,6 @@ class Terrain3D : public Node3D {
 	real_t _collision_priority = 1.0f;
 
 	void _initialize();
-	void __ready();
 	void __process(const double p_delta);
 
 	void _setup_mouse_picking();
@@ -104,7 +103,7 @@ public:
 	static int debug_level;
 
 	Terrain3D();
-	~Terrain3D();
+	~Terrain3D() {}
 
 	// Terrain settings
 	String get_version() const { return _version; }
