@@ -154,6 +154,7 @@ public:
 	uint32_t get_collision_mask() const { return _collision_mask; };
 	void set_collision_priority(const real_t p_priority);
 	real_t get_collision_priority() const { return _collision_priority; }
+	RID get_collision_rid() const;
 
 	// Terrain methods
 	void snap(const Vector3 &p_cam_pos);
