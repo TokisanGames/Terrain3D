@@ -36,7 +36,7 @@ class Terrain3DInstancer : public Object {
 
 public:
 	Terrain3DInstancer() {}
-	~Terrain3DInstancer();
+	~Terrain3DInstancer() { destroy(); }
 
 	void initialize(Terrain3D *p_terrain);
 	void destroy();

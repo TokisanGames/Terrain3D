@@ -132,10 +132,6 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 // Public Functions
 ///////////////////////////
 
-Terrain3DInstancer::~Terrain3DInstancer() {
-	destroy();
-}
-
 void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 	if (p_terrain) {
 		_terrain = p_terrain;

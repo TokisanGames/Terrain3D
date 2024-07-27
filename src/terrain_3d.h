@@ -124,7 +124,6 @@ public:
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
 
-	void set_storage(Terrain3DStorage *p_storage);
 	Terrain3DStorage *get_storage() const { return _storage; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }

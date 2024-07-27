@@ -108,12 +108,12 @@ func _edit(p_object: Object) -> void:
 		terrain.set_plugin(self)
 		terrain.set_editor(editor)
 		ui.set_visible(true)
-		
-        # Get alerted when a new asset list is loaded
+
+		# Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
-        # Get alerted when the region map changes
+		# Get alerted when the region map changes
 		if not terrain.get_storage().region_map_changed.is_connected(update_region_grid):
 			terrain.get_storage().region_map_changed.connect(update_region_grid)
 		update_region_grid()

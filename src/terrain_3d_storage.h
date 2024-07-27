@@ -97,6 +97,7 @@ private:
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
+	// Dictionary[region_location:Vector2i] -> Terrain3DRegion
 	Dictionary _regions;
 
 	// Foliage Instancer contains MultiMeshes saved to disk
@@ -110,7 +111,7 @@ private:
 public:
 	Terrain3DStorage() {}
 	void initialize(Terrain3D *p_terrain);
-	~Terrain3DStorage();
+	~Terrain3DStorage() { _clear(); }
 
 	void set_height_range(const Vector2 &p_range);
 	Vector2 get_height_range() const { return _height_range; }
@@ -124,6 +125,7 @@ public:
 
 	// Regions
 	Dictionary get_regions() { return _regions; }
+	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc);
 	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
 	bool get_region_modified(const Vector2i &p_region_loc) const;
 
@@ -188,7 +190,7 @@ public:
 	Dictionary get_multimeshes(const TypedArray<int> &p_region_ids) const;
 
 	// File I/O
-	void save(const String &p_dir);
+	void save_directory(const String &p_dir);
 	void load_directory(const String &p_dir);
 
 	void save_region(const String &p_dir, const int p_region_id, const bool p_16_bit = false);
