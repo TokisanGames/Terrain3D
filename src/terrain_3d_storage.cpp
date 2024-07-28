@@ -36,7 +36,7 @@ void Terrain3DStorage::initialize(Terrain3D *p_terrain) {
 	}
 	LOG(INFO, "Initializing storage");
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
-	update_regions(true); // generate map arrays
+	update_maps(); // generate map arrays
 }
 
 Terrain3DStorage::~Terrain3DStorage() {
@@ -127,7 +127,7 @@ void Terrain3DStorage::set_region_locations(const TypedArray<Vector2i> &p_locati
 	LOG(INFO, "Setting _region_locations with array sized: ", p_locations.size());
 	_region_locations = p_locations;
 	_region_map_dirty = true;
-	update_regions();
+	update_maps();
 }
 
 /** Returns a region location given a global position*/
@@ -226,11 +226,11 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 		_generated_height_maps.clear();
 		_generated_control_maps.clear();
 		_generated_color_maps.clear();
-		update_regions();
+		update_maps();
 		notify_property_list_changed();
 		emit_changed();
 	} else {
-		update_regions();
+		update_maps();
 	}
 	return OK;
 }
@@ -261,30 +261,30 @@ void Terrain3DStorage::remove_region(const Vector3 &p_global_position, const boo
 		_generated_height_maps.clear();
 		_generated_control_maps.clear();
 		_generated_color_maps.clear();
-		update_regions();
+		update_maps();
 		notify_property_list_changed();
 		emit_changed();
 	} else {
-		update_regions();
+		update_maps();
 	}
 }
 
-void Terrain3DStorage::update_regions(const bool p_force_emit) {
-	bool force_emit = p_force_emit;
-
+void Terrain3DStorage::update_maps() {
+	bool any_changed = false;
 	if (_generated_height_maps.is_dirty()) {
 		LOG(DEBUG_CONT, "Regenerating height layered texture from ", _height_maps.size(), " maps");
 		_generated_height_maps.create(_height_maps);
-		force_emit = true;
 		_modified = true;
+		any_changed = true;
 		emit_signal("height_maps_changed");
 	}
 
 	if (_generated_control_maps.is_dirty()) {
 		LOG(DEBUG_CONT, "Regenerating control layered texture from ", _control_maps.size(), " maps");
 		_generated_control_maps.create(_control_maps);
-		force_emit = true;
 		_modified = true;
+		any_changed = true;
+		emit_signal("control_maps_changed");
 	}
 
 	if (_generated_color_maps.is_dirty()) {
@@ -294,8 +294,9 @@ void Terrain3DStorage::update_regions(const bool p_force_emit) {
 			map->generate_mipmaps();
 		}
 		_generated_color_maps.create(_color_maps);
-		force_emit = true;
 		_modified = true;
+		any_changed = true;
+		emit_signal("color_maps_changed");
 	}
 
 	if (_region_map_dirty) {
@@ -309,13 +310,12 @@ void Terrain3DStorage::update_regions(const bool p_force_emit) {
 				_region_map[map_index] = i + 1; // Begin at 1 since 0 = no region
 			}
 		}
-		force_emit = true;
 		_modified = true;
+		any_changed = true;
+		emit_signal("region_map_changed");
 	}
-
-	// Emit if requested or changes were made
-	if (force_emit) {
-		emit_signal("regions_changed");
+	if (any_changed) {
+		emit_signal("maps_changed");
 	}
 }
 
@@ -664,7 +664,7 @@ void Terrain3DStorage::force_update_maps(const MapType p_map_type) {
 			_generated_color_maps.clear();
 			break;
 	}
-	update_regions();
+	update_maps();
 }
 
 void Terrain3DStorage::set_multimeshes(const Dictionary &p_multimeshes) {
@@ -1146,9 +1146,12 @@ void Terrain3DStorage::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_maps", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Image"), ro_flags), "set_color_maps", "get_color_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
 
+	ADD_SIGNAL(MethodInfo("maps_changed"));
+	ADD_SIGNAL(MethodInfo("region_map_changed"));
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
+	ADD_SIGNAL(MethodInfo("control_maps_changed"));
+	ADD_SIGNAL(MethodInfo("color_maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_size_changed"));
-	ADD_SIGNAL(MethodInfo("regions_changed"));
 	ADD_SIGNAL(MethodInfo("maps_edited", PropertyInfo(Variant::AABB, "edited_area")));
 	ADD_SIGNAL(MethodInfo("multimeshes_changed"));
 }

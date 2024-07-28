@@ -51,25 +51,25 @@ void Terrain3D::_initialize() {
 	}
 
 	// Connect signals
-	// Texture assets changed, update material
-	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
-		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
-		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
-	}
 	// Region size changed, update material
-	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
+	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
 		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
-		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
+		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
-	// Any map was regenerated or region locations changed, update material
-	if (!_storage->is_connected("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
-		LOG(DEBUG, "Connecting _storage::regions_changed signal to _material->_update_regions()");
-		_storage->connect("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
+	// Any map was regenerated or regions changed, update material
+	if (!_storage->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
+		LOG(DEBUG, "Connecting _storage::maps_changed signal to _material->_update_maps()");
+		_storage->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
 	// Height map was regenerated - update aabbs - Probably remove and just use maps_edited
 	if (!_storage->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
 		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
+	}
+	// Texture assets changed, update material
+	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
+		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
+		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
 	// MeshAssets changed, update instancer
 	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1))) {

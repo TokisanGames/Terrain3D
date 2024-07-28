@@ -72,7 +72,7 @@ private:
 	String _generate_shader_code() const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
-	void _update_regions();
+	void _update_maps();
 	void _update_texture_arrays();
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }

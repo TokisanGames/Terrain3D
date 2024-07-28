@@ -103,13 +103,13 @@ func _edit(p_object: Object) -> void:
 		ui.set_visible(true)
 		terrain.set_meta("_edit_lock_", true)
 		
-		# Connect to new Assets resource
+        # Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
-		# Connect to new Storage resource
-		if not terrain.storage_changed.is_connected(update_region_grid):
-			terrain.storage_changed.connect(update_region_grid)
+        # Get alerted when the region map changes
+		if not terrain.get_storage().region_map_changed.is_connected(update_region_grid):
+			terrain.get_storage().region_map_changed.connect(update_region_grid)
 		update_region_grid()
 	else:
 		_clear()
@@ -124,7 +124,7 @@ func _edit(p_object: Object) -> void:
 	
 func _clear() -> void:
 	if is_terrain_valid():
-		terrain.storage_changed.disconnect(update_region_grid)
+		terrain.get_storage().region_map_changed.disconnect(update_region_grid)
 		
 		terrain.clear_gizmos()
 		terrain = null
