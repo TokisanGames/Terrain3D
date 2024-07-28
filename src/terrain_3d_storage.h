@@ -138,11 +138,8 @@ public:
 	int get_region_count() const { return _region_locations.size(); }
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
 	Vector2i get_region_location_from_id(const int p_region_id) const;
-	Vector2i get_region_location_from_string(const String &p_filename) const;
 	int get_region_id(const Vector3 &p_global_position) const;
 	int get_region_id_from_location(const Vector2i &p_region_loc) const;
-	static String get_region_filename(const Vector2i &p_region_loc);
-	String get_region_filename_from_id(const int p_region_id) const;
 	bool has_region(const Vector3 &p_global_position) const { return get_region_id(p_global_position) != -1; }
 	Error add_region(const Vector3 &p_global_position,
 			const TypedArray<Image> &p_images = TypedArray<Image>(),
@@ -193,9 +190,8 @@ public:
 	void save_directory(const String &p_dir);
 	void load_directory(const String &p_dir);
 
-	void save_region(const String &p_dir, const int p_region_id, const bool p_16_bit = false);
-	void load_region(const String &p_dir, const int p_region_id);
-	void load_region_by_location(const String &p_path, const Vector2i &p_region_loc);
+	void save_region(const String &p_dir, const Vector2i &p_region_loc, const bool p_16_bit = false);
+	void load_region(const String &p_dir, const Vector2i &p_region_loc);
 	void register_region(const Ref<Terrain3DRegion> &p_region, const Vector2i &p_region_loc);
 	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
 

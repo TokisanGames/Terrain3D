@@ -154,21 +154,6 @@ Vector2i Terrain3DStorage::get_region_location_from_id(const int p_region_id) co
 	return _region_locations[p_region_id];
 }
 
-// Expects a filename in a String like: "terrain3d-01_02.res" which returns (-1, 2)
-Vector2i Terrain3DStorage::get_region_location_from_string(const String &p_filename) const {
-	String working_string = p_filename.trim_suffix(".res");
-	String y_str = working_string.right(3).replace("_", "");
-	working_string = working_string.erase(working_string.length() - 3, 3);
-	String x_str = working_string.right(3).replace("_", "");
-	if (!x_str.is_valid_int() || !y_str.is_valid_int()) {
-		LOG(ERROR, "Malformed filename at ", p_filename, ": got x ", x_str, " y ", y_str);
-		return Vector2i(INT32_MIN, INT32_MIN);
-	}
-	int x = x_str.to_int();
-	int y = y_str.to_int();
-	return Vector2i(x, y);
-}
-
 int Terrain3DStorage::get_region_id(const Vector3 &p_global_position) const {
 	Vector2i region_loc = get_region_location(p_global_position);
 	return get_region_id_from_location(region_loc);
@@ -184,27 +169,6 @@ int Terrain3DStorage::get_region_id_from_location(const Vector2i &p_region_loc) 
 		}
 	}
 	return -1;
-}
-
-String Terrain3DStorage::get_region_filename(const Vector2i &p_region_loc) {
-	const String POS_REGION_FORMAT = "_%02d";
-	const String NEG_REGION_FORMAT = "%03d";
-	String x_str, y_str;
-	if (p_region_loc.x >= 0) {
-		x_str = vformat(POS_REGION_FORMAT, p_region_loc.x);
-	} else {
-		x_str = vformat(NEG_REGION_FORMAT, p_region_loc.x);
-	}
-	if (p_region_loc.y >= 0) {
-		y_str = vformat(POS_REGION_FORMAT, p_region_loc.y);
-	} else {
-		y_str = vformat(NEG_REGION_FORMAT, p_region_loc.y);
-	}
-	return "terrain3d" + x_str + y_str + ".res";
-}
-
-String Terrain3DStorage::get_region_filename_from_id(const int p_region_id) const {
-	return get_region_filename(_region_locations[p_region_id]);
 }
 
 /** Adds a region to the terrain
@@ -287,7 +251,7 @@ void Terrain3DStorage::remove_region(const Vector3 &p_global_position, const boo
 
 void Terrain3DStorage::remove_region_by_id(const int p_region_id, const bool p_update, const String &p_path) {
 	ERR_FAIL_COND_MSG(p_region_id == -1 || p_region_id >= _region_locations.size(), "Region id out of bounds.");
-	String fname = get_region_filename_from_id(p_region_id);
+	String fname = Util::location_to_filename(_region_locations[p_region_id]);
 	LOG(INFO, "Removing region at: ", p_region_id);
 	_region_locations.remove_at(p_region_id);
 	LOG(DEBUG, "Removed region_locations, new size: ", _region_locations.size());
@@ -371,31 +335,23 @@ void Terrain3DStorage::update_maps() {
 	}
 }
 
-void Terrain3DStorage::save_region(const String &p_dir, const int p_region_id, const bool p_16_bit) {
-	Vector2i region_loc = _region_locations[p_region_id];
-	Ref<Terrain3DRegion> region = _regions[region_loc];
+void Terrain3DStorage::save_region(const String &p_dir, const Vector2i &p_region_loc, const bool p_16_bit) {
+	Ref<Terrain3DRegion> region = _regions[p_region_loc];
+	// looks like get isn't required
 	if (region.is_null()) {
-		LOG(ERROR, "No region at: ", region_loc);
+		LOG(ERROR, "No region at: ", p_region_loc);
 		// need to create it
 		return;
 	}
-	String fname = get_region_filename(region_loc);
+	String fname = Util::location_to_filename(p_region_loc);
 	String path = p_dir + String("/") + fname;
-	LOG(INFO, "Saving file: ", fname, " region id: ", p_region_id, " loc: ", region_loc);
+	LOG(INFO, "Saving file: ", fname, " location: ", p_region_loc);
 	region->save(path, p_16_bit);
 }
 
-void Terrain3DStorage::load_region(const String &p_path, const int p_region_id) {
-	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
-		LOG(DEBUG, "Attempted to load a region with an invalid id: ", p_region_id);
-		return;
-	}
-	load_region_by_location(p_path, _region_locations[p_region_id]);
-}
-
-void Terrain3DStorage::load_region_by_location(const String &p_path, const Vector2i &p_region_loc) {
+void Terrain3DStorage::load_region(const String &p_dir, const Vector2i &p_region_loc) {
 	LOG(INFO, "Loading region from location ", p_region_loc);
-	String path = p_path + String("/") + get_region_filename(p_region_loc);
+	String path = p_dir + String("/") + Util::location_to_filename(p_region_loc);
 	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path,
 			"Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
 	if (region.is_null()) {
@@ -660,10 +616,7 @@ real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
 	real_t step = _terrain->get_mesh_vertex_spacing();
 	pos.y = 0.f;
 	// Round to nearest vertex
-	Vector3 pos_round = Vector3(
-			round_multiple(pos.x, step),
-			0.f,
-			round_multiple(pos.z, step));
+	Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
 	// If requested position is close to a vertex, return its height
 	if ((pos - pos_round).length() < 0.01f) {
 		return get_pixel(TYPE_HEIGHT, pos).r;
@@ -867,8 +820,8 @@ Dictionary Terrain3DStorage::get_multimeshes(const TypedArray<int> &p_region_ids
 
 void Terrain3DStorage::save_directory(const String &p_dir) {
 	LOG(INFO, "Saving data files to ", p_dir);
-	for (int i = 0; i < _height_maps.size(); i++) {
-		save_region(p_dir, i, _terrain->get_save_16_bit());
+	for (int i = 0; i < _region_locations.size(); i++) {
+		save_region(p_dir, _region_locations[i], _terrain->get_save_16_bit());
 	}
 }
 
@@ -1153,8 +1106,8 @@ void Terrain3DStorage::load_directory(const String &p_dir) {
 			LOG(ERROR, "Region file ", path, " failed to load");
 			continue;
 		}
-		Vector2i loc = get_region_location_from_string(fname);
-		if (loc == Vector2i(INT32_MIN, INT32_MIN)) {
+		Vector2i loc = Util::filename_to_location(fname);
+		if (loc.x == INT32_MAX) {
 			LOG(ERROR, "Cannot get region location from file name: ", fname);
 			continue;
 		}
@@ -1282,14 +1235,11 @@ void Terrain3DStorage::_bind_methods() {
 			DEFVAL(TypedArray<Image>()), DEFVAL(true), DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("remove_region", "global_position", "update"), &Terrain3DStorage::remove_region, DEFVAL(true));
 
-	ClassDB::bind_method(D_METHOD("save_region", "path", "region_id"), &Terrain3DStorage::save_region);
-	ClassDB::bind_method(D_METHOD("load_region", "path", "region_id"), &Terrain3DStorage::load_region);
-	ClassDB::bind_method(D_METHOD("load_region_by_location", "path", "region_location"), &Terrain3DStorage::load_region_by_location);
-	ClassDB::bind_method(D_METHOD("register_region", "region", "region_location"), &Terrain3DStorage::register_region);
-	ClassDB::bind_method(D_METHOD("get_region_location_from_string", "filename"), &Terrain3DStorage::get_region_location_from_string);
-	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_region_filename", "region_location"), &Terrain3DStorage::get_region_filename);
-	ClassDB::bind_method(D_METHOD("get_region_filename_from_id", "region_id"), &Terrain3DStorage::get_region_filename_from_id);
+	ClassDB::bind_method(D_METHOD("save_directory", "directory"), &Terrain3DStorage::save_directory);
 	ClassDB::bind_method(D_METHOD("load_directory", "directory"), &Terrain3DStorage::load_directory);
+	ClassDB::bind_method(D_METHOD("save_region", "directory", "region_location"), &Terrain3DStorage::save_region);
+	ClassDB::bind_method(D_METHOD("load_region", "directory", "region_location"), &Terrain3DStorage::load_region);
+	ClassDB::bind_method(D_METHOD("register_region", "region", "region_location"), &Terrain3DStorage::register_region);
 
 	ClassDB::bind_method(D_METHOD("set_map_region", "map_type", "region_id", "image"), &Terrain3DStorage::set_map_region);
 	ClassDB::bind_method(D_METHOD("get_map_region", "map_type", "region_id"), &Terrain3DStorage::get_map_region);
@@ -1320,7 +1270,6 @@ void Terrain3DStorage::_bind_methods() {
 	//ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DStorage::set_multimeshes);
 	//ClassDB::bind_method(D_METHOD("get_multimeshes"), &Terrain3DStorage::get_multimeshes);
 
-	ClassDB::bind_method(D_METHOD("save_directory", "path"), &Terrain3DStorage::save_directory);
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);

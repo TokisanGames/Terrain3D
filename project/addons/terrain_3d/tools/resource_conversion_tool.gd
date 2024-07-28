@@ -51,7 +51,7 @@ static func convert_storage(path:String) -> void:
 	var save_dir:String = path.substr(0, path.rfind("/"))
 	for i:int in regions.size():
 		var region:Terrain3DRegion = regions[i]
-		var fname:String = Terrain3DStorage.get_region_filename(storage.region_locations[i])
+		var fname:String = Terrain3DUtil.location_to_filename(storage.region_locations[i])
 		ResourceSaver.save(region, save_dir + "/" + fname)
 
 
