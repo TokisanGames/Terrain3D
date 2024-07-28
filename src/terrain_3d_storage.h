@@ -15,6 +15,7 @@ using namespace godot;
 class Terrain3DStorage : public Object {
 	GDCLASS(Terrain3DStorage, Object);
 	CLASS_NAME();
+	friend Terrain3D;
 
 public: // Constants
 	static inline const real_t CURRENT_VERSION = 0.92f;
@@ -69,6 +70,7 @@ private:
 	// Storage Settings & flags
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
+	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
 	bool _loading = false; // tracking when we're loading so we don't add_region w/ update
 
 	// TODO: Should be in Terrain3D or per region so its saved

@@ -39,6 +39,7 @@ void Terrain3DStorage::initialize(Terrain3D *p_terrain) {
 	}
 	LOG(INFO, "Initializing storage");
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
+	_mesh_vertex_spacing = _terrain->get_mesh_vertex_spacing();
 	if (!_terrain->get_storage_directory().is_empty()) {
 		load_directory(_terrain->get_storage_directory());
 	}
@@ -139,10 +140,9 @@ void Terrain3DStorage::set_region_locations(const TypedArray<Vector2i> &p_locati
 	update_maps();
 }
 
-/** Returns a region location given a global position*/
+/** Returns a region location given a global position. No bounds checking*/
 Vector2i Terrain3DStorage::get_region_location(const Vector3 &p_global_position) const {
-	IS_INIT_MESG("Storage not initialized", Vector2i());
-	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	return Vector2i((Vector2(descaled_position.x, descaled_position.z) / real_t(_region_size)).floor());
 }
 
@@ -192,7 +192,7 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 		if (time - _last_region_bounds_error > 1000) {
 			_last_region_bounds_error = time;
 			LOG(ERROR, "Specified position outside of maximum region map size: +/-",
-					real_t((REGION_MAP_SIZE / 2) * _region_size) * _terrain->get_mesh_vertex_spacing());
+					real_t((REGION_MAP_SIZE / 2) * _region_size) * _mesh_vertex_spacing);
 		}
 		return FAILED;
 	}
@@ -405,7 +405,7 @@ TypedArray<int> Terrain3DStorage::get_regions_under_aabb(const AABB &p_aabb) {
 			real_t y = start.y + godot::Math::min((real_t)(j * _region_size), size_y);
 			int region_id = get_region_id(Vector3(x, 0, y));
 			LOG(INFO, "Region id ", region_id, " location ", Vector3(x, 0, y));
-			// If found, append to array
+			// If found, push_back to array
 			if (region_id != -1) {
 				found.push_back(region_id);
 			}
@@ -563,7 +563,6 @@ TypedArray<Image> Terrain3DStorage::get_maps_copy(const MapType p_map_type, cons
 }
 
 void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel) {
-	IS_INIT_MESG("Storage not initialized", VOID);
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return;
@@ -574,7 +573,7 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 	}
 	Vector2i region_loc = _region_locations[region_id];
 	Vector2i global_loc = region_loc * _region_size;
-	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(
 			Vector2(descaled_position.x - global_loc.x,
 					descaled_position.z - global_loc.y)
@@ -585,7 +584,6 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 }
 
 Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const {
-	IS_INIT_MESG("Storage not initialized", COLOR_NAN);
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return COLOR_NAN;
@@ -596,7 +594,7 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 	}
 	Vector2i region_loc = _region_locations[region_id];
 	Vector2i global_loc = region_loc * _region_size;
-	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(
 			Vector2(descaled_position.x - global_loc.x,
 					descaled_position.z - global_loc.y)
@@ -607,12 +605,11 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 }
 
 real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
-	IS_INIT_MESG("Storage not initialized", NAN);
 	if (is_hole(get_control(p_global_position))) {
 		return NAN;
 	}
 	Vector3 pos = p_global_position;
-	real_t step = _terrain->get_mesh_vertex_spacing();
+	const real_t &step = _mesh_vertex_spacing;
 	pos.y = 0.f;
 	// Round to nearest vertex
 	Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
@@ -644,38 +641,43 @@ real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
  * value of .3-.5, otherwise it's the base texture.
  **/
 Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) const {
-	IS_INIT_MESG("Storage not initialized", Vector3(NAN, NAN, NAN););
+	// Verify in a region
 	int region_id = get_region_id(p_global_position);
 	if (region_id < 0) {
-		// Not in a region
 		return Vector3(NAN, NAN, NAN);
 	}
+
+	// Verify not in a hole
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // 32-bit float, not double/real
-	Ref<Terrain3DMaterial> t_material = _terrain->get_material();
-	bool auto_enabled = t_material->get_auto_shader();
-	bool control_auto = is_auto(src);
-	uint32_t base_id;
-	uint32_t overlay_id;
-	real_t blend;
-	// Autoshader is enabled, and is enabled at the current location.
-	if (auto_enabled && control_auto) {
-		real_t auto_slope = real_t(t_material->get_shader_param("auto_slope")) * 2.f - 1.f;
-		real_t auto_height_reduction = real_t(t_material->get_shader_param("auto_height_reduction"));
-		real_t height = get_height(p_global_position);
-		Vector3 normal = get_normal(p_global_position);
-		base_id = t_material->get_shader_param("auto_base_texture");
-		overlay_id = t_material->get_shader_param("auto_overlay_texture");
-		blend = CLAMP(
-				vec3_dot(Vector3(0.f, 1.f, 0.f),
-						normal * auto_slope * 2.f - Vector3(auto_slope, auto_slope, auto_slope)) -
-						auto_height_reduction * .01f * height,
-				0.f, 1.f);
-		// Return control map values.
-	} else {
-		base_id = get_base(src);
-		overlay_id = get_overlay(src);
-		blend = real_t(get_blend(src)) / 255.0f;
+	if (is_hole(src)) {
+		return Vector3(NAN, NAN, NAN);
 	}
+
+	// If material available, autoshader enabled, and pixel set to auto
+	if (_terrain != nullptr) {
+		Ref<Terrain3DMaterial> t_material = _terrain->get_material();
+		bool auto_enabled = t_material->get_auto_shader();
+		bool control_auto = is_auto(src);
+		if (auto_enabled && control_auto) {
+			real_t auto_slope = real_t(t_material->get_shader_param("auto_slope")) * 2.f - 1.f;
+			real_t auto_height_reduction = real_t(t_material->get_shader_param("auto_height_reduction"));
+			real_t height = get_height(p_global_position);
+			Vector3 normal = get_normal(p_global_position);
+			uint32_t base_id = t_material->get_shader_param("auto_base_texture");
+			uint32_t overlay_id = t_material->get_shader_param("auto_overlay_texture");
+			real_t blend = CLAMP(
+					vec3_dot(Vector3(0.f, 1.f, 0.f),
+							normal * auto_slope * 2.f - Vector3(auto_slope, auto_slope, auto_slope)) -
+							auto_height_reduction * .01f * height,
+					0.f, 1.f);
+			return Vector3(real_t(base_id), real_t(overlay_id), blend);
+		}
+	}
+
+	// Else, just get textures from control map
+	uint32_t base_id = get_base(src);
+	uint32_t overlay_id = get_overlay(src);
+	real_t blend = real_t(get_blend(src)) / 255.0f;
 	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
@@ -861,17 +863,16 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
 		return;
 	}
 
-	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
-	Vector3 descaled_position = p_global_position / vertex_spacing;
+	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
 	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
 	if ((abs(descaled_position.x) > max_dimension) || (abs(descaled_position.z) > max_dimension)) {
-		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * vertex_spacing);
+		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _mesh_vertex_spacing);
 		return;
 	}
 	if ((descaled_position.x + img_size.x > max_dimension) ||
 			(descaled_position.z + img_size.y > max_dimension)) {
 		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -(img_size * vertex_spacing) / 2.f, " to center");
+				". Try ", -(img_size * _mesh_vertex_spacing) / 2.f, " to center");
 		return;
 	}
 
@@ -938,7 +939,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
 			}
 			// Add the heightmap slice and only regenerate on the last one
 			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y);
-			add_region(position * vertex_spacing, images, (x == slices_width - 1 && y == slices_height - 1));
+			add_region(position * _mesh_vertex_spacing, images, (x == slices_width - 1 && y == slices_height - 1));
 		}
 	} // for y < slices_height, x < slices_width
 }
@@ -1130,7 +1131,6 @@ void Terrain3DStorage::load_directory(const String &p_dir) {
  * p_global_position: X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
  */
 Vector3 Terrain3DStorage::get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const {
-	IS_INIT_MESG("Storage not initialized", Vector3());
 	LOG(INFO, "Calculating vertex location");
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 	real_t height = 0.0f;
@@ -1147,7 +1147,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(const int32_t p_lod, const HeightFilte
 			height = get_height(p_global_position);
 			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
 				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _terrain->get_mesh_vertex_spacing();
+					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _mesh_vertex_spacing;
 					if (is_hole(get_control(position))) {
 						height = NAN;
 						break;
@@ -1164,15 +1164,13 @@ Vector3 Terrain3DStorage::get_mesh_vertex(const int32_t p_lod, const HeightFilte
 }
 
 Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) const {
-	IS_INIT_MESG("Storage not initialized", Vector3());
 	if (get_region_id(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
 	}
-	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
 	real_t height = get_height(p_global_position);
-	real_t u = height - get_height(p_global_position + Vector3(vertex_spacing, 0.0f, 0.0f));
-	real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, vertex_spacing));
-	Vector3 normal = Vector3(u, vertex_spacing, v);
+	real_t u = height - get_height(p_global_position + Vector3(_mesh_vertex_spacing, 0.0f, 0.0f));
+	real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, _mesh_vertex_spacing));
+	Vector3 normal = Vector3(u, _mesh_vertex_spacing, v);
 	normal.normalize();
 	return normal;
 }

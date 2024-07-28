@@ -682,6 +682,7 @@ void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
 		_destroy_collision();
 		_destroy_instancer();
 		_initialize();
+		_storage->_mesh_vertex_spacing = spacing;
 	}
 	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
