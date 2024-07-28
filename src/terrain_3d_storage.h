@@ -73,7 +73,7 @@ private:
 	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
 	bool _loading = false; // tracking when we're loading so we don't add_region w/ update
 
-	// TODO: Should be in Terrain3D so its saved
+	// TODO: Should be in Terrain3D or per region so its saved
 	Vector2 _height_range = Vector2(0.f, 0.f);
 
 	// Work data
@@ -191,10 +191,10 @@ public:
 	// File I/O
 	void save_directory(const String &p_dir);
 	void load_directory(const String &p_dir);
-
 	void save_region(const String &p_dir, const Vector2i &p_region_loc, const bool p_16_bit = false);
 	void load_region(const String &p_dir, const Vector2i &p_region_loc);
-	void register_region(const Ref<Terrain3DRegion> &p_region, const Vector2i &p_region_loc);
+
+	void register_region(const Ref<Terrain3DRegion> &p_region);
 	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
 
 	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = Vector3(0.f, 0.f, 0.f),

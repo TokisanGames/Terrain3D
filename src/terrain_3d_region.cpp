@@ -47,7 +47,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		path = get_path();
 	}
 	set_version(Terrain3DStorage::CURRENT_VERSION);
-	LOG(INFO, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _region_loc, " to ", path);
+	LOG(INFO, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", path);
 
 	Error err;
 	if (p_16_bit) {
@@ -76,8 +76,6 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_version"), &Terrain3DRegion::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DRegion::get_version);
-	ClassDB::bind_method(D_METHOD("is_modified"), &Terrain3DRegion::is_modified);
-	ClassDB::bind_method(D_METHOD("get_region_loc"), &Terrain3DRegion::get_region_loc);
 
 	ClassDB::bind_method(D_METHOD("set_height_map", "map"), &Terrain3DRegion::set_height_map);
 	ClassDB::bind_method(D_METHOD("get_height_map"), &Terrain3DRegion::get_height_map);
@@ -90,9 +88,9 @@ void Terrain3DRegion::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("save", "path", "16-bit"), &Terrain3DRegion::save, DEFVAL(""), DEFVAL(false));
 
-	// These two show what's on the disk (defaults) not what is in memory, so hide them
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "", "is_modified");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "", "get_region_loc");
+	ClassDB::bind_method(D_METHOD("is_modified"), &Terrain3DRegion::is_modified);
+	ClassDB::bind_method(D_METHOD("set_location"), &Terrain3DRegion::set_location);
+	ClassDB::bind_method(D_METHOD("get_location"), &Terrain3DRegion::get_location);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
@@ -100,4 +98,8 @@ void Terrain3DRegion::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "controlmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "colormap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_color_map", "get_color_map");
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
+
+	// The inspector only shows what's on disk, not what is in memory, so hide them. Being generated, they only show defaults
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "", "is_modified");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_location", "get_location");
 }
