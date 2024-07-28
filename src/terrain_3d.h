@@ -173,7 +173,7 @@ public:
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
 
-	// Misc
+	// Godot Callbacks
 	PackedStringArray _get_configuration_warnings() const override;
 
 	// DEPRECATED 0.9.2 - Remove 0.9.3+

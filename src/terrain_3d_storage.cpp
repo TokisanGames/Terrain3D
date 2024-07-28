@@ -358,29 +358,28 @@ void Terrain3DStorage::load_region(const String &p_dir, const Vector2i &p_region
 		LOG(ERROR, "Could not load region at ", path, " at location", p_region_loc);
 		return;
 	}
-	register_region(region, p_region_loc);
+	register_region(region);
 }
 
-void Terrain3DStorage::register_region(const Ref<Terrain3DRegion> &p_region, const Vector2i &p_region_loc) {
-	Vector3 global_position = Vector3(_region_size * p_region_loc.x, 0.0f, _region_size * p_region_loc.y);
+void Terrain3DStorage::register_region(const Ref<Terrain3DRegion> &p_region) {
+	Vector3 global_position = Vector3(p_region->get_location().x, 0.0f, p_region->get_location().y) * _region_size;
 	TypedArray<Image> maps = TypedArray<Image>();
 	maps.resize(3);
 	if (p_region->get_height_map().is_valid()) {
-		maps[0] = p_region->get_height_map()->duplicate();
+		maps[0] = p_region->get_height_map();
 	}
 	if (p_region->get_control_map().is_valid()) {
-		maps[1] = p_region->get_control_map()->duplicate();
+		maps[1] = p_region->get_control_map();
 	}
 	if (p_region->get_color_map().is_valid()) {
-		maps[2] = p_region->get_color_map()->duplicate();
+		maps[2] = p_region->get_color_map();
 	}
 	// 3 - Add to region map
 	add_region(global_position, maps);
 
 	// Store region
-	p_region->set_region_loc(p_region_loc);
-	LOG(INFO, "Registered region ", p_region->get_path(), " at ", p_region->get_region_loc(), " - ", p_region_loc);
-	_regions[p_region_loc] = p_region;
+	LOG(INFO, "Registered region ", p_region->get_path(), " at ", p_region->get_location());
+	_regions[p_region->get_location()] = p_region;
 }
 
 TypedArray<int> Terrain3DStorage::get_regions_under_aabb(const AABB &p_aabb) {
@@ -1090,10 +1089,11 @@ void Terrain3DStorage::load_directory(const String &p_dir) {
 		LOG(ERROR, "Cannot read Terrain3D data directory: ", p_dir);
 		return;
 	}
-	LOG(INFO, "Loading region files from ", p_dir);
 	_clear();
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
-	_loading = true;
+	_loading = true; // don't update until done
+
+	LOG(INFO, "Loading region files from ", p_dir);
 	PackedStringArray files = da->get_files();
 	for (int i = 0; i < files.size(); i++) {
 		String fname = files[i];
@@ -1114,9 +1114,9 @@ void Terrain3DStorage::load_directory(const String &p_dir) {
 			continue;
 		}
 		LOG(DEBUG, "Region version: ", region->get_version(), " location: ", loc);
-		region->set_region_loc(loc);
+		region->set_location(loc);
 		region->set_version(CURRENT_VERSION); // Sends upgrade warning if old version
-		register_region(region, loc);
+		register_region(region);
 	}
 	_loading = false;
 	force_update_maps();
