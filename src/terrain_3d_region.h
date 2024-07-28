@@ -12,24 +12,22 @@ class Terrain3DRegion : public Resource {
 	CLASS_NAME();
 
 private:
+	// Saved data
 	real_t _version = 0.8f; // Set to first version to ensure Godot always upgrades this
-	bool _modified = false;
-	Vector2i _region_loc = Vector2i(INT32_MIN, INT32_MIN);
 	// Maps
 	Ref<Image> _height_map;
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
-	// Instancer MultiMeshes saved to disk
 	// Dictionary[mesh_id:int] -> MultiMesh
 	Dictionary _multimeshes;
+
+	// Workind data not saved to disk
+	Vector2i _location = Vector2i(INT32_MAX, INT32_MAX);
+	bool _modified = false;
 
 public:
 	void set_version(const real_t p_version);
 	real_t get_version() const { return _version; }
-	void set_modified(const bool p_modified) { _modified = p_modified; }
-	bool is_modified() const { return _modified; }
-	void set_region_loc(const Vector2i &p_region_loc) { _region_loc = p_region_loc; }
-	Vector2i get_region_loc() const { return _region_loc; }
 
 	// Maps
 	void set_height_map(const Ref<Image> &p_map);
@@ -45,6 +43,12 @@ public:
 
 	// File I/O
 	Error save(const String &p_path = "", const bool p_16_bit = false);
+
+	// Working
+	void set_modified(const bool p_modified) { _modified = p_modified; }
+	bool is_modified() const { return _modified; }
+	void set_location(const Vector2i &p_location) { _location = p_location; }
+	Vector2i get_location() const { return _location; }
 
 protected:
 	static void _bind_methods();
