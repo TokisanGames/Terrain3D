@@ -142,7 +142,7 @@ public:
 	bool has_region(const Vector3 &p_global_position) const { return get_region_id(p_global_position) != -1; }
 	Error add_region(const Vector3 &p_global_position, const TypedArray<Image> &p_images = TypedArray<Image>(), const bool p_update = true);
 	void remove_region(const Vector3 &p_global_position, const bool p_update = true);
-	void update_regions(const bool p_force_emit = false);
+	void update_maps();
 
 	// Maps
 	void set_map_region(const MapType p_map_type, const int p_region_id, const Ref<Image> &p_image);

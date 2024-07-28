@@ -294,9 +294,9 @@ void Terrain3DMaterial::_update_shader() {
 	notify_property_list_changed();
 }
 
-void Terrain3DMaterial::_update_regions() {
+void Terrain3DMaterial::_update_maps() {
 	IS_STORAGE_INIT(VOID);
-	LOG(DEBUG_CONT, "Updating region maps in shader");
+	LOG(DEBUG_CONT, "Updating maps in shader");
 
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	RS->material_set_param(_material, "_height_maps", storage->get_height_maps_rid());
@@ -389,7 +389,7 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	_material = RS->material_create();
 	_shader.instantiate();
 	_update_shader();
-	_update_regions();
+	_update_maps();
 }
 
 Terrain3DMaterial::~Terrain3DMaterial() {
@@ -400,7 +400,7 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 
 void Terrain3DMaterial::update() {
 	_update_shader();
-	_update_regions();
+	_update_maps();
 }
 
 void Terrain3DMaterial::set_world_background(const WorldBackground p_background) {
