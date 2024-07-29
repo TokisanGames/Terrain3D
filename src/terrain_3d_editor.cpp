@@ -27,7 +27,7 @@ void Terrain3DEditor::_region_modified(const Vector3 &p_global_position, const V
 }
 
 void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
-	bool has_region = _terrain->get_storage()->has_region(p_global_position);
+	bool has_region = _terrain->get_storage()->has_regionp(p_global_position);
 	bool changed = false;
 	Vector2 height_range;
 
@@ -38,7 +38,7 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 		}
 	} else {
 		if (has_region) {
-			int region_id = _terrain->get_storage()->get_region_id(p_global_position);
+			int region_id = _terrain->get_storage()->get_region_idp(p_global_position);
 			Ref<Image> height_map = _terrain->get_storage()->get_map_region(TYPE_HEIGHT, region_id);
 			height_range = Util::get_min_max(height_map);
 
@@ -57,7 +57,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	Terrain3DStorage *storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
-	int region_id = storage->get_region_id(p_global_position);
+	int region_id = storage->get_region_idp(p_global_position);
 	if (region_id == -1) {
 		if (!_brush_data["auto_regions"] || _tool != HEIGHT) {
 			return;
@@ -65,7 +65,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			LOG(DEBUG, "No region to operate on, attempting to add");
 			storage->add_region(p_global_position);
 			region_size = storage->get_region_size();
-			region_id = storage->get_region_id(p_global_position);
+			region_id = storage->get_region_idp(p_global_position);
 			if (region_id == -1) {
 				LOG(ERROR, "Failed to add region, no region to operate on");
 				return;
@@ -173,7 +173,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							p_global_position.z + brush_offset.y + .5f);
 
 			// If we're brushing across a region boundary, possibly add a region, and get the other map
-			int new_region_id = storage->get_region_id(brush_global_position);
+			int new_region_id = storage->get_region_idp(brush_global_position);
 			if (new_region_id == -1) {
 				if (!_brush_data["auto_regions"] || _tool != HEIGHT) {
 					continue;
@@ -182,7 +182,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				if (err) {
 					continue;
 				}
-				new_region_id = storage->get_region_id(brush_global_position);
+				new_region_id = storage->get_region_idp(brush_global_position);
 				_region_modified(brush_global_position);
 			}
 

@@ -140,37 +140,6 @@ void Terrain3DStorage::set_region_locations(const TypedArray<Vector2i> &p_locati
 	update_maps();
 }
 
-/** Returns a region location given a global position. No bounds checking*/
-Vector2i Terrain3DStorage::get_region_location(const Vector3 &p_global_position) const {
-	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
-	return Vector2i((Vector2(descaled_position.x, descaled_position.z) / real_t(_region_size)).floor());
-}
-
-// Returns Vector2i(2147483647) if out of range
-Vector2i Terrain3DStorage::get_region_location_from_id(const int p_region_id) const {
-	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
-		return Vector2i(INT32_MAX, INT32_MAX);
-	}
-	return _region_locations[p_region_id];
-}
-
-int Terrain3DStorage::get_region_id(const Vector3 &p_global_position) const {
-	Vector2i region_loc = get_region_location(p_global_position);
-	return get_region_id_from_location(region_loc);
-}
-
-// Returns -1 if out of bounds, 0 if no region, or region id
-int Terrain3DStorage::get_region_id_from_location(const Vector2i &p_region_loc) const {
-	int map_index = _get_region_map_index(p_region_loc);
-	if (map_index >= 0) {
-		int region_id = _region_map[map_index] - 1; // 0 = no region
-		if (region_id >= 0 && region_id < _region_locations.size()) {
-			return region_id;
-		}
-	}
-	return -1;
-}
-
 /** Adds a region to the terrain
  * Option to include an array of Images to use for maps
  * Map types are Height:0, Control:1, Color:2, defined in MapType
@@ -197,7 +166,7 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 		return FAILED;
 	}
 
-	if (has_region(p_global_position)) {
+	if (has_regionp(p_global_position)) {
 		if (p_images.is_empty()) {
 			LOG(DEBUG, "Region at ", p_global_position, " already exists and nothing to overwrite. Doing nothing");
 			return OK;
@@ -244,7 +213,7 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 
 void Terrain3DStorage::remove_region(const Vector3 &p_global_position, const bool p_update, const String &p_path) {
 	LOG(INFO, "Removing region at ", p_global_position, " Updating: ", p_update ? "yes" : "no");
-	int region_id = get_region_id(p_global_position);
+	int region_id = get_region_idp(p_global_position);
 	ERR_FAIL_COND_MSG(region_id == -1, "Position out of bounds");
 	remove_region_by_id(region_id, p_update, p_path);
 }
@@ -322,9 +291,10 @@ void Terrain3DStorage::update_maps() {
 		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 		_region_map_dirty = false;
 		for (int i = 0; i < _region_locations.size(); i++) {
+			int region_id = i + 1; // Begin at 1 since 0 = no region
 			int map_index = _get_region_map_index(_region_locations[i]);
 			if (map_index >= 0) {
-				_region_map[map_index] = i + 1; // Begin at 1 since 0 = no region
+				_region_map[map_index] = region_id;
 			}
 		}
 		any_changed = true;
@@ -403,7 +373,7 @@ TypedArray<int> Terrain3DStorage::get_regions_under_aabb(const AABB &p_aabb) {
 		real_t x = start.x + godot::Math::min((real_t)(i * _region_size), size_x);
 		for (int j = 0; j < region_count_y; j++) {
 			real_t y = start.y + godot::Math::min((real_t)(j * _region_size), size_y);
-			int region_id = get_region_id(Vector3(x, 0, y));
+			int region_id = get_region_idp(Vector3(x, 0, y));
 			LOG(INFO, "Region id ", region_id, " location ", Vector3(x, 0, y));
 			// If found, push_back to array
 			if (region_id != -1) {
@@ -567,7 +537,7 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 		LOG(ERROR, "Specified map type out of range");
 		return;
 	}
-	int region_id = get_region_id(p_global_position);
+	int region_id = get_region_idp(p_global_position);
 	if (region_id < 0) {
 		return;
 	}
@@ -586,7 +556,7 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 		LOG(ERROR, "Specified map type out of range");
 		return COLOR_NAN;
 	}
-	int region_id = get_region_id(p_global_position);
+	int region_id = get_region_idp(p_global_position);
 	if (region_id < 0) {
 		return COLOR_NAN;
 	}
@@ -637,7 +607,7 @@ real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
  **/
 Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) const {
 	// Verify in a region
-	int region_id = get_region_id(p_global_position);
+	int region_id = get_region_idp(p_global_position);
 	if (region_id < 0) {
 		return Vector3(NAN, NAN, NAN);
 	}
@@ -683,7 +653,7 @@ real_t Terrain3DStorage::get_angle(const Vector3 &p_global_position) const {
 	}
 	real_t angle = real_t(get_uv_rotation(src));
 	angle *= 22.5; // Return value in degrees.
-	return real_t(angle);
+	return angle;
 }
 
 real_t Terrain3DStorage::get_scale(const Vector3 &p_global_position) const {
@@ -693,7 +663,7 @@ real_t Terrain3DStorage::get_scale(const Vector3 &p_global_position) const {
 	}
 	std::array<real_t, 8> scale_values = { 0.0f, 20.0f, 40.0f, 60.0f, 80.0f, -60.0f, -40.0f, -20.0f };
 	real_t scale = scale_values[get_uv_scale(src)]; //select from array UI return values
-	return real_t(scale);
+	return scale;
 }
 
 /**
@@ -813,7 +783,7 @@ Dictionary Terrain3DStorage::get_multimeshes(const TypedArray<int> &p_region_ids
 	} else {
 		Dictionary output = Dictionary();
 		for (int i = 0; i < p_region_ids.size(); i++) {
-			Vector2i region_loc = get_region_location_from_id(i);
+			Vector2i region_loc = get_region_locationi(i);
 			output[region_loc] = _multimeshes[p_region_ids[i]];
 		}
 		return output;
@@ -1073,7 +1043,7 @@ Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
 		Vector2i region_loc = _region_locations[i];
 		Vector2i img_location = (region_loc - top_left) * _region_size;
 		LOG(DEBUG, "Region to blit: ", region_loc, " Export image coords: ", img_location);
-		int region_id = get_region_id(Vector3(region_loc.x, 0, region_loc.y) * _region_size);
+		int region_id = get_region_idp(Vector3(region_loc.x, 0, region_loc.y) * _region_size);
 		img->blit_rect(get_map_region(map_type, region_id), Rect2i(Vector2i(0, 0), _region_sizev), img_location);
 	}
 	return img;
@@ -1165,7 +1135,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(const int32_t p_lod, const HeightFilte
 }
 
 Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) const {
-	if (get_region_id(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
+	if (get_region_idp(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
 	}
 	real_t height = get_height(p_global_position);
@@ -1226,9 +1196,9 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_locations"), &Terrain3DStorage::get_region_locations);
 	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DStorage::get_region_count);
 	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DStorage::get_region_location);
-	ClassDB::bind_method(D_METHOD("get_region_location_from_id", "region_id"), &Terrain3DStorage::get_region_location_from_id);
-	ClassDB::bind_method(D_METHOD("get_region_id", "global_position"), &Terrain3DStorage::get_region_id);
-	ClassDB::bind_method(D_METHOD("get_region_id_from_location", "region_location"), &Terrain3DStorage::get_region_id_from_location);
+	ClassDB::bind_method(D_METHOD("get_region_locationi", "region_id"), &Terrain3DStorage::get_region_locationi);
+	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DStorage::get_region_id);
+	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DStorage::get_region_idp);
 	ClassDB::bind_method(D_METHOD("has_region", "global_position"), &Terrain3DStorage::has_region);
 	ClassDB::bind_method(D_METHOD("add_region", "global_position", "images", "update", "path"), &Terrain3DStorage::add_region,
 			DEFVAL(TypedArray<Image>()), DEFVAL(true), DEFVAL(""));
