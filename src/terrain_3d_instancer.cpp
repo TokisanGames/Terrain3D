@@ -112,7 +112,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location_from_id(p_region_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationi(p_region_id);
 	_destroy_mmi_by_location(region_loc, p_mesh_id);
 }
 
@@ -161,7 +161,7 @@ void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
 }
 
 void Terrain3DInstancer::clear_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location_from_id(p_region_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationi(p_region_id);
 	clear_by_location(region_loc, p_mesh_id);
 }
 
@@ -278,7 +278,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	}
 
 	// Append multimesh
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationp(p_global_position);
 	if (xforms.size() > 0) {
 		append_multimesh(region_loc, mesh_id, xforms, colors);
 	}
@@ -333,7 +333,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		}
 	}
 
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationp(p_global_position);
 	if (xforms.size() == 0) {
 		LOG(DEBUG, "Removed all instances, erasing multimesh in region");
 		clear_by_location(region_loc, mesh_id);
@@ -384,7 +384,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		}
 
 		// Store by region offset
-		Vector2i region_loc = _terrain->get_storage()->get_region_location(trns.origin);
+		Vector2i region_loc = _terrain->get_storage()->get_region_locationp(trns.origin);
 		if (!xforms_dict.has(region_loc)) {
 			xforms_dict[region_loc] = TypedArray<Transform3D>();
 			colors_dict[region_loc] = TypedArray<Color>();
@@ -578,7 +578,7 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 }
 
 Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationp(p_global_position);
 	return get_multimesh(region_loc, p_mesh_id);
 }
 
@@ -591,7 +591,7 @@ Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_loc, c
 }
 
 MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationp(p_global_position);
 	return get_multimesh_instance(region_loc, p_mesh_id);
 }
 
