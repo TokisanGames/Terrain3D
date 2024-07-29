@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="3_ht63y"]
 [ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="3_kdh0b"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="3_yqldq"]
-[ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="5_sl43a"]
+[ext_resource type="Terrain3DStorage" uid="uid://lalq1xnmbjdl" path="res://demo/data/terrain_storage.res" id="7_wlwlp"]
 [ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="8_g2of2"]
 
 [sub_resource type="Gradient" id="Gradient_vr1m7"]
@@ -52,17 +52,9 @@ _shader_parameters = {
 "noise3_scale": 0.225,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
 "tri_scale_reduction": 0.3,
-"vertex_normals_distance": 128.0,
-"world_noise_blend_far": 1.0,
-"world_noise_blend_near": 0.7,
-"world_noise_height": 34.0,
-"world_noise_lod_distance": 7500.0,
-"world_noise_max_octaves": 4,
-"world_noise_min_octaves": 2,
-"world_noise_offset": Vector3(1.485, -1.01, 1.9),
-"world_noise_scale": 9.85
+"vertex_normals_distance": 128.0
 }
-world_background = 2
+world_background = 0
 auto_shader = true
 dual_scaling = true
 
@@ -83,7 +75,7 @@ collision_mask = 3
 transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
-storage = ExtResource("5_sl43a")
+storage = ExtResource("7_wlwlp")
 material = SubResource("Terrain3DMaterial_jrc01")
 assets = ExtResource("8_g2of2")
 render_cull_margin = 1000.0

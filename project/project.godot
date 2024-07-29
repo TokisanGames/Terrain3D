@@ -19,6 +19,10 @@ config/icon="res://icon.png"
 
 window/vsync/vsync_mode=0
 
+[dotnet]
+
+project/assembly_name="Terrain3D"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/terrain_3d/plugin.cfg")
