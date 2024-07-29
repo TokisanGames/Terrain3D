@@ -49,6 +49,8 @@ var brush_data: Dictionary
 var operation_builder: OperationBuilder
 var modifier_ctrl: bool
 var modifier_alt: bool
+var stored_tool: Terrain3DEditor.Tool
+var stored_operation: Terrain3DEditor.Operation
 
 
 func _enter_tree() -> void:
@@ -96,6 +98,13 @@ func _exit_tree() -> void:
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
+	if(plugin.editor):
+		if(p_visible):
+			await get_tree().create_timer(.01).timeout # Won't work, otherwise.
+			_on_tool_changed(stored_tool, stored_operation)
+		else:
+			plugin.editor.set_tool(Terrain3DEditor.TOOL_MAX)
+	
 	terrain_menu.set_visible(p_visible)
 
 	if p_menu_only:
@@ -218,6 +227,8 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	if plugin.editor:
 		plugin.editor.set_tool(p_tool)
 		plugin.editor.set_operation(_modify_operation(p_operation))
+		stored_tool = p_tool
+		stored_operation = p_operation
 
 	_on_setting_changed()
 	plugin.update_region_grid()
