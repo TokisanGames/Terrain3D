@@ -112,7 +112,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location_from_id(p_region_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationi(p_region_id);
 	_destroy_mmi_by_location(region_loc, p_mesh_id);
 }
 
@@ -161,7 +161,7 @@ void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
 }
 
 void Terrain3DInstancer::clear_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location_from_id(p_region_id);
+	Vector2i region_loc = _terrain->get_storage()->get_region_locationi(p_region_id);
 	clear_by_location(region_loc, p_mesh_id);
 }
 

@@ -115,6 +115,12 @@ public:
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DStorage() { _clear(); }
 
+	Vector2i get_region_location(const Vector3 &p_global_position) const;
+	Vector2i get_region_locationi(const int p_region_id) const;
+	int get_region_id(const Vector2i &p_region_loc) const;
+	int get_region_idp(const Vector3 &p_global_position) const;
+	bool has_region(const Vector2i &p_region_loc) const { return get_region_id(p_region_loc) != -1; }
+	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
 	void set_height_range(const Vector2 &p_range);
 	Vector2 get_height_range() const { return _height_range; }
 	void update_heights(const real_t p_height);
@@ -138,11 +144,6 @@ public:
 	TypedArray<Vector2i> get_region_locations() const { return _region_locations; }
 	PackedInt32Array get_region_map() const { return _region_map; }
 	int get_region_count() const { return _region_locations.size(); }
-	Vector2i get_region_location(const Vector3 &p_global_position) const;
-	Vector2i get_region_location_from_id(const int p_region_id) const;
-	int get_region_id(const Vector3 &p_global_position) const;
-	int get_region_id_from_location(const Vector2i &p_region_loc) const;
-	bool has_region(const Vector3 &p_global_position) const { return get_region_id(p_global_position) != -1; }
 	Error add_region(const Vector3 &p_global_position,
 			const TypedArray<Image> &p_images = TypedArray<Image>(),
 			const bool p_update = true,
@@ -220,10 +221,10 @@ constexpr Terrain3DStorage::MapType TYPE_MAX = Terrain3DStorage::MapType::TYPE_M
 VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
-/// Inline Functions
+/// Inline Region Functions
 
-// This function verifies the location is within the bounds of the
-// _region_map array and returns the map index if valid, -1 if not
+// This function verifies the location is within the bounds of the _region_map array and
+// thus the world. It returns the _region_map index if valid, -1 if not
 inline int Terrain3DStorage::_get_region_map_index(const Vector2i &p_region_loc) const {
 	// Offset locations centered on (0,0) to positive only
 	Vector2i loc = Vector2i(p_region_loc + (REGION_MAP_VSIZE / 2));
@@ -233,6 +234,38 @@ inline int Terrain3DStorage::_get_region_map_index(const Vector2i &p_region_loc)
 	}
 	return map_index;
 }
+
+// Returns a region location given a global position. No bounds checking nor data access.
+inline Vector2i Terrain3DStorage::get_region_location(const Vector3 &p_global_position) const {
+	Vector2 descaled_position = Vector2(p_global_position.x, p_global_position.z);
+	return Vector2i((descaled_position / (_mesh_vertex_spacing * real_t(_region_size))).floor());
+}
+
+// Returns Vector2i(2147483647) if out of range
+inline Vector2i Terrain3DStorage::get_region_locationi(const int p_region_id) const {
+	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
+		return Vector2i(INT32_MAX, INT32_MAX);
+	}
+	return _region_locations[p_region_id];
+}
+
+// Returns id of any active region. -1 if out of bounds, 0 if no region, or region id
+inline int Terrain3DStorage::get_region_id(const Vector2i &p_region_loc) const {
+	int map_index = _get_region_map_index(p_region_loc);
+	if (map_index >= 0) {
+		int region_id = _region_map[map_index] - 1; // 0 = no region
+		if (region_id >= 0 && region_id < _region_locations.size()) {
+			return region_id;
+		}
+	}
+	return -1;
+}
+
+inline int Terrain3DStorage::get_region_idp(const Vector3 &p_global_position) const {
+	return get_region_id(get_region_location(p_global_position));
+}
+
+/// Inline Map Functions
 
 inline void Terrain3DStorage::set_height(const Vector3 &p_global_position, const real_t p_height) {
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));

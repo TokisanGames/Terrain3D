@@ -213,7 +213,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				# If adjusting regions
 				if editor.get_tool() == Terrain3DEditor.REGION:
 					# Skip regions that already exist or don't
-					var has_region: bool = terrain.get_storage().has_region(mouse_global_position)
+					var has_region: bool = terrain.get_storage().has_regionp(mouse_global_position)
 					var op: int = editor.get_operation()
 					if	( has_region and op == Terrain3DEditor.ADD) or \
 						( not has_region and op == Terrain3DEditor.SUBTRACT ):
