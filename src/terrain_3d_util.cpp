@@ -189,7 +189,7 @@ Ref<Image> Terrain3DUtil::get_filled_image(const Vector2i &p_size, const Color &
 			img->generate_mipmaps();
 		}
 	}
-	if (compress && Engine::get_singleton()->is_editor_hint()) {
+	if (compress && IS_EDITOR) {
 		img->compress_from_channels(compression_format, channels);
 	}
 	return img;

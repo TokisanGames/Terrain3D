@@ -194,7 +194,7 @@ void Terrain3D::_destroy_mouse_picking() {
  * The edited_scene_root is excluded in case the user already has a Camera3D in their scene.
  */
 void Terrain3D::_grab_camera() {
-	if (Engine::get_singleton()->is_editor_hint()) {
+	if (IS_EDITOR) {
 		_camera = EditorInterface::get_singleton()->get_editor_viewport_3d(0)->get_camera_3d();
 		LOG(DEBUG, "Grabbing the first editor viewport camera: ", _camera);
 	} else {
@@ -354,7 +354,7 @@ void Terrain3D::_build_collision() {
 		return;
 	}
 	// Create collision only in game, unless showing debug
-	if (Engine::get_singleton()->is_editor_hint() && !_show_debug_collision) {
+	if (IS_EDITOR && !_show_debug_collision) {
 		return;
 	}
 	if (_storage.is_null()) {
@@ -388,7 +388,7 @@ void Terrain3D::_update_collision() {
 		return;
 	}
 	// Create collision only in game, unless showing debug
-	if (Engine::get_singleton()->is_editor_hint() && !_show_debug_collision) {
+	if (IS_EDITOR && !_show_debug_collision) {
 		return;
 	}
 	if ((!_show_debug_collision && !_static_body.is_valid()) ||
@@ -684,7 +684,7 @@ void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
 		_destroy_instancer();
 		_initialize();
 	}
-	if (Engine::get_singleton()->is_editor_hint() && _plugin != nullptr) {
+	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
 	}
 }
@@ -1281,6 +1281,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
 	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
 
+	ClassDB::bind_method(D_METHOD("set_editor", "editor"), &Terrain3D::set_editor);
+	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
 	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
 	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);

@@ -8,6 +8,7 @@ using namespace godot;
 // Constants
 
 #define RS RenderingServer::get_singleton()
+#define IS_EDITOR Engine::get_singleton()->is_editor_hint()
 
 #define COLOR_NAN Color(NAN, NAN, NAN, NAN)
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
