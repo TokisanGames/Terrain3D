@@ -129,7 +129,7 @@ public:
 	// Editor components
 	void set_plugin(EditorPlugin *p_plugin);
 	EditorPlugin *get_plugin() const { return _plugin; }
-	void set_camera(Camera3D *p_plugin);
+	void set_camera(Camera3D *p_camera);
 	Camera3D *get_camera() const { return _camera; }
 
 	// Renderer settings

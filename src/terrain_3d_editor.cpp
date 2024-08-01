@@ -126,6 +126,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	if (_brush_data["align_to_view"]) {
 		rot += p_camera_direction;
 	}
+	// Rotate the decal to align with the brush
 	cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
 
 	AABB edited_area;
