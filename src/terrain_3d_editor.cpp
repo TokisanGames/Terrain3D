@@ -643,7 +643,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 void Terrain3DEditor::set_tool(const Tool p_tool) {
 	_tool = CLAMP(p_tool, Tool(0), TOOL_MAX);
 	if (_terrain) {
-		_terrain->get_material()->set_show_navigation(_tool == NAVIGATION);
+		_terrain->get_material()->update();
 	}
 }
 

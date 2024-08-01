@@ -85,6 +85,7 @@ public:
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DMaterial();
 
+	void update();
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const;
 	RID get_region_blend_map() const { return _generated_region_blend_map.get_rid(); }

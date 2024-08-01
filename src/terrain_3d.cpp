@@ -722,6 +722,11 @@ void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 	}
 }
 
+void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
+	_editor = p_editor;
+	LOG(DEBUG, "Received Terrain3DEditor: ", p_editor);
+}
+
 void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
 	_plugin = p_plugin;
 	LOG(DEBUG, "Received editor plugin: ", p_plugin);
