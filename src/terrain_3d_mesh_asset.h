@@ -52,13 +52,13 @@ public:
 	Terrain3DMeshAsset();
 	~Terrain3DMeshAsset() {}
 
-	void clear();
+	void clear() override;
 
-	void set_name(const String &p_name);
-	String get_name() const { return _name; }
+	void set_name(const String &p_name) override;
+	String get_name() const override { return _name; }
 
-	void set_id(const int p_new_id);
-	int get_id() const { return _id; }
+	void set_id(const int p_new_id) override;
+	int get_id() const override { return _id; }
 
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }

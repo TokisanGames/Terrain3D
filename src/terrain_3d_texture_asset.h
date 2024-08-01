@@ -27,13 +27,13 @@ public:
 	Terrain3DTextureAsset();
 	~Terrain3DTextureAsset();
 
-	void clear();
+	void clear() override;
 
-	void set_name(const String &p_name);
-	String get_name() const { return _name; }
+	void set_name(const String &p_name) override;
+	String get_name() const override { return _name; }
 
-	void set_id(const int p_new_id);
-	int get_id() const { return _id; }
+	void set_id(const int p_new_id) override;
+	int get_id() const override { return _id; }
 
 	void set_albedo_color(const Color &p_color);
 	Color get_albedo_color() const { return _albedo_color; }
