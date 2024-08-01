@@ -67,7 +67,7 @@ Ref<ArrayMesh> Terrain3DMeshAsset::_get_generated_mesh() const {
 	int i, j, prevrow, thisrow, point = 0;
 	float x, z;
 	Size2 start_pos = Vector2(_generated_size.x * -0.5, -0.5f);
-	Vector3 normal = normal = Vector3(0.0, 0.0, 1.0);
+	Vector3 normal = Vector3(0.0, 0.0, 1.0);
 
 #define ADD_TANGENT(m_x, m_y, m_z, m_d) \
 	tangents.push_back(m_x);            \

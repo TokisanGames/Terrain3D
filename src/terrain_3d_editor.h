@@ -38,32 +38,32 @@ public: // Constants
 	};
 
 	enum Tool {
+		REGION,
 		HEIGHT,
 		TEXTURE,
 		COLOR,
 		ROUGHNESS,
-		ANGLE,
-		SCALE,
 		AUTOSHADER,
 		HOLES,
 		NAVIGATION,
 		INSTANCER,
-		REGION,
+		ANGLE, // used for picking, TODO change to a picking tool
+		SCALE, // used for picking
 		TOOL_MAX,
 	};
 
 	static inline const char *TOOLNAME[] = {
+		"Region",
 		"Height",
 		"Texture",
 		"Color",
 		"Roughness",
-		"Angle",
-		"Scale",
 		"Auto Shader",
 		"Holes",
 		"Navigation",
 		"Instancer",
-		"Region",
+		"Angle",
+		"Scale",
 		"TOOL_MAX",
 	};
 

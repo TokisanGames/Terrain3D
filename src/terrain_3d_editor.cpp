@@ -75,10 +75,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			_region_modified(p_global_position);
 		}
 	}
-	if (_tool < 0 || _tool >= REGION) {
-		LOG(ERROR, "Invalid tool selected");
-		return;
-	}
 
 	Terrain3DStorage::MapType map_type;
 	switch (_tool) {
@@ -99,6 +95,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			map_type = Terrain3DStorage::TYPE_COLOR;
 			break;
 		default:
+			LOG(ERROR, "Invalid tool selected");
 			return;
 	}
 
@@ -522,6 +519,9 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 			data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
 			LOG(DEBUG, "Storing Multimesh: ", data["multimeshes"]);
 			break;
+
+		default:
+			return data;
 	}
 	return data;
 }
@@ -688,7 +688,7 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 
 	if (_tool == REGION) {
 		_operate_region(p_global_position);
-	} else if (_tool >= 0 && _tool < REGION) {
+	} else if (_tool >= 0 && _tool < TOOL_MAX) {
 		_operate_map(p_global_position, p_camera_direction);
 	}
 }
