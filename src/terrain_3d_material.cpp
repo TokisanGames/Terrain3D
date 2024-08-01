@@ -332,7 +332,7 @@ void Terrain3DMaterial::_update_regions() {
 	real_t region_size = real_t(storage->get_region_size());
 	LOG(DEBUG_CONT, "Setting region size in material: ", region_size);
 	RS->material_set_param(_material, "_region_size", region_size);
-	RS->material_set_param(_material, "_region_pixel_size", 1.0f / region_size);
+	RS->material_set_param(_material, "_region_texel_size", 1.0f / region_size);
 
 	real_t spacing = _terrain->get_mesh_vertex_spacing();
 	LOG(DEBUG_CONT, "Setting mesh vertex spacing in material: ", spacing);
