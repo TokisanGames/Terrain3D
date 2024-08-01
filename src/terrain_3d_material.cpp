@@ -1,5 +1,6 @@
 // Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/fast_noise_lite.hpp>
 #include <godot_cpp/classes/gradient.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
@@ -195,7 +196,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_debug_view_vertex_grid) {
 		insert_names.push_back("DEBUG_VERTEX_GRID");
 	}
-	if (_show_navigation) {
+	if (_show_navigation || (IS_EDITOR && _terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
 		insert_names.push_back("EDITOR_NAVIGATION");
 	}
 	for (int i = 0; i < insert_names.size(); i++) {
@@ -427,6 +428,11 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 	RS->free_rid(_material);
 	RS->free_rid(_shader);
 	_generated_region_blend_map.clear();
+}
+
+void Terrain3DMaterial::update() {
+	_update_shader();
+	_update_regions();
 }
 
 RID Terrain3DMaterial::get_shader_rid() const {
@@ -759,6 +765,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_shader_parameters", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_shader_parameters", "_get_shader_parameters");
 
 	// Public
+	ClassDB::bind_method(D_METHOD("update"), &Terrain3DMaterial::update);
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
 	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);

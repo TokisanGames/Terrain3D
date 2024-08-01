@@ -91,6 +91,7 @@ func _edit(p_object: Object) -> void:
 		region_gizmo.set_node_3d(terrain)
 		terrain.add_gizmo(region_gizmo)
 		terrain.set_plugin(self)
+		terrain.set_editor(editor)
 		ui.set_visible(true)
 		
 		# Connect to new Assets resource

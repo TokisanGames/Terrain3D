@@ -13,6 +13,7 @@
 
 #include "constants.h"
 #include "terrain_3d_assets.h"
+#include "terrain_3d_editor.h"
 #include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_storage.h"
@@ -37,6 +38,7 @@ class Terrain3D : public Node3D {
 	Ref<Terrain3DStorage> _storage;
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DInstancer *_instancer = nullptr;
+	Terrain3DEditor *_editor = nullptr;
 
 	// Editor components
 	EditorPlugin *_plugin = nullptr;
@@ -127,6 +129,8 @@ public:
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
 
 	// Editor components
+	void set_editor(Terrain3DEditor *p_editor);
+	Terrain3DEditor *get_editor() const { return _editor; }
 	void set_plugin(EditorPlugin *p_plugin);
 	EditorPlugin *get_plugin() const { return _plugin; }
 	void set_camera(Camera3D *p_camera);
