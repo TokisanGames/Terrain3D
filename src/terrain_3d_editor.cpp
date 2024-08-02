@@ -39,7 +39,7 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 	} else {
 		if (has_region) {
 			int region_id = _terrain->get_storage()->get_region_id(p_global_position);
-			Ref<Image> height_map = _terrain->get_storage()->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_id);
+			Ref<Image> height_map = _terrain->get_storage()->get_map_region(TYPE_HEIGHT, region_id);
 			height_range = Util::get_min_max(height_map);
 
 			_terrain->get_storage()->remove_region(p_global_position);
@@ -74,11 +74,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		}
 	}
 
-	Terrain3DStorage::MapType map_type;
+	MapType map_type;
 	switch (_tool) {
 		case HEIGHT:
 		case INSTANCER:
-			map_type = Terrain3DStorage::TYPE_HEIGHT;
+			map_type = TYPE_HEIGHT;
 			break;
 		case TEXTURE:
 		case AUTOSHADER:
@@ -86,11 +86,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		case NAVIGATION:
 		case ANGLE:
 		case SCALE:
-			map_type = Terrain3DStorage::TYPE_CONTROL;
+			map_type = TYPE_CONTROL;
 			break;
 		case COLOR:
 		case ROUGHNESS:
-			map_type = Terrain3DStorage::TYPE_COLOR;
+			map_type = TYPE_COLOR;
 			break;
 		default:
 			LOG(ERROR, "Invalid tool selected");
@@ -213,7 +213,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
-				if (map_type == Terrain3DStorage::TYPE_HEIGHT) {
+				if (map_type == TYPE_HEIGHT) {
 					real_t srcf = src.r;
 					real_t destf = dest.r;
 
@@ -300,7 +300,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					edited_position.y = destf;
 					edited_area = edited_area.expand(edited_position);
 
-				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
+				} else if (map_type == TYPE_CONTROL) {
 					// Get bit field from pixel
 					uint32_t base_id = get_base(src.r);
 					uint32_t overlay_id = get_overlay(src.r);
@@ -424,7 +424,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
 					dest = Color(as_float(bits), 0.f, 0.f, 1.f);
 
-				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
+				} else if (map_type == TYPE_COLOR) {
 					switch (_tool) {
 						case COLOR:
 							dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
@@ -466,9 +466,9 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 			LOG(DEBUG, "Storing region locations");
 			data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
 			if (_operation == SUBTRACT) {
-				data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_HEIGHT);
-				data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_CONTROL);
-				data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_COLOR);
+				data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT);
+				data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL);
+				data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR);
 				data["height_range"] = _terrain->get_storage()->get_height_range();
 				data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			}
@@ -477,7 +477,7 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 		case HEIGHT:
 			LOG(DEBUG, "Storing height maps and range");
 			data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
-			data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_HEIGHT);
+			data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT);
 			data["height_range"] = _terrain->get_storage()->get_height_range();
 			data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			break;
@@ -490,13 +490,13 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 		case AUTOSHADER:
 		case NAVIGATION:
 			LOG(DEBUG, "Storing control maps");
-			data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_CONTROL);
+			data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL);
 			break;
 
 		case COLOR:
 		case ROUGHNESS:
 			LOG(DEBUG, "Storing color maps");
-			data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_COLOR);
+			data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR);
 			break;
 
 		case INSTANCER:
@@ -551,11 +551,11 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 		if (key == "region_offsets") {
 			_terrain->get_storage()->set_region_locations(p_set[key]);
 		} else if (key == "height_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_HEIGHT, p_set[key]);
+			_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key]);
 		} else if (key == "control_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_CONTROL, p_set[key]);
+			_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key]);
 		} else if (key == "color_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_COLOR, p_set[key]);
+			_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key]);
 		} else if (key == "height_range") {
 			_terrain->get_storage()->set_height_range(p_set[key]);
 		} else if (key == "edited_area") {

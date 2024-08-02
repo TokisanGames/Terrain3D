@@ -414,22 +414,22 @@ void Terrain3D::_update_collision() {
 
 		Ref<Image> map, map_x, map_z, map_xz;
 		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
-		map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
-		cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, i);
+		map = _storage->get_map_region(TYPE_HEIGHT, i);
+		cmap = _storage->get_map_region(TYPE_CONTROL, i);
 		int region_id = _storage->get_region_id(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
 		if (region_id >= 0) {
-			map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_id);
-			cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region_id);
+			map_x = _storage->get_map_region(TYPE_HEIGHT, region_id);
+			cmap_x = _storage->get_map_region(TYPE_CONTROL, region_id);
 		}
 		region_id = _storage->get_region_id(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
 		if (region_id >= 0) {
-			map_z = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_id);
-			cmap_z = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region_id);
+			map_z = _storage->get_map_region(TYPE_HEIGHT, region_id);
+			cmap_z = _storage->get_map_region(TYPE_CONTROL, region_id);
 		}
 		region_id = _storage->get_region_id(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
 		if (region_id >= 0) {
-			map_xz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_id);
-			cmap_xz = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region_id);
+			map_xz = _storage->get_map_region(TYPE_HEIGHT, region_id);
+			cmap_xz = _storage->get_map_region(TYPE_CONTROL, region_id);
 		}
 
 		for (int z = 0; z < shape_size; z++) {

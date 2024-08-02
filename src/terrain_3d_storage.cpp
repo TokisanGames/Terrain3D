@@ -690,7 +690,7 @@ void Terrain3DStorage::save() {
 		if (_save_16_bit) {
 			LOG(DEBUG, "16-bit save requested, converting heightmaps");
 			TypedArray<Image> original_maps;
-			original_maps = get_maps_copy(Terrain3DStorage::MapType::TYPE_HEIGHT);
+			original_maps = get_maps_copy(TYPE_HEIGHT);
 			for (int i = 0; i < _height_maps.size(); i++) {
 				Ref<Image> img = _height_maps[i];
 				img->convert(Image::FORMAT_RH);
