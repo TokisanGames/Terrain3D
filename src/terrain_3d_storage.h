@@ -197,7 +197,12 @@ protected:
 	static void _bind_methods();
 };
 
+typedef Terrain3DStorage::MapType MapType;
 VARIANT_ENUM_CAST(Terrain3DStorage::MapType);
+constexpr Terrain3DStorage::MapType TYPE_HEIGHT = Terrain3DStorage::MapType::TYPE_HEIGHT;
+constexpr Terrain3DStorage::MapType TYPE_CONTROL = Terrain3DStorage::MapType::TYPE_CONTROL;
+constexpr Terrain3DStorage::MapType TYPE_COLOR = Terrain3DStorage::MapType::TYPE_COLOR;
+constexpr Terrain3DStorage::MapType TYPE_MAX = Terrain3DStorage::MapType::TYPE_MAX;
 VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
