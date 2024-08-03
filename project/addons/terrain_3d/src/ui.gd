@@ -9,10 +9,10 @@ const TerrainMenu: Script = preload("res://addons/terrain_3d/src/terrain_menu.gd
 const OperationBuilder: Script = preload("res://addons/terrain_3d/src/operation_builder.gd")
 const GradientOperationBuilder: Script = preload("res://addons/terrain_3d/src/gradient_operation_builder.gd")
 const COLOR_RAISE := Color.WHITE
-const COLOR_LOWER := Color.BLACK
+const COLOR_LOWER := Color(.02, .02, .02)
 const COLOR_SMOOTH := Color(0.5, 0, .1)
-const COLOR_EXPAND := Color.ORANGE
-const COLOR_REDUCE := Color.BLUE_VIOLET
+const COLOR_LIFT := Color.ORANGE
+const COLOR_FLATTEN := Color.BLUE_VIOLET
 const COLOR_HEIGHT := Color(0., 0.32, .4)
 const COLOR_SLOPE := Color.YELLOW
 const COLOR_PAINT := Color.FOREST_GREEN
@@ -20,7 +20,7 @@ const COLOR_SPRAY := Color.SEA_GREEN
 const COLOR_ROUGHNESS := Color.ROYAL_BLUE
 const COLOR_AUTOSHADER := Color.DODGER_BLUE
 const COLOR_HOLES := Color.BLACK
-const COLOR_NAVIGATION := Color.REBECCA_PURPLE
+const COLOR_NAVIGATION := Color(.15, .0, .255)
 const COLOR_INSTANCER := Color.CRIMSON
 const COLOR_PICK_COLOR := Color.WHITE
 const COLOR_PICK_HEIGHT := Color.DARK_RED
@@ -290,59 +290,66 @@ func update_decal() -> void:
 			Terrain3DEditor.HEIGHT:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.ADD:
-						decal.modulate = COLOR_RAISE
+						if modifier_alt:
+							decal.modulate = COLOR_LIFT
+							decal.modulate.a = clamp(brush_data["strength"], .2, .5)
+						else:
+							decal.modulate = COLOR_RAISE
+							decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.SUBTRACT:
-						decal.modulate = COLOR_LOWER
+						if modifier_alt:
+							decal.modulate = COLOR_FLATTEN
+							decal.modulate.a = clamp(brush_data["strength"], .2, .5)
+						else:
+							decal.modulate = COLOR_LOWER
+							decal.modulate.a = clamp(brush_data["strength"], .2, .5) + .5
 					Terrain3DEditor.MULTIPLY:
 						decal.modulate = COLOR_EXPAND
+						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.DIVIDE:
 						decal.modulate = COLOR_REDUCE
+						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.REPLACE:
 						decal.modulate = COLOR_HEIGHT
+						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.AVERAGE:
 						decal.modulate = COLOR_SMOOTH
+						decal.modulate.a = clamp(brush_data["strength"], .2, .5) + .2
 					Terrain3DEditor.GRADIENT:
 						decal.modulate = COLOR_SLOPE
-					_:
-						decal.modulate = Color.WHITE
-				decal.modulate.a = max(.3, brush_data["strength"] * .01)
+						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 			Terrain3DEditor.TEXTURE:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.REPLACE:
 						decal.modulate = COLOR_PAINT
-						decal.modulate.a = 1.0
+						decal.modulate.a = .7
 					Terrain3DEditor.ADD:
 						decal.modulate = COLOR_SPRAY
-						decal.modulate.a = max(.3, brush_data["strength"] * .01)
-					_:
-						decal.modulate = Color.WHITE
+						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 			Terrain3DEditor.COLOR:
-				decal.modulate = brush_data["color"].srgb_to_linear()*.5
-				decal.modulate.a = max(.3, brush_data["strength"] * .01)
+				decal.modulate = brush_data["color"].srgb_to_linear()
+				decal.modulate.a *= clamp(brush_data["strength"], .2, .5)
 			Terrain3DEditor.ROUGHNESS:
 				decal.modulate = COLOR_ROUGHNESS
-				decal.modulate.a = max(.3, brush_data["strength"] * .01)
+				decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 			Terrain3DEditor.AUTOSHADER:
 				decal.modulate = COLOR_AUTOSHADER
-				decal.modulate.a = 1.0
+				decal.modulate.a = .7
 			Terrain3DEditor.HOLES:
 				decal.modulate = COLOR_HOLES
-				decal.modulate.a = 1.0
+				decal.modulate.a = .85
 			Terrain3DEditor.NAVIGATION:
 				decal.modulate = COLOR_NAVIGATION
-				decal.modulate.a = 1.0
+				decal.modulate.a = .85
 			Terrain3DEditor.INSTANCER:
 				decal.texture_albedo = ring_texture
 				decal.modulate = COLOR_INSTANCER
 				decal.modulate.a = 1.0
-			_:
-				decal.modulate = Color.WHITE
-				decal.modulate.a = max(.3, brush_data["strength"] * .01)
 	decal.size.y = max(1000, decal.size.y)
 	decal.albedo_mix = 1.0
 	decal.cull_mask = 1 << ( plugin.terrain.get_mouse_layer() - 1 )
 	decal_timer.start()
-	
+
 	for gradient_decal in gradient_decals:
 		gradient_decal.visible = false
 	
@@ -446,6 +453,8 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 			plugin.editor.set_tool(last_tool)
 			plugin.editor.set_operation(last_operation)
 	
+	update_decal()
+
 
 func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
 	var remove_checked: bool = false
