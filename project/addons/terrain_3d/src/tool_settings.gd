@@ -57,10 +57,10 @@ func _ready() -> void:
 	add_setting({ "name":"instructions", "label":"Click the terrain to add a region. CTRL+Click to remove. Or select another tool on the left.",
 		"type":SettingType.LABEL, "list":main_list, "flags":NO_LABEL })
 
-	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":50, "unit":"m",
+	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":20, "unit":"m",
 								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
 		
-	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":10, 
+	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":33, 
 								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
 
 	add_setting({ "name":"lift_floor", "type":SettingType.CHECKBOX, "list":main_list,
@@ -68,7 +68,7 @@ func _ready() -> void:
 	add_setting({ "name":"flatten_peaks", "type":SettingType.CHECKBOX, "list":main_list,
 								"default":false })
 
-	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":50, 
+	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":20, 
 								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
 	add_setting({ "name":"height_picker", "type":SettingType.PICKER, "list":main_list, 
 								"default":Terrain3DEditor.HEIGHT, "flags":NO_LABEL })
@@ -78,7 +78,7 @@ func _ready() -> void:
 	add_setting({ "name":"color_picker", "type":SettingType.PICKER, "list":main_list, 
 								"default":Terrain3DEditor.COLOR, "flags":NO_LABEL })
 
-	add_setting({ "name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":0,
+	add_setting({ "name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":-65,
 								"unit":"%", "range":Vector3(-100, 100, 1), "flags":ADD_SEPARATOR })
 	add_setting({ "name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, 
 								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL })

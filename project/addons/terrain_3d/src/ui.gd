@@ -13,7 +13,7 @@ const COLOR_LOWER := Color.BLACK
 const COLOR_SMOOTH := Color(0.5, 0, .1)
 const COLOR_EXPAND := Color.ORANGE
 const COLOR_REDUCE := Color.BLUE_VIOLET
-const COLOR_FLATTEN := Color(0., 0.32, .4)
+const COLOR_HEIGHT := Color(0., 0.32, .4)
 const COLOR_SLOPE := Color.YELLOW
 const COLOR_PAINT := Color.FOREST_GREEN
 const COLOR_SPRAY := Color.SEA_GREEN
@@ -297,7 +297,7 @@ func update_decal() -> void:
 					Terrain3DEditor.DIVIDE:
 						decal.modulate = COLOR_REDUCE
 					Terrain3DEditor.REPLACE:
-						decal.modulate = COLOR_FLATTEN
+						decal.modulate = COLOR_HEIGHT
 					Terrain3DEditor.AVERAGE:
 						decal.modulate = COLOR_SMOOTH
 					Terrain3DEditor.GRADIENT:

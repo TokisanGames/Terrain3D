@@ -193,7 +193,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	}
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 
-	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), 2.f, 4096); // Meters
+	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), 2.f, 4096.f); // Meters
 	real_t radius = brush_size * .4f; // Ring1's inner radius
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
@@ -299,7 +299,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	}
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 
-	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), 2.f, 4096); // Meters
+	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), 2.f, 4096.f); // Meters
 	real_t radius = brush_size * .4f; // Ring1's inner radius
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%

@@ -43,17 +43,17 @@ func _ready() -> void:
 		"sub_text":"Lower", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
 
 	add_tool_button({ "tool":Terrain3DEditor.HEIGHT,
-		"add_text":"Expand (Away from 0)", "add_op":Terrain3DEditor.MULTIPLY, "add_icon":ICON_HEIGHT_MUL,
-		"sub_text":"Reduce (Towards 0)", "sub_op":Terrain3DEditor.DIVIDE, "sub_icon":ICON_HEIGHT_DIV })
-
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
-		"add_text":"Flatten", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_HEIGHT_FLAT })
-
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
-		"add_text":"Slope", "add_op":Terrain3DEditor.GRADIENT, "add_icon":ICON_HEIGHT_SLOPE })
+		"add_text":"Expand", "add_op":Terrain3DEditor.MULTIPLY, "add_icon":ICON_HEIGHT_MUL,
+		"sub_text":"Reduce", "sub_op":Terrain3DEditor.DIVIDE, "sub_icon":ICON_HEIGHT_DIV })
 
 	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
 		"add_text":"Smooth", "add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })
+
+	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
+		"add_text":"Height", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_HEIGHT_FLAT })
+
+	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
+		"add_text":"Slope", "add_op":Terrain3DEditor.GRADIENT, "add_icon":ICON_HEIGHT_SLOPE })
 
 	add_child(HSeparator.new())
 
