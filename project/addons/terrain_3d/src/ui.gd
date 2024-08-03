@@ -49,6 +49,7 @@ var brush_data: Dictionary
 var operation_builder: OperationBuilder
 var modifier_ctrl: bool
 var modifier_alt: bool
+var modifier_shift: bool
 var last_tool: Terrain3DEditor.Tool
 var last_operation: Terrain3DEditor.Operation
 
@@ -421,20 +422,30 @@ func pick(p_global_position: Vector3) -> void:
 
 
 func set_modifier(p_modifier: int, p_pressed: bool) -> void:
+	# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
 	if p_modifier == KEY_CTRL && modifier_ctrl != p_pressed:
-		# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
 		modifier_ctrl = p_pressed
 		toolbar.show_add_buttons(!p_pressed)
 		if plugin.editor:
 			plugin.editor.set_operation(_modify_operation(plugin.editor.get_operation()))
 
+	# Alt (modify) key. Change the raise/lower operation to lift floors / flatten peaks.
 	if p_modifier == KEY_ALT && modifier_alt != p_pressed:
-		# Alt key. Change the raise/lower operation to lift floors / flatten peaks.
 		modifier_alt = p_pressed
 		
 		tool_settings.set_setting("lift_floor", p_pressed)
 		tool_settings.set_setting("flatten_peaks", p_pressed)
 
+	# Shift (smooth) key
+	if p_modifier == KEY_SHIFT && modifier_shift != p_pressed:
+		modifier_shift = p_pressed
+		if modifier_shift:
+			plugin.editor.set_tool(Terrain3DEditor.HEIGHT)
+			plugin.editor.set_operation(Terrain3DEditor.AVERAGE)
+		else:
+			plugin.editor.set_tool(last_tool)
+			plugin.editor.set_operation(last_operation)
+	
 
 func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
 	var remove_checked: bool = false

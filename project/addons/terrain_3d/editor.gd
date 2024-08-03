@@ -130,7 +130,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 	
-	ui.update_modifiers()
+	if p_event is InputEventKey:
+		ui.update_modifiers()
 	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
