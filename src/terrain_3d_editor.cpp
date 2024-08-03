@@ -198,39 +198,46 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					real_t destf = dest.r;
 
 					switch (_operation) {
-						case ADD:
+						case ADD: {
 							if (lift_floor && !std::isnan(p_global_position.y)) {
 								real_t brush_center_y = p_global_position.y + brush_alpha * strength;
 								destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
 							} else {
-								destf = srcf + (brush_alpha * strength * 10.f);
+								destf = srcf + (brush_alpha * strength);
 							}
 							break;
-						case SUBTRACT:
+						}
+						case SUBTRACT: {
 							if (flatten_peaks && !std::isnan(p_global_position.y)) {
 								real_t brush_center_y = p_global_position.y - brush_alpha * strength;
 								destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
 							} else {
-								destf = srcf - (brush_alpha * strength * 10.f);
+								destf = srcf - (brush_alpha * strength);
 							}
 							break;
-						case MULTIPLY:
+						}
+						case MULTIPLY: {
+							brush_alpha *= (srcf > 0) ? 1 : -1;
 							destf = srcf * (brush_alpha * strength * .01f + 1.0f);
 							if (lift_floor && !std::isnan(p_global_position.y)) {
 								real_t brush_center_y = p_global_position.y * (brush_alpha * strength * .01f + 1.0f);
 								destf = Math::clamp(brush_center_y, srcf, destf);
 							}
 							break;
-						case DIVIDE:
-							destf = srcf * (-brush_alpha * strength * .01f + 1.0f);
+						}
+						case DIVIDE: {
+							brush_alpha *= (srcf < 0) ? 1 : -1;
+							destf = srcf * (brush_alpha * strength * .01f + 1.0f);
 							if (flatten_peaks && !std::isnan(p_global_position.y)) {
-								real_t brush_center_y = p_global_position.y * (-brush_alpha * strength * .01f + 1.0f);
+								real_t brush_center_y = p_global_position.y * (brush_alpha * strength * .01f + 1.0f);
 								destf = Math::clamp(brush_center_y, destf, srcf);
 							}
 							break;
-						case REPLACE:
-							destf = Math::lerp(srcf, height, brush_alpha * strength);
+						}
+						case REPLACE: {
+							destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
 							break;
+						}
 						case AVERAGE: {
 							Vector3 left_position = brush_global_position - Vector3(vertex_spacing, 0.f, 0.f);
 							Vector3 right_position = brush_global_position + Vector3(vertex_spacing, 0.f, 0.f);
@@ -282,7 +289,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 								weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
 								real_t height = Math::lerp(point_1.y, point_2.y, weight);
 
-								destf = Math::lerp(srcf, height, brush_alpha * strength);
+								destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
 							}
 							break;
 						}
@@ -342,11 +349,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 											uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
 										}
 									}
-								} break;
+									break;
+								}
 
 								// Overlay Spray
 								case ADD: {
-									real_t spray_strength = CLAMP(strength * 0.025f, 0.003f, 0.025f);
+									real_t spray_strength = CLAMP(strength * 0.05f, 0.003f, .25f);
 									real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
 									if (enable_texture) {
 										// If overlay and base texture are the same, reduce blend value
@@ -377,29 +385,35 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 											uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
 										}
 									}
-								} break;
+									break;
+								}
 
 								default: {
-								} break;
+									break;
+								}
 							}
 							break;
-						case AUTOSHADER:
+						case AUTOSHADER: {
 							if (brush_alpha > 0.1f) {
 								autoshader = (_operation == ADD);
 							}
 							break;
-						case HOLES:
+						}
+						case HOLES: {
 							if (brush_alpha > 0.1f) {
 								hole = (_operation == ADD);
 							}
 							break;
-						case NAVIGATION:
+						}
+						case NAVIGATION: {
 							if (brush_alpha > 0.1f) {
 								navigation = (_operation == ADD);
 							}
 							break;
-						default:
+						}
+						default: {
 							break;
+						}
 					}
 
 					// Convert back to bitfield
@@ -435,7 +449,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							break;
 					}
 				}
-
 				map->set_pixelv(map_pixel_position, dest);
 			}
 		}
@@ -615,7 +628,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	}
 
 	// Santize editor data
-	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 2.f, 4096); // Diameter in meters
+	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 2.f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 100.f); // 1-10k%
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
 	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, Terrain3DAssets::MAX_MESHES);
