@@ -243,28 +243,24 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							Vector3 right_position = brush_global_position + Vector3(vertex_spacing, 0.f, 0.f);
 							Vector3 down_position = brush_global_position - Vector3(0.f, 0.f, vertex_spacing);
 							Vector3 up_position = brush_global_position + Vector3(0.f, 0.f, vertex_spacing);
-
-							real_t left = srcf, right = srcf, up = srcf, down = srcf;
-
-							left = storage->get_pixel(map_type, left_position).r;
+							real_t left = storage->get_pixel(map_type, left_position).r;
 							if (std::isnan(left)) {
 								left = 0.f;
 							}
-							right = storage->get_pixel(map_type, right_position).r;
+							real_t right = storage->get_pixel(map_type, right_position).r;
 							if (std::isnan(right)) {
 								right = 0.f;
 							}
-							up = storage->get_pixel(map_type, up_position).r;
+							real_t up = storage->get_pixel(map_type, up_position).r;
 							if (std::isnan(up)) {
 								up = 0.f;
 							}
-							down = storage->get_pixel(map_type, down_position).r;
+							real_t down = storage->get_pixel(map_type, down_position).r;
 							if (std::isnan(down)) {
 								down = 0.f;
 							}
-
 							real_t avg = (srcf + left + right + up + down) * 0.2f;
-							destf = Math::lerp(srcf, avg, brush_alpha * strength);
+							destf = Math::lerp(srcf, avg, CLAMP(brush_alpha * strength * 2.f, .02f, 1.f));
 							break;
 						}
 						case GRADIENT: {
