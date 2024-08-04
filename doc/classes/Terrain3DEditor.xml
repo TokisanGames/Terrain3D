@@ -15,25 +15,25 @@
 				Undo the previous changes, with the reverted images in the array. Used by Godot, not users.
 			</description>
 		</method>
-		<method name="get_operation">
+		<method name="get_operation" qualifiers="const">
 			<return type="int" enum="Terrain3DEditor.Operation" />
 			<description>
 				Returns the current operation.
 			</description>
 		</method>
-		<method name="get_terrain">
+		<method name="get_terrain" qualifiers="const">
 			<return type="Terrain3D" />
 			<description>
 				Returns the instance of Terrain3D this class is conneced to.
 			</description>
 		</method>
-		<method name="get_tool">
+		<method name="get_tool" qualifiers="const">
 			<return type="int" enum="Terrain3DEditor.Tool" />
 			<description>
 				Returns the current tool selected in the editor plugin.
 			</description>
 		</method>
-		<method name="is_operating">
+		<method name="is_operating" qualifiers="const">
 			<return type="bool" />
 			<description>
 				Returns true if currently brushing.
@@ -96,55 +96,49 @@
 		<constant name="SUBTRACT" value="1" enum="Operation">
 			Subtractive operations.
 		</constant>
-		<constant name="MULTIPLY" value="2" enum="Operation">
-			Multiplicative operations.
-		</constant>
-		<constant name="DIVIDE" value="3" enum="Operation">
-			Divisive operations.
-		</constant>
-		<constant name="REPLACE" value="4" enum="Operation">
+		<constant name="REPLACE" value="2" enum="Operation">
 			Replacing operations.
 		</constant>
-		<constant name="AVERAGE" value="5" enum="Operation">
+		<constant name="AVERAGE" value="3" enum="Operation">
 			Averaging operations.
 		</constant>
-		<constant name="GRADIENT" value="6" enum="Operation">
+		<constant name="GRADIENT" value="4" enum="Operation">
 			Gradient operations.
 		</constant>
-		<constant name="OP_MAX" value="7" enum="Operation">
+		<constant name="OP_MAX" value="5" enum="Operation">
 			The number of elements in this enum.
 		</constant>
-		<constant name="HEIGHT" value="0" enum="Tool">
+		<constant name="HEIGHT" value="1" enum="Tool">
 			Sculpt heights.
 		</constant>
-		<constant name="TEXTURE" value="1" enum="Tool">
+		<constant name="TEXTURE" value="2" enum="Tool">
 			Paint textures.
 		</constant>
-		<constant name="COLOR" value="2" enum="Tool">
+		<constant name="COLOR" value="3" enum="Tool">
 			Paint on the color map.
 		</constant>
-		<constant name="ROUGHNESS" value="3" enum="Tool">
+		<constant name="ROUGHNESS" value="4" enum="Tool">
 			Paint a roughness modifier, aka wetness.
 		</constant>
-		<constant name="ANGLE" value="4" enum="Tool">
+		<constant name="ANGLE" value="9" enum="Tool">
 			Paint textures rotated by an angle.
 		</constant>
-		<constant name="SCALE" value="5" enum="Tool">
+		<constant name="SCALE" value="10" enum="Tool">
 			Paint textures scaled by a value.
 		</constant>
-		<constant name="AUTOSHADER" value="6" enum="Tool">
+		<constant name="AUTOSHADER" value="5" enum="Tool">
 			Paint where the shader automatically textures.
 		</constant>
-		<constant name="HOLES" value="7" enum="Tool">
+		<constant name="HOLES" value="6" enum="Tool">
 			Paint where vertices will be invalidated to leave holes.
 		</constant>
-		<constant name="NAVIGATION" value="8" enum="Tool">
+		<constant name="NAVIGATION" value="7" enum="Tool">
 			Paint where navigation will be generated.
 		</constant>
-		<constant name="INSTANCER" value="9" enum="Tool">
+		<constant name="INSTANCER" value="8" enum="Tool">
 			Paint MultiMesh instances on the ground.
 		</constant>
-		<constant name="REGION" value="10" enum="Tool">
+		<constant name="REGION" value="0" enum="Tool">
 			Add/remove regions.
 		</constant>
 		<constant name="TOOL_MAX" value="11" enum="Tool">

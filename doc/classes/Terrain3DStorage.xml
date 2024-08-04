@@ -22,7 +22,7 @@
 				-	p_update - rebuild the maps if true. Set to false if bulk adding many regions, then true on the last one or use [method force_update_maps].
 			</description>
 		</method>
-		<method name="export_image">
+		<method name="export_image" qualifiers="const">
 			<return type="int" enum="Error" />
 			<param index="0" name="file_name" type="String" />
 			<param index="1" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
@@ -40,28 +40,28 @@
 				Regenerates the TextureArrays that house the requested map types. Using the default [enum MapType] TYPE_MAX(3) will regenerate all map types.
 			</description>
 		</method>
-		<method name="get_angle">
+		<method name="get_angle" qualifiers="const">
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Calls [method get_pixel].
 			</description>
 		</method>
-		<method name="get_color">
+		<method name="get_color" qualifiers="const">
 			<return type="Color" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the associated pixel on the color map at the requested position. Calls [method get_pixel].
 			</description>
 		</method>
-		<method name="get_control">
+		<method name="get_control" qualifiers="const">
 			<return type="int" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the associated pixel on the control map at the requested position. Calls [method get_pixel].
 			</description>
 		</method>
-		<method name="get_height">
+		<method name="get_height" qualifiers="const">
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
@@ -70,7 +70,7 @@
 				Calls [method get_pixel].
 			</description>
 		</method>
-		<method name="get_map_region">
+		<method name="get_map_region" qualifiers="const">
 			<return type="Image" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
 			<param index="1" name="region_index" type="int" />
@@ -78,21 +78,21 @@
 				Returns the Image for the specified map type and region. E.g. Returns the region_size height map Image at the first defined region 0.
 			</description>
 		</method>
-		<method name="get_maps">
+		<method name="get_maps" qualifiers="const">
 			<return type="Image[]" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
 			<description>
 				Returns an Array of Images containing all of the regions for the specified map type.
 			</description>
 		</method>
-		<method name="get_maps_copy">
+		<method name="get_maps_copy" qualifiers="const">
 			<return type="Image[]" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
 			<description>
 				Returns a copy of the Array of Images containing all of the regions for the specified map type.
 			</description>
 		</method>
-		<method name="get_mesh_vertex">
+		<method name="get_mesh_vertex" qualifiers="const">
 			<return type="Vector3" />
 			<param index="0" name="lod" type="int" />
 			<param index="1" name="filter" type="int" enum="Terrain3DStorage.HeightFilter" />
@@ -104,7 +104,7 @@
 				[code skip-lint]global_position[/code] - X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
 			</description>
 		</method>
-		<method name="get_normal">
+		<method name="get_normal" qualifiers="const">
 			<return type="Vector3" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
@@ -112,7 +112,7 @@
 				Returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] if the requested position is a hole or outside of defined regions.
 			</description>
 		</method>
-		<method name="get_pixel">
+		<method name="get_pixel" qualifiers="const">
 			<return type="Color" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
 			<param index="1" name="global_position" type="Vector3" />
@@ -121,55 +121,55 @@
 				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
 			</description>
 		</method>
-		<method name="get_region_count">
+		<method name="get_region_count" qualifiers="const">
 			<return type="int" />
 			<description>
 				Returns the number of allocated regions.
 			</description>
 		</method>
-		<method name="get_region_index">
+		<method name="get_region_index" qualifiers="const">
 			<return type="int" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the index into the [member region_offsets] array for the region associated with the specified position.
 			</description>
 		</method>
-		<method name="get_region_index_from_offset">
+		<method name="get_region_index_from_offset" qualifiers="const">
 			<return type="int" />
 			<param index="0" name="region_offset" type="Vector2i" />
 			<description>
 				Returns the current region ID based on a Vector2i region offset.
 			</description>
 		</method>
-		<method name="get_region_offset">
+		<method name="get_region_offset" qualifiers="const">
 			<return type="Vector2i" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Converts a world space position to region space. For a region_size of 1024 this basically means [code skip-lint]global_position/1024.0[/code]. Also see [member region_offsets].
 			</description>
 		</method>
-		<method name="get_region_offset_from_index">
+		<method name="get_region_offset_from_index" qualifiers="const">
 			<return type="Vector2i" />
 			<param index="0" name="region_index" type="int" />
 			<description>
 				Returns a Vector2i region offset based on the current region ID.
 			</description>
 		</method>
-		<method name="get_roughness">
+		<method name="get_roughness" qualifiers="const">
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls [method set_pixel].
 			</description>
 		</method>
-		<method name="get_scale">
+		<method name="get_scale" qualifiers="const">
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Calls [method get_pixel].
 			</description>
 		</method>
-		<method name="get_texture_id">
+		<method name="get_texture_id" qualifiers="const">
 			<return type="Vector3" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
@@ -180,7 +180,7 @@
 				Observing how this is done in The Witcher 3, there are only about 6 sounds used (snow, foliage, dirt, gravel, rock, wood), and except for wood, they are not pixel perfect. Wood is easy to do by detecting if the player is walking on wood meshes. The other 5 sounds are played when the player is in an area where the textures are blending. So it might play rock while over a dirt area. This shows pixel perfect accuracy is not important. It will still provide a seamless audio visual experience.
 			</description>
 		</method>
-		<method name="has_region">
+		<method name="has_region" qualifiers="const">
 			<return type="bool" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
@@ -201,7 +201,7 @@
 				[code skip-lint]scale[/code] - Scale all height values by this factor (applied after offset).
 			</description>
 		</method>
-		<method name="layered_to_image">
+		<method name="layered_to_image" qualifiers="const">
 			<return type="Image" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DStorage.MapType" />
 			<description>

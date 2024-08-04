@@ -223,6 +223,7 @@
     <None Include=".github\ISSUE_TEMPLATE\feature_request.yml">
       <Filter>1. Project Files</Filter>
     </None>
+    <None Include="doc\docs\collision.md" />
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -237,7 +238,7 @@
     <Text Include="doc\docs\import_export.md">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\docs\integrating.md">
+    <Text Include="doc\docs\programming_languages.md">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\occlusion_culling.md">

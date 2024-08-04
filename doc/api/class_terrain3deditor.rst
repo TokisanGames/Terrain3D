@@ -30,13 +30,13 @@ Methods
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                           | :ref:`apply_undo<class_Terrain3DEditor_method_apply_undo>`\ (\ maps\: :ref:`Dictionary<class_Dictionary>`\ )                                       |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Operation<enum_Terrain3DEditor_Operation>` | :ref:`get_operation<class_Terrain3DEditor_method_get_operation>`\ (\ )                                                                             |
+   | :ref:`Operation<enum_Terrain3DEditor_Operation>` | :ref:`get_operation<class_Terrain3DEditor_method_get_operation>`\ (\ ) |const|                                                                     |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3D<class_Terrain3D>`                | :ref:`get_terrain<class_Terrain3DEditor_method_get_terrain>`\ (\ )                                                                                 |
+   | :ref:`Terrain3D<class_Terrain3D>`                | :ref:`get_terrain<class_Terrain3DEditor_method_get_terrain>`\ (\ ) |const|                                                                         |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Tool<enum_Terrain3DEditor_Tool>`           | :ref:`get_tool<class_Terrain3DEditor_method_get_tool>`\ (\ )                                                                                       |
+   | :ref:`Tool<enum_Terrain3DEditor_Tool>`           | :ref:`get_tool<class_Terrain3DEditor_method_get_tool>`\ (\ ) |const|                                                                               |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`bool<class_bool>`                          | :ref:`is_operating<class_Terrain3DEditor_method_is_operating>`\ (\ )                                                                               |
+   | :ref:`bool<class_bool>`                          | :ref:`is_operating<class_Terrain3DEditor_method_is_operating>`\ (\ ) |const|                                                                       |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                           | :ref:`operate<class_Terrain3DEditor_method_operate>`\ (\ position\: :ref:`Vector3<class_Vector3>`, camera_direction\: :ref:`float<class_float>`\ ) |
    +--------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -84,27 +84,11 @@ Additive operations.
 
 Subtractive operations.
 
-.. _class_Terrain3DEditor_constant_MULTIPLY:
-
-.. rst-class:: classref-enumeration-constant
-
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **MULTIPLY** = ``2``
-
-Multiplicative operations.
-
-.. _class_Terrain3DEditor_constant_DIVIDE:
-
-.. rst-class:: classref-enumeration-constant
-
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **DIVIDE** = ``3``
-
-Divisive operations.
-
 .. _class_Terrain3DEditor_constant_REPLACE:
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **REPLACE** = ``4``
+:ref:`Operation<enum_Terrain3DEditor_Operation>` **REPLACE** = ``2``
 
 Replacing operations.
 
@@ -112,7 +96,7 @@ Replacing operations.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **AVERAGE** = ``5``
+:ref:`Operation<enum_Terrain3DEditor_Operation>` **AVERAGE** = ``3``
 
 Averaging operations.
 
@@ -120,7 +104,7 @@ Averaging operations.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **GRADIENT** = ``6``
+:ref:`Operation<enum_Terrain3DEditor_Operation>` **GRADIENT** = ``4``
 
 Gradient operations.
 
@@ -128,7 +112,7 @@ Gradient operations.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **OP_MAX** = ``7``
+:ref:`Operation<enum_Terrain3DEditor_Operation>` **OP_MAX** = ``5``
 
 The number of elements in this enum.
 
@@ -146,7 +130,7 @@ enum **Tool**: :ref:`🔗<enum_Terrain3DEditor_Tool>`
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **HEIGHT** = ``0``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **HEIGHT** = ``1``
 
 Sculpt heights.
 
@@ -154,7 +138,7 @@ Sculpt heights.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **TEXTURE** = ``1``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **TEXTURE** = ``2``
 
 Paint textures.
 
@@ -162,7 +146,7 @@ Paint textures.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **COLOR** = ``2``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **COLOR** = ``3``
 
 Paint on the color map.
 
@@ -170,7 +154,7 @@ Paint on the color map.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **ROUGHNESS** = ``3``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **ROUGHNESS** = ``4``
 
 Paint a roughness modifier, aka wetness.
 
@@ -178,7 +162,7 @@ Paint a roughness modifier, aka wetness.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **ANGLE** = ``4``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **ANGLE** = ``9``
 
 Paint textures rotated by an angle.
 
@@ -186,7 +170,7 @@ Paint textures rotated by an angle.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **SCALE** = ``5``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **SCALE** = ``10``
 
 Paint textures scaled by a value.
 
@@ -194,7 +178,7 @@ Paint textures scaled by a value.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **AUTOSHADER** = ``6``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **AUTOSHADER** = ``5``
 
 Paint where the shader automatically textures.
 
@@ -202,7 +186,7 @@ Paint where the shader automatically textures.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **HOLES** = ``7``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **HOLES** = ``6``
 
 Paint where vertices will be invalidated to leave holes.
 
@@ -210,7 +194,7 @@ Paint where vertices will be invalidated to leave holes.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **NAVIGATION** = ``8``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **NAVIGATION** = ``7``
 
 Paint where navigation will be generated.
 
@@ -218,7 +202,7 @@ Paint where navigation will be generated.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **INSTANCER** = ``9``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **INSTANCER** = ``8``
 
 Paint MultiMesh instances on the ground.
 
@@ -226,7 +210,7 @@ Paint MultiMesh instances on the ground.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``10``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **REGION** = ``0``
 
 Add/remove regions.
 
@@ -263,7 +247,7 @@ Undo the previous changes, with the reverted images in the array. Used by Godot,
 
 .. rst-class:: classref-method
 
-:ref:`Operation<enum_Terrain3DEditor_Operation>` **get_operation**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_get_operation>`
+:ref:`Operation<enum_Terrain3DEditor_Operation>` **get_operation**\ (\ ) |const| :ref:`🔗<class_Terrain3DEditor_method_get_operation>`
 
 Returns the current operation.
 
@@ -275,7 +259,7 @@ Returns the current operation.
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3D<class_Terrain3D>` **get_terrain**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_get_terrain>`
+:ref:`Terrain3D<class_Terrain3D>` **get_terrain**\ (\ ) |const| :ref:`🔗<class_Terrain3DEditor_method_get_terrain>`
 
 Returns the instance of Terrain3D this class is conneced to.
 
@@ -287,7 +271,7 @@ Returns the instance of Terrain3D this class is conneced to.
 
 .. rst-class:: classref-method
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **get_tool**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_get_tool>`
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **get_tool**\ (\ ) |const| :ref:`🔗<class_Terrain3DEditor_method_get_tool>`
 
 Returns the current tool selected in the editor plugin.
 
@@ -299,7 +283,7 @@ Returns the current tool selected in the editor plugin.
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **is_operating**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_is_operating>`
+:ref:`bool<class_bool>` **is_operating**\ (\ ) |const| :ref:`🔗<class_Terrain3DEditor_method_is_operating>`
 
 Returns true if currently brushing.
 

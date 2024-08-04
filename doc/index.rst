@@ -102,12 +102,13 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :maxdepth: 1
    :caption: Advanced Usage
 
+   docs/collision
    docs/double_precision
-   docs/integrating
    docs/misc
    docs/mobile_web
    docs/navigation
    docs/occlusion_culling
+   docs/programming_languages
 
 .. toctree::
    :maxdepth: 1

@@ -58,51 +58,51 @@ Methods
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Error<enum_@GlobalScope_Error>`                  | :ref:`add_region<class_Terrain3DStorage_method_add_region>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, images\: :ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] = [], update\: :ref:`bool<class_bool>` = true\ )                                                               |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Error<enum_@GlobalScope_Error>`                  | :ref:`export_image<class_Terrain3DStorage_method_export_image>`\ (\ file_name\: :ref:`String<class_String>`, map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ )                                                                                                                        |
+   | :ref:`Error<enum_@GlobalScope_Error>`                  | :ref:`export_image<class_Terrain3DStorage_method_export_image>`\ (\ file_name\: :ref:`String<class_String>`, map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const|                                                                                                                |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                 | :ref:`force_update_maps<class_Terrain3DStorage_method_force_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>` = 3\ )                                                                                                                                                   |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`float<class_float>`                              | :ref:`get_angle<class_Terrain3DStorage_method_get_angle>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                                |
+   | :ref:`float<class_float>`                              | :ref:`get_angle<class_Terrain3DStorage_method_get_angle>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                        |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Color<class_Color>`                              | :ref:`get_color<class_Terrain3DStorage_method_get_color>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                                |
+   | :ref:`Color<class_Color>`                              | :ref:`get_color<class_Terrain3DStorage_method_get_color>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                        |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`                                  | :ref:`get_control<class_Terrain3DStorage_method_get_control>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                            |
+   | :ref:`int<class_int>`                                  | :ref:`get_control<class_Terrain3DStorage_method_get_control>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                    |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`float<class_float>`                              | :ref:`get_height<class_Terrain3DStorage_method_get_height>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                              |
+   | :ref:`float<class_float>`                              | :ref:`get_height<class_Terrain3DStorage_method_get_height>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                      |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`                              | :ref:`get_map_region<class_Terrain3DStorage_method_get_map_region>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, region_index\: :ref:`int<class_int>`\ )                                                                                                                       |
+   | :ref:`Image<class_Image>`                              | :ref:`get_map_region<class_Terrain3DStorage_method_get_map_region>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, region_index\: :ref:`int<class_int>`\ ) |const|                                                                                                               |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] | :ref:`get_maps<class_Terrain3DStorage_method_get_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ )                                                                                                                                                                         |
+   | :ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] | :ref:`get_maps<class_Terrain3DStorage_method_get_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const|                                                                                                                                                                 |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] | :ref:`get_maps_copy<class_Terrain3DStorage_method_get_maps_copy>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ )                                                                                                                                                               |
+   | :ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] | :ref:`get_maps_copy<class_Terrain3DStorage_method_get_maps_copy>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const|                                                                                                                                                       |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector3<class_Vector3>`                          | :ref:`get_mesh_vertex<class_Terrain3DStorage_method_get_mesh_vertex>`\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>`, global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                     |
+   | :ref:`Vector3<class_Vector3>`                          | :ref:`get_mesh_vertex<class_Terrain3DStorage_method_get_mesh_vertex>`\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>`, global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                             |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector3<class_Vector3>`                          | :ref:`get_normal<class_Terrain3DStorage_method_get_normal>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                              |
+   | :ref:`Vector3<class_Vector3>`                          | :ref:`get_normal<class_Terrain3DStorage_method_get_normal>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                      |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Color<class_Color>`                              | :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                      |
+   | :ref:`Color<class_Color>`                              | :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                              |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`                                  | :ref:`get_region_count<class_Terrain3DStorage_method_get_region_count>`\ (\ )                                                                                                                                                                                                                   |
+   | :ref:`int<class_int>`                                  | :ref:`get_region_count<class_Terrain3DStorage_method_get_region_count>`\ (\ ) |const|                                                                                                                                                                                                           |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`                                  | :ref:`get_region_index<class_Terrain3DStorage_method_get_region_index>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                  |
+   | :ref:`int<class_int>`                                  | :ref:`get_region_index<class_Terrain3DStorage_method_get_region_index>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                          |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`                                  | :ref:`get_region_index_from_offset<class_Terrain3DStorage_method_get_region_index_from_offset>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`\ )                                                                                                                                          |
+   | :ref:`int<class_int>`                                  | :ref:`get_region_index_from_offset<class_Terrain3DStorage_method_get_region_index_from_offset>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`\ ) |const|                                                                                                                                  |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector2i<class_Vector2i>`                        | :ref:`get_region_offset<class_Terrain3DStorage_method_get_region_offset>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                |
+   | :ref:`Vector2i<class_Vector2i>`                        | :ref:`get_region_offset<class_Terrain3DStorage_method_get_region_offset>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                        |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector2i<class_Vector2i>`                        | :ref:`get_region_offset_from_index<class_Terrain3DStorage_method_get_region_offset_from_index>`\ (\ region_index\: :ref:`int<class_int>`\ )                                                                                                                                                     |
+   | :ref:`Vector2i<class_Vector2i>`                        | :ref:`get_region_offset_from_index<class_Terrain3DStorage_method_get_region_offset_from_index>`\ (\ region_index\: :ref:`int<class_int>`\ ) |const|                                                                                                                                             |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`float<class_float>`                              | :ref:`get_roughness<class_Terrain3DStorage_method_get_roughness>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                        |
+   | :ref:`float<class_float>`                              | :ref:`get_roughness<class_Terrain3DStorage_method_get_roughness>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`float<class_float>`                              | :ref:`get_scale<class_Terrain3DStorage_method_get_scale>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                                |
+   | :ref:`float<class_float>`                              | :ref:`get_scale<class_Terrain3DStorage_method_get_scale>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                        |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector3<class_Vector3>`                          | :ref:`get_texture_id<class_Terrain3DStorage_method_get_texture_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                      |
+   | :ref:`Vector3<class_Vector3>`                          | :ref:`get_texture_id<class_Terrain3DStorage_method_get_texture_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                              |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`bool<class_bool>`                                | :ref:`has_region<class_Terrain3DStorage_method_has_region>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ )                                                                                                                                                                              |
+   | :ref:`bool<class_bool>`                                | :ref:`has_region<class_Terrain3DStorage_method_has_region>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                      |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                 | :ref:`import_images<class_Terrain3DStorage_method_import_images>`\ (\ images\: :ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\], global_position\: :ref:`Vector3<class_Vector3>` = Vector3(0, 0, 0), offset\: :ref:`float<class_float>` = 0.0, scale\: :ref:`float<class_float>` = 1.0\ ) |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Image<class_Image>`                              | :ref:`layered_to_image<class_Terrain3DStorage_method_layered_to_image>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ )                                                                                                                                                         |
+   | :ref:`Image<class_Image>`                              | :ref:`layered_to_image<class_Terrain3DStorage_method_layered_to_image>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const|                                                                                                                                                 |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                 | :ref:`remove_region<class_Terrain3DStorage_method_remove_region>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, update\: :ref:`bool<class_bool>` = true\ )                                                                                                                               |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -531,7 +531,7 @@ Parameters:
 
 .. rst-class:: classref-method
 
-:ref:`Error<enum_@GlobalScope_Error>` **export_image**\ (\ file_name\: :ref:`String<class_String>`, map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) :ref:`🔗<class_Terrain3DStorage_method_export_image>`
+:ref:`Error<enum_@GlobalScope_Error>` **export_image**\ (\ file_name\: :ref:`String<class_String>`, map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_export_image>`
 
 Exports the specified map type as one of r16/raw, exr, jpg, png, webp, res, tres. 
 
@@ -561,7 +561,7 @@ Regenerates the TextureArrays that house the requested map types. Using the defa
 
 .. rst-class:: classref-method
 
-:ref:`float<class_float>` **get_angle**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_angle>`
+:ref:`float<class_float>` **get_angle**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_angle>`
 
 Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
@@ -573,7 +573,7 @@ Returns the angle, aka uv rotation, painted on the control map at the requested 
 
 .. rst-class:: classref-method
 
-:ref:`Color<class_Color>` **get_color**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_color>`
+:ref:`Color<class_Color>` **get_color**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_color>`
 
 Returns the associated pixel on the color map at the requested position. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
@@ -585,7 +585,7 @@ Returns the associated pixel on the color map at the requested position. Calls :
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_control**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_control>`
+:ref:`int<class_int>` **get_control**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_control>`
 
 Returns the associated pixel on the control map at the requested position. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
@@ -597,7 +597,7 @@ Returns the associated pixel on the control map at the requested position. Calls
 
 .. rst-class:: classref-method
 
-:ref:`float<class_float>` **get_height**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_height>`
+:ref:`float<class_float>` **get_height**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_height>`
 
 Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
 
@@ -613,7 +613,7 @@ Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **get_map_region**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, region_index\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_map_region>`
+:ref:`Image<class_Image>` **get_map_region**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, region_index\: :ref:`int<class_int>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_map_region>`
 
 Returns the Image for the specified map type and region. E.g. Returns the region_size height map Image at the first defined region 0.
 
@@ -625,7 +625,7 @@ Returns the Image for the specified map type and region. E.g. Returns the region
 
 .. rst-class:: classref-method
 
-:ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] **get_maps**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_maps>`
+:ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] **get_maps**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_maps>`
 
 Returns an Array of Images containing all of the regions for the specified map type.
 
@@ -637,7 +637,7 @@ Returns an Array of Images containing all of the regions for the specified map t
 
 .. rst-class:: classref-method
 
-:ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] **get_maps_copy**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_maps_copy>`
+:ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\] **get_maps_copy**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_maps_copy>`
 
 Returns a copy of the Array of Images containing all of the regions for the specified map type.
 
@@ -649,7 +649,7 @@ Returns a copy of the Array of Images containing all of the regions for the spec
 
 .. rst-class:: classref-method
 
-:ref:`Vector3<class_Vector3>` **get_mesh_vertex**\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>`, global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_mesh_vertex>`
+:ref:`Vector3<class_Vector3>` **get_mesh_vertex**\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DStorage_HeightFilter>`, global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_mesh_vertex>`
 
 Returns the position of a terrain vertex at a certain LOD. If there is a hole at the position, it returns ``NAN`` in the vector's Y coordinate.
 
@@ -667,7 +667,7 @@ Returns the position of a terrain vertex at a certain LOD. If there is a hole at
 
 .. rst-class:: classref-method
 
-:ref:`Vector3<class_Vector3>` **get_normal**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_normal>`
+:ref:`Vector3<class_Vector3>` **get_normal**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_normal>`
 
 Returns the terrain normal at the specified position. This function uses :ref:`get_height<class_Terrain3DStorage_method_get_height>`.
 
@@ -681,7 +681,7 @@ Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outsid
 
 .. rst-class:: classref-method
 
-:ref:`Color<class_Color>` **get_pixel**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_pixel>`
+:ref:`Color<class_Color>` **get_pixel**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_pixel>`
 
 Returns the pixel for the map type associated with the specified position.
 
@@ -695,7 +695,7 @@ Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regi
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_region_count**\ (\ ) :ref:`🔗<class_Terrain3DStorage_method_get_region_count>`
+:ref:`int<class_int>` **get_region_count**\ (\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_region_count>`
 
 Returns the number of allocated regions.
 
@@ -707,7 +707,7 @@ Returns the number of allocated regions.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_region_index**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_region_index>`
+:ref:`int<class_int>` **get_region_index**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_region_index>`
 
 Returns the index into the :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>` array for the region associated with the specified position.
 
@@ -719,7 +719,7 @@ Returns the index into the :ref:`region_offsets<class_Terrain3DStorage_property_
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_region_index_from_offset**\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_region_index_from_offset>`
+:ref:`int<class_int>` **get_region_index_from_offset**\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_region_index_from_offset>`
 
 Returns the current region ID based on a Vector2i region offset.
 
@@ -731,7 +731,7 @@ Returns the current region ID based on a Vector2i region offset.
 
 .. rst-class:: classref-method
 
-:ref:`Vector2i<class_Vector2i>` **get_region_offset**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_region_offset>`
+:ref:`Vector2i<class_Vector2i>` **get_region_offset**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_region_offset>`
 
 Converts a world space position to region space. For a region_size of 1024 this basically means ``global_position/1024.0``. Also see :ref:`region_offsets<class_Terrain3DStorage_property_region_offsets>`.
 
@@ -743,7 +743,7 @@ Converts a world space position to region space. For a region_size of 1024 this 
 
 .. rst-class:: classref-method
 
-:ref:`Vector2i<class_Vector2i>` **get_region_offset_from_index**\ (\ region_index\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_region_offset_from_index>`
+:ref:`Vector2i<class_Vector2i>` **get_region_offset_from_index**\ (\ region_index\: :ref:`int<class_int>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_region_offset_from_index>`
 
 Returns a Vector2i region offset based on the current region ID.
 
@@ -755,7 +755,7 @@ Returns a Vector2i region offset based on the current region ID.
 
 .. rst-class:: classref-method
 
-:ref:`float<class_float>` **get_roughness**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_roughness>`
+:ref:`float<class_float>` **get_roughness**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_roughness>`
 
 Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
@@ -767,7 +767,7 @@ Returns the roughness modifier (wetness) on the color map alpha channel associat
 
 .. rst-class:: classref-method
 
-:ref:`float<class_float>` **get_scale**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_scale>`
+:ref:`float<class_float>` **get_scale**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_scale>`
 
 Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
@@ -779,7 +779,7 @@ Returns the uv scale painted on the control map at the requested position. The v
 
 .. rst-class:: classref-method
 
-:ref:`Vector3<class_Vector3>` **get_texture_id**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_get_texture_id>`
+:ref:`Vector3<class_Vector3>` **get_texture_id**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_texture_id>`
 
 Returns ``Vector3(base texture id, overlay id, blend value)``.
 
@@ -799,7 +799,7 @@ Observing how this is done in The Witcher 3, there are only about 6 sounds used 
 
 .. rst-class:: classref-method
 
-:ref:`bool<class_bool>` **has_region**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3DStorage_method_has_region>`
+:ref:`bool<class_bool>` **has_region**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_has_region>`
 
 Returns true if the specified position has a region allocated.
 
@@ -831,7 +831,7 @@ Imports an Image set (Height, Control, Color) into this resource. It does NOT no
 
 .. rst-class:: classref-method
 
-:ref:`Image<class_Image>` **layered_to_image**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) :ref:`🔗<class_Terrain3DStorage_method_layered_to_image>`
+:ref:`Image<class_Image>` **layered_to_image**\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_layered_to_image>`
 
 Returns an Image of the given map type that contains all regions in one large image. If the world has multiple islands, this function will return an image large enough to encompass all used regions, with black areas in between the islands.
 

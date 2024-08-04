@@ -9,7 +9,7 @@
 	<tutorials>
 	</tutorials>
 	<methods>
-		<method name="bake_mesh">
+		<method name="bake_mesh" qualifiers="const">
 			<return type="Mesh" />
 			<param index="0" name="lod" type="int" />
 			<param index="1" name="filter" type="int" enum="Terrain3DStorage.HeightFilter" />
@@ -19,7 +19,7 @@
 				[code skip-lint]filter[/code] - Controls how vertex Y coordinates are generated from the height map. See [enum Terrain3DStorage.HeightFilter].
 			</description>
 		</method>
-		<method name="generate_nav_mesh_source_geometry">
+		<method name="generate_nav_mesh_source_geometry" qualifiers="const">
 			<return type="PackedVector3Array" />
 			<param index="0" name="global_aabb" type="AABB" />
 			<param index="1" name="require_nav" type="bool" default="true" />
@@ -29,10 +29,22 @@
 				[code skip-lint]require_nav[/code] - If true, this function will only generate geometry for terrain marked navigable. Otherwise, geometry is generated for the entire terrain within the AABB (which can be useful for dynamic and/or runtime nav mesh baking).
 			</description>
 		</method>
-		<method name="get_camera">
+		<method name="get_camera" qualifiers="const">
 			<return type="Camera3D" />
 			<description>
 				Returns the camera the terrain is currently snapping to.
+			</description>
+		</method>
+		<method name="get_collision_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Returns the RID of the active StaticBody.
+			</description>
+		</method>
+		<method name="get_editor" qualifiers="const">
+			<return type="Terrain3DEditor" />
+			<description>
+				Returns the current Terrain3DEditor instance, if it has been set.
 			</description>
 		</method>
 		<method name="get_intersection">
@@ -50,7 +62,7 @@
 				It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See [member render_mouse_layer].
 			</description>
 		</method>
-		<method name="get_plugin">
+		<method name="get_plugin" qualifiers="const">
 			<return type="EditorPlugin" />
 			<description>
 				Returns the EditorPlugin connected to Terrain3D.
@@ -61,6 +73,13 @@
 			<param index="0" name="camera" type="Camera3D" />
 			<description>
 				Sets the camera the terrain snaps to.
+			</description>
+		</method>
+		<method name="set_editor">
+			<return type="void" />
+			<param index="0" name="editor" type="Terrain3DEditor" />
+			<description>
+				Sets the current Terrain3DEditor instance.
 			</description>
 		</method>
 		<method name="set_plugin">

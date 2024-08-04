@@ -46,6 +46,17 @@
 				This function adds the [member Terrain3DMeshAsset.height_offset] to the transform along its local Y axis.
 			</description>
 		</method>
+		<method name="append_multimesh">
+			<return type="void" />
+			<param index="0" name="region_offset" type="Vector2i" />
+			<param index="1" name="mesh_id" type="int" />
+			<param index="2" name="transforms" type="Transform3D[]" />
+			<param index="3" name="colors" type="Color[]" />
+			<param index="4" name="clear" type="bool" default="false" />
+			<description>
+				Appends new transforms to existing multimeshes. Multimesh transform arrays cannot be modified and must be rebuilt. This will make a new array with both old and new transforms. `Clear` will skip the old array.
+			</description>
+		</method>
 		<method name="clear_by_mesh">
 			<return type="void" />
 			<param index="0" name="mesh_id" type="int" />
@@ -69,6 +80,12 @@
 				Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in Storage for the specified region id and mesh id.
 			</description>
 		</method>
+		<method name="get_mmis" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns the dictionary containing the MultiMeshInstance3D nodes, which are hidden children of Terrain3D. The dictionary is keyed by Vector3i(region_offset.x, region_offset.y, mesh_id).
+			</description>
+		</method>
 		<method name="remove_instances">
 			<return type="void" />
 			<param index="0" name="global_position" type="Vector3" />
@@ -83,6 +100,13 @@
 			<param index="1" name="mode" type="int" enum="GeometryInstance3D.ShadowCastingSetting" />
 			<description>
 				Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] on all MultiMeshInstances for the specified mesh. This function is called by [member Terrain3DMeshAsset.cast_shadows], but you can also call it manually.
+			</description>
+		</method>
+		<method name="update_transforms">
+			<return type="void" />
+			<param index="0" name="aabb" type="AABB" />
+			<description>
+				Reviews all existing instance transforms within an AABB and adjusts their heights to match the terrain.
 			</description>
 		</method>
 	</methods>

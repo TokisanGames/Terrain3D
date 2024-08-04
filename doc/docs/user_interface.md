@@ -22,11 +22,12 @@ The following mouse and keyboard shortcuts are available:
 
 **Terrain Operations**
 * <kbd>LMB</kbd> - Click the terrain to sculpt or paint.
+* <kbd>Shift + LMB</kbd> - **Smooth**.
 * <kbd>Ctrl + LMB</kbd> - **Inverses the operation** where applicable. Eg. Add or *remove* regions. Raise or *lower* terrain. Create or *remove* holes, foliage, navigation, etc.
 * <kbd>Alt + LMB</kbd> - **Lift floors** mode. Sculpting only. This lifts up lower portions of the terrain without affecting higher terrain around it. Use it along the bottom of cliff faces. See [videos demonstrating before and after](https://github.com/TokisanGames/Terrain3D/pull/409). 
 * <kbd>Ctrl + Alt + LMB</kbd> - **Flatten peaks** mode. Sculpting only. The inverse of the above. This reduces peaks and ridges without affecting lower terrain around it.
 
-Note: Touchscreen users have an `Invert` checkbox on the settings bar which acts like Ctrl to inverse operations.
+Note: Touchscreen users have an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
 
 **Godot Shortcuts**
 * <kbd>Ctrl + Z</kbd> - Undo. You can also view the operations in Godot's `History` panel.
@@ -44,11 +45,13 @@ Depending on which tool is selected on the toolbar, various tool settings will a
 :target: ../_images/ui_tool_settings.jpg
 ```
 
-On the left, many tools offer a brush selection. If you wish to change them, you can do so in `addons/terrain_3d/brushes` using your OS folder explorer. The folder is hidden to Godot. These files are 100x100 alpha masks saved as EXR. Larger sizes should work fine, but will be slow if too big.
+Many tool settings offer a slider with a fixed range, and an input box where you can manually enter a much larger setting.
 
-Next are a variety of settings specific to the tool, which should be self explanatory. See [Foliage Instancing](instancer.md) for specific details on its settings.
+Most are self explanatory. See [Foliage Instancing](instancer.md) for specific details on its settings.
 
-Lastly, on the right is the advanced menu. Most options are self explanatory. `Jitter` is what causes the brush to spin while painting. Reduce it to zero if you don't want the brush to rotate.
+On the right is the advanced menu. One noteworthy setting is `Jitter`, which is what causes the brush to spin while painting. Reduce it to zero if you don't want this.
+
+Brushes can be edited in the `addons/terrain_3d/brushes` directory, using your OS folder explorer. The folder is hidden to Godot. The files are 100x100 alpha masks saved as EXR. Larger sizes should work fine, but will be slow if too big.
 
 
 ---

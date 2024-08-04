@@ -49,23 +49,29 @@ Methods
 .. table::
    :widths: auto
 
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`add_instances<class_Terrain3DInstancer_method_add_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )                                                                                            |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`add_multimesh<class_Terrain3DInstancer_method_add_multimesh>`\ (\ mesh_id\: :ref:`int<class_int>`, multimesh\: :ref:`MultiMesh<class_MultiMesh>`, transform\: :ref:`Transform3D<class_Transform3D>` = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)\ )      |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>`\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ ) |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`\ (\ mesh_id\: :ref:`int<class_int>`\ )                                                                                                                                                          |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`clear_by_offset<class_Terrain3DInstancer_method_clear_by_offset>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`\ )                                                                                                     |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`clear_by_region_id<class_Terrain3DInstancer_method_clear_by_region_id>`\ (\ region_id\: :ref:`int<class_int>`, mesh_id\: :ref:`int<class_int>`\ )                                                                                                             |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )                                                                                      |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`set_cast_shadows<class_Terrain3DInstancer_method_set_cast_shadows>`\ (\ mesh_id\: :ref:`int<class_int>`, mode\: :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>`\ )                                                                  |
-   +--------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`add_instances<class_Terrain3DInstancer_method_add_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )                                                                                                                                                                                     |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`add_multimesh<class_Terrain3DInstancer_method_add_multimesh>`\ (\ mesh_id\: :ref:`int<class_int>`, multimesh\: :ref:`MultiMesh<class_MultiMesh>`, transform\: :ref:`Transform3D<class_Transform3D>` = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)\ )                                                                                               |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>`\ (\ mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\] = []\ )                                                                                          |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`append_multimesh<class_Terrain3DInstancer_method_append_multimesh>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\], clear\: :ref:`bool<class_bool>` = false\ ) |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`\ (\ mesh_id\: :ref:`int<class_int>`\ )                                                                                                                                                                                                                                                   |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`clear_by_offset<class_Terrain3DInstancer_method_clear_by_offset>`\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`\ )                                                                                                                                                                                              |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`clear_by_region_id<class_Terrain3DInstancer_method_clear_by_region_id>`\ (\ region_id\: :ref:`int<class_int>`, mesh_id\: :ref:`int<class_int>`\ )                                                                                                                                                                                                      |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Dictionary<class_Dictionary>` | :ref:`get_mmis<class_Terrain3DInstancer_method_get_mmis>`\ (\ ) |const|                                                                                                                                                                                                                                                                                      |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, params\: :ref:`Dictionary<class_Dictionary>`\ )                                                                                                                                                                               |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`set_cast_shadows<class_Terrain3DInstancer_method_set_cast_shadows>`\ (\ mesh_id\: :ref:`int<class_int>`, mode\: :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>`\ )                                                                                                                                                           |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                              | :ref:`update_transforms<class_Terrain3DInstancer_method_update_transforms>`\ (\ aabb\: :ref:`AABB<class_AABB>`\ )                                                                                                                                                                                                                                            |
+   +-------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -114,6 +120,18 @@ This function adds the :ref:`Terrain3DMeshAsset.height_offset<class_Terrain3DMes
 
 ----
 
+.. _class_Terrain3DInstancer_method_append_multimesh:
+
+.. rst-class:: classref-method
+
+|void| **append_multimesh**\ (\ region_offset\: :ref:`Vector2i<class_Vector2i>`, mesh_id\: :ref:`int<class_int>`, transforms\: :ref:`Array<class_Array>`\[:ref:`Transform3D<class_Transform3D>`\], colors\: :ref:`Array<class_Array>`\[:ref:`Color<class_Color>`\], clear\: :ref:`bool<class_bool>` = false\ ) :ref:`🔗<class_Terrain3DInstancer_method_append_multimesh>`
+
+Appends new transforms to existing multimeshes. Multimesh transform arrays cannot be modified and must be rebuilt. This will make a new array with both old and new transforms. `Clear` will skip the old array.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DInstancer_method_clear_by_mesh:
 
 .. rst-class:: classref-method
@@ -150,6 +168,18 @@ Removes both MultiMeshInstance nodes attached to the tree, and MultiMeshes in St
 
 ----
 
+.. _class_Terrain3DInstancer_method_get_mmis:
+
+.. rst-class:: classref-method
+
+:ref:`Dictionary<class_Dictionary>` **get_mmis**\ (\ ) |const| :ref:`🔗<class_Terrain3DInstancer_method_get_mmis>`
+
+Returns the dictionary containing the MultiMeshInstance3D nodes, which are hidden children of Terrain3D. The dictionary is keyed by Vector3i(region_offset.x, region_offset.y, mesh_id).
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DInstancer_method_remove_instances:
 
 .. rst-class:: classref-method
@@ -169,6 +199,18 @@ Uses parameters asset_id, size, strength, fixed_scale, random_scale, to randomly
 |void| **set_cast_shadows**\ (\ mesh_id\: :ref:`int<class_int>`, mode\: :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_set_cast_shadows>`
 
 Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets ``GeometryInstance3D.ShadowCastingSetting`` on all MultiMeshInstances for the specified mesh. This function is called by :ref:`Terrain3DMeshAsset.cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>`, but you can also call it manually.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DInstancer_method_update_transforms:
+
+.. rst-class:: classref-method
+
+|void| **update_transforms**\ (\ aabb\: :ref:`AABB<class_AABB>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_update_transforms>`
+
+Reviews all existing instance transforms within an AABB and adjusts their heights to match the terrain.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

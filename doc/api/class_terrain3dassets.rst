@@ -44,13 +44,13 @@ Methods
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                    | :ref:`create_mesh_thumbnails<class_Terrain3DAssets_method_create_mesh_thumbnails>`\ (\ id\: :ref:`int<class_int>` = -1, size\: :ref:`Vector2i<class_Vector2i>` = Vector2i(128, 128)\ ) |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`       | :ref:`get_mesh_asset<class_Terrain3DAssets_method_get_mesh_asset>`\ (\ id\: :ref:`int<class_int>`\ )                                                                                   |
+   | :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`       | :ref:`get_mesh_asset<class_Terrain3DAssets_method_get_mesh_asset>`\ (\ id\: :ref:`int<class_int>`\ ) |const|                                                                           |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`                                     | :ref:`get_mesh_count<class_Terrain3DAssets_method_get_mesh_count>`\ (\ )                                                                                                               |
+   | :ref:`int<class_int>`                                     | :ref:`get_mesh_count<class_Terrain3DAssets_method_get_mesh_count>`\ (\ ) |const|                                                                                                       |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` | :ref:`get_texture<class_Terrain3DAssets_method_get_texture>`\ (\ id\: :ref:`int<class_int>`\ )                                                                                         |
+   | :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` | :ref:`get_texture<class_Terrain3DAssets_method_get_texture>`\ (\ id\: :ref:`int<class_int>`\ ) |const|                                                                                 |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`int<class_int>`                                     | :ref:`get_texture_count<class_Terrain3DAssets_method_get_texture_count>`\ (\ )                                                                                                         |
+   | :ref:`int<class_int>`                                     | :ref:`get_texture_count<class_Terrain3DAssets_method_get_texture_count>`\ (\ ) |const|                                                                                                 |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                    | :ref:`save<class_Terrain3DAssets_method_save>`\ (\ )                                                                                                                                   |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -208,7 +208,7 @@ Generates mesh asset preview thumbnails for the asset dock, stored within each m
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` **get_mesh_asset**\ (\ id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DAssets_method_get_mesh_asset>`
+:ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` **get_mesh_asset**\ (\ id\: :ref:`int<class_int>`\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_mesh_asset>`
 
 Returns the specified Terrain3DMeshAsset resource.
 
@@ -220,7 +220,7 @@ Returns the specified Terrain3DMeshAsset resource.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_mesh_count**\ (\ ) :ref:`🔗<class_Terrain3DAssets_method_get_mesh_count>`
+:ref:`int<class_int>` **get_mesh_count**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_mesh_count>`
 
 Returns the number of mesh assets in the list.
 
@@ -232,7 +232,7 @@ Returns the number of mesh assets in the list.
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` **get_texture**\ (\ id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DAssets_method_get_texture>`
+:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` **get_texture**\ (\ id\: :ref:`int<class_int>`\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture>`
 
 Returns the Terrain3DTextureAsset with the requested ID.
 
@@ -244,7 +244,7 @@ Returns the Terrain3DTextureAsset with the requested ID.
 
 .. rst-class:: classref-method
 
-:ref:`int<class_int>` **get_texture_count**\ (\ ) :ref:`🔗<class_Terrain3DAssets_method_get_texture_count>`
+:ref:`int<class_int>` **get_texture_count**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_count>`
 
 Returns the number of texture slots used.
 

@@ -1,21 +1,28 @@
 Tips
 ======
 
-## General
+## Understanding Regions
 
-* Always run Godot with the [console](troubleshooting.md#use-the-console) open so you can see errors and messages from the engine. The output panel is slow and inadequate.
+Terrain3D provides users non-contiguous 1024x1024 sized regions on a 16x16 region grid. So a user might have a 1k x 2k island in one corner of the world and a 4k x 4k island elsewhere. In between are empty regions, visually flat space where they could place an ocean. In these empty regions, no vram is consumed, nor collision generated.
 
-* When another mesh intersects with Terrain3D far away from the camera, such as in the case of water on a beach, the two meshes can flicker as the renderer can't decide which mesh should be displayed in front. This is also called Z-fighting. You can greatly reduce it by increasing `Camera3D.near` to 0.25. You can also set it for the editor camera in the main viewport by adjusting `View/Settings/View Z-Near`.
+The regions are visible if `View Gizmos` is enabled in the Godot `Perspective` menu.
 
-*  Many of the brush settings can be manually entered by clicking the number next to the sliders. Some can extend beyond the maximum slider value.
+You pay in memory and vram for each region you have, so be aware of their use. If you're going to have a small world that will fit within 1024m^2, then don't sculpt it around the origin point (0, 0). That would allocate 4 regions. Instead sculpt it around (512, 512) so that all of your data can fit within 1 region.
+
+Outside of regions, there is no collision. Raycasts won't hit anything. Querying terrain heights or other data will result in NANs or INF. Look through the API for specific return values.
+
+You can determine if a given location is within a region by using `Terrain3DStorage.get_region_index(global_position)`. It will return -1 if the XZ location is not within a region. Y is ignored.
+
 
 ## Performance
 * The Terrain3DMaterial shader has some advanced features that look nice but consume some performance. You can get better performance by disabling them:
-    * Set `WorldNoise` to `Flat` or `None`
+    * Set `WorldBackground` to `Flat` or `None`
 	* Disable `Auto Shader`
 	* Disable `Dual Scaling`
-* `WorldNoise` exposes additional shader settings, such as octaves and LOD. You can adjust these settings for performance. However this world generating noise is expensive. Consider not using it at all in a commercial game, and instead obscure your background with meshes, or use an HDR skybox.
+* `WorldBackground` as `Noise` exposes additional shader settings, such as octaves and LOD. You can adjust these settings for performance. However this world generating noise is expensive. Consider not using it at all in a commercial game, and instead obscure your background with meshes, or use an HDR skybox.
 * Reduce the size of the mesh and levels of detail by reducing `Mesh/Size` (`mesh_size`) or `Mesh/Lods` (`mesh_lods`) in the `Terrain3D` node.
+* Don't use `Terrain3D/Renderer/Cull Margin`. It should only be needed if using the noise background. Otherwise the AABB should be correctly calculated via editing, so there is no need to expand the cull margin. Keeping it enabled can cost more processing time.
+
 
 ## Shaders
 

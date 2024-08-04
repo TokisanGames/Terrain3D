@@ -22,3 +22,10 @@ They are exactly the same construction as the releases except for the commit use
 ```
 
 If have trouble with the unsigned macOS released builds or wish to contribute, learn how to [Build from Source](building_from_source.md) on your own system.
+
+
+## PR Builds
+
+You can also test builds of PRs. Instead of specifying the `main` branch above, select the branch listed at the top of the PR. Or click the `Checks` tab, then `Build All` to see the summary page, which has the artifact.
+
+If looking at a PR from another contributor, you'll need to look at their repository. Click the `from` branch at the top of the PR to go to their repo. Then click `Actions` to get the latest build from the appropriate branch.

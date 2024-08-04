@@ -27,7 +27,12 @@ remote: Compressing objects: 100% (79/79), done.
 remote: Total 125 (delta 56), reused 94 (delta 36), pack-reused 0
 Receiving objects: 100% (125/125), 42.20 KiB | 194.00 KiB/s, done.
 Resolving deltas: 100% (56/56), done.
+```
 
+
+## 3. Initialize the submodule repository
+
+```
 $ cd Terrain3D
 
 Terrain3D$ git submodule init
@@ -44,7 +49,7 @@ Note the version it checked out: **9d1c396**...
 This hash number is important for the next section.
 
 
-## 3. Identify the appropriate godot-cpp version
+## 4. Identify the appropriate godot-cpp version
 
 The checked out version of the godot-cpp submodule needs to match the version of your Godot engine build. e.g. Godot Engine 4.0.2 official build with godot-cpp checked out to a 4.0.2 branch. The early days of Godot 4.x were very strict and required the exact same major, minor, and patch versions. Since then, the requirements have loosened. For instance we've matched godot-cpp 4.1.3 with Godot engine 4.1.3 through 4.2.1 without issue.
 
@@ -109,7 +114,7 @@ Date:   Wed Mar 1 15:32:44 2023 +0100
 ```
 
 
-## 4. Check out the correct version
+## 5. Check out the correct version
 Once you have identified the proper tag or commit string, and you have updated the godot-cpp submodule (step 3), you just need to check it out. If using a commit string, you may use either the full hash or just the first 6-8 characters, so `9d1c396` would also match 4.0-stable.
 
 These examples will change the godot-cpp repository to 4.0-stable and 4.02-stable, respectively:
@@ -127,7 +132,7 @@ HEAD is now at 7fb46e9 gdextension: Sync with upstream commit 7a0977ce2c558fe621
 ```
 
 
-## 5. Build the extension
+## 6. Build the extension
 
 By default `scons` will build the debug library which works for the editor and debug exports. You can add `target=template_release` to build the release version.
 
@@ -150,7 +155,7 @@ scons: done building targets.
 ```
 
 
-## 6. Set up the extension in Godot
+## 7. Set up the extension in Godot
 
 1. Build Terrain3D, then ensure binary libraries exist in `project/addons/terrain_3d/bin`.
 2. Close Godot. (Not required the first time, but necessary when updating the files on subsequent builds.)

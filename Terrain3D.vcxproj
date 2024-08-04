@@ -186,6 +186,7 @@
     <None Include="AUTHORS.md" />
     <None Include="CONTRIBUTING.md" />
     <None Include="doc\conf.py" />
+    <None Include="doc\docs\collision.md" />
     <None Include="doc\docs\double_precision.md" />
     <None Include="doc\docs\games.md" />
     <None Include="doc\docs\instancer.md" />
@@ -213,7 +214,7 @@
     <Text Include=".readthedocs.yaml" />
     <Text Include="doc\docs\project_status.md" />
     <Text Include="doc\docs\import_export.md" />
-    <Text Include="doc\docs\integrating.md" />
+    <Text Include="doc\docs\programming_languages.md" />
     <Text Include="doc\docs\occlusion_culling.md" />
     <Text Include="doc\docs\shader_design.md" />
     <Text Include="doc\docs\system_architecture.md" />

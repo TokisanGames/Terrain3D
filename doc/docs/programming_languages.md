@@ -1,9 +1,9 @@
-Integrating with Terrain3D
+Programming Languages
 ===========================
 
-This page is for more advanced gamedevs who want to access Terrain3D from other languages like C# or those developing tools & addons.
+Any language Godot supports should be able to work with Terrain3D via the GDExtension interface. This includes [C#](https://docs.godotengine.org/en/stable/tutorials/scripting/c_sharp/index.html), and [several others](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/what_is_gdextension.html#supported-languages).
 
-Any language Godot supports should be able to work with Terrain3D via the GDExtension interface.
+Here are some tips for integrating with Terrain3D.
 
 ```{image} images/integrating_gdextension.png
 :target: ../_images/integrating_gdextension.png
@@ -107,58 +107,11 @@ These options are for programming scenarios where a user action is intented to p
           print("Found terrain")
 ```
 
-## Understanding Regions
-
-Terrain3D provides users non-contiguous 1024x1024 sized regions on a 16x16 region grid. So a user might have a 1k x 2k island in one corner of the world and a 4k x 4k island elsewhere. In between are empty regions, visually flat space where they could place an ocean. In these empty regions, no vram is consumed, nor collision generated.
-
-Outside of regions, raycasts won't hit anything, and querying terrain intersections will return NANs or INF (i.e. >3.4e38).
-
-You can determine if a given location is within a region by using `Terrain3DStorage.get_region_index(global_position)`. It will return -1 if the XZ location is not within a region. Y is ignored.
 
 
-## Detecting Terrain Height or Position
+## Detecting Terrain Height
 
-There are multiple ways to detect an intersection with the terrain. After which you may wish to use `Terrain3DStorage.get_normal(global_position)`.
-
-### Query the height at any position
-
-You can ask Terrain3DStorage for the height at any given location:
-
-```gdscript
-     var height: float = terrain.storage.get_height(global_position)
-```
-
-Nan is returned if the position is a hole, or not within a region.
-
-This is ideal for one lookup. However, if you wish to look up thousands of heights, it might be faster to retrieve the heightmap Image for the region and query it directly. However, note that `get_height()` will interpolate between vertices, while this code will not.
-
-```gdscript
-     var region_index: int = terrain.storage.get_region_index(global_position)
-     var img: Image = terrain.storage.get_map_region(Terrain3DStorage.TYPE_HEIGHT, region_index)
-     for y in img.get_height():
-          for x in img.get_width():
-               var height: float = img.get_pixel(x, y).r
-```
-
-
-### Raycasting with Physics
-
-Normally, collision is not generated in the editor. If `Terrain3D.debug_show_collision` is enabled, it will generate collision in the editor and you can do a normal raycast. This mode also works fine while running in a game.
-
-This debug option will generate collision one time when enabled or at startup. If the terrain is sculpted afterwards, this collision will be inaccurate to the visual mesh until it is disabled and enabled again. On a Core-i9 12900H, generating collision takes about 145ms per region, so updating it several times per second while sculpting is not practical. Currently all regions are regenerated, rather than only modified regions so it is not optimal.
-
-There is no collision outside of regions, so raycasts won't hit.
-
-See the Godot docs to learn how to use physics based [Ray-casting](https://docs.godotengine.org/en/stable/tutorials/physics/ray-casting.html).
-
-
-### Raycasting without Physics
-
-It is possible to cast a ray from any given position and detect the collision point on the terrain using the GPU instead of the physics engine.
-
-Sending the source point and ray direction to [Terrain3D.get_intersection()](../api/class_terrain3d.rst#class-terrain3d-method-get-intersection) will return the intersection point on success.
-
-You can review [editor.gd](https://github.com/TokisanGames/Terrain3D/blob/v0.9.1-beta/project/addons/terrain_3d/editor/editor.gd#L129-L143) to see an example of projecting the mouse position onto the terrain using this function.
+See [Collision](collision.md) for several methods.
 
 
 ## Getting Updates on Terrain Changes

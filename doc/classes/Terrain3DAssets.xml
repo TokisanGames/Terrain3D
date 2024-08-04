@@ -16,27 +16,27 @@
 				Generates mesh asset preview thumbnails for the asset dock, stored within each mesh asset. Specify id -1 to generate all.
 			</description>
 		</method>
-		<method name="get_mesh_asset">
+		<method name="get_mesh_asset" qualifiers="const">
 			<return type="Terrain3DMeshAsset" />
 			<param index="0" name="id" type="int" />
 			<description>
 				Returns the specified Terrain3DMeshAsset resource.
 			</description>
 		</method>
-		<method name="get_mesh_count">
+		<method name="get_mesh_count" qualifiers="const">
 			<return type="int" />
 			<description>
 				Returns the number of mesh assets in the list.
 			</description>
 		</method>
-		<method name="get_texture">
+		<method name="get_texture" qualifiers="const">
 			<return type="Terrain3DTextureAsset" />
 			<param index="0" name="id" type="int" />
 			<description>
 				Returns the Terrain3DTextureAsset with the requested ID.
 			</description>
 		</method>
-		<method name="get_texture_count">
+		<method name="get_texture_count" qualifiers="const">
 			<return type="int" />
 			<description>
 				Returns the number of texture slots used.

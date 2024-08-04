@@ -11,26 +11,26 @@
 	<tutorials>
 	</tutorials>
 	<methods>
-		<method name="get_material_rid">
+		<method name="get_material_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
 				Returns the RID of the material used with the Rendering Server. This is set per instance of this class.
 			</description>
 		</method>
-		<method name="get_region_blend_map">
+		<method name="get_region_blend_map" qualifiers="const">
 			<return type="RID" />
 			<description>
 				Returns the RID of the 512x512 texture used with the RenderingServer. It depicts a blurry map of region locations and is used for smoothly blending world noise into sculpted terrain.
 			</description>
 		</method>
-		<method name="get_shader_param">
+		<method name="get_shader_param" qualifiers="const">
 			<return type="Variant" />
 			<param index="0" name="name" type="StringName" />
 			<description>
 				Retrieve a parameter from the active shader (built-in or override shader).
 			</description>
 		</method>
-		<method name="get_shader_rid">
+		<method name="get_shader_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
 				Returns the RID of the built in shader used with the Rendering Server. This is different from any shader override which has its own RID.
@@ -48,6 +48,12 @@
 			<param index="1" name="value" type="Variant" />
 			<description>
 				Set a parameter in the active shader (built-in or override shader).
+			</description>
+		</method>
+		<method name="update">
+			<return type="void" />
+			<description>
+				Recompiles the current shader and sends all uniform values to it again.
 			</description>
 		</method>
 	</methods>

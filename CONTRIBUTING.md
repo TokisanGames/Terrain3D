@@ -88,7 +88,7 @@ Private & Public:
 
 Other formatting:
 * One blank line between functions
-* All code passed through clang-format. See below
+* All code passed through clang-format. See above
 
 
 ## Documentation

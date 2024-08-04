@@ -88,17 +88,19 @@ Methods
    :widths: auto
 
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`         | :ref:`get_material_rid<class_Terrain3DMaterial_method_get_material_rid>`\ (\ )                                                                                    |
+   | :ref:`RID<class_RID>`         | :ref:`get_material_rid<class_Terrain3DMaterial_method_get_material_rid>`\ (\ ) |const|                                                                            |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`         | :ref:`get_region_blend_map<class_Terrain3DMaterial_method_get_region_blend_map>`\ (\ )                                                                            |
+   | :ref:`RID<class_RID>`         | :ref:`get_region_blend_map<class_Terrain3DMaterial_method_get_region_blend_map>`\ (\ ) |const|                                                                    |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Variant<class_Variant>` | :ref:`get_shader_param<class_Terrain3DMaterial_method_get_shader_param>`\ (\ name\: :ref:`StringName<class_StringName>`\ )                                        |
+   | :ref:`Variant<class_Variant>` | :ref:`get_shader_param<class_Terrain3DMaterial_method_get_shader_param>`\ (\ name\: :ref:`StringName<class_StringName>`\ ) |const|                                |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`         | :ref:`get_shader_rid<class_Terrain3DMaterial_method_get_shader_rid>`\ (\ )                                                                                        |
+   | :ref:`RID<class_RID>`         | :ref:`get_shader_rid<class_Terrain3DMaterial_method_get_shader_rid>`\ (\ ) |const|                                                                                |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                        | :ref:`save<class_Terrain3DMaterial_method_save>`\ (\ )                                                                                                            |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                        | :ref:`set_shader_param<class_Terrain3DMaterial_method_set_shader_param>`\ (\ name\: :ref:`StringName<class_StringName>`, value\: :ref:`Variant<class_Variant>`\ ) |
+   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                        | :ref:`update<class_Terrain3DMaterial_method_update>`\ (\ )                                                                                                        |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
@@ -555,7 +557,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-:ref:`RID<class_RID>` **get_material_rid**\ (\ ) :ref:`🔗<class_Terrain3DMaterial_method_get_material_rid>`
+:ref:`RID<class_RID>` **get_material_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_material_rid>`
 
 Returns the RID of the material used with the Rendering Server. This is set per instance of this class.
 
@@ -567,7 +569,7 @@ Returns the RID of the material used with the Rendering Server. This is set per 
 
 .. rst-class:: classref-method
 
-:ref:`RID<class_RID>` **get_region_blend_map**\ (\ ) :ref:`🔗<class_Terrain3DMaterial_method_get_region_blend_map>`
+:ref:`RID<class_RID>` **get_region_blend_map**\ (\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_region_blend_map>`
 
 Returns the RID of the 512x512 texture used with the RenderingServer. It depicts a blurry map of region locations and is used for smoothly blending world noise into sculpted terrain.
 
@@ -579,7 +581,7 @@ Returns the RID of the 512x512 texture used with the RenderingServer. It depicts
 
 .. rst-class:: classref-method
 
-:ref:`Variant<class_Variant>` **get_shader_param**\ (\ name\: :ref:`StringName<class_StringName>`\ ) :ref:`🔗<class_Terrain3DMaterial_method_get_shader_param>`
+:ref:`Variant<class_Variant>` **get_shader_param**\ (\ name\: :ref:`StringName<class_StringName>`\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_shader_param>`
 
 Retrieve a parameter from the active shader (built-in or override shader).
 
@@ -591,7 +593,7 @@ Retrieve a parameter from the active shader (built-in or override shader).
 
 .. rst-class:: classref-method
 
-:ref:`RID<class_RID>` **get_shader_rid**\ (\ ) :ref:`🔗<class_Terrain3DMaterial_method_get_shader_rid>`
+:ref:`RID<class_RID>` **get_shader_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_shader_rid>`
 
 Returns the RID of the built in shader used with the Rendering Server. This is different from any shader override which has its own RID.
 
@@ -618,6 +620,18 @@ Saves this material resource to disk, if saved as an external ``.tres`` or ``.re
 |void| **set_shader_param**\ (\ name\: :ref:`StringName<class_StringName>`, value\: :ref:`Variant<class_Variant>`\ ) :ref:`🔗<class_Terrain3DMaterial_method_set_shader_param>`
 
 Set a parameter in the active shader (built-in or override shader).
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_method_update:
+
+.. rst-class:: classref-method
+
+|void| **update**\ (\ ) :ref:`🔗<class_Terrain3DMaterial_method_update>`
+
+Recompiles the current shader and sends all uniform values to it again.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`
