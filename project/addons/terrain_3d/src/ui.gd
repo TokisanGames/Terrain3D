@@ -62,6 +62,7 @@ func _enter_tree() -> void:
 	tool_settings = ToolSettings.new()
 	tool_settings.connect("setting_changed", _on_setting_changed)
 	tool_settings.connect("picking", _on_picking)
+	tool_settings.plugin = plugin
 	tool_settings.hide()
 
 	terrain_menu = TerrainMenu.new()
