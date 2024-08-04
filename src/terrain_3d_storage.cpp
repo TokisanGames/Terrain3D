@@ -134,7 +134,7 @@ void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 
 				for (int x = 0; x < scaling; ++x) {
 					for (int y = 0; y < scaling; ++y) {
-						Ref<Image> newImg = Image::create(p_size, p_size, true, img->get_format());
+						Ref<Image> newImg = Image::create(p_size, p_size, false, img->get_format());
 						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
 						int idx = i * scaling * scaling + x * scaling + y;
 						_height_maps[idx] = newImg;
@@ -150,7 +150,7 @@ void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 
 				for (int x = 0; x < scaling; ++x) {
 					for (int y = 0; y < scaling; ++y) {
-						Ref<Image> newImg = Image::create(p_size, p_size, true, img->get_format());
+						Ref<Image> newImg = Image::create(p_size, p_size, false, img->get_format());
 						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
 						int idx = i * scaling * scaling + x * scaling + y;
 						_control_maps[idx] = newImg;
@@ -166,7 +166,7 @@ void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 
 				for (int x = 0; x < scaling; ++x) {
 					for (int y = 0; y < scaling; ++y) {
-						Ref<Image> newImg = Image::create(p_size, p_size, true, img->get_format());
+						Ref<Image> newImg = Image::create(p_size, p_size, false, img->get_format());
 						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
 						int idx = i * scaling * scaling + x * scaling + y;
 						_color_maps[idx] = newImg;
@@ -203,15 +203,14 @@ void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 			TypedArray<Vector2i> valid_regions = TypedArray<Vector2i>();
 			for (int i = 0; i < _region_offsets.size(); ++i) {
 				Vector2i index = _region_offsets[i];
-				index.x = floor(index.x / scaling);
-				index.y = floor(index.y / scaling);
+				index = Vector2i((Vector2(index) / scaling).floor());
 				if (!valid_regions.has(index)) {
 					int list_index = valid_regions.size();
 					valid_regions.push_back(index);
 
-					Ref<Image> height = Image::create(p_size, p_size, true, Image::FORMAT_RF);
-					Ref<Image> control = Image::create(p_size, p_size, true, Image::FORMAT_RF);
-					Ref<Image> color = Image::create(p_size, p_size, true, Image::FORMAT_RGBA8);
+					Ref<Image> height = Util::get_filled_image(Vector2i(p_size, p_size), COLOR_BLACK, false, Image::FORMAT_RF);
+					Ref<Image> control = Util::get_filled_image(Vector2i(p_size, p_size), COLOR_CONTROL, false, Image::FORMAT_RF);
+					Ref<Image> color = Util::get_filled_image(Vector2i(p_size, p_size), COLOR_ROUGHNESS, false, Image::FORMAT_RGBA8);
 
 					// Okay, loop through all regions and find the ones that are part of this new region.
 					Rect2i search = Rect2i(index * scaling, Vector2i(scaling, scaling));
