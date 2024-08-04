@@ -118,9 +118,87 @@ void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 	ERR_FAIL_COND(p_size < SIZE_64);
 	ERR_FAIL_COND(p_size > SIZE_2048);
 	//ERR_FAIL_COND(p_size != SIZE_1024);
-	_region_size = p_size;
-	_region_sizev = Vector2i(_region_size, _region_size);
-	emit_signal("region_size_changed");
+
+	if (_region_size != p_size) {
+		if (p_size < _region_size) { // sizing down
+			int scaling = _region_size / p_size;
+
+			_region_size = p_size; // so we can use convenience functions instead of rewriting.
+			_region_sizev = Vector2i(_region_size, _region_size);
+
+			int num = _height_maps.size();
+			_height_maps.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Ref<Image> img = _height_maps[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Ref<Image> newImg = Image::create(p_size, p_size, true, img->get_format());
+						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
+						int idx = i * scaling * scaling + x * scaling + y;
+						_height_maps[idx] = newImg;
+					}
+				}
+			}
+
+			num = _control_maps.size();
+			_control_maps.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Ref<Image> img = _control_maps[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Ref<Image> newImg = Image::create(p_size, p_size, true, img->get_format());
+						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
+						int idx = i * scaling * scaling + x * scaling + y;
+						_control_maps[idx] = newImg;
+					}
+				}
+			}
+
+			num = _color_maps.size();
+			_color_maps.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Ref<Image> img = _color_maps[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Ref<Image> newImg = Image::create(p_size, p_size, true, img->get_format());
+						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
+						int idx = i * scaling * scaling + x * scaling + y;
+						_color_maps[idx] = newImg;
+					}
+				}
+			}
+
+			num = _region_offsets.size();
+			_region_offsets.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Vector2i pos = _region_offsets[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Vector2i offset = pos * scaling + Vector2i(x, y);
+						int idx = i * scaling * scaling + x * scaling + y;
+						_region_offsets[idx] = offset;
+					}
+				}
+			}
+		} else {
+			_region_size = p_size; // so we can use convenience functions instead of rewriting.
+			_region_sizev = Vector2i(_region_size, _region_size);
+		}
+
+		_region_map_dirty = true;
+
+		force_update_maps();
+
+		emit_signal("region_size_changed");
+	}
 }
 
 void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets) {
