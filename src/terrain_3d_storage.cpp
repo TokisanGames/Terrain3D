@@ -189,8 +189,53 @@ void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 				}
 			}
 		} else {
+			int scaling = p_size / _region_size;
+
+			RegionSize old_region_size = _region_size;
 			_region_size = p_size; // so we can use convenience functions instead of rewriting.
 			_region_sizev = Vector2i(_region_size, _region_size);
+
+			TypedArray<Image> _heights = _height_maps;
+			TypedArray<Image> _controls = _control_maps;
+			TypedArray<Image> _colors = _color_maps;
+			TypedArray<Vector2i> _offsets = _region_offsets;
+
+			TypedArray<Vector2i> valid_regions = TypedArray<Vector2i>();
+			for (int i = 0; i < _region_offsets.size(); ++i) {
+				Vector2i index = _region_offsets[i];
+				index.x = floor(index.x / scaling);
+				index.y = floor(index.y / scaling);
+				if (!valid_regions.has(index)) {
+					int list_index = valid_regions.size();
+					valid_regions.push_back(index);
+
+					Ref<Image> height = Image::create(p_size, p_size, true, Image::FORMAT_RF);
+					Ref<Image> control = Image::create(p_size, p_size, true, Image::FORMAT_RF);
+					Ref<Image> color = Image::create(p_size, p_size, true, Image::FORMAT_RGBA8);
+
+					// Okay, loop through all regions and find the ones that are part of this new region.
+					Rect2i search = Rect2i(index * scaling, Vector2i(scaling, scaling));
+					for (int j = 0; j < _region_offsets.size(); ++j) {
+						if (search.has_point(_region_offsets[j])) {
+							Vector2i this_region_offset = _region_offsets[j];
+							Vector2i local_offset = (this_region_offset - search.position) * old_region_size;
+							// Draw this on the larger region.
+							height->blit_rect(_height_maps[j], Rect2i(0, 0, old_region_size, old_region_size), local_offset);
+							control->blit_rect(_control_maps[j], Rect2i(0, 0, old_region_size, old_region_size), local_offset);
+							color->blit_rect(_color_maps[j], Rect2i(0, 0, old_region_size, old_region_size), local_offset);
+						}
+					}
+
+					_height_maps[list_index] = height;
+					_control_maps[list_index] = control;
+					_color_maps[list_index] = color;
+					_region_offsets[list_index] = index;
+				}
+			}
+			_height_maps.resize(valid_regions.size());
+			_control_maps.resize(valid_regions.size());
+			_color_maps.resize(valid_regions.size());
+			_region_offsets.resize(valid_regions.size());
 		}
 
 		_region_map_dirty = true;
