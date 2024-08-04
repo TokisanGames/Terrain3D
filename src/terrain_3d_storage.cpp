@@ -115,12 +115,133 @@ void Terrain3DStorage::add_edited_area(const AABB &p_area) {
 
 void Terrain3DStorage::set_region_size(const RegionSize p_size) {
 	LOG(INFO, p_size);
-	//ERR_FAIL_COND(p_size < SIZE_64);
-	//ERR_FAIL_COND(p_size > SIZE_2048);
-	ERR_FAIL_COND(p_size != SIZE_1024);
-	_region_size = p_size;
-	_region_sizev = Vector2i(_region_size, _region_size);
-	emit_signal("region_size_changed", _region_size);
+	ERR_FAIL_COND(p_size < SIZE_64);
+	ERR_FAIL_COND(p_size > SIZE_2048);
+
+	if (_region_size != p_size) {
+		if (p_size < _region_size) { // sizing down
+			int scaling = _region_size / p_size;
+
+			_region_size = p_size; // so we can use convenience functions instead of rewriting.
+			_region_sizev = Vector2i(_region_size, _region_size);
+
+			int num = _height_maps.size();
+			_height_maps.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Ref<Image> img = _height_maps[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Ref<Image> newImg = Image::create(p_size, p_size, false, img->get_format());
+						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
+						int idx = i * scaling * scaling + x * scaling + y;
+						_height_maps[idx] = newImg;
+					}
+				}
+			}
+
+			num = _control_maps.size();
+			_control_maps.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Ref<Image> img = _control_maps[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Ref<Image> newImg = Image::create(p_size, p_size, false, img->get_format());
+						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
+						int idx = i * scaling * scaling + x * scaling + y;
+						_control_maps[idx] = newImg;
+					}
+				}
+			}
+
+			num = _color_maps.size();
+			_color_maps.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Ref<Image> img = _color_maps[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Ref<Image> newImg = Image::create(p_size, p_size, false, img->get_format());
+						newImg->blit_rect(img, Rect2i(x * p_size, y * p_size, p_size, p_size), Vector2i(0, 0));
+						int idx = i * scaling * scaling + x * scaling + y;
+						_color_maps[idx] = newImg;
+					}
+				}
+			}
+
+			num = _region_offsets.size();
+			_region_offsets.resize(num * scaling * scaling);
+
+			for (int i = num - 1; i >= 0; --i) {
+				Vector2i pos = _region_offsets[i];
+
+				for (int x = 0; x < scaling; ++x) {
+					for (int y = 0; y < scaling; ++y) {
+						Vector2i offset = pos * scaling + Vector2i(x, y);
+						int idx = i * scaling * scaling + x * scaling + y;
+						_region_offsets[idx] = offset;
+					}
+				}
+			}
+		} else {
+			int scaling = p_size / _region_size;
+
+			RegionSize old_region_size = _region_size;
+			_region_size = p_size; // so we can use convenience functions instead of rewriting.
+			_region_sizev = Vector2i(_region_size, _region_size);
+
+			TypedArray<Image> _heights = _height_maps;
+			TypedArray<Image> _controls = _control_maps;
+			TypedArray<Image> _colors = _color_maps;
+			TypedArray<Vector2i> _offsets = _region_offsets;
+
+			TypedArray<Vector2i> valid_regions = TypedArray<Vector2i>();
+			for (int i = 0; i < _region_offsets.size(); ++i) {
+				Vector2i index = _region_offsets[i];
+				index = Vector2i((Vector2(index) / scaling).floor());
+				if (!valid_regions.has(index)) {
+					int list_index = valid_regions.size();
+					valid_regions.push_back(index);
+
+					Ref<Image> height = Util::get_filled_image(Vector2i(p_size, p_size), COLOR_BLACK, false, Image::FORMAT_RF);
+					Ref<Image> control = Util::get_filled_image(Vector2i(p_size, p_size), COLOR_CONTROL, false, Image::FORMAT_RF);
+					Ref<Image> color = Util::get_filled_image(Vector2i(p_size, p_size), COLOR_ROUGHNESS, false, Image::FORMAT_RGBA8);
+
+					// Okay, loop through all regions and find the ones that are part of this new region.
+					Rect2i search = Rect2i(index * scaling, Vector2i(scaling, scaling));
+					for (int j = 0; j < _region_offsets.size(); ++j) {
+						if (search.has_point(_region_offsets[j])) {
+							Vector2i this_region_offset = _region_offsets[j];
+							Vector2i local_offset = (this_region_offset - search.position) * old_region_size;
+							// Draw this on the larger region.
+							height->blit_rect(_height_maps[j], Rect2i(0, 0, old_region_size, old_region_size), local_offset);
+							control->blit_rect(_control_maps[j], Rect2i(0, 0, old_region_size, old_region_size), local_offset);
+							color->blit_rect(_color_maps[j], Rect2i(0, 0, old_region_size, old_region_size), local_offset);
+						}
+					}
+
+					_height_maps[list_index] = height;
+					_control_maps[list_index] = control;
+					_color_maps[list_index] = color;
+					_region_offsets[list_index] = index;
+				}
+			}
+			_height_maps.resize(valid_regions.size());
+			_control_maps.resize(valid_regions.size());
+			_color_maps.resize(valid_regions.size());
+			_region_offsets.resize(valid_regions.size());
+		}
+
+		_region_map_dirty = true;
+
+		force_update_maps();
+
+		emit_signal("region_size_changed");
+	}
 }
 
 void Terrain3DStorage::set_region_offsets(const TypedArray<Vector2i> &p_offsets) {
@@ -1133,8 +1254,7 @@ void Terrain3DStorage::_bind_methods() {
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
-	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_offsets", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_offsets", "get_region_offsets");
