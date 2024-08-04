@@ -216,24 +216,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							}
 							break;
 						}
-						case MULTIPLY: {
-							brush_alpha *= (srcf > 0) ? 1 : -1;
-							destf = srcf * (brush_alpha * strength * .01f + 1.0f);
-							if (lift_floor && !std::isnan(p_global_position.y)) {
-								real_t brush_center_y = p_global_position.y * (brush_alpha * strength * .01f + 1.0f);
-								destf = Math::clamp(brush_center_y, srcf, destf);
-							}
-							break;
-						}
-						case DIVIDE: {
-							brush_alpha *= (srcf < 0) ? 1 : -1;
-							destf = srcf * (brush_alpha * strength * .01f + 1.0f);
-							if (flatten_peaks && !std::isnan(p_global_position.y)) {
-								real_t brush_center_y = p_global_position.y * (brush_alpha * strength * .01f + 1.0f);
-								destf = Math::clamp(brush_center_y, destf, srcf);
-							}
-							break;
-						}
 						case REPLACE: {
 							destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
 							break;
@@ -720,8 +702,6 @@ void Terrain3DEditor::stop_operation() {
 void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(ADD);
 	BIND_ENUM_CONSTANT(SUBTRACT);
-	BIND_ENUM_CONSTANT(MULTIPLY);
-	BIND_ENUM_CONSTANT(DIVIDE);
 	BIND_ENUM_CONSTANT(REPLACE);
 	BIND_ENUM_CONSTANT(AVERAGE);
 	BIND_ENUM_CONSTANT(GRADIENT);

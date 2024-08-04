@@ -7,8 +7,6 @@ const ICON_REGION_ADD: String = "res://addons/terrain_3d/icons/region_add.svg"
 const ICON_REGION_REMOVE: String = "res://addons/terrain_3d/icons/region_remove.svg"
 const ICON_HEIGHT_ADD: String = "res://addons/terrain_3d/icons/height_add.svg"
 const ICON_HEIGHT_SUB: String = "res://addons/terrain_3d/icons/height_sub.svg"
-const ICON_HEIGHT_MUL: String = "res://addons/terrain_3d/icons/height_mul.svg"
-const ICON_HEIGHT_DIV: String = "res://addons/terrain_3d/icons/height_div.svg"
 const ICON_HEIGHT_FLAT: String = "res://addons/terrain_3d/icons/height_flat.svg"
 const ICON_HEIGHT_SLOPE: String = "res://addons/terrain_3d/icons/height_slope.svg"
 const ICON_HEIGHT_SMOOTH: String = "res://addons/terrain_3d/icons/height_smooth.svg"
@@ -41,10 +39,6 @@ func _ready() -> void:
 	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
 		"add_text":"Raise", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_ADD,
 		"sub_text":"Lower", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
-
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT,
-		"add_text":"Expand", "add_op":Terrain3DEditor.MULTIPLY, "add_icon":ICON_HEIGHT_MUL,
-		"sub_text":"Reduce", "sub_op":Terrain3DEditor.DIVIDE, "sub_icon":ICON_HEIGHT_DIV })
 
 	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
 		"add_text":"Smooth", "add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })

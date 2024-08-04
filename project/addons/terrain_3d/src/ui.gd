@@ -144,8 +144,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
-			if p_operation in [Terrain3DEditor.ADD, Terrain3DEditor.SUBTRACT, \
-				Terrain3DEditor.MULTIPLY, Terrain3DEditor.DIVIDE]:
+			if p_operation in [Terrain3DEditor.ADD, Terrain3DEditor.SUBTRACT]:
 					to_show.push_back("remove")
 			elif p_operation == Terrain3DEditor.REPLACE:
 				to_show.push_back("height")
@@ -303,12 +302,6 @@ func update_decal() -> void:
 						else:
 							decal.modulate = COLOR_LOWER
 							decal.modulate.a = clamp(brush_data["strength"], .2, .5) + .5
-					Terrain3DEditor.MULTIPLY:
-						decal.modulate = COLOR_EXPAND
-						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
-					Terrain3DEditor.DIVIDE:
-						decal.modulate = COLOR_REDUCE
-						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.REPLACE:
 						decal.modulate = COLOR_HEIGHT
 						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
@@ -474,10 +467,6 @@ func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_N
 		return Terrain3DEditor.SUBTRACT
 	elif p_operation == Terrain3DEditor.SUBTRACT and ! (flags & OP_NEGATIVE_ONLY):
 		return Terrain3DEditor.ADD
-	elif p_operation == Terrain3DEditor.MULTIPLY and ! (flags & OP_POSITIVE_ONLY):
-		return Terrain3DEditor.DIVIDE
-	elif p_operation == Terrain3DEditor.DIVIDE and ! (flags & OP_NEGATIVE_ONLY):
-		return Terrain3DEditor.MULTIPLY
 	return p_operation
 
 
