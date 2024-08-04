@@ -18,8 +18,6 @@ public: // Constants
 	enum Operation {
 		ADD,
 		SUBTRACT,
-		MULTIPLY,
-		DIVIDE,
 		REPLACE,
 		AVERAGE,
 		GRADIENT,
@@ -29,8 +27,6 @@ public: // Constants
 	static inline const char *OPNAME[] = {
 		"Add",
 		"Subtract",
-		"Multiply",
-		"Divide",
 		"Replace",
 		"Average",
 		"Gradient",
