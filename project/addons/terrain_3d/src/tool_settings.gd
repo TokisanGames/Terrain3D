@@ -25,6 +25,7 @@ const MultiPicker: Script = preload("res://addons/terrain_3d/src/multi_picker.gd
 const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain_3d/brushes"
 const PICKER_ICON: String = "res://addons/terrain_3d/icons/picker.svg"
+const ES_TOOL_SETTINGS: String = "terrain3d/tool_settings/"
 
 # Add settings flags
 const NONE: int = 0x0
@@ -35,9 +36,9 @@ const NO_LABEL: int = 0x4
 const ADD_SEPARATOR: int = 0x8
 const ADD_SPACER: int = 0x10
 
+var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var brush_preview_material: ShaderMaterial
 var select_brush_button: Button
-
 var main_list: HBoxContainer
 var advanced_list: VBoxContainer
 var height_list: VBoxContainer
@@ -361,7 +362,12 @@ func add_setting(p_args: Dictionary) -> void:
 
 		SettingType.CHECKBOX:
 			var checkbox := CheckBox.new()
-			checkbox.set_pressed_no_signal(p_default)
+			checkbox.set_pressed_no_signal(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
+			checkbox.toggled.connect( (
+				func(value, path):
+					plugin.set_setting(path, value)
+			).bind(ES_TOOL_SETTINGS + p_name) )
+
 			checkbox.pressed.connect(_on_setting_changed)
 			pending_children.push_back(checkbox)
 			control = checkbox
@@ -369,10 +375,16 @@ func add_setting(p_args: Dictionary) -> void:
 		SettingType.COLOR_SELECT:
 			var picker := ColorPickerButton.new()
 			picker.set_custom_minimum_size(Vector2(100, 25))
-			picker.color = Color.WHITE
 			picker.edit_alpha = false
 			picker.get_picker().set_color_mode(ColorPicker.MODE_HSV)
+			
+			picker.set_pick_color(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
+			picker.color_changed.connect( (
+				func(value, path):
+					plugin.set_setting(path, value)
+			).bind(ES_TOOL_SETTINGS + p_name) )
 			picker.color_changed.connect(_on_setting_changed)
+
 			var popup: PopupPanel = picker.get_popup()
 			popup.mouse_exited.connect(Callable(func(p): p.hide()).bind(popup))
 			pending_children.push_back(picker)
@@ -414,7 +426,6 @@ func add_setting(p_args: Dictionary) -> void:
 				spin_slider.set_max(p_maximum)
 				spin_slider.set_min(p_minimum)
 				spin_slider.set_step(p_step)
-				spin_slider.set_value(p_default)
 				spin_slider.set_suffix(p_suffix)
 				spin_slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 				spin_slider.set_custom_minimum_size(Vector2(75, 0))
@@ -429,7 +440,7 @@ func add_setting(p_args: Dictionary) -> void:
 				pending_children.push_back(slider)
 				pending_children.push_back(spin_slider)
 				control = spin_slider
-					
+						
 			else: # DOUBLE_SLIDER
 				var label := Label.new()
 				label.set_custom_minimum_size(Vector2(75, 0))
@@ -447,6 +458,12 @@ func add_setting(p_args: Dictionary) -> void:
 			slider.set_value(p_default)
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 			slider.set_custom_minimum_size(Vector2(60, 10))
+
+			slider.set_value(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
+			slider.value_changed.connect( (
+				func(value, path):
+					plugin.set_setting(path, value)
+			).bind(ES_TOOL_SETTINGS + p_name) )
 
 	control.name = p_name.to_pascal_case()
 	settings[p_name] = control

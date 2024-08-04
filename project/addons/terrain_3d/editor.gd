@@ -15,6 +15,7 @@ var _last_terrain: Terrain3D
 var nav_region: NavigationRegion3D
 
 var editor: Terrain3DEditor
+var editor_settings: EditorSettings
 var ui: Node # Terrain3DUI see Godot #75388
 var asset_dock: PanelContainer
 var region_gizmo: RegionGizmo
@@ -24,6 +25,7 @@ var mouse_global_position: Vector3 = Vector3.ZERO
 
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
+	editor_settings = EditorInterface.get_editor_settings()
 	ui = UI.new()
 	ui.plugin = self
 	add_child(ui)
@@ -286,3 +288,14 @@ func select_terrain() -> void:
 		var es: EditorSelection = get_editor_interface().get_selection()
 		es.clear()
 		es.add_node(_last_terrain)
+
+
+func set_setting(p_str: String, p_value: Variant) -> void:
+	editor_settings.set_setting(p_str, p_value)
+
+
+func get_setting(p_str: String, p_default: Variant) -> Variant:
+	if editor_settings.has_setting(p_str):
+		return editor_settings.get_setting(p_str)
+	else:
+		return p_default

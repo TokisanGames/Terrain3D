@@ -6,12 +6,13 @@ signal confirmation_closed
 signal confirmation_confirmed
 signal confirmation_canceled
 
-const PS_DOCK_SLOT: String = "terrain3d/config/dock_slot"
-const PS_DOCK_TILE_SIZE: String = "terrain3d/config/dock_tile_size"
-const PS_DOCK_FLOATING: String = "terrain3d/config/dock_floating"
-const PS_DOCK_PINNED: String = "terrain3d/config/dock_always_on_top"
-const PS_DOCK_WINDOW_POSITION: String = "terrain3d/config/dock_window_position"
-const PS_DOCK_WINDOW_SIZE: String = "terrain3d/config/dock_window_size"
+const ES_DOCK_SLOT: String = "terrain3d/dock/slot"
+const ES_DOCK_TILE_SIZE: String = "terrain3d/dock/tile_size"
+const ES_DOCK_FLOATING: String = "terrain3d/dock/floating"
+const ES_DOCK_PINNED: String = "terrain3d/dock/always_on_top"
+const ES_DOCK_WINDOW_POSITION: String = "terrain3d/dock/window_position"
+const ES_DOCK_WINDOW_SIZE: String = "terrain3d/dock/window_size"
+const ES_DOCK_TAB: String = "terrain3d/dock/tab"
 
 var texture_list: ListContainer
 var mesh_list: ListContainer
@@ -59,7 +60,6 @@ enum {
 var slot: int = POS_RIGHT_BR
 var _initialized: bool = false
 var plugin: EditorPlugin
-var editor_settings: EditorSettings
 
 
 func initialize(p_plugin: EditorPlugin) -> void:
@@ -93,7 +93,6 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	asset_container.add_child(mesh_list)
 	_current_list = texture_list
 
-	editor_settings = EditorInterface.get_editor_settings()
 	load_editor_settings()
 
 	# Connect signals
@@ -103,7 +102,7 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	placement_opt.item_selected.connect(set_slot)
 	floating_btn.pressed.connect(make_dock_float)
 	pinned_btn.toggled.connect(_on_pin_changed)
-	pinned_btn.visible = false
+	pinned_btn.visible = ( window != null )
 	size_slider.value_changed.connect(_on_slider_changed)
 	plugin.ui.toolbar.tool_changed.connect(_on_tool_changed)
 
@@ -279,6 +278,7 @@ func _on_textures_pressed() -> void:
 	texture_list.set_selected_id(texture_list.selected_id)
 	if plugin.is_terrain_valid():
 		plugin.get_editor_interface().edit_node(plugin.terrain)
+	save_editor_settings()
 
 
 func _on_meshes_pressed() -> void:
@@ -292,6 +292,7 @@ func _on_meshes_pressed() -> void:
 	if plugin.is_terrain_valid():
 		plugin.get_editor_interface().edit_node(plugin.terrain)
 	update_thumbnails()
+	save_editor_settings()
 
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
@@ -355,8 +356,8 @@ func create_window() -> void:
 	mc.add_child(self)
 	window.add_child(mc)
 	window.set_transient(false)
-	window.set_size(get_setting(PS_DOCK_WINDOW_SIZE, Vector2i(512, 512)))
-	window.set_position(get_setting(PS_DOCK_WINDOW_POSITION, Vector2i(704, 284)))
+	window.set_size(plugin.get_setting(ES_DOCK_WINDOW_SIZE, Vector2i(512, 512)))
+	window.set_position(plugin.get_setting(ES_DOCK_WINDOW_POSITION, Vector2i(704, 284)))
 	plugin.add_child(window)
 	window.show()
 
@@ -375,7 +376,7 @@ func clamp_window_position() -> void:
 
 
 func _on_window_input(event: InputEvent) -> void:
-	# Capture CTRL+S when doc focused to save scene)
+	# Capture CTRL+S when doc focused to save scene
 	if event is InputEventKey and event.keycode == KEY_S and event.pressed and event.is_command_or_control_pressed():
 		save_editor_settings()
 		plugin.get_editor_interface().save_scene()
@@ -403,33 +404,43 @@ func _on_godot_focus_exited() -> void:
 
 ## Manage Editor Settings
 
-
-func get_setting(p_str: String, p_default: Variant) -> Variant:
-	if editor_settings.has_setting(p_str):
-		return editor_settings.get_setting(p_str)
-	else:
-		return p_default
-
-
 func load_editor_settings() -> void:
-	floating_btn.button_pressed = get_setting(PS_DOCK_FLOATING, false)
-	pinned_btn.button_pressed = get_setting(PS_DOCK_PINNED, true)
-	size_slider.value = get_setting(PS_DOCK_TILE_SIZE, 83)
+	## Deprecated 0.9.2 Remove in 1.0 - Move settings to new config category
+	var value: Variant
+	for es: String in [ "terrain3d/config/dock_slot", "terrain3d/config/dock_tile_size", 
+	"terrain3d/config/dock_floating", "terrain3d/config/dock_always_on_top",
+	"terrain3d/config/dock_window_size", "terrain3d/config/dock_window_position", ]:
+		if plugin.editor_settings.has_setting(es):
+			value = plugin.editor_settings.get_setting(es)
+			plugin.editor_settings.erase(es)
+			plugin.editor_settings.set_setting(es.replace("/config/dock_", "/dock/"), value)
+	## Deprecated End - Load settings as normal
+	
+	floating_btn.button_pressed = plugin.get_setting(ES_DOCK_FLOATING, false)
+	pinned_btn.button_pressed = plugin.get_setting(ES_DOCK_PINNED, true)
+	size_slider.value = plugin.get_setting(ES_DOCK_TILE_SIZE, 83)
 	_on_slider_changed(size_slider.value)
-	set_slot(get_setting(PS_DOCK_SLOT, POS_BOTTOM))
+	set_slot(plugin.get_setting(ES_DOCK_SLOT, POS_BOTTOM))
 	if floating_btn.button_pressed:
 		make_dock_float()
+	# TODO Don't save tab until thumbnail generation more reliable
+	#if plugin.get_setting(ES_DOCK_TAB, 0) == 1:
+	#	_on_meshes_pressed()
+
+
 func save_editor_settings() -> void:
 	if not _initialized:
 		return
 	clamp_window_position()
-	editor_settings.set_setting(PS_DOCK_SLOT, slot)
-	editor_settings.set_setting(PS_DOCK_TILE_SIZE, size_slider.value)
-	editor_settings.set_setting(PS_DOCK_FLOATING, floating_btn.button_pressed)
-	editor_settings.set_setting(PS_DOCK_PINNED, pinned_btn.button_pressed)
+	plugin.set_setting(ES_DOCK_SLOT, slot)
+	plugin.set_setting(ES_DOCK_TILE_SIZE, size_slider.value)
+	plugin.set_setting(ES_DOCK_FLOATING, floating_btn.button_pressed)
+	plugin.set_setting(ES_DOCK_PINNED, pinned_btn.button_pressed)
+	# TODO Don't save tab until thumbnail generation more reliable
+	# plugin.set_setting(ES_DOCK_TAB, 0 if _current_list == texture_list else 1)
 	if window:
-		editor_settings.set_setting(PS_DOCK_WINDOW_SIZE, window.size)
-		editor_settings.set_setting(PS_DOCK_WINDOW_POSITION, window.position)
+		plugin.set_setting(ES_DOCK_WINDOW_SIZE, window.size)
+		plugin.set_setting(ES_DOCK_WINDOW_POSITION, window.position)
 
 
 ##############################################################
@@ -703,7 +714,7 @@ class ListEntry extends VBoxContainer:
 		else:
 			name_label.text = "Add Mesh"
 
-		
+
 	func _notification(p_what) -> void:
 		match p_what:
 			NOTIFICATION_DRAW:
