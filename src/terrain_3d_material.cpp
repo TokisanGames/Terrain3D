@@ -298,9 +298,9 @@ void Terrain3DMaterial::_update_shader() {
 	notify_property_list_changed();
 }
 
-void Terrain3DMaterial::_update_regions() {
+void Terrain3DMaterial::_update_maps() {
 	IS_STORAGE_INIT(VOID);
-	LOG(DEBUG_CONT, "Updating region maps in shader");
+	LOG(DEBUG_CONT, "Updating maps in shader");
 
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	RS->material_set_param(_material, "_height_maps", storage->get_height_rid());
@@ -326,9 +326,9 @@ void Terrain3DMaterial::_update_regions() {
 		}
 	}
 
-	TypedArray<Vector2i> region_offsets = storage->get_region_offsets();
-	LOG(DEBUG_CONT, "Region_offsets size: ", region_offsets.size(), " ", region_offsets);
-	RS->material_set_param(_material, "_region_offsets", region_offsets);
+	TypedArray<Vector2i> region_locations = storage->get_region_locations();
+	LOG(DEBUG_CONT, "Region_locations size: ", region_locations.size(), " ", region_locations);
+	RS->material_set_param(_material, "_region_locations", region_locations);
 
 	real_t region_size = real_t(storage->get_region_size());
 	LOG(DEBUG_CONT, "Setting region size in material: ", region_size);
@@ -419,7 +419,7 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	_shader_tmp.instantiate();
 	LOG(DEBUG, "Mat RID: ", _material, ", _shader RID: ", _shader);
 	_update_shader();
-	_update_regions();
+	_update_maps();
 }
 
 Terrain3DMaterial::~Terrain3DMaterial() {
@@ -432,7 +432,7 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 
 void Terrain3DMaterial::update() {
 	_update_shader();
-	_update_regions();
+	_update_maps();
 }
 
 RID Terrain3DMaterial::get_shader_rid() const {

@@ -96,13 +96,13 @@ func _edit(p_object: Object) -> void:
 		terrain.set_editor(editor)
 		ui.set_visible(true)
 		
-		# Connect to new Assets resource
+        # Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
-		# Connect to new Storage resource
-		if not terrain.storage_changed.is_connected(update_region_grid):
-			terrain.storage_changed.connect(update_region_grid)
+        # Get alerted when the region map changes
+		if not terrain.get_storage().region_map_changed.is_connected(update_region_grid):
+			terrain.get_storage().region_map_changed.connect(update_region_grid)
 		update_region_grid()
 	else:
 		_clear()
@@ -117,7 +117,7 @@ func _edit(p_object: Object) -> void:
 	
 func _clear() -> void:
 	if is_terrain_valid():
-		terrain.storage_changed.disconnect(update_region_grid)
+		terrain.get_storage().region_map_changed.disconnect(update_region_grid)
 		
 		terrain.clear_gizmos()
 		terrain = null
@@ -241,7 +241,7 @@ func update_region_grid() -> void:
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
 		region_gizmo.region_position = current_region_position
 		region_gizmo.region_size = terrain.get_storage().get_region_size() * terrain.get_mesh_vertex_spacing()
-		region_gizmo.grid = terrain.get_storage().get_region_offsets()
+		region_gizmo.grid = terrain.get_storage().get_region_locations()
 		
 		terrain.update_gizmos()
 		return

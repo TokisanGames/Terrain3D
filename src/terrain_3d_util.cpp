@@ -233,7 +233,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
 			LOG(DEBUG, "Total file size is: ", fsize, " calculated width: ", fwidth, " dimensions: ", r16_size);
 			file->seek(0);
 		}
-		img = Image::create(r16_size.x, r16_size.y, false, Terrain3DStorage::FORMAT[Terrain3DStorage::TYPE_HEIGHT]);
+		img = Image::create(r16_size.x, r16_size.y, false, Terrain3DStorage::FORMAT[TYPE_HEIGHT]);
 		for (int y = 0; y < r16_size.y; y++) {
 			for (int x = 0; x < r16_size.x; x++) {
 				real_t h = real_t(file->get_16()) / 65535.0f;

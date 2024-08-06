@@ -12,11 +12,11 @@
 ///////////////////////////
 
 void Terrain3DEditor::_region_modified(const Vector3 &p_global_position, const Vector2 &p_height_range) {
-	Vector2i region_offset = _terrain->get_storage()->get_region_offset(p_global_position);
+	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
 	Terrain3DStorage::RegionSize region_size = _terrain->get_storage()->get_region_size();
 
 	AABB edited_area;
-	edited_area.position = Vector3(region_offset.x * region_size, p_height_range.x, region_offset.y * region_size);
+	edited_area.position = Vector3(region_loc.x * region_size, p_height_range.x, region_loc.y * region_size);
 	edited_area.size = Vector3(region_size, p_height_range.y - p_height_range.x, region_size);
 	edited_area.position *= _terrain->get_mesh_vertex_spacing();
 	edited_area.size *= _terrain->get_mesh_vertex_spacing();
@@ -37,8 +37,8 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 		}
 	} else {
 		if (has_region) {
-			int region_index = _terrain->get_storage()->get_region_index(p_global_position);
-			Ref<Image> height_map = _terrain->get_storage()->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region_index);
+			int region_id = _terrain->get_storage()->get_region_id(p_global_position);
+			Ref<Image> height_map = _terrain->get_storage()->get_map_region(TYPE_HEIGHT, region_id);
 			height_range = Util::get_min_max(height_map);
 
 			_terrain->get_storage()->remove_region(p_global_position);
@@ -59,16 +59,16 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
-	int region_index = storage->get_region_index(p_global_position);
-	if (region_index == -1) {
+	int region_id = storage->get_region_id(p_global_position);
+	if (region_id == -1) {
 		if (!_brush_data["auto_regions"] || _tool != HEIGHT) {
 			return;
 		} else {
 			LOG(DEBUG, "No region to operate on, attempting to add");
 			storage->add_region(p_global_position);
 			region_size = storage->get_region_size();
-			region_index = storage->get_region_index(p_global_position);
-			if (region_index == -1) {
+			region_id = storage->get_region_id(p_global_position);
+			if (region_id == -1) {
 				LOG(ERROR, "Failed to add region, no region to operate on");
 				return;
 			}
@@ -76,11 +76,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		}
 	}
 
-	Terrain3DStorage::MapType map_type;
+	MapType map_type;
 	switch (_tool) {
 		case HEIGHT:
 		case INSTANCER:
-			map_type = Terrain3DStorage::TYPE_HEIGHT;
+			map_type = TYPE_HEIGHT;
 			break;
 		case TEXTURE:
 		case AUTOSHADER:
@@ -88,18 +88,18 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		case NAVIGATION:
 		case ANGLE:
 		case SCALE:
-			map_type = Terrain3DStorage::TYPE_CONTROL;
+			map_type = TYPE_CONTROL;
 			break;
 		case COLOR:
 		case ROUGHNESS:
-			map_type = Terrain3DStorage::TYPE_COLOR;
+			map_type = TYPE_COLOR;
 			break;
 		default:
 			LOG(ERROR, "Invalid tool selected");
 			return;
 	}
 
-	Ref<Image> map = storage->get_map_region(map_type, region_index);
+	Ref<Image> map = storage->get_map_region(map_type, region_id);
 	real_t brush_size = _brush_data["size"];
 	int asset_id = _brush_data["asset_id"];
 	Vector2i img_size = _brush_data["brush_image_size"];
@@ -150,8 +150,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							p_global_position.z + brush_offset.y + .5f);
 
 			// If we're brushing across a region boundary, possibly add a region, and get the other map
-			int new_region_index = storage->get_region_index(brush_global_position);
-			if (new_region_index == -1) {
+			int new_region_id = storage->get_region_id(brush_global_position);
+			if (new_region_id == -1) {
 				if (!_brush_data["auto_regions"] || _tool != HEIGHT) {
 					continue;
 				}
@@ -159,13 +159,13 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				if (err) {
 					continue;
 				}
-				new_region_index = storage->get_region_index(brush_global_position);
+				new_region_id = storage->get_region_id(brush_global_position);
 				_region_modified(brush_global_position);
 			}
 
-			if (new_region_index != region_index) {
-				region_index = new_region_index;
-				map = storage->get_map_region(map_type, region_index);
+			if (new_region_id != region_id) {
+				region_id = new_region_id;
+				map = storage->get_map_region(map_type, region_id);
 			}
 
 			// Identify position on map image
@@ -193,7 +193,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
 
-				if (map_type == Terrain3DStorage::TYPE_HEIGHT) {
+				if (map_type == TYPE_HEIGHT) {
 					real_t srcf = src.r;
 					real_t destf = dest.r;
 
@@ -280,7 +280,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					edited_position.y = destf;
 					edited_area = edited_area.expand(edited_position);
 
-				} else if (map_type == Terrain3DStorage::TYPE_CONTROL) {
+				} else if (map_type == TYPE_CONTROL) {
 					// Get bit field from pixel
 					uint32_t base_id = get_base(src.r);
 					uint32_t overlay_id = get_overlay(src.r);
@@ -404,7 +404,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
 					dest = Color(as_float(bits), 0.f, 0.f, 1.f);
 
-				} else if (map_type == Terrain3DStorage::TYPE_COLOR) {
+				} else if (map_type == TYPE_COLOR) {
 					switch (_tool) {
 						case COLOR:
 							dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
@@ -470,12 +470,12 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 	}
 	switch (_tool) {
 		case REGION:
-			LOG(DEBUG, "Storing region offsets");
-			data["region_offsets"] = _terrain->get_storage()->get_region_offsets().duplicate();
+			LOG(DEBUG, "Storing region locations");
+			data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
 			if (_operation == SUBTRACT) {
-				data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_HEIGHT);
-				data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_CONTROL);
-				data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_COLOR);
+				data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT);
+				data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL);
+				data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR);
 				data["height_range"] = _terrain->get_storage()->get_height_range();
 				data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			}
@@ -483,8 +483,8 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 
 		case HEIGHT:
 			LOG(DEBUG, "Storing height maps and range");
-			data["region_offsets"] = _terrain->get_storage()->get_region_offsets().duplicate();
-			data["height_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_HEIGHT);
+			data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
+			data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT);
 			data["height_range"] = _terrain->get_storage()->get_height_range();
 			data["edited_area"] = _terrain->get_storage()->get_edited_area();
 			break;
@@ -497,13 +497,13 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 		case AUTOSHADER:
 		case NAVIGATION:
 			LOG(DEBUG, "Storing control maps");
-			data["control_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_CONTROL);
+			data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL);
 			break;
 
 		case COLOR:
 		case ROUGHNESS:
 			LOG(DEBUG, "Storing color maps");
-			data["color_map"] = _terrain->get_storage()->get_maps_copy(Terrain3DStorage::TYPE_COLOR);
+			data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR);
 			break;
 
 		case INSTANCER:
@@ -556,13 +556,13 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 	for (int i = 0; i < keys.size(); i++) {
 		String key = keys[i];
 		if (key == "region_offsets") {
-			_terrain->get_storage()->set_region_offsets(p_set[key]);
+			_terrain->get_storage()->set_region_locations(p_set[key]);
 		} else if (key == "height_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_HEIGHT, p_set[key]);
+			_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key]);
 		} else if (key == "control_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_CONTROL, p_set[key]);
+			_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key]);
 		} else if (key == "color_map") {
-			_terrain->get_storage()->set_maps(Terrain3DStorage::TYPE_COLOR, p_set[key]);
+			_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key]);
 		} else if (key == "height_range") {
 			_terrain->get_storage()->set_height_range(p_set[key]);
 		} else if (key == "edited_area") {
