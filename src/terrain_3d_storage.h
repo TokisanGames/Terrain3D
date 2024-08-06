@@ -6,7 +6,6 @@
 #include "constants.h"
 #include "generated_texture.h"
 #include "terrain_3d_region.h"
-#include "terrain_3d_util.h"
 
 class Terrain3D;
 
@@ -21,34 +20,6 @@ public: // Constants
 	static inline const real_t CURRENT_VERSION = 0.92f;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
-
-	enum MapType {
-		TYPE_HEIGHT,
-		TYPE_CONTROL,
-		TYPE_COLOR,
-		TYPE_MAX,
-	};
-
-	static inline const Image::Format FORMAT[] = {
-		Image::FORMAT_RF, // TYPE_HEIGHT
-		Image::FORMAT_RF, // TYPE_CONTROL
-		Image::FORMAT_RGBA8, // TYPE_COLOR
-		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
-	};
-
-	static inline const char *TYPESTR[] = {
-		"TYPE_HEIGHT",
-		"TYPE_CONTROL",
-		"TYPE_COLOR",
-		"TYPE_MAX",
-	};
-
-	static inline const Color COLOR[] = {
-		COLOR_BLACK, // TYPE_HEIGHT
-		COLOR_CONTROL, // TYPE_CONTROL
-		COLOR_ROUGHNESS, // TYPE_COLOR
-		COLOR_NAN, // TYPE_MAX, unused just in case someone indexes the array
-	};
 
 	enum RegionSize {
 		//SIZE_64 = 64,
@@ -180,7 +151,6 @@ public:
 	Vector3 get_texture_id(const Vector3 &p_global_position) const;
 	real_t get_angle(const Vector3 &p_global_position) const;
 	real_t get_scale(const Vector3 &p_global_position) const;
-	TypedArray<Image> sanitize_maps(const MapType p_map_type, const TypedArray<Image> &p_maps) const;
 	void force_update_maps(const MapType p_map = TYPE_MAX);
 
 	// Instancer
@@ -212,12 +182,6 @@ protected:
 	static void _bind_methods();
 };
 
-typedef Terrain3DStorage::MapType MapType;
-VARIANT_ENUM_CAST(Terrain3DStorage::MapType);
-constexpr Terrain3DStorage::MapType TYPE_HEIGHT = Terrain3DStorage::MapType::TYPE_HEIGHT;
-constexpr Terrain3DStorage::MapType TYPE_CONTROL = Terrain3DStorage::MapType::TYPE_CONTROL;
-constexpr Terrain3DStorage::MapType TYPE_COLOR = Terrain3DStorage::MapType::TYPE_COLOR;
-constexpr Terrain3DStorage::MapType TYPE_MAX = Terrain3DStorage::MapType::TYPE_MAX;
 VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 

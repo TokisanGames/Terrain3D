@@ -37,9 +37,9 @@ static func convert_storage(path:String) -> void:
 	
 	var regions:Array[Terrain3DRegion] = []
 	
-	var hmaps:Array[Image] = storage.get_maps(Terrain3DStorage.TYPE_HEIGHT)
-	var ctlmaps:Array[Image] = storage.get_maps(Terrain3DStorage.TYPE_CONTROL)
-	var colmaps:Array[Image] = storage.get_maps(Terrain3DStorage.TYPE_COLOR)
+	var hmaps:Array[Image] = storage.get_maps(Terrain3DRegion.TYPE_HEIGHT)
+	var ctlmaps:Array[Image] = storage.get_maps(Terrain3DRegion.TYPE_CONTROL)
+	var colmaps:Array[Image] = storage.get_maps(Terrain3DRegion.TYPE_COLOR)
 	
 	for i:int in range(storage.get_region_count()):
 		var region:Terrain3DRegion = Terrain3DRegion.new()
