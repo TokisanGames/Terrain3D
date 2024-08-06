@@ -61,19 +61,19 @@ func start_import(p_value: bool) -> void:
 			storage = Terrain3DStorage.new()
 
 		var imported_images: Array[Image]
-		imported_images.resize(Terrain3DStorage.TYPE_MAX)
+		imported_images.resize(Terrain3DRegion.TYPE_MAX)
 		var min_max := Vector2(0, 1)
 		var img: Image
 		if height_file_name:
 			img = Terrain3DUtil.load_image(height_file_name, ResourceLoader.CACHE_MODE_IGNORE, r16_range, r16_size)
 			min_max = Terrain3DUtil.get_min_max(img)
-			imported_images[Terrain3DStorage.TYPE_HEIGHT] = img
+			imported_images[Terrain3DRegion.TYPE_HEIGHT] = img
 		if control_file_name:
 			img = Terrain3DUtil.load_image(control_file_name, ResourceLoader.CACHE_MODE_IGNORE)
-			imported_images[Terrain3DStorage.TYPE_CONTROL] = img
+			imported_images[Terrain3DRegion.TYPE_CONTROL] = img
 		if color_file_name:
 			img = Terrain3DUtil.load_image(color_file_name, ResourceLoader.CACHE_MODE_IGNORE)
-			imported_images[Terrain3DStorage.TYPE_COLOR] = img
+			imported_images[Terrain3DRegion.TYPE_COLOR] = img
 			if assets.get_texture_count() == 0:
 				material.show_checkered = false
 				material.show_colormap = true

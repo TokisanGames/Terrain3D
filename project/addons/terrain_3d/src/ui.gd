@@ -412,9 +412,9 @@ func pick(p_global_position: Vector3) -> void:
 		var color: Color
 		match picking:
 			Terrain3DEditor.HEIGHT:
-				color = plugin.terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_HEIGHT, p_global_position)
+				color = plugin.terrain.get_storage().get_pixel(Terrain3DRegion.TYPE_HEIGHT, p_global_position)
 			Terrain3DEditor.ROUGHNESS:
-				color = plugin.terrain.get_storage().get_pixel(Terrain3DStorage.TYPE_COLOR, p_global_position)
+				color = plugin.terrain.get_storage().get_pixel(Terrain3DRegion.TYPE_COLOR, p_global_position)
 			Terrain3DEditor.COLOR:
 				color = plugin.terrain.get_storage().get_color(p_global_position)
 			Terrain3DEditor.ANGLE:

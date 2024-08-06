@@ -4,10 +4,21 @@
 
 #include "logger.h"
 #include "terrain_3d_region.h"
+#include "terrain_3d_storage.h"
+#include "terrain_3d_util.h"
 
 /////////////////////
 // Public Functions
 /////////////////////
+
+Terrain3DRegion::Terrain3DRegion(const Ref<Image> &p_height_map, const Ref<Image> &p_control_map,
+		const Ref<Image> &p_color_map, const int p_region_size) {
+	_height_map = p_height_map;
+	_control_map = p_control_map;
+	_color_map = p_color_map;
+	_region_size = p_region_size;
+	sanitize_maps();
+}
 
 void Terrain3DRegion::set_version(const real_t p_version) {
 	LOG(INFO, vformat("%.3f", p_version));
@@ -19,7 +30,9 @@ void Terrain3DRegion::set_version(const real_t p_version) {
 }
 
 void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
-	Image::Format format = Terrain3DStorage::FORMAT[Terrain3DStorage::TYPE_HEIGHT];
+	Image::Format format = FORMAT[TYPE_HEIGHT];
+	// This is to convert format_RH to RF, but probably unnecessary w/ sanitize
+	/*if (p_map.is_valid() && p_map->get_format() != format) {
 	if (p_map.is_valid() && p_map->get_format() != format) {
 		LOG(DEBUG, "Converting file format: ", p_map->get_format(), " to ", format);
 		if (_height_map.is_null()) {
@@ -29,7 +42,68 @@ void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 		_height_map->convert(format);
 	} else {
 		_height_map = p_map;
+	} */
+	_height_map = sanitize_map(TYPE_HEIGHT, p_map);
+}
+
+void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
+	_control_map = sanitize_map(TYPE_CONTROL, p_map);
+}
+
+void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
+	_color_map = sanitize_map(TYPE_COLOR, p_map);
+}
+
+void Terrain3DRegion::sanitize_maps(const MapType p_map_type) {
+	LOG(INFO, "Verifying images maps are valid");
+	if (p_map_type == TYPE_HEIGHT || p_map_type == TYPE_MAX) {
+		_height_map = sanitize_map(TYPE_HEIGHT, _height_map);
 	}
+	if (p_map_type == TYPE_CONTROL || p_map_type == TYPE_MAX) {
+		_control_map = sanitize_map(TYPE_CONTROL, _control_map);
+	}
+	if (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX) {
+		_color_map = sanitize_map(TYPE_COLOR, _color_map);
+	}
+}
+
+// Verifies region map is a valid size and format
+// Creates filled blanks if lacking
+Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Image> &p_img) const {
+	LOG(INFO, "Verifying images maps are valid");
+	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
+		LOG(ERROR, "Invalid map type: ", p_map_type);
+		return Ref<Image>();
+	}
+
+	Image::Format format = FORMAT[p_map_type];
+	const char *type_str = TYPESTR[p_map_type];
+	Color color = COLOR[p_map_type];
+
+	if (p_img.is_valid()) {
+		if (p_img->get_size() == Vector2i(_region_size, _region_size)) {
+			if (p_img->get_format() == format) {
+				LOG(DEBUG, "Map type ", type_str, " correct format, size. Using image");
+				return p_img;
+			} else {
+				LOG(DEBUG, "Provided ", type_str, " map wrong format: ", p_img->get_format(), ". Converting copy to: ", format);
+				Ref<Image> newimg;
+				newimg.instantiate();
+				newimg->copy_from(p_img);
+				newimg->convert(format);
+				if (newimg->get_format() == format) {
+					return newimg;
+				} else {
+					LOG(DEBUG, "Couldn't convert image to format: ", format, ". Creating blank ");
+				}
+			}
+		} else {
+			LOG(DEBUG, "Provided ", type_str, " map wrong size: ", p_img->get_size(), ". Creating blank");
+		}
+	} else {
+		LOG(DEBUG, "No provided ", type_str, " map. Creating blank");
+	}
+	return Util::get_filled_image(Vector2i(_region_size, _region_size), color, false, format);
 }
 
 Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
@@ -74,6 +148,11 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 /////////////////////
 
 void Terrain3DRegion::_bind_methods() {
+	BIND_ENUM_CONSTANT(TYPE_HEIGHT);
+	BIND_ENUM_CONSTANT(TYPE_CONTROL);
+	BIND_ENUM_CONSTANT(TYPE_COLOR);
+	BIND_ENUM_CONSTANT(TYPE_MAX);
+
 	ClassDB::bind_method(D_METHOD("set_version"), &Terrain3DRegion::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DRegion::get_version);
 
