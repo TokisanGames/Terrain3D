@@ -18,11 +18,17 @@ using namespace godot;
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 #define COLOR_CONTROL Color(as_float(enc_auto(true)), 0.f, 0.f, 1.0f)
 
-// For consistency between msvc, gcc, clang
-
-#ifndef __FLT_MAX__
-#define __FLT_MAX__ FLT_MAX
+#ifndef FLT_MAX
+// For consistency between MSVC, gcc, clang
+#define FLT_MAX __FLT_MAX__
 #endif
+
+#define V2_ZERO Vector2(0.f, 0.f)
+#define V2_MAX Vector2(FLT_MAX, FLT_MAX)
+#define V3_ZERO Vector3(0.f, 0.f, 0.f)
+#define V3_MAX Vector3(FLT_MAX, FLT_MAX, FLT_MAX)
+#define V2I_ZERO Vector2i(0, 0)
+#define V2I_MAX Vector2i(INT32_MAX, INT32_MAX)
 
 // Set class name for logger.h
 

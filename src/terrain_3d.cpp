@@ -71,9 +71,9 @@ void Terrain3D::_initialize() {
 		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
 	// MeshAssets changed, update instancer
-	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1))) {
+	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1))) {
 		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
-		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1));
+		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1));
 	}
 	// New multimesh added to storage, rebuild instancer
 	if (!_storage->is_connected("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis))) {
@@ -269,7 +269,7 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 
 	update_aabbs();
 	// Force a snap update
-	_camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
+	_camera_last_position = V2_MAX;
 }
 
 /**
@@ -401,7 +401,7 @@ void Terrain3D::_update_collision() {
 	float hole_const = NAN;
 	// DEPRECATED - Jolt v0.12 supports NAN. Remove check when it's old.
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
-		hole_const = __FLT_MAX__;
+		hole_const = FLT_MAX;
 	}
 
 	for (int i = 0; i < _storage->get_region_count(); i++) {
@@ -1040,7 +1040,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		Vector2 screen_rg = Vector2(screen_depth.r, screen_depth.g);
 		real_t normalized_distance = screen_rg.dot(Vector2(1.f, 1.f / 255.f));
 		if (normalized_distance < 0.00001f) {
-			return Vector3(__FLT_MAX__, __FLT_MAX__, __FLT_MAX__);
+			return V3_MAX;
 		}
 		// Necessary for a correct value depth = 1
 		if (normalized_distance > 0.9999f) {

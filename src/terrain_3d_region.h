@@ -53,7 +53,7 @@ private:
 	Dictionary _multimeshes;
 
 	// Workind data not saved to disk
-	Vector2i _location = Vector2i(INT32_MAX, INT32_MAX);
+	Vector2i _location = V2I_MAX;
 	bool _modified = false;
 
 public:

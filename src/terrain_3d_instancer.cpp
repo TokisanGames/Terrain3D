@@ -34,7 +34,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 
 	// For specified region_location, or max for all
 	Array region_locations;
-	if (p_region_loc == Vector2i(INT32_MAX, INT32_MAX)) {
+	if (p_region_loc.x == INT32_MAX) {
 		region_locations = region_dict.keys();
 	} else {
 		region_locations.push_back(p_region_loc);

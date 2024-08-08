@@ -49,7 +49,7 @@ class Terrain3D : public Node3D {
 	uint64_t _camera_instance_id = 0;
 
 	// X,Z Position of the camera during the previous snapping. Set to max real_t value to force a snap update.
-	Vector2 _camera_last_position = Vector2(__FLT_MAX__, __FLT_MAX__);
+	Vector2 _camera_last_position = V2_MAX;
 
 	// Meshes and Mesh instances
 	Vector<RID> _meshes;

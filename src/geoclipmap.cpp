@@ -95,7 +95,7 @@ Vector<RID> GeoClipMap::generate(const int p_size, const int p_levels) {
 			}
 		}
 
-		aabb = AABB(Vector3(0.f, 0.f, 0.f), Vector3(PATCH_VERT_RESOLUTION, 0.1f, PATCH_VERT_RESOLUTION));
+		aabb = AABB(V3_ZERO, Vector3(PATCH_VERT_RESOLUTION, 0.1f, PATCH_VERT_RESOLUTION));
 		tile_mesh = _create_mesh(vertices, indices, aabb);
 	}
 
