@@ -168,7 +168,7 @@ public:
 	void register_region(const Ref<Terrain3DRegion> &p_region);
 	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
 
-	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = Vector3(0.f, 0.f, 0.f),
+	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = V3_ZERO,
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
 	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
 	Ref<Image> layered_to_image(const MapType p_map_type) const;
@@ -208,7 +208,7 @@ inline Vector2i Terrain3DStorage::get_region_location(const Vector3 &p_global_po
 // Returns Vector2i(2147483647) if out of range
 inline Vector2i Terrain3DStorage::get_region_locationi(const int p_region_id) const {
 	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
-		return Vector2i(INT32_MAX, INT32_MAX);
+		return V2I_MAX;
 	}
 	return _region_locations[p_region_id];
 }

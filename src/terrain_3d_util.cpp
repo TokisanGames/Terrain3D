@@ -38,7 +38,7 @@ Vector2i Terrain3DUtil::filename_to_location(const String &p_filename) {
 	String x_str = working_string.right(3).replace("_", "");
 	if (!x_str.is_valid_int() || !y_str.is_valid_int()) {
 		LOG(ERROR, "Malformed filename at ", p_filename, ": got x ", x_str, " y ", y_str);
-		return Vector2i(INT32_MAX, INT32_MAX);
+		return V2I_MAX;
 	}
 	return Vector2i(x_str.to_int(), y_str.to_int());
 }
@@ -79,7 +79,7 @@ Vector2 Terrain3DUtil::get_min_max(const Ref<Image> &p_image) {
 		return Vector2(INFINITY, INFINITY);
 	}
 
-	Vector2 min_max = Vector2(0.f, 0.f);
+	Vector2 min_max = V2_ZERO;
 
 	for (int y = 0; y < p_image->get_height(); y++) {
 		for (int x = 0; x < p_image->get_width(); x++) {
@@ -200,7 +200,7 @@ Ref<Image> Terrain3DUtil::get_filled_image(const Vector2i &p_size, const Color &
 			color.a = 1.0f;
 			Color col_a = Color(0.8f, 0.8f, 0.8f, 1.0) * color;
 			Color col_b = Color(0.5f, 0.5f, 0.5f, 1.0) * color;
-			img->fill_rect(Rect2i(Vector2i(0, 0), p_size / 2), col_a);
+			img->fill_rect(Rect2i(V2I_ZERO, p_size / 2), col_a);
 			img->fill_rect(Rect2i(p_size / 2, p_size / 2), col_a);
 			img->fill_rect(Rect2i(Vector2(p_size.x, 0) / 2, p_size / 2), col_b);
 			img->fill_rect(Rect2i(Vector2(0, p_size.y) / 2, p_size / 2), col_b);
@@ -247,7 +247,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
 		Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::READ);
 		// If p_size is zero, assume square and try to auto detect size
 		Vector2i r16_size = p_r16_size;
-		if (r16_size <= Vector2i(0, 0)) {
+		if (r16_size <= V2I_ZERO) {
 			file->seek_end();
 			int fsize = file->get_position();
 			int fwidth = sqrt(fsize / 2);
@@ -352,6 +352,6 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_min_max", "image"), &Terrain3DUtil::get_min_max);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(Vector2i(0, 0)));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(V2I_ZERO));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_r", "invert_green_channel"), &Terrain3DUtil::pack_image, DEFVAL(false));
 }

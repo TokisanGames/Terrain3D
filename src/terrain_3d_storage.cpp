@@ -191,7 +191,7 @@ Error Terrain3DStorage::add_region(const Vector3 &p_global_position, const Typed
 
 	// Check this later, per region
 	// If we're importing data into a region, check its heights for aabbs
-	/*Vector2 min_max = Vector2(0.f, 0.f);
+	/*Vector2 min_max = V2_ZERO;
 	if (p_images.size() > TYPE_HEIGHT) {
 		min_max = Util::get_min_max(images[TYPE_HEIGHT]);
 		LOG(DEBUG, "Checking imported height range: ", min_max);
@@ -560,7 +560,7 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 	Vector2i global_offset = region_loc * _region_size;
 	Vector3 descaled_pos = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
-	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
+	img_pos = img_pos.clamp(V2I_ZERO, Vector2i(_region_size - 1, _region_size - 1));
 	Ref<Image> map = get_map_region(p_map_type, region_id);
 	map->set_pixelv(img_pos, p_pixel);
 	set_region_modified(region_loc, true);
@@ -579,7 +579,7 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 	Vector2i global_offset = region_loc * _region_size;
 	Vector3 descaled_pos = p_global_position / _mesh_vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
-	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
+	img_pos = img_pos.clamp(V2I_ZERO, Vector2i(_region_size - 1, _region_size - 1));
 	Ref<Image> map = get_map_region(p_map_type, region_id);
 	return map->get_pixelv(img_pos);
 }
@@ -756,7 +756,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
 		return;
 	}
 
-	Vector2i img_size = Vector2i(0, 0);
+	Vector2i img_size = V2I_ZERO;
 	for (int i = 0; i < TYPE_MAX; i++) {
 		Ref<Image> img = p_images[i];
 		if (img.is_valid() && !img->is_empty()) {
@@ -764,7 +764,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
 			if (i == TYPE_HEIGHT) {
 				LOG(INFO, "Applying offset: ", p_offset, ", scale: ", p_scale);
 			}
-			if (img_size == Vector2i(0, 0)) {
+			if (img_size == V2I_ZERO) {
 				img_size = img->get_size();
 			} else if (img_size != img->get_size()) {
 				LOG(ERROR, "Included Images in p_images have different dimensions. Aborting import");
@@ -772,7 +772,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
 			}
 		}
 	}
-	if (img_size == Vector2i(0, 0)) {
+	if (img_size == V2I_ZERO) {
 		LOG(ERROR, "All images are empty. Nothing to import");
 		return;
 	}
@@ -845,7 +845,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
 				Ref<Image> img_slice;
 				if (img.is_valid() && !img->is_empty()) {
 					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
-					img_slice->blit_rect(tmp_images[i], Rect2i(start_coords, size_to_copy), Vector2i(0, 0));
+					img_slice->blit_rect(tmp_images[i], Rect2i(start_coords, size_to_copy), V2I_ZERO);
 				} else {
 					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, FORMAT[i]);
 				}
@@ -960,8 +960,8 @@ Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
 	if (map_type >= TYPE_MAX) {
 		map_type = TYPE_HEIGHT;
 	}
-	Vector2i top_left = Vector2i(0, 0);
-	Vector2i bottom_right = Vector2i(0, 0);
+	Vector2i top_left = V2I_ZERO;
+	Vector2i bottom_right = V2I_ZERO;
 	for (int i = 0; i < _region_locations.size(); i++) {
 		LOG(DEBUG, "Region locations[", i, "]: ", _region_locations[i]);
 		Vector2i region_loc = _region_locations[i];
@@ -987,7 +987,7 @@ Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
 		Vector2i img_location = (region_loc - top_left) * _region_size;
 		LOG(DEBUG, "Region to blit: ", region_loc, " Export image coords: ", img_location);
 		int region_id = get_region_idp(Vector3(region_loc.x, 0, region_loc.y) * _region_size);
-		img->blit_rect(get_map_region(map_type, region_id), Rect2i(Vector2i(0, 0), _region_sizev), img_location);
+		img->blit_rect(get_map_region(map_type, region_id), Rect2i(V2I_ZERO, _region_sizev), img_location);
 	}
 	return img;
 }

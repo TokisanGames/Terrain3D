@@ -166,8 +166,8 @@ void Terrain3DAssets::_update_texture_files() {
 	// Detect image sizes and formats
 
 	LOG(INFO, "Validating texture sizes");
-	Vector2i albedo_size = Vector2i(0, 0);
-	Vector2i normal_size = Vector2i(0, 0);
+	Vector2i albedo_size = V2I_ZERO;
+	Vector2i normal_size = V2I_ZERO;
 
 	Image::Format albedo_format = Image::FORMAT_MAX;
 	Image::Format normal_format = Image::FORMAT_MAX;
@@ -221,19 +221,19 @@ void Terrain3DAssets::_update_texture_files() {
 		}
 	}
 
-	if (normal_size == Vector2i(0, 0)) {
+	if (normal_size == V2I_ZERO) {
 		normal_size = albedo_size;
-	} else if (albedo_size == Vector2i(0, 0)) {
+	} else if (albedo_size == V2I_ZERO) {
 		albedo_size = normal_size;
 	}
-	if (albedo_size == Vector2i(0, 0)) {
+	if (albedo_size == V2I_ZERO) {
 		albedo_size = Vector2i(1024, 1024);
 		normal_size = Vector2i(1024, 1024);
 	}
 
 	// Generate TextureArrays and replace nulls with a empty image
 
-	if (_generated_albedo_textures.is_dirty() && albedo_size != Vector2i(0, 0)) {
+	if (_generated_albedo_textures.is_dirty() && albedo_size != V2I_ZERO) {
 		LOG(INFO, "Regenerating albedo texture array");
 		Array albedo_texture_array;
 		for (int i = 0; i < _texture_list.size(); i++) {
@@ -259,7 +259,7 @@ void Terrain3DAssets::_update_texture_files() {
 		}
 	}
 
-	if (_generated_normal_textures.is_dirty() && normal_size != Vector2i(0, 0)) {
+	if (_generated_normal_textures.is_dirty() && normal_size != V2I_ZERO) {
 		LOG(INFO, "Regenerating normal texture arrays");
 
 		Array normal_texture_array;
