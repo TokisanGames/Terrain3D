@@ -17,7 +17,7 @@ class Terrain3DStorage : public Object {
 	friend Terrain3D;
 
 public: // Constants
-	static inline const real_t CURRENT_VERSION = 0.92f;
+	static inline const real_t CURRENT_VERSION = 0.93f;
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
@@ -39,43 +39,50 @@ private:
 	Terrain3D *_terrain = nullptr;
 
 	// Storage Settings & flags
-	RegionSize _region_size = SIZE_1024;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
 	bool _loading = false; // tracking when we're loading so we don't add_region w/ update
-
-	// TODO: Should be in Terrain3D or per region so its saved
-	Vector2 _height_range = Vector2(0.f, 0.f);
-
-	// Work data
-	bool _region_map_dirty = true;
-	PackedInt32Array _region_map; // 16x16 Region grid with index into region_locations (1 based array)
-	// Generated Texture RIDs
-	// These contain the TextureLayered RID from the RenderingServer, no Image
-	GeneratedTexture _generated_height_maps;
-	GeneratedTexture _generated_control_maps;
-	GeneratedTexture _generated_color_maps;
 
 	AABB _edited_area;
 	uint64_t _last_region_bounds_error = 0;
 
-	/**
-	 * These arrays house all of the map data.
-	 * The Image arrays are region_sized slices of all heightmap data. Their world
-	 * location is tracked by region_locations. The region data are combined into one large
-	 * texture in generated_*_maps.
-	 */
+	/////////
+	// Region data are dual indexed. 1) By `region_location:Vector2i` as the primary key,
+	// stored in the `_regions` Dictionary. 2) By a mutable `region_id:int` stored in the
+	// arrays below.
+	//
+	// `_regions` stores all loaded Terrain3DRegions, indexed by region_location. This is
+	// the only stable index so should be the main index for users. Terrain3DRegion
+	// houses the maps, instances, and other data for the region.
+
+	Dictionary _regions; // Dict[region_location:Vector2i] -> Terrain3DRegion
+
+	// All region maps are maintained in secondary indices. These arrays provide direct
+	// access to maps in the regions, indexed by a region_id. This index changes on
+	// every add/remove, depends on load order and is not stable, so should not be
+	// relied on by users. These arrays are converted to TextureArrays for the shader.
+
 	TypedArray<Vector2i> _region_locations;
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
 
-	// Dictionary[region_location:Vector2i] -> Terrain3DRegion
-	Dictionary _regions;
+	// Editing occurs on the arrays above, then get converted to the generated arrays
+	// below for the shader.
+
+	// 16x16 grid with region_id at its location, no region = 0, region_ids >= 1
+	PackedInt32Array _region_map;
+	bool _region_map_dirty = true;
+	// These contain the TextureArray RIDs from the RenderingServer
+	GeneratedTexture _generated_height_maps;
+	GeneratedTexture _generated_control_maps;
+	GeneratedTexture _generated_color_maps;
 
 	// Foliage Instancer contains MultiMeshes saved to disk
 	// Dictionary[region_location:Vector2i] -> Dictionary[mesh_id:int] -> MultiMesh
 	Dictionary _multimeshes;
+	Vector2 _height_range = Vector2(0.f, 0.f);
+	RegionSize _region_size = SIZE_1024;
+	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 
 	// Functions
 	void _clear();
@@ -86,42 +93,44 @@ public:
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DStorage() { _clear(); }
 
+	/// Internal functions should be by region_id or region_location
+	/// External functions by region_location or global_position
+	/// look at godot's naming conventions
+	/// Conversion functions, many can probably be inline, static or in util
+
+	/// Regions
+
+	void set_region_size(const RegionSize p_size);
+	RegionSize get_region_size() const { return _region_size; }
+	Vector2i get_region_sizev() const { return _region_sizev; }
+	int get_region_count() const { return _region_locations.size(); }
+	Dictionary get_regions() { return _regions; }
+	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc);
+	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
+	bool get_region_modified(const Vector2i &p_region_loc) const;
+
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
 	Vector2i get_region_locationi(const int p_region_id) const;
 	int get_region_id(const Vector2i &p_region_loc) const;
 	int get_region_idp(const Vector3 &p_global_position) const;
 	bool has_region(const Vector2i &p_region_loc) const { return get_region_id(p_region_loc) != -1; }
 	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
-	void set_height_range(const Vector2 &p_range);
-	Vector2 get_height_range() const { return _height_range; }
-	void update_heights(const real_t p_height);
-	void update_heights(const Vector2 &p_heights);
-	void update_height_range();
-
-	void clear_edited_area();
-	void add_edited_area(const AABB &p_area);
-	AABB get_edited_area() const { return _edited_area; }
-
-	// Regions
-	Dictionary get_regions() { return _regions; }
-	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc);
-	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
-	bool get_region_modified(const Vector2i &p_region_loc) const;
-
-	void set_region_size(const RegionSize p_size);
-	RegionSize get_region_size() const { return _region_size; }
-	Vector2i get_region_sizev() const { return _region_sizev; }
-	void set_region_locations(const TypedArray<Vector2i> &p_locations);
 	TypedArray<Vector2i> get_region_locations() const { return _region_locations; }
 	PackedInt32Array get_region_map() const { return _region_map; }
-	int get_region_count() const { return _region_locations.size(); }
 	Error add_region(const Vector3 &p_global_position,
 			const TypedArray<Image> &p_images = TypedArray<Image>(),
 			const bool p_update = true,
 			const String &p_path = "");
 	void remove_region(const Vector3 &p_global_position, const bool p_update = true, const String &p_path = "");
 	void remove_region_by_id(const int p_region_id, const bool p_update = true, const String &p_path = "");
-	void update_maps();
+
+	// File I/O
+	void save_directory(const String &p_dir);
+	void load_directory(const String &p_dir);
+	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false);
+	void load_region(const Vector2i &p_region_loc, const String &p_dir);
+
+	void set_region_locations(const TypedArray<Vector2i> &p_locations);
 
 	// Maps
 	void set_map_region(const MapType p_map_type, const int p_region_id, const Ref<Image> &p_image);
@@ -151,7 +160,27 @@ public:
 	Vector3 get_texture_id(const Vector3 &p_global_position) const;
 	real_t get_angle(const Vector3 &p_global_position) const;
 	real_t get_scale(const Vector3 &p_global_position) const;
+	Vector3 get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const;
+	Vector3 get_normal(const Vector3 &global_position) const;
+	void update_maps();
 	void force_update_maps(const MapType p_map = TYPE_MAX);
+
+	void clear_edited_area();
+	void add_edited_area(const AABB &p_area);
+	AABB get_edited_area() const { return _edited_area; }
+
+	void register_region(const Ref<Terrain3DRegion> &p_region);
+	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
+	void set_height_range(const Vector2 &p_range);
+	Vector2 get_height_range() const { return _height_range; }
+	void update_heights(const real_t p_height);
+	void update_heights(const Vector2 &p_heights);
+	void update_height_range();
+
+	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = V3_ZERO,
+			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
+	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
+	Ref<Image> layered_to_image(const MapType p_map_type) const;
 
 	// Instancer
 	void set_multimeshes(const Dictionary &p_multimeshes);
@@ -159,23 +188,7 @@ public:
 	Dictionary get_multimeshes() const { return _multimeshes; }
 	Dictionary get_multimeshes(const TypedArray<int> &p_region_ids) const;
 
-	// File I/O
-	void save_directory(const String &p_dir);
-	void load_directory(const String &p_dir);
-	void save_region(const String &p_dir, const Vector2i &p_region_loc, const bool p_16_bit = false);
-	void load_region(const String &p_dir, const Vector2i &p_region_loc);
-
-	void register_region(const Ref<Terrain3DRegion> &p_region);
-	TypedArray<int> get_regions_under_aabb(const AABB &p_aabb);
-
-	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = V3_ZERO,
-			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
-	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
-	Ref<Image> layered_to_image(const MapType p_map_type) const;
-
 	// Utility
-	Vector3 get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const;
-	Vector3 get_normal(const Vector3 &global_position) const;
 	void print_audit_data() const;
 
 protected:

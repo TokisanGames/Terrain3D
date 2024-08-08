@@ -317,7 +317,7 @@ void Terrain3DStorage::update_maps() {
 	}
 }
 
-void Terrain3DStorage::save_region(const String &p_dir, const Vector2i &p_region_loc, const bool p_16_bit) {
+void Terrain3DStorage::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
 	Ref<Terrain3DRegion> region = _regions[p_region_loc];
 	// looks like get isn't required
 	if (region.is_null()) {
@@ -331,7 +331,7 @@ void Terrain3DStorage::save_region(const String &p_dir, const Vector2i &p_region
 	region->save(path, p_16_bit);
 }
 
-void Terrain3DStorage::load_region(const String &p_dir, const Vector2i &p_region_loc) {
+void Terrain3DStorage::load_region(const Vector2i &p_region_loc, const String &p_dir) {
 	LOG(INFO, "Loading region from location ", p_region_loc);
 	String path = p_dir + String("/") + Util::location_to_filename(p_region_loc);
 	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path,
@@ -736,7 +736,7 @@ Dictionary Terrain3DStorage::get_multimeshes(const TypedArray<int> &p_region_ids
 void Terrain3DStorage::save_directory(const String &p_dir) {
 	LOG(INFO, "Saving data files to ", p_dir);
 	for (int i = 0; i < _region_locations.size(); i++) {
-		save_region(p_dir, _region_locations[i], _terrain->get_save_16_bit());
+		save_region(_region_locations[i], p_dir, _terrain->get_save_16_bit());
 	}
 }
 
@@ -1174,6 +1174,8 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DStorage::get_texture_id);
 	ClassDB::bind_method(D_METHOD("get_angle", "global_position"), &Terrain3DStorage::get_angle);
 	ClassDB::bind_method(D_METHOD("get_scale", "global_position"), &Terrain3DStorage::get_scale);
+	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DStorage::get_mesh_vertex);
+	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DStorage::get_normal);
 	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX));
 
 	//ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DStorage::set_multimeshes);
@@ -1183,8 +1185,6 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);
 
-	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DStorage::get_mesh_vertex);
-	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DStorage::get_normal);
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
