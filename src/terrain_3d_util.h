@@ -4,11 +4,17 @@
 #define TERRAIN3D_UTIL_CLASS_H
 
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
 
 #include "constants.h"
 #include "generated_texture.h"
 
 using namespace godot;
+
+// This file holds stateless utility functions for both C++ and GDScript
+// The class exposes static member and inline functions to GDscript
+// The inline functions below are not part of the class eg bilerp
+// However some of these inline functions are also exposed to GDScript
 
 class Terrain3DUtil : public Object {
 	GDCLASS(Terrain3DUtil, Object);
@@ -19,6 +25,10 @@ public:
 	static void print_dict(const String &name, const Dictionary &p_dict, const int p_level = 2); // Level 2: DEBUG
 	static void dump_gentex(const GeneratedTexture p_gen, const String &name = "", const int p_level = 2);
 	static void dump_maps(const TypedArray<Image> &p_maps, const String &p_name = "");
+
+	// String functions
+	static Vector2i filename_to_location(const String &p_filename);
+	static String location_to_filename(const Vector2i &p_region_loc);
 
 	// Image operations
 	static Ref<Image> black_to_alpha(const Ref<Image> &p_image);
@@ -44,6 +54,7 @@ typedef Terrain3DUtil Util;
 // Math
 ///////////////////////////
 
+// Rounds a decimal to the nearest multiple eg round_multiple(2.7, 4) -> 4
 template <typename T>
 T round_multiple(const T p_value, const T p_multiple) {
 	if (p_multiple == 0) {

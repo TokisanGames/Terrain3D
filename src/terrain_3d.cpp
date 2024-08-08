@@ -26,20 +26,19 @@
 ///////////////////////////
 
 // Initialize static member variable
-int Terrain3D::debug_level{ ERROR };
+int Terrain3D::debug_level{ DEBUG };
 
 void Terrain3D::_initialize() {
-	LOG(INFO, "Checking instancer, material, storage, assets, signal, and mesh initialization");
+	LOG(INFO, "Checking initialization of main subsystems");
 
 	// Make blank objects if needed
 	if (_material.is_null()) {
 		LOG(DEBUG, "Creating blank material");
 		_material.instantiate();
 	}
-	if (_storage.is_null()) {
+	if (_storage == nullptr) {
 		LOG(DEBUG, "Creating blank storage");
-		_storage.instantiate();
-		_storage->set_version(Terrain3DStorage::CURRENT_VERSION);
+		_storage = memnew(Terrain3DStorage);
 	}
 	if (_assets.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -51,30 +50,30 @@ void Terrain3D::_initialize() {
 	}
 
 	// Connect signals
-	// Texture assets changed, update material
-	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
-		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
-		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
-	}
 	// Region size changed, update material
-	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
+	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
 		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
-		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
+		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
-	// Any map was regenerated or region offsets changed, update material
-	if (!_storage->is_connected("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions))) {
-		LOG(DEBUG, "Connecting _storage::regions_changed signal to _material->_update_regions()");
-		_storage->connect("regions_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_regions));
+	// Any map was regenerated or regions changed, update material
+	if (!_storage->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
+		LOG(DEBUG, "Connecting _storage::maps_changed signal to _material->_update_maps()");
+		_storage->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
 	// Height map was regenerated - update aabbs - Probably remove and just use maps_edited
 	if (!_storage->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
 		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
 	}
+	// Texture assets changed, update material
+	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
+		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
+		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
+	}
 	// MeshAssets changed, update instancer
-	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1))) {
+	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1))) {
 		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
-		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1));
+		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1));
 	}
 	// New multimesh added to storage, rebuild instancer
 	if (!_storage->is_connected("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis))) {
@@ -185,7 +184,7 @@ void Terrain3D::_destroy_mouse_picking() {
 	memdelete_safely(_mouse_quad);
 	LOG(DEBUG, "Freeing mouse_cam");
 	memdelete_safely(_mouse_cam);
-	LOG(DEBUG, "memdelete mouse_vp");
+	LOG(DEBUG, "Freeing mouse_vp");
 	memdelete_safely(_mouse_vp);
 }
 
@@ -211,7 +210,7 @@ void Terrain3D::_grab_camera() {
 }
 
 void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
-	if (!is_inside_tree() || !_storage.is_valid()) {
+	if (!is_inside_tree() || _storage == nullptr) {
 		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
 		return;
 	}
@@ -357,7 +356,7 @@ void Terrain3D::_build_collision() {
 	if (IS_EDITOR && !_show_debug_collision) {
 		return;
 	}
-	if (_storage.is_null()) {
+	if (_storage == nullptr) {
 		LOG(ERROR, "Storage missing, cannot create collision");
 		return;
 	}
@@ -409,27 +408,27 @@ void Terrain3D::_update_collision() {
 		PackedRealArray map_data = PackedRealArray();
 		map_data.resize(shape_size * shape_size);
 
-		Vector2i global_offset = Vector2i(_storage->get_region_offsets()[i]) * region_size;
-		Vector3 global_pos = Vector3(global_offset.x, 0.f, global_offset.y);
+		Vector2i global_loc = Vector2i(_storage->get_region_locations()[i]) * region_size;
+		Vector3 global_pos = Vector3(global_loc.x, 0.f, global_loc.y);
 
 		Ref<Image> map, map_x, map_z, map_xz;
 		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
-		map = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, i);
-		cmap = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, i);
-		int region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
-		if (region >= 0) {
-			map_x = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
-			cmap_x = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+		map = _storage->get_map_region(TYPE_HEIGHT, i);
+		cmap = _storage->get_map_region(TYPE_CONTROL, i);
+		int region_id = _storage->get_region_idp(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
+		if (region_id >= 0) {
+			map_x = _storage->get_map_region(TYPE_HEIGHT, region_id);
+			cmap_x = _storage->get_map_region(TYPE_CONTROL, region_id);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
-		if (region >= 0) {
-			map_z = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
-			cmap_z = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+		region_id = _storage->get_region_idp(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		if (region_id >= 0) {
+			map_z = _storage->get_map_region(TYPE_HEIGHT, region_id);
+			cmap_z = _storage->get_map_region(TYPE_CONTROL, region_id);
 		}
-		region = _storage->get_region_index(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
-		if (region >= 0) {
-			map_xz = _storage->get_map_region(Terrain3DStorage::TYPE_HEIGHT, region);
-			cmap_xz = _storage->get_map_region(Terrain3DStorage::TYPE_CONTROL, region);
+		region_id = _storage->get_region_idp(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		if (region_id >= 0) {
+			map_xz = _storage->get_map_region(TYPE_HEIGHT, region_id);
+			cmap_xz = _storage->get_map_region(TYPE_CONTROL, region_id);
 		}
 
 		for (int z = 0; z < shape_size; z++) {
@@ -541,18 +540,18 @@ void Terrain3D::_destroy_instancer() {
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
 		const Terrain3DStorage::HeightFilter p_filter, const bool p_require_nav, const AABB &p_global_aabb) const {
-	ERR_FAIL_COND(!_storage.is_valid());
+	ERR_FAIL_COND(_storage == nullptr);
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
 	if (!p_global_aabb.has_volume()) {
 		int32_t region_size = (int)_storage->get_region_size();
 
-		TypedArray<Vector2i> region_offsets = _storage->get_region_offsets();
-		for (int r = 0; r < region_offsets.size(); ++r) {
-			Vector2i region_offset = (Vector2i)region_offsets[r] * region_size;
+		TypedArray<Vector2i> region_locations = _storage->get_region_locations();
+		for (int r = 0; r < region_locations.size(); ++r) {
+			Vector2i region_loc = (Vector2i)region_locations[r] * region_size;
 
-			for (int32_t z = region_offset.y; z < region_offset.y + region_size; z += step) {
-				for (int32_t x = region_offset.x; x < region_offset.x + region_size; x += step) {
+			for (int32_t z = region_loc.y; z < region_loc.y + region_size; z += step) {
+				for (int32_t x = region_loc.x; x < region_loc.x + region_size; x += step) {
 					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
 				}
 			}
@@ -683,10 +682,35 @@ void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
 		_destroy_collision();
 		_destroy_instancer();
 		_initialize();
+		_storage->_mesh_vertex_spacing = spacing;
 	}
 	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
 	}
+}
+
+void Terrain3D::set_storage_directory(String p_dir) {
+	LOG(INFO, "Setting storage directory to ", p_dir);
+	if (_storage_directory != p_dir) {
+		_clear_meshes();
+		_destroy_collision();
+		_destroy_instancer();
+		memdelete_safely(_storage);
+		_storage_directory = p_dir;
+		_initialize();
+	}
+}
+
+String Terrain3D::get_storage_directory() const {
+	if (_storage == nullptr) {
+		return "";
+	}
+	return _storage_directory;
+}
+
+void Terrain3D::set_save_16_bit(const bool p_enabled) {
+	LOG(INFO, p_enabled);
+	_save_16_bit = p_enabled;
 }
 
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
@@ -696,19 +720,6 @@ void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 		_material = p_material;
 		_initialize();
 		emit_signal("material_changed");
-	}
-}
-
-// This is run after the object has loaded and initialized
-void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
-	if (_storage != p_storage) {
-		_clear_meshes();
-		_destroy_collision();
-		_destroy_instancer();
-		LOG(INFO, "Setting storage");
-		_storage = p_storage;
-		_initialize();
-		emit_signal("storage_changed");
 	}
 }
 
@@ -802,7 +813,7 @@ void Terrain3D::set_show_debug_collision(const bool p_enabled) {
 	LOG(INFO, "Setting show collision: ", p_enabled);
 	_show_debug_collision = p_enabled;
 	_destroy_collision();
-	if (_storage.is_valid() && _show_debug_collision) {
+	if (_storage != nullptr && _show_debug_collision) {
 		_build_collision();
 	}
 }
@@ -941,7 +952,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 }
 
 void Terrain3D::update_aabbs() {
-	if (_meshes.is_empty() || _storage.is_null()) {
+	if (_meshes.is_empty() || _storage == nullptr) {
 		LOG(DEBUG, "Update AABB called before terrain meshes built. Returning.");
 		return;
 	}
@@ -1061,7 +1072,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 Ref<Mesh> Terrain3D::bake_mesh(const int p_lod, const Terrain3DStorage::HeightFilter p_filter) const {
 	LOG(INFO, "Baking mesh at lod: ", p_lod, " with filter: ", p_filter);
 	Ref<Mesh> result;
-	ERR_FAIL_COND_V(!_storage.is_valid(), result);
+	ERR_FAIL_COND_V(_storage == nullptr, result);
 
 	Ref<SurfaceTool> st;
 	st.instantiate();
@@ -1103,11 +1114,8 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_gl
 
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
-	if (_storage.is_valid()) {
-		String ext = _storage->get_path().get_extension();
-		if (ext != "res") {
-			psa.push_back("Storage resource is not saved as a binary resource file. Click the arrow to the right of `Storage`, then `Save As...` a `*.res` file.");
-		}
+	if (_storage_directory.is_empty()) {
+		psa.push_back("No storage directory specified. Select a directory then save the scene to write data.");
 	}
 	if (!psa.is_empty()) {
 		psa.push_back("To update this message, deselect and reselect Terrain3D in the Scene panel.");
@@ -1204,10 +1212,10 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
 			// Editor Node is about to the current scene
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
-			if (!_storage.is_valid()) {
+			if (_storage == nullptr) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
 			} else {
-				_storage->save();
+				_storage->save_directory(_storage_directory);
 			}
 			if (!_material.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid material. Skipping");
@@ -1241,10 +1249,6 @@ void Terrain3D::_notification(const int p_what) {
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_process(false);
-			_clear_meshes();
-			_destroy_collision();
-			_destroy_mouse_picking();
-			_destroy_instancer();
 			break;
 		}
 
@@ -1259,6 +1263,11 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_PREDELETE: {
 			// Object is about to be deleted
 			LOG(INFO, "NOTIFICATION_PREDELETE");
+			_clear_meshes();
+			_destroy_collision();
+			_destroy_mouse_picking();
+			_destroy_instancer();
+			memdelete_safely(_storage);
 			break;
 		}
 
@@ -1271,6 +1280,13 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
+
+	ClassDB::bind_method(D_METHOD("set_storage_directory", "directory"), &Terrain3D::set_storage_directory);
+	ClassDB::bind_method(D_METHOD("get_storage_directory"), &Terrain3D::get_storage_directory);
+	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
+
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
@@ -1280,8 +1296,6 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
-	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
-	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 	ClassDB::bind_method(D_METHOD("set_assets", "assets"), &Terrain3D::set_assets);
 	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
 	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
@@ -1319,7 +1333,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage"), "set_storage", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "storage_directory", PROPERTY_HINT_DIR), "set_storage_directory", "get_storage_directory");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
@@ -1346,7 +1361,6 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
-	ADD_SIGNAL(MethodInfo("storage_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
 
 	// DEPRECATED 0.9.2 - Remove 0.9.3+

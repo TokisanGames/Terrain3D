@@ -1,0 +1,52 @@
+[gd_scene load_steps=2 format=3 uid="uid://by3kr2nqbqr67"]
+
+[ext_resource type="Script" path="res://addons/terrain_3d/tools/resource_conversion_tool.gd" id="1_2vnp6"]
+
+[node name="ResourceConversionTool" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_2vnp6")
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+layout_mode = 1
+offset_right = 58.0
+offset_bottom = 23.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Convert terrain storage to new region files"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Select" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Select file"
+
+[node name="Convert" type="Button" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+text = "Convert"
+
+[node name="FileDialog" type="FileDialog" parent="."]
+title = "Open a File"
+size = Vector2i(392, 159)
+ok_button_text = "Open"
+file_mode = 0
+filters = PackedStringArray("*.res, *.tres")
+
+[connection signal="visibility_changed" from="." to="." method="_on_visibility_changed"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/HBoxContainer/Select" to="." method="_on_select_pressed"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/Convert" to="." method="_on_convert_pressed"]
+[connection signal="file_selected" from="FileDialog" to="." method="_on_file_dialog_file_selected"]
