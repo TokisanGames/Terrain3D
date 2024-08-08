@@ -24,6 +24,8 @@ using namespace godot;
 #define __FLT_MAX__ FLT_MAX
 #endif
 
+#define V2I_MAX Vector2i(INT32_MAX, INT32_MAX)
+
 // Set class name for logger.h
 
 #define CLASS_NAME() const String __class__ = get_class_static() + \

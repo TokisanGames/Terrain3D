@@ -38,7 +38,7 @@ Vector2i Terrain3DUtil::filename_to_location(const String &p_filename) {
 	String x_str = working_string.right(3).replace("_", "");
 	if (!x_str.is_valid_int() || !y_str.is_valid_int()) {
 		LOG(ERROR, "Malformed filename at ", p_filename, ": got x ", x_str, " y ", y_str);
-		return Vector2i(INT32_MAX, INT32_MAX);
+		return V2I_MAX;
 	}
 	return Vector2i(x_str.to_int(), y_str.to_int());
 }

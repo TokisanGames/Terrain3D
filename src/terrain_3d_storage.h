@@ -208,7 +208,7 @@ inline Vector2i Terrain3DStorage::get_region_locationp(const Vector3 &p_global_p
 // Returns Vector2i(2147483647) if out of range
 inline Vector2i Terrain3DStorage::get_region_locationi(const int p_region_id) const {
 	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
-		return Vector2i(INT32_MAX, INT32_MAX);
+		return V2I_MAX;
 	}
 	return _region_locations[p_region_id];
 }

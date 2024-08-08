@@ -71,9 +71,9 @@ void Terrain3D::_initialize() {
 		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
 	// MeshAssets changed, update instancer
-	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1))) {
+	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1))) {
 		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
-		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(Vector2i(INT32_MAX, INT32_MAX), -1));
+		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1));
 	}
 	// New multimesh added to storage, rebuild instancer
 	if (!_storage->is_connected("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis))) {
