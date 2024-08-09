@@ -264,6 +264,10 @@ func update_decal() -> void:
 		await get_tree().create_timer(.05).timeout 
 		decal.visible = true
 
+	if not plugin.terrain:
+		_on_tool_changed(last_tool, last_operation)
+		return
+
 	decal.size = Vector3.ONE * brush_data["size"]
 	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
