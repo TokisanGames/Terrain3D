@@ -73,13 +73,13 @@ private:
 	Vector3 _operation_position = Vector3();
 	Vector3 _operation_movement = Vector3();
 	Array _operation_movement_history;
-	bool _pending_undo = false;
-	bool _modified = false;
+	bool _pending_undo = false; // Undo created on each click
+	bool _modified = false; // Tracks if any region is actually modified
 	AABB _modified_area;
 	Dictionary _undo_data; // See _get_undo_data for definition
 	uint64_t _last_pen_tick = 0;
 
-	void _region_modified(const Vector3 &p_global_position, const Vector2 &p_height_range = Vector2());
+	void _send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range = Vector2());
 	void _operate_region(const Vector3 &p_global_position);
 	void _operate_map(const Vector3 &p_global_position, const real_t p_camera_direction);
 	bool _is_in_bounds(const Vector2i &p_position, const Vector2i &p_max_position) const;

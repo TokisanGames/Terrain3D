@@ -12,67 +12,45 @@
 // Private Functions
 ///////////////////////////
 
-void Terrain3DEditor::_region_modified(const Vector3 &p_global_position, const Vector2 &p_height_range) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+// Sends the whole region aabb to edited_area
+void Terrain3DEditor::_send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range) {
 	Terrain3DStorage::RegionSize region_size = _terrain->get_storage()->get_region_size();
-
 	AABB edited_area;
-	edited_area.position = Vector3(region_loc.x * region_size, p_height_range.x, region_loc.y * region_size);
+	edited_area.position = Vector3(p_region_loc.x * region_size, p_height_range.x, p_region_loc.y * region_size);
 	edited_area.size = Vector3(region_size, p_height_range.y - p_height_range.x, region_size);
 	edited_area.position *= _terrain->get_mesh_vertex_spacing();
 	edited_area.size *= _terrain->get_mesh_vertex_spacing();
-
-	_modified = true;
 	_terrain->get_storage()->add_edited_area(edited_area);
 }
 
 void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
-	bool has_region = _terrain->get_storage()->has_regionp(p_global_position);
+	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	bool has_region = _terrain->get_storage()->has_region(region_loc);
 	bool changed = false;
 	Vector2 height_range;
 
 	if (_operation == ADD) {
 		if (!has_region) {
-			_terrain->get_storage()->add_region(p_global_position);
+			_terrain->get_storage()->add_region_blank(region_loc);
+			_terrain->get_storage()->set_region_modified(region_loc, true);
 			changed = true;
 		}
-	} else {
+	} else { // Remove region
 		if (has_region) {
-			int region_id = _terrain->get_storage()->get_region_idp(p_global_position);
-			Ref<Image> height_map = _terrain->get_storage()->get_map_region(TYPE_HEIGHT, region_id);
-			height_range = Util::get_min_max(height_map);
-
-			_terrain->get_storage()->remove_region(p_global_position, true, _terrain->get_storage_directory());
+			Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(region_loc);
+			height_range = region->get_height_range();
+			_terrain->get_storage()->remove_region(region);
 			changed = true;
 		}
 	}
-
 	if (changed) {
-		_region_modified(p_global_position, height_range);
+		_modified = true;
+		_send_region_aabb(region_loc, height_range);
 	}
 }
 
 void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_t p_camera_direction) {
 	LOG(DEBUG_CONT, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
-	Terrain3DStorage *storage = _terrain->get_storage();
-	int region_size = storage->get_region_size();
-	Vector2i region_vsize = Vector2i(region_size, region_size);
-	int region_id = storage->get_region_idp(p_global_position);
-	if (region_id == -1) {
-		if (!_brush_data["auto_regions"] || _tool != HEIGHT) {
-			return;
-		} else {
-			LOG(DEBUG, "No region to operate on, attempting to add");
-			storage->add_region(p_global_position);
-			region_size = storage->get_region_size();
-			region_id = storage->get_region_idp(p_global_position);
-			if (region_id == -1) {
-				LOG(ERROR, "Failed to add region, no region to operate on");
-				return;
-			}
-			_region_modified(p_global_position);
-		}
-	}
 
 	MapType map_type;
 	switch (_tool) {
@@ -95,6 +73,15 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		default:
 			LOG(ERROR, "Invalid tool selected");
 			return;
+	}
+
+	Terrain3DStorage *storage = _terrain->get_storage();
+	int region_size = storage->get_region_size();
+	Vector2i region_vsize = Vector2i(region_size, region_size);
+
+	// If no region and not height, skip whole function
+	if (storage->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != HEIGHT)) {
+		return;
 	}
 
 	Ref<Image> brush_image = _brush_data["brush_image"];
@@ -163,7 +150,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 
 	// MAP Operations
-	Ref<Image> map = storage->get_map_region(map_type, region_id);
 	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
@@ -172,24 +158,26 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					Vector3(p_global_position.x + brush_offset.x + .5f, p_global_position.y,
 							p_global_position.z + brush_offset.y + .5f);
 
-			// If we're brushing across a region boundary, possibly add a region, and get the other map
-			int new_region_id = storage->get_region_idp(brush_global_position);
-			if (new_region_id == -1) {
+			// Get region for current brush pixel global position
+			Vector2i region_loc = storage->get_region_location(brush_global_position);
+			Ref<Terrain3DRegion> region = storage->get_region(region_loc);
+			// If no region, create one
+			if (region.is_null()) {
+				// Except if outside of regions and we can't add one
 				if (!_brush_data["auto_regions"] || _tool != HEIGHT) {
 					continue;
 				}
-				Error err = storage->add_region(brush_global_position);
-				if (err) {
+				region = storage->add_region_blank(region_loc);
+				if (region.is_null()) {
+					// A new region can't be made
 					continue;
 				}
-				new_region_id = storage->get_region_idp(brush_global_position);
-				_region_modified(brush_global_position);
+				_modified = true;
+				_send_region_aabb(region_loc);
 			}
 
-			if (new_region_id != region_id) {
-				region_id = new_region_id;
-				map = storage->get_map_region(map_type, region_id);
-			}
+			// Get map for this region and tool
+			Ref<Image> map = region->get_map(map_type);
 
 			// Identify position on map image
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size, vertex_spacing);
@@ -295,7 +283,9 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							break;
 					}
 					dest = Color(destf, 0.f, 0.f, 1.f);
-					storage->update_heights(destf);
+					region->update_height(destf);
+					// TODO Move this line to a signal sent from above line
+					storage->update_master_height(destf);
 
 					edited_position.y = destf;
 					edited_area = edited_area.expand(edited_position);
@@ -448,10 +438,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					}
 				}
 				map->set_pixelv(map_pixel_position, dest);
+				_modified = true;
+				region->set_modified(true);
 			}
 		}
 	}
-	_modified = true;
 	storage->force_update_maps(map_type);
 	storage->add_edited_area(edited_area);
 }
@@ -618,7 +609,10 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 				map_info[TYPE_HEIGHT] = ((TypedArray<Image>)p_set["height_map"])[0];
 				map_info[TYPE_CONTROL] = ((TypedArray<Image>)p_set["control_map"])[0];
 				map_info[TYPE_COLOR] = ((TypedArray<Image>)p_set["color_map"])[0];
-				_terrain->get_storage()->add_region(new_region_position, map_info);
+				Ref<Terrain3DRegion> region;
+				region.instantiate();
+				region->set_maps(map_info);
+				_terrain->get_storage()->add_region(region);
 			}
 		}
 	} else {
@@ -634,7 +628,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 			} else if (key == "color_map") {
 				_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key], e_regions);
 			} else if (key == "height_range") {
-				_terrain->get_storage()->set_height_range(p_set[key]);
+				//_terrain->get_storage()->set_height_range(p_set[key]);
 			} else if (key == "edited_area") {
 				_terrain->get_storage()->clear_edited_area();
 				_terrain->get_storage()->add_edited_area(p_set[key]);
@@ -735,7 +729,7 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	_undo_data.clear();
 	_undo_data = _get_undo_data();
 	_pending_undo = true;
-	_modified = false;
+	_modified = false; // Undo created, but don't save unless terrain modified
 	// Reset counter at start to ensure first click places an instance
 	_terrain->get_instancer()->reset_instance_counter();
 	_terrain->get_storage()->clear_edited_area();
@@ -777,6 +771,7 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 // Called on left mouse button released
 void Terrain3DEditor::stop_operation() {
 	IS_STORAGE_INIT_MESG("Terrain isn't initialized", VOID);
+	// If undo was created and terrain actually modified, store it
 	if (_pending_undo && _modified) {
 		_store_undo();
 		_pending_undo = false;

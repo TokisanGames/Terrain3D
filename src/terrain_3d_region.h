@@ -42,37 +42,47 @@ public: // Constants
 	};
 
 private:
-	// Saved data
+	/// Saved data
 	real_t _version = 0.8f; // Set to first version to ensure Godot always upgrades this
 	int _region_size = 1024;
+	Vector2 _height_range = V2_ZERO;
 	// Maps
 	Ref<Image> _height_map;
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
-	// Dictionary[mesh_id:int] -> MultiMesh
-	Dictionary _multimeshes;
+	// Instancer
+	Dictionary _multimeshes; // Dictionary[mesh_id:int] -> MultiMesh
 
-	// Workind data not saved to disk
+	// Working data not saved to disk
 	Vector2i _location = V2I_MAX;
 	bool _modified = false;
+	bool _deleted = false;
 
 public:
 	Terrain3DRegion() {}
-	Terrain3DRegion(const Ref<Image> &p_height_map, const Ref<Image> &p_control_map, const Ref<Image> &p_color_map, const int p_region_size = 1024);
 	~Terrain3DRegion() {}
 
 	void set_version(const real_t p_version);
 	real_t get_version() const { return _version; }
 
 	// Maps
+	void set_map(const MapType p_map_type, const Ref<Image> &p_image);
+	Ref<Image> get_map(const MapType p_map_type) const;
+	void set_maps(const TypedArray<Image> &p_maps);
+	TypedArray<Image> get_maps() const;
 	void set_height_map(const Ref<Image> &p_map);
 	Ref<Image> get_height_map() const { return _height_map; }
 	void set_control_map(const Ref<Image> &p_map);
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
-	void sanitize_maps(const MapType p_map_type = TYPE_MAX);
-	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_img) const;
+	void sanitize_map(const MapType p_map_type = TYPE_MAX);
+
+	void set_height_range(const Vector2 &p_range);
+	Vector2 get_height_range() const { return _height_range; }
+	void update_height(const real_t p_height);
+	void update_heights(const Vector2 &p_low_high);
+	void calc_height_range();
 
 	// Instancer
 	void set_multimeshes(const Dictionary &p_multimeshes) { _multimeshes = p_multimeshes; }
@@ -81,12 +91,14 @@ public:
 	// File I/O
 	Error save(const String &p_path = "", const bool p_16_bit = false);
 
-	// Working
+	// Working Data
 	void set_modified(const bool p_modified) { _modified = p_modified; }
 	bool is_modified() const { return _modified; }
-	void set_location(const Vector2i &p_location) { _location = p_location; }
+	void set_deleted(const bool p_deleted) { _deleted = p_deleted; }
+	bool is_deleted() const { return _deleted; }
+	void set_location(const Vector2i &p_location);
 	Vector2i get_location() const { return _location; }
-	void set_region_size(const int p_region_size) { _region_size = p_region_size; }
+	void set_region_size(const int p_region_size) { _region_size = CLAMP(p_region_size, 1024, 1024); }
 	int get_region_size() const { return _region_size; }
 
 protected:

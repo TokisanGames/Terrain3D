@@ -276,7 +276,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
 	}
 
 	if (!img.is_valid()) {
-		LOG(ERROR, "File", p_file_name, " could not be loaded.");
+		LOG(ERROR, "File", p_file_name, " cannot be loaded.");
 		return Ref<Image>();
 	}
 	if (img->is_empty()) {
