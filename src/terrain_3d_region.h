@@ -72,6 +72,7 @@ public:
 	// Maps
 	void set_map(const MapType p_map_type, const Ref<Image> &p_image);
 	Ref<Image> get_map(const MapType p_map_type) const;
+	Image *get_map_ptr(const MapType p_map_type) const;
 	void set_maps(const TypedArray<Image> &p_maps);
 	TypedArray<Image> get_maps() const;
 	void set_height_map(const Ref<Image> &p_map);
