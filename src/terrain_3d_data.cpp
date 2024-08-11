@@ -624,7 +624,7 @@ Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global
 	Vector3 descaled_pos = p_global_position / _vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(V2I_ZERO, Vector2i(_region_size - 1, _region_size - 1));
-	Ref<Image> map = region->get_map(p_map_type);
+	Image *map = region->get_map_ptr(p_map_type);
 	return map->get_pixelv(img_pos);
 }
 
@@ -638,7 +638,7 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 	// Round to nearest vertex
 	Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
 	// If requested position is close to a vertex, return its height
-	if ((pos - pos_round).length() < 0.01f) {
+	if ((pos - pos_round).length_squared() < 0.0001f) {
 		return get_pixel(TYPE_HEIGHT, pos).r;
 	} else {
 		// Otherwise, bilinearly interpolate 4 surrounding vertices
