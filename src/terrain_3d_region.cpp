@@ -54,6 +54,23 @@ Ref<Image> Terrain3DRegion::get_map(const MapType p_map_type) const {
 	}
 }
 
+Image *Terrain3DRegion::get_map_ptr(const MapType p_map_type) const {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return *_height_map;
+			break;
+		case TYPE_CONTROL:
+			return *_control_map;
+			break;
+		case TYPE_COLOR:
+			return *_color_map;
+			break;
+		default:
+			LOG(ERROR, "Requested map type is invalid");
+			return nullptr;
+	}
+}
+
 void Terrain3DRegion::set_maps(const TypedArray<Image> &p_maps) {
 	if (p_maps.size() != TYPE_MAX) {
 		LOG(ERROR, "Expected ", TYPE_MAX - 1, " maps. Received ", p_maps.size());
