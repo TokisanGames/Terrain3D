@@ -95,6 +95,7 @@ func _edit(p_object: Object) -> void:
 		terrain.set_plugin(self)
 		terrain.set_editor(editor)
 		ui.set_visible(true)
+		terrain.set_meta("_edit_lock_", true)
 		
 		# Connect to new Assets resource
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):

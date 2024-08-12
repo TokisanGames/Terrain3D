@@ -1160,6 +1160,7 @@ void Terrain3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_ENTER_TREE");
 			set_as_top_level(true); // Don't inherit transforms from parent. Global only.
 			set_notify_transform(true);
+			set_meta("_edit_lock_", true);
 			_setup_mouse_picking();
 			_initialize();
 			set_process(true);
