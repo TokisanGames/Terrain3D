@@ -170,11 +170,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		
 		## Update decal
 		ui.decal.global_position = mouse_global_position
-		ui.decal.albedo_mix = 1.0
-		if ui.decal_timer.is_stopped():
-			ui.update_decal()
-		else:
-			ui.decal_timer.start()
+		ui.update_decal()
 
 		## Update region highlight
 		var region_size = terrain.get_storage().get_region_size()
@@ -189,6 +185,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			return AFTER_GUI_INPUT_STOP
 
 	elif p_event is InputEventMouseButton:
+		if p_event.get_button_index() == MOUSE_BUTTON_RIGHT and p_event.is_released():
+			ui.last_rmb_time = Time.get_ticks_msec()
 		ui.update_decal()
 			
 		if p_event.get_button_index() == MOUSE_BUTTON_LEFT:
@@ -225,10 +223,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				# Mouse released, save undo data
 				editor.stop_operation()
 				return AFTER_GUI_INPUT_STOP
-	
-	return AFTER_GUI_INPUT_PASS
 
-	
+	return AFTER_GUI_INPUT_PASS
 
 
 func update_region_grid() -> void:

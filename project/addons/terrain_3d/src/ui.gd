@@ -52,6 +52,7 @@ var modifier_alt: bool
 var modifier_shift: bool
 var last_tool: Terrain3DEditor.Tool
 var last_operation: Terrain3DEditor.Operation
+var last_rmb_time: int = 0
 
 
 func _enter_tree() -> void:
@@ -248,8 +249,13 @@ func _on_setting_changed() -> void:
 
 func update_decal() -> void:
 	var mouse_buttons: int = Input.get_mouse_button_mask()
+
+	# If not a state that should show the decal, hide everything and return
 	if not visible or \
 			not plugin.terrain or \
+			# Wait for cursor to recenter after right-click before revealing
+			# See https://github.com/godotengine/godot/issues/70098
+			Time.get_ticks_msec() - last_rmb_time <= 10 or \
 			brush_data.is_empty() or \
 			mouse_buttons & MOUSE_BUTTON_RIGHT or \
 			(mouse_buttons & MOUSE_BUTTON_LEFT and not brush_data["show_cursor_while_painting"]) or \
@@ -258,12 +264,8 @@ func update_decal() -> void:
 		for gradient_decal in gradient_decals:
 			gradient_decal.visible = false
 		return
-	else:
-		# Wait for cursor to recenter after right-click before revealing
-		# See https://github.com/godotengine/godot/issues/70098
-		await get_tree().create_timer(.05).timeout 
-		decal.visible = true
 
+	decal.visible = true
 	decal.size = Vector3.ONE * brush_data["size"]
 	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
