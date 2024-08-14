@@ -377,16 +377,12 @@ func add_setting(p_args: Dictionary) -> void:
 			picker.set_custom_minimum_size(Vector2(100, 25))
 			picker.edit_alpha = false
 			picker.get_picker().set_color_mode(ColorPicker.MODE_HSV)
-			
 			picker.set_pick_color(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
 			picker.color_changed.connect( (
 				func(value, path):
 					plugin.set_setting(path, value)
 			).bind(ES_TOOL_SETTINGS + p_name) )
 			picker.color_changed.connect(_on_setting_changed)
-
-			var popup: PopupPanel = picker.get_popup()
-			popup.mouse_exited.connect(Callable(func(p): p.hide()).bind(popup))
 			pending_children.push_back(picker)
 			control = picker
 
