@@ -45,6 +45,7 @@ var advanced_list: VBoxContainer
 var height_list: VBoxContainer
 var scale_list: VBoxContainer
 var rotation_list: VBoxContainer
+var slope_list: VBoxContainer
 var color_list: VBoxContainer
 var settings: Dictionary = {}
 
@@ -90,6 +91,13 @@ func _ready() -> void:
 	add_setting({ "name":"margin", "type":SettingType.SLIDER, "list":main_list, "default":0, 
 								"unit":"", "range":Vector3(-50, 50, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 
+	# slope painting
+	slope_list = create_submenu(main_list, "Slope Painting", Layout.VERTICAL)
+	add_setting({ "name":"invert_slope_paint", "label":"Invert Painting", "type":SettingType.CHECKBOX,
+								"list":slope_list, "default":false})
+	add_setting({ "name":"minimum_slope_paint_angle_degrees", "label": "Minimum Slope Steepness", "type":SettingType.SLIDER, "list":slope_list, "default":0.0,
+								"unit":"°", "range":Vector3(0, 90, 1)})
+	
 	add_setting({ "name":"enable_angle", "label":"Angle", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"angle", "type":SettingType.SLIDER, "list":main_list, "default":0,
@@ -188,7 +196,25 @@ func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) 
 
 	# Pop up menu on hover, hide on exit
 	menu_button.mouse_entered.connect(_on_show_submenu.bind(true, menu_button))
-	submenu.mouse_exited.connect(_on_show_submenu.bind(false, menu_button))
+
+	submenu.set_meta("is_mouse_in_window", false)
+	submenu.mouse_entered.connect(func():
+		submenu.set_meta("is_mouse_in_window", true)
+	)
+	
+	submenu.mouse_exited.connect(func():
+		# improve usability for editing text inputs
+		var focused_element: Control = submenu.gui_get_focus_owner()
+		if not focused_element is LineEdit:
+			_on_show_submenu(false, menu_button)
+			return
+			
+		focused_element.focus_exited.connect(func():
+			# proper handling of multiple text inputs
+			if not submenu.get_meta("is_mouse_in_window"):
+				_on_show_submenu(false, menu_button)
+		,CONNECT_ONE_SHOT)
+	)
 	
 	var sublist: Container
 	match(p_layout):

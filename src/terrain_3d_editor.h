@@ -88,6 +88,7 @@ private:
 	void _send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range = Vector2());
 	Ref<Terrain3DRegion> _operate_region(const Vector2i &p_region_loc);
 	void _operate_map(const Vector3 &p_global_position, const real_t p_camera_direction);
+	bool _can_operate_on_slope(const Vector3 &p_brush_global_position);
 	MapType _get_map_type() const;
 	bool _is_in_bounds(const Point2i &p_pixel, const Point2i &p_size) const;
 	Vector2 _get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const;

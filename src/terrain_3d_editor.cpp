@@ -452,6 +452,9 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						can_write = false;
 					}
 				}
+				if (!_can_operate_on_slope(brush_global_position)) {
+					can_write = false;
+				}
 				if (can_write) {
 					switch (_tool) {
 						case COLOR:
@@ -495,6 +498,74 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		data->force_update_maps(map_type);
 	}
 	data->add_edited_area(edited_area);
+}
+
+bool Terrain3DEditor::_can_operate_on_slope(const Vector3 &p_brush_global_position) {
+	const real_t minimum_slope_paint_angle_degrees = _brush_data["minimum_slope_paint_angle_degrees"];
+	const bool invert_slope_paint = _brush_data["invert_slope_paint"];
+
+	bool can_operate = true;
+
+	// If minimum_slope_paint_angle_degrees is 0, slope painting is effectively disabled
+	if (minimum_slope_paint_angle_degrees <= 0.0) {
+		return can_operate;
+	}
+
+	const Ref<Terrain3DStorage> storage = _terrain->get_storage();
+	const Vector3 up = Vector3(0.f, 1.f, 0.f);
+
+	// copied from Terrain3DStorage::get_normal, but modified to work with holes
+	Vector3 slope_normal;
+	{
+		const int region = storage->get_region_index(p_brush_global_position);
+		if (region < 0) {
+			return false;
+		}
+
+		// copied from Terrain3DStorage::get_height, but modified to work with holes
+		auto get_height = [&](Vector3 pos) -> real_t {
+			real_t step = _terrain->get_mesh_vertex_spacing();
+			pos.y = 0.f;
+			// Round to nearest vertex
+			Vector3 pos_round = Vector3(
+					round_multiple(pos.x, step),
+					0.f,
+					round_multiple(pos.z, step));
+			// If requested position is close to a vertex, return its height
+			if ((pos - pos_round).length() < 0.01f) {
+				return storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos).r;
+			} else {
+				// Otherwise, bilinearly interpolate 4 surrounding vertices
+				Vector3 pos00 = Vector3(Math::floor(pos.x / step) * step, 0.f, Math::floor(pos.z / step) * step);
+				real_t ht00 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos00).r;
+				Vector3 pos01 = pos00 + Vector3(0.f, 0.f, step);
+				real_t ht01 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos01).r;
+				Vector3 pos10 = pos00 + Vector3(step, 0.f, 0.f);
+				real_t ht10 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos10).r;
+				Vector3 pos11 = pos00 + Vector3(step, 0.f, step);
+				real_t ht11 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos11).r;
+				return bilerp(ht00, ht01, ht10, ht11, pos00, pos11, pos);
+			}
+		};
+
+		const real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
+		const real_t height = get_height(p_brush_global_position);
+		const real_t u = height - get_height(p_brush_global_position + Vector3(vertex_spacing, 0.0f, 0.0f));
+		const real_t v = height - get_height(p_brush_global_position + Vector3(0.f, 0.f, vertex_spacing));
+		slope_normal = Vector3(u, vertex_spacing, v);
+		slope_normal.normalize();
+	}
+
+	const real_t slope_angle = Math::acos(slope_normal.dot(up));
+	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
+
+	if (invert_slope_paint) {
+		can_operate = slope_angle_degrees <= minimum_slope_paint_angle_degrees;
+	} else {
+		can_operate = slope_angle_degrees >= minimum_slope_paint_angle_degrees;
+	}
+
+	return can_operate;
 }
 
 void Terrain3DEditor::_store_undo() {
@@ -659,6 +730,8 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.1f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
+	_brush_data["slope_paint_threshold"] = CLAMP(real_t(p_data.get("slope_paint_threshold", .7f)) * .01f, .01f, 100.f);
+	_brush_data["minimum_slope_paint_angle_degrees"] = CLAMP(real_t(p_data.get("minimum_slope_paint_angle_degrees", 0.0f)), 0.0f, 90.0f); // 0-90 (degrees)
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
 	Color col = p_data.get("color", COLOR_ROUGHNESS);
 	col.r = CLAMP(col.r, 0.f, 5.f);
