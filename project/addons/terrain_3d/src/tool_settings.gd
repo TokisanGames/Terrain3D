@@ -367,7 +367,6 @@ func add_setting(p_args: Dictionary) -> void:
 				func(value, path):
 					plugin.set_setting(path, value)
 			).bind(ES_TOOL_SETTINGS + p_name) )
-
 			checkbox.pressed.connect(_on_setting_changed)
 			pending_children.push_back(checkbox)
 			control = checkbox
@@ -553,6 +552,7 @@ func set_setting(p_setting: String, p_value: Variant) -> void:
 		object.button_pressed = p_value
 	elif object is ColorPickerButton:
 		object.color = p_value
+		plugin.set_setting(ES_TOOL_SETTINGS + p_setting, p_value) # Signal doesn't fire on CPB
 	elif object is MultiPicker: # Expects p_value is PackedVector3Array
 		object.points = p_value
 	_on_setting_changed(object)
@@ -578,13 +578,12 @@ func _on_setting_changed(p_data: Variant = null) -> void:
 	if p_data is Button and p_data.get_parent().get_parent() is PopupPanel:
 		if p_data.get_parent().name == "BrushList":
 			# Optionally Set selected brush texture in main brush button
-#			p_data.get_parent().get_parent().get_parent().set_button_icon(p_data.get_button_icon())
+			# p_data.get_parent().get_parent().get_parent().set_button_icon(p_data.get_button_icon())
 			# Hide popup
 			p_data.get_parent().get_parent().set_visible(false)
 			# Hide label
 			if p_data.get_child_count() > 0:
 				p_data.get_child(0).visible = false
-
 	emit_signal("setting_changed")
 	
 
@@ -597,7 +596,6 @@ func _get_brush_preview_material() -> ShaderMaterial:
 	if !brush_preview_material:
 		brush_preview_material = ShaderMaterial.new()
 		var shader: Shader = Shader.new()
-		
 		var code: String = "shader_type canvas_item;\n"
 		code += "varying vec4 v_vertex_color;\n"
 		code += "void vertex() {\n"
@@ -608,11 +606,9 @@ func _get_brush_preview_material() -> ShaderMaterial:
 		code += "	COLOR.a *= pow(tex.r, 0.666);\n"
 		code += "	COLOR.rgb = v_vertex_color.rgb;\n"
 		code += "}\n"
-		
 		shader.set_code(code)
 		brush_preview_material.set_shader(shader)
 	return brush_preview_material
-
 
 
 # Counts digits of a number including negative sign, decimal points, and up to 3 decimals 
