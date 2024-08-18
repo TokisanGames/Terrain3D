@@ -78,9 +78,7 @@ private:
 	GeneratedTexture _generated_control_maps;
 	GeneratedTexture _generated_color_maps;
 
-	// Foliage Instancer contains MultiMeshes saved to disk
-	// Dictionary[region_location:Vector2i] -> Dictionary[mesh_id:int] -> MultiMesh
-	Dictionary _multimeshes;
+	/// Move to Region?
 	RegionSize _region_size = SIZE_1024;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 
@@ -100,12 +98,16 @@ public:
 
 	/// Regions
 
+	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc) const { return _regions[p_region_loc]; }
+	Ref<Terrain3DRegion> get_regionp(const Vector3 &p_global_position) const { return _regions[get_region_location(p_global_position)]; }
+	bool has_region(const Vector2i &p_region_loc) const { return get_region_id(p_region_loc) != -1; }
+	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
+
 	void set_region_size(const RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
 	Vector2i get_region_sizev() const { return _region_sizev; }
 	int get_region_count() const { return _region_locations.size(); }
-	Dictionary get_regions() { return _regions; }
-	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc) { return _regions[p_region_loc]; }
+	Dictionary get_regions() const { return _regions; }
 	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
 	bool is_region_modified(const Vector2i &p_region_loc) const;
 	void set_region_deleted(const Vector2i &p_region_loc, const bool p_deleted = true);
@@ -115,8 +117,6 @@ public:
 	Vector2i get_region_locationi(const int p_region_id) const;
 	int get_region_id(const Vector2i &p_region_loc) const;
 	int get_region_idp(const Vector3 &p_global_position) const;
-	bool has_region(const Vector2i &p_region_loc) const { return get_region_id(p_region_loc) != -1; }
-	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
 	void set_region_locations(const TypedArray<Vector2i> &p_locations);
 	TypedArray<Vector2i> get_region_locations() const { return _region_locations; }
 	PackedInt32Array get_region_map() const { return _region_map; }
@@ -137,24 +137,24 @@ public:
 	void remove_regionp(const Vector3 &p_global_position, const bool p_update = true);
 
 	// Maps
-	void set_map_region(const MapType p_map_type, const int p_region_id, const Ref<Image> &p_image);
-	Ref<Image> get_map_region(const MapType p_map_type, const int p_region_id) const;
-	void set_maps(const MapType p_map_type, const TypedArray<Image> &p_maps, const TypedArray<int> &p_region_ids = TypedArray<int>());
+
+	void update_maps();
+	void force_update_maps(const MapType p_map = TYPE_MAX);
+
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
 	TypedArray<Image> get_maps_copy(const MapType p_map_type, const TypedArray<int> &p_region_ids = TypedArray<int>()) const;
-	void set_height_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_HEIGHT, p_maps); }
 	TypedArray<Image> get_height_maps() const { return _height_maps; }
-	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
-	void set_control_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_CONTROL, p_maps); }
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
-	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
-	void set_color_maps(const TypedArray<Image> &p_maps) { set_maps(TYPE_COLOR, p_maps); }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
+	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
+	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
 	RID get_color_maps_rid() const { return _generated_color_maps.get_rid(); }
+
 	void set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel);
 	Color get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const;
 	void set_height(const Vector3 &p_global_position, const real_t p_height);
 	real_t get_height(const Vector3 &p_global_position) const;
+	Vector3 get_normal(const Vector3 &global_position) const;
 	void set_color(const Vector3 &p_global_position, const Color &p_color);
 	Color get_color(const Vector3 &p_global_position) const;
 	void set_control(const Vector3 &p_global_position, const uint32_t p_control);
@@ -165,9 +165,6 @@ public:
 	real_t get_angle(const Vector3 &p_global_position) const;
 	real_t get_scale(const Vector3 &p_global_position) const;
 	Vector3 get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const;
-	Vector3 get_normal(const Vector3 &global_position) const;
-	void update_maps();
-	void force_update_maps(const MapType p_map = TYPE_MAX);
 
 	void clear_edited_area();
 	void add_edited_area(const AABB &p_area);
@@ -182,12 +179,6 @@ public:
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
 	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
 	Ref<Image> layered_to_image(const MapType p_map_type) const;
-
-	// Instancer
-	void set_multimeshes(const Dictionary &p_multimeshes);
-	void set_multimeshes(const Dictionary &p_multimeshes, const TypedArray<int> &p_region_ids);
-	Dictionary get_multimeshes() const { return _multimeshes; }
-	Dictionary get_multimeshes(const TypedArray<int> &p_region_ids) const;
 
 	// Utility
 	void print_audit_data() const;

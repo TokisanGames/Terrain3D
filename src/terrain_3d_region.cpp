@@ -126,6 +126,9 @@ void Terrain3DRegion::sanitize_map(const MapType p_map_type) {
 					if (type == TYPE_HEIGHT) {
 						calc_height_range();
 					}
+					if (type == TYPE_COLOR && !map->has_mipmaps()) {
+						map->generate_mipmaps();
+					}
 					continue;
 				} else {
 					LOG(DEBUG, "Provided ", type_str, " map wrong format: ", map->get_format(), ". Converting copy to: ", format);
@@ -146,10 +149,7 @@ void Terrain3DRegion::sanitize_map(const MapType p_map_type) {
 		} else {
 			LOG(DEBUG, "No provided ", type_str, " map. Creating blank");
 		}
-		set_map(type, Util::get_filled_image(Vector2i(_region_size, _region_size), color, false, format));
-		if (type == TYPE_HEIGHT) {
-			set_height_range(V2_ZERO);
-		}
+		set_map(type, Util::get_filled_image(Vector2i(_region_size, _region_size), color, type == TYPE_COLOR, format));
 	}
 }
 
@@ -207,7 +207,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		LOG(ERROR, "Region has not been setup. Location is INT32_MAX. Skipping ", p_path);
 	}
 	if (!_modified) {
-		LOG(DEBUG, "Save requested for region ", _location, ", but not modified. Skipping ", p_path);
+		LOG(DEBUG, "Region ", _location, " not modified. Skipping ", p_path);
 		return ERR_SKIP;
 	}
 	if (p_path.is_empty() && get_path().is_empty()) {

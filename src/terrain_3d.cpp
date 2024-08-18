@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/environment.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
+#include <godot_cpp/classes/label3d.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/quad_mesh.hpp>
@@ -55,6 +56,11 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
 		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
+	// Any region was changed, update region labels
+	if (!_storage->is_connected("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels))) {
+		LOG(DEBUG, "Connecting _storage::region_map_changed signal to set_show_region_locations()");
+		_storage->connect("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels));
+	}
 	// Any map was regenerated or regions changed, update material
 	if (!_storage->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
 		LOG(DEBUG, "Connecting _storage::maps_changed signal to _material->_update_maps()");
@@ -65,6 +71,11 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
 	}
+	// Connect height changes to update instances
+	if (!_storage->is_connected("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms))) {
+		LOG(DEBUG, "Connecting maps_edited signal to update_transforms()");
+		_storage->connect("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms));
+	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
@@ -74,16 +85,6 @@ void Terrain3D::_initialize() {
 	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1))) {
 		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
 		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1));
-	}
-	// New multimesh added to storage, rebuild instancer
-	if (!_storage->is_connected("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis))) {
-		LOG(DEBUG, "Connecting _storage::multimeshes_changed signal to _rebuild_mmis()");
-		_storage->connect("multimeshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_rebuild_mmis));
-	}
-	// Connect height changes to update instances
-	if (!_storage->is_connected("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms))) {
-		LOG(DEBUG, "Connecting maps_edited signal to update_transforms()");
-		_storage->connect("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms));
 	}
 
 	// Initialize the system
@@ -121,6 +122,31 @@ void Terrain3D::__process(const double p_delta) {
 			snap(cam_pos);
 			_camera_last_position = cam_pos_2d;
 		}
+	}
+}
+
+void Terrain3D::_build_containers() {
+	_label_nodes = memnew(Node);
+	_label_nodes->set_name("Labels");
+	add_child(_label_nodes, true);
+	_mmi_nodes = memnew(Node);
+	_mmi_nodes->set_name("MMIs");
+	add_child(_mmi_nodes, true);
+}
+
+void Terrain3D::_destroy_containers() {
+	memdelete_safely(_label_nodes);
+	memdelete_safely(_mmi_nodes);
+}
+
+void Terrain3D::_destroy_labels() {
+	Array labels = _label_nodes->get_children();
+	for (int i = 0; i < labels.size(); i++) {
+		Node *label = cast_to<Node>(labels[i]);
+		if (label != nullptr) {
+			LOG(DEBUG, "Destroying label: ", label->get_name());
+		}
+		memdelete_safely(label);
 	}
 }
 
@@ -408,27 +434,34 @@ void Terrain3D::_update_collision() {
 		PackedRealArray map_data = PackedRealArray();
 		map_data.resize(shape_size * shape_size);
 
-		Vector2i global_loc = Vector2i(_storage->get_region_locations()[i]) * region_size;
+		Vector2i region_loc = _storage->get_region_locations()[i];
+		Vector2i global_loc = region_loc * region_size;
 		Vector3 global_pos = Vector3(global_loc.x, 0.f, global_loc.y);
 
 		Ref<Image> map, map_x, map_z, map_xz;
 		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
-		map = _storage->get_map_region(TYPE_HEIGHT, i);
-		cmap = _storage->get_map_region(TYPE_CONTROL, i);
-		int region_id = _storage->get_region_idp(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
-		if (region_id >= 0) {
-			map_x = _storage->get_map_region(TYPE_HEIGHT, region_id);
-			cmap_x = _storage->get_map_region(TYPE_CONTROL, region_id);
+		Ref<Terrain3DRegion> region = _storage->get_region(region_loc);
+		if (region.is_null()) {
+			LOG(ERROR, "Region ", region_loc, " not found");
+			continue;
 		}
-		region_id = _storage->get_region_idp(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
-		if (region_id >= 0) {
-			map_z = _storage->get_map_region(TYPE_HEIGHT, region_id);
-			cmap_z = _storage->get_map_region(TYPE_CONTROL, region_id);
+		map = region->get_map(TYPE_HEIGHT);
+		cmap = region->get_map(TYPE_CONTROL);
+
+		region = _storage->get_regionp(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
+		if (region.is_valid()) {
+			map_x = region->get_map(TYPE_HEIGHT);
+			cmap_x = region->get_map(TYPE_CONTROL);
 		}
-		region_id = _storage->get_region_idp(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
-		if (region_id >= 0) {
-			map_xz = _storage->get_map_region(TYPE_HEIGHT, region_id);
-			cmap_xz = _storage->get_map_region(TYPE_CONTROL, region_id);
+		region = _storage->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		if (region.is_valid()) {
+			map_z = region->get_map(TYPE_HEIGHT);
+			cmap_z = region->get_map(TYPE_CONTROL);
+		}
+		region = _storage->get_regionp(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		if (region.is_valid()) {
+			map_xz = region->get_map(TYPE_HEIGHT);
+			cmap_xz = region->get_map(TYPE_CONTROL);
 		}
 
 		for (int z = 0; z < shape_size; z++) {
@@ -1055,6 +1088,45 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	return point;
 }
 
+void Terrain3D::set_show_region_labels(const bool p_enabled) {
+	LOG(INFO, "Setting show region labels: ", p_enabled);
+	if (_show_region_labels != p_enabled) {
+		_show_region_labels = p_enabled;
+		update_region_labels();
+	}
+}
+
+void Terrain3D::update_region_labels() {
+	LOG(DEBUG, "Updating region labels");
+	_destroy_labels();
+	if (_show_region_labels && _storage != nullptr) {
+		Array region_locations = _storage->get_region_locations();
+		for (int i = 0; i < region_locations.size(); i++) {
+			Label3D *label = memnew(Label3D);
+			String text = region_locations[i];
+			label->set_name("Label3D" + text.replace(" ", ""));
+			label->set_pixel_size(.001f);
+			label->set_billboard_mode(BaseMaterial3D::BILLBOARD_ENABLED);
+			label->set_draw_flag(Label3D::FLAG_DOUBLE_SIDED, true);
+			label->set_draw_flag(Label3D::FLAG_DISABLE_DEPTH_TEST, true);
+			label->set_draw_flag(Label3D::FLAG_FIXED_SIZE, true);
+			label->set_text(text);
+			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
+			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
+			label->set_font_size(64);
+			label->set_outline_size(10);
+			label->set_visibility_range_end(3072.f * _mesh_vertex_spacing);
+			label->set_visibility_range_end_margin(256.f);
+			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
+			_label_nodes->add_child(label, true);
+			Vector2i loc = region_locations[i];
+			int region_size = _storage->get_region_size();
+			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * region_size * _mesh_vertex_spacing;
+			label->set_position(pos);
+		}
+	}
+}
+
 /**
  * Generates a static ArrayMesh for the terrain.
  * p_lod (0-8): Determines the granularity of the generated mesh.
@@ -1145,6 +1217,7 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_POSTINITIALIZE: {
 			// Object initialized, before script is attached
 			LOG(INFO, "NOTIFICATION_POSTINITIALIZE");
+			_build_containers();
 			break;
 		}
 
@@ -1263,6 +1336,8 @@ void Terrain3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_PREDELETE");
 			_destroy_collision();
 			_destroy_instancer();
+			_destroy_labels();
+			_destroy_containers();
 			memdelete_safely(_storage);
 			break;
 		}
@@ -1276,12 +1351,14 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
+	ClassDB::bind_method(D_METHOD("set_show_region_labels", "enabled"), &Terrain3D::set_show_region_labels);
+	ClassDB::bind_method(D_METHOD("get_show_region_labels"), &Terrain3D::get_show_region_labels);
 
+	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 	ClassDB::bind_method(D_METHOD("set_storage_directory", "directory"), &Terrain3D::set_storage_directory);
 	ClassDB::bind_method(D_METHOD("get_storage_directory"), &Terrain3D::get_storage_directory);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
-	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
@@ -1355,6 +1432,7 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Debug", "debug_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_region_labels"), "set_show_region_labels", "get_show_region_labels");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
