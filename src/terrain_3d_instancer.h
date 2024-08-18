@@ -20,8 +20,8 @@ class Terrain3DInstancer : public Object {
 
 	Terrain3D *_terrain = nullptr;
 
-	// MM Resources stored in Terrain3DStorage::_multimeshes as
-	// Dictionary[region_location:Vector2i] -> Dictionary[mesh_id:int] -> MultiMesh
+	// MM Resources stored in Terrain3DRegion::_multimeshes as
+	// Dictionary[mesh_id:int] -> MultiMesh
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// Dictionary[Vector3i(region_location.x, region_location.y, mesh_id)] -> MultiMeshInstance3D
 	Dictionary _mmis;
@@ -29,7 +29,6 @@ class Terrain3DInstancer : public Object {
 	uint32_t _instance_counter = 0;
 	int _get_instace_count(const real_t p_density);
 
-	void _rebuild_mmis();
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
 	void _destroy_mmi_by_region_id(const int p_region, const int p_mesh_id);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
@@ -60,6 +59,7 @@ public:
 	void set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
 	void reset_instance_counter() { _instance_counter = 0; }
 
+	void force_update_mmis();
 	void print_multimesh_buffer(MultiMeshInstance3D *p_mmi) const;
 
 protected:

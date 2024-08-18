@@ -79,8 +79,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
 
-	// If no region and not height, skip whole function
-	if (storage->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != HEIGHT)) {
+	// If no region and not height, skip whole function. Checked again later
+	if (!storage->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != HEIGHT)) {
 		return;
 	}
 
@@ -449,6 +449,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 Dictionary Terrain3DEditor::_get_undo_data() const {
 	Dictionary data;
+	return data; // ignore undo for now
 	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return data;
 	}
@@ -489,7 +490,7 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 
 		case HOLES:
 			// Holes can remove instances
-			data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
+			//data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
 			LOG(DEBUG, "Storing Multimesh: ", data["multimeshes"]);
 		case TEXTURE:
 		case AUTOSHADER:
@@ -505,7 +506,7 @@ Dictionary Terrain3DEditor::_get_undo_data() const {
 			break;
 
 		case INSTANCER:
-			data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
+			//data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
 			LOG(DEBUG, "Storing Multimesh: ", data["multimeshes"]);
 			break;
 
@@ -622,18 +623,18 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 			if (key == "region_locations") {
 				_terrain->get_storage()->set_region_locations(p_set[key]);
 			} else if (key == "height_map") {
-				_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key], e_regions);
+				//_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key], e_regions);
 			} else if (key == "control_map") {
-				_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key], e_regions);
+				//_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key], e_regions);
 			} else if (key == "color_map") {
-				_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key], e_regions);
+				//_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key], e_regions);
 			} else if (key == "height_range") {
 				//_terrain->get_storage()->set_height_range(p_set[key]);
 			} else if (key == "edited_area") {
 				_terrain->get_storage()->clear_edited_area();
 				_terrain->get_storage()->add_edited_area(p_set[key]);
 			} else if (key == "multimeshes") {
-				_terrain->get_storage()->set_multimeshes(p_set[key], e_regions);
+				//_terrain->get_storage()->set_multimeshes(p_set[key], e_regions);
 			}
 		}
 	}

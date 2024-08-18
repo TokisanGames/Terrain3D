@@ -35,12 +35,17 @@ class Terrain3D : public Node3D {
 	real_t _mesh_vertex_spacing = 1.0f;
 	String _storage_directory;
 	bool _save_16_bit = false;
+	bool _show_region_labels = false;
 
 	Terrain3DStorage *_storage = nullptr;
 	Ref<Terrain3DMaterial> _material;
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DEditor *_editor = nullptr;
+
+	// Parent containers for child nodes
+	Node *_label_nodes;
+	Node *_mmi_nodes;
 
 	// Editor components
 	EditorPlugin *_plugin = nullptr;
@@ -84,6 +89,10 @@ class Terrain3D : public Node3D {
 	void _initialize();
 	void __process(const double p_delta);
 
+	void _build_containers();
+	void _destroy_containers();
+	void _destroy_labels();
+
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
 	void _grab_camera();
@@ -119,12 +128,13 @@ public:
 	int get_mesh_size() const { return _mesh_size; }
 	void set_mesh_vertex_spacing(const real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
+
+	Terrain3DStorage *get_storage() const { return _storage; }
 	void set_storage_directory(String p_dir);
 	String get_storage_directory() const;
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
 
-	Terrain3DStorage *get_storage() const { return _storage; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
@@ -132,6 +142,7 @@ public:
 
 	// Instancer
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
+	Node *get_mmi_parent() const { return _mmi_nodes; }
 
 	// Editor components
 	void set_editor(Terrain3DEditor *p_editor);
@@ -168,6 +179,10 @@ public:
 	void snap(const Vector3 &p_cam_pos);
 	void update_aabbs();
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction);
+
+	void set_show_region_labels(const bool p_enabled);
+	bool get_show_region_labels() const { return _show_region_labels; }
+	void update_region_labels();
 
 	// Baking methods
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
