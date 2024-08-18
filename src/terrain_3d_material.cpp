@@ -225,8 +225,9 @@ void Terrain3DMaterial::_update_shader() {
 		shader_rid = _shader_tmp->get_rid();
 	} else {
 		String code = _generate_shader_code();
-		RS->shader_set_code(_shader, _inject_editor_code(code));
-		shader_rid = _shader;
+		_shader_tmp->set_code(_inject_editor_code(code));
+		shader_rid = _shader_tmp->get_rid();
+		_shader = shader_rid;
 	}
 	RS->material_set_shader(_material, shader_rid);
 	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", shader_rid);
@@ -415,7 +416,6 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	LOG(INFO, "Initializing material");
 	_preload_shaders();
 	_material = RS->material_create();
-	_shader = RS->shader_create();
 	_shader_tmp.instantiate();
 	LOG(DEBUG, "Mat RID: ", _material, ", _shader RID: ", _shader);
 	_update_shader();
@@ -426,7 +426,6 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 	IS_INIT(VOID);
 	LOG(INFO, "Destroying material");
 	RS->free_rid(_material);
-	RS->free_rid(_shader);
 	_generated_region_blend_map.clear();
 }
 
