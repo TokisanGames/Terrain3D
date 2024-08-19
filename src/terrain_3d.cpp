@@ -951,41 +951,36 @@ void Terrain3D::update_aabbs() {
 	height_range.y += abs(height_range.x); // Add below zero to total size
 
 	AABB aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
-	aabb.position.y = height_range.x;
-	aabb.size.y = height_range.y;
+	aabb.position.y = height_range.x - _cull_margin;
+	aabb.size.y = height_range.y + _cull_margin * 2.f;
 	RS->instance_set_custom_aabb(_data.cross, aabb);
-	RS->instance_set_extra_visibility_margin(_data.cross, _cull_margin);
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TILE]);
-	aabb.position.y = height_range.x;
-	aabb.size.y = height_range.y;
+	aabb.position.y = height_range.x - _cull_margin;
+	aabb.size.y = height_range.y + _cull_margin * 2.f;
 	for (int i = 0; i < _data.tiles.size(); i++) {
 		RS->instance_set_custom_aabb(_data.tiles[i], aabb);
-		RS->instance_set_extra_visibility_margin(_data.tiles[i], _cull_margin);
 	}
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::FILLER]);
-	aabb.position.y = height_range.x;
-	aabb.size.y = height_range.y;
+	aabb.position.y = height_range.x - _cull_margin;
+	aabb.size.y = height_range.y + _cull_margin * 2.f;
 	for (int i = 0; i < _data.fillers.size(); i++) {
 		RS->instance_set_custom_aabb(_data.fillers[i], aabb);
-		RS->instance_set_extra_visibility_margin(_data.fillers[i], _cull_margin);
 	}
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TRIM]);
-	aabb.position.y = height_range.x;
-	aabb.size.y = height_range.y;
+	aabb.position.y = height_range.x - _cull_margin;
+	aabb.size.y = height_range.y + _cull_margin * 2.f;
 	for (int i = 0; i < _data.trims.size(); i++) {
 		RS->instance_set_custom_aabb(_data.trims[i], aabb);
-		RS->instance_set_extra_visibility_margin(_data.trims[i], _cull_margin);
 	}
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::SEAM]);
-	aabb.position.y = height_range.x;
-	aabb.size.y = height_range.y;
+	aabb.position.y = height_range.x - _cull_margin;
+	aabb.size.y = height_range.y + _cull_margin * 2.f;
 	for (int i = 0; i < _data.seams.size(); i++) {
 		RS->instance_set_custom_aabb(_data.seams[i], aabb);
-		RS->instance_set_extra_visibility_margin(_data.seams[i], _cull_margin);
 	}
 }
 
@@ -1329,7 +1324,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "render_cull_margin", PROPERTY_HINT_RANGE, "0, 10000, 1, or_greater"), "set_cull_margin", "get_cull_margin");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "render_cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
 
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");

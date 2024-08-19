@@ -134,7 +134,7 @@
 			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
 		</member>
 		<member name="render_cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
-			This margin is added to the terrain bounding box (AABB). The terrain already sets its AABB, so this setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled, as might happen from using [member Terrain3DMaterial.world_background] with NOISE and a large height value. This sets [code skip-lint]GeometryInstance3D.extra_cull_margin[/code] in the engine.
+			This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from [member Terrain3DStorage.height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to `GeometryInstance3D.extra_cull_margin`, but it only affects the Y axis.
 		</member>
 		<member name="render_layers" type="int" setter="set_render_layers" getter="get_render_layers" default="2147483649">
 			The render layers the terrain is drawn on. This sets [code skip-lint]VisualInstance3D.layers[/code] in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for [member render_mouse_layer] is included, or set that variable again after this so that the mouse cursor works.
