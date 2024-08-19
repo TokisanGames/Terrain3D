@@ -17,12 +17,6 @@
 				Returns the RID of the material used with the Rendering Server. This is set per instance of this class.
 			</description>
 		</method>
-		<method name="get_region_blend_map" qualifiers="const">
-			<return type="RID" />
-			<description>
-				Returns the RID of the 512x512 texture used with the RenderingServer. It depicts a blurry map of region locations and is used for smoothly blending world noise into sculpted terrain.
-			</description>
-		</method>
 		<method name="get_shader_param" qualifiers="const">
 			<return type="Variant" />
 			<param index="0" name="name" type="StringName" />

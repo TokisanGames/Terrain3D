@@ -53,13 +53,12 @@ _shader_parameters = {
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
 "tri_scale_reduction": 0.3,
 "vertex_normals_distance": 128.0,
-"world_noise_blend_far": 1.0,
-"world_noise_blend_near": 0.7,
 "world_noise_height": 34.0,
 "world_noise_lod_distance": 7500.0,
 "world_noise_max_octaves": 4,
 "world_noise_min_octaves": 2,
-"world_noise_offset": Vector3(1.485, -1.01, 1.9),
+"world_noise_offset": Vector3(2.17, -1.225, 1.9),
+"world_noise_region_blend": 0.33,
 "world_noise_scale": 9.85
 }
 world_background = 2
@@ -90,3 +89,4 @@ render_cull_margin = 1000.0
 collision_mask = 3
 mesh_size = 64
 top_level = true
+metadata/_edit_lock_ = true

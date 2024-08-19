@@ -90,8 +90,6 @@ Methods
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`RID<class_RID>`         | :ref:`get_material_rid<class_Terrain3DMaterial_method_get_material_rid>`\ (\ ) |const|                                                                            |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`         | :ref:`get_region_blend_map<class_Terrain3DMaterial_method_get_region_blend_map>`\ (\ ) |const|                                                                    |
-   +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Variant<class_Variant>` | :ref:`get_shader_param<class_Terrain3DMaterial_method_get_shader_param>`\ (\ name\: :ref:`StringName<class_StringName>`\ ) |const|                                |
    +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`RID<class_RID>`         | :ref:`get_shader_rid<class_Terrain3DMaterial_method_get_shader_rid>`\ (\ ) |const|                                                                                |
@@ -560,18 +558,6 @@ Method Descriptions
 :ref:`RID<class_RID>` **get_material_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_material_rid>`
 
 Returns the RID of the material used with the Rendering Server. This is set per instance of this class.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DMaterial_method_get_region_blend_map:
-
-.. rst-class:: classref-method
-
-:ref:`RID<class_RID>` **get_region_blend_map**\ (\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_region_blend_map>`
-
-Returns the RID of the 512x512 texture used with the RenderingServer. It depicts a blurry map of region locations and is used for smoothly blending world noise into sculpted terrain.
 
 .. rst-class:: classref-item-separator
 

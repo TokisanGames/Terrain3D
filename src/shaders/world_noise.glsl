@@ -4,16 +4,36 @@ R"(
 
 //INSERT: WORLD_NOISE1
 // World Noise
-
-uniform sampler2D _region_blend_map : hint_default_black, filter_linear, repeat_disable;
+uniform float world_noise_region_blend : hint_range(0.05, 0.95, 0.01) = 0.33;
 uniform int world_noise_max_octaves : hint_range(0, 15) = 4;
 uniform int world_noise_min_octaves : hint_range(0, 15) = 2;
 uniform float world_noise_lod_distance : hint_range(0, 40000, 1) = 7500.;
 uniform float world_noise_scale : hint_range(0.25, 20, 0.01) = 5.0;
 uniform float world_noise_height : hint_range(0, 1000, 0.1) = 64.0;
 uniform vec3 world_noise_offset = vec3(0.0);
-uniform float world_noise_blend_near : hint_range(0, .95, 0.01) = 0.5;
-uniform float world_noise_blend_far : hint_range(.05, 1, 0.01) = 1.0;
+
+// Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
+float check_region(const vec2 uv2) {
+	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
+	int layer_index = 0;
+	if (uint(pos.x | pos.y) < uint(_region_map_size)) {
+		layer_index = clamp(_region_map[ pos.y * _region_map_size + pos.x ] - 1, -1, 0) + 1;
+	}
+	return float(layer_index);
+}
+
+// Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
+float region_blend(vec2 uv2) {
+	uv2 -= 0.5;
+	const vec2 offset = vec2(0.0,1.0);
+	float a = check_region(uv2 + offset.xy);
+	float b = check_region(uv2 + offset.yy);
+	float c = check_region(uv2 + offset.yx);
+	float d = check_region(uv2 + offset.xx);
+	vec2 w = smoothstep(vec2(0.0), vec2(1.0), fract(uv2));
+	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
+    return 1.0 - blend;
+}
 
 float hashf(float f) {
 	return fract(sin(f) * 1e4);
@@ -66,25 +86,23 @@ float world_noise(vec2 p) {
     return a;
 }
 
+float get_noise_height(const vec2 uv) {
+	float weight = region_blend(uv);
+	// only calculate world noise when it could be visibile.
+	if (weight <= 1.0 - world_noise_region_blend) {
+		return 0.0;
+	}
+	float noise = world_noise((uv + world_noise_offset.xz) * world_noise_scale * .1) *
+            world_noise_height * 10. + world_noise_offset.y * 100.;
+	weight = smoothstep(1.0 - world_noise_region_blend, 1.0, weight);
+	return mix(0.0, noise, weight);
+}
+
 // World Noise end
 
 //INSERT: WORLD_NOISE2
 	// World Noise
    	if (_background_mode == 2u) {
-	    float weight = texture(_region_blend_map, (uv / float(_region_map_size)) + 0.5).r;
-	    float rmap_half_size = float(_region_map_size) * .5;
-	    if (abs(uv.x) > rmap_half_size + .5 || abs(uv.y) > rmap_half_size + .5) {
-		    weight = 0.;
-	    } else {
-		    if (abs(uv.x) > rmap_half_size - .5) {
-			    weight = mix(weight, 0., abs(uv.x) - (rmap_half_size-.5));
-		    }
-		    if (abs(uv.y) > rmap_half_size - .5) {
-			    weight = mix(weight, 0., abs(uv.y) - (rmap_half_size-.5));
-		    }
-	    }
-	    height = mix(height, world_noise((uv + world_noise_offset.xz) * world_noise_scale * .1) *
-            world_noise_height * 10. + world_noise_offset.y * 100.,
-		    clamp(smoothstep(world_noise_blend_near, world_noise_blend_far, 1.0 - weight), 0.0, 1.0));
+	    height += get_noise_height(uv);
     }
 )"

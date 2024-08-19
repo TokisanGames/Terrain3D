@@ -335,30 +335,6 @@ void Terrain3DMaterial::_update_regions() {
 	LOG(DEBUG_CONT, "Setting mesh vertex spacing in material: ", spacing);
 	RS->material_set_param(_material, "_mesh_vertex_spacing", spacing);
 	RS->material_set_param(_material, "_mesh_vertex_density", 1.0f / spacing);
-
-	_generate_region_blend_map();
-}
-
-void Terrain3DMaterial::_generate_region_blend_map() {
-	IS_STORAGE_INIT_MESG("Material not initialized", VOID);
-	PackedInt32Array region_map = _terrain->get_storage()->get_region_map();
-	int rsize = Terrain3DStorage::REGION_MAP_SIZE;
-	if (region_map.size() == rsize * rsize) {
-		LOG(DEBUG_CONT, "Regenerating ", Vector2i(512, 512), " region blend map");
-		Ref<Image> region_blend_img = Image::create(rsize, rsize, false, Image::FORMAT_RH);
-		for (int y = 0; y < rsize; y++) {
-			for (int x = 0; x < rsize; x++) {
-				if (region_map[y * rsize + x] > 0) {
-					region_blend_img->set_pixel(x, y, COLOR_WHITE);
-				}
-			}
-		}
-		region_blend_img->resize(512, 512, Image::INTERPOLATE_TRILINEAR);
-		_generated_region_blend_map.clear();
-		_generated_region_blend_map.create(region_blend_img);
-		RS->material_set_param(_material, "_region_blend_map", _generated_region_blend_map.get_rid());
-		Util::dump_gentex(_generated_region_blend_map, "blend_map", DEBUG_CONT);
-	}
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list
@@ -420,7 +396,6 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 	IS_INIT(VOID);
 	LOG(INFO, "Destroying material");
 	RS->free_rid(_material);
-	_generated_region_blend_map.clear();
 }
 
 void Terrain3DMaterial::update() {
@@ -735,7 +710,6 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update"), &Terrain3DMaterial::update);
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
-	ClassDB::bind_method(D_METHOD("get_region_blend_map"), &Terrain3DMaterial::get_region_blend_map);
 
 	ClassDB::bind_method(D_METHOD("set_world_background", "background"), &Terrain3DMaterial::set_world_background);
 	ClassDB::bind_method(D_METHOD("get_world_background"), &Terrain3DMaterial::get_world_background);
