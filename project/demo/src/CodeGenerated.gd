@@ -33,10 +33,3 @@ func _ready():
 	$RuntimeNavigationBaker.terrain = terrain
 	$RuntimeNavigationBaker.enabled = true
 	
-	# Retreive 512x512 region blur map showing where the regions are
-	var rbmap_rid: RID = terrain.material.get_region_blend_map()
-	img = RenderingServer.texture_2d_get(rbmap_rid)
-	$UI/TextureRect.texture = ImageTexture.create_from_image(img)
-
-		
-

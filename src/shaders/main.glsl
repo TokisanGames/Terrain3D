@@ -86,26 +86,22 @@ varying float v_region_border_mask;
 // Takes in UV world space coordinates, returns ivec3 with:
 // XY: (0 to _region_size) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_region_uv(vec2 uv) {
-	uv *= _region_texel_size;
-	ivec2 pos = ivec2(floor(uv)) + (_region_map_size / 2);
-	int bounds = int(pos.x >= 0 && pos.x < _region_map_size && pos.y >= 0 && pos.y < _region_map_size);
+ivec3 get_region_uv(const vec2 uv) {
+	ivec2 pos = ivec2(floor(uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
-	return ivec3(ivec2((uv - _region_offsets[layer_index]) * _region_size), layer_index);
+	return ivec3(ivec2(mod(uv,_region_size)), layer_index);
 }
 
 // Takes in UV2 region space coordinates, returns vec3 with:
 // XY: (0 to 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-vec3 get_region_uv2(vec2 uv) {
-	// Vertex function added half a texel to UV2, to center the UV's.  vertex(), fragment() and get_height()
-	// call this with reclaimed versions of UV2, so to keep the last row/column within the correct
-	// window, take back the half pixel before the floor(). 
-	ivec2 pos = ivec2(floor(uv - vec2(_region_texel_size * 0.5))) + (_region_map_size / 2);
-	int bounds = int(pos.x >= 0 && pos.x < _region_map_size && pos.y >= 0 && pos.y < _region_map_size);
+vec3 get_region_uv2(const vec2 uv2) {
+	// Remove Texel Offset to ensure correct region index.
+	ivec2 pos = ivec2(floor(uv2 - vec2(_region_texel_size * 0.5))) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
-	// The return value is still texel-centered.
-	return vec3(uv - _region_offsets[layer_index], float(layer_index));
+	return vec3(uv2 - _region_offsets[layer_index], float(layer_index));
 }
 
 //INSERT: WORLD_NOISE1

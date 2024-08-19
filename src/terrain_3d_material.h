@@ -40,7 +40,6 @@ private:
 	Ref<Shader> _shader_override; // User's shader we copy code from
 	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
 	mutable Dictionary _shader_params; // Public shader params saved to disk
-	GeneratedTexture _generated_region_blend_map; // 512x512 blurred image of region_map
 
 	// Material Features
 	WorldBackground _world_background = FLAT;
@@ -74,7 +73,6 @@ private:
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
 	void _update_regions();
-	void _generate_region_blend_map();
 	void _update_texture_arrays();
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
@@ -87,7 +85,6 @@ public:
 	void update();
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader->get_rid(); }
-	RID get_region_blend_map() const { return _generated_region_blend_map.get_rid(); }
 
 	// Material settings
 	void set_world_background(const WorldBackground p_background);
