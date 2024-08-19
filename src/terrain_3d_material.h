@@ -34,11 +34,10 @@ private:
 	Terrain3D *_terrain = nullptr;
 
 	RID _material;
-	RID _shader;
+	Ref<Shader> _shader; // Active shader
+	Dictionary _shader_code; // All loaded shader and INSERT code
 	bool _shader_override_enabled = false;
-	Ref<Shader> _shader_override;
-	Ref<Shader> _shader_tmp;
-	Dictionary _shader_code;
+	Ref<Shader> _shader_override; // User's shader we copy code from
 	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
 	mutable Dictionary _shader_params; // Public shader params saved to disk
 	GeneratedTexture _generated_region_blend_map; // 512x512 blurred image of region_map
@@ -87,7 +86,7 @@ public:
 
 	void update();
 	RID get_material_rid() const { return _material; }
-	RID get_shader_rid() const;
+	RID get_shader_rid() const { return _shader->get_rid(); }
 	RID get_region_blend_map() const { return _generated_region_blend_map.get_rid(); }
 
 	// Material settings

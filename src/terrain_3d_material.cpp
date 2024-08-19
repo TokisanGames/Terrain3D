@@ -210,27 +210,22 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 void Terrain3DMaterial::_update_shader() {
 	IS_INIT(VOID);
 	LOG(INFO, "Updating shader");
-	RID shader_rid;
+	String code;
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		if (_shader_override->get_code().is_empty()) {
-			String code = _generate_shader_code();
-			_shader_override->set_code(code);
+			_shader_override->set_code(_generate_shader_code());
 		}
+		code = _shader_override->get_code();
 		if (!_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
 			LOG(DEBUG, "Connecting changed signal to _update_shader()");
 			_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
 		}
-		String code = _shader_override->get_code();
-		_shader_tmp->set_code(_inject_editor_code(code));
-		shader_rid = _shader_tmp->get_rid();
 	} else {
-		String code = _generate_shader_code();
-		_shader_tmp->set_code(_inject_editor_code(code));
-		shader_rid = _shader_tmp->get_rid();
-		_shader = shader_rid;
+		code = _generate_shader_code();
 	}
-	RS->material_set_shader(_material, shader_rid);
-	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", shader_rid);
+	_shader->set_code(_inject_editor_code(code));
+	RS->material_set_shader(_material, get_shader_rid());
+	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", get_shader_rid());
 
 	// Update custom shader params in RenderingServer
 	{
@@ -416,8 +411,7 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	LOG(INFO, "Initializing material");
 	_preload_shaders();
 	_material = RS->material_create();
-	_shader_tmp.instantiate();
-	LOG(DEBUG, "Mat RID: ", _material, ", _shader RID: ", _shader);
+	_shader.instantiate();
 	_update_shader();
 	_update_regions();
 }
@@ -432,14 +426,6 @@ Terrain3DMaterial::~Terrain3DMaterial() {
 void Terrain3DMaterial::update() {
 	_update_shader();
 	_update_regions();
-}
-
-RID Terrain3DMaterial::get_shader_rid() const {
-	if (_shader_override_enabled) {
-		return _shader_tmp->get_rid();
-	} else {
-		return _shader;
-	}
 }
 
 void Terrain3DMaterial::set_world_background(const WorldBackground p_background) {
@@ -470,8 +456,8 @@ void Terrain3DMaterial::enable_shader_override(const bool p_enabled) {
 	LOG(INFO, "Enable shader override: ", p_enabled);
 	_shader_override_enabled = p_enabled;
 	if (_shader_override_enabled && _shader_override.is_null()) {
+		LOG(DEBUG, "Instantiating new _shader_override");
 		_shader_override.instantiate();
-		LOG(DEBUG, "_shader_override RID: ", _shader_override->get_rid());
 	}
 	_update_shader();
 }
@@ -588,7 +574,7 @@ void Terrain3DMaterial::save() {
 	LOG(DEBUG, "Generating parameter list from shaders");
 	// Get shader parameters from default shader (eg world_noise)
 	Array param_list;
-	param_list = RS->get_shader_parameter_list(_shader);
+	param_list = RS->get_shader_parameter_list(get_shader_rid());
 	// Get shader parameters from custom shader if present
 	if (_shader_override.is_valid()) {
 		param_list.append_array(_shader_override->get_shader_uniform_list(true));
@@ -643,7 +629,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 		param_list = _shader_override->get_shader_uniform_list(true);
 	} else {
 		// Get shader parameters from default shader (eg world_noise)
-		param_list = RS->get_shader_parameter_list(_shader);
+		param_list = RS->get_shader_parameter_list(get_shader_rid());
 	}
 
 	_active_params.clear();
@@ -682,34 +668,16 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 // This is called 10x more than the others, so be efficient
 bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
 	IS_INIT_COND(!_active_params.has(p_name), Resource::_property_can_revert(p_name));
-	RID shader;
-	if (_shader_override_enabled && _shader_override.is_valid()) {
-		shader = _shader_override->get_rid();
-	} else {
-		shader = _shader;
-	}
-	if (shader.is_valid()) {
-		Variant default_value = RS->shader_get_parameter_default(shader, p_name);
-		Variant current_value = RS->material_get_param(_material, p_name);
-		return default_value != current_value;
-	}
-	return false;
+	Variant default_value = RS->shader_get_parameter_default(get_shader_rid(), p_name);
+	Variant current_value = RS->material_get_param(_material, p_name);
+	return default_value != current_value;
 }
 
 // Provide uniform default values in r_property
 bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &r_property) const {
 	IS_INIT_COND(!_active_params.has(p_name), Resource::_property_get_revert(p_name, r_property));
-	RID shader;
-	if (_shader_override_enabled && _shader_override.is_valid()) {
-		shader = _shader_override->get_rid();
-	} else {
-		shader = _shader;
-	}
-	if (shader.is_valid()) {
-		r_property = RS->shader_get_parameter_default(shader, p_name);
-		return true;
-	}
-	return false;
+	r_property = RS->shader_get_parameter_default(get_shader_rid(), p_name);
+	return true;
 }
 
 bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property) {
