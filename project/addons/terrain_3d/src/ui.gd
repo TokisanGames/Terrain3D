@@ -85,6 +85,7 @@ func _enter_tree() -> void:
 		if node:
 			get_tree().create_tween().tween_property(node, "albedo_mix", 0.0, 0.15)).bind(decal))
 	add_child(decal_timer)
+	plugin.godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
 
 
 func _exit_tree() -> void:
@@ -98,6 +99,12 @@ func _exit_tree() -> void:
 	for gradient_decal in gradient_decals:
 		gradient_decal.queue_free()
 	gradient_decals.clear()
+	plugin.godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
+
+
+func _on_godot_focus_entered() -> void:
+	update_modifiers()
+	update_decal()
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
@@ -424,6 +431,11 @@ func pick(p_global_position: Vector3) -> void:
 		operation_builder.pick(p_global_position, plugin.terrain)
 
 
+func update_modifiers() -> void:
+	for key in MODIFIER_KEYS:
+		set_modifier(key, Input.is_key_pressed(key))
+
+
 func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 	# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
 	if p_modifier == KEY_CTRL && modifier_ctrl != p_pressed:
@@ -472,7 +484,3 @@ func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_N
 		return Terrain3DEditor.ADD
 	return p_operation
 
-
-func update_modifiers() -> void:
-	for key in MODIFIER_KEYS:
-		set_modifier(key, Input.is_key_pressed(key))

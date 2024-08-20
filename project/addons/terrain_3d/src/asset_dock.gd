@@ -41,10 +41,6 @@ enum {
 }
 var state: int = HIDDEN
 
-var window: Window
-var _godot_editor_window: Window # The main Godot Editor window
-var _godot_last_state: Window.Mode = Window.MODE_FULLSCREEN
-
 enum {
 	POS_LEFT_UL = 0,
 	POS_LEFT_BL = 1,
@@ -60,16 +56,15 @@ enum {
 var slot: int = POS_RIGHT_BR
 var _initialized: bool = false
 var plugin: EditorPlugin
+var window: Window
+var _godot_last_state: Window.Mode = Window.MODE_FULLSCREEN
 
 
 func initialize(p_plugin: EditorPlugin) -> void:
 	if p_plugin:
 		plugin = p_plugin
-
-	# Get editor window. Structure is root:Window/EditorNode/Base Control
-	_godot_editor_window = plugin.get_editor_interface().get_base_control().get_parent().get_parent()
-	_godot_last_state = _godot_editor_window.mode
 	
+	_godot_last_state = plugin.godot_editor_window.mode
 	placement_opt = $Box/Buttons/PlacementOpt
 	pinned_btn = $Box/Buttons/Pinned
 	floating_btn = $Box/Buttons/Floating
@@ -170,9 +165,9 @@ func remove_dock(p_force: bool = false) -> void:
 		var parent: Node = get_parent()
 		if parent:
 			parent.remove_child(self)
-		_godot_editor_window.mouse_entered.disconnect(_on_godot_window_entered)
-		_godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
-		_godot_editor_window.focus_exited.disconnect(_on_godot_focus_exited)
+		plugin.godot_editor_window.mouse_entered.disconnect(_on_godot_window_entered)
+		plugin.godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
+		plugin.godot_editor_window.focus_exited.disconnect(_on_godot_focus_exited)
 		window.hide()
 		window.queue_free()
 		window = null
@@ -340,10 +335,10 @@ func make_dock_float() -> void:
 	window.focus_exited.connect(save_editor_settings)
 	window.mouse_exited.connect(save_editor_settings)
 	window.size_changed.connect(save_editor_settings)
-	_godot_editor_window.mouse_entered.connect(_on_godot_window_entered)
-	_godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
-	_godot_editor_window.focus_exited.connect(_on_godot_focus_exited)
-	_godot_editor_window.grab_focus()
+	plugin.godot_editor_window.mouse_entered.connect(_on_godot_window_entered)
+	plugin.godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
+	plugin.godot_editor_window.focus_exited.connect(_on_godot_focus_exited)
+	plugin.godot_editor_window.grab_focus()
 	update_assets()
 	save_editor_settings()
 
@@ -384,22 +379,22 @@ func _on_window_input(event: InputEvent) -> void:
 
 func _on_godot_window_entered() -> void:
 	if is_instance_valid(window) and window.has_focus():
-		_godot_editor_window.grab_focus()
+		plugin.godot_editor_window.grab_focus()
 
 
 func _on_godot_focus_entered() -> void:
 	# If asset dock is windowed, and Godot was minimized, and now is not, restore asset dock window
 	if is_instance_valid(window):
-		if _godot_last_state == Window.MODE_MINIMIZED and _godot_editor_window.mode != Window.MODE_MINIMIZED:
+		if _godot_last_state == Window.MODE_MINIMIZED and plugin.godot_editor_window.mode != Window.MODE_MINIMIZED:
 			window.show()
-			_godot_last_state = _godot_editor_window.mode
-			_godot_editor_window.grab_focus()
+			_godot_last_state = plugin.godot_editor_window.mode
+			plugin.godot_editor_window.grab_focus()
 
 
 func _on_godot_focus_exited() -> void:
-	if is_instance_valid(window) and _godot_editor_window.mode == Window.MODE_MINIMIZED:
+	if is_instance_valid(window) and plugin.godot_editor_window.mode == Window.MODE_MINIMIZED:
 		window.hide()
-		_godot_last_state = _godot_editor_window.mode
+		_godot_last_state = plugin.godot_editor_window.mode
 
 
 ## Manage Editor Settings

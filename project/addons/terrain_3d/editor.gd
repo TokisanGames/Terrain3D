@@ -21,8 +21,14 @@ var asset_dock: PanelContainer
 var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
+var godot_editor_window: Window # The Godot Editor window
 
 
+func _init() -> void:
+	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
+	godot_editor_window = get_editor_interface().get_base_control().get_parent().get_parent()
+
+	
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
 	editor_settings = EditorInterface.get_editor_settings()
