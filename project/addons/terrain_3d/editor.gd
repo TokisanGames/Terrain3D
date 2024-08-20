@@ -169,6 +169,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				return AFTER_GUI_INPUT_STOP
 			mouse_global_position = intersection_point
 		
+		ui.brush_data["mouse_pressure"] = p_event.pressure
+
 		## Update decal
 		ui.decal.global_position = mouse_global_position
 		ui.update_decal()

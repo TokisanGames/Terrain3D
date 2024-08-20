@@ -103,7 +103,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	real_t brush_size = _brush_data["size"];
 	int asset_id = _brush_data["asset_id"];
 	Vector2i img_size = _brush_data["brush_image_size"];
-	real_t strength = _brush_data["strength"];
+	real_t strength = ((real_t)_brush_data["mouse_pressure"] > 0.f) ? _brush_data["mouse_pressure"] : _brush_data["strength"];
 	real_t height = _brush_data["height"];
 	Color color = _brush_data["color"];
 	real_t roughness = _brush_data["roughness"];
@@ -608,6 +608,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	// Santize editor data
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 2.f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 100.f); // 1-10k%
+	_brush_data["mouse_pressure"] = CLAMP(real_t(p_data.get("mouse_pressure", 0.f)), 0.f, 1.f);
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
 	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, Terrain3DAssets::MAX_MESHES);
 	Color col = p_data.get("color", COLOR_ROUGHNESS);
