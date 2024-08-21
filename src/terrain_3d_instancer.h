@@ -32,6 +32,8 @@ class Terrain3DInstancer : public Object {
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
 	void _destroy_mmi_by_region_id(const int p_region, const int p_mesh_id);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
+	void _backup_regionl(const Vector2i &p_region_loc);
+	void _backup_region(const Ref<Terrain3DRegion> &p_region);
 
 public:
 	Terrain3DInstancer() {}

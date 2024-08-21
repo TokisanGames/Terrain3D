@@ -253,6 +253,73 @@ void Terrain3DRegion::set_location(const Vector2i &p_location) {
 	}
 }
 
+void Terrain3DRegion::set_data(const Dictionary &p_data) {
+#define SET_IF_HAS(var, str) \
+	if (p_data.has(str)) {   \
+		var = p_data[str];   \
+	}
+	SET_IF_HAS(_location, "location");
+	SET_IF_HAS(_deleted, "deleted");
+	SET_IF_HAS(_edited, "edited");
+	SET_IF_HAS(_modified, "modified");
+	SET_IF_HAS(_version, "version");
+	SET_IF_HAS(_region_size, "region_size");
+	SET_IF_HAS(_height_range, "height_range");
+	SET_IF_HAS(_height_map, "height_map");
+	SET_IF_HAS(_control_map, "control_map");
+	SET_IF_HAS(_color_map, "color_map");
+	SET_IF_HAS(_multimeshes, "multimeshes");
+}
+
+Dictionary Terrain3DRegion::get_data() const {
+	Dictionary dict;
+	dict["location"] = _location;
+	dict["deleted"] = _deleted;
+	dict["edited"] = _edited;
+	dict["modified"] = _modified;
+	dict["instance_id"] = String::num_uint64(get_instance_id()); // don't commit
+	dict["version"] = _version;
+	dict["region_size"] = _region_size;
+	dict["height_range"] = _height_range;
+	dict["height_map"] = _height_map;
+	dict["control_map"] = _control_map;
+	dict["color_map"] = _color_map;
+	dict["multimeshes"] = _multimeshes;
+	return dict;
+}
+
+Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
+	Ref<Terrain3DRegion> region;
+	region.instantiate();
+	if (!p_deep) {
+		region->set_data(get_data());
+	} else {
+		Dictionary dict;
+		// Native type copies
+		dict["version"] = _version;
+		dict["region_size"] = _region_size;
+		dict["height_range"] = _height_range;
+		dict["modified"] = _modified;
+		dict["deleted"] = _deleted;
+		dict["location"] = _location;
+		// Resource duplicates
+		dict["height_map"] = _height_map->duplicate();
+		dict["control_map"] = _control_map->duplicate();
+		dict["color_map"] = _color_map->duplicate();
+		Dictionary mms;
+		Array keys = _multimeshes.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			int mesh_id = keys[i];
+			Ref<MultiMesh> mm = _multimeshes[mesh_id];
+			mm->duplicate();
+			mms[mesh_id] = mm;
+		}
+		dict["multimeshes"] = mms;
+		region->set_data(dict);
+	}
+	return region;
+}
+
 /////////////////////
 // Protected Functions
 /////////////////////
@@ -284,12 +351,18 @@ void Terrain3DRegion::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("save", "path", "16-bit"), &Terrain3DRegion::save, DEFVAL(""), DEFVAL(false));
 
-	ClassDB::bind_method(D_METHOD("set_modified"), &Terrain3DRegion::set_modified);
-	ClassDB::bind_method(D_METHOD("is_modified"), &Terrain3DRegion::is_modified);
 	ClassDB::bind_method(D_METHOD("set_deleted"), &Terrain3DRegion::set_deleted);
 	ClassDB::bind_method(D_METHOD("is_deleted"), &Terrain3DRegion::is_deleted);
+	ClassDB::bind_method(D_METHOD("set_edited"), &Terrain3DRegion::set_edited);
+	ClassDB::bind_method(D_METHOD("is_edited"), &Terrain3DRegion::is_edited);
+	ClassDB::bind_method(D_METHOD("set_modified"), &Terrain3DRegion::set_modified);
+	ClassDB::bind_method(D_METHOD("is_modified"), &Terrain3DRegion::is_modified);
 	ClassDB::bind_method(D_METHOD("set_location"), &Terrain3DRegion::set_location);
 	ClassDB::bind_method(D_METHOD("get_location"), &Terrain3DRegion::get_location);
+
+	ClassDB::bind_method(D_METHOD("set_data"), &Terrain3DRegion::set_data);
+	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3DRegion::get_data);
+	ClassDB::bind_method(D_METHOD("duplicate", "deep"), &Terrain3DRegion::duplicate, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
@@ -300,7 +373,8 @@ void Terrain3DRegion::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
 
 	// Double-clicking a region .res file shows what's on disk, the defaults, not in memory. So these are hidden
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_modified", "is_modified");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "edited", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_edited", "is_edited");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "deleted", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_deleted", "is_deleted");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_modified", "is_modified");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_location", "get_location");
 }
