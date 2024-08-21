@@ -122,6 +122,21 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 	LOG(DEBUG, "Deleting MMI, success: ", result);
 }
 
+void Terrain3DInstancer::_backup_regionl(const Vector2i &p_region_loc) {
+	if (_terrain->get_storage() != nullptr) {
+		Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(p_region_loc);
+		_backup_region(region);
+	}
+}
+
+void Terrain3DInstancer::_backup_region(const Ref<Terrain3DRegion> &p_region) {
+	if (_terrain->get_editor() != nullptr) {
+		_terrain->get_editor()->backup_region(p_region);
+	} else {
+		p_region->set_modified(true);
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -167,8 +182,8 @@ void Terrain3DInstancer::clear_by_location(const Vector2i &p_region_loc, const i
 	}
 	Dictionary mesh_dict = region->get_multimeshes();
 	if (mesh_dict.has(p_mesh_id)) {
+		_backup_region(region);
 		mesh_dict.erase(p_mesh_id);
-		region->set_modified(true);
 	}
 	_destroy_mmi_by_location(p_region_loc, p_mesh_id);
 }
@@ -256,9 +271,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		real_t t_scale = CLAMP(fixed_scale + random_scale * (2.f * UtilityFunctions::randf() - 1.f), 0.01f, 10.f);
 		t = t.scaled(Vector3(t_scale, t_scale, t_scale));
 
-		// Position
-		real_t offset = height_offset + mesh_asset->get_height_offset() +
-				random_height * (2.f * UtilityFunctions::randf() - 1.f);
+		// Position. mesh_asset height offset added in add_transforms
+		real_t offset = height_offset + random_height * (2.f * UtilityFunctions::randf() - 1.f);
 		position += t.basis.get_column(1) * offset; // Offset along UP axis
 		t = t.translated(position);
 
@@ -272,9 +286,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	}
 
 	// Append multimesh
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
 	if (xforms.size() > 0) {
-		append_multimesh(region_loc, mesh_id, xforms, colors);
+		add_transforms(mesh_id, xforms, colors);
 	}
 }
 
@@ -385,8 +398,6 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		TypedArray<Color> colors = colors_dict[region_loc];
 		xforms.push_back(trns);
 		colors.push_back(col);
-
-		_terrain->get_storage()->set_region_modified(region_loc, true);
 	}
 
 	// Merge incoming transforms with existing transforms
@@ -451,9 +462,9 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_loc, const in
 		LOG(WARN, "No region found at: ", p_region_loc);
 		return;
 	}
+	_backup_region(region);
 	Dictionary mesh_dict = region->get_multimeshes();
 	mesh_dict[p_mesh_id] = mm;
-	region->set_modified(true);
 	_update_mmis(p_region_loc, p_mesh_id);
 }
 
@@ -536,24 +547,24 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 			Ref<MultiMesh> mm_src;
 			Ref<MultiMesh> mm_dst;
 			if (mesh_dict.has(p_src_id)) {
+				_backup_region(region);
 				mm_src = mesh_dict[p_src_id];
 				mesh_dict.erase(p_src_id);
-				region->set_modified(true);
 			}
 			if (mesh_dict.has(p_dst_id)) {
+				_backup_region(region);
 				mm_dst = mesh_dict[p_dst_id];
 				mesh_dict.erase(p_dst_id);
-				region->set_modified(true);
 			}
 			// If src is ok, insert into dst slot
 			if (mm_src.is_valid()) {
+				_backup_region(region);
 				mesh_dict[p_dst_id] = mm_src;
-				region->set_modified(true);
 			}
 			// If dst is ok, insert into src slot
 			if (mm_dst.is_valid()) {
+				_backup_region(region);
 				mesh_dict[p_src_id] = mm_dst;
-				region->set_modified(true);
 			}
 			LOG(DEBUG, "Swapped multimesh ids at: ", region_loc);
 		}

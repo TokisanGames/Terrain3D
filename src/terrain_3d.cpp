@@ -27,7 +27,7 @@
 ///////////////////////////
 
 // Initialize static member variable
-int Terrain3D::debug_level{ DEBUG };
+int Terrain3D::debug_level{ ERROR };
 
 void Terrain3D::_initialize() {
 	LOG(INFO, "Checking initialization of main subsystems");
@@ -66,7 +66,7 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _storage::maps_changed signal to _material->_update_maps()");
 		_storage->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
-	// Height map was regenerated - update aabbs - Probably remove and just use maps_edited
+	// Height map was regenerated, update aabbs
 	if (!_storage->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
 		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
 		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
@@ -141,11 +141,9 @@ void Terrain3D::_destroy_containers() {
 
 void Terrain3D::_destroy_labels() {
 	Array labels = _label_nodes->get_children();
+	LOG(DEBUG, "Destroying ", labels.size(), " region labels");
 	for (int i = 0; i < labels.size(); i++) {
 		Node *label = cast_to<Node>(labels[i]);
-		if (label != nullptr) {
-			LOG(DEBUG, "Destroying label: ", label->get_name());
-		}
 		memdelete_safely(label);
 	}
 }
@@ -1028,11 +1026,10 @@ void Terrain3D::update_aabbs() {
 	}
 }
 
-/* Iterate over ground to find intersection point between two rays:
+/* Returns the point a ray intersects the ground using the GPU depth texture
  *	p_src_pos (camera position)
  *	p_direction (camera direction looking at the terrain)
- *	test_dir (camera direction 0 Y, traversing terrain along height
- * Returns vec3(Double max 3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
+ * Returns Vec3(NAN) on error or vec3(3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction) {
 	if (!is_instance_valid(_camera_instance_id)) {
@@ -1097,10 +1094,10 @@ void Terrain3D::set_show_region_labels(const bool p_enabled) {
 }
 
 void Terrain3D::update_region_labels() {
-	LOG(DEBUG, "Updating region labels");
 	_destroy_labels();
 	if (_show_region_labels && _storage != nullptr) {
 		Array region_locations = _storage->get_region_locations();
+		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
 		for (int i = 0; i < region_locations.size(); i++) {
 			Label3D *label = memnew(Label3D);
 			String text = region_locations[i];

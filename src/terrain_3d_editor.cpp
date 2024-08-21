@@ -23,63 +23,81 @@ void Terrain3DEditor::_send_region_aabb(const Vector2i &p_region_loc, const Vect
 	_terrain->get_storage()->add_edited_area(edited_area);
 }
 
-void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
-	bool has_region = _terrain->get_storage()->has_region(region_loc);
+// Process location to add new region, mark as deleted, or just retrieve
+Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_loc) {
 	bool changed = false;
 	Vector2 height_range;
+	Terrain3DStorage *storage = _terrain->get_storage();
 
-	if (_operation == ADD) {
-		if (!has_region) {
-			_terrain->get_storage()->add_region_blank(region_loc);
-			_terrain->get_storage()->set_region_modified(region_loc, true);
-			changed = true;
+	// Check if in bounds, limiting errors
+	bool can_print = false;
+	uint64_t ticks = Time::get_singleton()->get_ticks_msec();
+	if (ticks - _last_region_bounds_error > 1000) {
+		_last_region_bounds_error = ticks;
+		can_print = true;
+	}
+	if (storage->get_region_map_index(p_region_loc) < 0) {
+		if (can_print) {
+			LOG(ERROR, "Specified position outside of maximum bounds");
 		}
-	} else { // Remove region
-		if (has_region) {
-			Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(region_loc);
-			height_range = region->get_height_range();
-			_terrain->get_storage()->remove_region(region);
-			changed = true;
+		return Ref<Terrain3DRegion>();
+	}
+
+	// Get Region & dump data if debug
+	Ref<Terrain3DRegion> region = storage->get_region(p_region_loc);
+	if (can_print) {
+		LOG(DEBUG, "Tool: ", _tool, " Op: ", _operation, " processing region ", p_region_loc, ": ",
+				region.is_valid() ? String::num_uint64(region->get_instance_id()) : "Null");
+		if (region.is_valid()) {
+			LOG(DEBUG, region->get_data());
 		}
 	}
+
+	// Create new region if location is null or deleted
+	if (region.is_null() || (region.is_valid() && region->is_deleted())) {
+		// And tool is Add Region, or Height + auto_regions
+		if ((_tool == REGION && _operation == ADD) || (_tool == HEIGHT && _brush_data["auto_regions"])) {
+			region = storage->add_region_blank(p_region_loc);
+			changed = true;
+			if (region.is_null()) {
+				// A new region can't be made
+				LOG(ERROR, "A new region cannot be created");
+				return region;
+			}
+		}
+	}
+
+	// If removing region
+	else if (region.is_valid() && _tool == REGION && _operation == SUBTRACT) {
+		_original_regions.push_back(region);
+		height_range = region->get_height_range();
+		_terrain->get_storage()->remove_region(region);
+		_terrain->get_instancer()->force_update_mmis();
+		changed = true;
+	}
+
 	if (changed) {
-		_modified = true;
-		_send_region_aabb(region_loc, height_range);
+		_added_removed_locations.push_back(p_region_loc);
+		region->set_modified(true);
+		_send_region_aabb(p_region_loc, height_range);
 	}
+	return region;
 }
 
 void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_t p_camera_direction) {
 	LOG(DEBUG_CONT, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
 
-	MapType map_type;
-	switch (_tool) {
-		case HEIGHT:
-		case INSTANCER:
-			map_type = TYPE_HEIGHT;
-			break;
-		case TEXTURE:
-		case AUTOSHADER:
-		case HOLES:
-		case NAVIGATION:
-		case ANGLE:
-		case SCALE:
-			map_type = TYPE_CONTROL;
-			break;
-		case COLOR:
-		case ROUGHNESS:
-			map_type = TYPE_COLOR;
-			break;
-		default:
-			LOG(ERROR, "Invalid tool selected");
-			return;
+	MapType map_type = _get_map_type();
+	if (map_type == TYPE_MAX) {
+		LOG(ERROR, "Invalid tool selected");
+		return;
 	}
 
 	Terrain3DStorage *storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
 
-	// If no region and not height, skip whole function. Checked again later
+	// If no region and can't add one, skip whole function. Checked again later
 	if (!storage->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != HEIGHT)) {
 		return;
 	}
@@ -145,7 +163,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		} else {
 			_terrain->get_instancer()->remove_instances(p_global_position, _brush_data);
 		}
-		_modified = true;
 		return;
 	}
 
@@ -160,20 +177,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 			// Get region for current brush pixel global position
 			Vector2i region_loc = storage->get_region_location(brush_global_position);
-			Ref<Terrain3DRegion> region = storage->get_region(region_loc);
-			// If no region, create one
+			Ref<Terrain3DRegion> region = _operate_region(region_loc);
+			// If no region and can't make one, skip
 			if (region.is_null()) {
-				// Except if outside of regions and we can't add one
-				if (!_brush_data["auto_regions"] || _tool != HEIGHT) {
-					continue;
-				}
-				region = storage->add_region_blank(region_loc);
-				if (region.is_null()) {
-					// A new region can't be made
-					continue;
-				}
-				_modified = true;
-				_send_region_aabb(region_loc);
+				continue;
 			}
 
 			// Get map for this region and tool
@@ -437,9 +444,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							break;
 					}
 				}
+				backup_region(region);
 				map->set_pixelv(map_pixel_position, dest);
-				_modified = true;
-				region->set_modified(true);
 			}
 		}
 	}
@@ -447,211 +453,128 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	storage->add_edited_area(edited_area);
 }
 
-Dictionary Terrain3DEditor::_get_undo_data() const {
-	Dictionary data;
-	return data; // ignore undo for now
-	if (_tool < 0 || _tool >= TOOL_MAX) {
-		return data;
-	}
-
-	TypedArray<int> e_regions;
-	Array regions = _terrain->get_storage()->get_regions().values();
-	for (int i = 0; i < regions.size(); i++) {
-		bool is_modified = static_cast<Ref<Terrain3DRegion>>(regions[i])->is_modified();
-		if (is_modified) {
-			e_regions.push_back(i);
-		}
-	}
-
-	//= _terrain->get_storage()->get_regions_under_aabb(_terrain->get_storage()->get_edited_area());
-	data["edited_regions"] = e_regions;
-	LOG(DEBUG, "E Regions ", data["edited_regions"]);
-	switch (_tool) {
-		case REGION:
-			LOG(DEBUG, "Storing region locations");
-			data["is_add"] = _operation == ADD;
-			if (_operation == SUBTRACT) {
-				data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
-				data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT, e_regions);
-				data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL, e_regions);
-				data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR, e_regions);
-				data["height_range"] = _terrain->get_storage()->get_height_range();
-				data["edited_area"] = _terrain->get_storage()->get_edited_area();
-			}
-			break;
-
-		case HEIGHT:
-			LOG(DEBUG, "Storing height maps and range");
-			data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
-			data["height_map"] = _terrain->get_storage()->get_maps_copy(TYPE_HEIGHT, e_regions);
-			data["height_range"] = _terrain->get_storage()->get_height_range();
-			data["edited_area"] = _terrain->get_storage()->get_edited_area();
-			break;
-
-		case HOLES:
-			// Holes can remove instances
-			//data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
-			LOG(DEBUG, "Storing Multimesh: ", data["multimeshes"]);
-		case TEXTURE:
-		case AUTOSHADER:
-		case NAVIGATION:
-			LOG(DEBUG, "Storing control maps");
-			data["control_map"] = _terrain->get_storage()->get_maps_copy(TYPE_CONTROL, e_regions);
-			break;
-
-		case COLOR:
-		case ROUGHNESS:
-			LOG(DEBUG, "Storing color maps");
-			data["color_map"] = _terrain->get_storage()->get_maps_copy(TYPE_COLOR, e_regions);
-			break;
-
-		case INSTANCER:
-			//data["multimeshes"] = _terrain->get_storage()->get_multimeshes().duplicate(true);
-			LOG(DEBUG, "Storing Multimesh: ", data["multimeshes"]);
-			break;
-
-		default:
-			return data;
-	}
-	return data;
-}
-
 void Terrain3DEditor::_store_undo() {
 	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", VOID);
 	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return;
 	}
-	LOG(INFO, "Storing undo snapshot...");
-	EditorUndoRedoManager *undo_redo = _terrain->get_plugin()->get_undo_redo();
+	LOG(DEBUG, "Finalize undo & redo snapshots");
+	Dictionary redo_data;
+	// Store current locations; Original backed up in start_operation()
+	redo_data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
+	// Store original and current backups of edited regions
+	_undo_data["edited_regions"] = _original_regions;
+	redo_data["edited_regions"] = _edited_regions;
 
-	String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
-	LOG(DEBUG, "Creating undo action: '", action_name, "'");
-	undo_redo->create_action(action_name);
+	// Store regions that were added or removed
+	if (_added_removed_locations.size() > 0) {
+		if (_tool == REGION && _operation == SUBTRACT) {
+			_undo_data["removed_regions"] = _added_removed_locations;
+			redo_data["added_regions"] = _added_removed_locations;
+		} else {
+			_undo_data["added_regions"] = _added_removed_locations;
+			redo_data["removed_regions"] = _added_removed_locations;
+		}
+	}
 
 	if (_undo_data.has("edited_area")) {
 		_undo_data["edited_area"] = _terrain->get_storage()->get_edited_area();
 		LOG(DEBUG, "Updating undo snapshot edited area: ", _undo_data["edited_area"]);
 	}
 
+	// Store data in Godot's Undo/Redo Manager
+	LOG(INFO, "Storing undo snapshot...");
+	EditorUndoRedoManager *undo_redo = _terrain->get_plugin()->get_undo_redo();
+	String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
+	LOG(DEBUG, "Creating undo action: '", action_name, "'");
+	undo_redo->create_action(action_name);
+
 	LOG(DEBUG, "Storing undo snapshot: ", _undo_data);
-	undo_redo->add_undo_method(this, "apply_undo", _undo_data.duplicate());
+	undo_redo->add_undo_method(this, "apply_undo", _undo_data);
+	for (int i = 0; i < _original_regions.size(); i++) {
+		Ref<Terrain3DRegion> region = _original_regions[i];
+		LOG(DEBUG, "Original Region: ", region->get_data());
+	}
 
-	LOG(DEBUG, "Setting up redo snapshot...");
-	Dictionary redo_set = _get_undo_data();
-
-	LOG(DEBUG, "Storing redo snapshot: ", redo_set);
-	undo_redo->add_do_method(this, "apply_undo", redo_set);
+	LOG(DEBUG, "Storing redo snapshot: ", redo_data);
+	undo_redo->add_do_method(this, "apply_undo", redo_data);
+	for (int i = 0; i < _edited_regions.size(); i++) {
+		Ref<Terrain3DRegion> region = _edited_regions[i];
+		LOG(DEBUG, "Edited Region: ", region->get_data());
+	}
 
 	LOG(DEBUG, "Committing undo action");
 	undo_redo->commit_action(false);
 }
 
-void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
+void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", VOID);
-	LOG(INFO, "Applying Undo/Redo set. Array size: ", p_set.size());
-	LOG(DEBUG, "Apply undo received: ", p_set);
+	LOG(INFO, "Applying Undo/Redo data");
 
-	TypedArray<int> e_regions = p_set["edited_regions"];
+	Terrain3DStorage *storage = _terrain->get_storage();
 
-	if (p_set.has("is_add")) {
-		// FIXME: This block assumes a lot about the structure of the dictionary and the number of elements
-		bool is_add = p_set["is_add"];
-		if (is_add) {
-			// Remove
-			LOG(DEBUG, "Removing region...");
-
-			TypedArray<int> current;
-			Array regions = _terrain->get_storage()->get_regions().values();
-			for (int i = 0; i < regions.size(); i++) {
-				bool is_modified = static_cast<Ref<Terrain3DRegion>>(regions[i])->is_modified();
-				if (is_modified) {
-					current.push_back(i);
-				}
+	if (p_data.has("edited_regions")) {
+		Util::print_arr("Edited regions", p_data["edited_regions"]);
+		TypedArray<Terrain3DRegion> undo_regions = p_data["edited_regions"];
+		LOG(DEBUG, "Backup has ", undo_regions.size(), " edited regions");
+		for (int i = 0; i < undo_regions.size(); i++) {
+			Ref<Terrain3DRegion> region = undo_regions[i];
+			if (region.is_null()) {
+				LOG(ERROR, "Null region saved in undo data. Please report this error.");
+				continue;
 			}
-
-			TypedArray<int> diff;
-
-			for (int i = 0; i < current.size(); i++) {
-				if (!regions.has(current[i])) {
-					diff.push_back(current[i]);
-				}
-			}
-
-			for (int i = 0; i < diff.size(); i++) {
-				_terrain->get_storage()->remove_region(diff[i]);
-			}
-		} else {
-			// Add region
-			TypedArray<int> current;
-			Array regions = _terrain->get_storage()->get_regions().values();
-			for (int i = 0; i < regions.size(); i++) {
-				bool is_modified = static_cast<Ref<Terrain3DRegion>>(regions[i])->is_modified();
-				if (is_modified) {
-					current.push_back(i);
-				}
-			}
-
-			TypedArray<int> diff;
-
-			for (int i = 0; i < current.size(); i++) {
-				if (!regions.has(current[i])) {
-					diff.push_back(current[i]);
-				}
-			}
-
-			LOG(DEBUG, "Re-adding regions...");
-			for (int i = 0; i < diff.size(); i++) {
-				Vector2i new_region = ((TypedArray<Vector2i>)p_set["region_locations"])[regions[0]];
-				int size = _terrain->get_storage()->get_region_size();
-				Vector3 new_region_position = Vector3(new_region.x * size, 0, new_region.y * size);
-
-				TypedArray<Image> map_info = TypedArray<Image>();
-				map_info.resize(3);
-				map_info[TYPE_HEIGHT] = ((TypedArray<Image>)p_set["height_map"])[0];
-				map_info[TYPE_CONTROL] = ((TypedArray<Image>)p_set["control_map"])[0];
-				map_info[TYPE_COLOR] = ((TypedArray<Image>)p_set["color_map"])[0];
-				Ref<Terrain3DRegion> region;
-				region.instantiate();
-				region->set_maps(map_info);
-				_terrain->get_storage()->add_region(region);
-			}
-		}
-	} else {
-		Array keys = p_set.keys();
-		for (int i = 0; i < keys.size(); i++) {
-			String key = keys[i];
-			if (key == "region_locations") {
-				_terrain->get_storage()->set_region_locations(p_set[key]);
-			} else if (key == "height_map") {
-				//_terrain->get_storage()->set_maps(TYPE_HEIGHT, p_set[key], e_regions);
-			} else if (key == "control_map") {
-				//_terrain->get_storage()->set_maps(TYPE_CONTROL, p_set[key], e_regions);
-			} else if (key == "color_map") {
-				//_terrain->get_storage()->set_maps(TYPE_COLOR, p_set[key], e_regions);
-			} else if (key == "height_range") {
-				//_terrain->get_storage()->set_height_range(p_set[key]);
-			} else if (key == "edited_area") {
-				_terrain->get_storage()->clear_edited_area();
-				_terrain->get_storage()->add_edited_area(p_set[key]);
-			} else if (key == "multimeshes") {
-				//_terrain->get_storage()->set_multimeshes(p_set[key], e_regions);
-			}
+			region->sanitize_map(); // Live data may not have some maps so must be sanitized
+			Dictionary regions = storage->get_regions_all();
+			regions[region->get_location()] = region;
+			region->set_modified(true);
+			LOG(DEBUG, "Edited: ", region->get_data());
 		}
 	}
 
-	/* Rework all of undo
-	_terrain->get_storage()->set_all_regions_modified(false);
-	// Roll back to previous modified state
-	for (int i = 0; i < e_regions.size(); i++) {
-		_terrain->get_storage()->set_modified(i);
-	}*/
+	if (p_data.has("added_regions")) {
+		LOG(DEBUG, "Added regions: ", p_data["added_regions"]);
+		TypedArray<Vector2i> region_locs = p_data["added_regions"];
+		for (int i = 0; i < region_locs.size(); i++) {
+			storage->set_region_deleted(region_locs[i], true);
+			storage->set_region_modified(region_locs[i], true);
+			LOG(DEBUG, "Marking region: ", region_locs[i], " +deleted, +modified");
+		}
+	}
+	if (p_data.has("removed_regions")) {
+		LOG(DEBUG, "Removed regions: ", p_data["removed_regions"]);
+		TypedArray<Vector2i> region_locs = p_data["removed_regions"];
+		for (int i = 0; i < region_locs.size(); i++) {
+			storage->set_region_deleted(region_locs[i], false);
+			storage->set_region_modified(region_locs[i], true);
+			LOG(DEBUG, "Marking region: ", region_locs[i], " -deleted, +modified");
+		}
+	}
 
+	// After all regions are in place, reset the region map, which also calls update_maps
+	if (p_data.has("region_locations")) {
+		// Load w/ duplicate or it gets a bit wonky undoing removed regions w/ saves
+		_terrain->get_storage()->set_region_locations(p_data["region_locations"].duplicate());
+		Array locations = storage->get_region_locations();
+		LOG(DEBUG, "Locations(", locations.size(), "): ", locations);
+	}
+
+	/* else if (key == "height_range") {
+			//_terrain->get_storage()->set_height_range(p_set[key]);
+		} else if (key == "edited_area") {
+			_terrain->get_storage()->clear_edited_area();
+			_terrain->get_storage()->add_edited_area(p_set[key]);
+		} else if (key == "multimeshes") {
+			//_terrain->get_storage()->set_multimeshes(p_set[key]);
+		}
+	}
+	*/
+
+	storage->force_update_maps();
+	_terrain->get_instancer()->force_update_mmis();
 	if (_terrain->get_plugin()->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
 		_terrain->get_plugin()->call("update_grid");
 	}
-	_pending_undo = false;
-	_modified = false;
 }
 
 ///////////////////////////
@@ -727,24 +650,24 @@ void Terrain3DEditor::set_tool(const Tool p_tool) {
 void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	IS_STORAGE_INIT_MESG("Terrain isn't initialized", VOID);
 	LOG(INFO, "Setting up undo snapshot...");
-	_undo_data.clear();
-	_undo_data = _get_undo_data();
-	_pending_undo = true;
-	_modified = false; // Undo created, but don't save unless terrain modified
+	_undo_data = Dictionary(); // New pointer instead of clear
+	_undo_data["region_locations"] = _terrain->get_storage()->get_region_locations().duplicate();
+	_is_operating = true;
+	_original_regions = TypedArray<Terrain3DRegion>(); // New pointers instead of clear
+	_edited_regions = TypedArray<Terrain3DRegion>();
+	_added_removed_locations = TypedArray<Vector2i>();
 	// Reset counter at start to ensure first click places an instance
 	_terrain->get_instancer()->reset_instance_counter();
 	_terrain->get_storage()->clear_edited_area();
 	_operation_position = p_global_position;
 	_operation_movement = Vector3();
-	if (_tool == REGION) {
-		_operate_region(p_global_position);
-	}
 }
 
 // Called on mouse movement with left mouse button down
 void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_camera_direction) {
 	IS_STORAGE_INIT_MESG("Terrain isn't initialized", VOID);
-	if (!_pending_undo) {
+	if (!_is_operating) {
+		LOG(ERROR, "Run start_operation() before operating");
 		return;
 	}
 	_operation_movement = p_global_position - _operation_position;
@@ -763,9 +686,19 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 	_operation_movement *= 0.125; // 1/8th
 
 	if (_tool == REGION) {
-		_operate_region(p_global_position);
+		_operate_region(_terrain->get_storage()->get_region_location(p_global_position));
 	} else if (_tool >= 0 && _tool < TOOL_MAX) {
 		_operate_map(p_global_position, p_camera_direction);
+	}
+}
+
+void Terrain3DEditor::backup_region(const Ref<Terrain3DRegion> &p_region) {
+	if (_is_operating && p_region.is_valid() && !p_region->is_edited()) {
+		LOG(DEBUG, "Storing original copy of region: ", p_region->get_location());
+		_original_regions.push_back(p_region->duplicate(true));
+		_edited_regions.push_back(p_region);
+		p_region->set_edited(true);
+		p_region->set_modified(true);
 	}
 }
 
@@ -773,12 +706,23 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 void Terrain3DEditor::stop_operation() {
 	IS_STORAGE_INIT_MESG("Terrain isn't initialized", VOID);
 	// If undo was created and terrain actually modified, store it
-	if (_pending_undo && _modified) {
+	LOG(DEBUG, "Backed up regions: ", _original_regions.size(), ", Edited regions: ", _edited_regions.size(),
+			", Added/Removed regions: ", _added_removed_locations.size());
+	if (_is_operating && (!_added_removed_locations.is_empty() || !_edited_regions.is_empty())) {
+		for (int i = 0; i < _edited_regions.size(); i++) {
+			Ref<Terrain3DRegion> region = _edited_regions[i];
+			region->set_edited(false);
+			LOG(DEBUG, "Edited region: ", region->get_data());
+			// Make duplicate for redo backup
+			_edited_regions[i] = region->duplicate(true);
+		}
 		_store_undo();
-		_pending_undo = false;
-		_modified = false;
-		_terrain->get_storage()->clear_edited_area();
 	}
+	_original_regions = TypedArray<Terrain3DRegion>(); //New pointers instead of clear
+	_edited_regions = TypedArray<Terrain3DRegion>();
+	_added_removed_locations = TypedArray<Vector2i>();
+	_terrain->get_storage()->clear_edited_area();
+	_is_operating = false;
 }
 
 ///////////////////////////
@@ -815,9 +759,10 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_operation", "operation"), &Terrain3DEditor::set_operation);
 	ClassDB::bind_method(D_METHOD("get_operation"), &Terrain3DEditor::get_operation);
 	ClassDB::bind_method(D_METHOD("start_operation", "position"), &Terrain3DEditor::start_operation);
-	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction"), &Terrain3DEditor::operate);
-	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 	ClassDB::bind_method(D_METHOD("is_operating"), &Terrain3DEditor::is_operating);
+	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction"), &Terrain3DEditor::operate);
+	ClassDB::bind_method(D_METHOD("backup_region", "region"), &Terrain3DEditor::backup_region);
+	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 
-	ClassDB::bind_method(D_METHOD("apply_undo", "maps"), &Terrain3DEditor::_apply_undo);
+	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
 }

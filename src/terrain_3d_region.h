@@ -54,9 +54,10 @@ private:
 	Dictionary _multimeshes; // Dictionary[mesh_id:int] -> MultiMesh
 
 	// Working data not saved to disk
+	bool _deleted = false; // Marked for deletion on save
+	bool _edited = false; // Marked for undo/redo storage
+	bool _modified = false; // Marked for saving
 	Vector2i _location = V2I_MAX;
-	bool _modified = false;
-	bool _deleted = false;
 
 public:
 	Terrain3DRegion() {}
@@ -92,14 +93,21 @@ public:
 	Error save(const String &p_path = "", const bool p_16_bit = false);
 
 	// Working Data
-	void set_modified(const bool p_modified) { _modified = p_modified; }
-	bool is_modified() const { return _modified; }
 	void set_deleted(const bool p_deleted) { _deleted = p_deleted; }
 	bool is_deleted() const { return _deleted; }
+	void set_edited(const bool p_edited) { _edited = p_edited; }
+	bool is_edited() const { return _edited; }
+	void set_modified(const bool p_modified) { _modified = p_modified; }
+	bool is_modified() const { return _modified; }
 	void set_location(const Vector2i &p_location);
 	Vector2i get_location() const { return _location; }
 	void set_region_size(const int p_region_size) { _region_size = CLAMP(p_region_size, 1024, 1024); }
 	int get_region_size() const { return _region_size; }
+
+	// Utility
+	void set_data(const Dictionary &p_data);
+	Dictionary get_data() const;
+	Ref<Terrain3DRegion> duplicate(const bool p_deep = false);
 
 protected:
 	static void _bind_methods();

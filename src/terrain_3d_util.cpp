@@ -10,11 +10,56 @@
 // Public Functions
 ///////////////////////////
 
+void Terrain3DUtil::print_arr(const String &p_name, const Array &p_arr, const int p_level) {
+	LOG(p_level, "Array[", p_arr.size(), "]: ", p_name);
+	for (int i = 0; i < p_arr.size(); i++) {
+		Variant var = p_arr[i];
+		switch (var.get_type()) {
+			case Variant::ARRAY: {
+				print_arr(p_name + String::num_int64(i), var, p_level);
+				break;
+			}
+			case Variant::DICTIONARY: {
+				print_dict(p_name + String::num_int64(i), var, p_level);
+				break;
+			}
+			case Variant::OBJECT: {
+				String inst = "Object#" + String::num_uint64(cast_to<Object>(var)->get_instance_id());
+				LOG(p_level, i, ": ", inst);
+				break;
+			}
+			default: {
+				LOG(p_level, i, ": ", p_arr[i]);
+				break;
+			}
+		}
+	}
+}
+
 void Terrain3DUtil::print_dict(const String &p_name, const Dictionary &p_dict, const int p_level) {
-	LOG(p_level, "Printing Dictionary: ", p_name);
+	LOG(p_level, "Dictionary: ", p_name);
 	Array keys = p_dict.keys();
 	for (int i = 0; i < keys.size(); i++) {
-		LOG(p_level, "Key: ", keys[i], ", Value: ", p_dict[keys[i]]);
+		Variant var = p_dict[keys[i]];
+		switch (var.get_type()) {
+			case Variant::ARRAY: {
+				print_arr(p_name + String::num_int64(i), var, p_level);
+				break;
+			}
+			case Variant::DICTIONARY: {
+				print_dict(p_name + String::num_int64(i), var, p_level);
+				break;
+			}
+			case Variant::OBJECT: {
+				String inst = "Object#" + String::num_uint64(cast_to<Object>(var)->get_instance_id());
+				LOG(p_level, "\"", keys[i], "\": ", inst);
+				break;
+			}
+			default: {
+				LOG(p_level, "\"", keys[i], "\": Value: ", var);
+				break;
+			}
+		}
 	}
 }
 
