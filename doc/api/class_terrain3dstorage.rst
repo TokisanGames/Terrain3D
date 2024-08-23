@@ -553,6 +553,8 @@ Res/tres allow storage in any of Godot's native Image formats.
 
 Regenerates the TextureArrays that house the requested map types. Using the default :ref:`MapType<enum_Terrain3DStorage_MapType>` TYPE_MAX(3) will regenerate all map types.
 
+This function needs to be called after editing any of the maps.
+
 .. rst-class:: classref-item-separator
 
 ----
@@ -563,7 +565,7 @@ Regenerates the TextureArrays that house the requested map types. Using the defa
 
 :ref:`float<class_float>` **get_angle**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_angle>`
 
-Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -575,7 +577,7 @@ Returns the angle, aka uv rotation, painted on the control map at the requested 
 
 :ref:`Color<class_Color>` **get_color**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_color>`
 
-Returns the associated pixel on the color map at the requested position. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Returns the associated pixel on the color map at the requested position. Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -587,7 +589,7 @@ Returns the associated pixel on the color map at the requested position. Calls :
 
 :ref:`int<class_int>` **get_control**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_control>`
 
-Returns the associated pixel on the control map at the requested position. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Returns the associated pixel on the control map at the requested position. Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -603,7 +605,7 @@ Returns the height at the requested position. If the position is close to a vert
 
 Returns ``NAN`` if the requested position is a hole or outside of defined regions.
 
-Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -757,7 +759,7 @@ Returns a Vector2i region offset based on the current region ID.
 
 :ref:`float<class_float>` **get_roughness**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_roughness>`
 
-Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -769,7 +771,7 @@ Returns the roughness modifier (wetness) on the color map alpha channel associat
 
 :ref:`float<class_float>` **get_scale**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_scale>`
 
-Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Calls :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -869,7 +871,7 @@ Saves this storage resource to disk, if saved as an external ``.res`` file, whic
 
 |void| **set_color**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, color\: :ref:`Color<class_Color>`\ ) :ref:`🔗<class_Terrain3DStorage_method_set_color>`
 
-Sets the color on the color map pixel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the color on the color map pixel associated with the specified position. Also see :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -881,7 +883,7 @@ Sets the color on the color map pixel associated with the specified position. Ca
 
 |void| **set_control**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, control\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DStorage_method_set_control>`
 
-Sets the value on the control map pixel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the value on the control map pixel associated with the specified position. Also see :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 .. rst-class:: classref-item-separator
 
@@ -893,7 +895,7 @@ Sets the value on the control map pixel associated with the specified position. 
 
 |void| **set_height**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, height\: :ref:`float<class_float>`\ ) :ref:`🔗<class_Terrain3DStorage_method_set_height>`
 
-Sets the height value on the heightmap pixel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the height value on the heightmap pixel associated with the specified position. Also see :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 Unlike :ref:`get_height<class_Terrain3DStorage_method_get_height>`, which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
 
@@ -945,7 +947,7 @@ After setting pixels you need to call :ref:`force_update_maps<class_Terrain3DSto
 
 |void| **set_roughness**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, roughness\: :ref:`float<class_float>`\ ) :ref:`🔗<class_Terrain3DStorage_method_set_roughness>`
 
-Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
+Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Also see :ref:`set_pixel<class_Terrain3DStorage_method_set_pixel>`.
 
 .. rst-class:: classref-item-separator
 

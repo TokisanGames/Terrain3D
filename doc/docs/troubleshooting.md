@@ -57,6 +57,7 @@ Your console also reports: `Texture # albedo / normal, size / format... doesn't 
 
 The new texture doesn't match the format or size of the existing ones. [Texture Preparation](texture_prep.md) descibes the requirements, which includes the same format and size for each. Double click a texture in the filesystem and Godot will tell you what it is. You can also click the texture in the inspector when editing an entry in the asset dock to see the same thing.
 
+If adding textures to the demo, the format is PNG marked HQ so it converts to BPTC, which you can read about on the link above.
 
 ---
 

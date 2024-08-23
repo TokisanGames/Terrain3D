@@ -386,7 +386,7 @@ Tells the renderer how to cast shadows from the terrain onto other objects. This
 - |void| **set_cull_margin**\ (\ value\: :ref:`float<class_float>`\ )
 - :ref:`float<class_float>` **get_cull_margin**\ (\ )
 
-This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from :ref:`Terrain3DStorage.height_range<class_Terrain3DStorage_property_height_range>`, which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` with NOISE and a height value larger than the terrain heights. This setting is similar to `GeometryInstance3D.extra_cull_margin`, but it only affects the Y axis.
+This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from :ref:`Terrain3DStorage.height_range<class_Terrain3DStorage_property_height_range>`, which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` with NOISE and a height value larger than the terrain heights. This setting is similar to ``GeometryInstance3D.extra_cull_margin``, but it only affects the Y axis.
 
 .. rst-class:: classref-item-separator
 

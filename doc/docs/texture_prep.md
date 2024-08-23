@@ -29,11 +29,15 @@ Textures can be channel packed using the Pack Textures option in the Terrain3D T
 ### Texture Sizes
 All albedo textures must be the same size, and all normal textures must be the same size. Each type gets combined into separate Texture2DArrays, so their sizes of the two arrays can differ.
 
-For GPU efficiency, it is recommended that all textures have dimensions that are a power of 2 (128, 256, 512, 1024, 2048, 4096, 8192), but this isn't required.
+Double click any texture file and the inspector will show you the size. The demo textures are 1024x1024.
+
+For GPU efficiency, it is recommended that all of your textures have dimensions that are a power of 2 (128, 256, 512, 1024, 2048, 4096, 8192), but this isn't required.
 
 ### Compression Format
 
 All albedo textures must be the same format, and all normal textures must be the same format. They are combined into separate Texture2DArrays, so the two can have different formats.
+
+Double click any texture file and the inspector will show you the format, which likely can be modified on the Godot Import tab.
 
 | Type | Supports | Format |
 | - | - | - |
@@ -47,6 +51,8 @@ For mobile/web platforms, see [mobile & web support](mobile_web.md).
 Godot converts some texture files on import, so it is entirely possible that DDS, PNG, and TGA textures will all end up converted to DXT5 RGBA8. In this case, different file types can all be used in the same albedo or normal texture array because the compression format is the same. Double-clicking a texture in the FileSystem panel will display it in the Inspector with the current format of the file. They also need to match whether they have mipmaps or not.
 
 DDS (BC3/DXT5) is recommended for desktop platforms as it tends to be higher quality than the default PNG to BC3/DXT5 conversion in Godot. When creating DDS files in Gimp you have a lot more conversion options, such as different mipmaps filter algorithms which can be helpful to remove artifacts in reflections (eg try Mitchell). Alternatively, you can mark PNGs as high quality which will convert them to BC6/BPTC and makes them on par with Gimp BC3/DXT5. Godot does not currently support anything higher than BC3/DXT5 in DDS files.
+
+The demo textures are PNG imported as HQ which are converted to BPTC.
 
 You can create DDS files by:
   * Exporting directly from Gimp

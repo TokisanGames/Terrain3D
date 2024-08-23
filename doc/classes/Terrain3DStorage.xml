@@ -38,27 +38,28 @@
 			<param index="0" name="map_type" type="int" enum="Terrain3DStorage.MapType" default="3" />
 			<description>
 				Regenerates the TextureArrays that house the requested map types. Using the default [enum MapType] TYPE_MAX(3) will regenerate all map types.
+				This function needs to be called after editing any of the maps.
 			</description>
 		</method>
 		<method name="get_angle" qualifiers="const">
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Calls [method get_pixel].
+				Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Also see [method get_pixel].
 			</description>
 		</method>
 		<method name="get_color" qualifiers="const">
 			<return type="Color" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the associated pixel on the color map at the requested position. Calls [method get_pixel].
+				Returns the associated pixel on the color map at the requested position. Also see [method get_pixel].
 			</description>
 		</method>
 		<method name="get_control" qualifiers="const">
 			<return type="int" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the associated pixel on the control map at the requested position. Calls [method get_pixel].
+				Returns the associated pixel on the control map at the requested position. Also see [method get_pixel].
 			</description>
 		</method>
 		<method name="get_height" qualifiers="const">
@@ -67,7 +68,7 @@
 			<description>
 				Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
 				Returns [code skip-lint]NAN[/code] if the requested position is a hole or outside of defined regions.
-				Calls [method get_pixel].
+				Also see [method get_pixel].
 			</description>
 		</method>
 		<method name="get_map_region" qualifiers="const">
@@ -159,14 +160,14 @@
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls [method set_pixel].
+				Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Also see [method get_pixel].
 			</description>
 		</method>
 		<method name="get_scale" qualifiers="const">
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Calls [method get_pixel].
+				Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Also see [method get_pixel].
 			</description>
 		</method>
 		<method name="get_texture_id" qualifiers="const">
@@ -227,7 +228,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="color" type="Color" />
 			<description>
-				Sets the color on the color map pixel associated with the specified position. Calls [method set_pixel].
+				Sets the color on the color map pixel associated with the specified position. Also see [method set_pixel].
 			</description>
 		</method>
 		<method name="set_control">
@@ -235,7 +236,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="control" type="int" />
 			<description>
-				Sets the value on the control map pixel associated with the specified position. Calls [method set_pixel].
+				Sets the value on the control map pixel associated with the specified position. Also see [method set_pixel].
 			</description>
 		</method>
 		<method name="set_height">
@@ -243,7 +244,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="height" type="float" />
 			<description>
-				Sets the height value on the heightmap pixel associated with the specified position. Calls [method set_pixel].
+				Sets the height value on the heightmap pixel associated with the specified position. Also see [method set_pixel].
 				Unlike [method get_height], which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
 			</description>
 		</method>
@@ -279,7 +280,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="roughness" type="float" />
 			<description>
-				Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Calls [method set_pixel].
+				Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Also see [method set_pixel].
 			</description>
 		</method>
 		<method name="update_height_range">

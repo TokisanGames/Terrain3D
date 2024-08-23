@@ -47,6 +47,8 @@ Depending on which tool is selected on the toolbar, various tool settings will a
 
 Many tool settings offer a slider with a fixed range, and an input box where you can manually enter a much larger setting.
 
+The settings are saved across sessions. But you can click the label of each to reset the value to its default.
+
 Most are self explanatory. See [Foliage Instancing](instancer.md) for specific details on its settings.
 
 On the right is the advanced menu. One noteworthy setting is `Jitter`, which is what causes the brush to spin while painting. Reduce it to zero if you don't want this.
