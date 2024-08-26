@@ -134,7 +134,7 @@ void vertex() {
 	UV = round(v_vertex.xz * _mesh_vertex_density);
 
 	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
-	UV2 = (UV + vec2(0.5)) * _region_texel_size;
+	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
 	v_region = get_region_uv(UV);
