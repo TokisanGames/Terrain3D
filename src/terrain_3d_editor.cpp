@@ -607,7 +607,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 
 	// Santize editor data
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 2.f, 4096.f); // Diameter in meters
-	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 100.f); // 1-10k%
+	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (eg max of 1000m per click)
 	_brush_data["mouse_pressure"] = CLAMP(real_t(p_data.get("mouse_pressure", 0.f)), 0.f, 1.f);
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
 	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, Terrain3DAssets::MAX_MESHES);

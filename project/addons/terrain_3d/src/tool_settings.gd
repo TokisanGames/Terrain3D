@@ -243,6 +243,8 @@ func add_brushes(p_parent: Control) -> void:
 			if !dir.current_is_dir() and file_name.ends_with(".exr"):
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
 				img = Terrain3DUtil.black_to_alpha(img)
+				if img.get_width() < 1024 and img.get_height() < 1024:
+					img.resize(1024, 1024, Image.INTERPOLATE_CUBIC)
 				var tex: ImageTexture = ImageTexture.create_from_image(img)
 
 				var btn: Button = Button.new()
