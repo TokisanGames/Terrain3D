@@ -299,12 +299,12 @@ void Terrain3DMaterial::_update_regions() {
 	LOG(DEBUG_CONT, "Updating region maps in shader");
 
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
-	RS->material_set_param(_material, "_height_maps", storage->get_height_rid());
-	RS->material_set_param(_material, "_control_maps", storage->get_control_rid());
-	RS->material_set_param(_material, "_color_maps", storage->get_color_rid());
-	LOG(DEBUG_CONT, "Height map RID: ", storage->get_height_rid());
-	LOG(DEBUG_CONT, "Control map RID: ", storage->get_control_rid());
-	LOG(DEBUG_CONT, "Color map RID: ", storage->get_color_rid());
+	RS->material_set_param(_material, "_height_maps", storage->get_height_maps_rid());
+	RS->material_set_param(_material, "_control_maps", storage->get_control_maps_rid());
+	RS->material_set_param(_material, "_color_maps", storage->get_color_maps_rid());
+	LOG(DEBUG_CONT, "Height map RID: ", storage->get_height_maps_rid());
+	LOG(DEBUG_CONT, "Control map RID: ", storage->get_control_maps_rid());
+	LOG(DEBUG_CONT, "Color map RID: ", storage->get_color_maps_rid());
 
 	PackedInt32Array region_map = storage->get_region_map();
 	LOG(DEBUG_CONT, "region_map.size(): ", region_map.size());

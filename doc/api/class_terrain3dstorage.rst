@@ -66,9 +66,15 @@ Methods
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Color<class_Color>`                              | :ref:`get_color<class_Terrain3DStorage_method_get_color>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                        |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`RID<class_RID>`                                  | :ref:`get_color_maps_rid<class_Terrain3DStorage_method_get_color_maps_rid>`\ (\ ) |const|                                                                                                                                                                                                       |
+   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`                                  | :ref:`get_control<class_Terrain3DStorage_method_get_control>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                    |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`RID<class_RID>`                                  | :ref:`get_control_maps_rid<class_Terrain3DStorage_method_get_control_maps_rid>`\ (\ ) |const|                                                                                                                                                                                                   |
+   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`float<class_float>`                              | :ref:`get_height<class_Terrain3DStorage_method_get_height>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                      |
+   +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`RID<class_RID>`                                  | :ref:`get_height_maps_rid<class_Terrain3DStorage_method_get_height_maps_rid>`\ (\ ) |const|                                                                                                                                                                                                     |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Image<class_Image>`                              | :ref:`get_map_region<class_Terrain3DStorage_method_get_map_region>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DStorage_MapType>`, region_index\: :ref:`int<class_int>`\ ) |const|                                                                                                               |
    +--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -583,6 +589,18 @@ Returns the associated pixel on the color map at the requested position. Also se
 
 ----
 
+.. _class_Terrain3DStorage_method_get_color_maps_rid:
+
+.. rst-class:: classref-method
+
+:ref:`RID<class_RID>` **get_color_maps_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_color_maps_rid>`
+
+Provides access to the resource ID of the generated height map texture array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See `Tips <../docs/tips.html#using-the-generated-height-map-in-other-shaders>`__ for an example.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DStorage_method_get_control:
 
 .. rst-class:: classref-method
@@ -590,6 +608,18 @@ Returns the associated pixel on the color map at the requested position. Also se
 :ref:`int<class_int>` **get_control**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_control>`
 
 Returns the associated pixel on the control map at the requested position. Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DStorage_method_get_control_maps_rid:
+
+.. rst-class:: classref-method
+
+:ref:`RID<class_RID>` **get_control_maps_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_control_maps_rid>`
+
+Provides access to the resource ID of the generated control map texture array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See `Tips <../docs/tips.html#using-the-generated-height-map-in-other-shaders>`__ for an example.
 
 .. rst-class:: classref-item-separator
 
@@ -606,6 +636,18 @@ Returns the height at the requested position. If the position is close to a vert
 Returns ``NAN`` if the requested position is a hole or outside of defined regions.
 
 Also see :ref:`get_pixel<class_Terrain3DStorage_method_get_pixel>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DStorage_method_get_height_maps_rid:
+
+.. rst-class:: classref-method
+
+:ref:`RID<class_RID>` **get_height_maps_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DStorage_method_get_height_maps_rid>`
+
+Provides access to the resource ID of the generated height map texture array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See `Tips <../docs/tips.html#using-the-generated-height-map-in-other-shaders>`__ for an example.
 
 .. rst-class:: classref-item-separator
 

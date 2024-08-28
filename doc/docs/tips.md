@@ -26,11 +26,37 @@ You can determine if a given location is within a region by using `Terrain3DStor
 
 ## Shaders
 
+
 ### Make a region smaller than 1024^2
 Make a custom shader, then look in `vertex()` where it sets the vertex to an invalid number `VERTEX.x = 0./0.;`. Edit the conditional above it to filter out vertices that are < 0 or > 256 for instance. It will still build collision and consume memory for 1024 x 1024 maps, but this will allow you to control the visual aspect until alternate region sizes are supported.
 
-### Regarding day/night cycles
-The terrain shader is set to `cull_back`, meaning back faces are not rendered. Nor do they block light. If you have a day/night cycle and the sun sets below the horizon, it will shine through the terrain. Enable the shader override and change the second line to `cull_disabled` and the horizon will block sunlight. This does cost performance.
+
+### Day/Night cycles & light under the terrain
+The terrain shader is set to `cull_back`, meaning back faces are neither rendered, nor do they block light. If you have a day/night cycle and the sun sets below the horizon, it will shine through the terrain. Enable the shader override and change the second line to `cull_disabled` and the horizon will block sunlight. This does cost performance. 
+
+Alternatively, turn off your light when it syncs below. This will likely cause a shader recompile in the engine as it's a different lighting configuration. Instead you can change light energy to 0, or in the same frame, simultaneously turn off the sun light and turn on a moon light.
+
+
+### Accessing private shader variables
+Variables in the shader prefaced with `_` are considered private and not saved to disk. They can be accessed externally via the Rendering Server:
+
+```gdscript
+RenderingServer.material_get_param(terrain.get_material().get_material_rid(), "_background_mode")
+```
+
+
+### Using the generated height map in other shaders
+Here we get the resource ID of a material on a mesh. We assign the RID of the generated heightmap to texture slot in that material.
+
+```gdscript
+var mat: RID = $MeshInstance3D.mesh.surface_get_material(0).get_rid()
+RenderingServer.material_set_param(mat, "texture_albedo", get_storage().get_height_maps_rid())
+```
+
+This is a quick demonstration that shows results. However the generated texture arrays should be accessed with sampler2DArray in a shader, not the regular sampler which is what will will happen here.
+
+This also works with the control and color maps. 
+
 
 ### Add a custom texture map
 

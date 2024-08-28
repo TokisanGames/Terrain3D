@@ -53,6 +53,10 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the associated pixel on the color map at the requested position. Also see [method get_pixel].
+		<method name="get_color_maps_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Provides access to the resource ID of the generated height map texture array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See [url=../docs/tips.html#using-the-generated-height-map-in-other-shaders]Tips[/url] for an example.
 			</description>
 		</method>
 		<method name="get_control" qualifiers="const">
@@ -60,6 +64,10 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the associated pixel on the control map at the requested position. Also see [method get_pixel].
+		<method name="get_control_maps_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Provides access to the resource ID of the generated control map texture array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See [url=../docs/tips.html#using-the-generated-height-map-in-other-shaders]Tips[/url] for an example.
 			</description>
 		</method>
 		<method name="get_height" qualifiers="const">
@@ -69,6 +77,10 @@
 				Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
 				Returns [code skip-lint]NAN[/code] if the requested position is a hole or outside of defined regions.
 				Also see [method get_pixel].
+		<method name="get_height_maps_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Provides access to the resource ID of the generated height map texture array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See [url=../docs/tips.html#using-the-generated-height-map-in-other-shaders]Tips[/url] for an example.
 			</description>
 		</method>
 		<method name="get_map_region" qualifiers="const">
