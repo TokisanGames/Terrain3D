@@ -14,12 +14,12 @@ source_file="$SOURCE_FILE"
 [params]
 
 compress/mode=2
-compress/high_quality=false
+compress/high_quality=$HIGH_QUALITY
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=2
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=$GENERATE_MIPMAPS
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
