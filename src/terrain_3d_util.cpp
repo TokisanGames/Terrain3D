@@ -148,10 +148,10 @@ Vector2 Terrain3DUtil::get_min_max(const Ref<Image> &p_image) {
  */
 Ref<Image> Terrain3DUtil::get_thumbnail(const Ref<Image> &p_image, const Vector2i &p_size) {
 	if (p_image.is_null()) {
-		LOG(ERROR, "Provided image is not valid. Nothing to process.");
+		LOG(ERROR, "Provided image is not valid. Nothing to process");
 		return Ref<Image>();
 	} else if (p_image->is_empty()) {
-		LOG(ERROR, "Provided image is empty. Nothing to process.");
+		LOG(ERROR, "Provided image is empty. Nothing to process");
 		return Ref<Image>();
 	}
 	Vector2i size = Vector2i(CLAMP(p_size.x, 8, 16384), CLAMP(p_size.y, 8, 16384));
@@ -272,11 +272,11 @@ Ref<Image> Terrain3DUtil::get_filled_image(const Vector2i &p_size, const Color &
  */
 Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cache_mode, const Vector2 &p_r16_height_range, const Vector2i &p_r16_size) {
 	if (p_file_name.is_empty()) {
-		LOG(ERROR, "No file specified. Nothing imported.");
+		LOG(ERROR, "No file specified. Nothing imported");
 		return Ref<Image>();
 	}
 	if (!FileAccess::file_exists(p_file_name)) {
-		LOG(ERROR, "File ", p_file_name, " does not exist. Nothing to import.");
+		LOG(ERROR, "File ", p_file_name, " does not exist. Nothing to import");
 		return Ref<Image>();
 	}
 
@@ -321,42 +321,91 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
 	}
 
 	if (!img.is_valid()) {
-		LOG(ERROR, "File", p_file_name, " cannot be loaded.");
+		LOG(ERROR, "File", p_file_name, " cannot be loaded");
 		return Ref<Image>();
 	}
 	if (img->is_empty()) {
-		LOG(ERROR, "File", p_file_name, " is empty.");
+		LOG(ERROR, "File", p_file_name, " is empty");
 		return Ref<Image>();
 	}
 	LOG(DEBUG, "Loaded Image size: ", img->get_size(), " format: ", img->get_format());
 	return img;
 }
 
-/* From source RGB and R channels, create a new RGBA image. If p_invert_green_channel is true,
- * the destination green channel will be 1.0 - input green channel.
+/* From source RGB and selected source for Alpha channel, create a new RGBA image.
+ * If p_invert_green is true, the destination green channel will be 1.0 - input green channel.
+ * If p_invert_alpha is true, the destination alpha channel will be 1.0 - input source channel.
  */
-Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Image> &p_src_r, const bool p_invert_green_channel) {
-	if (!p_src_rgb.is_valid() || !p_src_r.is_valid()) {
-		LOG(ERROR, "Provided images are not valid. Cannot pack.");
+Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Image> &p_src_a,
+		const bool p_invert_green, const bool p_invert_alpha, const int p_alpha_channel) {
+	if (!p_src_rgb.is_valid() || !p_src_a.is_valid()) {
+		LOG(ERROR, "Provided images are not valid. Cannot pack");
 		return Ref<Image>();
 	}
-	if (p_src_rgb->get_size() != p_src_r->get_size()) {
-		LOG(ERROR, "Provided images are not the same size. Cannot pack.");
+	if (p_src_rgb->get_size() != p_src_a->get_size()) {
+		LOG(ERROR, "Provided images are not the same size. Cannot pack");
 		return Ref<Image>();
 	}
-	if (p_src_rgb->is_empty() || p_src_r->is_empty()) {
-		LOG(ERROR, "Provided images are empty. Cannot pack.");
+	if (p_src_rgb->is_empty() || p_src_a->is_empty()) {
+		LOG(ERROR, "Provided images are empty. Cannot pack");
+		return Ref<Image>();
+	}
+	if (p_alpha_channel < 0 || p_alpha_channel > 3) {
+		LOG(ERROR, "Source Channel of Height/Roughness invalid. Cannot Pack")
 		return Ref<Image>();
 	}
 	Ref<Image> dst = Image::create(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGBA8);
-	LOG(INFO, "Creating image from source RGB + R images.");
+	LOG(INFO, "Creating image from source RGB + source channel images");
 	for (int y = 0; y < p_src_rgb->get_height(); y++) {
 		for (int x = 0; x < p_src_rgb->get_width(); x++) {
 			Color col = p_src_rgb->get_pixel(x, y);
-			col.a = p_src_r->get_pixel(x, y).r;
-			if (p_invert_green_channel) {
+			col.a = p_src_a->get_pixel(x, y)[p_alpha_channel];
+			if (p_invert_green) {
 				col.g = 1.0f - col.g;
 			}
+			if (p_invert_alpha) {
+				col.a = 1.0f - col.a;
+			}
+			dst->set_pixel(x, y, col);
+		}
+	}
+	return dst;
+}
+
+// From source RGB, create a new L image that is scaled to use full 0 - 1 range.
+Ref<Image> Terrain3DUtil::luminance_to_height(const Ref<Image> &p_src_rgb) {
+	if (!p_src_rgb.is_valid()) {
+		LOG(ERROR, "Provided images are not valid. Cannot pack");
+		return Ref<Image>();
+	}
+	if (p_src_rgb->is_empty()) {
+		LOG(ERROR, "Provided images are empty. Cannot pack");
+		return Ref<Image>();
+	}
+	real_t lum_contrast;
+	real_t l_max = 0.0f;
+	real_t l_min = 1.0f;
+	// Calculate contrast and offset so that we can make the most use of the height channel range.
+	for (int y = 0; y < p_src_rgb->get_height(); y++) {
+		for (int x = 0; x < p_src_rgb->get_width(); x++) {
+			Color col = p_src_rgb->get_pixel(x, y);
+			real_t l = 0.299f * col.r + 0.587f * col.g + 0.114f * col.b;
+			l_max = MAX(l, l_max);
+			l_min = MIN(l, l_min);
+		}
+	}
+	lum_contrast = 1.0f / MAX(l_max - l_min, 1e-6);
+	Ref<Image> dst = Image::create(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGB8);
+	for (int y = 0; y < p_src_rgb->get_height(); y++) {
+		for (int x = 0; x < p_src_rgb->get_width(); x++) {
+			Color col = p_src_rgb->get_pixel(x, y);
+			real_t lum = 0.299f * col.r + 0.587f * col.g + 0.114f * col.b;
+			lum = CLAMP((lum * lum_contrast - l_min), 0.0f, 1.0f);
+			// some shaping
+			col.r = 0.5f - sin(asin(1.0f - 2.0f * lum) / 3.0f);
+			col.g = col.r;
+			col.b = col.r;
+			col.a = col.r;
 			dst->set_pixel(x, y, col);
 		}
 	}
@@ -398,5 +447,6 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(V2I_ZERO));
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_r", "invert_green_channel"), &Terrain3DUtil::pack_image, DEFVAL(false));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "invert_green", "invert_alpha", "alpha_channel"), &Terrain3DUtil::pack_image, DEFVAL(false));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("luminance_to_height", "src_rgb"), &Terrain3DUtil::luminance_to_height, DEFVAL(false));
 }
