@@ -3,7 +3,7 @@
 	<brief_description>
 	</brief_description>
 	<description>
-		This resource stores all map data for Terrain3D. Also see [url=../docs/controlmap_format.html]Controlmap Format[/url] and [url=../docs/storage_format.html]Storage Format Changelog[/url].
+		This resource stores all map data for Terrain3D. See [url=../docs/controlmap_format.html]Controlmap Format[/url] and [url=../docs/storage_format.html]Storage Format Changelog[/url].
 	</description>
 	<tutorials>
 	</tutorials>
@@ -45,14 +45,18 @@
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5. Also see [method get_pixel].
+				Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5.
+				Returns [code skip-lint]NAN[/code] if the position is outside of defined regions.
 			</description>
 		</method>
 		<method name="get_color" qualifiers="const">
 			<return type="Color" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the associated pixel on the color map at the requested position. Also see [method get_pixel].
+				Returns the associated pixel on the color map at the requested position. 
+				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
+			</description>
+		</method>
 		<method name="get_color_maps_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
@@ -63,7 +67,10 @@
 			<return type="int" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the associated pixel on the control map at the requested position. Also see [method get_pixel].
+				Returns the associated pixel on the control map at the requested position.
+				Returns [code skip-lint]4,294,967,295[/code] aka [code skip-lint]UINT32_MAX[/code] if the position is outside of defined regions.
+			</description>
+		</method>
 		<method name="get_control_maps_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
@@ -76,7 +83,8 @@
 			<description>
 				Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
 				Returns [code skip-lint]NAN[/code] if the requested position is a hole or outside of defined regions.
-				Also see [method get_pixel].
+			</description>
+		</method>
 		<method name="get_height_maps_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
@@ -111,7 +119,7 @@
 			<param index="1" name="filter" type="int" enum="Terrain3DStorage.HeightFilter" />
 			<param index="2" name="global_position" type="Vector3" />
 			<description>
-				Returns the position of a terrain vertex at a certain LOD. If there is a hole at the position, it returns [code skip-lint]NAN[/code] in the vector's Y coordinate.
+				Returns the position of a terrain vertex at a certain LOD. If the position is outside of defined regions or there is a hole, it returns [code skip-lint]NAN[/code] in the vector's Y coordinate.
 				[code skip-lint]lod[/code] - Determines how many heights around the given global position will be sampled. Range 0 - 8.
 				[code skip-lint]filter[/code] - Specifies how samples are filtered. See [enum HeightFilter].
 				[code skip-lint]global_position[/code] - X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
@@ -158,7 +166,7 @@
 			<return type="Vector2i" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Converts a world space position to region space. For a region_size of 1024 this basically means [code skip-lint]global_position/1024.0[/code]. Also see [member region_offsets].
+				Converts a world space position to region space. For a region_size of 1024 this basically means [code skip-lint]global_position/1024.0[/code]. See [member region_offsets].
 			</description>
 		</method>
 		<method name="get_region_offset_from_index" qualifiers="const">
@@ -172,14 +180,16 @@
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Also see [method get_pixel].
+				Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position.
+				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
 			</description>
 		</method>
 		<method name="get_scale" qualifiers="const">
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. Also see [method get_pixel].
+				Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. 
+				Returns [code skip-lint]NAN[/code] if the position is outside of defined regions.
 			</description>
 		</method>
 		<method name="get_texture_id" qualifiers="const">
@@ -187,7 +197,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns [code skip-lint]Vector3(base texture id, overlay id, blend value)[/code].
-				Returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] if the requested area is not in a region.
+				Returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] if the position is a hole or outside of defined regions.
 				This is often used for playing footstep sounds. It's up to the gamedev to determine which is visually apparent based on shader settings.
 				Due to blending, it won't be pixel perfect. Try having your player controller print this value while walking around to see how the blending values look. Perhaps you'll find that the overlay texture is visible starting at a blend value of .3 to .5, otherwise the base is visible. You can also observe the control blend debug view with [member Terrain3DMaterial.show_control_blend].
 				Observing how this is done in The Witcher 3, there are only about 6 sounds used (snow, foliage, dirt, gravel, rock, wood), and except for wood, they are not pixel perfect. Wood is easy to do by detecting if the player is walking on wood meshes. The other 5 sounds are played when the player is in an area where the textures are blending. So it might play rock while over a dirt area. This shows pixel perfect accuracy is not important. It will still provide a seamless audio visual experience.
@@ -240,7 +250,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="color" type="Color" />
 			<description>
-				Sets the color on the color map pixel associated with the specified position. Also see [method set_pixel].
+				Sets the color on the color map pixel associated with the specified position. See [method set_pixel] for important information.
 			</description>
 		</method>
 		<method name="set_control">
@@ -248,7 +258,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="control" type="int" />
 			<description>
-				Sets the value on the control map pixel associated with the specified position. Also see [method set_pixel].
+				Sets the value on the control map pixel associated with the specified position. See [method set_pixel] for important information.
 			</description>
 		</method>
 		<method name="set_height">
@@ -256,7 +266,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="height" type="float" />
 			<description>
-				Sets the height value on the heightmap pixel associated with the specified position. Also see [method set_pixel].
+				Sets the height value on the heightmap pixel associated with the specified position. See [method set_pixel] for important information.
 				Unlike [method get_height], which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
 			</description>
 		</method>
@@ -292,7 +302,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="roughness" type="float" />
 			<description>
-				Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. Also see [method set_pixel].
+				Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. See [method set_pixel] for important information.
 			</description>
 		</method>
 		<method name="update_height_range">
@@ -324,7 +334,7 @@
 			The setter calls [method set_maps].
 		</member>
 		<member name="height_range" type="Vector2" setter="set_height_range" getter="get_height_range" default="Vector2(0, 0)">
-			The highest and lowest heights for the sculpted terrain. Any [member Terrain3DMaterial.world_background] used that extends the mesh height outside of this range will not change this variable. Also see [member Terrain3D.render_cull_margin].
+			The highest and lowest heights for the sculpted terrain. Any [member Terrain3DMaterial.world_background] used that extends the mesh height outside of this range will not change this variable. See [member Terrain3D.render_cull_margin].
 		</member>
 		<member name="multimeshes" type="Dictionary" setter="set_multimeshes" getter="get_multimeshes" default="{}">
 			The storage for [Terrain3DInstancer]. Data is stored as a dictionary of dictionaries of MultiMeshes.
@@ -334,7 +344,7 @@
 		</member>
 		<member name="region_offsets" type="Vector2i[]" setter="set_region_offsets" getter="get_region_offsets" default="[]">
 			An array of the active regions in region grid coordinates (+/-8, +/-8). e.g. { (0, 0), (-1, 3), (1, 1) }. It is ordered by the sequence in which regions were created, not by location.
-			Also see [method get_region_index] which returns the index into this array based on position.
+			See [method get_region_index] which returns the index into this array based on position.
 			And [method get_region_offset] which converts a position in world space to a region space, which is what is stored in this array. Eg. [code skip-lint]get_region_offset(Vector3(1500, 0, 1500))[/code] would return (1, 1).
 		</member>
 		<member name="region_size" type="int" setter="set_region_size" getter="get_region_size" enum="Terrain3DStorage.RegionSize" default="1024">

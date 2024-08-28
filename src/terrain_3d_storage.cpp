@@ -531,6 +531,9 @@ Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) const
 		return Vector3(NAN, NAN, NAN);
 	}
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // 32-bit float, not double/real
+	if (is_hole(src)) {
+		return Vector3(NAN, NAN, NAN);
+	}
 	Ref<Terrain3DMaterial> t_material = _terrain->get_material();
 	bool auto_enabled = t_material->get_auto_shader();
 	bool control_auto = is_auto(src);
@@ -561,6 +564,9 @@ Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) const
 
 real_t Terrain3DStorage::get_angle(const Vector3 &p_global_position) const {
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
+	if (std::isnan(src)) {
+		return NAN;
+	}
 	real_t angle = real_t(get_uv_rotation(src));
 	angle *= 22.5; // Return value in degrees.
 	return real_t(angle);
@@ -568,6 +574,9 @@ real_t Terrain3DStorage::get_angle(const Vector3 &p_global_position) const {
 
 real_t Terrain3DStorage::get_scale(const Vector3 &p_global_position) const {
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
+	if (std::isnan(src)) {
+		return NAN;
+	}
 	std::array<real_t, 8> scale_values = { 0.0f, 20.0f, 40.0f, 60.0f, 80.0f, -60.0f, -40.0f, -20.0f };
 	real_t scale = scale_values[get_uv_scale(src)]; //select from array UI return values
 	return real_t(scale);

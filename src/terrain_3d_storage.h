@@ -223,7 +223,8 @@ inline void Terrain3DStorage::set_control(const Vector3 &p_global_position, cons
 }
 
 inline uint32_t Terrain3DStorage::get_control(const Vector3 &p_global_position) const {
-	return as_uint(get_pixel(TYPE_CONTROL, p_global_position).r);
+	real_t val = get_pixel(TYPE_CONTROL, p_global_position).r;
+	return (std::isnan(val)) ? UINT32_MAX : as_uint(val);
 }
 
 inline void Terrain3DStorage::set_roughness(const Vector3 &p_global_position, const real_t p_roughness) {
