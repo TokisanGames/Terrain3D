@@ -64,9 +64,7 @@ func _ready() -> void:
 	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":33, 
 								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
 
-	add_setting({ "name":"lift_floor", "type":SettingType.CHECKBOX, "list":main_list,
-								"default":false })
-	add_setting({ "name":"flatten_peaks", "type":SettingType.CHECKBOX, "list":main_list,
+	add_setting({ "name":"lift_flatten", "type":SettingType.CHECKBOX, "list":main_list,
 								"default":false })
 
 	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":20, 
@@ -156,8 +154,8 @@ func _ready() -> void:
 
 	## Advanced Settings Menu
 	advanced_list = create_submenu(main_list, "Advanced", Layout.VERTICAL)
-	add_setting({ "name":"automatic_regions", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true })
+	add_setting({ "name":"auto_regions", "label":"Add regions while sculpting", "type":SettingType.CHECKBOX, 
+								"list":advanced_list, "default":true })
 	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
 								"default":true })
 	add_setting({ "name":"show_cursor_while_painting", "type":SettingType.CHECKBOX, "list":advanced_list, 
@@ -523,7 +521,7 @@ func get_setting(p_setting: String) -> Variant:
 		object.set_custom_minimum_size(Vector2(width, 0))
 	elif object is DoubleSlider:
 		value = Vector2(object.get_min_value(), object.get_max_value())
-	elif object is ButtonGroup:
+	elif object is ButtonGroup: # "brush"
 		var img: Image = object.get_pressed_button().get_meta("image")
 		var tex: Texture2D = object.get_pressed_button().get_button_icon()
 		value = [ img, tex ]

@@ -53,9 +53,6 @@ void Terrain3DEditor::_operate_region(const Vector3 &p_global_position) {
 }
 
 void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_t p_camera_direction) {
-	if (_brush_image.is_null()) {
-		LOG(ERROR, "Invalid brush image. Returning");
-	}
 	LOG(DEBUG_CONT, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
 	Ref<Terrain3DStorage> storage = _terrain->get_storage();
 	int region_size = storage->get_region_size();
@@ -100,11 +97,14 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			return;
 	}
 
-	Ref<Image> map = storage->get_map_region(map_type, region_index);
-	real_t brush_size = _brush_data["size"];
-	int asset_id = _brush_data["asset_id"];
+	Ref<Image> brush_image = _brush_data["brush_image"];
+	if (brush_image.is_null()) {
+		LOG(ERROR, "Invalid brush image. Returning");
+		return;
+	}
 	Vector2i img_size = _brush_data["brush_image_size"];
-	
+	real_t brush_size = _brush_data["size"];
+
 	// Typicall we multiply mouse pressure & strength setting, but
 	// * Mouse movement w/ button down has a pressure of 1
 	// * Mouse clicks always have pressure of 0
@@ -125,16 +125,20 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	real_t height = _brush_data["height"];
 	Color color = _brush_data["color"];
 	real_t roughness = _brush_data["roughness"];
-	PackedVector3Array gradient_points = _brush_data["gradient_points"];
+
 	bool enable_texture = _brush_data["enable_texture"];
+	int asset_id = _brush_data["asset_id"];
+
 	bool enable_angle = _brush_data["enable_angle"];
 	bool dynamic_angle = _brush_data["dynamic_angle"];
 	real_t angle = _brush_data["angle"];
+
 	bool enable_scale = _brush_data["enable_scale"];
 	real_t scale = _brush_data["scale"];
+
 	real_t gamma = _brush_data["gamma"];
-	bool lift_floor = _brush_data["lift_floor"];
-	bool flatten_peaks = _brush_data["flatten_peaks"];
+	PackedVector3Array gradient_points = _brush_data["gradient_points"];
+	bool lift_flatten = _brush_data["lift_flatten"];
 
 	real_t randf = UtilityFunctions::randf();
 	real_t rot = randf * Math_PI * real_t(_brush_data["jitter"]);
@@ -159,6 +163,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 
 	// MAP Operations
+	Ref<Image> map = storage->get_map_region(map_type, region_index);
 	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
@@ -187,7 +192,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			}
 
 			// Identify position on map image
-			Vector2 uv_position = _get_uv_position(brush_global_position, region_size);
+			Vector2 uv_position = _get_uv_position(brush_global_position, region_size, vertex_spacing);
 			Vector2i map_pixel_position = Vector2i(uv_position * region_size);
 
 			if (_is_in_bounds(map_pixel_position, region_vsize)) {
@@ -203,10 +208,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				edited_area = edited_area.expand(edited_position);
 
 				// Start brushing on the map
-				real_t brush_alpha = _get_brush_alpha(brush_pixel_position);
-				if (std::isnan(brush_alpha)) {
-					return;
-				}
+				real_t brush_alpha = brush_image->get_pixelv(brush_pixel_position).r;
 				brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
 				Color src = map->get_pixelv(map_pixel_position);
 				Color dest = src;
@@ -217,7 +219,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 					switch (_operation) {
 						case ADD: {
-							if (lift_floor && !std::isnan(p_global_position.y)) {
+							if (lift_flatten && !std::isnan(p_global_position.y)) {
 								real_t brush_center_y = p_global_position.y + brush_alpha * strength;
 								destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
 							} else {
@@ -226,7 +228,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							break;
 						}
 						case SUBTRACT: {
-							if (flatten_peaks && !std::isnan(p_global_position.y)) {
+							if (lift_flatten && !std::isnan(p_global_position.y)) {
 								real_t brush_center_y = p_global_position.y - brush_alpha * strength;
 								destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
 							} else {
@@ -454,33 +456,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	storage->add_edited_area(edited_area);
 }
 
-bool Terrain3DEditor::_is_in_bounds(const Vector2i &p_position, const Vector2i &p_max_position) const {
-	bool more_than_min = p_position.x >= 0 && p_position.y >= 0;
-	bool less_than_max = p_position.x < p_max_position.x && p_position.y < p_max_position.y;
-	return more_than_min && less_than_max;
-}
-
-real_t Terrain3DEditor::_get_brush_alpha(const Vector2i &p_position) const {
-	if (_brush_image.is_valid()) {
-		return _brush_image->get_pixelv(p_position).r;
-	}
-	return NAN;
-}
-
-Vector2 Terrain3DEditor::_get_uv_position(const Vector3 &p_global_position, const int p_region_size) const {
-	Vector2 descaled_position_2d = Vector2(p_global_position.x, p_global_position.z) / _terrain->get_mesh_vertex_spacing();
-	Vector2 region_position = descaled_position_2d / real_t(p_region_size);
-	region_position = region_position.floor();
-	Vector2 uv_position = (descaled_position_2d / real_t(p_region_size)) - region_position;
-	return uv_position;
-}
-
-Vector2 Terrain3DEditor::_get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const {
-	Vector2 rotation_offset = Vector2(0.5f, 0.5f);
-	Vector2 uv = (p_uv - rotation_offset).rotated(p_angle) + rotation_offset;
-	return uv.clamp(Vector2(0.f, 0.f), Vector2(1.f, 1.f));
-}
-
 Dictionary Terrain3DEditor::_get_undo_data() const {
 	Dictionary data;
 	if (_tool < 0 || _tool >= TOOL_MAX) {
@@ -607,28 +582,34 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_set) {
 // Santize and set incoming brush data w/ defaults and clamps
 // Only santizes data needed for the editor, other parameters (eg instancer) untouched here
 void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
-	_brush_data = p_data;
+	_brush_data = p_data; // Same instance. Anything could be inserted after this, eg mouse_pressure
 
-	// Setup image and textures
-	_brush_image = Ref<Image>();
-	_brush_data["brush_image_size"] = Vector2i(0, 0);
-	_brush_data["brush_texture"] = Ref<ImageTexture>();
-	Array brush = p_data["brush"];
-	if (brush.size() == 2) {
-		Ref<Image> img = brush[0];
+	// Sanitize image and textures
+	Array brush_images = p_data["brush"];
+	bool error = false;
+	if (brush_images.size() == 2) {
+		Ref<Image> img = brush_images[0];
 		if (img.is_valid() && !img->is_empty()) {
-			_brush_image = img;
+			_brush_data["brush_image"] = img;
 			_brush_data["brush_image_size"] = img->get_size();
-			_brush_data["brush_texture"] = brush[1];
+		} else {
+			LOG(ERROR, "Brush data doesn't contain a valid image");
 		}
+		Ref<Texture2D> tex = brush_images[1];
+		if (tex.is_valid() && tex->get_width() > 0 && tex->get_height() > 0) {
+			_brush_data["brush_texture"] = tex;
+		} else {
+			LOG(ERROR, "Brush data doesn't contain a valid texture");
+		}
+	} else {
+		LOG(ERROR, "Brush data doesn't contain an image and texture");
 	}
 
-	// Santize editor data
+	// Santize settings
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 2.f, 4096.f); // Diameter in meters
-	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (eg max of 1000m per click)
+	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
-	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, Terrain3DAssets::MAX_MESHES);
 	Color col = p_data.get("color", COLOR_ROUGHNESS);
 	col.r = CLAMP(col.r, 0.f, 5.f);
 	col.g = CLAMP(col.g, 0.f, 5.f);
@@ -636,18 +617,24 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	col.a = CLAMP(col.a, 0.f, 1.f);
 	_brush_data["color"] = col;
 	_brush_data["roughness"] = CLAMP(real_t(p_data.get("roughness", 0.f)), -100.f, 100.f) * .01f; // Percentage
-	_brush_data["auto_regions"] = bool(p_data.get("automatic_regions", true));
+
+	_brush_data["enable_texture"] = p_data.get("enable_texture", true);
+	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, (_tool == INSTANCER) ? Terrain3DAssets::MAX_MESHES : Terrain3DAssets::MAX_TEXTURES) - 1;
+
+	_brush_data["enable_angle"] = p_data.get("enable_angle", true);
+	_brush_data["dynamic_angle"] = p_data.get("dynamic_angle", false);
+	_brush_data["angle"] = CLAMP(real_t(p_data.get("angle", 0.f)), 0.f, 337.5f);
+
+	_brush_data["enable_scale"] = p_data.get("enable_scale", true);
+	_brush_data["scale"] = CLAMP(real_t(p_data.get("scale", 0.f)), -60.f, 80.f);
+
+	_brush_data["auto_regions"] = bool(p_data.get("auto_regions", true));
 	_brush_data["align_to_view"] = bool(p_data.get("align_to_view", true));
 	_brush_data["gamma"] = CLAMP(real_t(p_data.get("gamma", 1.f)), 0.1f, 2.f);
 	_brush_data["jitter"] = CLAMP(real_t(p_data.get("jitter", 0.f)), 0.f, 1.f);
 	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
 
-	LOG(DEBUG_CONT, "Setting new, sanitized brush data: ");
-	Array keys = _brush_data.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		LOG(DEBUG_CONT, keys[i], ": ", _brush_data[keys[i]]);
-	}
-	LOG(DEBUG_CONT, "Setting tool: ", _tool, ", operation: ", _operation);
+	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, DEBUG_CONT);
 }
 
 void Terrain3DEditor::set_tool(const Tool p_tool) {

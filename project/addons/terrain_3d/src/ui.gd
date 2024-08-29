@@ -222,7 +222,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			pass
 
 	# Advanced menu settings
-	to_show.push_back("automatic_regions")
+	to_show.push_back("auto_regions")
 	to_show.push_back("align_to_view")
 	to_show.push_back("show_cursor_while_painting")
 	to_show.push_back("gamma")
@@ -447,9 +447,7 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 	# Alt (modify) key. Change the raise/lower operation to lift floors / flatten peaks.
 	if p_modifier == KEY_ALT && modifier_alt != p_pressed:
 		modifier_alt = p_pressed
-		
-		tool_settings.set_setting("lift_floor", p_pressed)
-		tool_settings.set_setting("flatten_peaks", p_pressed)
+		tool_settings.set_setting("lift_flatten", p_pressed)
 
 	# Shift (smooth) key
 	if p_modifier == KEY_SHIFT && modifier_shift != p_pressed:
@@ -467,10 +465,10 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
 	var remove_checked: bool = false
 	if DisplayServer.is_touchscreen_available():
-		var remove_tools := [Terrain3DEditor.REGION, Terrain3DEditor.HEIGHT, Terrain3DEditor.AUTOSHADER,
+		var removable_tools := [Terrain3DEditor.REGION, Terrain3DEditor.HEIGHT, Terrain3DEditor.AUTOSHADER,
 			Terrain3DEditor.HOLES, Terrain3DEditor.INSTANCER, Terrain3DEditor.NAVIGATION, 
 			Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS]
-		remove_checked = brush_data.get("remove", false) && plugin.editor.get_tool() in remove_tools
+		remove_checked = brush_data.get("remove", false) && plugin.editor.get_tool() in removable_tools
 		
 	if modifier_ctrl or remove_checked:
 		return _invert_operation(p_operation, OP_NEGATIVE_ONLY)

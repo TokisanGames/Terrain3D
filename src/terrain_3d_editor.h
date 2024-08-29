@@ -69,7 +69,6 @@ private:
 	// Painter settings & variables
 	Tool _tool = REGION;
 	Operation _operation = ADD;
-	Ref<Image> _brush_image;
 	Dictionary _brush_data;
 	Vector3 _operation_position = Vector3();
 	Vector3 _operation_movement = Vector3();
@@ -84,8 +83,7 @@ private:
 	void _operate_region(const Vector3 &p_global_position);
 	void _operate_map(const Vector3 &p_global_position, const real_t p_camera_direction);
 	bool _is_in_bounds(const Vector2i &p_position, const Vector2i &p_max_position) const;
-	real_t _get_brush_alpha(const Vector2i &p_position) const;
-	Vector2 _get_uv_position(const Vector3 &p_global_position, const int p_region_size) const;
+	Vector2 _get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const;
 	Vector2 _get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const;
 
 	Dictionary _get_undo_data() const;
@@ -116,5 +114,27 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DEditor::Operation);
 VARIANT_ENUM_CAST(Terrain3DEditor::Tool);
+
+/// Inline functions
+
+inline bool Terrain3DEditor::_is_in_bounds(const Vector2i &p_position, const Vector2i &p_max_position) const {
+	bool more_than_min = p_position.x >= 0 && p_position.y >= 0;
+	bool less_than_max = p_position.x < p_max_position.x && p_position.y < p_max_position.y;
+	return more_than_min && less_than_max;
+}
+
+inline Vector2 Terrain3DEditor::_get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const {
+	Vector2 descaled_position_2d = Vector2(p_global_position.x, p_global_position.z) / p_vertex_spacing;
+	Vector2 region_position = descaled_position_2d / real_t(p_region_size);
+	region_position = region_position.floor();
+	Vector2 uv_position = (descaled_position_2d / real_t(p_region_size)) - region_position;
+	return uv_position;
+}
+
+inline Vector2 Terrain3DEditor::_get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const {
+	Vector2 rotation_offset = Vector2(0.5f, 0.5f);
+	Vector2 uv = (p_uv - rotation_offset).rotated(p_angle) + rotation_offset;
+	return uv.clamp(Vector2(0.f, 0.f), Vector2(1.f, 1.f));
+}
 
 #endif // TERRAIN3D_EDITOR_CLASS_H
