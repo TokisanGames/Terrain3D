@@ -78,6 +78,7 @@ private:
 	bool _modified = false;
 	AABB _modified_area;
 	Dictionary _undo_data; // See _get_undo_data for definition
+	uint64_t _last_pen_tick = 0;
 
 	void _region_modified(const Vector3 &p_global_position, const Vector2 &p_height_range = Vector2());
 	void _operate_region(const Vector3 &p_global_position);

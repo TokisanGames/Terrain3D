@@ -175,8 +175,6 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				return AFTER_GUI_INPUT_STOP
 			mouse_global_position = intersection_point
 		
-		ui.brush_data["mouse_pressure"] = p_event.pressure
-
 		## Update decal
 		ui.decal.global_position = mouse_global_position
 		ui.update_decal()
@@ -189,6 +187,9 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			current_region_position = region_position
 			update_region_grid()
 			
+		# Inject pressure - Relies on C++ set_brush_data() using same dictionary instance
+		ui.brush_data["mouse_pressure"] = p_event.pressure
+		
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and editor.is_operating():
 			editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
 			return AFTER_GUI_INPUT_STOP

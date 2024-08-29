@@ -1,6 +1,7 @@
 // Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "logger.h"
@@ -103,7 +104,24 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	real_t brush_size = _brush_data["size"];
 	int asset_id = _brush_data["asset_id"];
 	Vector2i img_size = _brush_data["brush_image_size"];
-	real_t strength = ((real_t)_brush_data["mouse_pressure"] > 0.f) ? _brush_data["mouse_pressure"] : _brush_data["strength"];
+	
+	// Typicall we multiply mouse pressure & strength setting, but
+	// * Mouse movement w/ button down has a pressure of 1
+	// * Mouse clicks always have pressure of 0
+	// * Pen movement pressure varies, sometimes lifting or clicking has a pressure of 0
+	// If we're operating with a pressure of 0.001-.999 it's a pen
+	// So if there's a 0 pressure operation >100ms after a pen operation, we assume it's
+	// a mouse click. This occasionally catches a pen click, but avoids most pen lifts.
+	real_t mouse_pressure = CLAMP(real_t(_brush_data.get("mouse_pressure", 0.f)), 0.f, 1.f);
+	if (mouse_pressure > CMP_EPSILON && mouse_pressure < 1.f) {
+		_last_pen_tick = Time::get_singleton()->get_ticks_msec();
+	}
+	uint64_t ticks = Time::get_singleton()->get_ticks_msec();
+	if (mouse_pressure < CMP_EPSILON && ticks - _last_pen_tick >= 100) {
+		mouse_pressure = 1.f;
+	}
+	real_t strength = mouse_pressure * (real_t)_brush_data["strength"];
+
 	real_t height = _brush_data["height"];
 	Color color = _brush_data["color"];
 	real_t roughness = _brush_data["roughness"];
@@ -608,7 +626,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	// Santize editor data
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 2.f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (eg max of 1000m per click)
-	_brush_data["mouse_pressure"] = CLAMP(real_t(p_data.get("mouse_pressure", 0.f)), 0.f, 1.f);
+	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
 	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, Terrain3DAssets::MAX_MESHES);
 	Color col = p_data.get("color", COLOR_ROUGHNESS);
