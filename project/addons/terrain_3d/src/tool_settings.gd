@@ -39,7 +39,7 @@ const ADD_SPACER: int = 0x10
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var brush_preview_material: ShaderMaterial
 var select_brush_button: Button
-var main_list: HBoxContainer
+var main_list: HFlowContainer
 var advanced_list: VBoxContainer
 var height_list: VBoxContainer
 var scale_list: VBoxContainer
@@ -49,7 +49,7 @@ var settings: Dictionary = {}
 
 
 func _ready() -> void:
-	main_list = HBoxContainer.new()
+	main_list = HFlowContainer.new()
 	add_child(main_list, true)
 	
 	## Common Settings

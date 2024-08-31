@@ -1,6 +1,5 @@
-extends VBoxContainer
-	
-	
+extends VFlowContainer
+
 signal tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation)
 
 const ICON_REGION_ADD: String = "res://addons/terrain_3d/icons/region_add.svg"
