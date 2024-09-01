@@ -305,3 +305,11 @@ func get_setting(p_str: String, p_default: Variant) -> Variant:
 		return editor_settings.get_setting(p_str)
 	else:
 		return p_default
+
+
+func has_setting(p_str: String) -> bool:
+	return editor_settings.has_setting(p_str)
+
+
+func erase_setting(p_str: String) -> void:
+	editor_settings.erase(p_str)

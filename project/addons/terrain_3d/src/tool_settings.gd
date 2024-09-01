@@ -33,8 +33,9 @@ const ALLOW_LARGER: int = 0x1
 const ALLOW_SMALLER: int = 0x2
 const ALLOW_OUT_OF_BOUNDS: int = 0x3 # LARGER|SMALLER
 const NO_LABEL: int = 0x4
-const ADD_SEPARATOR: int = 0x8
-const ADD_SPACER: int = 0x10
+const ADD_SEPARATOR: int = 0x8 # Add a vertical line before this entry
+const ADD_SPACER: int = 0x10 # Add a space before this entry
+const NO_SAVE: int = 0x20 # Don't save this in EditorSettings
 
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var brush_preview_material: ShaderMaterial
@@ -49,14 +50,18 @@ var settings: Dictionary = {}
 
 
 func _ready() -> void:
+	# Remove old editor settings
+	for setting in ["lift_floor", "flatten_peaks", "lift_flatten", "automatic_regions"]:
+		plugin.erase_setting(ES_TOOL_SETTINGS + setting)
+
+	# Setup buttons	
 	main_list = HFlowContainer.new()
 	add_child(main_list, true)
 	
-	## Common Settings
 	add_brushes(main_list)
 
 	add_setting({ "name":"instructions", "label":"Click the terrain to add a region. CTRL+Click to remove. Or select another tool on the left.",
-		"type":SettingType.LABEL, "list":main_list, "flags":NO_LABEL })
+		"type":SettingType.LABEL, "list":main_list, "flags":NO_LABEL|NO_SAVE })
 
 	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":20, "unit":"m",
 								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
@@ -65,7 +70,7 @@ func _ready() -> void:
 								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
 
 	add_setting({ "name":"lift_flatten", "type":SettingType.CHECKBOX, "list":main_list,
-								"default":false })
+								"default":false, "flags":NO_SAVE })
 
 	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":20, 
 								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
@@ -362,11 +367,14 @@ func add_setting(p_args: Dictionary) -> void:
 
 		SettingType.CHECKBOX:
 			var checkbox := CheckBox.new()
-			checkbox.set_pressed_no_signal(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
-			checkbox.toggled.connect( (
-				func(value, path):
-					plugin.set_setting(path, value)
-			).bind(ES_TOOL_SETTINGS + p_name) )
+			if !(p_flags & NO_SAVE):
+				checkbox.set_pressed_no_signal(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
+				checkbox.toggled.connect( (
+					func(value, path):
+						plugin.set_setting(path, value)
+				).bind(ES_TOOL_SETTINGS + p_name) )
+			else:
+				checkbox.set_pressed_no_signal(p_default)				
 			checkbox.pressed.connect(_on_setting_changed)
 			pending_children.push_back(checkbox)
 			control = checkbox
@@ -376,11 +384,14 @@ func add_setting(p_args: Dictionary) -> void:
 			picker.set_custom_minimum_size(Vector2(100, 25))
 			picker.edit_alpha = false
 			picker.get_picker().set_color_mode(ColorPicker.MODE_HSV)
-			picker.set_pick_color(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
-			picker.color_changed.connect( (
-				func(value, path):
-					plugin.set_setting(path, value)
-			).bind(ES_TOOL_SETTINGS + p_name) )
+			if !(p_flags & NO_SAVE):
+				picker.set_pick_color(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
+				picker.color_changed.connect( (
+					func(value, path):
+						plugin.set_setting(path, value)
+				).bind(ES_TOOL_SETTINGS + p_name) )
+			else:
+				picker.set_pick_color(p_default)
 			picker.color_changed.connect(_on_setting_changed)
 			pending_children.push_back(picker)
 			control = picker
@@ -454,11 +465,14 @@ func add_setting(p_args: Dictionary) -> void:
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
 			slider.set_custom_minimum_size(Vector2(60, 10))
 
-			slider.set_value(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
-			slider.value_changed.connect( (
-				func(value, path):
-					plugin.set_setting(path, value)
-			).bind(ES_TOOL_SETTINGS + p_name) )
+			if !(p_flags & NO_SAVE):
+				slider.set_value(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
+				slider.value_changed.connect( (
+					func(value, path):
+						plugin.set_setting(path, value)
+				).bind(ES_TOOL_SETTINGS + p_name) )
+			else:
+				slider.set_value(p_default)
 
 	control.name = p_name.to_pascal_case()
 	settings[p_name] = control
