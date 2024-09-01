@@ -619,7 +619,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["roughness"] = CLAMP(real_t(p_data.get("roughness", 0.f)), -100.f, 100.f) * .01f; // Percentage
 
 	_brush_data["enable_texture"] = p_data.get("enable_texture", true);
-	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, (_tool == INSTANCER) ? Terrain3DAssets::MAX_MESHES : Terrain3DAssets::MAX_TEXTURES) - 1;
+	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, ((_tool == INSTANCER) ? Terrain3DAssets::MAX_MESHES : Terrain3DAssets::MAX_TEXTURES) - 1);
 
 	_brush_data["enable_angle"] = p_data.get("enable_angle", true);
 	_brush_data["dynamic_angle"] = p_data.get("dynamic_angle", false);
