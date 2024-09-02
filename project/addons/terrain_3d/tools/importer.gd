@@ -17,14 +17,12 @@ func reset_settings(p_value) -> void:
 		import_scale = 1.0
 		r16_range = Vector2(0, 1)
 		r16_size = Vector2i(1024, 1024)
-		storage = null
 		material = null
 		assets = null
 
 
 func reset_terrain(p_value) -> void:
-	if p_value:
-		storage = null
+	data_directory = ""
 
 
 func update_heights(p_value) -> void:
@@ -57,8 +55,6 @@ func set_r16_size(p_value: Vector2i) -> void:
 func start_import(p_value: bool) -> void:
 	if p_value:
 		print("Terrain3DImporter: Importing files:\n\t%s\n\t%s\n\t%s" % [ height_file_name, control_file_name, color_file_name])
-		if not storage:
-			storage = Terrain3DStorage.new()
 
 		var imported_images: Array[Image]
 		imported_images.resize(Terrain3DRegion.TYPE_MAX)

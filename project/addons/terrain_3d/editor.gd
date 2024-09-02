@@ -7,8 +7,7 @@ extends EditorPlugin
 const UI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
-const PS_DOCK_POSITION: String = "terrain3d/config/dock_position"
-const PS_DOCK_PINNED: String = "terrain3d/config/dock_pinned"
+const CONVERSION_WIZARD: PackedScene = preload("res://addons/terrain_3d/src/storage_wizard.tscn")
 
 var terrain: Terrain3D
 var _last_terrain: Terrain3D
@@ -22,6 +21,7 @@ var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
+var wizard_popup: Popup
 
 
 func _init() -> void:
@@ -49,8 +49,20 @@ func _exit_tree() -> void:
 	asset_dock.queue_free()
 	ui.queue_free()
 	editor.free()
+	wizard_popup.queue_free()
 
 	scene_changed.disconnect(_on_scene_changed)
+
+
+func _ready() -> void:
+	wizard_popup = Popup.new()
+	wizard_popup.add_child(CONVERSION_WIZARD.instantiate())
+	wizard_popup.unresizable = false
+	
+	EditorInterface.get_base_control().add_child(wizard_popup)
+	add_tool_menu_item("Terrain Storage Wizard...", func() -> void:
+		wizard_popup.popup_centered(Vector2i(512, 512))
+		)
 
 
 ## EditorPlugin selection function chain isn't consistent. Here's the map of calls:
@@ -61,7 +73,6 @@ func _exit_tree() -> void:
 # Click NavRegion3D:				_handles(NavReg3D), _make_visible(true), _edit(NavReg3D)
 # Click NavRegion3D, Terrain3D:		_handles(Terrain3D), _edit(Terrain3D)
 # Click Terrain3D, NavRegion3D:		_handles(NavReg3D), _edit(NavReg3D)
-
 func _handles(p_object: Object) -> bool:
 	if p_object is Terrain3D:
 		return true
