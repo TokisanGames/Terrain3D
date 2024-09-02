@@ -453,11 +453,9 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 		return;
 	}
 	Vector2i global_offset = Vector2i(_region_offsets[region]) * _region_size;
-	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
-	Vector2i img_pos = Vector2i(
-			Vector2(descaled_position.x - global_offset.x,
-					descaled_position.z - global_offset.y)
-					.floor());
+	Vector3 descaled_pos = p_global_position / _terrain->get_mesh_vertex_spacing();
+	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
+	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
 	Ref<Image> map = get_map_region(p_map_type, region);
 	map->set_pixelv(img_pos, p_pixel);
 }
@@ -473,11 +471,8 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 		return COLOR_NAN;
 	}
 	Vector2i global_offset = Vector2i(_region_offsets[region]) * _region_size;
-	Vector3 descaled_position = p_global_position / _terrain->get_mesh_vertex_spacing();
-	Vector2i img_pos = Vector2i(
-			Vector2(descaled_position.x - global_offset.x,
-					descaled_position.z - global_offset.y)
-					.floor());
+	Vector3 descaled_pos = p_global_position / _terrain->get_mesh_vertex_spacing();
+	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
 	Ref<Image> map = get_map_region(p_map_type, region);
 	return map->get_pixelv(img_pos);
