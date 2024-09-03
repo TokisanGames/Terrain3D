@@ -586,10 +586,18 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	Vector3 xzs = Vector3(x, 0.0f, z + step) * _mesh_vertex_spacing;
 	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _mesh_vertex_spacing;
 
-	uint32_t control1 = _storage->get_control(xz);
-	uint32_t control2 = _storage->get_control(xszs);
-	uint32_t control3 = _storage->get_control(xzs);
-	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
+	uint32_t controlxz = 0;
+	uint32_t controlxsz = 0;
+	uint32_t controlxzs = 0;
+	uint32_t controlxszs = 0;
+	if (p_require_nav) {
+		controlxz = _storage->get_control(xz);
+		controlxsz = _storage->get_control(xsz);
+		controlxzs = _storage->get_control(xzs);
+		controlxszs = _storage->get_control(xszs);
+	}
+
+	if (!p_require_nav || (is_nav(controlxz) && is_nav(controlxszs) && is_nav(controlxzs))) {
 		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
 		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xzs);
@@ -605,10 +613,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		}
 	}
 
-	control1 = _storage->get_control(xz);
-	control2 = _storage->get_control(xsz);
-	control3 = _storage->get_control(xszs);
-	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
+	if (!p_require_nav || (is_nav(controlxz) && is_nav(controlxsz) && is_nav(controlxszs))) {
 		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xsz);
 		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);

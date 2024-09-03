@@ -105,6 +105,7 @@ private:
 
 	// Functions
 	void _clear();
+	Image *_get_map_region_ptr(const MapType p_map_type, const int p_region_index) const;
 
 public:
 	Terrain3DStorage() {}

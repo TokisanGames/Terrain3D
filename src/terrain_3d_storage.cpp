@@ -355,6 +355,36 @@ void Terrain3DStorage::set_map_region(const MapType p_map_type, const int p_regi
 	}
 }
 
+Image *Terrain3DStorage::_get_map_region_ptr(const MapType p_map_type, const int p_region_index) const {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			if (p_region_index >= 0 && p_region_index < _height_maps.size()) {
+				return (Image *)&(_height_maps[p_region_index]);
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. height_maps size: ", _height_maps.size());
+			}
+			break;
+		case TYPE_CONTROL:
+			if (p_region_index >= 0 && p_region_index < _control_maps.size()) {
+				return (Image *)&(_control_maps[p_region_index]);
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. control_maps size: ", _control_maps.size());
+			}
+			break;
+		case TYPE_COLOR:
+			if (p_region_index >= 0 && p_region_index < _color_maps.size()) {
+				return (Image *)&(_color_maps[p_region_index]);
+			} else {
+				LOG(ERROR, "Requested index is out of bounds. color_maps size: ", _color_maps.size());
+			}
+			break;
+		default:
+			LOG(ERROR, "Requested map type is invalid");
+			break;
+			return nullptr;
+	}
+}
+
 Ref<Image> Terrain3DStorage::get_map_region(const MapType p_map_type, const int p_region_index) const {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
@@ -474,7 +504,7 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 	Vector3 descaled_pos = p_global_position / _terrain->get_mesh_vertex_spacing();
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(Vector2i(), Vector2i(_region_size - 1, _region_size - 1));
-	Ref<Image> map = get_map_region(p_map_type, region);
+	Image *map = _get_map_region_ptr(p_map_type, region);
 	return map->get_pixelv(img_pos);
 }
 
@@ -492,7 +522,7 @@ real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
 			0.f,
 			round_multiple(pos.z, step));
 	// If requested position is close to a vertex, return its height
-	if ((pos - pos_round).length() < 0.01f) {
+	if ((pos - pos_round).length_squared() < 0.0001f) {
 		return get_pixel(TYPE_HEIGHT, pos).r;
 	} else {
 		// Otherwise, bilinearly interpolate 4 surrounding vertices
