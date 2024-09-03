@@ -122,11 +122,12 @@ void Terrain3DRegion::sanitize_map(const MapType p_map_type) {
 		if (map.is_valid()) {
 			if (map->get_size() == Vector2i(_region_size, _region_size)) {
 				if (map->get_format() == format) {
-					LOG(DEBUG, "Map type ", type_str, " correct format, size. Using image");
+					LOG(DEBUG, "Map type ", type_str, " correct format, size. Mipmaps: ", map->has_mipmaps());
 					if (type == TYPE_HEIGHT) {
 						calc_height_range();
 					}
 					if (type == TYPE_COLOR && !map->has_mipmaps()) {
+						LOG(DEBUG, "Color map does not have mipmaps. Generating");
 						map->generate_mipmaps();
 					}
 					continue;
@@ -136,6 +137,10 @@ void Terrain3DRegion::sanitize_map(const MapType p_map_type) {
 					newimg.instantiate();
 					newimg->copy_from(map);
 					newimg->convert(format);
+					if (type == TYPE_COLOR && !map->has_mipmaps()) {
+						LOG(DEBUG, "Color map does not have mipmaps. Generating");
+						newimg->generate_mipmaps();
+					}
 					if (newimg->get_format() == format) {
 						set_map(type, newimg);
 						continue;
@@ -149,6 +154,7 @@ void Terrain3DRegion::sanitize_map(const MapType p_map_type) {
 		} else {
 			LOG(DEBUG, "No provided ", type_str, " map. Creating blank");
 		}
+		LOG(DEBUG, "Making new image of type: ", type_str, " and generating mipmaps: ", type == TYPE_COLOR);
 		set_map(type, Util::get_filled_image(Vector2i(_region_size, _region_size), color, type == TYPE_COLOR, format));
 	}
 }
@@ -245,12 +251,13 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 void Terrain3DRegion::set_location(const Vector2i &p_location) {
 	// In the future anywhere they want to put the location might be fine, but because of region_map
 	// We have a limitation of 16x16 and eventually 45x45.
-	if (abs(p_location.x) < Terrain3DStorage::REGION_MAP_SIZE / 2 && abs(p_location.y) < Terrain3DStorage::REGION_MAP_SIZE / 2) {
-		LOG(INFO, "Set location: ", p_location);
-		_location = p_location;
-	} else {
-		LOG(ERROR, "Location out of bounds: ", p_location);
+	if (Terrain3DStorage::get_region_map_index(p_location) < 0) {
+		LOG(ERROR, "Location ", p_location, " out of bounds. Max: ",
+				-Terrain3DStorage::REGION_MAP_SIZE / 2, " to ", Terrain3DStorage::REGION_MAP_SIZE / 2 - 1);
+		return;
 	}
+	LOG(INFO, "Set location: ", p_location);
+	_location = p_location;
 }
 
 void Terrain3DRegion::set_data(const Dictionary &p_data) {

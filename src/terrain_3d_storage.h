@@ -104,7 +104,7 @@ public:
 	TypedArray<Terrain3DRegion> get_regions_active(const bool p_copy = false, const bool p_deep = false) const;
 	Dictionary get_regions_all() const { return _regions; }
 	PackedInt32Array get_region_map() const { return _region_map; }
-	int get_region_map_index(const Vector2i &p_region_loc) const;
+	static int get_region_map_index(const Vector2i &p_region_loc);
 
 	bool has_region(const Vector2i &p_region_loc) const { return get_region_id(p_region_loc) != -1; }
 	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
@@ -149,7 +149,7 @@ public:
 	RID get_color_maps_rid() const { return _generated_color_maps.get_rid(); }
 
 	void update_maps();
-	void force_update_maps(const MapType p_map = TYPE_MAX);
+	void force_update_maps(const MapType p_map = TYPE_MAX, const bool p_generate_mipmaps = false);
 
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
 	TypedArray<Image> get_maps_copy(const MapType p_map_type, const TypedArray<int> &p_region_ids = TypedArray<int>()) const;
@@ -197,16 +197,18 @@ VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
 /// Inline Region Functions
 
-// This function verifies the location is within the bounds of the _region_map array and
-// thus the world. It returns the _region_map index if valid, -1 if not
-inline int Terrain3DStorage::get_region_map_index(const Vector2i &p_region_loc) const {
-	// Offset locations centered on (0,0) to positive only
-	Vector2i loc = Vector2i(p_region_loc + (REGION_MAP_VSIZE / 2));
-	int map_index = loc.y * REGION_MAP_SIZE + loc.x;
-	if (map_index < 0 || map_index >= REGION_MAP_SIZE * REGION_MAP_SIZE) {
+// Verifies the location is within the bounds of the _region_map array and
+// the world, returning the _region_map index, which contains the region_id.
+// Valid region locations are -8, -8 to 7, 7, or when offset: 0, 0 to 15, 15
+// If any bits other than 0xF are set, it's out of bounds and returns -1
+inline int Terrain3DStorage::get_region_map_index(const Vector2i &p_region_loc) {
+	// Offset world to positive values only
+	Vector2i loc = p_region_loc + (REGION_MAP_VSIZE / 2);
+	// Catch values > 15
+	if ((uint32_t(loc.x | loc.y) & uint32_t(~0xF)) > 0) {
 		return -1;
 	}
-	return map_index;
+	return loc.y * REGION_MAP_SIZE + loc.x;
 }
 
 // Returns a region location given a global position. No bounds checking nor data access.
