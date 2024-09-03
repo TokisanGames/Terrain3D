@@ -38,7 +38,8 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	}
 	if (storage->get_region_map_index(p_region_loc) < 0) {
 		if (can_print) {
-			LOG(ERROR, "Specified position outside of maximum bounds");
+			LOG(ERROR, "Location ", p_region_loc, " out of bounds. Max: ",
+					-Terrain3DStorage::REGION_MAP_SIZE / 2, " to ", Terrain3DStorage::REGION_MAP_SIZE / 2 - 1);
 		}
 		return Ref<Terrain3DRegion>();
 	}
@@ -447,6 +448,13 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				backup_region(region);
 				map->set_pixelv(map_pixel_position, dest);
 			}
+		}
+	}
+	// Regenerate color mipmaps for edited regions
+	if (map_type == TYPE_COLOR) {
+		for (int i = 0; i < _edited_regions.size(); i++) {
+			Ref<Terrain3DRegion> region = _edited_regions[i];
+			region->get_map(map_type)->generate_mipmaps();
 		}
 	}
 	storage->force_update_maps(map_type);
