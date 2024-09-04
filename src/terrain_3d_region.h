@@ -123,4 +123,27 @@ constexpr inline const Image::Format *FORMAT = Terrain3DRegion::FORMAT;
 constexpr inline const char **TYPESTR = Terrain3DRegion::TYPESTR;
 constexpr inline const Color *COLOR = Terrain3DRegion::COLOR;
 
+/// Inline functions
+
+inline void Terrain3DRegion::update_height(const real_t p_height) {
+	if (p_height < _height_range.x) {
+		_height_range.x = p_height;
+		_modified = true;
+	} else if (p_height > _height_range.y) {
+		_height_range.y = p_height;
+		_modified = true;
+	}
+}
+
+inline void Terrain3DRegion::update_heights(const Vector2 &p_low_high) {
+	if (p_low_high.x < _height_range.x) {
+		_height_range.x = p_low_high.x;
+		_modified = true;
+	}
+	if (p_low_high.y > _height_range.y) {
+		_height_range.y = p_low_high.y;
+		_modified = true;
+	}
+}
+
 #endif // TERRAIN3D_REGION_CLASS_H

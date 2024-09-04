@@ -170,33 +170,6 @@ void Terrain3DRegion::set_height_range(const Vector2 &p_range) {
 	}
 }
 
-void Terrain3DRegion::update_height(const real_t p_height) {
-	if (p_height < _height_range.x) {
-		_height_range.x = p_height;
-		_modified = true;
-	} else if (p_height > _height_range.y) {
-		_height_range.y = p_height;
-		_modified = true;
-	}
-	if (_modified) {
-		LOG(DEBUG_CONT, "Expanded range: ", _height_range);
-	}
-}
-
-void Terrain3DRegion::update_heights(const Vector2 &p_low_high) {
-	if (p_low_high.x < _height_range.x) {
-		_height_range.x = p_low_high.x;
-		_modified = true;
-	}
-	if (p_low_high.y > _height_range.y) {
-		_height_range.y = p_low_high.y;
-		_modified = true;
-	}
-	if (_modified) {
-		LOG(DEBUG_CONT, "Expanded range: ", _height_range);
-	}
-}
-
 void Terrain3DRegion::calc_height_range() {
 	Vector2 range = Util::get_min_max(_height_map);
 	if (_height_range != range) {

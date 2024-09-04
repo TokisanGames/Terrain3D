@@ -58,23 +58,6 @@ TypedArray<Terrain3DRegion> Terrain3DStorage::get_regions_active(const bool p_co
 	return region_arr;
 }
 
-void Terrain3DStorage::update_master_height(const real_t p_height) {
-	if (p_height < _master_height_range.x) {
-		_master_height_range.x = p_height;
-	} else if (p_height > _master_height_range.y) {
-		_master_height_range.y = p_height;
-	}
-}
-
-void Terrain3DStorage::update_master_heights(const Vector2 &p_low_high) {
-	if (p_low_high.x < _master_height_range.x) {
-		_master_height_range.x = p_low_high.x;
-	}
-	if (p_low_high.y > _master_height_range.y) {
-		_master_height_range.y = p_low_high.y;
-	}
-}
-
 // Recalculates master height range from all active regions current height ranges
 // Recursive mode has all regions to recalculate from each heightmap pixel
 void Terrain3DStorage::calc_height_range(const bool p_recursive) {
