@@ -278,4 +278,21 @@ inline real_t Terrain3DStorage::get_roughness(const Vector3 &p_global_position) 
 	return get_pixel(TYPE_COLOR, p_global_position).a;
 }
 
+inline void Terrain3DStorage::update_master_height(const real_t p_height) {
+	if (p_height < _master_height_range.x) {
+		_master_height_range.x = p_height;
+	} else if (p_height > _master_height_range.y) {
+		_master_height_range.y = p_height;
+	}
+}
+
+inline void Terrain3DStorage::update_master_heights(const Vector2 &p_low_high) {
+	if (p_low_high.x < _master_height_range.x) {
+		_master_height_range.x = p_low_high.x;
+	}
+	if (p_low_high.y > _master_height_range.y) {
+		_master_height_range.y = p_low_high.y;
+	}
+}
+
 #endif // TERRAIN3D_STORAGE_CLASS_H
