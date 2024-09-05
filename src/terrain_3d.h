@@ -13,10 +13,10 @@
 
 #include "constants.h"
 #include "terrain_3d_assets.h"
+#include "terrain_3d_data.h"
 #include "terrain_3d_editor.h"
 #include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
-#include "terrain_3d_storage.h"
 
 using namespace godot;
 
@@ -45,11 +45,11 @@ private:
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
 	real_t _mesh_vertex_spacing = 1.0f;
-	String _storage_directory;
+	String _data_directory;
 	bool _save_16_bit = false;
 	bool _show_region_labels = false;
 
-	Terrain3DStorage *_storage = nullptr;
+	Terrain3DData *_data = nullptr;
 	Ref<Terrain3DMaterial> _material;
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DInstancer *_instancer = nullptr;
@@ -76,7 +76,7 @@ private:
 		Vector<RID> fillers;
 		Vector<RID> trims;
 		Vector<RID> seams;
-	} _data;
+	} _mesh_data;
 
 	// Renderer settings
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
@@ -120,9 +120,9 @@ private:
 	void _destroy_instancer();
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
-			const Terrain3DStorage::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
+			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
-			const Terrain3DStorage::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
+			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
 
 public:
 	static int debug_level;
@@ -143,9 +143,9 @@ public:
 	void set_mesh_vertex_spacing(const real_t p_spacing);
 	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
-	Terrain3DStorage *get_storage() const { return _storage; }
-	void set_storage_directory(String p_dir);
-	String get_storage_directory() const;
+	Terrain3DData *get_data() const { return _data; }
+	void set_data_directory(String p_dir);
+	String get_data_directory() const;
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
 
@@ -199,7 +199,7 @@ public:
 	void update_region_labels();
 
 	// Baking methods
-	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DStorage::HeightFilter p_filter = Terrain3DStorage::HEIGHT_FILTER_NEAREST) const;
+	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
 
 	// Godot Callbacks

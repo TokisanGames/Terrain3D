@@ -26,8 +26,8 @@ func reset_terrain(p_value) -> void:
 
 
 func update_heights(p_value) -> void:
-	if p_value and storage:
-		storage.update_height_range()
+	if p_value and data:
+		data.update_height_range()
 
 
 @export_group("Import File")
@@ -74,7 +74,7 @@ func start_import(p_value: bool) -> void:
 				material.show_checkered = false
 				material.show_colormap = true
 		var pos := Vector3(import_position.x, 0, import_position.y)
-		storage.import_images(imported_images, pos, height_offset, import_scale)
+		data.import_images(imported_images, pos, height_offset, import_scale)
 		print("Terrain3DImporter: Import finished")
 
 
@@ -85,6 +85,6 @@ enum { TYPE_HEIGHT, TYPE_CONTROL, TYPE_COLOR }
 @export var run_export: bool = false : set = start_export
 
 func start_export(p_value: bool) -> void:
-	var err: int = storage.export_image(file_name_out, map_type)
+	var err: int = data.export_image(file_name_out, map_type)
 	print("Terrain3DImporter: Export error status: ", err, " ", error_string(err))
 	

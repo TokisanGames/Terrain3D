@@ -48,7 +48,7 @@ func bake_mesh_popup() -> void:
 
 
 func _bake_mesh() -> void:
-	var mesh: Mesh = plugin.terrain.bake_mesh(bake_lod_dialog.lod, Terrain3DStorage.HEIGHT_FILTER_NEAREST)
+	var mesh: Mesh = plugin.terrain.bake_mesh(bake_lod_dialog.lod, Terrain3DData.HEIGHT_FILTER_NEAREST)
 	if !mesh:
 		push_error("Failed to bake mesh from Terrain3D")
 		return
@@ -90,7 +90,7 @@ func bake_occluder_popup() -> void:
 
 
 func _bake_occluder() -> void:
-	var mesh: Mesh = plugin.terrain.bake_mesh(bake_lod_dialog.lod, Terrain3DStorage.HEIGHT_FILTER_MINIMUM)
+	var mesh: Mesh = plugin.terrain.bake_mesh(bake_lod_dialog.lod, Terrain3DData.HEIGHT_FILTER_MINIMUM)
 	if !mesh:
 		push_error("Failed to bake mesh from Terrain3D")
 		return

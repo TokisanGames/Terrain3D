@@ -8,13 +8,13 @@
 #include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
-#include "terrain_3d_storage.h"
+#include "terrain_3d_data.h"
 
 ///////////////////////////
 // Private Functions
 ///////////////////////////
 
-void Terrain3DStorage::_clear() {
+void Terrain3DData::_clear() {
 	LOG(INFO, "Clearing storage");
 	_region_map_dirty = true;
 	_region_map.clear();
@@ -30,7 +30,7 @@ void Terrain3DStorage::_clear() {
 // Public Functions
 ///////////////////////////
 
-void Terrain3DStorage::initialize(Terrain3D *p_terrain) {
+void Terrain3DData::initialize(Terrain3D *p_terrain) {
 	if (p_terrain == nullptr) {
 		LOG(ERROR, "Initialization failed, p_terrain is null");
 		return;
@@ -43,13 +43,13 @@ void Terrain3DStorage::initialize(Terrain3D *p_terrain) {
 	_region_size = _terrain->get_region_size();
 	_region_sizev = Vector2i(_region_size, _region_size);
 
-	if (!initialized && !_terrain->get_storage_directory().is_empty()) {
-		load_directory(_terrain->get_storage_directory());
+	if (!initialized && !_terrain->get_data_directory().is_empty()) {
+		load_directory(_terrain->get_data_directory());
 	}
 }
 
 // Returns an array of active regions, optionally a shallow or deep copy
-TypedArray<Terrain3DRegion> Terrain3DStorage::get_regions_active(const bool p_copy, const bool p_deep) const {
+TypedArray<Terrain3DRegion> Terrain3DData::get_regions_active(const bool p_copy, const bool p_deep) const {
 	TypedArray<Terrain3DRegion> region_arr;
 	for (int i = 0; i < _region_locations.size(); i++) {
 		Vector2i region_loc = _region_locations[i];
@@ -63,7 +63,7 @@ TypedArray<Terrain3DRegion> Terrain3DStorage::get_regions_active(const bool p_co
 
 // Recalculates master height range from all active regions current height ranges
 // Recursive mode has all regions to recalculate from each heightmap pixel
-void Terrain3DStorage::calc_height_range(const bool p_recursive) {
+void Terrain3DData::calc_height_range(const bool p_recursive) {
 	_master_height_range = V2_ZERO;
 	for (int i = 0; i < _region_locations.size(); i++) {
 		Vector2i region_loc = _region_locations[i];
@@ -80,11 +80,11 @@ void Terrain3DStorage::calc_height_range(const bool p_recursive) {
 	LOG(DEBUG_CONT, "Accumulated height range for all regions: ", _master_height_range);
 }
 
-void Terrain3DStorage::clear_edited_area() {
+void Terrain3DData::clear_edited_area() {
 	_edited_area = AABB();
 }
 
-void Terrain3DStorage::add_edited_area(const AABB &p_area) {
+void Terrain3DData::add_edited_area(const AABB &p_area) {
 	if (_edited_area.has_surface()) {
 		_edited_area = _edited_area.merge(p_area);
 	} else {
@@ -93,7 +93,7 @@ void Terrain3DStorage::add_edited_area(const AABB &p_area) {
 	emit_signal("maps_edited", _edited_area);
 }
 
-void Terrain3DStorage::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
+void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
 	Ref<Terrain3DRegion> region = _regions[p_region_loc];
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
@@ -102,7 +102,7 @@ void Terrain3DStorage::set_region_modified(const Vector2i &p_region_loc, const b
 	return region->set_modified(p_modified);
 }
 
-bool Terrain3DStorage::is_region_modified(const Vector2i &p_region_loc) const {
+bool Terrain3DData::is_region_modified(const Vector2i &p_region_loc) const {
 	Ref<Terrain3DRegion> region = _regions[p_region_loc];
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
@@ -111,7 +111,7 @@ bool Terrain3DStorage::is_region_modified(const Vector2i &p_region_loc) const {
 	return region->is_modified();
 }
 
-void Terrain3DStorage::set_region_deleted(const Vector2i &p_region_loc, const bool p_deleted) {
+void Terrain3DData::set_region_deleted(const Vector2i &p_region_loc, const bool p_deleted) {
 	Ref<Terrain3DRegion> region = _regions[p_region_loc];
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
@@ -120,7 +120,7 @@ void Terrain3DStorage::set_region_deleted(const Vector2i &p_region_loc, const bo
 	return region->set_deleted(p_deleted);
 }
 
-bool Terrain3DStorage::is_region_deleted(const Vector2i &p_region_loc) const {
+bool Terrain3DData::is_region_deleted(const Vector2i &p_region_loc) const {
 	Ref<Terrain3DRegion> region = _regions[p_region_loc];
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
@@ -129,24 +129,24 @@ bool Terrain3DStorage::is_region_deleted(const Vector2i &p_region_loc) const {
 	return region->is_deleted();
 }
 
-void Terrain3DStorage::set_region_locations(const TypedArray<Vector2i> &p_locations) {
+void Terrain3DData::set_region_locations(const TypedArray<Vector2i> &p_locations) {
 	LOG(INFO, "Setting _region_locations with array sized: ", p_locations.size());
 	_region_locations = p_locations;
 	_region_map_dirty = true;
 	update_maps();
 }
 
-Error Terrain3DStorage::add_regionl(const Vector2i &p_region_loc, const Ref<Terrain3DRegion> &p_region, const bool p_update) {
+Error Terrain3DData::add_regionl(const Vector2i &p_region_loc, const Ref<Terrain3DRegion> &p_region, const bool p_update) {
 	p_region->set_location(p_region_loc);
 	return add_region(p_region, p_update);
 }
 
-Error Terrain3DStorage::add_regionp(const Vector3 &p_global_position, const Ref<Terrain3DRegion> &p_region, const bool p_update) {
+Error Terrain3DData::add_regionp(const Vector3 &p_global_position, const Ref<Terrain3DRegion> &p_region, const bool p_update) {
 	p_region->set_location(get_region_location(p_global_position));
 	return add_region(p_region, p_update);
 }
 
-Ref<Terrain3DRegion> Terrain3DStorage::add_region_blank(const Vector2i &p_region_loc, const bool p_update) {
+Ref<Terrain3DRegion> Terrain3DData::add_region_blank(const Vector2i &p_region_loc, const bool p_update) {
 	Ref<Terrain3DRegion> region;
 	region.instantiate();
 	region->set_location(p_region_loc);
@@ -158,7 +158,7 @@ Ref<Terrain3DRegion> Terrain3DStorage::add_region_blank(const Vector2i &p_region
 	return Ref<Terrain3DRegion>();
 }
 
-Ref<Terrain3DRegion> Terrain3DStorage::add_region_blankp(const Vector3 &p_global_position, const bool p_update) {
+Ref<Terrain3DRegion> Terrain3DData::add_region_blankp(const Vector3 &p_global_position, const bool p_update) {
 	return add_region_blank(get_region_location(p_global_position));
 }
 
@@ -166,7 +166,7 @@ Ref<Terrain3DRegion> Terrain3DStorage::add_region_blankp(const Vector3 &p_global
  * Marks region as modified
  *	p_update - rebuild the maps if true. Set to false if bulk adding many regions.
  */
-Error Terrain3DStorage::add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update) {
+Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update) {
 	if (p_region.is_null()) {
 		LOG(ERROR, "Provided region is null. Returning");
 		return FAILED;
@@ -196,19 +196,19 @@ Error Terrain3DStorage::add_region(const Ref<Terrain3DRegion> &p_region, const b
 	return OK;
 }
 
-void Terrain3DStorage::remove_regionp(const Vector3 &p_global_position, const bool p_update) {
+void Terrain3DData::remove_regionp(const Vector3 &p_global_position, const bool p_update) {
 	Ref<Terrain3DRegion> region = get_region(get_region_location(p_global_position));
 	remove_region(region, p_update);
 }
 
-void Terrain3DStorage::remove_regionl(const Vector2i &p_region_loc, const bool p_update) {
+void Terrain3DData::remove_regionl(const Vector2i &p_region_loc, const bool p_update) {
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	remove_region(region, p_update);
 }
 
 // Remove region marks the region for deletion, and removes it from the active arrays indexed by ID
 // It remains stored in _regions and the file remains on disk until saved, when both are removed
-void Terrain3DStorage::remove_region(const Ref<Terrain3DRegion> &p_region, const bool p_update) {
+void Terrain3DData::remove_region(const Ref<Terrain3DRegion> &p_region, const bool p_update) {
 	if (p_region.is_null()) {
 		LOG(ERROR, "Region not found or is null. Returning");
 		return;
@@ -231,7 +231,7 @@ void Terrain3DStorage::remove_region(const Ref<Terrain3DRegion> &p_region, const
 	}
 }
 
-void Terrain3DStorage::update_maps() {
+void Terrain3DData::update_maps() {
 	bool any_changed = false;
 
 	if (_region_map_dirty) {
@@ -308,7 +308,7 @@ void Terrain3DStorage::update_maps() {
 	}
 }
 
-void Terrain3DStorage::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
+void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
 	Ref<Terrain3DRegion> region = _regions[p_region_loc];
 	if (region.is_null()) {
 		LOG(ERROR, "No region found at: ", p_region_loc);
@@ -340,7 +340,7 @@ void Terrain3DStorage::save_region(const Vector2i &p_region_loc, const String &p
 	region->save(path, p_16_bit);
 }
 
-void Terrain3DStorage::load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update) {
+void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update) {
 	LOG(INFO, "Loading region from location ", p_region_loc);
 	String path = p_dir + String("/") + Util::location_to_filename(p_region_loc);
 	if (!FileAccess::file_exists(path)) {
@@ -358,7 +358,7 @@ void Terrain3DStorage::load_region(const Vector2i &p_region_loc, const String &p
 	add_region(region, p_update);
 }
 
-TypedArray<Image> Terrain3DStorage::get_maps(const MapType p_map_type) const {
+TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return TypedArray<Image>();
@@ -379,7 +379,7 @@ TypedArray<Image> Terrain3DStorage::get_maps(const MapType p_map_type) const {
 	return TypedArray<Image>();
 }
 
-TypedArray<Image> Terrain3DStorage::get_maps_copy(const MapType p_map_type, const TypedArray<int> &p_region_ids) const {
+TypedArray<Image> Terrain3DData::get_maps_copy(const MapType p_map_type, const TypedArray<int> &p_region_ids) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return TypedArray<Image>();
@@ -406,7 +406,7 @@ TypedArray<Image> Terrain3DStorage::get_maps_copy(const MapType p_map_type, cons
 	return newmaps;
 }
 
-void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel) {
+void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel) {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return;
@@ -426,7 +426,7 @@ void Terrain3DStorage::set_pixel(const MapType p_map_type, const Vector3 &p_glob
 	region->set_modified(true);
 }
 
-Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const {
+Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return COLOR_NAN;
@@ -444,7 +444,7 @@ Color Terrain3DStorage::get_pixel(const MapType p_map_type, const Vector3 &p_glo
 	return map->get_pixelv(img_pos);
 }
 
-real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
+real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 	if (is_hole(get_control(p_global_position))) {
 		return NAN;
 	}
@@ -480,7 +480,7 @@ real_t Terrain3DStorage::get_height(const Vector3 &p_global_position) const {
  * blending values look, then consider that the overlay texture is visible starting at a blend
  * value of .3-.5, otherwise it's the base texture.
  **/
-Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) const {
+Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
 	// Verify in a region
 	int region_id = get_region_idp(p_global_position);
 	if (region_id < 0) {
@@ -521,7 +521,7 @@ Vector3 Terrain3DStorage::get_texture_id(const Vector3 &p_global_position) const
 	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
-real_t Terrain3DStorage::get_angle(const Vector3 &p_global_position) const {
+real_t Terrain3DData::get_angle(const Vector3 &p_global_position) const {
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
 	if (std::isnan(src)) {
 		return NAN;
@@ -531,7 +531,7 @@ real_t Terrain3DStorage::get_angle(const Vector3 &p_global_position) const {
 	return angle;
 }
 
-real_t Terrain3DStorage::get_scale(const Vector3 &p_global_position) const {
+real_t Terrain3DData::get_scale(const Vector3 &p_global_position) const {
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
 	if (std::isnan(src)) {
 		return NAN;
@@ -541,7 +541,7 @@ real_t Terrain3DStorage::get_scale(const Vector3 &p_global_position) const {
 	return scale;
 }
 
-void Terrain3DStorage::force_update_maps(const MapType p_map_type, const bool p_generate_mipmaps) {
+void Terrain3DData::force_update_maps(const MapType p_map_type, const bool p_generate_mipmaps) {
 	LOG(DEBUG_CONT, "Regenerating maps of type: ", p_map_type);
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
@@ -571,7 +571,7 @@ void Terrain3DStorage::force_update_maps(const MapType p_map_type, const bool p_
 	update_maps();
 }
 
-void Terrain3DStorage::save_directory(const String &p_dir) {
+void Terrain3DData::save_directory(const String &p_dir) {
 	LOG(INFO, "Saving data files to ", p_dir);
 	Array locations = _regions.keys();
 	for (int i = 0; i < locations.size(); i++) {
@@ -580,7 +580,7 @@ void Terrain3DStorage::save_directory(const String &p_dir) {
 }
 
 /**
- * Imports an Image set (Height, Control, Color) into Terrain3DStorage
+ * Imports an Image set (Height, Control, Color) into Terrain3DData
  * It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
  * Parameters:
  *	p_images - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null
@@ -588,8 +588,8 @@ void Terrain3DStorage::save_directory(const String &p_dir) {
  *	p_offset - Add this factor to all height values, can be negative
  *	p_scale - Scale all height values by this factor (applied after offset)
  */
-void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position, const real_t p_offset, const real_t p_scale) {
-	IS_INIT_MESG("Storage not initialized", VOID);
+void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position, const real_t p_offset, const real_t p_scale) {
+	IS_INIT_MESG("Data not initialized", VOID);
 	if (p_images.size() != TYPE_MAX) {
 		LOG(ERROR, "p_images.size() is ", p_images.size(), ". It should be ", TYPE_MAX, " even if some Images are blank or null");
 		return;
@@ -707,7 +707,7 @@ void Terrain3DStorage::import_images(const TypedArray<Image> &p_images, const Ve
  * r16 can be edited by Krita, however you must know the dimensions and min/max before reimporting
  * res/tres allow storage in any of Godot's native Image formats.
  */
-Error Terrain3DStorage::export_image(const String &p_file_name, const MapType p_map_type) const {
+Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map_type) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Invalid map type specified: ", p_map_type, " max: ", TYPE_MAX - 1);
 		return FAILED;
@@ -798,7 +798,7 @@ Error Terrain3DStorage::export_image(const String &p_file_name, const MapType p_
 	return FAILED;
 }
 
-Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
+Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 	LOG(INFO, "Generating a full sized image for all regions including empty regions");
 	MapType map_type = p_map_type;
 	if (map_type >= TYPE_MAX) {
@@ -836,7 +836,7 @@ Ref<Image> Terrain3DStorage::layered_to_image(const MapType p_map_type) const {
 	return img;
 }
 
-void Terrain3DStorage::load_directory(const String &p_dir) {
+void Terrain3DData::load_directory(const String &p_dir) {
 	if (p_dir.is_empty()) {
 		LOG(ERROR, "Specified data directory is blank");
 		return;
@@ -884,7 +884,7 @@ void Terrain3DStorage::load_directory(const String &p_dir) {
  *  HEIGHT_FILTER_MINIMUM: Samples (1 << p_lod) ** 2 heights around the given coordinates and returns the lowest.
  * p_global_position: X and Z coordinates of the vertex. Heights will be sampled around these coordinates.
  */
-Vector3 Terrain3DStorage::get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const {
+Vector3 Terrain3DData::get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const {
 	LOG(INFO, "Calculating vertex location");
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 	real_t height = 0.0f;
@@ -917,7 +917,7 @@ Vector3 Terrain3DStorage::get_mesh_vertex(const int32_t p_lod, const HeightFilte
 	return Vector3(p_global_position.x, height, p_global_position.z);
 }
 
-Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) const {
+Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 	if (get_region_idp(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
 	}
@@ -929,7 +929,7 @@ Vector3 Terrain3DStorage::get_normal(const Vector3 &p_global_position) const {
 	return normal;
 }
 
-void Terrain3DStorage::print_audit_data() const {
+void Terrain3DData::print_audit_data() const {
 	LOG(INFO, "Dumping storage data");
 	LOG(INFO, "Region_locations size: ", _region_locations.size(), " ", _region_locations);
 	LOG(INFO, "Region map");
@@ -951,84 +951,84 @@ void Terrain3DStorage::print_audit_data() const {
 // Protected Functions
 ///////////////////////////
 
-void Terrain3DStorage::_bind_methods() {
+void Terrain3DData::_bind_methods() {
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_NEAREST);
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_MINIMUM);
 
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
-	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DStorage::get_region_count);
-	ClassDB::bind_method(D_METHOD("set_region_locations", "region_locations"), &Terrain3DStorage::set_region_locations);
-	ClassDB::bind_method(D_METHOD("get_region_locations"), &Terrain3DStorage::get_region_locations);
-	ClassDB::bind_method(D_METHOD("get_regions_active", "copy", "deep"), &Terrain3DStorage::get_regions_active, DEFVAL(false), DEFVAL(false));
-	ClassDB::bind_method(D_METHOD("get_regions_all"), &Terrain3DStorage::get_regions_all);
-	ClassDB::bind_method(D_METHOD("get_region_map"), &Terrain3DStorage::get_region_map);
-	ClassDB::bind_static_method("Terrain3DStorage", D_METHOD("get_region_map_index"), &Terrain3DStorage::get_region_map_index);
+	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DData::get_region_count);
+	ClassDB::bind_method(D_METHOD("set_region_locations", "region_locations"), &Terrain3DData::set_region_locations);
+	ClassDB::bind_method(D_METHOD("get_region_locations"), &Terrain3DData::get_region_locations);
+	ClassDB::bind_method(D_METHOD("get_regions_active", "copy", "deep"), &Terrain3DData::get_regions_active, DEFVAL(false), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("get_regions_all"), &Terrain3DData::get_regions_all);
+	ClassDB::bind_method(D_METHOD("get_region_map"), &Terrain3DData::get_region_map);
+	ClassDB::bind_static_method("Terrain3DData", D_METHOD("get_region_map_index"), &Terrain3DData::get_region_map_index);
 
-	ClassDB::bind_method(D_METHOD("has_region", "region_location"), &Terrain3DStorage::has_region);
-	ClassDB::bind_method(D_METHOD("has_regionp", "global_position"), &Terrain3DStorage::has_regionp);
-	ClassDB::bind_method(D_METHOD("get_region", "region_location"), &Terrain3DStorage::get_region);
-	ClassDB::bind_method(D_METHOD("get_regionp", "global_position"), &Terrain3DStorage::get_regionp);
+	ClassDB::bind_method(D_METHOD("has_region", "region_location"), &Terrain3DData::has_region);
+	ClassDB::bind_method(D_METHOD("has_regionp", "global_position"), &Terrain3DData::has_regionp);
+	ClassDB::bind_method(D_METHOD("get_region", "region_location"), &Terrain3DData::get_region);
+	ClassDB::bind_method(D_METHOD("get_regionp", "global_position"), &Terrain3DData::get_regionp);
 
-	ClassDB::bind_method(D_METHOD("set_region_modified", "region_location", "modified"), &Terrain3DStorage::set_region_modified);
-	ClassDB::bind_method(D_METHOD("is_region_modified", "region_location"), &Terrain3DStorage::is_region_modified);
-	ClassDB::bind_method(D_METHOD("set_region_deleted", "region_location", "deleted"), &Terrain3DStorage::set_region_deleted);
-	ClassDB::bind_method(D_METHOD("is_region_deleted", "region_location"), &Terrain3DStorage::is_region_deleted);
+	ClassDB::bind_method(D_METHOD("set_region_modified", "region_location", "modified"), &Terrain3DData::set_region_modified);
+	ClassDB::bind_method(D_METHOD("is_region_modified", "region_location"), &Terrain3DData::is_region_modified);
+	ClassDB::bind_method(D_METHOD("set_region_deleted", "region_location", "deleted"), &Terrain3DData::set_region_deleted);
+	ClassDB::bind_method(D_METHOD("is_region_deleted", "region_location"), &Terrain3DData::is_region_deleted);
 
-	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DStorage::get_region_location);
-	ClassDB::bind_method(D_METHOD("get_region_locationi", "region_id"), &Terrain3DStorage::get_region_locationi);
-	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DStorage::get_region_id);
-	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DStorage::get_region_idp);
+	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DData::get_region_location);
+	ClassDB::bind_method(D_METHOD("get_region_locationi", "region_id"), &Terrain3DData::get_region_locationi);
+	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DData::get_region_id);
+	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DData::get_region_idp);
 
-	ClassDB::bind_method(D_METHOD("add_region", "region", "update"), &Terrain3DStorage::add_region, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_regionl", "region_location", "update"), &Terrain3DStorage::add_regionl, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_regionp", "global_position", "update"), &Terrain3DStorage::add_regionp, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_region_blank", "region_location", "update"), &Terrain3DStorage::add_region, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_region_blankp", "global_position", "update"), &Terrain3DStorage::add_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_region", "region", "update"), &Terrain3DData::add_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_regionl", "region_location", "update"), &Terrain3DData::add_regionl, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_regionp", "global_position", "update"), &Terrain3DData::add_regionp, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_region_blank", "region_location", "update"), &Terrain3DData::add_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_region_blankp", "global_position", "update"), &Terrain3DData::add_region, DEFVAL(true));
 
-	ClassDB::bind_method(D_METHOD("remove_region", "region", "update"), &Terrain3DStorage::remove_region, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("remove_regionl", "region_location", "update"), &Terrain3DStorage::remove_regionl, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("remove_regionp", "global_position", "update"), &Terrain3DStorage::remove_regionp, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("remove_region", "region", "update"), &Terrain3DData::remove_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("remove_regionl", "region_location", "update"), &Terrain3DData::remove_regionl, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("remove_regionp", "global_position", "update"), &Terrain3DData::remove_regionp, DEFVAL(true));
 
-	ClassDB::bind_method(D_METHOD("save_directory", "directory"), &Terrain3DStorage::save_directory);
-	ClassDB::bind_method(D_METHOD("load_directory", "directory"), &Terrain3DStorage::load_directory);
-	ClassDB::bind_method(D_METHOD("save_region", "directory", "region_location", "16_bit"), &Terrain3DStorage::save_region, DEFVAL(false));
-	ClassDB::bind_method(D_METHOD("load_region", "directory", "region_location", "update"), &Terrain3DStorage::load_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("save_directory", "directory"), &Terrain3DData::save_directory);
+	ClassDB::bind_method(D_METHOD("load_directory", "directory"), &Terrain3DData::load_directory);
+	ClassDB::bind_method(D_METHOD("save_region", "directory", "region_location", "16_bit"), &Terrain3DData::save_region, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("load_region", "directory", "region_location", "update"), &Terrain3DData::load_region, DEFVAL(true));
 
-	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DStorage::get_height_maps);
-	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DStorage::get_control_maps);
-	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DStorage::get_color_maps);
-	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DStorage::get_height_maps_rid);
-	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DStorage::get_control_maps_rid);
-	ClassDB::bind_method(D_METHOD("get_color_maps_rid"), &Terrain3DStorage::get_color_maps_rid);
-	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type", "generate_mipmaps"), &Terrain3DStorage::force_update_maps, DEFVAL(TYPE_MAX), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DData::get_height_maps);
+	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);
+	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
+	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DData::get_height_maps_rid);
+	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DData::get_control_maps_rid);
+	ClassDB::bind_method(D_METHOD("get_color_maps_rid"), &Terrain3DData::get_color_maps_rid);
+	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type", "generate_mipmaps"), &Terrain3DData::force_update_maps, DEFVAL(TYPE_MAX), DEFVAL(false));
 
-	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DStorage::get_maps);
-	ClassDB::bind_method(D_METHOD("get_maps_copy", "map_type"), &Terrain3DStorage::get_maps_copy);
+	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
+	ClassDB::bind_method(D_METHOD("get_maps_copy", "map_type"), &Terrain3DData::get_maps_copy);
 
-	ClassDB::bind_method(D_METHOD("set_pixel", "map_type", "global_position", "pixel"), &Terrain3DStorage::set_pixel);
-	ClassDB::bind_method(D_METHOD("get_pixel", "map_type", "global_position"), &Terrain3DStorage::get_pixel);
-	ClassDB::bind_method(D_METHOD("set_height", "global_position", "height"), &Terrain3DStorage::set_height);
-	ClassDB::bind_method(D_METHOD("get_height", "global_position"), &Terrain3DStorage::get_height);
-	ClassDB::bind_method(D_METHOD("set_color", "global_position", "color"), &Terrain3DStorage::set_color);
-	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DStorage::get_color);
-	ClassDB::bind_method(D_METHOD("set_control", "global_position", "control"), &Terrain3DStorage::set_control);
-	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DStorage::get_control);
-	ClassDB::bind_method(D_METHOD("set_roughness", "global_position", "roughness"), &Terrain3DStorage::set_roughness);
-	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DStorage::get_roughness);
-	ClassDB::bind_method(D_METHOD("get_angle", "global_position"), &Terrain3DStorage::get_angle);
-	ClassDB::bind_method(D_METHOD("get_scale", "global_position"), &Terrain3DStorage::get_scale);
+	ClassDB::bind_method(D_METHOD("set_pixel", "map_type", "global_position", "pixel"), &Terrain3DData::set_pixel);
+	ClassDB::bind_method(D_METHOD("get_pixel", "map_type", "global_position"), &Terrain3DData::get_pixel);
+	ClassDB::bind_method(D_METHOD("set_height", "global_position", "height"), &Terrain3DData::set_height);
+	ClassDB::bind_method(D_METHOD("get_height", "global_position"), &Terrain3DData::get_height);
+	ClassDB::bind_method(D_METHOD("set_color", "global_position", "color"), &Terrain3DData::set_color);
+	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DData::get_color);
+	ClassDB::bind_method(D_METHOD("set_control", "global_position", "control"), &Terrain3DData::set_control);
+	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DData::get_control);
+	ClassDB::bind_method(D_METHOD("set_roughness", "global_position", "roughness"), &Terrain3DData::set_roughness);
+	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DData::get_roughness);
+	ClassDB::bind_method(D_METHOD("get_angle", "global_position"), &Terrain3DData::get_angle);
+	ClassDB::bind_method(D_METHOD("get_scale", "global_position"), &Terrain3DData::get_scale);
 
-	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DStorage::get_normal);
-	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DStorage::get_texture_id);
-	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DStorage::get_mesh_vertex);
+	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DData::get_normal);
+	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DData::get_texture_id);
+	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DData::get_mesh_vertex);
 
-	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DStorage::get_height_range);
-	ClassDB::bind_method(D_METHOD("calc_height_range", "recursive"), &Terrain3DStorage::calc_height_range, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DData::get_height_range);
+	ClassDB::bind_method(D_METHOD("calc_height_range", "recursive"), &Terrain3DData::calc_height_range, DEFVAL(false));
 
-	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DStorage::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
-	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
-	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);
+	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DData::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
+	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DData::export_image);
+	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DData::layered_to_image);
 
 	ADD_SIGNAL(MethodInfo("maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_map_changed"));

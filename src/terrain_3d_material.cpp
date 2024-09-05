@@ -295,18 +295,18 @@ void Terrain3DMaterial::_update_shader() {
 }
 
 void Terrain3DMaterial::_update_maps() {
-	IS_STORAGE_INIT(VOID);
+	IS_DATA_INIT(VOID);
 	LOG(DEBUG_CONT, "Updating maps in shader");
 
-	Terrain3DStorage *storage = _terrain->get_storage();
-	PackedInt32Array region_map = storage->get_region_map();
+	Terrain3DData *data = _terrain->get_data();
+	PackedInt32Array region_map = data->get_region_map();
 	LOG(DEBUG_CONT, "region_map.size(): ", region_map.size());
-	if (region_map.size() != Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE) {
-		LOG(ERROR, "Expected region_map.size() of ", Terrain3DStorage::REGION_MAP_SIZE * Terrain3DStorage::REGION_MAP_SIZE);
+	if (region_map.size() != Terrain3DData::REGION_MAP_SIZE * Terrain3DData::REGION_MAP_SIZE) {
+		LOG(ERROR, "Expected region_map.size() of ", Terrain3DData::REGION_MAP_SIZE * Terrain3DData::REGION_MAP_SIZE);
 		return;
 	}
 	RS->material_set_param(_material, "_region_map", region_map);
-	RS->material_set_param(_material, "_region_map_size", Terrain3DStorage::REGION_MAP_SIZE);
+	RS->material_set_param(_material, "_region_map_size", Terrain3DData::REGION_MAP_SIZE);
 	if (Terrain3D::debug_level >= DEBUG_CONT) {
 		LOG(DEBUG_CONT, "Region map");
 		for (int i = 0; i < region_map.size(); i++) {
@@ -316,7 +316,7 @@ void Terrain3DMaterial::_update_maps() {
 		}
 	}
 
-	TypedArray<Vector2i> region_locations = storage->get_region_locations();
+	TypedArray<Vector2i> region_locations = data->get_region_locations();
 	LOG(DEBUG_CONT, "Region_locations size: ", region_locations.size(), " ", region_locations);
 	RS->material_set_param(_material, "_region_locations", region_locations);
 
@@ -325,12 +325,12 @@ void Terrain3DMaterial::_update_maps() {
 	RS->material_set_param(_material, "_region_size", region_size);
 	RS->material_set_param(_material, "_region_texel_size", 1.0f / region_size);
 
-	RS->material_set_param(_material, "_height_maps", storage->get_height_maps_rid());
-	RS->material_set_param(_material, "_control_maps", storage->get_control_maps_rid());
-	RS->material_set_param(_material, "_color_maps", storage->get_color_maps_rid());
-	LOG(DEBUG_CONT, "Height map RID: ", storage->get_height_maps_rid());
-	LOG(DEBUG_CONT, "Control map RID: ", storage->get_control_maps_rid());
-	LOG(DEBUG_CONT, "Color map RID: ", storage->get_color_maps_rid());
+	RS->material_set_param(_material, "_height_maps", data->get_height_maps_rid());
+	RS->material_set_param(_material, "_control_maps", data->get_control_maps_rid());
+	RS->material_set_param(_material, "_color_maps", data->get_color_maps_rid());
+	LOG(DEBUG_CONT, "Height map RID: ", data->get_height_maps_rid());
+	LOG(DEBUG_CONT, "Control map RID: ", data->get_control_maps_rid());
+	LOG(DEBUG_CONT, "Color map RID: ", data->get_color_maps_rid());
 
 	real_t spacing = _terrain->get_mesh_vertex_spacing();
 	LOG(DEBUG_CONT, "Setting mesh vertex spacing in material: ", spacing);
@@ -340,7 +340,7 @@ void Terrain3DMaterial::_update_maps() {
 
 // Called from signal connected in Terrain3D, emitted by texture_list
 void Terrain3DMaterial::_update_texture_arrays() {
-	IS_STORAGE_INIT_MESG("Material not initialized", VOID);
+	IS_DATA_INIT_MESG("Material not initialized", VOID);
 	Ref<Terrain3DAssets> asset_list = _terrain->get_assets();
 	LOG(INFO, "Updating texture arrays in shader");
 	if (asset_list.is_null()) {

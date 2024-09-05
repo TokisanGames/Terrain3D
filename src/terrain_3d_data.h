@@ -1,7 +1,7 @@
 // Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
-#ifndef TERRAIN3D_STORAGE_CLASS_H
-#define TERRAIN3D_STORAGE_CLASS_H
+#ifndef TERRAIN3D_DATA_CLASS_H
+#define TERRAIN3D_DATA_CLASS_H
 
 #include "constants.h"
 #include "generated_texture.h"
@@ -11,8 +11,8 @@ class Terrain3D;
 
 using namespace godot;
 
-class Terrain3DStorage : public Object {
-	GDCLASS(Terrain3DStorage, Object);
+class Terrain3DData : public Object {
+	GDCLASS(Terrain3DData, Object);
 	CLASS_NAME();
 	friend Terrain3D;
 
@@ -29,7 +29,7 @@ public: // Constants
 private:
 	Terrain3D *_terrain = nullptr;
 
-	// Storage Settings & flags
+	// Data Settings & flags
 	int _region_size = 0;
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
@@ -76,9 +76,9 @@ private:
 	void _clear();
 
 public:
-	Terrain3DStorage() {}
+	Terrain3DData() {}
 	void initialize(Terrain3D *p_terrain);
-	~Terrain3DStorage() { _clear(); }
+	~Terrain3DData() { _clear(); }
 
 	/// Internal functions should be by region_id or region_location
 	/// External functions by region_location or global_position
@@ -177,7 +177,7 @@ protected:
 	static void _bind_methods();
 };
 
-VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
+VARIANT_ENUM_CAST(Terrain3DData::HeightFilter);
 
 /// Inline Region Functions
 
@@ -185,7 +185,7 @@ VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 // the world, returning the _region_map index, which contains the region_id.
 // Valid region locations are -8, -8 to 7, 7, or when offset: 0, 0 to 15, 15
 // If any bits other than 0xF are set, it's out of bounds and returns -1
-inline int Terrain3DStorage::get_region_map_index(const Vector2i &p_region_loc) {
+inline int Terrain3DData::get_region_map_index(const Vector2i &p_region_loc) {
 	// Offset world to positive values only
 	Vector2i loc = p_region_loc + (REGION_MAP_VSIZE / 2);
 	// Catch values > 15
@@ -196,13 +196,13 @@ inline int Terrain3DStorage::get_region_map_index(const Vector2i &p_region_loc) 
 }
 
 // Returns a region location given a global position. No bounds checking nor data access.
-inline Vector2i Terrain3DStorage::get_region_location(const Vector3 &p_global_position) const {
+inline Vector2i Terrain3DData::get_region_location(const Vector3 &p_global_position) const {
 	Vector2 descaled_position = Vector2(p_global_position.x, p_global_position.z);
 	return Vector2i((descaled_position / (_mesh_vertex_spacing * real_t(_region_size))).floor());
 }
 
 // Returns Vector2i(2147483647) if out of range
-inline Vector2i Terrain3DStorage::get_region_locationi(const int p_region_id) const {
+inline Vector2i Terrain3DData::get_region_locationi(const int p_region_id) const {
 	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
 		return V2I_MAX;
 	}
@@ -210,7 +210,7 @@ inline Vector2i Terrain3DStorage::get_region_locationi(const int p_region_id) co
 }
 
 // Returns id of any active region. -1 if out of bounds, 0 if no region, or region id
-inline int Terrain3DStorage::get_region_id(const Vector2i &p_region_loc) const {
+inline int Terrain3DData::get_region_id(const Vector2i &p_region_loc) const {
 	int map_index = get_region_map_index(p_region_loc);
 	if (map_index >= 0) {
 		int region_id = _region_map[map_index] - 1; // 0 = no region
@@ -221,48 +221,48 @@ inline int Terrain3DStorage::get_region_id(const Vector2i &p_region_loc) const {
 	return -1;
 }
 
-inline int Terrain3DStorage::get_region_idp(const Vector3 &p_global_position) const {
+inline int Terrain3DData::get_region_idp(const Vector3 &p_global_position) const {
 	return get_region_id(get_region_location(p_global_position));
 }
 
 /// Inline Map Functions
 
-inline void Terrain3DStorage::set_height(const Vector3 &p_global_position, const real_t p_height) {
+inline void Terrain3DData::set_height(const Vector3 &p_global_position, const real_t p_height) {
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));
 }
 
-inline void Terrain3DStorage::set_color(const Vector3 &p_global_position, const Color &p_color) {
+inline void Terrain3DData::set_color(const Vector3 &p_global_position, const Color &p_color) {
 	Color clr = p_color;
 	clr.a = get_roughness(p_global_position);
 	set_pixel(TYPE_COLOR, p_global_position, clr);
 }
 
-inline Color Terrain3DStorage::get_color(const Vector3 &p_global_position) const {
+inline Color Terrain3DData::get_color(const Vector3 &p_global_position) const {
 	Color clr = get_pixel(TYPE_COLOR, p_global_position);
 	clr.a = 1.0f;
 	return clr;
 }
 
-inline void Terrain3DStorage::set_control(const Vector3 &p_global_position, const uint32_t p_control) {
+inline void Terrain3DData::set_control(const Vector3 &p_global_position, const uint32_t p_control) {
 	set_pixel(TYPE_CONTROL, p_global_position, Color(as_float(p_control), 0.f, 0.f, 1.f));
 }
 
-inline uint32_t Terrain3DStorage::get_control(const Vector3 &p_global_position) const {
+inline uint32_t Terrain3DData::get_control(const Vector3 &p_global_position) const {
 	real_t val = get_pixel(TYPE_CONTROL, p_global_position).r;
 	return (std::isnan(val)) ? UINT32_MAX : as_uint(val);
 }
 
-inline void Terrain3DStorage::set_roughness(const Vector3 &p_global_position, const real_t p_roughness) {
+inline void Terrain3DData::set_roughness(const Vector3 &p_global_position, const real_t p_roughness) {
 	Color clr = get_pixel(TYPE_COLOR, p_global_position);
 	clr.a = p_roughness;
 	set_pixel(TYPE_COLOR, p_global_position, clr);
 }
 
-inline real_t Terrain3DStorage::get_roughness(const Vector3 &p_global_position) const {
+inline real_t Terrain3DData::get_roughness(const Vector3 &p_global_position) const {
 	return get_pixel(TYPE_COLOR, p_global_position).a;
 }
 
-inline void Terrain3DStorage::update_master_height(const real_t p_height) {
+inline void Terrain3DData::update_master_height(const real_t p_height) {
 	if (p_height < _master_height_range.x) {
 		_master_height_range.x = p_height;
 	} else if (p_height > _master_height_range.y) {
@@ -270,7 +270,7 @@ inline void Terrain3DStorage::update_master_height(const real_t p_height) {
 	}
 }
 
-inline void Terrain3DStorage::update_master_heights(const Vector2 &p_low_high) {
+inline void Terrain3DData::update_master_heights(const Vector2 &p_low_high) {
 	if (p_low_high.x < _master_height_range.x) {
 		_master_height_range.x = p_low_high.x;
 	}
@@ -279,4 +279,4 @@ inline void Terrain3DStorage::update_master_heights(const Vector2 &p_low_high) {
 	}
 }
 
-#endif // TERRAIN3D_STORAGE_CLASS_H
+#endif // TERRAIN3D_DATA_CLASS_H
