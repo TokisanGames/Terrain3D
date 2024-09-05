@@ -230,7 +230,7 @@ void Terrain3D::_grab_camera() {
 
 void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 	if (!is_inside_tree() || _data == nullptr) {
-		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
+		LOG(DEBUG, "Not inside the tree or no valid _data, skipping build");
 		return;
 	}
 	LOG(INFO, "Building the terrain meshes");
@@ -376,7 +376,7 @@ void Terrain3D::_build_collision() {
 		return;
 	}
 	if (_data == nullptr) {
-		LOG(ERROR, "Storage missing, cannot create collision");
+		LOG(ERROR, "_data missing, cannot create collision");
 		return;
 	}
 	_destroy_collision();
@@ -731,7 +731,7 @@ void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
 }
 
 void Terrain3D::set_data_directory(String p_dir) {
-	LOG(INFO, "Setting storage directory to ", p_dir);
+	LOG(INFO, "Setting data directory to ", p_dir);
 	if (_data_directory != p_dir) {
 		_clear_meshes();
 		_destroy_collision();
@@ -1188,7 +1188,8 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_gl
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_data_directory.is_empty()) {
-		psa.push_back("No storage directory specified. Select a directory then save the scene to write data.");
+		psa.push_back("No data directory specified. Select a directory then save the scene to write data. "
+					  "If you wish to load and upgrade and old storage file use Terrain3D Tools / Directory Setup.");
 	}
 	if (!psa.is_empty()) {
 		psa.push_back("To update this message, deselect and reselect Terrain3D in the Scene panel.");
@@ -1208,6 +1209,51 @@ void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list
 	assets->set_texture_list(p_texture_list->get_textures());
 	assets->take_over_path(p_texture_list->get_path());
 	set_assets(assets);
+}
+
+// DEPRECATED 0.9.3 - Remove 0.9.4+
+void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
+	_storage = p_storage;
+	if (p_storage.is_valid()) {
+		LOG(WARN, "Loaded Terrain3DStorage v", vformat("%.3f", p_storage->get_version()), ". Use Terrain3D Tools / Directory Setup to upgrade");
+	}
+}
+
+void Terrain3D::split_storage() {
+	if (_storage.is_null()) {
+		LOG(ERROR, "Storage has not been loaded");
+		return;
+	}
+	if (_data == nullptr) {
+		LOG(ERROR, "_data has not been initialized");
+		return;
+	}
+	if (_data_directory.is_empty()) {
+		LOG(ERROR, "Data_directory is empty");
+		return;
+	}
+
+	TypedArray<Vector2i> locations = _storage->get_region_offsets();
+	TypedArray<Image> hmaps = _storage->get_maps(Terrain3DStorage::TYPE_HEIGHT);
+	TypedArray<Image> ctlmaps = _storage->get_maps(Terrain3DStorage::TYPE_CONTROL);
+	TypedArray<Image> clrmaps = _storage->get_maps(Terrain3DStorage::TYPE_COLOR);
+	Dictionary mms = _storage->get_multimeshes();
+
+	for (int i = 0; i < locations.size(); i++) {
+		Ref<Terrain3DRegion> region;
+		region.instantiate();
+		region->set_location(locations[i]);
+		region->set_height_map(hmaps[i]);
+		region->set_control_map(ctlmaps[i]);
+		region->set_color_map(clrmaps[i]);
+		region->set_multimeshes(mms[locations[i]]);
+		_data->add_region(region, false);
+		LOG(MESG, "Splicing region ", locations[i]);
+	}
+	_storage.unref();
+	_data->force_update_maps();
+	_instancer->force_update_mmis();
+	LOG(WARN, "Terrain3DStorage has been converted to Terrain3DData. Save to write changes to disk");
 }
 
 ///////////////////////////
@@ -1285,10 +1331,12 @@ void Terrain3D::_notification(const int p_what) {
 		}
 
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
-			// Editor Node is about to the current scene
+			// Editor Node is about to save the current scene
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
-			if (_data == nullptr) {
-				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
+			if (_data_directory.is_empty()) {
+				LOG(ERROR, "Data directory is empty. Set it to write data to disk.");
+			} else if (_data == nullptr) {
+				LOG(DEBUG, "Save requested, but no valid data object. Skipping");
 			} else {
 				_data->save_directory(_data_directory);
 			}
@@ -1431,6 +1479,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
+	//ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 
 	ADD_GROUP("Renderer", "render_");
@@ -1462,4 +1511,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
 	ClassDB::bind_method(D_METHOD("get_texture_list"), &Terrain3D::get_texture_list);
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList", PROPERTY_USAGE_NONE), "set_texture_list", "get_texture_list");
+
+	// DEPRECATED 0.9.3 - Remove 0.9.4+
+	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
+	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
+	ClassDB::bind_method(D_METHOD("split_storage"), &Terrain3D::split_storage);
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage", PROPERTY_USAGE_NONE), "set_storage", "get_storage");
 }
