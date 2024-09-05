@@ -3,8 +3,8 @@
 #include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
+#include "terrain_3d_data.h"
 #include "terrain_3d_region.h"
-#include "terrain_3d_storage.h"
 #include "terrain_3d_util.h"
 
 /////////////////////
@@ -14,9 +14,9 @@
 void Terrain3DRegion::set_version(const real_t p_version) {
 	LOG(INFO, vformat("%.3f", p_version));
 	_version = p_version;
-	if (_version < Terrain3DStorage::CURRENT_VERSION) {
+	if (_version < Terrain3DData::CURRENT_VERSION) {
 		LOG(WARN, "Region ", get_path(), " version ", vformat("%.3f", _version),
-				" will be updated to ", vformat("%.3f", Terrain3DStorage::CURRENT_VERSION), " upon save");
+				" will be updated to ", vformat("%.3f", Terrain3DData::CURRENT_VERSION), " upon save");
 	}
 }
 
@@ -213,7 +213,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		// incuding those in the undo queue
 	}
 	LOG(INFO, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
-	set_version(Terrain3DStorage::CURRENT_VERSION);
+	set_version(Terrain3DData::CURRENT_VERSION);
 	Error err;
 	if (p_16_bit) {
 		Ref<Image> original_map;
@@ -237,9 +237,9 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 void Terrain3DRegion::set_location(const Vector2i &p_location) {
 	// In the future anywhere they want to put the location might be fine, but because of region_map
 	// We have a limitation of 16x16 and eventually 45x45.
-	if (Terrain3DStorage::get_region_map_index(p_location) < 0) {
+	if (Terrain3DData::get_region_map_index(p_location) < 0) {
 		LOG(ERROR, "Location ", p_location, " out of bounds. Max: ",
-				-Terrain3DStorage::REGION_MAP_SIZE / 2, " to ", Terrain3DStorage::REGION_MAP_SIZE / 2 - 1);
+				-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);
 		return;
 	}
 	LOG(INFO, "Set location: ", p_location);

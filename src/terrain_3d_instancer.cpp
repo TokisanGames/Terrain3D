@@ -13,7 +13,7 @@
 
 // Creates MMIs based on stored Multimesh data
 void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_mesh_id) {
-	IS_STORAGE_INIT(VOID);
+	IS_DATA_INIT(VOID);
 	LOG(INFO, "Updating MMIs for ", (p_region_loc.x == INT32_MAX) ? "all regions" : "region " + String(p_region_loc),
 			(p_mesh_id == -1) ? ", all meshes" : ", mesh " + String::num_int64(p_mesh_id));
 	if (_mmis.has(Variant())) {
@@ -24,13 +24,13 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 	// For specified region_location, or max for all
 	Array region_locations;
 	if (p_region_loc.x == INT32_MAX) {
-		region_locations = _terrain->get_storage()->get_region_locations();
+		region_locations = _terrain->get_data()->get_region_locations();
 	} else {
 		region_locations.push_back(p_region_loc);
 	}
 	for (int r = 0; r < region_locations.size(); r++) {
 		Vector2i region_loc = region_locations[r];
-		Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(region_loc);
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
 		if (region.is_null()) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
@@ -106,7 +106,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_locationi(p_region_id);
+	Vector2i region_loc = _terrain->get_data()->get_region_locationi(p_region_id);
 	_destroy_mmi_by_location(region_loc, p_mesh_id);
 }
 
@@ -123,8 +123,8 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 }
 
 void Terrain3DInstancer::_backup_regionl(const Vector2i &p_region_loc) {
-	if (_terrain->get_storage() != nullptr) {
-		Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(p_region_loc);
+	if (_terrain->get_data() != nullptr) {
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 		_backup_region(region);
 	}
 }
@@ -145,13 +145,13 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	}
-	IS_STORAGE_INIT_MESG("Terrain or storage not ready yet", VOID);
+	IS_DATA_INIT_MESG("Terrain or storage not ready yet", VOID);
 	LOG(INFO, "Initializing Instancer");
 	_update_mmis();
 }
 
 void Terrain3DInstancer::destroy() {
-	IS_STORAGE_INIT(VOID);
+	IS_DATA_INIT(VOID);
 	LOG(INFO, "Destroying all MMIs");
 	while (_mmis.size() > 0) {
 		Vector3i key = _mmis.keys()[0];
@@ -162,20 +162,20 @@ void Terrain3DInstancer::destroy() {
 
 void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
 	LOG(INFO, "Deleting Multimeshes in all regions with mesh_id: ", p_mesh_id);
-	Array region_locations = _terrain->get_storage()->get_region_locations();
+	Array region_locations = _terrain->get_data()->get_region_locations();
 	for (int i = 0; i < region_locations.size(); i++) {
 		clear_by_location(region_locations[i], p_mesh_id);
 	}
 }
 
 void Terrain3DInstancer::clear_by_region_id(const int p_region_id, const int p_mesh_id) {
-	Vector2i region_loc = _terrain->get_storage()->get_region_locationi(p_region_id);
+	Vector2i region_loc = _terrain->get_data()->get_region_locationi(p_region_id);
 	clear_by_location(region_loc, p_mesh_id);
 }
 
 void Terrain3DInstancer::clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
 	LOG(INFO, "Deleting Multimeshes w/ mesh_id: ", p_mesh_id, " in region: ", p_region_loc);
-	Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(p_region_loc);
+	Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(WARN, "No region found at: ", p_region_loc);
 		return;
@@ -189,7 +189,7 @@ void Terrain3DInstancer::clear_by_location(const Vector2i &p_region_loc, const i
 }
 
 void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 
 	int mesh_id = p_params.get("asset_id", 0);
 	if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
@@ -238,7 +238,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		Vector3 rand_vec = Vector3(r_radius * cos(r_theta), 0.f, r_radius * sin(r_theta));
 		Vector3 position = p_global_position + rand_vec;
 		// Get height, but skip holes
-		real_t height = _terrain->get_storage()->get_height(position);
+		real_t height = _terrain->get_data()->get_height(position);
 		if (std::isnan(height)) {
 			continue;
 		} else {
@@ -248,7 +248,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		// Orientation
 		Vector3 normal = Vector3(0.f, 1.f, 0.f);
 		if (align_to_normal) {
-			normal = _terrain->get_storage()->get_normal(position);
+			normal = _terrain->get_data()->get_normal(position);
 			if (std::isnan(normal.x)) {
 				normal = Vector3(0.f, 1.f, 0.f);
 			} else {
@@ -292,7 +292,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 }
 
 void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 
 	int mesh_id = p_params.get("asset_id", 0);
 	if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
@@ -339,7 +339,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		}
 	}
 
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 	if (xforms.size() == 0) {
 		LOG(DEBUG, "Removed all instances, erasing multimesh in region");
 		clear_by_location(region_loc, mesh_id);
@@ -364,7 +364,7 @@ void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh>
 }
 
 void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	if (p_xforms.size() == 0) {
 		return;
 	}
@@ -389,7 +389,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		}
 
 		// Store by region offset
-		Vector2i region_loc = _terrain->get_storage()->get_region_location(trns.origin);
+		Vector2i region_loc = _terrain->get_data()->get_region_location(trns.origin);
 		if (!xforms_dict.has(region_loc)) {
 			xforms_dict[region_loc] = TypedArray<Transform3D>();
 			colors_dict[region_loc] = TypedArray<Color>();
@@ -414,7 +414,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 // Appends new transforms to existing multimeshes
 void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_loc, const int p_mesh_id,
 		const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear) {
-	IS_STORAGE_INIT(VOID);
+	IS_DATA_INIT(VOID);
 
 	// Collect old data
 	TypedArray<Transform3D> old_xforms;
@@ -457,7 +457,7 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_loc, const in
 	}
 
 	LOG(DEBUG_CONT, "Setting multimesh in region: ", p_region_loc, ", mesh_id: ", p_mesh_id, " instance count: ", mm->get_instance_count(), " mm: ", mm);
-	Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(p_region_loc);
+	Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(WARN, "No region found at: ", p_region_loc);
 		return;
@@ -470,14 +470,14 @@ void Terrain3DInstancer::append_multimesh(const Vector2i &p_region_loc, const in
 
 // Review all transforms in one area and adjust their transforms w/ the current height
 void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	LOG(DEBUG_CONT, "Updating transforms for all meshes within ", p_aabb);
 
-	Array region_locations = _terrain->get_storage()->get_region_locations();
+	Array region_locations = _terrain->get_data()->get_region_locations();
 	Rect2 brush_rect = aabb2rect(p_aabb);
 	for (int r = 0; r < region_locations.size(); r++) {
 		Vector2i region_loc = region_locations[r];
-		Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(region_loc);
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
 		if (region.is_null()) {
 			LOG(WARN, "No region found at: ", region_loc);
 			continue;
@@ -507,7 +507,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					Transform3D t = mm->get_instance_transform(i);
 					if (brush_rect.has_point(Vector2(t.origin.x, t.origin.z))) {
 						// Reset height to terrain height + mesh height offset along UP axis
-						real_t height = _terrain->get_storage()->get_height(t.origin);
+						real_t height = _terrain->get_data()->get_height(t.origin);
 						// If the new height is a nan due to creating a hole, remove the instance
 						if (std::isnan(height)) {
 							continue;
@@ -527,16 +527,16 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 // Changes the ID of a mesh, without changing the mesh on the ground
 // Called when the mesh asset id has changed. Updates Multimeshes and MMIs dictionary keys
 void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
-	IS_STORAGE_INIT_MESG("Instancer isn't initialized.", VOID);
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	Ref<Terrain3DAssets> assets = _terrain->get_assets();
 	int asset_count = assets->get_mesh_count();
 	LOG(INFO, "Swapping IDs of multimeshes: ", p_src_id, " and ", p_dst_id);
 	if (p_src_id >= 0 && p_src_id < asset_count && p_dst_id >= 0 && p_dst_id < asset_count) {
 		// Change id keys in storage mm dictionary
-		Array region_locations = _terrain->get_storage()->get_region_locations();
+		Array region_locations = _terrain->get_data()->get_region_locations();
 		for (int i = 0; i < region_locations.size(); i++) {
 			Vector2i region_loc = region_locations[i];
-			Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(region_loc);
+			Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
 			if (region.is_null()) {
 				LOG(WARN, "No region found at: ", region_loc);
 				return;
@@ -595,13 +595,13 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 }
 
 Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 	return get_multimesh(region_loc, p_mesh_id);
 }
 
 Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_loc, const int p_mesh_id) const {
-	IS_STORAGE_INIT(Ref<MultiMesh>());
-	Ref<Terrain3DRegion> region = _terrain->get_storage()->get_region(p_region_loc);
+	IS_DATA_INIT(Ref<MultiMesh>());
+	Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(WARN, "No region found at: ", p_region_loc);
 		return Ref<MultiMesh>();
@@ -613,7 +613,7 @@ Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_loc, c
 }
 
 MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_loc = _terrain->get_storage()->get_region_location(p_global_position);
+	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 	return get_multimesh_instance(region_loc, p_mesh_id);
 }
 

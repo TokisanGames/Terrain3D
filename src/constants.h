@@ -74,15 +74,15 @@ using namespace godot;
 		return ret;                                                    \
 	}
 
-#define IS_STORAGE_INIT(ret)                                         \
-	if (_terrain == nullptr || _terrain->get_storage() == nullptr) { \
-		return ret;                                                  \
+#define IS_DATA_INIT(ret)                                         \
+	if (_terrain == nullptr || _terrain->get_data() == nullptr) { \
+		return ret;                                               \
 	}
 
-#define IS_STORAGE_INIT_MESG(mesg, ret)                              \
-	if (_terrain == nullptr || _terrain->get_storage() == nullptr) { \
-		LOG(ERROR, mesg);                                            \
-		return ret;                                                  \
+#define IS_DATA_INIT_MESG(mesg, ret)                              \
+	if (_terrain == nullptr || _terrain->get_data() == nullptr) { \
+		LOG(ERROR, mesg);                                         \
+		return ret;                                               \
 	}
 
 #endif // CONSTANTS_CLASS_H

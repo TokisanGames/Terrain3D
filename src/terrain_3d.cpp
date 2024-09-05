@@ -37,9 +37,9 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Creating blank material");
 		_material.instantiate();
 	}
-	if (_storage == nullptr) {
-		LOG(DEBUG, "Creating blank storage");
-		_storage = memnew(Terrain3DStorage);
+	if (_data == nullptr) {
+		LOG(DEBUG, "Creating blank data object");
+		_data = memnew(Terrain3DData);
 	}
 	if (_assets.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -52,24 +52,24 @@ void Terrain3D::_initialize() {
 
 	// Connect signals
 	// Any region was changed, update region labels
-	if (!_storage->is_connected("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels))) {
-		LOG(DEBUG, "Connecting _storage::region_map_changed signal to set_show_region_locations()");
-		_storage->connect("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels));
+	if (!_data->is_connected("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels))) {
+		LOG(DEBUG, "Connecting _data::region_map_changed signal to set_show_region_locations()");
+		_data->connect("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels));
 	}
 	// Any map was regenerated or regions changed, update material
-	if (!_storage->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
-		LOG(DEBUG, "Connecting _storage::maps_changed signal to _material->_update_maps()");
-		_storage->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
+	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
+		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update_maps()");
+		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
 	// Height map was regenerated, update aabbs
-	if (!_storage->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
-		LOG(DEBUG, "Connecting _storage::height_maps_changed signal to update_aabbs()");
-		_storage->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
+	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
+		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
+		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
 	}
 	// Connect height changes to update instances
-	if (!_storage->is_connected("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms))) {
+	if (!_data->is_connected("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms))) {
 		LOG(DEBUG, "Connecting maps_edited signal to update_transforms()");
-		_storage->connect("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms));
+		_data->connect("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms));
 	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
@@ -84,7 +84,7 @@ void Terrain3D::_initialize() {
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
-		_storage->initialize(this);
+		_data->initialize(this);
 		_material->initialize(this);
 		_assets->initialize(this);
 		_instancer->initialize(this);
@@ -229,7 +229,7 @@ void Terrain3D::_grab_camera() {
 }
 
 void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
-	if (!is_inside_tree() || _storage == nullptr) {
+	if (!is_inside_tree() || _data == nullptr) {
 		LOG(DEBUG, "Not inside the tree or no valid storage, skipping build");
 		return;
 	}
@@ -250,9 +250,9 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 	// Get current visual scenario so the instances appear in the scene
 	RID scenario = get_world_3d()->get_scenario();
 
-	_data.cross = RS->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
-	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_cast_shadows));
-	RS->instance_set_layer_mask(_data.cross, _render_layers);
+	_mesh_data.cross = RS->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
+	RS->instance_geometry_set_cast_shadows_setting(_mesh_data.cross, RenderingServer::ShadowCastingSetting(_cast_shadows));
+	RS->instance_set_layer_mask(_mesh_data.cross, _render_layers);
 
 	for (int l = 0; l < p_mesh_lods; l++) {
 		for (int x = 0; x < 4; x++) {
@@ -264,25 +264,25 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 				RID tile = RS->instance_create2(_meshes[GeoClipMap::TILE], scenario);
 				RS->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_cast_shadows));
 				RS->instance_set_layer_mask(tile, _render_layers);
-				_data.tiles.push_back(tile);
+				_mesh_data.tiles.push_back(tile);
 			}
 		}
 
 		RID filler = RS->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
 		RS->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(filler, _render_layers);
-		_data.fillers.push_back(filler);
+		_mesh_data.fillers.push_back(filler);
 
 		if (l != p_mesh_lods - 1) {
 			RID trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
 			RS->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_cast_shadows));
 			RS->instance_set_layer_mask(trim, _render_layers);
-			_data.trims.push_back(trim);
+			_mesh_data.trims.push_back(trim);
 
 			RID seam = RS->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
 			RS->instance_geometry_set_cast_shadows_setting(seam, RenderingServer::ShadowCastingSetting(_cast_shadows));
 			RS->instance_set_layer_mask(seam, _render_layers);
-			_data.seams.push_back(seam);
+			_mesh_data.seams.push_back(seam);
 		}
 	}
 
@@ -307,33 +307,33 @@ void Terrain3D::_update_mesh_instances() {
 	RID _scenario = get_world_3d()->get_scenario();
 
 	bool v = is_visible_in_tree();
-	RS->instance_set_visible(_data.cross, v);
-	RS->instance_set_scenario(_data.cross, _scenario);
-	RS->instance_geometry_set_cast_shadows_setting(_data.cross, RenderingServer::ShadowCastingSetting(_cast_shadows));
-	RS->instance_set_layer_mask(_data.cross, _render_layers);
+	RS->instance_set_visible(_mesh_data.cross, v);
+	RS->instance_set_scenario(_mesh_data.cross, _scenario);
+	RS->instance_geometry_set_cast_shadows_setting(_mesh_data.cross, RenderingServer::ShadowCastingSetting(_cast_shadows));
+	RS->instance_set_layer_mask(_mesh_data.cross, _render_layers);
 
-	for (const RID rid : _data.tiles) {
+	for (const RID rid : _mesh_data.tiles) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
-	for (const RID rid : _data.fillers) {
+	for (const RID rid : _mesh_data.fillers) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
-	for (const RID rid : _data.trims) {
+	for (const RID rid : _mesh_data.trims) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(rid, _render_layers);
 	}
 
-	for (const RID rid : _data.seams) {
+	for (const RID rid : _mesh_data.seams) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_geometry_set_cast_shadows_setting(rid, RenderingServer::ShadowCastingSetting(_cast_shadows));
@@ -346,24 +346,24 @@ void Terrain3D::_clear_meshes() {
 	for (const RID rid : _meshes) {
 		RS->free_rid(rid);
 	}
-	RS->free_rid(_data.cross);
-	for (const RID rid : _data.tiles) {
+	RS->free_rid(_mesh_data.cross);
+	for (const RID rid : _mesh_data.tiles) {
 		RS->free_rid(rid);
 	}
-	for (const RID rid : _data.fillers) {
+	for (const RID rid : _mesh_data.fillers) {
 		RS->free_rid(rid);
 	}
-	for (const RID rid : _data.trims) {
+	for (const RID rid : _mesh_data.trims) {
 		RS->free_rid(rid);
 	}
-	for (const RID rid : _data.seams) {
+	for (const RID rid : _mesh_data.seams) {
 		RS->free_rid(rid);
 	}
 	_meshes.clear();
-	_data.tiles.clear();
-	_data.fillers.clear();
-	_data.trims.clear();
-	_data.seams.clear();
+	_mesh_data.tiles.clear();
+	_mesh_data.fillers.clear();
+	_mesh_data.trims.clear();
+	_mesh_data.seams.clear();
 	_initialized = false;
 }
 
@@ -375,7 +375,7 @@ void Terrain3D::_build_collision() {
 	if (IS_EDITOR && !_show_debug_collision) {
 		return;
 	}
-	if (_storage == nullptr) {
+	if (_data == nullptr) {
 		LOG(ERROR, "Storage missing, cannot create collision");
 		return;
 	}
@@ -422,17 +422,17 @@ void Terrain3D::_update_collision() {
 		hole_const = FLT_MAX;
 	}
 
-	for (int i = 0; i < _storage->get_region_count(); i++) {
+	for (int i = 0; i < _data->get_region_count(); i++) {
 		PackedRealArray map_data = PackedRealArray();
 		map_data.resize(shape_size * shape_size);
 
-		Vector2i region_loc = _storage->get_region_locations()[i];
+		Vector2i region_loc = _data->get_region_locations()[i];
 		Vector2i global_loc = region_loc * _region_size;
 		Vector3 global_pos = Vector3(global_loc.x, 0.f, global_loc.y);
 
 		Ref<Image> map, map_x, map_z, map_xz;
 		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
-		Ref<Terrain3DRegion> region = _storage->get_region(region_loc);
+		Ref<Terrain3DRegion> region = _data->get_region(region_loc);
 		if (region.is_null()) {
 			LOG(ERROR, "Region ", region_loc, " not found");
 			continue;
@@ -440,17 +440,17 @@ void Terrain3D::_update_collision() {
 		map = region->get_map(TYPE_HEIGHT);
 		cmap = region->get_map(TYPE_CONTROL);
 
-		region = _storage->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
+		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
 		if (region.is_valid()) {
 			map_x = region->get_map(TYPE_HEIGHT);
 			cmap_x = region->get_map(TYPE_CONTROL);
 		}
-		region = _storage->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
+		region = _data->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
 		if (region.is_valid()) {
 			map_z = region->get_map(TYPE_HEIGHT);
 			cmap_z = region->get_map(TYPE_CONTROL);
 		}
-		region = _storage->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
+		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
 		if (region.is_valid()) {
 			map_xz = region->get_map(TYPE_HEIGHT);
 			cmap_xz = region->get_map(TYPE_CONTROL);
@@ -503,7 +503,7 @@ void Terrain3D::_update_collision() {
 			shape_data["width"] = shape_size;
 			shape_data["depth"] = shape_size;
 			shape_data["heights"] = map_data;
-			Vector2 min_max = _storage->get_height_range();
+			Vector2 min_max = _data->get_height_range();
 			shape_data["min_height"] = min_max.x;
 			shape_data["max_height"] = min_max.y;
 			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
@@ -564,14 +564,14 @@ void Terrain3D::_destroy_instancer() {
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
-		const Terrain3DStorage::HeightFilter p_filter, const bool p_require_nav, const AABB &p_global_aabb) const {
-	ERR_FAIL_COND(_storage == nullptr);
+		const Terrain3DData::HeightFilter p_filter, const bool p_require_nav, const AABB &p_global_aabb) const {
+	ERR_FAIL_COND(_data == nullptr);
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
 	if (!p_global_aabb.has_volume()) {
 		int32_t region_size = (int32_t)_region_size;
 
-		TypedArray<Vector2i> region_locations = _storage->get_region_locations();
+		TypedArray<Vector2i> region_locations = _data->get_region_locations();
 		for (int r = 0; r < region_locations.size(); ++r) {
 			Vector2i region_loc = (Vector2i)region_locations[r] * region_size;
 
@@ -589,7 +589,7 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 
 		for (int32_t z = z_start; z < z_end; ++z) {
 			for (int32_t x = x_start; x < x_end; ++x) {
-				real_t height = _storage->get_height(Vector3(x, 0.f, z));
+				real_t height = _data->get_height(Vector3(x, 0.f, z));
 				if (height >= p_global_aabb.position.y && height <= p_global_aabb.get_end().y) {
 					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
 				}
@@ -601,7 +601,7 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 // p_vertices is assumed to exist and the destination for data
 // p_uvs might not exist, so a pointer is fine
 void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs,
-		const int32_t p_lod, const Terrain3DStorage::HeightFilter p_filter, const bool p_require_nav,
+		const int32_t p_lod, const Terrain3DData::HeightFilter p_filter, const bool p_require_nav,
 		const int32_t x, const int32_t z) const {
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
@@ -610,13 +610,13 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	Vector3 xzs = Vector3(x, 0.0f, z + step) * _mesh_vertex_spacing;
 	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _mesh_vertex_spacing;
 
-	uint32_t control1 = _storage->get_control(xz);
-	uint32_t control2 = _storage->get_control(xszs);
-	uint32_t control3 = _storage->get_control(xzs);
+	uint32_t control1 = _data->get_control(xz);
+	uint32_t control2 = _data->get_control(xszs);
+	uint32_t control3 = _data->get_control(xzs);
 	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
-		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
-		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
-		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xzs);
+		Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
+		Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
+		Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xzs);
 		if (!std::isnan(v1.y) && !std::isnan(v2.y) && !std::isnan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
@@ -629,13 +629,13 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		}
 	}
 
-	control1 = _storage->get_control(xz);
-	control2 = _storage->get_control(xsz);
-	control3 = _storage->get_control(xszs);
+	control1 = _data->get_control(xz);
+	control2 = _data->get_control(xsz);
+	control3 = _data->get_control(xszs);
 	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
-		Vector3 v1 = _storage->get_mesh_vertex(p_lod, p_filter, xz);
-		Vector3 v2 = _storage->get_mesh_vertex(p_lod, p_filter, xsz);
-		Vector3 v3 = _storage->get_mesh_vertex(p_lod, p_filter, xszs);
+		Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
+		Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xsz);
+		Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
 		if (!std::isnan(v1.y) && !std::isnan(v2.y) && !std::isnan(v3.y)) {
 			p_vertices.push_back(v1);
 			p_vertices.push_back(v2);
@@ -685,9 +685,9 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 	ERR_FAIL_COND(p_size != SIZE_1024);
 	_region_size = p_size;
 	// Region size changed, update downstream
-	if (_storage) {
-		_storage->_region_size = _region_size;
-		_storage->_region_sizev = Vector2i(_region_size, _region_size);
+	if (_data) {
+		_data->_region_size = _region_size;
+		_data->_region_sizev = Vector2i(_region_size, _region_size);
 	}
 	if (_material.is_valid()) {
 		_material->_update_maps();
@@ -723,30 +723,30 @@ void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
 		_destroy_collision();
 		_destroy_instancer();
 		_initialize();
-		_storage->_mesh_vertex_spacing = spacing;
+		_data->_mesh_vertex_spacing = spacing;
 	}
 	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
 	}
 }
 
-void Terrain3D::set_storage_directory(String p_dir) {
+void Terrain3D::set_data_directory(String p_dir) {
 	LOG(INFO, "Setting storage directory to ", p_dir);
-	if (_storage_directory != p_dir) {
+	if (_data_directory != p_dir) {
 		_clear_meshes();
 		_destroy_collision();
 		_destroy_instancer();
-		memdelete_safely(_storage);
-		_storage_directory = p_dir;
+		memdelete_safely(_data);
+		_data_directory = p_dir;
 		_initialize();
 	}
 }
 
-String Terrain3D::get_storage_directory() const {
-	if (_storage == nullptr) {
+String Terrain3D::get_data_directory() const {
+	if (_data == nullptr) {
 		return "";
 	}
-	return _storage_directory;
+	return _data_directory;
 }
 
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
@@ -854,7 +854,7 @@ void Terrain3D::set_show_debug_collision(const bool p_enabled) {
 	LOG(INFO, "Setting show collision: ", p_enabled);
 	_show_debug_collision = p_enabled;
 	_destroy_collision();
-	if (_storage != nullptr && _show_debug_collision) {
+	if (_data != nullptr && _show_debug_collision) {
 		_build_collision();
 	}
 }
@@ -922,7 +922,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 	Vector3 snapped_pos = (cam_pos / _mesh_vertex_spacing).floor() * _mesh_vertex_spacing;
 	Transform3D t = Transform3D().scaled(Vector3(_mesh_vertex_spacing, 1, _mesh_vertex_spacing));
 	t.origin = snapped_pos;
-	RS->instance_set_transform(_data.cross, t);
+	RS->instance_set_transform(_mesh_data.cross, t);
 
 	int edge = 0;
 	int tile = 0;
@@ -947,7 +947,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 				t.origin = tile_tl;
 
-				RS->instance_set_transform(_data.tiles[tile], t);
+				RS->instance_set_transform(_mesh_data.tiles[tile], t);
 
 				tile++;
 			}
@@ -955,7 +955,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 		{
 			Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 			t.origin = snapped_pos;
-			RS->instance_set_transform(_data.fillers[l], t);
+			RS->instance_set_transform(_mesh_data.fillers[l], t);
 		}
 
 		if (l != _mesh_lods - 1) {
@@ -977,7 +977,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 				Transform3D t = Transform3D().rotated(Vector3(0.f, 1.f, 0.f), -angle);
 				t = t.scaled(Vector3(scale, 1.f, scale));
 				t.origin = tile_center;
-				RS->instance_set_transform(_data.trims[edge], t);
+				RS->instance_set_transform(_mesh_data.trims[edge], t);
 			}
 
 			// Position seams
@@ -985,7 +985,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 				t.origin = next_base;
-				RS->instance_set_transform(_data.seams[edge], t);
+				RS->instance_set_transform(_mesh_data.seams[edge], t);
 			}
 			edge++;
 		}
@@ -993,46 +993,46 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 }
 
 void Terrain3D::update_aabbs() {
-	if (_meshes.is_empty() || _storage == nullptr) {
+	if (_meshes.is_empty() || _data == nullptr) {
 		LOG(DEBUG, "Update AABB called before terrain meshes built. Returning.");
 		return;
 	}
 
-	Vector2 height_range = _storage->get_height_range();
+	Vector2 height_range = _data->get_height_range();
 	LOG(DEBUG_CONT, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
 	height_range.y += abs(height_range.x); // Add below zero to total size
 
 	AABB aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
 	aabb.position.y = height_range.x - _cull_margin;
 	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	RS->instance_set_custom_aabb(_data.cross, aabb);
+	RS->instance_set_custom_aabb(_mesh_data.cross, aabb);
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TILE]);
 	aabb.position.y = height_range.x - _cull_margin;
 	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _data.tiles.size(); i++) {
-		RS->instance_set_custom_aabb(_data.tiles[i], aabb);
+	for (int i = 0; i < _mesh_data.tiles.size(); i++) {
+		RS->instance_set_custom_aabb(_mesh_data.tiles[i], aabb);
 	}
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::FILLER]);
 	aabb.position.y = height_range.x - _cull_margin;
 	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _data.fillers.size(); i++) {
-		RS->instance_set_custom_aabb(_data.fillers[i], aabb);
+	for (int i = 0; i < _mesh_data.fillers.size(); i++) {
+		RS->instance_set_custom_aabb(_mesh_data.fillers[i], aabb);
 	}
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TRIM]);
 	aabb.position.y = height_range.x - _cull_margin;
 	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _data.trims.size(); i++) {
-		RS->instance_set_custom_aabb(_data.trims[i], aabb);
+	for (int i = 0; i < _mesh_data.trims.size(); i++) {
+		RS->instance_set_custom_aabb(_mesh_data.trims[i], aabb);
 	}
 
 	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::SEAM]);
 	aabb.position.y = height_range.x - _cull_margin;
 	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _data.seams.size(); i++) {
-		RS->instance_set_custom_aabb(_data.seams[i], aabb);
+	for (int i = 0; i < _mesh_data.seams.size(); i++) {
+		RS->instance_set_custom_aabb(_mesh_data.seams[i], aabb);
 	}
 }
 
@@ -1060,7 +1060,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
 		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
 		point = p_src_pos;
-		point.y = _storage->get_height(p_src_pos);
+		point.y = _data->get_height(p_src_pos);
 		if (std::isnan(point.y)) {
 			point.y = 0;
 		}
@@ -1105,8 +1105,8 @@ void Terrain3D::set_show_region_labels(const bool p_enabled) {
 
 void Terrain3D::update_region_labels() {
 	_destroy_labels();
-	if (_show_region_labels && _storage != nullptr) {
-		Array region_locations = _storage->get_region_locations();
+	if (_show_region_labels && _data != nullptr) {
+		Array region_locations = _data->get_region_locations();
 		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
 		for (int i = 0; i < region_locations.size(); i++) {
 			Label3D *label = memnew(Label3D);
@@ -1142,10 +1142,10 @@ void Terrain3D::update_region_labels() {
  *   This takes longer than ..._NEAREST, but can be used to create occluders, since it can guarantee the
  *   generated mesh will not extend above or outside the clipmap at any LOD.
  */
-Ref<Mesh> Terrain3D::bake_mesh(const int p_lod, const Terrain3DStorage::HeightFilter p_filter) const {
+Ref<Mesh> Terrain3D::bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter) const {
 	LOG(INFO, "Baking mesh at lod: ", p_lod, " with filter: ", p_filter);
 	Ref<Mesh> result;
-	ERR_FAIL_COND_V(_storage == nullptr, result);
+	ERR_FAIL_COND_V(_data == nullptr, result);
 
 	Ref<SurfaceTool> st;
 	st.instantiate();
@@ -1181,13 +1181,13 @@ Ref<Mesh> Terrain3D::bake_mesh(const int p_lod, const Terrain3DStorage::HeightFi
 PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav) const {
 	LOG(INFO, "Generating NavMesh source geometry from terrain");
 	PackedVector3Array faces;
-	_generate_triangles(faces, nullptr, 0, Terrain3DStorage::HEIGHT_FILTER_NEAREST, p_require_nav, p_global_aabb);
+	_generate_triangles(faces, nullptr, 0, Terrain3DData::HEIGHT_FILTER_NEAREST, p_require_nav, p_global_aabb);
 	return faces;
 }
 
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
-	if (_storage_directory.is_empty()) {
+	if (_data_directory.is_empty()) {
 		psa.push_back("No storage directory specified. Select a directory then save the scene to write data.");
 	}
 	if (!psa.is_empty()) {
@@ -1287,10 +1287,10 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_EDITOR_PRE_SAVE: {
 			// Editor Node is about to the current scene
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
-			if (_storage == nullptr) {
+			if (_data == nullptr) {
 				LOG(DEBUG, "Save requested, but no valid storage. Skipping");
 			} else {
-				_storage->save_directory(_storage_directory);
+				_data->save_directory(_data_directory);
 			}
 			if (!_material.is_valid()) {
 				LOG(DEBUG, "Save requested, but no valid material. Skipping");
@@ -1344,7 +1344,7 @@ void Terrain3D::_notification(const int p_what) {
 			_destroy_instancer();
 			_destroy_labels();
 			_destroy_containers();
-			memdelete_safely(_storage);
+			memdelete_safely(_data);
 			break;
 		}
 
@@ -1367,9 +1367,9 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_region_labels", "enabled"), &Terrain3D::set_show_region_labels);
 	ClassDB::bind_method(D_METHOD("get_show_region_labels"), &Terrain3D::get_show_region_labels);
 
-	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
-	ClassDB::bind_method(D_METHOD("set_storage_directory", "directory"), &Terrain3D::set_storage_directory);
-	ClassDB::bind_method(D_METHOD("get_storage_directory"), &Terrain3D::get_storage_directory);
+	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3D::get_data);
+	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
+	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
 
@@ -1424,13 +1424,13 @@ void Terrain3D::_bind_methods() {
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
-	ADD_PROPERTY(PropertyInfo(Variant::STRING, "storage_directory", PROPERTY_HINT_DIR), "set_storage_directory", "get_storage_directory");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "data_directory", PROPERTY_HINT_DIR), "set_data_directory", "get_data_directory");
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_NONE, "Terrain3DStorage", PROPERTY_USAGE_NONE), "", "get_storage");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 
 	ADD_GROUP("Renderer", "render_");

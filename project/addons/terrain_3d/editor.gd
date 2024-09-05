@@ -43,7 +43,7 @@ func _enter_tree() -> void:
 	asset_dock = load(ASSET_DOCK).instantiate()
 	asset_dock.initialize(self)
 
-	
+
 func _exit_tree() -> void:
 	asset_dock.remove_dock(true)
 	asset_dock.queue_free()
@@ -119,8 +119,8 @@ func _edit(p_object: Object) -> void:
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
 		# Get alerted when the region map changes
-		if not terrain.get_storage().region_map_changed.is_connected(update_region_grid):
-			terrain.get_storage().region_map_changed.connect(update_region_grid)
+		if not terrain.data.region_map_changed.is_connected(update_region_grid):
+			terrain.data.region_map_changed.connect(update_region_grid)
 		update_region_grid()
 	else:
 		_clear()
@@ -135,7 +135,7 @@ func _edit(p_object: Object) -> void:
 	
 func _clear() -> void:
 	if is_terrain_valid():
-		terrain.get_storage().region_map_changed.disconnect(update_region_grid)
+		terrain.data.region_map_changed.disconnect(update_region_grid)
 		
 		terrain.clear_gizmos()
 		terrain = null
@@ -223,7 +223,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				# If adjusting regions
 				if editor.get_tool() == Terrain3DEditor.REGION:
 					# Skip regions that already exist or don't
-					var has_region: bool = terrain.get_storage().has_regionp(mouse_global_position)
+					var has_region: bool = terrain.data.has_regionp(mouse_global_position)
 					var op: int = editor.get_operation()
 					if	( has_region and op == Terrain3DEditor.ADD) or \
 						( not has_region and op == Terrain3DEditor.SUBTRACT ):
@@ -285,7 +285,7 @@ func is_terrain_valid(p_terrain: Terrain3D = null) -> bool:
 		t = p_terrain
 	else:
 		t = terrain
-	if is_instance_valid(t) and t.is_inside_tree() and t.get_storage():
+	if is_instance_valid(t) and t.is_inside_tree() and t.data:
 		return true
 	return false
 
