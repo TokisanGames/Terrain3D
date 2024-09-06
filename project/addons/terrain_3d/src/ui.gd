@@ -482,3 +482,7 @@ func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_N
 		return Terrain3DEditor.ADD
 	return p_operation
 
+
+func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
+	var icon: Texture2D = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
+	p_button.icon = icon

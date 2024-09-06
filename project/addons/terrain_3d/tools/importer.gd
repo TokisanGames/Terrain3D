@@ -12,6 +12,7 @@ func reset_settings(p_value) -> void:
 		height_file_name = ""
 		control_file_name = ""
 		color_file_name = ""
+		destination_directory = ""
 		import_position = Vector2i.ZERO
 		height_offset = 0.0
 		import_scale = 1.0
@@ -40,6 +41,9 @@ func update_heights(p_value) -> void:
 @export var r16_range: Vector2 = Vector2(0, 1)
 @export var r16_size: Vector2i = Vector2i(1024, 1024) : set = set_r16_size
 @export var run_import: bool = false : set = start_import
+
+@export_dir var destination_directory: String = ""
+@export var save_to_disk: bool = false : set = save_data
 
 
 func set_import_position(p_value: Vector2i) -> void:
@@ -76,6 +80,13 @@ func start_import(p_value: bool) -> void:
 		var pos := Vector3(import_position.x, 0, import_position.y)
 		data.import_images(imported_images, pos, height_offset, import_scale)
 		print("Terrain3DImporter: Import finished")
+
+
+func save_data(p_value: bool) -> void:
+	if destination_directory.is_empty():
+		push_error("Set destination directory first")
+		return
+	data.save_directory(destination_directory)
 
 
 @export_group("Export File")

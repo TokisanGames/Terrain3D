@@ -11,7 +11,6 @@ enum {
 }
 
 var plugin: EditorPlugin
-var editor_interface: EditorInterface
 var dialog: AcceptDialog
 var save_file_dialog: FileDialog
 var open_file_dialog: FileDialog
@@ -37,9 +36,8 @@ func pack_textures_popup() -> void:
 	status_label = dialog.find_child("StatusLabel")
 	invert_green_checkbox = dialog.find_child("InvertGreenChannelCheckBox")
 
-	editor_interface = plugin.get_editor_interface()
-	_init_file_dialogs()	
-	editor_interface.popup_dialog_centered(dialog)
+	_init_file_dialogs()
+	EditorInterface.popup_dialog_centered(dialog)
 
 	_init_texture_picker(dialog.find_child("AlbedoVBox"), IMAGE_ALBEDO)
 	_init_texture_picker(dialog.find_child("HeightVBox"), IMAGE_HEIGHT)
@@ -121,14 +119,8 @@ func _init_texture_picker(p_parent: Node, p_image_index: int) -> void:
 	file_pick_button.pressed.connect(open_fn)
 	texture_button.pressed.connect(open_fn)
 	clear_button.pressed.connect(clear_fn)
-	_set_button_icon(file_pick_button, "Folder")
-	_set_button_icon(clear_button, "Remove")
-
-
-func _set_button_icon(p_button: Button, p_icon_name: String) -> void:
-	var editor_base: Control = editor_interface.get_base_control()
-	var icon: Texture2D = editor_base.get_theme_icon(p_icon_name, "EditorIcons")
-	p_button.icon = icon
+	plugin.ui.set_button_editor_icon(file_pick_button, "Folder")
+	plugin.ui.set_button_editor_icon(clear_button, "Remove")
 
 
 func _show_error(p_text: String) -> void:
@@ -205,7 +197,7 @@ func _pack_textures(p_rgb_image: Image, p_a_image: Image, p_dst_path: String, p_
 			return
 
 		output_image.save_png(p_dst_path)
-		editor_interface.get_resource_filesystem().scan_sources()
+		EditorInterface.get_resource_filesystem().scan_sources()
 		_create_import_file(p_dst_path)
 		_show_success("Packed to " + p_dst_path + ".")
 	else:
