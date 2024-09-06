@@ -254,27 +254,41 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 	RS->instance_geometry_set_cast_shadows_setting(_mesh_data.cross, RenderingServer::ShadowCastingSetting(_cast_shadows));
 	RS->instance_set_layer_mask(_mesh_data.cross, _render_layers);
 
-	for (int l = 0; l < p_mesh_lods; l++) {
+	for (int lod = 0; lod < p_mesh_lods; lod++) {
 		for (int x = 0; x < 4; x++) {
 			for (int y = 0; y < 4; y++) {
-				if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
+				if (lod != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
 					continue;
 				}
-
-				RID tile = RS->instance_create2(_meshes[GeoClipMap::TILE], scenario);
+				RID tile;
+				if (lod == 0) {
+					tile = RS->instance_create2(_meshes[GeoClipMap::TILE_INNER], scenario);
+				} else {
+					tile = RS->instance_create2(_meshes[GeoClipMap::TILE], scenario);
+				}
 				RS->instance_geometry_set_cast_shadows_setting(tile, RenderingServer::ShadowCastingSetting(_cast_shadows));
 				RS->instance_set_layer_mask(tile, _render_layers);
 				_mesh_data.tiles.push_back(tile);
 			}
 		}
 
-		RID filler = RS->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
+		RID filler;
+		if (lod == 0) {
+			filler = RS->instance_create2(_meshes[GeoClipMap::FILLER_INNER], scenario);
+		} else {
+			filler = RS->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
+		}
 		RS->instance_geometry_set_cast_shadows_setting(filler, RenderingServer::ShadowCastingSetting(_cast_shadows));
 		RS->instance_set_layer_mask(filler, _render_layers);
 		_mesh_data.fillers.push_back(filler);
 
-		if (l != p_mesh_lods - 1) {
-			RID trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
+		if (lod != p_mesh_lods - 1) {
+			RID trim;
+			if (lod == 0) {
+				trim = RS->instance_create2(_meshes[GeoClipMap::TRIM_INNER], scenario);
+			} else {
+				trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
+			}
 			RS->instance_geometry_set_cast_shadows_setting(trim, RenderingServer::ShadowCastingSetting(_cast_shadows));
 			RS->instance_set_layer_mask(trim, _render_layers);
 			_mesh_data.trims.push_back(trim);
