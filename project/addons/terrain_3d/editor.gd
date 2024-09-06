@@ -7,7 +7,6 @@ extends EditorPlugin
 const UI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
-const CONVERSION_WIZARD: PackedScene = preload("res://addons/terrain_3d/src/storage_wizard.tscn")
 
 var terrain: Terrain3D
 var _last_terrain: Terrain3D
@@ -21,7 +20,6 @@ var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
-var wizard_popup: Popup
 
 
 func _init() -> void:
@@ -49,20 +47,8 @@ func _exit_tree() -> void:
 	asset_dock.queue_free()
 	ui.queue_free()
 	editor.free()
-	wizard_popup.queue_free()
 
 	scene_changed.disconnect(_on_scene_changed)
-
-
-func _ready() -> void:
-	wizard_popup = Popup.new()
-	wizard_popup.add_child(CONVERSION_WIZARD.instantiate())
-	wizard_popup.unresizable = false
-	
-	EditorInterface.get_base_control().add_child(wizard_popup)
-	add_tool_menu_item("Terrain Storage Wizard...", func() -> void:
-		wizard_popup.popup_centered(Vector2i(512, 512))
-		)
 
 
 ## EditorPlugin selection function chain isn't consistent. Here's the map of calls:
@@ -113,6 +99,9 @@ func _edit(p_object: Object) -> void:
 		terrain.set_editor(editor)
 		ui.set_visible(true)
 		terrain.set_meta("_edit_lock_", true)
+
+		if terrain.storage:
+			ui.terrain_menu.directory_setup.directory_setup_popup()
 		
 		# Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
@@ -135,7 +124,8 @@ func _edit(p_object: Object) -> void:
 	
 func _clear() -> void:
 	if is_terrain_valid():
-		terrain.data.region_map_changed.disconnect(update_region_grid)
+		if terrain.data.region_map_changed.is_connected(update_region_grid):
+			terrain.data.region_map_changed.disconnect(update_region_grid)
 		
 		terrain.clear_gizmos()
 		terrain = null
@@ -257,7 +247,7 @@ func update_region_grid() -> void:
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
 		region_gizmo.region_position = current_region_position
 		region_gizmo.region_size = terrain.get_region_size() * terrain.get_mesh_vertex_spacing()
-		region_gizmo.grid = terrain.get_storage().get_region_locations()
+		region_gizmo.grid = terrain.get_data().get_region_locations()
 		
 		terrain.update_gizmos()
 		return

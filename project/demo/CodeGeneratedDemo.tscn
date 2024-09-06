@@ -33,7 +33,10 @@ template = SubResource("NavigationMesh_vs6am")
 player = NodePath("../Player")
 
 [node name="RunThisSceneLabel3D" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, 30)
-pixel_size = 1.0
+pixel_size = 0.001
 billboard = 1
+no_depth_test = true
+fixed_size = true
 text = "Run This Scene"
+font_size = 64
+outline_size = 10
