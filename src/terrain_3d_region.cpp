@@ -59,11 +59,10 @@ void Terrain3DRegion::set_maps(const TypedArray<Image> &p_maps) {
 		LOG(ERROR, "Expected ", TYPE_MAX - 1, " maps. Received ", p_maps.size());
 		return;
 	}
-	LOG(INFO, "Setting maps for region: ", _location);
-	_height_map = p_maps[TYPE_HEIGHT];
-	_control_map = p_maps[TYPE_CONTROL];
-	_color_map = p_maps[TYPE_COLOR];
-	sanitize_map(TYPE_MAX);
+	_region_size = 0;
+	set_height_map(p_maps[TYPE_HEIGHT]);
+	set_control_map(p_maps[TYPE_CONTROL]);
+	set_color_map(p_maps[TYPE_COLOR]);
 }
 
 TypedArray<Image> Terrain3DRegion::get_maps() const {
@@ -77,85 +76,100 @@ TypedArray<Image> Terrain3DRegion::get_maps() const {
 
 void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 	LOG(INFO, "Setting height map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
-	_height_map = p_map;
-	sanitize_map(TYPE_HEIGHT);
+	if (_region_size == 0) {
+		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
+	}
+	_height_map = sanitize_map(TYPE_HEIGHT, p_map);
+	calc_height_range();
 }
 
 void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
 	LOG(INFO, "Setting control map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
-	_control_map = p_map;
-	sanitize_map(TYPE_CONTROL);
+	if (_region_size == 0) {
+		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
+	}
+	_control_map = sanitize_map(TYPE_CONTROL, p_map);
 }
 
 void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
 	LOG(INFO, "Setting color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
-	_color_map = p_map;
-	sanitize_map(TYPE_COLOR);
+	if (_region_size == 0) {
+		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
+	}
+	_color_map = sanitize_map(TYPE_COLOR, p_map);
+	if (!_color_map->has_mipmaps()) {
+		LOG(DEBUG, "Color map does not have mipmaps. Generating");
+		_color_map->generate_mipmaps();
+	}
 }
 
-// Verifies region map is a valid size and format
-// Creates filled blanks if lacking
-void Terrain3DRegion::sanitize_map(const MapType p_map_type) {
-	if (p_map_type < 0 || p_map_type > TYPE_MAX) {
-		LOG(ERROR, "Invalid map type: ", p_map_type);
+bool Terrain3DRegion::validate_map_size(const Ref<Image> &p_map) const {
+	Vector2i region_sizev = p_map->get_size();
+	if (region_sizev.x != region_sizev.y) {
+		LOG(ERROR, "Image width doesn't match height: ", region_sizev);
+		return false;
+	}
+	if (!is_power_of_2(region_sizev.x) || !is_power_of_2(region_sizev.y)) {
+		LOG(ERROR, "Image dimensions are not a power of 2: ", region_sizev);
+		return false;
+	}
+	if (region_sizev.x < 64 || region_sizev.y > 4096) {
+		LOG(ERROR, "Image size out of bounds (64-4096): ", region_sizev);
+		return false;
+	}
+	if (_region_size == 0) {
+		LOG(ERROR, "Region size is 0, set it or set a map first");
+		return false;
+	}
+	if (_region_size != region_sizev.x || _region_size != region_sizev.y) {
+		LOG(ERROR, "Image size doesn't match existing images in this region", region_sizev);
+		return false;
+	}
+	return true;
+}
+
+void Terrain3DRegion::sanitize_maps() {
+	if (_region_size == 0) { // blank region, no set_*_map has been called
+		LOG(ERROR, "Set region_size first");
 		return;
 	}
-	LOG(INFO, "Verifying image maps type: ", TYPESTR[p_map_type], " are valid for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
+	_height_map = sanitize_map(TYPE_HEIGHT, _height_map);
+	_control_map = sanitize_map(TYPE_CONTROL, _control_map);
+	_color_map = sanitize_map(TYPE_COLOR, _color_map);
+}
 
-	TypedArray<int> queued_map_types;
-	if (p_map_type == TYPE_MAX) {
-		queued_map_types.push_back(TYPE_HEIGHT);
-		queued_map_types.push_back(TYPE_CONTROL);
-		queued_map_types.push_back(TYPE_COLOR);
-	} else {
-		queued_map_types.push_back(p_map_type);
-	}
+Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const {
+	const char *type_str = TYPESTR[p_map_type];
+	Image::Format format = FORMAT[p_map_type];
+	Color color = COLOR[p_map_type];
+	Ref<Image> map;
 
-	for (int i = 0; i < queued_map_types.size(); i++) {
-		MapType type = (MapType)(int)queued_map_types[i];
-		const char *type_str = TYPESTR[type];
-		Image::Format format = FORMAT[type];
-		Color color = COLOR[type];
-
-		Ref<Image> map = get_map(type);
-
-		if (map.is_valid()) {
-			if (map->get_size() == Vector2i(_region_size, _region_size)) {
-				if (map->get_format() == format) {
-					LOG(DEBUG, "Map type ", type_str, " correct format, size. Mipmaps: ", map->has_mipmaps());
-					if (type == TYPE_HEIGHT) {
-						calc_height_range();
-					}
-					if (type == TYPE_COLOR && !map->has_mipmaps()) {
-						LOG(DEBUG, "Color map does not have mipmaps. Generating");
-						map->generate_mipmaps();
-					}
-					continue;
-				} else {
-					LOG(DEBUG, "Provided ", type_str, " map wrong format: ", map->get_format(), ". Converting copy to: ", format);
-					Ref<Image> newimg;
-					newimg.instantiate();
-					newimg->copy_from(map);
-					newimg->convert(format);
-					if (type == TYPE_COLOR && !map->has_mipmaps()) {
-						LOG(DEBUG, "Color map does not have mipmaps. Generating");
-						newimg->generate_mipmaps();
-					}
-					if (newimg->get_format() == format) {
-						set_map(type, newimg);
-						continue;
-					} else {
-						LOG(DEBUG, "Cannot convert image to format: ", format, ". Creating blank ");
-					}
-				}
+	if (p_map.is_valid()) {
+		if (validate_map_size(p_map)) {
+			if (p_map->get_format() == format) {
+				LOG(DEBUG, "Map type ", type_str, " correct format, size. Mipmaps: ", p_map->has_mipmaps());
+				map = p_map;
 			} else {
-				LOG(DEBUG, "Provided ", type_str, " map wrong size: ", map->get_size(), ". Creating blank");
+				LOG(DEBUG, "Provided ", type_str, " map wrong format: ", p_map->get_format(), ". Converting copy to: ", format);
+				map.instantiate();
+				map->copy_from(p_map);
+				map->convert(format);
+				if (map->get_format() != format) {
+					LOG(DEBUG, "Cannot convert image to format: ", format, ". Creating blank ");
+					map.unref();
+				}
 			}
 		} else {
-			LOG(DEBUG, "No provided ", type_str, " map. Creating blank");
+			LOG(DEBUG, "Provided ", type_str, " map wrong size: ", p_map->get_size(), ". Creating blank");
 		}
-		LOG(DEBUG, "Making new image of type: ", type_str, " and generating mipmaps: ", type == TYPE_COLOR);
-		set_map(type, Util::get_filled_image(Vector2i(_region_size, _region_size), color, type == TYPE_COLOR, format));
+	} else {
+		LOG(DEBUG, "No provided ", type_str, " map. Creating blank");
+	}
+	if (map.is_null()) {
+		LOG(DEBUG, "Making new image of type: ", type_str, " and generating mipmaps: ", p_map_type == TYPE_COLOR);
+		return Util::get_filled_image(Vector2i(_region_size, _region_size), color, p_map_type == TYPE_COLOR, format);
+	} else {
+		return map;
 	}
 }
 
@@ -181,7 +195,6 @@ void Terrain3DRegion::calc_height_range() {
 
 Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 	// Initiate save to external file. The scene will save itself.
-	//LOG(WARN, "Saving region: ", _location, " modified: ", _modified, " path: ", get_path(), ", to : ", p_path);
 	if (_location.x == INT32_MAX) {
 		LOG(ERROR, "Region has not been setup. Location is INT32_MAX. Skipping ", p_path);
 	}
@@ -312,6 +325,8 @@ void Terrain3DRegion::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_version"), &Terrain3DRegion::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DRegion::get_version);
+	ClassDB::bind_method(D_METHOD("set_region_size", "region_size"), &Terrain3DRegion::set_region_size);
+	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DRegion::get_region_size);
 
 	ClassDB::bind_method(D_METHOD("set_height_map", "map"), &Terrain3DRegion::set_height_map);
 	ClassDB::bind_method(D_METHOD("get_height_map"), &Terrain3DRegion::get_height_map);
@@ -346,6 +361,7 @@ void Terrain3DRegion::_bind_methods() {
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_NONE, "", ro_flags), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "heightmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "controlmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");

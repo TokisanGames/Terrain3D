@@ -44,7 +44,7 @@ public: // Constants
 private:
 	/// Saved data
 	real_t _version = 0.8f; // Set to first version to ensure Godot always upgrades this
-	int _region_size = 1024;
+	int _region_size = 0;
 	Vector2 _height_range = V2_ZERO;
 	// Maps
 	Ref<Image> _height_map;
@@ -77,7 +77,9 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
-	void sanitize_map(const MapType p_map_type = TYPE_MAX);
+	bool validate_map_size(const Ref<Image> &p_map) const;
+	void sanitize_maps();
+	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 
 	void set_height_range(const Vector2 &p_range);
 	Vector2 get_height_range() const { return _height_range; }
