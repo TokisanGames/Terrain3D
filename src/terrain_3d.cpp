@@ -51,11 +51,6 @@ void Terrain3D::_initialize() {
 	}
 
 	// Connect signals
-	// Region size changed, update material
-	if (!_storage->is_connected("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
-		LOG(DEBUG, "Connecting region_size_changed signal to _material->_update_regions()");
-		_storage->connect("region_size_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
-	}
 	// Any region was changed, update region labels
 	if (!_storage->is_connected("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels))) {
 		LOG(DEBUG, "Connecting _storage::region_map_changed signal to set_show_region_locations()");
@@ -420,8 +415,7 @@ void Terrain3D::_update_collision() {
 	}
 
 	int time = Time::get_singleton()->get_ticks_msec();
-	int region_size = _storage->get_region_size();
-	int shape_size = region_size + 1;
+	int shape_size = _region_size + 1;
 	float hole_const = NAN;
 	// DEPRECATED - Jolt v0.12 supports NAN. Remove check when it's old.
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
@@ -433,7 +427,7 @@ void Terrain3D::_update_collision() {
 		map_data.resize(shape_size * shape_size);
 
 		Vector2i region_loc = _storage->get_region_locations()[i];
-		Vector2i global_loc = region_loc * region_size;
+		Vector2i global_loc = region_loc * _region_size;
 		Vector3 global_pos = Vector3(global_loc.x, 0.f, global_loc.y);
 
 		Ref<Image> map, map_x, map_z, map_xz;
@@ -446,17 +440,17 @@ void Terrain3D::_update_collision() {
 		map = region->get_map(TYPE_HEIGHT);
 		cmap = region->get_map(TYPE_CONTROL);
 
-		region = _storage->get_regionp(Vector3(global_pos.x + region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
+		region = _storage->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
 		if (region.is_valid()) {
 			map_x = region->get_map(TYPE_HEIGHT);
 			cmap_x = region->get_map(TYPE_CONTROL);
 		}
-		region = _storage->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		region = _storage->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
 		if (region.is_valid()) {
 			map_z = region->get_map(TYPE_HEIGHT);
 			cmap_z = region->get_map(TYPE_CONTROL);
 		}
-		region = _storage->get_regionp(Vector3(global_pos.x + region_size, 0.f, global_pos.z + region_size) * _mesh_vertex_spacing);
+		region = _storage->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
 		if (region.is_valid()) {
 			map_xz = region->get_map(TYPE_HEIGHT);
 			cmap_xz = region->get_map(TYPE_CONTROL);
@@ -472,21 +466,21 @@ void Terrain3D::_update_collision() {
 				int index = shape_size - 1 - z + x * shape_size;
 
 				// Set heights on local map, or adjacent maps if on the last row/col
-				if (x < region_size && z < region_size) {
+				if (x < _region_size && z < _region_size) {
 					map_data[index] = (is_hole(cmap->get_pixel(x, z).r)) ? hole_const : map->get_pixel(x, z).r;
-				} else if (x == region_size && z < region_size) {
+				} else if (x == _region_size && z < _region_size) {
 					if (map_x.is_valid()) {
 						map_data[index] = (is_hole(cmap_x->get_pixel(0, z).r)) ? hole_const : map_x->get_pixel(0, z).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
-				} else if (z == region_size && x < region_size) {
+				} else if (z == _region_size && x < _region_size) {
 					if (map_z.is_valid()) {
 						map_data[index] = (is_hole(cmap_z->get_pixel(x, 0).r)) ? hole_const : map_z->get_pixel(x, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
-				} else if (x == region_size && z == region_size) {
+				} else if (x == _region_size && z == _region_size) {
 					if (map_xz.is_valid()) {
 						map_data[index] = (is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
 					} else {
@@ -500,7 +494,7 @@ void Terrain3D::_update_collision() {
 		//Transform3D xform = Transform3D(Basis(), global_pos);
 		// Rotated shape Y=90 for -90 rotated array index
 		Transform3D xform = Transform3D(Basis(Vector3(0.f, 1.f, 0.f), Math_PI * .5f),
-				global_pos + Vector3(region_size, 0.f, region_size) * .5f);
+				global_pos + Vector3(_region_size, 0.f, _region_size) * .5f);
 		xform.scale(Vector3(_mesh_vertex_spacing, 1.f, _mesh_vertex_spacing));
 
 		if (!_show_debug_collision) {
@@ -575,7 +569,7 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
 	if (!p_global_aabb.has_volume()) {
-		int32_t region_size = (int)_storage->get_region_size();
+		int32_t region_size = (int32_t)_region_size;
 
 		TypedArray<Vector2i> region_locations = _storage->get_region_locations();
 		for (int r = 0; r < region_locations.size(); ++r) {
@@ -682,6 +676,22 @@ Terrain3D::Terrain3D() {
 void Terrain3D::set_debug_level(const int p_level) {
 	LOG(INFO, "Setting debug level: ", p_level);
 	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
+}
+
+void Terrain3D::set_region_size(const RegionSize p_size) {
+	LOG(INFO, p_size);
+	//ERR_FAIL_COND(p_size < SIZE_64);
+	//ERR_FAIL_COND(p_size > SIZE_2048);
+	ERR_FAIL_COND(p_size != SIZE_1024);
+	_region_size = p_size;
+	// Region size changed, update downstream
+	if (_storage) {
+		_storage->_region_size = _region_size;
+		_storage->_region_sizev = Vector2i(_region_size, _region_size);
+	}
+	if (_material.is_valid()) {
+		_material->_update_maps();
+	}
 }
 
 void Terrain3D::set_mesh_lods(const int p_count) {
@@ -1117,8 +1127,7 @@ void Terrain3D::update_region_labels() {
 			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 			_label_nodes->add_child(label, true);
 			Vector2i loc = region_locations[i];
-			int region_size = _storage->get_region_size();
-			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * region_size * _mesh_vertex_spacing;
+			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _mesh_vertex_spacing;
 			label->set_position(pos);
 		}
 	}
@@ -1345,6 +1354,13 @@ void Terrain3D::_notification(const int p_what) {
 }
 
 void Terrain3D::_bind_methods() {
+	//BIND_ENUM_CONSTANT(SIZE_64);
+	//BIND_ENUM_CONSTANT(SIZE_128);
+	//BIND_ENUM_CONSTANT(SIZE_256);
+	//BIND_ENUM_CONSTANT(SIZE_512);
+	BIND_ENUM_CONSTANT(SIZE_1024);
+	//BIND_ENUM_CONSTANT(SIZE_2048);
+
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
@@ -1356,6 +1372,9 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_storage_directory"), &Terrain3D::get_storage_directory);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
+
+	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3D::set_region_size);
+	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
 
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
@@ -1402,8 +1421,12 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 
+	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
+
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "storage_directory", PROPERTY_HINT_DIR), "set_storage_directory", "get_storage_directory");
+	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");

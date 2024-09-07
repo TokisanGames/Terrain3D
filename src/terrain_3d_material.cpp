@@ -320,7 +320,7 @@ void Terrain3DMaterial::_update_maps() {
 	LOG(DEBUG_CONT, "Region_locations size: ", region_locations.size(), " ", region_locations);
 	RS->material_set_param(_material, "_region_locations", region_locations);
 
-	real_t region_size = real_t(storage->get_region_size());
+	real_t region_size = real_t(_terrain->get_region_size());
 	LOG(DEBUG_CONT, "Setting region size in material: ", region_size);
 	RS->material_set_param(_material, "_region_size", region_size);
 	RS->material_set_param(_material, "_region_texel_size", 1.0f / region_size);

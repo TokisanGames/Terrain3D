@@ -24,12 +24,24 @@ class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 	CLASS_NAME();
 
+public: // Constants
+	enum RegionSize {
+		//SIZE_64 = 64,
+		//SIZE_128 = 128,
+		//SIZE_256 = 256,
+		//SIZE_512 = 512,
+		SIZE_1024 = 1024,
+		//SIZE_2048 = 2048,
+	};
+
+private:
 	// Terrain state
 	String _version = "0.9.3-dev";
 	bool _is_inside_world = false;
 	bool _initialized = false;
 
 	// Terrain settings
+	RegionSize _region_size = SIZE_1024;
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
 	real_t _mesh_vertex_spacing = 1.0f;
@@ -122,6 +134,8 @@ public:
 	String get_version() const { return _version; }
 	void set_debug_level(const int p_level);
 	int get_debug_level() const { return debug_level; }
+	void set_region_size(const RegionSize p_size);
+	RegionSize get_region_size() const { return _region_size; }
 	void set_mesh_lods(const int p_count);
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(const int p_size);
@@ -199,5 +213,7 @@ protected:
 	void _notification(const int p_what);
 	static void _bind_methods();
 };
+
+VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 
 #endif // TERRAIN3D_CLASS_H

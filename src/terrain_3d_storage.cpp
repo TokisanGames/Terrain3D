@@ -40,6 +40,9 @@ void Terrain3DStorage::initialize(Terrain3D *p_terrain) {
 	_terrain = p_terrain;
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 	_mesh_vertex_spacing = _terrain->get_mesh_vertex_spacing();
+	_region_size = _terrain->get_region_size();
+	_region_sizev = Vector2i(_region_size, _region_size);
+
 	if (!initialized && !_terrain->get_storage_directory().is_empty()) {
 		load_directory(_terrain->get_storage_directory());
 	}
@@ -124,16 +127,6 @@ bool Terrain3DStorage::is_region_deleted(const Vector2i &p_region_loc) const {
 		return true;
 	}
 	return region->is_deleted();
-}
-
-void Terrain3DStorage::set_region_size(const RegionSize p_size) {
-	LOG(INFO, p_size);
-	//ERR_FAIL_COND(p_size < SIZE_64);
-	//ERR_FAIL_COND(p_size > SIZE_2048);
-	ERR_FAIL_COND(p_size != SIZE_1024);
-	_region_size = p_size;
-	_region_sizev = Vector2i(_region_size, _region_size);
-	emit_signal("region_size_changed", _region_size);
 }
 
 void Terrain3DStorage::set_region_locations(const TypedArray<Vector2i> &p_locations) {
@@ -959,13 +952,6 @@ void Terrain3DStorage::print_audit_data() const {
 ///////////////////////////
 
 void Terrain3DStorage::_bind_methods() {
-	//BIND_ENUM_CONSTANT(SIZE_64);
-	//BIND_ENUM_CONSTANT(SIZE_128);
-	//BIND_ENUM_CONSTANT(SIZE_256);
-	//BIND_ENUM_CONSTANT(SIZE_512);
-	BIND_ENUM_CONSTANT(SIZE_1024);
-	//BIND_ENUM_CONSTANT(SIZE_2048);
-
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_NEAREST);
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_MINIMUM);
 
@@ -993,10 +979,6 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_locationi", "region_id"), &Terrain3DStorage::get_region_locationi);
 	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DStorage::get_region_id);
 	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DStorage::get_region_idp);
-
-	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3DStorage::set_region_size);
-	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DStorage::get_region_size);
-	ClassDB::bind_method(D_METHOD("get_region_sizev"), &Terrain3DStorage::get_region_sizev);
 
 	ClassDB::bind_method(D_METHOD("add_region", "region", "update"), &Terrain3DStorage::add_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_regionl", "region_location", "update"), &Terrain3DStorage::add_regionl, DEFVAL(true));
@@ -1048,15 +1030,10 @@ void Terrain3DStorage::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DStorage::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DStorage::layered_to_image);
 
-	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
-	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
-
 	ADD_SIGNAL(MethodInfo("maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_map_changed"));
 	ADD_SIGNAL(MethodInfo("height_maps_changed"));
 	ADD_SIGNAL(MethodInfo("control_maps_changed"));
 	ADD_SIGNAL(MethodInfo("color_maps_changed"));
-	ADD_SIGNAL(MethodInfo("region_size_changed"));
 	ADD_SIGNAL(MethodInfo("maps_edited", PropertyInfo(Variant::AABB, "edited_area")));
 }

@@ -482,7 +482,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			LOG(WARN, "No region found at: ", region_loc);
 			continue;
 		}
-		int region_size = _terrain->get_storage()->get_region_size();
+		int region_size = _terrain->get_region_size();
 		Rect2 region_rect;
 		region_rect.set_position(region_loc * region_size);
 		region_rect.set_size(Vector2(region_size, region_size));
