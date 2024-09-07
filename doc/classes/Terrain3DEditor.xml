@@ -10,15 +10,22 @@
 	<methods>
 		<method name="apply_undo">
 			<return type="void" />
-			<param index="0" name="maps" type="Dictionary" />
+			<param index="0" name="data" type="Dictionary" />
 			<description>
-				Undo the previous changes, with the reverted images in the array. Used by Godot, not users.
+				Undo the previous changes, with the provided data. Used by Godot, not gamedevs.
+			</description>
+		</method>
+		<method name="backup_region">
+			<return type="void" />
+			<param index="0" name="region" type="Terrain3DRegion" />
+			<description>
+				Adds a region to the currently pending operation undo snapshot. [method is_operating] must be true.
 			</description>
 		</method>
 		<method name="get_operation" qualifiers="const">
 			<return type="int" enum="Terrain3DEditor.Operation" />
 			<description>
-				Returns the current operation.
+				Returns the current selected tool operation (eg. add, subtract).
 			</description>
 		</method>
 		<method name="get_terrain" qualifiers="const">
@@ -36,7 +43,7 @@
 		<method name="is_operating" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns true if currently brushing.
+				Returns true if currently in the middle of a brushing operation.
 			</description>
 		</method>
 		<method name="operate">

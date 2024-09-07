@@ -83,6 +83,11 @@ Make sure you have both the debug and release binaries on your system, or have b
 
 ## Usage
 
+### Collision offset, or it's showing lower LODs near the camera
+
+If you've done weird things with your camera like using multiple, or viewports, you need to tell Terrain3D which camera you want to use with `Terrain3D.set_camera()`.
+
+
 ### Camera flickering
 
 When another mesh intersects with Terrain3D far away from the camera, such as in the case of water on a beach, the two meshes can flicker as the renderer can't decide which mesh should be displayed in front. This is also called Z-fighting. You can greatly reduce it by increasing `Camera3D.near` to 0.25. You can also set it for the editor camera in the main viewport by adjusting `View/Settings/View Z-Near`.
@@ -115,7 +120,7 @@ Godot also has an `Output` panel at the bottom of the screen, but it is slow, wi
 
 ## Debug Logs
 
-Terrain3D has debug logs for everything, which it can dump to the [console](#use-the-console). These logs *may* also be saved to Godot's log files on disk.
+Terrain3D has debug logs for everything, which it can dump to the [console](#using-the-console). These logs *may* also be saved to Godot's log files on disk.
 
 Set `Terrain3D.debug_level` to `Info` or `Debug` and you'll get copious activity logs that will help troubleshoot problems.
 

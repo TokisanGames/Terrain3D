@@ -3,10 +3,10 @@
 	<brief_description>
 	</brief_description>
 	<description>
-		This class provides one of two mesh types for instancing. 
+		This class provides one of two mesh types for instancing.
 		First, this class will generate a texture card, using a QuadMesh.	The typical use for a texture card is to place a flat grass texture in the `albedo texture` slot in the override material, and enable alpha scissor. This will generate low poly grass.
-		Second, you can link this resource to a mesh scene file, which is specifically a PackedScene (.tscn, .scn, .glb, .fbx, etc). You can override the material if desired.
-		Currently, the system will use only the first MeshInstance3D it finds in the file. It doesn't apply any transforms nor collision found in the file. Auto generated lods are used by the engine.
+		Second, you can link this resource to a mesh scene file, which is specifically a PackedScene (.tscn, .scn, .glb, .fbx, etc). You can override the material if desired. Multimeshes only support one mesh object, so complex objects like tree trunks and leaves, or a door frame and door either need to be combined into one object with multiple materials, or placed by another method. Read the [url=https://docs.godotengine.org/en/stable/classes/class_multimesh.html]Godot MultiMesh docs[/url] for more information.
+		Currently, the system will use only the first MeshInstance3D it finds in the file. It doesn't apply any transforms nor collision found in the file. Auto generated LODs are used by the engine. Manual LODs will be supported later.
 	</description>
 	<tutorials>
 	</tutorials>
