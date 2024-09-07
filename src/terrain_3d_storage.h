@@ -21,15 +21,6 @@ public: // Constants
 	static inline const int REGION_MAP_SIZE = 16;
 	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
 
-	enum RegionSize {
-		//SIZE_64 = 64,
-		//SIZE_128 = 128,
-		//SIZE_256 = 256,
-		//SIZE_512 = 512,
-		SIZE_1024 = 1024,
-		//SIZE_2048 = 2048,
-	};
-
 	enum HeightFilter {
 		HEIGHT_FILTER_NEAREST,
 		HEIGHT_FILTER_MINIMUM
@@ -39,6 +30,8 @@ private:
 	Terrain3D *_terrain = nullptr;
 
 	// Storage Settings & flags
+	int _region_size = 0;
+	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
 
 	AABB _edited_area;
@@ -79,10 +72,6 @@ private:
 	GeneratedTexture _generated_control_maps;
 	GeneratedTexture _generated_color_maps;
 
-	/// Move to Region?
-	RegionSize _region_size = SIZE_1024;
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-
 	// Functions
 	void _clear();
 
@@ -120,10 +109,6 @@ public:
 	Vector2i get_region_locationi(const int p_region_id) const;
 	int get_region_id(const Vector2i &p_region_loc) const;
 	int get_region_idp(const Vector3 &p_global_position) const;
-
-	void set_region_size(const RegionSize p_size);
-	RegionSize get_region_size() const { return _region_size; }
-	Vector2i get_region_sizev() const { return _region_sizev; }
 
 	Error add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
 	Error add_regionl(const Vector2i &p_region_loc, const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
@@ -192,7 +177,6 @@ protected:
 	static void _bind_methods();
 };
 
-VARIANT_ENUM_CAST(Terrain3DStorage::RegionSize);
 VARIANT_ENUM_CAST(Terrain3DStorage::HeightFilter);
 
 /// Inline Region Functions

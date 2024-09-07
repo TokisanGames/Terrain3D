@@ -14,7 +14,7 @@
 
 // Sends the whole region aabb to edited_area
 void Terrain3DEditor::_send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range) {
-	Terrain3DStorage::RegionSize region_size = _terrain->get_storage()->get_region_size();
+	Terrain3D::RegionSize region_size = _terrain->get_region_size();
 	AABB edited_area;
 	edited_area.position = Vector3(p_region_loc.x * region_size, p_height_range.x, p_region_loc.y * region_size);
 	edited_area.size = Vector3(region_size, p_height_range.y - p_height_range.x, region_size);
@@ -94,11 +94,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		return;
 	}
 
-	Terrain3DStorage *storage = _terrain->get_storage();
-	int region_size = storage->get_region_size();
+	int region_size = _terrain->get_region_size();
 	Vector2i region_vsize = Vector2i(region_size, region_size);
 
 	// If no region and can't add one, skip whole function. Checked again later
+	Terrain3DStorage *storage = _terrain->get_storage();
 	if (!storage->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != HEIGHT)) {
 		return;
 	}

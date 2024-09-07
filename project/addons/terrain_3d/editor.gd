@@ -180,9 +180,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		ui.update_decal()
 
 		## Update region highlight
-		var region_size = terrain.get_storage().get_region_size()
 		var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
-			/ (region_size * terrain.get_mesh_vertex_spacing()) ).floor()
+			/ (terrain.get_region_size() * terrain.get_mesh_vertex_spacing()) ).floor()
 		if current_region_position != region_position:
 			current_region_position = region_position
 			update_region_grid()
@@ -246,7 +245,7 @@ func update_region_grid() -> void:
 		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
 		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
 		region_gizmo.region_position = current_region_position
-		region_gizmo.region_size = terrain.get_storage().get_region_size() * terrain.get_mesh_vertex_spacing()
+		region_gizmo.region_size = terrain.get_region_size() * terrain.get_mesh_vertex_spacing()
 		region_gizmo.grid = terrain.get_storage().get_region_locations()
 		
 		terrain.update_gizmos()
