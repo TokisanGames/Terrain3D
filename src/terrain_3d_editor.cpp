@@ -531,7 +531,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 				LOG(ERROR, "Null region saved in undo data. Please report this error.");
 				continue;
 			}
-			region->sanitize_map(); // Live data may not have some maps so must be sanitized
+			region->sanitize_maps(); // Live data may not have some maps so must be sanitized
 			Dictionary regions = storage->get_regions_all();
 			regions[region->get_location()] = region;
 			region->set_modified(true);

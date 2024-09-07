@@ -64,6 +64,10 @@ T round_multiple(const T p_value, const T p_multiple) {
 	return static_cast<T>(std::round(static_cast<double>(p_value) / static_cast<double>(p_multiple)) * static_cast<double>(p_multiple));
 }
 
+inline bool is_power_of_2(const int p_n) {
+	return p_n && !(p_n & (p_n - 1));
+}
+
 // Returns the bilinearly interpolated value derived from parameters:
 // * 4 values to be interpolated
 // * Positioned at the 4 corners of the p_pos00 - p_pos11 rectangle

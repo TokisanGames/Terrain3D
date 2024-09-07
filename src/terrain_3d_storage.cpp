@@ -157,6 +157,7 @@ Ref<Terrain3DRegion> Terrain3DStorage::add_region_blank(const Vector2i &p_region
 	Ref<Terrain3DRegion> region;
 	region.instantiate();
 	region->set_location(p_region_loc);
+	region->set_region_size(_region_size);
 	if (add_region(region, p_update) == OK) {
 		region->set_modified(true);
 		return region;
@@ -186,8 +187,7 @@ Error Terrain3DStorage::add_region(const Ref<Terrain3DRegion> &p_region, const b
 				-REGION_MAP_SIZE / 2, " to ", REGION_MAP_SIZE / 2 - 1);
 		return FAILED;
 	}
-
-	p_region->sanitize_map();
+	p_region->sanitize_maps();
 	p_region->set_deleted(false);
 	if (!_region_locations.has(region_loc)) {
 		_region_locations.push_back(region_loc);
