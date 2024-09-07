@@ -30,7 +30,6 @@ class Terrain3DInstancer : public Object {
 	int _get_instace_count(const real_t p_density);
 
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
-	void _destroy_mmi_by_region_id(const int p_region, const int p_mesh_id);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _backup_regionl(const Vector2i &p_region_loc);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
@@ -42,7 +41,6 @@ public:
 	void initialize(Terrain3D *p_terrain);
 	void destroy();
 	void clear_by_mesh(const int p_mesh_id);
-	void clear_by_region_id(const int p_region_id, const int p_mesh_id);
 	void clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 
 	void add_instances(const Vector3 &p_global_position, const Dictionary &p_params);

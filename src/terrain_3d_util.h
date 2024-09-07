@@ -13,7 +13,7 @@ using namespace godot;
 
 // This file holds stateless utility functions for both C++ and GDScript
 // The class exposes static member and inline functions to GDscript
-// The inline functions below are not part of the class eg bilerp
+// The inline functions below are not part of the class but are in the namespace, eg bilerp
 // However some of these inline functions are also exposed to GDScript
 
 class Terrain3DUtil : public Object {

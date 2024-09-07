@@ -566,17 +566,6 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		LOG(DEBUG, "Locations(", locations.size(), "): ", locations);
 	}
 
-	/* else if (key == "height_range") {
-			//_terrain->get_data()->set_height_range(p_set[key]);
-		} else if (key == "edited_area") {
-			_terrain->get_data()->clear_edited_area();
-			_terrain->get_data()->add_edited_area(p_set[key]);
-		} else if (key == "multimeshes") {
-			//_terrain->get_data()->set_multimeshes(p_set[key]);
-		}
-	}
-	*/
-
 	data->force_update_maps();
 	_terrain->get_instancer()->force_update_mmis();
 	if (_terrain->get_plugin()->has_method("update_grid")) {
@@ -691,7 +680,7 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 	for (int i = 0; i < _operation_movement_history.size() - 1; i++) {
 		_operation_movement += _operation_movement_history[i];
 	}
-	_operation_movement *= 0.125; // 1/8th
+	_operation_movement *= 0.125f; // 1/8th
 
 	if (_tool == REGION) {
 		_operate_region(_terrain->get_data()->get_region_location(p_global_position));

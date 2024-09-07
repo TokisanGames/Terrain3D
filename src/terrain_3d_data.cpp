@@ -136,16 +136,6 @@ void Terrain3DData::set_region_locations(const TypedArray<Vector2i> &p_locations
 	update_maps();
 }
 
-Error Terrain3DData::add_regionl(const Vector2i &p_region_loc, const Ref<Terrain3DRegion> &p_region, const bool p_update) {
-	p_region->set_location(p_region_loc);
-	return add_region(p_region, p_update);
-}
-
-Error Terrain3DData::add_regionp(const Vector3 &p_global_position, const Ref<Terrain3DRegion> &p_region, const bool p_update) {
-	p_region->set_location(get_region_location(p_global_position));
-	return add_region(p_region, p_update);
-}
-
 Ref<Terrain3DRegion> Terrain3DData::add_region_blank(const Vector2i &p_region_loc, const bool p_update) {
 	Ref<Terrain3DRegion> region;
 	region.instantiate();
@@ -377,33 +367,6 @@ TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 			break;
 	}
 	return TypedArray<Image>();
-}
-
-TypedArray<Image> Terrain3DData::get_maps_copy(const MapType p_map_type, const TypedArray<int> &p_region_ids) const {
-	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
-		LOG(ERROR, "Specified map type out of range");
-		return TypedArray<Image>();
-	}
-	TypedArray<Image> maps = get_maps(p_map_type);
-	TypedArray<Image> newmaps;
-	if (p_region_ids.is_empty()) {
-		newmaps.resize(maps.size());
-		for (int i = 0; i < maps.size(); i++) {
-			Ref<Image> img;
-			img.instantiate();
-			img->copy_from(maps[i]);
-			newmaps[i] = img;
-		}
-	} else {
-		newmaps.resize(p_region_ids.size());
-		for (int i = 0; i < p_region_ids.size(); i++) {
-			Ref<Image> img;
-			img.instantiate();
-			img->copy_from(maps[p_region_ids[i]]);
-			newmaps[i] = img;
-		}
-	}
-	return newmaps;
 }
 
 void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel) {
@@ -963,7 +926,11 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_regions_active", "copy", "deep"), &Terrain3DData::get_regions_active, DEFVAL(false), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_regions_all"), &Terrain3DData::get_regions_all);
 	ClassDB::bind_method(D_METHOD("get_region_map"), &Terrain3DData::get_region_map);
-	ClassDB::bind_static_method("Terrain3DData", D_METHOD("get_region_map_index"), &Terrain3DData::get_region_map_index);
+	ClassDB::bind_static_method("Terrain3DData", D_METHOD("get_region_map_index", "region_location"), &Terrain3DData::get_region_map_index);
+
+	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DData::get_region_location);
+	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DData::get_region_id);
+	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DData::get_region_idp);
 
 	ClassDB::bind_method(D_METHOD("has_region", "region_location"), &Terrain3DData::has_region);
 	ClassDB::bind_method(D_METHOD("has_regionp", "global_position"), &Terrain3DData::has_regionp);
@@ -975,17 +942,9 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_region_deleted", "region_location", "deleted"), &Terrain3DData::set_region_deleted);
 	ClassDB::bind_method(D_METHOD("is_region_deleted", "region_location"), &Terrain3DData::is_region_deleted);
 
-	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DData::get_region_location);
-	ClassDB::bind_method(D_METHOD("get_region_locationi", "region_id"), &Terrain3DData::get_region_locationi);
-	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DData::get_region_id);
-	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DData::get_region_idp);
-
 	ClassDB::bind_method(D_METHOD("add_region", "region", "update"), &Terrain3DData::add_region, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_regionl", "region_location", "update"), &Terrain3DData::add_regionl, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_regionp", "global_position", "update"), &Terrain3DData::add_regionp, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_region_blank", "region_location", "update"), &Terrain3DData::add_region, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_region_blankp", "global_position", "update"), &Terrain3DData::add_region, DEFVAL(true));
-
+	ClassDB::bind_method(D_METHOD("add_region_blank", "region_location", "update"), &Terrain3DData::add_region_blank, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_region_blankp", "global_position", "update"), &Terrain3DData::add_region_blankp, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_region", "region", "update"), &Terrain3DData::remove_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_regionl", "region_location", "update"), &Terrain3DData::remove_regionl, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_regionp", "global_position", "update"), &Terrain3DData::remove_regionp, DEFVAL(true));
@@ -998,13 +957,11 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DData::get_height_maps);
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
+	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
+	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type", "generate_mipmaps"), &Terrain3DData::force_update_maps, DEFVAL(TYPE_MAX), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DData::get_height_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DData::get_control_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_color_maps_rid"), &Terrain3DData::get_color_maps_rid);
-	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type", "generate_mipmaps"), &Terrain3DData::force_update_maps, DEFVAL(TYPE_MAX), DEFVAL(false));
-
-	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
-	ClassDB::bind_method(D_METHOD("get_maps_copy", "map_type"), &Terrain3DData::get_maps_copy);
 
 	ClassDB::bind_method(D_METHOD("set_pixel", "map_type", "global_position", "pixel"), &Terrain3DData::set_pixel);
 	ClassDB::bind_method(D_METHOD("get_pixel", "map_type", "global_position"), &Terrain3DData::get_pixel);
