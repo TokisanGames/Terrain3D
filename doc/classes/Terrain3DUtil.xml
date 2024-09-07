@@ -106,6 +106,13 @@
 				Returns a control map uint with the texture scale encoded. See the top description for usage. See [method get_uv_scale] for values.
 			</description>
 		</method>
+		<method name="filename_to_location" qualifiers="static">
+			<return type="Vector2i" />
+			<param index="0" name="filename" type="String" />
+			<description>
+				Converts a file name string like [code skip-lint]terrain3d-01_02.res[/code] to a region location like [code skip-lint](-1, 2)[/code]. - is negative, _ is positive.
+			</description>
+		</method>
 		<method name="get_base" qualifiers="static">
 			<return type="int" />
 			<param index="0" name="pixel" type="int" />
@@ -204,6 +211,13 @@
 				[code skip-lint]cache_mode[/code] - Send this flag to the resource loader to force caching or not.
 				[code skip-lint]height_range[/code] - Heights for R16 format. x=Min &amp; y=Max value ranges. Required for R16 import.
 				[code skip-lint]size[/code] - Image dimensions for R16 format. Default (0,0) auto detects size, assuming square images. Required for non-square R16.
+			</description>
+		</method>
+		<method name="location_to_filename" qualifiers="static">
+			<return type="String" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<description>
+				Converts a region location like [code skip-lint](-1, 2)[/code] to a file name string like [code skip-lint]terrain3d-01_02.res[/code]. - is negative, _ is positive.
 			</description>
 		</method>
 		<method name="pack_image" qualifiers="static">

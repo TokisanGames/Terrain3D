@@ -7,7 +7,7 @@ Installation & Upgrades
 * [Upgrading Terrain3D](#upgrading-terrain3d)
 
 ## Requirements
-* Supports Godot 4.2+.
+* Supports Godot 4.2 & 4.3
 * Supports Windows, Linux, and macOS. 
 * macOS users should [build from source](building_from_source.md) or [adjust security settings](https://github.com/TokisanGames/Terrain3D/issues/227) to use the binary release.
 * Mobile, Web, SteamDeck, & Compatibility renderer are [experimental or pending](mobile_web.md).
@@ -26,6 +26,8 @@ Terrain3D is listed in the Asset Library [here](https://godotengine.org/asset-li
 8. Select `Project / Reload Current Project` to restart once more.
 9. Open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`. 
 
+**Updated 0.9.3-dev:** When using Terrain3D in your own scene, select the Terrain3D node in the Scene panel. In the Inspector, click the folder icon to the right of `data directory`, and specify a directory to store your data. This directory can be used shared with other scenes.
+
 If it isn't working for you, watch the [tutorial videos](tutorial_videos.md) and read [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
 
 ### Manually Running The Demo
@@ -38,14 +40,14 @@ If it isn't working for you, watch the [tutorial videos](tutorial_videos.md) and
 
 If it isn't working for you, watch the [tutorial videos](tutorial_videos.md) and read [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
 
-### Manually Into Your Project
+### Manually Into Your Project (v0.9.3-dev running a nightly build)
 1. Download the [latest binary release](https://github.com/TokisanGames/Terrain3D/releases) and extract the files, or [build the plugin from source](building_from_source.md).
 2. Copy `addons/terrain_3d` to your project folder as `addons/terrain_3d`.
 3. Run Godot using the console executable so you can see error messages. Restart when it prompts.
 4. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
 5. Select `Project / Reload Current Project` to restart once more.
 6. Create or open a 3D scene and add a new Terrain3D node.
-7. Select Terrain3D in the Scene panel. In the Inspector, click the down arrow to the right of the `storage` resource and save it as a binary `.res` file. The other resources can be left as is, or saved as text `.tres`. These external files can be shared with other scenes.
+7. **Updated 0.9.3-dev:** Select Terrain3D in the Scene panel. In the Inspector, click the folder icon to the right of `data directory` and specify a directory to store your data. This directory can be used shared with other scenes.
 
 If it isn't working for you, watch the [tutorial videos](tutorial_videos.md) and read [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
 
@@ -62,10 +64,17 @@ Don't just copy the new folder over the old, as this won't remove any files that
 
 While later versions of Terrain3D can generally open previous versions, not all data will be loaded unless the supported upgrade path is followed. We occasionally deprecate or rename classes and provide upgrade paths to convert data for a limited time. 
 
-Given the table below, to upgrade 0.8 to the latest version you would need to open your files in 0.8.4 or 0.9 and save them, then open in the latest version and save again.
+Given the table below, to upgrade 0.8 to the latest version you would need to open your files in 0.9.0, save, then open in 0.9.3, and save again.
 
 | Starting Version | Can Upgrade w/ Data Conversion |
 |------------------|-------------------|
-| 0.8.4 - 0.9.0 | Latest |
-| 0.8.0 - 0.8.3 | 0.8.4 - 0.9.0 |
+| 0.9.2 | 0.9.3* |
+| 0.9.1 | 0.9.2 - 0.9.3* |
+| 0.9.0 | 0.9.2 - 0.9.3* |
+| 0.8.4 | 0.9.2 - 0.9.3* |
+| 0.8.3 | 0.8.4 - 0.9.0 |
+| 0.8.2 | 0.8.4 - 0.9.0 |
+| 0.8.1 | 0.8.4 - 0.9.0 |
+| 0.8.0 | 0.8.4 - 0.9.0 |
 
+* 0.9.3 - Data storage changed from a single .res file to one file per region saved in a directory.

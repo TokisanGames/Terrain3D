@@ -89,7 +89,7 @@ For more information on C# and other languages, read [Cross-language scripting](
 
 These options are for programming scenarios where a user action is intented to provide your code with the Terrain3D instance.
 
-* If collision is enabled in game (default) or in the editor (debug only), you can run a raycast and if it hits, it will return a `Terrain3D` object. See more below in the [raycasting](#raycasting-with-physics) section.
+* If collision is enabled in game (default) or in the editor (debug only), you can run a raycast and if it hits, it will return a `Terrain3D` object. See more in the [raycasting](collision.md#physics-based-collision-raycasting) section.
 
 * Your script can provide a NodePath and allow the user to select their Terrain3D node as was done in [the script](https://github.com/TokisanGames/Terrain3D/blob/v0.9.1-beta/project/addons/terrain_3d/extras/project_on_terrain3d.gd#L14) provided for use with Scatter.
 
@@ -116,6 +116,6 @@ See [Collision](collision.md) for several methods.
 
 ## Getting Updates on Terrain Changes
 
-`Terrain3DStorage` has [signals](../api/class_terrain3dstorage.rst#signals) that fire when updates occur. You can connect to them to receive updates.
+`Terrain3DData` has [signals](../api/class_terrain3ddata.rst#signals) that fire when updates occur. You can connect to them to receive updates.
 
 

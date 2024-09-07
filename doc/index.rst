@@ -18,7 +18,7 @@ See :doc:`Project Status <docs/project_status>` for development progress.
 Usage
 --------
 
-Read the documentation in the Getting Started section, beginning with :doc:`Installation & Upgrades <docs/installation>`.
+Read the documentation in the Getting Started section in the left sidebar.
 
 Credit
 -------------
@@ -86,6 +86,7 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    :maxdepth: 1
    :caption: Getting Started
 
+   docs/introduction
    docs/tutorial_videos
    docs/installation
    docs/user_interface
@@ -119,7 +120,7 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    docs/system_architecture
    docs/shader_design
    docs/controlmap_format
-   docs/storage_format
+   docs/data_format
    docs/contributing
 
 

@@ -16,6 +16,12 @@
 				Generates mesh asset preview thumbnails for the asset dock, stored within each mesh asset. Specify id -1 to generate all.
 			</description>
 		</method>
+		<method name="get_albedo_array_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Returns the resource ID of the TextureArray generated from combining all albedo and height textures.
+			</description>
+		</method>
 		<method name="get_mesh_asset" qualifiers="const">
 			<return type="Terrain3DMeshAsset" />
 			<param index="0" name="id" type="int" />
@@ -29,6 +35,12 @@
 				Returns the number of mesh assets in the list.
 			</description>
 		</method>
+		<method name="get_normal_array_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Returns the resource ID of the TextureArray generated from combining all normal and roughness textures.
+			</description>
+		</method>
 		<method name="get_texture" qualifiers="const">
 			<return type="Terrain3DTextureAsset" />
 			<param index="0" name="id" type="int" />
@@ -36,10 +48,28 @@
 				Returns the Terrain3DTextureAsset with the requested ID.
 			</description>
 		</method>
+		<method name="get_texture_colors" qualifiers="const">
+			<return type="PackedColorArray" />
+			<description>
+				Returns the array of all albedo colors used in the texture assets, indexed by asset id.
+			</description>
+		</method>
 		<method name="get_texture_count" qualifiers="const">
 			<return type="int" />
 			<description>
 				Returns the number of texture slots used.
+			</description>
+		</method>
+		<method name="get_texture_detiles" qualifiers="const">
+			<return type="PackedFloat32Array" />
+			<description>
+				Returns the array of all detiling values used in the texture assets, indexed by asset id.
+			</description>
+		</method>
+		<method name="get_texture_uv_scales" qualifiers="const">
+			<return type="PackedFloat32Array" />
+			<description>
+				Returns the array of all uv scale values used in the texture assets, indexed by asset id.
 			</description>
 		</method>
 		<method name="save">
@@ -62,6 +92,18 @@
 			<param index="1" name="texture" type="Terrain3DTextureAsset" />
 			<description>
 				Adds a Terrain3DTextureAsset at the specified ID slot. The texture can be null to clear the slot, or remove it if its the last in the list. If the specified slot is full, it will be swapped with the source texture ID, or will find the next available ID.
+			</description>
+		</method>
+		<method name="update_mesh_list">
+			<return type="void" />
+			<description>
+				Updates the internal list of meshes used by the instancer.
+			</description>
+		</method>
+		<method name="update_texture_list">
+			<return type="void" />
+			<description>
+				Regenerates the texture arrays from the list of texture assets, which is sent to the shader.
 			</description>
 		</method>
 	</methods>
