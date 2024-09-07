@@ -323,7 +323,7 @@ void Terrain3DRegion::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_COLOR);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
-	ClassDB::bind_method(D_METHOD("set_version"), &Terrain3DRegion::set_version);
+	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DRegion::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DRegion::get_version);
 	ClassDB::bind_method(D_METHOD("set_region_size", "region_size"), &Terrain3DRegion::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DRegion::get_region_size);
@@ -346,16 +346,16 @@ void Terrain3DRegion::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("save", "path", "16-bit"), &Terrain3DRegion::save, DEFVAL(""), DEFVAL(false));
 
-	ClassDB::bind_method(D_METHOD("set_deleted"), &Terrain3DRegion::set_deleted);
+	ClassDB::bind_method(D_METHOD("set_deleted", "deleted"), &Terrain3DRegion::set_deleted);
 	ClassDB::bind_method(D_METHOD("is_deleted"), &Terrain3DRegion::is_deleted);
-	ClassDB::bind_method(D_METHOD("set_edited"), &Terrain3DRegion::set_edited);
+	ClassDB::bind_method(D_METHOD("set_edited", "edited"), &Terrain3DRegion::set_edited);
 	ClassDB::bind_method(D_METHOD("is_edited"), &Terrain3DRegion::is_edited);
-	ClassDB::bind_method(D_METHOD("set_modified"), &Terrain3DRegion::set_modified);
+	ClassDB::bind_method(D_METHOD("set_modified", "modified"), &Terrain3DRegion::set_modified);
 	ClassDB::bind_method(D_METHOD("is_modified"), &Terrain3DRegion::is_modified);
-	ClassDB::bind_method(D_METHOD("set_location"), &Terrain3DRegion::set_location);
+	ClassDB::bind_method(D_METHOD("set_location", "location"), &Terrain3DRegion::set_location);
 	ClassDB::bind_method(D_METHOD("get_location"), &Terrain3DRegion::get_location);
 
-	ClassDB::bind_method(D_METHOD("set_data"), &Terrain3DRegion::set_data);
+	ClassDB::bind_method(D_METHOD("set_data", "data"), &Terrain3DRegion::set_data);
 	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3DRegion::get_data);
 	ClassDB::bind_method(D_METHOD("duplicate", "deep"), &Terrain3DRegion::duplicate, DEFVAL(false));
 

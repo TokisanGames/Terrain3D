@@ -43,7 +43,7 @@ public: // Constants
 
 private:
 	/// Saved data
-	real_t _version = 0.8f; // Set to first version to ensure Godot always upgrades this
+	real_t _version = 0.8f; // Set to first version to ensure we always upgrades this
 	int _region_size = 0;
 	Vector2 _height_range = V2_ZERO;
 	// Maps
@@ -65,6 +65,8 @@ public:
 
 	void set_version(const real_t p_version);
 	real_t get_version() const { return _version; }
+	void set_region_size(const int p_region_size) { _region_size = CLAMP(p_region_size, 1024, 1024); }
+	int get_region_size() const { return _region_size; }
 
 	// Maps
 	void set_map(const MapType p_map_type, const Ref<Image> &p_image);
@@ -77,9 +79,9 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
-	bool validate_map_size(const Ref<Image> &p_map) const;
 	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
+	bool validate_map_size(const Ref<Image> &p_map) const;
 
 	void set_height_range(const Vector2 &p_range);
 	Vector2 get_height_range() const { return _height_range; }
@@ -103,8 +105,6 @@ public:
 	bool is_modified() const { return _modified; }
 	void set_location(const Vector2i &p_location);
 	Vector2i get_location() const { return _location; }
-	void set_region_size(const int p_region_size) { _region_size = CLAMP(p_region_size, 1024, 1024); }
-	int get_region_size() const { return _region_size; }
 
 	// Utility
 	void set_data(const Dictionary &p_data);

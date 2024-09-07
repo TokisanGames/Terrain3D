@@ -30,7 +30,7 @@ private:
 	Terrain3D *_terrain = nullptr;
 
 	// Data Settings & flags
-	int _region_size = 0;
+	int _region_size = 0; // Set by Terrain3D::set_region_size
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
 
@@ -44,6 +44,9 @@ private:
 	// so should be the main index for users.
 	// 2) By `region_id:int`. This index changes on every add/remove, depends on load order,
 	// and is not stable. It should not be relied on by users and is primarily for internal use.
+
+	// Private functions should be indexed by region_id or region_location
+	// Public functions by region_location or global_position
 
 	// `_regions` stores all loaded Terrain3DRegions, indexed by region_location. If marked for
 	// deletion they are removed from here upon saving, however they may stay in memory if tracked
@@ -80,12 +83,7 @@ public:
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DData() { _clear(); }
 
-	/// Internal functions should be by region_id or region_location
-	/// External functions by region_location or global_position
-	/// look at godot's naming conventions
-	/// Conversion functions, many can probably be inline, static or in util
-
-	/// Regions
+	// Regions
 
 	int get_region_count() const { return _region_locations.size(); }
 	void set_region_locations(const TypedArray<Vector2i> &p_locations);
@@ -94,6 +92,10 @@ public:
 	Dictionary get_regions_all() const { return _regions; }
 	PackedInt32Array get_region_map() const { return _region_map; }
 	static int get_region_map_index(const Vector2i &p_region_loc);
+
+	Vector2i get_region_location(const Vector3 &p_global_position) const;
+	int get_region_id(const Vector2i &p_region_loc) const;
+	int get_region_idp(const Vector3 &p_global_position) const;
 
 	bool has_region(const Vector2i &p_region_loc) const { return get_region_id(p_region_loc) != -1; }
 	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
@@ -105,14 +107,7 @@ public:
 	void set_region_deleted(const Vector2i &p_region_loc, const bool p_deleted = true);
 	bool is_region_deleted(const Vector2i &p_region_loc) const;
 
-	Vector2i get_region_location(const Vector3 &p_global_position) const;
-	Vector2i get_region_locationi(const int p_region_id) const;
-	int get_region_id(const Vector2i &p_region_loc) const;
-	int get_region_idp(const Vector3 &p_global_position) const;
-
 	Error add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
-	Error add_regionl(const Vector2i &p_region_loc, const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
-	Error add_regionp(const Vector3 &p_global_position, const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
 	Ref<Terrain3DRegion> add_region_blank(const Vector2i &p_region_loc, const bool p_update = true);
 	Ref<Terrain3DRegion> add_region_blankp(const Vector3 &p_global_position, const bool p_update = true);
 	void remove_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
@@ -129,15 +124,12 @@ public:
 	TypedArray<Image> get_height_maps() const { return _height_maps; }
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
+	TypedArray<Image> get_maps(const MapType p_map_type) const;
+	void update_maps();
+	void force_update_maps(const MapType p_map = TYPE_MAX, const bool p_generate_mipmaps = false);
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
 	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
 	RID get_color_maps_rid() const { return _generated_color_maps.get_rid(); }
-
-	void update_maps();
-	void force_update_maps(const MapType p_map = TYPE_MAX, const bool p_generate_mipmaps = false);
-
-	TypedArray<Image> get_maps(const MapType p_map_type) const;
-	TypedArray<Image> get_maps_copy(const MapType p_map_type, const TypedArray<int> &p_region_ids = TypedArray<int>()) const;
 
 	void set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel);
 	Color get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const;
@@ -201,15 +193,7 @@ inline Vector2i Terrain3DData::get_region_location(const Vector3 &p_global_posit
 	return Vector2i((descaled_position / (_mesh_vertex_spacing * real_t(_region_size))).floor());
 }
 
-// Returns Vector2i(2147483647) if out of range
-inline Vector2i Terrain3DData::get_region_locationi(const int p_region_id) const {
-	if (p_region_id < 0 || p_region_id >= _region_locations.size()) {
-		return V2I_MAX;
-	}
-	return _region_locations[p_region_id];
-}
-
-// Returns id of any active region. -1 if out of bounds, 0 if no region, or region id
+// Returns id of any active region. -1 if out of bounds or no region, or region id
 inline int Terrain3DData::get_region_id(const Vector2i &p_region_loc) const {
 	int map_index = get_region_map_index(p_region_loc);
 	if (map_index >= 0) {
