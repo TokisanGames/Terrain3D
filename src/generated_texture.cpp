@@ -9,6 +9,19 @@
 // Public Functions
 ///////////////////////////
 
+void GeneratedTexture::clear() {
+	if (_rid.is_valid()) {
+		LOG(DEBUG_CONT, "GeneratedTexture freeing ", _rid);
+		RS->free_rid(_rid);
+	}
+	if (_image.is_valid()) {
+		LOG(DEBUG_CONT, "GeneratedTexture unref image", _image);
+		_image.unref();
+	}
+	_rid = RID();
+	_dirty = true;
+}
+
 RID GeneratedTexture::create(const TypedArray<Image> &p_layers) {
 	if (!p_layers.is_empty()) {
 		if (Terrain3D::debug_level >= DEBUG) {
@@ -32,17 +45,4 @@ RID GeneratedTexture::create(const Ref<Image> &p_image) {
 	_rid = RS->texture_2d_create(_image);
 	_dirty = false;
 	return _rid;
-}
-
-void GeneratedTexture::clear() {
-	if (_rid.is_valid()) {
-		LOG(DEBUG_CONT, "GeneratedTexture freeing ", _rid);
-		RS->free_rid(_rid);
-	}
-	if (_image.is_valid()) {
-		LOG(DEBUG_CONT, "GeneratedTexture unref image", _image);
-		_image.unref();
-	}
-	_rid = RID();
-	_dirty = true;
 }

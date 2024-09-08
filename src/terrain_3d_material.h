@@ -78,7 +78,7 @@ private:
 	Dictionary _get_shader_parameters() const { return _shader_params; }
 
 public:
-	Terrain3DMaterial(){};
+	Terrain3DMaterial() {}
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DMaterial();
 

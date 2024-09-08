@@ -103,31 +103,6 @@ void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
 	}
 }
 
-bool Terrain3DRegion::validate_map_size(const Ref<Image> &p_map) const {
-	Vector2i region_sizev = p_map->get_size();
-	if (region_sizev.x != region_sizev.y) {
-		LOG(ERROR, "Image width doesn't match height: ", region_sizev);
-		return false;
-	}
-	if (!is_power_of_2(region_sizev.x) || !is_power_of_2(region_sizev.y)) {
-		LOG(ERROR, "Image dimensions are not a power of 2: ", region_sizev);
-		return false;
-	}
-	if (region_sizev.x < 64 || region_sizev.y > 4096) {
-		LOG(ERROR, "Image size out of bounds (64-4096): ", region_sizev);
-		return false;
-	}
-	if (_region_size == 0) {
-		LOG(ERROR, "Region size is 0, set it or set a map first");
-		return false;
-	}
-	if (_region_size != region_sizev.x || _region_size != region_sizev.y) {
-		LOG(ERROR, "Image size doesn't match existing images in this region", region_sizev);
-		return false;
-	}
-	return true;
-}
-
 void Terrain3DRegion::sanitize_maps() {
 	if (_region_size == 0) { // blank region, no set_*_map has been called
 		LOG(ERROR, "Set region_size first");
@@ -173,6 +148,31 @@ Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Ima
 	}
 }
 
+bool Terrain3DRegion::validate_map_size(const Ref<Image> &p_map) const {
+	Vector2i region_sizev = p_map->get_size();
+	if (region_sizev.x != region_sizev.y) {
+		LOG(ERROR, "Image width doesn't match height: ", region_sizev);
+		return false;
+	}
+	if (!is_power_of_2(region_sizev.x) || !is_power_of_2(region_sizev.y)) {
+		LOG(ERROR, "Image dimensions are not a power of 2: ", region_sizev);
+		return false;
+	}
+	if (region_sizev.x < 64 || region_sizev.y > 2048) {
+		LOG(ERROR, "Image size out of bounds (64-2048): ", region_sizev);
+		return false;
+	}
+	if (_region_size == 0) {
+		LOG(ERROR, "Region size is 0, set it or set a map first");
+		return false;
+	}
+	if (_region_size != region_sizev.x || _region_size != region_sizev.y) {
+		LOG(ERROR, "Image size doesn't match existing images in this region", region_sizev);
+		return false;
+	}
+	return true;
+}
+
 void Terrain3DRegion::set_height_range(const Vector2 &p_range) {
 	LOG(INFO, vformat("%.2v", p_range));
 	if (_height_range != p_range) {
@@ -212,7 +212,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		// Set region path and take over the path from any other cached resources,
 		// incuding those in the undo queue
 	}
-	LOG(INFO, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
+	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
 	set_version(Terrain3DData::CURRENT_VERSION);
 	Error err;
 	if (p_16_bit) {
@@ -328,12 +328,19 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_region_size", "region_size"), &Terrain3DRegion::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DRegion::get_region_size);
 
+	ClassDB::bind_method(D_METHOD("set_map", "map_type", "map"), &Terrain3DRegion::set_map);
+	ClassDB::bind_method(D_METHOD("get_map", "map_type"), &Terrain3DRegion::get_map);
+	ClassDB::bind_method(D_METHOD("set_maps", "maps"), &Terrain3DRegion::set_maps);
+	ClassDB::bind_method(D_METHOD("get_maps"), &Terrain3DRegion::get_maps);
 	ClassDB::bind_method(D_METHOD("set_height_map", "map"), &Terrain3DRegion::set_height_map);
 	ClassDB::bind_method(D_METHOD("get_height_map"), &Terrain3DRegion::get_height_map);
 	ClassDB::bind_method(D_METHOD("set_control_map", "map"), &Terrain3DRegion::set_control_map);
 	ClassDB::bind_method(D_METHOD("get_control_map"), &Terrain3DRegion::get_control_map);
 	ClassDB::bind_method(D_METHOD("set_color_map", "map"), &Terrain3DRegion::set_color_map);
 	ClassDB::bind_method(D_METHOD("get_color_map"), &Terrain3DRegion::get_color_map);
+	ClassDB::bind_method(D_METHOD("sanitize_maps"), &Terrain3DRegion::sanitize_maps);
+	ClassDB::bind_method(D_METHOD("sanitize_map", "map_type", "map"), &Terrain3DRegion::sanitize_map);
+	ClassDB::bind_method(D_METHOD("validate_map_size", "map"), &Terrain3DRegion::validate_map_size);
 
 	ClassDB::bind_method(D_METHOD("set_height_range", "range"), &Terrain3DRegion::set_height_range);
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DRegion::get_height_range);
@@ -363,9 +370,9 @@ void Terrain3DRegion::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_NONE, "", ro_flags), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "heightmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "controlmap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "colormap", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_color_map", "get_color_map");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "height_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "control_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "color_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_color_map", "get_color_map");
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
 
 	// Double-clicking a region .res file shows what's on disk, the defaults, not in memory. So these are hidden

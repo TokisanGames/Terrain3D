@@ -107,17 +107,17 @@ public:
 	void set_region_deleted(const Vector2i &p_region_loc, const bool p_deleted = true);
 	bool is_region_deleted(const Vector2i &p_region_loc) const;
 
-	Error add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
-	Ref<Terrain3DRegion> add_region_blank(const Vector2i &p_region_loc, const bool p_update = true);
 	Ref<Terrain3DRegion> add_region_blankp(const Vector3 &p_global_position, const bool p_update = true);
-	void remove_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
-	void remove_regionl(const Vector2i &p_region_loc, const bool p_update = true);
+	Ref<Terrain3DRegion> add_region_blank(const Vector2i &p_region_loc, const bool p_update = true);
+	Error add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
 	void remove_regionp(const Vector3 &p_global_position, const bool p_update = true);
+	void remove_regionl(const Vector2i &p_region_loc, const bool p_update = true);
+	void remove_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
 
 	// File I/O
 	void save_directory(const String &p_dir);
-	void load_directory(const String &p_dir);
 	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false);
+	void load_directory(const String &p_dir);
 	void load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update = true);
 
 	// Maps
@@ -125,8 +125,8 @@ public:
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
-	void update_maps();
 	void force_update_maps(const MapType p_map = TYPE_MAX, const bool p_generate_mipmaps = false);
+	void update_maps();
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
 	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
 	RID get_color_maps_rid() const { return _generated_color_maps.get_rid(); }
@@ -148,8 +148,8 @@ public:
 	Vector3 get_texture_id(const Vector3 &p_global_position) const;
 	Vector3 get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const;
 
-	void clear_edited_area();
 	void add_edited_area(const AABB &p_area);
+	void clear_edited_area() { _edited_area = AABB(); }
 	AABB get_edited_area() const { return _edited_area; }
 
 	Vector2 get_height_range() const { return _master_height_range; }
@@ -171,7 +171,7 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DData::HeightFilter);
 
-/// Inline Region Functions
+// Inline Region Functions
 
 // Verifies the location is within the bounds of the _region_map array and
 // the world, returning the _region_map index, which contains the region_id.
@@ -209,7 +209,7 @@ inline int Terrain3DData::get_region_idp(const Vector3 &p_global_position) const
 	return get_region_id(get_region_location(p_global_position));
 }
 
-/// Inline Map Functions
+// Inline Map Functions
 
 inline void Terrain3DData::set_height(const Vector3 &p_global_position, const real_t p_height) {
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));

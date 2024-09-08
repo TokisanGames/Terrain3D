@@ -306,8 +306,10 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		return;
 	}
 
+	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
+
 	LOG(DEBUG_CONT, "Removing ", count, " instances from ", p_global_position);
-	Ref<MultiMesh> multimesh = get_multimesh(p_global_position, mesh_id);
+	Ref<MultiMesh> multimesh = get_multimesh(region_loc, mesh_id);
 	if (multimesh.is_null()) {
 		LOG(DEBUG_CONT, "Multimesh is already null. doing nothing");
 		return;
@@ -329,7 +331,6 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		}
 	}
 
-	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 	if (xforms.size() == 0) {
 		LOG(DEBUG, "Removed all instances, erasing multimesh in region");
 		clear_by_location(region_loc, mesh_id);
@@ -584,7 +585,7 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 	}
 }
 
-Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const {
+Ref<MultiMesh> Terrain3DInstancer::get_multimeshp(const Vector3 &p_global_position, const int p_mesh_id) const {
 	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 	return get_multimesh(region_loc, p_mesh_id);
 }
@@ -602,7 +603,7 @@ Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_loc, c
 	return mm;
 }
 
-MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector3 &p_global_position, const int p_mesh_id) const {
+MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instancep(const Vector3 &p_global_position, const int p_mesh_id) const {
 	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 	return get_multimesh_instance(region_loc, p_mesh_id);
 }
@@ -668,6 +669,8 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(TypedArray<Color>()));
 	ClassDB::bind_method(D_METHOD("append_multimesh", "region_location", "mesh_id", "transforms", "colors", "clear"), &Terrain3DInstancer::append_multimesh, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
+
+	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("get_mmis"), &Terrain3DInstancer::get_mmis);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mesh_id", "mode"), &Terrain3DInstancer::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("force_update_mmis"), &Terrain3DInstancer::force_update_mmis);

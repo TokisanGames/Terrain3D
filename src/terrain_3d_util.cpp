@@ -377,16 +377,16 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_overlay", "overlay"), &gd_enc_overlay);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_blend", "pixel"), &gd_get_blend);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_blend", "blend"), &gd_enc_blend);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_uv_rotation", "pixel"), &gd_get_uv_rotation);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_uv_rotation", "rotation"), &gd_enc_uv_rotation);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_uv_scale", "pixel"), &gd_get_uv_scale);
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_uv_scale", "scale"), &gd_enc_uv_scale);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("is_hole", "pixel"), &gd_is_hole);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_hole", "pixel"), &enc_hole);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("is_nav", "pixel"), &gd_is_nav);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_nav", "pixel"), &enc_nav);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("is_auto", "pixel"), &gd_is_auto);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_auto", "pixel"), &enc_auto);
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_uv_rotation", "pixel"), &gd_get_uv_rotation);
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_uv_rotation", "rotation"), &gd_enc_uv_rotation);
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_uv_scale", "pixel"), &gd_get_uv_scale);
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("enc_uv_scale", "scale"), &gd_enc_uv_scale);
 
 	// String functions
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("filename_to_location", "filename"), &Terrain3DUtil::filename_to_location);

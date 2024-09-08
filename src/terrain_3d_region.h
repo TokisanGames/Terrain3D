@@ -42,7 +42,7 @@ public: // Constants
 	};
 
 private:
-	/// Saved data
+	// Saved data
 	real_t _version = 0.8f; // Set to first version to ensure we always upgrades this
 	int _region_size = 0;
 	Vector2 _height_range = V2_ZERO;
@@ -125,7 +125,7 @@ constexpr inline const Image::Format *FORMAT = Terrain3DRegion::FORMAT;
 constexpr inline const char **TYPESTR = Terrain3DRegion::TYPESTR;
 constexpr inline const Color *COLOR = Terrain3DRegion::COLOR;
 
-/// Inline functions
+// Inline functions
 
 inline void Terrain3DRegion::update_height(const real_t p_height) {
 	if (p_height < _height_range.x) {
