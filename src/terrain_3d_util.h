@@ -108,55 +108,54 @@ inline Rect2 aabb2rect(const AABB &p_aabb) {
 
 // Getters read the 32-bit float as a 32-bit uint, then mask bits to retreive value
 // Encoders return a full 32-bit uint with bits in the proper place for ORing
+// Aliases for GDScript prefixed with gd_ since it can't handle overridden functions
 inline float as_float(const uint32_t p_value) { return *(float *)&p_value; }
 inline uint32_t as_uint(const float p_value) { return *(uint32_t *)&p_value; }
 
 inline uint8_t get_base(const uint32_t p_pixel) { return p_pixel >> 27 & 0x1F; }
 inline uint8_t get_base(const float p_pixel) { return get_base(as_uint(p_pixel)); }
 inline uint32_t enc_base(const uint8_t p_base) { return (p_base & 0x1F) << 27; }
+inline uint32_t gd_get_base(const uint32_t p_pixel) { return get_base(p_pixel); }
+inline uint32_t gd_enc_base(const uint32_t p_base) { return enc_base(p_base); }
 
 inline uint8_t get_overlay(const uint32_t p_pixel) { return p_pixel >> 22 & 0x1F; }
 inline uint8_t get_overlay(const float p_pixel) { return get_overlay(as_uint(p_pixel)); }
 inline uint32_t enc_overlay(const uint8_t p_over) { return (p_over & 0x1F) << 22; }
+inline uint32_t gd_get_overlay(const uint32_t p_pixel) { return get_overlay(p_pixel); }
+inline uint32_t gd_enc_overlay(const uint32_t p_over) { return enc_overlay(p_over); }
 
 inline uint8_t get_blend(const uint32_t p_pixel) { return p_pixel >> 14 & 0xFF; }
 inline uint8_t get_blend(const float p_pixel) { return get_blend(as_uint(p_pixel)); }
 inline uint32_t enc_blend(const uint8_t p_blend) { return (p_blend & 0xFF) << 14; }
+inline uint32_t gd_get_blend(const uint32_t p_pixel) { return get_blend(p_pixel); }
+inline uint32_t gd_enc_blend(const uint32_t p_blend) { return enc_blend(p_blend); }
 
 inline uint8_t get_uv_rotation(const uint32_t p_pixel) { return p_pixel >> 10 & 0xF; }
 inline uint8_t get_uv_rotation(const float p_pixel) { return get_uv_rotation(as_uint(p_pixel)); }
 inline uint32_t enc_uv_rotation(const uint8_t p_rotation) { return (p_rotation & 0xF) << 10; }
+inline uint32_t gd_get_uv_rotation(const uint32_t p_pixel) { return get_uv_rotation(p_pixel); }
+inline uint32_t gd_enc_uv_rotation(const uint32_t p_rotation) { return enc_uv_rotation(p_rotation); }
 
 inline uint8_t get_uv_scale(const uint32_t p_pixel) { return p_pixel >> 7 & 0x7; }
 inline uint8_t get_uv_scale(const float p_pixel) { return get_uv_scale(as_uint(p_pixel)); }
 inline uint32_t enc_uv_scale(const uint8_t p_scale) { return (p_scale & 0x7) << 7; }
+inline uint32_t gd_get_uv_scale(const uint32_t p_pixel) { return get_uv_scale(p_pixel); }
+inline uint32_t gd_enc_uv_scale(const uint32_t p_scale) { return enc_uv_scale(p_scale); }
 
 inline bool is_hole(const uint32_t p_pixel) { return (p_pixel >> 2 & 0x1) == 1; }
 inline bool is_hole(const float p_pixel) { return is_hole(as_uint(p_pixel)); }
 inline uint32_t enc_hole(const bool p_hole) { return (p_hole & 0x1) << 2; }
+inline bool gd_is_hole(const uint32_t p_pixel) { return is_hole(p_pixel); }
 
 inline bool is_nav(const uint32_t p_pixel) { return (p_pixel >> 1 & 0x1) == 1; }
 inline bool is_nav(const float p_pixel) { return is_nav(as_uint(p_pixel)); }
 inline uint32_t enc_nav(const bool p_nav) { return (p_nav & 0x1) << 1; }
+inline bool gd_is_nav(const uint32_t p_pixel) { return is_nav(p_pixel); }
 
 inline bool is_auto(const uint32_t p_pixel) { return (p_pixel & 0x1) == 1; }
 inline bool is_auto(const float p_pixel) { return is_auto(as_uint(p_pixel)); }
 inline uint32_t enc_auto(const bool p_autosh) { return p_autosh & 0x1; }
-
-// Aliases for GDScript since it can't handle overridden functions
-inline uint32_t gd_get_base(const uint32_t p_pixel) { return get_base(p_pixel); }
-inline uint32_t gd_enc_base(const uint32_t p_base) { return enc_base(p_base); }
-inline uint32_t gd_get_overlay(const uint32_t p_pixel) { return get_overlay(p_pixel); }
-inline uint32_t gd_enc_overlay(const uint32_t p_over) { return enc_overlay(p_over); }
-inline uint32_t gd_get_blend(const uint32_t p_pixel) { return get_blend(p_pixel); }
-inline uint32_t gd_enc_blend(const uint32_t p_blend) { return enc_blend(p_blend); }
-inline bool gd_is_hole(const uint32_t p_pixel) { return is_hole(p_pixel); }
 inline bool gd_is_auto(const uint32_t p_pixel) { return is_auto(p_pixel); }
-inline bool gd_is_nav(const uint32_t p_pixel) { return is_nav(p_pixel); }
-inline uint32_t gd_get_uv_rotation(const uint32_t p_pixel) { return get_uv_rotation(p_pixel); }
-inline uint32_t gd_enc_uv_rotation(const uint32_t p_rotation) { return enc_uv_rotation(p_rotation); }
-inline uint32_t gd_get_uv_scale(const uint32_t p_pixel) { return get_uv_scale(p_pixel); }
-inline uint32_t gd_enc_uv_scale(const uint32_t p_scale) { return enc_uv_scale(p_scale); }
 
 ///////////////////////////
 // Memory

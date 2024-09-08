@@ -120,7 +120,7 @@ protected:
 VARIANT_ENUM_CAST(Terrain3DEditor::Operation);
 VARIANT_ENUM_CAST(Terrain3DEditor::Tool);
 
-/// Inline functions
+// Inline functions
 
 inline MapType Terrain3DEditor::_get_map_type() const {
 	switch (_tool) {

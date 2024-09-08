@@ -40,6 +40,7 @@ public:
 
 	void initialize(Terrain3D *p_terrain);
 	void destroy();
+
 	void clear_by_mesh(const int p_mesh_id);
 	void clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 
@@ -51,15 +52,15 @@ public:
 	void update_transforms(const AABB &p_aabb);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
-	Ref<MultiMesh> get_multimesh(const Vector3 &p_global_position, const int p_mesh_id) const;
+	Ref<MultiMesh> get_multimeshp(const Vector3 &p_global_position, const int p_mesh_id) const;
 	Ref<MultiMesh> get_multimesh(const Vector2i &p_region_loc, const int p_mesh_id) const;
-	MultiMeshInstance3D *get_multimesh_instance(const Vector3 &p_global_position, const int p_mesh_id) const;
+	MultiMeshInstance3D *get_multimesh_instancep(const Vector3 &p_global_position, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instance(const Vector2i &p_region_loc, const int p_mesh_id) const;
 	Dictionary get_mmis() const { return _mmis; }
 	void set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
-	void reset_instance_counter() { _instance_counter = 0; }
-
 	void force_update_mmis();
+
+	void reset_instance_counter() { _instance_counter = 0; }
 	void print_multimesh_buffer(MultiMeshInstance3D *p_mmi) const;
 
 protected:

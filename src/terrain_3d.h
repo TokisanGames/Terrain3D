@@ -101,6 +101,7 @@ private:
 
 	void _initialize();
 	void __process(const double p_delta);
+	void _grab_camera();
 
 	void _build_containers();
 	void _destroy_containers();
@@ -108,7 +109,6 @@ private:
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
-	void _grab_camera();
 
 	void _build_meshes(const int p_mesh_lods, const int p_mesh_size);
 	void _update_mesh_instances();

@@ -120,6 +120,27 @@ void Terrain3D::__process(const double p_delta) {
 	}
 }
 
+/**
+ * If running in the editor, grab the first editor viewport camera.
+ * The edited_scene_root is excluded in case the user already has a Camera3D in their scene.
+ */
+void Terrain3D::_grab_camera() {
+	if (IS_EDITOR) {
+		_camera = EditorInterface::get_singleton()->get_editor_viewport_3d(0)->get_camera_3d();
+		LOG(DEBUG, "Grabbing the first editor viewport camera: ", _camera);
+	} else {
+		_camera = get_viewport()->get_camera_3d();
+		LOG(DEBUG, "Grabbing the in-game viewport camera: ", _camera);
+	}
+	if (_camera) {
+		_camera_instance_id = _camera->get_instance_id();
+	} else {
+		_camera_instance_id = 0;
+		set_process(false); // disable snapping
+		LOG(ERROR, "Cannot find the active camera. Set it manually with Terrain3D.set_camera(). Stopping _process()");
+	}
+}
+
 void Terrain3D::_build_containers() {
 	_label_nodes = memnew(Node);
 	_label_nodes->set_name("Labels");
@@ -205,27 +226,6 @@ void Terrain3D::_destroy_mouse_picking() {
 	memdelete_safely(_mouse_cam);
 	LOG(DEBUG, "Freeing mouse_vp");
 	memdelete_safely(_mouse_vp);
-}
-
-/**
- * If running in the editor, grab the first editor viewport camera.
- * The edited_scene_root is excluded in case the user already has a Camera3D in their scene.
- */
-void Terrain3D::_grab_camera() {
-	if (IS_EDITOR) {
-		_camera = EditorInterface::get_singleton()->get_editor_viewport_3d(0)->get_camera_3d();
-		LOG(DEBUG, "Grabbing the first editor viewport camera: ", _camera);
-	} else {
-		_camera = get_viewport()->get_camera_3d();
-		LOG(DEBUG, "Grabbing the in-game viewport camera: ", _camera);
-	}
-	if (_camera) {
-		_camera_instance_id = _camera->get_instance_id();
-	} else {
-		_camera_instance_id = 0;
-		set_process(false); // disable snapping
-		LOG(ERROR, "Cannot find the active camera. Set it manually with Terrain3D.set_camera(). Stopping _process()");
-	}
 }
 
 void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
@@ -1412,24 +1412,20 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
-	ClassDB::bind_method(D_METHOD("set_show_region_labels", "enabled"), &Terrain3D::set_show_region_labels);
-	ClassDB::bind_method(D_METHOD("get_show_region_labels"), &Terrain3D::get_show_region_labels);
-
-	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3D::get_data);
-	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
-	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
-	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
-	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
-
 	ClassDB::bind_method(D_METHOD("set_region_size", "size"), &Terrain3D::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
-
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
 	ClassDB::bind_method(D_METHOD("set_mesh_vertex_spacing", "scale"), &Terrain3D::set_mesh_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_mesh_vertex_spacing"), &Terrain3D::get_mesh_vertex_spacing);
+
+	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3D::get_data);
+	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
+	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
+	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
 
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
@@ -1466,6 +1462,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_rid"), &Terrain3D::get_collision_rid);
 
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Terrain3D::get_intersection);
+	ClassDB::bind_method(D_METHOD("set_show_region_labels", "enabled"), &Terrain3D::set_show_region_labels);
+	ClassDB::bind_method(D_METHOD("get_show_region_labels"), &Terrain3D::get_show_region_labels);
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 

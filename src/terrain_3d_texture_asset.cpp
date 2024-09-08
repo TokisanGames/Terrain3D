@@ -33,10 +33,6 @@ bool Terrain3DTextureAsset::_is_valid_format(const Ref<Texture2D> &p_texture) co
 // Public Functions
 ///////////////////////////
 
-Terrain3DTextureAsset::Terrain3DTextureAsset() {
-	clear();
-}
-
 void Terrain3DTextureAsset::clear() {
 	_name = "New Texture";
 	_id = 0;

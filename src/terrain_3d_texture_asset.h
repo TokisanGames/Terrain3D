@@ -24,7 +24,7 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	bool _is_valid_format(const Ref<Texture2D> &p_texture) const;
 
 public:
-	Terrain3DTextureAsset();
+	Terrain3DTextureAsset() { clear(); }
 	~Terrain3DTextureAsset() {}
 
 	void clear() override;
