@@ -769,14 +769,12 @@ String Terrain3D::get_data_directory() const {
 
 void Terrain3D::set_region_size(const RegionSize p_size) {
 	LOG(INFO, p_size);
-	//ERR_FAIL_COND(p_size < SIZE_64);
-	//ERR_FAIL_COND(p_size > SIZE_2048);
-	ERR_FAIL_COND(p_size != SIZE_1024);
+	ERR_FAIL_COND(p_size < SIZE_64);
+	ERR_FAIL_COND(p_size > SIZE_2048);
 	_region_size = p_size;
 	// Region size changed, update downstream
 	if (_data) {
-		_data->_region_size = _region_size;
-		_data->_region_sizev = Vector2i(_region_size, _region_size);
+		_data->set_region_size(_region_size);
 	}
 	if (_material.is_valid()) {
 		_material->_update_maps();
@@ -1488,12 +1486,12 @@ void Terrain3D::_notification(const int p_what) {
 }
 
 void Terrain3D::_bind_methods() {
-	//BIND_ENUM_CONSTANT(SIZE_64);
-	//BIND_ENUM_CONSTANT(SIZE_128);
-	//BIND_ENUM_CONSTANT(SIZE_256);
-	//BIND_ENUM_CONSTANT(SIZE_512);
+	BIND_ENUM_CONSTANT(SIZE_64);
+	BIND_ENUM_CONSTANT(SIZE_128);
+	BIND_ENUM_CONSTANT(SIZE_256);
+	BIND_ENUM_CONSTANT(SIZE_512);
 	BIND_ENUM_CONSTANT(SIZE_1024);
-	//BIND_ENUM_CONSTANT(SIZE_2048);
+	BIND_ENUM_CONSTANT(SIZE_2048);
 
 	BIND_ENUM_CONSTANT(FULL_GAME);
 	BIND_ENUM_CONSTANT(FULL_EDITOR);
@@ -1566,8 +1564,8 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "data_directory", PROPERTY_HINT_DIR), "set_data_directory", "get_data_directory");
-	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
+	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_labels"), "set_show_region_labels", "get_show_region_labels");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");

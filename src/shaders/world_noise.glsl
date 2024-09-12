@@ -92,7 +92,8 @@ float get_noise_height(const vec2 uv) {
 	if (weight <= 1.0 - world_noise_region_blend) {
 		return 0.0;
 	}
-	float noise = world_noise((uv + world_noise_offset.xz) * world_noise_scale * .1) *
+	//TODO: Offset/scale UVs are semi-dependent upon region size 1024. Base on v_vertex.xz instead
+	float noise = world_noise((uv + world_noise_offset.xz * 1024. / _region_size) * world_noise_scale * _region_size / 1024. * .1) *
             world_noise_height * 10. + world_noise_offset.y * 100.;
 	weight = smoothstep(1.0 - world_noise_region_blend, 1.0, weight);
 	return mix(0.0, noise, weight);
