@@ -471,7 +471,7 @@ void Terrain3DData::force_update_maps(const MapType p_map_type, const bool p_gen
 	update_maps();
 }
 
-void Terrain3DData::update_maps() {
+void Terrain3DData::update_maps(const MapType p_map_type) {
 	bool any_changed = false;
 
 	if (_region_map_dirty) {
@@ -545,6 +545,32 @@ void Terrain3DData::update_maps() {
 
 	if (any_changed) {
 		emit_signal("maps_changed");
+	} else {
+		// If no maps have been rebuilt, it's safe to update individual layers. Regions marked Edited
+		// have either been recently changed by Terrain3DEditor::_operate_map or were marked by undo / redo.
+		for (int i = 0; i < _region_locations.size(); i++) {
+			Vector2i region_loc = _region_locations[i];
+			Ref<Terrain3DRegion> region = _regions[region_loc];
+			if (region->is_edited()) {
+				int region_id = get_region_id(region_loc);
+				switch (p_map_type) {
+					case TYPE_HEIGHT:
+						_generated_height_maps.update(region->get_height_map(), region_id);
+						break;
+					case TYPE_CONTROL:
+						_generated_control_maps.update(region->get_control_map(), region_id);
+						break;
+					case TYPE_COLOR:
+						_generated_color_maps.update(region->get_color_map(), region_id);
+						break;
+					default:
+						_generated_height_maps.update(region->get_height_map(), region_id);
+						_generated_control_maps.update(region->get_control_map(), region_id);
+						_generated_color_maps.update(region->get_color_map(), region_id);
+						break;
+				}
+			}
+		}
 	}
 }
 
