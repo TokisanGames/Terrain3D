@@ -68,25 +68,30 @@ TypedArray<Terrain3DRegion> Terrain3DData::get_regions_active(const bool p_copy,
 	return region_arr;
 }
 
-void Terrain3DData::do_for_regions(Rect2i p_bounds, std::function<void(Terrain3DRegion *, Rect2i, Rect2i, Rect2i)> p_callback, bool p_do_empty_regions) {
+// Calls the callback function for every region within the given area
+// The callable receives: source Terrain3DRegion, source Rect2i, dest Rect2i, dest Terrain3DRegion
+void Terrain3DData::do_for_regions(const Rect2i &p_area, const Callable &p_callback) {
 	Rect2i index_bounds;
-	index_bounds.position = Point2i((Point2(p_bounds.position) / _region_size).floor()); // rounded down
-	index_bounds.set_end(Point2i((Point2(p_bounds.get_end()) / _region_size).ceil())); // rounded up in a dumb way
+	index_bounds.position = Point2i((Point2(p_area.position) / _region_size).floor()); // rounded down
+	index_bounds.set_end(Point2i((Point2(p_area.get_end()) / _region_size).ceil())); // rounded up in a dumb way
+	//LOG(MESG, "index bounds: ", index_bounds);
 	Point2i current_region_loc;
 	for (int y = index_bounds.position.y; y < index_bounds.get_end().y; y++) {
 		current_region_loc.y = y;
 		for (int x = index_bounds.position.x; x < index_bounds.get_end().x; x++) {
 			current_region_loc.x = x;
 			Ref<Terrain3DRegion> region = get_region(current_region_loc);
-			if (region.is_valid() || p_do_empty_regions) {
-				Rect2i world_bounds = p_bounds.intersection(Rect2i(current_region_loc * _region_size, _region_sizev));
-				Rect2i area_bounds(world_bounds.position - p_bounds.position, world_bounds.size);
+			if (region.is_valid()) {
+				LOG(WARN, "Operating on Region: ", current_region_loc);
+				Rect2i world_bounds = p_area.intersection(Rect2i(current_region_loc * _region_size, _region_sizev));
+				Rect2i area_bounds(world_bounds.position - p_area.position, world_bounds.size);
 				Rect2i region_local_bounds(world_bounds.position - (region->get_location() * _region_sizev), area_bounds.size);
-				p_callback(region.ptr(), world_bounds, area_bounds, region_local_bounds);
+				p_callback.call(region.ptr(), region_local_bounds, area_bounds);
 			}
 		}
 	}
 }
+
 
 void Terrain3DData::set_region_size(int p_new_region_size) {
 	if (p_new_region_size == _region_size)
@@ -126,28 +131,14 @@ void Terrain3DData::set_region_size(int p_new_region_size) {
 		region->sanitize_maps();
 
 		// Fill data
-		Rect2i bounds;
-		bounds.position = p * p_new_region_size;
-		bounds.size = Vector2i(p_new_region_size, p_new_region_size);
-
-		Ref<Image> height = region->get_map(Terrain3DRegion::TYPE_HEIGHT);
-		Ref<Image> control = region->get_map(Terrain3DRegion::TYPE_CONTROL);
-		Ref<Image> color = region->get_map(Terrain3DRegion::TYPE_COLOR);
-
-		do_for_regions(
-				bounds, [&height, &control, &color](Terrain3DRegion *region, Rect2i world_bounds, Rect2i area_bounds, Rect2i region_local_bounds) {
-					height->blit_rect(region->get_height_map(), region_local_bounds, area_bounds.position);
-					control->blit_rect(region->get_control_map(), region_local_bounds, area_bounds.position);
-					color->blit_rect(region->get_color_map(), region_local_bounds, area_bounds.position);
-				},
-				false);
-
-		height->clear_mipmaps();
-		control->clear_mipmaps();
-		color->clear_mipmaps();
+		Rect2i area;
+		area.position = p * p_new_region_size;
+		area.size = Vector2i(p_new_region_size, p_new_region_size);
+		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste).bind(region.ptr()));
 		new_regions.push_back(region);
 	}
 
+	// this should make a new regions database
 	for (Ref<Terrain3DRegion> r : old_regions) {
 		remove_region(r, false);
 	}
@@ -1017,6 +1008,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_regions_all"), &Terrain3DData::get_regions_all);
 	ClassDB::bind_method(D_METHOD("get_region_map"), &Terrain3DData::get_region_map);
 	ClassDB::bind_static_method("Terrain3DData", D_METHOD("get_region_map_index", "region_location"), &Terrain3DData::get_region_map_index);
+
+	ClassDB::bind_method(D_METHOD("do_for_regions", "area", "callback"), &Terrain3DData::do_for_regions);
 
 	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DData::get_region_location);
 	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DData::get_region_id);
