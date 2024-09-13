@@ -6,7 +6,6 @@
 #include "constants.h"
 #include "generated_texture.h"
 #include "terrain_3d_region.h"
-#include <functional>
 
 class Terrain3D;
 
@@ -78,6 +77,7 @@ private:
 
 	// Functions
 	void _clear();
+	void _copy_paste(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
 
 public:
 	Terrain3DData() {}
@@ -93,7 +93,7 @@ public:
 	Dictionary get_regions_all() const { return _regions; }
 	PackedInt32Array get_region_map() const { return _region_map; }
 	static int get_region_map_index(const Vector2i &p_region_loc);
-	void do_for_regions(Rect2i bounds, std::function<void(Terrain3DRegion *, Rect2i, Rect2i, Rect2i)> callback, bool do_empty_regions);
+	void do_for_regions(const Rect2i &p_area, const Callable &p_callback);
 	void set_region_size(int region_size);
 
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
@@ -175,6 +175,18 @@ protected:
 VARIANT_ENUM_CAST(Terrain3DData::HeightFilter);
 
 // Inline Region Functions
+
+inline void Terrain3DData::_copy_paste(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region) {
+	if (p_src_region == nullptr || p_dst_region == nullptr) {
+		return;
+	}
+	TypedArray<Image> dst_maps = p_dst_region->get_maps();
+	TypedArray<Image> src_maps = p_src_region->get_maps();
+	for (int i = 0; i < dst_maps.size(); i++) {
+		Ref<Image> img = dst_maps[i];
+		img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
+	}
+}
 
 // Verifies the location is within the bounds of the _region_map array and
 // the world, returning the _region_map index, which contains the region_id.
