@@ -171,6 +171,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	// MAP Operations
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
+
+	// save region count before brush pixel loop. Any regions added will have caused an Array
+	// rebuild at the end of the last _operate() call, but until painting is finished we only
+	// need to track if _added_removed_locations has changed between now and the end of the loop
+	int regions_added_removed = _added_removed_locations.size();
+	
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
 			Vector2 brush_offset = Vector2(x, y) - (Vector2(brush_size, brush_size) / 2.f);
@@ -459,7 +465,13 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			region->get_map(map_type)->generate_mipmaps();
 		}
 	}
-	data->force_update_maps(map_type);
+	// If no added or removed regions, update only changed texture array layers from the edited regions in the rendering server
+	if (_added_removed_locations.size() == regions_added_removed) {
+		data->update_maps(map_type);
+	} else {
+	// If region qty was changed, must fully rebuild the maps
+		data->force_update_maps(map_type);
+	}
 	data->add_edited_area(edited_area);
 }
 
@@ -537,6 +549,8 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			Dictionary regions = data->get_regions_all();
 			regions[region->get_location()] = region;
 			region->set_modified(true);
+			// Tell update_maps() this region has layers that can be individually updated
+			region->set_edited(true);
 			LOG(DEBUG, "Edited: ", region->get_data());
 		}
 	}
@@ -567,8 +581,20 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		Array locations = data->get_region_locations();
 		LOG(DEBUG, "Locations(", locations.size(), "): ", locations);
 	}
-
-	data->force_update_maps();
+	// If this undo set modifies the region qty, we must rebuild the arrays. Otherwise we can update individual layers
+	if (p_data.has("added_regions") || p_data.has("removed_regions")) {
+		data->force_update_maps();
+	} else {
+		data->update_maps();
+	}
+	// After TextureArray updates clear edited regions flag.
+	if (p_data.has("edited_regions")) {
+		TypedArray<Terrain3DRegion> undo_regions = p_data["edited_regions"];
+		for (int i = 0; i < undo_regions.size(); i++) {
+			Ref<Terrain3DRegion> region = undo_regions[i];
+			region->set_edited(false);
+		}
+	}
 	_terrain->get_instancer()->force_update_mmis();
 	if (_terrain->get_plugin()->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
