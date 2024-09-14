@@ -83,6 +83,7 @@ private:
 	// Renderer settings
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
 	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
+	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
 
 	// Mouse cursor
@@ -175,6 +176,8 @@ public:
 	uint32_t get_mouse_layer() const { return _mouse_layer; };
 	void set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows);
 	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
+	void set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode);
+	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
 	void set_cull_margin(const real_t p_margin);
 	real_t get_cull_margin() const { return _cull_margin; };
 
