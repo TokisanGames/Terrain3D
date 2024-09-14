@@ -250,9 +250,29 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 	// Get current visual scenario so the instances appear in the scene
 	RID scenario = get_world_3d()->get_scenario();
 
+	bool baked_light;
+	bool dynamic_gi;
+	switch (_gi_mode) {
+		case GeometryInstance3D::GI_MODE_DISABLED: {
+			baked_light = false;
+			dynamic_gi = false;
+		} break;
+		case GeometryInstance3D::GI_MODE_DYNAMIC: {
+			baked_light = false;
+			dynamic_gi = true;
+		} break;
+		case GeometryInstance3D::GI_MODE_STATIC:
+		default: {
+			baked_light = true;
+			dynamic_gi = false;
+		} break;
+	}
+
 	_mesh_data.cross = RS->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
 	RS->instance_set_layer_mask(_mesh_data.cross, _render_layers);
 	RS->instance_geometry_set_cast_shadows_setting(_mesh_data.cross, _cast_shadows);
+	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 
 	for (int lod = 0; lod < p_mesh_lods; lod++) {
 		for (int x = 0; x < 4; x++) {
@@ -268,6 +288,8 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 				}
 				RS->instance_set_layer_mask(tile, _render_layers);
 				RS->instance_geometry_set_cast_shadows_setting(tile, _cast_shadows);
+				RS->instance_geometry_set_flag(tile, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+				RS->instance_geometry_set_flag(tile, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 				_mesh_data.tiles.push_back(tile);
 			}
 		}
@@ -280,6 +302,8 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 		}
 		RS->instance_set_layer_mask(filler, _render_layers);
 		RS->instance_geometry_set_cast_shadows_setting(filler, _cast_shadows);
+		RS->instance_geometry_set_flag(filler, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+		RS->instance_geometry_set_flag(filler, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 		_mesh_data.fillers.push_back(filler);
 
 		if (lod != p_mesh_lods - 1) {
@@ -291,11 +315,15 @@ void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
 			}
 			RS->instance_set_layer_mask(trim, _render_layers);
 			RS->instance_geometry_set_cast_shadows_setting(trim, _cast_shadows);
+			RS->instance_geometry_set_flag(trim, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+			RS->instance_geometry_set_flag(trim, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 			_mesh_data.trims.push_back(trim);
 
 			RID seam = RS->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
 			RS->instance_set_layer_mask(seam, _render_layers);
 			RS->instance_geometry_set_cast_shadows_setting(seam, _cast_shadows);
+			RS->instance_geometry_set_flag(seam, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+			RS->instance_geometry_set_flag(seam, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 			_mesh_data.seams.push_back(seam);
 		}
 	}
@@ -320,17 +348,39 @@ void Terrain3D::_update_mesh_instances() {
 
 	RID _scenario = get_world_3d()->get_scenario();
 
+	bool baked_light;
+	bool dynamic_gi;
+	switch (_gi_mode) {
+		case GeometryInstance3D::GI_MODE_DISABLED: {
+			baked_light = false;
+			dynamic_gi = false;
+		} break;
+		case GeometryInstance3D::GI_MODE_DYNAMIC: {
+			baked_light = false;
+			dynamic_gi = true;
+		} break;
+		case GeometryInstance3D::GI_MODE_STATIC:
+		default: {
+			baked_light = true;
+			dynamic_gi = false;
+		} break;
+	}
+
 	bool v = is_visible_in_tree();
 	RS->instance_set_visible(_mesh_data.cross, v);
 	RS->instance_set_scenario(_mesh_data.cross, _scenario);
 	RS->instance_set_layer_mask(_mesh_data.cross, _render_layers);
 	RS->instance_geometry_set_cast_shadows_setting(_mesh_data.cross, _cast_shadows);
+	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 
 	for (const RID rid : _mesh_data.tiles) {
 		RS->instance_set_visible(rid, v);
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_set_layer_mask(rid, _render_layers);
 		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 	}
 
 	for (const RID rid : _mesh_data.fillers) {
@@ -338,6 +388,8 @@ void Terrain3D::_update_mesh_instances() {
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_set_layer_mask(rid, _render_layers);
 		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 	}
 
 	for (const RID rid : _mesh_data.trims) {
@@ -345,6 +397,8 @@ void Terrain3D::_update_mesh_instances() {
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_set_layer_mask(rid, _render_layers);
 		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 	}
 
 	for (const RID rid : _mesh_data.seams) {
@@ -352,6 +406,8 @@ void Terrain3D::_update_mesh_instances() {
 		RS->instance_set_scenario(rid, _scenario);
 		RS->instance_set_layer_mask(rid, _render_layers);
 		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 	}
 }
 
@@ -845,6 +901,11 @@ void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
 
 void Terrain3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
 	_cast_shadows = p_cast_shadows;
+	_update_mesh_instances();
+}
+
+void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
+	_gi_mode = p_gi_mode;
 	_update_mesh_instances();
 }
 
@@ -1461,6 +1522,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Terrain3D::get_mouse_layer);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_gi_mode", "gi_mode"), &Terrain3D::set_gi_mode);
+	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
 	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
 	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
 
@@ -1499,6 +1562,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "render_cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_gi_mode", "get_gi_mode");
 
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
