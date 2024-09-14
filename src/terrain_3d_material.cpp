@@ -335,10 +335,10 @@ void Terrain3DMaterial::_update_maps() {
 	LOG(DEBUG_CONT, "Control map RID: ", data->get_control_maps_rid());
 	LOG(DEBUG_CONT, "Color map RID: ", data->get_color_maps_rid());
 
-	real_t spacing = _terrain->get_mesh_vertex_spacing();
-	LOG(DEBUG_CONT, "Setting mesh vertex spacing in material: ", spacing);
-	RS->material_set_param(_material, "_mesh_vertex_spacing", spacing);
-	RS->material_set_param(_material, "_mesh_vertex_density", 1.0f / spacing);
+	real_t spacing = _terrain->get_vertex_spacing();
+	LOG(DEBUG_CONT, "Setting vertex spacing in material: ", spacing);
+	RS->material_set_param(_material, "_vertex_spacing", spacing);
+	RS->material_set_param(_material, "_vertex_density", 1.0f / spacing);
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list

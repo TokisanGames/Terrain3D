@@ -32,7 +32,7 @@ private:
 	// Data Settings & flags
 	int _region_size = 0; // Set by Terrain3D::set_region_size
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
-	real_t _mesh_vertex_spacing = 1.f; // Set by Terrain3D::set_mesh_vertex_spacing
+	real_t _vertex_spacing = 1.f; // Set by Terrain3D::set_vertex_spacing
 
 	AABB _edited_area;
 	Vector2 _master_height_range = V2_ZERO;
@@ -190,7 +190,7 @@ inline int Terrain3DData::get_region_map_index(const Vector2i &p_region_loc) {
 // Returns a region location given a global position. No bounds checking nor data access.
 inline Vector2i Terrain3DData::get_region_location(const Vector3 &p_global_position) const {
 	Vector2 descaled_position = Vector2(p_global_position.x, p_global_position.z);
-	return Vector2i((descaled_position / (_mesh_vertex_spacing * real_t(_region_size))).floor());
+	return Vector2i((descaled_position / (_vertex_spacing * real_t(_region_size))).floor());
 }
 
 // Returns id of any active region. -1 if out of bounds or no region, or region id

@@ -135,8 +135,8 @@ R"(
 	vec3 __pixel_pos1 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
 	float __region_line = 0.5;		// Region line thickness
 	__region_line = .1*sqrt(length(v_camera_pos - __pixel_pos1));
-	if (mod(__pixel_pos1.x * _mesh_vertex_density + __region_line*.5, _region_size) <= __region_line || 
-		mod(__pixel_pos1.z * _mesh_vertex_density + __region_line*.5, _region_size) <= __region_line ) {
+	if (mod(__pixel_pos1.x * _vertex_density + __region_line*.5, _region_size) <= __region_line || 
+		mod(__pixel_pos1.z * _vertex_density + __region_line*.5, _region_size) <= __region_line ) {
 		ALBEDO = vec3(1.);
 	}
 
@@ -151,8 +151,8 @@ R"(
 	vec3 __vertex_add = vec3(0.);
 	float __distance_factor = clamp(1.-length(v_camera_pos - __pixel_pos2)/__view_distance, 0., 1.);
 	// Draw vertex grid
-	if ( mod(__pixel_pos2.x * _mesh_vertex_density + __grid_line*.5, __grid_step) < __grid_line || 
-	  	 mod(__pixel_pos2.z * _mesh_vertex_density + __grid_line*.5, __grid_step) < __grid_line ) { 
+	if ( mod(__pixel_pos2.x * _vertex_density + __grid_line*.5, __grid_step) < __grid_line || 
+	  	 mod(__pixel_pos2.z * _vertex_density + __grid_line*.5, __grid_step) < __grid_line ) { 
 		__vertex_mul = vec3(0.5) * __distance_factor;
 	}
 	// Draw Vertices
