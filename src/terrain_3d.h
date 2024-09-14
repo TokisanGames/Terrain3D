@@ -8,6 +8,7 @@
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
@@ -81,7 +82,7 @@ private:
 
 	// Renderer settings
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
-	GeometryInstance3D::ShadowCastingSetting _cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
+	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
 	real_t _cull_margin = 0.0f;
 
 	// Mouse cursor
@@ -172,8 +173,8 @@ public:
 	uint32_t get_render_layers() const { return _render_layers; };
 	void set_mouse_layer(const uint32_t p_layer);
 	uint32_t get_mouse_layer() const { return _mouse_layer; };
-	void set_cast_shadows(const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
-	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
+	void set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows);
+	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
 	void set_cull_margin(const real_t p_margin);
 	real_t get_cull_margin() const { return _cull_margin; };
 
