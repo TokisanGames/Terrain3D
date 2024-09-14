@@ -284,7 +284,7 @@ func update_decal() -> void:
 	# Set texture and color
 	if picking != Terrain3DEditor.TOOL_MAX:
 		decal.texture_albedo = ring_texture
-		decal.size = Vector3.ONE * 10. * plugin.terrain.get_mesh_vertex_spacing()
+		decal.size = Vector3.ONE * 10. * plugin.terrain.get_vertex_spacing()
 		match picking:
 			Terrain3DEditor.HEIGHT:
 				decal.modulate = COLOR_PICK_HEIGHT
@@ -374,7 +374,7 @@ func _get_gradient_decal(index: int) -> Decal:
 	gradient_decal = Decal.new()
 	gradient_decal.texture_albedo = ring_texture
 	gradient_decal.modulate = COLOR_SLOPE
-	gradient_decal.size = Vector3.ONE * 10. * plugin.terrain.get_mesh_vertex_spacing()
+	gradient_decal.size = Vector3.ONE * 10. * plugin.terrain.get_vertex_spacing()
 	gradient_decal.size.y = 1000.
 	gradient_decal.cull_mask = decal.cull_mask
 	add_child(gradient_decal)

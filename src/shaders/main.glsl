@@ -27,8 +27,8 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1/1024
-uniform float _mesh_vertex_spacing = 1.0;
-uniform float _mesh_vertex_density = 1.0; // = 1/_mesh_vertex_spacing
+uniform float _vertex_spacing = 1.0;
+uniform float _vertex_density = 1.0; // = 1/_vertex_spacing
 uniform int _region_map_size = 16;
 uniform int _region_map[256];
 uniform vec2 _region_locations[256];
@@ -127,7 +127,7 @@ void vertex() {
 	v_vertex_xz_dist = length(v_vertex.xz - v_camera_pos.xz);
 
 	// UV coordinates in world space. Values are 0 to _region_size within regions
-	UV = round(v_vertex.xz * _mesh_vertex_density);
+	UV = round(v_vertex.xz * _vertex_density);
 
 	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
@@ -147,7 +147,7 @@ void vertex() {
 		v_vertex.y = VERTEX.y;
 		v_normal = vec3(
 			v_vertex.y - get_height(UV2 + vec2(_region_texel_size, 0)),
-			_mesh_vertex_spacing,
+			_vertex_spacing,
 			v_vertex.y - get_height(UV2 + vec2(0, _region_texel_size))
 		);
 		// Due to a bug caused by the GPUs linear interpolation across edges of region maps,
@@ -156,7 +156,7 @@ void vertex() {
 	}
 		
 	// Transform UVs to local to avoid poor precision during varying interpolation.
-	v_uv_offset = MODEL_MATRIX[3].xz * _mesh_vertex_density;
+	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
 	UV -= v_uv_offset;
 	v_uv2_offset = v_uv_offset * _region_texel_size;
 	UV2 -= v_uv2_offset;
@@ -186,7 +186,7 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 		height = get_height(uv);
 		u = height - get_height(uv + vec2(_region_texel_size, 0));
 		v = height - get_height(uv + vec2(0, _region_texel_size));
-		normal = normalize(vec3(u, _mesh_vertex_spacing, v));
+		normal = normalize(vec3(u, _vertex_spacing, v));
 	}
 	tangent = cross(normal, vec3(0, 0, 1));
 	binormal = cross(normal, tangent);

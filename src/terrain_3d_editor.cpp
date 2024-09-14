@@ -18,8 +18,8 @@ void Terrain3DEditor::_send_region_aabb(const Vector2i &p_region_loc, const Vect
 	AABB edited_area;
 	edited_area.position = Vector3(p_region_loc.x * region_size, p_height_range.x, p_region_loc.y * region_size);
 	edited_area.size = Vector3(region_size, p_height_range.y - p_height_range.x, region_size);
-	edited_area.position *= _terrain->get_mesh_vertex_spacing();
-	edited_area.size *= _terrain->get_mesh_vertex_spacing();
+	edited_area.position *= _terrain->get_vertex_spacing();
+	edited_area.size *= _terrain->get_vertex_spacing();
 	_terrain->get_data()->add_edited_area(edited_area);
 }
 
@@ -168,7 +168,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 
 	// MAP Operations
-	real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
 			Vector2 brush_offset = Vector2(x, y) - (Vector2(brush_size, brush_size) / 2.f);

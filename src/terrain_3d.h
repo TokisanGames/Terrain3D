@@ -45,7 +45,7 @@ private:
 	RegionSize _region_size = SIZE_1024;
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
-	real_t _mesh_vertex_spacing = 1.0f;
+	real_t _vertex_spacing = 1.0f;
 	String _data_directory;
 	bool _save_16_bit = false;
 	bool _show_region_labels = false;
@@ -141,14 +141,14 @@ public:
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(const int p_size);
 	int get_mesh_size() const { return _mesh_size; }
-	void set_mesh_vertex_spacing(const real_t p_spacing);
-	real_t get_mesh_vertex_spacing() const { return _mesh_vertex_spacing; }
 
 	Terrain3DData *get_data() const { return _data; }
 	void set_data_directory(String p_dir);
 	String get_data_directory() const;
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
+	void set_vertex_spacing(const real_t p_spacing);
+	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }

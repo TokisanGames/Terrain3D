@@ -39,7 +39,7 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 	bool initialized = _terrain != nullptr;
 	_terrain = p_terrain;
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
-	_mesh_vertex_spacing = _terrain->get_mesh_vertex_spacing();
+	_vertex_spacing = _terrain->get_vertex_spacing();
 	_region_size = _terrain->get_region_size();
 	_region_sizev = Vector2i(_region_size, _region_size);
 
@@ -426,7 +426,7 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 		return;
 	}
 	Vector2i global_offset = region_loc * _region_size;
-	Vector3 descaled_pos = p_global_position / _mesh_vertex_spacing;
+	Vector3 descaled_pos = p_global_position / _vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(V2I_ZERO, Vector2i(_region_size - 1, _region_size - 1));
 	Ref<Image> map = region->get_map(p_map_type);
@@ -445,7 +445,7 @@ Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global
 		return COLOR_NAN;
 	}
 	Vector2i global_offset = region_loc * _region_size;
-	Vector3 descaled_pos = p_global_position / _mesh_vertex_spacing;
+	Vector3 descaled_pos = p_global_position / _vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(V2I_ZERO, Vector2i(_region_size - 1, _region_size - 1));
 	Ref<Image> map = region->get_map(p_map_type);
@@ -457,7 +457,7 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 		return NAN;
 	}
 	Vector3 pos = p_global_position;
-	const real_t &step = _mesh_vertex_spacing;
+	const real_t &step = _vertex_spacing;
 	pos.y = 0.f;
 	// Round to nearest vertex
 	Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
@@ -503,9 +503,9 @@ Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 		return Vector3(NAN, NAN, NAN);
 	}
 	real_t height = get_height(p_global_position);
-	real_t u = height - get_height(p_global_position + Vector3(_mesh_vertex_spacing, 0.0f, 0.0f));
-	real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, _mesh_vertex_spacing));
-	Vector3 normal = Vector3(u, _mesh_vertex_spacing, v);
+	real_t u = height - get_height(p_global_position + Vector3(_vertex_spacing, 0.0f, 0.0f));
+	real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, _vertex_spacing));
+	Vector3 normal = Vector3(u, _vertex_spacing, v);
 	normal.normalize();
 	return normal;
 }
@@ -587,7 +587,7 @@ Vector3 Terrain3DData::get_mesh_vertex(const int32_t p_lod, const HeightFilter p
 			height = get_height(p_global_position);
 			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
 				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _mesh_vertex_spacing;
+					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _vertex_spacing;
 					if (is_hole(get_control(position))) {
 						height = NAN;
 						break;
@@ -668,16 +668,16 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		return;
 	}
 
-	Vector3 descaled_position = p_global_position / _mesh_vertex_spacing;
+	Vector3 descaled_position = p_global_position / _vertex_spacing;
 	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
 	if ((abs(descaled_position.x) > max_dimension) || (abs(descaled_position.z) > max_dimension)) {
-		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _mesh_vertex_spacing);
+		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _vertex_spacing);
 		return;
 	}
 	if ((descaled_position.x + img_size.x > max_dimension) ||
 			(descaled_position.z + img_size.y > max_dimension)) {
 		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -(img_size * _mesh_vertex_spacing) / 2.f, " to center");
+				". Try ", -(img_size * _vertex_spacing) / 2.f, " to center");
 		return;
 	}
 
@@ -746,7 +746,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 			Ref<Terrain3DRegion> region;
 			region.instantiate();
 			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y);
-			position *= _mesh_vertex_spacing;
+			position *= _vertex_spacing;
 			region->set_location(get_region_location(position));
 			region->set_maps(images);
 			add_region(region, (x == slices_width - 1 && y == slices_height - 1));

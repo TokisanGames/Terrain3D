@@ -454,17 +454,17 @@ void Terrain3D::_update_collision() {
 		map = region->get_map(TYPE_HEIGHT);
 		cmap = region->get_map(TYPE_CONTROL);
 
-		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z) * _mesh_vertex_spacing);
+		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z) * _vertex_spacing);
 		if (region.is_valid()) {
 			map_x = region->get_map(TYPE_HEIGHT);
 			cmap_x = region->get_map(TYPE_CONTROL);
 		}
-		region = _data->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
+		region = _data->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + _region_size) * _vertex_spacing);
 		if (region.is_valid()) {
 			map_z = region->get_map(TYPE_HEIGHT);
 			cmap_z = region->get_map(TYPE_CONTROL);
 		}
-		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z + _region_size) * _mesh_vertex_spacing);
+		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z + _region_size) * _vertex_spacing);
 		if (region.is_valid()) {
 			map_xz = region->get_map(TYPE_HEIGHT);
 			cmap_xz = region->get_map(TYPE_CONTROL);
@@ -509,7 +509,7 @@ void Terrain3D::_update_collision() {
 		// Rotated shape Y=90 for -90 rotated array index
 		Transform3D xform = Transform3D(Basis(Vector3(0.f, 1.f, 0.f), Math_PI * .5f),
 				global_pos + Vector3(_region_size, 0.f, _region_size) * .5f);
-		xform.scale(Vector3(_mesh_vertex_spacing, 1.f, _mesh_vertex_spacing));
+		xform.scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
 
 		if (!_show_debug_collision) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
@@ -596,10 +596,10 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 			}
 		}
 	} else {
-		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z / _mesh_vertex_spacing);
-		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z / _mesh_vertex_spacing) + 1;
-		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x / _mesh_vertex_spacing);
-		int32_t x_end = (int32_t)Math::floor(p_global_aabb.get_end().x / _mesh_vertex_spacing) + 1;
+		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z / _vertex_spacing);
+		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z / _vertex_spacing) + 1;
+		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x / _vertex_spacing);
+		int32_t x_end = (int32_t)Math::floor(p_global_aabb.get_end().x / _vertex_spacing) + 1;
 
 		for (int32_t z = z_start; z < z_end; ++z) {
 			for (int32_t x = x_start; x < x_end; ++x) {
@@ -619,10 +619,10 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		const int32_t x, const int32_t z) const {
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
-	Vector3 xz = Vector3(x, 0.0f, z) * _mesh_vertex_spacing;
-	Vector3 xsz = Vector3(x + step, 0.0f, z) * _mesh_vertex_spacing;
-	Vector3 xzs = Vector3(x, 0.0f, z + step) * _mesh_vertex_spacing;
-	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _mesh_vertex_spacing;
+	Vector3 xz = Vector3(x, 0.0f, z) * _vertex_spacing;
+	Vector3 xsz = Vector3(x + step, 0.0f, z) * _vertex_spacing;
+	Vector3 xzs = Vector3(x, 0.0f, z + step) * _vertex_spacing;
+	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _vertex_spacing;
 
 	uint32_t control1 = _data->get_control(xz);
 	uint32_t control2 = _data->get_control(xszs);
@@ -728,16 +728,16 @@ void Terrain3D::set_mesh_size(const int p_size) {
 	}
 }
 
-void Terrain3D::set_mesh_vertex_spacing(const real_t p_spacing) {
+void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 	real_t spacing = CLAMP(p_spacing, 0.25f, 100.0f);
-	if (_mesh_vertex_spacing != spacing) {
-		LOG(INFO, "Setting mesh vertex spacing: ", spacing);
-		_mesh_vertex_spacing = spacing;
+	if (_vertex_spacing != spacing) {
+		LOG(INFO, "Setting vertex spacing: ", spacing);
+		_vertex_spacing = spacing;
 		_clear_meshes();
 		_destroy_collision();
 		_destroy_instancer();
 		_initialize();
-		_data->_mesh_vertex_spacing = spacing;
+		_data->_vertex_spacing = spacing;
 	}
 	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
@@ -933,8 +933,8 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 	Vector3 cam_pos = p_cam_pos;
 	cam_pos.y = 0;
 	LOG(DEBUG_CONT, "Snapping terrain to: ", String(cam_pos));
-	Vector3 snapped_pos = (cam_pos / _mesh_vertex_spacing).floor() * _mesh_vertex_spacing;
-	Transform3D t = Transform3D().scaled(Vector3(_mesh_vertex_spacing, 1, _mesh_vertex_spacing));
+	Vector3 snapped_pos = (cam_pos / _vertex_spacing).floor() * _vertex_spacing;
+	Transform3D t = Transform3D().scaled(Vector3(_vertex_spacing, 1, _vertex_spacing));
 	t.origin = snapped_pos;
 	RS->instance_set_transform(_mesh_data.cross, t);
 
@@ -942,10 +942,10 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 	int tile = 0;
 
 	for (int l = 0; l < _mesh_lods; l++) {
-		real_t scale = real_t(1 << l) * _mesh_vertex_spacing;
+		real_t scale = real_t(1 << l) * _vertex_spacing;
 		snapped_pos = (cam_pos / scale).floor() * scale;
-		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l)) * _mesh_vertex_spacing;
-		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
+		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l)) * _vertex_spacing;
+		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _vertex_spacing;
 
 		// Position tiles
 		for (int x = 0; x < 4; x++) {
@@ -996,7 +996,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 
 			// Position seams
 			{
-				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _mesh_vertex_spacing;
+				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _vertex_spacing;
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 				t.origin = next_base;
 				RS->instance_set_transform(_mesh_data.seams[edge], t);
@@ -1136,12 +1136,12 @@ void Terrain3D::update_region_labels() {
 			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
 			label->set_font_size(64);
 			label->set_outline_size(10);
-			label->set_visibility_range_end(3072.f * _mesh_vertex_spacing);
+			label->set_visibility_range_end(3072.f * _vertex_spacing);
 			label->set_visibility_range_end_margin(256.f);
 			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 			_label_nodes->add_child(label, true);
 			Vector2i loc = region_locations[i];
-			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _mesh_vertex_spacing;
+			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _vertex_spacing;
 			pos.y = _data->get_height(pos);
 			label->set_position(pos);
 		}
@@ -1433,8 +1433,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
-	ClassDB::bind_method(D_METHOD("set_mesh_vertex_spacing", "scale"), &Terrain3D::set_mesh_vertex_spacing);
-	ClassDB::bind_method(D_METHOD("get_mesh_vertex_spacing"), &Terrain3D::get_mesh_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
 
 	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3D::get_data);
 	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
@@ -1509,12 +1509,12 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Mesh", "mesh_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_mesh_size", "get_mesh_size");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "mesh_vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_mesh_vertex_spacing", "get_mesh_vertex_spacing");
 
 	ADD_GROUP("Debug", "debug_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_region_labels"), "set_show_region_labels", "get_show_region_labels");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));

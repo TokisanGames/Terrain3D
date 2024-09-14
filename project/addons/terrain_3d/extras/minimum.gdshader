@@ -6,8 +6,8 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 // Private uniforms
 uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1/1024
-uniform float _mesh_vertex_spacing = 1.0;
-uniform float _mesh_vertex_density = 1.0; // = 1/_mesh_vertex_spacing
+uniform float _vertex_spacing = 1.0;
+uniform float _vertex_density = 1.0; // = 1/_vertex_spacing
 uniform int _region_map_size = 16;
 uniform int _region_map[256];
 uniform vec2 _region_locations[256];
@@ -70,7 +70,7 @@ void vertex() {
 	vec3 vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	
 	// UV coordinates in world space. Values are 0 to _region_size within regions
-	UV = round(vertex.xz * _mesh_vertex_density);
+	UV = round(vertex.xz * _vertex_density);
 
 	// Discard vertices for Holes. 1 lookup
 	ivec3 region = get_region_uv(UV);
@@ -89,7 +89,7 @@ void vertex() {
 	}
 
 	// Transform UVs to local to avoid poor precision during varying interpolation.
-	v_uv_offset = MODEL_MATRIX[3].xz * _mesh_vertex_density;
+	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
 	UV -= v_uv_offset;
 	v_uv2_offset = v_uv_offset * _region_texel_size;
 	UV2 -= v_uv2_offset;
@@ -128,7 +128,7 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 		u = height - get_height(uv + vec2(_region_texel_size, 0));
 	}
 
-	vec3 normal = vec3(u, _mesh_vertex_spacing, v);
+	vec3 normal = vec3(u, _vertex_spacing, v);
 	normal = normalize(normal);
 	tangent = cross(normal, vec3(0, 0, 1));
 	binormal = cross(normal, tangent);
