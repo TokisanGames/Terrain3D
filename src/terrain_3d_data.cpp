@@ -20,6 +20,7 @@ void Terrain3DData::_clear() {
 	_region_map.clear();
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 	_regions.clear();
+	_region_locations.clear();
 	_master_height_range = V2_ZERO;
 	_generated_height_maps.clear();
 	_generated_control_maps.clear();
@@ -36,15 +37,15 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 		return;
 	}
 	LOG(INFO, "Initializing storage");
-	bool initialized = _terrain != nullptr;
+	bool prev_initialized = _terrain != nullptr;
 	_terrain = p_terrain;
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 	_vertex_spacing = _terrain->get_vertex_spacing();
-	_region_size = _terrain->get_region_size();
-	_region_sizev = Vector2i(_region_size, _region_size);
-
-	if (!initialized && !_terrain->get_data_directory().is_empty()) {
+	if (!prev_initialized && !_terrain->get_data_directory().is_empty()) {
 		load_directory(_terrain->get_data_directory());
+	} else {
+		_region_size = _terrain->get_region_size();
+		_region_sizev = Vector2i(_region_size, _region_size);
 	}
 }
 
@@ -81,7 +82,7 @@ void Terrain3DData::do_for_regions(const Rect2i &p_area, const Callable &p_callb
 		for (int x = index_bounds.position.x; x < index_bounds.get_end().x; x++) {
 			current_region_loc.x = x;
 			Ref<Terrain3DRegion> region = get_region(current_region_loc);
-			if (region.is_valid()) {
+			if (region.is_valid() && !region->is_deleted()) {
 				LOG(WARN, "Operating on Region: ", current_region_loc);
 				Rect2i world_bounds = p_area.intersection(Rect2i(current_region_loc * _region_size, _region_sizev));
 				Rect2i area_bounds(world_bounds.position - p_area.position, world_bounds.size);
@@ -92,10 +93,15 @@ void Terrain3DData::do_for_regions(const Rect2i &p_area, const Callable &p_callb
 	}
 }
 
-
-void Terrain3DData::set_region_size(int p_new_region_size) {
-	if (p_new_region_size == _region_size)
+void Terrain3DData::change_region_size(int p_new_region_size) {
+	LOG(INFO, "Changing region size from: ", _region_size, " to ", p_new_region_size);
+	if (p_new_region_size < 64 || p_new_region_size > 2048 || !is_power_of_2(p_new_region_size)) {
+		LOG(ERROR, "Invalid region size: ", p_new_region_size, ". Must be 64, 128, 256, 512, 1024, 2048");
 		return;
+	}
+	if (p_new_region_size == _region_size) {
+		return;
+	}
 
 	// List new regions that we need
 	std::set<Point2i> new_region_points;
@@ -120,7 +126,7 @@ void Terrain3DData::set_region_size(int p_new_region_size) {
 		}
 	}
 
-	// Make new regions
+	// Make new regions to receive copied data
 	std::list<Ref<Terrain3DRegion>> new_regions;
 	for (Point2i p : new_region_points) {
 		Ref<Terrain3DRegion> region;
@@ -143,8 +149,7 @@ void Terrain3DData::set_region_size(int p_new_region_size) {
 		remove_region(r, false);
 	}
 
-	_region_size = p_new_region_size;
-	_region_sizev = Vector2i(p_new_region_size, p_new_region_size);
+	_terrain->set_region_size((Terrain3D::RegionSize)p_new_region_size);
 
 	for (Ref<Terrain3DRegion> r : new_regions) {
 		add_region(r, false);
@@ -280,6 +285,10 @@ void Terrain3DData::save_directory(const String &p_dir) {
 	for (int i = 0; i < locations.size(); i++) {
 		save_region(locations[i], p_dir, _terrain->get_save_16_bit());
 	}
+	if (Engine::get_singleton()->is_editor_hint() &&
+			!EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
+		EditorInterface::get_singleton()->get_resource_filesystem()->scan();
+	}
 }
 
 void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
@@ -305,7 +314,8 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 			return;
 		}
 		da->remove(fname);
-		if (Engine::get_singleton()->is_editor_hint()) {
+		if (Engine::get_singleton()->is_editor_hint() &&
+				!EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
 			EditorInterface::get_singleton()->get_resource_filesystem()->scan();
 		}
 		LOG(INFO, "File ", path, " deleted");
@@ -344,6 +354,16 @@ void Terrain3DData::load_directory(const String &p_dir) {
 		if (region.is_null()) {
 			LOG(ERROR, "Cannot load region at ", path);
 			continue;
+		}
+		LOG(INFO, "Loaded region: ", loc, " size: ", region->get_region_size());
+		if (_regions.is_empty()) {
+			_terrain->set_region_size((Terrain3D::RegionSize)region->get_region_size());
+		} else {
+			if (_terrain->get_region_size() != (Terrain3D::RegionSize)region->get_region_size()) {
+				LOG(ERROR, "Region size ", region->get_region_size(), " doesn't match first loaded region size ",
+						_terrain->get_region_size(), " file: ", path);
+				return;
+			}
 		}
 		region->take_over_path(path);
 		region->set_location(loc);
@@ -1010,6 +1030,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DData", D_METHOD("get_region_map_index", "region_location"), &Terrain3DData::get_region_map_index);
 
 	ClassDB::bind_method(D_METHOD("do_for_regions", "area", "callback"), &Terrain3DData::do_for_regions);
+	ClassDB::bind_method(D_METHOD("change_region_size", "region_size"), &Terrain3DData::change_region_size);
 
 	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DData::get_region_location);
 	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DData::get_region_id);
