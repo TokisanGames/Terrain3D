@@ -93,8 +93,9 @@ public:
 	Dictionary get_regions_all() const { return _regions; }
 	PackedInt32Array get_region_map() const { return _region_map; }
 	static int get_region_map_index(const Vector2i &p_region_loc);
+
 	void do_for_regions(const Rect2i &p_area, const Callable &p_callback);
-	void set_region_size(int region_size);
+	void change_region_size(int region_size);
 
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
 	int get_region_id(const Vector2i &p_region_loc) const;
@@ -128,6 +129,7 @@ public:
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
+
 	void force_update_maps(const MapType p_map = TYPE_MAX, const bool p_generate_mipmaps = false);
 	void update_maps();
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
@@ -176,6 +178,7 @@ VARIANT_ENUM_CAST(Terrain3DData::HeightFilter);
 
 // Inline Region Functions
 
+// Structured to work with do_for_regions. Should be renamed when copy_paste is expanded
 inline void Terrain3DData::_copy_paste(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region) {
 	if (p_src_region == nullptr || p_dst_region == nullptr) {
 		return;
