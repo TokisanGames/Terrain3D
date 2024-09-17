@@ -61,7 +61,7 @@
 		#warning += """No Terrain3D node found"""
 		#return
 #
-	#if not _terrain.storage:
+	#if not _terrain.data:
 		#warning += """Terrain3D storage is not initialized"""
 		#return
 #
@@ -70,8 +70,8 @@
 	#var gt_inverse := gt.affine_inverse()
 	#for i in transforms.list.size():
 		#var location: Vector3 = (gt * transforms.list[i]).origin
-		#var height: float = _terrain.storage.get_height(location)
-		#var normal: Vector3 = _terrain.storage.get_normal(location)
+		#var height: float = _terrain.data.get_height(location)
+		#var normal: Vector3 = _terrain.data.get_normal(location)
 		#
 		#if align_with_collision_normal and not is_nan(normal.x):
 			#transforms.list[i].basis.y = normal

@@ -47,17 +47,17 @@ func get_terrain() -> Terrain3D:
 			terrain = terrains[0]
 		_terrain_id = terrain.get_instance_id() if terrain else 0
 	
-	if terrain and terrain.storage and not terrain.storage.maps_edited.is_connected(_on_maps_edited):
-		terrain.storage.maps_edited.connect(_on_maps_edited)
+	if terrain and terrain.data and not terrain.data.maps_edited.is_connected(_on_maps_edited):
+		terrain.data.maps_edited.connect(_on_maps_edited)
 	
 	return terrain
 
 
 func _get_terrain_height(p_global_position: Vector3) -> float:
 	var terrain: Terrain3D = get_terrain()
-	if not terrain or not terrain.storage:
+	if not terrain or not terrain.data:
 		return 0.0
-	var height: float = terrain.storage.get_height(p_global_position)
+	var height: float = terrain.data.get_height(p_global_position)
 	if is_nan(height):
 		return 0.0
 	return height

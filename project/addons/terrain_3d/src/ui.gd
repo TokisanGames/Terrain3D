@@ -412,15 +412,15 @@ func pick(p_global_position: Vector3) -> void:
 		var color: Color
 		match picking:
 			Terrain3DEditor.HEIGHT:
-				color = plugin.terrain.get_storage().get_pixel(Terrain3DRegion.TYPE_HEIGHT, p_global_position)
+				color = plugin.terrain.data.get_pixel(Terrain3DRegion.TYPE_HEIGHT, p_global_position)
 			Terrain3DEditor.ROUGHNESS:
-				color = plugin.terrain.get_storage().get_pixel(Terrain3DRegion.TYPE_COLOR, p_global_position)
+				color = plugin.terrain.data.get_pixel(Terrain3DRegion.TYPE_COLOR, p_global_position)
 			Terrain3DEditor.COLOR:
-				color = plugin.terrain.get_storage().get_color(p_global_position)
+				color = plugin.terrain.data.get_color(p_global_position)
 			Terrain3DEditor.ANGLE:
-				color = Color(plugin.terrain.get_storage().get_angle(p_global_position), 0., 0., 1.)
+				color = Color(plugin.terrain.data.get_angle(p_global_position), 0., 0., 1.)
 			Terrain3DEditor.SCALE:
-				color = Color(plugin.terrain.get_storage().get_scale(p_global_position), 0., 0., 1.)
+				color = Color(plugin.terrain.data.get_scale(p_global_position), 0., 0., 1.)
 			_:
 				push_error("Unsupported picking type: ", picking)
 				return
