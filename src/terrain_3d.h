@@ -145,18 +145,21 @@ public:
 	String get_version() const { return _version; }
 	void set_debug_level(const int p_level);
 	int get_debug_level() const { return debug_level; }
+	Terrain3DData *get_data() const { return _data; }
+	void set_data_directory(String p_dir);
+	String get_data_directory() const;
 	void set_region_size(const RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
+	void set_save_16_bit(const bool p_enabled);
+	bool get_save_16_bit() const { return _save_16_bit; }
+	void set_show_region_labels(const bool p_enabled);
+	bool get_show_region_labels() const { return _show_region_labels; }
+	void update_region_labels();
+
 	void set_mesh_lods(const int p_count);
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(const int p_size);
 	int get_mesh_size() const { return _mesh_size; }
-
-	Terrain3DData *get_data() const { return _data; }
-	void set_data_directory(String p_dir);
-	String get_data_directory() const;
-	void set_save_16_bit(const bool p_enabled);
-	bool get_save_16_bit() const { return _save_16_bit; }
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
@@ -177,7 +180,7 @@ public:
 	void set_camera(Camera3D *p_camera);
 	Camera3D *get_camera() const { return _camera; }
 
-	// Renderer settings
+	// Rendering settings
 	void set_render_layers(const uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; };
 	void set_mouse_layer(const uint32_t p_layer);
@@ -206,10 +209,6 @@ public:
 	void snap(const Vector3 &p_cam_pos);
 	void update_aabbs();
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction);
-
-	void set_show_region_labels(const bool p_enabled);
-	bool get_show_region_labels() const { return _show_region_labels; }
-	void update_region_labels();
 
 	// Baking methods
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
