@@ -442,7 +442,7 @@ void Terrain3D::_build_collision() {
 		return;
 	}
 	// Create collision only in game, unless showing debug
-	if (IS_EDITOR && !_show_debug_collision) {
+	if (IS_EDITOR && !_is_collision_editor()) {
 		return;
 	}
 	if (_data == nullptr) {
@@ -451,14 +451,14 @@ void Terrain3D::_build_collision() {
 	}
 	_destroy_collision();
 
-	if (!_show_debug_collision) {
+	if (!_is_collision_editor()) {
 		LOG(INFO, "Building collision with physics server");
 		_static_body = PhysicsServer3D::get_singleton()->body_create();
 		PhysicsServer3D::get_singleton()->body_set_mode(_static_body, PhysicsServer3D::BODY_MODE_STATIC);
 		PhysicsServer3D::get_singleton()->body_set_space(_static_body, get_world_3d()->get_space());
 		PhysicsServer3D::get_singleton()->body_attach_object_instance_id(_static_body, get_instance_id());
 	} else {
-		LOG(WARN, "Building debug collision. Disable this mode for releases");
+		LOG(WARN, "Building editor collision. Disable this mode for releases");
 		_debug_static_body = memnew(StaticBody3D);
 		_debug_static_body->set_name("StaticBody3D");
 		_debug_static_body->set_as_top_level(true);
@@ -476,11 +476,11 @@ void Terrain3D::_update_collision() {
 		return;
 	}
 	// Create collision only in game, unless showing debug
-	if (IS_EDITOR && !_show_debug_collision) {
+	if (IS_EDITOR && !_is_collision_editor()) {
 		return;
 	}
-	if ((!_show_debug_collision && !_static_body.is_valid()) ||
-			(_show_debug_collision && _debug_static_body == nullptr)) {
+	if ((!_is_collision_editor() && !_static_body.is_valid()) ||
+			(_is_collision_editor() && _debug_static_body == nullptr)) {
 		_build_collision();
 	}
 
@@ -567,7 +567,7 @@ void Terrain3D::_update_collision() {
 				global_pos + Vector3(_region_size, 0.f, _region_size) * .5f);
 		xform.scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
 
-		if (!_show_debug_collision) {
+		if (!_is_collision_editor()) {
 			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
 			Dictionary shape_data;
 			shape_data["width"] = shape_size;
@@ -925,11 +925,11 @@ void Terrain3D::set_collision_enabled(const bool p_enabled) {
 	}
 }
 
-void Terrain3D::set_show_debug_collision(const bool p_enabled) {
-	LOG(INFO, "Setting show collision: ", p_enabled);
-	_show_debug_collision = p_enabled;
-	_destroy_collision();
-	if (_data != nullptr && _show_debug_collision) {
+void Terrain3D::set_collision_mode(CollisionMode p_mode) {
+	LOG(INFO, "Setting collision mode: ", p_mode);
+	if (_collision_mode != p_mode) {
+		_collision_mode = p_mode;
+		_destroy_collision();
 		_build_collision();
 	}
 }
@@ -937,7 +937,7 @@ void Terrain3D::set_show_debug_collision(const bool p_enabled) {
 void Terrain3D::set_collision_layer(const uint32_t p_layers) {
 	LOG(INFO, "Setting collision layers: ", p_layers);
 	_collision_layer = p_layers;
-	if (_show_debug_collision) {
+	if (_is_collision_editor()) {
 		if (_debug_static_body != nullptr) {
 			_debug_static_body->set_collision_layer(_collision_layer);
 		}
@@ -951,7 +951,7 @@ void Terrain3D::set_collision_layer(const uint32_t p_layers) {
 void Terrain3D::set_collision_mask(const uint32_t p_mask) {
 	LOG(INFO, "Setting collision mask: ", p_mask);
 	_collision_mask = p_mask;
-	if (_show_debug_collision) {
+	if (_is_collision_editor()) {
 		if (_debug_static_body != nullptr) {
 			_debug_static_body->set_collision_mask(_collision_mask);
 		}
@@ -965,7 +965,7 @@ void Terrain3D::set_collision_mask(const uint32_t p_mask) {
 void Terrain3D::set_collision_priority(const real_t p_priority) {
 	LOG(INFO, "Setting collision priority: ", p_priority);
 	_collision_priority = p_priority;
-	if (_show_debug_collision) {
+	if (_is_collision_editor()) {
 		if (_debug_static_body != nullptr) {
 			_debug_static_body->set_collision_priority(_collision_priority);
 		}
@@ -977,7 +977,7 @@ void Terrain3D::set_collision_priority(const real_t p_priority) {
 }
 
 RID Terrain3D::get_collision_rid() const {
-	if (!_show_debug_collision) {
+	if (!_is_collision_editor()) {
 		return _static_body;
 	} else {
 		if (_debug_static_body != nullptr) {
@@ -1485,6 +1485,9 @@ void Terrain3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(SIZE_1024);
 	//BIND_ENUM_CONSTANT(SIZE_2048);
 
+	BIND_ENUM_CONSTANT(FULL_GAME);
+	BIND_ENUM_CONSTANT(FULL_EDITOR);
+
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
@@ -1529,8 +1532,8 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_collision_enabled", "enabled"), &Terrain3D::set_collision_enabled);
 	ClassDB::bind_method(D_METHOD("get_collision_enabled"), &Terrain3D::get_collision_enabled);
-	ClassDB::bind_method(D_METHOD("set_show_debug_collision", "enabled"), &Terrain3D::set_show_debug_collision);
-	ClassDB::bind_method(D_METHOD("get_show_debug_collision"), &Terrain3D::get_show_debug_collision);
+	ClassDB::bind_method(D_METHOD("set_collision_mode", "mode"), &Terrain3D::set_collision_mode);
+	ClassDB::bind_method(D_METHOD("get_collision_mode"), &Terrain3D::get_collision_mode);
 	ClassDB::bind_method(D_METHOD("set_collision_layer", "layers"), &Terrain3D::set_collision_layer);
 	ClassDB::bind_method(D_METHOD("get_collision_layer"), &Terrain3D::get_collision_layer);
 	ClassDB::bind_method(D_METHOD("set_collision_mask", "mask"), &Terrain3D::set_collision_mask);
@@ -1566,6 +1569,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
@@ -1576,7 +1580,6 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Debug", "debug_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_collision"), "set_show_debug_collision", "get_show_debug_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_region_labels"), "set_show_region_labels", "get_show_region_labels");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 
