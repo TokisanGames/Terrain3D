@@ -63,6 +63,7 @@ private:
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
+	bool _debug_view_region_grid = false;
 	bool _debug_view_vertex_grid = false;
 
 	// Functions
@@ -133,6 +134,8 @@ public:
 	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
 	void set_show_texture_rough(const bool p_enabled);
 	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
+	void set_show_region_grid(const bool p_enabled);
+	bool get_show_region_grid() const { return _debug_view_region_grid; }
 	void set_show_vertex_grid(const bool p_enabled);
 	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 

@@ -1142,6 +1142,7 @@ void Terrain3D::update_region_labels() {
 			_label_nodes->add_child(label, true);
 			Vector2i loc = region_locations[i];
 			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _mesh_vertex_spacing;
+			pos.y = _data->get_height(pos);
 			label->set_position(pos);
 		}
 	}

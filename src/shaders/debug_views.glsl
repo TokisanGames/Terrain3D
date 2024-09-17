@@ -130,27 +130,29 @@ R"(
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 
-//INSERT: DEBUG_VERTEX_GRID
-	// Show region and vertex grids
-	vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
-	float __camera_dist = length(v_camera_pos - __pixel_pos);
+//INSERT: DEBUG_REGION_GRID
+	// Show region grid
+	vec3 __pixel_pos1 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
 	float __region_line = 0.5;		// Region line thickness
+	__region_line = .1*sqrt(length(v_camera_pos - __pixel_pos1));
+	if (mod(__pixel_pos1.x * _mesh_vertex_density + __region_line*.5, _region_size) <= __region_line || 
+		mod(__pixel_pos1.z * _mesh_vertex_density + __region_line*.5, _region_size) <= __region_line ) {
+		ALBEDO = vec3(1.);
+	}
+
+//INSERT: DEBUG_VERTEX_GRID
+	// Show vertex grids
+	vec3 __pixel_pos2 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
 	float __grid_line = 0.05;		// Vertex grid line thickness
 	float __grid_step = 1.0;			// Vertex grid size, 1.0 == integer units
 	float __vertex_size = 4.;		// Size of vertices
 	float __view_distance = 300.0;	// Visible distance of grid
-	// Draw region grid
-	__region_line = .1*sqrt(__camera_dist);
-	if (mod(__pixel_pos.x * _mesh_vertex_density + __region_line*.5, _region_size) <= __region_line || 
-		mod(__pixel_pos.z * _mesh_vertex_density + __region_line*.5, _region_size) <= __region_line ) {
-		ALBEDO = vec3(1.);
-	}
 	vec3 __vertex_mul = vec3(0.);
 	vec3 __vertex_add = vec3(0.);
-	float __distance_factor = clamp(1.-__camera_dist/__view_distance, 0., 1.);
+	float __distance_factor = clamp(1.-length(v_camera_pos - __pixel_pos2)/__view_distance, 0., 1.);
 	// Draw vertex grid
-	if ( mod(__pixel_pos.x * _mesh_vertex_density + __grid_line*.5, __grid_step) < __grid_line || 
-	  	 mod(__pixel_pos.z * _mesh_vertex_density + __grid_line*.5, __grid_step) < __grid_line ) { 
+	if ( mod(__pixel_pos2.x * _mesh_vertex_density + __grid_line*.5, __grid_step) < __grid_line || 
+	  	 mod(__pixel_pos2.z * _mesh_vertex_density + __grid_line*.5, __grid_step) < __grid_line ) { 
 		__vertex_mul = vec3(0.5) * __distance_factor;
 	}
 	// Draw Vertices
