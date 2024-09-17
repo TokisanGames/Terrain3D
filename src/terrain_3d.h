@@ -36,6 +36,13 @@ public: // Constants
 		//SIZE_2048 = 2048,
 	};
 
+	enum CollisionMode {
+		//DYNAMIC_GAME,
+		//DYNAMIC_EDITOR,
+		FULL_GAME,
+		FULL_EDITOR,
+	};
+
 private:
 	// Terrain state
 	String _version = "0.9.3-dev";
@@ -96,7 +103,7 @@ private:
 	RID _static_body;
 	StaticBody3D *_debug_static_body = nullptr;
 	bool _collision_enabled = true;
-	bool _show_debug_collision = false;
+	CollisionMode _collision_mode = FULL_GAME;
 	uint32_t _collision_layer = 1;
 	uint32_t _collision_mask = 1;
 	real_t _collision_priority = 1.0f;
@@ -116,6 +123,7 @@ private:
 	void _update_mesh_instances();
 	void _clear_meshes();
 
+	bool _is_collision_editor() const { return _collision_mode == FULL_EDITOR; }
 	void _build_collision();
 	void _update_collision();
 	void _destroy_collision();
@@ -184,8 +192,8 @@ public:
 	// Physics body settings
 	void set_collision_enabled(const bool p_enabled);
 	bool get_collision_enabled() const { return _collision_enabled; }
-	void set_show_debug_collision(const bool p_enabled);
-	bool get_show_debug_collision() const { return _show_debug_collision; }
+	void set_collision_mode(const CollisionMode p_mode);
+	bool get_collision_mode() const { return _collision_mode; }
 	void set_collision_layer(const uint32_t p_layers);
 	uint32_t get_collision_layer() const { return _collision_layer; };
 	void set_collision_mask(const uint32_t p_mask);
@@ -226,5 +234,6 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Terrain3D::RegionSize);
+VARIANT_ENUM_CAST(Terrain3D::CollisionMode);
 
 #endif // TERRAIN3D_CLASS_H
