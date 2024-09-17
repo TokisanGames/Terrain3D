@@ -748,6 +748,25 @@ void Terrain3D::set_debug_level(const int p_level) {
 	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
 }
 
+void Terrain3D::set_data_directory(String p_dir) {
+	LOG(INFO, "Setting data directory to ", p_dir);
+	if (_data_directory != p_dir) {
+		_clear_meshes();
+		_destroy_collision();
+		_destroy_instancer();
+		memdelete_safely(_data);
+		_data_directory = p_dir;
+		_initialize();
+	}
+}
+
+String Terrain3D::get_data_directory() const {
+	if (_data == nullptr) {
+		return "";
+	}
+	return _data_directory;
+}
+
 void Terrain3D::set_region_size(const RegionSize p_size) {
 	LOG(INFO, p_size);
 	//ERR_FAIL_COND(p_size < SIZE_64);
@@ -761,6 +780,50 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 	}
 	if (_material.is_valid()) {
 		_material->_update_maps();
+	}
+}
+
+void Terrain3D::set_save_16_bit(const bool p_enabled) {
+	LOG(INFO, p_enabled);
+	_save_16_bit = p_enabled;
+}
+
+void Terrain3D::set_show_region_labels(const bool p_enabled) {
+	LOG(INFO, "Setting show region labels: ", p_enabled);
+	if (_show_region_labels != p_enabled) {
+		_show_region_labels = p_enabled;
+		update_region_labels();
+	}
+}
+
+void Terrain3D::update_region_labels() {
+	_destroy_labels();
+	if (_show_region_labels && _data != nullptr) {
+		Array region_locations = _data->get_region_locations();
+		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
+		for (int i = 0; i < region_locations.size(); i++) {
+			Label3D *label = memnew(Label3D);
+			String text = region_locations[i];
+			label->set_name("Label3D" + text.replace(" ", ""));
+			label->set_pixel_size(.001f);
+			label->set_billboard_mode(BaseMaterial3D::BILLBOARD_ENABLED);
+			label->set_draw_flag(Label3D::FLAG_DOUBLE_SIDED, true);
+			label->set_draw_flag(Label3D::FLAG_DISABLE_DEPTH_TEST, true);
+			label->set_draw_flag(Label3D::FLAG_FIXED_SIZE, true);
+			label->set_text(text);
+			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
+			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
+			label->set_font_size(64);
+			label->set_outline_size(10);
+			label->set_visibility_range_end(3072.f * _vertex_spacing);
+			label->set_visibility_range_end_margin(256.f);
+			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
+			_label_nodes->add_child(label, true);
+			Vector2i loc = region_locations[i];
+			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _vertex_spacing;
+			pos.y = _data->get_height(pos);
+			label->set_position(pos);
+		}
 	}
 }
 
@@ -798,30 +861,6 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");
 	}
-}
-
-void Terrain3D::set_data_directory(String p_dir) {
-	LOG(INFO, "Setting data directory to ", p_dir);
-	if (_data_directory != p_dir) {
-		_clear_meshes();
-		_destroy_collision();
-		_destroy_instancer();
-		memdelete_safely(_data);
-		_data_directory = p_dir;
-		_initialize();
-	}
-}
-
-String Terrain3D::get_data_directory() const {
-	if (_data == nullptr) {
-		return "";
-	}
-	return _data_directory;
-}
-
-void Terrain3D::set_save_16_bit(const bool p_enabled) {
-	LOG(INFO, p_enabled);
-	_save_16_bit = p_enabled;
 }
 
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
@@ -1170,45 +1209,6 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	return point;
 }
 
-void Terrain3D::set_show_region_labels(const bool p_enabled) {
-	LOG(INFO, "Setting show region labels: ", p_enabled);
-	if (_show_region_labels != p_enabled) {
-		_show_region_labels = p_enabled;
-		update_region_labels();
-	}
-}
-
-void Terrain3D::update_region_labels() {
-	_destroy_labels();
-	if (_show_region_labels && _data != nullptr) {
-		Array region_locations = _data->get_region_locations();
-		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
-		for (int i = 0; i < region_locations.size(); i++) {
-			Label3D *label = memnew(Label3D);
-			String text = region_locations[i];
-			label->set_name("Label3D" + text.replace(" ", ""));
-			label->set_pixel_size(.001f);
-			label->set_billboard_mode(BaseMaterial3D::BILLBOARD_ENABLED);
-			label->set_draw_flag(Label3D::FLAG_DOUBLE_SIDED, true);
-			label->set_draw_flag(Label3D::FLAG_DISABLE_DEPTH_TEST, true);
-			label->set_draw_flag(Label3D::FLAG_FIXED_SIZE, true);
-			label->set_text(text);
-			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
-			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
-			label->set_font_size(64);
-			label->set_outline_size(10);
-			label->set_visibility_range_end(3072.f * _vertex_spacing);
-			label->set_visibility_range_end_margin(256.f);
-			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
-			_label_nodes->add_child(label, true);
-			Vector2i loc = region_locations[i];
-			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _vertex_spacing;
-			pos.y = _data->get_height(pos);
-			label->set_position(pos);
-		}
-	}
-}
-
 /**
  * Generates a static ArrayMesh for the terrain.
  * p_lod (0-8): Determines the granularity of the generated mesh.
@@ -1548,40 +1548,39 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
+
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,All"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "data_directory", PROPERTY_HINT_DIR), "set_data_directory", "get_data_directory");
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_labels"), "set_show_region_labels", "get_show_region_labels");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 
-	ADD_GROUP("Renderer", "render_");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "render_cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_gi_mode", "get_gi_mode");
-
-	ADD_GROUP("Collision", "collision_");
+	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
 
-	ADD_GROUP("Mesh", "mesh_");
+	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_mesh_size", "get_mesh_size");
-
-	ADD_GROUP("Debug", "debug_");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Debug Continuous"), "set_debug_level", "get_debug_level");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "debug_show_region_labels"), "set_show_region_labels", "get_show_region_labels");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
+
+	ADD_GROUP("Rendering", "");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_gi_mode", "get_gi_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
