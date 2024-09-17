@@ -638,26 +638,6 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 	}
 }
 
-real_t Terrain3DData::get_angle(const Vector3 &p_global_position) const {
-	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
-	if (std::isnan(src)) {
-		return NAN;
-	}
-	real_t angle = real_t(get_uv_rotation(src));
-	angle *= 22.5; // Return value in degrees.
-	return angle;
-}
-
-real_t Terrain3DData::get_scale(const Vector3 &p_global_position) const {
-	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // Must be 32-bit float, not double/real
-	if (std::isnan(src)) {
-		return NAN;
-	}
-	std::array<real_t, 8> scale_values = { 0.0f, 20.0f, 40.0f, 60.0f, 80.0f, -60.0f, -40.0f, -20.0f };
-	real_t scale = scale_values[get_uv_scale(src)]; //select from array UI return values
-	return scale;
-}
-
 Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 	if (get_region_idp(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
 		return Vector3(NAN, NAN, NAN);
@@ -1132,8 +1112,23 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DData::get_control);
 	ClassDB::bind_method(D_METHOD("set_roughness", "global_position", "roughness"), &Terrain3DData::set_roughness);
 	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DData::get_roughness);
-	ClassDB::bind_method(D_METHOD("get_angle", "global_position"), &Terrain3DData::get_angle);
-	ClassDB::bind_method(D_METHOD("get_scale", "global_position"), &Terrain3DData::get_scale);
+
+	ClassDB::bind_method(D_METHOD("set_control_base_id", "global_position", "texture_id"), &Terrain3DData::set_control_base_id);
+	ClassDB::bind_method(D_METHOD("get_control_base_id", "global_position"), &Terrain3DData::get_control_base_id);
+	ClassDB::bind_method(D_METHOD("set_control_overlay_id", "global_position", "texture_id"), &Terrain3DData::set_control_overlay_id);
+	ClassDB::bind_method(D_METHOD("get_control_overlay_id", "global_position"), &Terrain3DData::get_control_overlay_id);
+	ClassDB::bind_method(D_METHOD("set_control_blend", "global_position", "blend_value"), &Terrain3DData::set_control_blend);
+	ClassDB::bind_method(D_METHOD("get_control_blend", "global_position"), &Terrain3DData::get_control_blend);
+	ClassDB::bind_method(D_METHOD("set_control_angle", "global_position", "degrees"), &Terrain3DData::set_control_angle);
+	ClassDB::bind_method(D_METHOD("get_control_angle", "global_position"), &Terrain3DData::get_control_angle);
+	ClassDB::bind_method(D_METHOD("set_control_scale", "global_position", "percentage_modifier"), &Terrain3DData::set_control_scale);
+	ClassDB::bind_method(D_METHOD("get_control_scale", "global_position"), &Terrain3DData::get_control_scale);
+	ClassDB::bind_method(D_METHOD("set_control_hole", "global_position", "enable"), &Terrain3DData::set_control_hole);
+	ClassDB::bind_method(D_METHOD("get_control_hole", "global_position"), &Terrain3DData::get_control_hole);
+	ClassDB::bind_method(D_METHOD("set_control_navigation", "global_position", "enable"), &Terrain3DData::set_control_navigation);
+	ClassDB::bind_method(D_METHOD("get_control_navigation", "global_position"), &Terrain3DData::get_control_navigation);
+	ClassDB::bind_method(D_METHOD("set_control_auto", "global_position", "enable"), &Terrain3DData::set_control_auto);
+	ClassDB::bind_method(D_METHOD("get_control_auto", "global_position"), &Terrain3DData::get_control_auto);
 
 	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DData::get_normal);
 	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DData::get_texture_id);
