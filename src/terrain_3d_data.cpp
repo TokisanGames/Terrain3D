@@ -69,92 +69,96 @@ TypedArray<Terrain3DRegion> Terrain3DData::get_regions_active(const bool p_copy,
 	return region_arr;
 }
 
-// Calls the callback function for every region within the given area
-// The callable receives: source Terrain3DRegion, source Rect2i, dest Rect2i, dest Terrain3DRegion
+// Calls the callback function for every region within the given (descaled) area
+// The callable receives: source Terrain3DRegion, source Rect2i, dest Rect2i, (bindings)
+// Used with change_region_size, dest Terrain3DRegion is bound as the 4th parameter
 void Terrain3DData::do_for_regions(const Rect2i &p_area, const Callable &p_callback) {
-	Rect2i index_bounds;
-	index_bounds.position = Point2i((Point2(p_area.position) / _region_size).floor()); // rounded down
-	index_bounds.set_end(Point2i((Point2(p_area.get_end()) / _region_size).ceil())); // rounded up in a dumb way
-	//LOG(MESG, "index bounds: ", index_bounds);
+	Rect2i location_bounds;
+	location_bounds.position = Point2i((Point2(p_area.position) / real_t(_region_size)).floor()); // rounded down
+	location_bounds.set_end(Point2i((Point2(p_area.get_end()) / real_t(_region_size)).ceil())); // rounded up in a dumb way
+	LOG(INFO, "Processing area: ", p_area, " -> ", location_bounds);
 	Point2i current_region_loc;
-	for (int y = index_bounds.position.y; y < index_bounds.get_end().y; y++) {
+	for (int y = location_bounds.position.y; y < location_bounds.get_end().y; y++) {
 		current_region_loc.y = y;
-		for (int x = index_bounds.position.x; x < index_bounds.get_end().x; x++) {
+		for (int x = location_bounds.position.x; x < location_bounds.get_end().x; x++) {
 			current_region_loc.x = x;
 			Ref<Terrain3DRegion> region = get_region(current_region_loc);
 			if (region.is_valid() && !region->is_deleted()) {
-				LOG(WARN, "Operating on Region: ", current_region_loc);
-				Rect2i world_bounds = p_area.intersection(Rect2i(current_region_loc * _region_size, _region_sizev));
-				Rect2i area_bounds(world_bounds.position - p_area.position, world_bounds.size);
-				Rect2i region_local_bounds(world_bounds.position - (region->get_location() * _region_sizev), area_bounds.size);
-				p_callback.call(region.ptr(), region_local_bounds, area_bounds);
+				LOG(DEBUG, "Current region: ", current_region_loc);
+				Rect2i region_area = p_area.intersection(Rect2i(current_region_loc * _region_size, _region_sizev));
+				LOG(DEBUG, "Region bounds: ", Rect2i(current_region_loc * _region_size, _region_sizev));
+				LOG(DEBUG, "Region area: ", region_area);
+				Rect2i dst_coords(region_area.position - p_area.position, region_area.size);
+				Rect2i src_coords(region_area.position - (region->get_location() * _region_sizev), dst_coords.size);
+				LOG(DEBUG, "src map coords: ", src_coords);
+				LOG(DEBUG, "dst map coords: ", dst_coords);
+				p_callback.call(region.ptr(), src_coords, dst_coords);
 			}
 		}
 	}
 }
 
-void Terrain3DData::change_region_size(int p_new_region_size) {
-	LOG(INFO, "Changing region size from: ", _region_size, " to ", p_new_region_size);
-	if (p_new_region_size < 64 || p_new_region_size > 2048 || !is_power_of_2(p_new_region_size)) {
-		LOG(ERROR, "Invalid region size: ", p_new_region_size, ". Must be 64, 128, 256, 512, 1024, 2048");
+void Terrain3DData::change_region_size(int p_new_size) {
+	LOG(INFO, "Changing region size from: ", _region_size, " to ", p_new_size);
+	if (p_new_size < 64 || p_new_size > 2048 || !is_power_of_2(p_new_size)) {
+		LOG(ERROR, "Invalid region size: ", p_new_size, ". Must be 64, 128, 256, 512, 1024, 2048");
 		return;
 	}
-	if (p_new_region_size == _region_size) {
+	if (p_new_size == _region_size) {
 		return;
 	}
 
-	// List new regions that we need
-	std::set<Point2i> new_region_points;
-	std::list<Ref<Terrain3DRegion>> old_regions;
-
+	// Get current region corners expressed in new region_size coordinates
+	Dictionary new_region_points;
 	Array locs = _regions.keys();
 	int region_id = 0;
 	for (int i = 0; i < locs.size(); i++) {
 		Ref<Terrain3DRegion> region = get_region(locs[i]);
 		if (region.is_valid() && !region->is_deleted()) {
-			Rect2i index_bounds;
 			Point2i region_position = region->get_location() * _region_size;
-			index_bounds.position = region_position / p_new_region_size;
-			index_bounds.set_end(Point2i((Point2(region_position + _region_sizev) / p_new_region_size).ceil()));
-
-			for (int y = index_bounds.position.y; y < index_bounds.get_end().y; y++) {
-				for (int x = index_bounds.position.x; x < index_bounds.get_end().x; x++) {
-					new_region_points.insert(Point2i(x, y));
+			Rect2i location_bounds;
+			location_bounds.position = region_position / p_new_size;
+			location_bounds.set_end(Point2i((Point2(region_position + _region_sizev) / p_new_size).ceil()));
+			for (int y = location_bounds.position.y; y < location_bounds.get_end().y; y++) {
+				for (int x = location_bounds.position.x; x < location_bounds.get_end().x; x++) {
+					new_region_points[Point2i(x, y)] = 1;
 				}
 			}
-			old_regions.push_back(region);
 		}
 	}
 
 	// Make new regions to receive copied data
-	std::list<Ref<Terrain3DRegion>> new_regions;
-	for (Point2i p : new_region_points) {
-		Ref<Terrain3DRegion> region;
-		region.instantiate();
-		region->set_location(p);
-		region->set_region_size(p_new_region_size);
-		region->set_modified(true);
-		region->sanitize_maps();
+	TypedArray<Terrain3DRegion> new_regions;
+	Array keys = new_region_points.keys();
+	for (int i = 0; i < keys.size(); i++) {
+		Point2i loc = keys[i];
+		Ref<Terrain3DRegion> new_region;
+		new_region.instantiate();
+		new_region->set_location(loc);
+		new_region->set_region_size(p_new_size);
+		new_region->set_modified(true);
+		new_region->sanitize_maps();
 
-		// Fill data
+		// Copy current data from current into new region, up to new region size
 		Rect2i area;
-		area.position = p * p_new_region_size;
-		area.size = Vector2i(p_new_region_size, p_new_region_size);
-		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste).bind(region.ptr()));
-		new_regions.push_back(region);
+		area.position = loc * p_new_size;
+		area.size = Vector2i(p_new_size, p_new_size);
+		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste).bind(new_region.ptr()));
+		new_regions.push_back(new_region);
 	}
 
-	// this should make a new regions database
-	for (Ref<Terrain3DRegion> r : old_regions) {
-		remove_region(r, false);
+	TypedArray<Terrain3DRegion> old_regions = get_regions_active();
+	for (int i = 0; i < old_regions.size(); i++) {
+		remove_region(old_regions[i], false);
 	}
 
-	_terrain->set_region_size((Terrain3D::RegionSize)p_new_region_size);
+	_terrain->set_region_size((Terrain3D::RegionSize)p_new_size);
 
-	for (Ref<Terrain3DRegion> r : new_regions) {
-		add_region(r, false);
+	for (int i = 0; i < new_regions.size(); i++) {
+		add_region(new_regions[i], false);
 	}
 
+	calc_height_range(true);
 	force_update_maps();
 }
 
