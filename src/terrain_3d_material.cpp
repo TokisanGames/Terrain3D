@@ -235,8 +235,8 @@ void Terrain3DMaterial::_update_shader() {
 		// Populate _active_params
 		List<PropertyInfo> pi;
 		_get_property_list(&pi);
-		LOG(DEBUG_CONT, "_active_params: ", _active_params);
-		Util::print_dict("_shader_params", _shader_params, DEBUG_CONT);
+		LOG(EXTREME, "_active_params: ", _active_params);
+		Util::print_dict("_shader_params", _shader_params, EXTREME);
 	}
 
 	// Fetch saved shader parameters, converting textures to RIDs
@@ -299,44 +299,44 @@ void Terrain3DMaterial::_update_shader() {
 
 void Terrain3DMaterial::_update_maps() {
 	IS_DATA_INIT(VOID);
-	LOG(DEBUG_CONT, "Updating maps in shader");
+	LOG(EXTREME, "Updating maps in shader");
 
 	Terrain3DData *data = _terrain->get_data();
 	PackedInt32Array region_map = data->get_region_map();
-	LOG(DEBUG_CONT, "region_map.size(): ", region_map.size());
+	LOG(EXTREME, "region_map.size(): ", region_map.size());
 	if (region_map.size() != Terrain3DData::REGION_MAP_SIZE * Terrain3DData::REGION_MAP_SIZE) {
 		LOG(ERROR, "Expected region_map.size() of ", Terrain3DData::REGION_MAP_SIZE * Terrain3DData::REGION_MAP_SIZE);
 		return;
 	}
 	RS->material_set_param(_material, "_region_map", region_map);
 	RS->material_set_param(_material, "_region_map_size", Terrain3DData::REGION_MAP_SIZE);
-	if (Terrain3D::debug_level >= DEBUG_CONT) {
-		LOG(DEBUG_CONT, "Region map");
+	if (Terrain3D::debug_level >= EXTREME) {
+		LOG(EXTREME, "Region map");
 		for (int i = 0; i < region_map.size(); i++) {
 			if (region_map[i]) {
-				LOG(DEBUG_CONT, "Region id: ", region_map[i], " array index: ", i);
+				LOG(EXTREME, "Region id: ", region_map[i], " array index: ", i);
 			}
 		}
 	}
 
 	TypedArray<Vector2i> region_locations = data->get_region_locations();
-	LOG(DEBUG_CONT, "Region_locations size: ", region_locations.size(), " ", region_locations);
+	LOG(EXTREME, "Region_locations size: ", region_locations.size(), " ", region_locations);
 	RS->material_set_param(_material, "_region_locations", region_locations);
 
 	real_t region_size = real_t(_terrain->get_region_size());
-	LOG(DEBUG_CONT, "Setting region size in material: ", region_size);
+	LOG(EXTREME, "Setting region size in material: ", region_size);
 	RS->material_set_param(_material, "_region_size", region_size);
 	RS->material_set_param(_material, "_region_texel_size", 1.0f / region_size);
 
 	RS->material_set_param(_material, "_height_maps", data->get_height_maps_rid());
 	RS->material_set_param(_material, "_control_maps", data->get_control_maps_rid());
 	RS->material_set_param(_material, "_color_maps", data->get_color_maps_rid());
-	LOG(DEBUG_CONT, "Height map RID: ", data->get_height_maps_rid());
-	LOG(DEBUG_CONT, "Control map RID: ", data->get_control_maps_rid());
-	LOG(DEBUG_CONT, "Color map RID: ", data->get_color_maps_rid());
+	LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
+	LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
+	LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
 
 	real_t spacing = _terrain->get_vertex_spacing();
-	LOG(DEBUG_CONT, "Setting vertex spacing in material: ", spacing);
+	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
 	RS->material_set_param(_material, "_vertex_spacing", spacing);
 	RS->material_set_param(_material, "_vertex_density", 1.0f / spacing);
 }

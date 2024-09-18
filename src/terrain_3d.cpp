@@ -735,8 +735,8 @@ Terrain3D::Terrain3D() {
 				set_debug_level(INFO);
 			} else if (value == "DEBUG") {
 				set_debug_level(DEBUG);
-			} else if (value == "DEBUG_CONT") {
-				set_debug_level(DEBUG_CONT);
+			} else if (value == "EXTREME") {
+				set_debug_level(EXTREME);
 			}
 			break;
 		}
@@ -745,7 +745,7 @@ Terrain3D::Terrain3D() {
 
 void Terrain3D::set_debug_level(const int p_level) {
 	LOG(INFO, "Setting debug level: ", p_level);
-	debug_level = CLAMP(p_level, 0, DEBUG_MAX);
+	debug_level = CLAMP(p_level, 0, EXTREME);
 }
 
 void Terrain3D::set_data_directory(String p_dir) {
@@ -1032,7 +1032,7 @@ RID Terrain3D::get_collision_rid() const {
 void Terrain3D::snap(const Vector3 &p_cam_pos) {
 	Vector3 cam_pos = p_cam_pos;
 	cam_pos.y = 0;
-	LOG(DEBUG_CONT, "Snapping terrain to: ", String(cam_pos));
+	LOG(EXTREME, "Snapping terrain to: ", String(cam_pos));
 	Vector3 snapped_pos = (cam_pos / _vertex_spacing).floor() * _vertex_spacing;
 	Transform3D t = Transform3D().scaled(Vector3(_vertex_spacing, 1, _vertex_spacing));
 	t.origin = snapped_pos;
@@ -1113,7 +1113,7 @@ void Terrain3D::update_aabbs() {
 	}
 
 	Vector2 height_range = _data->get_height_range();
-	LOG(DEBUG_CONT, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
+	LOG(EXTREME, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
 	height_range.y += abs(height_range.x); // Add below zero to total size
 
 	AABB aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
@@ -1554,7 +1554,7 @@ void Terrain3D::_bind_methods() {
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,All"), "set_debug_level", "get_debug_level");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "data_directory", PROPERTY_HINT_DIR), "set_data_directory", "get_data_directory");
 	//ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64, 128:128, 256:256, 512:512, 1024:1024, 2048:2048"), "set_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "1024:1024"), "set_region_size", "get_region_size");
