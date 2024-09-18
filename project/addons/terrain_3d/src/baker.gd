@@ -48,6 +48,9 @@ func bake_mesh_popup() -> void:
 
 
 func _bake_mesh() -> void:
+	if plugin.terrain.data.get_region_count() == 0:
+		push_error("Terrain3D has no active regions to bake")
+		return
 	var mesh: Mesh = plugin.terrain.bake_mesh(bake_lod_dialog.lod, Terrain3DData.HEIGHT_FILTER_NEAREST)
 	if !mesh:
 		push_error("Failed to bake mesh from Terrain3D")
@@ -65,7 +68,7 @@ func _bake_mesh() -> void:
 		
 		undo.add_do_method(plugin.terrain, &"add_child", mesh_instance, true)
 		undo.add_undo_method(plugin.terrain, &"remove_child", mesh_instance)
-		undo.add_do_property(mesh_instance, &"owner", plugin.terrain.owner)
+		undo.add_do_property(mesh_instance, &"owner", EditorInterface.get_edited_scene_root())
 		undo.add_do_reference(mesh_instance)
 	
 	else:
@@ -90,6 +93,9 @@ func bake_occluder_popup() -> void:
 
 
 func _bake_occluder() -> void:
+	if plugin.terrain.data.get_region_count() == 0:
+		push_error("Terrain3D has no active regions to bake")
+		return
 	var mesh: Mesh = plugin.terrain.bake_mesh(bake_lod_dialog.lod, Terrain3DData.HEIGHT_FILTER_MINIMUM)
 	if !mesh:
 		push_error("Failed to bake mesh from Terrain3D")
@@ -113,7 +119,7 @@ func _bake_occluder() -> void:
 
 		undo.add_do_method(plugin.terrain, &"add_child", occluder_instance, true)
 		undo.add_undo_method(plugin.terrain, &"remove_child", occluder_instance)
-		undo.add_do_property(occluder_instance, &"owner", plugin.terrain.owner)
+		undo.add_do_property(occluder_instance, &"owner", EditorInterface.get_edited_scene_root())
 		undo.add_do_reference(occluder_instance)
 	
 	else:
@@ -169,6 +175,9 @@ func bake_nav_mesh() -> void:
 		print("Terrain3DNavigation: Finished baking 1 NavigationMesh.")
 	
 	elif plugin.terrain:
+		if plugin.terrain.data.get_region_count() == 0:
+			push_error("Terrain3D has no active regions to bake")
+		return
 		# A Terrain3D is selected. There are potentially multiple navmeshes to bake and we need to
 		# find them all. (The multiple navmesh use-case is likely on very large scenes with lots of
 		# geometry. Each navmesh in this case would define its own, non-overlapping, baking AABB, to
@@ -334,6 +343,12 @@ func set_up_navigation_popup() -> void:
 
 func _set_up_navigation() -> void:
 	assert(plugin.terrain)
+	if plugin.terrain == EditorInterface.get_edited_scene_root():
+		push_error("Terrain3D Navigation setup not possible if Terrain3D node is scene root")
+		return
+	if plugin.terrain.data.get_region_count() == 0:
+		push_error("Terrain3D has no active regions")
+		return
 	var terrain: Terrain3D = plugin.terrain
 	
 	var nav_region := NavigationRegion3D.new()
