@@ -103,8 +103,8 @@ public:
 
 	bool has_region(const Vector2i &p_region_loc) const { return get_region_id(p_region_loc) != -1; }
 	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
-	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc) const { return _regions[p_region_loc]; }
-	Ref<Terrain3DRegion> get_regionp(const Vector3 &p_global_position) const { return _regions[get_region_location(p_global_position)]; }
+	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc) const;
+	Ref<Terrain3DRegion> get_regionp(const Vector3 &p_global_position) const;
 
 	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
 	bool is_region_modified(const Vector2i &p_region_loc) const;
@@ -225,6 +225,14 @@ inline int Terrain3DData::get_region_id(const Vector2i &p_region_loc) const {
 
 inline int Terrain3DData::get_region_idp(const Vector3 &p_global_position) const {
 	return get_region_id(get_region_location(p_global_position));
+}
+
+inline Ref<Terrain3DRegion> Terrain3DData::get_region(const Vector2i &p_region_loc) const {
+	return _regions.get(p_region_loc, Ref<Terrain3DRegion>());
+}
+
+inline Ref<Terrain3DRegion> Terrain3DData::get_regionp(const Vector3 &p_global_position) const {
+	return _regions.get(get_region_location(p_global_position), Ref<Terrain3DRegion>());
 }
 
 // Inline Map Functions
