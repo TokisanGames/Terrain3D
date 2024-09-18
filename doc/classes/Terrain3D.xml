@@ -119,7 +119,7 @@
 			The directory where terrain data will be saved to and loaded from.
 		</member>
 		<member name="debug_level" type="int" setter="set_debug_level" getter="get_debug_level" default="0">
-			The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using [code skip-lint]--terrain3d-debug=LEVEL[/code] where [code skip-lint]LEVEL[/code] is one of [code skip-lint]ERROR, INFO, DEBUG, DEBUG_CONT[/code]. The last is for continuously recurring messages like position updates for the mesh as the camera moves around.
+			The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using [code skip-lint]--terrain3d-debug=LEVEL[/code] where [code skip-lint]LEVEL[/code] is one of [code skip-lint]ERROR, INFO, DEBUG, EXTREME[/code]. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
 		</member>
 		<member name="debug_show_collision" type="bool" setter="set_show_debug_collision" getter="get_show_debug_collision" default="false">
 			If collision is enabled, this generates collision in the editor and in game. It can be visible in the editor by enabling [code skip-lint]View Gizmos[/code] in the viewport menu.

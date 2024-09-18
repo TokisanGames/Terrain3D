@@ -55,7 +55,7 @@ void Terrain3DMeshAsset::_set_material_override(const Ref<Material> &p_material)
 }
 
 Ref<ArrayMesh> Terrain3DMeshAsset::_get_generated_mesh() const {
-	LOG(DEBUG_CONT, "Regeneratingn new mesh");
+	LOG(EXTREME, "Regeneratingn new mesh");
 	Ref<ArrayMesh> array_mesh;
 	array_mesh.instantiate();
 	PackedVector3Array vertices;

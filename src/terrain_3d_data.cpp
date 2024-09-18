@@ -308,7 +308,7 @@ TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 }
 
 void Terrain3DData::force_update_maps(const MapType p_map_type, const bool p_generate_mipmaps) {
-	LOG(DEBUG_CONT, "Regenerating maps of type: ", p_map_type);
+	LOG(EXTREME, "Regenerating maps of type: ", p_map_type);
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
 			_generated_height_maps.clear();
@@ -327,7 +327,7 @@ void Terrain3DData::force_update_maps(const MapType p_map_type, const bool p_gen
 			break;
 	}
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
-		LOG(DEBUG_CONT, "Regenerating color mipmaps");
+		LOG(EXTREME, "Regenerating color mipmaps");
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
 			Ref<Terrain3DRegion> region = _regions[region_loc];
@@ -341,7 +341,7 @@ void Terrain3DData::update_maps() {
 	bool any_changed = false;
 
 	if (_region_map_dirty) {
-		LOG(DEBUG_CONT, "Regenerating ", REGION_MAP_VSIZE, " region map array from active regions");
+		LOG(EXTREME, "Regenerating ", REGION_MAP_VSIZE, " region map array from active regions");
 		_region_map.clear();
 		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 		_region_map_dirty = false;
@@ -364,7 +364,7 @@ void Terrain3DData::update_maps() {
 	}
 
 	if (_generated_height_maps.is_dirty()) {
-		LOG(DEBUG_CONT, "Regenerating height texture array from regions");
+		LOG(EXTREME, "Regenerating height texture array from regions");
 		_height_maps.clear();
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
@@ -384,7 +384,7 @@ void Terrain3DData::update_maps() {
 	}
 
 	if (_generated_control_maps.is_dirty()) {
-		LOG(DEBUG_CONT, "Regenerating control texture array from regions");
+		LOG(EXTREME, "Regenerating control texture array from regions");
 		_control_maps.clear();
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
@@ -397,7 +397,7 @@ void Terrain3DData::update_maps() {
 	}
 
 	if (_generated_color_maps.is_dirty()) {
-		LOG(DEBUG_CONT, "Regenerating color texture array from regions");
+		LOG(EXTREME, "Regenerating color texture array from regions");
 		_color_maps.clear();
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
@@ -628,7 +628,7 @@ void Terrain3DData::calc_height_range(const bool p_recursive) {
 		}
 		update_master_heights(region->get_height_range());
 	}
-	LOG(DEBUG_CONT, "Accumulated height range for all regions: ", _master_height_range);
+	LOG(EXTREME, "Accumulated height range for all regions: ", _master_height_range);
 }
 
 /**

@@ -86,7 +86,7 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 }
 
 void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_t p_camera_direction) {
-	LOG(DEBUG_CONT, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
+	LOG(EXTREME, "Operating at ", p_global_position, " tool type ", _tool, " op ", _operation);
 
 	MapType map_type = _get_map_type();
 	if (map_type == TYPE_MAX) {
@@ -633,7 +633,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["jitter"] = CLAMP(real_t(p_data.get("jitter", 0.f)), 0.f, 1.f);
 	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
 
-	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, DEBUG_CONT);
+	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, EXTREME);
 }
 
 void Terrain3DEditor::set_tool(const Tool p_tool) {

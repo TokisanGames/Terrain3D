@@ -124,7 +124,7 @@ Terrain3D has debug logs for everything, which it can dump to the [console](#usi
 
 Set `Terrain3D.debug_level` to `Info` or `Debug` and you'll get copious activity logs that will help troubleshoot problems.
 
-You can also enable debugging from the command line by running Godot with `--terrain3d-debug=<LEVEL>` where `<LEVEL>` is one of `ERROR`, `INFO`, `DEBUG`, `DEBUG_CONT`. Debug Continuous (DEBUG_CONT) is for repetitive messages such as those that appear on camera movement.
+You can also enable debugging from the command line by running Godot with `--terrain3d-debug=<LEVEL>` where `<LEVEL>` is one of `ERROR`, `INFO`, `DEBUG`, `EXTREME`. Extreme dumps everything including repetitive messages such as those that appear on camera movement.
 
 To run the demo from the command line with debugging, open a terminal, and change to the project folder (where `project.godot` is):
 

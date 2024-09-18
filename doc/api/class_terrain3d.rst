@@ -301,7 +301,7 @@ The directory where terrain data will be saved to and loaded from.
 - |void| **set_debug_level**\ (\ value\: :ref:`int<class_int>`\ )
 - :ref:`int<class_int>` **get_debug_level**\ (\ )
 
-The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using ``--terrain3d-debug=LEVEL`` where ``LEVEL`` is one of ``ERROR, INFO, DEBUG, DEBUG_CONT``. The last is for continuously recurring messages like position updates for the mesh as the camera moves around.
+The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using ``--terrain3d-debug=LEVEL`` where ``LEVEL`` is one of ``ERROR, INFO, DEBUG, EXTREME``. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
 
 .. rst-class:: classref-item-separator
 
