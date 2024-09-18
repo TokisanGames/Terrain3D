@@ -61,7 +61,7 @@ TypedArray<Terrain3DRegion> Terrain3DData::get_regions_active(const bool p_copy,
 	TypedArray<Terrain3DRegion> region_arr;
 	for (int i = 0; i < _region_locations.size(); i++) {
 		Vector2i region_loc = _region_locations[i];
-		Ref<Terrain3DRegion> region = _regions[region_loc];
+		Ref<Terrain3DRegion> region = get_region(region_loc);
 		if (region.is_valid()) {
 			region_arr.push_back((p_copy) ? region->duplicate(p_deep) : region);
 		}
@@ -110,7 +110,7 @@ void Terrain3DData::change_region_size(int p_new_region_size) {
 	Array locs = _regions.keys();
 	int region_id = 0;
 	for (int i = 0; i < locs.size(); i++) {
-		Ref<Terrain3DRegion> region = _regions[locs[i]];
+		Ref<Terrain3DRegion> region = get_region(locs[i]);
 		if (region.is_valid() && !region->is_deleted()) {
 			Rect2i index_bounds;
 			Point2i region_position = region->get_location() * _region_size;
@@ -159,7 +159,7 @@ void Terrain3DData::change_region_size(int p_new_region_size) {
 }
 
 void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
-	Ref<Terrain3DRegion> region = _regions[p_region_loc];
+	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
 		return;
@@ -168,7 +168,7 @@ void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool
 }
 
 bool Terrain3DData::is_region_modified(const Vector2i &p_region_loc) const {
-	Ref<Terrain3DRegion> region = _regions[p_region_loc];
+	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
 		return false;
@@ -177,7 +177,7 @@ bool Terrain3DData::is_region_modified(const Vector2i &p_region_loc) const {
 }
 
 void Terrain3DData::set_region_deleted(const Vector2i &p_region_loc, const bool p_deleted) {
-	Ref<Terrain3DRegion> region = _regions[p_region_loc];
+	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
 		return;
@@ -186,7 +186,7 @@ void Terrain3DData::set_region_deleted(const Vector2i &p_region_loc, const bool 
 }
 
 bool Terrain3DData::is_region_deleted(const Vector2i &p_region_loc) const {
-	Ref<Terrain3DRegion> region = _regions[p_region_loc];
+	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "Region not found at: ", p_region_loc);
 		return true;
@@ -292,7 +292,7 @@ void Terrain3DData::save_directory(const String &p_dir) {
 }
 
 void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
-	Ref<Terrain3DRegion> region = _regions[p_region_loc];
+	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "No region found at: ", p_region_loc);
 		return;
@@ -435,7 +435,7 @@ void Terrain3DData::force_update_maps(const MapType p_map_type, const bool p_gen
 		LOG(EXTREME, "Regenerating color mipmaps");
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
-			Ref<Terrain3DRegion> region = _regions[region_loc];
+			Ref<Terrain3DRegion> region = get_region(region_loc);
 			region->get_color_map()->generate_mipmaps();
 		}
 	}
@@ -454,7 +454,7 @@ void Terrain3DData::update_maps() {
 		Array locs = _regions.keys();
 		int region_id = 0;
 		for (int i = 0; i < locs.size(); i++) {
-			Ref<Terrain3DRegion> region = _regions[locs[i]];
+			Ref<Terrain3DRegion> region = get_region(locs[i]);
 			if (region.is_valid() && !region->is_deleted()) {
 				region_id += 1; // Begin at 1 since 0 = no region
 				int map_index = get_region_map_index(region->get_location());
@@ -473,7 +473,7 @@ void Terrain3DData::update_maps() {
 		_height_maps.clear();
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
-			Ref<Terrain3DRegion> region = _regions[region_loc];
+			Ref<Terrain3DRegion> region = get_region(region_loc);
 			if (region.is_valid()) {
 				_height_maps.push_back(region->get_height_map());
 			} else {
@@ -493,7 +493,7 @@ void Terrain3DData::update_maps() {
 		_control_maps.clear();
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
-			Ref<Terrain3DRegion> region = _regions[region_loc];
+			Ref<Terrain3DRegion> region = get_region(region_loc);
 			_control_maps.push_back(region->get_control_map());
 		}
 		_generated_control_maps.create(_control_maps);
@@ -506,7 +506,7 @@ void Terrain3DData::update_maps() {
 		_color_maps.clear();
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
-			Ref<Terrain3DRegion> region = _regions[region_loc];
+			Ref<Terrain3DRegion> region = get_region(region_loc);
 			_color_maps.push_back(region->get_color_map());
 		}
 		_generated_color_maps.create(_color_maps);
@@ -525,7 +525,7 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 		return;
 	}
 	Vector2i region_loc = get_region_location(p_global_position);
-	Ref<Terrain3DRegion> region = _regions[region_loc];
+	Ref<Terrain3DRegion> region = get_region(region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "No region found at: ", p_global_position);
 		return;
@@ -545,7 +545,7 @@ Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global
 		return COLOR_NAN;
 	}
 	Vector2i region_loc = get_region_location(p_global_position);
-	Ref<Terrain3DRegion> region = _regions[region_loc];
+	Ref<Terrain3DRegion> region = get_region(region_loc);
 	if (region.is_null()) {
 		return COLOR_NAN;
 	}
@@ -723,7 +723,7 @@ void Terrain3DData::calc_height_range(const bool p_recursive) {
 	_master_height_range = V2_ZERO;
 	for (int i = 0; i < _region_locations.size(); i++) {
 		Vector2i region_loc = _region_locations[i];
-		Ref<Terrain3DRegion> region = _regions[region_loc];
+		Ref<Terrain3DRegion> region = get_region(region_loc);
 		if (region.is_null()) {
 			LOG(ERROR, "Region not found at: ", region_loc);
 			return;
@@ -987,7 +987,7 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 		Vector2i region_loc = _region_locations[i];
 		Vector2i img_location = (region_loc - top_left) * _region_size;
 		LOG(DEBUG, "Region to blit: ", region_loc, " Export image coords: ", img_location);
-		Ref<Terrain3DRegion> region = _regions[region_loc];
+		Ref<Terrain3DRegion> region = get_region(region_loc);
 		img->blit_rect(region->get_map(map_type), Rect2i(V2I_ZERO, _region_sizev), img_location);
 	}
 	return img;
