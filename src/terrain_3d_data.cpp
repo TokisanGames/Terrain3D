@@ -27,6 +27,20 @@ void Terrain3DData::_clear() {
 	_generated_color_maps.clear();
 }
 
+// Structured to work with do_for_regions. Should be renamed when copy_paste is expanded
+void Terrain3DData::_copy_paste(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region) {
+	if (p_src_region == nullptr || p_dst_region == nullptr) {
+		return;
+	}
+	TypedArray<Image> src_maps = p_src_region->get_maps();
+	TypedArray<Image> dst_maps = p_dst_region->get_maps();
+	for (int i = 0; i < dst_maps.size(); i++) {
+		Ref<Image> img = dst_maps[i];
+		img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
+	}
+	_terrain->get_instancer()->copy_paste_dfr(p_src_region, p_src_rect, p_dst_region);
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -142,19 +156,24 @@ void Terrain3DData::change_region_size(int p_new_size) {
 		new_regions.push_back(new_region);
 	}
 
+	// Remove old data
+	_terrain->get_instancer()->destroy();
 	TypedArray<Terrain3DRegion> old_regions = get_regions_active();
 	for (int i = 0; i < old_regions.size(); i++) {
 		remove_region(old_regions[i], false);
 	}
 
+	// Change region size
 	_terrain->set_region_size((Terrain3D::RegionSize)p_new_size);
 
+	// Add new regions and rebuild
 	for (int i = 0; i < new_regions.size(); i++) {
 		add_region(new_regions[i], false);
 	}
 
 	calc_height_range(true);
 	force_update_maps();
+	_terrain->get_instancer()->force_update_mmis();
 }
 
 void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
