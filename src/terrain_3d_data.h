@@ -178,19 +178,6 @@ VARIANT_ENUM_CAST(Terrain3DData::HeightFilter);
 
 // Inline Region Functions
 
-// Structured to work with do_for_regions. Should be renamed when copy_paste is expanded
-inline void Terrain3DData::_copy_paste(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region) {
-	if (p_src_region == nullptr || p_dst_region == nullptr) {
-		return;
-	}
-	TypedArray<Image> dst_maps = p_dst_region->get_maps();
-	TypedArray<Image> src_maps = p_src_region->get_maps();
-	for (int i = 0; i < dst_maps.size(); i++) {
-		Ref<Image> img = dst_maps[i];
-		img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
-	}
-}
-
 // Verifies the location is within the bounds of the _region_map array and
 // the world, returning the _region_map index, which contains the region_id.
 // Valid region locations are -8, -8 to 7, 7, or when offset: 0, 0 to 15, 15
