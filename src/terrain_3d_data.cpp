@@ -73,10 +73,8 @@ TypedArray<Terrain3DRegion> Terrain3DData::get_regions_active(const bool p_copy,
 // The callable receives: source Terrain3DRegion, source Rect2i, dest Rect2i, (bindings)
 // Used with change_region_size, dest Terrain3DRegion is bound as the 4th parameter
 void Terrain3DData::do_for_regions(const Rect2i &p_area, const Callable &p_callback) {
-	Rect2i location_bounds;
-	location_bounds.position = Point2i((Point2(p_area.position) / real_t(_region_size)).floor()); // rounded down
-	location_bounds.set_end(Point2i((Point2(p_area.get_end()) / real_t(_region_size)).ceil())); // rounded up in a dumb way
-	LOG(INFO, "Processing area: ", p_area, " -> ", location_bounds);
+	Rect2i location_bounds(V2I_DIVIDE_FLOOR(p_area.position, _region_size), V2I_DIVIDE_CEIL(p_area.size, _region_size));
+	LOG(DEBUG, "Processing global area: ", p_area, " -> ", location_bounds);
 	Point2i current_region_loc;
 	for (int y = location_bounds.position.y; y < location_bounds.get_end().y; y++) {
 		current_region_loc.y = y;
@@ -111,14 +109,11 @@ void Terrain3DData::change_region_size(int p_new_size) {
 	// Get current region corners expressed in new region_size coordinates
 	Dictionary new_region_points;
 	Array locs = _regions.keys();
-	int region_id = 0;
 	for (int i = 0; i < locs.size(); i++) {
 		Ref<Terrain3DRegion> region = get_region(locs[i]);
 		if (region.is_valid() && !region->is_deleted()) {
 			Point2i region_position = region->get_location() * _region_size;
-			Rect2i location_bounds;
-			location_bounds.position = region_position / p_new_size;
-			location_bounds.set_end(Point2i((Point2(region_position + _region_sizev) / p_new_size).ceil()));
+			Rect2i location_bounds(V2I_DIVIDE_FLOOR(region_position, p_new_size), V2I_DIVIDE_CEIL(_region_sizev, p_new_size));
 			for (int y = location_bounds.position.y; y < location_bounds.get_end().y; y++) {
 				for (int x = location_bounds.position.x; x < location_bounds.get_end().x; x++) {
 					new_region_points[Point2i(x, y)] = 1;
