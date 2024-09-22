@@ -40,14 +40,13 @@ public:
 			const bool p_create_mipmaps = true,
 			const Image::Format p_format = Image::FORMAT_MAX);
 	static Ref<Image> load_image(const String &p_file_name, const int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
-	const Vector2 &p_r16_height_range = Vector2(0.f, 255.f), const Vector2i &p_r16_size = V2I_ZERO);
+			const Vector2 &p_r16_height_range = Vector2(0.f, 255.f), const Vector2i &p_r16_size = V2I_ZERO);
 	static Ref<Image> pack_image(const Ref<Image> &p_src_rgb,
 			const Ref<Image> &p_src_a,
 			const bool p_invert_green = false,
 			const bool p_invert_alpha = false,
 			const int p_alpha_channel = 0);
 	static Ref<Image> luminance_to_height(const Ref<Image> &p_src_rgb);
-
 
 protected:
 	static void _bind_methods();
@@ -72,6 +71,35 @@ T round_multiple(const T p_value, const T p_multiple) {
 
 inline bool is_power_of_2(const int p_n) {
 	return p_n && !(p_n & (p_n - 1));
+}
+
+// Integer division with rounding up, down, nearest
+// https : //stackoverflow.com/questions/2422712/rounding-integer-division-instead-of-truncating/58568736#58568736
+#define V2I_DIVIDE_CEIL(v, f) Vector2i(int_divide_ceil(v.x, f), int_divide_ceil(v.y, f))
+#define V2I_DIVIDE_FLOOR(v, f) Vector2i(int_divide_floor(v.x, f), int_divide_floor(v.y, f))
+
+// Integer division rounding up
+template <typename T>
+T int_divide_ceil(T numer, T denom) {
+	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
+	T result = ((numer) < 0) != ((denom) < 0) ? (numer) / (denom) : ((numer) + ((denom) < 0 ? (denom) + 1 : (denom)-1)) / (denom);
+	return result;
+}
+
+// Integer division rounding down
+template <typename T>
+T int_divide_floor(T numer, T denom) {
+	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
+	T result = ((numer) < 0) != ((denom) < 0) ? ((numer) - ((denom) < 0 ? (denom) + 1 : (denom)-1)) / (denom) : (numer) / (denom);
+	return result;
+}
+
+// Integer division rounding to nearest int
+template <typename T>
+T int_divide_round(T numer, T denom) {
+	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
+	T result = ((numer) < 0) != ((denom) < 0) ? ((numer) - ((denom) / 2)) / (denom) : ((numer) + ((denom) / 2)) / (denom);
+	return result;
 }
 
 // Returns the bilinearly interpolated value derived from parameters:
