@@ -50,7 +50,7 @@ private:
 	bool _initialized = false;
 
 	// Terrain settings
-	RegionSize _region_size = SIZE_1024;
+	RegionSize _region_size = SIZE_256;
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
 	real_t _vertex_spacing = 1.0f;
@@ -150,6 +150,7 @@ public:
 	String get_data_directory() const;
 	void set_region_size(const RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
+	void change_region_size(const RegionSize p_size);
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
 	void set_show_region_labels(const bool p_enabled);

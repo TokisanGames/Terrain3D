@@ -28,7 +28,7 @@ void Terrain3DData::_clear() {
 }
 
 // Structured to work with do_for_regions. Should be renamed when copy_paste is expanded
-void Terrain3DData::_copy_paste(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region) {
+void Terrain3DData::_copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region) {
 	if (p_src_region == nullptr || p_dst_region == nullptr) {
 		return;
 	}
@@ -152,7 +152,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 		Rect2i area;
 		area.position = loc * p_new_size;
 		area.size = Vector2i(p_new_size, p_new_size);
-		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste).bind(new_region.ptr()));
+		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste_dfr).bind(new_region.ptr()));
 		new_regions.push_back(new_region);
 	}
 
@@ -378,8 +378,8 @@ void Terrain3DData::load_directory(const String &p_dir) {
 			_terrain->set_region_size((Terrain3D::RegionSize)region->get_region_size());
 		} else {
 			if (_terrain->get_region_size() != (Terrain3D::RegionSize)region->get_region_size()) {
-				LOG(ERROR, "Region size ", region->get_region_size(), " doesn't match first loaded region size ",
-						_terrain->get_region_size(), " file: ", path);
+				LOG(ERROR, "Region size mismatch. First loaded: ", _terrain->get_region_size(), " next: ",
+						region->get_region_size(), " in file: ", path);
 				return;
 			}
 		}
@@ -391,6 +391,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 	force_update_maps();
 }
 
+//TODO have load_directory call load_region, or make a load_file that loads a specific path
 void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update) {
 	LOG(INFO, "Loading region from location ", p_region_loc);
 	String path = p_dir + String("/") + Util::location_to_filename(p_region_loc);
@@ -402,6 +403,15 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 	if (region.is_null()) {
 		LOG(ERROR, "Cannot load region at ", path);
 		return;
+	}
+	if (_regions.is_empty()) {
+		_terrain->set_region_size((Terrain3D::RegionSize)region->get_region_size());
+	} else {
+		if (_terrain->get_region_size() != (Terrain3D::RegionSize)region->get_region_size()) {
+			LOG(ERROR, "Region size mismatch. First loaded: ", _terrain->get_region_size(), " next: ",
+					region->get_region_size(), " in file: ", path);
+			return;
+		}
 	}
 	region->take_over_path(path);
 	region->set_location(p_region_loc);
