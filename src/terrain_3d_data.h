@@ -77,7 +77,7 @@ private:
 
 	// Functions
 	void _clear();
-	void _copy_paste(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
+	void _copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
 
 public:
 	Terrain3DData() {}
