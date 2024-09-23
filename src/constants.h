@@ -23,12 +23,14 @@ using namespace godot;
 #define FLT_MAX __FLT_MAX__
 #endif
 
+#define V2(x) Vector2(x, x)
 #define V2_ZERO Vector2(0.f, 0.f)
+#define V2I_ZERO Vector2i(0, 0)
 #define V2_MAX Vector2(FLT_MAX, FLT_MAX)
+#define V2I_MAX Vector2i(INT32_MAX, INT32_MAX)
+#define V3(x) Vector3(x, x, x)
 #define V3_ZERO Vector3(0.f, 0.f, 0.f)
 #define V3_MAX Vector3(FLT_MAX, FLT_MAX, FLT_MAX)
-#define V2I_ZERO Vector2i(0, 0)
-#define V2I_MAX Vector2i(INT32_MAX, INT32_MAX)
 
 // Set class name for logger.h
 

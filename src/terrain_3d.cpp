@@ -850,13 +850,15 @@ void Terrain3D::set_mesh_size(const int p_size) {
 void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 	real_t spacing = CLAMP(p_spacing, 0.25f, 100.0f);
 	if (_vertex_spacing != spacing) {
-		LOG(INFO, "Setting vertex spacing: ", spacing);
+		real_t scale = spacing / _vertex_spacing;
 		_vertex_spacing = spacing;
+		LOG(INFO, "Setting vertex spacing: ", _vertex_spacing);
 		_clear_meshes();
 		_destroy_collision();
 		_destroy_instancer();
 		_initialize();
-		_data->_vertex_spacing = spacing;
+		_data->_vertex_spacing = _vertex_spacing;
+		_instancer->scale_positions(scale);
 	}
 	if (IS_EDITOR && _plugin != nullptr) {
 		_plugin->call("update_region_grid");

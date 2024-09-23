@@ -1,6 +1,7 @@
 // Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/time.hpp>
 
 #include "logger.h"
@@ -152,8 +153,9 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		rot += p_camera_direction;
 	}
 	// Rotate the decal to align with the brush
-	cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
-
+	if (IS_EDITOR && _terrain->get_plugin() != nullptr) {
+		cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
+	}
 	AABB edited_area;
 	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) * .5f;
 	edited_area.size = Vector3(brush_size, 0.f, brush_size);

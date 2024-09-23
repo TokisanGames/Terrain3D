@@ -515,6 +515,35 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	}
 }
 
+void Terrain3DInstancer::scale_positions(const real_t p_scale) {
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
+	real_t scale = CLAMP(p_scale, 0.01f, 100.0f);
+	if (p_scale == 1.f) {
+		return;
+	}
+	LOG(INFO, "Scaling all instancer transforms by: ", scale);
+	TypedArray<Terrain3DRegion> regions = _terrain->get_data()->get_regions_active();
+	for (int i = 0; i < regions.size(); i++) {
+		Ref<Terrain3DRegion> region = regions[i];
+		if (region.is_null()) {
+			continue;
+		}
+		Dictionary mms = region->get_multimeshes();
+		for (int j = 0; j < mms.keys().size(); j++) {
+			Ref<MultiMesh> mm = mms.get(mms.keys()[j], nullptr);
+			if (mm.is_null()) {
+				continue;
+			}
+			for (int k = 0; k < mm->get_instance_count(); k++) {
+				Transform3D xf = mm->get_instance_transform(k);
+				xf.origin.x *= scale;
+				xf.origin.z *= scale;
+				mm->set_instance_transform(k, xf);
+			}
+		}
+	}
+}
+
 // Changes the ID of a mesh, without changing the mesh on the ground
 // Called when the mesh asset id has changed. Updates Multimeshes and MMIs dictionary keys
 void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
