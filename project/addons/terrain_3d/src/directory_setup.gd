@@ -79,24 +79,33 @@ func _on_file_selected(path: String) -> void:
 
 func _on_ok_pressed() -> void:
 	if not plugin.terrain:
-		push_error("No connected terrain. Click the Terrain3D node first")
+		push_error("Not connected terrain. Click the Terrain3D node first")
 		return
-
 	if selected_dir_le.text.is_empty():
-		push_error("No storage directory specified")
+		push_error("No data directory specified")
 		return
 	if not DirAccess.dir_exists_absolute(selected_dir_le.text):
 		push_error("Directory doesn't exist: ", selected_dir_le.text)
 		return
-	else:
-		print("Setting terrain directory: ", selected_dir_le.text)
-		plugin.terrain.data_directory = selected_dir_le.text
-		
+	# Check if directory empty of terrain files		
+	var data_found: bool = false
+	var files: Array = DirAccess.get_files_at(selected_dir_le.text)
+	for file in files:
+		if file.begins_with("terrain3d") || file.ends_with(".res"):
+			data_found = true
+			break
+
+	print("Setting terrain directory: ", selected_dir_le.text)
+	plugin.terrain.data_directory = selected_dir_le.text
 
 	if not upgrade_file_le.text.is_empty():	
+		if data_found:
+			push_warning("Target directory already has terrain data. Specify an empty directory to upgrade")
+			return
 		if not FileAccess.file_exists(upgrade_file_le.text):
 			push_error("File doesn't exist: ", upgrade_file_le.text)
 			return	
+
 		if not plugin.terrain.storage or \
 			( plugin.terrain.storage and plugin.terrain.storage.get_path() != upgrade_file_le.text):
 				print("Loading storage file: ", upgrade_file_le.text)

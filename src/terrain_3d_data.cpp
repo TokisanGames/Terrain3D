@@ -57,10 +57,9 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 	_vertex_spacing = _terrain->get_vertex_spacing();
 	if (!prev_initialized && !_terrain->get_data_directory().is_empty()) {
 		load_directory(_terrain->get_data_directory());
-	} else {
-		_region_size = _terrain->get_region_size();
-		_region_sizev = Vector2i(_region_size, _region_size);
 	}
+	_region_size = _terrain->get_region_size();
+	_region_sizev = Vector2i(_region_size, _region_size);
 }
 
 void Terrain3DData::set_region_locations(const TypedArray<Vector2i> &p_locations) {
@@ -172,7 +171,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 	}
 
 	calc_height_range(true);
-	force_update_maps();
+	force_update_maps(TYPE_MAX, true);
 	_terrain->get_instancer()->force_update_mmis();
 }
 
@@ -303,12 +302,12 @@ void Terrain3DData::save_directory(const String &p_dir) {
 	for (int i = 0; i < locations.size(); i++) {
 		save_region(locations[i], p_dir, _terrain->get_save_16_bit());
 	}
-	if (Engine::get_singleton()->is_editor_hint() &&
-			!EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
+	if (IS_EDITOR && !EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
 		EditorInterface::get_singleton()->get_resource_filesystem()->scan();
 	}
 }
 
+// You may need to do a file system scan to update FileSystem panel
 void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
@@ -331,15 +330,17 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 			LOG(ERROR, "Cannot open directory for writing: ", p_dir, " error: ", DirAccess::get_open_error());
 			return;
 		}
-		da->remove(fname);
-		if (Engine::get_singleton()->is_editor_hint() &&
-				!EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
-			EditorInterface::get_singleton()->get_resource_filesystem()->scan();
+		Error err = da->remove(fname);
+		if (err != OK) {
+			LOG(ERROR, "Could not remove file: ", fname, ", error code: ", err);
 		}
 		LOG(INFO, "File ", path, " deleted");
 		return;
 	}
-	region->save(path, p_16_bit);
+	Error err = region->save(path, p_16_bit);
+	if (!(err == OK || err == ERR_SKIP)) {
+		LOG(ERROR, "Could not save file: ", path, ", error: ", UtilityFunctions::error_string(err), " (", err, ")");
+	}
 }
 
 void Terrain3DData::load_directory(const String &p_dir) {

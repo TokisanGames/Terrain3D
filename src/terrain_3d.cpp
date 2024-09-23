@@ -752,6 +752,7 @@ void Terrain3D::set_data_directory(String p_dir) {
 	LOG(INFO, "Setting data directory to ", p_dir);
 	if (_data_directory != p_dir) {
 		_clear_meshes();
+		_destroy_labels();
 		_destroy_collision();
 		_destroy_instancer();
 		memdelete_safely(_data);
@@ -1307,6 +1308,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	_storage = p_storage;
 	if (p_storage.is_valid()) {
 		LOG(WARN, "Loaded Terrain3DStorage v", vformat("%.3f", p_storage->get_version()), ". Use Terrain3D Tools / Directory Setup to upgrade");
+		set_region_size(SIZE_1024);
 	}
 }
 
@@ -1324,6 +1326,7 @@ void Terrain3D::split_storage() {
 		return;
 	}
 
+	set_region_size(SIZE_1024);
 	TypedArray<Vector2i> locations = _storage->get_region_offsets();
 	TypedArray<Image> hmaps = _storage->get_maps(Terrain3DStorage::TYPE_HEIGHT);
 	TypedArray<Image> ctlmaps = _storage->get_maps(Terrain3DStorage::TYPE_CONTROL);
@@ -1339,7 +1342,7 @@ void Terrain3D::split_storage() {
 		region->set_color_map(clrmaps[i]);
 		region->set_multimeshes(mms[locations[i]]);
 		_data->add_region(region, false);
-		LOG(MESG, "Splicing region ", locations[i]);
+		LOG(INFO, "Splicing region ", locations[i]);
 	}
 	_storage.unref();
 	_data->force_update_maps();
