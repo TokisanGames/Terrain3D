@@ -64,7 +64,7 @@ func _ready() -> void:
 		"type":SettingType.LABEL, "list":main_list, "flags":NO_LABEL|NO_SAVE })
 
 	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":20, "unit":"m",
-								"range":Vector3(2, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
+								"range":Vector3(0.1, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
 		
 	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":33, 
 								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })

@@ -110,7 +110,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		return;
 	}
 	Vector2i img_size = _brush_data["brush_image_size"];
-	real_t brush_size = _brush_data["size"];
+	real_t brush_size = CLAMP(real_t(_brush_data.get("size", 10.f)), 2.f, 4096.f); // Meters
 
 	// Typicall we multiply mouse pressure & strength setting, but
 	// * Mouse movement w/ button down has a pressure of 1
@@ -607,7 +607,8 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	}
 
 	// Santize settings
-	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 2.f, 4096.f); // Diameter in meters
+	// size is redundantly clamped differently in _operate_map and instancer::add_transforms
+	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.5f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
