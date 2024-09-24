@@ -794,17 +794,27 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	_save_16_bit = p_enabled;
 }
 
-void Terrain3D::set_show_region_labels(const bool p_enabled) {
-	LOG(INFO, "Setting show region labels: ", p_enabled);
-	if (_show_region_labels != p_enabled) {
-		_show_region_labels = p_enabled;
+void Terrain3D::set_label_distance(const real_t p_distance) {
+	real_t distance = CLAMP(p_distance, 0.f, 100000.f);
+	LOG(INFO, "Setting region label distance: ", distance);
+	if (_label_distance != distance) {
+		_label_distance = distance;
+		update_region_labels();
+	}
+}
+
+void Terrain3D::set_label_size(const int p_size) {
+	int size = CLAMP(p_size, 24, 128);
+	LOG(INFO, "Setting region label size: ", size);
+	if (_label_size != size) {
+		_label_size = size;
 		update_region_labels();
 	}
 }
 
 void Terrain3D::update_region_labels() {
 	_destroy_labels();
-	if (_show_region_labels && _data != nullptr) {
+	if (_label_distance > 0.f && _data != nullptr) {
 		Array region_locations = _data->get_region_locations();
 		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
 		for (int i = 0; i < region_locations.size(); i++) {
@@ -819,15 +829,16 @@ void Terrain3D::update_region_labels() {
 			label->set_text(text);
 			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
 			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
-			label->set_font_size(64);
-			label->set_outline_size(10);
-			label->set_visibility_range_end(3072.f * _vertex_spacing);
-			label->set_visibility_range_end_margin(256.f);
+			label->set_font_size(_label_size);
+			label->set_outline_size(_label_size / 6);
+			label->set_visibility_range_end(_label_distance);
+			label->set_visibility_range_end_margin(_label_distance / 10.f);
 			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 			_label_nodes->add_child(label, true);
 			Vector2i loc = region_locations[i];
 			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _vertex_spacing;
-			pos.y = _data->get_height(pos);
+			real_t height = _data->get_height(pos);
+			pos.y = (std::isnan(height)) ? 0 : height;
 			label->set_position(pos);
 		}
 	}
@@ -1509,26 +1520,34 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
+	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
+	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
+
+	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3D::get_data);
+	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
+	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
+	ClassDB::bind_method(D_METHOD("set_assets", "assets"), &Terrain3D::set_assets);
+	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
+	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
+
+	//Regions
 	ClassDB::bind_method(D_METHOD("change_region_size", "size"), &Terrain3D::change_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
+	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
+	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
+	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
+	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
+	ClassDB::bind_method(D_METHOD("get_label_size"), &Terrain3D::get_label_size);
+	ClassDB::bind_method(D_METHOD("set_show_grid", "enabled"), &Terrain3D::set_show_grid);
+	ClassDB::bind_method(D_METHOD("get_show_grid"), &Terrain3D::get_show_grid);
+
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
 	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
-
-	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3D::get_data);
-	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
-	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
-	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
-	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
-
-	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
-	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
-	ClassDB::bind_method(D_METHOD("set_assets", "assets"), &Terrain3D::set_assets);
-	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
-	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
 
 	ClassDB::bind_method(D_METHOD("set_editor", "editor"), &Terrain3D::set_editor);
 	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
@@ -1561,22 +1580,24 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_rid"), &Terrain3D::get_collision_rid);
 
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Terrain3D::get_intersection);
-	ClassDB::bind_method(D_METHOD("set_show_region_labels", "enabled"), &Terrain3D::set_show_region_labels);
-	ClassDB::bind_method(D_METHOD("get_show_region_labels"), &Terrain3D::get_show_region_labels);
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
-
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "data_directory", PROPERTY_HINT_DIR), "set_data_directory", "get_data_directory");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit", PROPERTY_HINT_NONE), "set_save_16_bit", "get_save_16_bit");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_labels"), "set_show_region_labels", "get_show_region_labels");
+
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
+
+	ADD_GROUP("Regions", "");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "label_distance", PROPERTY_HINT_RANGE, "0.0,10000.0,0.5,or_greater"), "set_label_distance", "get_label_distance");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "label_size", PROPERTY_HINT_RANGE, "24,128,1"), "set_label_size", "get_label_size");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid"), "set_show_grid", "get_show_grid");
 
 	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collision_enabled"), "set_collision_enabled", "get_collision_enabled");

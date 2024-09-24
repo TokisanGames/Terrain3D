@@ -50,13 +50,15 @@ private:
 	bool _initialized = false;
 
 	// Terrain settings
+	String _data_directory;
 	RegionSize _region_size = SIZE_256;
+	bool _save_16_bit = false;
+	real_t _label_distance = 0.f;
+	int _label_size = 48;
+
 	int _mesh_size = 48;
 	int _mesh_lods = 7;
 	real_t _vertex_spacing = 1.0f;
-	String _data_directory;
-	bool _save_16_bit = false;
-	bool _show_region_labels = false;
 
 	Terrain3DData *_data = nullptr;
 	Ref<Terrain3DMaterial> _material;
@@ -148,14 +150,20 @@ public:
 	Terrain3DData *get_data() const { return _data; }
 	void set_data_directory(String p_dir);
 	String get_data_directory() const;
+
+	// Regions
 	void set_region_size(const RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
 	void change_region_size(const RegionSize p_size);
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
-	void set_show_region_labels(const bool p_enabled);
-	bool get_show_region_labels() const { return _show_region_labels; }
+	void set_label_distance(const real_t p_distance);
+	real_t get_label_distance() const { return _label_distance; }
+	void set_label_size(const int p_size);
+	int get_label_size() const { return _label_size; }
 	void update_region_labels();
+	void set_show_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_region_grid(p_enabled) : void(); }
+	bool get_show_grid() { return (_material != nullptr) ? _material->get_show_region_grid() : false; }
 
 	void set_mesh_lods(const int p_count);
 	int get_mesh_lods() const { return _mesh_lods; }
