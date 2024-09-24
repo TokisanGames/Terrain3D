@@ -39,7 +39,7 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	}
 	if (data->get_region_map_index(p_region_loc) < 0) {
 		if (can_print) {
-			LOG(ERROR, "Location ", p_region_loc, " out of bounds. Max: ",
+			LOG(INFO, "Location ", p_region_loc, " out of bounds. Max: ",
 					-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);
 		}
 		return Ref<Terrain3DRegion>();
@@ -608,7 +608,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 
 	// Santize settings
 	// size is redundantly clamped differently in _operate_map and instancer::add_transforms
-	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.5f, 4096.f); // Diameter in meters
+	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.1f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters

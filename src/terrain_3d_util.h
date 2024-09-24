@@ -188,7 +188,7 @@ inline bool gd_is_nav(const uint32_t p_pixel) { return is_nav(p_pixel); }
 
 inline bool is_auto(const uint32_t p_pixel) { return (p_pixel & 0x1) == 1; }
 inline bool is_auto(const float p_pixel) { return is_auto(as_uint(p_pixel)); }
-inline uint32_t enc_auto(const bool p_autosh) { return p_autosh & 0x1; }
+inline uint32_t enc_auto(const bool p_auto) { return p_auto & 0x1; }
 inline bool gd_is_auto(const uint32_t p_pixel) { return is_auto(p_pixel); }
 
 ///////////////////////////
