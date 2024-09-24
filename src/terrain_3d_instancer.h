@@ -50,7 +50,6 @@ public:
 	void add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors = TypedArray<Color>());
 	void append_multimesh(const Vector2i &p_region_loc, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear = false);
 	void update_transforms(const AABB &p_aabb);
-	void scale_positions(const real_t p_scale);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
 	Ref<MultiMesh> get_multimeshp(const Vector3 &p_global_position, const int p_mesh_id) const;
