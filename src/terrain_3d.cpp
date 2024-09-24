@@ -164,68 +164,200 @@ void Terrain3D::_destroy_labels() {
 	}
 }
 
-void Terrain3D::_setup_mouse_picking() {
-	if (!is_inside_tree()) {
-		LOG(ERROR, "Not inside the tree, skipping mouse setup");
-		return;
-	}
-	LOG(INFO, "Setting up mouse picker and get_intersection viewport, camera & screen quad");
-	_mouse_vp = memnew(SubViewport);
-	_mouse_vp->set_name("MouseViewport");
-	add_child(_mouse_vp, true);
-	_mouse_vp->set_size(Vector2i(2, 2));
-	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
-	_mouse_vp->set_handle_input_locally(false);
-	_mouse_vp->set_canvas_cull_mask(0);
-	_mouse_vp->set_use_hdr_2d(true);
-	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
-	_mouse_vp->set_positional_shadow_atlas_size(0);
-	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(0, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
-	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(1, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
-	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(2, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
-	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(3, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
-
-	_mouse_cam = memnew(Camera3D);
-	_mouse_cam->set_name("MouseCamera");
-	_mouse_vp->add_child(_mouse_cam, true);
-	Ref<Environment> env;
-	env.instantiate();
-	env->set_tonemapper(Environment::TONE_MAPPER_LINEAR);
-	_mouse_cam->set_environment(env);
-	_mouse_cam->set_projection(Camera3D::PROJECTION_ORTHOGONAL);
-	_mouse_cam->set_size(0.1f);
-	_mouse_cam->set_far(100000.f);
-
-	_mouse_quad = memnew(MeshInstance3D);
-	_mouse_quad->set_name("MouseQuad");
-	_mouse_cam->add_child(_mouse_quad, true);
-	Ref<QuadMesh> quad;
-	quad.instantiate();
-	quad->set_size(Vector2(0.1f, 0.1f));
-	_mouse_quad->set_mesh(quad);
-	String shader_code = String(
-#include "shaders/gpu_depth.glsl"
-	);
-	Ref<Shader> shader;
-	shader.instantiate();
-	shader->set_code(shader_code);
-	Ref<ShaderMaterial> shader_material;
-	shader_material.instantiate();
-	shader_material->set_shader(shader);
-	_mouse_quad->set_surface_override_material(0, shader_material);
-	_mouse_quad->set_position(Vector3(0.f, 0.f, -0.5f));
-
-	// Set terrain, terrain shader, mouse camera, and screen quad to mouse layer
-	set_mouse_layer(_mouse_layer);
+void Terrain3D::_destroy_instancer() {
+	memdelete_safely(_instancer);
 }
 
-void Terrain3D::_destroy_mouse_picking() {
-	LOG(DEBUG, "Freeing mouse_quad");
-	memdelete_safely(_mouse_quad);
-	LOG(DEBUG, "Freeing mouse_cam");
-	memdelete_safely(_mouse_cam);
-	LOG(DEBUG, "Freeing mouse_vp");
-	memdelete_safely(_mouse_vp);
+void Terrain3D::_build_collision() {
+	if (!_collision_enabled || !_is_inside_world || !is_inside_tree()) {
+		return;
+	}
+	// Create collision only in game, unless showing debug
+	if (IS_EDITOR && !_is_collision_editor()) {
+		return;
+	}
+	if (_data == nullptr) {
+		LOG(ERROR, "_data missing, cannot create collision");
+		return;
+	}
+	_destroy_collision();
+
+	if (!_is_collision_editor()) {
+		LOG(INFO, "Building collision with physics server");
+		_static_body = PhysicsServer3D::get_singleton()->body_create();
+		PhysicsServer3D::get_singleton()->body_set_mode(_static_body, PhysicsServer3D::BODY_MODE_STATIC);
+		PhysicsServer3D::get_singleton()->body_set_space(_static_body, get_world_3d()->get_space());
+		PhysicsServer3D::get_singleton()->body_attach_object_instance_id(_static_body, get_instance_id());
+	} else {
+		LOG(WARN, "Building editor collision. Disable this mode for releases");
+		_debug_static_body = memnew(StaticBody3D);
+		_debug_static_body->set_name("StaticBody3D");
+		_debug_static_body->set_as_top_level(true);
+		add_child(_debug_static_body, true);
+	}
+	_update_collision();
+}
+
+/* Eventually this should be callable to update collision on changes,
+ * and especially updating only the ones that have changed. However it's not there yet, so
+ * destroy and recreate for now.
+ */
+void Terrain3D::_update_collision() {
+	if (!_collision_enabled || !is_inside_tree()) {
+		return;
+	}
+	// Create collision only in game, unless showing debug
+	if (IS_EDITOR && !_is_collision_editor()) {
+		return;
+	}
+	if ((!_is_collision_editor() && !_static_body.is_valid()) ||
+			(_is_collision_editor() && _debug_static_body == nullptr)) {
+		_build_collision();
+	}
+
+	int time = Time::get_singleton()->get_ticks_msec();
+	int shape_size = _region_size + 1;
+	float hole_const = NAN;
+	// DEPRECATED - Jolt v0.12 supports NAN. Remove check when it's old.
+	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
+		hole_const = FLT_MAX;
+	}
+
+	for (int i = 0; i < _data->get_region_count(); i++) {
+		PackedRealArray map_data = PackedRealArray();
+		map_data.resize(shape_size * shape_size);
+
+		Vector2i region_loc = _data->get_region_locations()[i];
+		Vector2i global_loc = region_loc * _region_size;
+		Vector3 global_pos = Vector3(global_loc.x, 0.f, global_loc.y);
+
+		Ref<Image> map, map_x, map_z, map_xz;
+		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
+		Ref<Terrain3DRegion> region = _data->get_region(region_loc);
+		if (region.is_null()) {
+			LOG(ERROR, "Region ", region_loc, " not found");
+			continue;
+		}
+		map = region->get_map(TYPE_HEIGHT);
+		cmap = region->get_map(TYPE_CONTROL);
+
+		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z) * _vertex_spacing);
+		if (region.is_valid()) {
+			map_x = region->get_map(TYPE_HEIGHT);
+			cmap_x = region->get_map(TYPE_CONTROL);
+		}
+		region = _data->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + _region_size) * _vertex_spacing);
+		if (region.is_valid()) {
+			map_z = region->get_map(TYPE_HEIGHT);
+			cmap_z = region->get_map(TYPE_CONTROL);
+		}
+		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z + _region_size) * _vertex_spacing);
+		if (region.is_valid()) {
+			map_xz = region->get_map(TYPE_HEIGHT);
+			cmap_xz = region->get_map(TYPE_CONTROL);
+		}
+
+		for (int z = 0; z < shape_size; z++) {
+			for (int x = 0; x < shape_size; x++) {
+				// Choose array indexing to match triangulation of heightmapshape with the mesh
+				// https://stackoverflow.com/questions/16684856/rotating-a-2d-pixel-array-by-90-degrees
+				// Normal array index rotated Y=0 - shape rotation Y=0 (xform below)
+				// int index = z * shape_size + x;
+				// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
+				int index = shape_size - 1 - z + x * shape_size;
+
+				// Set heights on local map, or adjacent maps if on the last row/col
+				if (x < _region_size && z < _region_size) {
+					map_data[index] = (is_hole(cmap->get_pixel(x, z).r)) ? hole_const : map->get_pixel(x, z).r;
+				} else if (x == _region_size && z < _region_size) {
+					if (map_x.is_valid()) {
+						map_data[index] = (is_hole(cmap_x->get_pixel(0, z).r)) ? hole_const : map_x->get_pixel(0, z).r;
+					} else {
+						map_data[index] = 0.0f;
+					}
+				} else if (z == _region_size && x < _region_size) {
+					if (map_z.is_valid()) {
+						map_data[index] = (is_hole(cmap_z->get_pixel(x, 0).r)) ? hole_const : map_z->get_pixel(x, 0).r;
+					} else {
+						map_data[index] = 0.0f;
+					}
+				} else if (x == _region_size && z == _region_size) {
+					if (map_xz.is_valid()) {
+						map_data[index] = (is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
+					} else {
+						map_data[index] = 0.0f;
+					}
+				}
+			}
+		}
+
+		// Non rotated shape for normal array index above
+		//Transform3D xform = Transform3D(Basis(), global_pos);
+		// Rotated shape Y=90 for -90 rotated array index
+		Transform3D xform = Transform3D(Basis(Vector3(0.f, 1.f, 0.f), Math_PI * .5f),
+				global_pos + Vector3(_region_size, 0.f, _region_size) * .5f);
+		xform.scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
+
+		if (!_is_collision_editor()) {
+			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
+			Dictionary shape_data;
+			shape_data["width"] = shape_size;
+			shape_data["depth"] = shape_size;
+			shape_data["heights"] = map_data;
+			Vector2 min_max = _data->get_height_range();
+			shape_data["min_height"] = min_max.x;
+			shape_data["max_height"] = min_max.y;
+			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
+			PhysicsServer3D::get_singleton()->body_add_shape(_static_body, shape);
+			PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, i, xform);
+			PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
+			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
+			PhysicsServer3D::get_singleton()->body_set_collision_priority(_static_body, _collision_priority);
+		} else {
+			CollisionShape3D *debug_col_shape;
+			debug_col_shape = memnew(CollisionShape3D);
+			debug_col_shape->set_name("CollisionShape3D");
+			_debug_static_body->add_child(debug_col_shape, true);
+			debug_col_shape->set_owner(_debug_static_body);
+
+			Ref<HeightMapShape3D> hshape;
+			hshape.instantiate();
+			hshape->set_map_width(shape_size);
+			hshape->set_map_depth(shape_size);
+			hshape->set_map_data(map_data);
+			debug_col_shape->set_shape(hshape);
+			debug_col_shape->set_global_transform(xform);
+			_debug_static_body->set_collision_mask(_collision_mask);
+			_debug_static_body->set_collision_layer(_collision_layer);
+			_debug_static_body->set_collision_priority(_collision_priority);
+		}
+	}
+	LOG(DEBUG, "Collision creation time: ", Time::get_singleton()->get_ticks_msec() - time, " ms");
+}
+
+void Terrain3D::_destroy_collision() {
+	if (_static_body.is_valid()) {
+		LOG(INFO, "Freeing physics body");
+		RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, 0);
+		PhysicsServer3D::get_singleton()->free_rid(shape);
+		PhysicsServer3D::get_singleton()->free_rid(_static_body);
+		_static_body = RID();
+	}
+
+	if (_debug_static_body != nullptr) {
+		LOG(INFO, "Freeing debug static body");
+		for (int i = 0; i < _debug_static_body->get_child_count(); i++) {
+			Node *child = _debug_static_body->get_child(i);
+			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
+			_debug_static_body->remove_child(child);
+			memdelete(child);
+		}
+
+		LOG(DEBUG, "Freeing static body");
+		remove_child(_debug_static_body);
+		memdelete(_debug_static_body);
+		_debug_static_body = nullptr;
+	}
 }
 
 void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
@@ -437,200 +569,68 @@ void Terrain3D::_clear_meshes() {
 	_initialized = false;
 }
 
-void Terrain3D::_build_collision() {
-	if (!_collision_enabled || !_is_inside_world || !is_inside_tree()) {
+void Terrain3D::_setup_mouse_picking() {
+	if (!is_inside_tree()) {
+		LOG(ERROR, "Not inside the tree, skipping mouse setup");
 		return;
 	}
-	// Create collision only in game, unless showing debug
-	if (IS_EDITOR && !_is_collision_editor()) {
-		return;
-	}
-	if (_data == nullptr) {
-		LOG(ERROR, "_data missing, cannot create collision");
-		return;
-	}
-	_destroy_collision();
+	LOG(INFO, "Setting up mouse picker and get_intersection viewport, camera & screen quad");
+	_mouse_vp = memnew(SubViewport);
+	_mouse_vp->set_name("MouseViewport");
+	add_child(_mouse_vp, true);
+	_mouse_vp->set_size(Vector2i(2, 2));
+	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	_mouse_vp->set_handle_input_locally(false);
+	_mouse_vp->set_canvas_cull_mask(0);
+	_mouse_vp->set_use_hdr_2d(true);
+	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+	_mouse_vp->set_positional_shadow_atlas_size(0);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(0, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(1, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(2, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
+	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(3, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
 
-	if (!_is_collision_editor()) {
-		LOG(INFO, "Building collision with physics server");
-		_static_body = PhysicsServer3D::get_singleton()->body_create();
-		PhysicsServer3D::get_singleton()->body_set_mode(_static_body, PhysicsServer3D::BODY_MODE_STATIC);
-		PhysicsServer3D::get_singleton()->body_set_space(_static_body, get_world_3d()->get_space());
-		PhysicsServer3D::get_singleton()->body_attach_object_instance_id(_static_body, get_instance_id());
-	} else {
-		LOG(WARN, "Building editor collision. Disable this mode for releases");
-		_debug_static_body = memnew(StaticBody3D);
-		_debug_static_body->set_name("StaticBody3D");
-		_debug_static_body->set_as_top_level(true);
-		add_child(_debug_static_body, true);
-	}
-	_update_collision();
+	_mouse_cam = memnew(Camera3D);
+	_mouse_cam->set_name("MouseCamera");
+	_mouse_vp->add_child(_mouse_cam, true);
+	Ref<Environment> env;
+	env.instantiate();
+	env->set_tonemapper(Environment::TONE_MAPPER_LINEAR);
+	_mouse_cam->set_environment(env);
+	_mouse_cam->set_projection(Camera3D::PROJECTION_ORTHOGONAL);
+	_mouse_cam->set_size(0.1f);
+	_mouse_cam->set_far(100000.f);
+
+	_mouse_quad = memnew(MeshInstance3D);
+	_mouse_quad->set_name("MouseQuad");
+	_mouse_cam->add_child(_mouse_quad, true);
+	Ref<QuadMesh> quad;
+	quad.instantiate();
+	quad->set_size(Vector2(0.1f, 0.1f));
+	_mouse_quad->set_mesh(quad);
+	String shader_code = String(
+#include "shaders/gpu_depth.glsl"
+	);
+	Ref<Shader> shader;
+	shader.instantiate();
+	shader->set_code(shader_code);
+	Ref<ShaderMaterial> shader_material;
+	shader_material.instantiate();
+	shader_material->set_shader(shader);
+	_mouse_quad->set_surface_override_material(0, shader_material);
+	_mouse_quad->set_position(Vector3(0.f, 0.f, -0.5f));
+
+	// Set terrain, terrain shader, mouse camera, and screen quad to mouse layer
+	set_mouse_layer(_mouse_layer);
 }
 
-/* Eventually this should be callable to update collision on changes,
- * and especially updating only the ones that have changed. However it's not there yet, so
- * destroy and recreate for now.
- */
-void Terrain3D::_update_collision() {
-	if (!_collision_enabled || !is_inside_tree()) {
-		return;
-	}
-	// Create collision only in game, unless showing debug
-	if (IS_EDITOR && !_is_collision_editor()) {
-		return;
-	}
-	if ((!_is_collision_editor() && !_static_body.is_valid()) ||
-			(_is_collision_editor() && _debug_static_body == nullptr)) {
-		_build_collision();
-	}
-
-	int time = Time::get_singleton()->get_ticks_msec();
-	int shape_size = _region_size + 1;
-	float hole_const = NAN;
-	// DEPRECATED - Jolt v0.12 supports NAN. Remove check when it's old.
-	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
-		hole_const = FLT_MAX;
-	}
-
-	for (int i = 0; i < _data->get_region_count(); i++) {
-		PackedRealArray map_data = PackedRealArray();
-		map_data.resize(shape_size * shape_size);
-
-		Vector2i region_loc = _data->get_region_locations()[i];
-		Vector2i global_loc = region_loc * _region_size;
-		Vector3 global_pos = Vector3(global_loc.x, 0.f, global_loc.y);
-
-		Ref<Image> map, map_x, map_z, map_xz;
-		Ref<Image> cmap, cmap_x, cmap_z, cmap_xz;
-		Ref<Terrain3DRegion> region = _data->get_region(region_loc);
-		if (region.is_null()) {
-			LOG(ERROR, "Region ", region_loc, " not found");
-			continue;
-		}
-		map = region->get_map(TYPE_HEIGHT);
-		cmap = region->get_map(TYPE_CONTROL);
-
-		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z) * _vertex_spacing);
-		if (region.is_valid()) {
-			map_x = region->get_map(TYPE_HEIGHT);
-			cmap_x = region->get_map(TYPE_CONTROL);
-		}
-		region = _data->get_regionp(Vector3(global_pos.x, 0.f, global_pos.z + _region_size) * _vertex_spacing);
-		if (region.is_valid()) {
-			map_z = region->get_map(TYPE_HEIGHT);
-			cmap_z = region->get_map(TYPE_CONTROL);
-		}
-		region = _data->get_regionp(Vector3(global_pos.x + _region_size, 0.f, global_pos.z + _region_size) * _vertex_spacing);
-		if (region.is_valid()) {
-			map_xz = region->get_map(TYPE_HEIGHT);
-			cmap_xz = region->get_map(TYPE_CONTROL);
-		}
-
-		for (int z = 0; z < shape_size; z++) {
-			for (int x = 0; x < shape_size; x++) {
-				// Choose array indexing to match triangulation of heightmapshape with the mesh
-				// https://stackoverflow.com/questions/16684856/rotating-a-2d-pixel-array-by-90-degrees
-				// Normal array index rotated Y=0 - shape rotation Y=0 (xform below)
-				// int index = z * shape_size + x;
-				// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
-				int index = shape_size - 1 - z + x * shape_size;
-
-				// Set heights on local map, or adjacent maps if on the last row/col
-				if (x < _region_size && z < _region_size) {
-					map_data[index] = (is_hole(cmap->get_pixel(x, z).r)) ? hole_const : map->get_pixel(x, z).r;
-				} else if (x == _region_size && z < _region_size) {
-					if (map_x.is_valid()) {
-						map_data[index] = (is_hole(cmap_x->get_pixel(0, z).r)) ? hole_const : map_x->get_pixel(0, z).r;
-					} else {
-						map_data[index] = 0.0f;
-					}
-				} else if (z == _region_size && x < _region_size) {
-					if (map_z.is_valid()) {
-						map_data[index] = (is_hole(cmap_z->get_pixel(x, 0).r)) ? hole_const : map_z->get_pixel(x, 0).r;
-					} else {
-						map_data[index] = 0.0f;
-					}
-				} else if (x == _region_size && z == _region_size) {
-					if (map_xz.is_valid()) {
-						map_data[index] = (is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
-					} else {
-						map_data[index] = 0.0f;
-					}
-				}
-			}
-		}
-
-		// Non rotated shape for normal array index above
-		//Transform3D xform = Transform3D(Basis(), global_pos);
-		// Rotated shape Y=90 for -90 rotated array index
-		Transform3D xform = Transform3D(Basis(Vector3(0.f, 1.f, 0.f), Math_PI * .5f),
-				global_pos + Vector3(_region_size, 0.f, _region_size) * .5f);
-		xform.scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
-
-		if (!_is_collision_editor()) {
-			RID shape = PhysicsServer3D::get_singleton()->heightmap_shape_create();
-			Dictionary shape_data;
-			shape_data["width"] = shape_size;
-			shape_data["depth"] = shape_size;
-			shape_data["heights"] = map_data;
-			Vector2 min_max = _data->get_height_range();
-			shape_data["min_height"] = min_max.x;
-			shape_data["max_height"] = min_max.y;
-			PhysicsServer3D::get_singleton()->shape_set_data(shape, shape_data);
-			PhysicsServer3D::get_singleton()->body_add_shape(_static_body, shape);
-			PhysicsServer3D::get_singleton()->body_set_shape_transform(_static_body, i, xform);
-			PhysicsServer3D::get_singleton()->body_set_collision_mask(_static_body, _collision_mask);
-			PhysicsServer3D::get_singleton()->body_set_collision_layer(_static_body, _collision_layer);
-			PhysicsServer3D::get_singleton()->body_set_collision_priority(_static_body, _collision_priority);
-		} else {
-			CollisionShape3D *debug_col_shape;
-			debug_col_shape = memnew(CollisionShape3D);
-			debug_col_shape->set_name("CollisionShape3D");
-			_debug_static_body->add_child(debug_col_shape, true);
-			debug_col_shape->set_owner(_debug_static_body);
-
-			Ref<HeightMapShape3D> hshape;
-			hshape.instantiate();
-			hshape->set_map_width(shape_size);
-			hshape->set_map_depth(shape_size);
-			hshape->set_map_data(map_data);
-			debug_col_shape->set_shape(hshape);
-			debug_col_shape->set_global_transform(xform);
-			_debug_static_body->set_collision_mask(_collision_mask);
-			_debug_static_body->set_collision_layer(_collision_layer);
-			_debug_static_body->set_collision_priority(_collision_priority);
-		}
-	}
-	LOG(DEBUG, "Collision creation time: ", Time::get_singleton()->get_ticks_msec() - time, " ms");
-}
-
-void Terrain3D::_destroy_collision() {
-	if (_static_body.is_valid()) {
-		LOG(INFO, "Freeing physics body");
-		RID shape = PhysicsServer3D::get_singleton()->body_get_shape(_static_body, 0);
-		PhysicsServer3D::get_singleton()->free_rid(shape);
-		PhysicsServer3D::get_singleton()->free_rid(_static_body);
-		_static_body = RID();
-	}
-
-	if (_debug_static_body != nullptr) {
-		LOG(INFO, "Freeing debug static body");
-		for (int i = 0; i < _debug_static_body->get_child_count(); i++) {
-			Node *child = _debug_static_body->get_child(i);
-			LOG(DEBUG, "Freeing dsb child ", i, " ", child->get_name());
-			_debug_static_body->remove_child(child);
-			memdelete(child);
-		}
-
-		LOG(DEBUG, "Freeing static body");
-		remove_child(_debug_static_body);
-		memdelete(_debug_static_body);
-		_debug_static_body = nullptr;
-	}
-}
-
-void Terrain3D::_destroy_instancer() {
-	memdelete_safely(_instancer);
+void Terrain3D::_destroy_mouse_picking() {
+	LOG(DEBUG, "Freeing mouse_quad");
+	memdelete_safely(_mouse_quad);
+	LOG(DEBUG, "Freeing mouse_cam");
+	memdelete_safely(_mouse_cam);
+	LOG(DEBUG, "Freeing mouse_vp");
+	memdelete_safely(_mouse_vp);
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
@@ -760,12 +760,50 @@ void Terrain3D::set_data_directory(String p_dir) {
 		_initialize();
 	}
 }
-
-String Terrain3D::get_data_directory() const {
-	if (_data == nullptr) {
-		return "";
+void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
+	if (_material != p_material) {
+		_clear_meshes();
+		LOG(INFO, "Setting material");
+		_material = p_material;
+		_initialize();
+		emit_signal("material_changed");
 	}
-	return _data_directory;
+}
+
+void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
+	if (_assets != p_assets) {
+		_clear_meshes();
+		LOG(INFO, "Setting asset list");
+		_assets = p_assets;
+		_initialize();
+		emit_signal("assets_changed");
+	}
+}
+
+void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
+	_editor = p_editor;
+	LOG(DEBUG, "Received Terrain3DEditor: ", p_editor);
+}
+
+void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
+	_plugin = p_plugin;
+	LOG(DEBUG, "Received editor plugin: ", p_plugin);
+}
+
+void Terrain3D::set_camera(Camera3D *p_camera) {
+	if (_camera != p_camera) {
+		_camera = p_camera;
+		if (p_camera == nullptr) {
+			LOG(DEBUG, "Received null camera. Calling _grab_camera()");
+			_grab_camera();
+		} else {
+			_camera = p_camera;
+			_camera_instance_id = _camera->get_instance_id();
+			LOG(DEBUG, "Setting camera: ", _camera);
+			_initialize();
+			set_process(true); // enable __process snapping
+		}
+	}
 }
 
 void Terrain3D::set_region_size(const RegionSize p_size) {
@@ -780,13 +818,6 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 	if (_material.is_valid()) {
 		_material->_update_maps();
 	}
-}
-
-void Terrain3D::change_region_size(const RegionSize p_size) {
-	if (_data == nullptr) {
-		return;
-	}
-	_data->change_region_size(p_size);
 }
 
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
@@ -842,143 +873,6 @@ void Terrain3D::update_region_labels() {
 			label->set_position(pos);
 		}
 	}
-}
-
-void Terrain3D::set_mesh_lods(const int p_count) {
-	if (_mesh_lods != p_count) {
-		_clear_meshes();
-		_destroy_collision();
-		LOG(INFO, "Setting mesh levels: ", p_count);
-		_mesh_lods = p_count;
-		_initialize();
-	}
-}
-
-void Terrain3D::set_mesh_size(const int p_size) {
-	if (_mesh_size != p_size) {
-		_clear_meshes();
-		_destroy_collision();
-		LOG(INFO, "Setting mesh size: ", p_size);
-		_mesh_size = p_size;
-		_initialize();
-	}
-}
-
-void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
-	real_t spacing = CLAMP(p_spacing, 0.25f, 100.0f);
-	if (_vertex_spacing != spacing) {
-		real_t scale = spacing / _vertex_spacing;
-		_vertex_spacing = spacing;
-		LOG(INFO, "Setting vertex spacing: ", _vertex_spacing);
-		_clear_meshes();
-		_destroy_collision();
-		_destroy_instancer();
-		_initialize();
-		_data->_vertex_spacing = _vertex_spacing;
-		Dictionary mmis = _instancer->get_mmis();
-		Array keys = mmis.keys();
-		for (int i = 0; i < keys.size(); i++) {
-			MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mmis[keys[i]]);
-			if (mmi != nullptr) {
-				mmi->set_scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
-			}
-		}
-		update_region_labels();
-	}
-	if (IS_EDITOR && _plugin != nullptr) {
-		_plugin->call("update_region_grid");
-	}
-}
-
-void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
-	if (_material != p_material) {
-		_clear_meshes();
-		LOG(INFO, "Setting material");
-		_material = p_material;
-		_initialize();
-		emit_signal("material_changed");
-	}
-}
-
-void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
-	if (_assets != p_assets) {
-		_clear_meshes();
-		LOG(INFO, "Setting asset list");
-		_assets = p_assets;
-		_initialize();
-		emit_signal("assets_changed");
-	}
-}
-
-void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
-	_editor = p_editor;
-	LOG(DEBUG, "Received Terrain3DEditor: ", p_editor);
-}
-
-void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
-	_plugin = p_plugin;
-	LOG(DEBUG, "Received editor plugin: ", p_plugin);
-}
-
-void Terrain3D::set_camera(Camera3D *p_camera) {
-	if (_camera != p_camera) {
-		_camera = p_camera;
-		if (p_camera == nullptr) {
-			LOG(DEBUG, "Received null camera. Calling _grab_camera()");
-			_grab_camera();
-		} else {
-			_camera = p_camera;
-			_camera_instance_id = _camera->get_instance_id();
-			LOG(DEBUG, "Setting camera: ", _camera);
-			_initialize();
-			set_process(true); // enable __process snapping
-		}
-	}
-}
-
-void Terrain3D::set_render_layers(const uint32_t p_layers) {
-	LOG(INFO, "Setting terrain render layers to: ", p_layers);
-	_render_layers = p_layers;
-	_update_mesh_instances();
-}
-
-void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
-	uint32_t layer = CLAMP(p_layer, 21, 32);
-	_mouse_layer = layer;
-	uint32_t mouse_mask = 1 << (_mouse_layer - 1);
-	LOG(INFO, "Setting mouse layer: ", layer, " (", mouse_mask, ") on terrain mesh, material, mouse camera, mouse quad");
-
-	// Set terrain meshes to mouse layer
-	// Mask off editor render layers by ORing user layers 1-20 and current mouse layer
-	set_render_layers((_render_layers & 0xFFFFF) | mouse_mask);
-	// Set terrain shader to exclude mouse camera from showing holes
-	if (_material != nullptr) {
-		_material->set_shader_param("_mouse_layer", mouse_mask);
-	}
-	// Set mouse camera to see only mouse layer
-	if (_mouse_cam != nullptr) {
-		_mouse_cam->set_cull_mask(mouse_mask);
-	}
-	// Set screenquad to mouse layer
-	if (_mouse_quad != nullptr) {
-		_mouse_quad->set_layer_mask(mouse_mask);
-	}
-}
-
-void Terrain3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
-	_cast_shadows = p_cast_shadows;
-	_update_mesh_instances();
-}
-
-void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
-	_gi_mode = p_gi_mode;
-	_update_mesh_instances();
-}
-
-void Terrain3D::set_cull_margin(const real_t p_margin) {
-	LOG(INFO, "Setting extra cull margin: ", p_margin);
-	_cull_margin = p_margin;
-	update_aabbs();
 }
 
 void Terrain3D::set_collision_enabled(const bool p_enabled) {
@@ -1051,6 +945,97 @@ RID Terrain3D::get_collision_rid() const {
 		}
 	}
 	return RID();
+}
+
+void Terrain3D::set_mesh_lods(const int p_count) {
+	if (_mesh_lods != p_count) {
+		_clear_meshes();
+		_destroy_collision();
+		LOG(INFO, "Setting mesh levels: ", p_count);
+		_mesh_lods = p_count;
+		_initialize();
+	}
+}
+
+void Terrain3D::set_mesh_size(const int p_size) {
+	if (_mesh_size != p_size) {
+		_clear_meshes();
+		_destroy_collision();
+		LOG(INFO, "Setting mesh size: ", p_size);
+		_mesh_size = p_size;
+		_initialize();
+	}
+}
+
+void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
+	real_t spacing = CLAMP(p_spacing, 0.25f, 100.0f);
+	if (_vertex_spacing != spacing) {
+		real_t scale = spacing / _vertex_spacing;
+		_vertex_spacing = spacing;
+		LOG(INFO, "Setting vertex spacing: ", _vertex_spacing);
+		_clear_meshes();
+		_destroy_collision();
+		_destroy_instancer();
+		_initialize();
+		_data->_vertex_spacing = _vertex_spacing;
+		Dictionary mmis = _instancer->get_mmis();
+		Array keys = mmis.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mmis[keys[i]]);
+			if (mmi != nullptr) {
+				mmi->set_scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
+			}
+		}
+		update_region_labels();
+	}
+	if (IS_EDITOR && _plugin != nullptr) {
+		_plugin->call("update_region_grid");
+	}
+}
+
+void Terrain3D::set_render_layers(const uint32_t p_layers) {
+	LOG(INFO, "Setting terrain render layers to: ", p_layers);
+	_render_layers = p_layers;
+	_update_mesh_instances();
+}
+
+void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
+	uint32_t layer = CLAMP(p_layer, 21, 32);
+	_mouse_layer = layer;
+	uint32_t mouse_mask = 1 << (_mouse_layer - 1);
+	LOG(INFO, "Setting mouse layer: ", layer, " (", mouse_mask, ") on terrain mesh, material, mouse camera, mouse quad");
+
+	// Set terrain meshes to mouse layer
+	// Mask off editor render layers by ORing user layers 1-20 and current mouse layer
+	set_render_layers((_render_layers & 0xFFFFF) | mouse_mask);
+	// Set terrain shader to exclude mouse camera from showing holes
+	if (_material != nullptr) {
+		_material->set_shader_param("_mouse_layer", mouse_mask);
+	}
+	// Set mouse camera to see only mouse layer
+	if (_mouse_cam != nullptr) {
+		_mouse_cam->set_cull_mask(mouse_mask);
+	}
+	// Set screenquad to mouse layer
+	if (_mouse_quad != nullptr) {
+		_mouse_quad->set_layer_mask(mouse_mask);
+	}
+}
+
+void Terrain3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
+	_cast_shadows = p_cast_shadows;
+	_update_mesh_instances();
+}
+
+void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
+	_gi_mode = p_gi_mode;
+	_update_mesh_instances();
+}
+
+void Terrain3D::set_cull_margin(const real_t p_margin) {
+	LOG(INFO, "Setting extra cull margin: ", p_margin);
+	_cull_margin = p_margin;
+	update_aabbs();
 }
 
 /**
@@ -1300,67 +1285,6 @@ PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	return psa;
 }
 
-// DEPRECATED 0.9.2 - Remove 0.9.3+
-void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
-	if (p_texture_list.is_null()) {
-		LOG(ERROR, "Attempted to upgrade Terrain3DTextureList, but received null (perhaps already a Terrain3DAssets). Reconnect manually and save.");
-		return;
-	}
-	LOG(WARN, "Loaded Terrain3DTextureList. Converting to Terrain3DAssets. Save this scene to complete.");
-	Ref<Terrain3DAssets> assets;
-	assets.instantiate();
-	assets->set_texture_list(p_texture_list->get_textures());
-	assets->take_over_path(p_texture_list->get_path());
-	set_assets(assets);
-}
-
-// DEPRECATED 0.9.3 - Remove 0.9.4+
-void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
-	_storage = p_storage;
-	if (p_storage.is_valid()) {
-		LOG(WARN, "Loaded Terrain3DStorage v", vformat("%.3f", p_storage->get_version()), ". Use Terrain3D Tools / Directory Setup to upgrade");
-		set_region_size(SIZE_1024);
-	}
-}
-
-void Terrain3D::split_storage() {
-	if (_storage.is_null()) {
-		LOG(ERROR, "Storage has not been loaded");
-		return;
-	}
-	if (_data == nullptr) {
-		LOG(ERROR, "_data has not been initialized");
-		return;
-	}
-	if (_data_directory.is_empty()) {
-		LOG(ERROR, "Data_directory is empty");
-		return;
-	}
-
-	set_region_size(SIZE_1024);
-	TypedArray<Vector2i> locations = _storage->get_region_offsets();
-	TypedArray<Image> hmaps = _storage->get_maps(Terrain3DStorage::TYPE_HEIGHT);
-	TypedArray<Image> ctlmaps = _storage->get_maps(Terrain3DStorage::TYPE_CONTROL);
-	TypedArray<Image> clrmaps = _storage->get_maps(Terrain3DStorage::TYPE_COLOR);
-	Dictionary mms = _storage->get_multimeshes();
-
-	for (int i = 0; i < locations.size(); i++) {
-		Ref<Terrain3DRegion> region;
-		region.instantiate();
-		region->set_location(locations[i]);
-		region->set_height_map(hmaps[i]);
-		region->set_control_map(ctlmaps[i]);
-		region->set_color_map(clrmaps[i]);
-		region->set_multimeshes(mms[locations[i]]);
-		_data->add_region(region, false);
-		LOG(INFO, "Splicing region ", locations[i]);
-	}
-	_storage.unref();
-	_data->force_update_maps();
-	_instancer->force_update_mmis();
-	LOG(WARN, "Terrain3DStorage has been converted to Terrain3DData. Save to write changes to disk");
-}
-
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1523,12 +1447,19 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
 	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
 
+	// Object references
 	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3D::get_data);
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &Terrain3D::set_material);
 	ClassDB::bind_method(D_METHOD("get_material"), &Terrain3D::get_material);
 	ClassDB::bind_method(D_METHOD("set_assets", "assets"), &Terrain3D::set_assets);
 	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
 	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
+	ClassDB::bind_method(D_METHOD("set_editor", "editor"), &Terrain3D::set_editor);
+	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
+	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
+	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
+	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
+	ClassDB::bind_method(D_METHOD("get_camera"), &Terrain3D::get_camera);
 
 	//Regions
 	ClassDB::bind_method(D_METHOD("change_region_size", "size"), &Terrain3D::change_region_size);
@@ -1542,31 +1473,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_grid", "enabled"), &Terrain3D::set_show_grid);
 	ClassDB::bind_method(D_METHOD("get_show_grid"), &Terrain3D::get_show_grid);
 
-	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
-	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
-	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
-	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
-	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
-	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
-
-	ClassDB::bind_method(D_METHOD("set_editor", "editor"), &Terrain3D::set_editor);
-	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
-	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
-	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
-	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
-	ClassDB::bind_method(D_METHOD("get_camera"), &Terrain3D::get_camera);
-
-	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
-	ClassDB::bind_method(D_METHOD("get_render_layers"), &Terrain3D::get_render_layers);
-	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Terrain3D::set_mouse_layer);
-	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Terrain3D::get_mouse_layer);
-	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
-	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
-	ClassDB::bind_method(D_METHOD("set_gi_mode", "gi_mode"), &Terrain3D::set_gi_mode);
-	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
-	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
-	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
-
+	// Collision
 	ClassDB::bind_method(D_METHOD("set_collision_enabled", "enabled"), &Terrain3D::set_collision_enabled);
 	ClassDB::bind_method(D_METHOD("get_collision_enabled"), &Terrain3D::get_collision_enabled);
 	ClassDB::bind_method(D_METHOD("set_collision_mode", "mode"), &Terrain3D::set_collision_mode);
@@ -1579,6 +1486,27 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
 	ClassDB::bind_method(D_METHOD("get_collision_rid"), &Terrain3D::get_collision_rid);
 
+	// Meshes
+	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
+	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
+	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
+	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
+
+	// Rendering
+	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
+	ClassDB::bind_method(D_METHOD("get_render_layers"), &Terrain3D::get_render_layers);
+	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Terrain3D::set_mouse_layer);
+	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Terrain3D::get_mouse_layer);
+	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
+	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_gi_mode", "gi_mode"), &Terrain3D::set_gi_mode);
+	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
+	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
+	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
+
+	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Terrain3D::get_intersection);
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
@@ -1587,10 +1515,11 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "data_directory", PROPERTY_HINT_DIR), "set_data_directory", "get_data_directory");
 
+	// Object references
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "Terrain3DData", PROPERTY_USAGE_NONE), "", "get_data");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMaterial"), "set_material", "get_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
 
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
@@ -1631,4 +1560,69 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 	ClassDB::bind_method(D_METHOD("split_storage"), &Terrain3D::split_storage);
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage", PROPERTY_USAGE_NONE), "set_storage", "get_storage");
+}
+
+///////////////////////////
+// DEPRECATED Functions
+///////////////////////////
+
+// DEPRECATED 0.9.2 - Remove 0.9.3+
+void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
+	if (p_texture_list.is_null()) {
+		LOG(ERROR, "Attempted to upgrade Terrain3DTextureList, but received null (perhaps already a Terrain3DAssets). Reconnect manually and save.");
+		return;
+	}
+	LOG(WARN, "Loaded Terrain3DTextureList. Converting to Terrain3DAssets. Save this scene to complete.");
+	Ref<Terrain3DAssets> assets;
+	assets.instantiate();
+	assets->set_texture_list(p_texture_list->get_textures());
+	assets->take_over_path(p_texture_list->get_path());
+	set_assets(assets);
+}
+
+// DEPRECATED 0.9.3 - Remove 0.9.4+
+void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
+	_storage = p_storage;
+	if (p_storage.is_valid()) {
+		LOG(WARN, "Loaded Terrain3DStorage v", vformat("%.3f", p_storage->get_version()), ". Use Terrain3D Tools / Directory Setup to upgrade");
+		set_region_size(SIZE_1024);
+	}
+}
+
+void Terrain3D::split_storage() {
+	if (_storage.is_null()) {
+		LOG(ERROR, "Storage has not been loaded");
+		return;
+	}
+	if (_data == nullptr) {
+		LOG(ERROR, "_data has not been initialized");
+		return;
+	}
+	if (_data_directory.is_empty()) {
+		LOG(ERROR, "Data_directory is empty");
+		return;
+	}
+
+	set_region_size(SIZE_1024);
+	TypedArray<Vector2i> locations = _storage->get_region_offsets();
+	TypedArray<Image> hmaps = _storage->get_maps(Terrain3DStorage::TYPE_HEIGHT);
+	TypedArray<Image> ctlmaps = _storage->get_maps(Terrain3DStorage::TYPE_CONTROL);
+	TypedArray<Image> clrmaps = _storage->get_maps(Terrain3DStorage::TYPE_COLOR);
+	Dictionary mms = _storage->get_multimeshes();
+
+	for (int i = 0; i < locations.size(); i++) {
+		Ref<Terrain3DRegion> region;
+		region.instantiate();
+		region->set_location(locations[i]);
+		region->set_height_map(hmaps[i]);
+		region->set_control_map(ctlmaps[i]);
+		region->set_color_map(clrmaps[i]);
+		region->set_multimeshes(mms[locations[i]]);
+		_data->add_region(region, false);
+		LOG(INFO, "Splicing region ", locations[i]);
+	}
+	_storage.unref();
+	_data->force_update_maps();
+	_instancer->force_update_mmis();
+	LOG(WARN, "Terrain3DStorage has been converted to Terrain3DData. Save to write changes to disk");
 }
