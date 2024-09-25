@@ -32,8 +32,8 @@ uniform float _vertex_density = 1.0; // = 1/_vertex_spacing
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
-uniform sampler2DArray _height_maps : repeat_disable;
-uniform usampler2DArray _control_maps : repeat_disable;
+uniform highp sampler2DArray _height_maps : repeat_disable;
+uniform highp usampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
 uniform float _texture_uv_scale_array[32];

@@ -96,6 +96,7 @@ private:
 	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
+	bool _compatibility = false;
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -208,6 +209,7 @@ public:
 	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
 	void set_cull_margin(const real_t p_margin);
 	real_t get_cull_margin() const { return _cull_margin; };
+	bool is_compatibility_mode() const { return _compatibility; };
 
 	// Processing
 	void snap(const Vector3 &p_cam_pos);

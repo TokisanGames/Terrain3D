@@ -7,6 +7,8 @@
 #include <godot_cpp/classes/noise_texture2d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
+#include <godot_cpp/classes/reg_ex.hpp>
+#include <godot_cpp/classes/reg_ex_match.hpp>
 
 #include "logger.h"
 #include "terrain_3d_material.h"
@@ -18,7 +20,6 @@
 
 void Terrain3DMaterial::_preload_shaders() {
 	// Preprocessor loading of external shader inserts
-
 	_parse_shader(
 #include "shaders/uniforms.glsl"
 			, "uniforms");
@@ -149,11 +150,51 @@ String Terrain3DMaterial::_generate_shader_code() const {
 
 String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	String shader = p_shader;
-	int idx = p_shader.rfind("}");
+	Array insert_names;
+	Ref<RegEx> regex;
+	Ref<RegExMatch> match;
+	regex.instantiate();
+	int idx;
+	// Insert after render_mode ;
+	insert_names.clear();
+	regex->compile("render_mode[^;]*;");
+	match = regex->search(shader);
+	idx = match.is_valid() ? match->get_end() : -1;
 	if (idx < 0) {
 		return shader;
 	}
-	Array insert_names;
+	if (_compatibility) {
+		if (!shader.contains("COMPATIBILITY_DEFINES")) {
+			insert_names.push_back("EDITOR_COMPATIBILITY_DEFINES");
+		}
+	}
+	for (int i = 0; i < insert_names.size(); i++) {
+		String insert = _shader_code[insert_names[i]];
+		shader = shader.insert(idx, "\n\n" + insert);
+		idx += insert.length();
+	}
+	// Insert before vertex()
+	regex->compile("void\\s+vertex\\s*\\(");
+	match = regex->search(shader);
+	idx = match.is_valid() ? match->get_start() - 1 : -1;
+	if (idx < 0) {
+		return shader;
+	}
+	insert_names.clear();
+	if (_compatibility) {
+		insert_names.push_back("EDITOR_SETUP_DECAL");
+	}
+	for (int i = 0; i < insert_names.size(); i++) {
+		String insert = _shader_code[insert_names[i]];
+		shader = shader.insert(idx, "\n" + insert);
+		idx += insert.length();
+	}
+	// Inserted at the end of the shader
+	idx = shader.rfind("}");
+	if (idx < 0) {
+		return shader;
+	}
+	insert_names.clear();
 	if (_debug_view_checkered) {
 		insert_names.push_back("DEBUG_CHECKERED");
 	}
@@ -202,6 +243,9 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_show_navigation || (IS_EDITOR && _terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
 		insert_names.push_back("EDITOR_NAVIGATION");
 	}
+	if (_compatibility) {
+		insert_names.push_back("EDITOR_RENDER_DECAL");
+	}
 	for (int i = 0; i < insert_names.size(); i++) {
 		String insert = _shader_code[insert_names[i]];
 		shader = shader.insert(idx - 1, "\n" + insert);
@@ -214,11 +258,35 @@ void Terrain3DMaterial::_update_shader() {
 	IS_INIT(VOID);
 	LOG(INFO, "Updating shader");
 	String code;
+	Ref<RegEx> regex;
+	Ref<RegExMatch> match;
+	regex.instantiate();
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		if (_shader_override->get_code().is_empty()) {
-			_shader_override->set_code(_generate_shader_code());
+			if (_compatibility) {
+				code = _generate_shader_code();
+				// Insert after render_mode ;
+				regex->compile("render_mode[^;]*;");
+				match = regex->search(code);
+				if (match.is_valid()) {
+					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"])));
+				}
+			} else {
+				_shader_override->set_code(_generate_shader_code());
+			}
 		}
 		code = _shader_override->get_code();
+		if (_compatibility) {
+			if (!code.contains("COMPATIBILITY_DEFINES")) {
+				// Insert after render_mode ;
+				regex->compile("render_mode[^;]*;");
+				match = regex->search(code);
+				if (match.is_valid()) {
+					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"])));
+					code = _shader_override->get_code();
+				}
+			}
+		}
 		if (!_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
 			LOG(DEBUG, "Connecting changed signal to _update_shader()");
 			_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
@@ -389,11 +457,27 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 		return;
 	}
 	LOG(INFO, "Initializing material");
+	_compatibility = _terrain->is_compatibility_mode();
 	_preload_shaders();
 	_material = RS->material_create();
 	_shader.instantiate();
 	_update_shader();
 	_update_maps();
+	if (!_compatibility) {
+		if (_shader_override_enabled && _shader_override.is_valid()) {
+			if (_shader_override->get_code().contains("COMPATIBILITY_DEFINES")) {
+				String code = _shader_override->get_code();
+				// using the length of the insert itself could lead to breaking if changes made to it between versions.
+				int idx = code.find("// COMPATIBILITY_DEFINES") - 2; // removes the "\n\n" as well
+				int chars = code.find("// END_COMPAT_DEFINES") - idx;
+				code = code.erase(idx, chars + 21); // + length of "// END_COMPAT_DEFINES"
+				_shader_override->set_code(code);
+				LOG(WARN, "Compatibility Renderer not detected: removed COMPATIBILITY_DEFINES in override shader");
+				_update_shader();
+			}
+		}
+	}
+
 }
 
 Terrain3DMaterial::~Terrain3DMaterial() {

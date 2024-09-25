@@ -40,6 +40,7 @@ private:
 	Ref<Shader> _shader_override; // User's shader we copy code from
 	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
 	mutable Dictionary _shader_params; // Public shader params saved to disk
+	bool _compatibility = false; // If true, some shader functions will be overriden using #defines.
 
 	// Material Features
 	WorldBackground _world_background = FLAT;
