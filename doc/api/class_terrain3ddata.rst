@@ -54,6 +54,10 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`calc_height_range<class_Terrain3DData_method_calc_height_range>`\ (\ recursive\: :ref:`bool<class_bool>` = false\ )                                                                                                                                                                    |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`change_region_size<class_Terrain3DData_method_change_region_size>`\ (\ region_size\: :ref:`int<class_int>`\ )                                                                                                                                                                          |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`do_for_regions<class_Terrain3DData_method_do_for_regions>`\ (\ area\: :ref:`Rect2i<class_Rect2i>`, callback\: :ref:`Callable<class_Callable>`\ )                                                                                                                                       |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Error<enum_@GlobalScope_Error>`                                      | :ref:`export_image<class_Terrain3DData_method_export_image>`\ (\ file_name\: :ref:`String<class_String>`, map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`\ ) |const|                                                                                                                 |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`force_update_maps<class_Terrain3DData_method_force_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, generate_mipmaps\: :ref:`bool<class_bool>` = false\ )                                                                                                |
@@ -417,6 +421,34 @@ Recursive mode does the same, but has each region recalculate heights from each 
 
 ----
 
+.. _class_Terrain3DData_method_change_region_size:
+
+.. rst-class:: classref-method
+
+|void| **change_region_size**\ (\ region_size\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DData_method_change_region_size>`
+
+Reslices terrain data to fit the new region size. This is a destructive process for which there is no undo. However Godot does make an undo entry, which will reslice in reverse. Files on disk are not added or removed until the scene is saved.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_do_for_regions:
+
+.. rst-class:: classref-method
+
+|void| **do_for_regions**\ (\ area\: :ref:`Rect2i<class_Rect2i>`, callback\: :ref:`Callable<class_Callable>`\ ) :ref:`🔗<class_Terrain3DData_method_do_for_regions>`
+
+Calls the callback function for every region within the given area. If using vertex_spacing, area values should be descaled.
+
+The callable receives: source Terrain3DRegion, source Rect2i, dest Rect2i, (bindings)
+
+You may wish to append .bind() to the callback to pass along variables. For instance internally this function is called when changing region size. We bind the destination Terrain3DRegion, then use do_for_regions to copy segments of source regions to segments of destination regions. See the code for change_region_size() for more.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DData_method_export_image:
 
 .. rst-class:: classref-method
@@ -551,7 +583,7 @@ Returns the resource ID of the generated height map texture array sent to the sh
 
 Returns the highest and lowest heights for the sculpted terrain used to set the world AABB. See :ref:`calc_height_range<class_Terrain3DData_method_calc_height_range>`.
 
-Any :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` used that extends the mesh outside of this range will not change this variable. You need to set :ref:`Terrain3D.render_cull_margin<class_Terrain3D_property_render_cull_margin>` or the renderer will clip meshes.
+Any :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` used that extends the mesh outside of this range will not change this variable. You need to set :ref:`Terrain3D.cull_margin<class_Terrain3D_property_cull_margin>` or the renderer will clip meshes.
 
 .. rst-class:: classref-item-separator
 
@@ -827,7 +859,7 @@ Imports an Image set (Height, Control, Color) into this resource. It does NOT no
 
 \ ``images`` - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null.
 
-\ ``global_position`` - X,0,Z position on the region map. Valid range is :ref:`Terrain3D.mesh_vertex_spacing<class_Terrain3D_property_mesh_vertex_spacing>` \* (+/-8192, +/-8192).
+\ ``global_position`` - X,0,Z position on the region map. Valid range is :ref:`Terrain3D.vertex_spacing<class_Terrain3D_property_vertex_spacing>` \* (+/-8192, +/-8192).
 
 \ ``offset`` - Add this factor to all height values, can be negative.
 

@@ -29,55 +29,61 @@ Properties
 .. table::
    :widths: auto
 
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DAssets<class_Terrain3DAssets>`                             | :ref:`assets<class_Terrain3D_property_assets>`                                     |                 |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`bool<class_bool>`                                                   | :ref:`collision_enabled<class_Terrain3D_property_collision_enabled>`               | ``true``        |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`collision_layer<class_Terrain3D_property_collision_layer>`                   | ``1``           |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`collision_mask<class_Terrain3D_property_collision_mask>`                     | ``1``           |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`float<class_float>`                                                 | :ref:`collision_priority<class_Terrain3D_property_collision_priority>`             | ``1.0``         |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DData<class_Terrain3DData>`                                 | :ref:`data<class_Terrain3D_property_data>`                                         |                 |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`String<class_String>`                                               | :ref:`data_directory<class_Terrain3D_property_data_directory>`                     | ``""``          |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`debug_level<class_Terrain3D_property_debug_level>`                           | ``0``           |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`bool<class_bool>`                                                   | :ref:`debug_show_collision<class_Terrain3D_property_debug_show_collision>`         | ``false``       |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`bool<class_bool>`                                                   | :ref:`debug_show_region_labels<class_Terrain3D_property_debug_show_region_labels>` | ``false``       |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DInstancer<class_Terrain3DInstancer>`                       | :ref:`instancer<class_Terrain3D_property_instancer>`                               |                 |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DMaterial<class_Terrain3DMaterial>`                         | :ref:`material<class_Terrain3D_property_material>`                                 |                 |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`mesh_lods<class_Terrain3D_property_mesh_lods>`                               | ``7``           |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`mesh_size<class_Terrain3D_property_mesh_size>`                               | ``48``          |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`float<class_float>`                                                 | :ref:`mesh_vertex_spacing<class_Terrain3D_property_mesh_vertex_spacing>`           | ``1.0``         |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`RegionSize<enum_Terrain3D_RegionSize>`                              | :ref:`region_size<class_Terrain3D_property_region_size>`                           | ``1024``        |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` | :ref:`render_cast_shadows<class_Terrain3D_property_render_cast_shadows>`           | ``1``           |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`float<class_float>`                                                 | :ref:`render_cull_margin<class_Terrain3D_property_render_cull_margin>`             | ``0.0``         |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`render_layers<class_Terrain3D_property_render_layers>`                       | ``2147483649``  |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`int<class_int>`                                                     | :ref:`render_mouse_layer<class_Terrain3D_property_render_mouse_layer>`             | ``32``          |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`bool<class_bool>`                                                   | :ref:`save_16_bit<class_Terrain3D_property_save_16_bit>`                           | ``false``       |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DStorage<class_Terrain3DStorage>`                           | :ref:`storage<class_Terrain3D_property_storage>`                                   |                 |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`                   | :ref:`texture_list<class_Terrain3D_property_texture_list>`                         |                 |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
-   | :ref:`String<class_String>`                                               | :ref:`version<class_Terrain3D_property_version>`                                   | ``"0.9.3-dev"`` |
-   +---------------------------------------------------------------------------+------------------------------------------------------------------------------------+-----------------+
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DAssets<class_Terrain3DAssets>`                          | :ref:`assets<class_Terrain3D_property_assets>`                         |                 |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`ShadowCastingSetting<enum_RenderingServer_ShadowCastingSetting>` | :ref:`cast_shadows<class_Terrain3D_property_cast_shadows>`             | ``1``           |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`bool<class_bool>`                                                | :ref:`collision_enabled<class_Terrain3D_property_collision_enabled>`   | ``true``        |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`collision_layer<class_Terrain3D_property_collision_layer>`       | ``1``           |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`collision_mask<class_Terrain3D_property_collision_mask>`         | ``1``           |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`CollisionMode<enum_Terrain3D_CollisionMode>`                     | :ref:`collision_mode<class_Terrain3D_property_collision_mode>`         | ``0``           |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`float<class_float>`                                              | :ref:`collision_priority<class_Terrain3D_property_collision_priority>` | ``1.0``         |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`float<class_float>`                                              | :ref:`cull_margin<class_Terrain3D_property_cull_margin>`               | ``0.0``         |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DData<class_Terrain3DData>`                              | :ref:`data<class_Terrain3D_property_data>`                             |                 |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`String<class_String>`                                            | :ref:`data_directory<class_Terrain3D_property_data_directory>`         | ``""``          |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`debug_level<class_Terrain3D_property_debug_level>`               | ``0``           |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`GIMode<enum_GeometryInstance3D_GIMode>`                          | :ref:`gi_mode<class_Terrain3D_property_gi_mode>`                       | ``1``           |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DInstancer<class_Terrain3DInstancer>`                    | :ref:`instancer<class_Terrain3D_property_instancer>`                   |                 |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`float<class_float>`                                              | :ref:`label_distance<class_Terrain3D_property_label_distance>`         | ``0.0``         |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`label_size<class_Terrain3D_property_label_size>`                 | ``48``          |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DMaterial<class_Terrain3DMaterial>`                      | :ref:`material<class_Terrain3D_property_material>`                     |                 |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`mesh_lods<class_Terrain3D_property_mesh_lods>`                   | ``7``           |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`mesh_size<class_Terrain3D_property_mesh_size>`                   | ``48``          |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`mouse_layer<class_Terrain3D_property_mouse_layer>`               | ``32``          |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`RegionSize<enum_Terrain3D_RegionSize>`                           | :ref:`region_size<class_Terrain3D_property_region_size>`               | ``256``         |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`int<class_int>`                                                  | :ref:`render_layers<class_Terrain3D_property_render_layers>`           | ``2147483649``  |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`bool<class_bool>`                                                | :ref:`save_16_bit<class_Terrain3D_property_save_16_bit>`               | ``false``       |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`bool<class_bool>`                                                | :ref:`show_grid<class_Terrain3D_property_show_grid>`                   | ``false``       |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DStorage<class_Terrain3DStorage>`                        | :ref:`storage<class_Terrain3D_property_storage>`                       |                 |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`                | :ref:`texture_list<class_Terrain3D_property_texture_list>`             |                 |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`String<class_String>`                                            | :ref:`version<class_Terrain3D_property_version>`                       | ``"0.9.3-dev"`` |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
+   | :ref:`float<class_float>`                                              | :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>`         | ``1.0``         |
+   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -155,13 +161,79 @@ Enumerations
 
 enum **RegionSize**: :ref:`🔗<enum_Terrain3D_RegionSize>`
 
+.. _class_Terrain3D_constant_SIZE_64:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionSize<enum_Terrain3D_RegionSize>` **SIZE_64** = ``64``
+
+The region size is 64 x 64 meters, vertices, and pixels on Image maps.
+
+.. _class_Terrain3D_constant_SIZE_128:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionSize<enum_Terrain3D_RegionSize>` **SIZE_128** = ``128``
+
+The region size is 128 x 128 meters, vertices, and pixels on Image maps.
+
+.. _class_Terrain3D_constant_SIZE_256:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionSize<enum_Terrain3D_RegionSize>` **SIZE_256** = ``256``
+
+The region size is 256 x 256 meters, vertices, and pixels on Image maps. (default)
+
+.. _class_Terrain3D_constant_SIZE_512:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionSize<enum_Terrain3D_RegionSize>` **SIZE_512** = ``512``
+
+The region size is 512 x 512 meters, vertices, and pixels on Image maps.
+
 .. _class_Terrain3D_constant_SIZE_1024:
 
 .. rst-class:: classref-enumeration-constant
 
 :ref:`RegionSize<enum_Terrain3D_RegionSize>` **SIZE_1024** = ``1024``
 
-Region size is 1024 x 1024 vertices and pixels on maps.
+The region size is 1024 x 1024 meters, vertices, and pixels on Image maps.
+
+.. _class_Terrain3D_constant_SIZE_2048:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionSize<enum_Terrain3D_RegionSize>` **SIZE_2048** = ``2048``
+
+The region size is 2048 x 2048 meters, vertices, and pixels on Image maps.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _enum_Terrain3D_CollisionMode:
+
+.. rst-class:: classref-enumeration
+
+enum **CollisionMode**: :ref:`🔗<enum_Terrain3D_CollisionMode>`
+
+.. _class_Terrain3D_constant_FULL_GAME:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CollisionMode<enum_Terrain3D_CollisionMode>` **FULL_GAME** = ``0``
+
+Generates collision for all regions in game only.
+
+.. _class_Terrain3D_constant_FULL_EDITOR:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CollisionMode<enum_Terrain3D_CollisionMode>` **FULL_EDITOR** = ``1``
+
+Generates collision for all regions in the editor and in game.
 
 .. rst-class:: classref-section-separator
 
@@ -189,6 +261,23 @@ The list of texture and mesh assets used by Terrain3D. You can optionally save t
 
 ----
 
+.. _class_Terrain3D_property_cast_shadows:
+
+.. rst-class:: classref-property
+
+:ref:`ShadowCastingSetting<enum_RenderingServer_ShadowCastingSetting>` **cast_shadows** = ``1`` :ref:`🔗<class_Terrain3D_property_cast_shadows>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_cast_shadows**\ (\ value\: :ref:`ShadowCastingSetting<enum_RenderingServer_ShadowCastingSetting>`\ )
+- :ref:`ShadowCastingSetting<enum_RenderingServer_ShadowCastingSetting>` **get_cast_shadows**\ (\ )
+
+Tells the renderer how to cast shadows from the terrain onto other objects. This sets ``GeometryInstance3D.ShadowCastingSetting`` in the engine.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_collision_enabled:
 
 .. rst-class:: classref-property
@@ -200,7 +289,7 @@ The list of texture and mesh assets used by Terrain3D. You can optionally save t
 - |void| **set_collision_enabled**\ (\ value\: :ref:`bool<class_bool>`\ )
 - :ref:`bool<class_bool>` **get_collision_enabled**\ (\ )
 
-If enabled, collision is generated according to the mode selected. By default collision is generated for all regions at run time only using the physics server. Also see :ref:`debug_show_collision<class_Terrain3D_property_debug_show_collision>`.
+If enabled, collision is generated according to the mode selected. By default collision is generated for all regions at run time only using the physics server. Also see :ref:`collision_mode<class_Terrain3D_property_collision_mode>`.
 
 .. rst-class:: classref-item-separator
 
@@ -240,6 +329,27 @@ The physics layers the terrain scans for colliding objects. Also see :ref:`colli
 
 ----
 
+.. _class_Terrain3D_property_collision_mode:
+
+.. rst-class:: classref-property
+
+:ref:`CollisionMode<enum_Terrain3D_CollisionMode>` **collision_mode** = ``0`` :ref:`🔗<class_Terrain3D_property_collision_mode>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_collision_mode**\ (\ value\: :ref:`CollisionMode<enum_Terrain3D_CollisionMode>`\ )
+- :ref:`CollisionMode<enum_Terrain3D_CollisionMode>` **get_collision_mode**\ (\ )
+
+If collision is enabled, collision_mode specifies when and where collision is generated:
+
+\* FULL_GAME - all regions are generated at startup in game only.
+
+\* FULL_GAME - all regions are generated in the editor. Necessary for some 3rd party plugins to find the terrain. The collision mesh can also be made visible in the editor by enabling ``View Gizmos`` in the viewport menu.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_collision_priority:
 
 .. rst-class:: classref-property
@@ -252,6 +362,23 @@ The physics layers the terrain scans for colliding objects. Also see :ref:`colli
 - :ref:`float<class_float>` **get_collision_priority**\ (\ )
 
 The priority used to solve collisions. The higher priority, the lower the penetration of a colliding object.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_cull_margin:
+
+.. rst-class:: classref-property
+
+:ref:`float<class_float>` **cull_margin** = ``0.0`` :ref:`🔗<class_Terrain3D_property_cull_margin>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_cull_margin**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_cull_margin**\ (\ )
+
+This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from :ref:`Terrain3DData.get_height_range<class_Terrain3DData_method_get_height_range>`, which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` with NOISE and a height value larger than the terrain heights. This setting is similar to ``GeometryInstance3D.extra_cull_margin``, but it only affects the Y axis.
 
 .. rst-class:: classref-item-separator
 
@@ -307,35 +434,18 @@ The verbosity of debug messages printed to the console. Errors and warnings are 
 
 ----
 
-.. _class_Terrain3D_property_debug_show_collision:
+.. _class_Terrain3D_property_gi_mode:
 
 .. rst-class:: classref-property
 
-:ref:`bool<class_bool>` **debug_show_collision** = ``false`` :ref:`🔗<class_Terrain3D_property_debug_show_collision>`
+:ref:`GIMode<enum_GeometryInstance3D_GIMode>` **gi_mode** = ``1`` :ref:`🔗<class_Terrain3D_property_gi_mode>`
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_show_debug_collision**\ (\ value\: :ref:`bool<class_bool>`\ )
-- :ref:`bool<class_bool>` **get_show_debug_collision**\ (\ )
+- |void| **set_gi_mode**\ (\ value\: :ref:`GIMode<enum_GeometryInstance3D_GIMode>`\ )
+- :ref:`GIMode<enum_GeometryInstance3D_GIMode>` **get_gi_mode**\ (\ )
 
-If collision is enabled, this generates collision in the editor and in game. It can be visible in the editor by enabling ``View Gizmos`` in the viewport menu.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_debug_show_region_labels:
-
-.. rst-class:: classref-property
-
-:ref:`bool<class_bool>` **debug_show_region_labels** = ``false`` :ref:`🔗<class_Terrain3D_property_debug_show_region_labels>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_show_region_labels**\ (\ value\: :ref:`bool<class_bool>`\ )
-- :ref:`bool<class_bool>` **get_show_region_labels**\ (\ )
-
-Display an overlay that shows region locations in the viewport.
+Tells the renderer which global illumination mode to use for Terrain3D. This sets ``GeometryInstance3D.gi_mode`` in the engine.
 
 .. rst-class:: classref-item-separator
 
@@ -352,6 +462,40 @@ Display an overlay that shows region locations in the viewport.
 - :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` **get_instancer**\ (\ )
 
 The active :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` object.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_label_distance:
+
+.. rst-class:: classref-property
+
+:ref:`float<class_float>` **label_distance** = ``0.0`` :ref:`🔗<class_Terrain3D_property_label_distance>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_label_distance**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_label_distance**\ (\ )
+
+If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_label_size:
+
+.. rst-class:: classref-property
+
+:ref:`int<class_int>` **label_size** = ``48`` :ref:`🔗<class_Terrain3D_property_label_size>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_label_size**\ (\ value\: :ref:`int<class_int>`\ )
+- :ref:`int<class_int>` **get_label_size**\ (\ )
+
+Sets the font size for region labels. See :ref:`label_distance<class_Terrain3D_property_label_distance>`.
 
 .. rst-class:: classref-item-separator
 
@@ -408,102 +552,11 @@ The correlated size of the terrain meshes. Lod0 has ``4*mesh_size + 2`` quads pe
 
 ----
 
-.. _class_Terrain3D_property_mesh_vertex_spacing:
+.. _class_Terrain3D_property_mouse_layer:
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **mesh_vertex_spacing** = ``1.0`` :ref:`🔗<class_Terrain3D_property_mesh_vertex_spacing>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_mesh_vertex_spacing**\ (\ value\: :ref:`float<class_float>`\ )
-- :ref:`float<class_float>` **get_mesh_vertex_spacing**\ (\ )
-
-The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
-
-This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
-
-All Terrain3D functions with a global_position expect an absolute global value. If you would normally use :ref:`Terrain3DData.import_images<class_Terrain3DData_method_import_images>` to import an image in the region at (-1024, -1024), with a mesh_vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
-
-To scale heights, export the height map and reimport it with a new height scale.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_region_size:
-
-.. rst-class:: classref-property
-
-:ref:`RegionSize<enum_Terrain3D_RegionSize>` **region_size** = ``1024`` :ref:`🔗<class_Terrain3D_property_region_size>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_region_size**\ (\ value\: :ref:`RegionSize<enum_Terrain3D_RegionSize>`\ )
-- :ref:`RegionSize<enum_Terrain3D_RegionSize>` **get_region_size**\ (\ )
-
-The number of vertices in each region, and the number of pixels for each map in Terrain3DRegion. 1 pixel corresponds to 1 vertex. :ref:`mesh_vertex_spacing<class_Terrain3D_property_mesh_vertex_spacing>` scales regions, but does not change the number of vertices or pixels.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_render_cast_shadows:
-
-.. rst-class:: classref-property
-
-:ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` **render_cast_shadows** = ``1`` :ref:`🔗<class_Terrain3D_property_render_cast_shadows>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_cast_shadows**\ (\ value\: :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>`\ )
-- :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` **get_cast_shadows**\ (\ )
-
-Tells the renderer how to cast shadows from the terrain onto other objects. This sets ``GeometryInstance3D.ShadowCastingSetting`` in the engine.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_render_cull_margin:
-
-.. rst-class:: classref-property
-
-:ref:`float<class_float>` **render_cull_margin** = ``0.0`` :ref:`🔗<class_Terrain3D_property_render_cull_margin>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_cull_margin**\ (\ value\: :ref:`float<class_float>`\ )
-- :ref:`float<class_float>` **get_cull_margin**\ (\ )
-
-This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from :ref:`Terrain3DData.get_height_range<class_Terrain3DData_method_get_height_range>`, which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` with NOISE and a height value larger than the terrain heights. This setting is similar to ``GeometryInstance3D.extra_cull_margin``, but it only affects the Y axis.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_render_layers:
-
-.. rst-class:: classref-property
-
-:ref:`int<class_int>` **render_layers** = ``2147483649`` :ref:`🔗<class_Terrain3D_property_render_layers>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_render_layers**\ (\ value\: :ref:`int<class_int>`\ )
-- :ref:`int<class_int>` **get_render_layers**\ (\ )
-
-The render layers the terrain is drawn on. This sets ``VisualInstance3D.layers`` in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for :ref:`render_mouse_layer<class_Terrain3D_property_render_mouse_layer>` is included, or set that variable again after this so that the mouse cursor works.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_render_mouse_layer:
-
-.. rst-class:: classref-property
-
-:ref:`int<class_int>` **render_mouse_layer** = ``32`` :ref:`🔗<class_Terrain3D_property_render_mouse_layer>`
+:ref:`int<class_int>` **mouse_layer** = ``32`` :ref:`🔗<class_Terrain3D_property_mouse_layer>`
 
 .. rst-class:: classref-property-setget
 
@@ -522,6 +575,40 @@ See :ref:`get_intersection<class_Terrain3D_method_get_intersection>`.
 
 ----
 
+.. _class_Terrain3D_property_region_size:
+
+.. rst-class:: classref-property
+
+:ref:`RegionSize<enum_Terrain3D_RegionSize>` **region_size** = ``256`` :ref:`🔗<class_Terrain3D_property_region_size>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **change_region_size**\ (\ value\: :ref:`RegionSize<enum_Terrain3D_RegionSize>`\ )
+- :ref:`RegionSize<enum_Terrain3D_RegionSize>` **get_region_size**\ (\ )
+
+The number of vertices in each region, and the number of pixels for each map in Terrain3DRegion. 1 pixel corresponds to 1 vertex. :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>` scales regions, but does not change the number of vertices or pixels.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_render_layers:
+
+.. rst-class:: classref-property
+
+:ref:`int<class_int>` **render_layers** = ``2147483649`` :ref:`🔗<class_Terrain3D_property_render_layers>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_render_layers**\ (\ value\: :ref:`int<class_int>`\ )
+- :ref:`int<class_int>` **get_render_layers**\ (\ )
+
+The render layers the terrain is drawn on. This sets ``VisualInstance3D.layers`` in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for :ref:`mouse_layer<class_Terrain3D_property_mouse_layer>` is included, or set that variable again after this so that the mouse cursor works.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_save_16_bit:
 
 .. rst-class:: classref-property
@@ -534,6 +621,23 @@ See :ref:`get_intersection<class_Terrain3D_method_get_intersection>`.
 - :ref:`bool<class_bool>` **get_save_16_bit**\ (\ )
 
 Heightmaps are always loaded and edited in 32-bit. This option saves heightmaps as 16-bit half precision to reduce file size. This process is lossy, but does not change what is currently in memory.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_show_grid:
+
+.. rst-class:: classref-property
+
+:ref:`bool<class_bool>` **show_grid** = ``false`` :ref:`🔗<class_Terrain3D_property_show_grid>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_grid**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_grid**\ (\ )
+
+Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
 
 .. rst-class:: classref-item-separator
 
@@ -584,6 +688,29 @@ Deprecated. See :ref:`assets<class_Terrain3D_property_assets>`.
 - :ref:`String<class_String>` **get_version**\ (\ )
 
 The current version of Terrain3D.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_vertex_spacing:
+
+.. rst-class:: classref-property
+
+:ref:`float<class_float>` **vertex_spacing** = ``1.0`` :ref:`🔗<class_Terrain3D_property_vertex_spacing>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_vertex_spacing**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_vertex_spacing**\ (\ )
+
+The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
+
+This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
+
+All Terrain3D functions with a global_position expect an absolute global value. If you would normally use :ref:`Terrain3DData.import_images<class_Terrain3DData_method_import_images>` to import an image in the region at (-1024, -1024), with a vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
+
+To scale heights, export the height map and reimport it with a new height scale.
 
 .. rst-class:: classref-section-separator
 
@@ -682,7 +809,7 @@ This ray cast does not use physics, so enabling collision is unnecessary. It pla
 
 This function is used by the editor plugin to place the mouse cursor. It can also be used by 3rd party plugins, and even during gameplay, such as a space ship firing lasers at the terrain and causing an explosion at the hit point.
 
-It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See :ref:`render_mouse_layer<class_Terrain3D_property_render_mouse_layer>`.
+It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See :ref:`mouse_layer<class_Terrain3D_property_mouse_layer>`.
 
 .. rst-class:: classref-item-separator
 

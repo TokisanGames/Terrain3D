@@ -64,6 +64,8 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_navigation<class_Terrain3DMaterial_property_show_navigation>`                 | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | :ref:`bool<class_bool>`                                          | :ref:`show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`               | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`                     | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_texture_height<class_Terrain3DMaterial_property_show_texture_height>`         | ``false`` |
@@ -422,6 +424,23 @@ Albedo is a white to black gradient depending on height. The gradient is scaled 
 - :ref:`bool<class_bool>` **get_show_navigation**\ (\ )
 
 Displays the area designated for generating the navigation mesh.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_show_region_grid:
+
+.. rst-class:: classref-property
+
+:ref:`bool<class_bool>` **show_region_grid** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_region_grid>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_region_grid**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_region_grid**\ (\ )
+
+Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
 
 .. rst-class:: classref-item-separator
 

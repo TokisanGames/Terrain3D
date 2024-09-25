@@ -45,15 +45,28 @@
 				This function adds the [member Terrain3DMeshAsset.height_offset] to the transform along its local Y axis.
 			</description>
 		</method>
-		<method name="append_multimesh">
+		<method name="append_location">
 			<return type="void" />
 			<param index="0" name="region_location" type="Vector2i" />
 			<param index="1" name="mesh_id" type="int" />
 			<param index="2" name="transforms" type="Transform3D[]" />
 			<param index="3" name="colors" type="Color[]" />
 			<param index="4" name="clear" type="bool" default="false" />
+			<param index="5" name="update" type="bool" default="true" />
 			<description>
-				Appends new transforms to existing multimeshes. Multimesh transform arrays cannot be modified and must be rebuilt. This will make a new array with both old and new transforms. `Clear` will skip the old array.
+				Appends new transforms to existing multimeshes in a region specified by location. Multimesh transform arrays cannot be modified and must be rebuilt. This will make a new array with both old and new transforms. `Clear` will skip the old array.
+			</description>
+		</method>
+		<method name="append_region">
+			<return type="void" />
+			<param index="0" name="region" type="Terrain3DRegion" />
+			<param index="1" name="mesh_id" type="int" />
+			<param index="2" name="transforms" type="Transform3D[]" />
+			<param index="3" name="colors" type="Color[]" />
+			<param index="4" name="clear" type="bool" default="false" />
+			<param index="5" name="update" type="bool" default="true" />
+			<description>
+				Appends new transforms to existing multimeshes in a specified region. Multimesh transform arrays cannot be modified and must be rebuilt. This will make a new array with both old and new transforms. `Clear` will skip the old array.
 			</description>
 		</method>
 		<method name="clear_by_location">

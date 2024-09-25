@@ -10,7 +10,7 @@ User Interface
 
 ## Main Toolbar
 
-The editing tools become visible once you have added a Terrain3D node to your Scene and have selected it.
+After properly installing and enabling the plugin, the editing tools become visible once you add a Terrain3D node to your Scene and select it.
 
 ```{image} images/ui_tools.png
 :target: ../_images/ui_tools.png

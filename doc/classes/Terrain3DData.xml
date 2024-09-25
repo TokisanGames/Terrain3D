@@ -43,6 +43,23 @@
 				Recursive mode does the same, but has each region recalculate heights from each heightmap pixel. See [method Terrain3DRegion.calc_height_range].
 			</description>
 		</method>
+		<method name="change_region_size">
+			<return type="void" />
+			<param index="0" name="region_size" type="int" />
+			<description>
+				Reslices terrain data to fit the new region size. This is a destructive process for which there is no undo. However Godot does make an undo entry, which will reslice in reverse. Files on disk are not added or removed until the scene is saved.
+			</description>
+		</method>
+		<method name="do_for_regions">
+			<return type="void" />
+			<param index="0" name="area" type="Rect2i" />
+			<param index="1" name="callback" type="Callable" />
+			<description>
+				Calls the callback function for every region within the given area. If using vertex_spacing, area values should be descaled.
+				The callable receives: source Terrain3DRegion, source Rect2i, dest Rect2i, (bindings)
+				You may wish to append .bind() to the callback to pass along variables. For instance internally this function is called when changing region size. We bind the destination Terrain3DRegion, then use do_for_regions to copy segments of source regions to segments of destination regions. See the code for change_region_size() for more.
+			</description>
+		</method>
 		<method name="export_image" qualifiers="const">
 			<return type="int" enum="Error" />
 			<param index="0" name="file_name" type="String" />
@@ -118,7 +135,7 @@
 			<return type="Vector2" />
 			<description>
 				Returns the highest and lowest heights for the sculpted terrain used to set the world AABB. See [method calc_height_range].
-				Any [member Terrain3DMaterial.world_background] used that extends the mesh outside of this range will not change this variable. You need to set [member Terrain3D.render_cull_margin] or the renderer will clip meshes.
+				Any [member Terrain3DMaterial.world_background] used that extends the mesh outside of this range will not change this variable. You need to set [member Terrain3D.cull_margin] or the renderer will clip meshes.
 			</description>
 		</method>
 		<method name="get_maps" qualifiers="const">
@@ -280,7 +297,7 @@
 			<description>
 				Imports an Image set (Height, Control, Color) into this resource. It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
 				[code skip-lint]images[/code] - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null.
-				[code skip-lint]global_position[/code] - X,0,Z position on the region map. Valid range is [member Terrain3D.mesh_vertex_spacing] * (+/-8192, +/-8192).
+				[code skip-lint]global_position[/code] - X,0,Z position on the region map. Valid range is [member Terrain3D.vertex_spacing] * (+/-8192, +/-8192).
 				[code skip-lint]offset[/code] - Add this factor to all height values, can be negative.
 				[code skip-lint]scale[/code] - Scale all height values by this factor (applied after offset).
 			</description>

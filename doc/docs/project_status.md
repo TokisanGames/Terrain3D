@@ -8,7 +8,7 @@ See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for 
 
 | Feature | Status | 
 | ------------- | ------------- | 
-| **Platforms** | Terrain editing and exported games work on Windows, Linux, macOS. [Mobile and web platforms](mobile_web.md) are experimental.
+| **Platforms** | Terrain editing and exported games work on Windows, Linux, macOS. [Mobile and web platforms](platforms.md) are experimental.
 | **Languages** | GDScript, C++, C# all work, as should any language Godot supports. See [Programming Languages](programming_languages.md)
 | **Editing** |
 | Sculpting Operations | Raise, Lower, Slope, Smooth.

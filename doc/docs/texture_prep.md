@@ -46,7 +46,7 @@ Double click any texture file and the inspector will show you the format, which 
 | **Others** | | Other [Godot supported formats](https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_images.html#supported-image-formats) like KTX, TGA, JPG, WEBP should work as long as you match similar settings to PNG.
 | **EXR** | | While EXRs can work, they store color data as 16/32-bit float, not 8-bit integer. Don't use them unless you know what you're doing.
 
-For mobile/web platforms, see [mobile & web support](mobile_web.md).
+For mobile/web platforms, see [Supported Platforms](platforms.md).
 
 Godot converts some texture files on import, so it is entirely possible that DDS, PNG, and TGA textures will all end up converted to DXT5 RGBA8. In this case, different file types can all be used in the same albedo or normal texture array because the compression format is the same. Double-clicking a texture in the FileSystem panel will display it in the Inspector with the current format of the file. They also need to match whether they have mipmaps or not.
 

@@ -11,7 +11,7 @@ Getting Help
 
 ## Help Us Help You
 
-Terrain3D has been stable for hundreds of users for many months, so we know it works fine when setup properly. If you're having trouble, there's a 90% chance it's not setup properly. We can help you get setup, but only if you provide adequate information.
+Terrain3D has been stable for thousands of users for more than a year, so we know it works fine when setup properly. If you're having trouble, there's a 90% chance it's not installed or setup properly. We can help you get setup, but only if you provide adequate information.
 
 At a minimum we need the following:
 

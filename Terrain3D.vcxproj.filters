@@ -199,7 +199,7 @@
     <None Include="doc\docs\press.md">
       <Filter>2. Docs</Filter>
     </None>
-    <None Include="doc\docs\mobile_web.md">
+    <None Include="doc\docs\platforms.md">
       <Filter>2. Docs</Filter>
     </None>
     <None Include=".github\workflows\ios.yml">

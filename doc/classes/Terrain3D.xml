@@ -59,7 +59,7 @@
 				- On error, it returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] and prints a message to the console.
 				This ray cast does not use physics, so enabling collision is unnecessary. It places a camera at the specified point and "looks" at the terrain. It then uses the renderer's depth texture to determine how far away the intersection point is.
 				This function is used by the editor plugin to place the mouse cursor. It can also be used by 3rd party plugins, and even during gameplay, such as a space ship firing lasers at the terrain and causing an explosion at the hit point.
-				It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See [member render_mouse_layer].
+				It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See [member mouse_layer].
 			</description>
 		</method>
 		<method name="get_plugin" qualifiers="const">
@@ -100,8 +100,11 @@
 		<member name="assets" type="Terrain3DAssets" setter="set_assets" getter="get_assets">
 			The list of texture and mesh assets used by Terrain3D. You can optionally save this as an external [code skip-lint].tres[/code] text file if you wish to share it with Terrain3D nodes in other scenes.
 		</member>
+		<member name="cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="RenderingServer.ShadowCastingSetting" default="1">
+			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
+		</member>
 		<member name="collision_enabled" type="bool" setter="set_collision_enabled" getter="get_collision_enabled" default="true">
-			If enabled, collision is generated according to the mode selected. By default collision is generated for all regions at run time only using the physics server. Also see [member debug_show_collision].
+			If enabled, collision is generated according to the mode selected. By default collision is generated for all regions at run time only using the physics server. Also see [member collision_mode].
 		</member>
 		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="1">
 			The physics layers the terrain lives in. Also see [member collision_mask].
@@ -109,8 +112,16 @@
 		<member name="collision_mask" type="int" setter="set_collision_mask" getter="get_collision_mask" default="1">
 			The physics layers the terrain scans for colliding objects. Also see [member collision_layer].
 		</member>
+		<member name="collision_mode" type="int" setter="set_collision_mode" getter="get_collision_mode" enum="Terrain3D.CollisionMode" default="0">
+			If collision is enabled, collision_mode specifies when and where collision is generated:
+			* FULL_GAME - all regions are generated at startup in game only.
+			* FULL_GAME - all regions are generated in the editor. Necessary for some 3rd party plugins to find the terrain. The collision mesh can also be made visible in the editor by enabling [code skip-lint]View Gizmos[/code] in the viewport menu.
+		</member>
 		<member name="collision_priority" type="float" setter="set_collision_priority" getter="get_collision_priority" default="1.0">
 			The priority used to solve collisions. The higher priority, the lower the penetration of a colliding object.
+		</member>
+		<member name="cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
+			This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
 		</member>
 		<member name="data" type="Terrain3DData" setter="" getter="get_data">
 			This class manages loading, saving, adding, and removing of Terrain3DRegions and access to their content.
@@ -121,14 +132,17 @@
 		<member name="debug_level" type="int" setter="set_debug_level" getter="get_debug_level" default="0">
 			The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using [code skip-lint]--terrain3d-debug=LEVEL[/code] where [code skip-lint]LEVEL[/code] is one of [code skip-lint]ERROR, INFO, DEBUG, EXTREME[/code]. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
 		</member>
-		<member name="debug_show_collision" type="bool" setter="set_show_debug_collision" getter="get_show_debug_collision" default="false">
-			If collision is enabled, this generates collision in the editor and in game. It can be visible in the editor by enabling [code skip-lint]View Gizmos[/code] in the viewport menu.
-		</member>
-		<member name="debug_show_region_labels" type="bool" setter="set_show_region_labels" getter="get_show_region_labels" default="false">
-			Display an overlay that shows region locations in the viewport.
+		<member name="gi_mode" type="int" setter="set_gi_mode" getter="get_gi_mode" enum="GeometryInstance3D.GIMode" default="1">
+			Tells the renderer which global illumination mode to use for Terrain3D. This sets [code skip-lint]GeometryInstance3D.gi_mode[/code] in the engine.
 		</member>
 		<member name="instancer" type="Terrain3DInstancer" setter="" getter="get_instancer">
 			The active [Terrain3DInstancer] object.
+		</member>
+		<member name="label_distance" type="float" setter="set_label_distance" getter="get_label_distance" default="0.0">
+			If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels.
+		</member>
+		<member name="label_size" type="int" setter="set_label_size" getter="get_label_size" default="48">
+			Sets the font size for region labels. See [member label_distance].
 		</member>
 		<member name="material" type="Terrain3DMaterial" setter="set_material" getter="get_material">
 			A custom material for Terrain3D. You can optionally save this as an external [code skip-lint].tres[/code] text file if you wish to share it with instances of Terrain3D in other scenes. See [Terrain3DMaterial].
@@ -139,32 +153,23 @@
 		<member name="mesh_size" type="int" setter="set_mesh_size" getter="get_mesh_size" default="48">
 			The correlated size of the terrain meshes. Lod0 has [code skip-lint]4*mesh_size + 2[/code] quads per side. E.g. when mesh_size=8, lod0 has 34 quads to a side, including 2 quads for seams.
 		</member>
-		<member name="mesh_vertex_spacing" type="float" setter="set_mesh_vertex_spacing" getter="get_mesh_vertex_spacing" default="1.0">
-			The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
-			This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
-			All Terrain3D functions with a global_position expect an absolute global value. If you would normally use [method Terrain3DData.import_images] to import an image in the region at (-1024, -1024), with a mesh_vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
-			To scale heights, export the height map and reimport it with a new height scale.
-		</member>
-		<member name="region_size" type="int" setter="set_region_size" getter="get_region_size" enum="Terrain3D.RegionSize" default="1024">
-			The number of vertices in each region, and the number of pixels for each map in Terrain3DRegion. 1 pixel corresponds to 1 vertex. [member Terrain3D.mesh_vertex_spacing] scales regions, but does not change the number of vertices or pixels.
-		</member>
-		<member name="render_cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="GeometryInstance3D.ShadowCastingSetting" default="1">
-			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
-		</member>
-		<member name="render_cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
-			This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
-		</member>
-		<member name="render_layers" type="int" setter="set_render_layers" getter="get_render_layers" default="2147483649">
-			The render layers the terrain is drawn on. This sets [code skip-lint]VisualInstance3D.layers[/code] in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for [member render_mouse_layer] is included, or set that variable again after this so that the mouse cursor works.
-		</member>
-		<member name="render_mouse_layer" type="int" setter="set_mouse_layer" getter="get_mouse_layer" default="32">
+		<member name="mouse_layer" type="int" setter="set_mouse_layer" getter="get_mouse_layer" default="32">
 			Godot supports 32 render layers. For most objects, only layers 1-20 are available for selection in the inspector. 21-32 are settable via code, and are considered reserved for editor plugins.
 			This variable sets the editor render layer (21-32) to be used by [code skip-lint]get_intersection[/code], which the mouse cursor uses.
 			You may place other objects on this layer, however [code skip-lint]get_intersection[/code] will report intersections with them. So either dedicate this layer to Terrain3D, or if you must use all 32 layers, dedicate this one during editing or when using [code skip-lint]get_intersection[/code], and then you can use it during game play.
 			See [method get_intersection].
 		</member>
+		<member name="region_size" type="int" setter="change_region_size" getter="get_region_size" enum="Terrain3D.RegionSize" default="256">
+			The number of vertices in each region, and the number of pixels for each map in Terrain3DRegion. 1 pixel corresponds to 1 vertex. [member Terrain3D.vertex_spacing] scales regions, but does not change the number of vertices or pixels.
+		</member>
+		<member name="render_layers" type="int" setter="set_render_layers" getter="get_render_layers" default="2147483649">
+			The render layers the terrain is drawn on. This sets [code skip-lint]VisualInstance3D.layers[/code] in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for [member mouse_layer] is included, or set that variable again after this so that the mouse cursor works.
+		</member>
 		<member name="save_16_bit" type="bool" setter="set_save_16_bit" getter="get_save_16_bit" default="false">
 			Heightmaps are always loaded and edited in 32-bit. This option saves heightmaps as 16-bit half precision to reduce file size. This process is lossy, but does not change what is currently in memory.
+		</member>
+		<member name="show_grid" type="bool" setter="set_show_grid" getter="get_show_grid" default="false">
+			Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
 		</member>
 		<member name="storage" type="Terrain3DStorage" setter="set_storage" getter="get_storage">
 			This object is deprecated and only used for upgrading. Don't use.
@@ -174,6 +179,12 @@
 		</member>
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;0.9.3-dev&quot;">
 			The current version of Terrain3D.
+		</member>
+		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
+			The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
+			This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
+			All Terrain3D functions with a global_position expect an absolute global value. If you would normally use [method Terrain3DData.import_images] to import an image in the region at (-1024, -1024), with a vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
+			To scale heights, export the height map and reimport it with a new height scale.
 		</member>
 	</members>
 	<signals>
@@ -189,8 +200,29 @@
 		</signal>
 	</signals>
 	<constants>
+		<constant name="SIZE_64" value="64" enum="RegionSize">
+			The region size is 64 x 64 meters, vertices, and pixels on Image maps.
+		</constant>
+		<constant name="SIZE_128" value="128" enum="RegionSize">
+			The region size is 128 x 128 meters, vertices, and pixels on Image maps.
+		</constant>
+		<constant name="SIZE_256" value="256" enum="RegionSize">
+			The region size is 256 x 256 meters, vertices, and pixels on Image maps. (default)
+		</constant>
+		<constant name="SIZE_512" value="512" enum="RegionSize">
+			The region size is 512 x 512 meters, vertices, and pixels on Image maps.
+		</constant>
 		<constant name="SIZE_1024" value="1024" enum="RegionSize">
-			Region size is 1024 x 1024 vertices and pixels on maps.
+			The region size is 1024 x 1024 meters, vertices, and pixels on Image maps.
+		</constant>
+		<constant name="SIZE_2048" value="2048" enum="RegionSize">
+			The region size is 2048 x 2048 meters, vertices, and pixels on Image maps.
+		</constant>
+		<constant name="FULL_GAME" value="0" enum="CollisionMode">
+			Generates collision for all regions in game only.
+		</constant>
+		<constant name="FULL_EDITOR" value="1" enum="CollisionMode">
+			Generates collision for all regions in the editor and in game.
 		</constant>
 	</constants>
 </class>

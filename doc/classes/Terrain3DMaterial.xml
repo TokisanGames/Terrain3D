@@ -98,6 +98,9 @@
 		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
 			Displays the area designated for generating the navigation mesh.
 		</member>
+		<member name="show_region_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
+			Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
+		</member>
 		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
 			Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
 		</member>

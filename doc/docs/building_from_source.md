@@ -196,7 +196,7 @@ del /s /q *.a *.lib *.o *.obj *.os
 
 
 ### Manually specify the target platform
-This plugin supports Windows, Linux and macOS. See [Mobile & Web Support](mobile_web.md) for the status of other platforms.
+This plugin supports Windows, Linux and macOS. See [Platform Support](platforms.md) for the status of other platforms.
 
 ```
 # platform: Target platform (linux|macos|windows|android|ios|javascript)

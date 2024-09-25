@@ -1,17 +1,11 @@
 Tips
 ======
 
-## Understanding Regions
-
-Terrain3D provides users non-contiguous 1024x1024 sized regions on a 16x16 region grid. So a user might have a 1k x 2k island in one corner of the world and a 4k x 4k island elsewhere. In between are empty regions, visually flat space where they could place an ocean. In these empty regions, no vram is consumed, nor collision generated.
-
-The regions are visible if `View Gizmos` is enabled in the Godot `Perspective` menu.
-
-You pay in memory and vram for each region you have, so be aware of their use. If you're going to have a small world that will fit within 1024m^2, then don't sculpt it around the origin point (0, 0). That would allocate 4 regions. Instead sculpt it around (512, 512) so that all of your data can fit within 1 region.
+## Regions
 
 Outside of regions, there is no collision. Raycasts won't hit anything. Querying terrain heights or other data will result in NANs or INF. Look through the API for specific return values.
 
-You can determine if a given location is within a region by using `Terrain3DStorage.get_region_index(global_position)`. It will return -1 if the XZ location is not within a region. Y is ignored.
+You can determine if a given location is within a region by using `Terrain3DData.has_regionp(global_position)`. It will return -1 if the XZ location is not within a region. Y is ignored.
 
 
 ## Performance
@@ -25,11 +19,6 @@ You can determine if a given location is within a region by using `Terrain3DStor
 
 
 ## Shaders
-
-
-### Make a region smaller than 1024^2
-Make a custom shader, then look in `vertex()` where it sets the vertex to an invalid number `VERTEX.x = 0./0.;`. Edit the conditional above it to filter out vertices that are < 0 or > 256 for instance. It will still build collision and consume memory for 1024 x 1024 maps, but this will allow you to control the visual aspect until alternate region sizes are supported.
-
 
 ### Day/Night cycles & light under the terrain
 The terrain shader is set to `cull_back`, meaning back faces are neither rendered, nor do they block light. If you have a day/night cycle and the sun sets below the horizon, it will shine through the terrain. Enable the shader override and change the second line to `cull_disabled` and the horizon will block sunlight. This does cost performance. 

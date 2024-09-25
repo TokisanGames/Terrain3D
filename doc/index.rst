@@ -89,15 +89,20 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    docs/introduction
    docs/tutorial_videos
    docs/installation
+   docs/platforms
    docs/user_interface
+   docs/troubleshooting
+   docs/getting_help
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Basic Usage
+
    docs/texture_prep
    docs/texture_painting
    docs/instancer
    docs/import_export
    docs/tips
-   docs/troubleshooting
-   docs/getting_help
-
 
 .. toctree::
    :maxdepth: 1
@@ -106,7 +111,6 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    docs/collision
    docs/double_precision
    docs/misc
-   docs/mobile_web
    docs/navigation
    docs/occlusion_culling
    docs/programming_languages

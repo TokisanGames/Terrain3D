@@ -180,7 +180,7 @@ public:
 	void set_collision_enabled(const bool p_enabled);
 	bool get_collision_enabled() const { return _collision_enabled; }
 	void set_collision_mode(const CollisionMode p_mode);
-	bool get_collision_mode() const { return _collision_mode; }
+	CollisionMode get_collision_mode() const { return _collision_mode; }
 	void set_collision_layer(const uint32_t p_layers);
 	uint32_t get_collision_layer() const { return _collision_layer; };
 	void set_collision_mask(const uint32_t p_mask);
