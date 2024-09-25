@@ -111,7 +111,7 @@ Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {
 	if (p_image.is_null()) {
 		return Ref<Image>();
 	}
-	Ref<Image> img = Image::create(p_image->get_width(), p_image->get_height(), p_image->has_mipmaps(), Image::FORMAT_RGBAF);
+	Ref<Image> img = Image::create_empty(p_image->get_width(), p_image->get_height(), p_image->has_mipmaps(), Image::FORMAT_RGBAF);
 	for (int y = 0; y < img->get_height(); y++) {
 		for (int x = 0; x < img->get_width(); x++) {
 			Color pixel = p_image->get_pixel(x, y);
@@ -184,7 +184,7 @@ Ref<Image> Terrain3DUtil::get_thumbnail(const Ref<Image> &p_image, const Vector2
 	hmax = (hmax == 0) ? 0.001f : hmax;
 
 	// Create a new image w / normalized values
-	Ref<Image> thumb = Image::create(size.x, size.y, false, Image::FORMAT_RGB8);
+	Ref<Image> thumb = Image::create_empty(size.x, size.y, false, Image::FORMAT_RGB8);
 	for (int y = 0; y < thumb->get_height(); y++) {
 		for (int x = 0; x < thumb->get_width(); x++) {
 			Color col = img->get_pixel(x, y);
@@ -247,7 +247,7 @@ Ref<Image> Terrain3DUtil::get_filled_image(const Vector2i &p_size, const Color &
 		}
 	}
 
-	Ref<Image> img = Image::create(p_size.x, p_size.y, p_create_mipmaps, format);
+	Ref<Image> img = Image::create_empty(p_size.x, p_size.y, p_create_mipmaps, format);
 
 	Color color = p_color;
 	if (fill_image) {
@@ -310,7 +310,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
 			LOG(DEBUG, "Total file size is: ", fsize, " calculated width: ", fwidth, " dimensions: ", r16_size);
 			file->seek(0);
 		}
-		img = Image::create(r16_size.x, r16_size.y, false, FORMAT[TYPE_HEIGHT]);
+		img = Image::create_empty(r16_size.x, r16_size.y, false, FORMAT[TYPE_HEIGHT]);
 		for (int y = 0; y < r16_size.y; y++) {
 			for (int x = 0; x < r16_size.x; x++) {
 				real_t h = real_t(file->get_16()) / 65535.0f;
@@ -364,7 +364,7 @@ Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Imag
 		LOG(ERROR, "Source Channel of Height/Roughness invalid. Cannot Pack")
 		return Ref<Image>();
 	}
-	Ref<Image> dst = Image::create(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGBA8);
+	Ref<Image> dst = Image::create_empty(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGBA8);
 	LOG(INFO, "Creating image from source RGB + source channel images");
 	for (int y = 0; y < p_src_rgb->get_height(); y++) {
 		for (int x = 0; x < p_src_rgb->get_width(); x++) {
@@ -405,7 +405,7 @@ Ref<Image> Terrain3DUtil::luminance_to_height(const Ref<Image> &p_src_rgb) {
 		}
 	}
 	lum_contrast = 1.0f / MAX(l_max - l_min, 1e-6);
-	Ref<Image> dst = Image::create(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGB8);
+	Ref<Image> dst = Image::create_empty(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGB8);
 	for (int y = 0; y < p_src_rgb->get_height(); y++) {
 		for (int x = 0; x < p_src_rgb->get_width(); x++) {
 			Color col = p_src_rgb->get_pixel(x, y);
