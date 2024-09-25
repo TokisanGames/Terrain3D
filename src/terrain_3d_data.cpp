@@ -887,7 +887,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		// Apply scale and offsets to a new heightmap if applicable
 		if (i == TYPE_HEIGHT && (p_offset != 0.f || p_scale != 1.f)) {
 			LOG(DEBUG, "Creating new temp image to adjust scale: ", p_scale, " offset: ", p_offset);
-			Ref<Image> newimg = Image::create(img->get_size().x, img->get_size().y, false, FORMAT[TYPE_HEIGHT]);
+			Ref<Image> newimg = Image::create_empty(img->get_size().x, img->get_size().y, false, FORMAT[TYPE_HEIGHT]);
 			for (int y = 0; y < img->get_height(); y++) {
 				for (int x = 0; x < img->get_width(); x++) {
 					Color clr = img->get_pixel(x, y);

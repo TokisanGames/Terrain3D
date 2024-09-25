@@ -194,7 +194,7 @@ func _bake_nav_region_nav_mesh(p_nav_region: NavigationRegion3D) -> void:
 	assert(nav_mesh != null)
 	
 	var source_geometry_data := NavigationMeshSourceGeometryData3D.new()
-	NavigationMeshGenerator.parse_source_geometry_data(nav_mesh, source_geometry_data, p_nav_region)
+	NavigationServer3D.parse_source_geometry_data(nav_mesh, source_geometry_data, p_nav_region)
 	
 	for terrain in find_nav_region_terrains(p_nav_region):
 		var aabb: AABB = nav_mesh.filter_baking_aabb
@@ -204,7 +204,7 @@ func _bake_nav_region_nav_mesh(p_nav_region: NavigationRegion3D) -> void:
 		if not faces.is_empty():
 			source_geometry_data.add_faces(faces, Transform3D.IDENTITY)
 	
-	NavigationMeshGenerator.bake_from_source_geometry_data(nav_mesh, source_geometry_data)
+	NavigationServer3D.bake_from_source_geometry_data(nav_mesh, source_geometry_data)
 	
 	_postprocess_nav_mesh(nav_mesh)
 	
