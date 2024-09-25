@@ -622,6 +622,7 @@ void Terrain3D::_setup_mouse_picking() {
 	Ref<ShaderMaterial> shader_material;
 	shader_material.instantiate();
 	shader_material->set_shader(shader);
+	shader_material->set_shader_parameter("compatibility", _compatibility);
 	_mouse_quad->set_surface_override_material(0, shader_material);
 	_mouse_quad->set_position(Vector3(0.f, 0.f, -0.5f));
 
@@ -729,6 +730,8 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 ///////////////////////////
 
 Terrain3D::Terrain3D() {
+	// check if we are using compatibility renderer
+	_compatibility = String(ProjectSettings::get_singleton()->get_setting_with_override("rendering/renderer/rendering_method")).contains("compatibility");
 	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
 	for (int i = args.size() - 1; i >= 0; i--) {
 		String arg = args[i];
@@ -744,6 +747,10 @@ Terrain3D::Terrain3D() {
 				set_debug_level(EXTREME);
 			}
 			break;
+		}
+		// check if setting overriden by command line
+		if (arg.begins_with("--rendering-driver opengl3")) {
+			_compatibility = true;
 		}
 	}
 }
@@ -1205,22 +1212,30 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		// Read the depth pixel from the camera viewport
 		Color screen_depth = vp_img->get_pixel(0, 0);
 
-		// Get position from depth packed in RG - unpack back to float.
-		// Needed for Mobile renderer
-		// https://gamedev.stackexchange.com/questions/201151/24bit-float-to-rgb
-		Vector2 screen_rg = Vector2(screen_depth.r, screen_depth.g);
-		real_t normalized_distance = screen_rg.dot(Vector2(1.f, 1.f / 255.f));
-		if (normalized_distance < 0.00001f) {
+		// Get position from depth packed in RGB - unpack back to float.
+		// Forward+ is 16bit, mobile is 10bit and compatibility is 8bit.
+		// Compatibility also has precision loss for values below 0.5, so 
+		// we use only the top half of the range, for 21bit depth encoded.
+		real_t r = floor((screen_depth.r * 256.0) - 128.0);
+		real_t g = floor((screen_depth.g * 256.0) - 128.0);
+		real_t b = floor((screen_depth.b * 256.0) - 128.0);
+
+		// Decode the full depth value
+		real_t decoded_depth = (r + g / 127.0 + b / (127.0 * 127.0)) / 127.0;
+
+		if (decoded_depth < 0.00001f) {
 			return V3_MAX;
 		}
 		// Necessary for a correct value depth = 1
-		if (normalized_distance > 0.9999f) {
-			normalized_distance = 1.0f;
+		if (decoded_depth > 0.99999f) {
+			decoded_depth = 1.0f;
 		}
 
-		// Denormalize distance to get real depth and terrain position
-		real_t depth = normalized_distance * _mouse_cam->get_far();
-		point = _mouse_cam->get_global_position() + direction * depth;
+		// Denormalize distance to get real depth and terrain position.
+		decoded_depth *= _mouse_cam->get_far();
+
+		// Project the camera position by the depth value to get the intersection point.
+		point = _mouse_cam->get_global_position() + direction * decoded_depth;
 	}
 
 	return point;
@@ -1510,6 +1525,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
 	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
 	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
+	ClassDB::bind_method(D_METHOD("is_compatibility_mode"), &Terrain3D::is_compatibility_mode);
 
 	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Terrain3D::get_intersection);
