@@ -18,8 +18,8 @@ Currently importing and exporting is possible via code or our import tool. We wi
 4) Specify the `import_position` of where in the world you want to import. Values are rounded to the nearest `region_size` (defaults to 1024). So a location of (-2000, 1000) will be imported at (-2048, 1024).
 
      Notes:
-     * You can import multiple times into the greater 16k^2 world map by specifying different positions. So you could import multiple maps as separate islands or combined regions.
-     * It will slice and pad odd sized images into region sized chunks ([default is 1024x1024](https://github.com/TokisanGames/Terrain3D/issues/77)). e.g. You could import a 4k x 2k, several 1k x 1ks, and a 5123 x 3769 and position them so they are adjacent.
+     * You can import multiple times into the greater world map by specifying different positions. So you could import multiple maps as separate islands or combined regions.
+     * It will slice and pad odd sized images into region sized chunks (default is 256x256). e.g. You could import a 4k x 2k, several 1k x 1ks, and a 5123 x 3769 and position them so they are adjacent.
      * You can also reimport to the same location to overwrite anything there using individual maps or a complete set of height, control, and/or color.
 
 5) Specify any desired `height_offset` or `import_scale`. The scale gets applied first. (eg. 100, -100 would scale the terrain by 100, then lower the whole terrain by 100).
@@ -86,7 +86,7 @@ We can import any supported image format Godot can read. These include:
 
 Notes:
 
-* The exporter takes the smallest rectangle that will fit around all active regions in the 16k^2 world and export that as an image. So, if you have a 1k x 1k island in the NW corner, and a 2k x 3k island in the center, with a 1k strait between them, the resulting export image will be something like 4k x 5k. You'll need to specify the location (rounded to `region_size`) when reimporting to have a perfect round trip.
+* The exporter takes the smallest rectangle that will fit around all active regions in the world and export that as an image. So, if you have a 1k x 1k island in the NW corner, and a 2k x 3k island in the center, with a 1k strait between them, the resulting export image will be something like 4k x 5k. You'll need to specify the location (rounded to `region_size`) when reimporting to have a perfect round trip.
 
 * The exporter tool does not offer region by region export, but there is an API where you can retrieve any given region, then you can use `Image` to save it externally yourself.
 

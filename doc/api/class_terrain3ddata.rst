@@ -282,7 +282,7 @@ Constants
 
 .. rst-class:: classref-constant
 
-**REGION_MAP_SIZE** = ``16`` :ref:`🔗<class_Terrain3DData_constant_REGION_MAP_SIZE>`
+**REGION_MAP_SIZE** = ``32`` :ref:`🔗<class_Terrain3DData_constant_REGION_MAP_SIZE>`
 
 Hard coded number of regions on a side. The total number of regions is this squared.
 
@@ -715,7 +715,7 @@ Returns the calculated region location for the given global position. This is ju
 
 :ref:`PackedInt32Array<class_PackedInt32Array>` **get_region_map**\ (\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_region_map>`
 
-Returns a fully populated 16 x 16 array. The array location contains the region id + 1, or 0, which means no region.
+Returns a fully populated 32 x 32 array. The array location contains the region id + 1, or 0, which means no region.
 
 See :ref:`get_region_map_index<class_Terrain3DData_method_get_region_map_index>`.
 
@@ -731,7 +731,7 @@ See :ref:`get_region_map_index<class_Terrain3DData_method_get_region_map_index>`
 
 Given a region location, returns the index into the region map array. See :ref:`get_region_map<class_Terrain3DData_method_get_region_map>`.
 
-You can use this function to quickly determine if a location is within the greater world bounds (-8,-8) to (7, 7). It returns -1 if not.
+You can use this function to quickly determine if a location is within the greater world bounds (-16,-16) to (15, 15). It returns -1 if not.
 
 .. rst-class:: classref-item-separator
 
@@ -859,7 +859,7 @@ Imports an Image set (Height, Control, Color) into this resource. It does NOT no
 
 \ ``images`` - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null.
 
-\ ``global_position`` - X,0,Z position on the region map. Valid range is :ref:`Terrain3D.vertex_spacing<class_Terrain3D_property_vertex_spacing>` \* (+/-8192, +/-8192).
+\ ``global_position`` - X,0,Z position on the region map. Valid range is :ref:`Terrain3D.vertex_spacing<class_Terrain3D_property_vertex_spacing>` \* :ref:`Terrain3D.region_size<class_Terrain3D_property_region_size>` \* (+/-16, +/-16).
 
 \ ``offset`` - Add this factor to all height values, can be negative.
 

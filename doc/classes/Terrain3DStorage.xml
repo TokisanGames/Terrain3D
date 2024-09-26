@@ -53,7 +53,7 @@
 		</constant>
 		<constant name="SIZE_1024" value="1024" enum="RegionSize">
 		</constant>
-		<constant name="REGION_MAP_SIZE" value="16">
+		<constant name="REGION_MAP_SIZE" value="32">
 		</constant>
 	</constants>
 </class>

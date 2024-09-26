@@ -31,7 +31,7 @@ Fully supported. See [renderers](#supported-renderers).
 
 ## macOS
 
-Godot and Terrain3D work fine on macOS, however Apple security is overly aggressive when using the release binaries.
+Godot and Terrain3D work fine on macOS, however Apple security is overly aggressive when using our release binaries.
 
 Users have reported errors like this:
 
@@ -47,7 +47,8 @@ $ xattr -dr com.apple.quarantine addons/terrain_3d/bin/libterrain.macos.release.
 You can also [read comments and workarounds](https://github.com/TokisanGames/Terrain3D/issues/227)
 from other users. 
 
-If disabling Apple security is not working, or if approaching a release date, macOS users should [build from source](building_from_source.md) so you can sign the binaries with your own account.
+If bypassing Apple security is not working, or if approaching a release date, macOS users should [build from source](building_from_source.md) so you can sign the binaries with your own developer account.
+
 
 ## Android
 
@@ -62,6 +63,7 @@ There is a [texture artifact](https://github.com/TokisanGames/Terrain3D/issues/1
 
 Further reading:
 * [Issue 197](https://github.com/TokisanGames/Terrain3D/issues/197)
+
 
 ## IOS
 
@@ -100,14 +102,16 @@ The user got it working with the following:
 * Install `glibc` and `linux-api-headers` in addition to the standard Godot dependencies
 * [Build from source](building_from_source.md)
 
-
 Further reading:
 * [Issue 220](https://github.com/TokisanGames/Terrain3D/issues/220#issuecomment-1837552459)
 
 
 ## WebGL
 
-Terrain3D does export to WebGL, however it requires the [Compatibility Renderer (read more)](#compatibility).
+The Terrain3D library can be exported to WebGL, however the terrain will not currently render. It requires the [Compatibility Renderer (read more)](#compatibility), which is now supported, and but there are some additional shader elements that need to be sorted out before it will work. 
+
+Further reading:
+* [Issue 502](https://github.com/TokisanGames/Terrain3D/issues/502)
 
 
 Supported Renderers
@@ -137,12 +141,25 @@ The Forward Vulkan Mobile renderer is fully supported in Terrain3D 0.9.3. There 
 
 ## Compatibility
 
-The OpenGLES 3.0 Compatibility renderer has recently reached "feature complete" status in Godot 4.3. Features are still lacking in 4.2.
+The OpenGLES 3.0 Compatibility renderer is supported from Terrain3D 0.9.3 with Godot 4.3. There is partial support for Godot 4.2.
 
-It is not yet fully supported by Terrain3D. The terrain mesh builds and is reported to work fine. The remaining issue is that the texturing shader and the mouse cursor do not work due to the lack of necessary features.
+* If using a custom override shader, we add a special COMPATIBILITY_DEFINES block to your shader that will allow certain features to work properly (eg the fma() function). We remove this block from your shader if you switch back to Mobile or Forward. It is normal to receive a shader dump in your console during this transition, but it should not repeat every start, once saved.
 
-Some work has been done to partially support Compatibility in Godot 4.2 and full support coming in Terrain3D 0.9.4 with Godot 4.3+.
+* `IS_COMPATIBILITY` is defined in this block should you wish to check against it with your own custom preprocessor statements.
 
+* If enabling compatibility mode on the command line, we cannot detect that currently. You can tell Terrain3D with a special parameter:
+
+    `Godot_v4.3-stable_win64_console.exe --rendering-driver opengl3 -e project.godot --terrain3d-renderer=compatibility`
+
+**Godot 4.2**
+
+In addition to the above notes, OpenGLES is incomplete in 4.2. It does work with the following caveats:
+
+* There are some startup warnings about depth textures and glow that you can ignore.
+* `VRAM Compressed` is not supported. In the `Import` panel, you must set your texture files to either `VRAM Uncompressed` or `Lossless` and reimport.
+* The command line option `--rendering-method gl_compatibility` breaks the terrain in 4.2. Don't use it. The above command works for 4.2 or 4.3.
+ 
 Further reading:
 
 * [Issue 217](https://github.com/TokisanGames/Terrain3D/issues/217)
+* [PR 500](https://github.com/TokisanGames/Terrain3D/pull/500)

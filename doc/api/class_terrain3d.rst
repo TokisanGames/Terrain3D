@@ -108,6 +108,8 @@ Methods
    +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`EditorPlugin<class_EditorPlugin>`             | :ref:`get_plugin<class_Terrain3D_method_get_plugin>`\ (\ ) |const|                                                                                                                                    |
    +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`                             | :ref:`is_compatibility_mode<class_Terrain3D_method_is_compatibility_mode>`\ (\ ) |const|                                                                                                              |
+   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                              | :ref:`set_camera<class_Terrain3D_method_set_camera>`\ (\ camera\: :ref:`Camera3D<class_Camera3D>`\ )                                                                                                  |
    +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                              | :ref:`set_editor<class_Terrain3D_method_set_editor>`\ (\ editor\: :ref:`Terrain3DEditor<class_Terrain3DEditor>`\ )                                                                                    |
@@ -822,6 +824,18 @@ It does require the use of an editor render layer (21-32) that should be dedicat
 :ref:`EditorPlugin<class_EditorPlugin>` **get_plugin**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_plugin>`
 
 Returns the EditorPlugin connected to Terrain3D.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_method_is_compatibility_mode:
+
+.. rst-class:: classref-method
+
+:ref:`bool<class_bool>` **is_compatibility_mode**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_is_compatibility_mode>`
+
+Returns true if Terrain3D has detected that the Compatibility renderer is in use.
 
 .. rst-class:: classref-item-separator
 

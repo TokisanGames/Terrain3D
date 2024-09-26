@@ -24,8 +24,7 @@ Terrain3D is listed in the Asset Library [here](https://godotengine.org/asset-li
 7. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
 8. Select `Project / Reload Current Project` to restart once more.
 9. Open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`. 
-
-**Updated for 0.9.3-dev:** When using Terrain3D in your own scene, select the Terrain3D node in the Scene panel. In the Inspector, click the folder icon to the right of `data directory`, and specify a directory to store your data. This directory can be used shared with other scenes.
+10. When using Terrain3D in your own scene, select the Terrain3D node in the Scene panel. In the Inspector, click the folder icon to the right of `data directory`, then specify a directory to store your data. This directory can be used shared with other scenes.
 
 Next, learn how to [prepare your textures](texture_prep.md).
 
@@ -48,7 +47,7 @@ If the demo isn't working for you, watch the [tutorial videos](tutorial_videos.m
 4. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
 5. Select `Project / Reload Current Project` to restart once more.
 6. Create or open a 3D scene and add a new Terrain3D node.
-7. **Updated 0.9.3-dev:** Select Terrain3D in the Scene panel. In the Inspector, click the folder icon to the right of `data directory` and specify a directory to store your data. This directory can be used shared with other scenes.
+7. Select Terrain3D in the Scene panel. In the Inspector, click the folder icon to the right of `data directory` and specify a directory to store your data. This directory can be used shared with other scenes.
 
 Next, learn how to [prepare your textures](texture_prep.md).
 
@@ -63,7 +62,7 @@ To update Terrain3D:
 
 Don't just copy the new folder over the old, as this won't remove any files that we may have intentionally removed.
 
-4. Upgrading to 0.9.3, when opening your scene and selecting your Terrain3D node, a directory selection wizard will popup. Terrain3D now stores data in a directory. Follow the popup to select your old storage file and a new storage directory, and it will upgrade your data. Save afterwards.
+4. **Upgrading to 0.9.3:** Terrain3D now stores data in a directory. When opening your scene and selecting your Terrain3D node, a directory selection wizard will popup. Follow the directions to select your old storage file and a new storage directory, and it will upgrade your data. Save afterwards.
 
 ### Upgrade Path
 

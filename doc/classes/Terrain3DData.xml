@@ -212,7 +212,7 @@
 		<method name="get_region_map" qualifiers="const">
 			<return type="PackedInt32Array" />
 			<description>
-				Returns a fully populated 16 x 16 array. The array location contains the region id + 1, or 0, which means no region.
+				Returns a fully populated 32 x 32 array. The array location contains the region id + 1, or 0, which means no region.
 				See [method get_region_map_index].
 			</description>
 		</method>
@@ -221,7 +221,7 @@
 			<param index="0" name="region_location" type="Vector2i" />
 			<description>
 				Given a region location, returns the index into the region map array. See [method get_region_map].
-				You can use this function to quickly determine if a location is within the greater world bounds (-8,-8) to (7, 7). It returns -1 if not.
+				You can use this function to quickly determine if a location is within the greater world bounds (-16,-16) to (15, 15). It returns -1 if not.
 			</description>
 		</method>
 		<method name="get_regionp" qualifiers="const">
@@ -297,7 +297,7 @@
 			<description>
 				Imports an Image set (Height, Control, Color) into this resource. It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
 				[code skip-lint]images[/code] - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null.
-				[code skip-lint]global_position[/code] - X,0,Z position on the region map. Valid range is [member Terrain3D.vertex_spacing] * (+/-8192, +/-8192).
+				[code skip-lint]global_position[/code] - X,0,Z position on the region map. Valid range is [member Terrain3D.vertex_spacing] * [member Terrain3D.region_size] * (+/-16, +/-16).
 				[code skip-lint]offset[/code] - Add this factor to all height values, can be negative.
 				[code skip-lint]scale[/code] - Scale all height values by this factor (applied after offset).
 			</description>
@@ -500,7 +500,7 @@
 		<constant name="HEIGHT_FILTER_MINIMUM" value="1" enum="HeightFilter">
 			Samples (1 &lt;&lt; lod) * 2 heights around the given coordinates and returns the lowest.
 		</constant>
-		<constant name="REGION_MAP_SIZE" value="16">
+		<constant name="REGION_MAP_SIZE" value="32">
 			Hard coded number of regions on a side. The total number of regions is this squared.
 		</constant>
 	</constants>
