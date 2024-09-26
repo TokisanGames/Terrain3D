@@ -27,7 +27,7 @@ See the [Roadmap](https://github.com/users/TokisanGames/projects/3/views/1) for 
 | Jolt | [Godot-Jolt](https://github.com/godot-jolt/godot-jolt) v0.6+ works as a drop-in replacement for Godot Physics. The above restriction applies.
 | **Navigation Server** | Supported. See [Navigation](navigation.md)
 | **Data** |
-| Large terrains | Supports terrains up to 16km^2. [Collision will take up ~4-6GB RAM](https://github.com/TokisanGames/Terrain3D/issues/161), but that will be [improved](https://github.com/TokisanGames/Terrain3D/pull/278).
+| Large terrains | Supports terrains up to 65.5x65.5km (4295km^2). [Collision will take up ~4-6GB RAM](https://github.com/TokisanGames/Terrain3D/issues/161), but that will be [improved](https://github.com/TokisanGames/Terrain3D/pull/278).
 | Importing / Exporting | Works. See [Importing data](import_export.md)
 | Double precision floats | [Supported](double_precision.md).
 | **Rendering** |

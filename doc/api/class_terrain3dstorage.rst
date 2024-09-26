@@ -159,7 +159,7 @@ Constants
 
 .. rst-class:: classref-constant
 
-**REGION_MAP_SIZE** = ``16`` :ref:`🔗<class_Terrain3DStorage_constant_REGION_MAP_SIZE>`
+**REGION_MAP_SIZE** = ``32`` :ref:`🔗<class_Terrain3DStorage_constant_REGION_MAP_SIZE>`
 
 .. container:: contribute
 
