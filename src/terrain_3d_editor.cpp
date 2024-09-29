@@ -176,7 +176,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	// rebuild at the end of the last _operate() call, but until painting is finished we only
 	// need to track if _added_removed_locations has changed between now and the end of the loop
 	int regions_added_removed = _added_removed_locations.size();
-	
+
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
 			Vector2 brush_offset = Vector2(x, y) - (Vector2(brush_size, brush_size) / 2.f);
@@ -198,264 +198,264 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			// Identify position on map image
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size, vertex_spacing);
 			Vector2i map_pixel_position = Vector2i(uv_position * region_size);
+			if (!_is_in_bounds(map_pixel_position, region_vsize)) {
+				continue;
+			}
 
-			if (_is_in_bounds(map_pixel_position, region_vsize)) {
-				Vector2 brush_uv = Vector2(x, y) / brush_size;
-				Vector2i brush_pixel_position = Vector2i(_get_rotated_uv(brush_uv, rot) * img_size);
+			Vector2 brush_uv = Vector2(x, y) / brush_size;
+			Vector2i brush_pixel_position = Vector2i(_get_rotated_uv(brush_uv, rot) * img_size);
+			if (!_is_in_bounds(brush_pixel_position, img_size)) {
+				continue;
+			}
 
-				if (!_is_in_bounds(brush_pixel_position, img_size)) {
-					continue;
+			Vector3 edited_position = brush_global_position;
+			edited_position.y = data->get_height(edited_position);
+			edited_area = edited_area.expand(edited_position);
+
+			// Start brushing on the map
+			real_t brush_alpha = brush_image->get_pixelv(brush_pixel_position).r;
+			brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
+			Color src = map->get_pixelv(map_pixel_position);
+			Color dest = src;
+
+			if (map_type == TYPE_HEIGHT) {
+				real_t srcf = src.r;
+				real_t destf = dest.r;
+
+				switch (_operation) {
+					case ADD: {
+						if (lift_flatten && !std::isnan(p_global_position.y)) {
+							real_t brush_center_y = p_global_position.y + brush_alpha * strength;
+							destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
+						} else {
+							destf = srcf + (brush_alpha * strength);
+						}
+						break;
+					}
+					case SUBTRACT: {
+						if (lift_flatten && !std::isnan(p_global_position.y)) {
+							real_t brush_center_y = p_global_position.y - brush_alpha * strength;
+							destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
+						} else {
+							destf = srcf - (brush_alpha * strength);
+						}
+						break;
+					}
+					case REPLACE: {
+						destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
+						break;
+					}
+					case AVERAGE: {
+						Vector3 left_position = brush_global_position - Vector3(vertex_spacing, 0.f, 0.f);
+						Vector3 right_position = brush_global_position + Vector3(vertex_spacing, 0.f, 0.f);
+						Vector3 down_position = brush_global_position - Vector3(0.f, 0.f, vertex_spacing);
+						Vector3 up_position = brush_global_position + Vector3(0.f, 0.f, vertex_spacing);
+						real_t left = data->get_pixel(map_type, left_position).r;
+						if (std::isnan(left)) {
+							left = 0.f;
+						}
+						real_t right = data->get_pixel(map_type, right_position).r;
+						if (std::isnan(right)) {
+							right = 0.f;
+						}
+						real_t up = data->get_pixel(map_type, up_position).r;
+						if (std::isnan(up)) {
+							up = 0.f;
+						}
+						real_t down = data->get_pixel(map_type, down_position).r;
+						if (std::isnan(down)) {
+							down = 0.f;
+						}
+						real_t avg = (srcf + left + right + up + down) * 0.2f;
+						destf = Math::lerp(srcf, avg, CLAMP(brush_alpha * strength * 2.f, .02f, 1.f));
+						break;
+					}
+					case GRADIENT: {
+						if (gradient_points.size() == 2) {
+							Vector3 point_1 = gradient_points[0];
+							Vector3 point_2 = gradient_points[1];
+
+							Vector2 point_1_xz = Vector2(point_1.x, point_1.z);
+							Vector2 point_2_xz = Vector2(point_2.x, point_2.z);
+							Vector2 brush_xz = Vector2(brush_global_position.x, brush_global_position.z);
+
+							if (_operation_movement.length_squared() > 0.f) {
+								// Ramp up/down only in the direction of movement, to avoid giving winding
+								// paths one edge higher than the other.
+								Vector2 movement_xz = Vector2(_operation_movement.x, _operation_movement.z).normalized();
+								Vector2 offset = movement_xz * Vector2(brush_offset).dot(movement_xz);
+								brush_xz = Vector2(p_global_position.x + offset.x, p_global_position.z + offset.y);
+							}
+
+							Vector2 dir = point_2_xz - point_1_xz;
+							real_t weight = dir.normalized().dot(brush_xz - point_1_xz) / dir.length();
+							weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
+							real_t height = Math::lerp(point_1.y, point_2.y, weight);
+
+							destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
+						}
+						break;
+					}
+					default:
+						break;
 				}
+				dest = Color(destf, 0.f, 0.f, 1.f);
+				region->update_height(destf);
+				// TODO Move this line to a signal sent from above line
+				data->update_master_height(destf);
 
-				Vector3 edited_position = brush_global_position;
-				edited_position.y = data->get_height(edited_position);
+				edited_position.y = destf;
 				edited_area = edited_area.expand(edited_position);
 
-				// Start brushing on the map
-				real_t brush_alpha = brush_image->get_pixelv(brush_pixel_position).r;
-				brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
-				Color src = map->get_pixelv(map_pixel_position);
-				Color dest = src;
+			} else if (map_type == TYPE_CONTROL) {
+				// Get bit field from pixel
+				uint32_t base_id = get_base(src.r);
+				uint32_t overlay_id = get_overlay(src.r);
+				real_t blend = real_t(get_blend(src.r)) / 255.f;
+				uint32_t uvrotation = get_uv_rotation(src.r);
+				uint32_t uvscale = get_uv_scale(src.r);
+				bool hole = is_hole(src.r);
+				bool navigation = is_nav(src.r);
+				bool autoshader = is_auto(src.r);
 
-				if (map_type == TYPE_HEIGHT) {
-					real_t srcf = src.r;
-					real_t destf = dest.r;
+				real_t alpha_clip = (brush_alpha > 0.1f) ? 1.f : 0.f;
+				uint32_t dest_id = uint32_t(Math::lerp(base_id, asset_id, alpha_clip));
+				// Lookup to shift values saved to control map so that 0 (default) is the first entry
+				// Shader scale array is aligned to match this.
+				std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
 
-					switch (_operation) {
-						case ADD: {
-							if (lift_flatten && !std::isnan(p_global_position.y)) {
-								real_t brush_center_y = p_global_position.y + brush_alpha * strength;
-								destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
-							} else {
-								destf = srcf + (brush_alpha * strength);
-							}
-							break;
-						}
-						case SUBTRACT: {
-							if (lift_flatten && !std::isnan(p_global_position.y)) {
-								real_t brush_center_y = p_global_position.y - brush_alpha * strength;
-								destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
-							} else {
-								destf = srcf - (brush_alpha * strength);
-							}
-							break;
-						}
-						case REPLACE: {
-							destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
-							break;
-						}
-						case AVERAGE: {
-							Vector3 left_position = brush_global_position - Vector3(vertex_spacing, 0.f, 0.f);
-							Vector3 right_position = brush_global_position + Vector3(vertex_spacing, 0.f, 0.f);
-							Vector3 down_position = brush_global_position - Vector3(0.f, 0.f, vertex_spacing);
-							Vector3 up_position = brush_global_position + Vector3(0.f, 0.f, vertex_spacing);
-							real_t left = data->get_pixel(map_type, left_position).r;
-							if (std::isnan(left)) {
-								left = 0.f;
-							}
-							real_t right = data->get_pixel(map_type, right_position).r;
-							if (std::isnan(right)) {
-								right = 0.f;
-							}
-							real_t up = data->get_pixel(map_type, up_position).r;
-							if (std::isnan(up)) {
-								up = 0.f;
-							}
-							real_t down = data->get_pixel(map_type, down_position).r;
-							if (std::isnan(down)) {
-								down = 0.f;
-							}
-							real_t avg = (srcf + left + right + up + down) * 0.2f;
-							destf = Math::lerp(srcf, avg, CLAMP(brush_alpha * strength * 2.f, .02f, 1.f));
-							break;
-						}
-						case GRADIENT: {
-							if (gradient_points.size() == 2) {
-								Vector3 point_1 = gradient_points[0];
-								Vector3 point_2 = gradient_points[1];
-
-								Vector2 point_1_xz = Vector2(point_1.x, point_1.z);
-								Vector2 point_2_xz = Vector2(point_2.x, point_2.z);
-								Vector2 brush_xz = Vector2(brush_global_position.x, brush_global_position.z);
-
-								if (_operation_movement.length_squared() > 0.f) {
-									// Ramp up/down only in the direction of movement, to avoid giving winding
-									// paths one edge higher than the other.
-									Vector2 movement_xz = Vector2(_operation_movement.x, _operation_movement.z).normalized();
-									Vector2 offset = movement_xz * Vector2(brush_offset).dot(movement_xz);
-									brush_xz = Vector2(p_global_position.x + offset.x, p_global_position.z + offset.y);
-								}
-
-								Vector2 dir = point_2_xz - point_1_xz;
-								real_t weight = dir.normalized().dot(brush_xz - point_1_xz) / dir.length();
-								weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
-								real_t height = Math::lerp(point_1.y, point_2.y, weight);
-
-								destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
-							}
-							break;
-						}
-						default:
-							break;
-					}
-					dest = Color(destf, 0.f, 0.f, 1.f);
-					region->update_height(destf);
-					// TODO Move this line to a signal sent from above line
-					data->update_master_height(destf);
-
-					edited_position.y = destf;
-					edited_area = edited_area.expand(edited_position);
-
-				} else if (map_type == TYPE_CONTROL) {
-					// Get bit field from pixel
-					uint32_t base_id = get_base(src.r);
-					uint32_t overlay_id = get_overlay(src.r);
-					real_t blend = real_t(get_blend(src.r)) / 255.f;
-					uint32_t uvrotation = get_uv_rotation(src.r);
-					uint32_t uvscale = get_uv_scale(src.r);
-					bool hole = is_hole(src.r);
-					bool navigation = is_nav(src.r);
-					bool autoshader = is_auto(src.r);
-
-					real_t alpha_clip = (brush_alpha > 0.1f) ? 1.f : 0.f;
-					uint32_t dest_id = uint32_t(Math::lerp(base_id, asset_id, alpha_clip));
-					// Lookup to shift values saved to control map so that 0 (default) is the first entry
-					// Shader scale array is aligned to match this.
-					std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
-
-					switch (_tool) {
-						case TEXTURE:
-							switch (_operation) {
-								// Base Paint
-								case REPLACE: {
-									if (brush_alpha > 0.1f) {
-										if (enable_texture) {
-											// Set base texture
-											base_id = dest_id;
-											// Erase blend value
-											blend = Math::lerp(blend, real_t(0.f), alpha_clip);
-											autoshader = false;
-										}
-										// Set angle & scale
-										if (enable_angle) {
-											if (dynamic_angle) {
-												// Angle from mouse movement.
-												angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
-												// Avoid negative, align texture "up" with mouse direction.
-												angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
-											}
-											// Convert from degrees to 0 - 15 value range
-											uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
-										}
-										if (enable_scale) {
-											// Offset negative and convert from percentage to 0 - 7 bit value range
-											// Maintain 0 = 0, remap negatives to end.
-											uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
-										}
-									}
-									break;
-								}
-
-								// Overlay Spray
-								case ADD: {
-									real_t spray_strength = CLAMP(strength * 0.05f, 0.003f, .25f);
-									real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
+				switch (_tool) {
+					case TEXTURE:
+						switch (_operation) {
+							// Base Paint
+							case REPLACE: {
+								if (brush_alpha > 0.1f) {
 									if (enable_texture) {
-										// If overlay and base texture are the same, reduce blend value
-										if (dest_id == base_id) {
-											blend = CLAMP(blend - brush_value, 0.f, 1.f);
-										} else {
-											// Else overlay and base are separate, set overlay texture and increase blend value
-											overlay_id = dest_id;
-											blend = CLAMP(blend + brush_value, 0.f, 1.f);
-										}
+										// Set base texture
+										base_id = dest_id;
+										// Erase blend value
+										blend = Math::lerp(blend, real_t(0.f), alpha_clip);
 										autoshader = false;
 									}
-									if (brush_alpha * strength * 11.f > 0.1f) {
-										// Set angle & scale
-										if (enable_angle) {
-											if (dynamic_angle) {
-												// Angle from mouse movement.
-												angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
-												// Avoid negative, align texture "up" with mouse direction.
-												angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
-											}
-											// Convert from degrees to 0 - 15 value range
-											uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
+									// Set angle & scale
+									if (enable_angle) {
+										if (dynamic_angle) {
+											// Angle from mouse movement.
+											angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
+											// Avoid negative, align texture "up" with mouse direction.
+											angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
 										}
-										if (enable_scale) {
-											// Offset negative and convert from percentage to 0 - 7 bit value range
-											// Maintain 0 = 0, remap negatives to end.
-											uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
-										}
+										// Convert from degrees to 0 - 15 value range
+										uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
 									}
-									break;
+									if (enable_scale) {
+										// Offset negative and convert from percentage to 0 - 7 bit value range
+										// Maintain 0 = 0, remap negatives to end.
+										uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
+									}
 								}
+								break;
+							}
 
-								default: {
-									break;
+							// Overlay Spray
+							case ADD: {
+								real_t spray_strength = CLAMP(strength * 0.05f, 0.003f, .25f);
+								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
+								if (enable_texture) {
+									// If overlay and base texture are the same, reduce blend value
+									if (dest_id == base_id) {
+										blend = CLAMP(blend - brush_value, 0.f, 1.f);
+									} else {
+										// Else overlay and base are separate, set overlay texture and increase blend value
+										overlay_id = dest_id;
+										blend = CLAMP(blend + brush_value, 0.f, 1.f);
+									}
+									autoshader = false;
 								}
+								if (brush_alpha * strength * 11.f > 0.1f) {
+									// Set angle & scale
+									if (enable_angle) {
+										if (dynamic_angle) {
+											// Angle from mouse movement.
+											angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
+											// Avoid negative, align texture "up" with mouse direction.
+											angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
+										}
+										// Convert from degrees to 0 - 15 value range
+										uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
+									}
+									if (enable_scale) {
+										// Offset negative and convert from percentage to 0 - 7 bit value range
+										// Maintain 0 = 0, remap negatives to end.
+										uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
+									}
+								}
+								break;
 							}
-							break;
-						case AUTOSHADER: {
-							if (brush_alpha > 0.1f) {
-								autoshader = (_operation == ADD);
+
+							default: {
+								break;
 							}
-							break;
 						}
-						case HOLES: {
-							if (brush_alpha > 0.1f) {
-								hole = (_operation == ADD);
-							}
-							break;
+						break;
+					case AUTOSHADER: {
+						if (brush_alpha > 0.1f) {
+							autoshader = (_operation == ADD);
 						}
-						case NAVIGATION: {
-							if (brush_alpha > 0.1f) {
-								navigation = (_operation == ADD);
-							}
-							break;
-						}
-						default: {
-							break;
-						}
+						break;
 					}
-
-					// Convert back to bitfield
-					uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.f), 0.f, 255.f));
-					uint32_t bits = enc_base(base_id) | enc_overlay(overlay_id) |
-							enc_blend(blend_int) | enc_uv_rotation(uvrotation) |
-							enc_uv_scale(uvscale) | enc_hole(hole) |
-							enc_nav(navigation) | enc_auto(autoshader);
-
-					// Write back to pixel in FORMAT_RF. Must be a 32-bit float
-					dest = Color(as_float(bits), 0.f, 0.f, 1.f);
-
-				} else if (map_type == TYPE_COLOR) {
-					switch (_tool) {
-						case COLOR:
-							dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
-							dest.a = src.a;
-							break;
-						case ROUGHNESS:
-							/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
-							 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
-							 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
-							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
-							 * We round the final amount in tool_settings.gd:_on_picked().
-							 */
-							if (_operation == ADD) {
-								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
-							} else {
-								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
-							}
-							break;
-						default:
-							break;
+					case HOLES: {
+						if (brush_alpha > 0.1f) {
+							hole = (_operation == ADD);
+						}
+						break;
+					}
+					case NAVIGATION: {
+						if (brush_alpha > 0.1f) {
+							navigation = (_operation == ADD);
+						}
+						break;
+					}
+					default: {
+						break;
 					}
 				}
-				backup_region(region);
-				map->set_pixelv(map_pixel_position, dest);
+
+				// Convert back to bitfield
+				uint32_t blend_int = uint32_t(CLAMP(Math::round(blend * 255.f), 0.f, 255.f));
+				uint32_t bits = enc_base(base_id) | enc_overlay(overlay_id) |
+						enc_blend(blend_int) | enc_uv_rotation(uvrotation) |
+						enc_uv_scale(uvscale) | enc_hole(hole) |
+						enc_nav(navigation) | enc_auto(autoshader);
+
+				// Write back to pixel in FORMAT_RF. Must be a 32-bit float
+				dest = Color(as_float(bits), 0.f, 0.f, 1.f);
+
+			} else if (map_type == TYPE_COLOR) {
+				switch (_tool) {
+					case COLOR:
+						dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
+						dest.a = src.a;
+						break;
+					case ROUGHNESS:
+						/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
+						 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
+						 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
+						 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
+						 * We round the final amount in tool_settings.gd:_on_picked().
+						 */
+						if (_operation == ADD) {
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
+						} else {
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
+						}
+						break;
+					default:
+						break;
+				}
 			}
+			backup_region(region);
+			map->set_pixelv(map_pixel_position, dest);
 		}
 	}
 	// Regenerate color mipmaps for edited regions
@@ -469,7 +469,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	if (_added_removed_locations.size() == regions_added_removed) {
 		data->update_maps(map_type);
 	} else {
-	// If region qty was changed, must fully rebuild the maps
+		// If region qty was changed, must fully rebuild the maps
 		data->force_update_maps(map_type);
 	}
 	data->add_edited_area(edited_area);

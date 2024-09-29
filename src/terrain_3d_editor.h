@@ -87,7 +87,7 @@ private:
 	Ref<Terrain3DRegion> _operate_region(const Vector2i &p_region_loc);
 	void _operate_map(const Vector3 &p_global_position, const real_t p_camera_direction);
 	MapType _get_map_type() const;
-	bool _is_in_bounds(const Vector2i &p_position, const Vector2i &p_max_position) const;
+	bool _is_in_bounds(const Point2i &p_pixel, const Point2i &p_size) const;
 	Vector2 _get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const;
 	Vector2 _get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const;
 
@@ -145,10 +145,10 @@ inline MapType Terrain3DEditor::_get_map_type() const {
 	}
 }
 
-inline bool Terrain3DEditor::_is_in_bounds(const Vector2i &p_position, const Vector2i &p_max_position) const {
-	bool more_than_min = p_position.x >= 0 && p_position.y >= 0;
-	bool less_than_max = p_position.x < p_max_position.x && p_position.y < p_max_position.y;
-	return more_than_min && less_than_max;
+inline bool Terrain3DEditor::_is_in_bounds(const Point2i &p_pixel, const Point2i &p_size) const {
+	bool positive = p_pixel.x >= 0 && p_pixel.y >= 0;
+	bool less_than_max = p_pixel.x < p_size.x && p_pixel.y < p_size.y;
+	return positive && less_than_max;
 }
 
 inline Vector2 Terrain3DEditor::_get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const {
