@@ -56,6 +56,11 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::region_map_changed signal to set_show_region_locations()");
 		_data->connect("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels));
 	}
+	// Any region was changed, regenerate collision if enabled
+	if (!_data->is_connected("region_map_changed", callable_mp(this, &Terrain3D::_build_collision))) {
+		LOG(DEBUG, "Connecting _data::region_map_changed signal to _build_collision()");
+		_data->connect("region_map_changed", callable_mp(this, &Terrain3D::_build_collision));
+	}
 	// Any map was regenerated or regions changed, update material
 	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
 		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update_maps()");
