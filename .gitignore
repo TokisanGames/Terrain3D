@@ -23,6 +23,7 @@ export_presets.cfg
 .scons-cache/
 *.os
 *.obj
+*.o
 
 # SConstruct
 .sconf_temp
@@ -35,4 +36,3 @@ export_presets.cfg
 # Editors
 .vscode/
 .vs/
-project/addons/explore-editor-theme/

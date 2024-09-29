@@ -45,6 +45,7 @@ jobs:
       - name: Upload Package
         uses: actions/upload-artifact@v4
         with:
+          include-hidden-files: true
           name: t3d-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
           path: |
             ${{ github.workspace }}/project/
@@ -56,6 +57,7 @@ jobs:
       - name: Merge Artifacts
         uses: actions/upload-artifact/merge@v4
         with:
+          include-hidden-files: true
           name: ${{ github.event.repository.name }}
           pattern: t3d-*
           delete-merged: true
