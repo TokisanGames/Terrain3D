@@ -242,7 +242,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						break;
 					}
 					case REPLACE: {
-						destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
+						destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength * .5f, 0.f, .15f));
 						break;
 					}
 					case AVERAGE: {
@@ -291,8 +291,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							real_t weight = dir.normalized().dot(brush_xz - point_1_xz) / dir.length();
 							weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
 							real_t height = Math::lerp(point_1.y, point_2.y, weight);
-
-							destf = Math::lerp(srcf, height, brush_alpha * strength * .5f);
+							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						}
 						break;
 					}
