@@ -180,7 +180,7 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 	float u, v, height;
 	vec3 normal;
 	// Use vertex normals within radius of vertex_normals_distance, and along region borders.
-	if (v_region_border_mask > 0.5 || v_vertex_xz_dist < vertex_normals_distance) {
+	if ((v_region_border_mask > 0.5 || v_vertex_xz_dist < vertex_normals_distance) && v_region.z >= 0) {
 		normal = normalize(v_normal);
 	} else {
 		height = get_height(uv);
@@ -188,8 +188,8 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 		v = height - get_height(uv + vec2(0, _region_texel_size));
 		normal = normalize(vec3(u, _vertex_spacing, v));
 	}
-	tangent = cross(normal, vec3(0, 0, 1));
-	binormal = cross(normal, tangent);
+	tangent = normalize(cross(normal, vec3(0, 0, 1)));
+	binormal = normalize(cross(normal, tangent));
 	return normal;
 }
 
