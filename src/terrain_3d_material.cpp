@@ -5,10 +5,10 @@
 #include <godot_cpp/classes/gradient.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/noise_texture2d.hpp>
-#include <godot_cpp/classes/rendering_server.hpp>
-#include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/reg_ex.hpp>
 #include <godot_cpp/classes/reg_ex_match.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
 #include "terrain_3d_material.h"
@@ -154,13 +154,13 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	Ref<RegEx> regex;
 	Ref<RegExMatch> match;
 	regex.instantiate();
-	int idx;
-	// Insert after render_mode ;
-	insert_names.clear();
-	regex->compile("render_mode[^;]*;");
+
+	// Insert after render_mode
+	regex->compile("render_mode.*;?");
 	match = regex->search(shader);
-	idx = match.is_valid() ? match->get_end() : -1;
+	int idx = match.is_valid() ? match->get_end() : -1;
 	if (idx < 0) {
+		LOG(DEBUG, "No render mode; cannot inject editor code");
 		return shader;
 	}
 	if (_compatibility) {
@@ -173,11 +173,13 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		shader = shader.insert(idx, "\n\n" + insert);
 		idx += insert.length();
 	}
+
 	// Insert before vertex()
 	regex->compile("void\\s+vertex\\s*\\(");
 	match = regex->search(shader);
 	idx = match.is_valid() ? match->get_start() - 1 : -1;
 	if (idx < 0) {
+		LOG(DEBUG, "No void vertex(); cannot inject editor code");
 		return shader;
 	}
 	insert_names.clear();
@@ -189,9 +191,11 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		shader = shader.insert(idx, "\n" + insert);
 		idx += insert.length();
 	}
-	// Inserted at the end of the shader
+
+	// Insert at the end of the shader, before the end of `fragment(){ }`
 	idx = shader.rfind("}");
 	if (idx < 0) {
+		LOG(DEBUG, "No ending bracket; cannot inject editor code");
 		return shader;
 	}
 	insert_names.clear();
@@ -265,11 +269,11 @@ void Terrain3DMaterial::_update_shader() {
 		if (_shader_override->get_code().is_empty()) {
 			if (_compatibility) {
 				code = _generate_shader_code();
-				// Insert after render_mode ;
-				regex->compile("render_mode[^;]*;");
+				// Insert after render_mode
+				regex->compile("render_mode.*;?");
 				match = regex->search(code);
 				if (match.is_valid()) {
-					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"])));
+					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"]).strip_edges()));
 				}
 			} else {
 				_shader_override->set_code(_generate_shader_code());
@@ -278,11 +282,12 @@ void Terrain3DMaterial::_update_shader() {
 		code = _shader_override->get_code();
 		if (_compatibility) {
 			if (!code.contains("COMPATIBILITY_DEFINES")) {
-				// Insert after render_mode ;
-				regex->compile("render_mode[^;]*;");
+				// Insert after render_mode
+				regex->compile("render_mode.*;?");
 				match = regex->search(code);
 				if (match.is_valid()) {
-					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"])));
+					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"]).strip_edges()));
+					LOG(WARN, "Inserting compatibility defines into your shader. Save to finalize");
 					code = _shader_override->get_code();
 				}
 			}
@@ -472,12 +477,11 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 				int chars = code.find("// END_COMPAT_DEFINES") - idx;
 				code = code.erase(idx, chars + 21); // + length of "// END_COMPAT_DEFINES"
 				_shader_override->set_code(code);
-				LOG(WARN, "Compatibility Renderer not detected: removed COMPATIBILITY_DEFINES in override shader");
+				LOG(WARN, "Compatibility renderer not detected. Removed COMPATIBILITY_DEFINES in override shader. Save to finalize");
 				_update_shader();
 			}
 		}
 	}
-
 }
 
 Terrain3DMaterial::~Terrain3DMaterial() {
