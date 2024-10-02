@@ -118,7 +118,6 @@ func _edit(p_object: Object) -> void:
 				var mat_rid: RID = terrain.material.get_material_rid()
 				editor_decal_visible[0] = false
 				RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
-				#RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", false)
 				)
 
 		if terrain.storage:

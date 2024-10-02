@@ -730,13 +730,15 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 ///////////////////////////
 
 Terrain3D::Terrain3D() {
-	// check if we are using compatibility renderer
-	_compatibility = String(ProjectSettings::get_singleton()->get_setting_with_override("rendering/renderer/rendering_method")).contains("compatibility");
+	// Check if we are using the compatibility renderer
+	_compatibility = String(ProjectSettings::get_singleton()->get_setting_with_override("rendering/renderer/rendering_method")).contains("gl_compatibility");
+
+	// Process the command line
 	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
 	for (int i = args.size() - 1; i >= 0; i--) {
 		String arg = args[i];
 		if (arg.begins_with("--terrain3d-debug=")) {
-			String value = arg.lstrip("--terrain3d-debug=");
+			String value = arg.rsplit("=")[1];
 			if (value == "ERROR") {
 				set_debug_level(ERROR);
 			} else if (value == "INFO") {
@@ -746,11 +748,11 @@ Terrain3D::Terrain3D() {
 			} else if (value == "EXTREME") {
 				set_debug_level(EXTREME);
 			}
-			break;
-		}
-		// check if setting overriden by command line
-		if (arg.begins_with("--rendering-driver opengl3")) {
-			_compatibility = true;
+		} else if (arg.begins_with("--terrain3d-renderer=")) {
+			String value = arg.rsplit("=")[1];
+			if (value == "compatibility") {
+				_compatibility = true;
+			}
 		}
 	}
 }
@@ -870,7 +872,7 @@ void Terrain3D::update_region_labels() {
 			label->set_draw_flag(Label3D::FLAG_DISABLE_DEPTH_TEST, true);
 			label->set_draw_flag(Label3D::FLAG_FIXED_SIZE, true);
 			label->set_text(text);
-			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
+			label->set_modulate(Color(1.f, 1.f, 1.f, (_compatibility) ? .9f : .5f));
 			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
 			label->set_font_size(_label_size);
 			label->set_outline_size(_label_size / 6);
@@ -1214,7 +1216,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 
 		// Get position from depth packed in RGB - unpack back to float.
 		// Forward+ is 16bit, mobile is 10bit and compatibility is 8bit.
-		// Compatibility also has precision loss for values below 0.5, so 
+		// Compatibility also has precision loss for values below 0.5, so
 		// we use only the top half of the range, for 21bit depth encoded.
 		real_t r = floor((screen_depth.r * 256.0) - 128.0);
 		real_t g = floor((screen_depth.g * 256.0) - 128.0);

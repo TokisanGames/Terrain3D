@@ -13,14 +13,13 @@ R"(
 
 //INSERT: EDITOR_COMPATIBILITY_DEFINES
 // COMPATIBILITY_DEFINES - This code block is added and removed by the editor, do not modify it.
-// This is added automatically when in compatibility mode. It is not required for Mobile or Forward+
-// and should not be present when exporting your project, as Terrain3D will inject this if required.
+// This is added automatically when in compatibility mode. It is not required for Mobile or Forward+.
 #define IS_COMPATIBILITY
 #define fma(a, b, c) (a) * (b) + (c)
 #define dFdxCoarse(a) dFdx(a)
 #define dFdyCoarse(a) dFdy(a)
 #define textureQueryLod(a, b) vec4(0.0)
-#define texelOffset(b, c) ivec3(ivec2(b.xy * _region_size + c -0.4979), int(b.z))
+#define texelOffset(b, c) ivec3(ivec2(b.xy * _region_size + c - 0.4979), int(b.z))
 #define textureGather(a, b) vec4( \
     texelFetch(a, texelOffset(b, vec2(0,1)), 0).r, \
     texelFetch(a, texelOffset(b, vec2(1,1)), 0).r, \
@@ -59,16 +58,17 @@ vec3 get_decal(vec3 albedo, vec2 uv) {
 		// which might not be the case - so use a switch to read the correct uniform.
 		switch (i) {
 			case 0 :
-				decal = texture(_editor_decal_0,decal_uv + 0.5).r;
+				decal = texture(_editor_decal_0, decal_uv + 0.5).r;
 				break;
 			case 1:
-				decal = texture(_editor_decal_1,decal_uv + 0.5).r;
+				decal = texture(_editor_decal_1, decal_uv + 0.5).r;
 				break;
 			case 2:
-				decal = texture(_editor_decal_2,decal_uv + 0.5).r;
+				decal = texture(_editor_decal_2, decal_uv + 0.5).r;
 				break;
 		}
-		albedo =  mix(albedo, _editor_decal_color[i].rgb, smoothstep(0.1,1.0,decal) * _editor_decal_color[i].a);
+		// Blend in decal; reduce opacity 55% to account for differences in Opengl/Vulkan and/or decals
+		albedo =  mix(albedo, _editor_decal_color[i].rgb, clamp(decal * _editor_decal_color[i].a * .55, 0., .55));
 	}
 
 	return albedo;
