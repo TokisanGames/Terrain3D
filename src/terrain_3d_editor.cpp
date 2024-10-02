@@ -315,8 +315,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				bool navigation = is_nav(src.r);
 				bool autoshader = is_auto(src.r);
 
-				real_t alpha_clip = (brush_alpha > 0.1f) ? 1.f : 0.f;
-				uint32_t dest_id = uint32_t(Math::lerp(base_id, asset_id, alpha_clip));
+				real_t alpha_clip = (brush_alpha > 0.5f) ? 1.f : 0.f;
 				// Lookup to shift values saved to control map so that 0 (default) is the first entry
 				// Shader scale array is aligned to match this.
 				std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
@@ -326,16 +325,16 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						switch (_operation) {
 							// Base Paint
 							case REPLACE: {
-								if (brush_alpha > 0.1f) {
+								if (brush_alpha > 0.5f) {
 									if (enable_texture) {
 										// Set base texture
-										base_id = dest_id;
+										base_id = asset_id;
 										// Erase blend value
 										blend = Math::lerp(blend, real_t(0.f), alpha_clip);
 										autoshader = false;
 									}
 									// Set angle & scale
-									if (enable_angle) {
+									if (base_id == asset_id && enable_angle && !autoshader) {
 										if (dynamic_angle) {
 											// Angle from mouse movement.
 											angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
@@ -345,7 +344,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 										// Convert from degrees to 0 - 15 value range
 										uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
 									}
-									if (enable_scale) {
+									if (base_id == asset_id && enable_scale && !autoshader) {
 										// Offset negative and convert from percentage to 0 - 7 bit value range
 										// Maintain 0 = 0, remap negatives to end.
 										uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
@@ -356,22 +355,27 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 							// Overlay Spray
 							case ADD: {
-								real_t spray_strength = CLAMP(strength * 0.05f, 0.003f, .25f);
+								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
 								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
-								if (enable_texture) {
+								if (enable_texture && brush_alpha * strength * 11.f > 0.1f) {
 									// If overlay and base texture are the same, reduce blend value
-									if (dest_id == base_id) {
+									if (base_id == asset_id) {
 										blend = CLAMP(blend - brush_value, 0.f, 1.f);
+										if (blend < 0.5f && brush_alpha > 0.5f) {
+											autoshader = false;
+										}
 									} else {
-										// Else overlay and base are separate, set overlay texture and increase blend value
-										overlay_id = dest_id;
+										// Else overlay and base are separate, set overlay texture and increase blend value										
 										blend = CLAMP(blend + brush_value, 0.f, 1.f);
+										if (blend > 0.5f && brush_alpha > 0.5f) {
+											overlay_id = asset_id;
+											autoshader = false;
+										}
 									}
-									autoshader = false;
 								}
-								if (brush_alpha * strength * 11.f > 0.1f) {
+								if ((base_id == asset_id && blend < 0.5f) || (base_id != asset_id && blend >= 0.5f)) {
 									// Set angle & scale
-									if (enable_angle) {
+									if (enable_angle && !autoshader && brush_alpha > 0.5f) {
 										if (dynamic_angle) {
 											// Angle from mouse movement.
 											angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
@@ -381,7 +385,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 										// Convert from degrees to 0 - 15 value range
 										uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
 									}
-									if (enable_scale) {
+									if (enable_scale && !autoshader && brush_alpha > 0.5f) {
 										// Offset negative and convert from percentage to 0 - 7 bit value range
 										// Maintain 0 = 0, remap negatives to end.
 										uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
@@ -397,19 +401,21 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						break;
 					}
 					case AUTOSHADER: {
-						if (brush_alpha > 0.1f) {
+						if (brush_alpha > 0.5f) {
 							autoshader = (_operation == ADD);
+							uvscale = 0.f;
+							uvrotation = 0.f;
 						}
 						break;
 					}
 					case HOLES: {
-						if (brush_alpha > 0.1f) {
+						if (brush_alpha > 0.5f) {
 							hole = (_operation == ADD);
 						}
 						break;
 					}
 					case NAVIGATION: {
-						if (brush_alpha > 0.1f) {
+						if (brush_alpha > 0.5f) {
 							navigation = (_operation == ADD);
 						}
 						break;
