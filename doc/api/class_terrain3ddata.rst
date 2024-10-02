@@ -62,15 +62,29 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`force_update_maps<class_Terrain3DData_method_force_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, generate_mipmaps\: :ref:`bool<class_bool>` = false\ )                                                                                                |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`float<class_float>`                                                  | :ref:`get_angle<class_Terrain3DData_method_get_angle>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                        |
-   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Color<class_Color>`                                                  | :ref:`get_color<class_Terrain3DData_method_get_color>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                        |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`RID<class_RID>`                                                      | :ref:`get_color_maps_rid<class_Terrain3DData_method_get_color_maps_rid>`\ (\ ) |const|                                                                                                                                                                                                       |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`int<class_int>`                                                      | :ref:`get_control<class_Terrain3DData_method_get_control>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                    |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`float<class_float>`                                                  | :ref:`get_control_angle<class_Terrain3DData_method_get_control_angle>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                        |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`                                                    | :ref:`get_control_auto<class_Terrain3DData_method_get_control_auto>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                          |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`                                                      | :ref:`get_control_base_id<class_Terrain3DData_method_get_control_base_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                    |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`float<class_float>`                                                  | :ref:`get_control_blend<class_Terrain3DData_method_get_control_blend>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                        |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`                                                    | :ref:`get_control_hole<class_Terrain3DData_method_get_control_hole>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                          |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`RID<class_RID>`                                                      | :ref:`get_control_maps_rid<class_Terrain3DData_method_get_control_maps_rid>`\ (\ ) |const|                                                                                                                                                                                                   |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`                                                    | :ref:`get_control_navigation<class_Terrain3DData_method_get_control_navigation>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                              |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`int<class_int>`                                                      | :ref:`get_control_overlay_id<class_Terrain3DData_method_get_control_overlay_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                              |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`float<class_float>`                                                  | :ref:`get_control_scale<class_Terrain3DData_method_get_control_scale>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                        |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`float<class_float>`                                                  | :ref:`get_height<class_Terrain3DData_method_get_height>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                      |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -108,8 +122,6 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`float<class_float>`                                                  | :ref:`get_roughness<class_Terrain3DData_method_get_roughness>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`float<class_float>`                                                  | :ref:`get_scale<class_Terrain3DData_method_get_scale>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                                        |
-   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Vector3<class_Vector3>`                                              | :ref:`get_texture_id<class_Terrain3DData_method_get_texture_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const|                                                                                                                                                              |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`bool<class_bool>`                                                    | :ref:`has_region<class_Terrain3DData_method_has_region>`\ (\ region_location\: :ref:`Vector2i<class_Vector2i>`\ ) |const|                                                                                                                                                                    |
@@ -141,6 +153,22 @@ Methods
    | |void|                                                                     | :ref:`set_color<class_Terrain3DData_method_set_color>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, color\: :ref:`Color<class_Color>`\ )                                                                                                                                             |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`set_control<class_Terrain3DData_method_set_control>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, control\: :ref:`int<class_int>`\ )                                                                                                                                           |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_angle<class_Terrain3DData_method_set_control_angle>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, degrees\: :ref:`float<class_float>`\ )                                                                                                                           |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_auto<class_Terrain3DData_method_set_control_auto>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, enable\: :ref:`bool<class_bool>`\ )                                                                                                                                |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_base_id<class_Terrain3DData_method_set_control_base_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, texture_id\: :ref:`int<class_int>`\ )                                                                                                                        |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_blend<class_Terrain3DData_method_set_control_blend>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, blend_value\: :ref:`float<class_float>`\ )                                                                                                                       |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_hole<class_Terrain3DData_method_set_control_hole>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, enable\: :ref:`bool<class_bool>`\ )                                                                                                                                |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_navigation<class_Terrain3DData_method_set_control_navigation>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, enable\: :ref:`bool<class_bool>`\ )                                                                                                                    |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_overlay_id<class_Terrain3DData_method_set_control_overlay_id>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, texture_id\: :ref:`int<class_int>`\ )                                                                                                                  |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`set_control_scale<class_Terrain3DData_method_set_control_scale>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, percentage_modifier\: :ref:`float<class_float>`\ )                                                                                                               |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`set_height<class_Terrain3DData_method_set_height>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, height\: :ref:`float<class_float>`\ )                                                                                                                                          |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -483,20 +511,6 @@ This function needs to be called after editing any of the maps.
 
 ----
 
-.. _class_Terrain3DData_method_get_angle:
-
-.. rst-class:: classref-method
-
-:ref:`float<class_float>` **get_angle**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_angle>`
-
-Returns the angle, aka uv rotation, painted on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5.
-
-Returns ``NAN`` if the position is outside of defined regions.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3DData_method_get_color:
 
 .. rst-class:: classref-method
@@ -537,6 +551,76 @@ Returns ``4,294,967,295`` aka ``UINT32_MAX`` if the position is outside of defin
 
 ----
 
+.. _class_Terrain3DData_method_get_control_angle:
+
+.. rst-class:: classref-method
+
+:ref:`float<class_float>` **get_control_angle**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_angle>`
+
+Returns the angle, aka uv rotation, on the control map at the requested position. Values are fixed to 22.5 degree intervals, for a maximum of 16 angles. 360 / 16 = 22.5.
+
+Returns ``NAN`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_control_auto:
+
+.. rst-class:: classref-method
+
+:ref:`bool<class_bool>` **get_control_auto**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_auto>`
+
+Returns whether the autoshader is enabled on the control map at the requested position.
+
+Returns ``false`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_control_base_id:
+
+.. rst-class:: classref-method
+
+:ref:`int<class_int>` **get_control_base_id**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_base_id>`
+
+Returns the base texture ID on the control map at the requested position. Values are 0 - 31, which matches the ID of the texture asset in the asset dock.
+
+Returns ``4,294,967,295`` aka ``UINT32_MAX`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_control_blend:
+
+.. rst-class:: classref-method
+
+:ref:`float<class_float>` **get_control_blend**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_blend>`
+
+Returns the blend value between the base texture ID and the overlay texture ID. The value is clamped between 0.0 - 1.0 where 0.0 shows only the base texture, and 1.0 shows only the overlay texture.
+
+Returns ``NAN`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_control_hole:
+
+.. rst-class:: classref-method
+
+:ref:`bool<class_bool>` **get_control_hole**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_hole>`
+
+Returns whether there is a hole on the control map at the requested position.
+
+Returns ``false`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DData_method_get_control_maps_rid:
 
 .. rst-class:: classref-method
@@ -544,6 +628,48 @@ Returns ``4,294,967,295`` aka ``UINT32_MAX`` if the position is outside of defin
 :ref:`RID<class_RID>` **get_control_maps_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_maps_rid>`
 
 Returns the resource ID of the generated control map Texture Array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See `Tips <../docs/tips.html#using-the-generated-height-map-in-other-shaders>`__ for an example.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_control_navigation:
+
+.. rst-class:: classref-method
+
+:ref:`bool<class_bool>` **get_control_navigation**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_navigation>`
+
+Returns whether navigation is enabled on the control map at the requested position.
+
+Returns ``false`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_control_overlay_id:
+
+.. rst-class:: classref-method
+
+:ref:`int<class_int>` **get_control_overlay_id**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_overlay_id>`
+
+Returns the overlay texture ID on the control map at the requested position. Values are 0 - 31, which matches the ID of the texture asset in the asset dock.
+
+Returns ``4,294,967,295`` aka ``UINT32_MAX`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_control_scale:
+
+.. rst-class:: classref-method
+
+:ref:`float<class_float>` **get_control_scale**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_control_scale>`
+
+Returns the uv scale on the control map at the requested position. The value is rounded to the nearest 20% difference from 100%, ranging between -60% to +80%. Eg. +20% or -40%.
+
+Returns ``NAN`` if the position is outside of defined regions.
 
 .. rst-class:: classref-item-separator
 
@@ -791,20 +917,6 @@ Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regi
 
 ----
 
-.. _class_Terrain3DData_method_get_scale:
-
-.. rst-class:: classref-method
-
-:ref:`float<class_float>` **get_scale**\ (\ global_position\: :ref:`Vector3<class_Vector3>`\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_scale>`
-
-Returns the uv scale painted on the control map at the requested position. The value is a percentage difference from 100% scale. Eg. +20% or -40%. 
-
-Returns ``NAN`` if the position is outside of defined regions.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3DData_method_get_texture_id:
 
 .. rst-class:: classref-method
@@ -1019,6 +1131,114 @@ Sets the value on the control map pixel associated with the specified position. 
 
 ----
 
+.. _class_Terrain3DData_method_set_control_angle:
+
+.. rst-class:: classref-method
+
+|void| **set_control_angle**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, degrees\: :ref:`float<class_float>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_angle>`
+
+Sets the angle, aka uv rotation, on the control map at the requested position. Values are rounded to the nearest 22.5 degree interval, for a maximum of 16 angles. 360 / 16 = 22.5.
+
+See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_set_control_auto:
+
+.. rst-class:: classref-method
+
+|void| **set_control_auto**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, enable\: :ref:`bool<class_bool>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_auto>`
+
+Sets if the material should render the autoshader or manual texturing on the control map at the requested position.
+
+See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_set_control_base_id:
+
+.. rst-class:: classref-method
+
+|void| **set_control_base_id**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, texture_id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_base_id>`
+
+Sets the base texture ID on the control map at the requested position. Values are clamped to 0 - 31, matching the ID of the texture asset in the asset dock.
+
+See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_set_control_blend:
+
+.. rst-class:: classref-method
+
+|void| **set_control_blend**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, blend_value\: :ref:`float<class_float>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_blend>`
+
+Sets the blend value between the base texture ID, and the overlay texture ID. The value is clamped between 0.0 - 1.0 where 0.0 shows only the base texture, and 1.0 shows only the overlay texture.
+
+See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_set_control_hole:
+
+.. rst-class:: classref-method
+
+|void| **set_control_hole**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, enable\: :ref:`bool<class_bool>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_hole>`
+
+Sets if a hole should be rendered on the control map at the requested position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_set_control_navigation:
+
+.. rst-class:: classref-method
+
+|void| **set_control_navigation**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, enable\: :ref:`bool<class_bool>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_navigation>`
+
+Sets if navigation generation is enabled on the control map at the requested position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_set_control_overlay_id:
+
+.. rst-class:: classref-method
+
+|void| **set_control_overlay_id**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, texture_id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_overlay_id>`
+
+Sets the overlay texture ID on the control map at the requested position. Values are clamped to 0 - 31, matching the ID of the texture asset in the asset dock.
+
+See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_set_control_scale:
+
+.. rst-class:: classref-method
+
+|void| **set_control_scale**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, percentage_modifier\: :ref:`float<class_float>`\ ) :ref:`🔗<class_Terrain3DData_method_set_control_scale>`
+
+Sets the uv scale on the control map at the requested position. The value is rounded to the nearest 20% difference from 100%, ranging between -60% to +80%.
+
+See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DData_method_set_height:
 
 .. rst-class:: classref-method
@@ -1039,7 +1259,7 @@ Unlike :ref:`get_height<class_Terrain3DData_method_get_height>`, which interpola
 
 |void| **set_pixel**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`, global_position\: :ref:`Vector3<class_Vector3>`, pixel\: :ref:`Color<class_Color>`\ ) :ref:`🔗<class_Terrain3DData_method_set_pixel>`
 
-Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and :ref:`Terrain3DRegion.get_map<class_Terrain3DRegion_method_get_map>` to edit the images directly.
+Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
 
 After setting pixels you need to call :ref:`force_update_maps<class_Terrain3DData_method_force_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
 

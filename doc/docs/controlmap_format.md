@@ -11,7 +11,7 @@ We process each uint32 pixel as a bit field with the following definition, start
 | Overlay texture id | 0-31 | 5 | 27-23 | `(x & 0x1F) <<22` | `x >>22 & 0x1F`
 | Texture blend | 0-255 | 8 | 22-15 | `(x & 0xFF) <<14` | `x >>14 & 0xFF`
 | UV angle | 0-15 | 4 | 14-11 | `(x & 0xF) <<10` | `x >>10 & 0xF`
-| UV scale | 0-8 | 3 | 10-8 | `(x & 0x7) <<6` | `x >>6 & 0x7`
+| UV scale | 0-8 | 3 | 10-8 | `(x & 0x7) <<7` | `x >>7 & 0x7`
 | ... reserved ... | | | 
 | Hole: 0 terrain, 1 hole | 0-1 | 1 | 3 | `(x & 0x1) <<2` | `x >>2 & 0x1`
 | Navigation: 0 no, 1 yes | 0-1 | 1 | 2 | `(x & 0x1) <<1` | `x >>1 & 0x1`
