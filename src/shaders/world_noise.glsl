@@ -40,15 +40,15 @@ float hashf(float f) {
 }
 
 float hashv2(vec2 v) {
-	return fract(1e4 * sin(17.0 * v.x + v.y * 0.1) * (0.1 + abs(sin(v.y * 13.0 + v.x))));
+	return fract(1e4 * sin( fma(17.0, v.x, v.y * 0.1)) * (0.1 + abs(sin( fma(v.y, 13.0, v.x)))));
 }
 
 // https://iquilezles.org/articles/morenoise/
 vec3 noise2D(vec2 x) {
     vec2 f = fract(x);
     // Quintic Hermine Curve.  Similar to SmoothStep()
-    vec2 u = f*f*f*(f*(f*6.0-15.0)+10.0);
-    vec2 du = 30.0*f*f*(f*(f-2.0)+1.0);
+    vec2 u = f*f*f* fma(f, fma(f, vec2(6.0), vec2(-15.0) ), vec2(10.0));
+    vec2 du = 30.0*f*f* fma(f, (f-2.0), vec2(1.0) );
 
     vec2 p = floor(x);
 
@@ -63,7 +63,7 @@ vec3 noise2D(vec2 x) {
     float k1 =   b - a;
     float k2 =   c - a;
     float k3 =   a - b - c + d;
-    return vec3( k0 + k1 * u.x + k2 * u.y + k3 * u.x * u.y,
+    return vec3( k0 + fma(k1, u.x, fma(k2, u.y, k3 * u.x * u.y)),
                 du * ( vec2(k1, k2) + k3 * u.yx) );
 }
 
@@ -93,8 +93,8 @@ float get_noise_height(const vec2 uv) {
 		return 0.0;
 	}
 	//TODO: Offset/scale UVs are semi-dependent upon region size 1024. Base on v_vertex.xz instead
-	float noise = world_noise((uv + world_noise_offset.xz * 1024. / _region_size) * world_noise_scale * _region_size / 1024. * .1) *
-            world_noise_height * 10. + world_noise_offset.y * 100.;
+	float noise = fma( world_noise(fma(world_noise_offset.xz, vec2(1024. / _region_size), uv) * world_noise_scale * _region_size / 1024. * .1),
+            world_noise_height * 10., world_noise_offset.y * 100.);
 	weight = smoothstep(1.0 - world_noise_region_blend, 1.0, weight);
 	return mix(0.0, noise, weight);
 }

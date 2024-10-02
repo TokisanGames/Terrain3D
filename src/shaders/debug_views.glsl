@@ -10,7 +10,7 @@ R"(
 	vec2 __ddx = dFdx(__p);
 	vec2 __ddy = dFdy(__p);
 	vec2 __w = max(abs(__ddx), abs(__ddy)) + 0.01;
-	vec2 __i = 2.0 * (abs(fract((__p - 0.5 * __w) / 2.0) - 0.5) - abs(fract((__p + 0.5 * __w) / 2.0) - 0.5)) / __w;
+	vec2 __i = 2.0 * (abs( fract( fma(vec2(-0.5), __w, __p) * 0.5) - 0.5) - abs( fract( fma(vec2(0.5), __w, vec2(0.5)) / 2.0) - 0.5)) / __w;
 	ALBEDO = vec3((0.5 - 0.5 * __i.x * __i.y) * 0.2 + 0.2);
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
@@ -46,16 +46,18 @@ R"(
 
 //INSERT: DEBUG_CONTROL_TEXTURE
 	// Show control map texture selection
-	float __ctrl_base = weight_inv * (
-	float(mat[0].base) * weights.x +
-	float(mat[1].base) * weights.y +
-	float(mat[2].base) * weights.z +
-	float(mat[3].base) * weights.w )/96.;
-	float __ctrl_over = weight_inv * (
-	float(mat[0].over) * weights.x +
-	float(mat[1].over) * weights.y +
-	float(mat[2].over) * weights.z +
-	float(mat[3].over) * weights.w )/96.;
+	float __ctrl_base = weight_inv *
+	fma(float(mat[0].base), weights[0].x,
+	fma(float(mat[1].base), weights[1].x,
+	fma(float(mat[2].base), weights[2].x,
+	float(mat[3].base) * weights[3].x )))/96.;
+
+	float __ctrl_over = weight_inv *
+	fma(float(mat[0].over), weights[0].x,
+	fma(float(mat[1].over), weights[1].x,
+	fma(float(mat[2].over), weights[2].x,
+	float(mat[3].over) * weights[3].x )))/96.;
+
 	ALBEDO = vec3(__ctrl_base, __ctrl_over, 0.);
 	ROUGHNESS = 1.;
 	SPECULAR = 0.;
@@ -135,8 +137,8 @@ R"(
 	vec3 __pixel_pos1 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
 	float __region_line = 0.5;		// Region line thickness
 	__region_line = .1*sqrt(length(v_camera_pos - __pixel_pos1));
-	if (mod(__pixel_pos1.x * _vertex_density + __region_line*.5, _region_size) <= __region_line || 
-		mod(__pixel_pos1.z * _vertex_density + __region_line*.5, _region_size) <= __region_line ) {
+	if (mod( fma(__pixel_pos1.x, _vertex_density, __region_line*.5), _region_size) <= __region_line || 
+		mod( fma(__pixel_pos1.z, _vertex_density, __region_line*.5), _region_size) <= __region_line ) {
 		ALBEDO = vec3(1.);
 	}
 
@@ -151,13 +153,13 @@ R"(
 	vec3 __vertex_add = vec3(0.);
 	float __distance_factor = clamp(1.-length(v_camera_pos - __pixel_pos2)/__view_distance, 0., 1.);
 	// Draw vertex grid
-	if ( mod(__pixel_pos2.x * _vertex_density + __grid_line*.5, __grid_step) < __grid_line || 
-	  	 mod(__pixel_pos2.z * _vertex_density + __grid_line*.5, __grid_step) < __grid_line ) { 
+	if ( mod( fma(__pixel_pos2.x, _vertex_density, __grid_line*.5), __grid_step) < __grid_line || 
+	  	 mod( fma(__pixel_pos2.z, _vertex_density, __grid_line*.5), __grid_step) < __grid_line ) { 
 		__vertex_mul = vec3(0.5) * __distance_factor;
 	}
 	// Draw Vertices
-	if ( mod(UV.x + __grid_line*__vertex_size*.5, __grid_step) < __grid_line*__vertex_size &&
-	  	 mod(UV.y + __grid_line*__vertex_size*.5, __grid_step) < __grid_line*__vertex_size ) { 
+	if ( mod( fma(__vertex_size*.5, __grid_line, UV.x), __grid_step) < __grid_line*__vertex_size &&
+	  	 mod( fma(__vertex_size*.5, __grid_line, UV.y), __grid_step) < __grid_line*__vertex_size ) { 
 		__vertex_add = vec3(0.15) * __distance_factor;
 	}
 	ALBEDO = fma(ALBEDO, 1.-__vertex_mul, __vertex_add);

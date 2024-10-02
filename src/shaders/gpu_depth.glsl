@@ -24,7 +24,7 @@ vec3 encode_rg(float value) {
 	
 void fragment() {
 	float depth = textureLod(depth_texture, SCREEN_UV, 0.).x;
-	vec3 ndc = vec3(SCREEN_UV * 2.0 - 1.0, depth);
+	vec3 ndc = vec3(fma(SCREEN_UV, vec2(2.0), vec2(-1.0)), depth);
 	vec4 view = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
 	view.xyz /= view.w;
 	float depth_linear = -view.z;

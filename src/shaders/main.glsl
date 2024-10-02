@@ -194,14 +194,12 @@ vec3 get_normal(vec2 uv, out vec3 tangent, out vec3 binormal) {
 }
 
 vec3 unpack_normal(vec4 rgba) {
-	vec3 n = rgba.xzy * 2.0 - vec3(1.0);
-	n.z *= -1.0;
+	vec3 n = fma(rgba.xzy, vec3(2.0, 2.0, -2.0), vec3(-1.0, -1.0, 1.0));
 	return n;
 }
 
 vec4 pack_normal(vec3 n, float a) {
-	n.z *= -1.0;
-	return vec4((n.xzy + vec3(1.0)) * 0.5, a);
+	return vec4(fma(n.xzy, vec3(0.5, -0.5, 0.5), vec3(0.5)), a);
 }
 
 float random(in vec2 xy) {
@@ -209,13 +207,13 @@ float random(in vec2 xy) {
 }
 
 vec2 rotate(vec2 v, float cosa, float sina) {
-	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);
+	return vec2(fma(cosa, v.x, - sina * v.y), fma(sina, v.x, cosa * v.y));
 }
 
 // Moves a point around a pivot point.
 vec2 rotate_around(vec2 point, vec2 pivot, float angle){
-	float x = pivot.x + (point.x - pivot.x) * cos(angle) - (point.y - pivot.y) * sin(angle);
-	float y = pivot.y + (point.x - pivot.x) * sin(angle) + (point.y - pivot.y) * cos(angle);
+	float x = pivot.x + fma(point.x - pivot.x, cos(angle), (point.y - pivot.y) * -sin(angle));
+	float y = pivot.y + fma(point.x - pivot.x, sin(angle), (point.y - pivot.y) * cos(angle));
 	return vec2(x, y);
 }
 
@@ -224,7 +222,7 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 		float ma = max(a_height + (1.0 - blend), b_height + blend) - (1.001 - blend_sharpness);
 	    float b1 = max(a_height + (1.0 - blend) - ma, 0.0);
 	    float b2 = max(b_height + blend - ma, 0.0);
-	    return (a_value * b1 + b_value * b2) / (b1 + b2);
+	    return fma(a_value, vec4(b1), b_value * b2) / (b1 + b2);
 	} else {
 		float contrast = 1.0 - blend_sharpness;
 		float factor = (blend - contrast) / contrast;
@@ -235,7 +233,7 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 	if (_texture_detile_array[mat_id] >= 0.001){
 		uv_center = floor(uv_center) + 0.5;
-		float detile = (random(uv_center) - 0.5) * 2.0 * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
+		float detile = fma(random(uv_center), 2.0, -1.0) * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
 		uv = rotate_around(uv, uv_center, detile);
 		// Accumulate total rotation for normal rotation
 		normal_rotation += detile;
@@ -244,9 +242,9 @@ vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 }
 
 vec2 rotate_normal(vec2 normal, float angle) {
-	angle += PI * 0.5;
+	angle = fma(PI, 0.5, angle);
 	float new_y = dot(vec2(cos(angle), sin(angle)), normal);
-	angle -= PI * 0.5;
+	angle = fma(PI, -0.5, angle);
 	float new_x = dot(vec2(cos(angle) ,sin(angle)) ,normal);
 	return vec2(new_x, new_y);
 }
@@ -326,7 +324,7 @@ void get_material(vec2 base_uv, uint control, ivec3 iuv_center, vec3 normal, out
 float blend_weights(float weight, float detail) {
 	weight = smoothstep(0.0, 1.0, weight);
 	weight = sqrt(weight * 0.5);
-	float result = max(0.1 * weight, 10.0 * (weight + detail) + 1.0f - (detail + 10.0));
+	float result = max(0.1 * weight, fma(10.0, (weight + detail), 1.0f - (detail + 10.0)));
 	return result;
 }
 
@@ -381,27 +379,27 @@ void fragment() {
 	vec2 weights0 = vec2(1.0) - weights1;
 	// Adjust final weights by texture's height/depth + noise. 1 lookup
 	float noise3 = texture(noise_texture, uv*noise3_scale).r;
-	vec4 weights;
-	weights.x = blend_weights(weights0.x * weights0.y, clamp(mat[0].alb_ht.a + noise3, 0., 1.));
-	weights.y = blend_weights(weights0.x * weights1.y, clamp(mat[1].alb_ht.a + noise3, 0., 1.));
-	weights.z = blend_weights(weights1.x * weights0.y, clamp(mat[2].alb_ht.a + noise3, 0., 1.));
-	weights.w = blend_weights(weights1.x * weights1.y, clamp(mat[3].alb_ht.a + noise3, 0., 1.));
-	float weight_sum = weights.x + weights.y + weights.z + weights.w;
+	mat4 weights;
+	weights[0] = vec4(blend_weights(weights0.x * weights0.y, clamp(mat[0].alb_ht.a + noise3, 0., 1.)));
+	weights[1] = vec4(blend_weights(weights0.x * weights1.y, clamp(mat[1].alb_ht.a + noise3, 0., 1.)));
+	weights[2] = vec4(blend_weights(weights1.x * weights0.y, clamp(mat[2].alb_ht.a + noise3, 0., 1.)));
+	weights[3] = vec4(blend_weights(weights1.x * weights1.y, clamp(mat[3].alb_ht.a + noise3, 0., 1.)));
+	float weight_sum = weights[0].x + weights[1].x + weights[2].x + weights[3].x;
 	float weight_inv = 1.0 / weight_sum;
 
 	// Weighted average of albedo & height
-	vec4 albedo_height = weight_inv * (
-		mat[0].alb_ht * weights.x +
-		mat[1].alb_ht * weights.y +
-		mat[2].alb_ht * weights.z +
-		mat[3].alb_ht * weights.w );
+	vec4 albedo_height = weight_inv *
+		fma(mat[0].alb_ht, weights[0],
+		fma(mat[1].alb_ht, weights[1],
+		fma(mat[2].alb_ht, weights[2],
+		mat[3].alb_ht * weights[3] )));
 
 	// Weighted average of normal & rough
-	vec4 normal_rough = weight_inv * (
-		mat[0].nrm_rg * weights.x +
-		mat[1].nrm_rg * weights.y +
-		mat[2].nrm_rg * weights.z +
-		mat[3].nrm_rg * weights.w );
+	vec4 normal_rough = weight_inv *
+		fma(mat[0].nrm_rg, weights[0],
+		fma(mat[1].nrm_rg, weights[1],
+		fma(mat[2].nrm_rg, weights[2],
+		mat[3].nrm_rg * weights[3] )));
 
 	// Determine if we're in a region or not (region_uv.z>0)
 	vec3 region_uv = get_region_uv2(uv2);
