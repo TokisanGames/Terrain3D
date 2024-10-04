@@ -508,7 +508,7 @@ void Terrain3DEditor::_store_undo() {
 	EditorUndoRedoManager *undo_redo = _terrain->get_plugin()->get_undo_redo();
 	String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
 	LOG(DEBUG, "Creating undo action: '", action_name, "'");
-	undo_redo->create_action(action_name);
+	undo_redo->create_action(action_name, UndoRedo::MERGE_DISABLE, _terrain);
 
 	LOG(DEBUG, "Storing undo snapshot: ", _undo_data);
 	undo_redo->add_undo_method(this, "apply_undo", _undo_data);
