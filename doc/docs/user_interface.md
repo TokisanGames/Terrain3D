@@ -21,13 +21,14 @@ The tools provide options for sculpting, texturing, and other features. Each but
 
 First, select the Region Tool (first one: square with a cross), and click the ground. This allocates space for you to sculpt and paint.
 
----
-
 ## Keyboard Shortcuts
 
 The following mouse and keyboard shortcuts are available.
 
 *Note*: Touchscreen users will see an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
+
+*Note*: If the "Alternate Key Bindings" option is enabled in the editor settings, RMB (Right Mouse Button) replaces the default Alt + LMB behavior. This allows sculpting operations to be performed with RMB.
+
 
 ### General Keys
 * <kbd>LMB</kbd> - Click the terrain to positively apply the current tool.

@@ -31,6 +31,9 @@ func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
 	editor_settings = EditorInterface.get_editor_settings()
 	_cleanup_editor_settings()
+	# Initialize the new key binding option
+	if not editor_settings.has_setting("config/alternate_key_binding"):
+		editor_settings.set_setting("config/alternate_key_binding", false)
 	ui = UI.new()
 	ui.plugin = self
 	add_child(ui)
