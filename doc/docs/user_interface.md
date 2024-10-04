@@ -26,6 +26,7 @@ The following mouse and keyboard shortcuts are available:
 * <kbd>Ctrl + LMB</kbd> - **Inverses the operation** where applicable. Eg. Add or *remove* regions. Raise or *lower* terrain. Create or *remove* holes, foliage, navigation, etc.
 * <kbd>Alt + LMB</kbd> - **Lift floors** mode. Sculpting only. This lifts up lower portions of the terrain without affecting higher terrain around it. Use it along the bottom of cliff faces. See [videos demonstrating before and after](https://github.com/TokisanGames/Terrain3D/pull/409). 
 * <kbd>Ctrl + Alt + LMB</kbd> - **Flatten peaks** mode. Sculpting only. The inverse of the above. This reduces peaks and ridges without affecting lower terrain around it.
+* <kbd>RMB (Alternate Binding)</kbd> - If the "Alternate Key Bindings" option is enabled in the editor settings, RMB (Right Mouse Button) replaces the default Alt + LMB behavior. This allows sculpting operations to be performed with RMB.
 
 Note: Touchscreen users have an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
 
