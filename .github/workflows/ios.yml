@@ -20,6 +20,8 @@ jobs:
 
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
+        with:
+            platform: ${{ matrix.platform }}
 
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache

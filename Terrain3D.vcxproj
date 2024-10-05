@@ -174,7 +174,6 @@
   <ItemGroup>
     <None Include=".github\actions\base-deps\action.yml" />
     <None Include=".github\actions\build-cache\action.yml" />
-    <None Include=".github\actions\windows-deps\action.yml" />
     <None Include=".github\ISSUE_TEMPLATE\bug_report.yml" />
     <None Include=".github\ISSUE_TEMPLATE\config.yml" />
     <None Include=".github\ISSUE_TEMPLATE\feature_request.yml" />
@@ -183,6 +182,7 @@
     <None Include=".github\workflows\ios.yml" />
     <None Include=".github\workflows\linux.yml" />
     <None Include=".github\workflows\macos.yml" />
+    <None Include=".github\workflows\web.yml" />
     <None Include=".github\workflows\windows.yml" />
     <None Include=".gitignore" />
     <None Include="AUTHORS.md" />

@@ -1,16 +1,16 @@
-﻿name: 🍎 macOS Builds
+﻿name: 🌐 Web Builds
 on: [ workflow_call, workflow_dispatch ]
 
 jobs:
   build:
-    name: 🍎 macOS ${{ matrix.arch }} ${{ matrix.target }}
-    runs-on: macos-latest
+    name: 🌐 Web ${{ matrix.arch }} ${{ matrix.target }}
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos]
+        platform: [web]
         target: [debug, release]
-        arch: [universal]
+        #threads: [yes, no]
 
     steps:
       - name: Checkout Terrain3D
@@ -21,37 +21,36 @@ jobs:
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
         with:
-            platform: ${{ matrix.platform }}
+          platform: ${{ matrix.platform }}
 
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
         with:
-          cache-name: ${{ matrix.platform }}-${{ matrix.target }}
+          cache-name: ${{ matrix.platform }}-nothreads-${{ matrix.target }}
         continue-on-error: true
 
       - name: Build Terrain3D
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
             TARGET: 'template_${{ matrix.target }}'
-            ARCH: '${{ matrix.arch }}'
         shell: sh
         run: |
-            scons target=$TARGET platform='${{ matrix.platform }}' arch=$ARCH debug_symbols=no -j2
+          scons target=$TARGET platform='${{ matrix.platform }}' threads=no debug_symbols=no -j2
 
-      - name: Include Files
+      - name: Prepare Files
         shell: sh
         run: |
-          ls -l project/addons/terrain_3d/bin/*/
+          ls -l project/addons/terrain_3d/bin/
           cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload Package
         uses: actions/upload-artifact@v4
         with:
           include-hidden-files: true
-          name: t3d-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
+          name: t3d-${{ matrix.platform }}-nothreads-${{ matrix.target }}
           path: |
             ${{ github.workspace }}/project/
-
+  
   merge:
     runs-on: ubuntu-latest
     needs: build
