@@ -300,9 +300,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				}
 				dest = Color(destf, 0.f, 0.f, 1.f);
 				region->update_height(destf);
-				// TODO Move this line to a signal sent from above line
 				data->update_master_height(destf);
-
 				edited_position.y = destf;
 				edited_area = edited_area.expand(edited_position);
 
@@ -324,7 +322,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
 
 				switch (_tool) {
-					case TEXTURE:
+					case TEXTURE: {
 						switch (_operation) {
 							// Base Paint
 							case REPLACE: {
@@ -397,6 +395,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							}
 						}
 						break;
+					}
 					case AUTOSHADER: {
 						if (brush_alpha > 0.1f) {
 							autoshader = (_operation == ADD);

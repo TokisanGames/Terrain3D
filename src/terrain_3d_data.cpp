@@ -506,9 +506,9 @@ void Terrain3DData::update_maps(const MapType p_map_type) {
 			if (region.is_valid()) {
 				_height_maps.push_back(region->get_height_map());
 			} else {
-				LOG(ERROR, "Can't find region ", region_loc, ", _regions: ", _regions.size(),
-						", locations: ", _region_locations.size(), ". Please report this error.");
-				_region_map_dirty = true;
+				LOG(ERROR, "Can't find region ", region_loc, ", _regions: ", _regions,
+						", locations: ", _region_locations, ". Please report this error.");
+				return;
 			}
 		}
 		_generated_height_maps.create(_height_maps);
@@ -543,9 +543,7 @@ void Terrain3DData::update_maps(const MapType p_map_type) {
 		emit_signal("color_maps_changed");
 	}
 
-	if (any_changed) {
-		emit_signal("maps_changed");
-	} else {
+	if (!any_changed) {
 		// If no maps have been rebuilt, it's safe to update individual layers. Regions marked Edited
 		// have either been recently changed by Terrain3DEditor::_operate_map or were marked by undo / redo.
 		for (int i = 0; i < _region_locations.size(); i++) {
@@ -556,22 +554,29 @@ void Terrain3DData::update_maps(const MapType p_map_type) {
 				switch (p_map_type) {
 					case TYPE_HEIGHT:
 						_generated_height_maps.update(region->get_height_map(), region_id);
+						emit_signal("height_maps_changed");
 						break;
 					case TYPE_CONTROL:
 						_generated_control_maps.update(region->get_control_map(), region_id);
+						emit_signal("control_maps_changed");
 						break;
 					case TYPE_COLOR:
 						_generated_color_maps.update(region->get_color_map(), region_id);
+						emit_signal("color_maps_changed");
 						break;
 					default:
 						_generated_height_maps.update(region->get_height_map(), region_id);
 						_generated_control_maps.update(region->get_control_map(), region_id);
 						_generated_color_maps.update(region->get_color_map(), region_id);
+						emit_signal("height_maps_changed");
+						emit_signal("control_maps_changed");
+						emit_signal("color_maps_changed");
 						break;
 				}
 			}
 		}
 	}
+	emit_signal("maps_changed");
 }
 
 void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel) {
