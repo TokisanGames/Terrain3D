@@ -1,33 +1,35 @@
 Collision
 =======================
 
-One of the most important things about a terrain is knowing where it is. Terrain3D provides several methods for detecting terrain height.
+One of the most important things about a terrain is knowing where it is. Using physics based collision is not the only way, nor even the best or fastest way. There are at least 5 ways to detect terrain height: Physics based raycasting on collision, raymarching, the GPU depth texture, get_height(), and reading the heightmap directly.
 
-Using collision is not the only way, nor even the best or fastest way. But we'll start with it as it is the most common.
+You should use raycasting only when you don't already know the X, Z of the collision point (eg not vertical).
+
 
 ## Physics Based Collision & Raycasting
 
-Collision is generated at runtime using the physics server. Regular PhysicsBodies will interact with this collision as expected. To detect ground height, use a [ray cast](https://docs.godotengine.org/en/stable/tutorials/physics/ray-casting.html). However, outside of regions, there is no collision, so raycasts won't hit. 
+Collision is generated at runtime using the physics server. Regular PhysicsBodies will interact with this collision as expected. To detect ground height, use a [ray cast](https://docs.godotengine.org/en/stable/tutorials/physics/ray-casting.html). There is no collision outside of regions, so raycasts won't hit.
 
-Normally the editor doesn't generate collision, but some addons or other activities do need editor collision. To generate it, enable `Terrain3D/Collision/Collision Mode`, or set `Terrain3D.collision_mode`. Set this to `Full / Editor`. You can run in game with this enabled.
+Normally the editor doesn't generate collision, but some addons or other activities do need editor collision. To generate it, set `Terrain3D/Collision/Collision Mode`, or `Terrain3D.collision_mode`, to `Full / Editor`. You can run in game with this enabled.
 
-This editor option will generate collision one time when enabled or at startup. If the terrain is sculpted afterwards, this collision will be inaccurate to the visual mesh until collision is disabled and enabled again. On a Core-i9 12900H, generating collision takes about 145ms per 1024m region, so updating it several times per second while sculpting is not practical. Currently all regions are regenerated, rather than only modified regions so it is not optimal. You can follow [PR#278](https://github.com/TokisanGames/Terrain3D/pull/278) for an improved system.
+This option will generate collision one time when enabled or at startup. If the terrain is sculpted afterwards, this collision will be inaccurate to the visual mesh until collision is disabled and enabled again. On a Core-i9 12900H, generating collision takes about 145ms per 1024m region, so updating it several times per second while sculpting is not practical. Currently all regions are regenerated, rather than only modified regions so it is not optimal. You can follow [PR#278](https://github.com/TokisanGames/Terrain3D/pull/278) for an improved system.
 
 See the [Terrain3D API](../api/class_terrain3d.rst) for various functions that configure the collision priority, layers, and mask.
 
+Finally, Godot Physics is far from perfect. If you have issues with raycasts or other physics calculations, try switching to Jolt. Also if your raycast is perfectly vertical, you can try angling it ever so slightly, or use get_height().
+
+
 ## Raycasting Without Physics
 
-It is possible to cast a ray from any position and any direction and detect the collision point on the terrain using the GPU instead of the physics engine.
+It is possible to cast a ray from any position and direction to detect the collision point on the terrain without using the physics engine. We have two methods for that: raymarching and using the GPU.
 
-Sending the source point and ray direction to [Terrain3D.get_intersection()](../api/class_terrain3d.rst#class-terrain3d-method-get-intersection) will return the intersection point on success.
+Sending the source point and ray direction to [Terrain3D.get_intersection()](../api/class_terrain3d.rst#class-terrain3d-method-get-intersection) will return the intersection point. This function has two modes:
 
-Being GPU based, this function works outside of regions.
+In raymarching mode it iterates over get_height() until an intersection is reached. This only works within regions, and is a bit heavy compared to the other modes.
 
-This function works fine if called *only once per frame*, such as for a mouse pointer detecting terrain position. More than once per frame will produce conflicts.
+In GPU mode, it "looks" at the terrain using the GPU depth texture. This works outside of regions, even on the WorldNoise. However there are caveats. It returns values for the previous frame, so can only used continuously or used with `await`, and no more than once per frame.
 
-You can review [editor.gd](https://github.com/TokisanGames/Terrain3D/blob/v0.9.1-beta/project/addons/terrain_3d/editor/editor.gd#L129-L143) to see an example of projecting the mouse position onto the terrain using this function.
-
-Use it only when you don't already know the X, Z collision point.
+Be sure to read the link above to understand all caveats. Review [editor_plugin.gd](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/src/editor_plugin.gd#L184-L188) to see an example of using this function to project the mouse position onto the terrain.
 
 
 ## Query Height At Any Position

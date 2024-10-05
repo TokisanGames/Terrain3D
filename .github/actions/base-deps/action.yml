@@ -1,27 +1,48 @@
 name: Setup Base Dependencies
-description: Setup python and scons
+description: Setup base dependencies
 inputs:
-  python-version:
-    description: The python version to use.
-    default: "3.x"
-  python-arch:
-    description: The python architecture.
-    default: "x64"
+  platform:
+    required: true
+    description: Target platform.
 runs:
   using: "composite"
   steps:
-    # Use python 3.x release (works cross platform)
-    - name: Setup python 3.x
+    - name: Setup Python 3.x
       uses: actions/setup-python@v5
       with:
-        # Semantic version range syntax or exact version of a Python version
-        python-version: ${{ inputs.python-version }}
-        # Optional - x64 or x86 architecture, defaults to x64
-        architecture: ${{ inputs.python-arch }}
+        python-version: 3.x
 
-    - name: Setup scons 4.4
+    - name: Setup SCons 4.4
       shell: bash
       run: |
         python -c "import sys; print(sys.version)"
         python -m pip install scons==4.4.0
         scons --version
+
+    - name: Setup Android Dependencies
+      if: inputs.platform == 'android'
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r23c
+        link-to-sdk: true
+
+    - name: Setup Windows Dependencies
+      if: inputs.platform == 'windows'
+      shell: sh
+      run: |
+          sudo apt-get install mingw-w64
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
+    - name: Setup Web Dependencies
+      if: inputs.platform == 'web'
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: 3.1.64
+        no-cache: true
+
+    - name: Verify Emscripten setup
+      if: inputs.platform == 'web'
+      shell: bash
+      run: |
+        emcc -v

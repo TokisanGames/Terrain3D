@@ -4,7 +4,7 @@ on: [ workflow_call, workflow_dispatch ]
 jobs:
   build:
     name: 🤖 Android ${{ matrix.arch }} ${{ matrix.target }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -18,14 +18,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Android Dependencies
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r23c
-          link-to-sdk: true
-
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
+        with:
+            platform: ${{ matrix.platform }}
 
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
