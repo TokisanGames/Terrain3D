@@ -365,7 +365,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 											autoshader = false;
 										}
 									} else {
-										// Else overlay and base are separate, set overlay texture and increase blend value										
+										// Else overlay and base are separate, set overlay texture and increase blend value
 										blend = CLAMP(blend + brush_value, 0.f, 1.f);
 										if (blend > 0.5f && brush_alpha > 0.5f) {
 											overlay_id = asset_id;
@@ -436,26 +436,38 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				dest = Color(as_float(bits), 0.f, 0.f, 1.f);
 
 			} else if (map_type == TYPE_COLOR) {
-				switch (_tool) {
-					case COLOR:
-						dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
-						dest.a = src.a;
-						break;
-					case ROUGHNESS:
-						/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
-						 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
-						 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
-						 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
-						 * We round the final amount in tool_settings.gd:_on_picked().
-						 */
-						if (_operation == ADD) {
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
-						} else {
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
-						}
-						break;
-					default:
-						break;
+				// Filter by visible texture
+				bool can_write = true;
+				if (enable_texture) {
+					Ref<Image> map = region->get_map(TYPE_CONTROL);
+					real_t src_ctrl = map->get_pixelv(map_pixel_position).r;
+					int tex_id = (get_blend(src_ctrl) > 110 + int(_brush_data.get("margin", 0))) ? get_overlay(src_ctrl) : get_base(src_ctrl);
+					if (tex_id != asset_id) {
+						can_write = false;
+					}
+				}
+				if (can_write) {
+					switch (_tool) {
+						case COLOR:
+							dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
+							dest.a = src.a;
+							break;
+						case ROUGHNESS:
+							/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
+							 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
+							 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
+							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
+							 * We round the final amount in tool_settings.gd:_on_picked().
+							 */
+							if (_operation == ADD) {
+								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
+							} else {
+								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
+							}
+							break;
+						default:
+							break;
+					}
 				}
 			}
 			backup_region(region);
@@ -652,6 +664,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 
 	_brush_data["enable_texture"] = p_data.get("enable_texture", true);
 	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, ((_tool == INSTANCER) ? Terrain3DAssets::MAX_MESHES : Terrain3DAssets::MAX_TEXTURES) - 1);
+	_brush_data["margin"] = CLAMP(int(p_data.get("margin", 0)), -100, 100);
 
 	_brush_data["enable_angle"] = p_data.get("enable_angle", true);
 	_brush_data["dynamic_angle"] = p_data.get("dynamic_angle", false);
