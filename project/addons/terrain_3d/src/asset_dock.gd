@@ -293,7 +293,7 @@ func _on_meshes_pressed() -> void:
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	if p_tool == Terrain3DEditor.INSTANCER:
 		_on_meshes_pressed()
-	elif p_tool == Terrain3DEditor.TEXTURE:
+	elif p_tool in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
 		_on_textures_pressed()
 
 
@@ -542,7 +542,8 @@ class ListContainer extends Container:
 		plugin.select_terrain()
 
 		# Select Paint tool if clicking a texture
-		if type == Terrain3DAssets.TYPE_TEXTURE and plugin.editor.get_tool() != Terrain3DEditor.TEXTURE:
+		if type == Terrain3DAssets.TYPE_TEXTURE and \
+				not plugin.editor.get_tool() in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
 			var paint_btn: Button = plugin.ui.toolbar.get_node_or_null("PaintBaseTexture")
 			if paint_btn:
 				paint_btn.set_pressed(true)
