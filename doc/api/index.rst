@@ -10,25 +10,19 @@
 All classes
 ===========
 
-Nodes
-=====
+Variant types
+=============
 
 .. toctree::
     :maxdepth: 1
-    :name: toc-class-ref-nodes
+    :name: toc-class-ref-variants
 
-    class_node
+    class_variant
     class_terrain3d
-
-Resources
-=========
-
-.. toctree::
-    :maxdepth: 1
-    :name: toc-class-ref-resources
-
-    class_resource
     class_terrain3dassets
+    class_terrain3ddata
+    class_terrain3deditor
+    class_terrain3dinstancer
     class_terrain3dmaterial
     class_terrain3dmeshasset
     class_terrain3dregion
@@ -36,17 +30,5 @@ Resources
     class_terrain3dtexture
     class_terrain3dtextureasset
     class_terrain3dtexturelist
-
-Other objects
-=============
-
-.. toctree::
-    :maxdepth: 1
-    :name: toc-class-ref-objects
-
-    class_object
-    class_terrain3ddata
-    class_terrain3deditor
-    class_terrain3dinstancer
     class_terrain3dutil
 

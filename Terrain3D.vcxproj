@@ -238,19 +238,19 @@
     <Text Include="src\shaders\gpu_depth.glsl" />
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="doc\classes\Terrain3D.xml" />
-    <Xml Include="doc\classes\Terrain3DData.xml" />
-    <Xml Include="doc\classes\Terrain3DEditor.xml" />
-    <Xml Include="doc\classes\Terrain3DInstancer.xml" />
-    <Xml Include="doc\classes\Terrain3DMaterial.xml" />
-    <Xml Include="doc\classes\Terrain3DMeshAsset.xml" />
-    <Xml Include="doc\classes\Terrain3DRegion.xml" />
-    <Xml Include="doc\classes\Terrain3DStorage.xml" />
-    <Xml Include="doc\classes\Terrain3DTexture.xml" />
-    <Xml Include="doc\classes\Terrain3DTextureAsset.xml" />
-    <Xml Include="doc\classes\Terrain3DAssets.xml" />
-    <Xml Include="doc\classes\Terrain3DTextureList.xml" />
-    <Xml Include="doc\classes\Terrain3DUtil.xml" />
+    <Xml Include="doc\doc_classes\Terrain3D.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DAssets.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DData.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DEditor.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DInstancer.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DMaterial.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DMeshAsset.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DRegion.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DStorage.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DTexture.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DTextureAsset.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DTextureList.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DUtil.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

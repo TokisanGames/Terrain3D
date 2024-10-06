@@ -305,43 +305,43 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="doc\classes\Terrain3D.xml">
+    <Xml Include="doc\doc_classes\Terrain3D.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DEditor.xml">
+    <Xml Include="doc\doc_classes\Terrain3DAssets.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DMaterial.xml">
+    <Xml Include="doc\doc_classes\Terrain3DData.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DStorage.xml">
+    <Xml Include="doc\doc_classes\Terrain3DEditor.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DTextureAsset.xml">
+    <Xml Include="doc\doc_classes\Terrain3DInstancer.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DAssets.xml">
+    <Xml Include="doc\doc_classes\Terrain3DMaterial.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DUtil.xml">
+    <Xml Include="doc\doc_classes\Terrain3DMeshAsset.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DInstancer.xml">
+    <Xml Include="doc\doc_classes\Terrain3DRegion.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DTextureList.xml">
+    <Xml Include="doc\doc_classes\Terrain3DStorage.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DMeshAsset.xml">
+    <Xml Include="doc\doc_classes\Terrain3DTexture.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DTexture.xml">
+    <Xml Include="doc\doc_classes\Terrain3DTextureAsset.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DData.xml">
+    <Xml Include="doc\doc_classes\Terrain3DTextureList.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DRegion.xml">
+    <Xml Include="doc\doc_classes\Terrain3DUtil.xml">
       <Filter>3. XML</Filter>
     </Xml>
   </ItemGroup>
