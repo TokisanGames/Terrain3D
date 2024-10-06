@@ -317,57 +317,63 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 
 	int mesh_id = p_params.get("asset_id", 0);
-	if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
+	int mesh_count = _terrain->get_assets()->get_mesh_count();
+	if (mesh_id < 0 || mesh_id >= mesh_count) {
 		LOG(ERROR, "Mesh ID out of range: ", mesh_id, ", valid: 0 to ", _terrain->get_assets()->get_mesh_count() - 1);
 		return;
 	}
-	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 
+	bool alt_mode = p_params.get("alt_mode", false);
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), .5f, 4096.f); // Meters
 	real_t radius = brush_size * .4f; // Ring1's inner radius
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
-	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
-					MAX(0.01f, fixed_scale + .5f * random_scale),
-			.001f, 1000.f);
-
-	// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-	uint32_t count = _get_instace_count(density);
-	if (count <= 0) {
-		return;
-	}
 
 	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 
-	LOG(EXTREME, "Removing ", count, " instances from ", p_global_position);
-	Ref<MultiMesh> multimesh = get_multimesh(region_loc, mesh_id);
-	if (multimesh.is_null()) {
-		LOG(EXTREME, "Multimesh is already null. doing nothing");
-		return;
-	}
+	// If alt mode, repeat for every mesh, otherwise only do mesh_id
+	for (int m = (alt_mode ? 0 : mesh_id); m <= (alt_mode ? mesh_count - 1 : mesh_id); m++) {
+		Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
+		real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
+						MAX(0.01f, fixed_scale + .5f * random_scale),
+				.001f, 1000.f);
 
-	TypedArray<Transform3D> xforms;
-	TypedArray<Color> colors;
-	for (int i = 0; i < multimesh->get_instance_count(); i++) {
-		Transform3D t = multimesh->get_instance_transform(i);
-		// If quota not yet met and instance within a cylinder radius, remove it
-		Vector2 origin2d = Vector2(t.origin.x, t.origin.z);
-		Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z);
-		if (count > 0 && (origin2d - mouse2d).length() < radius) {
-			count--;
+		// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
+		uint32_t count = _get_instace_count(density);
+		if (count == 0) {
 			continue;
-		} else {
-			xforms.push_back(t);
-			colors.push_back(multimesh->get_instance_color(i));
 		}
-	}
 
-	if (xforms.size() == 0) {
-		LOG(DEBUG, "Removed all instances, erasing multimesh in region");
-		clear_by_location(region_loc, mesh_id);
-	} else {
-		append_location(region_loc, mesh_id, xforms, colors, true);
+		Ref<MultiMesh> multimesh = get_multimesh(region_loc, m);
+		if (multimesh.is_null()) {
+			LOG(EXTREME, "Multimesh is already null. doing nothing");
+			continue;
+		}
+
+		LOG(EXTREME, "Removing ", count, " instances from ", p_global_position);
+		TypedArray<Transform3D> xforms;
+		TypedArray<Color> colors;
+		for (int i = 0; i < multimesh->get_instance_count(); i++) {
+			Transform3D t = multimesh->get_instance_transform(i);
+			// If quota not yet met and instance within a cylinder radius, remove it
+			Vector2 origin2d = Vector2(t.origin.x, t.origin.z);
+			Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z);
+			if (count > 0 && (origin2d - mouse2d).length() < radius) {
+				count--;
+				continue;
+			} else {
+				xforms.push_back(t);
+				colors.push_back(multimesh->get_instance_color(i));
+			}
+		}
+
+		if (xforms.size() == 0) {
+			LOG(DEBUG, "Removed all instances, erasing multimesh in region");
+			clear_by_location(region_loc, m);
+		} else {
+			append_location(region_loc, m, xforms, colors, true);
+		}
 	}
 }
 

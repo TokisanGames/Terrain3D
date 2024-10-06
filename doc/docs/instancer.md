@@ -63,8 +63,9 @@ Adjusting the vertex color requires that `vertex_color_use_as_albedo` is enabled
 
 ### 4. Paint On The Ground
 
-Paint instances on the terrain. You can remove instances by holding CTRL while painting.
+Paint instances on the terrain. You can remove instances of the selected mesh by holding CTRL while painting.
 
+Press CTRL+ALT to remove mesh instances of any type.
 
 ## Limitations
 
