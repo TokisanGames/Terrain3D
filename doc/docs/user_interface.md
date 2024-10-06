@@ -27,6 +27,11 @@ The following mouse and keyboard shortcuts are available:
 * <kbd>Alt + LMB</kbd> - **Lift floors** mode. Sculpting only. This lifts up lower portions of the terrain without affecting higher terrain around it. Use it along the bottom of cliff faces. See [videos demonstrating before and after](https://github.com/TokisanGames/Terrain3D/pull/409). 
 * <kbd>Ctrl + Alt + LMB</kbd> - **Flatten peaks** mode. Sculpting only. The inverse of the above. This reduces peaks and ridges without affecting lower terrain around it.
 
+**Instancer Operations**
+* <kbd>LMB</kbd> - Add the selected mesh instance to the terrain.
+* <kbd>Ctrl + LMB</kbd> - Remove instances of the selected type.
+* <kbd>Ctrl + Alt + LMB</kbd> - Remove instances of any type.
+
 Note: Touchscreen users have an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
 
 **Godot Shortcuts**

@@ -27,7 +27,7 @@ class Terrain3DInstancer : public Object {
 	Dictionary _mmis;
 
 	uint32_t _instance_counter = 0;
-	int _get_instace_count(const real_t p_density);
+	uint32_t _get_instace_count(const real_t p_density);
 
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
@@ -75,12 +75,12 @@ protected:
 
 // Allows us to instance every X function calls for sparse placement
 // Modifies _instance_counter, not const!
-inline int Terrain3DInstancer::_get_instace_count(const real_t p_density) {
+inline uint32_t Terrain3DInstancer::_get_instace_count(const real_t p_density) {
 	uint32_t count = 0;
-	if (p_density < 1.f && _instance_counter++ % int(1.f / p_density) == 0) {
+	if (p_density < 1.f && _instance_counter++ % uint32_t(1.f / p_density) == 0) {
 		count = 1;
 	} else if (p_density >= 1.f) {
-		count = int(p_density);
+		count = uint32_t(p_density);
 	}
 	return count;
 }

@@ -145,7 +145,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	real_t gamma = _brush_data["gamma"];
 	PackedVector3Array gradient_points = _brush_data["gradient_points"];
-	bool lift_flatten = _brush_data["lift_flatten"];
+	bool alt_mode = _brush_data["alt_mode"];
 
 	real_t randf = UtilityFunctions::randf();
 	real_t rot = randf * Math_PI * real_t(_brush_data["jitter"]);
@@ -224,7 +224,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 				switch (_operation) {
 					case ADD: {
-						if (lift_flatten && !std::isnan(p_global_position.y)) {
+						if (alt_mode && !std::isnan(p_global_position.y)) {
+							// Lift troughs
 							real_t brush_center_y = p_global_position.y + brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
 						} else {
@@ -233,7 +234,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						break;
 					}
 					case SUBTRACT: {
-						if (lift_flatten && !std::isnan(p_global_position.y)) {
+						if (alt_mode && !std::isnan(p_global_position.y)) {
+							// Flatten peaks
 							real_t brush_center_y = p_global_position.y - brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
 						} else {

@@ -451,7 +451,7 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 	# Alt (modify) key. Change the raise/lower operation to lift floors / flatten peaks.
 	if p_modifier == KEY_ALT && modifier_alt != p_pressed:
 		modifier_alt = p_pressed
-		tool_settings.set_setting("lift_flatten", p_pressed)
+		brush_data["alt_mode"] = p_pressed
 
 	# Shift (smooth) key
 	if p_modifier == KEY_SHIFT && modifier_shift != p_pressed:
