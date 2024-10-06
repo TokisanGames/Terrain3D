@@ -37,6 +37,9 @@ func _init() -> void:
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
 	editor_settings = EditorInterface.get_editor_settings()
+	    # Initialize the new key binding option
+    if not editor_settings.has_setting("config/alternate_key_binding"):
+        editor_settings.set_setting("config/alternate_key_binding", false)
 	ui = UI.new()
 	ui.plugin = self
 	add_child(ui)
@@ -256,8 +259,22 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		if p_event.get_button_index() == MOUSE_BUTTON_RIGHT and p_event.is_released():
 			ui.last_rmb_time = Time.get_ticks_msec()
 		ui.update_decal()
-			
-		if p_event.get_button_index() == MOUSE_BUTTON_LEFT:
+
+		    # Fetch the alternate key binding setting
+    	var use_rmb = editor_settings.get_setting("config/alternate_key_binding")
+
+			# If alternate keybinding is enabled, use RMB instead of ALT + LMB
+		    if use_rmb and p_event.get_button_index() == MOUSE_BUTTON_RIGHT:
+        if p_event.is_pressed():
+            if not editor.is_operating():
+                editor.start_operation(mouse_global_position)
+            editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
+            return AFTER_GUI_INPUT_STOP
+        elif editor.is_operating() and p_event.is_released():
+            editor.stop_operation()
+            return AFTER_GUI_INPUT_STOP
+
+		elif not use_rmb and p_event.get_button_index() == MOUSE_BUTTON_LEFT:
 			if p_event.is_pressed():
 				if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 					return AFTER_GUI_INPUT_STOP
