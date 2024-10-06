@@ -110,7 +110,7 @@ func _ready() -> void:
 	add_setting({ "name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, 
 								"default":0, "unit":"°", "range":Vector3(0, 180, 1) })
 	add_setting({ "name":"gradient_points", "type":SettingType.MULTI_PICKER, "label":"Points", 
-								"list":main_list, "default":Terrain3DEditor.HEIGHT, "flags":ADD_SEPARATOR })
+								"list":main_list, "default":Terrain3DEditor.SCULPT, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false, 
 								"flags":ADD_SEPARATOR })
 	settings["drawable"].toggled.connect(_on_drawable_toggled)

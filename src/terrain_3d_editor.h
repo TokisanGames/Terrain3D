@@ -16,6 +16,38 @@ class Terrain3DEditor : public Object {
 	CLASS_NAME();
 
 public: // Constants
+	enum Tool {
+		REGION,
+		SCULPT,
+		HEIGHT,
+		TEXTURE,
+		COLOR,
+		ROUGHNESS,
+		AUTOSHADER,
+		HOLES,
+		NAVIGATION,
+		INSTANCER,
+		ANGLE, // used for picking, TODO change to a picking tool
+		SCALE, // used for picking
+		TOOL_MAX,
+	};
+
+	static inline const char *TOOLNAME[] = {
+		"Region",
+		"Sculpt",
+		"Height",
+		"Texture",
+		"Color",
+		"Roughness",
+		"Auto Shader",
+		"Holes",
+		"Navigation",
+		"Instancer",
+		"Angle",
+		"Scale",
+		"TOOL_MAX",
+	};
+
 	enum Operation {
 		ADD,
 		SUBTRACT,
@@ -32,36 +64,6 @@ public: // Constants
 		"Average",
 		"Gradient",
 		"OP_MAX",
-	};
-
-	enum Tool {
-		REGION,
-		HEIGHT,
-		TEXTURE,
-		COLOR,
-		ROUGHNESS,
-		AUTOSHADER,
-		HOLES,
-		NAVIGATION,
-		INSTANCER,
-		ANGLE, // used for picking, TODO change to a picking tool
-		SCALE, // used for picking
-		TOOL_MAX,
-	};
-
-	static inline const char *TOOLNAME[] = {
-		"Region",
-		"Height",
-		"Texture",
-		"Color",
-		"Roughness",
-		"Auto Shader",
-		"Holes",
-		"Navigation",
-		"Instancer",
-		"Angle",
-		"Scale",
-		"TOOL_MAX",
 	};
 
 private:
@@ -124,6 +126,7 @@ VARIANT_ENUM_CAST(Terrain3DEditor::Tool);
 
 inline MapType Terrain3DEditor::_get_map_type() const {
 	switch (_tool) {
+		case SCULPT:
 		case HEIGHT:
 		case INSTANCER:
 			return TYPE_HEIGHT;
