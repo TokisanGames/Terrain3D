@@ -35,17 +35,18 @@ func _ready() -> void:
 	
 	add_child(HSeparator.new())
 	
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
 		"add_text":"Raise", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_ADD,
 		"sub_text":"Lower", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
 
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
 		"add_text":"Smooth", "add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })
 
 	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
-		"add_text":"Height", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_HEIGHT_FLAT })
+		"add_text":"Height", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_FLAT,
+		"sub_text":"Zero", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_FLAT })
 
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
 		"add_text":"Slope", "add_op":Terrain3DEditor.GRADIENT, "add_icon":ICON_HEIGHT_SLOPE })
 
 	add_child(HSeparator.new())

@@ -149,19 +149,23 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 				to_show.push_back("instructions")
 				to_show.push_back("remove")
 
-		Terrain3DEditor.HEIGHT:
+		Terrain3DEditor.SCULPT:
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			if p_operation in [Terrain3DEditor.ADD, Terrain3DEditor.SUBTRACT]:
 					to_show.push_back("remove")
-			elif p_operation == Terrain3DEditor.REPLACE:
-				to_show.push_back("height")
-				to_show.push_back("height_picker")
 			elif p_operation == Terrain3DEditor.GRADIENT:
 				to_show.push_back("gradient_points")
 				to_show.push_back("drawable")
-		
+
+		Terrain3DEditor.HEIGHT:
+			to_show.push_back("brush")
+			to_show.push_back("size")
+			to_show.push_back("strength")
+			to_show.push_back("height")
+			to_show.push_back("height_picker")
+
 		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")
 			to_show.push_back("size")
@@ -300,7 +304,7 @@ func update_decal() -> void:
 	else:
 		decal.texture_albedo = brush_data["brush"][1]
 		match plugin.editor.get_tool():
-			Terrain3DEditor.HEIGHT:
+			Terrain3DEditor.SCULPT:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.ADD:
 						if modifier_alt:
@@ -316,15 +320,15 @@ func update_decal() -> void:
 						else:
 							decal.modulate = COLOR_LOWER
 							decal.modulate.a = clamp(brush_data["strength"], .2, .5) + .5
-					Terrain3DEditor.REPLACE:
-						decal.modulate = COLOR_HEIGHT
-						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.AVERAGE:
 						decal.modulate = COLOR_SMOOTH
 						decal.modulate.a = clamp(brush_data["strength"], .2, .5) + .2
 					Terrain3DEditor.GRADIENT:
 						decal.modulate = COLOR_SLOPE
 						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
+			Terrain3DEditor.HEIGHT:
+				decal.modulate = COLOR_HEIGHT
+				decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 			Terrain3DEditor.TEXTURE:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.REPLACE:
@@ -457,7 +461,7 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 	if p_modifier == KEY_SHIFT && modifier_shift != p_pressed:
 		modifier_shift = p_pressed
 		if modifier_shift:
-			plugin.editor.set_tool(Terrain3DEditor.HEIGHT)
+			plugin.editor.set_tool(Terrain3DEditor.SCULPT)
 			plugin.editor.set_operation(Terrain3DEditor.AVERAGE)
 		else:
 			plugin.editor.set_tool(last_tool)
@@ -469,7 +473,7 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
 	var remove_checked: bool = false
 	if DisplayServer.is_touchscreen_available():
-		var removable_tools := [Terrain3DEditor.REGION, Terrain3DEditor.HEIGHT, Terrain3DEditor.AUTOSHADER,
+		var removable_tools := [Terrain3DEditor.REGION, Terrain3DEditor.SCULPT, Terrain3DEditor.HEIGHT, Terrain3DEditor.AUTOSHADER,
 			Terrain3DEditor.HOLES, Terrain3DEditor.INSTANCER, Terrain3DEditor.NAVIGATION, 
 			Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS]
 		remove_checked = brush_data.get("remove", false) && plugin.editor.get_tool() in removable_tools

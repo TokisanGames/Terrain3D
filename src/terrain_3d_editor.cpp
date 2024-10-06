@@ -58,7 +58,7 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	// Create new region if location is null or deleted
 	if (region.is_null() || (region.is_valid() && region->is_deleted())) {
 		// And tool is Add Region, or Height + auto_regions
-		if ((_tool == REGION && _operation == ADD) || (_tool == HEIGHT && _brush_data["auto_regions"])) {
+		if ((_tool == REGION && _operation == ADD) || (_tool == SCULPT && _brush_data["auto_regions"])) {
 			region = data->add_region_blank(p_region_loc);
 			changed = true;
 			if (region.is_null()) {
@@ -100,7 +100,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	// If no region and can't add one, skip whole function. Checked again later
 	Terrain3DData *data = _terrain->get_data();
-	if (!data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != HEIGHT)) {
+	if (!data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != SCULPT)) {
 		return;
 	}
 
@@ -224,27 +224,31 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 				switch (_operation) {
 					case ADD: {
-						if (alt_mode && !std::isnan(p_global_position.y)) {
+						if (_tool == HEIGHT) {
+							// Height
+							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength * .5f, 0.f, .15f));
+						} else if (alt_mode && !std::isnan(p_global_position.y)) {
 							// Lift troughs
 							real_t brush_center_y = p_global_position.y + brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
 						} else {
+							// Raise
 							destf = srcf + (brush_alpha * strength);
 						}
 						break;
 					}
 					case SUBTRACT: {
-						if (alt_mode && !std::isnan(p_global_position.y)) {
+						if (_tool == HEIGHT) {
+							// Height at 0
+							destf = Math::lerp(srcf, 0.f, CLAMP(brush_alpha * strength * .5f, 0.f, .15f));
+						} else if (alt_mode && !std::isnan(p_global_position.y)) {
 							// Flatten peaks
 							real_t brush_center_y = p_global_position.y - brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
 						} else {
+							// Lower
 							destf = srcf - (brush_alpha * strength);
 						}
-						break;
-					}
-					case REPLACE: {
-						destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength * .5f, 0.f, .15f));
 						break;
 					}
 					case AVERAGE: {
@@ -782,6 +786,7 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(GRADIENT);
 	BIND_ENUM_CONSTANT(OP_MAX);
 
+	BIND_ENUM_CONSTANT(SCULPT);
 	BIND_ENUM_CONSTANT(HEIGHT);
 	BIND_ENUM_CONSTANT(TEXTURE);
 	BIND_ENUM_CONSTANT(COLOR);
