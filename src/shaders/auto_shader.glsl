@@ -14,7 +14,7 @@ uniform int auto_overlay_texture : hint_range(0, 31) = 1;
 	out_mat.base = int(auto_shader) * auto_base_texture + int(!auto_shader) * int(control >>27u & 0x1Fu);
 	out_mat.over = int(auto_shader) * auto_overlay_texture + int(!auto_shader) * int(control >> 22u & 0x1Fu);
 	out_mat.blend = float(auto_shader) * clamp(
-			dot(vec3(0., 1., 0.), normal * auto_slope * 2. - (auto_slope * 2. - 1.)) 
+			dot(vec3(0., 1., 0.), auto_slope * 2. * (normal - 1.) + 1.) 
 			- auto_height_reduction * .01 * v_vertex.y // Reduce as vertices get higher
 			, 0., 1.) + 
 			 float(!auto_shader) * float(control >>14u & 0xFFu) * 0.003921568627450; // 1./255.0		
