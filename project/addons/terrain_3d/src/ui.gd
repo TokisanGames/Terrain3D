@@ -427,7 +427,7 @@ func pick(p_global_position: Vector3) -> void:
 	if picking != Terrain3DEditor.TOOL_MAX:
 		var color: Color
 		match picking:
-			Terrain3DEditor.HEIGHT:
+			Terrain3DEditor.HEIGHT, Terrain3DEditor.SCULPT:
 				color = plugin.terrain.data.get_pixel(Terrain3DRegion.TYPE_HEIGHT, p_global_position)
 			Terrain3DEditor.ROUGHNESS:
 				color = plugin.terrain.data.get_pixel(Terrain3DRegion.TYPE_COLOR, p_global_position)
@@ -456,6 +456,7 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 	# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
 	if p_modifier == KEY_CTRL && modifier_ctrl != p_pressed:
 		modifier_ctrl = p_pressed
+		brush_data["modifier_ctrl"] = p_pressed
 		toolbar.show_add_buttons(!p_pressed)
 		if plugin.editor:
 			plugin.editor.set_operation(_modify_operation(plugin.editor.get_operation()))
@@ -463,11 +464,12 @@ func set_modifier(p_modifier: int, p_pressed: bool) -> void:
 	# Alt (modify) key. Change the raise/lower operation to lift floors / flatten peaks.
 	if p_modifier == KEY_ALT && modifier_alt != p_pressed:
 		modifier_alt = p_pressed
-		brush_data["alt_mode"] = p_pressed
+		brush_data["modifier_alt"] = p_pressed
 
 	# Shift (smooth) key
 	if p_modifier == KEY_SHIFT && modifier_shift != p_pressed:
 		modifier_shift = p_pressed
+		brush_data["modifier_shift"] = p_pressed
 		if modifier_shift:
 			plugin.editor.set_tool(Terrain3DEditor.SCULPT)
 			plugin.editor.set_operation(Terrain3DEditor.AVERAGE)
@@ -500,5 +502,4 @@ func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_N
 
 
 func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
-	var icon: Texture2D = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
-	p_button.icon = icon
+	p_button.icon = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
