@@ -89,11 +89,9 @@ func _ready() -> void:
 	add_setting({ "name":"margin", "type":SettingType.SLIDER, "list":main_list, "default":0, 
 								"unit":"", "range":Vector3(-50, 50, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 
-	# slope painting
-	add_setting({ "name":"slope", "label": "Min Slope", "type":SettingType.SLIDER, "list":main_list, 
-								"default":0.0, "unit":"°", "range":Vector3(0, 90, 1), "flags":ADD_SEPARATOR })
-	add_setting({ "name":"invert_slope", "label":"Invert", "type":SettingType.CHECKBOX,
-								"list":main_list, "default":false})
+	# Slope painting filter
+	add_setting({ "name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, "default":Vector2(0, 90), 
+								"unit":"°", "range":Vector3(0, 90, 1), "flags":ADD_SEPARATOR })
 	
 	add_setting({ "name":"enable_angle", "label":"Angle", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
@@ -111,9 +109,7 @@ func _ready() -> void:
 	add_setting({ "name":"scale_picker", "type":SettingType.PICKER, "list":main_list, 
 								"default":Terrain3DEditor.SCALE, "flags":NO_LABEL })
 
-	## Slope
-	add_setting({ "name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, 
-								"default":0, "unit":"°", "range":Vector3(0, 180, 1) })
+	## Slope sculpting brush
 	add_setting({ "name":"gradient_points", "type":SettingType.MULTI_PICKER, "label":"Points", 
 								"list":main_list, "default":Terrain3DEditor.SCULPT, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false, 
@@ -460,7 +456,7 @@ func add_setting(p_args: Dictionary) -> void:
 				spin_slider.set_step(p_step)
 				spin_slider.set_suffix(p_suffix)
 				spin_slider.set_v_size_flags(SIZE_SHRINK_CENTER)
-				spin_slider.set_custom_minimum_size(Vector2(75, 0))
+				spin_slider.set_custom_minimum_size(Vector2(65, 0))
 
 				# Create horizontal slider linked to the above box
 				slider = HSlider.new()
@@ -469,27 +465,29 @@ func add_setting(p_args: Dictionary) -> void:
 					slider.set_allow_greater(true)
 				if p_flags & ALLOW_SMALLER:
 					slider.set_allow_lesser(true)
+				
 				pending_children.push_back(slider)
 				pending_children.push_back(spin_slider)
 				control = spin_slider
 						
 			else: # DOUBLE_SLIDER
 				var label := Label.new()
-				label.set_custom_minimum_size(Vector2(75, 0))
+				label.set_custom_minimum_size(Vector2(60, 0))
+				label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_RIGHT)
 				slider = DoubleSlider.new()
 				slider.label = label
 				slider.suffix = p_suffix
-				slider.setting_changed.connect(_on_setting_changed)
+				slider.value_changed.connect(_on_setting_changed)
 				pending_children.push_back(slider)
 				pending_children.push_back(label)
 				control = slider
 			
-			slider.set_max(p_maximum)
 			slider.set_min(p_minimum)
+			slider.set_max(p_maximum)
 			slider.set_step(p_step)
 			slider.set_value(p_default)
 			slider.set_v_size_flags(SIZE_SHRINK_CENTER)
-			slider.set_custom_minimum_size(Vector2(60, 10))
+			slider.set_custom_minimum_size(Vector2(50, 10))
 
 			if !(p_flags & NO_SAVE):
 				slider.set_value(plugin.get_setting(ES_TOOL_SETTINGS + p_name, p_default))
@@ -560,7 +558,7 @@ func get_setting(p_setting: String) -> Variant:
 		var width: float = clamp( (1 + count_digits(value)) * 19., 50, 80) * clamp(EditorInterface.get_editor_scale(), .9, 2)
 		object.set_custom_minimum_size(Vector2(width, 0))
 	elif object is DoubleSlider:
-		value = Vector2(object.get_min_value(), object.get_max_value())
+		value = object.get_value()
 	elif object is ButtonGroup: # "brush"
 		var img: Image = object.get_pressed_button().get_meta("image")
 		var tex: Texture2D = object.get_pressed_button().get_button_icon()
@@ -578,11 +576,10 @@ func get_setting(p_setting: String) -> Variant:
 
 func set_setting(p_setting: String, p_value: Variant) -> void:
 	var object: Object = settings.get(p_setting)
-	if object is Range:
+	if object is DoubleSlider: # Expects p_value is Vector2
 		object.set_value(p_value)
-	elif object is DoubleSlider: # Expects p_value is Vector2
-		object.set_min_value(p_value.x)
-		object.set_max_value(p_value.y)
+	elif object is Range:
+		object.set_value(p_value)
 	elif object is ButtonGroup: # Expects p_value is Array [ "button name", boolean ]
 		if p_value is Array and p_value.size() == 2:
 			for button in object.get_buttons():
@@ -671,75 +668,3 @@ func count_digits(p_value: float) -> int:
 		count += 1
 	return count
 	
-
-#### Sub Class DoubleSlider
-
-class DoubleSlider extends Range:
-	signal setting_changed(Vector2)
-	var label: Label
-	var suffix: String
-	var grabbed: bool = false
-	var _max_value: float
-	# TODO Needs to clamp min and max values. Currently allows max slider to go negative.
-	
-	func _gui_input(p_event: InputEvent) -> void:
-		if p_event is InputEventMouseButton:
-			if p_event.get_button_index() == MOUSE_BUTTON_LEFT:
-				grabbed = p_event.is_pressed()
-				set_min_max(p_event.get_position().x)
-				
-		if p_event is InputEventMouseMotion:
-			if grabbed:
-				set_min_max(p_event.get_position().x)
-		
-		
-	func _notification(p_what: int) -> void:
-		if p_what == NOTIFICATION_RESIZED:
-			pass
-		if p_what == NOTIFICATION_DRAW:
-			var bg: StyleBox = get_theme_stylebox("slider", "HSlider")
-			var bg_height: float = bg.get_minimum_size().y
-			draw_style_box(bg, Rect2(Vector2(0, (size.y - bg_height) / 2), Vector2(size.x, bg_height)))
-			
-			var grabber: Texture2D = get_theme_icon("grabber", "HSlider")
-			var area: StyleBox = get_theme_stylebox("grabber_area", "HSlider")
-			var h: float = size.y / 2 - grabber.get_size().y / 2
-			
-			var minpos: Vector2 = Vector2((min_value / _max_value) * size.x - grabber.get_size().x / 2, h)
-			var maxpos: Vector2 = Vector2((max_value / _max_value) * size.x - grabber.get_size().x / 2, h)
-			
-			draw_style_box(area, Rect2(Vector2(minpos.x + grabber.get_size().x / 2, (size.y - bg_height) / 2), Vector2(maxpos.x - minpos.x, bg_height)))
-			
-			draw_texture(grabber, minpos)
-			draw_texture(grabber, maxpos)
-			
-			
-	func set_max(p_value: float) -> void:
-		max_value = p_value
-		if _max_value == 0:
-			_max_value = max_value
-		update_label()
-		
-		
-	func set_min_max(p_xpos: float) -> void:
-		var mid_value_normalized: float = ((max_value + min_value) / 2.0) / _max_value
-		var mid_value: float = size.x * mid_value_normalized
-		var min_active: bool = p_xpos < mid_value
-		var xpos_ranged: float = snappedf((p_xpos / size.x) * _max_value, step)
-		
-		if min_active:
-			min_value = xpos_ranged
-		else:
-			max_value = xpos_ranged
-		
-		min_value = clamp(min_value, 0, max_value - 10)
-		max_value = clamp(max_value, min_value + 10, _max_value)
-		
-		update_label()
-		emit_signal("setting_changed", Vector2(min_value, max_value))
-		queue_redraw()
-		
-		
-	func update_label() -> void:
-		if label:
-			label.set_text(str(min_value) + suffix + "/" + str(max_value) + suffix)

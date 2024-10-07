@@ -501,14 +501,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 }
 
 bool Terrain3DEditor::_can_operate_on_slope(const Vector3 &p_brush_global_position) {
-	const real_t minimum_slope = _brush_data["slope"];
-	const bool invert_slope = _brush_data["invert_slope"];
-
-	bool can_operate = true;
-
-	// If minimum_slope is 0, slope painting is effectively disabled
-	if (minimum_slope <= 0.0) {
-		return can_operate;
+	// If slope is full range, it's disabled
+	const Vector2 slope_range = _brush_data["slope"];
+	if (slope_range.y - slope_range.x > 89.99f) {
+		return true;
 	}
 
 	Terrain3DData *data = _terrain->get_data();
@@ -540,13 +536,7 @@ bool Terrain3DEditor::_can_operate_on_slope(const Vector3 &p_brush_global_positi
 	const real_t slope_angle = Math::acos(slope_normal.dot(up));
 	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
 
-	if (invert_slope) {
-		can_operate = slope_angle_degrees <= minimum_slope;
-	} else {
-		can_operate = slope_angle_degrees >= minimum_slope;
-	}
-
-	return can_operate;
+	return (slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y);
 }
 
 void Terrain3DEditor::_store_undo() {
@@ -711,7 +701,10 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.1f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
-	_brush_data["slope"] = CLAMP(real_t(p_data.get("slope", 0.0f)), 0.0f, 90.0f); // 0-90 (degrees)
+	Vector2 slope = p_data.get("slope", V2_ZERO);
+	slope.x = CLAMP(slope.x, 0.f, 90.f);
+	slope.y = CLAMP(slope.y, 0.f, 90.f);
+	_brush_data["slope"] = slope; // 0-90 (degrees)
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
 	Color col = p_data.get("color", COLOR_ROUGHNESS);
 	col.r = CLAMP(col.r, 0.f, 5.f);
