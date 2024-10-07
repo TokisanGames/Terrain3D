@@ -4,6 +4,7 @@ R"(
 
 //INSERT: WORLD_NOISE1
 // World Noise
+uniform bool world_noise_fragment_normals = false;
 uniform float world_noise_region_blend : hint_range(0.05, 0.95, 0.01) = 0.33;
 uniform int world_noise_max_octaves : hint_range(0, 15) = 4;
 uniform int world_noise_min_octaves : hint_range(0, 15) = 2;
@@ -11,6 +12,7 @@ uniform float world_noise_lod_distance : hint_range(0, 40000, 1) = 7500.;
 uniform float world_noise_scale : hint_range(0.25, 20, 0.01) = 5.0;
 uniform float world_noise_height : hint_range(0, 1000, 0.1) = 64.0;
 uniform vec3 world_noise_offset = vec3(0.0);
+varying vec2 world_noise_ddxy;
 
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
 float check_region(const vec2 uv2) {
@@ -73,8 +75,9 @@ float world_noise(vec2 p) {
     vec2  d = vec2(0.0);
 
     int octaves = int( clamp(
-	float(world_noise_max_octaves) - floor(v_vertex_xz_dist/(world_noise_lod_distance)),
-    float(world_noise_min_octaves), float(world_noise_max_octaves)) );
+		float(world_noise_max_octaves) - floor(v_vertex_xz_dist/(world_noise_lod_distance)),
+		float(world_noise_min_octaves), float(world_noise_max_octaves))
+	);
 	
     for( int i=0; i < octaves; i++ ) {
         vec3 n = noise2D(p);
@@ -102,8 +105,26 @@ float get_noise_height(const vec2 uv) {
 // World Noise end
 
 //INSERT: WORLD_NOISE2
+		// World Noise
+		if (_background_mode == 2u) {
+			float nh = get_noise_height(UV2);
+			float nu = get_noise_height(UV2 + vec2(_region_texel_size, 0.0));
+			float nv = get_noise_height(UV2 + vec2(0.0, _region_texel_size));
+			world_noise_ddxy = vec2(nh - nu, nh - nv);
+			h += nh;
+			u += nu;
+			v += nv;
+		}
+
+//INSERT: WORLD_NOISE3
 	// World Noise
-   	if (_background_mode == 2u) {
-	    height += get_noise_height(uv);
-    }
+	if (_background_mode == 2u && world_noise_fragment_normals) {
+		float noise_height = get_noise_height(uv2);
+		u += noise_height - get_noise_height(uv2 + vec2(_region_texel_size, 0.0));
+		v += noise_height - get_noise_height(uv2 + vec2(0.0, _region_texel_size));
+	}
+	if (_background_mode == 2u && !world_noise_fragment_normals) {
+		u += world_noise_ddxy.x;
+		v += world_noise_ddxy.y;
+	}
 )"
