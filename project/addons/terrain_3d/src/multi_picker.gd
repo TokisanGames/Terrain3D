@@ -5,7 +5,6 @@ signal pressed
 signal value_changed
 
 
-const ICON_PICKER: String = "res://addons/terrain_3d/icons/picker.svg"
 const ICON_PICKER_CHECKED: String = "res://addons/terrain_3d/icons/picker_checked.svg"
 const MAX_POINTS: int = 2
 
@@ -16,8 +15,8 @@ var points: PackedVector3Array
 var picking_index: int = -1
 
 
-func _init() -> void:
-	icon_picker = load(ICON_PICKER)
+func _enter_tree() -> void:
+	icon_picker = get_theme_icon("ColorPick", "EditorIcons")
 	icon_picker_checked = load(ICON_PICKER_CHECKED)
 	
 	points.resize(MAX_POINTS)

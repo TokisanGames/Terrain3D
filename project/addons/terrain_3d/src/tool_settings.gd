@@ -24,7 +24,6 @@ enum SettingType {
 const MultiPicker: Script = preload("res://addons/terrain_3d/src/multi_picker.gd")
 const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain_3d/brushes"
-const PICKER_ICON: String = "res://addons/terrain_3d/icons/picker.svg"
 const ES_TOOL_SETTINGS: String = "terrain3d/tool_settings/"
 
 # Add settings flags
@@ -105,7 +104,7 @@ func _ready() -> void:
 	add_setting({ "name":"dynamic_angle", "label":"Dynamic", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":false, "flags":ADD_SPACER })
 	
-	add_setting({ "name":"enable_scale", "label":"Scale ±", "type":SettingType.CHECKBOX, 
+	add_setting({ "name":"enable_scale", "label":"Scale", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"scale", "label":"±", "type":SettingType.SLIDER, "list":main_list, "default":0,
 								"unit":"%", "range":Vector3(-60, 80, 20), "flags":NO_LABEL })
@@ -348,13 +347,12 @@ func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position:
 
 
 func _on_point_pick(p_type: Terrain3DEditor.Tool, p_name: String) -> void:
-	assert(p_type == Terrain3DEditor.HEIGHT)
+	assert(p_type == Terrain3DEditor.SCULPT)
 	emit_signal("picking", p_type, _on_point_picked.bind(p_name))
 
 
 func _on_point_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position: Vector3, p_name: String) -> void:
-	assert(p_type == Terrain3DEditor.HEIGHT)
-	
+	assert(p_type == Terrain3DEditor.SCULPT)
 	var point: Vector3 = p_global_position
 	point.y = p_color.r
 	settings[p_name].add_point(point)
@@ -423,7 +421,7 @@ func add_setting(p_args: Dictionary) -> void:
 		SettingType.PICKER:
 			var button := Button.new()
 			button.set_v_size_flags(SIZE_SHRINK_CENTER)
-			button.icon = load(PICKER_ICON)
+			button.icon = get_theme_icon("ColorPick", "EditorIcons")
 			button.tooltip_text = "Pick value from the Terrain"
 			button.pressed.connect(_on_pick.bind(p_default))
 			pending_children.push_back(button)

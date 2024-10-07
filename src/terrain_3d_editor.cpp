@@ -145,7 +145,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	real_t gamma = _brush_data["gamma"];
 	PackedVector3Array gradient_points = _brush_data["gradient_points"];
-	bool alt_mode = _brush_data["alt_mode"];
+	bool modifier_alt = _brush_data["modifier_alt"];
+	bool modifier_ctrl = _brush_data["modifier_ctrl"];
 
 	real_t randf = UtilityFunctions::randf();
 	real_t rot = randf * Math_PI * real_t(_brush_data["jitter"]);
@@ -227,7 +228,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (_tool == HEIGHT) {
 							// Height
 							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength * .5f, 0.f, .15f));
-						} else if (alt_mode && !std::isnan(p_global_position.y)) {
+						} else if (modifier_alt && !std::isnan(p_global_position.y)) {
 							// Lift troughs
 							real_t brush_center_y = p_global_position.y + brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
@@ -241,7 +242,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (_tool == HEIGHT) {
 							// Height at 0
 							destf = Math::lerp(srcf, 0.f, CLAMP(brush_alpha * strength * .5f, 0.f, .15f));
-						} else if (alt_mode && !std::isnan(p_global_position.y)) {
+						} else if (modifier_alt && !std::isnan(p_global_position.y)) {
 							// Flatten peaks
 							real_t brush_center_y = p_global_position.y - brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
@@ -525,7 +526,7 @@ bool Terrain3DEditor::_can_operate_on_slope(const Vector3 &p_brush_global_positi
 			// Round to nearest vertex
 			Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
 			real_t height = data->get_pixel(TYPE_HEIGHT, pos_round).r;
-			return isnan(height) ? 0.f : height;
+			return std::isnan(height) ? 0.f : height;
 		};
 
 		const real_t vertex_spacing = _terrain->get_vertex_spacing();

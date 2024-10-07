@@ -268,14 +268,8 @@ func _init_texture_picker(p_parent: Node, p_image_index: int) -> void:
 				set_channel_fn.call(Image.USED_CHANNELS_R)
 				_show_message(INFO, "Height Texture generated sucsessfully")
 		lumin_height_button.pressed.connect(lumin_fn)
-	_set_button_icon(file_pick_button, "Folder")
-	_set_button_icon(clear_button, "Remove")
-
-
-func _set_button_icon(p_button: Button, p_icon_name: String) -> void:
-	var editor_base: Control = EditorInterface.get_base_control()
-	var icon: Texture2D = editor_base.get_theme_icon(p_icon_name, "EditorIcons")
-	p_button.icon = icon
+	plugin.ui.set_button_editor_icon(file_pick_button, "Folder")
+	plugin.ui.set_button_editor_icon(clear_button, "Remove")
 
 
 func _set_wh_labels(p_image_index: int, width: int, height: int) -> void:

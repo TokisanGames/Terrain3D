@@ -157,7 +157,7 @@ public:
 	real_t get_control_blend(const Vector3 &p_global_position) const;
 	void set_control_angle(const Vector3 &p_global_position, const real_t p_angle);
 	real_t get_control_angle(const Vector3 &p_global_position) const;
-	void  set_control_scale(const Vector3 &p_global_position, const real_t p_scale);
+	void set_control_scale(const Vector3 &p_global_position, const real_t p_scale);
 	real_t get_control_scale(const Vector3 &p_global_position) const;
 	void set_control_hole(const Vector3 &p_global_position, const bool p_hole);
 	bool get_control_hole(const Vector3 &p_global_position) const;
