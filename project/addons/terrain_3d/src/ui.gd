@@ -146,8 +146,9 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	
 	match p_tool:
 		Terrain3DEditor.REGION:
-				to_show.push_back("instructions")
-				to_show.push_back("remove")
+			to_show.push_back("instructions")
+			to_show.push_back("remove")
+			set_menu_visibility(tool_settings.advanced_list, false)
 
 		Terrain3DEditor.SCULPT:
 			to_show.push_back("brush")

@@ -163,7 +163,7 @@ func _ready() -> void:
 	main_list.add_child(spacer, true)
 
 	## Advanced Settings Menu
-	advanced_list = create_submenu(main_list, "Advanced", Layout.VERTICAL)
+	advanced_list = create_submenu(main_list, "", Layout.VERTICAL, false)
 	add_setting({ "name":"auto_regions", "label":"Add regions while sculpting", "type":SettingType.CHECKBOX, 
 								"list":advanced_list, "default":true })
 	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
@@ -177,40 +177,43 @@ func _ready() -> void:
 								"unit":"%", "range":Vector3(0, 100, 1) })
 
 
-func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout) -> Container:
+func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout, p_hover_pop: bool = true) -> Container:
 	var menu_button: Button = Button.new()
-	menu_button.set_text(p_button_name)
+	if p_button_name.is_empty():
+		menu_button.icon = get_theme_icon("GuiTabMenuHl", "EditorIcons")
+	else:
+		menu_button.set_text(p_button_name)
 	menu_button.set_toggle_mode(true)
 	menu_button.set_v_size_flags(SIZE_SHRINK_CENTER)
 	menu_button.toggled.connect(_on_show_submenu.bind(menu_button))
 	
 	var submenu: PopupPanel = PopupPanel.new()
-	submenu.popup_hide.connect(menu_button.set_pressed_no_signal.bind(false))
+	submenu.popup_hide.connect(menu_button.set_pressed.bind(false))
 	var panel_style: StyleBox = get_theme_stylebox("panel", "PopupMenu").duplicate()
 	panel_style.set_content_margin_all(10)
 	submenu.set("theme_override_styles/panel", panel_style)
 	submenu.add_to_group("terrain3d_submenus")
 
 	# Pop up menu on hover, hide on exit
-	menu_button.mouse_entered.connect(_on_show_submenu.bind(true, menu_button))
-
-	submenu.set_meta("is_mouse_in_window", false)
-	submenu.mouse_entered.connect(func():
-		submenu.set_meta("is_mouse_in_window", true)
-	)
+	if p_hover_pop:
+		menu_button.mouse_entered.connect(_on_show_submenu.bind(true, menu_button))
+		
+	submenu.mouse_entered.connect(func(): submenu.set_meta("mouse_entered", true))
 	
 	submenu.mouse_exited.connect(func():
-		# improve usability for editing text inputs
+		# On mouse_exit, hide popup unless LineEdit focused
 		var focused_element: Control = submenu.gui_get_focus_owner()
 		if not focused_element is LineEdit:
 			_on_show_submenu(false, menu_button)
+			submenu.set_meta("mouse_entered", false)
 			return
 			
 		focused_element.focus_exited.connect(func():
-			# proper handling of multiple text inputs
-			if not submenu.get_meta("is_mouse_in_window"):
+			# Close submenu once lineedit loses focus
+			if not submenu.get_meta("mouse_entered"):
 				_on_show_submenu(false, menu_button)
-		,CONNECT_ONE_SHOT)
+				submenu.set_meta("mouse_entered", false)
+		)
 	)
 	
 	var sublist: Container
@@ -310,10 +313,11 @@ func add_brushes(p_parent: Control) -> void:
 
 	select_brush_button = brush_list.get_parent().get_parent()
 	# Optionally erase the main brush button text and replace it with the texture
-#	select_brush_button.set_button_icon(default_brush_btn.get_button_icon())
-#	select_brush_button.set_custom_minimum_size(Vector2.ONE * 36)
-#	select_brush_button.set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER)
-#	select_brush_button.set_expand_icon(true)
+	select_brush_button.set_text("")
+	select_brush_button.set_button_icon(default_brush_btn.get_button_icon())
+	select_brush_button.set_custom_minimum_size(Vector2.ONE * 36)
+	select_brush_button.set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER)
+	select_brush_button.set_expand_icon(true)
 
 
 func _on_brush_hover(p_hovering: bool, p_button: Button) -> void:
@@ -614,7 +618,7 @@ func _on_setting_changed(p_data: Variant = null) -> void:
 	if p_data is Button and p_data.get_parent().get_parent() is PopupPanel:
 		if p_data.get_parent().name == "BrushList":
 			# Optionally Set selected brush texture in main brush button
-			# p_data.get_parent().get_parent().get_parent().set_button_icon(p_data.get_button_icon())
+			p_data.get_parent().get_parent().get_parent().set_button_icon(p_data.get_button_icon())
 			# Hide popup
 			p_data.get_parent().get_parent().set_visible(false)
 			# Hide label
