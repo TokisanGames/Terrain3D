@@ -311,7 +311,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				edited_area = edited_area.expand(edited_position);
 
 			} else if (map_type == TYPE_CONTROL) {
-				// Get bit field from pixel
+				// Get current bit field from pixel
 				uint32_t base_id = get_base(src.r);
 				uint32_t overlay_id = get_overlay(src.r);
 				real_t blend = real_t(get_blend(src.r)) / 255.f;
@@ -320,7 +320,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				bool hole = is_hole(src.r);
 				bool navigation = is_nav(src.r);
 				bool autoshader = is_auto(src.r);
-
 				real_t alpha_clip = (brush_alpha > 0.5f) ? 1.f : 0.f;
 				// Lookup to shift values saved to control map so that 0 (default) is the first entry
 				// Shader scale array is aligned to match this.
@@ -328,6 +327,9 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 				switch (_tool) {
 					case TEXTURE: {
+						if (!_can_operate_on_slope(brush_global_position)) {
+							continue;
+						}
 						switch (_operation) {
 							// Base Paint
 							case REPLACE: {
@@ -443,40 +445,37 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 			} else if (map_type == TYPE_COLOR) {
 				// Filter by visible texture
-				bool can_write = true;
 				if (enable_texture) {
 					Ref<Image> map = region->get_map(TYPE_CONTROL);
 					real_t src_ctrl = map->get_pixelv(map_pixel_position).r;
 					int tex_id = (get_blend(src_ctrl) > 110 + int(_brush_data.get("margin", 0))) ? get_overlay(src_ctrl) : get_base(src_ctrl);
 					if (tex_id != asset_id) {
-						can_write = false;
+						continue;
 					}
 				}
 				if (!_can_operate_on_slope(brush_global_position)) {
-					can_write = false;
+					continue;
 				}
-				if (can_write) {
-					switch (_tool) {
-						case COLOR:
-							dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
-							dest.a = src.a;
-							break;
-						case ROUGHNESS:
-							/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
-							 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
-							 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
-							 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
-							 * We round the final amount in tool_settings.gd:_on_picked().
-							 */
-							if (_operation == ADD) {
-								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
-							} else {
-								dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
-							}
-							break;
-						default:
-							break;
-					}
+				switch (_tool) {
+					case COLOR:
+						dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
+						dest.a = src.a;
+						break;
+					case ROUGHNESS:
+						/* Roughness received from UI is -100 to 100. Changed to 0,1 before storing.
+						 * To convert 0,1 back to -100,100 use: 200 * (color.a - 0.5)
+						 * However Godot stores values as 8-bit ints. Roundtrip is = int(a*255)/255.0
+						 * Roughness 0 is saved as 0.5, but retreived is 0.498, or -0.4 roughness
+						 * We round the final amount in tool_settings.gd:_on_picked().
+						 */
+						if (_operation == ADD) {
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
+						} else {
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
+						}
+						break;
+					default:
+						break;
 				}
 			}
 			backup_region(region);
@@ -501,54 +500,35 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 }
 
 bool Terrain3DEditor::_can_operate_on_slope(const Vector3 &p_brush_global_position) {
-	const real_t minimum_slope_paint_angle_degrees = _brush_data["minimum_slope_paint_angle_degrees"];
-	const bool invert_slope_paint = _brush_data["invert_slope_paint"];
+	const real_t minimum_slope = _brush_data["slope"];
+	const bool invert_slope = _brush_data["invert_slope"];
 
 	bool can_operate = true;
 
-	// If minimum_slope_paint_angle_degrees is 0, slope painting is effectively disabled
-	if (minimum_slope_paint_angle_degrees <= 0.0) {
+	// If minimum_slope is 0, slope painting is effectively disabled
+	if (minimum_slope <= 0.0) {
 		return can_operate;
 	}
 
-	const Ref<Terrain3DStorage> storage = _terrain->get_storage();
+	Terrain3DData *data = _terrain->get_data();
 	const Vector3 up = Vector3(0.f, 1.f, 0.f);
 
-	// copied from Terrain3DStorage::get_normal, but modified to work with holes
+	// Adapted from Terrain3DData::get_normal to work with holes
 	Vector3 slope_normal;
 	{
-		const int region = storage->get_region_index(p_brush_global_position);
-		if (region < 0) {
+		if (data->get_region_idp(p_brush_global_position) < 0) {
 			return false;
 		}
-
-		// copied from Terrain3DStorage::get_height, but modified to work with holes
+		// Adapted from Terrain3DData::get_height() to work with holes
 		auto get_height = [&](Vector3 pos) -> real_t {
-			real_t step = _terrain->get_mesh_vertex_spacing();
-			pos.y = 0.f;
+			real_t step = _terrain->get_vertex_spacing();
 			// Round to nearest vertex
-			Vector3 pos_round = Vector3(
-					round_multiple(pos.x, step),
-					0.f,
-					round_multiple(pos.z, step));
-			// If requested position is close to a vertex, return its height
-			if ((pos - pos_round).length() < 0.01f) {
-				return storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos).r;
-			} else {
-				// Otherwise, bilinearly interpolate 4 surrounding vertices
-				Vector3 pos00 = Vector3(Math::floor(pos.x / step) * step, 0.f, Math::floor(pos.z / step) * step);
-				real_t ht00 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos00).r;
-				Vector3 pos01 = pos00 + Vector3(0.f, 0.f, step);
-				real_t ht01 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos01).r;
-				Vector3 pos10 = pos00 + Vector3(step, 0.f, 0.f);
-				real_t ht10 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos10).r;
-				Vector3 pos11 = pos00 + Vector3(step, 0.f, step);
-				real_t ht11 = storage->get_pixel(Terrain3DStorage::TYPE_HEIGHT, pos11).r;
-				return bilerp(ht00, ht01, ht10, ht11, pos00, pos11, pos);
-			}
+			Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
+			real_t height = data->get_pixel(TYPE_HEIGHT, pos_round).r;
+			return isnan(height) ? 0.f : height;
 		};
 
-		const real_t vertex_spacing = _terrain->get_mesh_vertex_spacing();
+		const real_t vertex_spacing = _terrain->get_vertex_spacing();
 		const real_t height = get_height(p_brush_global_position);
 		const real_t u = height - get_height(p_brush_global_position + Vector3(vertex_spacing, 0.0f, 0.0f));
 		const real_t v = height - get_height(p_brush_global_position + Vector3(0.f, 0.f, vertex_spacing));
@@ -559,10 +539,10 @@ bool Terrain3DEditor::_can_operate_on_slope(const Vector3 &p_brush_global_positi
 	const real_t slope_angle = Math::acos(slope_normal.dot(up));
 	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
 
-	if (invert_slope_paint) {
-		can_operate = slope_angle_degrees <= minimum_slope_paint_angle_degrees;
+	if (invert_slope) {
+		can_operate = slope_angle_degrees <= minimum_slope;
 	} else {
-		can_operate = slope_angle_degrees >= minimum_slope_paint_angle_degrees;
+		can_operate = slope_angle_degrees >= minimum_slope;
 	}
 
 	return can_operate;
@@ -730,8 +710,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.1f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
-	_brush_data["slope_paint_threshold"] = CLAMP(real_t(p_data.get("slope_paint_threshold", .7f)) * .01f, .01f, 100.f);
-	_brush_data["minimum_slope_paint_angle_degrees"] = CLAMP(real_t(p_data.get("minimum_slope_paint_angle_degrees", 0.0f)), 0.0f, 90.0f); // 0-90 (degrees)
+	_brush_data["slope"] = CLAMP(real_t(p_data.get("slope", 0.0f)), 0.0f, 90.0f); // 0-90 (degrees)
 	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
 	Color col = p_data.get("color", COLOR_ROUGHNESS);
 	col.r = CLAMP(col.r, 0.f, 5.f);

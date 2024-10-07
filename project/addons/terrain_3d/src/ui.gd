@@ -136,7 +136,6 @@ func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	clear_picking()
 	set_menu_visibility(tool_settings.advanced_list, true)
-	set_menu_visibility(tool_settings.slope_list, false)
 	set_menu_visibility(tool_settings.scale_list, false)
 	set_menu_visibility(tool_settings.rotation_list, false)
 	set_menu_visibility(tool_settings.height_list, false)
@@ -167,16 +166,14 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("height")
 			to_show.push_back("height_picker")
 
-		Terrain3DEditor.TEXTURE:
-			set_menu_visibility(tool_settings.slope_list, true)
-			to_show.push_back("invert_slope_paint")
-			to_show.push_back("minimum_slope_paint_angle_degrees")
-	
+		Terrain3DEditor.TEXTURE:	
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("enable_texture")
 			if p_operation == Terrain3DEditor.ADD:
 				to_show.push_back("strength")
+			to_show.push_back("slope")
+			to_show.push_back("invert_slope")
 			to_show.push_back("enable_angle")
 			to_show.push_back("angle")
 			to_show.push_back("angle_picker")
@@ -186,54 +183,39 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("scale_picker")
 
 		Terrain3DEditor.COLOR:
-			set_menu_visibility(tool_settings.slope_list, true)
-			to_show.push_back("invert_slope_paint")
-			to_show.push_back("minimum_slope_paint_angle_degrees")
-
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			to_show.push_back("color")
 			to_show.push_back("color_picker")
+			to_show.push_back("slope")
+			to_show.push_back("invert_slope")
 			to_show.push_back("enable_texture")
 			to_show.push_back("margin")
 			to_show.push_back("remove")
 
 		Terrain3DEditor.ROUGHNESS:
-			set_menu_visibility(tool_settings.slope_list, true)
-			to_show.push_back("invert_slope_paint")
-			to_show.push_back("minimum_slope_paint_angle_degrees")
-	
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			to_show.push_back("roughness")
 			to_show.push_back("roughness_picker")
+			to_show.push_back("slope")
+			to_show.push_back("invert_slope")
 			to_show.push_back("enable_texture")
 			to_show.push_back("margin")
 			to_show.push_back("remove")
 
-		Terrain3DEditor.AUTOSHADER:
-			to_show.push_back("brush")
-			to_show.push_back("size")
-			to_show.push_back("remove")
-			
-		Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION:
-			set_menu_visibility(tool_settings.slope_list, true)
-			to_show.push_back("invert_slope_paint")
-			to_show.push_back("minimum_slope_paint_angle_degrees")
-	
+		Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION:
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("remove")
 
 		Terrain3DEditor.INSTANCER:
-			# if you want, you can add this, but you'll have to modify terrain_3d_instances.cpp to support it
-			# eg, it would be useful to avoid placing instances on steep hills
-			#to_show.push_back("invert_slope_paint")
-			#to_show.push_back("minimum_slope_paint_angle_degrees")
 			to_show.push_back("size")
 			to_show.push_back("strength")
+			to_show.push_back("slope")
+			to_show.push_back("invert_slope")
 			set_menu_visibility(tool_settings.height_list, true)
 			to_show.push_back("height_offset")
 			to_show.push_back("random_height")

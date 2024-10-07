@@ -93,7 +93,6 @@ private:
 	bool _is_in_bounds(const Point2i &p_pixel, const Point2i &p_size) const;
 	Vector2 _get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const;
 	Vector2 _get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const;
-
 	void _store_undo();
 	void _apply_undo(const Dictionary &p_data);
 

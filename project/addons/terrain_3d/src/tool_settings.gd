@@ -45,7 +45,6 @@ var advanced_list: VBoxContainer
 var height_list: VBoxContainer
 var scale_list: VBoxContainer
 var rotation_list: VBoxContainer
-var slope_list: VBoxContainer
 var color_list: VBoxContainer
 var settings: Dictionary = {}
 
@@ -92,11 +91,10 @@ func _ready() -> void:
 								"unit":"", "range":Vector3(-50, 50, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 
 	# slope painting
-	slope_list = create_submenu(main_list, "Slope Painting", Layout.VERTICAL)
-	add_setting({ "name":"invert_slope_paint", "label":"Invert Painting", "type":SettingType.CHECKBOX,
-								"list":slope_list, "default":false})
-	add_setting({ "name":"minimum_slope_paint_angle_degrees", "label": "Minimum Slope Steepness", "type":SettingType.SLIDER, "list":slope_list, "default":0.0,
-								"unit":"°", "range":Vector3(0, 90, 1)})
+	add_setting({ "name":"slope", "label": "Min Slope", "type":SettingType.SLIDER, "list":main_list, 
+								"default":0.0, "unit":"°", "range":Vector3(0, 90, 1), "flags":ADD_SEPARATOR })
+	add_setting({ "name":"invert_slope", "label":"Invert", "type":SettingType.CHECKBOX,
+								"list":main_list, "default":false})
 	
 	add_setting({ "name":"enable_angle", "label":"Angle", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
