@@ -110,11 +110,10 @@ float get_noise_height(const vec2 uv) {
 		}
 
 //INSERT: WORLD_NOISE3
-		// world noise
-		if (_background_mode == 2u) {
-			float noise_height = get_noise_height(uv2);
-			u += noise_height - get_noise_height(uv2 + vec2(_region_texel_size, 0.0));
-			v += noise_height - get_noise_height(uv2 + vec2(0.0, _region_texel_size));
-		}
-
+	// world noise
+	if (_background_mode == 2u) {
+		float noise_height = get_noise_height(uv2);
+		u += noise_height - get_noise_height(uv2 + vec2(_region_texel_size, 0.0));
+		v += noise_height - get_noise_height(uv2 + vec2(0.0, _region_texel_size));
+	}
 )"
