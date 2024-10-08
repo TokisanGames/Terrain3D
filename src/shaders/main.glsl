@@ -43,7 +43,8 @@ uniform uint _background_mode = 1u;  // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
 
 // Public uniforms
-uniform bool enable_uv_projection = true;
+uniform bool enable_projection = true;
+uniform float projection_threshold : hint_range(0.0, 1.0, 0.01) = 0.5;
 uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
@@ -298,11 +299,11 @@ void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 
 }
 
 vec2 project_uv_from_normal(vec3 normal) {
-	if (v_region.z < 0) {
+	if (v_region.z < 0 || normal.y >= projection_threshold || !enable_projection) {
 		return v_vertex.xz;
 	}
 	// quantize the normal otherwise textures lose continuity across domains
-	vec3 p_normal = normalize(floor(normal*6.0));
+	vec3 p_normal = normalize(floor(normal*2.0));
 	vec3 p_tangent = normalize(cross(p_normal, vec3(0.001, 0.001, 1)));
 	// scale uv in line with derivatives for sloped terrain
 	float scale = fma(p_normal.y, 0.333, 0.666);
@@ -318,79 +319,100 @@ void fragment() {
 	vec2 weight = fract(uv);
 	
 	vec4 base_derivatives = vec4(dFdxCoarse(uv), dFdyCoarse(uv));
+	// when this exceeds 2 (as derivatives are across 2x2 fragments)
+	// It means that each control map texel is less than 1 pixel in screen space
+	// as such we can skip all extra lookups required for bilinear blend.
+	float maptexel_fragment_ratio = length(base_derivatives);
+	bool bilerp = maptexel_fragment_ratio <= 2.0;
 	
 	const vec3 offsets = vec3(0, 1, 2);
-	// sample all required heightmap points for normals.
-	float h[8];
-	h[0] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.xx), 0).r; // 0 (0,0)
-	h[1] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.yx), 0).r; // 1 (1,0)
-	h[2] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.xy), 0).r; // 2 (0,1)
-	h[3] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.yy), 0).r; // 3 (1,1)
-	h[4] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.yz), 0).r; // 4 (1,2)
-	h[5] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.zy), 0).r; // 5 (2,1)
-	h[6] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.zx), 0).r; // 6 (2,0)
-	h[7] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.xz), 0).r; // 7 (0,2)
-	
-	// allows additional derivatives, eg world noise, brush previews etc.
-	float u = 0.0;
-	float v = 0.0;
-	
-//INSERT: WORLD_NOISE3
-	
-	vec3 index_normal[4];
-	index_normal[0] = normalize(vec3(h[2] - h[3] + u, _vertex_spacing, h[2] - h[7] + v));
-	index_normal[1] = normalize(vec3(h[3] - h[5] + u, _vertex_spacing, h[3] - h[4] + v));
-	index_normal[2] = normalize(vec3(h[1] - h[6] + u, _vertex_spacing, h[1] - h[3] + v));
-	index_normal[3] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[2] + v));
-	vec3 w_normal = normalize(mix(
-		mix(index_normal[3], index_normal[2], weight.x),
-		mix(index_normal[0], index_normal[1], weight.x),
-		weight.y));
-	
+
 	ivec3 indexUV[4];
+	// control map lookups, used for some normal lookups as well
 	indexUV[0] = get_region_uv(domain_id + offsets.xy);
 	indexUV[1] = get_region_uv(domain_id + offsets.yy);
 	indexUV[2] = get_region_uv(domain_id + offsets.yx);
 	indexUV[3] = get_region_uv(domain_id + offsets.xx);
 	
+	// Terrain normals
+	vec3 index_normal[4];
+	float h[8];
+	// allows additional derivatives, eg world noise, brush previews etc.
+	float u = 0.0;
+	float v = 0.0;
+	
+//INSERT: WORLD_NOISE3	
+	// we can re-use the indexUVs for the first 4 lookups, skipping some math
+	h[0] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
+	h[1] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
+	h[2] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
+	index_normal[3] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[2] + v));
+	// set flat world normal
+	vec3 w_normal = index_normal[3];
+	// branching smooth normals must be done seperatley for correct normals for all 4 index points
+	if (bilerp) {
+		// Fetch the additional required height values for smooth normals
+		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
+		h[4] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.yz), 0).r; // 4 (1,2)
+		h[5] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.zy), 0).r; // 5 (2,1)
+		h[6] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.zx), 0).r; // 6 (2,0)
+		h[7] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.xz), 0).r; // 7 (0,2)
+		// Calculate the normal for the remaining index location
+		index_normal[0] = normalize(vec3(h[2] - h[3] + u, _vertex_spacing, h[2] - h[7] + v));
+		index_normal[1] = normalize(vec3(h[3] - h[5] + u, _vertex_spacing, h[3] - h[4] + v));
+		index_normal[2] = normalize(vec3(h[1] - h[6] + u, _vertex_spacing, h[1] - h[3] + v));
+		// set interpolated world normal
+		w_normal = normalize(mix(
+				mix(index_normal[3], index_normal[2], weight.x),
+				mix(index_normal[0], index_normal[1], weight.x),
+				weight.y));
+	}
+		
+	// Apply Terrain normals.
+	vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
+	vec3 w_binormal = normalize(cross(w_normal, w_tangent));
+	NORMAL = mat3(VIEW_MATRIX) * w_normal;
+	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
+	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
+
+	// Do the minimum amount of lookups for sub fragment sized index domains.
 	uint control[4];
-	control[0] = texelFetch(_control_maps, indexUV[0], 0).r;
-	control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
-	control[2] = texelFetch(_control_maps, indexUV[2], 0).r;
 	control[3] = texelFetch(_control_maps, indexUV[3], 0).r;
-	
-	vec2 mat_uv[4];
-	mat_uv[0] = enable_uv_projection ? project_uv_from_normal(index_normal[0]) : uv;
-	mat_uv[1] = enable_uv_projection ? project_uv_from_normal(index_normal[1]) : uv;
-	mat_uv[2] = enable_uv_projection ? project_uv_from_normal(index_normal[2]) : uv;
-	mat_uv[3] = enable_uv_projection ? project_uv_from_normal(index_normal[3]) : uv;
-	
-	// Get the textures for each vertex. 8-16 lookups (2-4 ea)
+
 	Material mat[4];
-	get_material(mat_uv[0], base_derivatives, control[0], indexUV[0], w_normal, mat[0]);
-	get_material(mat_uv[1], base_derivatives, control[1], indexUV[1], w_normal, mat[1]);
-	get_material(mat_uv[2], base_derivatives, control[2], indexUV[2], w_normal, mat[2]);
-	get_material(mat_uv[3], base_derivatives, control[3], indexUV[3], w_normal, mat[3]);
+	get_material(project_uv_from_normal(index_normal[3]), base_derivatives, control[3], indexUV[3], w_normal, mat[3]);
+
+	vec4 albedo_height = mat[3].alb_ht;
+	vec4 normal_rough = mat[3].nrm_rg;
+
+	// otherwise do full bilinear interpolation
+	if (bilerp) {	
+		control[0] = texelFetch(_control_maps, indexUV[0], 0).r;
+		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
+		control[2] = texelFetch(_control_maps, indexUV[2], 0).r;
+
+		get_material(project_uv_from_normal(index_normal[0]), base_derivatives, control[0], indexUV[0], w_normal, mat[0]);
+		get_material(project_uv_from_normal(index_normal[1]), base_derivatives, control[1], indexUV[1], w_normal, mat[1]);
+		get_material(project_uv_from_normal(index_normal[2]), base_derivatives, control[2], indexUV[2], w_normal, mat[2]);
+
+		// modify weights for blending
+		float noise3 = (0.333 - texture(noise_texture, uv * noise3_scale).r) * 0.5;
+		#define PARABOLA(x) (4.0*x*(1.0-x))
+		weight.x += PARABOLA(weight.x) * noise3;
+		weight.y += PARABOLA(weight.y) * noise3;
+		weight = smoothstep(vec2(0.0), vec2(1.0), weight);
 	
-	// modify weights for blending
-	// -0.66 offset for the default generated noise. 
-	// for evenly distributed noise the offset should be -0.5
-	float noise3 = (1.0 - texture(noise_texture, uv * noise3_scale).r - 0.66) * 0.5;
-	#define PARABOLA(x) (4.0*x*(1.0-x))
-	weight.x += PARABOLA(weight.x) * noise3;
-	weight.y += PARABOLA(weight.y) * noise3;
-	weight = smoothstep(vec2(0.0), vec2(1.0), weight);
+		// Interpolate Albedo/Height/Normal/Roughness
+		albedo_height = mix(
+			mix(mat[3].alb_ht, mat[2].alb_ht, weight.x),
+			mix(mat[0].alb_ht, mat[1].alb_ht, weight.x),
+			weight.y);
 	
-	// Weighted average of albedo & height
-	vec4 albedo_height = mix(
-		mix(mat[3].alb_ht, mat[2].alb_ht, weight.x),
-		mix(mat[0].alb_ht, mat[1].alb_ht, weight.x),
-		weight.y);
-	
-	vec4 normal_rough = mix(
-		mix(mat[3].nrm_rg, mat[2].nrm_rg, weight.x),
-		mix(mat[0].nrm_rg, mat[1].nrm_rg, weight.x),
-		weight.y);
+		normal_rough = mix(
+			mix(mat[3].nrm_rg, mat[2].nrm_rg, weight.x),
+			mix(mat[0].nrm_rg, mat[1].nrm_rg, weight.x),
+			weight.y);
+	}
 	
 	// Determine if we're in a region or not (region_uv.z>0)
 	vec3 region_uv = get_region_uv2(uv2);
@@ -410,13 +432,6 @@ void fragment() {
 	
 	// Wetness/roughness modifier, converting 0-1 range to -1 to 1 range
 	float roughness = fma(color_map.a - 0.5, 2.0, normal_rough.a);
-	
-	// Apply TBN
-	vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
-	vec3 w_binormal = normalize(cross(w_normal, w_tangent));
-	NORMAL = mat3(VIEW_MATRIX) * w_normal;
-	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
-	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 	
 	// Apply PBR
 	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
