@@ -175,12 +175,11 @@ void vertex() {
 ////////////////////////
 
 vec3 unpack_normal(vec4 rgba) {
-	vec3 n = rgba.xzy * 2.0 - vec3(1.0);
-	return n;
+	return fma(rgba.xzy, vec3(2.0), vec3(-1.0));
 }
 
-vec4 pack_normal(vec3 n, float a) {
-	return vec4((n.xzy + vec3(1.0)) * 0.5, a);
+vec3 pack_normal(vec3 n) {
+	return (n.xzy + 1.0) * 0.5;
 }
 
 float random(in vec2 xy) {
@@ -291,8 +290,6 @@ void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 
 		normal_rg = height_blend(normal_rg, albedo_ht.a, normal_rg2, albedo_ht2.a, out_mat.blend);
 	}
 	
-	// Repack normals and return material
-	normal_rg = pack_normal(normal_rg.xyz, normal_rg.a);
 	out_mat.alb_ht = albedo_ht;
 	out_mat.nrm_rg = normal_rg;
 	return;
@@ -437,7 +434,7 @@ void fragment() {
 	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
 	ROUGHNESS = roughness;
 	SPECULAR = 1. - normal_rough.a;
-	NORMAL_MAP = normal_rough.rgb;
+	NORMAL_MAP = pack_normal(normal_rough.rgb);
 	NORMAL_MAP_DEPTH = 1.0;
 
 }
