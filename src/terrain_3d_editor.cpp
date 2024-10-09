@@ -104,6 +104,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		return;
 	}
 
+	bool modifier_alt = _brush_data["modifier_alt"];
+	bool modifier_ctrl = _brush_data["modifier_ctrl"];
+	//bool modifier_shift = _brush_data["modifier_shift"];
+
 	Ref<Image> brush_image = _brush_data["brush_image"];
 	if (brush_image.is_null()) {
 		LOG(ERROR, "Invalid brush image. Returning");
@@ -136,6 +140,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	bool enable_texture = _brush_data["enable_texture"];
 	int asset_id = _brush_data["asset_id"];
 
+	Vector2 slope_range = _brush_data["slope"];
 	bool enable_angle = _brush_data["enable_angle"];
 	bool dynamic_angle = _brush_data["dynamic_angle"];
 	real_t angle = _brush_data["angle"];
@@ -145,8 +150,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	real_t gamma = _brush_data["gamma"];
 	PackedVector3Array gradient_points = _brush_data["gradient_points"];
-	bool modifier_alt = _brush_data["modifier_alt"];
-	bool modifier_ctrl = _brush_data["modifier_ctrl"];
 
 	real_t randf = UtilityFunctions::randf();
 	real_t rot = randf * Math_PI * real_t(_brush_data["jitter"]);
@@ -162,10 +165,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	edited_area.size = Vector3(brush_size, 0.f, brush_size);
 
 	if (_tool == INSTANCER) {
-		if (_operation == ADD) {
-			_terrain->get_instancer()->add_instances(p_global_position, _brush_data);
-		} else {
+		if (modifier_ctrl) {
 			_terrain->get_instancer()->remove_instances(p_global_position, _brush_data);
+		} else {
+			_terrain->get_instancer()->add_instances(p_global_position, _brush_data);
 		}
 		return;
 	}
@@ -328,7 +331,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 				switch (_tool) {
 					case TEXTURE: {
-						if (!_can_operate_on_slope(brush_global_position)) {
+						if (!data->is_in_slope(brush_global_position, slope_range, modifier_alt)) {
 							continue;
 						}
 						switch (_operation) {
@@ -454,7 +457,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						continue;
 					}
 				}
-				if (!_can_operate_on_slope(brush_global_position)) {
+				if (!data->is_in_slope(brush_global_position, slope_range, modifier_alt)) {
 					continue;
 				}
 				switch (_tool) {
@@ -498,45 +501,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		data->force_update_maps(map_type);
 	}
 	data->add_edited_area(edited_area);
-}
-
-bool Terrain3DEditor::_can_operate_on_slope(const Vector3 &p_brush_global_position) {
-	// If slope is full range, it's disabled
-	const Vector2 slope_range = _brush_data["slope"];
-	if (slope_range.y - slope_range.x > 89.99f) {
-		return true;
-	}
-
-	Terrain3DData *data = _terrain->get_data();
-	const Vector3 up = Vector3(0.f, 1.f, 0.f);
-
-	// Adapted from Terrain3DData::get_normal to work with holes
-	Vector3 slope_normal;
-	{
-		if (data->get_region_idp(p_brush_global_position) < 0) {
-			return false;
-		}
-		// Adapted from Terrain3DData::get_height() to work with holes
-		auto get_height = [&](Vector3 pos) -> real_t {
-			real_t step = _terrain->get_vertex_spacing();
-			// Round to nearest vertex
-			Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
-			real_t height = data->get_pixel(TYPE_HEIGHT, pos_round).r;
-			return std::isnan(height) ? 0.f : height;
-		};
-
-		const real_t vertex_spacing = _terrain->get_vertex_spacing();
-		const real_t height = get_height(p_brush_global_position);
-		const real_t u = height - get_height(p_brush_global_position + Vector3(vertex_spacing, 0.0f, 0.0f));
-		const real_t v = height - get_height(p_brush_global_position + Vector3(0.f, 0.f, vertex_spacing));
-		slope_normal = Vector3(u, vertex_spacing, v);
-		slope_normal.normalize();
-	}
-
-	const real_t slope_angle = Math::acos(slope_normal.dot(up));
-	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
-
-	return (slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y);
 }
 
 void Terrain3DEditor::_store_undo() {
