@@ -46,16 +46,8 @@ R"(
 
 //INSERT: DEBUG_CONTROL_TEXTURE
 	// Show control map texture selection
-	float __ctrl_base = weight_inv * (
-	float(mat[0].base) * weights.x +
-	float(mat[1].base) * weights.y +
-	float(mat[2].base) * weights.z +
-	float(mat[3].base) * weights.w )/96.;
-	float __ctrl_over = weight_inv * (
-	float(mat[0].over) * weights.x +
-	float(mat[1].over) * weights.y +
-	float(mat[2].over) * weights.z +
-	float(mat[3].over) * weights.w )/96.;
+	float __ctrl_base = float(mat[3].base)/31.;
+	float __ctrl_over = float(mat[3].over)/31.;
 	ALBEDO = vec3(__ctrl_base, __ctrl_over, 0.);
 	ROUGHNESS = 1.;
 	SPECULAR = 0.;
@@ -91,11 +83,7 @@ R"(
 
 //INSERT: DEBUG_CONTROL_BLEND
 	// Show control map blend values
-	float __ctrl_blend = weight_inv * (
-	float(mat[0].blend) * weights.x +
-	float(mat[1].blend) * weights.y +
-	float(mat[2].blend) * weights.z +
-	float(mat[3].blend) * weights.w );
+	float __ctrl_blend = mat[3].blend;
 	ALBEDO = vec3(__ctrl_blend);
 	ROUGHNESS = 1.;
 	SPECULAR = 0.;
@@ -118,7 +106,7 @@ R"(
 
 //INSERT: DEBUG_TEXTURE_NORMAL
 	// Show normal map textures
-	ALBEDO = normal_rough.rgb;
+	ALBEDO = pack_normal(normal_rough.rgb);
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
