@@ -160,8 +160,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 	
-	if p_event is InputEventKey:
-		ui.update_modifiers()
+	ui.update_modifiers()
 	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
@@ -195,7 +194,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			if intersection_point.z > 3.4e38 or is_nan(intersection_point.y): # max double or nan
 				return AFTER_GUI_INPUT_STOP
 			mouse_global_position = intersection_point
-		
+
 		## Update decal
 		ui.decal.global_position = mouse_global_position
 		ui.update_decal()
@@ -237,17 +236,17 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			RenderingServer.material_set_param(mat_rid, "_editor_decal_size", editor_decal_size)
 			RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
 			RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
-	
+
 		## Update region highlight
 		var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
 			/ (terrain.get_region_size() * terrain.get_vertex_spacing()) ).floor()
 		if current_region_position != region_position:
 			current_region_position = region_position
 			update_region_grid()
-			
+
 		# Inject pressure - Relies on C++ set_brush_data() using same dictionary instance
 		ui.brush_data["mouse_pressure"] = p_event.pressure
-		
+
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and editor.is_operating():
 			editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
 			return AFTER_GUI_INPUT_STOP
@@ -292,6 +291,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				editor.stop_operation()
 				return AFTER_GUI_INPUT_STOP
 
+	# Key presses
+	ui.update_decal()
 	return AFTER_GUI_INPUT_PASS
 
 
