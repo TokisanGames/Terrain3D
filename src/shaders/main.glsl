@@ -315,7 +315,7 @@ void fragment() {
 	vec2 domain_id = floor(uv);
 	vec2 weight = fract(uv);
 	
-	vec4 base_derivatives = vec4(dFdxCoarse(uv), dFdyCoarse(uv));
+	vec4 base_derivatives = vec4(dFdxCoarse(uv), dFdyCoarse(uv)) * _vertex_spacing;
 	// when this exceeds 2 (as derivatives are across 2x2 fragments)
 	// It means that each control map texel is less than 1 pixel in screen space
 	// as such we can skip all extra lookups required for bilinear blend.
@@ -398,6 +398,7 @@ void fragment() {
 		weight.x += PARABOLA(weight.x) * noise3;
 		weight.y += PARABOLA(weight.y) * noise3;
 		weight = smoothstep(vec2(0.0), vec2(1.0), weight);
+		#undef PARABOLA
 	
 		// Interpolate Albedo/Height/Normal/Roughness
 		albedo_height = mix(
