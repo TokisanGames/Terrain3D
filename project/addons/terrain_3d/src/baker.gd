@@ -44,7 +44,7 @@ func bake_mesh_popup() -> void:
 	if plugin.terrain:
 		bake_method = _bake_mesh
 		bake_lod_dialog.description = BAKE_MESH_DESCRIPTION
-		plugin.get_editor_interface().popup_dialog_centered(bake_lod_dialog)
+		EditorInterface.popup_dialog_centered(bake_lod_dialog)
 
 
 func _bake_mesh() -> void:
@@ -89,7 +89,7 @@ func bake_occluder_popup() -> void:
 	if plugin.terrain:
 		bake_method = _bake_occluder
 		bake_lod_dialog.description = BAKE_OCCLUDER_DESCRIPTION
-		plugin.get_editor_interface().popup_dialog_centered(bake_lod_dialog)
+		EditorInterface.popup_dialog_centered(bake_lod_dialog)
 
 
 func _bake_occluder() -> void:
@@ -159,7 +159,7 @@ func find_nav_region_terrains(p_nav_region: NavigationRegion3D) -> Array[Terrain
 
 func find_terrain_nav_regions(p_terrain: Terrain3D) -> Array[NavigationRegion3D]:
 	var result: Array[NavigationRegion3D] = []
-	var root: Node = plugin.get_editor_interface().get_edited_scene_root()
+	var root: Node = EditorInterface.get_edited_scene_root()
 	if not root:
 		return result
 	for nav_region in root.find_children("", "NavigationRegion3D", true, true):
@@ -338,7 +338,7 @@ func set_up_navigation_popup() -> void:
 	if plugin.terrain:
 		bake_method = _set_up_navigation
 		confirm_dialog.dialog_text = SET_UP_NAVIGATION_DESCRIPTION
-		plugin.get_editor_interface().popup_dialog_centered(confirm_dialog)
+		EditorInterface.popup_dialog_centered(confirm_dialog)
 
 
 func _set_up_navigation() -> void:
@@ -363,7 +363,7 @@ func _set_up_navigation() -> void:
 	undo_redo.add_do_reference(nav_region)
 	undo_redo.commit_action()
 
-	plugin.get_editor_interface().inspect_object(nav_region)
+	EditorInterface.inspect_object(nav_region)
 	assert(plugin.nav_region == nav_region)
 	
 	bake_nav_mesh()

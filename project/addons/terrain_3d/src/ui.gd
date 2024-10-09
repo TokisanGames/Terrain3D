@@ -119,14 +119,6 @@ func _on_godot_focus_entered() -> void:
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
-	if(plugin.editor):
-		if(p_visible):
-			await get_tree().create_timer(.01).timeout # Won't work, otherwise.
-			_on_tool_changed(last_tool, last_operation)
-		else:
-			plugin.editor.set_tool(Terrain3DEditor.TOOL_MAX)
-			plugin.editor.set_operation(Terrain3DEditor.OP_MAX)
-	
 	terrain_menu.set_visible(p_visible)
 
 	if p_menu_only:
@@ -138,7 +130,15 @@ func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 		tool_settings.set_visible(p_visible)
 		update_decal()
 
+	if(plugin.editor):
+		if(p_visible):
+			await get_tree().create_timer(.01).timeout # Won't work, otherwise.
+			_on_tool_changed(last_tool, last_operation)
+		else:
+			plugin.editor.set_tool(Terrain3DEditor.TOOL_MAX)
+			plugin.editor.set_operation(Terrain3DEditor.OP_MAX)
 
+	
 func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
 	if p_list:
 		p_list.get_parent().get_parent().visible = p_visible
