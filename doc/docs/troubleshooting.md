@@ -51,13 +51,21 @@ Alternatively, you have a large terrain and are generating collision for all of 
 
 ### Added a texture, now the terrain is white
 
-Your console also reports: `Albedo/Normal textures do not have same size!`
+Your console also reports something like:
 
-Your console also reports: `Texture # albedo / normal, size / format... doesn't match size of first texture... They must be identical.`
+`Texture # albedo / normal, size / format... doesn't match size of first texture... They must be identical.`
 
 The new texture doesn't match the format or size of the existing ones. [Texture Preparation](texture_prep.md) descibes the requirements, which includes the same format and size for each. Double click a texture in the filesystem and Godot will tell you what it is. You can also click the texture in the inspector when editing an entry in the asset dock to see the same thing.
 
 If adding textures to the demo, the format is PNG marked HQ so it converts to BPTC, which you can read about on the link above.
+
+
+### The terrain is all black
+
+Check with the default shader by disabling any override shader you have created.
+
+If you're using the Compatibility renderer, your textures need to be flagged as uncompressed. See [Compatibility Renderer](platforms.md#compatibility) for the current limitations in Godot.
+
 
 ---
 
@@ -83,9 +91,9 @@ Make sure you have both the debug and release binaries on your system, or have b
 
 ## Usage
 
-### Collision offset, or it's showing lower LODs near the camera
+### Collision is offset from the mesh and it's showing lower LODs near the camera
 
-If you've done weird things with your camera like using multiple, or viewports, you need to tell Terrain3D which camera you want to use with `Terrain3D.set_camera()`.
+If you're using multiple cameras, or viewports, you need to tell Terrain3D which camera you want to use with `Terrain3D.set_camera()`. You can update it every frame if you like.
 
 
 ### Camera flickering

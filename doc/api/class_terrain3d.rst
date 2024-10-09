@@ -17,7 +17,7 @@ Terrain3D
 Description
 -----------
 
-Terrain3D is a high performance, editable terrain system for Godot 4. It provides a clipmap based terrain that supports up to 16k terrains with multiple LODs, 32 textures, and editor tools for importing or creating terrains.
+Terrain3D is a high performance, editable terrain system for Godot 4. It provides a clipmap based terrain that supports terrains from 64x64m up to 65.5x65.5km with multiple LODs, 32 textures, and editor tools for importing or creating terrains.
 
 This class handles mesh and collision generation, and management of the whole system. See `System Architecture <../docs/system_architecture.html>`__ for design details.
 

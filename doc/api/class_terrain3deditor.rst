@@ -128,11 +128,23 @@ The number of elements in this enum.
 
 enum **Tool**: :ref:`🔗<enum_Terrain3DEditor_Tool>`
 
+.. _class_Terrain3DEditor_constant_SCULPT:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **SCULPT** = ``1``
+
+.. container:: contribute
+
+	There is currently no description for this enum. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
+
+
+
 .. _class_Terrain3DEditor_constant_HEIGHT:
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **HEIGHT** = ``1``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **HEIGHT** = ``2``
 
 Sculpt heights.
 
@@ -140,7 +152,7 @@ Sculpt heights.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **TEXTURE** = ``2``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **TEXTURE** = ``3``
 
 Paint textures.
 
@@ -148,7 +160,7 @@ Paint textures.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **COLOR** = ``3``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **COLOR** = ``4``
 
 Paint on the color map.
 
@@ -156,7 +168,7 @@ Paint on the color map.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **ROUGHNESS** = ``4``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **ROUGHNESS** = ``5``
 
 Paint a roughness modifier, aka wetness.
 
@@ -164,7 +176,7 @@ Paint a roughness modifier, aka wetness.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **ANGLE** = ``9``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **ANGLE** = ``10``
 
 Paint textures rotated by an angle.
 
@@ -172,7 +184,7 @@ Paint textures rotated by an angle.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **SCALE** = ``10``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **SCALE** = ``11``
 
 Paint textures scaled by a value.
 
@@ -180,7 +192,7 @@ Paint textures scaled by a value.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **AUTOSHADER** = ``5``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **AUTOSHADER** = ``6``
 
 Paint where the shader automatically textures.
 
@@ -188,7 +200,7 @@ Paint where the shader automatically textures.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **HOLES** = ``6``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **HOLES** = ``7``
 
 Paint where vertices will be invalidated to leave holes.
 
@@ -196,7 +208,7 @@ Paint where vertices will be invalidated to leave holes.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **NAVIGATION** = ``7``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **NAVIGATION** = ``8``
 
 Paint where navigation will be generated.
 
@@ -204,7 +216,7 @@ Paint where navigation will be generated.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **INSTANCER** = ``8``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **INSTANCER** = ``9``
 
 Paint MultiMesh instances on the ground.
 
@@ -220,7 +232,7 @@ Add/remove regions.
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``11``
+:ref:`Tool<enum_Terrain3DEditor_Tool>` **TOOL_MAX** = ``12``
 
 The number of elements in this enum.
 
