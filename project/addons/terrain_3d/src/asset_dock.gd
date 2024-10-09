@@ -116,7 +116,7 @@ func _ready() -> void:
 	# Setup styles
 	set("theme_override_styles/panel", get_theme_stylebox("panel", "Panel"))
 	# Avoid saving icon resources in tscn when editing w/ a tool script
-	if plugin.get_editor_interface().get_edited_scene_root() != self:
+	if EditorInterface.get_edited_scene_root() != self:
 		pinned_btn.icon = get_theme_icon("Pin", "EditorIcons")
 		pinned_btn.text = ""
 		floating_btn.icon = get_theme_icon("MakeFloating", "EditorIcons")
@@ -195,8 +195,7 @@ func update_dock() -> void:
 	elif slot == POS_BOTTOM:
 		state = BOTTOM
 		plugin.add_control_to_bottom_panel(self, "Terrain3D")
-		if plugin.ui.visible:
-			plugin.make_bottom_panel_item_visible(self)
+		plugin.make_bottom_panel_item_visible(self)
 
 
 func update_layout() -> void:
@@ -272,7 +271,7 @@ func _on_textures_pressed() -> void:
 	meshes_btn.button_pressed = false
 	texture_list.set_selected_id(texture_list.selected_id)
 	if plugin.is_terrain_valid():
-		plugin.get_editor_interface().edit_node(plugin.terrain)
+		EditorInterface.edit_node(plugin.terrain)
 	save_editor_settings()
 
 
@@ -285,7 +284,7 @@ func _on_meshes_pressed() -> void:
 	textures_btn.button_pressed = false
 	mesh_list.set_selected_id(mesh_list.selected_id)
 	if plugin.is_terrain_valid():
-		plugin.get_editor_interface().edit_node(plugin.terrain)
+		EditorInterface.edit_node(plugin.terrain)
 	update_thumbnails()
 	save_editor_settings()
 
@@ -374,7 +373,7 @@ func _on_window_input(event: InputEvent) -> void:
 	# Capture CTRL+S when doc focused to save scene
 	if event is InputEventKey and event.keycode == KEY_S and event.pressed and event.is_command_or_control_pressed():
 		save_editor_settings()
-		plugin.get_editor_interface().save_scene()
+		EditorInterface.save_scene()
 
 
 func _on_godot_window_entered() -> void:
@@ -561,7 +560,7 @@ class ListContainer extends Container:
 
 	func _on_resource_inspected(p_resource: Resource) -> void:
 		await get_tree().create_timer(.01).timeout
-		plugin.get_editor_interface().edit_resource(p_resource)
+		EditorInterface.edit_resource(p_resource)
 	
 	
 	func _on_resource_changed(p_resource: Resource, p_id: int) -> void:
@@ -591,7 +590,7 @@ class ListContainer extends Container:
 
 			# If removing an entry, clear inspector
 			if not p_resource:
-				plugin.get_editor_interface().inspect_object(null)			
+				EditorInterface.inspect_object(null)			
 				
 		# If null resource, remove last 
 		if not p_resource:

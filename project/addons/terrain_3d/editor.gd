@@ -24,7 +24,7 @@ var godot_editor_window: Window # The Godot Editor window
 
 func _init() -> void:
 	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
-	godot_editor_window = get_editor_interface().get_base_control().get_parent().get_parent()
+	godot_editor_window = EditorInterface.get_base_control().get_parent().get_parent()
 
 	
 func _enter_tree() -> void:
@@ -51,10 +51,10 @@ func _exit_tree() -> void:
 	scene_changed.disconnect(_on_scene_changed)
 
 
-## EditorPlugin selection function chain isn't consistent. Here's the map of calls:
+## EditorPlugin selection function call chain isn't consistent. Here's the map of calls:
 ## Assume we handle Terrain3D and NavigationRegion3D  
 # Click Terrain3D: 					_handles(Terrain3D), _make_visible(true), _edit(Terrain3D)
-# Delect:							_make_visible(false), _edit(null)
+# Deselect:							_make_visible(false), _edit(null)
 # Click other node:					_handles(OtherNode)
 # Click NavRegion3D:				_handles(NavReg3D), _make_visible(true), _edit(NavReg3D)
 # Click NavRegion3D, Terrain3D:		_handles(Terrain3D), _edit(Terrain3D)
@@ -282,7 +282,7 @@ func is_terrain_valid(p_terrain: Terrain3D = null) -> bool:
 
 
 func is_selected() -> bool:
-	var selected: Array[Node] = get_editor_interface().get_selection().get_selected_nodes()
+	var selected: Array[Node] = EditorInterface.get_selection().get_selected_nodes()
 	for node in selected:
 		if ( is_instance_valid(_last_terrain) and node.get_instance_id() == _last_terrain.get_instance_id() ) or \
 			node is Terrain3D:
@@ -292,7 +292,7 @@ func is_selected() -> bool:
 
 func select_terrain() -> void:
 	if is_instance_valid(_last_terrain) and is_terrain_valid(_last_terrain) and not is_selected():
-		var es: EditorSelection = get_editor_interface().get_selection()
+		var es: EditorSelection = EditorInterface.get_selection()
 		es.clear()
 		es.add_node(_last_terrain)
 
