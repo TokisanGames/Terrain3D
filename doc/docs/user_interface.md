@@ -4,40 +4,55 @@ User Interface
 
 **Table of Contents**
 * [Main Toolbar](#main-toolbar)
+* [Keyboard Shortcuts](#keyboard-shortcuts)
 * [Tool Settings](#tool-settings)
 * [Asset Dock](#asset-dock)
 
 
 ## Main Toolbar
 
-After properly installing and enabling the plugin, the editing tools become visible once you add a Terrain3D node to your Scene and select it.
+After properly installing and enabling the plugin, add a Terrain3D node to your Scene and select it. This will enable the editing tools.
 
 ```{image} images/ui_tools.png
 :target: ../_images/ui_tools.png
 ```
 
-The tools provide options for sculpting, texturing, and other features. Each button has a tooltip that describes what it does. 
+The tools provide options for sculpting, texturing, and other features. Each button has a tooltip that describes what it does.
 
-The following mouse and keyboard shortcuts are available:
+First, select the Region Tool (first one: square with a cross), and click the ground. This allocates space for you to sculpt and paint.
 
-**Terrain Operations**
-* <kbd>LMB</kbd> - Click the terrain to sculpt or paint.
-* <kbd>Shift + LMB</kbd> - **Smooth**.
-* <kbd>Ctrl + LMB</kbd> - **Inverses the operation** where applicable. Eg. Add or *remove* regions. Raise or *lower* terrain. Create or *remove* holes, foliage, navigation, etc.
-* <kbd>Alt + LMB</kbd> - **Lift floors** mode. Sculpting only. This lifts up lower portions of the terrain without affecting higher terrain around it. Use it along the bottom of cliff faces. See [videos demonstrating before and after](https://github.com/TokisanGames/Terrain3D/pull/409). 
-* <kbd>Ctrl + Alt + LMB</kbd> - **Flatten peaks** mode. Sculpting only. The inverse of the above. This reduces peaks and ridges without affecting lower terrain around it.
+---
 
-**Instancer Operations**
-* <kbd>LMB</kbd> - Add the selected mesh instance to the terrain.
-* <kbd>Ctrl + LMB</kbd> - Remove instances of the selected type.
-* <kbd>Ctrl + Alt + LMB</kbd> - Remove instances of any type.
+## Keyboard Shortcuts
 
-Note: Touchscreen users have an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
+The following mouse and keyboard shortcuts are available.
 
-**Godot Shortcuts**
+*Note*: Touchscreen users will see an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
+
+### General Keys
+* <kbd>LMB</kbd> - Click the terrain to positively apply the current tool.
+* <kbd>Ctrl + LMB</kbd> - **Inverse** the tool. Removes regions, height, color, wetness, autoshader, holes, navigation, foliage.
+* <kbd>Shift + LMB</kbd> - Change to the **Smooth** sculpting tool if shift is the _only_ modifier pressed.
 * <kbd>Ctrl + Z</kbd> - Undo. You can also view the operations in Godot's `History` panel.
 * <kbd>Ctrl + Shift + Z</kbd> - Redo.
 * <kbd>Ctrl + S</kbd> - Save the scene and all data.
+
+### Sculpting Specific
+* <kbd>Alt + LMB</kbd> - **Lift floors**. This lifts up lower portions of the terrain without affecting higher terrain around it. Use it along the bottom of cliff faces. See [videos demonstrating before and after](https://github.com/TokisanGames/Terrain3D/pull/409). 
+* <kbd>Ctrl + Alt + LMB</kbd> - **Flatten peaks**. The inverse of the above. This reduces peaks and ridges without affecting lower terrain around it.
+
+### Slope Operations Specific
+
+These operations support slope: **Paint**, **Spray**, **Color**, **Wetness**, **Instancer**.
+
+* <kbd>LMB</kbd> - Operate within the set slope.
+* <kbd>Alt + LMB</kbd> - Operate outside the set slope.
+* <kbd>Ctrl + Alt + LMB</kbd> - Inversely operate outside the set slope. eg. Remove color or foliage outside the defined slope setting.
+
+### Instancer Specific
+* <kbd>LMB</kbd> - Add the selected mesh instance to the terrain.
+* <kbd>Ctrl + LMB</kbd> - Remove instances of the selected type.
+* <kbd>Ctrl + Shift + LMB</kbd> - Remove instances of any type.
 
 
 ---
@@ -92,9 +107,11 @@ Finally, when the dock is in the sidebar, there are three vertical, grey dots, s
 ### Setting Up Assets
 
 #### Adding Assets
-You can add content by dragging a texture onto the `Add Texture` icon, a mesh (as a packed scene: tscn, scn, fbx, glb) onto the `Add Mesh` icon, or clicking either Add button and setting them up. 
+You can add resources by dragging a texture onto the `Add Texture` icon, a mesh (a packed scene: tscn, scn, fbx, glb) onto the `Add Mesh` icon, or by clicking either `Add` button and setting them up. 
 
 Each asset resource type has their own settings described in the API docs for [Terrain3DTextureAsset](../api/class_terrain3dtextureasset.rst) and [Terrain3DMeshAsset](../api/class_terrain3dmeshasset.rst).
+
+You can read more about mesh setup on the [Foliage Instancer page](instancer.md#how-to-use-the-instancer).
 
 #### Operations
 

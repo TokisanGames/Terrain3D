@@ -350,6 +350,15 @@
 				[code skip-lint]scale[/code] - Scale all height values by this factor (applied after offset).
 			</description>
 		</method>
+		<method name="is_in_slope" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="global_position" type="Vector3" />
+			<param index="1" name="slope_range" type="Vector2" />
+			<param index="2" name="invert" type="bool" default="false" />
+			<description>
+				Returns true if the slope of the terrain at the given position is within the slope range. If invert is true, it returns true if the position is outside the given range.
+			</description>
+		</method>
 		<method name="is_region_deleted" qualifiers="const">
 			<return type="bool" />
 			<param index="0" name="region_location" type="Vector2i" />

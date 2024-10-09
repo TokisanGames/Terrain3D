@@ -130,6 +130,8 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`import_images<class_Terrain3DData_method_import_images>`\ (\ images\: :ref:`Array<class_Array>`\[:ref:`Image<class_Image>`\], global_position\: :ref:`Vector3<class_Vector3>` = Vector3(0, 0, 0), offset\: :ref:`float<class_float>` = 0.0, scale\: :ref:`float<class_float>` = 1.0\ ) |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`                                                    | :ref:`is_in_slope<class_Terrain3DData_method_is_in_slope>`\ (\ global_position\: :ref:`Vector3<class_Vector3>`, slope_range\: :ref:`Vector2<class_Vector2>`, invert\: :ref:`bool<class_bool>` = false\ ) |const|                                                                             |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`bool<class_bool>`                                                    | :ref:`is_region_deleted<class_Terrain3DData_method_is_region_deleted>`\ (\ region_location\: :ref:`Vector2i<class_Vector2i>`\ ) |const|                                                                                                                                                      |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`bool<class_bool>`                                                    | :ref:`is_region_modified<class_Terrain3DData_method_is_region_modified>`\ (\ region_location\: :ref:`Vector2i<class_Vector2i>`\ ) |const|                                                                                                                                                    |
@@ -976,6 +978,18 @@ Imports an Image set (Height, Control, Color) into this resource. It does NOT no
 \ ``offset`` - Add this factor to all height values, can be negative.
 
 \ ``scale`` - Scale all height values by this factor (applied after offset).
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_is_in_slope:
+
+.. rst-class:: classref-method
+
+:ref:`bool<class_bool>` **is_in_slope**\ (\ global_position\: :ref:`Vector3<class_Vector3>`, slope_range\: :ref:`Vector2<class_Vector2>`, invert\: :ref:`bool<class_bool>` = false\ ) |const| :ref:`🔗<class_Terrain3DData_method_is_in_slope>`
+
+Returns true if the slope of the terrain at the given position is within the slope range. If invert is true, it returns true if the position is outside the given range.
 
 .. rst-class:: classref-item-separator
 

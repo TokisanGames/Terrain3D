@@ -29,12 +29,10 @@ Here is a diagram showing what the classes do and how they communicate.
 
 Currently, we maintain a constant ratio where 1 pixel on height, control, and color maps correlates to 1 world vertex, on LOD0. 
 
-We provide `Terrain3D.mesh_vertex_scaling` to allow devs to have higher and lower poly worlds, however this principle is maintained. With a vertex scaling of 2.0, a 1024px^2 map set represents a 2048m^2 world, using 1024^2 vertices.
-
-Later when we provide [alternative region sizes](https://github.com/TokisanGames/Terrain3D/issues/77), we will still maintain this ratio. A 256px^2 map will represent 256^2 vertices, regardless of if it is scaled to 128m^2 or 1024m^2.
+We provide variable region sizes which limit the number of vertices allocated, and `Terrain3D.vertex_spacing` to allow devs to spread out or condense the spacing between vertices for higher and lower poly worlds. However this 1 pixel == 1 vertex principle is maintained. With a vertex scaling of 2.0, a 1024px^2 map represents a 2048m^2 world, using a 1024 region size.
 
 ### Global Positions are Absolute
 
-Many functions in the API receive a global position. Before `mesh_vertex_scaling`, there was an easy translation to regions, vertex positions, and image coordinates. Now that the user can laterally scale the terrain, landscape features like mountain peaks change their global position, this introduced a design challenge.
+Many functions in the API receive a global position. Before `vertex_spacing`, there was an easy translation to regions, vertex positions, and image coordinates. Now that the user can laterally scale the terrain, landscape features like mountain peaks change their global position, this introduced a design challenge.
 
 To make this managable, we've adopted the principle that all functions in the API that take a `global_position` parameter expect an absolute global position from the users perspective. That position is generally descaled for operations internally in local or image coordinates. If a function calls other functions, it will need to send the global position. Care will need to be taken by devs to ensure the descaled and global positions are used at the right time.
