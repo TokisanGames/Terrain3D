@@ -249,6 +249,10 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	real_t random_hue = CLAMP(real_t(p_params.get("random_hue", 0.f)) / 360.f, 0.f, 1.f); // degrees -> 0-1
 	real_t random_darken = CLAMP(real_t(p_params.get("random_darken", 0.f)) * .01f, 0.f, 1.f); // 0-100%
 
+	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
+	bool invert = p_params["modifier_alt"];
+	Terrain3DData *data = _terrain->get_data();
+
 	TypedArray<Transform3D> xforms;
 	TypedArray<Color> colors;
 	for (int i = 0; i < count; i++) {
@@ -260,17 +264,20 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		Vector3 rand_vec = Vector3(r_radius * cos(r_theta), 0.f, r_radius * sin(r_theta));
 		Vector3 position = p_global_position + rand_vec;
 		// Get height, but skip holes
-		real_t height = _terrain->get_data()->get_height(position);
+		real_t height = data->get_height(position);
 		if (std::isnan(height)) {
 			continue;
 		} else {
 			position.y = height;
 		}
+		if (!data->is_in_slope(position, slope_range, invert)) {
+			continue;
+		}
 
 		// Orientation
 		Vector3 normal = Vector3(0.f, 1.f, 0.f);
 		if (align_to_normal) {
-			normal = _terrain->get_data()->get_normal(position);
+			normal = data->get_normal(position);
 			if (std::isnan(normal.x)) {
 				normal = Vector3(0.f, 1.f, 0.f);
 			} else {
@@ -323,17 +330,21 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		return;
 	}
 
-	bool alt_mode = p_params.get("alt_mode", false);
+	bool modifier_shift = p_params.get("modifier_shift", false);
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), .5f, 4096.f); // Meters
 	real_t radius = brush_size * .4f; // Ring1's inner radius
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
 
-	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
+	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
+	bool invert = p_params["modifier_alt"];
+	Terrain3DData *data = _terrain->get_data();
 
-	// If alt mode, repeat for every mesh, otherwise only do mesh_id
-	for (int m = (alt_mode ? 0 : mesh_id); m <= (alt_mode ? mesh_count - 1 : mesh_id); m++) {
+	Vector2i region_loc = data->get_region_location(p_global_position);
+
+	// If CTRL+SHIFT pressed, repeat for every mesh, otherwise only do mesh_id
+	for (int m = (modifier_shift ? 0 : mesh_id); m <= (modifier_shift ? mesh_count - 1 : mesh_id); m++) {
 		Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
 		real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
 						MAX(0.01f, fixed_scale + .5f * random_scale),
@@ -356,10 +367,11 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		TypedArray<Color> colors;
 		for (int i = 0; i < multimesh->get_instance_count(); i++) {
 			Transform3D t = multimesh->get_instance_transform(i);
-			// If quota not yet met and instance within a cylinder radius, remove it
+			// If quota not yet met, instance is within a cylinder radius, and can work on slope, remove it
 			Vector2 origin2d = Vector2(t.origin.x, t.origin.z);
 			Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z);
-			if (count > 0 && (origin2d - mouse2d).length() < radius) {
+			if (count > 0 && (origin2d - mouse2d).length() < radius &&
+					data->is_in_slope(t.origin, slope_range, invert)) {
 				count--;
 				continue;
 			} else {
