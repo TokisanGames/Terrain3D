@@ -1,5 +1,10 @@
 name: 🛠️ Build All
-on: [push, workflow_dispatch]
+on: 
+    push:
+        branches: [ master ]
+    pull_request:
+        paths: [ '**' ]
+    workflow_dispatch:
 
 concurrency:
   group: ${{ github.ref }}

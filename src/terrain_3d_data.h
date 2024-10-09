@@ -150,9 +150,9 @@ public:
 
 	// Control Map
 	void set_control_base_id(const Vector3 &p_global_position, const uint8_t p_base);
-	uint8_t get_control_base_id(const Vector3 &p_global_position) const;
+	uint32_t get_control_base_id(const Vector3 &p_global_position) const;
 	void set_control_overlay_id(const Vector3 &p_global_position, const uint8_t p_overlay);
-	uint8_t get_control_overlay_id(const Vector3 &p_global_position) const;
+	uint32_t get_control_overlay_id(const Vector3 &p_global_position) const;
 	void set_control_blend(const Vector3 &p_global_position, const real_t p_blend);
 	real_t get_control_blend(const Vector3 &p_global_position) const;
 	void set_control_angle(const Vector3 &p_global_position, const real_t p_angle);
@@ -273,7 +273,7 @@ inline void Terrain3DData::set_control_base_id(const Vector3 &p_global_position,
 	set_control(p_global_position, (control & ~(0x1F << 27)) | enc_base(base));
 }
 
-inline uint8_t Terrain3DData::get_control_base_id(const Vector3 &p_global_position) const {
+inline uint32_t Terrain3DData::get_control_base_id(const Vector3 &p_global_position) const {
 	uint32_t control = get_control(p_global_position);
 	return control == UINT32_MAX ? UINT32_MAX : get_base(control);
 }
@@ -284,7 +284,7 @@ inline void Terrain3DData::set_control_overlay_id(const Vector3 &p_global_positi
 	set_control(p_global_position, (control & ~(0x1F << 22)) | enc_base(overlay));
 }
 
-inline uint8_t Terrain3DData::get_control_overlay_id(const Vector3 &p_global_position) const {
+inline uint32_t Terrain3DData::get_control_overlay_id(const Vector3 &p_global_position) const {
 	uint32_t control = get_control(p_global_position);
 	return control == UINT32_MAX ? UINT32_MAX : get_overlay(control);
 }
