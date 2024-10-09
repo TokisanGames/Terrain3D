@@ -58,6 +58,13 @@ var last_tool: Terrain3DEditor.Tool
 var last_operation: Terrain3DEditor.Operation
 var last_rmb_time: int = 0
 
+# Compatibility decals, indices; 0 = main brush, 1 = slope point A, 2 = slope point B
+var editor_decal_position: Array[Vector2]
+var editor_decal_rotation: Array[float]
+var editor_decal_size: Array[float]
+var editor_decal_color: Array[Color]
+var editor_decal_visible: Array[bool]
+
 
 func _enter_tree() -> void:
 	toolbar = Toolbar.new()
@@ -382,6 +389,8 @@ func update_decal() -> void:
 				point_decal.position = point
 				index += 1
 
+	update_compatibility_decal()
+
 
 func _get_gradient_decal(index: int) -> Decal:
 	if gradient_decals.size() > index:
@@ -398,6 +407,61 @@ func _get_gradient_decal(index: int) -> Decal:
 	
 	gradient_decals.push_back(gradient_decal)
 	return gradient_decal
+
+
+func update_compatibility_decal() -> void:
+	if not plugin.terrain.is_compatibility_mode():
+		return
+
+	# Verify setup
+	if editor_decal_position.size() != 3:
+		editor_decal_position.resize(3)
+		editor_decal_rotation.resize(3)
+		editor_decal_size.resize(3)
+		editor_decal_color.resize(3)
+		editor_decal_visible.resize(3)
+		decal_timer.timeout.connect(func():
+			var mat_rid: RID = plugin.terrain.material.get_material_rid()
+			editor_decal_visible[0] = false
+			RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
+			)
+
+	# Update compatibility decal
+	var mat_rid: RID = plugin.terrain.material.get_material_rid()
+	if decal.visible:
+		editor_decal_position[0] = Vector2(decal.global_position.x, decal.global_position.z)
+		editor_decal_rotation[0] = decal.rotation.y
+		editor_decal_size[0] = brush_data.get("size")
+		editor_decal_color[0] = decal.modulate
+		editor_decal_visible[0] = decal.visible
+		RenderingServer.material_set_param(
+			mat_rid, "_editor_decal_0", decal.texture_albedo.get_rid()
+			)
+	if gradient_decals.size() >= 1:
+		editor_decal_position[1] = Vector2(gradient_decals[0].global_position.x,
+			gradient_decals[0].global_position.z)
+		editor_decal_rotation[1] = gradient_decals[0].rotation.y
+		editor_decal_size[1] = 10.0
+		editor_decal_color[1] = gradient_decals[0].modulate
+		editor_decal_visible[1] = gradient_decals[0].visible
+		RenderingServer.material_set_param(
+			mat_rid, "_editor_decal_1", gradient_decals[0].texture_albedo.get_rid()
+			)
+	if gradient_decals.size() >= 2:
+		editor_decal_position[2] = Vector2(gradient_decals[1].global_position.x,
+			gradient_decals[1].global_position.z)
+		editor_decal_rotation[2] = gradient_decals[1].rotation.y
+		editor_decal_size[2] = 10.0
+		editor_decal_color[2] = gradient_decals[1].modulate
+		editor_decal_visible[2] = gradient_decals[1].visible
+		RenderingServer.material_set_param(
+			mat_rid, "_editor_decal_2", gradient_decals[1].texture_albedo.get_rid()
+			)
+	RenderingServer.material_set_param(mat_rid, "_editor_decal_position", editor_decal_position)
+	RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
+	RenderingServer.material_set_param(mat_rid, "_editor_decal_size", editor_decal_size)
+	RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
+	RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
 
 
 func set_decal_rotation(p_rot: float) -> void:
