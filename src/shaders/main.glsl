@@ -49,6 +49,7 @@ uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
+uniform bool enable_macro_variation = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
 
@@ -68,7 +69,6 @@ struct Material {
 	int over;
 	float blend;
 };
-
 
 varying flat vec3 v_camera_pos;
 varying flat ivec3 v_region;
@@ -106,15 +106,6 @@ vec3 get_region_uv2(const vec2 uv2) {
 }
 
 //INSERT: WORLD_NOISE1
-// 1 lookup
-float get_height(vec2 uv) {
-	highp float height = 0.0;
-	vec3 region = get_region_uv2(uv);
-	if (region.z >= 0.) {
-		height = texture(_height_maps, region).r;
-	}
- 	return height;
-}
 
 void vertex() {
 	// Get camera pos in world vertex coords
@@ -222,7 +213,7 @@ vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 }
 
 vec2 rotate_normal(vec2 normal, float angle) {
-	float new_x = dot(vec2(cos(angle) ,sin(angle)) ,normal);
+	float new_x = dot(vec2(cos(angle), sin(angle)), normal);
 	angle += PI * 0.5;
 	float new_y = dot(vec2(cos(angle), sin(angle)), normal);
 	return vec2(new_x, new_y);
@@ -299,10 +290,11 @@ vec2 project_uv_from_normal(vec3 normal) {
 	if (v_region.z < 0 || normal.y >= projection_threshold || !enable_projection) {
 		return v_vertex.xz;
 	}
-	// quantize the normal otherwise textures lose continuity across domains
+	// Quantize the normal otherwise textures lose continuity across domains
 	vec3 p_normal = normalize(floor(normal*2.0));
-	vec3 p_tangent = normalize(cross(p_normal, vec3(0.001, 0.001, 1)));
-	// scale uv in line with derivatives for sloped terrain
+	// Avoid potential singularity
+	vec3 p_tangent = normalize(cross(p_normal, vec3(0.00001, 0.00001, 1.0)));
+	// Scale uv in line with derivatives for sloped terrain
 	float scale = fma(p_normal.y, 0.333, 0.666);
 	return vec2(dot(v_vertex,p_tangent),dot(v_vertex,normalize(cross(p_tangent,p_normal)))) * scale;
 }
@@ -312,24 +304,24 @@ void fragment() {
 	vec2 uv = UV + v_uv_offset;
 	vec2 uv2 = UV2 + v_uv2_offset;
 	
-	vec2 domain_id = floor(uv);
+	// Lookup offsets, ID and blend weight
+	const vec3 offsets = vec3(0, 1, 2);
+	vec2 index_id = floor(uv);
 	vec2 weight = fract(uv);
 	
 	vec4 base_derivatives = vec4(dFdxCoarse(uv), dFdyCoarse(uv)) * _vertex_spacing;
-	// when this exceeds 2 (as derivatives are across 2x2 fragments)
-	// It means that each control map texel is less than 1 pixel in screen space
-	// as such we can skip all extra lookups required for bilinear blend.
+	// When this exceeds 2.0, as derivatives are across 2x2 fragments it means that 
+	// each control map texel is less than 1 pixel in screen space as such we can 
+	// skip all extra lookups required for bilinear blend.
 	float maptexel_fragment_ratio = length(base_derivatives);
 	bool bilerp = maptexel_fragment_ratio <= 2.0;
 	
-	const vec3 offsets = vec3(0, 1, 2);
-
 	ivec3 indexUV[4];
 	// control map lookups, used for some normal lookups as well
-	indexUV[0] = get_region_uv(domain_id + offsets.xy);
-	indexUV[1] = get_region_uv(domain_id + offsets.yy);
-	indexUV[2] = get_region_uv(domain_id + offsets.yx);
-	indexUV[3] = get_region_uv(domain_id + offsets.xx);
+	indexUV[0] = get_region_uv(index_id + offsets.xy);
+	indexUV[1] = get_region_uv(index_id + offsets.yy);
+	indexUV[2] = get_region_uv(index_id + offsets.yx);
+	indexUV[3] = get_region_uv(index_id + offsets.xx);
 	
 	// Terrain normals
 	vec3 index_normal[4];
@@ -339,26 +331,30 @@ void fragment() {
 	float v = 0.0;
 	
 //INSERT: WORLD_NOISE3	
-	// we can re-use the indexUVs for the first 4 lookups, skipping some math
+	// Re-use the indexUVs for the first 4 lookups, skipping some math.
 	h[0] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
 	h[1] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
 	h[2] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
 	index_normal[3] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[2] + v));
-	// set flat world normal
+
+	// Set flat world normal - overriden if bilerp is true.
 	vec3 w_normal = index_normal[3];
-	// branching smooth normals must be done seperatley for correct normals for all 4 index points
+
+	// Branching smooth normals must be done seperatley for correct normals at all 4 index ids.
 	if (bilerp) {
 		// Fetch the additional required height values for smooth normals
 		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
-		h[4] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.yz), 0).r; // 4 (1,2)
-		h[5] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.zy), 0).r; // 5 (2,1)
-		h[6] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.zx), 0).r; // 6 (2,0)
-		h[7] = texelFetch(_height_maps, get_region_uv(domain_id + offsets.xz), 0).r; // 7 (0,2)
-		// Calculate the normal for the remaining index location
+		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz), 0).r; // 4 (1,2)
+		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy), 0).r; // 5 (2,1)
+		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx), 0).r; // 6 (2,0)
+		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz), 0).r; // 7 (0,2)
+
+		// Calculate the normal for the remaining index ids.
 		index_normal[0] = normalize(vec3(h[2] - h[3] + u, _vertex_spacing, h[2] - h[7] + v));
 		index_normal[1] = normalize(vec3(h[3] - h[5] + u, _vertex_spacing, h[3] - h[4] + v));
 		index_normal[2] = normalize(vec3(h[1] - h[6] + u, _vertex_spacing, h[1] - h[3] + v));
-		// set interpolated world normal
+
+		// Set interpolated world normal
 		w_normal = normalize(mix(
 				mix(index_normal[3], index_normal[2], weight.x),
 				mix(index_normal[0], index_normal[1], weight.x),
@@ -372,7 +368,7 @@ void fragment() {
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 
-	// Do the minimum amount of lookups for sub fragment sized index domains.
+	// Minimum amount of lookups for sub fragment sized index domains.
 	uint control[4];
 	control[3] = texelFetch(_control_maps, indexUV[3], 0).r;
 
@@ -382,7 +378,7 @@ void fragment() {
 	vec4 albedo_height = mat[3].alb_ht;
 	vec4 normal_rough = mat[3].nrm_rg;
 
-	// otherwise do full bilinear interpolation
+	// Otherwise do full bilinear interpolation
 	if (bilerp) {	
 		control[0] = texelFetch(_control_maps, indexUV[0], 0).r;
 		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
@@ -423,10 +419,13 @@ void fragment() {
 	}
 	
 	// Macro variation. 2 Lookups
-	float noise1 = texture(noise_texture, rotate(uv*noise1_scale * .1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
-	float noise2 = texture(noise_texture, uv*noise2_scale * .1).r;
-	vec3 macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_xz_dist * .0002, 0., 1.));
-	macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_xz_dist * .0002, 0., 1.));
+	vec3 macrov = vec3(1.0);
+	if (enable_macro_variation) {
+		float noise1 = texture(noise_texture, rotate(uv*noise1_scale * .1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
+		float noise2 = texture(noise_texture, uv*noise2_scale * .1).r;
+		macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_xz_dist * .0002, 0., 1.));
+		macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_xz_dist * .0002, 0., 1.));
+	}
 	
 	// Wetness/roughness modifier, converting 0-1 range to -1 to 1 range
 	float roughness = fma(color_map.a - 0.5, 2.0, normal_rough.a);
