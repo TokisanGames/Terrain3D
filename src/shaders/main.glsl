@@ -45,6 +45,8 @@ uniform uint _mouse_layer = 0x80000000u; // Layer 32
 // Public uniforms
 uniform bool enable_projection = true;
 uniform float projection_threshold : hint_range(0.0, 1.0, 0.01) = 0.5;
+uniform float texture_lod_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
+uniform float texture_depth_blur : hint_range(1.0, 8.0, 0.1) = 1.0;
 uniform bool height_blending = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 //INSERT: AUTO_SHADER_UNIFORMS
@@ -315,6 +317,9 @@ void fragment() {
 	// skip all extra lookups required for bilinear blend.
 	float maptexel_fragment_ratio = length(base_derivatives);
 	bool bilerp = maptexel_fragment_ratio <= 2.0;
+
+	// Adjust derivatives for mipmap bias and depth blur effect
+	base_derivatives *=  mix(texture_lod_bias, texture_depth_blur, smoothstep(0.0,1.0,(v_vertex_xz_dist-512.0)*0.00048828125));
 	
 	ivec3 indexUV[4];
 	// control map lookups, used for some normal lookups as well
