@@ -21,13 +21,6 @@ var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
 
-# Compatibility decals, indices; 0 = main brush, 1 = slope point A, 2 = slope point B
-var editor_decal_position: Array[Vector2]
-var editor_decal_rotation: Array[float]
-var editor_decal_size: Array[float]
-var editor_decal_color: Array[Color]
-var editor_decal_visible: Array[bool]
-
 
 func _init() -> void:
 	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
@@ -47,12 +40,6 @@ func _enter_tree() -> void:
 
 	asset_dock = load(ASSET_DOCK).instantiate()
 	asset_dock.initialize(self)
-	
-	editor_decal_position.resize(3)
-	editor_decal_rotation.resize(3)
-	editor_decal_size.resize(3)
-	editor_decal_color.resize(3)
-	editor_decal_visible.resize(3)
 
 
 func _exit_tree() -> void:
@@ -112,13 +99,6 @@ func _edit(p_object: Object) -> void:
 		terrain.set_editor(editor)
 		ui.set_visible(true)
 		terrain.set_meta("_edit_lock_", true)
-		
-		if terrain.is_compatibility_mode():
-			ui.decal_timer.timeout.connect(func():
-				var mat_rid: RID = terrain.material.get_material_rid()
-				editor_decal_visible[0] = false
-				RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
-				)
 
 		if terrain.storage:
 			ui.terrain_menu.directory_setup.directory_setup_popup()
@@ -198,44 +178,6 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		## Update decal
 		ui.decal.global_position = mouse_global_position
 		ui.update_decal()
-		
-		## Compatibility "Decal"
-		if terrain.is_compatibility_mode():
-			var mat_rid: RID = terrain.material.get_material_rid()
-			if ui.decal.visible:
-				editor_decal_position[0] = Vector2(mouse_global_position.x,mouse_global_position.z)
-				editor_decal_rotation[0] = ui.decal.rotation.y
-				editor_decal_size[0] = ui.brush_data.get("size")
-				editor_decal_color[0] = ui.decal.modulate
-				editor_decal_visible[0] = ui.decal.visible
-				RenderingServer.material_set_param(
-					mat_rid, "_editor_decal_0", ui.decal.texture_albedo.get_rid()
-					)
-			if ui.gradient_decals.size() >= 1:
-				editor_decal_position[1] = Vector2(ui.gradient_decals[0].global_position.x,
-					ui.gradient_decals[0].global_position.z)
-				editor_decal_rotation[1] = ui.gradient_decals[0].rotation.y
-				editor_decal_size[1] = 10.0
-				editor_decal_color[1] = ui.gradient_decals[0].modulate
-				editor_decal_visible[1] = ui.gradient_decals[0].visible
-				RenderingServer.material_set_param(
-					mat_rid, "_editor_decal_1", ui.gradient_decals[0].texture_albedo.get_rid()
-					)
-			if ui.gradient_decals.size() >= 2:
-				editor_decal_position[2] = Vector2(ui.gradient_decals[1].global_position.x,
-					ui.gradient_decals[1].global_position.z)
-				editor_decal_rotation[2] = ui.gradient_decals[1].rotation.y
-				editor_decal_size[2] = 10.0
-				editor_decal_color[2] = ui.gradient_decals[1].modulate
-				editor_decal_visible[2] = ui.gradient_decals[1].visible
-				RenderingServer.material_set_param(
-					mat_rid, "_editor_decal_2", ui.gradient_decals[1].texture_albedo.get_rid()
-					)
-			RenderingServer.material_set_param(mat_rid, "_editor_decal_position", editor_decal_position)
-			RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
-			RenderingServer.material_set_param(mat_rid, "_editor_decal_size", editor_decal_size)
-			RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
-			RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
 
 		## Update region highlight
 		var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
