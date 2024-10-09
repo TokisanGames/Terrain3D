@@ -26,7 +26,10 @@ const COLOR_PICK_COLOR := Color.WHITE
 const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 
-const MODIFIER_KEYS := [KEY_CTRL, KEY_SHIFT, KEY_ALT]
+const MODIFIER_KEYS := [KEY_SHIFT, KEY_CTRL, KEY_ALT]
+const M_SHIFT: int = 0x1
+const M_CTRL: int = 0x2
+const M_ALT: int = 0x4
 const OP_NONE: int = 0x0
 const OP_POSITIVE_ONLY: int = 0x01
 const OP_NEGATIVE_ONLY: int = 0x02
@@ -47,6 +50,7 @@ var decal_timer: Timer
 var gradient_decals: Array[Decal]
 var brush_data: Dictionary
 var operation_builder: OperationBuilder
+var modifiers: int = 0
 var modifier_ctrl: bool
 var modifier_alt: bool
 var modifier_shift: bool
@@ -445,36 +449,35 @@ func pick(p_global_position: Vector3) -> void:
 
 
 func update_modifiers() -> void:
-	for key in MODIFIER_KEYS:
-		set_modifier(key, Input.is_key_pressed(key))
+	# Return if modifiers haven't changed; modifiers disappear when clicking asset_dock
+	var current_mods: int = 0
+	for i in MODIFIER_KEYS.size():
+		if Input.is_key_pressed(MODIFIER_KEYS[i]):
+			current_mods |= 1 << i
+	if modifiers == current_mods and brush_data.has("modifier_shift"):
+		return
+	
+	modifier_shift = bool(current_mods & M_SHIFT)
+	brush_data["modifier_shift"] = modifier_shift
 
+	modifier_ctrl = bool(current_mods & M_CTRL)
+	brush_data["modifier_ctrl"] = modifier_ctrl
+	toolbar.show_add_buttons(!modifier_ctrl)
 
-func set_modifier(p_modifier: int, p_pressed: bool) -> void:
-	# Ctrl (invert) key. Swap enable/disable holes, swap raise/lower terrain, etc.
-	if p_modifier == KEY_CTRL && modifier_ctrl != p_pressed:
-		modifier_ctrl = p_pressed
-		brush_data["modifier_ctrl"] = p_pressed
-		toolbar.show_add_buttons(!p_pressed)
-		if plugin.editor:
-			plugin.editor.set_operation(_modify_operation(plugin.editor.get_operation()))
+	modifier_alt = bool(current_mods & M_ALT)
+	brush_data["modifier_alt"] = modifier_alt
 
-	# Alt (modify) key. Change the raise/lower operation to lift floors / flatten peaks.
-	if p_modifier == KEY_ALT && modifier_alt != p_pressed:
-		modifier_alt = p_pressed
-		brush_data["modifier_alt"] = p_pressed
-
-	# Shift (smooth) key
-	if p_modifier == KEY_SHIFT && modifier_shift != p_pressed:
-		modifier_shift = p_pressed
-		brush_data["modifier_shift"] = p_pressed
-		if modifier_shift:
-			plugin.editor.set_tool(Terrain3DEditor.SCULPT)
-			plugin.editor.set_operation(Terrain3DEditor.AVERAGE)
+	if modifier_shift and not modifier_ctrl:
+		plugin.editor.set_tool(Terrain3DEditor.SCULPT)
+		plugin.editor.set_operation(Terrain3DEditor.AVERAGE)
+	else:
+		plugin.editor.set_tool(last_tool)
+		if modifier_ctrl:
+			plugin.editor.set_operation(_modify_operation(last_operation))
 		else:
-			plugin.editor.set_tool(last_tool)
 			plugin.editor.set_operation(last_operation)
 	
-	update_decal()
+	modifiers = current_mods
 
 
 func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
