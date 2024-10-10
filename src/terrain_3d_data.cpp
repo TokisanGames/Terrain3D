@@ -220,6 +220,7 @@ Ref<Terrain3DRegion> Terrain3DData::add_region_blank(const Vector2i &p_region_lo
 	region.instantiate();
 	region->set_location(p_region_loc);
 	region->set_region_size(_region_size);
+	region->set_vertex_spacing(_vertex_spacing);
 	if (add_region(region, p_update) == OK) {
 		region->set_modified(true);
 		return region;

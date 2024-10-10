@@ -52,6 +52,7 @@ private:
 	Ref<Image> _color_map;
 	// Instancer
 	Dictionary _instances; // Dict{mesh_id:int} -> Location{v2i} -> [ Transform3D, Color ]
+	real_t _vertex_spacing = 1.f; // Vertex Spacing value that transforms are currently scaled.
 
 	// Working data not saved to disk
 	bool _deleted = false; // Marked for deletion on save
@@ -95,6 +96,8 @@ public:
 	// Instancer
 	void set_instances(const Dictionary &p_instances) { _instances = p_instances; }
 	Dictionary get_instances() const { return _instances; }
+	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 10.f); }
+	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
 	// File I/O
 	Error save(const String &p_path = "", const bool p_16_bit = false);
