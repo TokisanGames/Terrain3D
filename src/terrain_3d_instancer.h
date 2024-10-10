@@ -38,6 +38,7 @@ class Terrain3DInstancer : public Object {
 	uint32_t _get_density_count(const real_t p_density);
 
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
+	void _update_vertex_spacing(const real_t p_vertex_spacing);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _backup_regionl(const Vector2i &p_region_loc);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
