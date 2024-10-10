@@ -84,7 +84,6 @@ transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 22
 data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_jrc01")
 assets = ExtResource("8_g2of2")
-render_cull_margin = 1000.0
 collision_mask = 3
 top_level = true
 metadata/_edit_lock_ = true

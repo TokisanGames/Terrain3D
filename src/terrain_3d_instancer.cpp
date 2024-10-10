@@ -238,8 +238,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 
 	real_t fixed_spin = CLAMP(real_t(p_params.get("fixed_spin", 0.f)), .0f, 360.f); // degrees
 	real_t random_spin = CLAMP(real_t(p_params.get("random_spin", 360.f)), 0.f, 360.f); // degrees
-	real_t fixed_angle = CLAMP(real_t(p_params.get("fixed_angle", 0.f)), -180.f, 180.f); // degrees
-	real_t random_angle = CLAMP(real_t(p_params.get("random_angle", 10.f)), 0.f, 180.f); // degrees
+	real_t fixed_tilt = CLAMP(real_t(p_params.get("fixed_tilt", 0.f)), -180.f, 180.f); // degrees
+	real_t random_tilt = CLAMP(real_t(p_params.get("random_tilt", 10.f)), 0.f, 180.f); // degrees
 	bool align_to_normal = bool(p_params.get("align_to_normal", false));
 
 	real_t height_offset = CLAMP(real_t(p_params.get("height_offset", 0.f)), -100.0f, 100.f); // meters
@@ -291,9 +291,9 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		if (abs(spin) > 0.001f) {
 			t.basis = t.basis.rotated(normal, spin);
 		}
-		real_t angle = (fixed_angle + random_angle * (2.f * UtilityFunctions::randf() - 1.f)) * Math_PI / 180.f;
-		if (abs(angle) > 0.001f) {
-			t.basis = t.basis.rotated(t.basis.get_column(0), angle); // Rotate pitch, X-axis
+		real_t tilt = (fixed_tilt + random_tilt * (2.f * UtilityFunctions::randf() - 1.f)) * Math_PI / 180.f;
+		if (abs(tilt) > 0.001f) {
+			t.basis = t.basis.rotated(t.basis.get_column(0), tilt); // Rotate pitch, X-axis
 		}
 
 		// Scale
