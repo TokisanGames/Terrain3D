@@ -95,10 +95,8 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			mmi = cast_to<MultiMeshInstance3D>(_mmis[mmi_key]);
 			mmi->set_multimesh(mm);
 			mmi->set_cast_shadows_setting(ma->get_cast_shadows());
-			if (mmi->is_inside_tree() && mmi->get_global_transform() != Transform3D()) {
-				LOG(WARN, "Terrain3D parent nodes have non-zero transform. Resetting instancer global_transform");
-				mmi->set_global_transform(Transform3D());
-			}
+			real_t vertex_spacing = _terrain->get_vertex_spacing();
+			mmi->set_scale(Vector3(vertex_spacing, 1.f, vertex_spacing));
 		}
 		LOG(DEBUG, "mm: ", mesh_dict);
 	}
@@ -251,6 +249,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
 	bool invert = p_params["modifier_alt"];
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Terrain3DData *data = _terrain->get_data();
 
 	TypedArray<Transform3D> xforms;
@@ -303,6 +302,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		// Position. mesh_asset height offset added in add_transforms
 		real_t offset = height_offset + random_height * (2.f * UtilityFunctions::randf() - 1.f);
 		position += t.basis.get_column(1) * offset; // Offset along UP axis
+		// Store transform descaled. It will be scaled by the MMI
+		position /= Vector3(vertex_spacing, 1.f, vertex_spacing);
 		t = t.translated(position);
 
 		// Color
@@ -339,8 +340,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
 	bool invert = p_params["modifier_alt"];
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Terrain3DData *data = _terrain->get_data();
-
 	Vector2i region_loc = data->get_region_location(p_global_position);
 
 	// If CTRL+SHIFT pressed, repeat for every mesh, otherwise only do mesh_id
@@ -350,7 +351,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 						MAX(0.01f, fixed_scale + .5f * random_scale),
 				.001f, 1000.f);
 
-		// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
+		// Density based on strength, mesh AABB and input scale determines how many to remove, even fractional
 		uint32_t count = _get_instace_count(density);
 		if (count == 0) {
 			continue;
@@ -369,9 +370,9 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			Transform3D t = multimesh->get_instance_transform(i);
 			// If quota not yet met, instance is within a cylinder radius, and can work on slope, remove it
 			Vector2 origin2d = Vector2(t.origin.x, t.origin.z);
-			Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z);
-			if (count > 0 && (origin2d - mouse2d).length() < radius &&
-					data->is_in_slope(t.origin, slope_range, invert)) {
+			Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z) / vertex_spacing;
+			if (count > 0 && (origin2d - mouse2d).length() < radius / vertex_spacing &&
+					data->is_in_slope(t.origin * vertex_spacing, slope_range, invert)) {
 				count--;
 				continue;
 			} else {
@@ -417,6 +418,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	Dictionary xforms_dict;
 	Dictionary colors_dict;
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
 
 	// Separate incoming transforms/colors into Dictionary { region_loc => Array[Transform3D] }
 	LOG(INFO, "Separating ", p_xforms.size(), " transforms and ", p_colors.size(), " colors into regions");
@@ -424,13 +426,15 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		// Get adjusted xform/color
 		Transform3D trns = p_xforms[i];
 		trns.origin += trns.basis.get_column(1) * mesh_asset->get_height_offset(); // Offset along UP axis
+		Vector3 position = trns.origin * Vector3(vertex_spacing, 1.f, vertex_spacing);
+		
 		Color col = COLOR_WHITE;
 		if (p_colors.size() > i) {
 			col = p_colors[i];
 		}
 
 		// Store by region offset
-		Vector2i region_loc = _terrain->get_data()->get_region_location(trns.origin);
+		Vector2i region_loc = _terrain->get_data()->get_region_location(position);
 		if (!xforms_dict.has(region_loc)) {
 			xforms_dict[region_loc] = TypedArray<Transform3D>();
 			colors_dict[region_loc] = TypedArray<Color>();
@@ -515,6 +519,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	LOG(EXTREME, "Updating transforms for all meshes within ", p_aabb);
 
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Array region_locations = _terrain->get_data()->get_region_locations();
 	Rect2 brush_rect = aabb2rect(p_aabb);
 	for (int r = 0; r < region_locations.size(); r++) {
@@ -547,9 +552,10 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 				LOG(EXTREME, "Multimesh ", mesh_id, " has ", mm->get_instance_count(), " to review");
 				for (int i = 0; i < mm->get_instance_count(); i++) {
 					Transform3D t = mm->get_instance_transform(i);
-					if (brush_rect.has_point(Vector2(t.origin.x, t.origin.z))) {
+					Vector3 tpos = t.origin * vertex_spacing;
+					if (brush_rect.has_point(Vector2(tpos.x, tpos.z))) {
 						// Reset height to terrain height + mesh height offset along UP axis
-						real_t height = _terrain->get_data()->get_height(t.origin);
+						real_t height = _terrain->get_data()->get_height(tpos);
 						// If the new height is a nan due to creating a hole, remove the instance
 						if (std::isnan(height)) {
 							continue;
