@@ -241,6 +241,9 @@
     <None Include="doc\docs\introduction.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include=".github\workflows\web.yml">
+      <Filter>1. Project Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">

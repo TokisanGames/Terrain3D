@@ -1,0 +1,79 @@
+﻿name: 🌐 Web Builds
+on: [ pull_request, workflow_call, workflow_dispatch ]
+
+
+jobs:
+  build:
+    name: 🌐 Web ${{ matrix.arch }} ${{ matrix.target }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [web]
+        target: [debug]
+        # target: [debug, release]
+        threads: [no]
+        #threads: [yes, no]
+
+    steps:
+      - name: Set up Emscripten latest
+        uses: mymindstorm/setup-emsdk@v14
+        env:
+          EM_VERSION: 3.1.64
+          EM_CACHE_FOLDER: emsdk-cache
+        with:
+          version: ${{ env.EM_VERSION }}
+          actions-cache-folder: ${{ env.EM_CACHE_FOLDER }}
+          cache-key: emsdk-${{ matrix.cache-name }}-${{ env.GODOT_BASE_BRANCH }}-${{ github.ref }}-${{ github.sha }}
+
+      - name: Verify Emscripten setup
+        run: |
+          emcc -v
+
+      - name: Checkout Terrain3D
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Base Dependencies
+        uses: ./.github/actions/base-deps
+
+      - name: Setup Build Cache
+        uses: ./.github/actions/build-cache
+        with:
+          cache-name: ${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.threads }}
+        continue-on-error: true
+
+      - name: Build Terrain3D
+        env:
+            SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+            TARGET: 'template_${{ matrix.target }}'
+        shell: sh
+        run: |
+          scons target=$TARGET platform='${{ matrix.platform }}' threads='${{ matrix.threads }}' debug_symbols=no -j2
+
+      - name: Prepare Files
+        shell: sh
+        run: |
+          ls -l project/addons/terrain_3d/bin/
+          cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v4
+        with:
+          include-hidden-files: true
+          name: t3d-${{ matrix.platform }}-${{ matrix.target }}
+          path: |
+            ${{ github.workspace }}/project/
+  
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Merge Artifacts
+        uses: actions/upload-artifact/merge@v4
+        with:
+          include-hidden-files: true
+          name: ${{ github.event.repository.name }}
+          pattern: t3d-*
+          # delete-merged: true

@@ -1,7 +1,20 @@
 // This shader is the minimum needed to allow the terrain to function, without any texturing.
-
 shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
+
+// COMPATIBILITY_DEFINES
+// This is added automatically when in compatibility mode. It is not required for Mobile or Forward+
+#define fma(a, b, c) (a) * (b) + (c)
+#define dFdxCoarse(a) dFdx(a)
+#define dFdyCoarse(a) dFdy(a)
+#define textureQueryLod(a, b) vec4(0.0)
+#define texelOffset(b, c) ivec3(ivec2(b.xy * _region_size + c -0.4979), int(b.z))
+#define textureGather(a, b) vec4( \
+    texelFetch(a, texelOffset(b, vec2(0,1)), 0).r, \
+    texelFetch(a, texelOffset(b, vec2(1,1)), 0).r, \
+    texelFetch(a, texelOffset(b, vec2(1,0)), 0).r, \
+    texelFetch(a, texelOffset(b, vec2(0,0)), 0).r  \
+)
 
 // Private uniforms
 uniform float _region_size = 1024.0;
@@ -11,12 +24,12 @@ uniform float _vertex_density = 1.0; // = 1/_vertex_spacing
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
-uniform sampler2DArray _height_maps : repeat_disable;
-uniform usampler2DArray _control_maps : repeat_disable;
-uniform sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
-uniform sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D noise_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform highp sampler2DArray _height_maps : repeat_disable;
+uniform highp sampler2DArray _control_maps : repeat_disable;
+uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform highp sampler2D noise_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 
 uniform float _texture_uv_scale_array[32];
 uniform float _texture_detile_array[32];
@@ -90,14 +103,14 @@ void vertex() {
 
 	// Discard vertices for Holes. 1 lookup
 	v_region = get_region_uv(UV);
-	uint control = texelFetch(_control_maps, v_region, 0).r;
+    uint control = floatBitsToUint(texelFetch(_control_maps, v_region, 0).r);
 	bool hole = bool(control >>2u & 0x1u);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
-	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
+	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
 			(hole || (_background_mode == 0u && (get_region_uv(UV - _region_texel_size) & v_region).z < 0))) {
 		VERTEX.x = 0. / 0.;
-	} else {		
+	} else {
 		// Set final vertex height & calculate vertex normals. 3 lookups.
 		VERTEX.y = get_height(UV2);
 		v_vertex.y = VERTEX.y;
@@ -110,7 +123,7 @@ void vertex() {
 		// mask region edges and use vertex normals only across region boundaries.
 		v_region_border_mask = mod(UV.x + 2.5, _region_size) - fract(UV.x) < 5.0 || mod(UV.y + 2.5, _region_size) - fract(UV.y) < 5.0 ? 1. : 0.;
 	}
-		
+
 	// Transform UVs to local to avoid poor precision during varying interpolation.
 	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
 	UV -= v_uv_offset;
@@ -160,5 +173,5 @@ void fragment() {
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 
 	// Apply PBR
-	ALBEDO=vec3(.2);
+	ALBEDO=vec3(uv2.x/6., uv2.y/6., 0.4);
 }

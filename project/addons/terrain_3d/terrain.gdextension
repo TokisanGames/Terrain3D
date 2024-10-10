@@ -1,7 +1,7 @@
 [configuration]
 
 entry_symbol = "terrain_3d_init"
-compatibility_minimum = 4.2
+compatibility_minimum = 4.3
 
 [icons]
 
@@ -27,3 +27,5 @@ android.release.arm64 = "res://addons/terrain_3d/bin/libterrain.android.release.
 
 ios.debug = "res://addons/terrain_3d/bin/libterrain.ios.debug.universal.dylib"
 ios.release = "res://addons/terrain_3d/bin/libterrain.ios.release.universal.dylib"
+
+web = "res://addons/terrain_3d/bin/libterrain.web.debug.wasm32.wasm"

@@ -20,6 +20,18 @@ func _input(p_event: InputEvent) -> void:
 		rotate_camera(p_event.relative)
 		get_viewport().set_input_as_handled()
 		return
+	if p_event is InputEventKey and p_event.is_pressed():
+		if p_event.pressed:
+			var camera_angle: Vector2
+			if p_event.keycode == KEY_LEFT:
+				camera_angle.x -= 10
+			if p_event.keycode == KEY_RIGHT:
+				camera_angle.x += 10
+			if p_event.keycode == KEY_UP:
+				camera_angle.y -= 50
+			if p_event.keycode == KEY_DOWN:
+				camera_angle.y += 50
+			rotate_camera(camera_angle)
 
 
 func rotate_camera(p_relative:Vector2) -> void:

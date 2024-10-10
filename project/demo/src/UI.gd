@@ -37,7 +37,7 @@ func _unhandled_key_input(p_event: InputEvent) -> void:
 			KEY_F11:
 				toggle_fullscreen()
 				get_viewport().set_input_as_handled()
-			KEY_ESCAPE:
+			KEY_ESCAPE, KEY_QUOTELEFT:
 				if Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
 					Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 				else:
@@ -52,4 +52,3 @@ func toggle_fullscreen() -> void:
 		DisplayServer.window_set_size(Vector2(1280, 720))
 	else:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
-
