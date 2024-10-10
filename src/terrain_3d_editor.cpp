@@ -370,6 +370,9 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
 								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
 								if (enable_texture && brush_alpha * strength * 11.f > 0.1f) {
+									if (base_id == overlay_id && blend < 0.004f) {
+										overlay_id = asset_id;
+									}
 									// If overlay and base texture are the same, reduce blend value
 									if (base_id == asset_id) {
 										blend = CLAMP(blend - brush_value, 0.f, 1.f);
