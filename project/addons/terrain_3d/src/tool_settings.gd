@@ -135,9 +135,9 @@ func _ready() -> void:
 								"default":0, "unit":"°", "range":Vector3(0, 360, 1) })
 	add_setting({ "name":"random_spin", "type":SettingType.SLIDER, "list":rotation_list, "default":360, 
 								"unit":"°", "range":Vector3(0, 360, 1) })
-	add_setting({ "name":"fixed_angle", "label":"Fixed Angle (From Y)", "type":SettingType.SLIDER, "list":rotation_list, 
+	add_setting({ "name":"fixed_tilt", "label":"Fixed Tilt", "type":SettingType.SLIDER, "list":rotation_list, 
 								"default":0, "unit":"°", "range":Vector3(-85, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
-	add_setting({ "name":"random_angle", "label":"Random Angle ±", "type":SettingType.SLIDER, "list":rotation_list, 
+	add_setting({ "name":"random_tilt", "label":"Random Tilt ±", "type":SettingType.SLIDER, "list":rotation_list, 
 								"default":10, "unit":"°", "range":Vector3(0, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 	add_setting({ "name":"align_to_normal", "type":SettingType.CHECKBOX, "list":rotation_list, "default":false })
 	
