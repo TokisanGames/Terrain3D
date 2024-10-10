@@ -30,6 +30,7 @@ func _init() -> void:
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
 	editor_settings = EditorInterface.get_editor_settings()
+	_cleanup_editor_settings()
 	ui = UI.new()
 	ui.plugin = self
 	add_child(ui)
@@ -296,6 +297,27 @@ func select_terrain() -> void:
 		es.clear()
 		es.add_node(_last_terrain)
 
+
+# Remove or rename old settings
+func _cleanup_editor_settings() -> void:
+	# Rename deprecated settings - Remove in 1.0
+	var value: Variant
+	var rename_arr := [ "terrain3d/config/dock_slot", "terrain3d/config/dock_tile_size", 
+	"terrain3d/config/dock_floating", "terrain3d/config/dock_always_on_top",
+	"terrain3d/config/dock_window_size", "terrain3d/config/dock_window_position", ]
+	for es: String in rename_arr:
+		if editor_settings.has_setting(es):
+			value = editor_settings.get_setting(es)
+			editor_settings.erase(es)
+			editor_settings.set_setting(es.replace("/config/dock_", "/dock/"), value)
+
+	# Special handling
+	var es: String = "terrain3d/tool_settings/slope"
+	if editor_settings.has_setting(es):
+		value = editor_settings.get_setting(es)
+		if typeof(value) == TYPE_FLOAT:
+			editor_settings.erase(es)
+	
 
 func set_setting(p_str: String, p_value: Variant) -> void:
 	editor_settings.set_setting(p_str, p_value)
