@@ -399,17 +399,6 @@ func _on_godot_focus_exited() -> void:
 ## Manage Editor Settings
 
 func load_editor_settings() -> void:
-	## Deprecated 0.9.2 Remove in 1.0 - Move settings to new config category
-	var value: Variant
-	for es: String in [ "terrain3d/config/dock_slot", "terrain3d/config/dock_tile_size", 
-	"terrain3d/config/dock_floating", "terrain3d/config/dock_always_on_top",
-	"terrain3d/config/dock_window_size", "terrain3d/config/dock_window_position", ]:
-		if plugin.editor_settings.has_setting(es):
-			value = plugin.editor_settings.get_setting(es)
-			plugin.editor_settings.erase(es)
-			plugin.editor_settings.set_setting(es.replace("/config/dock_", "/dock/"), value)
-	## Deprecated End - Load settings as normal
-	
 	floating_btn.button_pressed = plugin.get_setting(ES_DOCK_FLOATING, false)
 	pinned_btn.button_pressed = plugin.get_setting(ES_DOCK_PINNED, true)
 	size_slider.value = plugin.get_setting(ES_DOCK_TILE_SIZE, 83)
