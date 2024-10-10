@@ -51,18 +51,13 @@ _shader_parameters = {
 "noise3_scale": 0.225,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
 "tri_scale_reduction": 0.3,
-"vertex_normals_distance": 128.0,
-"world_noise_height": 34.0,
-"world_noise_lod_distance": 7500.0,
-"world_noise_max_octaves": 4,
-"world_noise_min_octaves": 2,
-"world_noise_offset": Vector3(2.17, -1.225, 1.9),
-"world_noise_region_blend": 0.33,
-"world_noise_scale": 9.85
+"vertex_normals_distance": 128.0
 }
-world_background = 2
+world_background = 0
 auto_shader = true
 dual_scaling = true
+show_region_grid = true
+show_vertex_grid = true
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")
@@ -73,9 +68,11 @@ script = ExtResource("1_k7qca")
 
 [node name="Borders" parent="." instance=ExtResource("3_cw38j")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -3, 512)
+visible = false
 collision_mask = 3
 
 [node name="Tunnel" parent="." instance=ExtResource("3_kdh0b")]
+visible = false
 
 [node name="Player" parent="." instance=ExtResource("3_ht63y")]
 transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
@@ -84,6 +81,9 @@ transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 22
 data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_jrc01")
 assets = ExtResource("8_g2of2")
+label_distance = 6608.0
+show_grid = true
 collision_mask = 3
+vertex_spacing = 2.0
 top_level = true
 metadata/_edit_lock_ = true
