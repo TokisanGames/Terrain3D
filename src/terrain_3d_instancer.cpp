@@ -96,7 +96,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			mmi->set_multimesh(mm);
 			mmi->set_cast_shadows_setting(ma->get_cast_shadows());
 			real_t vertex_spacing = _terrain->get_vertex_spacing();
-			mmi->set_scale(Vector3(vertex_spacing, 1.f, vertex_spacing));
+			mmi->set_scale(Vector3(vertex_spacing, vertex_spacing, vertex_spacing));
 		}
 		LOG(DEBUG, "mm: ", mesh_dict);
 	}
@@ -303,7 +303,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		real_t offset = height_offset + random_height * (2.f * UtilityFunctions::randf() - 1.f);
 		position += t.basis.get_column(1) * offset; // Offset along UP axis
 		// Store transform descaled. It will be scaled by the MMI
-		position /= Vector3(vertex_spacing, 1.f, vertex_spacing);
+		position /= vertex_spacing;
 		t = t.translated(position);
 
 		// Color
@@ -426,8 +426,8 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		// Get adjusted xform/color
 		Transform3D trns = p_xforms[i];
 		trns.origin += trns.basis.get_column(1) * mesh_asset->get_height_offset(); // Offset along UP axis
-		Vector3 position = trns.origin * Vector3(vertex_spacing, 1.f, vertex_spacing);
-		
+		Vector3 position = trns.origin * vertex_spacing;
+
 		Color col = COLOR_WHITE;
 		if (p_colors.size() > i) {
 			col = p_colors[i];
