@@ -992,14 +992,15 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 		_destroy_instancer();
 		_initialize();
 		_data->_vertex_spacing = _vertex_spacing;
-		Dictionary mmis = _instancer->get_mmis();
-		Array keys = mmis.keys();
-		for (int i = 0; i < keys.size(); i++) {
-			MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mmis[keys[i]]);
-			if (mmi != nullptr) {
-				mmi->set_scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
-			}
-		}
+		//Dictionary mmis = _instancer->get_mmis();
+		//Array keys = mmis.keys();
+		//for (int i = 0; i < keys.size(); i++) {
+		//	MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mmis[keys[i]]);
+		//	if (mmi != nullptr) {
+		//		mmi->set_scale(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
+		//	}
+		//}
+		_instancer->_update_mmis();
 		update_region_labels();
 	}
 	if (IS_EDITOR && _plugin != nullptr) {
