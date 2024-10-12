@@ -27,52 +27,39 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 			continue;
 		}
 
-		Dictionary mesh_dict = region->get_multimeshes(); // TODO BROKEN
+		Dictionary mesh_dict = region->get_instances();
 		LOG(DEBUG, "Updating MMIs from: ", region_loc);
 
 		// For all mesh id in region
 		Array mesh_types = mesh_dict.keys();
 		for (int m = 0; m < mesh_types.size(); m++) {
 			int mesh_id = mesh_types[m];
-			bool fail = false;
-
-			/// Verify the Multimesh data
-
-			// Verify Multimesh exists. It should since its keyed
-			Ref<MultiMesh> mm = mesh_dict.get(mesh_id, Ref<MultiMesh>());
-			if (mm.is_null()) {
-				LOG(DEBUG, "Dictionary for mesh id ", mesh_id, " is null, skipping");
-				fail = true;
-			}
-			// Verify mesh id is valid and has a mesh
-			Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
-			Ref<Mesh> mesh;
-			if (ma.is_valid()) {
-				mesh = ma->get_mesh();
-				if (mesh.is_null()) {
-					LOG(WARN, "MeshAsset ", mesh_id, " valid but mesh is null, skipping");
-					fail = true;
+			Dictionary cells_dict = mesh_dict[mesh_id];
+			Array cell_locations = cells_dict.keys();
+			for (int c = 0; c < cell_locations.size(); c++) {
+				// Get instances
+				Vector2i cell = cell_locations[c];
+				Array tuple = cells_dict[cell];
+				TypedArray<Transform3D> xforms = tuple[0];
+				if (xforms.size() > 0) {
+					//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
+				} else {
+					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
+					// remove it or problem elsewhere?
+					continue;
 				}
-			} else {
-				LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
-				fail = true;
-			}
-			// Clear this mesh id for this region and skip if fails the above checks
-			if (fail) {
-				clear_by_location(region_loc, mesh_id);
-				region->set_vertex_spacing(p_vertex_spacing);
-				continue;
-			}
-
-			uint32_t count = mm->get_instance_count();
-			// Read the region vertex_spacing value to correctly calculate the new scaled position
-			for (int i = 0; i < count; i++) {
-				Transform3D t = mm->get_instance_transform(i);
-				t.origin.x /= old_spacing;
-				t.origin.x *= p_vertex_spacing;
-				t.origin.z /= old_spacing;
-				t.origin.z *= p_vertex_spacing;
-				mm->set_instance_transform(i, t);
+				// Descale, then Scale to the new value
+				for (int i = 0; i < xforms.size(); i++) {
+					Transform3D t = xforms[i];
+					t.origin.x /= old_spacing;
+					t.origin.x *= p_vertex_spacing;
+					t.origin.z /= old_spacing;
+					t.origin.z *= p_vertex_spacing;
+					xforms[i] = t;
+				}
+				tuple[0] = xforms;
+				tuple[2] = true;
+				cells_dict[cell] = tuple;
 			}
 		}
 		// after all transforms are updated, set the new region vertex spacing value
