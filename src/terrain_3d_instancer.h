@@ -25,16 +25,11 @@ private:
 	Terrain3D *_terrain = nullptr;
 
 	// MM Resources stored in Terrain3DRegion::_instances as
-	// _instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray ]
+	// _instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, Modified<bool> ]
 
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
 
-	//old:
-	// MM Resources stored in Terrain3DRegion::_multimeshes as
-	// Dictionary[mesh_id:int] -> MultiMesh
-	// MMI Objects attached to tree, freed in destructor, stored as
-	// Dictionary[Vector3i(region_location.x, region_location.y, mesh_id)] -> MultiMeshInstance3D
 	Dictionary _mmi_nodes;
 	Dictionary _mmi_containers; // { region_loc -> Node }
 
