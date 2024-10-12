@@ -1632,7 +1632,7 @@ void Terrain3D::split_storage() {
 		region->set_height_map(hmaps[i]);
 		region->set_control_map(ctlmaps[i]);
 		region->set_color_map(clrmaps[i]);
-		region->set_multimeshes(mms[locations[i]]);
+		region->set_multimeshes(mms[locations[i]]); // TODO BROKEN
 		_data->add_region(region, false);
 		LOG(INFO, "Splicing region ", locations[i]);
 	}

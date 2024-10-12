@@ -262,7 +262,7 @@ void Terrain3DRegion::set_data(const Dictionary &p_data) {
 	SET_IF_HAS(_height_map, "height_map");
 	SET_IF_HAS(_control_map, "control_map");
 	SET_IF_HAS(_color_map, "color_map");
-	SET_IF_HAS(_multimeshes, "multimeshes");
+	SET_IF_HAS(_instances, "instances");
 }
 
 Dictionary Terrain3DRegion::get_data() const {
@@ -279,7 +279,7 @@ Dictionary Terrain3DRegion::get_data() const {
 	dict["height_map"] = _height_map;
 	dict["control_map"] = _control_map;
 	dict["color_map"] = _color_map;
-	dict["multimeshes"] = _multimeshes;
+	dict["instances"] = _instances;
 	return dict;
 }
 
@@ -302,15 +302,7 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		dict["height_map"] = _height_map->duplicate();
 		dict["control_map"] = _control_map->duplicate();
 		dict["color_map"] = _color_map->duplicate();
-		Dictionary mms;
-		Array keys = _multimeshes.keys();
-		for (int i = 0; i < keys.size(); i++) {
-			int mesh_id = keys[i];
-			Ref<MultiMesh> mm = _multimeshes[mesh_id];
-			mm->duplicate();
-			mms[mesh_id] = mm;
-		}
-		dict["multimeshes"] = mms;
+		dict["instances"] = _instances.duplicate(true); // TODO test this
 		region->set_data(dict);
 	}
 	return region;
