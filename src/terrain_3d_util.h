@@ -29,7 +29,9 @@ public:
 
 	// String functions
 	static Vector2i filename_to_location(const String &p_filename);
+	static Vector2i string_to_location(const String &p_string);
 	static String location_to_filename(const Vector2i &p_region_loc);
+	static String location_to_string(const Vector2i &p_region_loc);
 
 	// Image operations
 	static Ref<Image> black_to_alpha(const Ref<Image> &p_image);
@@ -59,15 +61,6 @@ typedef Terrain3DUtil Util;
 ///////////////////////////
 // Math
 ///////////////////////////
-
-// Rounds a decimal to the nearest multiple eg round_multiple(2.7, 4) -> 4
-template <typename T>
-T round_multiple(const T p_value, const T p_multiple) {
-	if (p_multiple == 0) {
-		return p_value;
-	}
-	return static_cast<T>(std::round(static_cast<double>(p_value) / static_cast<double>(p_multiple)) * static_cast<double>(p_multiple));
-}
 
 inline bool is_power_of_2(const int p_n) {
 	return p_n && !(p_n & (p_n - 1));

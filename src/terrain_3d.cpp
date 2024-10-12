@@ -151,7 +151,7 @@ void Terrain3D::_build_containers() {
 	_label_nodes->set_name("Labels");
 	add_child(_label_nodes, true);
 	_mmi_nodes = memnew(Node);
-	_mmi_nodes->set_name("MMIs");
+	_mmi_nodes->set_name("MMI");
 	add_child(_mmi_nodes, true);
 }
 

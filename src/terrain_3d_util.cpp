@@ -77,24 +77,34 @@ void Terrain3DUtil::dump_maps(const TypedArray<Image> &p_maps, const String &p_n
 
 // Expects a filename in a String like: "terrain3d-01_02.res" which returns (-1, 2)
 Vector2i Terrain3DUtil::filename_to_location(const String &p_filename) {
-	String working_string = p_filename.trim_suffix(".res");
-	String y_str = working_string.right(3).replace("_", "");
-	working_string = working_string.erase(working_string.length() - 3, 3);
-	String x_str = working_string.right(3).replace("_", "");
+	String location_string = p_filename.trim_prefix("terrain3d").trim_suffix(".res");
+	return string_to_location(location_string);
+}
+
+// Expects a string formatted as: "±##±##" which returns (##,##)
+Vector2i Terrain3DUtil::string_to_location(const String &p_string) {
+	String x_str = p_string.left(3).replace("_", "");
+	String y_str = p_string.right(3).replace("_", "");
 	if (!x_str.is_valid_int() || !y_str.is_valid_int()) {
-		LOG(ERROR, "Malformed filename at ", p_filename, ": got x ", x_str, " y ", y_str);
+		LOG(ERROR, "Malformed string '", p_string, "'. Result: ", x_str, ", ", y_str);
 		return V2I_MAX;
 	}
 	return Vector2i(x_str.to_int(), y_str.to_int());
 }
 
+// Expects a v2i(-1,2) and returns terrain3d-01_02.res
 String Terrain3DUtil::location_to_filename(const Vector2i &p_region_loc) {
+	return "terrain3d" + location_to_string(p_region_loc) + ".res";
+}
+
+// Expects a v2i(-1,2) and returns -01_02
+String Terrain3DUtil::location_to_string(const Vector2i &p_region_loc) {
 	const String POS_REGION_FORMAT = "_%02d";
 	const String NEG_REGION_FORMAT = "%03d";
 	String x_str, y_str;
 	x_str = vformat((p_region_loc.x >= 0) ? POS_REGION_FORMAT : NEG_REGION_FORMAT, p_region_loc.x);
 	y_str = vformat((p_region_loc.y >= 0) ? POS_REGION_FORMAT : NEG_REGION_FORMAT, p_region_loc.y);
-	return "terrain3d" + x_str + y_str + ".res";
+	return x_str + y_str;
 }
 
 Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {
