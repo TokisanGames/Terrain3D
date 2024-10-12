@@ -239,6 +239,15 @@ Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const 
 	return mm;
 }
 
+Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position) {
+	int region_size = _terrain->get_region_size();
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
+	Vector2i cell;
+	cell.x = (UtilityFunctions::floori(p_global_position.x / vertex_spacing) % region_size) / CELL_SIZE;
+	cell.y = (UtilityFunctions::floori(p_global_position.z / vertex_spacing) % region_size) / CELL_SIZE;
+	return cell;
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
