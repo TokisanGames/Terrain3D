@@ -87,10 +87,21 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			if (!_mmi_nodes.has(mmi_key)) {
 				LOG(DEBUG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
 				mmi = memnew(MultiMeshInstance3D);
+				mmi->set_name("MultiMeshInstance3D" + String::num_int64(mesh_id));
 				mmi->set_as_top_level(true);
-				_terrain->get_mmi_parent()->add_child(mmi, true);
 				_mmi_nodes[mmi_key] = mmi;
 				LOG(DEBUG, _mmi_nodes);
+
+				String rname("Region" + Util::location_to_string(region_loc));
+				if (!_terrain->get_mmi_parent()->has_node(rname)) {
+					LOG(DEBUG, "Creating new region MMI container");
+					Node *node = memnew(Node);
+					node->set_name(rname);
+					_mmi_containers[region_loc] = node;
+					_terrain->get_mmi_parent()->add_child(node, true);
+				}
+				Node *container = _terrain->get_mmi_parent()->get_node_internal(rname);
+				container->add_child(mmi, true);
 			}
 			mmi = cast_to<MultiMeshInstance3D>(_mmi_nodes[mmi_key]);
 			mmi->set_multimesh(mm);
@@ -115,6 +126,15 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 	LOG(DEBUG, "Removing from tree, success: ", result);
 	result = memdelete_safely(mmi);
 	LOG(DEBUG, "Deleting MMI, success: ", result);
+	Node *node = cast_to<Node>(_mmi_containers[p_region_loc]);
+	if (node && node->get_child_count() == 0) {
+		result = _mmi_containers.erase(p_region_loc);
+		LOG(DEBUG, "Removing MMI container from dictionary: ", p_region_loc, ", success: ", result);
+		result = remove_from_tree(node);
+		LOG(DEBUG, "Removing from tree, success: ", result);
+		result = memdelete_safely(node);
+		LOG(DEBUG, "Deleting container, success: ", result);
+	}
 }
 
 void Terrain3DInstancer::_backup_regionl(const Vector2i &p_region_loc) {
