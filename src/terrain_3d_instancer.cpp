@@ -505,11 +505,6 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		}
 
 		Ref<MultiMesh> multimesh = get_multimesh(region_loc, m);
-		if (multimesh.is_null()) {
-			LOG(EXTREME, "Multimesh is already null. doing nothing");
-			continue;
-		}
-
 		LOG(EXTREME, "Removing ", count, " instances from ", p_global_position);
 		TypedArray<Transform3D> xforms;
 		PackedColorArray colors;
@@ -519,8 +514,39 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		Vector2 global_local_offset = Vector2(region_loc.x * region_size * vertex_spacing, region_loc.y * region_size * vertex_spacing);
 		// convert mouse to region local space
 		Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z) - global_local_offset;
-		for (int i = 0; i < multimesh->get_instance_count(); i++) {
-			Transform3D t = multimesh->get_instance_transform(i);
+		
+		// get all cells inside brush rect,
+		// concatenate cells to a single pair of transform and color arrays
+		Rect2 brush_rect;
+		brush_rect.set_position(Vector2(mouse2d));
+		brush_rect.set_size(Vector2(brush_size,brush_size));
+		Rect2 cell_rect;
+		Dictionary mesh_dict = region->get_instances();
+		Array mesh_types = mesh_dict.keys();
+		Dictionary cells_dict = mesh_dict[m];
+		Array cell_locations = cells_dict.keys();
+		for (int c = 0; c < cell_locations.size(); c++) {
+			Vector2i cell = cell_locations[c];
+			cell_rect.set_position((region_loc * region_size) + (cell * CELL_SIZE));
+			cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
+			if (brush_rect.intersects(cell_rect)) {
+				//LOG(MESG, "brush intersects with cell: ", cell);
+				Array tuple = cells_dict[cell];
+				TypedArray<Transform3D> cell_xforms = tuple[0];
+				PackedColorArray cell_colors = tuple[1];
+				xforms.append_array(cell_xforms);
+				colors.append_array(cell_colors);
+				// clear the old cells.
+				cells_dict.erase(cell);
+			}
+		}
+		
+		// itterate as before through the instances, removing until count is it.
+		TypedArray<Transform3D> remaining_xforms;
+		PackedColorArray remaining_colors;
+		for (int i = 0; i < xforms.size(); i++) {
+			Transform3D t = xforms[i];
+			Color c = colors[i];
 			// If quota not yet met, instance is within a cylinder radius, and can work on slope, remove it
 			Vector2 origin2d = Vector2(t.origin.x, t.origin.z);
 			if (count > 0 && (origin2d - mouse2d).length() < radius &&
@@ -529,16 +555,16 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 				count--;
 				continue;
 			} else {
-				xforms.push_back(t);
-				colors.push_back(multimesh->get_instance_color(i));
+				remaining_xforms.push_back(t);
+				remaining_colors.push_back(c);
 			}
 		}
-
-		if (xforms.size() == 0) {
+		// pass the remaining arrays to append_region
+		if (remaining_xforms.size() == 0) {
 			LOG(DEBUG, "Removed all instances, erasing multimesh in region");
 			clear_by_location(region_loc, m);
 		} else {
-			append_region(region, m, xforms, colors, true);
+			append_region(region, m, remaining_xforms, remaining_colors);
 		}
 	}
 }
