@@ -32,6 +32,7 @@ class Terrain3DInstancer : public Object {
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// Dictionary[Vector3i(region_location.x, region_location.y, mesh_id)] -> MultiMeshInstance3D
 	Dictionary _mmi_nodes;
+	Dictionary _mmi_containers; // { region_loc -> Node }
 
 	uint32_t _density_counter = 0;
 	uint32_t _get_density_count(const real_t p_density);
