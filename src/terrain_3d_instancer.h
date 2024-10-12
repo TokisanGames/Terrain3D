@@ -18,13 +18,17 @@ class Terrain3DInstancer : public Object {
 	CLASS_NAME();
 	friend Terrain3D;
 
+public: // Constants
+	static inline const int CELL_SIZE = 32;
+
+private:
 	Terrain3D *_terrain = nullptr;
 
 	// MM Resources stored in Terrain3DRegion::_instances as
-	// _instances{mesh_id:int} -> Location{v2i} -> [ TypedArray<Transform3D>, PackedColorArray ]
+	// _instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray ]
 
 	// MMI Objects attached to tree, freed in destructor, stored as
-	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> grid_loc{v2i} -> MultiMeshInstance3D
+	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
 
 	//old:
 	// MM Resources stored in Terrain3DRegion::_multimeshes as
@@ -43,6 +47,7 @@ class Terrain3DInstancer : public Object {
 	void _backup_regionl(const Vector2i &p_region_loc);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
 	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
+	Vector2i _get_cell(const Vector3 &p_global_position);
 
 public:
 	Terrain3DInstancer() {}
