@@ -74,7 +74,6 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 		_original_regions.push_back(region);
 		height_range = region->get_height_range();
 		_terrain->get_data()->remove_region(region);
-		_terrain->get_instancer()->force_update_mmis();
 		changed = true;
 	}
 

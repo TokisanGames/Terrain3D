@@ -92,9 +92,9 @@ public:
 
 	// Instancer
 	void set_multimeshes(const Dictionary &p_multimeshes) { _multimeshes = p_multimeshes; }
+	Dictionary get_multimeshes() const { return _multimeshes; }
 	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 10.f); }
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
-	Dictionary get_multimeshes() const { return _multimeshes; }
 
 	// File I/O
 	Error save(const String &p_path = "", const bool p_16_bit = false);

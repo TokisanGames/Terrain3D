@@ -29,7 +29,9 @@ public:
 
 	// String functions
 	static Vector2i filename_to_location(const String &p_filename);
+	static Vector2i string_to_location(const String &p_string);
 	static String location_to_filename(const Vector2i &p_region_loc);
+	static String location_to_string(const Vector2i &p_region_loc);
 
 	// Image operations
 	static Ref<Image> black_to_alpha(const Ref<Image> &p_image);
