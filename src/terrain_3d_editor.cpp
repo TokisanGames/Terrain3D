@@ -715,7 +715,7 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	_edited_regions = TypedArray<Terrain3DRegion>();
 	_added_removed_locations = TypedArray<Vector2i>();
 	// Reset counter at start to ensure first click places an instance
-	_terrain->get_instancer()->reset_instance_counter();
+	_terrain->get_instancer()->reset_density_counter();
 	_terrain->get_data()->clear_edited_area();
 	_operation_position = p_global_position;
 	_operation_movement = Vector3();

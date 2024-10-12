@@ -324,7 +324,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 			.001f, 1000.f);
 
 	// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-	uint32_t count = _get_instace_count(density);
+	uint32_t count = _get_density_count(density);
 	if (count <= 0) {
 		return;
 	}
@@ -445,7 +445,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 				.001f, 1000.f);
 
 		// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-		uint32_t count = _get_instace_count(density);
+		uint32_t count = _get_density_count(density);
 		if (count == 0) {
 			continue;
 		}
@@ -576,7 +576,7 @@ void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int
 	append_region(region, p_mesh_id, localised_xforms, p_colors, p_clear, p_update);
 }
 
-// append region requires all transforms are in region space, 0 - region_size * vertex_spacing
+// append_region requires all transforms are in region space, 0 - region_size * vertex_spacing
 void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id,
 		const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear, const bool p_update) {
 	Dictionary mesh_dict = p_region->get_multimeshes();

@@ -628,7 +628,7 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 	const real_t &step = _vertex_spacing;
 	pos.y = 0.f;
 	// Round to nearest vertex
-	Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
+	Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
 	// If requested position is close to a vertex, return its height
 	if ((pos - pos_round).length() < 0.01f) {
 		return get_pixel(TYPE_HEIGHT, pos).r;
@@ -675,7 +675,7 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 		auto get_height = [&](Vector3 pos) -> real_t {
 			real_t step = _terrain->get_vertex_spacing();
 			// Round to nearest vertex
-			Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
+			Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
 			real_t height = get_pixel(TYPE_HEIGHT, pos_round).r;
 			return std::isnan(height) ? 0.f : height;
 		};

@@ -27,8 +27,8 @@ class Terrain3DInstancer : public Object {
 	Dictionary _mmi_nodes;
 	Dictionary _mmi_containers; // { region_loc -> Node }
 
-	uint32_t _instance_counter = 0;
-	uint32_t _get_instace_count(const real_t p_density);
+	uint32_t _density_counter = 0;
+	uint32_t _get_density_count(const real_t p_density);
 
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
@@ -68,7 +68,7 @@ public:
 	void set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
 	void force_update_mmis();
 
-	void reset_instance_counter() { _instance_counter = 0; }
+	void reset_density_counter() { _density_counter = 0; }
 	void print_multimesh_buffer(MultiMeshInstance3D *p_mmi) const;
 
 protected:
@@ -76,10 +76,10 @@ protected:
 };
 
 // Allows us to instance every X function calls for sparse placement
-// Modifies _instance_counter, not const!
-inline uint32_t Terrain3DInstancer::_get_instace_count(const real_t p_density) {
+// Modifies _density_counter, not const!
+inline uint32_t Terrain3DInstancer::_get_density_count(const real_t p_density) {
 	uint32_t count = 0;
-	if (p_density < 1.f && _instance_counter++ % uint32_t(1.f / p_density) == 0) {
+	if (p_density < 1.f && _density_counter++ % uint32_t(1.f / p_density) == 0) {
 		count = 1;
 	} else if (p_density >= 1.f) {
 		count = uint32_t(p_density);
