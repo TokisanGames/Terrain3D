@@ -228,11 +228,11 @@ protected:
 	static void _bind_methods();
 
 public:
-	// DEPRECATED 0.9.2 - Remove 0.9.3+
+	// DEPRECATED 0.9.2 - Remove 1.0
 	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
 	Ref<Terrain3DTextureList> get_texture_list() const { return Ref<Terrain3DTextureList>(); }
 
-	// DEPRECATED 0.9.3 - Remove 0.9.4+
+	// DEPRECATED 0.9.3 - Remove 1.0
 	Ref<Terrain3DStorage> _storage;
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
