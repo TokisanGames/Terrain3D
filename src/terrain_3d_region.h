@@ -52,6 +52,7 @@ private:
 	Ref<Image> _color_map;
 	// Instancer
 	Dictionary _multimeshes; // Dictionary[mesh_id:int] -> MultiMesh
+	real_t _vertex_spacing = 1.f; // Vertex Spacing value that transforms are currently scaled.
 
 	// Working data not saved to disk
 	bool _deleted = false; // Marked for deletion on save
@@ -91,6 +92,8 @@ public:
 
 	// Instancer
 	void set_multimeshes(const Dictionary &p_multimeshes) { _multimeshes = p_multimeshes; }
+	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 10.f); }
+	real_t get_vertex_spacing() const { return _vertex_spacing; }
 	Dictionary get_multimeshes() const { return _multimeshes; }
 
 	// File I/O
