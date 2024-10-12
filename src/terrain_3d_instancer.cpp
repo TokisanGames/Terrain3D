@@ -132,7 +132,7 @@ void Terrain3DInstancer::_backup_region(const Ref<Terrain3DRegion> &p_region) {
 	}
 }
 
-Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors) const {
+Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors) const {
 	Ref<MultiMesh> mm;
 	IS_INIT(mm);
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
@@ -254,7 +254,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	Terrain3DData *data = _terrain->get_data();
 
 	TypedArray<Transform3D> xforms;
-	TypedArray<Color> colors;
+	PackedColorArray colors;
 	for (int i = 0; i < count; i++) {
 		Transform3D t;
 
@@ -364,7 +364,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 		LOG(EXTREME, "Removing ", count, " instances from ", p_global_position);
 		TypedArray<Transform3D> xforms;
-		TypedArray<Color> colors;
+		PackedColorArray colors;
 		for (int i = 0; i < multimesh->get_instance_count(); i++) {
 			Transform3D t = multimesh->get_instance_transform(i);
 			// If quota not yet met, instance is within a cylinder radius, and can work on slope, remove it
@@ -392,7 +392,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform) {
 	LOG(INFO, "Extracting ", p_multimesh->get_instance_count(), " transforms from multimesh");
 	TypedArray<Transform3D> xforms;
-	TypedArray<Color> colors;
+	PackedColorArray colors;
 	for (int i = 0; i < p_multimesh->get_instance_count(); i++) {
 		xforms.push_back(p_xform * p_multimesh->get_instance_transform(i));
 		Color c = COLOR_WHITE;
@@ -404,7 +404,7 @@ void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh>
 	add_transforms(p_mesh_id, xforms, colors);
 }
 
-void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors) {
+void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	if (p_xforms.size() == 0) {
 		return;
@@ -418,7 +418,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	Dictionary colors_dict;
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 
-	// Separate incoming transforms/colors into Dictionary { region_loc => Array[Transform3D] }
+	// Separate incoming transforms/colors by region Dict{ region_loc => Array() }
 	LOG(INFO, "Separating ", p_xforms.size(), " transforms and ", p_colors.size(), " colors into regions");
 	for (int i = 0; i < p_xforms.size(); i++) {
 		// Get adjusted xform/color
@@ -433,12 +433,13 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		Vector2i region_loc = _terrain->get_data()->get_region_location(trns.origin);
 		if (!xforms_dict.has(region_loc)) {
 			xforms_dict[region_loc] = TypedArray<Transform3D>();
-			colors_dict[region_loc] = TypedArray<Color>();
+			colors_dict[region_loc] = PackedColorArray();
 		}
 		TypedArray<Transform3D> xforms = xforms_dict[region_loc];
-		TypedArray<Color> colors = colors_dict[region_loc];
+		PackedColorArray colors = colors_dict[region_loc];
 		xforms.push_back(trns);
 		colors.push_back(col);
+		colors_dict[region_loc] = colors; // Note similar bug as godot-cpp#1149 needs this for PCA
 	}
 
 	// Merge incoming transforms with existing transforms
@@ -446,7 +447,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	for (int i = 0; i < region_locations.size(); i++) {
 		Vector2i region_loc = region_locations[i];
 		TypedArray<Transform3D> xforms = xforms_dict[region_loc];
-		TypedArray<Color> colors = colors_dict[region_loc];
+		PackedColorArray colors = colors_dict[region_loc];
 		LOG(DEBUG, "Adding ", xforms.size(), " transforms to region location: ", region_loc);
 		append_location(region_loc, p_mesh_id, xforms, colors);
 	}
@@ -454,7 +455,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 
 // Appends new transforms to existing multimeshes
 void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int p_mesh_id,
-		const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear, const bool p_update) {
+		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_clear, const bool p_update) {
 	IS_DATA_INIT(VOID);
 	Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 	if (region.is_null()) {
@@ -465,12 +466,12 @@ void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int
 }
 
 void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id,
-		const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors, const bool p_clear, const bool p_update) {
+		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_clear, const bool p_update) {
 	Dictionary mesh_dict = p_region->get_multimeshes();
 
 	// Collect old data
 	TypedArray<Transform3D> old_xforms;
-	TypedArray<Color> old_colors;
+	PackedColorArray old_colors;
 	if (!p_clear) {
 		Ref<MultiMesh> multimesh = mesh_dict.get(p_mesh_id, Ref<MultiMesh>());
 		if (multimesh.is_valid()) {
@@ -543,7 +544,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 				}
 				Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 				TypedArray<Transform3D> xforms;
-				TypedArray<Color> colors;
+				PackedColorArray colors;
 				LOG(EXTREME, "Multimesh ", mesh_id, " has ", mm->get_instance_count(), " to review");
 				for (int i = 0; i < mm->get_instance_count(); i++) {
 					Transform3D t = mm->get_instance_transform(i);
@@ -584,7 +585,7 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 	for (int i = 0; i < keys.size(); i++) {
 		int mesh_id = keys[i];
 		TypedArray<Transform3D> xforms;
-		TypedArray<Color> colors;
+		PackedColorArray colors;
 		Ref<MultiMesh> src_mm = src_mms[mesh_id];
 		if (src_mm.is_null()) {
 			LOG(ERROR, "Region has null multimesh for mesh_id ", mesh_id);
@@ -755,7 +756,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_instances", "global_position", "params"), &Terrain3DInstancer::add_instances);
 	ClassDB::bind_method(D_METHOD("remove_instances", "global_position", "params"), &Terrain3DInstancer::remove_instances);
 	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()));
-	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(TypedArray<Color>()));
+	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(PackedColorArray()));
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "clear", "update"), &Terrain3DInstancer::append_location, DEFVAL(false), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "clear", "update"), &Terrain3DInstancer::append_region, DEFVAL(false), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);

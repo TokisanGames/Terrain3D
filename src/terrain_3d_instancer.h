@@ -20,6 +20,13 @@ class Terrain3DInstancer : public Object {
 
 	Terrain3D *_terrain = nullptr;
 
+	// MM Resources stored in Terrain3DRegion::_instances as
+	// _instances{mesh_id:int} -> Location{v2i} -> [ TypedArray<Transform3D>, PackedColorArray ]
+
+	// MMI Objects attached to tree, freed in destructor, stored as
+	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> grid_loc{v2i} -> MultiMeshInstance3D
+
+	//old:
 	// MM Resources stored in Terrain3DRegion::_multimeshes as
 	// Dictionary[mesh_id:int] -> MultiMesh
 	// MMI Objects attached to tree, freed in destructor, stored as
@@ -33,7 +40,7 @@ class Terrain3DInstancer : public Object {
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _backup_regionl(const Vector2i &p_region_loc);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
-	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const TypedArray<Color> &p_colors = TypedArray<Color>()) const;
+	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
 
 public:
 	Terrain3DInstancer() {}
@@ -49,11 +56,11 @@ public:
 	void add_instances(const Vector3 &p_global_position, const Dictionary &p_params);
 	void remove_instances(const Vector3 &p_global_position, const Dictionary &p_params);
 	void add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform = Transform3D());
-	void add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const TypedArray<Color> &p_colors = TypedArray<Color>());
+	void add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors = PackedColorArray());
 	void append_location(const Vector2i &p_region_loc, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms,
-			const TypedArray<Color> &p_colors, const bool p_clear = false, const bool p_update = true);
+			const PackedColorArray &p_colors, const bool p_clear = false, const bool p_update = true);
 	void append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms,
-			const TypedArray<Color> &p_colors, const bool p_clear = false, const bool p_update = true);
+			const PackedColorArray &p_colors, const bool p_clear = false, const bool p_update = true);
 	void update_transforms(const AABB &p_aabb);
 	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2 &p_src_rect, const Terrain3DRegion *p_dst_region);
 
