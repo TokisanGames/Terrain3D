@@ -223,7 +223,7 @@ void Terrain3D::_update_collision() {
 	int time = Time::get_singleton()->get_ticks_msec();
 	int shape_size = _region_size + 1;
 	float hole_const = NAN;
-	// DEPRECATED - Jolt v0.12 supports NAN. Remove check when it's old.
+	// DEPRECATED - Jolt v0.12 supports NAN. Remove 1.0. Jolt 0.13 supports 4.3.
 	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
 		hole_const = FLT_MAX;
 	}
@@ -1573,12 +1573,12 @@ void Terrain3D::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
 
-	// DEPRECATED 0.9.2 - Remove 0.9.3+
+	// DEPRECATED 0.9.2 - Remove 1.0
 	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
 	ClassDB::bind_method(D_METHOD("get_texture_list"), &Terrain3D::get_texture_list);
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList", PROPERTY_USAGE_NONE), "set_texture_list", "get_texture_list");
 
-	// DEPRECATED 0.9.3 - Remove 0.9.4+
+	// DEPRECATED 0.9.3 - Remove 1.0
 	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
 	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
 	ClassDB::bind_method(D_METHOD("split_storage"), &Terrain3D::split_storage);
@@ -1589,7 +1589,7 @@ void Terrain3D::_bind_methods() {
 // DEPRECATED Functions
 ///////////////////////////
 
-// DEPRECATED 0.9.2 - Remove 0.9.3+
+// DEPRECATED 0.9.2 - Remove 1.0
 void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
 	if (p_texture_list.is_null()) {
 		LOG(ERROR, "Attempted to upgrade Terrain3DTextureList, but received null (perhaps already a Terrain3DAssets). Reconnect manually and save.");
@@ -1603,7 +1603,7 @@ void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list
 	set_assets(assets);
 }
 
-// DEPRECATED 0.9.3 - Remove 0.9.4+
+// DEPRECATED 0.9.3 - Remove 1.0
 void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	_storage = p_storage;
 	if (p_storage.is_valid()) {

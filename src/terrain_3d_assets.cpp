@@ -608,7 +608,7 @@ void Terrain3DAssets::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("textures_changed"));
 }
 
-// Deprecated 0.9.2 - Remove 0.9.3+
+// Deprecated 0.9.2 - Remove 1.0
 void Terrain3DTextureList::set_textures(const TypedArray<Terrain3DTexture> &p_textures) {
 	LOG(WARN, "Terrain3DTextureList: Converting Terrain3DTextures to Terrain3DTextureAssets. Save to complete.");
 	for (int i = 0; i < p_textures.size(); i++) {

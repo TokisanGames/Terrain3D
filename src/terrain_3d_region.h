@@ -51,13 +51,16 @@ private:
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
 	// Instancer
-	Dictionary _multimeshes; // Dictionary[mesh_id:int] -> MultiMesh
+	Dictionary _instances; // Dict{mesh_id:int} -> Location{v2i} -> [ Transform3D, Color ]
 
 	// Working data not saved to disk
 	bool _deleted = false; // Marked for deletion on save
 	bool _edited = false; // Marked for undo/redo storage
 	bool _modified = false; // Marked for saving
 	Vector2i _location = V2I_MAX;
+
+	// DEPRECATED 0.9.3-dev - Remove 1.0
+	Dictionary _multimeshes; // Dictionary[mesh_id:int] -> MultiMesh
 
 public:
 	Terrain3DRegion() {}
@@ -90,8 +93,8 @@ public:
 	void calc_height_range();
 
 	// Instancer
-	void set_multimeshes(const Dictionary &p_multimeshes) { _multimeshes = p_multimeshes; }
-	Dictionary get_multimeshes() const { return _multimeshes; }
+	void set_instances(const Dictionary &p_instances) { _instances = p_instances; }
+	Dictionary get_instances() const { return _instances; }
 
 	// File I/O
 	Error save(const String &p_path = "", const bool p_16_bit = false);
@@ -110,6 +113,11 @@ public:
 	void set_data(const Dictionary &p_data);
 	Dictionary get_data() const;
 	Ref<Terrain3DRegion> duplicate(const bool p_deep = false);
+
+	// DEPRECATED 0.9.3-dev - Remove 1.0
+	void set_multimeshes(const Dictionary &p_multimeshes);
+	// TODO Drop this
+	Dictionary get_multimeshes() const { return _multimeshes; }
 
 protected:
 	static void _bind_methods();
