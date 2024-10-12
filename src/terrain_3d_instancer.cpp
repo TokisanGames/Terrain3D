@@ -689,6 +689,10 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 	}
 }
 
+// TODO: Review how the AABB is calculated, as it grows in size over the
+// course of an operation, and doesnt represent the actual brush area! 
+// I think this function should be called more often for a smaller AABB.
+//
 // Review all transforms in one area and adjust their transforms w/ the current height
 void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
@@ -709,41 +713,56 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 		region_rect.set_size(Vector2(region_size, region_size));
 		LOG(EXTREME, "RO: ", region_loc, " RAABB: ", region_rect, " intersects: ", brush_rect.intersects(region_rect));
 
-		// If specified area includes this region, update all MMs within
+		// If specified area includes this region, for each mesh id, check intersection with cells and update transforms in that cell.
 		real_t vertex_spacing = _terrain->get_vertex_spacing();
 		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
 		if (brush_rect.intersects(region_rect)) {
-			Dictionary mesh_dict = region->get_multimeshes(); // TODO BROKEN
-			LOG(EXTREME, "Region ", region_loc, " intersect AABB and contains ", mesh_dict.size(), " mesh types");
-			// For all mesh ids
-			for (int m = 0; m < mesh_dict.keys().size(); m++) {
-				int mesh_id = mesh_dict.keys()[m];
-				Ref<MultiMesh> mm = mesh_dict.get(mesh_id, Ref<MultiMesh>());
-				if (mm.is_null()) {
-					continue;
-				}
-				Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
-				TypedArray<Transform3D> xforms;
-				PackedColorArray colors;
-				LOG(EXTREME, "Multimesh ", mesh_id, " has ", mm->get_instance_count(), " to review");
-				for (int i = 0; i < mm->get_instance_count(); i++) {
-					Transform3D t = mm->get_instance_transform(i);
-					// translate origin to global for condition checks
-					if (brush_rect.has_point(Vector2(t.origin.x + global_local_offset.x, t.origin.z + global_local_offset.z))) {
-						// Reset height to terrain height + mesh height offset along UP axis
-						real_t height = _terrain->get_data()->get_height((t.origin + global_local_offset));
-						// If the new height is a nan due to creating a hole, remove the instance
-						if (std::isnan(height)) {
+			Dictionary mesh_dict = region->get_instances();
+			Array mesh_types = mesh_dict.keys();
+			for (int m = 0; m < mesh_types.size(); m++) {
+				int mesh_id = mesh_types[m];
+				Dictionary cells_dict = mesh_dict[mesh_id];
+				Array cell_locations = cells_dict.keys();
+				for (int c = 0; c < cell_locations.size(); c++) {
+					Vector2i cell = cell_locations[c];
+					Rect2 cell_rect;
+					cell_rect.set_position((region_loc * region_size) + (cell * CELL_SIZE));
+					cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
+					if (brush_rect.intersects(cell_rect)) {
+						//LOG(MESG, "brush intersects with cell: ", cell);
+						Array tuple = cells_dict[cell];
+						TypedArray<Transform3D> xforms = tuple[0];
+						if (xforms.size() > 0) {
+							//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
+						} else {
+							LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
+							// remove it or problem elsewhere?
 							continue;
 						}
-						t.origin.y = height + mesh_asset->get_height_offset();
+						Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
+						// translate origin to global for condition checks
+						TypedArray<Transform3D> updated_xforms;
+						for (int i = 0; i < xforms.size(); i++) {
+							Transform3D t = xforms[i];
+							// translate origin to global for condition checks
+							if (brush_rect.has_point(Vector2(t.origin.x + global_local_offset.x, t.origin.z + global_local_offset.z))) {
+								// Reset height to terrain height + mesh height offset along UP axis
+								real_t height = _terrain->get_data()->get_height((t.origin + global_local_offset));
+								// If the new height is a nan due to creating a hole, remove the instance
+								if (std::isnan(height)) {
+									continue;
+								}
+								t.origin.y = height + mesh_asset->get_height_offset();
+							}
+							updated_xforms.push_back(t);
+						}
+						tuple[0] = updated_xforms;
+						tuple[2] = true;
+						cells_dict[cell] = tuple;
 					}
-					xforms.push_back(t);
-					colors.push_back(mm->get_instance_color(i));
 				}
-				// Replace multimesh
-				append_region(region, mesh_id, xforms, colors, true);
 			}
+			_update_mmis(region_loc);
 		}
 	}
 }
