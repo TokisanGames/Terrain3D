@@ -51,7 +51,7 @@ private:
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
 	// Instancer
-	Dictionary _instances; // Meshes{int} -> Cells{v2i} -> [ Transform3D, Color ]
+	Dictionary _instances; // Meshes{int} -> Cells{v2i} -> [ Transform3D, Color, Modified ]
 	real_t _vertex_spacing = 1.f; // Vertex Spacing value that transforms are currently scaled.
 
 	// Working data not saved to disk

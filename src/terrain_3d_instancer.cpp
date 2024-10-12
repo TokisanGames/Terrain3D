@@ -148,6 +148,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				// Get instances
 				Vector2i cell = cell_locations[c];
 				Array tuple = cells_dict[cell];
+				bool modified = tuple[2];
 				TypedArray<Transform3D> xforms = tuple[0];
 				PackedColorArray colors = tuple[1];
 				if (xforms.size() > 0) {
@@ -195,8 +196,12 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 						continue;
 					}
 					node_container->add_child(mmi, true);
-
+					// new MMI, cannot skip.
+					modified = true;
 					//LOG(MESG, _mmi_nodes);
+				}
+				if (modified == false) {
+					continue;
 				}
 				mmi = cast_to<MultiMeshInstance3D>(mmi_cell_dict[cell]);
 
@@ -215,9 +220,10 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				real_t vertex_spacing = _terrain->get_vertex_spacing();
 				t.origin.x += region_loc.x * region_size * vertex_spacing;
 				t.origin.z += region_loc.y * region_size * vertex_spacing;
-				t.origin.x += cell.x * CELL_SIZE;
-				t.origin.y += cell.y * CELL_SIZE;
 				mmi->set_global_transform(t);
+
+				// set the cell modified state to false
+				tuple[2] = false;
 			}
 		}
 		LOG(DEBUG, "mm: ", mesh_dict);
@@ -659,13 +665,15 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 
 		// Get current instance arrays or create if none
 		Array tuple = cell_locations[cell];
-		if (p_clear || tuple.size() != 2) {
+		bool modified = true;
+		if (p_clear || tuple.size() != 3) {
 			LOG(MESG, "No data at ", p_region->get_location(), ":", cell, ". Creating tuple");
-			tuple.resize(2);
+			tuple.resize(3);
 			TypedArray<Transform3D> xforms;
 			PackedColorArray colors;
 			tuple[0] = xforms;
 			tuple[1] = colors;
+			tuple[2] = modified;
 		}
 		TypedArray<Transform3D> xforms = tuple[0];
 		PackedColorArray colors = tuple[1];
@@ -681,6 +689,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		// see godot-cpp#1149
 		// tuple[0] = xforms; // not needed
 		tuple[1] = colors; // needed for colors
+		tuple[2] = modified;
 		cell_locations[cell] = tuple; // needed for both
 	}
 
