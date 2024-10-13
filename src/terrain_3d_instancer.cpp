@@ -559,9 +559,13 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 							}
 							
 						}
-						triple[0] = updated_xforms;
-						triple[2] = true;
-						cells_dict[cell] = triple;
+						if (updated_xforms.size() > 0) {
+							triple[0] = updated_xforms;
+							triple[2] = true;
+							cells_dict[cell] = triple;
+						} else {
+							cells_dict.erase(cell);
+						}
 					}
 				}
 			}
