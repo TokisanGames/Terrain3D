@@ -66,6 +66,7 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 		region->set_vertex_spacing(p_vertex_spacing);
 		region->set_modified(true);
 	}
+	destroy();
 	_update_mmis();
 }
 
@@ -564,6 +565,15 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 							triple[2] = true;
 							cells_dict[cell] = triple;
 						} else {
+							// free the mmi for this cell
+							// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
+							Dictionary region_mmis = _mmi_nodes[region_loc];
+							Dictionary mesh_mmis = region_mmis[Vector2i(m, 0)];
+							if (mesh_mmis.has(cell)) {
+								MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mesh_mmis[cell]);
+								remove_from_tree(mmi);
+								memdelete_safely(mmi);
+							}							
 							cells_dict.erase(cell);
 						}
 					}
