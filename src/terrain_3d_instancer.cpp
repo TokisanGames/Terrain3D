@@ -573,6 +573,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 								MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mesh_mmis[cell]);
 								remove_from_tree(mmi);
 								memdelete_safely(mmi);
+								mesh_mmis.erase(cell);
 							}							
 							cells_dict.erase(cell);
 						}
