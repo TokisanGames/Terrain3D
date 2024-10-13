@@ -493,82 +493,79 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	bool invert = p_params["modifier_alt"];
 	Terrain3DData *data = _terrain->get_data();
 
-	Vector2i region_loc = data->get_region_location(p_global_position);
-
-	// If CTRL+SHIFT pressed, repeat for every mesh, otherwise only do mesh_id
-	for (int m = (modifier_shift ? 0 : mesh_id); m <= (modifier_shift ? mesh_count - 1 : mesh_id); m++) {
-		Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
-		real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
-						MAX(0.01f, fixed_scale + .5f * random_scale),
-				.001f, 1000.f);
-
-		// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-		uint32_t count = _get_density_count(density);
-		if (count == 0) {
+	Array region_locations = _terrain->get_data()->get_region_locations();
+	Rect2 ring_rect;
+	ring_rect.set_position(Vector2(p_global_position.x, p_global_position.z));
+	ring_rect.set_size(Vector2(brush_size, brush_size));
+	for (int r = 0; r < region_locations.size(); r++) {
+		Vector2i region_loc = region_locations[r];
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		if (region.is_null()) {
+			LOG(WARN, "No region found at: ", region_loc);
 			continue;
 		}
+		int region_size = _terrain->get_region_size();
+		Rect2 region_rect;
+		region_rect.set_position(region_loc * region_size);
+		region_rect.set_size(Vector2(region_size, region_size));
+		LOG(EXTREME, "RO: ", region_loc, " RAABB: ", region_rect, " intersects: ", ring_rect.intersects(region_rect));
 
-		Ref<MultiMesh> multimesh = get_multimesh(region_loc, m);
-		LOG(EXTREME, "Removing ", count, " instances from ", p_global_position);
-		TypedArray<Transform3D> xforms;
-		PackedColorArray colors;
-		Ref<Terrain3DRegion> region = data->get_region(region_loc);
-		int region_size = region->get_region_size();
+		// If specified area includes this region, for each mesh id, check intersection with cells.
 		real_t vertex_spacing = _terrain->get_vertex_spacing();
-		Vector2 global_local_offset = Vector2(region_loc.x * region_size * vertex_spacing, region_loc.y * region_size * vertex_spacing);
-		// convert mouse to region local space
-		Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z) - global_local_offset;
+		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
+		if (ring_rect.intersects(region_rect)) {
+			Dictionary mesh_dict = region->get_instances();
+			Array mesh_types = mesh_dict.keys();
+			for (int m = (modifier_shift ? 0 : mesh_id); m <= (modifier_shift ? mesh_count - 1 : mesh_id); m++) {
+				Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
+				real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
+								MAX(0.01f, fixed_scale + .5f * random_scale),
+						.001f, 1000.f);
 
-		// get all cells inside brush rect,
-		// concatenate cells to a single pair of transform and color arrays
-		Rect2 brush_rect;
-		brush_rect.set_position(Vector2(mouse2d));
-		brush_rect.set_size(Vector2(brush_size, brush_size));
-		Rect2 cell_rect;
-		Dictionary mesh_dict = region->get_instances();
-		Array mesh_types = mesh_dict.keys();
-		Dictionary cells_dict = mesh_dict[m];
-		Array cell_locations = cells_dict.keys();
-		for (int c = 0; c < cell_locations.size(); c++) {
-			Vector2i cell = cell_locations[c];
-			cell_rect.set_position((region_loc * region_size) + (cell * CELL_SIZE));
-			cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
-			if (brush_rect.intersects(cell_rect)) {
-				//LOG(MESG, "brush intersects with cell: ", cell);
-				Array triple = cells_dict[cell];
-				TypedArray<Transform3D> cell_xforms = triple[0];
-				PackedColorArray cell_colors = triple[1];
-				xforms.append_array(cell_xforms);
-				colors.append_array(cell_colors);
-				// clear the old cells.
-				cells_dict.erase(cell);
+				// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
+				uint32_t count = _get_density_count(density);
+				if (count == 0) {
+					continue;
+				}
+				int mesh_id = mesh_types[m];
+				Dictionary cells_dict = mesh_dict[mesh_id];
+				Array cell_locations = cells_dict.keys();
+				for (int c = 0; c < cell_locations.size(); c++) {
+					Vector2i cell = cell_locations[c];
+					Rect2 cell_rect;
+					cell_rect.set_position((region_loc * region_size) + (cell * CELL_SIZE));
+					cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
+					if (ring_rect.intersects(cell_rect)) {
+						//LOG(MESG, "brush intersects with cell: ", cell);
+						Array triple = cells_dict[cell];
+						TypedArray<Transform3D> xforms = triple[0];
+						if (xforms.size() > 0) {
+							//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
+						} else {
+							LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
+							// remove it or problem elsewhere?
+							continue;
+						}
+						TypedArray<Transform3D> updated_xforms;
+						// remove transforms if inside ring radius
+						for (int i = 0; i < xforms.size(); i++) {
+							Transform3D t = xforms[i];
+							// translate origin to global for condition checks
+							if (count > 0 && ring_rect.get_position().distance_to(Vector2(t.origin.x + global_local_offset.x, t.origin.z + global_local_offset.z)) <= radius) {
+								--count;
+								continue;
+							} else {
+								updated_xforms.push_back(t);
+							}
+							
+						}
+						triple[0] = updated_xforms;
+						triple[2] = true;
+						cells_dict[cell] = triple;
+					}
+				}
 			}
-		}
-
-		// itterate as before through the instances, removing until count is it.
-		TypedArray<Transform3D> remaining_xforms;
-		PackedColorArray remaining_colors;
-		for (int i = 0; i < xforms.size(); i++) {
-			Transform3D t = xforms[i];
-			Color c = colors[i];
-			// If quota not yet met, instance is within a cylinder radius, and can work on slope, remove it
-			Vector2 origin2d = Vector2(t.origin.x, t.origin.z);
-			if (count > 0 && (origin2d - mouse2d).length() < radius &&
-					// translate t.origin (0 - region_size * vertex_spacing) to global position
-					data->is_in_slope((t.origin + Vector3(global_local_offset.x, 0.0, global_local_offset.y)), slope_range, invert)) {
-				count--;
-				continue;
-			} else {
-				remaining_xforms.push_back(t);
-				remaining_colors.push_back(c);
-			}
-		}
-		// pass the remaining arrays to append_region
-		if (remaining_xforms.size() == 0) {
-			LOG(DEBUG, "Removed all instances, erasing multimesh in region");
-			clear_by_location(region_loc, m);
-		} else {
-			append_region(region, m, remaining_xforms, remaining_colors);
+			_update_mmis(region_loc);
 		}
 	}
 }
