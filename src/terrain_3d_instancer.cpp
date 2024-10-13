@@ -39,8 +39,8 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 			for (int c = 0; c < cell_locations.size(); c++) {
 				// Get instances
 				Vector2i cell = cell_locations[c];
-				Array tuple = cells_dict[cell];
-				TypedArray<Transform3D> xforms = tuple[0];
+				Array triple = cells_dict[cell];
+				TypedArray<Transform3D> xforms = triple[0];
 				if (xforms.size() > 0) {
 					//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
 				} else {
@@ -57,9 +57,9 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 					t.origin.z *= p_vertex_spacing;
 					xforms[i] = t;
 				}
-				tuple[0] = xforms;
-				tuple[2] = true;
-				cells_dict[cell] = tuple;
+				triple[0] = xforms;
+				triple[2] = true;
+				cells_dict[cell] = triple;
 			}
 		}
 		// after all transforms are updated, set the new region vertex spacing value
@@ -134,13 +134,17 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			for (int c = 0; c < cell_locations.size(); c++) {
 				// Get instances
 				Vector2i cell = cell_locations[c];
-				Array tuple = cells_dict[cell];
-				bool modified = tuple[2];
-				TypedArray<Transform3D> xforms = tuple[0];
-				PackedColorArray colors = tuple[1];
-				if (xforms.size() > 0) {
-					LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
-				} else {
+				Array triple = cells_dict[cell];
+				if (triple.size() < 3) {
+					LOG(WARN, "Triple is empty");
+					continue;
+				}
+				TypedArray<Transform3D> xforms = triple[0];
+				PackedColorArray colors = triple[1];
+				bool modified = triple[2];
+				if (xforms.size() == 0) {
+					//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
+					//} else {
 					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
 					// remove it or problem elsewhere?
 					continue;
@@ -171,7 +175,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 
 				MultiMeshInstance3D *mmi;
 				if (!mmi_cell_dict.has(cell)) {
-					LOG(MESG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
+					//LOG(MESG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
 					mmi = memnew(MultiMeshInstance3D);
 					mmi->set_name("MultiMeshInstance3D" + String::num_int64(mesh_id));
 					mmi->set_as_top_level(true);
@@ -210,7 +214,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				mmi->set_global_transform(t);
 
 				// set the cell modified state to false
-				tuple[2] = false;
+				triple[2] = false;
 			}
 		}
 		LOG(DEBUG, "mm: ", mesh_dict);
@@ -230,7 +234,7 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 		MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(cell_dict[cell_keys[i]]);
 		bool result = cell_dict.erase(cell_keys[i]);
 		// might have to write cell_dict back to mesh_dict and _mmi_nodes
-		LOG(MESG, "Removing MMI from dictionary: ", mmi, ", success: ", result);
+		LOG(DEBUG, "Removing MMI from dictionary: ", mmi, ", success: ", result);
 		result = remove_from_tree(mmi);
 		LOG(DEBUG, "Removing from tree, success: ", result);
 		result = memdelete_safely(mmi);
@@ -463,7 +467,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 
 	// Append multimesh
 	if (xforms.size() > 0) {
-		LOG(MESG, "Sending ", xforms.size(), " xforms, ", colors.size(), " colors to add_transforms");
+		//LOG(MESG, "Sending ", xforms.size(), " xforms, ", colors.size(), " colors to add_transforms");
 		add_transforms(mesh_id, xforms, colors);
 	}
 }
@@ -514,12 +518,12 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		Vector2 global_local_offset = Vector2(region_loc.x * region_size * vertex_spacing, region_loc.y * region_size * vertex_spacing);
 		// convert mouse to region local space
 		Vector2 mouse2d = Vector2(p_global_position.x, p_global_position.z) - global_local_offset;
-		
+
 		// get all cells inside brush rect,
 		// concatenate cells to a single pair of transform and color arrays
 		Rect2 brush_rect;
 		brush_rect.set_position(Vector2(mouse2d));
-		brush_rect.set_size(Vector2(brush_size,brush_size));
+		brush_rect.set_size(Vector2(brush_size, brush_size));
 		Rect2 cell_rect;
 		Dictionary mesh_dict = region->get_instances();
 		Array mesh_types = mesh_dict.keys();
@@ -531,16 +535,16 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
 			if (brush_rect.intersects(cell_rect)) {
 				//LOG(MESG, "brush intersects with cell: ", cell);
-				Array tuple = cells_dict[cell];
-				TypedArray<Transform3D> cell_xforms = tuple[0];
-				PackedColorArray cell_colors = tuple[1];
+				Array triple = cells_dict[cell];
+				TypedArray<Transform3D> cell_xforms = triple[0];
+				PackedColorArray cell_colors = triple[1];
 				xforms.append_array(cell_xforms);
 				colors.append_array(cell_colors);
 				// clear the old cells.
 				cells_dict.erase(cell);
 			}
 		}
-		
+
 		// itterate as before through the instances, removing until count is it.
 		TypedArray<Transform3D> remaining_xforms;
 		PackedColorArray remaining_colors;
@@ -629,7 +633,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		Vector2i region_loc = region_locations[i];
 		TypedArray<Transform3D> xforms = xforms_dict[region_loc];
 		PackedColorArray colors = colors_dict[region_loc];
-		LOG(MESG, "Appending ", xforms.size(), " xforms, ", colors, " colors to region location: ", region_loc);
+		//LOG(MESG, "Appending ", xforms.size(), " xforms, ", colors, " colors to region location: ", region_loc);
 		append_location(region_loc, p_mesh_id, xforms, colors);
 	}
 }
@@ -677,19 +681,19 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		Vector2i cell = _get_cell(xform.origin);
 
 		// Get current instance arrays or create if none
-		Array tuple = cell_locations[cell];
+		Array triple = cell_locations[cell];
 		bool modified = true;
-		if (p_clear || tuple.size() != 3) {
-			LOG(MESG, "No data at ", p_region->get_location(), ":", cell, ". Creating tuple");
-			tuple.resize(3);
+		if (p_clear || triple.size() != 3) {
+			LOG(MESG, "No data at ", p_region->get_location(), ":", cell, ". Creating triple");
+			triple.resize(3);
 			TypedArray<Transform3D> xforms;
 			PackedColorArray colors;
-			tuple[0] = xforms;
-			tuple[1] = colors;
-			tuple[2] = modified;
+			triple[0] = xforms;
+			triple[1] = colors;
+			triple[2] = modified;
 		}
-		TypedArray<Transform3D> xforms = tuple[0];
-		PackedColorArray colors = tuple[1];
+		TypedArray<Transform3D> xforms = triple[0];
+		PackedColorArray colors = triple[1];
 		/*if (xforms.size() > 0) {
 			LOG(MESG, "Found old data. Xform size: ", xforms.size(), ", color arr: ", colors.size());
 		}*/
@@ -700,10 +704,10 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 
 		// Shouldn't have to write this back, but seems we do; there are copy constructors somewhere
 		// see godot-cpp#1149
-		// tuple[0] = xforms; // not needed
-		tuple[1] = colors; // needed for colors
-		tuple[2] = modified;
-		cell_locations[cell] = tuple; // needed for both
+		// triple[0] = xforms; // not needed
+		triple[1] = colors; // needed for colors
+		triple[2] = modified;
+		cell_locations[cell] = triple; // needed for both
 	}
 
 	// Write back dictionary. See above comments
@@ -716,7 +720,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 }
 
 // TODO: Review how the AABB is calculated, as it grows in size over the
-// course of an operation, and doesnt represent the actual brush area! 
+// course of an operation, and doesnt represent the actual brush area!
 // I think this function should be called more often for a smaller AABB.
 //
 // Review all transforms in one area and adjust their transforms w/ the current height
@@ -756,8 +760,8 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
 					if (brush_rect.intersects(cell_rect)) {
 						//LOG(MESG, "brush intersects with cell: ", cell);
-						Array tuple = cells_dict[cell];
-						TypedArray<Transform3D> xforms = tuple[0];
+						Array triple = cells_dict[cell];
+						TypedArray<Transform3D> xforms = triple[0];
 						if (xforms.size() > 0) {
 							//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
 						} else {
@@ -782,9 +786,9 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 							}
 							updated_xforms.push_back(t);
 						}
-						tuple[0] = updated_xforms;
-						tuple[2] = true;
-						cells_dict[cell] = tuple;
+						triple[0] = updated_xforms;
+						triple[2] = true;
+						cells_dict[cell] = triple;
 					}
 				}
 			}
