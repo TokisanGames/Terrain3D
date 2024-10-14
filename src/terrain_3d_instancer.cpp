@@ -518,7 +518,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		Ref<Terrain3DRegion> region = data->get_region(region_loc);
 		Dictionary mesh_dict = region->get_instances();
 		Array mesh_types = mesh_dict.keys();
 		if (mesh_types.size() == 0) {
@@ -538,7 +538,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 				continue;
 			}
 			Dictionary c_locs;
-			// Calculate step distance to ensure every cell is checked inside the bounds of local brush size.
+			// Calculate step distance to ensure every cell is checked inside the bounds of brush size.
 			real_t cell_step = brush_size / ceil(brush_size / real_t(CELL_SIZE));
 			for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size; x += cell_step) {
 				for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size; z += cell_step) {
@@ -566,7 +566,9 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 				uint32_t cell_count = count;
 				Array triple = cells_dict[cell];
 				TypedArray<Transform3D> xforms = triple[0];
+				PackedColorArray colors = triple[1];
 				TypedArray<Transform3D> updated_xforms;
+				PackedColorArray updated_colors;
 				// Remove transforms if inside ring radius
 				for (int i = 0; i < xforms.size(); i++) {
 					Transform3D t = xforms[i];
@@ -577,10 +579,12 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 						continue;
 					} else {
 						updated_xforms.push_back(t);
+						updated_colors.push_back(colors[i]);
 					}
 				}
 				if (updated_xforms.size() > 0) {
 					triple[0] = updated_xforms;
+					triple[1] = updated_colors;
 					triple[2] = true;
 					cells_dict[cell] = triple;
 				} else {
@@ -801,7 +805,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 				continue;
 			}
 			Dictionary c_locs;
-			// Calculate step distance to ensure every cell is checked inside the bounds of local brush size.
+			// Calculate step distance to ensure every cell is checked inside the bounds of brush size.
 			Vector2 cell_step = Vector2(size.x / ceil(size.x / real_t(CELL_SIZE)), size.y / ceil(size.y / real_t(CELL_SIZE)));
 			for (real_t x = global_position.x - half_size.x; x <= global_position.x + half_size.x; x += cell_step.x) {
 				for (real_t z = global_position.y - half_size.y; z <= global_position.y + half_size.y; z += cell_step.y) {
@@ -820,19 +824,23 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 				Vector2i cell = cell_queue[c];
 				Array triple = cells_dict[cell];
 				TypedArray<Transform3D> xforms = triple[0];
+				PackedColorArray colors = triple[1];
 				TypedArray<Transform3D> updated_xforms;
+				PackedColorArray updated_colors;
 				for (int i = 0; i < xforms.size(); i++) {
 					Transform3D t = xforms[i];
-					real_t height = _terrain->get_data()->get_height((t.origin + global_local_offset));
-						// If the new height is a nan due to creating a hole, remove the instance
+					real_t height = _terrain->get_data()->get_height(t.origin + global_local_offset);
+					// If the new height is a nan due to creating a hole, remove the instance
 					if (std::isnan(height)) {
 						continue;
 					}
 					t.origin.y = height + mesh_asset->get_height_offset();
 					updated_xforms.push_back(t);
+					updated_colors.push_back(colors[i]);
 				}
 				if (updated_xforms.size() > 0) {
 					triple[0] = updated_xforms;
+					triple[1] = updated_colors;
 					triple[2] = true;
 					cells_dict[cell] = triple;
 				} else {
