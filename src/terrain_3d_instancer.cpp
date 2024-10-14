@@ -572,7 +572,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					Transform3D t = xforms[i];
 					// Use localised ring center
 					if (cell_count > 0 && localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z)) <= radius &&
-							data->is_in_slope(t.origin, slope_range, !invert)) {
+							data->is_in_slope(t.origin + global_local_offset, slope_range, invert)) {
 						--cell_count;
 						continue;
 					} else {
