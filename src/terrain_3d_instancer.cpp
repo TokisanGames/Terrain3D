@@ -755,74 +755,106 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 // Review all transforms in one area and adjust their transforms w/ the current height
 void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
-	LOG(EXTREME, "Updating transforms for all meshes within ", p_aabb);
-
-	Array region_locations = _terrain->get_data()->get_region_locations();
 	Rect2 brush_rect = aabb2rect(p_aabb);
-	for (int r = 0; r < region_locations.size(); r++) {
-		Vector2i region_loc = region_locations[r];
+	Vector2 global_position = brush_rect.get_center();
+	Vector2 size = brush_rect.get_size();
+	Vector2 half_size = size * 0.5 + Vector2(1.f, 1.f); // 1m margin
+
+	Terrain3DData *data = _terrain->get_data();
+	int region_size = _terrain->get_region_size();
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
+
+	// Build list of potential regions to search, rather than searching the entire terrain, calculate possible regions covered
+	// and check if they are valid; if so add that location to the dictionary keys.
+	Dictionary r_locs;
+	// Calculate step distance to ensure every region is checked inside the bounds of brush size.
+	Vector2 step = Vector2(size.x / ceil(size.x / real_t(region_size)), size.y / ceil(size.y / real_t(region_size)));
+	for (real_t x = global_position.x - half_size.x; x <= global_position.x + half_size.x; x += step.x) {
+		for (real_t z = global_position.y - half_size.y; z <= global_position.y + half_size.y; z += step.y) {
+			Vector2i region_loc = data->get_region_location(Vector3(x, 0.f, z));
+			if (data->has_region(region_loc)) {
+				r_locs[region_loc] = 0;
+			}
+		}
+	}
+
+	Array region_queue = r_locs.keys();
+	if (region_queue.size() == 0) {
+		return;
+	}
+
+	for (int r = 0; r < region_queue.size(); r++) {
+		Vector2i region_loc = region_queue[r];
 		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
-		if (region.is_null()) {
-			LOG(WARN, "No region found at: ", region_loc);
+		Dictionary mesh_dict = region->get_instances();
+		Array mesh_types = mesh_dict.keys();
+		if (mesh_types.size() == 0) {
 			continue;
 		}
-		int region_size = _terrain->get_region_size();
-		Rect2 region_rect;
-		region_rect.set_position(region_loc * region_size);
-		region_rect.set_size(Vector2(region_size, region_size));
-		LOG(EXTREME, "RO: ", region_loc, " RAABB: ", region_rect, " intersects: ", brush_rect.intersects(region_rect));
-
-		// If specified area includes this region, for each mesh id, check intersection with cells and update transforms in that cell.
-		real_t vertex_spacing = _terrain->get_vertex_spacing();
 		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
-		if (brush_rect.intersects(region_rect)) {
-			Dictionary mesh_dict = region->get_instances();
-			Array mesh_types = mesh_dict.keys();
-			for (int m = 0; m < mesh_types.size(); m++) {
-				int mesh_id = mesh_types[m];
-				Dictionary cells_dict = mesh_dict[mesh_id];
-				Array cell_locations = cells_dict.keys();
-				for (int c = 0; c < cell_locations.size(); c++) {
-					Vector2i cell = cell_locations[c];
-					Rect2 cell_rect;
-					cell_rect.set_position((region_loc * region_size) + (cell * CELL_SIZE));
-					cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
-					if (brush_rect.intersects(cell_rect)) {
-						//LOG(MESG, "brush intersects with cell: ", cell);
-						Array triple = cells_dict[cell];
-						TypedArray<Transform3D> xforms = triple[0];
-						if (xforms.size() > 0) {
-							//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
-						} else {
-							LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
-							// remove it or problem elsewhere?
-							continue;
-						}
-						Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
-						// translate origin to global for condition checks
-						TypedArray<Transform3D> updated_xforms;
-						for (int i = 0; i < xforms.size(); i++) {
-							Transform3D t = xforms[i];
-							// translate origin to global for condition checks
-							if (brush_rect.has_point(Vector2(t.origin.x + global_local_offset.x, t.origin.z + global_local_offset.z))) {
-								// Reset height to terrain height + mesh height offset along UP axis
-								real_t height = _terrain->get_data()->get_height((t.origin + global_local_offset));
-								// If the new height is a nan due to creating a hole, remove the instance
-								if (std::isnan(height)) {
-									continue;
-								}
-								t.origin.y = height + mesh_asset->get_height_offset();
-							}
-							updated_xforms.push_back(t);
-						}
-						triple[0] = updated_xforms;
-						triple[2] = true;
-						cells_dict[cell] = triple;
+		Vector2 localised_position = Vector2(global_position.x - global_local_offset.x, global_position.y - global_local_offset.z);
+		// For this mesh id, or all mesh ids
+		for (int m = 0; m < mesh_types.size(); m++) {
+			// Check potential cells rather than searching the entire region, whilst marginally
+			// slower if there are very few cells for the given mesh present it is significantly
+			// faster when a very large number of cells are present.
+			int region_mesh_id = mesh_types[m];
+			Dictionary cells_dict = mesh_dict[region_mesh_id];
+			Array cell_locations = cells_dict.keys();
+			if (cell_locations.size() == 0) {
+				continue;
+			}
+			Dictionary c_locs;
+			// Calculate step distance to ensure every cell is checked inside the bounds of local brush size.
+			Vector2 cell_step = Vector2(size.x / ceil(size.x / real_t(CELL_SIZE)), size.y / ceil(size.y / real_t(CELL_SIZE)));
+			for (real_t x = global_position.x - half_size.x; x <= global_position.x + half_size.x; x += cell_step.x) {
+				for (real_t z = global_position.y - half_size.y; z <= global_position.y + half_size.y; z += cell_step.y) {
+					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset);
+					if (cell_locations.has(cell_loc)) {
+						c_locs[cell_loc] = 0;
 					}
 				}
 			}
-			_update_mmis(region_loc);
+			Array cell_queue = c_locs.keys();
+			if (cell_queue.size() == 0) {
+				return;
+			}
+			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
+			for (int c = 0; c < cell_queue.size(); c++) {
+				Vector2i cell = cell_queue[c];
+				Array triple = cells_dict[cell];
+				TypedArray<Transform3D> xforms = triple[0];
+				TypedArray<Transform3D> updated_xforms;
+				for (int i = 0; i < xforms.size(); i++) {
+					Transform3D t = xforms[i];
+					real_t height = _terrain->get_data()->get_height((t.origin + global_local_offset));
+						// If the new height is a nan due to creating a hole, remove the instance
+					if (std::isnan(height)) {
+						continue;
+					}
+					t.origin.y = height + mesh_asset->get_height_offset();
+					updated_xforms.push_back(t);
+				}
+				if (updated_xforms.size() > 0) {
+					triple[0] = updated_xforms;
+					triple[2] = true;
+					cells_dict[cell] = triple;
+				} else {
+					// Free the mmi for this cell
+					// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
+					Dictionary region_mmis = _mmi_nodes[region_loc];
+					Dictionary mesh_mmis = region_mmis[Vector2i(m, 0)];
+					if (mesh_mmis.has(cell)) {
+						MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mesh_mmis[cell]);
+						remove_from_tree(mmi);
+						memdelete_safely(mmi);
+						mesh_mmis.erase(cell);
+					}
+					cells_dict.erase(cell);
+				}
+			}
 		}
+		_update_mmis(region_loc);
 	}
 }
 
