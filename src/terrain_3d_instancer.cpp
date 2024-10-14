@@ -667,7 +667,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	}
 }
 
-// Appends new global transforms to existing multimeshes, offsetting transforms to region space, scaled by vertex spacing
+// Appends new global transforms to existing cells, offsetting transforms to region space, scaled by vertex spacing
 void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int p_mesh_id,
 		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_clear, const bool p_update) {
 	IS_DATA_INIT(VOID);
@@ -733,7 +733,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 
 		// Shouldn't have to write this back, but seems we do; there are copy constructors somewhere
 		// see godot-cpp#1149
-		// triple[0] = xforms; // not needed
+		triple[0] = xforms; // not needed
 		triple[1] = colors; // needed for colors
 		triple[2] = modified;
 		cell_locations[cell] = triple; // needed for both
@@ -748,10 +748,6 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 	}
 }
 
-// TODO: Review how the AABB is calculated, as it grows in size over the
-// course of an operation, and doesnt represent the actual brush area!
-// I think this function should be called more often for a smaller AABB.
-//
 // Review all transforms in one area and adjust their transforms w/ the current height
 void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
