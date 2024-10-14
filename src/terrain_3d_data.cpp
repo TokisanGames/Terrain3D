@@ -801,7 +801,7 @@ void Terrain3DData::add_edited_area(const AABB &p_area) {
 	} else {
 		_edited_area = p_area;
 	}
-	emit_signal("maps_edited", _edited_area);
+	emit_signal("maps_edited", p_area);
 }
 
 // Recalculates master height range from all active regions current height ranges
