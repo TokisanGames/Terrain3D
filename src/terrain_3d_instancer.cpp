@@ -485,6 +485,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	bool modifier_shift = p_params.get("modifier_shift", false);
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), .5f, 4096.f); // Meters
+	real_t half_brush_size = brush_size * 0.5 + 1.f; // 1m margin
 	real_t radius = brush_size * .4f; // Ring1's inner radius
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
@@ -493,95 +494,111 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
 	bool invert = p_params["modifier_alt"];
 	Terrain3DData *data = _terrain->get_data();
+	int region_size = _terrain->get_region_size();
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
 
-	Array region_locations = _terrain->get_data()->get_region_locations();
-	Rect2 ring_rect;
-	ring_rect.set_position(Vector2(p_global_position.x, p_global_position.z));
-	ring_rect.set_size(Vector2(brush_size, brush_size));
-	for (int r = 0; r < region_locations.size(); r++) {
-		Vector2i region_loc = region_locations[r];
+	// Build list of potential regions to search, rather than searching the entire terrain, calculate possible regions covered
+	// and check if they are valid; if so add that location to the dictionary keys.
+	Dictionary r_locs;
+	// Calculate step distance to ensure every region is checked inside the bounds of brush size.
+	real_t step = brush_size / ceil(brush_size / real_t(region_size));
+	for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size + 1.f; x += step) {
+		for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size * 1.f; z += step) {
+			Vector2i region_loc = data->get_region_location(Vector3(x, 0.f, z));
+			if (data->has_region(region_loc)) {
+				r_locs[region_loc] = 0;
+			}
+		}
+	}
+
+	Array region_queue = r_locs.keys();
+	if (region_queue.size() == 0) {
+		return;
+	}
+
+	for (int r = 0; r < region_queue.size(); r++) {
+		Vector2i region_loc = region_queue[r];
 		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
-		if (region.is_null()) {
-			LOG(WARN, "No region found at: ", region_loc);
+		Dictionary mesh_dict = region->get_instances();
+		Array mesh_types = mesh_dict.keys();
+		if (mesh_types.size() == 0) {
 			continue;
 		}
-		int region_size = _terrain->get_region_size();
-		Rect2 region_rect;
-		region_rect.set_position(region_loc * region_size);
-		region_rect.set_size(Vector2(region_size, region_size));
-		LOG(EXTREME, "RO: ", region_loc, " RAABB: ", region_rect, " intersects: ", ring_rect.intersects(region_rect));
-
-		// If specified area includes this region, for each mesh id, check intersection with cells.
-		real_t vertex_spacing = _terrain->get_vertex_spacing();
 		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
-		if (ring_rect.intersects(region_rect)) {
-			Dictionary mesh_dict = region->get_instances();
-			Array mesh_types = mesh_dict.keys();
-			for (int m = (modifier_shift ? 0 : mesh_id); m <= (modifier_shift ? mesh_count - 1 : mesh_id); m++) {
-				Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
-				real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
-								MAX(0.01f, fixed_scale + .5f * random_scale),
-						.001f, 1000.f);
-
-				// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-				uint32_t count = _get_density_count(density);
-				if (count == 0) {
-					continue;
-				}
-				int mesh_id = mesh_types[m];
-				Dictionary cells_dict = mesh_dict[mesh_id];
-				Array cell_locations = cells_dict.keys();
-				for (int c = 0; c < cell_locations.size(); c++) {
-					Vector2i cell = cell_locations[c];
-					Rect2 cell_rect;
-					cell_rect.set_position((region_loc * region_size) + (cell * CELL_SIZE));
-					cell_rect.set_size(Vector2(CELL_SIZE, CELL_SIZE));
-					if (ring_rect.intersects(cell_rect)) {
-						//LOG(MESG, "brush intersects with cell: ", cell);
-						Array triple = cells_dict[cell];
-						TypedArray<Transform3D> xforms = triple[0];
-						if (xforms.size() > 0) {
-							//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
-						} else {
-							LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
-							// remove it or problem elsewhere?
-							continue;
-						}
-						TypedArray<Transform3D> updated_xforms;
-						// remove transforms if inside ring radius
-						for (int i = 0; i < xforms.size(); i++) {
-							Transform3D t = xforms[i];
-							// translate origin to global for condition checks
-							if (count > 0 && ring_rect.get_position().distance_to(Vector2(t.origin.x + global_local_offset.x, t.origin.z + global_local_offset.z)) <= radius) {
-								--count;
-								continue;
-							} else {
-								updated_xforms.push_back(t);
-							}
-							
-						}
-						if (updated_xforms.size() > 0) {
-							triple[0] = updated_xforms;
-							triple[2] = true;
-							cells_dict[cell] = triple;
-						} else {
-							// free the mmi for this cell
-							// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-							Dictionary region_mmis = _mmi_nodes[region_loc];
-							Dictionary mesh_mmis = region_mmis[Vector2i(m, 0)];
-							if (mesh_mmis.has(cell)) {
-								MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mesh_mmis[cell]);
-								remove_from_tree(mmi);
-								memdelete_safely(mmi);
-								mesh_mmis.erase(cell);
-							}							
-							cells_dict.erase(cell);
-						}
+		Vector2 localised_ring_center = Vector2(p_global_position.x - global_local_offset.x, p_global_position.z - global_local_offset.z);
+		// For this mesh id, or all mesh ids
+		for (int m = (modifier_shift ? 0 : mesh_id); m <= (modifier_shift ? mesh_count - 1 : mesh_id); m++) {
+			// Check potential cells rather than searching the entire region, whilst marginally
+			// slower if there are very few cells for the given mesh present it is significantly
+			// faster when a very large number of cells are present.
+			int region_mesh_id = mesh_types[m];
+			Dictionary cells_dict = mesh_dict[region_mesh_id];
+			Array cell_locations = cells_dict.keys();
+			if (cell_locations.size() == 0) {
+				continue;
+			}
+			Dictionary c_locs;
+			// Calculate step distance to ensure every cell is checked inside the bounds of local brush size.
+			real_t cell_step = brush_size / ceil(brush_size / real_t(CELL_SIZE));
+			for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size; x += cell_step) {
+				for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size; z += cell_step) {
+					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset);
+					if (cell_locations.has(cell_loc)) {
+						c_locs[cell_loc] = 0;
 					}
 				}
 			}
-			_update_mmis(region_loc);
+			Array cell_queue = c_locs.keys();
+			if (cell_queue.size() == 0) {
+				return;
+			}
+			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
+			real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
+							MAX(0.01f, fixed_scale + .5f * random_scale),
+					.001f, 1000.f);
+			// Density based on strength, mesh AABB and input scale determines how many to remove, even fractional
+			uint32_t count = _get_density_count(density);
+			if (count == 0) {
+				continue;
+			}
+			for (int c = 0; c < cell_queue.size(); c++) {
+				Vector2i cell = cell_queue[c];
+				uint32_t cell_count = count;
+				Array triple = cells_dict[cell];
+				TypedArray<Transform3D> xforms = triple[0];
+				TypedArray<Transform3D> updated_xforms;
+				// Remove transforms if inside ring radius
+				for (int i = 0; i < xforms.size(); i++) {
+					Transform3D t = xforms[i];
+					// Use localised ring center
+					if (cell_count > 0 && localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z)) <= radius &&
+							data->is_in_slope(t.origin, slope_range, invert)) {
+						--cell_count;
+						continue;
+					} else {
+						updated_xforms.push_back(t);
+					}
+				}
+				if (updated_xforms.size() > 0) {
+					triple[0] = updated_xforms;
+					triple[2] = true;
+					cells_dict[cell] = triple;
+				} else {
+					// Free the mmi for this cell
+					// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
+					Dictionary region_mmis = _mmi_nodes[region_loc];
+					Dictionary mesh_mmis = region_mmis[Vector2i(m, 0)];
+					if (mesh_mmis.has(cell)) {
+						MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mesh_mmis[cell]);
+						remove_from_tree(mmi);
+						memdelete_safely(mmi);
+						mesh_mmis.erase(cell);
+					}
+					cells_dict.erase(cell);
+				}
+			}
 		}
+		_update_mmis(region_loc);
 	}
 }
 
