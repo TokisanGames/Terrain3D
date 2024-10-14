@@ -502,8 +502,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	Dictionary r_locs;
 	// Calculate step distance to ensure every region is checked inside the bounds of brush size.
 	real_t step = brush_size / ceil(brush_size / real_t(region_size));
-	for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size + 1.f; x += step) {
-		for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size * 1.f; z += step) {
+	for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size; x += step) {
+		for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size; z += step) {
 			Vector2i region_loc = data->get_region_location(Vector3(x, 0.f, z));
 			if (data->has_region(region_loc)) {
 				r_locs[region_loc] = 0;
@@ -572,7 +572,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					Transform3D t = xforms[i];
 					// Use localised ring center
 					if (cell_count > 0 && localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z)) <= radius &&
-							data->is_in_slope(t.origin, slope_range, invert)) {
+							data->is_in_slope(t.origin, slope_range, !invert)) {
 						--cell_count;
 						continue;
 					} else {
