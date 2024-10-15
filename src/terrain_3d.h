@@ -105,8 +105,8 @@ private:
 	uint32_t _mouse_layer = 32;
 
 	// Parent containers for child nodes
-	Node *_label_nodes;
-	Node *_mmi_nodes;
+	Node3D *_label_parent;
+	Node3D *_mmi_parent;
 
 	void _initialize();
 	void __process(const double p_delta);
@@ -155,7 +155,7 @@ public:
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
-	Node *get_mmi_parent() const { return _mmi_nodes; }
+	Node *get_mmi_parent() const { return _mmi_parent; }
 	void set_editor(Terrain3DEditor *p_editor);
 	Terrain3DEditor *get_editor() const { return _editor; }
 	void set_plugin(EditorPlugin *p_plugin);

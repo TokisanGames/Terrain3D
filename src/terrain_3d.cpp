@@ -147,21 +147,21 @@ void Terrain3D::_grab_camera() {
 }
 
 void Terrain3D::_build_containers() {
-	_label_nodes = memnew(Node);
-	_label_nodes->set_name("Labels");
-	add_child(_label_nodes, true);
-	_mmi_nodes = memnew(Node);
-	_mmi_nodes->set_name("MMI");
-	add_child(_mmi_nodes, true);
+	_label_parent = memnew(Node3D);
+	_label_parent->set_name("Labels");
+	add_child(_label_parent, true);
+	_mmi_parent = memnew(Node3D);
+	_mmi_parent->set_name("MMI");
+	add_child(_mmi_parent, true);
 }
 
 void Terrain3D::_destroy_containers() {
-	memdelete_safely(_label_nodes);
-	memdelete_safely(_mmi_nodes);
+	memdelete_safely(_label_parent);
+	memdelete_safely(_mmi_parent);
 }
 
 void Terrain3D::_destroy_labels() {
-	Array labels = _label_nodes->get_children();
+	Array labels = _label_parent->get_children();
 	LOG(DEBUG, "Destroying ", labels.size(), " region labels");
 	for (int i = 0; i < labels.size(); i++) {
 		Node *label = cast_to<Node>(labels[i]);
@@ -879,7 +879,7 @@ void Terrain3D::update_region_labels() {
 			label->set_visibility_range_end(_label_distance);
 			label->set_visibility_range_end_margin(_label_distance / 10.f);
 			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
-			_label_nodes->add_child(label, true);
+			_label_parent->add_child(label, true);
 			Vector2i loc = region_locations[i];
 			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _vertex_spacing;
 			real_t height = _data->get_height(pos);

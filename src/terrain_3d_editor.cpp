@@ -50,9 +50,6 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	if (can_print) {
 		LOG(DEBUG, "Tool: ", _tool, " Op: ", _operation, " processing region ", p_region_loc, ": ",
 				region.is_valid() ? String::num_uint64(region->get_instance_id()) : "Null");
-		if (region.is_valid()) {
-			LOG(DEBUG, region->get_data());
-		}
 	}
 
 	// Create new region if location is null or deleted
@@ -573,7 +570,6 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			region->set_modified(true);
 			// Tell update_maps() this region has layers that can be individually updated
 			region->set_edited(true);
-			LOG(DEBUG, "Edited: ", region->get_data());
 		}
 	}
 
@@ -765,7 +761,6 @@ void Terrain3DEditor::stop_operation() {
 		for (int i = 0; i < _edited_regions.size(); i++) {
 			Ref<Terrain3DRegion> region = _edited_regions[i];
 			region->set_edited(false);
-			LOG(DEBUG, "Edited region: ", region->get_data());
 			// Make duplicate for redo backup
 			_edited_regions[i] = region->duplicate(true);
 		}
