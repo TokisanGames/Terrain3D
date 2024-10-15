@@ -885,32 +885,56 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 		return;
 	}
 	LOG(INFO, "Copying foliage data from src ", p_src_region->get_location(), " to dest ", p_dst_region->get_location());
-	// Get absolute global area, including vertex spacing
-	Vector2 global_pos = p_src_rect.position + p_src_region->get_location() * p_src_region->get_region_size();
-	Rect2 abs_area(global_pos * _terrain->get_vertex_spacing(),
-			p_src_rect.size * _terrain->get_vertex_spacing());
-	Dictionary src_mms = p_src_region->get_multimeshes(); // TODO BROKEN
-	Array keys = src_mms.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		int mesh_id = keys[i];
+
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
+	// Offset from src to global
+	Vector2i src_region_loc = p_src_region->get_location();
+	int src_region_size = p_src_region->get_region_size();	
+	Vector3 src_global_local_offset = Vector3(
+		src_region_loc.x * src_region_size * vertex_spacing, 0.f, src_region_loc.y * src_region_size * vertex_spacing
+	);
+	// Offset to dst from src
+	Vector2i dst_region_loc = p_dst_region->get_location();
+	int dst_region_size = p_dst_region->get_region_size();
+	Vector3 dst_global_local_offset = src_global_local_offset - 
+		Vector3(dst_region_loc.x * dst_region_size * vertex_spacing, 0.f, dst_region_loc.y * dst_region_size * vertex_spacing);
+
+	// Get all Cell locations in rect, which is already in region space.
+	Vector2i cell_start = p_src_rect.get_position() / CELL_SIZE;
+	Vector2i steps = p_src_rect.get_size() / CELL_SIZE;
+	Dictionary cells_to_copy;
+	for (int x = cell_start.x; x < cell_start.x + steps.x; x++) {
+		for (int y = cell_start.y; y < cell_start.y + steps.y; y++) {
+			cells_to_copy[Vector2i(x, y)] = 0;
+		}
+	}
+	// For each mesh, for each cell, if in rect, convert xforms to target region space, append to target region.
+	Dictionary mesh_dict = p_src_region->get_instances();
+	Array mesh_types = mesh_dict.keys();
+	for (int m = 0; m < mesh_types.size(); m++) {
 		TypedArray<Transform3D> xforms;
 		PackedColorArray colors;
-		Ref<MultiMesh> src_mm = src_mms[mesh_id];
-		if (src_mm.is_null()) {
-			LOG(ERROR, "Region has null multimesh for mesh_id ", mesh_id);
-			continue;
-		}
-		// Get all transforms within src_area
-		for (int j = 0; j < src_mm->get_instance_count(); j++) {
-			Transform3D xf = src_mm->get_instance_transform(j);
-			if (abs_area.has_point(Point2(xf.origin.x, xf.origin.z))) {
-				xforms.push_back(xf);
-				if (src_mm->is_using_colors()) {
-					colors.push_back(src_mm->get_instance_color(j));
+		Dictionary mesh_cells = p_src_region->get_instances()[m];
+		Array mesh_cell_locs = mesh_cells.keys();
+		for (int c = 0; c < mesh_cell_locs.size(); c++) {
+			if (cells_to_copy.has(mesh_cell_locs[c])) {
+				Array triple = mesh_cells[mesh_cell_locs[c]];
+				TypedArray<Transform3D> cell_xforms = triple[0];
+				PackedColorArray cell_colors = triple[1];
+				for (int i = 0; i < cell_xforms.size(); i++) {
+					Transform3D t = cell_xforms[i];
+					t.origin += dst_global_local_offset;
+
+					xforms.push_back(t);
+					colors.push_back(cell_colors[i]);
 				}
+				
 			}
 		}
-		append_region(Ref<Terrain3DRegion>(p_dst_region), mesh_id, xforms, colors, false, false);
+		if (xforms.size() == 0) {
+			continue;
+		}
+		append_region(Ref<Terrain3DRegion>(p_dst_region), m, xforms, colors, false, false);
 	}
 }
 
