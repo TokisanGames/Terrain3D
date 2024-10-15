@@ -44,7 +44,7 @@ private:
 	void _backup_regionl(const Vector2i &p_region_loc);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
 	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
-	Vector2i _get_cell(const Vector3 &p_global_position);
+	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size);
 
 public:
 	Terrain3DInstancer() {}
@@ -66,7 +66,7 @@ public:
 	void append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms,
 			const PackedColorArray &p_colors, const bool p_clear = false, const bool p_update = true);
 	void update_transforms(const AABB &p_aabb);
-	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2 &p_src_rect, const Terrain3DRegion *p_dst_region);
+	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
 	Ref<MultiMesh> get_multimeshp(const Vector3 &p_global_position, const int p_mesh_id) const;

@@ -144,6 +144,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 		new_region.instantiate();
 		new_region->set_location(loc);
 		new_region->set_region_size(p_new_size);
+		new_region->set_vertex_spacing(_vertex_spacing);
 		new_region->set_modified(true);
 		new_region->sanitize_maps();
 
