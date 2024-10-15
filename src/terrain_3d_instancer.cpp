@@ -529,6 +529,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
 		Ref<Terrain3DRegion> region = data->get_region(region_loc);
+		_backup_region(region);
+
 		Dictionary mesh_dict = region->get_instances();
 		Array mesh_types = mesh_dict.keys();
 		if (mesh_types.size() == 0) {
@@ -715,6 +717,8 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		LOG(ERROR, "No transforms to add. Doing nothing.");
 		return;
 	}
+	
+	_backup_region(p_region);
 
 	Dictionary cell_locations = p_region->get_instances()[p_mesh_id];
 
@@ -755,8 +759,6 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 
 	// Write back dictionary. See above comments
 	p_region->get_instances()[p_mesh_id] = cell_locations;
-
-	_backup_region(p_region);
 	if (p_update) {
 		_update_mmis(p_region->get_location(), p_mesh_id);
 	}
@@ -796,6 +798,8 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
 		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		_backup_region(region);
+
 		Dictionary mesh_dict = region->get_instances();
 		Array mesh_types = mesh_dict.keys();
 		if (mesh_types.size() == 0) {
