@@ -562,7 +562,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			}
 			Array cell_queue = c_locs.keys();
 			if (cell_queue.size() == 0) {
-				return;
+				continue;
 			}
 			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
 			real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
@@ -831,7 +831,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			}
 			Array cell_queue = c_locs.keys();
 			if (cell_queue.size() == 0) {
-				return;
+				continue;
 			}
 			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
 			for (int c = 0; c < cell_queue.size(); c++) {
@@ -953,7 +953,7 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 			Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
 			if (region.is_null()) {
 				LOG(WARN, "No region found at: ", region_loc);
-				return;
+				continue;
 			}
 			Dictionary mesh_dict = region->get_multimeshes(); // TODO BROKEN
 			// mesh_dict could have src, src&dst, dst or nothing. All 4 must be considered
