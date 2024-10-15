@@ -29,9 +29,11 @@ private:
 
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-
 	Dictionary _mmi_nodes;
-	Dictionary _mmi_containers; // { region_loc -> Node }
+
+	// Region MMI containers named Terrain3D/MMI/Region* are stored here as
+	// _mmi_containers{region_loc} -> Node
+	Dictionary _mmi_containers;
 
 	uint32_t _density_counter = 0;
 	uint32_t _get_density_count(const real_t p_density);
