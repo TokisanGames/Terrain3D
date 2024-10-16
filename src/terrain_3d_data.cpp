@@ -587,7 +587,11 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 	Vector2i region_loc = get_region_location(p_global_position);
 	Ref<Terrain3DRegion> region = get_region(region_loc);
 	if (region.is_null()) {
-		LOG(ERROR, "No region found at: ", p_global_position);
+		LOG(ERROR, "No active region found at: ", p_global_position);
+		return;
+	}
+	if (region->is_deleted()) {
+		LOG(ERROR, "No active region found at: ", p_global_position);
 		return;
 	}
 	Vector2i global_offset = region_loc * _region_size;
@@ -607,6 +611,9 @@ Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global
 	Vector2i region_loc = get_region_location(p_global_position);
 	Ref<Terrain3DRegion> region = get_region(region_loc);
 	if (region.is_null()) {
+		return COLOR_NAN;
+	}
+	if (region->is_deleted()) {
 		return COLOR_NAN;
 	}
 	Vector2i global_offset = region_loc * _region_size;
