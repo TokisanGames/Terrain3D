@@ -304,12 +304,11 @@ Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const 
 	return mm;
 }
 
-Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position) {
-	int region_size = _terrain->get_region_size();
+Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const int p_region_size) {
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Vector2i cell;
-	cell.x = (UtilityFunctions::floori(p_global_position.x / vertex_spacing) % region_size) / CELL_SIZE;
-	cell.y = (UtilityFunctions::floori(p_global_position.z / vertex_spacing) % region_size) / CELL_SIZE;
+	cell.x = (UtilityFunctions::floori(p_global_position.x / vertex_spacing) % p_region_size) / CELL_SIZE;
+	cell.y = (UtilityFunctions::floori(p_global_position.z / vertex_spacing) % p_region_size) / CELL_SIZE;
 	return cell;
 }
 
@@ -554,7 +553,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			real_t cell_step = brush_size / ceil(brush_size / real_t(CELL_SIZE));
 			for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size; x += cell_step) {
 				for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size; z += cell_step) {
-					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset);
+					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset, region_size);
 					if (cell_locations.has(cell_loc)) {
 						c_locs[cell_loc] = 0;
 					}
@@ -721,11 +720,12 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 	_backup_region(p_region);
 
 	Dictionary cell_locations = p_region->get_instances()[p_mesh_id];
+	int region_size = p_region->get_region_size();
 
 	for (int i = 0; i < p_xforms.size(); i++) {
 		Transform3D xform = p_xforms[i];
 		Color col = p_colors[i];
-		Vector2i cell = _get_cell(xform.origin);
+		Vector2i cell = _get_cell(xform.origin, region_size);
 
 		// Get current instance arrays or create if none
 		Array triple = cell_locations[cell];
@@ -733,10 +733,8 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		if (p_clear || triple.size() != 3) {
 			LOG(DEBUG, "No data at ", p_region->get_location(), ":", cell, ". Creating triple");
 			triple.resize(3);
-			TypedArray<Transform3D> xforms;
-			PackedColorArray colors;
-			triple[0] = xforms;
-			triple[1] = colors;
+			triple[0] = TypedArray<Transform3D>();
+			triple[1] = PackedColorArray();
 			triple[2] = modified;
 		}
 		TypedArray<Transform3D> xforms = triple[0];
@@ -823,7 +821,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			Vector2 cell_step = Vector2(size.x / ceil(size.x / real_t(CELL_SIZE)), size.y / ceil(size.y / real_t(CELL_SIZE)));
 			for (real_t x = global_position.x - half_size.x; x <= global_position.x + half_size.x; x += cell_step.x) {
 				for (real_t z = global_position.y - half_size.y; z <= global_position.y + half_size.y; z += cell_step.y) {
-					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset);
+					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset, region_size);
 					if (cell_locations.has(cell_loc)) {
 						c_locs[cell_loc] = 0;
 					}
@@ -879,7 +877,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 // Transfer foliage data from one region to another
 // p_src_rect is the vertex/pixel offset into the region data, NOT a global position
 // Need to force_update_mmis() after
-void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2 &p_src_rect, const Terrain3DRegion *p_dst_region) {
+void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region) {
 	if (p_src_region == nullptr || p_dst_region == nullptr) {
 		LOG(ERROR, "Source (", p_src_region, ") or destination (", p_dst_region, ") regions are null");
 		return;
@@ -887,17 +885,14 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 	LOG(INFO, "Copying foliage data from src ", p_src_region->get_location(), " to dest ", p_dst_region->get_location());
 
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
-	// Offset from src to global
+	// Offset to dst from src
 	Vector2i src_region_loc = p_src_region->get_location();
 	int src_region_size = p_src_region->get_region_size();	
-	Vector3 src_global_local_offset = Vector3(
-		src_region_loc.x * src_region_size * vertex_spacing, 0.f, src_region_loc.y * src_region_size * vertex_spacing
-	);
-	// Offset to dst from src
+	Vector2i src_offset = Vector2i(src_region_loc.x * src_region_size, src_region_loc.y * src_region_size);
 	Vector2i dst_region_loc = p_dst_region->get_location();
 	int dst_region_size = p_dst_region->get_region_size();
-	Vector3 dst_global_local_offset = src_global_local_offset - 
-		Vector3(dst_region_loc.x * dst_region_size * vertex_spacing, 0.f, dst_region_loc.y * dst_region_size * vertex_spacing);
+	Vector2i dst_offset = src_offset - Vector2i(dst_region_loc.x * dst_region_size, dst_region_loc.y * dst_region_size);
+	Vector3 dst_translate = Vector3(dst_offset.x, 0.f, dst_offset.y) * vertex_spacing;
 
 	// Get all Cell locations in rect, which is already in region space.
 	Vector2i cell_start = p_src_rect.get_position() / CELL_SIZE;
@@ -908,6 +903,7 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 			cells_to_copy[Vector2i(x, y)] = 0;
 		}
 	}
+	
 	// For each mesh, for each cell, if in rect, convert xforms to target region space, append to target region.
 	Dictionary mesh_dict = p_src_region->get_instances();
 	Array mesh_types = mesh_dict.keys();
@@ -923,8 +919,7 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 				PackedColorArray cell_colors = triple[1];
 				for (int i = 0; i < cell_xforms.size(); i++) {
 					Transform3D t = cell_xforms[i];
-					t.origin += dst_global_local_offset;
-
+					t.origin += dst_translate;
 					xforms.push_back(t);
 					colors.push_back(cell_colors[i]);
 				}
