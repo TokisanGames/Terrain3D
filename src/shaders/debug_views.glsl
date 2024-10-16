@@ -133,8 +133,8 @@ R"(
 //INSERT: DEBUG_REGION_GRID
 	// Show region grid
 	vec3 __pixel_pos1 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
-	float __region_line = 0.5;		// Region line thickness
-	__region_line = .1*sqrt(length(v_camera_pos - __pixel_pos1));
+	float __region_line = 1.0;		// Region line thickness
+	__region_line *= .1*sqrt(length(v_camera_pos - __pixel_pos1));
 	if (mod(__pixel_pos1.x * _vertex_density + __region_line*.5, _region_size) <= __region_line || 
 		mod(__pixel_pos1.z * _vertex_density + __region_line*.5, _region_size) <= __region_line ) {
 		ALBEDO = vec3(1.);
@@ -161,5 +161,16 @@ R"(
 		__vertex_add = vec3(0.15) * __distance_factor;
 	}
 	ALBEDO = fma(ALBEDO, 1.-__vertex_mul, __vertex_add);
+
+//INSERT: DEBUG_INSTANCER_GRID
+	// Show region grid
+	vec3 __pixel_pos3 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
+	float __cell_line = 0.5;		// Cell line thickness
+	__cell_line *= .1*sqrt(length(v_camera_pos - __pixel_pos3));
+	#define CELL_SIZE 32
+	if (mod(__pixel_pos3.x * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line || 
+		mod(__pixel_pos3.z * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line ) {
+		ALBEDO = vec3(.033);
+	}
 
 )"
