@@ -510,7 +510,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	// and check if they are valid; if so add that location to the dictionary keys.
 	Dictionary r_locs;
 	// Calculate step distance to ensure every region is checked inside the bounds of brush size.
-	real_t step = brush_size / ceil(brush_size / real_t(region_size));
+	real_t step = brush_size / ceil(brush_size / real_t(region_size) / vertex_spacing);
 	for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size; x += step) {
 		for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size; z += step) {
 			Vector2i region_loc = data->get_region_location(Vector3(x, 0.f, z));
@@ -550,10 +550,14 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			}
 			Dictionary c_locs;
 			// Calculate step distance to ensure every cell is checked inside the bounds of brush size.
-			real_t cell_step = brush_size / ceil(brush_size / real_t(CELL_SIZE));
+			real_t cell_step = brush_size / ceil(brush_size / real_t(CELL_SIZE) / vertex_spacing);
 			for (real_t x = p_global_position.x - half_brush_size; x <= p_global_position.x + half_brush_size; x += cell_step) {
 				for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size; z += cell_step) {
-					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset, region_size);
+					Vector3 cell_pos = Vector3(x, 0.f, z) - global_local_offset;
+					// Manually calculate cell pos without modulus, locations not in the current region will not be found.
+					Vector2i cell_loc;
+					cell_loc.x = UtilityFunctions::floori(cell_pos.x / vertex_spacing) / CELL_SIZE;
+					cell_loc.y = UtilityFunctions::floori(cell_pos.z / vertex_spacing) / CELL_SIZE;
 					if (cell_locations.has(cell_loc)) {
 						c_locs[cell_loc] = 0;
 					}
@@ -772,7 +776,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	// and check if they are valid; if so add that location to the dictionary keys.
 	Dictionary r_locs;
 	// Calculate step distance to ensure every region is checked inside the bounds of brush size.
-	Vector2 step = Vector2(size.x / ceil(size.x / real_t(region_size)), size.y / ceil(size.y / real_t(region_size)));
+	Vector2 step = Vector2(size.x / ceil(size.x / real_t(region_size) / vertex_spacing), size.y / ceil(size.y / real_t(region_size) / vertex_spacing));
 	for (real_t x = global_position.x - half_size.x; x <= global_position.x + half_size.x; x += step.x) {
 		for (real_t z = global_position.y - half_size.y; z <= global_position.y + half_size.y; z += step.y) {
 			Vector2i region_loc = data->get_region_location(Vector3(x, 0.f, z));
@@ -798,7 +802,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			continue;
 		}
 		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
-		Vector2 localised_position = Vector2(global_position.x - global_local_offset.x, global_position.y - global_local_offset.z);
+
 		// For this mesh id, or all mesh ids
 		for (int m = 0; m < mesh_types.size(); m++) {
 			// Check potential cells rather than searching the entire region, whilst marginally
@@ -812,10 +816,14 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			}
 			Dictionary c_locs;
 			// Calculate step distance to ensure every cell is checked inside the bounds of brush size.
-			Vector2 cell_step = Vector2(size.x / ceil(size.x / real_t(CELL_SIZE)), size.y / ceil(size.y / real_t(CELL_SIZE)));
+			Vector2 cell_step = Vector2(size.x / ceil(size.x / real_t(CELL_SIZE) / vertex_spacing), size.y / ceil(size.y / real_t(CELL_SIZE) / vertex_spacing));
 			for (real_t x = global_position.x - half_size.x; x <= global_position.x + half_size.x; x += cell_step.x) {
 				for (real_t z = global_position.y - half_size.y; z <= global_position.y + half_size.y; z += cell_step.y) {
-					Vector2i cell_loc = _get_cell(Vector3(x, 0.f, z) - global_local_offset, region_size);
+					Vector3 cell_pos = Vector3(x, 0.f, z) - global_local_offset;
+					// Manually calculate cell pos without modulus, locations not in the current region will not be found.
+					Vector2i cell_loc;
+					cell_loc.x = UtilityFunctions::floori(cell_pos.x / vertex_spacing) / CELL_SIZE;
+					cell_loc.y = UtilityFunctions::floori(cell_pos.z / vertex_spacing) / CELL_SIZE;
 					if (cell_locations.has(cell_loc)) {
 						c_locs[cell_loc] = 0;
 					}
