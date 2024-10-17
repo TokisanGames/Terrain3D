@@ -78,7 +78,6 @@ public:
 	MultiMeshInstance3D *get_multimesh_instancep(const Vector3 &p_global_position, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instance(const Vector2i &p_region_loc, const int p_mesh_id) const;
 	//std:: get_mmis() const { return _mmi_nodes; }
-	void set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
 	void force_update_mmis();
 
 	void reset_density_counter() { _density_counter = 0; }

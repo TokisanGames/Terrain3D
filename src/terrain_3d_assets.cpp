@@ -515,6 +515,10 @@ void Terrain3DAssets::update_mesh_list() {
 			LOG(ERROR, "Terrain3DMeshAsset id ", i, " is null, but shouldn't be.");
 			continue;
 		}
+		if (mesh_asset->get_mesh().is_null()) {
+			LOG(DEBUG, "Terrain3DMeshAsset has no mesh, adding a default");
+			mesh_asset->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
+		}
 		if (!mesh_asset->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list))) {
 			LOG(DEBUG, "Connecting file_changed signal to self");
 			mesh_asset->connect("file_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list));
@@ -522,10 +526,6 @@ void Terrain3DAssets::update_mesh_list() {
 		if (!mesh_asset->is_connected("setting_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list))) {
 			LOG(DEBUG, "Connecting setting_changed signal to self");
 			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list));
-		}
-		if (mesh_asset->get_mesh().is_null()) {
-			LOG(DEBUG, "Terrain3DMeshAsset has no mesh, adding a default");
-			mesh_asset->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
 		}
 		if (!mesh_asset->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset))) {
 			LOG(DEBUG, "Connecting file_changed signal to _update_thumbnail");
@@ -535,9 +535,9 @@ void Terrain3DAssets::update_mesh_list() {
 			LOG(DEBUG, "Connecting setting_changed signal to _update_thumbnail");
 			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset));
 		}
-		if (!mesh_asset->is_connected("cast_shadows_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::set_cast_shadows))) {
-			LOG(DEBUG, "Connecting cast_shadows_changed signal to set_cast_shadows");
-			mesh_asset->connect("cast_shadows_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::set_cast_shadows));
+		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::force_update_mmis))) {
+			LOG(DEBUG, "Connecting instancer_setting_changed signal to _update_mmis");
+			mesh_asset->connect("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::force_update_mmis));
 		}
 	}
 	LOG(DEBUG, "Emitting meshes_changed");
