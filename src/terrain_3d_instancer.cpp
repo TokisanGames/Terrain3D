@@ -166,6 +166,9 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					String cstring = "_C" + Util::location_to_string(cell).trim_prefix("_");
 					mmi->set_name("MMI3D" + cstring + "_M" + String::num_int64(mesh_id));
 					mmi->set_as_top_level(true);
+					mmi->set_cast_shadows_setting(ma->get_cast_shadows());
+					mmi->set_visibility_range_end(ma->get_visibility_range());
+					//mmi->set_visibility_range_end_margin(ma->get_visibility_margin());
 					cell_mmi_dict[cell] = mmi;
 					//Attach to tree
 					Node *node_container = _terrain->get_mmi_parent()->get_node_internal(rname);
@@ -182,13 +185,9 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					continue;
 				}
 
-				mmi = cell_mmi_dict[cell];
-				//dump_mmis();
-
 				// Create MM and assign to MMI
-				Ref<MultiMesh> mm = _create_multimesh(mesh_id, xforms, colors);
-				mmi->set_multimesh(mm);
-				mmi->set_cast_shadows_setting(ma->get_cast_shadows());
+				mmi = cell_mmi_dict[cell];
+				mmi->set_multimesh(_create_multimesh(mesh_id, xforms, colors));
 
 				// Reposition the MMIs to their region location
 				Transform3D t = Transform3D();
@@ -1031,24 +1030,6 @@ MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector2i &
 	//return mmi;
 }
 
-void Terrain3DInstancer::set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
-	LOG(INFO, "Setting shadow casting on MMIS with mesh: ", p_mesh_id, " to mode: ", p_cast_shadows);
-	for (auto &region_pair : _mmi_nodes) {
-		MeshMMIDict &mesh_mmi_dict = region_pair.second;
-		Vector2i mesh_key(p_mesh_id, 0);
-		if (mesh_mmi_dict.count(mesh_key) == 0) {
-			continue;
-		}
-		CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-		for (auto &cell_pair : cell_mmi_dict) {
-			MultiMeshInstance3D *mmi = cell_pair.second;
-			if (mmi) {
-				mmi->set_cast_shadows_setting(p_cast_shadows);
-			}
-		}
-	}
-}
-
 void Terrain3DInstancer::force_update_mmis() {
 	destroy();
 	_update_mmis();
@@ -1105,6 +1086,5 @@ void Terrain3DInstancer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	//ClassDB::bind_method(D_METHOD("get_mmis"), &Terrain3DInstancer::get_mmis);
-	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mesh_id", "mode"), &Terrain3DInstancer::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("force_update_mmis"), &Terrain3DInstancer::force_update_mmis);
 }
