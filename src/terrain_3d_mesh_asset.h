@@ -30,7 +30,7 @@ private:
 	// Saved data
 	real_t _height_offset = 0.f;
 	real_t _visibility_range = 1024.f;
-	real_t _visibility_margin = 64.f;
+	real_t _visibility_margin = 0.f;
 	GeometryInstance3D::ShadowCastingSetting _cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	GenType _generated_type = TYPE_NONE;
 	int _generated_faces = 2;

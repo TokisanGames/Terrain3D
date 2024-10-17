@@ -126,13 +126,14 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 	if (_material_override.is_null()) {
 		Ref<StandardMaterial3D> mat;
 		mat.instantiate();
+		mat->set_transparency(BaseMaterial3D::TRANSPARENCY_ALPHA_DEPTH_PRE_PASS);
 		mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
 		mat->set_feature(BaseMaterial3D::FEATURE_BACKLIGHT, true);
 		mat->set_backlight(Color(.5f, .5f, .5f));
 		mat->set_flag(BaseMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
-		/*mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_DITHER);
-		mat->set_distance_fade_max_distance(20.f);
-		mat->set_distance_fade_min_distance(30.f);*/
+		mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_ALPHA);
+		mat->set_distance_fade_min_distance(960.f);
+		mat->set_distance_fade_max_distance(480.f);
 		return mat;
 	} else {
 		return _material_override;
@@ -153,7 +154,7 @@ void Terrain3DMeshAsset::clear() {
 	_id = 0;
 	_height_offset = 0.f;
 	_visibility_range = 1024.f;
-	_visibility_margin = 64.f;
+	_visibility_margin = 0.f;
 	_cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	_generated_faces = 2.f;
 	_generated_size = Vector2(1.f, 1.f);
@@ -354,8 +355,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_density"), &Terrain3DMeshAsset::get_density);
 	ClassDB::bind_method(D_METHOD("set_visibility_range", "distance"), &Terrain3DMeshAsset::set_visibility_range);
 	ClassDB::bind_method(D_METHOD("get_visibility_range"), &Terrain3DMeshAsset::get_visibility_range);
-	ClassDB::bind_method(D_METHOD("set_visibility_margin", "distance"), &Terrain3DMeshAsset::set_visibility_margin);
-	ClassDB::bind_method(D_METHOD("get_visibility_margin"), &Terrain3DMeshAsset::get_visibility_margin);
+	//ClassDB::bind_method(D_METHOD("set_visibility_margin", "distance"), &Terrain3DMeshAsset::set_visibility_margin);
+	//ClassDB::bind_method(D_METHOD("get_visibility_margin"), &Terrain3DMeshAsset::get_visibility_margin);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mode"), &Terrain3DMeshAsset::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3DMeshAsset::get_cast_shadows);
 	ClassDB::bind_method(D_METHOD("set_scene_file", "scene_file"), &Terrain3DMeshAsset::set_scene_file);
@@ -377,7 +378,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, ".01,10.0,.005"), "set_density", "get_density");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_visibility_range", "get_visibility_range");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_margin", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_visibility_margin", "get_visibility_margin");
+	//ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_margin", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_visibility_margin", "get_visibility_margin");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_override", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_override", "get_material_override");

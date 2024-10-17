@@ -168,8 +168,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					mmi->set_as_top_level(true);
 					mmi->set_cast_shadows_setting(ma->get_cast_shadows());
 					mmi->set_visibility_range_end(ma->get_visibility_range());
-					mmi->set_visibility_range_end_margin(ma->get_visibility_margin());
-					mmi->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
+					//mmi->set_visibility_range_end_margin(ma->get_visibility_margin());
 					cell_mmi_dict[cell] = mmi;
 					//Attach to tree
 					Node *node_container = _terrain->get_mmi_parent()->get_node_internal(rname);
