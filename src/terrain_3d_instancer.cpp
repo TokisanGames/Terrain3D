@@ -27,25 +27,25 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 			continue;
 		}
 
-		Dictionary mesh_dict = region->get_instances();
+		Dictionary mesh_inst_dict = region->get_instances();
 		LOG(DEBUG, "Updating MMIs from: ", region_loc);
 
 		// For all mesh id in region
-		Array mesh_types = mesh_dict.keys();
+		Array mesh_types = mesh_inst_dict.keys();
 		for (int m = 0; m < mesh_types.size(); m++) {
 			int mesh_id = mesh_types[m];
-			Dictionary cells_dict = mesh_dict[mesh_id];
-			Array cell_locations = cells_dict.keys();
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cell_locations = cell_inst_dict.keys();
 			for (int c = 0; c < cell_locations.size(); c++) {
 				// Get instances
 				Vector2i cell = cell_locations[c];
-				Array triple = cells_dict[cell];
+				Array triple = cell_inst_dict[cell];
 				TypedArray<Transform3D> xforms = triple[0];
 				if (xforms.size() > 0) {
 					//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
 				} else {
 					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
-					// remove it or problem elsewhere?
+					// remove this or we have a problem elsewhere
 					continue;
 				}
 				// Descale, then Scale to the new value
@@ -59,7 +59,7 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 				}
 				triple[0] = xforms;
 				triple[2] = true;
-				cells_dict[cell] = triple;
+				cell_inst_dict[cell] = triple;
 			}
 		}
 		// after all transforms are updated, set the new region vertex spacing value
@@ -215,7 +215,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				t.origin.z += region_loc.y * region_size * vertex_spacing;
 				mmi->set_global_transform(t);
 
-				// set the cell modified state to false
+				// Set the cell modified state to false
 				triple[2] = false;
 			}
 		}
@@ -363,10 +363,10 @@ void Terrain3DInstancer::clear_by_region(const Ref<Terrain3DRegion> &p_region, c
 	}
 	Vector2i region_loc = p_region->get_location();
 	LOG(INFO, "Deleting Multimeshes w/ mesh_id: ", p_mesh_id, " in region: ", region_loc);
-	Dictionary mesh_dict = p_region->get_instances();
-	if (mesh_dict.has(p_mesh_id)) {
+	Dictionary mesh_inst_dict = p_region->get_instances();
+	if (mesh_inst_dict.has(p_mesh_id)) {
 		_backup_region(p_region);
-		mesh_dict.erase(p_mesh_id);
+		mesh_inst_dict.erase(p_mesh_id);
 	}
 	_destroy_mmi_by_location(region_loc, p_mesh_id);
 }
@@ -515,7 +515,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		for (real_t z = p_global_position.z - half_brush_size; z <= p_global_position.z + half_brush_size; z += step) {
 			Vector2i region_loc = data->get_region_location(Vector3(x, 0.f, z));
 			if (data->has_region(region_loc)) {
-				r_locs[region_loc] = 0;
+				r_locs[region_loc] = 1;
 			}
 		}
 	}
@@ -528,10 +528,11 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
 		Ref<Terrain3DRegion> region = data->get_region(region_loc);
-		_backup_region(region);
 
-		Dictionary mesh_dict = region->get_instances();
-		Array mesh_types = mesh_dict.keys();
+		_backup_region(region); // TODO region hasn't changed yet and might not. Move lower
+
+		Dictionary mesh_inst_dict = region->get_instances();
+		Array mesh_types = mesh_inst_dict.keys();
 		if (mesh_types.size() == 0) {
 			continue;
 		}
@@ -542,9 +543,9 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			// Check potential cells rather than searching the entire region, whilst marginally
 			// slower if there are very few cells for the given mesh present it is significantly
 			// faster when a very large number of cells are present.
-			int region_mesh_id = mesh_types[m];
-			Dictionary cells_dict = mesh_dict[region_mesh_id];
-			Array cell_locations = cells_dict.keys();
+			int mesh_id = mesh_types[m];
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cell_locations = cell_inst_dict.keys();
 			if (cell_locations.size() == 0) {
 				continue;
 			}
@@ -559,7 +560,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					cell_loc.x = UtilityFunctions::floori(cell_pos.x / vertex_spacing) / CELL_SIZE;
 					cell_loc.y = UtilityFunctions::floori(cell_pos.z / vertex_spacing) / CELL_SIZE;
 					if (cell_locations.has(cell_loc)) {
-						c_locs[cell_loc] = 0;
+						c_locs[cell_loc] = 1;
 					}
 				}
 			}
@@ -571,7 +572,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			real_t mesh_height_offset = mesh_asset->get_height_offset();
 			for (int c = 0; c < cell_queue.size(); c++) {
 				Vector2i cell = cell_queue[c];
-				Array triple = cells_dict[cell];
+				Array triple = cell_inst_dict[cell];
 				TypedArray<Transform3D> xforms = triple[0];
 				PackedColorArray colors = triple[1];
 				TypedArray<Transform3D> updated_xforms;
@@ -595,7 +596,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					triple[0] = updated_xforms;
 					triple[1] = updated_colors;
 					triple[2] = true;
-					cells_dict[cell] = triple;
+					cell_inst_dict[cell] = triple;
 				} else {
 					// Free the mmi for this cell
 					// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
@@ -607,7 +608,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 						memdelete_safely(mmi);
 						mesh_mmis.erase(cell);
 					}
-					cells_dict.erase(cell);
+					cell_inst_dict.erase(cell);
 				}
 			}
 		}
@@ -796,8 +797,8 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
 		_backup_region(region);
 
-		Dictionary mesh_dict = region->get_instances();
-		Array mesh_types = mesh_dict.keys();
+		Dictionary mesh_inst_dict = region->get_instances();
+		Array mesh_types = mesh_inst_dict.keys();
 		if (mesh_types.size() == 0) {
 			continue;
 		}
@@ -809,8 +810,8 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			// slower if there are very few cells for the given mesh present it is significantly
 			// faster when a very large number of cells are present.
 			int region_mesh_id = mesh_types[m];
-			Dictionary cells_dict = mesh_dict[region_mesh_id];
-			Array cell_locations = cells_dict.keys();
+			Dictionary cell_inst_dict = mesh_inst_dict[region_mesh_id];
+			Array cell_locations = cell_inst_dict.keys();
 			if (cell_locations.size() == 0) {
 				continue;
 			}
@@ -836,7 +837,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
 			for (int c = 0; c < cell_queue.size(); c++) {
 				Vector2i cell = cell_queue[c];
-				Array triple = cells_dict[cell];
+				Array triple = cell_inst_dict[cell];
 				TypedArray<Transform3D> xforms = triple[0];
 				PackedColorArray colors = triple[1];
 				TypedArray<Transform3D> updated_xforms;
@@ -856,7 +857,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					triple[0] = updated_xforms;
 					triple[1] = updated_colors;
 					triple[2] = true;
-					cells_dict[cell] = triple;
+					cell_inst_dict[cell] = triple;
 				} else {
 					// Free the mmi for this cell
 					// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
@@ -868,7 +869,8 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 						memdelete_safely(mmi);
 						mesh_mmis.erase(cell);
 					}
-					cells_dict.erase(cell);
+					// Removed if a hole erased everything
+					cell_inst_dict.erase(cell);
 				}
 			}
 		}
@@ -907,16 +909,16 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 	}
 	
 	// For each mesh, for each cell, if in rect, convert xforms to target region space, append to target region.
-	Dictionary mesh_dict = p_src_region->get_instances();
-	Array mesh_types = mesh_dict.keys();
+	Dictionary mesh_inst_dict = p_src_region->get_instances();
+	Array mesh_types = mesh_inst_dict.keys();
 	for (int m = 0; m < mesh_types.size(); m++) {
 		TypedArray<Transform3D> xforms;
 		PackedColorArray colors;
-		Dictionary mesh_cells = p_src_region->get_instances()[m];
-		Array mesh_cell_locs = mesh_cells.keys();
-		for (int c = 0; c < mesh_cell_locs.size(); c++) {
-			if (cells_to_copy.has(mesh_cell_locs[c])) {
-				Array triple = mesh_cells[mesh_cell_locs[c]];
+		Dictionary cell_inst_dict = p_src_region->get_instances()[m];
+		Array cell_locs = cell_inst_dict.keys();
+		for (int c = 0; c < cell_locs.size(); c++) {
+			if (cells_to_copy.has(cell_locs[c])) {
+				Array triple = cell_inst_dict[cell_locs[c]];
 				TypedArray<Transform3D> cell_xforms = triple[0];
 				PackedColorArray cell_colors = triple[1];
 				for (int i = 0; i < cell_xforms.size(); i++) {
