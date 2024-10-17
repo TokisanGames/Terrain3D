@@ -43,11 +43,11 @@ void Terrain3DUtil::print_dict(const String &p_name, const Dictionary &p_dict, c
 		Variant var = p_dict[keys[i]];
 		switch (var.get_type()) {
 			case Variant::ARRAY: {
-				print_arr(p_name + String::num_int64(i), var, p_level);
+				print_arr(String(keys[i]), var, p_level);
 				break;
 			}
 			case Variant::DICTIONARY: {
-				print_dict(p_name + String::num_int64(i), var, p_level);
+				print_dict(String(keys[i]), var, p_level);
 				break;
 			}
 			case Variant::OBJECT: {

@@ -145,7 +145,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				String rname("Region" + Util::location_to_string(region_loc));
 				if (!_mmi_containers.has(region_loc)) {
 					LOG(DEBUG, "Creating new region MMI container Terrain3D/MMI/", rname);
-					Node *node = memnew(Node);
+					Node3D *node = memnew(Node3D);
 					node->set_name(rname);
 					_mmi_containers[region_loc] = node;
 					_terrain->get_mmi_parent()->add_child(node, true);
@@ -251,7 +251,6 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 				LOG(ERROR, "Removed ", p_region_loc, " from _mmi_nodes, but container is missing.");
 			}
 		}
-		_terrain->get_mmi_parent()->print_tree();
 	}
 
 	//LOG(MESG, "Post process");
@@ -347,7 +346,7 @@ void Terrain3DInstancer::destroy() {
 	}
 	LOG(WARN, "Verify cleanup:");
 	dump_mmis();
-	LOG(MESG, "_mmi_nodes size: ", _mmi_nodes.size());
+	LOG(MESG, "_mmi_nodes size: ", int(_mmi_nodes.size()));
 	LOG(MESG, "_mmi_containers size: ", _mmi_containers.size());
 	LOG(MESG, "_mmi tree: ");
 	_terrain->get_mmi_parent()->print_tree();

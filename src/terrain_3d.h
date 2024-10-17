@@ -105,8 +105,8 @@ private:
 	uint32_t _mouse_layer = 32;
 
 	// Parent containers for child nodes
-	Node *_label_parent;
-	Node *_mmi_parent;
+	Node3D *_label_parent;
+	Node3D *_mmi_parent;
 
 	void _initialize();
 	void __process(const double p_delta);

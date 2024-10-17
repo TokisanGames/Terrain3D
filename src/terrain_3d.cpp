@@ -147,10 +147,10 @@ void Terrain3D::_grab_camera() {
 }
 
 void Terrain3D::_build_containers() {
-	_label_parent = memnew(Node);
+	_label_parent = memnew(Node3D);
 	_label_parent->set_name("Labels");
 	add_child(_label_parent, true);
-	_mmi_parent = memnew(Node);
+	_mmi_parent = memnew(Node3D);
 	_mmi_parent->set_name("MMI");
 	add_child(_mmi_parent, true);
 }
