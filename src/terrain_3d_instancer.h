@@ -25,7 +25,7 @@ private:
 	Terrain3D *_terrain = nullptr;
 
 	// MM Resources stored in Terrain3DRegion::_instances as
-	// _instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, Modified<bool> ]
+	// _instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, modified:bool ]
 
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
