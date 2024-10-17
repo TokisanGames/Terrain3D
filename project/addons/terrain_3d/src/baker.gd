@@ -177,7 +177,7 @@ func bake_nav_mesh() -> void:
 	elif plugin.terrain:
 		if plugin.terrain.data.get_region_count() == 0:
 			push_error("Terrain3D has no active regions to bake")
-		return
+			return
 		# A Terrain3D is selected. There are potentially multiple navmeshes to bake and we need to
 		# find them all. (The multiple navmesh use-case is likely on very large scenes with lots of
 		# geometry. Each navmesh in this case would define its own, non-overlapping, baking AABB, to
