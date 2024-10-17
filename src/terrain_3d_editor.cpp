@@ -50,9 +50,9 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	if (can_print) {
 		LOG(DEBUG, "Tool: ", _tool, " Op: ", _operation, " processing region ", p_region_loc, ": ",
 				region.is_valid() ? String::num_uint64(region->get_instance_id()) : "Null");
-		if (region.is_valid()) {
-			LOG(DEBUG, region->get_data());
-		}
+		/*if (region.is_valid()) {
+			LOG(EXTREME, region->get_data());
+		}*/
 	}
 
 	// Create new region if location is null or deleted
@@ -74,7 +74,6 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 		_original_regions.push_back(region);
 		height_range = region->get_height_range();
 		_terrain->get_data()->remove_region(region);
-		_terrain->get_instancer()->force_update_mmis();
 		changed = true;
 	}
 
@@ -543,14 +542,14 @@ void Terrain3DEditor::_store_undo() {
 	undo_redo->add_undo_method(this, "apply_undo", _undo_data);
 	for (int i = 0; i < _original_regions.size(); i++) {
 		Ref<Terrain3DRegion> region = _original_regions[i];
-		LOG(DEBUG, "Original Region: ", region->get_data());
+		//LOG(EXTREME, "Original Region: ", region->get_data());
 	}
 
 	LOG(DEBUG, "Storing redo snapshot: ", redo_data);
 	undo_redo->add_do_method(this, "apply_undo", redo_data);
 	for (int i = 0; i < _edited_regions.size(); i++) {
 		Ref<Terrain3DRegion> region = _edited_regions[i];
-		LOG(DEBUG, "Edited Region: ", region->get_data());
+		//LOG(EXTREME, "Edited Region: ", region->get_data());
 	}
 
 	LOG(DEBUG, "Committing undo action");
@@ -579,7 +578,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			region->set_modified(true);
 			// Tell update_maps() this region has layers that can be individually updated
 			region->set_edited(true);
-			LOG(DEBUG, "Edited: ", region->get_data());
+			//LOG(EXTREME, "Edited: ", region->get_data());
 		}
 	}
 
@@ -716,7 +715,7 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	_edited_regions = TypedArray<Terrain3DRegion>();
 	_added_removed_locations = TypedArray<Vector2i>();
 	// Reset counter at start to ensure first click places an instance
-	_terrain->get_instancer()->reset_instance_counter();
+	_terrain->get_instancer()->reset_density_counter();
 	_terrain->get_data()->clear_edited_area();
 	_operation_position = p_global_position;
 	_operation_movement = Vector3();
@@ -771,7 +770,7 @@ void Terrain3DEditor::stop_operation() {
 		for (int i = 0; i < _edited_regions.size(); i++) {
 			Ref<Terrain3DRegion> region = _edited_regions[i];
 			region->set_edited(false);
-			LOG(DEBUG, "Edited region: ", region->get_data());
+			//LOG(EXTREME, "Edited region: ", region->get_data());
 			// Make duplicate for redo backup
 			_edited_regions[i] = region->duplicate(true);
 		}

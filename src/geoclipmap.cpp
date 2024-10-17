@@ -11,17 +11,6 @@
 
 // Half each triangle, have to check for longest side.
 void GeoClipMap::_subdivide_half(PackedVector3Array &vertices, PackedInt32Array &indices) {
-
-	// Hash for map for quick vertex search, for loop was very very slow!
-	struct Vector3Hash {
-		std::size_t operator()(const Vector3 &v) const {
-			std::size_t h1 = std::hash<float>()(v.x);
-			std::size_t h2 = std::hash<float>()(v.y);
-			std::size_t h3 = std::hash<float>()(v.z);
-			return h1 ^ (h2 << 1) ^ (h3 << 2);
-		}
-	};
-
 	PackedVector3Array new_vertices;
 	PackedInt32Array new_indices;
 

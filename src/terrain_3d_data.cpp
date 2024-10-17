@@ -144,6 +144,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 		new_region.instantiate();
 		new_region->set_location(loc);
 		new_region->set_region_size(p_new_size);
+		new_region->set_vertex_spacing(_vertex_spacing);
 		new_region->set_modified(true);
 		new_region->sanitize_maps();
 
@@ -220,6 +221,7 @@ Ref<Terrain3DRegion> Terrain3DData::add_region_blank(const Vector2i &p_region_lo
 	region.instantiate();
 	region->set_location(p_region_loc);
 	region->set_region_size(_region_size);
+	region->set_vertex_spacing(_vertex_spacing);
 	if (add_region(region, p_update) == OK) {
 		region->set_modified(true);
 		return region;
@@ -257,6 +259,7 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 	LOG(DEBUG, "Storing region ", region_loc, " version ", vformat("%.3f", p_region->get_version()), " id: ", _region_locations.size());
 	if (p_update) {
 		force_update_maps();
+		_terrain->get_instancer()->force_update_mmis();
 	}
 	return OK;
 }
@@ -293,6 +296,7 @@ void Terrain3DData::remove_region(const Ref<Terrain3DRegion> &p_region, const bo
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
 		force_update_maps();
+		_terrain->get_instancer()->force_update_mmis();
 	}
 }
 
@@ -587,7 +591,11 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 	Vector2i region_loc = get_region_location(p_global_position);
 	Ref<Terrain3DRegion> region = get_region(region_loc);
 	if (region.is_null()) {
-		LOG(ERROR, "No region found at: ", p_global_position);
+		LOG(ERROR, "No active region found at: ", p_global_position);
+		return;
+	}
+	if (region->is_deleted()) {
+		LOG(ERROR, "No active region found at: ", p_global_position);
 		return;
 	}
 	Vector2i global_offset = region_loc * _region_size;
@@ -609,6 +617,9 @@ Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global
 	if (region.is_null()) {
 		return COLOR_NAN;
 	}
+	if (region->is_deleted()) {
+		return COLOR_NAN;
+	}
 	Vector2i global_offset = region_loc * _region_size;
 	Vector3 descaled_pos = p_global_position / _vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
@@ -625,7 +636,7 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 	const real_t &step = _vertex_spacing;
 	pos.y = 0.f;
 	// Round to nearest vertex
-	Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
+	Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
 	// If requested position is close to a vertex, return its height
 	if ((pos - pos_round).length() < 0.01f) {
 		return get_pixel(TYPE_HEIGHT, pos).r;
@@ -672,7 +683,7 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 		auto get_height = [&](Vector3 pos) -> real_t {
 			real_t step = _terrain->get_vertex_spacing();
 			// Round to nearest vertex
-			Vector3 pos_round = Vector3(round_multiple(pos.x, step), 0.f, round_multiple(pos.z, step));
+			Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
 			real_t height = get_pixel(TYPE_HEIGHT, pos_round).r;
 			return std::isnan(height) ? 0.f : height;
 		};
@@ -791,7 +802,7 @@ void Terrain3DData::add_edited_area(const AABB &p_area) {
 	} else {
 		_edited_area = p_area;
 	}
-	emit_signal("maps_edited", _edited_area);
+	emit_signal("maps_edited", p_area);
 }
 
 // Recalculates master height range from all active regions current height ranges

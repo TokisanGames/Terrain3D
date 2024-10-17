@@ -89,7 +89,7 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DAssets::AssetType);
 
-// Deprecated 0.9.2 - Remove 0.9.3+
+// Deprecated 0.9.2 - Remove 1.0
 
 class Terrain3DTexture : public Terrain3DTextureAsset {
 	GDCLASS(Terrain3DTexture, Terrain3DTextureAsset);
