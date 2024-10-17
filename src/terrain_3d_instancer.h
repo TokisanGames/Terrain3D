@@ -5,6 +5,7 @@
 
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
+#include <unordered_map>
 
 #include "constants.h"
 
@@ -29,7 +30,9 @@ private:
 
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-	Dictionary _mmi_nodes;
+	typedef std::unordered_map<Vector2i, MultiMeshInstance3D *, Vector2iHash> CellMMIDict;
+	typedef std::unordered_map<Vector2i, CellMMIDict, Vector2iHash> MeshMMIDict;
+	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_nodes;
 
 	// Region MMI containers named Terrain3D/MMI/Region* are stored here as
 	// _mmi_containers{region_loc} -> Node
@@ -40,6 +43,7 @@ private:
 
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
+	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _backup_regionl(const Vector2i &p_region_loc);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
@@ -73,12 +77,13 @@ public:
 	Ref<MultiMesh> get_multimesh(const Vector2i &p_region_loc, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instancep(const Vector3 &p_global_position, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instance(const Vector2i &p_region_loc, const int p_mesh_id) const;
-	Dictionary get_mmis() const { return _mmi_nodes; }
+	//std:: get_mmis() const { return _mmi_nodes; }
 	void set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
 	void force_update_mmis();
 
 	void reset_density_counter() { _density_counter = 0; }
 	void print_multimesh_buffer(MultiMeshInstance3D *p_mmi) const;
+	void dump_mmis();
 
 protected:
 	static void _bind_methods();
