@@ -595,14 +595,15 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 				PackedColorArray colors = triple[1];
 				TypedArray<Transform3D> updated_xforms;
 				PackedColorArray updated_colors;
+				uint32_t cell_quota = quota;
 				// Remove transforms if inside ring radius
 				for (int i = 0; i < xforms.size(); i++) {
 					Transform3D t = xforms[i];
 					// Use localised ring center
 					real_t radial_distance = localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z));
 					bool rng = radial_distance < UtilityFunctions::randf() * radius;
-					if (quota > 0 && rng && data->is_in_slope(t.origin + global_local_offset, slope_range, invert)) {
-						--quota;
+					if (cell_quota > 0 && rng && data->is_in_slope(t.origin + global_local_offset, slope_range, invert)) {
+						--cell_quota;
 						continue;
 					} else {
 						updated_xforms.push_back(t);
