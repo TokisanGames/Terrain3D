@@ -75,10 +75,6 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 	IS_DATA_INIT(VOID);
 	LOG(INFO, "Updating MMIs for ", (p_region_loc.x == INT32_MAX) ? "all regions" : "region " + String(p_region_loc),
 			(p_mesh_id == -1) ? ", all meshes" : ", mesh " + String::num_int64(p_mesh_id));
-	if (_mmi_nodes.has(Variant())) {
-		_mmi_nodes.erase(Variant());
-		LOG(WARN, "Removed errant null in MMI dictionary");
-	}
 
 	// For specified region_location, or max for all
 	Array region_locations;
@@ -94,18 +90,17 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
 		}
-		Dictionary mesh_dict = region->get_instances();
+		Dictionary mesh_inst_dict = region->get_instances();
 
 		// For specified mesh id in that region, or -1 for all
 		Array mesh_types;
 		if (p_mesh_id < 0) {
-			mesh_types = mesh_dict.keys();
+			mesh_types = mesh_inst_dict.keys();
 		} else {
 			mesh_types.push_back(p_mesh_id);
 		}
 		for (int m = 0; m < mesh_types.size(); m++) {
 			int mesh_id = mesh_types[m];
-			bool fail = false; // disregarded f/now
 
 			// Verify mesh id is valid and has a mesh
 			Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
@@ -114,27 +109,19 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				mesh = ma->get_mesh();
 				if (mesh.is_null()) {
 					LOG(WARN, "MeshAsset ", mesh_id, " valid but mesh is null, skipping");
-					fail = true;
 					continue;
 				}
 			} else {
 				LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
-				fail = true;
 				continue;
 			}
 
-			// Clear this mesh id for this region and skip if fails the above checks
-			//if (fail) {
-			//	clear_by_location(region_loc, mesh_id);
-			//	continue;
-			//}
-
-			Dictionary cells_dict = mesh_dict[mesh_id];
-			Array cell_locations = cells_dict.keys();
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cell_locations = cell_inst_dict.keys();
 			for (int c = 0; c < cell_locations.size(); c++) {
 				// Get instances
 				Vector2i cell = cell_locations[c];
-				Array triple = cells_dict[cell];
+				Array triple = cell_inst_dict[cell];
 				if (triple.size() < 3) {
 					LOG(WARN, "Triple is empty");
 					continue;
@@ -143,8 +130,6 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				PackedColorArray colors = triple[1];
 				bool modified = triple[2];
 				if (xforms.size() == 0) {
-					//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
-					//} else {
 					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
 					// remove it or problem elsewhere?
 					continue;
@@ -167,21 +152,21 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				}
 
 				// Retrieve MMI or create one
-				Dictionary mmi_mesh_dict = _mmi_nodes.get(region_loc, Dictionary());
+				MeshMMIDict &mesh_mmi_dict = _mmi_nodes[region_loc];
 
 				int lod = 0; // TODO Hard coded LOD0 for now
-				Vector2i mmi_mesh_key(mesh_id, lod);
-				Dictionary mmi_cell_dict = mmi_mesh_dict.get(mmi_mesh_key, Dictionary());
+				Vector2i mesh_key(mesh_id, lod);
+				CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
 
 				MultiMeshInstance3D *mmi;
-				if (!mmi_cell_dict.has(cell)) {
-					//LOG(MESG, "No MMI found, creating new MultiMeshInstance3D, attaching to tree");
+				if (cell_mmi_dict.count(cell) == 0) {
 					mmi = memnew(MultiMeshInstance3D);
+					LOG(DEBUG, "No MMI found, Created new MultiMeshInstance3D: ", uint64_t(mmi));
 					// Node name is MMI3D_Cell##_##_Mesh#
 					String cstring = "_C" + Util::location_to_string(cell).trim_prefix("_");
 					mmi->set_name("MMI3D" + cstring + "_M" + String::num_int64(mesh_id));
 					mmi->set_as_top_level(true);
-					mmi_cell_dict[cell] = mmi;
+					cell_mmi_dict[cell] = mmi;
 					//Attach to tree
 					Node *node_container = _terrain->get_mmi_parent()->get_node_internal(rname);
 					if (node_container == nullptr) {
@@ -191,16 +176,14 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					node_container->add_child(mmi, true);
 					// new MMI, cannot skip.
 					modified = true;
-					//LOG(MESG, _mmi_nodes);
 				}
+				// If data hasn't changed since last _update_mmis, skip
 				if (modified == false) {
 					continue;
 				}
-				mmi = cast_to<MultiMeshInstance3D>(mmi_cell_dict[cell]);
 
-				// Reassign dicts in case new ones were made, otherwise remove empties
-				mmi_mesh_dict[mmi_mesh_key] = mmi_cell_dict;
-				_mmi_nodes[region_loc] = mmi_mesh_dict;
+				mmi = cell_mmi_dict[cell];
+				//dump_mmis();
 
 				// Create MM and assign to MMI
 				Ref<MultiMesh> mm = _create_multimesh(mesh_id, xforms, colors);
@@ -221,44 +204,68 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 		}
 	}
 }
+void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell) {
+	//LOG(MESG, "Pre process");
+	//dump_mmis();
+
+	if (_mmi_nodes.count(p_region_loc) == 0) {
+		return;
+	}
+	MeshMMIDict &mesh_mmi_dict = _mmi_nodes[p_region_loc];
+
+	// TODO Hardcoded LOD0, loop through lods
+	Vector2i mesh_key(p_mesh_id, 0);
+	if (mesh_mmi_dict.count(mesh_key) == 0) {
+		return;
+	}
+	CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+
+	if (cell_mmi_dict.count(p_cell) == 0) {
+		return;
+	}
+	MultiMeshInstance3D *mmi = cell_mmi_dict[p_cell];
+	cell_mmi_dict.erase(p_cell);
+	remove_from_tree(mmi);
+	memdelete_safely(mmi);
+
+	if (cell_mmi_dict.empty()) {
+		LOG(DEBUG, "Removing mesh ", mesh_key, " from cell MMI dictionary");
+		mesh_mmi_dict.erase(mesh_key);
+	}
+
+	if (mesh_mmi_dict.empty()) {
+		LOG(DEBUG, "Removing region ", p_region_loc, " from mesh MMI dictionary");
+		_mmi_nodes.erase(p_region_loc);
+
+		Node *node = cast_to<Node>(_mmi_containers[p_region_loc]);
+		if (node && node->get_child_count() == 0) {
+			LOG(DEBUG, "Removing ", node->get_name());
+			_mmi_containers.erase(p_region_loc);
+			remove_from_tree(node);
+			memdelete_safely(node);
+		} else {
+			// TODO remove
+			if (node) {
+				LOG(ERROR, "Removed ", p_region_loc, " from _mmi_nodes, but container still has children.");
+			} else {
+				LOG(ERROR, "Removed ", p_region_loc, " from _mmi_nodes, but container is missing.");
+			}
+		}
+	}
+}
 
 void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
 	LOG(DEBUG, "Deleting MMI at: ", p_region_loc, " mesh_id: ", p_mesh_id);
-	Dictionary mesh_dict = _mmi_nodes[p_region_loc];
+	if (_mmi_nodes.count(p_region_loc) == 0) {
+		return;
+	}
+	MeshMMIDict &mesh_mmi_dict = _mmi_nodes[p_region_loc];
 
 	// TODO Hard coded LOD0 - loop through
 	Vector2i mesh_key(p_mesh_id, 0);
-	Dictionary cell_dict = mesh_dict[mesh_key];
-
-	Array cell_keys = cell_dict.keys();
-	for (int i = 0; i < cell_keys.size(); i++) {
-		Vector2i cell_key = cell_keys[i];
-		MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(cell_dict[cell_key]);
-		if (mmi) {
-			// might have to write cell_dict back to mesh_dict and _mmi_nodes
-			LOG(DEBUG, "Removing ", mmi->get_name());
-			cell_dict.erase(cell_key);
-			remove_from_tree(mmi);
-			memdelete_safely(mmi);
-		} else {
-			LOG(WARN, "MMI at ", cell_key, " is null");
-		}
-		if (cell_dict.is_empty()) {
-			LOG(DEBUG, "Removing mesh ", mesh_key, " from dictionary");
-			mesh_dict.erase(mesh_key);
-		}
-	}
-	if (mesh_dict.is_empty()) {
-		LOG(DEBUG, "Removing region ", p_region_loc, " from dictionary");
-		_mmi_nodes.erase(p_region_loc);
-	}
-
-	Node *node = cast_to<Node>(_mmi_containers[p_region_loc]);
-	if (node && node->get_child_count() == 0) {
-		LOG(DEBUG, "Removing ", node->get_name());
-		_mmi_containers.erase(p_region_loc);
-		remove_from_tree(node);
-		memdelete_safely(node);
+	CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+	for (auto &cell_pair : cell_mmi_dict) {
+		_destroy_mmi_by_cell(p_region_loc, p_mesh_id, cell_pair.first);
 	}
 }
 
@@ -328,18 +335,18 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 void Terrain3DInstancer::destroy() {
 	IS_DATA_INIT(VOID);
 	LOG(INFO, "Destroying all MMIs");
-
-	Array region_locations = _mmi_nodes.keys();
-	for (int i = 0; i < region_locations.size(); i++) {
-		Dictionary mesh_dict = _mmi_nodes[region_locations[i]];
-		Array mesh_ids = mesh_dict.keys();
-		for (int m = 0; m < mesh_ids.size(); m++) {
-			int mesh_id = static_cast<Vector2i>(mesh_ids[m]).x;
-			_destroy_mmi_by_location(region_locations[i], mesh_id);
+	int mesh_count = _terrain->get_assets()->get_mesh_count();
+	for (auto &region_pairs : _mmi_nodes) {
+		for (int m = 0; m < mesh_count; m++) {
+			_destroy_mmi_by_location(region_pairs.first, m);
 		}
 	}
-	_mmi_nodes.clear();
-	_mmi_containers.clear();
+	LOG(WARN, "Verify cleanup:");
+	dump_mmis();
+	LOG(MESG, "_mmi_nodes size: ", _mmi_nodes.size());
+	LOG(MESG, "_mmi_containers size: ", _mmi_containers.size());
+	LOG(MESG, "_mmi tree: ");
+	_terrain->get_mmi_parent()->print_tree();
 }
 
 void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
@@ -597,19 +604,14 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					triple[1] = updated_colors;
 					triple[2] = true;
 					cell_inst_dict[cell] = triple;
+					// TODO must we also reassign cell_inst_dict to mesh_inst_dict and get_instances?
 				} else {
-					// Free the mmi for this cell
-					// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-					Dictionary region_mmis = _mmi_nodes[region_loc];
-					Dictionary mesh_mmis = region_mmis[Vector2i(m, 0)];
-					if (mesh_mmis.has(cell)) {
-						MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mesh_mmis[cell]);
-						remove_from_tree(mmi);
-						memdelete_safely(mmi);
-						mesh_mmis.erase(cell);
-					}
 					cell_inst_dict.erase(cell);
+					_destroy_mmi_by_cell(region_loc, m, cell);
 				}
+			}
+			if (cell_inst_dict.is_empty()) {
+				mesh_inst_dict.erase(m);
 			}
 		}
 		_update_mmis(region_loc);
@@ -715,7 +717,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		LOG(ERROR, "No transforms to add. Doing nothing.");
 		return;
 	}
-	
+
 	_backup_region(p_region);
 
 	Dictionary cell_locations = p_region->get_instances()[p_mesh_id];
@@ -738,13 +740,8 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		}
 		TypedArray<Transform3D> xforms = triple[0];
 		PackedColorArray colors = triple[1];
-		/*if (xforms.size() > 0) {
-			LOG(MESG, "Found old data. Xform size: ", xforms.size(), ", color arr: ", colors.size());
-		}*/
-
 		xforms.push_back(xform);
 		colors.push_back(col);
-		//LOG(MESG, "Xforms size: ", xforms.size(), ", colors ", colors.size());
 
 		// Shouldn't have to write this back, but seems we do; there are copy constructors somewhere
 		// see godot-cpp#1149
@@ -859,18 +856,12 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					triple[2] = true;
 					cell_inst_dict[cell] = triple;
 				} else {
-					// Free the mmi for this cell
-					// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-					Dictionary region_mmis = _mmi_nodes[region_loc];
-					Dictionary mesh_mmis = region_mmis[Vector2i(m, 0)];
-					if (mesh_mmis.has(cell)) {
-						MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(mesh_mmis[cell]);
-						remove_from_tree(mmi);
-						memdelete_safely(mmi);
-						mesh_mmis.erase(cell);
-					}
 					// Removed if a hole erased everything
 					cell_inst_dict.erase(cell);
+					_destroy_mmi_by_cell(region_loc, m, cell);
+				}
+				if (cell_inst_dict.is_empty()) {
+					mesh_inst_dict.erase(region_mesh_id);
 				}
 			}
 		}
@@ -891,7 +882,7 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	// Offset to dst from src
 	Vector2i src_region_loc = p_src_region->get_location();
-	int src_region_size = p_src_region->get_region_size();	
+	int src_region_size = p_src_region->get_region_size();
 	Vector2i src_offset = Vector2i(src_region_loc.x * src_region_size, src_region_loc.y * src_region_size);
 	Vector2i dst_region_loc = p_dst_region->get_location();
 	int dst_region_size = p_dst_region->get_region_size();
@@ -907,7 +898,7 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 			cells_to_copy[Vector2i(x, y)] = 0;
 		}
 	}
-	
+
 	// For each mesh, for each cell, if in rect, convert xforms to target region space, append to target region.
 	Dictionary mesh_inst_dict = p_src_region->get_instances();
 	Array mesh_types = mesh_inst_dict.keys();
@@ -927,7 +918,6 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 					xforms.push_back(t);
 					colors.push_back(cell_colors[i]);
 				}
-				
 			}
 		}
 		if (xforms.size() == 0) {
@@ -982,28 +972,29 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 			LOG(DEBUG, "Swapped multimesh ids at: ", region_loc);
 		}
 
+		// TODO Rewrite all of this
 		// Change key in _mmi_nodes dictionary
-		Array mmi_keys = _mmi_nodes.keys();
-		Dictionary to_src_mmis;
-		Dictionary to_dst_mmis;
+		//Array mmi_keys = _mmi_nodes.keys();
+		//Dictionary to_src_mmis;
+		//Dictionary to_dst_mmis;
 
-		for (int i = 0; i < mmi_keys.size(); i++) {
-			Vector3i key = mmi_keys[i];
-			if (key.z == p_src_id) {
-				Vector3i dst_key = key; // setup destination key
-				dst_key.z = p_dst_id;
-				to_dst_mmis[dst_key] = _mmi_nodes[key]; // store MMI under dest key
-				_mmi_nodes.erase(key);
-			} else if (key.z == p_dst_id) {
-				Vector3i src_key = key; // setup source key
-				src_key.z = p_src_id;
-				to_src_mmis[src_key] = _mmi_nodes[key]; // store MMI under src key
-				_mmi_nodes.erase(key);
-			}
-		}
-		_mmi_nodes.merge(to_src_mmis);
-		_mmi_nodes.merge(to_dst_mmis);
-		LOG(DEBUG, "Swapped multimesh instance ids");
+		//for (int i = 0; i < mmi_keys.size(); i++) {
+		//	Vector3i key = mmi_keys[i];
+		//	if (key.z == p_src_id) {
+		//		Vector3i dst_key = key; // setup destination key
+		//		dst_key.z = p_dst_id;
+		//		to_dst_mmis[dst_key] = _mmi_nodes[key]; // store MMI under dest key
+		//		_mmi_nodes.erase(key);
+		//	} else if (key.z == p_dst_id) {
+		//		Vector3i src_key = key; // setup source key
+		//		src_key.z = p_src_id;
+		//		to_src_mmis[src_key] = _mmi_nodes[key]; // store MMI under src key
+		//		_mmi_nodes.erase(key);
+		//	}
+		//}
+		//_mmi_nodes.merge(to_src_mmis);
+		//_mmi_nodes.merge(to_dst_mmis);
+		//LOG(DEBUG, "Swapped multimesh instance ids");
 	}
 }
 
@@ -1031,19 +1022,26 @@ MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instancep(const Vector3 &
 }
 
 MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector2i &p_region_loc, const int p_mesh_id) const {
-	Vector3i key = Vector3i(p_region_loc.x, p_region_loc.y, p_mesh_id);
-	MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmi_nodes[key]);
-	LOG(EXTREME, "Retrieving MultiMeshInstance3D at region: ", p_region_loc, " mesh_id: ", p_mesh_id, " : ", mmi);
-	return mmi;
+	return nullptr;
+	// TODO rewrite
+	//Vector3i key = Vector3i(p_region_loc.x, p_region_loc.y, p_mesh_id);
+	////MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmi_nodes[key]);
+	//MultiMeshInstance3D *mmi = _mmi_nodes[key];
+	//LOG(EXTREME, "Retrieving MultiMeshInstance3D at region: ", p_region_loc, " mesh_id: ", p_mesh_id, " : ", mmi);
+	//return mmi;
 }
 
 void Terrain3DInstancer::set_cast_shadows(const int p_mesh_id, const GeometryInstance3D::ShadowCastingSetting p_cast_shadows) {
 	LOG(INFO, "Setting shadow casting on MMIS with mesh: ", p_mesh_id, " to mode: ", p_cast_shadows);
-	Array keys = _mmi_nodes.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		Vector3i key = keys[i];
-		if (key.z == p_mesh_id) {
-			MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmi_nodes[key]);
+	for (auto &region_pair : _mmi_nodes) {
+		MeshMMIDict &mesh_mmi_dict = region_pair.second;
+		Vector2i mesh_key(p_mesh_id, 0);
+		if (mesh_mmi_dict.count(mesh_key) == 0) {
+			continue;
+		}
+		CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+		for (auto &cell_pair : cell_mmi_dict) {
+			MultiMeshInstance3D *mmi = cell_pair.second;
 			if (mmi) {
 				mmi->set_cast_shadows_setting(p_cast_shadows);
 			}
@@ -1078,6 +1076,18 @@ void Terrain3DInstancer::print_multimesh_buffer(MultiMeshInstance3D *p_mmi) cons
 	}
 }
 
+void Terrain3DInstancer::dump_mmis() {
+	for (auto &i : _mmi_nodes) {
+		LOG(MESG, "_mmi_nodes region: ", i.first, ", dict ptr: ", uint64_t(&i.second));
+		for (auto &j : i.second) {
+			LOG(MESG, "mesh_mmi_dict mesh: ", j.first, ", dict ptr: ", uint64_t(&j.second));
+			for (auto &k : j.second) {
+				LOG(MESG, "cell_mmi_dict cell: ", k.first, ", mmi ptr: ", uint64_t(k.second));
+			}
+		}
+	}
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1094,7 +1104,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
 
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
-	ClassDB::bind_method(D_METHOD("get_mmis"), &Terrain3DInstancer::get_mmis);
+	//ClassDB::bind_method(D_METHOD("get_mmis"), &Terrain3DInstancer::get_mmis);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mesh_id", "mode"), &Terrain3DInstancer::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("force_update_mmis"), &Terrain3DInstancer::force_update_mmis);
 }
