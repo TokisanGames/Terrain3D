@@ -29,6 +29,8 @@ public:
 private:
 	// Saved data
 	real_t _height_offset = 0.f;
+	real_t _visibility_range = 1024.f;
+	real_t _visibility_margin = 0.f;
 	GeometryInstance3D::ShadowCastingSetting _cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	GenType _generated_type = TYPE_NONE;
 	int _generated_faces = 2;
@@ -65,6 +67,10 @@ public:
 	void set_density(const real_t p_density);
 	real_t get_density() const;
 
+	void set_visibility_range(const real_t p_visibility_range);
+	real_t get_visibility_range() const { return _visibility_range; };
+	void set_visibility_margin(const real_t p_visibility_margin);
+	real_t get_visibility_margin() const { return _visibility_margin; };
 	void set_cast_shadows(const GeometryInstance3D::ShadowCastingSetting p_cast_shadows);
 	GeometryInstance3D::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
 
