@@ -14,8 +14,53 @@ script = ExtResource("1_why5e")
 [node name="Label" type="Label" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
-offset_right = 40.0
-offset_bottom = 23.0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 275.0
+offset_bottom = 340.0
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.662745)
 theme_override_constants/shadow_offset_x = 1
 theme_override_constants/shadow_offset_y = 1
+text = "FPS: 100
+Position: (100, 100, 100)
+Move Speed: 10
+
+Player
+Move: WASDEQ,Space,Mouse
+Move speed: Wheel,+/-,Shift
+Camera view: V
+Gravity toggle: G
+Collision toggle: C
+
+Window
+Quit: F8
+UI toggle: F9
+Render mode: F10
+Full screen: F11
+Mouse toggle: Escape
+"
+
+[node name="Panel" type="Panel" parent="Label"]
+modulate = Color(1, 1, 1, 0.392157)
+show_behind_parent = true
+layout_mode = 0
+offset_left = -5.0
+offset_top = -5.0
+offset_right = 248.0
+offset_bottom = 444.0
+
+[node name="HSeparator" type="HSeparator" parent="Label/Panel"]
+top_level = true
+layout_mode = 0
+offset_left = 6.0
+offset_top = 129.0
+offset_right = 246.0
+offset_bottom = 138.0
+
+[node name="HSeparator2" type="HSeparator" parent="Label/Panel"]
+top_level = true
+layout_mode = 0
+offset_left = 6.0
+offset_top = 310.0
+offset_right = 246.0
+offset_bottom = 319.0
