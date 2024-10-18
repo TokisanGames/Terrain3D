@@ -632,7 +632,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 				}
 			}
 			if (cell_inst_dict.is_empty()) {
-				mesh_inst_dict.erase(mesh_id);
+				mesh_inst_dict.erase(m);
 			}
 		}
 		_update_mmis(region_loc);
