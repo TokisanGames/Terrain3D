@@ -532,8 +532,8 @@ void Terrain3DEditor::_store_undo() {
 	}
 
 	// Store data in Godot's Undo/Redo Manager
-	LOG(INFO, "Storing undo snapshot...");
 	EditorUndoRedoManager *undo_redo = _terrain->get_plugin()->get_undo_redo();
+	LOG(INFO, "Storing undo snapshot");
 	String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
 	LOG(DEBUG, "Creating undo action: '", action_name, "'");
 	undo_redo->create_action(action_name, UndoRedo::MERGE_DISABLE, _terrain);
