@@ -35,8 +35,8 @@ private:
 	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_nodes;
 
 	// Region MMI containers named Terrain3D/MMI/Region* are stored here as
-	// _mmi_containers{region_loc} -> Node
-	Dictionary _mmi_containers;
+	// _mmi_containers{region_loc} -> Node3D
+	std::unordered_map<Vector2i, Node3D *, Vector2iHash> _mmi_containers;
 
 	uint32_t _density_counter = 0;
 	uint32_t _get_density_count(const real_t p_density);
@@ -77,7 +77,6 @@ public:
 	Ref<MultiMesh> get_multimesh(const Vector2i &p_region_loc, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instancep(const Vector3 &p_global_position, const int p_mesh_id) const;
 	MultiMeshInstance3D *get_multimesh_instance(const Vector2i &p_region_loc, const int p_mesh_id) const;
-	//std:: get_mmis() const { return _mmi_nodes; }
 	void force_update_mmis();
 
 	void reset_density_counter() { _density_counter = 0; }
