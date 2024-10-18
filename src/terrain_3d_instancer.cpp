@@ -591,7 +591,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					// Use localised ring center
 					real_t radial_distance = localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z));
 					bool rng = radial_distance < UtilityFunctions::randf() * radius;
-					if (cell_quota > 0 && rng && data->is_in_slope(t.origin + global_local_offset, slope_range, invert)) {
+					Vector3 height_offset = t.basis.get_column(1) * mesh_asset->get_height_offset();
+					if (cell_quota > 0 && rng && data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
 						--cell_quota;
 						continue;
 					} else {
