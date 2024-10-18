@@ -105,8 +105,8 @@ private:
 	uint32_t _mouse_layer = 32;
 
 	// Parent containers for child nodes
-	Node *_label_nodes;
-	Node *_mmi_nodes;
+	Node3D *_label_parent;
+	Node3D *_mmi_parent;
 
 	void _initialize();
 	void __process(const double p_delta);
@@ -155,7 +155,7 @@ public:
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
-	Node *get_mmi_parent() const { return _mmi_nodes; }
+	Node *get_mmi_parent() const { return _mmi_parent; }
 	void set_editor(Terrain3DEditor *p_editor);
 	Terrain3DEditor *get_editor() const { return _editor; }
 	void set_plugin(EditorPlugin *p_plugin);
@@ -228,11 +228,11 @@ protected:
 	static void _bind_methods();
 
 public:
-	// DEPRECATED 0.9.2 - Remove 0.9.3+
+	// DEPRECATED 0.9.2 - Remove 1.0
 	void set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list);
 	Ref<Terrain3DTextureList> get_texture_list() const { return Ref<Terrain3DTextureList>(); }
 
-	// DEPRECATED 0.9.3 - Remove 0.9.4+
+	// DEPRECATED 0.9.3 - Remove 1.0
 	Ref<Terrain3DStorage> _storage;
 	void set_storage(const Ref<Terrain3DStorage> &p_storage);
 	Ref<Terrain3DStorage> get_storage() const { return _storage; }
