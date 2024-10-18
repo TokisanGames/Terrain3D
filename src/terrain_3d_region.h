@@ -96,7 +96,7 @@ public:
 	// Instancer
 	void set_instances(const Dictionary &p_instances) { _instances = p_instances; }
 	Dictionary get_instances() const { return _instances; }
-	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 10.f); }
+	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 100.f); }
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
 	// File I/O

@@ -27,10 +27,9 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 			continue;
 		}
 
+		// For all mesh_ids in region
 		Dictionary mesh_inst_dict = region->get_instances();
 		LOG(DEBUG, "Updating MMIs from: ", region_loc);
-
-		// For all mesh id in region
 		Array mesh_types = mesh_inst_dict.keys();
 		for (int m = 0; m < mesh_types.size(); m++) {
 			int mesh_id = mesh_types[m];
@@ -41,9 +40,7 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 				Vector2i cell = cell_locations[c];
 				Array triple = cell_inst_dict[cell];
 				TypedArray<Transform3D> xforms = triple[0];
-				if (xforms.size() > 0) {
-					//LOG(MESG, "Found data, Xforms size: ", xforms.size(), ", colors size: ", colors.size());
-				} else {
+				if (xforms.size() == 0) {
 					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
 					// Remove this or we have a problem elsewhere
 					continue;
@@ -221,22 +218,23 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		return;
 	}
 	MultiMeshInstance3D *mmi = cell_mmi_dict[p_cell];
+	LOG(EXTREME, "Freeing ", uint64_t(mmi), " and erasing mmi cell ", p_cell);
 	cell_mmi_dict.erase(p_cell);
 	remove_from_tree(mmi);
 	memdelete_safely(mmi);
 
 	if (cell_mmi_dict.empty()) {
-		LOG(DEBUG, "Removing mesh ", mesh_key, " from cell MMI dictionary");
+		LOG(EXTREME, "Removing mesh ", mesh_key, " from cell MMI dictionary");
 		mesh_mmi_dict.erase(mesh_key);
 	}
 
 	if (mesh_mmi_dict.empty()) {
-		LOG(DEBUG, "Removing region ", p_region_loc, " from mesh MMI dictionary");
+		LOG(EXTREME, "Removing region ", p_region_loc, " from mesh MMI dictionary");
 		_mmi_nodes.erase(p_region_loc);
 		if (_mmi_containers.count(p_region_loc) > 0) {
 			Node *node = _mmi_containers[p_region_loc];
 			if (node && node->get_child_count() == 0) {
-				LOG(DEBUG, "Removing ", node->get_name());
+				LOG(EXTREME, "Removing ", node->get_name());
 				_mmi_containers.erase(p_region_loc);
 				remove_from_tree(node);
 				memdelete_safely(node);
@@ -253,7 +251,7 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
-	LOG(DEBUG, "Deleting MMI at: ", p_region_loc, " mesh_id: ", p_mesh_id);
+	LOG(DEBUG, "Deleting all MMIs in region: ", p_region_loc, " for mesh_id: ", p_mesh_id);
 	if (_mmi_nodes.count(p_region_loc) == 0) {
 		return;
 	}
@@ -262,8 +260,17 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 	// TODO Hard coded LOD0 - loop through
 	Vector2i mesh_key(p_mesh_id, 0);
 	CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-	for (auto &cell_pair : cell_mmi_dict) {
-		_destroy_mmi_by_cell(p_region_loc, p_mesh_id, cell_pair.first);
+
+	// Iterate over keys as functions will invalidate standard iterator
+	std::vector<Vector2i> keys;
+	keys.reserve(cell_mmi_dict.size());
+	int i = 0;
+	for (auto &it : cell_mmi_dict) {
+		keys.push_back(it.first);
+		i++;
+	}
+	for (auto &cell : keys) {
+		_destroy_mmi_by_cell(p_region_loc, p_mesh_id, cell);
 	}
 }
 
@@ -333,10 +340,19 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 void Terrain3DInstancer::destroy() {
 	IS_DATA_INIT(VOID);
 	LOG(INFO, "Destroying all MMIs");
+
+	// Iterate over keys as subfunction will invalidate standard iterator
+	std::vector<Vector2i> keys;
+	keys.reserve(_mmi_nodes.size());
+	int i = 0;
+	for (auto &it : _mmi_nodes) {
+		keys.push_back(it.first);
+		i++;
+	}
 	int mesh_count = _terrain->get_assets()->get_mesh_count();
-	for (auto &region_pairs : _mmi_nodes) {
+	for (auto &region_loc : keys) {
 		for (int m = 0; m < mesh_count; m++) {
-			_destroy_mmi_by_location(region_pairs.first, m);
+			_destroy_mmi_by_location(region_loc, m);
 		}
 	}
 }
