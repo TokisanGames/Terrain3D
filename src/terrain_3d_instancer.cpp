@@ -355,7 +355,6 @@ void Terrain3DInstancer::destroy() {
 			_destroy_mmi_by_location(region_loc, m);
 		}
 	}
-	LOG(WARN, "Verify cleanup:");
 	dump_mmis();
 }
 
@@ -1076,7 +1075,43 @@ void Terrain3DInstancer::print_multimesh_buffer(MultiMeshInstance3D *p_mmi) cons
 	}
 }
 
+void Terrain3DInstancer::dump_data() {
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
+	Array region_locations = _terrain->get_data()->get_region_locations();
+	LOG(WARN, "Dumping Instancer data for ", region_locations.size(), " active regions");
+	for (int i = 0; i < region_locations.size(); i++) {
+		Vector2i region_loc = region_locations[i];
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		if (region.is_null()) {
+			LOG(WARN, "No region found at: ", region_loc);
+			continue;
+		}
+		LOG(MESG, "Region: ", region_loc);
+		Dictionary mesh_inst_dict = region->get_instances();
+		Array mesh_ids = mesh_inst_dict.keys();
+		for (int m = 0; m < mesh_ids.size(); m++) {
+			int mesh_id = mesh_ids[m];
+			LOG(MESG, "Mesh ID: ", mesh_id);
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cells = cell_inst_dict.keys();
+			for (int c = 0; c < cells.size(); c++) {
+				Vector2i cell = cells[c];
+				Array triple = cell_inst_dict[cell];
+				if (!triple.size() == 3) {
+					LOG(WARN, "Malformed triple at cell ", cell, ": ", triple);
+					continue;
+				}
+				Array xforms = triple[0];
+				Array colors = triple[1];
+				bool modified = triple[2];
+				LOG(MESG, "Mesh: ", mesh_id, " cell: ", cell, " xforms: ", xforms.size(), " colors: ", colors.size(), " modified: ", modified);
+			}
+		}
+	}
+}
+
 void Terrain3DInstancer::dump_mmis() {
+	LOG(WARN, "Dumping MMI tree and node containers");
 	LOG(MESG, "_mmi_containers size: ", int(_mmi_containers.size()));
 	for (auto &it : _mmi_containers) {
 		LOG(MESG, "_mmi_containers region: ", it.first, ", node ptr: ", uint64_t(it.second));
@@ -1109,8 +1144,8 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "clear", "update"), &Terrain3DInstancer::append_location, DEFVAL(false), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "clear", "update"), &Terrain3DInstancer::append_region, DEFVAL(false), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
-
-	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
-	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
 	ClassDB::bind_method(D_METHOD("force_update_mmis"), &Terrain3DInstancer::force_update_mmis);
+	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
+	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);
+	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
 }
