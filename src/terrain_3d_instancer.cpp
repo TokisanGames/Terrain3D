@@ -943,10 +943,9 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	Ref<Terrain3DAssets> assets = _terrain->get_assets();
-	int asset_count = assets->get_mesh_count();
+	int mesh_count = assets->get_mesh_count();
 	LOG(INFO, "Swapping IDs of multimeshes: ", p_src_id, " and ", p_dst_id);
-	if (p_src_id >= 0 && p_src_id < asset_count && p_dst_id >= 0 && p_dst_id < asset_count) {
-		// Change id keys in storage mm dictionary
+	if (p_src_id >= 0 && p_src_id < mesh_count && p_dst_id >= 0 && p_dst_id < mesh_count) {
 		Array region_locations = _terrain->get_data()->get_region_locations();
 		for (int i = 0; i < region_locations.size(); i++) {
 			Vector2i region_loc = region_locations[i];
@@ -955,118 +954,42 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 				LOG(WARN, "No region found at: ", region_loc);
 				continue;
 			}
-			Dictionary mesh_dict = region->get_multimeshes(); // TODO BROKEN
-			// mesh_dict could have src, src&dst, dst or nothing. All 4 must be considered
-			// Pop out any existing MMs
-			Ref<MultiMesh> mm_src;
-			Ref<MultiMesh> mm_dst;
-			if (mesh_dict.has(p_src_id)) {
+
+			// mesh_inst_dict could have src, src+dst, dst or nothing. All 4 must be considered
+			Dictionary mesh_inst_dict = region->get_instances();
+			Dictionary cells_inst_dict_src;
+			Dictionary cells_inst_dict_dst;
+			// Extract src dict
+			if (mesh_inst_dict.has(p_src_id)) {
 				_backup_region(region);
-				mm_src = mesh_dict[p_src_id];
-				mesh_dict.erase(p_src_id);
+				cells_inst_dict_src = mesh_inst_dict[p_src_id];
+				mesh_inst_dict.erase(p_src_id);
 			}
-			if (mesh_dict.has(p_dst_id)) {
+			// Extract dest dict
+			if (mesh_inst_dict.has(p_dst_id)) {
 				_backup_region(region);
-				mm_dst = mesh_dict[p_dst_id];
-				mesh_dict.erase(p_dst_id);
+				cells_inst_dict_dst = mesh_inst_dict[p_dst_id];
+				mesh_inst_dict.erase(p_dst_id);
 			}
-			// If src is ok, insert into dst slot
-			if (mm_src.is_valid()) {
+			// If src exists, insert into dst slot
+			if (!cells_inst_dict_src.is_empty()) {
 				_backup_region(region);
-				mesh_dict[p_dst_id] = mm_src;
+				mesh_inst_dict[p_dst_id] = cells_inst_dict_src;
 			}
-			// If dst is ok, insert into src slot
-			if (mm_dst.is_valid()) {
+			// If dst exists, insert into src slot
+			if (!cells_inst_dict_dst.is_empty()) {
 				_backup_region(region);
-				mesh_dict[p_src_id] = mm_dst;
+				mesh_inst_dict[p_src_id] = cells_inst_dict_dst;
 			}
-			LOG(DEBUG, "Swapped multimesh ids at: ", region_loc);
+			LOG(MESG, "Swapped mesh_ids for region: ", region_loc);
 		}
-
-		// TODO Rewrite all of this
-		// Change key in _mmi_nodes dictionary
-		//Array mmi_keys = _mmi_nodes.keys();
-		//Dictionary to_src_mmis;
-		//Dictionary to_dst_mmis;
-
-		//for (int i = 0; i < mmi_keys.size(); i++) {
-		//	Vector3i key = mmi_keys[i];
-		//	if (key.z == p_src_id) {
-		//		Vector3i dst_key = key; // setup destination key
-		//		dst_key.z = p_dst_id;
-		//		to_dst_mmis[dst_key] = _mmi_nodes[key]; // store MMI under dest key
-		//		_mmi_nodes.erase(key);
-		//	} else if (key.z == p_dst_id) {
-		//		Vector3i src_key = key; // setup source key
-		//		src_key.z = p_src_id;
-		//		to_src_mmis[src_key] = _mmi_nodes[key]; // store MMI under src key
-		//		_mmi_nodes.erase(key);
-		//	}
-		//}
-		//_mmi_nodes.merge(to_src_mmis);
-		//_mmi_nodes.merge(to_dst_mmis);
-		//LOG(DEBUG, "Swapped multimesh instance ids");
+		force_update_mmis();
 	}
-}
-
-Ref<MultiMesh> Terrain3DInstancer::get_multimeshp(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
-	return get_multimesh(region_loc, p_mesh_id);
-}
-
-Ref<MultiMesh> Terrain3DInstancer::get_multimesh(const Vector2i &p_region_loc, const int p_mesh_id) const {
-	IS_DATA_INIT(Ref<MultiMesh>());
-	Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
-	if (region.is_null()) {
-		LOG(WARN, "Null region found at: ", p_region_loc);
-		return Ref<MultiMesh>();
-	}
-	Dictionary mesh_dict = region->get_multimeshes(); // TODO BROKEN
-	Ref<MultiMesh> mm = mesh_dict.get(p_mesh_id, Ref<MultiMesh>());
-	LOG(EXTREME, "Retrieving MultiMesh at region: ", p_region_loc, " mesh_id: ", p_mesh_id, " : ", mm);
-	return mm;
-}
-
-MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instancep(const Vector3 &p_global_position, const int p_mesh_id) const {
-	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
-	return get_multimesh_instance(region_loc, p_mesh_id);
-}
-
-MultiMeshInstance3D *Terrain3DInstancer::get_multimesh_instance(const Vector2i &p_region_loc, const int p_mesh_id) const {
-	return nullptr;
-	// TODO rewrite
-	//Vector3i key = Vector3i(p_region_loc.x, p_region_loc.y, p_mesh_id);
-	////MultiMeshInstance3D *mmi = cast_to<MultiMeshInstance3D>(_mmi_nodes[key]);
-	//MultiMeshInstance3D *mmi = _mmi_nodes[key];
-	//LOG(EXTREME, "Retrieving MultiMeshInstance3D at region: ", p_region_loc, " mesh_id: ", p_mesh_id, " : ", mmi);
-	//return mmi;
 }
 
 void Terrain3DInstancer::force_update_mmis() {
 	destroy();
 	_update_mmis();
-}
-
-void Terrain3DInstancer::print_multimesh_buffer(MultiMeshInstance3D *p_mmi) const {
-	if (p_mmi == nullptr) {
-		return;
-	}
-	Ref<MultiMesh> mm = p_mmi->get_multimesh();
-	PackedRealArray b = mm->get_buffer();
-	UtilityFunctions::print("MM instance count: ", mm->get_instance_count());
-	int mmsize = b.size();
-	if (mmsize <= 12 || mmsize % 12 != 0) {
-		UtilityFunctions::print("MM buffer size not a multiple of 12: ", mmsize);
-		return;
-	}
-	for (int i = 0; i < mmsize; i += 12) {
-		Transform3D tfm;
-		tfm.set(b[i + 0], b[i + 1], b[i + 2], // basis x
-				b[i + 4], b[i + 5], b[i + 6], // basis y
-				b[i + 8], b[i + 9], b[i + 10], // basis z
-				b[i + 3], b[i + 7], b[i + 11]); // origin
-		UtilityFunctions::print(i / 12, ": ", tfm);
-	}
 }
 
 void Terrain3DInstancer::dump_data() {
@@ -1091,7 +1014,7 @@ void Terrain3DInstancer::dump_data() {
 			for (int c = 0; c < cells.size(); c++) {
 				Vector2i cell = cells[c];
 				Array triple = cell_inst_dict[cell];
-				if (!triple.size() == 3) {
+				if (triple.size() != 3) {
 					LOG(WARN, "Malformed triple at cell ", cell, ": ", triple);
 					continue;
 				}

@@ -271,7 +271,6 @@ Dictionary Terrain3DRegion::get_data() const {
 	dict["deleted"] = _deleted;
 	dict["edited"] = _edited;
 	dict["modified"] = _modified;
-	dict["instance_id"] = String::num_uint64(get_instance_id()); // don't commit
 	dict["version"] = _version;
 	dict["region_size"] = _region_size;
 	dict["vertex_spacing"] = _vertex_spacing;
@@ -302,7 +301,7 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		dict["height_map"] = _height_map->duplicate();
 		dict["control_map"] = _control_map->duplicate();
 		dict["color_map"] = _color_map->duplicate();
-		dict["instances"] = _instances.duplicate(true); // TODO test this
+		dict["instances"] = _instances.duplicate(true);
 		region->set_data(dict);
 	}
 	return region;

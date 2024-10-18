@@ -451,7 +451,7 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 			LOG(WARN, i, ": Terrain3DMeshAsset is null");
 			continue;
 		}
-		LOG(DEBUG, i, ": Getting Terrain3DMeshAsset: ", tmesh->get_instance_id());
+		LOG(DEBUG, i, ": Getting Terrain3DMeshAsset: ", String::num_uint64(tmesh->get_instance_id()));
 		Ref<Mesh> mesh = tmesh->get_mesh(0);
 		LOG(DEBUG, i, ": Getting Mesh 0: ", mesh);
 		if (mesh.is_null()) {
