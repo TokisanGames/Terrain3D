@@ -554,15 +554,20 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		Vector2 localised_ring_center = Vector2(p_global_position.x - global_local_offset.x, p_global_position.z - global_local_offset.z);
 		// For this mesh id, or all mesh ids
 		for (int m = (modifier_shift ? 0 : mesh_id); m <= (modifier_shift ? mesh_count - 1 : mesh_id); m++) {
-			// Check potential cells rather than searching the entire region, whilst marginally
-			// slower if there are very few cells for the given mesh present it is significantly
-			// faster when a very large number of cells are present.
-			int mesh_id = mesh_types[m];
-			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
-			Array cell_locations = cell_inst_dict.keys();
-			if (cell_locations.size() == 0) {
+			// Ensure this region has this mesh
+			if (!mesh_inst_dict.has(m)) {
 				continue;
 			}
+			Dictionary cell_inst_dict = mesh_inst_dict[m];
+			Array cell_locations = cell_inst_dict.keys();
+			// This shouldnt be empty.
+			if (cell_locations.size() == 0) {
+				LOG(WARN, "Region at: ", region_loc, " has instance dictionary for mesh id: ", m, " but has no cells.")
+				continue;
+			}
+			// Check potential cells rather than searching the entire region, whilst marginally
+			// slower if there are very few cells for the given mesh present. It is significantly
+			// faster when a large number of cells are present.
 			Dictionary c_locs;
 			// Calculate step distance to ensure every cell is checked inside the bounds of brush size.
 			real_t cell_step = brush_size / ceil(brush_size / real_t(CELL_SIZE) / vertex_spacing);
