@@ -532,25 +532,25 @@ void Terrain3DEditor::_store_undo() {
 	}
 
 	// Store data in Godot's Undo/Redo Manager
-	LOG(INFO, "Storing undo snapshot...");
 	EditorUndoRedoManager *undo_redo = _terrain->get_plugin()->get_undo_redo();
+	LOG(INFO, "Storing undo snapshot");
 	String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
 	LOG(DEBUG, "Creating undo action: '", action_name, "'");
 	undo_redo->create_action(action_name, UndoRedo::MERGE_DISABLE, _terrain);
 
 	LOG(DEBUG, "Storing undo snapshot: ", _undo_data);
 	undo_redo->add_undo_method(this, "apply_undo", _undo_data);
-	for (int i = 0; i < _original_regions.size(); i++) {
-		Ref<Terrain3DRegion> region = _original_regions[i];
-		//LOG(EXTREME, "Original Region: ", region->get_data());
-	}
+	//for (int i = 0; i < _original_regions.size(); i++) {
+	//Ref<Terrain3DRegion> region = _original_regions[i];
+	//LOG(EXTREME, "Original Region: ", region->get_data());
+	//}
 
 	LOG(DEBUG, "Storing redo snapshot: ", redo_data);
 	undo_redo->add_do_method(this, "apply_undo", redo_data);
-	for (int i = 0; i < _edited_regions.size(); i++) {
-		Ref<Terrain3DRegion> region = _edited_regions[i];
-		//LOG(EXTREME, "Edited Region: ", region->get_data());
-	}
+	//for (int i = 0; i < _edited_regions.size(); i++) {
+	//Ref<Terrain3DRegion> region = _edited_regions[i];
+	//LOG(EXTREME, "Edited Region: ", region->get_data());
+	//}
 
 	LOG(DEBUG, "Committing undo action");
 	undo_redo->commit_action(false);
@@ -707,7 +707,7 @@ void Terrain3DEditor::set_tool(const Tool p_tool) {
 // Called on mouse click
 void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	IS_DATA_INIT_MESG("Terrain isn't initialized", VOID);
-	LOG(INFO, "Setting up undo snapshot...");
+	LOG(INFO, "Setting up undo snapshot");
 	_undo_data = Dictionary(); // New pointer instead of clear
 	_undo_data["region_locations"] = _terrain->get_data()->get_region_locations().duplicate();
 	_is_operating = true;
