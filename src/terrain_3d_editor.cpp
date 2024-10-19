@@ -543,18 +543,10 @@ void Terrain3DEditor::_store_undo() {
 	undo_redo->create_action(action_name, UndoRedo::MERGE_DISABLE, _terrain);
 
 	LOG(DEBUG, "Storing undo snapshot: ", _undo_data);
-	undo_redo->add_undo_method(this, "apply_undo", _undo_data);
-	for (int i = 0; i < _original_regions.size(); i++) {
-		Ref<Terrain3DRegion> region = _original_regions[i];
-		LOG(DEBUG, "Original Region: ", region->get_data());
-	}
+	undo_redo->add_undo_method(this, "apply_undo", _undo_data.duplicate());
 
 	LOG(DEBUG, "Storing redo snapshot: ", redo_data);
 	undo_redo->add_do_method(this, "apply_undo", redo_data);
-	for (int i = 0; i < _edited_regions.size(); i++) {
-		Ref<Terrain3DRegion> region = _edited_regions[i];
-		LOG(DEBUG, "Edited Region: ", region->get_data());
-	}
 
 	LOG(DEBUG, "Committing undo action");
 	undo_redo->commit_action(false);
@@ -711,8 +703,8 @@ void Terrain3DEditor::set_tool(const Tool p_tool) {
 // Called on mouse click
 void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	IS_DATA_INIT_MESG("Terrain isn't initialized", VOID);
-	LOG(INFO, "Setting up undo snapshot...");
-	_undo_data = Dictionary(); // New pointer instead of clear
+	LOG(INFO, "Setting up undo snapshot");
+	_undo_data.clear();
 	_undo_data["region_locations"] = _terrain->get_data()->get_region_locations().duplicate();
 	_is_operating = true;
 	_original_regions = TypedArray<Terrain3DRegion>(); // New pointers instead of clear
@@ -780,6 +772,7 @@ void Terrain3DEditor::stop_operation() {
 		}
 		_store_undo();
 	}
+	_undo_data.clear();
 	_original_regions = TypedArray<Terrain3DRegion>(); //New pointers instead of clear
 	_edited_regions = TypedArray<Terrain3DRegion>();
 	_added_removed_locations = TypedArray<Vector2i>();
