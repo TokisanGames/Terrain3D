@@ -119,7 +119,6 @@ public:
 
 	// DEPRECATED 0.9.3-dev - Remove 1.0
 	void set_multimeshes(const Dictionary &p_multimeshes);
-	// TODO Drop this
 	Dictionary get_multimeshes() const { return _multimeshes; }
 
 protected:
