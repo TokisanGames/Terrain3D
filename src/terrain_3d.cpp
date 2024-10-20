@@ -1604,6 +1604,7 @@ void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
 	}
 }
 
+// This function upgrades a v0.9.2 storage to split regions in v0.9.3
 void Terrain3D::split_storage() {
 	if (_storage.is_null()) {
 		LOG(ERROR, "Storage has not been loaded");
@@ -1618,13 +1619,12 @@ void Terrain3D::split_storage() {
 		return;
 	}
 
+	// Upgrade maps
 	set_region_size(SIZE_1024);
 	TypedArray<Vector2i> locations = _storage->get_region_offsets();
 	TypedArray<Image> hmaps = _storage->get_maps(Terrain3DStorage::TYPE_HEIGHT);
 	TypedArray<Image> ctlmaps = _storage->get_maps(Terrain3DStorage::TYPE_CONTROL);
 	TypedArray<Image> clrmaps = _storage->get_maps(Terrain3DStorage::TYPE_COLOR);
-	Dictionary mms = _storage->get_multimeshes();
-
 	for (int i = 0; i < locations.size(); i++) {
 		Ref<Terrain3DRegion> region;
 		region.instantiate();
@@ -1632,9 +1632,21 @@ void Terrain3D::split_storage() {
 		region->set_height_map(hmaps[i]);
 		region->set_control_map(ctlmaps[i]);
 		region->set_color_map(clrmaps[i]);
-		region->set_instances(mms[locations[i]]); // TODO BROKEN - upgrade from 0.9.2
 		_data->add_region(region, false);
 		LOG(INFO, "Splicing region ", locations[i]);
+	}
+
+	//Upgrade instancer data
+	Dictionary mms = _storage->get_multimeshes();
+	Array rkeys = mms.keys();
+	for (int i = 0; i < rkeys.size(); i++) {
+		Vector2i region_loc = rkeys[i];
+		Dictionary mesh_dict = mms[region_loc];
+		Array mkeys = mesh_dict.keys();
+		for (int j = 0; j < mkeys.size(); j++) {
+			int mesh_id = mkeys[j];
+			_instancer->add_multimesh(mesh_id, mesh_dict[mesh_id], Transform3D(), false);
+		}
 	}
 	_storage.unref();
 	_data->force_update_maps();

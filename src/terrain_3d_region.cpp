@@ -271,7 +271,6 @@ Dictionary Terrain3DRegion::get_data() const {
 	dict["deleted"] = _deleted;
 	dict["edited"] = _edited;
 	dict["modified"] = _modified;
-	//dict["instance_id"] = String::num_uint64(get_instance_id()); // don't commit
 	dict["version"] = _version;
 	dict["region_size"] = _region_size;
 	dict["vertex_spacing"] = _vertex_spacing;
@@ -310,11 +309,6 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 
 // DEPRECATED 0.9.3-dev - Remove 1.0
 void Terrain3DRegion::set_multimeshes(const Dictionary &p_multimeshes) {
-	// TODO
-	// This function will upgrade 0.9.3-dev users to _instances
-	// Drop _multimeshes
-	// Translate p_multimeshes into _instances
-	// Consider changing data format to 0.931
 	_multimeshes = p_multimeshes;
 }
 
