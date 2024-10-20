@@ -902,6 +902,9 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					cell_inst_dict.erase(cell);
 					_destroy_mmi_by_cell(region_loc, m, cell);
 				}
+				if (cell_inst_dict.is_empty()) {
+					mesh_inst_dict.erase(region_mesh_id);
+				}
 			}
 		}
 		_update_mmis(region_loc);
