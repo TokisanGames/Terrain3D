@@ -257,11 +257,12 @@ void Terrain3DRegion::set_data(const Dictionary &p_data) {
 	SET_IF_HAS(_modified, "modified");
 	SET_IF_HAS(_version, "version");
 	SET_IF_HAS(_region_size, "region_size");
+	SET_IF_HAS(_vertex_spacing, "vertex_spacing");
 	SET_IF_HAS(_height_range, "height_range");
 	SET_IF_HAS(_height_map, "height_map");
 	SET_IF_HAS(_control_map, "control_map");
 	SET_IF_HAS(_color_map, "color_map");
-	SET_IF_HAS(_multimeshes, "multimeshes");
+	SET_IF_HAS(_instances, "instances");
 }
 
 Dictionary Terrain3DRegion::get_data() const {
@@ -270,14 +271,14 @@ Dictionary Terrain3DRegion::get_data() const {
 	dict["deleted"] = _deleted;
 	dict["edited"] = _edited;
 	dict["modified"] = _modified;
-	dict["instance_id"] = String::num_uint64(get_instance_id()); // don't commit
 	dict["version"] = _version;
 	dict["region_size"] = _region_size;
+	dict["vertex_spacing"] = _vertex_spacing;
 	dict["height_range"] = _height_range;
 	dict["height_map"] = _height_map;
 	dict["control_map"] = _control_map;
 	dict["color_map"] = _color_map;
-	dict["multimeshes"] = _multimeshes;
+	dict["instances"] = _instances;
 	return dict;
 }
 
@@ -291,6 +292,7 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		// Native type copies
 		dict["version"] = _version;
 		dict["region_size"] = _region_size;
+		dict["vertex_spacing"] = _vertex_spacing;
 		dict["height_range"] = _height_range;
 		dict["modified"] = _modified;
 		dict["deleted"] = _deleted;
@@ -299,18 +301,15 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		dict["height_map"] = _height_map->duplicate();
 		dict["control_map"] = _control_map->duplicate();
 		dict["color_map"] = _color_map->duplicate();
-		Dictionary mms;
-		Array keys = _multimeshes.keys();
-		for (int i = 0; i < keys.size(); i++) {
-			int mesh_id = keys[i];
-			Ref<MultiMesh> mm = _multimeshes[mesh_id];
-			mm->duplicate();
-			mms[mesh_id] = mm;
-		}
-		dict["multimeshes"] = mms;
+		dict["instances"] = _instances.duplicate(true);
 		region->set_data(dict);
 	}
 	return region;
+}
+
+// DEPRECATED 0.9.3-dev - Remove 1.0
+void Terrain3DRegion::set_multimeshes(const Dictionary &p_multimeshes) {
+	_multimeshes = p_multimeshes;
 }
 
 /////////////////////
@@ -327,6 +326,8 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DRegion::get_version);
 	ClassDB::bind_method(D_METHOD("set_region_size", "region_size"), &Terrain3DRegion::set_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3DRegion::get_region_size);
+	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "vertex_spacing"), &Terrain3DRegion::set_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3DRegion::get_vertex_spacing);
 
 	ClassDB::bind_method(D_METHOD("set_map", "map_type", "map"), &Terrain3DRegion::set_map);
 	ClassDB::bind_method(D_METHOD("get_map", "map_type"), &Terrain3DRegion::get_map);
@@ -348,8 +349,8 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_heights", "low_high"), &Terrain3DRegion::update_heights);
 	ClassDB::bind_method(D_METHOD("calc_height_range"), &Terrain3DRegion::calc_height_range);
 
-	ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DRegion::set_multimeshes);
-	ClassDB::bind_method(D_METHOD("get_multimeshes"), &Terrain3DRegion::get_multimeshes);
+	ClassDB::bind_method(D_METHOD("set_instances", "instances"), &Terrain3DRegion::set_instances);
+	ClassDB::bind_method(D_METHOD("get_instances"), &Terrain3DRegion::get_instances);
 
 	ClassDB::bind_method(D_METHOD("save", "path", "16-bit"), &Terrain3DRegion::save, DEFVAL(""), DEFVAL(false));
 
@@ -369,15 +370,21 @@ void Terrain3DRegion::_bind_methods() {
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_NONE, "", ro_flags), "set_region_size", "get_region_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_NONE, "", ro_flags), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "height_range", PROPERTY_HINT_NONE, "", ro_flags), "set_height_range", "get_height_range");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "height_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "control_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "color_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_color_map", "get_color_map");
-	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "instances", PROPERTY_HINT_NONE, "", ro_flags), "set_instances", "get_instances");
 
 	// Double-clicking a region .res file shows what's on disk, the defaults, not in memory. So these are hidden
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "edited", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_edited", "is_edited");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "deleted", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_deleted", "is_deleted");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_modified", "is_modified");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_location", "get_location");
+
+	// DEPRECATED 0.9.3-dev - Remove 1.0
+	ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DRegion::set_multimeshes);
+	ClassDB::bind_method(D_METHOD("get_multimeshes"), &Terrain3DRegion::get_multimeshes);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
 }

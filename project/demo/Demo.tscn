@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://chol2xlfbq7cu"]
+[gd_scene load_steps=13 format=3 uid="uid://chol2xlfbq7cu"]
 
 [ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_nqak5"]
@@ -63,6 +63,22 @@ _shader_parameters = {
 world_background = 2
 auto_shader = true
 dual_scaling = true
+show_instancer_grid = true
+
+[sub_resource type="GDScript" id="GDScript_cserl"]
+script/source = "@tool
+extends Terrain3D
+
+
+@export var dump_data: bool = false :
+	set(value):
+		instancer.dump_data()
+
+
+@export var dump_tree: bool = false :
+	set(value):
+		instancer.dump_mmis()
+"
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")
@@ -86,4 +102,5 @@ material = SubResource("Terrain3DMaterial_jrc01")
 assets = ExtResource("8_g2of2")
 collision_mask = 3
 top_level = true
+script = SubResource("GDScript_cserl")
 metadata/_edit_lock_ = true

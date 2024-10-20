@@ -87,4 +87,23 @@ using namespace godot;
 		return ret;                                               \
 	}
 
+// Global Types
+
+struct Vector2iHash {
+	std::size_t operator()(const Vector2i &v) const {
+		std::size_t h1 = std::hash<int>()(v.x);
+		std::size_t h2 = std::hash<int>()(v.y);
+		return h1 ^ (h2 << 1);
+	}
+};
+
+struct Vector3Hash {
+	std::size_t operator()(const Vector3 &v) const {
+		std::size_t h1 = std::hash<float>()(v.x);
+		std::size_t h2 = std::hash<float>()(v.y);
+		std::size_t h3 = std::hash<float>()(v.z);
+		return h1 ^ (h2 << 1) ^ (h3 << 2);
+	}
+};
+
 #endif // CONSTANTS_CLASS_H
