@@ -630,7 +630,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	}
 }
 
-void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform) {
+void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform, const bool p_update) {
 	LOG(INFO, "Extracting ", p_multimesh->get_instance_count(), " transforms from multimesh");
 	TypedArray<Transform3D> xforms;
 	PackedColorArray colors;
@@ -642,11 +642,11 @@ void Terrain3DInstancer::add_multimesh(const int p_mesh_id, const Ref<MultiMesh>
 		}
 		colors.push_back(c);
 	}
-	add_transforms(p_mesh_id, xforms, colors);
+	add_transforms(p_mesh_id, xforms, colors, p_update);
 }
 
 // Expects transforms in global space
-void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors) {
+void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_update) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	if (p_xforms.size() == 0) {
 		return;
@@ -691,13 +691,13 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 		TypedArray<Transform3D> xforms = xforms_dict[region_loc];
 		PackedColorArray colors = colors_dict[region_loc];
 		//LOG(MESG, "Appending ", xforms.size(), " xforms, ", colors, " colors to region location: ", region_loc);
-		append_location(region_loc, p_mesh_id, xforms, colors);
+		append_location(region_loc, p_mesh_id, xforms, colors, p_update);
 	}
 }
 
 // Appends new global transforms to existing cells, offsetting transforms to region space, scaled by vertex spacing
 void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int p_mesh_id,
-		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_clear, const bool p_update) {
+		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_update) {
 	IS_DATA_INIT(VOID);
 	Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 	if (region.is_null()) {
@@ -714,12 +714,12 @@ void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int
 		t.origin.z -= global_local_offset.y;
 		localised_xforms.push_back(t);
 	}
-	append_region(region, p_mesh_id, localised_xforms, p_colors, p_clear, p_update);
+	append_region(region, p_mesh_id, localised_xforms, p_colors, p_update);
 }
 
 // append_region requires all transforms are in region space, 0 - region_size * vertex_spacing
 void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id,
-		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_clear, const bool p_update) {
+		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_update) {
 	if (p_region.is_null()) {
 		LOG(ERROR, "Null region provided. Doing nothing.");
 		return;
@@ -742,7 +742,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		// Get current instance arrays or create if none
 		Array triple = cell_locations[cell];
 		bool modified = true;
-		if (p_clear || triple.size() != 3) {
+		if (triple.size() != 3) {
 			LOG(DEBUG, "No data at ", p_region->get_location(), ":", cell, ". Creating triple");
 			triple.resize(3);
 			triple[0] = TypedArray<Transform3D>();
@@ -934,7 +934,7 @@ void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, con
 		if (xforms.size() == 0) {
 			continue;
 		}
-		append_region(Ref<Terrain3DRegion>(p_dst_region), m, xforms, colors, false, false);
+		append_region(Ref<Terrain3DRegion>(p_dst_region), m, xforms, colors, false);
 	}
 }
 
@@ -1054,12 +1054,13 @@ void Terrain3DInstancer::dump_mmis() {
 void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear_by_mesh", "mesh_id"), &Terrain3DInstancer::clear_by_mesh);
 	ClassDB::bind_method(D_METHOD("clear_by_location", "region_location", "mesh_id"), &Terrain3DInstancer::clear_by_location);
+	ClassDB::bind_method(D_METHOD("clear_by_region", "region", "mesh_id"), &Terrain3DInstancer::clear_by_region);
 	ClassDB::bind_method(D_METHOD("add_instances", "global_position", "params"), &Terrain3DInstancer::add_instances);
 	ClassDB::bind_method(D_METHOD("remove_instances", "global_position", "params"), &Terrain3DInstancer::remove_instances);
-	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()));
-	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors"), &Terrain3DInstancer::add_transforms, DEFVAL(PackedColorArray()));
-	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "clear", "update"), &Terrain3DInstancer::append_location, DEFVAL(false), DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "clear", "update"), &Terrain3DInstancer::append_region, DEFVAL(false), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform", "update"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::add_transforms, DEFVAL(PackedColorArray()), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
 	ClassDB::bind_method(D_METHOD("force_update_mmis"), &Terrain3DInstancer::force_update_mmis);
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
