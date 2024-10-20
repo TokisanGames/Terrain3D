@@ -544,16 +544,28 @@ void Terrain3DAssets::update_mesh_list() {
 	emit_signal("meshes_changed");
 }
 
-void Terrain3DAssets::save() {
+Error Terrain3DAssets::save(const String &p_path) {
+	if (p_path.is_empty() && get_path().is_empty()) {
+		LOG(ERROR, "No valid path provided");
+		return ERR_FILE_NOT_FOUND;
+	}
+	if (!p_path.is_empty()) {
+		LOG(DEBUG, "Setting file path to ", p_path);
+		take_over_path(p_path);
+	}
+	// Save to external resource file if specified
+	Error err = OK;
 	String path = get_path();
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
-		LOG(DEBUG, "Attempting to save texture list to external file: " + path);
-		Error err;
+		LOG(DEBUG, "Attempting to save external file: " + path);
 		err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
-		ERR_FAIL_COND(err);
-		LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
-		LOG(INFO, "Finished saving texture list");
+		if (err == OK) {
+			LOG(INFO, "File saved successfully: ", path);
+		} else {
+			LOG(ERROR, "Cannot save file: ", path, ". Error code: ", ERROR, ". Look up @GlobalScope Error enum in the Godot docs");
+		}
 	}
+	return err;
 }
 
 ///////////////////////////
@@ -586,7 +598,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("create_mesh_thumbnails", "id", "size"), &Terrain3DAssets::create_mesh_thumbnails, DEFVAL(-1), DEFVAL(Vector2i(128, 128)));
 	ClassDB::bind_method(D_METHOD("update_mesh_list"), &Terrain3DAssets::update_mesh_list);
 
-	ClassDB::bind_method(D_METHOD("save"), &Terrain3DAssets::save);
+	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DAssets::save, DEFVAL(""));
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "mesh_list", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DMeshAsset"), ro_flags), "set_mesh_list", "get_mesh_list");

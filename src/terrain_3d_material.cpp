@@ -643,7 +643,16 @@ void Terrain3DMaterial::set_show_vertex_grid(const bool p_enabled) {
 	_update_shader();
 }
 
-void Terrain3DMaterial::save() {
+Error Terrain3DMaterial::save(const String &p_path) {
+	if (p_path.is_empty() && get_path().is_empty()) {
+		LOG(ERROR, "No valid path provided");
+		return ERR_FILE_NOT_FOUND;
+	}
+	if (!p_path.is_empty()) {
+		LOG(DEBUG, "Setting file path to ", p_path);
+		take_over_path(p_path);
+	}
+
 	LOG(DEBUG, "Generating parameter list from shaders");
 	// Get shader parameters from default shader (eg world_noise)
 	Array param_list;
@@ -676,16 +685,19 @@ void Terrain3DMaterial::save() {
 		}
 	}
 
-	// Save to external resource file if used
+	// Save to external resource file if specified
+	Error err = OK;
 	String path = get_path();
 	if (path.get_extension() == "tres" || path.get_extension() == "res") {
-		LOG(DEBUG, "Attempting to save material to external file: " + path);
-		Error err;
+		LOG(DEBUG, "Attempting to save external file: " + path);
 		err = ResourceSaver::get_singleton()->save(this, path, ResourceSaver::FLAG_COMPRESS);
-		ERR_FAIL_COND(err);
-		LOG(DEBUG, "ResourceSaver return error (0 is OK): ", err);
-		LOG(INFO, "Finished saving material");
+		if (err == OK) {
+			LOG(INFO, "File saved successfully: ", path);
+		} else {
+			LOG(ERROR, "Cannot save file: ", path, ". Error code: ", ERROR, ". Look up @GlobalScope Error enum in the Godot docs");
+		}
 	}
+	return err;
 }
 
 ///////////////////////////
@@ -859,7 +871,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3DMaterial::set_show_vertex_grid);
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
 
-	ClassDB::bind_method(D_METHOD("save"), &Terrain3DMaterial::save);
+	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DMaterial::save, DEFVAL(""));
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");

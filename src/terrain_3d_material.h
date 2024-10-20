@@ -140,7 +140,7 @@ public:
 	void set_show_vertex_grid(const bool p_enabled);
 	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 
-	void save();
+	Error save(const String &p_path = "");
 
 protected:
 	void _get_property_list(List<PropertyInfo> *p_list) const;

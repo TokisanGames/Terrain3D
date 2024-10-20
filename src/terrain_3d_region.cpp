@@ -206,7 +206,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		LOG(ERROR, "No valid path provided");
 		return ERR_FILE_NOT_FOUND;
 	}
-	if (get_path().is_empty() && !p_path.is_empty()) {
+	if (!p_path.is_empty()) {
 		LOG(DEBUG, "Setting file path for region ", _location, " to ", p_path);
 		take_over_path(p_path);
 		// Set region path and take over the path from any other cached resources,
@@ -214,7 +214,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 	}
 	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
 	set_version(Terrain3DData::CURRENT_VERSION);
-	Error err;
+	Error err = OK;
 	if (p_16_bit) {
 		Ref<Image> original_map;
 		original_map.instantiate();
