@@ -24,3 +24,5 @@ Contributors
 * Ryan [@Ryan-000](https://github.com/Ryan-000)
 * Malido [@Malidos](https://github.com/Malidos)
 * Sven Cannivy [@svencan](https://github.com/svencan)
+* Scott Davis [@scottdavis](https://github.com/scottdavis)
+* [@jesus-g20](https://github.com/jesus-g20)

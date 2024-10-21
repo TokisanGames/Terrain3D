@@ -73,7 +73,8 @@
 			</description>
 		</method>
 		<method name="save">
-			<return type="void" />
+			<return type="int" enum="Error" />
+			<param index="0" name="path" type="String" default="&quot;&quot;" />
 			<description>
 				Saves this texture list resource to disk, if saved as an external [code skip-lint].tres[/code] or [code skip-lint].res[/code] resource file.
 			</description>
