@@ -79,7 +79,7 @@ func set_template(p_value: NavigationMesh) -> void:
 
 func parse_scene() -> void:
 	_scene_geometry = NavigationMeshSourceGeometryData3D.new()
-	NavigationMeshGenerator.parse_source_geometry_data(template, _scene_geometry, self)
+	NavigationServer3D.parse_source_geometry_data(template, _scene_geometry, self)
 
 
 func _update_map_cell_size() -> void:
@@ -131,7 +131,7 @@ func _task_bake(p_center: Vector3) -> void:
 		source_geometry.add_faces(faces, Transform3D.IDENTITY)
 	
 	if source_geometry.has_data():
-		NavigationMeshGenerator.bake_from_source_geometry_data(nav_mesh, source_geometry)
+		NavigationServer3D.bake_from_source_geometry_data(nav_mesh, source_geometry)
 		_bake_finished.call_deferred(nav_mesh)
 	else:
 		_bake_finished.call_deferred(null)
