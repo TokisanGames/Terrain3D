@@ -26,10 +26,6 @@ const COLOR_PICK_COLOR := Color.WHITE
 const COLOR_PICK_HEIGHT := Color.DARK_RED
 const COLOR_PICK_ROUGH := Color.ROYAL_BLUE
 
-const MODIFIER_KEYS := [KEY_SHIFT, KEY_CTRL, KEY_ALT]
-const M_SHIFT: int = 0x1
-const M_CTRL: int = 0x2
-const M_ALT: int = 0x4
 const OP_NONE: int = 0x0
 const OP_POSITIVE_ONLY: int = 0x01
 const OP_NEGATIVE_ONLY: int = 0x02
@@ -50,13 +46,9 @@ var decal_timer: Timer
 var gradient_decals: Array[Decal]
 var brush_data: Dictionary
 var operation_builder: OperationBuilder
-var modifiers: int = 0
-var modifier_ctrl: bool
-var modifier_alt: bool
-var modifier_shift: bool
 var last_tool: Terrain3DEditor.Tool
 var last_operation: Terrain3DEditor.Operation
-var last_rmb_time: int = 0
+var last_rmb_time: int = 0 # Set in editor.gd
 
 # Compatibility decals, indices; 0 = main brush, 1 = slope point A, 2 = slope point B
 var editor_decal_position: Array[Vector2]
@@ -96,7 +88,6 @@ func _enter_tree() -> void:
 		if node:
 			get_tree().create_tween().tween_property(node, "albedo_mix", 0.0, 0.15)).bind(decal))
 	add_child(decal_timer)
-	plugin.godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
 
 
 func _exit_tree() -> void:
@@ -110,12 +101,6 @@ func _exit_tree() -> void:
 	for gradient_decal in gradient_decals:
 		gradient_decal.queue_free()
 	gradient_decals.clear()
-	plugin.godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
-
-
-func _on_godot_focus_entered() -> void:
-	update_modifiers()
-	update_decal()
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
@@ -278,6 +263,41 @@ func _on_setting_changed() -> void:
 	plugin.editor.set_operation(_modify_operation(plugin.editor.get_operation()))
 
 
+func update_modifiers() -> void:
+	toolbar.show_add_buttons(not plugin.modifier_ctrl)
+
+	if plugin.modifier_shift and not plugin.modifier_ctrl:
+		plugin.editor.set_tool(Terrain3DEditor.SCULPT)
+		plugin.editor.set_operation(Terrain3DEditor.AVERAGE)
+	else:
+		plugin.editor.set_tool(last_tool)
+		if plugin.modifier_ctrl:
+			plugin.editor.set_operation(_modify_operation(last_operation))
+		else:
+			plugin.editor.set_operation(last_operation)
+
+
+func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
+	var remove_checked: bool = false
+	if DisplayServer.is_touchscreen_available():
+		var removable_tools := [Terrain3DEditor.REGION, Terrain3DEditor.SCULPT, Terrain3DEditor.HEIGHT, Terrain3DEditor.AUTOSHADER,
+			Terrain3DEditor.HOLES, Terrain3DEditor.INSTANCER, Terrain3DEditor.NAVIGATION, 
+			Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS]
+		remove_checked = brush_data.get("remove", false) && plugin.editor.get_tool() in removable_tools
+		
+	if plugin.modifier_ctrl or remove_checked:
+		return _invert_operation(p_operation, OP_NEGATIVE_ONLY)
+	return _invert_operation(p_operation, OP_POSITIVE_ONLY)
+
+
+func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_NONE) -> Terrain3DEditor.Operation:
+	if p_operation == Terrain3DEditor.ADD and ! (flags & OP_POSITIVE_ONLY):
+		return Terrain3DEditor.SUBTRACT
+	elif p_operation == Terrain3DEditor.SUBTRACT and ! (flags & OP_NEGATIVE_ONLY):
+		return Terrain3DEditor.ADD
+	return p_operation
+
+
 func update_decal() -> void:
 	var mouse_buttons: int = Input.get_mouse_button_mask()
 
@@ -323,14 +343,14 @@ func update_decal() -> void:
 			Terrain3DEditor.SCULPT:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.ADD:
-						if modifier_alt:
+						if plugin.modifier_alt:
 							decal.modulate = COLOR_LIFT
 							decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 						else:
 							decal.modulate = COLOR_RAISE
 							decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.SUBTRACT:
-						if modifier_alt:
+						if plugin.modifier_alt:
 							decal.modulate = COLOR_FLATTEN
 							decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 						else:
@@ -510,59 +530,6 @@ func pick(p_global_position: Vector3) -> void:
 	
 	elif operation_builder and operation_builder.is_picking():
 		operation_builder.pick(p_global_position, plugin.terrain)
-
-
-func update_modifiers() -> void:
-	# Return if modifiers haven't changed; modifiers disappear when clicking asset_dock
-	var current_mods: int = 0
-	for i in MODIFIER_KEYS.size():
-		if Input.is_key_pressed(MODIFIER_KEYS[i]):
-			current_mods |= 1 << i
-	if modifiers == current_mods and brush_data.has("modifier_shift"):
-		return
-	
-	modifier_shift = bool(current_mods & M_SHIFT)
-	brush_data["modifier_shift"] = modifier_shift
-
-	modifier_ctrl = bool(current_mods & M_CTRL)
-	brush_data["modifier_ctrl"] = modifier_ctrl
-	toolbar.show_add_buttons(!modifier_ctrl)
-
-	modifier_alt = bool(current_mods & M_ALT)
-	brush_data["modifier_alt"] = modifier_alt
-
-	if modifier_shift and not modifier_ctrl:
-		plugin.editor.set_tool(Terrain3DEditor.SCULPT)
-		plugin.editor.set_operation(Terrain3DEditor.AVERAGE)
-	else:
-		plugin.editor.set_tool(last_tool)
-		if modifier_ctrl:
-			plugin.editor.set_operation(_modify_operation(last_operation))
-		else:
-			plugin.editor.set_operation(last_operation)
-	
-	modifiers = current_mods
-
-
-func _modify_operation(p_operation: Terrain3DEditor.Operation) -> Terrain3DEditor.Operation:
-	var remove_checked: bool = false
-	if DisplayServer.is_touchscreen_available():
-		var removable_tools := [Terrain3DEditor.REGION, Terrain3DEditor.SCULPT, Terrain3DEditor.HEIGHT, Terrain3DEditor.AUTOSHADER,
-			Terrain3DEditor.HOLES, Terrain3DEditor.INSTANCER, Terrain3DEditor.NAVIGATION, 
-			Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS]
-		remove_checked = brush_data.get("remove", false) && plugin.editor.get_tool() in removable_tools
-		
-	if modifier_ctrl or remove_checked:
-		return _invert_operation(p_operation, OP_NEGATIVE_ONLY)
-	return _invert_operation(p_operation, OP_POSITIVE_ONLY)
-
-
-func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_NONE) -> Terrain3DEditor.Operation:
-	if p_operation == Terrain3DEditor.ADD and ! (flags & OP_POSITIVE_ONLY):
-		return Terrain3DEditor.SUBTRACT
-	elif p_operation == Terrain3DEditor.SUBTRACT and ! (flags & OP_NEGATIVE_ONLY):
-		return Terrain3DEditor.ADD
-	return p_operation
 
 
 func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:

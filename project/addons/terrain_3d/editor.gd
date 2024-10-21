@@ -8,6 +8,16 @@ const UI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
+const MODIFIER_KEYS := [KEY_SHIFT, KEY_CTRL, KEY_ALT]
+const M_SHIFT: int = 0x1
+const M_CTRL: int = 0x2
+const M_ALT: int = 0x4
+
+var modifier_ctrl: bool
+var modifier_alt: bool
+var modifier_shift: bool
+var _last_modifiers: int = 0
+
 var terrain: Terrain3D
 var _last_terrain: Terrain3D
 var nav_region: NavigationRegion3D
@@ -25,15 +35,12 @@ var godot_editor_window: Window # The Godot Editor window
 func _init() -> void:
 	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
 	godot_editor_window = EditorInterface.get_base_control().get_parent().get_parent()
+	godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
 
 	
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
-	editor_settings = EditorInterface.get_editor_settings()
-	_cleanup_editor_settings()
-	# Initialize the new key binding option
-	if not editor_settings.has_setting("config/alternate_key_binding"):
-		editor_settings.set_setting("config/alternate_key_binding", false)
+	setup_editor_settings()
 	ui = UI.new()
 	ui.plugin = self
 	add_child(ui)
@@ -53,6 +60,12 @@ func _exit_tree() -> void:
 	editor.free()
 
 	scene_changed.disconnect(_on_scene_changed)
+	godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
+
+
+func _on_godot_focus_entered() -> void:
+	update_modifiers()
+	ui.update_decal()
 
 
 ## EditorPlugin selection function call chain isn't consistent. Here's the map of calls:
@@ -144,7 +157,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 	
-	ui.update_modifiers()
+	update_modifiers()
 	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
@@ -242,6 +255,30 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	return AFTER_GUI_INPUT_PASS
 
 
+func update_modifiers() -> void:
+	var current_mods: int = 0
+	for i in MODIFIER_KEYS.size():
+		if Input.is_key_pressed(MODIFIER_KEYS[i]):
+			current_mods |= 1 << i
+
+	# Return if modifiers haven't changed AND brush_data has them;
+	# modifiers disappear from brush_data when clicking asset_dock (Why?)
+	if _last_modifiers == current_mods and ui.brush_data.has("modifier_shift"):
+		return
+	
+	modifier_shift = bool(current_mods & M_SHIFT)
+	ui.brush_data["modifier_shift"] = modifier_shift
+
+	modifier_ctrl = bool(current_mods & M_CTRL)
+	ui.brush_data["modifier_ctrl"] = modifier_ctrl
+
+	modifier_alt = bool(current_mods & M_ALT)
+	ui.brush_data["modifier_alt"] = modifier_alt
+
+	_last_modifiers = current_mods
+	ui.update_modifiers()
+
+
 func update_region_grid() -> void:
 	if not region_gizmo:
 		return
@@ -301,8 +338,20 @@ func select_terrain() -> void:
 		es.add_node(_last_terrain)
 
 
+## Editor Settings
+
+
+func setup_editor_settings() -> void:
+	editor_settings = EditorInterface.get_editor_settings()
+	# Initialize the new key binding option
+	if not editor_settings.has_setting("terrain3d/config/alternate_key_binding"):
+		editor_settings.set_setting("terrain3d/config/alternate_key_binding", false)
+
+	_cleanup_old_settings()
+
+	
 # Remove or rename old settings
-func _cleanup_editor_settings() -> void:
+func _cleanup_old_settings() -> void:
 	# Rename deprecated settings - Remove in 1.0
 	var value: Variant
 	var rename_arr := [ "terrain3d/config/dock_slot", "terrain3d/config/dock_tile_size", 
