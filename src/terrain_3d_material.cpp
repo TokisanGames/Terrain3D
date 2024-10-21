@@ -124,6 +124,7 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	if (_world_background != NOISE) {
 		excludes.push_back("WORLD_NOISE1");
 		excludes.push_back("WORLD_NOISE2");
+		excludes.push_back("WORLD_NOISE3");
 	}
 	if (_texture_filtering == LINEAR) {
 		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
