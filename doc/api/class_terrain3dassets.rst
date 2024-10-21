@@ -62,7 +62,7 @@ Methods
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`PackedFloat32Array<class_PackedFloat32Array>`       | :ref:`get_texture_uv_scales<class_Terrain3DAssets_method_get_texture_uv_scales>`\ (\ ) |const|                                                                                         |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                    | :ref:`save<class_Terrain3DAssets_method_save>`\ (\ )                                                                                                                                   |
+   | :ref:`Error<enum_@GlobalScope_Error>`                     | :ref:`save<class_Terrain3DAssets_method_save>`\ (\ path\: :ref:`String<class_String>` = ""\ )                                                                                          |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                    | :ref:`set_mesh_asset<class_Terrain3DAssets_method_set_mesh_asset>`\ (\ id\: :ref:`int<class_int>`, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ )                       |
    +-----------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -330,7 +330,7 @@ Returns the array of all uv scale values used in the texture assets, indexed by 
 
 .. rst-class:: classref-method
 
-|void| **save**\ (\ ) :ref:`🔗<class_Terrain3DAssets_method_save>`
+:ref:`Error<enum_@GlobalScope_Error>` **save**\ (\ path\: :ref:`String<class_String>` = ""\ ) :ref:`🔗<class_Terrain3DAssets_method_save>`
 
 Saves this texture list resource to disk, if saved as an external ``.tres`` or ``.res`` resource file.
 

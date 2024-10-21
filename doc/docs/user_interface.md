@@ -21,39 +21,44 @@ The tools provide options for sculpting, texturing, and other features. Each but
 
 First, select the Region Tool (first one: square with a cross), and click the ground. This allocates space for you to sculpt and paint.
 
+---
+
 ## Keyboard Shortcuts
 
 The following mouse and keyboard shortcuts are available.
 
-*Note*: Touchscreen users will see an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
+**Maya Users:** The <kbd>Alt</kbd> key can be changed to Space, Meta (Windows), or Capslock in `Editor Settings / Terrain3D / Config / Alt Key Bind` so it does not conflict with Maya input settings `Editor Settings / 3D / Navigation / Navigation Scheme`.
 
-*Note*: If the "Alternate Key Bindings" option is enabled in the editor settings, RMB (Right Mouse Button) replaces the default Alt + LMB behavior. This allows sculpting operations to be performed with RMB.
+**Touchscreen Users:** will see an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
 
 
 ### General Keys
 * <kbd>LMB</kbd> - Click the terrain to positively apply the current tool.
 * <kbd>Ctrl + LMB</kbd> - **Inverse** the tool. Removes regions, height, color, wetness, autoshader, holes, navigation, foliage.
-* <kbd>Shift + LMB</kbd> - Change to the **Smooth** sculpting tool if shift is the _only_ modifier pressed.
-* <kbd>Ctrl + Z</kbd> - Undo. You can also view the operations in Godot's `History` panel.
-* <kbd>Ctrl + Shift + Z</kbd> - Redo.
-* <kbd>Ctrl + S</kbd> - Save the scene and all data.
+* <kbd>Shift + LMB</kbd> - Change to the **Smooth** sculpting tool.
+* <kbd>Ctrl + Z</kbd> - **Undo**. You can view the entries in the Godot `History` panel.
+* <kbd>Ctrl + Shift + Z</kbd> - **Redo**.
+* <kbd>Ctrl + S</kbd> - **Save** the scene and all data.
 
 ### Sculpting Specific
-* <kbd>Alt + LMB</kbd> - **Lift floors**. This lifts up lower portions of the terrain without affecting higher terrain around it. Use it along the bottom of cliff faces. See [videos demonstrating before and after](https://github.com/TokisanGames/Terrain3D/pull/409). 
+* <kbd>Alt + LMB</kbd> - **Lift floors**. This lifts up lower portions of the terrain without affecting higher terrain. Use it along the bottom of cliff faces. See [videos demonstrating before and after](https://github.com/TokisanGames/Terrain3D/pull/409). 
 * <kbd>Ctrl + Alt + LMB</kbd> - **Flatten peaks**. The inverse of the above. This reduces peaks and ridges without affecting lower terrain around it.
 
-### Slope Operations Specific
+### Slope Filter
 
-These operations support slope: **Paint**, **Spray**, **Color**, **Wetness**, **Instancer**.
+The slope filter on the bottom settings bar limits operations based on terrain slope. Don't confuse this with the slope sculpting tool on the left toolbar.
 
-* <kbd>LMB</kbd> - Operate within the set slope.
-* <kbd>Alt + LMB</kbd> - Operate outside the set slope.
-* <kbd>Ctrl + Alt + LMB</kbd> - Inversely operate outside the set slope. eg. Remove color or foliage outside the defined slope setting.
+These operations support filtering by slope: **Paint**, **Spray**, **Color**, **Wetness**, **Instancer**.
+
+* <kbd>LMB</kbd> - Add within the defined slope.
+* <kbd>Ctrl + LMB</kbd> - Remove within the defined slope.
+* <kbd>Alt + LMB</kbd> - Add outside the defined slope.
+* <kbd>Ctrl + Alt + LMB</kbd> - Remove operate outside the defined slope.
 
 ### Instancer Specific
 * <kbd>LMB</kbd> - Add the selected mesh instance to the terrain.
 * <kbd>Ctrl + LMB</kbd> - Remove instances of the selected type.
-* <kbd>Ctrl + Shift + LMB</kbd> - Remove instances of any type.
+* <kbd>Ctrl + Shift + LMB</kbd> - Remove instances of **any** type.
 
 
 ---
