@@ -8,15 +8,11 @@ const UI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
-const MODIFIER_KEYS := [KEY_SHIFT, KEY_CTRL, KEY_ALT]
-const M_SHIFT: int = 0x1
-const M_CTRL: int = 0x2
-const M_ALT: int = 0x4
-
 var modifier_ctrl: bool
 var modifier_alt: bool
 var modifier_shift: bool
 var _last_modifiers: int = 0
+var _input_mode: int = 0 # -1: camera move, 0: none, 1: operating
 
 var terrain: Terrain3D
 var _last_terrain: Terrain3D
@@ -64,7 +60,7 @@ func _exit_tree() -> void:
 
 
 func _on_godot_focus_entered() -> void:
-	update_modifiers()
+	_read_input()
 	ui.update_decal()
 
 
@@ -157,15 +153,12 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 	
-	update_modifiers()
+	_read_input(p_event)
 	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-			return AFTER_GUI_INPUT_PASS
+		## Setup active camera & viewport
 
-		## Setup for active camera & viewport
-		
 		# Snap terrain to current camera 
 		terrain.set_camera(p_viewport_camera)
 
@@ -192,90 +185,108 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				return AFTER_GUI_INPUT_STOP
 			mouse_global_position = intersection_point
 
-		## Update decal
-		ui.decal.global_position = mouse_global_position
 		ui.update_decal()
 
-		## Update region highlight
-		var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
-			/ (terrain.get_region_size() * terrain.get_vertex_spacing()) ).floor()
-		if current_region_position != region_position:
-			current_region_position = region_position
-			update_region_grid()
+		if _input_mode != -1: # Not cam rotation
+			## Update region highlight
+			var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
+				/ (terrain.get_region_size() * terrain.get_vertex_spacing()) ).floor()
+			if current_region_position != region_position:
+				current_region_position = region_position
+				update_region_grid()
 
-		# Inject pressure - Relies on C++ set_brush_data() using same dictionary instance
-		ui.brush_data["mouse_pressure"] = p_event.pressure
+			if _input_mode > 0 and editor.is_operating():
+				# Inject pressure - Relies on C++ set_brush_data() using same dictionary instance
+				ui.brush_data["mouse_pressure"] = p_event.pressure
 
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and editor.is_operating():
-			editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
-			return AFTER_GUI_INPUT_STOP
-
-	elif p_event is InputEventMouseButton:
-		if p_event.get_button_index() == MOUSE_BUTTON_RIGHT and p_event.is_released():
-			ui.last_rmb_time = Time.get_ticks_msec()
-		ui.update_decal()
-			
-		if p_event.get_button_index() == MOUSE_BUTTON_LEFT:
-			if p_event.is_pressed():
-				if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-					return AFTER_GUI_INPUT_STOP
-					
-				# If picking
-				if ui.is_picking():
-					ui.pick(mouse_global_position)
-					if not ui.operation_builder or not ui.operation_builder.is_ready():
-						return AFTER_GUI_INPUT_STOP
-				
-				# If adjusting regions
-				if editor.get_tool() == Terrain3DEditor.REGION:
-					# Skip regions that already exist or don't
-					var has_region: bool = terrain.data.has_regionp(mouse_global_position)
-					var op: int = editor.get_operation()
-					if	( has_region and op == Terrain3DEditor.ADD) or \
-						( not has_region and op == Terrain3DEditor.SUBTRACT ):
-						return AFTER_GUI_INPUT_STOP
-				
-				# If an automatic operation is ready to go (e.g. gradient)
-				if ui.operation_builder and ui.operation_builder.is_ready():
-					ui.operation_builder.apply_operation(editor, mouse_global_position, p_viewport_camera.rotation.y)
-					return AFTER_GUI_INPUT_STOP
-				
-				# Mouse clicked, start editing
-				editor.start_operation(mouse_global_position)
 				editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
 				return AFTER_GUI_INPUT_STOP
 			
-			elif editor.is_operating():
-				# Mouse released, save undo data
-				editor.stop_operation()
-				return AFTER_GUI_INPUT_STOP
+		return AFTER_GUI_INPUT_PASS
 
-	# Key presses
 	ui.update_decal()
+
+	if p_event is InputEventMouseButton and _input_mode > 0:
+		if p_event.is_pressed():
+			# If picking
+			if ui.is_picking():
+				ui.pick(mouse_global_position)
+				if not ui.operation_builder or not ui.operation_builder.is_ready():
+					return AFTER_GUI_INPUT_STOP
+			
+			# If adjusting regions
+			if editor.get_tool() == Terrain3DEditor.REGION:
+				# Skip regions that already exist or don't
+				var has_region: bool = terrain.data.has_regionp(mouse_global_position)
+				var op: int = editor.get_operation()
+				if	( has_region and op == Terrain3DEditor.ADD) or \
+					( not has_region and op == Terrain3DEditor.SUBTRACT ):
+					return AFTER_GUI_INPUT_STOP
+			
+			# If an automatic operation is ready to go (e.g. gradient)
+			if ui.operation_builder and ui.operation_builder.is_ready():
+				ui.operation_builder.apply_operation(editor, mouse_global_position, p_viewport_camera.rotation.y)
+				return AFTER_GUI_INPUT_STOP
+			
+			# Mouse clicked, start editing
+			editor.start_operation(mouse_global_position)
+			editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
+			return AFTER_GUI_INPUT_STOP
+		
+		# _input_apply released, save undo data
+		elif editor.is_operating():
+			editor.stop_operation()
+			return AFTER_GUI_INPUT_STOP
+
 	return AFTER_GUI_INPUT_PASS
 
 
-func update_modifiers() -> void:
-	var current_mods: int = 0
-	for i in MODIFIER_KEYS.size():
-		if Input.is_key_pressed(MODIFIER_KEYS[i]):
-			current_mods |= 1 << i
+func _read_input(p_event: InputEvent = null) -> void:
+	## Determine if user is moving camera or applying
+	_input_mode = 1 if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) else 0
+	
+	match get_setting("editors/3d/navigation/navigation_scheme", 0):
+		2, 1: # Modo, Maya
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or \
+	 			( Input.is_key_pressed(KEY_ALT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) ):
+					_input_mode = -1 
+			if p_event is InputEventMouseButton and p_event.is_released() and \
+				( p_event.get_button_index() == MOUSE_BUTTON_RIGHT or \
+				( Input.is_key_pressed(KEY_ALT) and p_event.get_button_index() == MOUSE_BUTTON_LEFT )):
+					ui.last_rmb_time = Time.get_ticks_msec()
+		0, _: # Godot
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or \
+				Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+					_input_mode = -1 
+			if p_event is InputEventMouseButton and p_event.is_released() and \
+				( p_event.get_button_index() == MOUSE_BUTTON_RIGHT or \
+				p_event.get_button_index() == MOUSE_BUTTON_MIDDLE ):
+					ui.last_rmb_time = Time.get_ticks_msec()
+	if _input_mode < 0:
+		return
+
+	## Determine modifiers pressed
+	modifier_shift = Input.is_key_pressed(KEY_SHIFT)
+	modifier_ctrl = Input.is_key_pressed(KEY_CTRL)
+	# Keybind enum: Alt,Space,Meta,Capslock
+	var alt_key: int
+	match get_setting("terrain3d/config/alt_key_bind", 0):
+		3: alt_key = KEY_CAPSLOCK
+		2: alt_key = KEY_META
+		1: alt_key = KEY_SPACE
+		0, _: alt_key = KEY_ALT
+	modifier_alt = Input.is_key_pressed(alt_key)
 
 	# Return if modifiers haven't changed AND brush_data has them;
 	# modifiers disappear from brush_data when clicking asset_dock (Why?)
+	var current_mods: int = int(modifier_shift) | int(modifier_ctrl) << 1 | int(modifier_alt) << 2
 	if _last_modifiers == current_mods and ui.brush_data.has("modifier_shift"):
 		return
 	
-	modifier_shift = bool(current_mods & M_SHIFT)
-	ui.brush_data["modifier_shift"] = modifier_shift
-
-	modifier_ctrl = bool(current_mods & M_CTRL)
-	ui.brush_data["modifier_ctrl"] = modifier_ctrl
-
-	modifier_alt = bool(current_mods & M_ALT)
-	ui.brush_data["modifier_alt"] = modifier_alt
-
 	_last_modifiers = current_mods
+	ui.brush_data["modifier_shift"] = modifier_shift
+	ui.brush_data["modifier_ctrl"] = modifier_ctrl
+	ui.brush_data["modifier_alt"] = modifier_alt
 	ui.update_modifiers()
 
 
@@ -343,9 +354,15 @@ func select_terrain() -> void:
 
 func setup_editor_settings() -> void:
 	editor_settings = EditorInterface.get_editor_settings()
-	# Initialize the new key binding option
-	if not editor_settings.has_setting("terrain3d/config/alternate_key_binding"):
-		editor_settings.set_setting("terrain3d/config/alternate_key_binding", false)
+	if not editor_settings.has_setting("terrain3d/config/alt_key_bind"):
+		editor_settings.set("terrain3d/config/alt_key_bind", 0)
+	var property_info = {
+		"name": "terrain3d/config/alt_key_bind",
+		"type": TYPE_INT,
+		"hint": PROPERTY_HINT_ENUM,
+		"hint_string": "Alt,Space,Meta,Capslock"
+	}
+	editor_settings.add_property_info(property_info)
 
 	_cleanup_old_settings()
 
