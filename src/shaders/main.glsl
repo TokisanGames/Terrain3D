@@ -172,7 +172,7 @@ vec3 unpack_normal(vec4 rgba) {
 }
 
 vec3 pack_normal(vec3 n) {
-	return (n.xzy + 1.0) * 0.5;
+	return fma(n.xzy, vec3(0.5), vec3(0.5));
 }
 
 float random(in vec2 xy) {
@@ -180,7 +180,7 @@ float random(in vec2 xy) {
 }
 
 vec2 rotate(vec2 v, float cosa, float sina) {
-	return vec2(cosa * v.x - sina * v.y, sina * v.x + cosa * v.y);
+	return vec2(fma(cosa, v.x, - sina * v.y), fma(sina, v.x, cosa * v.y));
 }
 
 // Moves a point around a pivot point.
@@ -195,7 +195,7 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 		float ma = max(a_height + (1.0 - blend), b_height + blend) - (1.001 - blend_sharpness);
 	    float b1 = max(a_height + (1.0 - blend) - ma, 0.0);
 	    float b2 = max(b_height + blend - ma, 0.0);
-	    return (a_value * b1 + b_value * b2) / (b1 + b2);
+	    return fma(a_value, vec4(b1), b_value * b2)  / (b1 + b2);
 	} else {
 		float contrast = 1.0 - blend_sharpness;
 		float factor = (blend - contrast) / contrast;
@@ -206,7 +206,7 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 	if (_texture_detile_array[mat_id] >= 0.001){
 		uv_center = floor(uv_center) + 0.5;
-		float detile = (random(uv_center) - 0.5) * 2.0 * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
+		float detile = fma(random(uv_center), 2.0, -1.0) * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
 		uv = rotate_around(uv, uv_center, detile);
 		// Accumulate total rotation for normal rotation
 		normal_rotation += detile;
@@ -216,7 +216,7 @@ vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 
 vec2 rotate_normal(vec2 normal, float angle) {
 	float new_x = dot(vec2(cos(angle), sin(angle)), normal);
-	angle += PI * 0.5;
+	angle = fma(PI, 0.5, angle);
 	float new_y = dot(vec2(cos(angle), sin(angle)), normal);
 	return vec2(new_x, new_y);
 }
