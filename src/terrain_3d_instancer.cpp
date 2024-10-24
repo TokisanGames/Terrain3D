@@ -11,62 +11,6 @@
 // Private Functions
 ///////////////////////////
 
-void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
-	IS_DATA_INIT(VOID);
-	Array region_locations = _terrain->get_data()->get_region_locations();
-	for (int r = 0; r < region_locations.size(); r++) {
-		Vector2i region_loc = region_locations[r];
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
-		if (region.is_null()) {
-			LOG(WARN, "Errant null region found at: ", region_loc);
-			continue;
-		}
-		real_t old_spacing = region->get_vertex_spacing();
-		if (old_spacing == p_vertex_spacing) {
-			LOG(DEBUG, "region vertex spacing == vertex spacing, skipping update transform spacing for region at: ", region_loc);
-			continue;
-		}
-
-		// For all mesh_ids in region
-		Dictionary mesh_inst_dict = region->get_instances();
-		LOG(DEBUG, "Updating MMIs from: ", region_loc);
-		Array mesh_types = mesh_inst_dict.keys();
-		for (int m = 0; m < mesh_types.size(); m++) {
-			int mesh_id = mesh_types[m];
-			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
-			Array cell_locations = cell_inst_dict.keys();
-			for (int c = 0; c < cell_locations.size(); c++) {
-				// Get instances
-				Vector2i cell = cell_locations[c];
-				Array triple = cell_inst_dict[cell];
-				TypedArray<Transform3D> xforms = triple[0];
-				if (xforms.size() == 0) {
-					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
-					// Remove this or we have a problem elsewhere
-					continue;
-				}
-				// Descale, then Scale to the new value
-				for (int i = 0; i < xforms.size(); i++) {
-					Transform3D t = xforms[i];
-					t.origin.x /= old_spacing;
-					t.origin.x *= p_vertex_spacing;
-					t.origin.z /= old_spacing;
-					t.origin.z *= p_vertex_spacing;
-					xforms[i] = t;
-				}
-				triple[0] = xforms;
-				triple[2] = true;
-				cell_inst_dict[cell] = triple;
-			}
-		}
-		// After all transforms are updated, set the new region vertex spacing value
-		region->set_vertex_spacing(p_vertex_spacing);
-		region->set_modified(true);
-	}
-	destroy();
-	_update_mmis();
-}
-
 // Creates MMIs based on stored Multimesh data
 void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_mesh_id) {
 	IS_DATA_INIT(VOID);
@@ -128,15 +72,8 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 				bool modified = triple[2];
 				if (xforms.size() == 0) {
 					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
-					// remove it or problem elsewhere?
 					continue;
 				}
-
-				// There are instances in the current region, mesh_type, cell_location
-				// Need to:
-				// If needed, create a region container Node, attach to tree, store in _mmi_containers
-				// If needed, create an MMI, attach to tree, and insert in _mmi_nodes
-				// Always, create an MM w/ mesh asset, attach to MMI
 
 				// Create MMI container if needed
 				String rname("Region" + Util::location_to_string(region_loc));
@@ -165,6 +102,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					mmi->set_as_top_level(true);
 					mmi->set_cast_shadows_setting(ma->get_cast_shadows());
 					mmi->set_visibility_range_end(ma->get_visibility_range());
+					// Review margin when implementing lods
 					//mmi->set_visibility_range_end_margin(ma->get_visibility_margin());
 					cell_mmi_dict[cell] = mmi;
 					//Attach to tree
@@ -174,7 +112,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 						continue;
 					}
 					node_container->add_child(mmi, true);
-					// new MMI, cannot skip.
+					// New MMI, cannot skip
 					modified = true;
 				}
 				// If data hasn't changed since last _update_mmis, skip
@@ -199,6 +137,57 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			}
 		}
 	}
+}
+
+void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
+	IS_DATA_INIT(VOID);
+	Array region_locations = _terrain->get_data()->get_region_locations();
+	for (int r = 0; r < region_locations.size(); r++) {
+		Vector2i region_loc = region_locations[r];
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		if (region.is_null()) {
+			LOG(WARN, "Errant null region found at: ", region_loc);
+			continue;
+		}
+		real_t old_spacing = region->get_vertex_spacing();
+		if (old_spacing == p_vertex_spacing) {
+			LOG(DEBUG, "region vertex spacing == vertex spacing, skipping update transform spacing for region at: ", region_loc);
+			continue;
+		}
+
+		// For all mesh_ids in region
+		Dictionary mesh_inst_dict = region->get_instances();
+		LOG(DEBUG, "Updating MMIs from: ", region_loc);
+		Array mesh_types = mesh_inst_dict.keys();
+		for (int m = 0; m < mesh_types.size(); m++) {
+			int mesh_id = mesh_types[m];
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cell_locations = cell_inst_dict.keys();
+			for (int c = 0; c < cell_locations.size(); c++) {
+				// Get instances
+				Vector2i cell = cell_locations[c];
+				Array triple = cell_inst_dict[cell];
+				TypedArray<Transform3D> xforms = triple[0];
+				// Descale, then Scale to the new value
+				for (int i = 0; i < xforms.size(); i++) {
+					Transform3D t = xforms[i];
+					t.origin.x /= old_spacing;
+					t.origin.x *= p_vertex_spacing;
+					t.origin.z /= old_spacing;
+					t.origin.z *= p_vertex_spacing;
+					xforms[i] = t;
+				}
+				triple[0] = xforms;
+				triple[2] = true;
+				cell_inst_dict[cell] = triple;
+			}
+		}
+		// After all transforms are updated, set the new region vertex spacing value
+		region->set_vertex_spacing(p_vertex_spacing);
+		region->set_modified(true);
+	}
+	destroy();
+	_update_mmis();
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell) {
@@ -238,13 +227,6 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 				_mmi_containers.erase(p_region_loc);
 				remove_from_tree(node);
 				memdelete_safely(node);
-			} else {
-				// TODO remove
-				if (node) {
-					LOG(ERROR, "Removed ", p_region_loc, " from _mmi_nodes, but container still has children.");
-				} else {
-					LOG(ERROR, "Removed ", p_region_loc, " from _mmi_nodes, but container is missing.");
-				}
 			}
 		}
 	}
@@ -303,7 +285,6 @@ Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const 
 	mm->set_use_colors(true);
 	mm->set_mesh(mesh);
 
-	// TODO Transfer data buffer instead of this. See Terrain3DInstancer::print_multimesh_buffer()
 	if (p_xforms.size() > 0) {
 		mm->set_instance_count(p_xforms.size());
 		for (int i = 0; i < p_xforms.size(); i++) {
@@ -560,7 +541,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			}
 			Dictionary cell_inst_dict = mesh_inst_dict[m];
 			Array cell_locations = cell_inst_dict.keys();
-			// This shouldnt be empty.
+			// This shouldnt be empty
 			if (cell_locations.size() == 0) {
 				LOG(WARN, "Region at: ", region_loc, " has instance dictionary for mesh id: ", m, " but has no cells.")
 				continue;
@@ -604,7 +585,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
 					if (radial_distance < radius &&
 							UtilityFunctions::randf() < 0.15f * strength &&
-							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert))	{
+							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
 						continue;
 					} else {
 						updated_xforms.push_back(t);
@@ -616,7 +597,6 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					triple[1] = updated_colors;
 					triple[2] = true;
 					cell_inst_dict[cell] = triple;
-					// TODO must we also reassign cell_inst_dict to mesh_inst_dict and get_instances?
 				} else {
 					cell_inst_dict.erase(cell);
 					_destroy_mmi_by_cell(region_loc, m, cell);
@@ -754,12 +734,12 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 		xforms.push_back(xform);
 		colors.push_back(col);
 
-		// Shouldn't have to write this back, but seems we do; there are copy constructors somewhere
+		// Must write back since there are copy constructors somewhere
 		// see godot-cpp#1149
-		triple[0] = xforms; // not needed
-		triple[1] = colors; // needed for colors
+		triple[0] = xforms;
+		triple[1] = colors;
 		triple[2] = modified;
-		cell_locations[cell] = triple; // needed for both
+		cell_locations[cell] = triple;
 	}
 
 	// Write back dictionary. See above comments
