@@ -316,7 +316,7 @@ func update_decal() -> void:
 
 	decal.position = plugin.mouse_global_position
 	decal.visible = true
-	decal.size = Vector3.ONE * brush_data["size"]
+	decal.size = Vector3.ONE * maxf(brush_data["size"], .5)
 	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
 		if (cam):

@@ -524,8 +524,6 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		Vector2i region_loc = region_queue[r];
 		Ref<Terrain3DRegion> region = data->get_region(region_loc);
 
-		_backup_region(region); // TODO region hasn't changed yet and might not. Move lower
-
 		Dictionary mesh_inst_dict = region->get_instances();
 		Array mesh_types = mesh_inst_dict.keys();
 		if (mesh_types.size() == 0) {
@@ -584,8 +582,9 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					real_t radial_distance = localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z));
 					Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
 					if (radial_distance < radius &&
-							UtilityFunctions::randf() < 0.15f * strength &&
+							UtilityFunctions::randf() < CLAMP(0.175f * strength, 0.005f, 10.f) &&
 							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
+						_backup_region(region);
 						continue;
 					} else {
 						updated_xforms.push_back(t);
@@ -823,6 +822,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 				continue;
 			}
 			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
+			real_t mesh_height_offset = mesh_asset->get_height_offset();
 			for (int c = 0; c < cell_queue.size(); c++) {
 				Vector2i cell = cell_queue[c];
 				Array triple = cell_inst_dict[cell];
@@ -832,12 +832,15 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 				PackedColorArray updated_colors;
 				for (int i = 0; i < xforms.size(); i++) {
 					Transform3D t = xforms[i];
+					Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
+					t.origin -= height_offset;
 					real_t height = _terrain->get_data()->get_height(t.origin + global_local_offset);
 					// If the new height is a nan due to creating a hole, remove the instance
 					if (std::isnan(height)) {
 						continue;
 					}
-					t.origin.y = height + mesh_asset->get_height_offset();
+					t.origin.y = height;
+					t.origin += height_offset;
 					updated_xforms.push_back(t);
 					updated_colors.push_back(colors[i]);
 				}
