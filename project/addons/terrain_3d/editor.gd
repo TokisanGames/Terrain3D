@@ -243,7 +243,12 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 func _read_input(p_event: InputEvent = null) -> void:
 	## Determine if user is moving camera or applying
-	_input_mode = 1 if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) else 0
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or \
+		p_event is InputEventMouseButton and p_event.is_released() and \
+		p_event.get_button_index() == MOUSE_BUTTON_LEFT:
+			_input_mode = 1 
+	else:
+			_input_mode = 0
 	
 	match get_setting("editors/3d/navigation/navigation_scheme", 0):
 		2, 1: # Modo, Maya
