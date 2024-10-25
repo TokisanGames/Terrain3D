@@ -39,7 +39,7 @@ Here we get the resource ID of a material on a mesh. We assign the RID of the ge
 
 ```gdscript
 var mat: RID = $MeshInstance3D.mesh.surface_get_material(0).get_rid()
-RenderingServer.material_set_param(mat, "texture_albedo", get_storage().get_height_maps_rid())
+RenderingServer.material_set_param(mat, "texture_albedo", get_data().get_height_maps_rid())
 ```
 
 This is a quick demonstration that shows results. However the generated texture arrays should be accessed with sampler2DArray in a shader, not the regular sampler which is what will will happen here.

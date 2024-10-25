@@ -5,8 +5,8 @@ Any language Godot supports should be able to work with Terrain3D via the GDExte
 
 Here are some tips for integrating with Terrain3D.
 
-```{image} images/integrating_gdextension.png
-:target: ../_images/integrating_gdextension.png
+```{image} images/integrating_gdextension.jpg
+:target: ../_images/integrating_gdextension.jpg
 ```
 
 ## Detecting If Terrain3D Is Installed
@@ -15,12 +15,7 @@ To determine if Terrain3D is installed and active, [ask Godot](https://docs.godo
 
 **GDScript**
 ```gdscript
-#4.2+
      print("Terrain3D installed: ", EditorInterface.is_plugin_enabled("terrain_3d"))
-
-#pre-4.2
-     var ei: EditorInterface = EditorScript.new().get_editor_interface()
-     print("Terrain3D installed: ", ei.is_plugin_enabled("terrain_3d"))
 ```
 
 **C#**
@@ -49,7 +44,6 @@ Terrain3D is instantiated and referenced like any other object.
 
 ```gdscript
      var terrain: Terrain3D = Terrain3D.new()
-     terrain.storage = Terrain3DStorage.new()
      terrain.assets = Terrain3DAssets.new()
      print(terrain.get_version())
 ```
@@ -62,7 +56,6 @@ You can instantiate through ClassDB, set variables and call it.
 
 ```c#
      var terrain = ClassDB.Instantiate("Terrain3D");
-     terrain.AsGodotObject().Set("storage", ClassDB.Instantiate("Terrain3DStorage"));
      terrain.AsGodotObject().Set("assets", ClassDB.Instantiate("Terrain3DAssets"));
      terrain.AsGodotObject().Call("set_collision_enabled", true);
 ```
@@ -80,12 +73,12 @@ You can also check if a node is a Terrain3D object:
 ```c#
 private bool CheckTerrain3D(Node myNode) {
         if (myNode.IsClass("Terrain3D")) {
-            var debugCollisions = myNode.Call("get_show_debug_collision").AsInt32();
+            var collisionEnabled = myNode.Call("get_collision_enabled").AsInt32();
 ```
 
 For more information on C# and other languages, read [Cross-language scripting](https://docs.godotengine.org/en/stable/tutorials/scripting/cross_language_scripting.html) in the Godot docs.
 
-## Capturing the Terrain3D Instance
+## Finding the Terrain3D Instance
 
 These options are for programming scenarios where a user action is intented to provide your code with the Terrain3D instance.
 

@@ -146,7 +146,7 @@ You can find a sample script that will import data from SimpleGrassTextured in `
 1. Click import. The output window and console will report when finished.
 1. Clear the script from your Terrain3D node, and save your scene. 
 
-The instance transforms are now stored in your Storage resource.
+The instance transforms are now stored in your region files.
 
 This script also serves as an example to learn how to use the API for procedural placement. Though this script uses add_multimesh(), you could manually iterate through the SGT multimesh, pull out the transforms, modify them, then send them to the instancer with add_transforms().
 

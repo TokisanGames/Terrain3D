@@ -9,9 +9,9 @@ Using collision is not the only way, nor even the best or fastest way. But we'll
 
 Collision is generated at runtime using the physics server. Regular PhysicsBodies will interact with this collision as expected. To detect ground height, use a [ray cast](https://docs.godotengine.org/en/stable/tutorials/physics/ray-casting.html). However, outside of regions, there is no collision, so raycasts won't hit. 
 
-Normally the editor doesn't generate collision, but some addons or other activities do need editor collision. To generate it, enable `Terrain3D/Debug/Show Collision`, or set `Terrain3D.debug_show_collision`. You can run in game with this enabled.
+Normally the editor doesn't generate collision, but some addons or other activities do need editor collision. To generate it, enable `Terrain3D/Collision/Collision Mode`, or set `Terrain3D.collision_mode`. Set this to `Full / Editor`. You can run in game with this enabled.
 
-This debug option will generate collision one time when enabled or at startup. If the terrain is sculpted afterwards, this collision will be inaccurate to the visual mesh until it is disabled and enabled again. On a Core-i9 12900H, generating collision takes about 145ms per region, so updating it several times per second while sculpting is not practical. Currently all regions are regenerated, rather than only modified regions so it is not optimal. You can follow [PR#278](https://github.com/TokisanGames/Terrain3D/pull/278) for an improved system.
+This editor option will generate collision one time when enabled or at startup. If the terrain is sculpted afterwards, this collision will be inaccurate to the visual mesh until collision is disabled and enabled again. On a Core-i9 12900H, generating collision takes about 145ms per 1024m region, so updating it several times per second while sculpting is not practical. Currently all regions are regenerated, rather than only modified regions so it is not optimal. You can follow [PR#278](https://github.com/TokisanGames/Terrain3D/pull/278) for an improved system.
 
 See the [Terrain3D API](../api/class_terrain3d.rst) for various functions that configure the collision priority, layers, and mask.
 
@@ -35,7 +35,7 @@ Use it only when you don't already know the X, Z collision point.
 If you already know the X, Z position, use `get_height()`:
 
 ```gdscript
-     var height: float = terrain.storage.get_height(global_position)
+     var height: float = terrain.data.get_height(global_position)
 ```
 
 `NAN` is returned if the position is a hole, or outside of regions.
@@ -50,11 +50,12 @@ If you wish to look up thousands of heights, it will be faster to retrieve the h
 However, note that `get_height()` above will [interpolate between vertices](https://github.com/TokisanGames/Terrain3D/blob/5bab86ff311159356dd4d837ea2c340f59d139b6/src/terrain_3d_storage.cpp#L493-L502), while this code will not.
 
 ```gdscript
-     var region_index: int = terrain.storage.get_region_index(global_position)
-     var img: Image = terrain.storage.get_map_region(Terrain3DStorage.TYPE_HEIGHT, region_index)
-     for y in img.get_height():
-          for x in img.get_width():
-               var height: float = img.get_pixel(x, y).r
+     var region: Terrain3DRegion = terrain.data.get_regionp(global_position)
+     if region and not region.is_deleted:
+         var img: Image = region.get_height_map()
+         for y in img.get_height():
+              for x in img.get_width():
+                   var height: float = img.get_pixel(x, y).r
 ```
 
 ----
@@ -64,12 +65,12 @@ However, note that `get_height()` above will [interpolate between vertices](http
 
 ### Getting The Normal
 
-After getting the height, you may also wish to get the normal with `Terrain3DStorage.get_normal(global_position)`. The normal is the vector3 pointing perpendulcar to the terrain face.
+After getting the height, you may also wish to get the normal with `Terrain3DData.get_normal(global_position)`. The normal is the vector3 pointing perpendulcar to the terrain face.
 
 
 ### Visualizing Collision
 
-To see the collision shape, first enable `Terrain3D/Debug/Show Collision` as described above.
+To see the collision shape, first set `Terrain3D/Collision/Collision Mode` to `Full / Editor`.
 
 To see it in the editor, in the Godot `Perspective` menu, enable `View Gizmos`. Disable this option on slow systems.
 

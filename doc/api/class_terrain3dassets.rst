@@ -334,6 +334,8 @@ Returns the array of all uv scale values used in the texture assets, indexed by 
 
 Saves this texture list resource to disk, if saved as an external ``.tres`` or ``.res`` resource file.
 
+path - specifies a directory and file name to use from now on.
+
 .. rst-class:: classref-item-separator
 
 ----

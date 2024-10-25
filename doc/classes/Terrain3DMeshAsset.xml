@@ -39,7 +39,7 @@
 	</methods>
 	<members>
 		<member name="cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="GeometryInstance3D.ShadowCastingSetting" default="1">
-			Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] on all MultiMeshInstances used by this mesh.
+			Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets [code skip-lint]GeometryInstance3D.cast_shadow[/code] on all MultiMeshInstances used by this mesh.
 		</member>
 		<member name="density" type="float" setter="set_density" getter="get_density" default="-1.0">
 			Density is used to set the approximate default spacing between instances based on the size of the mesh. When painting meshes on the terrain, mesh density is multiplied by brush strength.
@@ -69,13 +69,11 @@
 		<member name="scene_file" type="PackedScene" setter="set_scene_file" getter="get_scene_file">
 			A packed scene to load the mesh from. See the top description.
 		</member>
+		<member name="visibility_range" type="float" setter="set_visibility_range" getter="get_visibility_range" default="1024.0">
+			Sets [code skip-lint]GeometryInstance3D.visibility_range_end[/code] on all MultiMeshInstances used by this mesh. Allows the renderer to cull MMIs beyond this distance. Set to 0 to disable culling.
+		</member>
 	</members>
 	<signals>
-		<signal name="cast_shadows_changed">
-			<description>
-				Emitted when [member cast_shadows] is changed on this mesh asset.
-			</description>
-		</signal>
 		<signal name="file_changed">
 			<description>
 				Emitted when [member scene_file] is changed, or if the generated mesh is toggled.
@@ -84,6 +82,11 @@
 		<signal name="id_changed">
 			<description>
 				Emitted when [member id] is changed.
+			</description>
+		</signal>
+		<signal name="instancer_setting_changed">
+			<description>
+				Emitted when instancer specific settings are changed on this mesh asset, such as [member cast_shadows] or [member visibility_range].
 			</description>
 		</signal>
 		<signal name="setting_changed">

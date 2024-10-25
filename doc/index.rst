@@ -13,12 +13,8 @@ Terrain3D Documentation
 
 `Terrain3D <https://github.com/TokisanGames/Terrain3D>`_ is a high performance, editable terrain system for Godot 4.
 
-See :doc:`Project Status <docs/project_status>` for development progress.
+Start with :doc:`Introduction <docs/introduction>` and the other pages in the Getting Started section in the left sidebar to learn how to use this system.
 
-Usage
---------
-
-Read the documentation in the Getting Started section in the left sidebar.
 
 Credit
 -------------

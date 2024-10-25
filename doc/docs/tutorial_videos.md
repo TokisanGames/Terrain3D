@@ -1,7 +1,7 @@
 Tutorial Videos
 ==================
 
-*Note: Some instructions in the videos may be out of date. Be sure to review this documentation for the latest. And even this documentation has a **stable** and **latest** version, available in the menu.*
+*Note: Some instructions in the videos may be out of date. Be sure to review this documentation for the latest. Be aware you can select the appropriate documentation version in the menu.*
 
 **Using Terrain3D Part 1: Installation, Setup, Basic Usage**
 

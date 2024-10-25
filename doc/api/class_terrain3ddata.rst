@@ -246,7 +246,7 @@ Emitted when the region map or any map array has been regenerated.
 
 **maps_edited**\ (\ edited_area\: :ref:`AABB<class_AABB>`\ ) :ref:`🔗<class_Terrain3DData_signal_maps_edited>`
 
-This signal is emitted whenever the editor is used to:
+This signal is emitted whenever the editor (:ref:`Terrain3DEditor<class_Terrain3DEditor>`) is used to:
 
 - add or remove a region
 
@@ -491,7 +491,7 @@ R16 or exr are recommended for roundtrip external editing.
 
 R16 can be edited by Krita, however you must know the dimensions and min/max before reimporting. This information is printed to the console.
 
-Res/tres allow storage in any of Godot's native Image formats.
+Res/tres stores in Godot's native data format.
 
 .. rst-class:: classref-item-separator
 

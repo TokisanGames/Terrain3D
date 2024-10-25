@@ -166,13 +166,14 @@
 			See [method get_intersection].
 		</member>
 		<member name="region_size" type="int" setter="change_region_size" getter="get_region_size" enum="Terrain3D.RegionSize" default="256">
-			The number of vertices in each region, and the number of pixels for each map in Terrain3DRegion. 1 pixel corresponds to 1 vertex. [member Terrain3D.vertex_spacing] scales regions, but does not change the number of vertices or pixels.
+			The number of vertices in each region, and the number of pixels for each map in [Terrain3DRegion]. 1 pixel always corresponds to 1 vertex. [member Terrain3D.vertex_spacing] laterally scales regions, but does not change the number of vertices or pixels in each.
 		</member>
 		<member name="render_layers" type="int" setter="set_render_layers" getter="get_render_layers" default="2147483649">
 			The render layers the terrain is drawn on. This sets [code skip-lint]VisualInstance3D.layers[/code] in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for [member mouse_layer] is included, or set that variable again after this so that the mouse cursor works.
 		</member>
 		<member name="save_16_bit" type="bool" setter="set_save_16_bit" getter="get_save_16_bit" default="false">
-			Heightmaps are always loaded and edited in 32-bit. This option saves heightmaps as 16-bit half precision to reduce file size. This process is lossy, but does not change what is currently in memory.
+			If enabled, heightmaps are saved as 16-bit half-precision to reduce file size. Files are always loaded in 32-bit for editing. Upon save, a copy of the heightmap is converted to 16-bit for writing. It does not change what is currently in memory.
+			This process is lossy. 16-bit precision gets increasingly worse with every power of 2. At a height of 256m, the precision interval is .25m. At 512m it is .5m. At 1024m it is 1m. Saving a height of 1024.4m will be rounded down to 1024m.
 		</member>
 		<member name="show_grid" type="bool" setter="set_show_grid" getter="get_show_grid" default="false">
 			Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
@@ -183,11 +184,11 @@
 		<member name="texture_list" type="Terrain3DTextureList" setter="set_texture_list" getter="get_texture_list">
 			Deprecated. See [member assets].
 		</member>
-		<member name="version" type="String" setter="" getter="get_version" default="&quot;0.9.3-dev&quot;">
+		<member name="version" type="String" setter="" getter="get_version" default="&quot;0.9.3&quot;">
 			The current version of Terrain3D.
 		</member>
 		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
-			The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
+			The distance between vertices. Godot units are typically considered to be meters. This laterally scales the terrain on X and Z axes.
 			This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
 			All Terrain3D functions with a global_position expect an absolute global value. If you would normally use [method Terrain3DData.import_images] to import an image in the region at (-1024, -1024), with a vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
 			To scale heights, export the height map and reimport it with a new height scale.

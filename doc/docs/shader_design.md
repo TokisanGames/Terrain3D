@@ -11,10 +11,10 @@ The following describes the various elements of the shader in a linear fashion t
 
 ## Uniforms
 
-[Terrain3DMaterial](../api/class_terrain3dmaterial.rst) exposes uniforms found in the shader, whether we put them there or you do with your own custom shader. Uniforms that begin with `_` are considered private and are not exposed. However you can access them via code. You can create your own private uniforms.
+[Terrain3DMaterial](../api/class_terrain3dmaterial.rst) exposes uniforms found in the shader, whether we put them there or you do with your own custom shader. Uniforms that begin with `_` are considered private and are not exposed. However you can access them via code. See [Tips](tips.md). You can create your own private uniforms.
 
-These notable [Terrain3DStorage](../api/class_terrain3dstorage.rst) variables are passed in as uniforms:
-* `_region_map`, `_region_offsets` define the location and IDs of regions (sculpted areas)
+These notable [Terrain3DData](../api/class_terrain3ddata.rst) variables are passed in as uniforms. There are getter functions for each.
+* `_region_map`, `_region_locations` define the location and IDs of regions (sculpted areas)
 * `_height_maps`, `_control_maps`, and `_color_maps` texture arrays define the elevation, textures, and colors of the terrain, indexed by region ID
 * `_texture_array_albedo`, `_texture_array_normal` are the texture arrays that combine all of the individual textures, indexed by texture ID
 

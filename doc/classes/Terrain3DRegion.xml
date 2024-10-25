@@ -3,7 +3,7 @@
 	<brief_description>
 	</brief_description>
 	<description>
-		This resource stores all map data for Terrain3D. See [url=../docs/controlmap_format.html]Controlmap Format[/url] and [url=../docs/storage_format.html]Storage Format Changelog[/url].
+		This resource stores all map data for Terrain3D. See [url=../docs/controlmap_format.html]Controlmap Format[/url] and [url=../docs/data_format.html]Data Format Changelog[/url].
 	</description>
 	<tutorials>
 	</tutorials>
@@ -131,10 +131,21 @@
 			This map contains the real value heights for the terrain.
 			Image format: FORMAT_RF, 32-bit per pixel as full-precision floating-point.
 			Heights sent to the vertex shader on the GPU which modifies the mesh in real-time.
-			Editing is always done in 32-bit. We do provide an option to save as 16-bit, see [member Terrain3D.save_16_bit], which converts to 32-bit on load and back to 16-bit on save. This process is lossy as 16-bit precision gets increasingly worse with every power of 2.
+			Editing is always done in 32-bit. We do provide an option to save as 16-bit, see [member Terrain3D.save_16_bit].
 		</member>
 		<member name="height_range" type="Vector2" setter="set_height_range" getter="get_height_range" default="Vector2(0, 0)">
 			The current minimum and maximum height range for this region, used to calculate the AABB of the terrain. Update it with [method update_height], and recalculate it with [method calc_height_range].
+		</member>
+		<member name="instances" type="Dictionary" setter="set_instances" getter="get_instances" default="{}">
+			A Dictionary that stores the instancer transforms for this region.
+			The format is instances{mesh_id:int} -&gt; cells{grid_location:Vector2i} -&gt; ( Array[Transform3D], PackedColorArray, modified:bool ). That is:
+			- A dictionary keyed by mesh_id that returns:
+			- A dictionary keyed by the grid location of the 32 x 32m cell that returns:
+			- A 3-item Array that contains:
+			- 0: An Array of Transform3Ds
+			- 1: A PackedColorArray
+			- 2: A bool that tracks if this cell has been modified
+			After changing this data, [method Terrain3DInstancer.force_update_mmis] should be called to rebuild the MMIs.
 		</member>
 		<member name="location" type="Vector2i" setter="set_location" getter="get_location">
 			The region location, or region grid coordinates in the world space where this region lives.
@@ -143,13 +154,16 @@
 			This region has been modified and will be saved.
 		</member>
 		<member name="multimeshes" type="Dictionary" setter="set_multimeshes" getter="get_multimeshes" default="{}">
-			A Dictionary indexed by mesh_id that provides the MultiMeshes for this region.
+			Deprecated and only exists for upgrading. Use [member instances].
 		</member>
 		<member name="region_size" type="int" setter="set_region_size" getter="get_region_size" default="0">
 			The current region size for this region, calculated from the dimensions of the first loaded map. It should match [member Terrain3D.region_size].
 		</member>
 		<member name="version" type="float" setter="set_version" getter="get_version" default="0.8">
 			The data file version. This is independent of the Terrain3D version, though they often align.
+		</member>
+		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
+			Stored instancer transforms are laterally scaled by this value. This value is manage by the instancer on loading or when [member Terrain3D.vertex_spacing] is set, and shouldn't be manually adjusted.
 		</member>
 	</members>
 	<constants>

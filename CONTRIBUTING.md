@@ -43,6 +43,16 @@ We use Godot's clang-format hooks that will format your code upon making a commi
 
 We use the standard [Godot PR workflow](https://docs.godotengine.org/en/stable/contributing/workflow/pr_workflow.html). Please submit PRs according to the same process Godot uses.
 
+This includes: 
+* Creating a new branch (not main) before submitting the PR.
+* Never using git merge, or the `sync` button. Only fetch, push, pull.
+* To update your PR to the latest main, rebase it then force push into your branch.
+  * `git pull --rebase upstream main`
+  * `git push -f`
+
+Read the guide above for more details.
+
+
 ## Code Style
 
 ### GDScript

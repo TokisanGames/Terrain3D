@@ -7,68 +7,66 @@ Installation & Upgrades
 * [Upgrading Terrain3D](#upgrading-terrain3d)
 
 ## Requirements
-* Supports Godot 4.2 & 4.3
+* Terrain3D 0.9.3 supports Godot 4.2 & 4.3.
 * Supports Windows, Linux, and [macOS (read more)](platforms.md#macos).
 * Some platforms and renderers are experimental or unsupported. See [Supported Platforms](platforms.md).
 
 ## Installing Terrain3D
 
 ### From The Asset Library
-Terrain3D is listed in the Asset Library [here](https://godotengine.org/asset-library/asset/3134), but you can download it directly within Godot.
-1. Setup a project within Godot.
-2. Click `AssetLib` at the top of the Godot window.
-3. Search for `Terrain3D`, and click the entry from `TokisanGames`.
-4. Click `Download`.
-5. Godot will ask you to install files into `addons` and `demo`. Demo is optional, but highly recommended for troubleshooting. Click `Install`.
-6. Restart when Godot prompts.
-7. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
-8. Select `Project / Reload Current Project` to restart once more.
-9. Open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`. 
-10. When using Terrain3D in your own scene, select the Terrain3D node in the Scene panel. In the Inspector, click the folder icon to the right of `data directory`, then specify a directory to store your data. This directory can be used shared with other scenes.
+Terrain3D is [listed in the Asset Library](https://godotengine.org/asset-library/asset/3134), so you can download it directly within Godot.
+1. Run Godot using the console executable so you can see error messages.
+2. Setup a new project within Godot.
+3. Click `AssetLib` at the top of the Godot window.
+4. Search for `Terrain3D`, and click the entry from `TokisanGames` shown for your Godot version.
+5. Click `Download`.
+6. Godot will ask you to install files into `addons` and `demo`. Demo is optional, but highly recommended for troubleshooting. Click `Install`.
+7. Restart when Godot prompts.
+8. In `Project / Project Settings / Plugins`, ensure that Terrain3D is enabled.
+9. Select `Project / Reload Current Project` to restart once more.
+10. Open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`.
 
-Next, learn how to [prepare your textures](texture_prep.md).
+If the demo isn't working for you, watch the [tutorial videos](tutorial_videos.md) and see [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
 
-If installation isn't working for you, watch the [tutorial videos](tutorial_videos.md) and see [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
+Continue below to [In Your Own Scene](#in-your-own-scene).
 
-### Manually Running The Demo
+### From Github
 1. Download the [latest binary release](https://github.com/TokisanGames/Terrain3D/releases) and extract the files, or [build the plugin from source](building_from_source.md).
 2. Run Godot using the console executable so you can see error messages.
 3. In the Project Manager, import the demo project and open it. Restart when it prompts.
-4. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
+4. In `Project / Project Settings / Plugins`, ensure that Terrain3D is enabled.
 5. Select `Project / Reload Current Project` to restart once more.
 6. If the demo scene doesn't open automatically, open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`. 
 
-If the demo isn't working for you, watch the [tutorial videos](tutorial_videos.md) and see[Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
+If the demo isn't working for you, watch the [tutorial videos](tutorial_videos.md) and see [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
 
-### Manually Into Your Project (v0.9.3-dev running a nightly build)
-1. Download the [latest binary release](https://github.com/TokisanGames/Terrain3D/releases) and extract the files, or [build the plugin from source](building_from_source.md).
-2. Copy `addons/terrain_3d` to your project folder as `addons/terrain_3d`.
-3. Run Godot using the console executable so you can see error messages. Restart when it prompts.
-4. In `Project Settings / Plugins`, ensure that Terrain3D is enabled.
-5. Select `Project / Reload Current Project` to restart once more.
-6. Create or open a 3D scene and add a new Terrain3D node.
-7. Select Terrain3D in the Scene panel. In the Inspector, click the folder icon to the right of `data directory` and specify a directory to store your data. This directory can be used shared with other scenes.
+Continue below.
 
-Next, learn how to [prepare your textures](texture_prep.md).
+### In Your Own Scene
+* To use Terrain3D in your own project, copy `addons/terrain_3d` to your project folder as `addons/terrain_3d`. Create the directories if they are missing.
+* When making a new 3D scene, add a Terrain3D node to your Scene panel. In the Inspector, find `Data Directory` and click the folder icon to specify an empty directory in which to store your data. You can share this directory with other scenes that will load the same terrain map. Different terrain maps need separate directories.
+* Optionally, click the arrow to the right of `Material` and `Assets` and save these as `.tres` files should you wish to share your material settings and asset dock resources (textures and meshes) with other scenes. This is recommended. Saving these in the data directory is fine.
 
-If installation isn't working for you, watch the [tutorial videos](tutorial_videos.md) and see [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
+Next, review the [user interface](user_interface.md) or learn how to [prepare your textures](texture_prep.md) if you're ready to start creating.
+
 
 ## Upgrading Terrain3D
 
 To update Terrain3D: 
 1. Close Godot.
 2. Remove `addons/terrain_3d` from your project folder.
-3. Copy `addons/terrain_3d` from the new release download or from your build directory into your project addons folder.
+3. Copy `addons/terrain_3d` from the new release download or build directory into your project addons folder.
 
 Don't just copy the new folder over the old, as this won't remove any files that we may have intentionally removed.
 
-4. **Upgrading to 0.9.3:** Terrain3D now stores data in a directory. When opening your scene and selecting your Terrain3D node, a directory selection wizard will popup. Follow the directions to select your old storage file and a new storage directory, and it will upgrade your data. Save afterwards.
+4. **Upgrading to 0.9.3:** Terrain3D now stores data in a directory. When opening your 0.9.2 scene and selecting your Terrain3D node, a directory selection wizard will popup. If not, you can find it in the `Terrain3D Tools` menu at the top of your viewport, and `Directory Setup...`. Follow the directions to upgrade your old storage file to a new storage directory. Save afterwards.
+
 
 ### Upgrade Path
 
-While later versions of Terrain3D can generally open previous versions, not all data will be loaded unless the supported upgrade path is followed. We occasionally deprecate or rename classes and provide upgrade paths to convert data for a limited time. 
+While later versions of Terrain3D can generally open previous versions, not all data will be transfered unless the supported upgrade path is followed. We occasionally deprecate or rename classes and provide upgrade paths to convert data for a limited time. 
 
-Given the table below, to upgrade 0.8 to the latest version you would need to open your files in 0.9.0, save, then open in 0.9.3, and save again.
+If upgrading from a very old version, you may need to go through multiple steps to upgrade to the latest version.
 
 | Starting Version | Can Upgrade w/ Data Conversion |
 |------------------|-------------------|
