@@ -313,7 +313,7 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	}
-	IS_DATA_INIT_MESG("Terrain or storage not ready yet", VOID);
+	IS_DATA_INIT_MESG("Terrain3D not initialized yet", VOID);
 	LOG(INFO, "Initializing Instancer");
 
 	{ // DEPRECATED 0.9.3 - Remove 1.0

@@ -15,7 +15,7 @@
 ///////////////////////////
 
 void Terrain3DData::_clear() {
-	LOG(INFO, "Clearing storage");
+	LOG(INFO, "Clearing data");
 	_region_map_dirty = true;
 	_region_map.clear();
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
@@ -50,7 +50,7 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 		LOG(ERROR, "Initialization failed, p_terrain is null");
 		return;
 	}
-	LOG(INFO, "Initializing storage");
+	LOG(INFO, "Initializing data");
 	bool prev_initialized = _terrain != nullptr;
 	_terrain = p_terrain;
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
@@ -950,7 +950,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 /** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres
  * r16 or exr are recommended for roundtrip external editing
  * r16 can be edited by Krita, however you must know the dimensions and min/max before reimporting
- * res/tres allow storage in any of Godot's native Image formats.
+ * res/tres stores in Godot's native format.
  */
 Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map_type) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
@@ -1013,8 +1013,9 @@ Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map
 	String ext = file_name.get_extension().to_lower();
 	LOG(MESG, "Saving ", img->get_size(), " sized ", TYPESTR[p_map_type],
 			" map in format ", img->get_format(), " as ", ext, " to: ", file_name);
+	Vector2i minmax = Util::get_min_max(img);
+	LOG(MESG, "Minimum height: ", minmax.x, ", Maximum height: ", minmax.y);
 	if (ext == "r16" || ext == "raw") {
-		Vector2i minmax = Util::get_min_max(img);
 		Ref<FileAccess> file = FileAccess::open(file_name, FileAccess::WRITE);
 		real_t height_min = minmax.x;
 		real_t height_max = minmax.y;
@@ -1082,7 +1083,7 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 }
 
 void Terrain3DData::print_audit_data() const {
-	LOG(INFO, "Dumping storage data");
+	LOG(INFO, "Dumping data");
 	LOG(INFO, "Region_locations size: ", _region_locations.size(), " ", _region_locations);
 	LOG(INFO, "Region map");
 	for (int i = 0; i < _region_map.size(); i++) {
