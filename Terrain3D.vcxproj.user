@@ -4,7 +4,7 @@
     <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommand>c:\gd\bin\Godot_v4.2.2-stable_win64.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommand>c:\gd\bin\Godot_v4.3-stable_win64.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>-e project.godot</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>project</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
