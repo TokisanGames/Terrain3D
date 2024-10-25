@@ -39,7 +39,7 @@ RID GeneratedTexture::create(const TypedArray<Image> &p_layers) {
 	return _rid;
 }
 
-void GeneratedTexture::update(const Ref<Image> &p_image, const int &p_layer) {
+void GeneratedTexture::update(const Ref<Image> &p_image, const int p_layer) {
 	LOG(EXTREME, "RenderingServer updating Texture2DArray at index: ", p_layer);
 	RS->texture_2d_update(_rid, p_image, p_layer);
 }

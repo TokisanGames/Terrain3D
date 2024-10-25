@@ -58,7 +58,6 @@ mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_7je72")])
 material = SubResource("Terrain3DMaterial_p55u0")
 assets = SubResource("Terrain3DAssets_op32e")
 mesh_lods = 8
-debug_show_region_labels = true
 top_level = true
 script = ExtResource("1_60b8f")
 metadata/_edit_lock_ = true

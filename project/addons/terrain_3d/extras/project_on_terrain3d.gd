@@ -62,7 +62,7 @@
 		#return
 #
 	#if not _terrain.data:
-		#warning += """Terrain3D storage is not initialized"""
+		#warning += """Terrain3DData is not initialized"""
 		#return
 #
 	## Get global transform

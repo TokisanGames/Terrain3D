@@ -113,6 +113,7 @@ func _edit(p_object: Object) -> void:
 		ui.set_visible(true)
 		terrain.set_meta("_edit_lock_", true)
 
+		# Deprecated 0.9.3 - Remove 1.0
 		if terrain.storage:
 			ui.terrain_menu.directory_setup.directory_setup_popup()
 		
