@@ -26,24 +26,22 @@ Most certainly you've installed the plugin improperly. These are the common caus
 
 2) You moved the files into the wrong directory. The Terrain3D files should be in `project/addons/terrain_3d`. `Editor.gd` should be found at `res://addons/terrain_3d/editor/editor.gd`. [See an example issue here](https://github.com/TokisanGames/Terrain3D/issues/200).  
 
-Basically, the required library isn't where it's supposed to be. The error messages will tell you exactly the file name and path it's looking for. View that location on your hard drive. On windows you might be looking for `libterrain.windows.debug.x86_64.dll`. Does that file exist where it's looking in the logs? Probably not. Download the correct package, and review the instructions to install the files in the right location.
+Basically, the binary library file isn't where it's supposed to be. The error messages in your [console](#using-the-console) (not the output panel) will tell you exactly the file name and path it's looking for. View that location on your hard drive. On windows you might be looking for `libterrain.windows.debug.x86_64.dll`. Does that file exist where it's looking in the logs? Probably not. Download the correct package, and review the instructions to install the files in the right location.
 
-### After installation, there are no tools. The texture list is blank in the demo.
-Click the Terrain3D node in the scene tree. Also see the next entry.
+### There are no tools. The texture list is blank.
 
-### After clicking the Terrain3D node, there are no editor tools or texture panel.
+Ensure the plugin is [installed properly](installation.md) and enabled in the project settings. 
 
-Enable the plugin in project settings. Review the [installation instructions](installation.md).
+Then, click the Terrain3D node in the Scene panel to activate the tools and asset dock.
+
 
 ### The editor tools panel is there, but the buttons are blank or missing.
 
 Restart Godot twice before using it. Review the [installation instructions](installation.md).
 
-### Start up is very slow, and/or the scene or storage file is huge.
+### Start up is very slow.
 
-Save the storage resource as a binary `.res` file, as described in the [installation instructions](installation.md). You've likely saved it as text `.tres`, or didn't save it separately at all, which means a ton of terrain data is saved as text in the scene.
-
-Alternatively, you have a large terrain and are generating collision for all of it. Disable collision, or set it to dynamic to create only a small collision around the camera (pending implementation, see [PR #278](https://github.com/TokisanGames/Terrain3D/pull/278)).
+You probably have a large terrain and are generating collision for all of it. Disable collision to test. In the future you'll be able to dynamically create only a small collision area around the camera (see [PR #278](https://github.com/TokisanGames/Terrain3D/pull/278)).
 
 ---
 
@@ -96,9 +94,15 @@ Make sure you have both the debug and release binaries on your system, or have b
 If you're using multiple cameras, or viewports, you need to tell Terrain3D which camera you want to use with `Terrain3D.set_camera()`. You can update it every frame if you like.
 
 
-### Camera flickering
+### Textures flicker
+
+Disable all temporal effects: FSR, TAA, Physics Interpolation. The Terrain3D mesh is constantly moving which causes Godot to unnecessarily generate motion vectors for the terrain. Until there is a way to disable this behavior, temporal effects are unreliable.
+
+
+### Meshes flicker
 
 When another mesh intersects with Terrain3D far away from the camera, such as in the case of water on a beach, the two meshes can flicker as the renderer can't decide which mesh should be displayed in front. This is also called Z-fighting. You can greatly reduce it by increasing `Camera3D.near` to 0.25. You can also set it for the editor camera in the main viewport by adjusting `View/Settings/View Z-Near`.
+
 
 ### Segments of the terrain disappear on camera movement
 

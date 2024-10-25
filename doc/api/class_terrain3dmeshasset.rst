@@ -54,6 +54,8 @@ Properties
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | :ref:`PackedScene<class_PackedScene>`                                     | :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>`               |                   |
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | :ref:`float<class_float>`                                                 | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   | ``1024.0``        |
+   +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -82,18 +84,6 @@ Methods
 Signals
 -------
 
-.. _class_Terrain3DMeshAsset_signal_cast_shadows_changed:
-
-.. rst-class:: classref-signal
-
-**cast_shadows_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_cast_shadows_changed>`
-
-Emitted when :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` is changed on this mesh asset.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3DMeshAsset_signal_file_changed:
 
 .. rst-class:: classref-signal
@@ -113,6 +103,18 @@ Emitted when :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>` is 
 **id_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_id_changed>`
 
 Emitted when :ref:`id<class_Terrain3DMeshAsset_property_id>` is changed.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_signal_instancer_setting_changed:
+
+.. rst-class:: classref-signal
+
+**instancer_setting_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_instancer_setting_changed>`
+
+Emitted when instancer specific settings are changed on this mesh asset, such as :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` or :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`.
 
 .. rst-class:: classref-item-separator
 
@@ -193,7 +195,7 @@ Property Descriptions
 - |void| **set_cast_shadows**\ (\ value\: :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>`\ )
 - :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` **get_cast_shadows**\ (\ )
 
-Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets ``GeometryInstance3D.ShadowCastingSetting`` on all MultiMeshInstances used by this mesh.
+Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets ``GeometryInstance3D.cast_shadow`` on all MultiMeshInstances used by this mesh.
 
 .. rst-class:: classref-item-separator
 
@@ -349,6 +351,23 @@ A user specified name for this asset.
 - :ref:`PackedScene<class_PackedScene>` **get_scene_file**\ (\ )
 
 A packed scene to load the mesh from. See the top description.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_visibility_range:
+
+.. rst-class:: classref-property
+
+:ref:`float<class_float>` **visibility_range** = ``1024.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_visibility_range**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_visibility_range**\ (\ )
+
+Sets ``GeometryInstance3D.visibility_range_end`` on all MultiMeshInstances used by this mesh. Allows the renderer to cull MMIs beyond this distance. Set to 0 to disable culling.
 
 .. rst-class:: classref-section-separator
 

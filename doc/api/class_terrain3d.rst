@@ -80,7 +80,7 @@ Properties
    +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`                | :ref:`texture_list<class_Terrain3D_property_texture_list>`             |                 |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
-   | :ref:`String<class_String>`                                            | :ref:`version<class_Terrain3D_property_version>`                       | ``"0.9.3-dev"`` |
+   | :ref:`String<class_String>`                                            | :ref:`version<class_Terrain3D_property_version>`                       | ``"1.0.0-dev"`` |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
    | :ref:`float<class_float>`                                              | :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>`         | ``1.0``         |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
@@ -588,7 +588,7 @@ See :ref:`get_intersection<class_Terrain3D_method_get_intersection>`.
 - |void| **change_region_size**\ (\ value\: :ref:`RegionSize<enum_Terrain3D_RegionSize>`\ )
 - :ref:`RegionSize<enum_Terrain3D_RegionSize>` **get_region_size**\ (\ )
 
-The number of vertices in each region, and the number of pixels for each map in Terrain3DRegion. 1 pixel corresponds to 1 vertex. :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>` scales regions, but does not change the number of vertices or pixels.
+The number of vertices in each region, and the number of pixels for each map in :ref:`Terrain3DRegion<class_Terrain3DRegion>`. 1 pixel always corresponds to 1 vertex. :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>` laterally scales regions, but does not change the number of vertices or pixels in each.
 
 .. rst-class:: classref-item-separator
 
@@ -622,7 +622,9 @@ The render layers the terrain is drawn on. This sets ``VisualInstance3D.layers``
 - |void| **set_save_16_bit**\ (\ value\: :ref:`bool<class_bool>`\ )
 - :ref:`bool<class_bool>` **get_save_16_bit**\ (\ )
 
-Heightmaps are always loaded and edited in 32-bit. This option saves heightmaps as 16-bit half precision to reduce file size. This process is lossy, but does not change what is currently in memory.
+If enabled, heightmaps are saved as 16-bit half-precision to reduce file size. Files are always loaded in 32-bit for editing. Upon save, a copy of the heightmap is converted to 16-bit for writing. It does not change what is currently in memory.
+
+This process is lossy. 16-bit precision gets increasingly worse with every power of 2. At a height of 256m, the precision interval is .25m. At 512m it is .5m. At 1024m it is 1m. Saving a height of 1024.4m will be rounded down to 1024m.
 
 .. rst-class:: classref-item-separator
 
@@ -683,7 +685,7 @@ Deprecated. See :ref:`assets<class_Terrain3D_property_assets>`.
 
 .. rst-class:: classref-property
 
-:ref:`String<class_String>` **version** = ``"0.9.3-dev"`` :ref:`🔗<class_Terrain3D_property_version>`
+:ref:`String<class_String>` **version** = ``"1.0.0-dev"`` :ref:`🔗<class_Terrain3D_property_version>`
 
 .. rst-class:: classref-property-setget
 
@@ -706,7 +708,7 @@ The current version of Terrain3D.
 - |void| **set_vertex_spacing**\ (\ value\: :ref:`float<class_float>`\ )
 - :ref:`float<class_float>` **get_vertex_spacing**\ (\ )
 
-The distance between vertices. Godot units are typically considered to be meters. This scales the terrain on X and Z axes.
+The distance between vertices. Godot units are typically considered to be meters. This laterally scales the terrain on X and Z axes.
 
 This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
 

@@ -37,7 +37,7 @@ Or you can instance the class for a shorter alias:
     util.enc_uv_scale(uvscale) | util.enc_auto(autoshader) | \
     util.enc_nav(navigation) | util.enc_hole(hole)
     var color: Color = Color(util.as_float(bits), 0., 0., 1.)
-    storage.set_control(global_pos, color)
+    data.set_control(global_pos, color)
 
 .. rst-class:: classref-reftable-group
 

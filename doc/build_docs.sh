@@ -18,7 +18,7 @@ $MAKERST --verbose --filter Terrain3D --output api classes/
 find classes -type f ! -name 'Terrain3D*' -delete
 
 make clean
-make html 2>&1 | grep -Pv 'WARNING: undefined label: (?!'\''class_terrain3d)' | egrep -v '(copying images|writing output|reading sources)...'
+make html 2>&1 | grep -Pv 'WARNING: undefined label: (?!'\''class_terrain3d)' | egrep -v '(local id not found|copying images|writing output|reading sources)...'
 
 start _build/html/index.html
 popd

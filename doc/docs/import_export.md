@@ -30,15 +30,14 @@ Currently importing and exporting is possible via code or our import tool. We wi
 
 7) Click `Run Import` and wait 10-30 seconds. Look at the console for activity or errors. If the `Terrain3D.debug_level` is set to `debug`, you'll also see progress.
 
-8) When you are happy with the import, scroll down in the inspector (half of it is hidden by the `Textures` panel) until you see `Terrain3D, Storage`.
+8) When you are happy with the import, scroll down in the inspector until you see `Terrain3D / Data Directory`. Specify an empty directory and save.
 
-9) Click the right arrow next to the Terrain3DStorage file and save the file wherever you wish. Make sure to save it as `.res` which is a binary Godot resource file. 
 
-```{image} images/io_save_storage.png
-:target: ../_images/io_save_storage.png
+```{image} images/io_data_directory.png
+:target: ../_images/io_data_directory.png
 ```
 
-You can now load this `res` file into a Terrain3D in any of your scenes. You can also preload an existing storage file in the importer, then import more data into it and save it again.
+You can now load this directory into Terrain3D in any of your scenes. You can also preload an existing data directory in the importer, then import more data into it and save it again.
 
 ## Supported Import Formats
 
@@ -48,7 +47,7 @@ We can import any supported image format Godot can read. These include:
 * R16 Height map aka RAW. See below.
 
 ### Height map
-* Only `exr` or `r16/raw` are recommended for heightmaps. Godot PNG only supports 8-bit per channel, so don't use it for heightmaps. It is fine for external editing of the color map which is RGBA. See [Terrain3DStorage](../api/class_terrain3dstorage.rst) for details on internal storage.
+* Only `exr` or `r16/raw` are recommended for heightmaps. Godot PNG only supports 8-bit per channel, so don't use it for heightmaps. It is fine for external editing of the color map which is RGBA. See [Terrain3DData](../api/class_terrain3ddata.rst) for details on data storage.
 * R16: For 16-bit heightmaps read/writable by World Machine, Unity, Krita, etc. The extension should be `r16` or `raw`. Min/Max heights and image size are not stored in the file, so you must keep track of them elsewhere (such as in the name).
 * `Photoshop Raw` is not R16. Use [exr](https://www.exr-io.com/) for photoshop.
 * [Zylann's HTerrain](https://github.com/Zylann/godot_heightmap_plugin/) stores height data in a `res` file which we can import directly. No need to export it, but his tool also exports `exr` and `r16`.
@@ -57,7 +56,7 @@ We can import any supported image format Godot can read. These include:
 * Control maps use a proprietary format. We only import our own format. Use `exr` to export or reimport only from this tool.
 
 ### Color map
-* Any regular color format is fine, `png` is recommended. The alpha channel is interpretted as a [roughness modifier](../api/class_terrain3dstorage.rst#class-terrain3dstorage-property-color-maps) for wetness.
+* Any regular color format is fine, `png` is recommended. The alpha channel is interpretted as a [roughness modifier](../api/class_terrain3ddata.rst#class-terrain3ddata-property-color-maps) for wetness.
 
 
 ## Exporting Data
@@ -66,10 +65,10 @@ We can import any supported image format Godot can read. These include:
 
 2) Click Importer in the scene tree.
 
-3) Scroll the inspector down to Terrain3D, Storage. Click the right arrow, and load the storage file you wish to export from.
+3) Scroll the inspector down to `Terrain3D / Data Directory`, and load the directory you wish to export from.
 
-```{image} images/io_load_storage.png
-:target: ../_images/io_load_storage.png
+```{image} images/io_data_directory.png
+:target: ../_images/io_data_directory.png
 ```
 
 4) Scroll the inspector to `Export File`.
@@ -103,18 +102,12 @@ We can export any supported image format Godot can write. These include:
 * `Photoshop Raw` is not raw, don't use it. Use [exr](https://www.exr-io.com/) for photoshop.
 
 ### Control map
-* Control maps use a proprietary format. We only import our own. Use `exr`. It won't give you a valid image editable in other tools. This is only for transferring the image to another Terrain3D Storage file. See [Controlmap Format](controlmap_format.md).
+* Control maps use a proprietary format. We only import our own. Use `exr`. It won't give you a valid image editable in other tools or image editing apps. This is only for transferring the image to another Terrain3D data file. See [Controlmap Format](controlmap_format.md).
 
 ### Color map
-* Use `png` or `webp`, as they are lossless rgba formats that external tools can edit. Use `res` for Godot only use. The alpha channel is interpretted as a [roughness modifier](../api/class_terrain3dstorage.rst#class-terrain3dstorage-property-color-maps) for wetness. 
+* Use `png` or `webp`, as they are lossless rgba formats that external tools can edit. Use `res` for Godot only use. The alpha channel is interpretted as a [roughness modifier](../api/class_terrain3ddata.rst#class-terrain3ddata-property-color-maps) for wetness. 
 
 
 ## Exported Image Dimensions
 
-Upon export, the console reports the image size.
-
-You can get the height of the data by clicking `Update Height Range`, then looking in the read only data of the storage file.
-
-```{image} images/io_height_range.png
-:target: ../_images/io_height_range.png
-```
+Upon export, the console reports the image size and minimum/maximum heights.

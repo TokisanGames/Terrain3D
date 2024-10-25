@@ -35,6 +35,7 @@
 			<param index="0" name="path" type="String" default="&quot;&quot;" />
 			<description>
 				Saves this material resource to disk, if saved as an external [code skip-lint].tres[/code] or [code skip-lint].res[/code] resource file.
+				path - specifies a directory and file name to use from now on.
 			</description>
 		</method>
 		<method name="set_shader_param">
@@ -95,6 +96,9 @@
 		</member>
 		<member name="show_heightmap" type="bool" setter="set_show_heightmap" getter="get_show_heightmap" default="false">
 			Albedo is a white to black gradient depending on height. The gradient is scaled to a height of 300, so above that or far below 0 will be all white or black.
+		</member>
+		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
+			Draws the 32x32m cell grid on the terrain, which shows how the instancer data is partitioned.
 		</member>
 		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
 			Displays the area designated for generating the navigation mesh.

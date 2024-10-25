@@ -17,7 +17,7 @@ Terrain3DRegion
 Description
 -----------
 
-This resource stores all map data for Terrain3D. See `Controlmap Format <../docs/controlmap_format.html>`__ and `Storage Format Changelog <../docs/storage_format.html>`__.
+This resource stores all map data for Terrain3D. See `Controlmap Format <../docs/controlmap_format.html>`__ and `Data Format Changelog <../docs/data_format.html>`__.
 
 .. rst-class:: classref-reftable-group
 
@@ -27,29 +27,33 @@ Properties
 .. table::
    :widths: auto
 
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`Image<class_Image>`           | :ref:`color_map<class_Terrain3DRegion_property_color_map>`       |                   |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`Image<class_Image>`           | :ref:`control_map<class_Terrain3DRegion_property_control_map>`   |                   |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`bool<class_bool>`             | :ref:`deleted<class_Terrain3DRegion_property_deleted>`           |                   |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`bool<class_bool>`             | :ref:`edited<class_Terrain3DRegion_property_edited>`             |                   |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`Image<class_Image>`           | :ref:`height_map<class_Terrain3DRegion_property_height_map>`     |                   |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`Vector2<class_Vector2>`       | :ref:`height_range<class_Terrain3DRegion_property_height_range>` | ``Vector2(0, 0)`` |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`Vector2i<class_Vector2i>`     | :ref:`location<class_Terrain3DRegion_property_location>`         |                   |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`bool<class_bool>`             | :ref:`modified<class_Terrain3DRegion_property_modified>`         |                   |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`Dictionary<class_Dictionary>` | :ref:`multimeshes<class_Terrain3DRegion_property_multimeshes>`   | ``{}``            |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`int<class_int>`               | :ref:`region_size<class_Terrain3DRegion_property_region_size>`   | ``0``             |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
-   | :ref:`float<class_float>`           | :ref:`version<class_Terrain3DRegion_property_version>`           | ``0.8``           |
-   +-------------------------------------+------------------------------------------------------------------+-------------------+
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`Image<class_Image>`           | :ref:`color_map<class_Terrain3DRegion_property_color_map>`           |                   |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`Image<class_Image>`           | :ref:`control_map<class_Terrain3DRegion_property_control_map>`       |                   |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`bool<class_bool>`             | :ref:`deleted<class_Terrain3DRegion_property_deleted>`               |                   |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`bool<class_bool>`             | :ref:`edited<class_Terrain3DRegion_property_edited>`                 |                   |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`Image<class_Image>`           | :ref:`height_map<class_Terrain3DRegion_property_height_map>`         |                   |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`Vector2<class_Vector2>`       | :ref:`height_range<class_Terrain3DRegion_property_height_range>`     | ``Vector2(0, 0)`` |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`Dictionary<class_Dictionary>` | :ref:`instances<class_Terrain3DRegion_property_instances>`           | ``{}``            |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`Vector2i<class_Vector2i>`     | :ref:`location<class_Terrain3DRegion_property_location>`             |                   |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`bool<class_bool>`             | :ref:`modified<class_Terrain3DRegion_property_modified>`             |                   |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`Dictionary<class_Dictionary>` | :ref:`multimeshes<class_Terrain3DRegion_property_multimeshes>`       | ``{}``            |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`int<class_int>`               | :ref:`region_size<class_Terrain3DRegion_property_region_size>`       | ``0``             |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`float<class_float>`           | :ref:`version<class_Terrain3DRegion_property_version>`               | ``0.8``           |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
+   | :ref:`float<class_float>`           | :ref:`vertex_spacing<class_Terrain3DRegion_property_vertex_spacing>` | ``1.0``           |
+   +-------------------------------------+----------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -240,7 +244,7 @@ Image format: FORMAT_RF, 32-bit per pixel as full-precision floating-point.
 
 Heights sent to the vertex shader on the GPU which modifies the mesh in real-time.
 
-Editing is always done in 32-bit. We do provide an option to save as 16-bit, see :ref:`Terrain3D.save_16_bit<class_Terrain3D_property_save_16_bit>`, which converts to 32-bit on load and back to 16-bit on save. This process is lossy as 16-bit precision gets increasingly worse with every power of 2.
+Editing is always done in 32-bit. We do provide an option to save as 16-bit, see :ref:`Terrain3D.save_16_bit<class_Terrain3D_property_save_16_bit>`.
 
 .. rst-class:: classref-item-separator
 
@@ -258,6 +262,39 @@ Editing is always done in 32-bit. We do provide an option to save as 16-bit, see
 - :ref:`Vector2<class_Vector2>` **get_height_range**\ (\ )
 
 The current minimum and maximum height range for this region, used to calculate the AABB of the terrain. Update it with :ref:`update_height<class_Terrain3DRegion_method_update_height>`, and recalculate it with :ref:`calc_height_range<class_Terrain3DRegion_method_calc_height_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_property_instances:
+
+.. rst-class:: classref-property
+
+:ref:`Dictionary<class_Dictionary>` **instances** = ``{}`` :ref:`🔗<class_Terrain3DRegion_property_instances>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_instances**\ (\ value\: :ref:`Dictionary<class_Dictionary>`\ )
+- :ref:`Dictionary<class_Dictionary>` **get_instances**\ (\ )
+
+A Dictionary that stores the instancer transforms for this region.
+
+The format is instances{mesh_id:int} -> cells{grid_location:Vector2i} -> ( Array\ :ref:`Transform3D<class_Transform3D>`, PackedColorArray, modified:bool ). That is:
+
+- A dictionary keyed by mesh_id that returns:
+
+- A dictionary keyed by the grid location of the 32 x 32m cell that returns:
+
+- A 3-item Array that contains:
+
+- 0: An Array of Transform3Ds
+
+- 1: A PackedColorArray
+
+- 2: A bool that tracks if this cell has been modified
+
+After changing this data, :ref:`Terrain3DInstancer.force_update_mmis<class_Terrain3DInstancer_method_force_update_mmis>` should be called to rebuild the MMIs.
 
 .. rst-class:: classref-item-separator
 
@@ -308,7 +345,7 @@ This region has been modified and will be saved.
 - |void| **set_multimeshes**\ (\ value\: :ref:`Dictionary<class_Dictionary>`\ )
 - :ref:`Dictionary<class_Dictionary>` **get_multimeshes**\ (\ )
 
-A Dictionary indexed by mesh_id that provides the MultiMeshes for this region.
+Deprecated and only exists for upgrading. Use :ref:`instances<class_Terrain3DRegion_property_instances>`.
 
 .. rst-class:: classref-item-separator
 
@@ -343,6 +380,23 @@ The current region size for this region, calculated from the dimensions of the f
 - :ref:`float<class_float>` **get_version**\ (\ )
 
 The data file version. This is independent of the Terrain3D version, though they often align.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_property_vertex_spacing:
+
+.. rst-class:: classref-property
+
+:ref:`float<class_float>` **vertex_spacing** = ``1.0`` :ref:`🔗<class_Terrain3DRegion_property_vertex_spacing>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_vertex_spacing**\ (\ value\: :ref:`float<class_float>`\ )
+- :ref:`float<class_float>` **get_vertex_spacing**\ (\ )
+
+Stored instancer transforms are laterally scaled by this value. This value is manage by the instancer on loading or when :ref:`Terrain3D.vertex_spacing<class_Terrain3D_property_vertex_spacing>` is set, and shouldn't be manually adjusted.
 
 .. rst-class:: classref-section-separator
 

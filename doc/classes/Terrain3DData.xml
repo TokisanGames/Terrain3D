@@ -68,7 +68,7 @@
 				Exports the specified map type as one of r16/raw, exr, jpg, png, webp, res, tres. 
 				R16 or exr are recommended for roundtrip external editing.
 				R16 can be edited by Krita, however you must know the dimensions and min/max before reimporting. This information is printed to the console.
-				Res/tres allow storage in any of Godot's native Image formats.
+				Res/tres stores in Godot's native data format.
 			</description>
 		</method>
 		<method name="force_update_maps">
@@ -607,7 +607,7 @@
 		<signal name="maps_edited">
 			<param index="0" name="edited_area" type="AABB" />
 			<description>
-				This signal is emitted whenever the editor is used to:
+				This signal is emitted whenever the editor ([Terrain3DEditor]) is used to:
 				- add or remove a region
 				- alter a region map with a brush tool
 				- undo or redo any of the above operations

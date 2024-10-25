@@ -137,13 +137,11 @@ Support for Apple's Metal for iOS and macOS was recently merged into Godot 4.4-d
 
 ## Mobile
 
-The Forward Vulkan Mobile renderer is fully supported in Terrain3D 0.9.3. There is a precision artifact in 0.9.2.
+The Forward Vulkan Mobile renderer is fully supported in Terrain3D.
 
 ## Compatibility
 
-The OpenGLES 3.0 Compatibility renderer is mostly supported from Terrain3D 0.9.3 though there are some caveats with Godot 4.2 and 4.3.
-
-**Both versions**
+The OpenGLES 3.0 Compatibility renderer is mostly supported from Terrain3D 0.9.3 though there are some caveats with Godot 4.3:
 
 * If using a custom override shader, we add a special COMPATIBILITY_DEFINES block to your shader that will allow certain features to work properly (eg the fma() function). We remove this block from your shader if you switch back to Mobile or Forward. It is normal to receive a shader dump in your console during this transition, but it should not repeat every start, once saved.
 
@@ -153,18 +151,7 @@ The OpenGLES 3.0 Compatibility renderer is mostly supported from Terrain3D 0.9.3
 
     `Godot_v4.3-stable_win64_console.exe --rendering-driver opengl3 -e project.godot --terrain3d-renderer=compatibility`
 
-**Godot 4.3**
-
 * `VRAM Compressed` is only partially supported. You can use 2 textures in the asset list. If a third is added, Godot will crash. It seems to be fixed in 4.4. The workaround for now is to select `VRAM Uncompressed` or `Lossless` on the Import tab and reimport for all of your textures.
-
-
-**Godot 4.2**
-
-* There are some startup warnings about depth textures and glow that you can ignore.
-
-* `VRAM Compressed` is not supported. In the `Import` panel, you must set your texture files to either `VRAM Uncompressed` or `Lossless` and reimport.
-
-* The command line option `--rendering-method gl_compatibility` breaks the terrain in 4.2. Don't use it. The full command above works for 4.2 or 4.3.
  
 Further reading:
 

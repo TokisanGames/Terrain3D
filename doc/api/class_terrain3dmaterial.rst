@@ -62,6 +62,8 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_heightmap<class_Terrain3DMaterial_property_show_heightmap>`                   | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | :ref:`bool<class_bool>`                                          | :ref:`show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`         | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_navigation<class_Terrain3DMaterial_property_show_navigation>`                 | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | :ref:`bool<class_bool>`                                          | :ref:`show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`               | ``false`` |
@@ -412,6 +414,23 @@ Albedo is a white to black gradient depending on height. The gradient is scaled 
 
 ----
 
+.. _class_Terrain3DMaterial_property_show_instancer_grid:
+
+.. rst-class:: classref-property
+
+:ref:`bool<class_bool>` **show_instancer_grid** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_instancer_grid>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_instancer_grid**\ (\ value\: :ref:`bool<class_bool>`\ )
+- :ref:`bool<class_bool>` **get_show_instancer_grid**\ (\ )
+
+Draws the 32x32m cell grid on the terrain, which shows how the instancer data is partitioned.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DMaterial_property_show_navigation:
 
 .. rst-class:: classref-property
@@ -613,6 +632,8 @@ Returns the RID of the built in shader used with the Rendering Server. This is d
 :ref:`Error<enum_@GlobalScope_Error>` **save**\ (\ path\: :ref:`String<class_String>` = ""\ ) :ref:`🔗<class_Terrain3DMaterial_method_save>`
 
 Saves this material resource to disk, if saved as an external ``.tres`` or ``.res`` resource file.
+
+path - specifies a directory and file name to use from now on.
 
 .. rst-class:: classref-item-separator
 

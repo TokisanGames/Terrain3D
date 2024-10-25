@@ -77,6 +77,7 @@
 			<param index="0" name="path" type="String" default="&quot;&quot;" />
 			<description>
 				Saves this texture list resource to disk, if saved as an external [code skip-lint].tres[/code] or [code skip-lint].res[/code] resource file.
+				path - specifies a directory and file name to use from now on.
 			</description>
 		</method>
 		<method name="set_mesh_asset">
