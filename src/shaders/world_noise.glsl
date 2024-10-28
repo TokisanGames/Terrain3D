@@ -47,8 +47,8 @@ float hashv2(vec2 v) {
 vec3 noise2D(vec2 x) {
     vec2 f = fract(x);
     // Quintic Hermine Curve.  Similar to SmoothStep()
-    vec2 u = f * f * f * fma(f, fma(f, vec2(6.0), vec2(-15.0)), vec2(10.0));
-    vec2 du = 30.0 * f * f * fma(f, (f - 2.0), vec2(1.0));
+    vec2 u = f*f*f*(f*(f*6.0-15.0)+10.0);
+    vec2 du = 30.0*f*f*(f*(f-2.0)+1.0);
 
     vec2 p = floor(x);
 
@@ -63,8 +63,8 @@ vec3 noise2D(vec2 x) {
     float k1 =   b - a;
     float k2 =   c - a;
     float k3 =   a - b - c + d;
-    return vec3( fma(k3, u.x * u.y, fma(u.y, k2, fma(k1, u.x, k0))),
-		du * fma(u.yx, vec2(k3), vec2(k1, k2)) );
+    return vec3( k0 + k1 * u.x + k2 * u.y + k3 * u.x * u.y,
+                du * ( vec2(k1, k2) + k3 * u.yx) );
 }
 
 float world_noise(vec2 p) {
