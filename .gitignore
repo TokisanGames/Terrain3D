@@ -36,3 +36,4 @@ export_presets.cfg
 # Editors
 .vscode/
 .vs/
+doc/art/
