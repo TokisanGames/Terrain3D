@@ -222,7 +222,7 @@ vec4 height_blend(vec4 a_value, float a_height, vec4 b_value, float b_height, fl
 		float ma = max(a_height + (1.0 - blend), b_height + blend) - (1.001 - blend_sharpness);
 	    float b1 = max(a_height + (1.0 - blend) - ma, 0.0);
 	    float b2 = max(b_height + blend - ma, 0.0);
-	    return fma(a_value, vec4(b1), b_value * b2) / (b1 + b2);
+	    return (a_value * b1 + b_value * b2) / (b1 + b2);
 	} else {
 		float contrast = 1.0 - blend_sharpness;
 		float factor = (blend - contrast) / contrast;
