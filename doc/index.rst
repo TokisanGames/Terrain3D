@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. |logo| image:: docs/images/terrain3d.png
-   :target: _images/terrain3d.png
+.. |logo| image:: docs/images/terrain3d.jpg
+   :target: _images/terrain3d.jpg
 
 |logo|
 
