@@ -280,17 +280,17 @@ The current minimum and maximum height range for this region, used to calculate 
 
 A Dictionary that stores the instancer transforms for this region.
 
-The format is instances{mesh_id:int} -> cells{grid_location:Vector2i} -> ( Array\ :ref:`Transform3D<class_Transform3D>`, PackedColorArray, modified:bool ). That is:
+The format is instances{mesh_id:int} -> cells{grid_location:Vector2i} -> ( Array:Transform3D, PackedColorArray, modified:bool ). That is:
 
-- A dictionary keyed by mesh_id that returns:
+- A Dictionary keyed by mesh_id that returns:
 
-- A dictionary keyed by the grid location of the 32 x 32m cell that returns:
+- A Dictionary keyed by the grid location of the 32 x 32m cell that returns:
 
 - A 3-item Array that contains:
 
 - 0: An Array of Transform3Ds
 
-- 1: A PackedColorArray
+- 1: A PackedColorArray with instance colors, same index as above
 
 - 2: A bool that tracks if this cell has been modified
 
