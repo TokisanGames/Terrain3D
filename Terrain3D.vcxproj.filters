@@ -39,9 +39,6 @@
     <ClInclude Include="src\terrain_3d_editor.h">
       <Filter>5. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\terrain_3d_storage.h">
-      <Filter>5. Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\terrain_3d_material.h">
       <Filter>5. Headers</Filter>
     </ClInclude>
@@ -87,9 +84,6 @@
       <Filter>6. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_editor.cpp">
-      <Filter>6. C++</Filter>
-    </ClCompile>
-    <ClCompile Include="src\terrain_3d_storage.cpp">
       <Filter>6. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_texture_asset.cpp">
@@ -314,9 +308,6 @@
     <Xml Include="doc\classes\Terrain3DMaterial.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DStorage.xml">
-      <Filter>3. XML</Filter>
-    </Xml>
     <Xml Include="doc\classes\Terrain3DTextureAsset.xml">
       <Filter>3. XML</Filter>
     </Xml>
@@ -329,13 +320,7 @@
     <Xml Include="doc\classes\Terrain3DInstancer.xml">
       <Filter>3. XML</Filter>
     </Xml>
-    <Xml Include="doc\classes\Terrain3DTextureList.xml">
-      <Filter>3. XML</Filter>
-    </Xml>
     <Xml Include="doc\classes\Terrain3DMeshAsset.xml">
-      <Filter>3. XML</Filter>
-    </Xml>
-    <Xml Include="doc\classes\Terrain3DTexture.xml">
       <Filter>3. XML</Filter>
     </Xml>
     <Xml Include="doc\classes\Terrain3DData.xml">

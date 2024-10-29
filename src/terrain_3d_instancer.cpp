@@ -315,30 +315,6 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 	}
 	IS_DATA_INIT_MESG("Terrain3D not initialized yet", VOID);
 	LOG(INFO, "Initializing Instancer");
-
-	{ // DEPRECATED 0.9.3 - Remove 1.0
-		// This block upgrades 0.9.3-dev multimeshes to _instances
-		bool upgraded = false;
-		TypedArray<Terrain3DRegion> regions = _terrain->get_data()->get_regions_active();
-		for (int i = 0; i < regions.size(); i++) {
-			Ref<Terrain3DRegion> region = regions[i];
-			if (!region->get_multimeshes().is_empty()) {
-				Dictionary mesh_dict = region->get_multimeshes();
-				// Dictionary[mesh_id:int] -> MultiMesh
-				Array mkeys = mesh_dict.keys();
-				for (int j = 0; j < mkeys.size(); j++) {
-					int mesh_id = mkeys[j];
-					add_multimesh(mesh_id, mesh_dict[mesh_id], Transform3D(), false);
-					upgraded = true;
-				}
-				mesh_dict.clear();
-			}
-		}
-		if (upgraded) {
-			LOG(WARN, "Upgrading v0.9.3-dev instancer data. Save to write changes to disk.");
-		}
-	}
-
 	_update_mmis();
 }
 

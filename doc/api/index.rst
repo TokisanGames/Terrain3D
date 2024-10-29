@@ -32,10 +32,7 @@ Resources
     class_terrain3dmaterial
     class_terrain3dmeshasset
     class_terrain3dregion
-    class_terrain3dstorage
-    class_terrain3dtexture
     class_terrain3dtextureasset
-    class_terrain3dtexturelist
 
 Other objects
 =============

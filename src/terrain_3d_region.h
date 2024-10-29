@@ -60,9 +60,6 @@ private:
 	bool _modified = false; // Marked for saving
 	Vector2i _location = V2I_MAX;
 
-	// DEPRECATED 0.9.3-dev - Remove 1.0
-	Dictionary _multimeshes; // Dictionary[mesh_id:int] -> MultiMesh
-
 public:
 	Terrain3DRegion() {}
 	~Terrain3DRegion() {}
@@ -116,10 +113,6 @@ public:
 	void set_data(const Dictionary &p_data);
 	Dictionary get_data() const;
 	Ref<Terrain3DRegion> duplicate(const bool p_deep = false);
-
-	// DEPRECATED 0.9.3-dev - Remove 1.0
-	void set_multimeshes(const Dictionary &p_multimeshes);
-	Dictionary get_multimeshes() const { return _multimeshes; }
 
 protected:
 	static void _bind_methods();

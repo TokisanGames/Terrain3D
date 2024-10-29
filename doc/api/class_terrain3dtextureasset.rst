@@ -12,8 +12,6 @@ Terrain3DTextureAsset
 
 **Inherits:** :ref:`Resource<class_Resource>` **<** :ref:`RefCounted<class_RefCounted>` **<** :ref:`Object<class_Object>`
 
-**Inherited By:** :ref:`Terrain3DTexture<class_Terrain3DTexture>`
-
 .. rst-class:: classref-introduction-group
 
 Description

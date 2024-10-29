@@ -307,11 +307,6 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 	return region;
 }
 
-// DEPRECATED 0.9.3-dev - Remove 1.0
-void Terrain3DRegion::set_multimeshes(const Dictionary &p_multimeshes) {
-	_multimeshes = p_multimeshes;
-}
-
 /////////////////////
 // Protected Functions
 /////////////////////
@@ -382,9 +377,4 @@ void Terrain3DRegion::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "deleted", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_deleted", "is_deleted");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_modified", "is_modified");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_location", "get_location");
-
-	// DEPRECATED 0.9.3-dev - Remove 1.0
-	ClassDB::bind_method(D_METHOD("set_multimeshes", "multimeshes"), &Terrain3DRegion::set_multimeshes);
-	ClassDB::bind_method(D_METHOD("get_multimeshes"), &Terrain3DRegion::get_multimeshes);
-	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "multimeshes", PROPERTY_HINT_NONE, "", ro_flags), "set_multimeshes", "get_multimeshes");
 }

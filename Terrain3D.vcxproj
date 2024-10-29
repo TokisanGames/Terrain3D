@@ -154,7 +154,6 @@
     <ClInclude Include="src\terrain_3d_texture_asset.h" />
     <ClInclude Include="src\terrain_3d_util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
-    <ClInclude Include="src\terrain_3d_storage.h" />
     <ClInclude Include="src\terrain_3d_assets.h" />
   </ItemGroup>
   <ItemGroup>
@@ -168,7 +167,6 @@
     <ClCompile Include="src\terrain_3d_material.cpp" />
     <ClCompile Include="src\terrain_3d_mesh_asset.cpp" />
     <ClCompile Include="src\terrain_3d_region.cpp" />
-    <ClCompile Include="src\terrain_3d_storage.cpp" />
     <ClCompile Include="src\terrain_3d_texture_asset.cpp" />
     <ClCompile Include="src\terrain_3d_assets.cpp" />
     <ClCompile Include="src\terrain_3d_util.cpp" />
@@ -245,11 +243,8 @@
     <Xml Include="doc\classes\Terrain3DMaterial.xml" />
     <Xml Include="doc\classes\Terrain3DMeshAsset.xml" />
     <Xml Include="doc\classes\Terrain3DRegion.xml" />
-    <Xml Include="doc\classes\Terrain3DStorage.xml" />
-    <Xml Include="doc\classes\Terrain3DTexture.xml" />
     <Xml Include="doc\classes\Terrain3DTextureAsset.xml" />
     <Xml Include="doc\classes\Terrain3DAssets.xml" />
-    <Xml Include="doc\classes\Terrain3DTextureList.xml" />
     <Xml Include="doc\classes\Terrain3DUtil.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

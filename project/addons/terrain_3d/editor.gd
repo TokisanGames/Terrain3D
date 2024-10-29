@@ -113,10 +113,6 @@ func _edit(p_object: Object) -> void:
 		ui.set_visible(true)
 		terrain.set_meta("_edit_lock_", true)
 
-		# Deprecated 0.9.3 - Remove 1.0
-		if terrain.storage:
-			ui.terrain_menu.directory_setup.directory_setup_popup()
-		
 		# Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
@@ -369,29 +365,6 @@ func setup_editor_settings() -> void:
 		"hint_string": "Alt,Space,Meta,Capslock"
 	}
 	editor_settings.add_property_info(property_info)
-
-	_cleanup_old_settings()
-
-	
-# Remove or rename old settings
-func _cleanup_old_settings() -> void:
-	# Rename deprecated settings - Remove in 1.0
-	var value: Variant
-	var rename_arr := [ "terrain3d/config/dock_slot", "terrain3d/config/dock_tile_size", 
-	"terrain3d/config/dock_floating", "terrain3d/config/dock_always_on_top",
-	"terrain3d/config/dock_window_size", "terrain3d/config/dock_window_position", ]
-	for es: String in rename_arr:
-		if editor_settings.has_setting(es):
-			value = editor_settings.get_setting(es)
-			editor_settings.erase(es)
-			editor_settings.set_setting(es.replace("/config/dock_", "/dock/"), value)
-
-	# Special handling
-	var es: String = "terrain3d/tool_settings/slope"
-	if editor_settings.has_setting(es):
-		value = editor_settings.get_setting(es)
-		if typeof(value) == TYPE_FLOAT:
-			editor_settings.erase(es)
 	
 
 func set_setting(p_str: String, p_value: Variant) -> void:

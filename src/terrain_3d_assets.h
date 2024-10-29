@@ -89,49 +89,4 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DAssets::AssetType);
 
-// Deprecated 0.9.2 - Remove 1.0
-
-class Terrain3DTexture : public Terrain3DTextureAsset {
-	GDCLASS(Terrain3DTexture, Terrain3DTextureAsset);
-	CLASS_NAME();
-
-	real_t _uv_rotation = 0.0f;
-
-public:
-	Terrain3DTexture() {}
-	~Terrain3DTexture() {}
-
-	void set_uv_rotation(const real_t p_rotation) { _uv_rotation = p_rotation; }
-	real_t get_uv_rotation() const { return _uv_rotation; }
-
-protected:
-	static void _bind_methods() {
-		ClassDB::bind_method(D_METHOD("set_uv_rotation", "rotation"), &Terrain3DTexture::set_uv_rotation);
-		ClassDB::bind_method(D_METHOD("get_uv_rotation"), &Terrain3DTexture::get_uv_rotation);
-		ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_id", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_id", "get_id");
-		ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_uv_rotation", "get_uv_rotation");
-	}
-};
-
-class Terrain3DTextureList : public Resource {
-	GDCLASS(Terrain3DTextureList, Resource);
-	CLASS_NAME();
-	TypedArray<Terrain3DTextureAsset> _textures;
-
-public:
-	Terrain3DTextureList() {}
-	~Terrain3DTextureList() {}
-	void set_textures(const TypedArray<Terrain3DTexture> &p_textures);
-	TypedArray<Terrain3DTextureAsset> get_textures() const { return _textures; }
-
-protected:
-	static void _bind_methods() {
-		ClassDB::bind_method(D_METHOD("set_textures", "textures"), &Terrain3DTextureList::set_textures);
-		ClassDB::bind_method(D_METHOD("get_textures"), &Terrain3DTextureList::get_textures);
-		int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
-		ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "textures", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList"), ro_flags), "set_textures", "get_textures");
-	}
-};
-//////////////
-
 #endif // TERRAIN3D_ASSETS_CLASS_H

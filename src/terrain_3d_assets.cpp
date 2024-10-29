@@ -607,21 +607,3 @@ void Terrain3DAssets::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("meshes_changed"));
 	ADD_SIGNAL(MethodInfo("textures_changed"));
 }
-
-// Deprecated 0.9.2 - Remove 1.0
-void Terrain3DTextureList::set_textures(const TypedArray<Terrain3DTexture> &p_textures) {
-	LOG(WARN, "Terrain3DTextureList: Converting Terrain3DTextures to Terrain3DTextureAssets. Save to complete.");
-	for (int i = 0; i < p_textures.size(); i++) {
-		Ref<Terrain3DTextureAsset> ta;
-		ta.instantiate();
-		Ref<Terrain3DTexture> t = p_textures[i];
-		ta->set_id(t->get_id());
-		ta->set_name(t->get_name());
-		ta->set_albedo_color(t->get_albedo_color());
-		ta->set_albedo_texture(t->get_albedo_texture());
-		ta->set_normal_texture(t->get_normal_texture());
-		ta->set_uv_scale(t->get_uv_scale());
-		ta->set_detiling(t->get_uv_rotation());
-		_textures.push_back(ta);
-	}
-}
