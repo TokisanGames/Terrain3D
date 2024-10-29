@@ -222,12 +222,6 @@ void Terrain3D::_update_collision() {
 
 	int time = Time::get_singleton()->get_ticks_msec();
 	int shape_size = _region_size + 1;
-	float hole_const = NAN;
-	// DEPRECATED - Jolt v0.12 supports NAN. Remove 1.0. Jolt 0.13 supports 4.3.
-	if (ProjectSettings::get_singleton()->get_setting("physics/3d/physics_engine") == "JoltPhysics3D") {
-		hole_const = FLT_MAX;
-	}
-
 	for (int i = 0; i < _data->get_region_count(); i++) {
 		PackedRealArray map_data = PackedRealArray();
 		map_data.resize(shape_size * shape_size);
@@ -273,22 +267,22 @@ void Terrain3D::_update_collision() {
 
 				// Set heights on local map, or adjacent maps if on the last row/col
 				if (x < _region_size && z < _region_size) {
-					map_data[index] = (is_hole(cmap->get_pixel(x, z).r)) ? hole_const : map->get_pixel(x, z).r;
+					map_data[index] = (is_hole(cmap->get_pixel(x, z).r)) ? NAN : map->get_pixel(x, z).r;
 				} else if (x == _region_size && z < _region_size) {
 					if (map_x.is_valid()) {
-						map_data[index] = (is_hole(cmap_x->get_pixel(0, z).r)) ? hole_const : map_x->get_pixel(0, z).r;
+						map_data[index] = (is_hole(cmap_x->get_pixel(0, z).r)) ? NAN : map_x->get_pixel(0, z).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (z == _region_size && x < _region_size) {
 					if (map_z.is_valid()) {
-						map_data[index] = (is_hole(cmap_z->get_pixel(x, 0).r)) ? hole_const : map_z->get_pixel(x, 0).r;
+						map_data[index] = (is_hole(cmap_z->get_pixel(x, 0).r)) ? NAN : map_z->get_pixel(x, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
 				} else if (x == _region_size && z == _region_size) {
 					if (map_xz.is_valid()) {
-						map_data[index] = (is_hole(cmap_xz->get_pixel(0, 0).r)) ? hole_const : map_xz->get_pixel(0, 0).r;
+						map_data[index] = (is_hole(cmap_xz->get_pixel(0, 0).r)) ? NAN : map_xz->get_pixel(0, 0).r;
 					} else {
 						map_data[index] = 0.0f;
 					}
@@ -1290,8 +1284,7 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_gl
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_data_directory.is_empty()) {
-		psa.push_back("No data directory specified. Select a directory then save the scene to write data. "
-					  "If you wish to load and upgrade and old storage file use Terrain3D Tools / Directory Setup.");
+		psa.push_back("No data directory specified. Select a directory then save the scene to write data.");
 	}
 	if (!psa.is_empty()) {
 		psa.push_back("To update this message, deselect and reselect Terrain3D in the Scene panel.");
@@ -1564,92 +1557,4 @@ void Terrain3D::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
-
-	// DEPRECATED 0.9.2 - Remove 1.0
-	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3D::set_texture_list);
-	ClassDB::bind_method(D_METHOD("get_texture_list"), &Terrain3D::get_texture_list);
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "texture_list", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DTextureList", PROPERTY_USAGE_NONE), "set_texture_list", "get_texture_list");
-
-	// DEPRECATED 0.9.3 - Remove 1.0
-	ClassDB::bind_method(D_METHOD("set_storage", "storage"), &Terrain3D::set_storage);
-	ClassDB::bind_method(D_METHOD("get_storage"), &Terrain3D::get_storage);
-	ClassDB::bind_method(D_METHOD("split_storage"), &Terrain3D::split_storage);
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "storage", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DStorage", PROPERTY_USAGE_NONE), "set_storage", "get_storage");
-}
-
-///////////////////////////
-// DEPRECATED Functions
-///////////////////////////
-
-// DEPRECATED 0.9.2 - Remove 1.0
-void Terrain3D::set_texture_list(const Ref<Terrain3DTextureList> &p_texture_list) {
-	if (p_texture_list.is_null()) {
-		LOG(ERROR, "Attempted to upgrade Terrain3DTextureList, but received null (perhaps already a Terrain3DAssets). Reconnect manually and save.");
-		return;
-	}
-	LOG(WARN, "Loaded Terrain3DTextureList. Converting to Terrain3DAssets. Save this scene to complete.");
-	Ref<Terrain3DAssets> assets;
-	assets.instantiate();
-	assets->set_texture_list(p_texture_list->get_textures());
-	assets->take_over_path(p_texture_list->get_path());
-	set_assets(assets);
-}
-
-// DEPRECATED 0.9.3 - Remove 1.0
-void Terrain3D::set_storage(const Ref<Terrain3DStorage> &p_storage) {
-	_storage = p_storage;
-	if (p_storage.is_valid()) {
-		LOG(WARN, "Loaded Terrain3DStorage v", vformat("%.3f", p_storage->get_version()), ". Use Terrain3D Tools / Directory Setup to upgrade");
-		set_region_size(SIZE_1024);
-	}
-}
-
-// This function upgrades a v0.9.2 storage to split regions in v0.9.3
-void Terrain3D::split_storage() {
-	if (_storage.is_null()) {
-		LOG(ERROR, "Storage has not been loaded");
-		return;
-	}
-	if (_data == nullptr) {
-		LOG(ERROR, "_data has not been initialized");
-		return;
-	}
-	if (_data_directory.is_empty()) {
-		LOG(ERROR, "Data_directory is empty");
-		return;
-	}
-
-	// Upgrade maps
-	set_region_size(SIZE_1024);
-	TypedArray<Vector2i> locations = _storage->get_region_offsets();
-	TypedArray<Image> hmaps = _storage->get_maps(Terrain3DStorage::TYPE_HEIGHT);
-	TypedArray<Image> ctlmaps = _storage->get_maps(Terrain3DStorage::TYPE_CONTROL);
-	TypedArray<Image> clrmaps = _storage->get_maps(Terrain3DStorage::TYPE_COLOR);
-	for (int i = 0; i < locations.size(); i++) {
-		Ref<Terrain3DRegion> region;
-		region.instantiate();
-		region->set_location(locations[i]);
-		region->set_height_map(hmaps[i]);
-		region->set_control_map(ctlmaps[i]);
-		region->set_color_map(clrmaps[i]);
-		_data->add_region(region, false);
-		LOG(INFO, "Splicing region ", locations[i]);
-	}
-
-	//Upgrade instancer data
-	Dictionary mms = _storage->get_multimeshes();
-	Array rkeys = mms.keys();
-	for (int i = 0; i < rkeys.size(); i++) {
-		Vector2i region_loc = rkeys[i];
-		Dictionary mesh_dict = mms[region_loc];
-		Array mkeys = mesh_dict.keys();
-		for (int j = 0; j < mkeys.size(); j++) {
-			int mesh_id = mkeys[j];
-			_instancer->add_multimesh(mesh_id, mesh_dict[mesh_id], Transform3D(), false);
-		}
-	}
-	_storage.unref();
-	_data->force_update_maps();
-	_instancer->force_update_mmis();
-	LOG(WARN, "Terrain3DStorage has been converted to Terrain3DData. Save to write changes to disk");
 }

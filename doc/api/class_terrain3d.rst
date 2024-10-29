@@ -76,10 +76,6 @@ Properties
    +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
    | :ref:`bool<class_bool>`                                                | :ref:`show_grid<class_Terrain3D_property_show_grid>`                   | ``false``       |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DStorage<class_Terrain3DStorage>`                        | :ref:`storage<class_Terrain3D_property_storage>`                       |                 |
-   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
-   | :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`                | :ref:`texture_list<class_Terrain3D_property_texture_list>`             |                 |
-   +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
    | :ref:`String<class_String>`                                            | :ref:`version<class_Terrain3D_property_version>`                       | ``"1.0.0-dev"`` |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+-----------------+
    | :ref:`float<class_float>`                                              | :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>`         | ``1.0``         |
@@ -115,8 +111,6 @@ Methods
    | |void|                                              | :ref:`set_editor<class_Terrain3D_method_set_editor>`\ (\ editor\: :ref:`Terrain3DEditor<class_Terrain3DEditor>`\ )                                                                                    |
    +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                              | :ref:`set_plugin<class_Terrain3D_method_set_plugin>`\ (\ plugin\: :ref:`EditorPlugin<class_EditorPlugin>`\ )                                                                                          |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                              | :ref:`split_storage<class_Terrain3D_method_split_storage>`\ (\ )                                                                                                                                      |
    +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
@@ -647,40 +641,6 @@ Draws the region grid directly on the terrain. This is more accurate than the re
 
 ----
 
-.. _class_Terrain3D_property_storage:
-
-.. rst-class:: classref-property
-
-:ref:`Terrain3DStorage<class_Terrain3DStorage>` **storage** :ref:`🔗<class_Terrain3D_property_storage>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_storage**\ (\ value\: :ref:`Terrain3DStorage<class_Terrain3DStorage>`\ )
-- :ref:`Terrain3DStorage<class_Terrain3DStorage>` **get_storage**\ (\ )
-
-This object is deprecated and only used for upgrading. Don't use.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_texture_list:
-
-.. rst-class:: classref-property
-
-:ref:`Terrain3DTextureList<class_Terrain3DTextureList>` **texture_list** :ref:`🔗<class_Terrain3D_property_texture_list>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_texture_list**\ (\ value\: :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`\ )
-- :ref:`Terrain3DTextureList<class_Terrain3DTextureList>` **get_texture_list**\ (\ )
-
-Deprecated. See :ref:`assets<class_Terrain3D_property_assets>`.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3D_property_version:
 
 .. rst-class:: classref-property
@@ -874,18 +834,6 @@ Sets the current Terrain3DEditor instance.
 |void| **set_plugin**\ (\ plugin\: :ref:`EditorPlugin<class_EditorPlugin>`\ ) :ref:`🔗<class_Terrain3D_method_set_plugin>`
 
 Sets the EditorPlugin connected to Terrain3D.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_method_split_storage:
-
-.. rst-class:: classref-method
-
-|void| **split_storage**\ (\ ) :ref:`🔗<class_Terrain3D_method_split_storage>`
-
-This function is deprecated. It facilitates upgrading the previous storage version to the new format.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

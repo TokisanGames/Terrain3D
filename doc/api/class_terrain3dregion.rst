@@ -46,8 +46,6 @@ Properties
    +-------------------------------------+----------------------------------------------------------------------+-------------------+
    | :ref:`bool<class_bool>`             | :ref:`modified<class_Terrain3DRegion_property_modified>`             |                   |
    +-------------------------------------+----------------------------------------------------------------------+-------------------+
-   | :ref:`Dictionary<class_Dictionary>` | :ref:`multimeshes<class_Terrain3DRegion_property_multimeshes>`       | ``{}``            |
-   +-------------------------------------+----------------------------------------------------------------------+-------------------+
    | :ref:`int<class_int>`               | :ref:`region_size<class_Terrain3DRegion_property_region_size>`       | ``0``             |
    +-------------------------------------+----------------------------------------------------------------------+-------------------+
    | :ref:`float<class_float>`           | :ref:`version<class_Terrain3DRegion_property_version>`               | ``0.8``           |
@@ -280,17 +278,17 @@ The current minimum and maximum height range for this region, used to calculate 
 
 A Dictionary that stores the instancer transforms for this region.
 
-The format is instances{mesh_id:int} -> cells{grid_location:Vector2i} -> ( Array\ :ref:`Transform3D<class_Transform3D>`, PackedColorArray, modified:bool ). That is:
+The format is instances{mesh_id:int} -> cells{grid_location:Vector2i} -> ( Array:Transform3D, PackedColorArray, modified:bool ). That is:
 
-- A dictionary keyed by mesh_id that returns:
+- A Dictionary keyed by mesh_id that returns:
 
-- A dictionary keyed by the grid location of the 32 x 32m cell that returns:
+- A Dictionary keyed by the grid location of the 32 x 32m cell that returns:
 
 - A 3-item Array that contains:
 
 - 0: An Array of Transform3Ds
 
-- 1: A PackedColorArray
+- 1: A PackedColorArray with instance colors, same index as above
 
 - 2: A bool that tracks if this cell has been modified
 
@@ -329,23 +327,6 @@ The region location, or region grid coordinates in the world space where this re
 - :ref:`bool<class_bool>` **is_modified**\ (\ )
 
 This region has been modified and will be saved.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DRegion_property_multimeshes:
-
-.. rst-class:: classref-property
-
-:ref:`Dictionary<class_Dictionary>` **multimeshes** = ``{}`` :ref:`🔗<class_Terrain3DRegion_property_multimeshes>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_multimeshes**\ (\ value\: :ref:`Dictionary<class_Dictionary>`\ )
-- :ref:`Dictionary<class_Dictionary>` **get_multimeshes**\ (\ )
-
-Deprecated and only exists for upgrading. Use :ref:`instances<class_Terrain3DRegion_property_instances>`.
 
 .. rst-class:: classref-item-separator
 

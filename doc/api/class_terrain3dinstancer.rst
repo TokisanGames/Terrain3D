@@ -17,9 +17,9 @@ Terrain3DInstancer
 Description
 -----------
 
-This class places mesh instances into MultiMeshInstance3Ds defined in the Terrain3D asset dock. 
+This class places mesh instances defined in the Terrain3D asset dock into MultiMeshInstance3Ds on the ground.
 
-Data is currently stored in MultiMeshes within a Dictionary :ref:`Terrain3DRegion.multimeshes<class_Terrain3DRegion_property_multimeshes>`, per region, per mesh type. These MultiMeshes are loaded into MultiMeshInstances, which are attached to the scene tree and managed by this class.
+Data is currently stored in :ref:`Terrain3DRegion.instances<class_Terrain3DRegion_property_instances>` and loaded into MultiMeshInstances, which are attached to the scene tree and managed by this class.
 
 \ **The methods available for adding instances are:**\ 
 
@@ -29,7 +29,7 @@ Data is currently stored in MultiMeshes within a Dictionary :ref:`Terrain3DRegio
 
 - :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>` - Accepts your list of transforms and parses them into our data storage.
 
-- Creating your own MultiMesh resources and inserting them directly into the :ref:`Terrain3DRegion.multimeshes<class_Terrain3DRegion_property_multimeshes>` dictionary. It's not difficult to do this in GDScript, but a thorough understanding of the C++ code in this class is recommended. Specifically look at `update_multimesh()`.
+- Creating your own instance data and inserting it directly into :ref:`Terrain3DRegion.instances<class_Terrain3DRegion_property_instances>`. It's not difficult to do this in GDScript, but a thorough understanding of the C++ code in this class is recommended.
 
 \ **The methods available for removing instances are:**\ 
 
@@ -37,7 +37,7 @@ Data is currently stored in MultiMeshes within a Dictionary :ref:`Terrain3DRegio
 
 - :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`, :ref:`clear_by_location<class_Terrain3DInstancer_method_clear_by_location>` - To erase large sections of instances
 
-\ **Note:** one caveat about creating your own MultiMeshes is the instance count cannot be changed after creation. Should you wish to remove 50% of the transforms, you would need to make a new MultiMesh, copy over the mesh and settings, copy the 50% of the transforms you wish to keep, and assign it to the MultiMeshInstance3D. That is how the instancer updates the MMIs.
+After modifying region data, run :ref:`force_update_mmis<class_Terrain3DInstancer_method_force_update_mmis>` to rebuild the MultiMeshInstance3Ds.
 
 .. rst-class:: classref-reftable-group
 
@@ -210,7 +210,7 @@ Dumps the instancer data arrays and dictionaries for all regions.
 
 |void| **dump_mmis**\ (\ ) :ref:`🔗<class_Terrain3DInstancer_method_dump_mmis>`
 
-Dumps the MultiMeshInstances attached to the tree and information about the nodes for all regions.
+Dumps the MultiMeshInstance3Ds attached to the tree and information about the nodes for all regions.
 
 .. rst-class:: classref-item-separator
 
@@ -222,7 +222,7 @@ Dumps the MultiMeshInstances attached to the tree and information about the node
 
 |void| **force_update_mmis**\ (\ ) :ref:`🔗<class_Terrain3DInstancer_method_force_update_mmis>`
 
-Removes and rebuilds all MultiMeshInstances.
+Removes and rebuilds all MultiMeshInstance3Ds attached to the tree.
 
 .. rst-class:: classref-item-separator
 
@@ -246,7 +246,7 @@ Uses parameters asset_id, size, strength, fixed_scale, random_scale, to randomly
 
 |void| **swap_ids**\ (\ src_id\: :ref:`int<class_int>`, dest_id\: :ref:`int<class_int>`\ ) :ref:`🔗<class_Terrain3DInstancer_method_swap_ids>`
 
-Swaps the ID of two meshes, without changing the mesh instances on the ground. Updates Multimesh and MMI dictionary keys.
+Swaps the ID of two meshes without changing the mesh instances on the ground.
 
 .. rst-class:: classref-item-separator
 

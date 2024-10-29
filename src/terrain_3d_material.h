@@ -9,7 +9,6 @@
 #include "generated_texture.h"
 
 class Terrain3D;
-class Terrain3DTextureList;
 
 using namespace godot;
 
