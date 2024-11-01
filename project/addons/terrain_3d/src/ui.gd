@@ -15,8 +15,8 @@ const COLOR_LIFT := Color.ORANGE
 const COLOR_FLATTEN := Color.BLUE_VIOLET
 const COLOR_HEIGHT := Color(0., 0.32, .4)
 const COLOR_SLOPE := Color.YELLOW
-const COLOR_PAINT := Color.FOREST_GREEN
-const COLOR_SPRAY := Color.SEA_GREEN
+const COLOR_PAINT := Color.DARK_GREEN
+const COLOR_SPRAY := Color.PALE_GREEN
 const COLOR_ROUGHNESS := Color.ROYAL_BLUE
 const COLOR_AUTOSHADER := Color.DODGER_BLUE
 const COLOR_HOLES := Color.BLACK
@@ -369,6 +369,9 @@ func update_decal() -> void:
 					Terrain3DEditor.REPLACE:
 						decal.modulate = COLOR_PAINT
 						decal.modulate.a = .7
+					Terrain3DEditor.SUBTRACT:
+						decal.modulate = COLOR_PAINT
+						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
 					Terrain3DEditor.ADD:
 						decal.modulate = COLOR_SPRAY
 						decal.modulate.a = clamp(brush_data["strength"], .2, .5)
