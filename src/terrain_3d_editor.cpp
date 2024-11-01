@@ -320,7 +320,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				bool hole = is_hole(src.r);
 				bool navigation = is_nav(src.r);
 				bool autoshader = is_auto(src.r);
-				real_t alpha_clip = (brush_alpha > 0.5f) ? 1.f : 0.f;
 				// Lookup to shift values saved to control map so that 0 (default) is the first entry
 				// Shader scale array is aligned to match this.
 				std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
@@ -335,10 +334,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							case REPLACE: {
 								if (brush_alpha > 0.5f) {
 									if (enable_texture) {
-										// Set base texture
+										// Set base & overlay texture
 										base_id = asset_id;
+										overlay_id = asset_id;
 										// Erase blend value
-										blend = Math::lerp(blend, real_t(0.f), alpha_clip);
+										blend = 0.f;
 										autoshader = false;
 									}
 									// Set angle & scale
@@ -366,21 +366,28 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
 								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
 								if (enable_texture && brush_alpha * strength * 11.f > 0.1f) {
+									// Painted area, set overlay immediatley
 									if (base_id == overlay_id && blend < 0.004f) {
 										overlay_id = asset_id;
 									}
-									// If overlay and base texture are the same, reduce blend value
+									// Overlay and base texture are the same, reduce blend value
 									if (base_id == asset_id) {
 										blend = CLAMP(blend - brush_value, 0.f, 1.f);
 										if (blend < 0.5f && brush_alpha > 0.5f) {
 											autoshader = false;
 										}
 									} else {
-										// Else overlay and base are separate, set overlay texture and increase blend value
+										// Overlay and base are separate, increase blend value
 										blend = CLAMP(blend + brush_value, 0.f, 1.f);
+										// Overlay already visible, limit ID changes to high brush alpha
 										if (blend > 0.5f && brush_alpha > 0.5f) {
 											overlay_id = asset_id;
+											// Only remove auto shader when blend is past threshold.
 											autoshader = false;
+										}
+										// Overlay not visible at brush edge, write new ID ready for potential next pass
+										if (blend <= 0.5f && brush_alpha <= 0.5f) {
+											overlay_id = asset_id;
 										}
 									}
 								}
@@ -401,6 +408,18 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 										// Maintain 0 = 0, remap negatives to end.
 										uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
 									}
+								}
+								break;
+							}
+
+							// Overlay Spray reduce
+							case SUBTRACT: {
+								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
+								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
+								blend = CLAMP(blend - brush_value, 0.f, 1.f);
+								// Reset to painted state
+								if (blend < 0.004f) {
+									overlay_id = base_id;
 								}
 								break;
 							}
