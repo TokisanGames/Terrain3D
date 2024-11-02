@@ -1,10 +1,9 @@
 # Terrain3D
-project/test/
-project/addons/godot-jolt/
 project/addons/terrain_3d/bin/
 project/_dev/
 project/_export/
 project/_tests/
+project/test/
 src/_archive/
 _misc/
 _patches/
@@ -12,6 +11,7 @@ _patches/
 
 # Docs
 doc/_build
+doc/art/
 
 # Godot-specific ignores (Include script cache. See godot issue #75388)
 /project/.import/
@@ -36,4 +36,3 @@ export_presets.cfg
 # Editors
 .vscode/
 .vs/
-doc/art/

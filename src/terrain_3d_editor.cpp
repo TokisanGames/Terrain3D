@@ -526,9 +526,10 @@ void Terrain3DEditor::_store_undo() {
 		}
 	}
 
-	if (_undo_data.has("edited_area")) {
+	if (_terrain->get_data()->get_edited_area().has_volume()) {
 		_undo_data["edited_area"] = _terrain->get_data()->get_edited_area();
-		LOG(DEBUG, "Updating undo snapshot edited area: ", _undo_data["edited_area"]);
+		redo_data["edited_area"] = _terrain->get_data()->get_edited_area();
+		LOG(DEBUG, "Adding edited area to snapshots: ", _undo_data["edited_area"]);
 	}
 
 	// Store data in Godot's Undo/Redo Manager
@@ -573,6 +574,11 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		}
 	}
 
+	if (p_data.has("edited_area")) {
+		LOG(DEBUG, "Edited area: ", p_data["edited_area"]);
+		data->add_edited_area(p_data["edited_area"]);
+	}
+
 	if (p_data.has("added_regions")) {
 		LOG(DEBUG, "Added regions: ", p_data["added_regions"]);
 		TypedArray<Vector2i> region_locs = p_data["added_regions"];
@@ -589,6 +595,10 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			data->set_region_deleted(region_locs[i], false);
 			data->set_region_modified(region_locs[i], true);
 			LOG(DEBUG, "Marking region: ", region_locs[i], " -deleted, +modified");
+			Ref<Terrain3DRegion> region = data->get_region(region_locs[i]);
+			if (region.is_valid()) {
+				_send_region_aabb(region_locs[i], region->get_height_range());
+			}
 		}
 	}
 
