@@ -184,7 +184,7 @@
 		<member name="texture_list" type="Terrain3DTextureList" setter="set_texture_list" getter="get_texture_list">
 			Deprecated. See [member assets].
 		</member>
-		<member name="version" type="String" setter="" getter="get_version" default="&quot;0.9.3&quot;">
+		<member name="version" type="String" setter="" getter="get_version" default="&quot;0.9.3a&quot;">
 			The current version of Terrain3D.
 		</member>
 		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">

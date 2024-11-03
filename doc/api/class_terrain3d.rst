@@ -80,7 +80,7 @@ Properties
    +------------------------------------------------------------------------+------------------------------------------------------------------------+----------------+
    | :ref:`Terrain3DTextureList<class_Terrain3DTextureList>`                | :ref:`texture_list<class_Terrain3D_property_texture_list>`             |                |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+----------------+
-   | :ref:`String<class_String>`                                            | :ref:`version<class_Terrain3D_property_version>`                       | ``"0.9.3"``    |
+   | :ref:`String<class_String>`                                            | :ref:`version<class_Terrain3D_property_version>`                       | ``"0.9.3a"``   |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+----------------+
    | :ref:`float<class_float>`                                              | :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>`         | ``1.0``        |
    +------------------------------------------------------------------------+------------------------------------------------------------------------+----------------+
@@ -685,7 +685,7 @@ Deprecated. See :ref:`assets<class_Terrain3D_property_assets>`.
 
 .. rst-class:: classref-property
 
-:ref:`String<class_String>` **version** = ``"0.9.3"`` :ref:`🔗<class_Terrain3D_property_version>`
+:ref:`String<class_String>` **version** = ``"0.9.3a"`` :ref:`🔗<class_Terrain3D_property_version>`
 
 .. rst-class:: classref-property-setget
 
