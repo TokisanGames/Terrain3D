@@ -108,9 +108,8 @@ func pack_textures_popup() -> void:
 	_init_texture_picker(window.find_child("HeightVBox"), IMAGE_HEIGHT)
 	_init_texture_picker(window.find_child("NormalVBox"), IMAGE_NORMAL)
 	_init_texture_picker(window.find_child("RoughnessVBox"), IMAGE_ROUGHNESS)
-	
-	var pack_button_path: String = "Panel/MarginContainer/VBoxContainer/PackButton" 
-	(window.get_node(pack_button_path) as Button).pressed.connect(_on_pack_button_pressed)
+
+	(window.find_child("PackButton") as Button).pressed.connect(_on_pack_button_pressed)
 
 
 func _on_close_requested() -> void:
