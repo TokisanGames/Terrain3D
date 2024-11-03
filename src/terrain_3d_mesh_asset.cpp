@@ -153,7 +153,7 @@ void Terrain3DMeshAsset::clear() {
 	_name = "New Mesh";
 	_id = 0;
 	_height_offset = 0.f;
-	_visibility_range = 1024.f;
+	_visibility_range = 64.f;
 	_visibility_margin = 0.f;
 	_cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	_generated_faces = 2.f;
