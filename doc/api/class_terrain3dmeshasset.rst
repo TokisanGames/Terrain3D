@@ -54,7 +54,7 @@ Properties
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | :ref:`PackedScene<class_PackedScene>`                                     | :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>`               |                   |
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`float<class_float>`                                                 | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   | ``1024.0``        |
+   | :ref:`float<class_float>`                                                 | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   | ``64.0``          |
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
@@ -360,7 +360,7 @@ A packed scene to load the mesh from. See the top description.
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **visibility_range** = ``1024.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
+:ref:`float<class_float>` **visibility_range** = ``64.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
 
 .. rst-class:: classref-property-setget
 
