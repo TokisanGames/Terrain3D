@@ -97,7 +97,8 @@ func _on_child_exiting_tree(p_node: Node) -> void:
 	
 	var helper: TransformChangedNotifier = p_node.get_node_or_null(CHILD_HELPER_PATH)
 	if helper:
-		helper.transform_changed.disconnect(_on_child_transform_changed)
+		if helper.transform_changed.is_connected(_on_child_transform_changed):
+			helper.transform_changed.disconnect(_on_child_transform_changed)
 		p_node.remove_child(helper)
 		helper.queue_free()
 	
