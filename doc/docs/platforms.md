@@ -145,24 +145,19 @@ The OpenGLES 3.0 Compatibility renderer is mostly supported from Terrain3D 0.9.3
 
 **Both versions**
 
-* If using a custom override shader, we add a special COMPATIBILITY_DEFINES block to your shader that will allow certain features to work properly (eg the fma() function). We remove this block from your shader if you switch back to Mobile or Forward. It is normal to receive a shader dump in your console during this transition, but it should not repeat every start, once saved.
+* If using a custom override shader, we add a special COMPATIBILITY_DEFINES section to your shader that will allow certain features to work properly (eg the fma() function). We remove this block from your shader if you switch back to Mobile or Forward. It is normal to receive a shader dump in your console during this transition, but it should not repeat every start, once saved.
 
-* `IS_COMPATIBILITY` is defined in this block should you wish to check against it with your own custom preprocessor statements.
+* `IS_COMPATIBILITY` is defined in this section should you wish to check against it with your own custom preprocessor statements.
 
 * If enabling compatibility mode on the command line, we cannot detect that currently. You can tell Terrain3D with a special parameter:
 
     `Godot_v4.3-stable_win64_console.exe --rendering-driver opengl3 -e project.godot --terrain3d-renderer=compatibility`
 
-**Godot 4.3**
-
-* `VRAM Compressed` is only partially supported. You can use 2 textures in the asset list. If a third is added, Godot will crash. It seems to be fixed in 4.4. The workaround for now is to select `VRAM Uncompressed` or `Lossless` on the Import tab and reimport for all of your textures.
-
+* Textures that are imported with `VRAM Compressed` are forced uncompressed and a warning issued. You can disable the warning by manually selecting `VRAM Uncompressed` or `Lossless` on the Import tab and reimport for all of your textures. Compression seems to be fixed in 4.4. If you still get a black terrain or crashing adding additional textures, manually change your textures to `VRAM Uncompressed` or `Lossless` on the Import tab and click reimport for all of them.
 
 **Godot 4.2**
 
 * There are some startup warnings about depth textures and glow that you can ignore.
-
-* `VRAM Compressed` is not supported. In the `Import` panel, you must set your texture files to either `VRAM Uncompressed` or `Lossless` and reimport.
 
 * The command line option `--rendering-method gl_compatibility` breaks the terrain in 4.2. Don't use it. The full command above works for 4.2 or 4.3.
  
