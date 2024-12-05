@@ -155,6 +155,7 @@ void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const R
 }
 
 void Terrain3DAssets::_update_texture_files() {
+	IS_INIT(VOID);
 	LOG(DEBUG, "Received texture_changed signal");
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
@@ -173,6 +174,8 @@ void Terrain3DAssets::_update_texture_files() {
 	Image::Format normal_format = Image::FORMAT_MAX;
 	bool albedo_mipmaps = true;
 	bool normal_mipmaps = true;
+	//DEPRECATED 1.0 - remove in Godot 4.4
+	bool warn_compatibility_decompress = false;
 
 	for (int i = 0; i < _texture_list.size(); i++) {
 		Ref<Terrain3DTextureAsset> texture_set = _texture_list[i];
@@ -192,6 +195,11 @@ void Terrain3DAssets::_update_texture_files() {
 				return;
 			}
 			Ref<Image> img = albedo_tex->get_image();
+			//DEPRECATED 1.0 - remove in Godot 4.4
+			if (_terrain->is_compatibility_mode() && img->is_compressed()) {
+				warn_compatibility_decompress = true;
+				img->decompress();
+			}
 			Image::Format format = img->get_format();
 			if (albedo_format == Image::FORMAT_MAX) {
 				albedo_format = format;
@@ -210,6 +218,11 @@ void Terrain3DAssets::_update_texture_files() {
 				return;
 			}
 			Ref<Image> img = normal_tex->get_image();
+			//DEPRECATED 1.0 - remove in Godot 4.4
+			if (_terrain->is_compatibility_mode() && img->is_compressed()) {
+				warn_compatibility_decompress = true;
+				img->decompress();
+			}
 			Image::Format format = img->get_format();
 			if (normal_format == Image::FORMAT_MAX) {
 				normal_format = format;
@@ -250,6 +263,11 @@ void Terrain3DAssets::_update_texture_files() {
 				texture_set->_albedo_texture = ImageTexture::create_from_image(img);
 			} else {
 				img = tex->get_image();
+				//DEPRECATED 1.0 - remove in Godot 4.4
+				if (_terrain->is_compatibility_mode() && img->is_compressed()) {
+					warn_compatibility_decompress = true;
+					img->decompress();
+				}
 				LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
 			}
 			albedo_texture_array.push_back(img);
@@ -278,6 +296,11 @@ void Terrain3DAssets::_update_texture_files() {
 				texture_set->_normal_texture = ImageTexture::create_from_image(img);
 			} else {
 				img = tex->get_image();
+				//DEPRECATED 1.0 - remove in Godot 4.4
+				if (_terrain->is_compatibility_mode() && img->is_compressed()) {
+					warn_compatibility_decompress = true;
+					img->decompress();
+				}
 				LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
 			}
 			normal_texture_array.push_back(img);
@@ -286,7 +309,10 @@ void Terrain3DAssets::_update_texture_files() {
 			_generated_normal_textures.create(normal_texture_array);
 		}
 	}
-
+	//DEPRECATED 1.0 - remove in Godot 4.4
+	if (warn_compatibility_decompress == true) {
+		LOG(WARN, "Textures were decompressed for the Compatibility renderer. Decompress in the Import panel to remove this warning. See Supported Renderers doc.");
+	}
 	emit_signal("textures_changed");
 }
 

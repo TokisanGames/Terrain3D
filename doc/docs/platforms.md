@@ -143,15 +143,15 @@ The Forward Vulkan Mobile renderer is fully supported in Terrain3D.
 
 The OpenGLES 3.0 Compatibility renderer is mostly supported from Terrain3D 0.9.3 though there are some caveats with Godot 4.3:
 
-* If using a custom override shader, we add a special COMPATIBILITY_DEFINES block to your shader that will allow certain features to work properly (eg the fma() function). We remove this block from your shader if you switch back to Mobile or Forward. It is normal to receive a shader dump in your console during this transition, but it should not repeat every start, once saved.
+* If using a custom override shader, we add a special COMPATIBILITY_DEFINES section to your shader that will allow certain features to work properly (eg the fma() function). We remove this block from your shader if you switch back to Mobile or Forward. It is normal to receive a shader dump in your console during this transition, but it should not repeat every start, once saved.
 
-* `IS_COMPATIBILITY` is defined in this block should you wish to check against it with your own custom preprocessor statements.
+* `IS_COMPATIBILITY` is defined in this section should you wish to check against it with your own custom preprocessor statements.
 
 * If enabling compatibility mode on the command line, we cannot detect that currently. You can tell Terrain3D with a special parameter:
 
     `Godot_v4.3-stable_win64_console.exe --rendering-driver opengl3 -e project.godot --terrain3d-renderer=compatibility`
 
-* `VRAM Compressed` is only partially supported. You can use 2 textures in the asset list. If a third is added, Godot will crash. It seems to be fixed in 4.4. The workaround for now is to select `VRAM Uncompressed` or `Lossless` on the Import tab and reimport for all of your textures.
+* Textures that are imported with `VRAM Compressed` are forced uncompressed and a warning issued. You can disable the warning by manually selecting `VRAM Uncompressed` or `Lossless` on the Import tab and reimport for all of your textures. Compression seems to be fixed in 4.4.
  
 Further reading:
 
