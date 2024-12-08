@@ -20,6 +20,7 @@ Currently importing and exporting is possible via code or our import tool. We wi
      Notes:
      * You can import multiple times into the greater world map by specifying different positions. So you could import multiple maps as separate islands or combined regions.
      * It will slice and pad odd sized images into region sized chunks (default is 256x256). e.g. You could import a 4k x 2k, several 1k x 1ks, and a 5123 x 3769 and position them so they are adjacent.
+     * If you're importing a large file, increase the region size first. You only get 1024 regions (32x32) so you need a region size greater than image width / 32.
      * You can also reimport to the same location to overwrite anything there using individual maps or a complete set of height, control, and/or color.
 
 5) Specify any desired `height_offset` or `import_scale`. The scale gets applied first. (eg. 100, -100 would scale the terrain by 100, then lower the whole terrain by 100).

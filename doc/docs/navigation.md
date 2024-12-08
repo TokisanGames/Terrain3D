@@ -83,10 +83,15 @@ If you have a very large scene in, for example, an open world RPG, it's better t
 
 1. Create a NavigationRegion3D node for each town, each with their own NavigationMesh resources (i.e. unique, not shared).
 2. Define the [`filter_baking_aabb`](https://docs.godotengine.org/en/stable/classes/class_navigationmesh.html#class-navigationmesh-property-filter-baking-aabb) on each nav mesh, so that it only bakes objects within its own area.
-3. To use the same Terrain3D node with multiple NavigationRegion3D, set up the nav meshes to use one of the [`SOURCE_GEOMETRY_GROUPS_*` modes](https://docs.godotengine.org/en/stable/classes/class_navigationmesh.html#class-navigationmesh-property-geometry-source-geometry-mode) instead of the default `SOURCE_GEOMETRY_ROOT_NODE_CHILDREN`, and add the Terrain3D node to the group.
+3. To use the same Terrain3D node with multiple NavigationRegion3Ds, change the nav meshes to use one of the group modes [`SOURCE_GEOMETRY_GROUPS_*` modes](https://docs.godotengine.org/en/stable/classes/class_navigationmesh.html#class-navigationmesh-property-geometry-source-geometry-mode), add the Terrain3D node to that group and bake. Alternatively, using the default `SOURCE_GEOMETRY_ROOT_NODE_CHILDREN` mode, add Terrain3D as a child of one NavigationRegion3D and bake navigation with the Terrain3D menu. Then move it as a child of the next and bake.
 
 
 ## Common Issues
+
+### Navigation won't generate where foliage instances have been placed.
+
+Change [NavigationMesh.parsed_geometry_type](https://docs.godotengine.org/en/stable/classes/class_navigationmesh.html#class-navigationmesh-property-geometry-parsed-geometry-type) from `Mesh Instance` (visual) to `Static Colliders`.
+
 
 ### NavigationMeshSourceGeometryData3D is empty. Parse source geometry first.
 

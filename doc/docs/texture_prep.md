@@ -113,10 +113,11 @@ You can use our built in tool to pack textures for you.
 
 1. At the top of your viewport, click the `Terrain3D Tools` menu, then `Pack Textures`.
 2. Select your textures for albedo and height.
-3. Optionally, also select textures for normal and roughness.
-4. Optionally, convert a DirectX normal map to OpenGL.
-5. Click `Pack Textures As...` and save the resulting PNG files to disk.
-6. Go to the Import tab and one at a time, select your new PNG files, specify the following settings and click `reimport`. 
+3. Optionally, select textures for normal and roughness.
+4. Optionally, convert a DirectX normal map to OpenGL, or smoothness to roughness map.
+5. Optionally, enable Orthogonalise normals if you see a reflective checkerboard pattern appear when using detiling.
+6. Click `Pack Textures As...` and save the resulting PNG files to disk.
+7. Go to the Import tab and one at a time, select your new PNG files, specify the following settings and click `reimport`. 
 	* `Mode: VRAM Compressed`
 	* Optional: `High Quality: On` if you wish BPTC instead of DXT5.
 	* `Normal Map: Disabled`
