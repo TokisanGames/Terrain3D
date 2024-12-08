@@ -13,6 +13,7 @@ var modifier_alt: bool
 var modifier_shift: bool
 var _last_modifiers: int = 0
 var _input_mode: int = 0 # -1: camera move, 0: none, 1: operating
+var _use_meta: bool = false
 
 var terrain: Terrain3D
 var _last_terrain: Terrain3D
@@ -29,6 +30,9 @@ var godot_editor_window: Window # The Godot Editor window
 
 
 func _init() -> void:
+	if OS.get_name() == "macOS":
+		_use_meta = true
+	
 	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
 	godot_editor_window = EditorInterface.get_base_control().get_parent().get_parent()
 	godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
@@ -149,7 +153,7 @@ func _clear() -> void:
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> int:
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
-	
+
 	_read_input(p_event)
 	
 	## Handle mouse movement
@@ -269,7 +273,7 @@ func _read_input(p_event: InputEvent = null) -> void:
 
 	## Determine modifiers pressed
 	modifier_shift = Input.is_key_pressed(KEY_SHIFT)
-	modifier_ctrl = Input.is_key_pressed(KEY_CTRL)
+	modifier_ctrl = Input.is_key_pressed(KEY_META) if _use_meta else Input.is_key_pressed(KEY_CTRL)
 	# Keybind enum: Alt,Space,Meta,Capslock
 	var alt_key: int
 	match get_setting("terrain3d/config/alt_key_bind", 0):

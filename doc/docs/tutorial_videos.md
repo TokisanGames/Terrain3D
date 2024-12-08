@@ -1,17 +1,21 @@
 Tutorial Videos
 ==================
 
-*Note: Some instructions in the videos may be out of date. Be sure to review this documentation for the latest. Be aware you can select the appropriate documentation version in the menu.*
+*Note: Some instructions in the videos may be out of date. Be sure to review the documentation for the latest info. Be aware you can select the appropriate documentation version in the menu.*
 
-**Using Terrain3D Part 1**
+## Using Terrain3D Part 1
+
 Covers:
 * Installation from Github
-* Setup (storage is out of date)
+* Setup (storage is out of date, specify a directory now)
 * Basic Usage
 
-[![Using Terrain3D - Part 1](https://i.ytimg.com/vi/oV8c9alXVwU/hqdefault.jpg)](https://youtu.be/oV8c9alXVwU)
+<iframe width="560" height="315" src="https://www.youtube.com/embed/oV8c9alXVwU?si=0kTuPwnHHwBmHsss" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-**Using Terrain3D Part 2**
+---
+
+## Using Terrain3D Part 2
+
 Covers:
 * Texture Painting
 * Autoshader
@@ -22,9 +26,12 @@ Covers:
 * Mesh intersection flickering (e.g. for ocean planes)
 * Advanced Usage
 
-[![Using Terrain3D - Part 2](https://i.ytimg.com/vi/YtiAI2F6Xkk/hqdefault.jpg)](https://youtu.be/YtiAI2F6Xkk)
+<iframe width="560" height="315" src="https://www.youtube.com/embed/YtiAI2F6Xkk?si=9wVwk3ZLd7CmxfR5" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-**Terrain3D v0.9.3a New Features - Tutorial 3**
+---
+
+## Terrain3D v0.9.3a New Features - Tutorial 3
+
 Covers:
 * Asset library installation
 * Platform updates
@@ -35,4 +42,4 @@ Covers:
 * Tool bar changes and tool settings
 * Alpha stamping
 
-[![Terrain3D v0.9.3a New Features - Tutorial 3](https://i.ytimg.com/vi/fsigwCL0m3U/hqdefault.jpg)](https://youtu.be/fsigwCL0m3U)
+<iframe width="560" height="315" src="https://www.youtube.com/embed/fsigwCL0m3U?si=sQThKVVN3At-3jkE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
