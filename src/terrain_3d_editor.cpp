@@ -493,7 +493,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (_operation == ADD) {
 							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
 						} else {
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * 0.5f), brush_alpha * strength);
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f), brush_alpha * strength);
 						}
 						break;
 					default:
