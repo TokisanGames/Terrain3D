@@ -89,29 +89,29 @@ Methods
 .. table::
    :widths: auto
 
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Mesh<class_Mesh>`                             | :ref:`bake_mesh<class_Terrain3D_method_bake_mesh>`\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DData_HeightFilter>`\ ) |const|                                          |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`PackedVector3Array<class_PackedVector3Array>` | :ref:`generate_nav_mesh_source_geometry<class_Terrain3D_method_generate_nav_mesh_source_geometry>`\ (\ global_aabb\: :ref:`AABB<class_AABB>`, require_nav\: :ref:`bool<class_bool>` = true\ ) |const| |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Camera3D<class_Camera3D>`                     | :ref:`get_camera<class_Terrain3D_method_get_camera>`\ (\ ) |const|                                                                                                                                    |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`RID<class_RID>`                               | :ref:`get_collision_rid<class_Terrain3D_method_get_collision_rid>`\ (\ ) |const|                                                                                                                      |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3DEditor<class_Terrain3DEditor>`       | :ref:`get_editor<class_Terrain3D_method_get_editor>`\ (\ ) |const|                                                                                                                                    |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Vector3<class_Vector3>`                       | :ref:`get_intersection<class_Terrain3D_method_get_intersection>`\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`\ )                                            |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`EditorPlugin<class_EditorPlugin>`             | :ref:`get_plugin<class_Terrain3D_method_get_plugin>`\ (\ ) |const|                                                                                                                                    |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`bool<class_bool>`                             | :ref:`is_compatibility_mode<class_Terrain3D_method_is_compatibility_mode>`\ (\ ) |const|                                                                                                              |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                              | :ref:`set_camera<class_Terrain3D_method_set_camera>`\ (\ camera\: :ref:`Camera3D<class_Camera3D>`\ )                                                                                                  |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                              | :ref:`set_editor<class_Terrain3D_method_set_editor>`\ (\ editor\: :ref:`Terrain3DEditor<class_Terrain3DEditor>`\ )                                                                                    |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                              | :ref:`set_plugin<class_Terrain3D_method_set_plugin>`\ (\ plugin\: :ref:`EditorPlugin<class_EditorPlugin>`\ )                                                                                          |
-   +-----------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Mesh<class_Mesh>`                             | :ref:`bake_mesh<class_Terrain3D_method_bake_mesh>`\ (\ lod\: :ref:`int<class_int>`, filter\: :ref:`HeightFilter<enum_Terrain3DData_HeightFilter>`\ ) |const|                                           |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`PackedVector3Array<class_PackedVector3Array>` | :ref:`generate_nav_mesh_source_geometry<class_Terrain3D_method_generate_nav_mesh_source_geometry>`\ (\ global_aabb\: :ref:`AABB<class_AABB>`, require_nav\: :ref:`bool<class_bool>` = true\ ) |const|  |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Camera3D<class_Camera3D>`                     | :ref:`get_camera<class_Terrain3D_method_get_camera>`\ (\ ) |const|                                                                                                                                     |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`RID<class_RID>`                               | :ref:`get_collision_rid<class_Terrain3D_method_get_collision_rid>`\ (\ ) |const|                                                                                                                       |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Terrain3DEditor<class_Terrain3DEditor>`       | :ref:`get_editor<class_Terrain3D_method_get_editor>`\ (\ ) |const|                                                                                                                                     |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Vector3<class_Vector3>`                       | :ref:`get_intersection<class_Terrain3D_method_get_intersection>`\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`, gpu_mode\: :ref:`bool<class_bool>` = false\ ) |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`EditorPlugin<class_EditorPlugin>`             | :ref:`get_plugin<class_Terrain3D_method_get_plugin>`\ (\ ) |const|                                                                                                                                     |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`bool<class_bool>`                             | :ref:`is_compatibility_mode<class_Terrain3D_method_is_compatibility_mode>`\ (\ ) |const|                                                                                                               |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                              | :ref:`set_camera<class_Terrain3D_method_set_camera>`\ (\ camera\: :ref:`Camera3D<class_Camera3D>`\ )                                                                                                   |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                              | :ref:`set_editor<class_Terrain3D_method_set_editor>`\ (\ editor\: :ref:`Terrain3DEditor<class_Terrain3DEditor>`\ )                                                                                     |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                              | :ref:`set_plugin<class_Terrain3D_method_set_plugin>`\ (\ plugin\: :ref:`EditorPlugin<class_EditorPlugin>`\ )                                                                                           |
+   +-----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -757,9 +757,39 @@ Returns the current Terrain3DEditor instance, if it has been set.
 
 .. rst-class:: classref-method
 
-:ref:`Vector3<class_Vector3>` **get_intersection**\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`\ ) :ref:`🔗<class_Terrain3D_method_get_intersection>`
+:ref:`Vector3<class_Vector3>` **get_intersection**\ (\ src_pos\: :ref:`Vector3<class_Vector3>`, direction\: :ref:`Vector3<class_Vector3>`, gpu_mode\: :ref:`bool<class_bool>` = false\ ) :ref:`🔗<class_Terrain3D_method_get_intersection>`
 
-Casts a ray from ``src_pos`` pointing towards ``direction``, attempting to intersect the terrain.
+Casts a ray from ``src_pos`` pointing towards ``direction``, attempting to intersect the terrain. This operation is does not use physics, so enabling collision is unnecessary.
+
+
+
+This function can operate in one of two modes defined by ``gpu_mode``:
+
+- If gpu_mode is disabled (default), it raymarches from the camera until the terrain is intersected, up to 4000m away. This works with one function call, but only where regions exist. It is slower than gpu_mode and gets increasingly slower the farther away the terrain is, though you may not notice.
+
+
+
+- If gpu_mode is enabled, it uses the GPU to detect the mouse. This works wherever the terrain is visible, even outside of regions, but may need to be called twice.
+
+
+
+GPU mode places a camera at the specified point and "looks" at the terrain. It uses the depth texture to determine how far away the intersection point is. It requires the use of an editor render layer (default 32) while using this function. See :ref:`mouse_layer<class_Terrain3D_property_mouse_layer>`.
+
+
+
+The main caveats of using this mode is that the call to get_intersection() requests a viewport be drawn, but cannot wait for it to finish as there is no "await" in C++ and no force draw function in Godot. So the return value is one frame behind, and invalid on the first call. This also means the function cannot be used more than once per frame. This mode works well when used continuously, once per frame, where one frame of difference won't matter. The editor uses this mode to place the mouse cursor decal.
+
+
+
+This mode can also be used by your plugins and games, such as a space ship firing lasers at the terrain and causing an explosion at the hit point. However if the calls aren't continuous, you'll need to call once to capture the viewport image, wait for it to be drawn, then call again to get the result:
+
+::
+
+    var target_point = terrain.get_intersection(camera_pos, camera_dir)
+    await RenderingServer.frame_post_draw
+    target_point = terrain.get_intersection(camera_pos, camera_dir)
+
+
 
 Possible return values:
 
@@ -768,12 +798,6 @@ Possible return values:
 - If there is no intersection, eg. the ray points towards the sky, it returns the maximum double float value ``Vector3(3.402823466e+38F,...)``. You can check this case with this code: ``if point.z > 3.4e38:``\ 
 
 - On error, it returns ``Vector3(NAN, NAN, NAN)`` and prints a message to the console.
-
-This ray cast does not use physics, so enabling collision is unnecessary. It places a camera at the specified point and "looks" at the terrain. It then uses the renderer's depth texture to determine how far away the intersection point is.
-
-This function is used by the editor plugin to place the mouse cursor. It can also be used by 3rd party plugins, and even during gameplay, such as a space ship firing lasers at the terrain and causing an explosion at the hit point.
-
-It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See :ref:`mouse_layer<class_Terrain3D_property_mouse_layer>`.
 
 .. rst-class:: classref-item-separator
 

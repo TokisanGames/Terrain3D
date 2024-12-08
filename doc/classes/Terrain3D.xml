@@ -51,15 +51,30 @@
 			<return type="Vector3" />
 			<param index="0" name="src_pos" type="Vector3" />
 			<param index="1" name="direction" type="Vector3" />
+			<param index="2" name="gpu_mode" type="bool" default="false" />
 			<description>
-				Casts a ray from [code skip-lint]src_pos[/code] pointing towards [code skip-lint]direction[/code], attempting to intersect the terrain.
+				Casts a ray from [code skip-lint]src_pos[/code] pointing towards [code skip-lint]direction[/code], attempting to intersect the terrain. This operation is does not use physics, so enabling collision is unnecessary.
+
+				This function can operate in one of two modes defined by [code skip-lint]gpu_mode[/code]:
+				- If gpu_mode is disabled (default), it raymarches from the camera until the terrain is intersected, up to 4000m away. This works with one function call, but only where regions exist. It is slower than gpu_mode and gets increasingly slower the farther away the terrain is, though you may not notice.
+
+				- If gpu_mode is enabled, it uses the GPU to detect the mouse. This works wherever the terrain is visible, even outside of regions, but may need to be called twice.
+
+				GPU mode places a camera at the specified point and "looks" at the terrain. It uses the depth texture to determine how far away the intersection point is. It requires the use of an editor render layer (default 32) while using this function. See [member mouse_layer].
+
+				The main caveats of using this mode is that the call to get_intersection() requests a viewport be drawn, but cannot wait for it to finish as there is no "await" in C++ and no force draw function in Godot. So the return value is one frame behind, and invalid on the first call. This also means the function cannot be used more than once per frame. This mode works well when used continuously, once per frame, where one frame of difference won't matter. The editor uses this mode to place the mouse cursor decal.
+
+				This mode can also be used by your plugins and games, such as a space ship firing lasers at the terrain and causing an explosion at the hit point. However if the calls aren't continuous, you'll need to call once to capture the viewport image, wait for it to be drawn, then call again to get the result:
+				[codeblock]
+				var target_point = terrain.get_intersection(camera_pos, camera_dir)
+				await RenderingServer.frame_post_draw
+				target_point = terrain.get_intersection(camera_pos, camera_dir)
+				[/codeblock]
+
 				Possible return values:
 				- If the terrain is hit, the intersection point is returned.
 				- If there is no intersection, eg. the ray points towards the sky, it returns the maximum double float value [code skip-lint]Vector3(3.402823466e+38F,...)[/code]. You can check this case with this code: [code skip-lint]if point.z &gt; 3.4e38:[/code]
 				- On error, it returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] and prints a message to the console.
-				This ray cast does not use physics, so enabling collision is unnecessary. It places a camera at the specified point and "looks" at the terrain. It then uses the renderer's depth texture to determine how far away the intersection point is.
-				This function is used by the editor plugin to place the mouse cursor. It can also be used by 3rd party plugins, and even during gameplay, such as a space ship firing lasers at the terrain and causing an explosion at the hit point.
-				It does require the use of an editor render layer (21-32) that should be dedicated while using this function. See [member mouse_layer].
 			</description>
 		</method>
 		<method name="get_plugin" qualifiers="const">
