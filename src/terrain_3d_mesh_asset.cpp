@@ -132,8 +132,8 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 		mat->set_backlight(Color(.5f, .5f, .5f));
 		mat->set_flag(BaseMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
 		mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_ALPHA);
-		mat->set_distance_fade_min_distance(960.f);
-		mat->set_distance_fade_max_distance(480.f);
+		mat->set_distance_fade_min_distance(85.f);
+		mat->set_distance_fade_max_distance(75.f);
 		return mat;
 	} else {
 		return _material_override;
@@ -153,7 +153,7 @@ void Terrain3DMeshAsset::clear() {
 	_name = "New Mesh";
 	_id = 0;
 	_height_offset = 0.f;
-	_visibility_range = 64.f;
+	_visibility_range = 100.f;
 	_visibility_margin = 0.f;
 	_cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 	_generated_faces = 2.f;

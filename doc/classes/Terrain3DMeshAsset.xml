@@ -69,7 +69,7 @@
 		<member name="scene_file" type="PackedScene" setter="set_scene_file" getter="get_scene_file">
 			A packed scene to load the mesh from. See the top description.
 		</member>
-		<member name="visibility_range" type="float" setter="set_visibility_range" getter="get_visibility_range" default="1024.0">
+		<member name="visibility_range" type="float" setter="set_visibility_range" getter="get_visibility_range" default="100.0">
 			Sets [code skip-lint]GeometryInstance3D.visibility_range_end[/code] on all MultiMeshInstances used by this mesh. Allows the renderer to cull MMIs beyond this distance. Set to 0 to disable culling.
 		</member>
 	</members>
