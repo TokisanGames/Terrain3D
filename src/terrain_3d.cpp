@@ -1162,12 +1162,13 @@ void Terrain3D::update_aabbs() {
 	}
 }
 
-/* Returns the point a ray intersects the ground using the GPU depth texture
+/* Returns the point a ray intersects the ground using either raymarching or the GPU depth texture
  *	p_src_pos (camera position)
  *	p_direction (camera direction looking at the terrain)
+ *  p_gpu_mode - false: use raymarching, true: use GPU mode
  * Returns Vec3(NAN) on error or vec3(3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
-Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction) {
+Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode) {
 	if (!is_instance_valid(_camera_instance_id)) {
 		LOG(ERROR, "Invalid camera");
 		return Vector3(NAN, NAN, NAN);
@@ -1182,7 +1183,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	// Position mouse cam one unit behind the requested position
 	_mouse_cam->set_global_position(p_src_pos - direction);
 
-	// If looking straight down (eg orthogonal camera), look_at won't work
+	// If looking straight down (eg orthogonal camera), just return height. look_at won't work
 	if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
 		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
 		point = p_src_pos;
@@ -1190,7 +1191,21 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		if (std::isnan(point.y)) {
 			point.y = 0;
 		}
+
+	} else if (!p_gpu_mode) {
+		// Else if not gpu mode, use raymarching mode
+		point = p_src_pos;
+		for (int i = 0; i < 4000; i++) {
+			real_t height = _data->get_height(point);
+			if (point.y - height <= 0) {
+				return point;
+			}
+			point += direction;
+		}
+		return V3_MAX;
+
 	} else {
+		// Else use GPU mode, which requires multiple calls
 		// Get depth from perspective camera snapshot
 		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, Vector3(0.f, 1.f, 0.f));
 		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
@@ -1515,7 +1530,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_compatibility_mode"), &Terrain3D::is_compatibility_mode);
 
 	// Utility
-	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction"), &Terrain3D::get_intersection);
+	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction", "gpu_mode"), &Terrain3D::get_intersection, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 
