@@ -51,7 +51,7 @@ However, note that `get_height()` above will [interpolate between vertices](http
 
 ```gdscript
      var region: Terrain3DRegion = terrain.data.get_regionp(global_position)
-     if region and not region.is_deleted:
+     if region and not region.is_deleted():
          var img: Image = region.get_height_map()
          for y in img.get_height():
               for x in img.get_width():
@@ -65,7 +65,7 @@ However, note that `get_height()` above will [interpolate between vertices](http
 
 ### Getting The Normal
 
-After getting the height, you may also wish to get the normal with `Terrain3DData.get_normal(global_position)`. The normal is the vector3 pointing perpendulcar to the terrain face.
+After getting the height, you may also wish to get the normal with `Terrain3DData.get_normal(global_position)`. The normal is a Vector3 that points perpendulcar to the terrain face.
 
 
 ### Visualizing Collision
