@@ -5,20 +5,21 @@
 [ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="3_g8f2m"]
 [ext_resource type="Texture2D" uid="uid://c1ots7w6i0i1q" path="res://demo/assets/textures/ground037_nrm_rgh.png" id="4_aw5y1"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_aubfq"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mapyw"]
 transparency = 4
 cull_mode = 2
 vertex_color_use_as_albedo = true
 backlight_enabled = true
 backlight = Color(0.5, 0.5, 0.5, 1)
 distance_fade_mode = 1
-distance_fade_min_distance = 960.0
-distance_fade_max_distance = 480.0
+distance_fade_min_distance = 85.0
+distance_fade_max_distance = 75.0
 
-[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_dw1mh"]
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_2qf8x"]
 height_offset = 0.5
 density = 10.0
-material_override = SubResource("StandardMaterial3D_aubfq")
+visibility_range = 100.0
+material_override = SubResource("StandardMaterial3D_mapyw")
 generated_type = 1
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_mup2f"]
@@ -35,5 +36,5 @@ albedo_texture = ExtResource("3_g8f2m")
 normal_texture = ExtResource("4_aw5y1")
 
 [resource]
-mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_dw1mh")])
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x")])
 texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_mup2f"), SubResource("Terrain3DTextureAsset_od0q7")])
