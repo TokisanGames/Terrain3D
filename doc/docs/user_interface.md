@@ -29,7 +29,7 @@ The following mouse and keyboard shortcuts are available.
 
 ### General Keys
 * <kbd>LMB</kbd> - Click the terrain to positively apply the current tool.
-* <kbd>Ctrl + LMB</kbd> - **Inverse** the tool. Removes regions, height, color, wetness, autoshader, holes, navigation, foliage.
+* <kbd>Ctrl + LMB</kbd> - **Inverse** the tool. Removes regions, height, color, wetness, autoshader, holes, navigation, foliage. Use <kbd>Cmd</kbd> on **macOS**.
 * <kbd>Shift + LMB</kbd> - Temporarily change to the **Smooth** sculpting tool.
 * <kbd>Ctrl + Z</kbd> - **Undo**. You can view the entries in the Godot `History` panel.
 * <kbd>Ctrl + Shift + Z</kbd> - **Redo**.
@@ -56,6 +56,8 @@ These operations support filtering by slope: **Paint**, **Spray**, **Color**, **
 * <kbd>Ctrl + Shift + LMB</kbd> - Remove instances of **any** type.
 
 ### Special Cases
+
+**macOS Users:** Use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
 **Maya Users:** The <kbd>Alt</kbd> key can be changed to Space, Meta (Windows key), or Capslock in `Editor Settings / Terrain3D / Config / Alt Key Bind` so it does not conflict with Maya input settings `Editor Settings / 3D / Navigation / Navigation Scheme`.
 
