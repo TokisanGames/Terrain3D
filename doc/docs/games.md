@@ -6,7 +6,7 @@ Terrain3D is being used in the following games. To add yours, submit it to the #
 | Game | Studio | Description |
 |------|--------|-------------|
 | [Out of the Ashes](https://store.steampowered.com/app/2296950/Out_of_the_Ashes/) | [Tokisan Games](https://twitter.com/TokisanGames) | Story driven medieval adventure
-| [Memora Wanderer](https://twitter.com/Maytch) | Maytch | Cute nostalgic RPG
+| [Memora Wanderer](https://store.steampowered.com/app/2937690/Memora_Wanderer/) | [Maytch](https://twitter.com/Maytch) | Cute nostalgic RPG
 | [No Gasoline](https://store.steampowered.com/app/2835350/No_Gasoline/) | [Mount Retro](https://twitter.com/mountretro) | Co-Op/Solo, Adventure-Simulation-Puzzle
 | [RotorSim](https://immaculate-lift-studio.itch.io/godot-flight-simulator-alpha) | [Immaculate Lift](https://www.youtube.com/channel/UC-9JixNs1FFE6T5DGwZ6O5Q) | Retro helicopter simulation
 | [B&E Ski](https://www.youtube.com/watch?v=pD8Ea3utz9o) | [Penguin Milk](https://bande.ski/) | Skiing game

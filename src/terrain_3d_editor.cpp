@@ -55,7 +55,7 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	// Create new region if location is null or deleted
 	if (region.is_null() || (region.is_valid() && region->is_deleted())) {
 		// And tool is Add Region, or Height + auto_regions
-		if ((_tool == REGION && _operation == ADD) || (_tool == SCULPT && _brush_data["auto_regions"])) {
+		if ((_tool == REGION && _operation == ADD) || ((_tool == SCULPT || _tool == HEIGHT) && _brush_data["auto_regions"])) {
 			region = data->add_region_blank(p_region_loc);
 			changed = true;
 			if (region.is_null()) {
@@ -96,7 +96,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	// If no region and can't add one, skip whole function. Checked again later
 	Terrain3DData *data = _terrain->get_data();
-	if (!data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || _tool != SCULPT)) {
+	if (!data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || (_tool != SCULPT && _tool != HEIGHT))) {
 		return;
 	}
 
