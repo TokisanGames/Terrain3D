@@ -215,12 +215,15 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			// Start brushing on the map
 			real_t brush_alpha = brush_image->get_pixelv(brush_pixel_position).r;
 			brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
+			brush_alpha = std::isnan(brush_alpha) || std::isnan(brush_alpha) ? 0.f : CLAMP(brush_alpha, 0.f, 1.f);
 			Color src = map->get_pixelv(map_pixel_position);
 			Color dest = src;
 
 			if (map_type == TYPE_HEIGHT) {
 				real_t srcf = src.r;
-				real_t destf = dest.r;
+				// In case data in existing map has nan or inf saved, check, and reset to real number if required.
+				srcf = std::isnan(srcf) || std::isnan(srcf) ? 0.f : srcf; 
+				real_t destf = srcf;
 
 				switch (_operation) {
 					case ADD: {
