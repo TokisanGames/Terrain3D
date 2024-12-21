@@ -374,10 +374,8 @@ func _do_set_up_navigation(p_nav_region: NavigationRegion3D, p_terrain: Terrain3
 	var index: int = p_terrain.get_index()
 	var t_owner: Node = p_terrain.owner
 	
-	parent.remove_child(p_terrain)
-	p_nav_region.add_child(p_terrain)
-	
 	parent.add_child(p_nav_region, true)
+	p_terrain.reparent(p_nav_region)
 	parent.move_child(p_nav_region, index)
 	
 	p_nav_region.owner = t_owner
@@ -391,10 +389,8 @@ func _undo_set_up_navigation(p_nav_region: NavigationRegion3D, p_terrain: Terrai
 	var index: int = p_nav_region.get_index()
 	var t_owner: Node = p_nav_region.get_owner()
 	
+	p_terrain.reparent(parent)
 	parent.remove_child(p_nav_region)
-	p_nav_region.remove_child(p_terrain)
-	
-	parent.add_child(p_terrain, true)
 	parent.move_child(p_terrain, index)
 	
 	p_terrain.owner = t_owner
