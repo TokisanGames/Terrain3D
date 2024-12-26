@@ -1,3 +1,5 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Importer for Terrain3D
 @tool
 extends Terrain3D
 

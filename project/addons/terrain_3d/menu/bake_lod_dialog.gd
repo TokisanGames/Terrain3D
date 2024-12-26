@@ -1,3 +1,5 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Bake LOD Dialog for Terrain3D
 @tool
 extends ConfirmationDialog
 

@@ -1,9 +1,11 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Menu for Terrain3D
 extends HBoxContainer
 
 
-const DirectoryWizard: Script = preload("res://addons/terrain_3d/src/directory_setup.gd")
-const Packer: Script = preload("res://addons/terrain_3d/src/channel_packer.gd")
-const Baker: Script = preload("res://addons/terrain_3d/src/baker.gd")
+const DirectoryWizard: Script = preload("res://addons/terrain_3d/menu/directory_setup.gd")
+const Packer: Script = preload("res://addons/terrain_3d/menu/channel_packer.gd")
+const Baker: Script = preload("res://addons/terrain_3d/menu/baker.gd")
 
 var plugin: EditorPlugin
 var menu_button: MenuButton = MenuButton.new()
@@ -31,7 +33,7 @@ func _enter_tree() -> void:
 	add_child(directory_setup)
 	add_child(baker)
 	
-	menu_button.text = "Terrain3D Tools"
+	menu_button.text = "Terrain3D"
 	menu_button.get_popup().add_item("Directory Setup...", 	MENU_DIRECTORY_SETUP)
 	menu_button.get_popup().add_item("Pack Textures...", MENU_PACK_TEXTURES)	
 	menu_button.get_popup().add_separator("", MENU_SEPARATOR)
