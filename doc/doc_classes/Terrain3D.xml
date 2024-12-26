@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Terrain3D" inherits="Node3D" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="Terrain3D" inherits="Node3D" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
 		Terrain3D is a high performance, editable terrain system for Godot 4. It provides a clipmap based terrain that supports terrains from 64x64m up to 65.5x65.5km with multiple LODs, 32 textures, and editor tools for importing or creating terrains.
-		This class handles mesh and collision generation, and management of the whole system. See [url=../docs/system_architecture.html]System Architecture[/url] for design details.
+		This class handles mesh and collision generation, and management of the whole system. See [url=https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html]System Architecture[/url] for design details.
 	</description>
 	<tutorials>
 	</tutorials>
