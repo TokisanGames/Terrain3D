@@ -173,8 +173,6 @@ public:
 	void set_label_size(const int p_size);
 	int get_label_size() const { return _label_size; }
 	void update_region_labels();
-	void set_show_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_region_grid(p_enabled) : void(); }
-	bool get_show_grid() { return (_material != nullptr) ? _material->get_show_region_grid() : false; }
 
 	// Collision
 	void set_collision_enabled(const bool p_enabled);
@@ -209,6 +207,42 @@ public:
 	void set_cull_margin(const real_t p_margin);
 	real_t get_cull_margin() const { return _cull_margin; };
 	bool is_compatibility_mode() const { return _compatibility; };
+
+	// Debug Views
+	void set_show_checkered(const bool p_enabled) { (_material != nullptr) ? _material->set_show_checkered(p_enabled) : void(); }
+	bool get_show_checkered() { return (_material != nullptr) ? _material->get_show_checkered() : false; }
+	void set_show_grey(const bool p_enabled) { (_material != nullptr) ? _material->set_show_grey(p_enabled) : void(); }
+	bool get_show_grey() { return (_material != nullptr) ? _material->get_show_grey() : false; }
+	void set_show_heightmap(const bool p_enabled) { (_material != nullptr) ? _material->set_show_heightmap(p_enabled) : void(); }
+	bool get_show_heightmap() { return (_material != nullptr) ? _material->get_show_heightmap() : false; }
+	void set_show_colormap(const bool p_enabled) { (_material != nullptr) ? _material->set_show_colormap(p_enabled) : void(); }
+	bool get_show_colormap() { return (_material != nullptr) ? _material->get_show_colormap() : false; }
+	void set_show_roughmap(const bool p_enabled) { (_material != nullptr) ? _material->set_show_roughmap(p_enabled) : void(); }
+	bool get_show_roughmap() { return (_material != nullptr) ? _material->get_show_roughmap() : false; }
+	void set_show_control_texture(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_texture(p_enabled) : void(); }
+	bool get_show_control_texture() { return (_material != nullptr) ? _material->get_show_control_texture() : false; }
+	void set_show_control_angle(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_angle(p_enabled) : void(); }
+	bool get_show_control_angle() { return (_material != nullptr) ? _material->get_show_control_angle() : false; }
+	void set_show_control_scale(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_scale(p_enabled) : void(); }
+	bool get_show_control_scale() { return (_material != nullptr) ? _material->get_show_control_scale() : false; }
+	void set_show_control_blend(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_blend(p_enabled) : void(); }
+	bool get_show_control_blend() { return (_material != nullptr) ? _material->get_show_control_blend() : false; }
+	void set_show_autoshader(const bool p_enabled) { (_material != nullptr) ? _material->set_show_autoshader(p_enabled) : void(); }
+	bool get_show_autoshader() { return (_material != nullptr) ? _material->get_show_autoshader() : false; }
+	void set_show_navigation(const bool p_enabled) { (_material != nullptr) ? _material->set_show_navigation(p_enabled) : void(); }
+	bool get_show_navigation() { return (_material != nullptr) ? _material->get_show_navigation() : false; }
+	void set_show_texture_height(const bool p_enabled) { (_material != nullptr) ? _material->set_show_texture_height(p_enabled) : void(); }
+	bool get_show_texture_height() { return (_material != nullptr) ? _material->get_show_texture_height() : false; }
+	void set_show_texture_normal(const bool p_enabled) { (_material != nullptr) ? _material->set_show_texture_normal(p_enabled) : void(); }
+	bool get_show_texture_normal() { return (_material != nullptr) ? _material->get_show_texture_normal() : false; }
+	void set_show_texture_rough(const bool p_enabled) { (_material != nullptr) ? _material->set_show_texture_rough(p_enabled) : void(); }
+	bool get_show_texture_rough() { return (_material != nullptr) ? _material->get_show_texture_rough() : false; }
+	void set_show_region_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_region_grid(p_enabled) : void(); }
+	bool get_show_region_grid() { return (_material != nullptr) ? _material->get_show_region_grid() : false; }
+	void set_show_instancer_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_instancer_grid(p_enabled) : void(); }
+	bool get_show_instancer_grid() { return (_material != nullptr) ? _material->get_show_instancer_grid() : false; }
+	void set_show_vertex_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_vertex_grid(p_enabled) : void(); }
+	bool get_show_vertex_grid() { return (_material != nullptr) ? _material->get_show_vertex_grid() : false; }
 
 	// Processing
 	void snap(const Vector3 &p_cam_pos);
