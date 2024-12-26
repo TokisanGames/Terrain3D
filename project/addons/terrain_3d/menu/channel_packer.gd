@@ -1,8 +1,10 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Channel Packer for Terrain3D
 extends RefCounted
 
-const WINDOW_SCENE: String = "res://addons/terrain_3d/src/channel_packer.tscn"
-const TEMPLATE_PATH: String = "res://addons/terrain_3d/src/channel_packer_import_template.txt"
-const DRAG_DROP_SCRIPT: String = "res://addons/terrain_3d/src/channel_packer_dragdrop.gd"
+const WINDOW_SCENE: String = "res://addons/terrain_3d/menu/channel_packer.tscn"
+const TEMPLATE_PATH: String = "res://addons/terrain_3d/menu/channel_packer_import_template.txt"
+const DRAG_DROP_SCRIPT: String = "res://addons/terrain_3d/menu/channel_packer_dragdrop.gd"
 enum { 
 	INFO,
 	WARN,

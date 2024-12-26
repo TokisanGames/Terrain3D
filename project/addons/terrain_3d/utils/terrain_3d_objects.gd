@@ -1,3 +1,6 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Objects parent for Terrain3D
+# Children nodes get transform updates on sculpting
 @tool
 extends Node3D
 class_name Terrain3DObjects

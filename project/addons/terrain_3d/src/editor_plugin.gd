@@ -1,6 +1,7 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Editor Plugin for Terrain3D
 @tool
 extends EditorPlugin
-#class_name Terrain3DEditorPlugin Cannot be named until Godot #75388
 
 
 # Includes

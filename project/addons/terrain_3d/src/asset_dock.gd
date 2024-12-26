@@ -1,6 +1,7 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Asset Dock for Terrain3D
 @tool
 extends PanelContainer
-#class_name Terrain3DAssetDock
 
 signal confirmation_closed
 signal confirmation_confirmed

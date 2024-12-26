@@ -1,11 +1,12 @@
+# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# UI for Terrain3D
 extends Node
-#class_name Terrain3DUI Cannot be named until Godot #75388
 
 
 # Includes
+const TerrainMenu: Script = preload("res://addons/terrain_3d/menu/terrain_menu.gd")
 const Toolbar: Script = preload("res://addons/terrain_3d/src/toolbar.gd")
 const ToolSettings: Script = preload("res://addons/terrain_3d/src/tool_settings.gd")
-const TerrainMenu: Script = preload("res://addons/terrain_3d/src/terrain_menu.gd")
 const OperationBuilder: Script = preload("res://addons/terrain_3d/src/operation_builder.gd")
 const GradientOperationBuilder: Script = preload("res://addons/terrain_3d/src/gradient_operation_builder.gd")
 const COLOR_RAISE := Color.WHITE
