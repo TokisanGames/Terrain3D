@@ -184,8 +184,59 @@
 			If enabled, heightmaps are saved as 16-bit half-precision to reduce file size. Files are always loaded in 32-bit for editing. Upon save, a copy of the heightmap is converted to 16-bit for writing. It does not change what is currently in memory.
 			This process is lossy. 16-bit precision gets increasingly worse with every power of 2. At a height of 256m, the precision interval is .25m. At 512m it is .5m. At 1024m it is 1m. Saving a height of 1024.4m will be rounded down to 1024m.
 		</member>
-		<member name="show_grid" type="bool" setter="set_show_grid" getter="get_show_grid" default="false">
-			Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
+		<member name="show_autoshader" type="bool" setter="set_show_autoshader" getter="get_show_autoshader" default="false">
+			Alias for [member Terrain3DMaterial.show_autoshader].
+		</member>
+		<member name="show_checkered" type="bool" setter="set_show_checkered" getter="get_show_checkered" default="false">
+			Alias for [member Terrain3DMaterial.show_checkered].
+		</member>
+		<member name="show_colormap" type="bool" setter="set_show_colormap" getter="get_show_colormap" default="false">
+			Alias for [member Terrain3DMaterial.show_colormap].
+		</member>
+		<member name="show_control_angle" type="bool" setter="set_show_control_angle" getter="get_show_control_angle" default="false">
+			Alias for [member Terrain3DMaterial.show_control_angle].
+		</member>
+		<member name="show_control_blend" type="bool" setter="set_show_control_blend" getter="get_show_control_blend" default="false">
+			Alias for [member Terrain3DMaterial.show_control_blend].
+		</member>
+		<member name="show_control_scale" type="bool" setter="set_show_control_scale" getter="get_show_control_scale" default="false">
+			Alias for [member Terrain3DMaterial.show_control_scale].
+		</member>
+		<member name="show_control_texture" type="bool" setter="set_show_control_texture" getter="get_show_control_texture" default="false">
+			Alias for [member Terrain3DMaterial.show_control_texture].
+		</member>
+		<member name="show_grey" type="bool" setter="set_show_grey" getter="get_show_grey" default="false">
+			Alias for [member Terrain3DMaterial.show_grey].
+		</member>
+		<member name="show_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
+			Alias for [member Terrain3DMaterial.show_region_grid].
+		</member>
+		<member name="show_heightmap" type="bool" setter="set_show_heightmap" getter="get_show_heightmap" default="false">
+			Alias for [member Terrain3DMaterial.show_heightmap].
+		</member>
+		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
+			Alias for [member Terrain3DMaterial.show_instancer_grid].
+		</member>
+		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
+			Alias for [member Terrain3DMaterial.show_navigation].
+		</member>
+		<member name="show_region_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
+			Alias for [member Terrain3DMaterial.show_region_grid].
+		</member>
+		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
+			Alias for [member Terrain3DMaterial.show_autoshader].
+		</member>
+		<member name="show_texture_height" type="bool" setter="set_show_texture_height" getter="get_show_texture_height" default="false">
+			Alias for [member Terrain3DMaterial.show_texture_height].
+		</member>
+		<member name="show_texture_normal" type="bool" setter="set_show_texture_normal" getter="get_show_texture_normal" default="false">
+			Alias for [member Terrain3DMaterial.show_texture_normal].
+		</member>
+		<member name="show_texture_rough" type="bool" setter="set_show_texture_rough" getter="get_show_texture_rough" default="false">
+			Alias for [member Terrain3DMaterial.show_texture_rough].
+		</member>
+		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
+			Alias for [member Terrain3DMaterial.show_vertex_grid].
 		</member>
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.0.0-dev&quot;">
 			The current version of Terrain3D.

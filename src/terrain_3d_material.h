@@ -64,8 +64,8 @@ private:
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
 	bool _debug_view_region_grid = false;
-	bool _debug_view_vertex_grid = false;
 	bool _debug_view_instancer_grid = false;
+	bool _debug_view_vertex_grid = false;
 
 	// Functions
 	void _preload_shaders();
@@ -137,10 +137,10 @@ public:
 	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
 	void set_show_region_grid(const bool p_enabled);
 	bool get_show_region_grid() const { return _debug_view_region_grid; }
-	void set_show_vertex_grid(const bool p_enabled);
-	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 	void set_show_instancer_grid(const bool p_enabled);
 	bool get_show_instancer_grid() const { return _debug_view_instancer_grid; }
+	void set_show_vertex_grid(const bool p_enabled);
+	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 
 	Error save(const String &p_path = "");
 
