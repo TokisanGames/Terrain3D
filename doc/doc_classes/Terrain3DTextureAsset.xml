@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Terrain3DTextureAsset" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="Terrain3DTextureAsset" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
-		A set of texture files and settings that gets added to a [Terrain3DAssets] resource. Textures must be prepared according to the [url=../docs/texture_prep.html]documentation[/url].
+		A set of texture files and settings that gets added to a [Terrain3DAssets] resource. Textures must be prepared according to the [url=https://terrain3d.readthedocs.io/en/stable/docs/texture_prep.html]documentation[/url].
 	</description>
 	<tutorials>
 	</tutorials>

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Terrain3DRegion" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="Terrain3DRegion" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
-		This resource stores all map data for Terrain3D. See [url=../docs/controlmap_format.html]Controlmap Format[/url] and [url=../docs/data_format.html]Data Format Changelog[/url].
+		This resource stores all map data for Terrain3D. See [url=https://terrain3d.readthedocs.io/en/stable/docs/controlmap_format.html]Controlmap Format[/url] and [url=https://terrain3d.readthedocs.io/en/stable/docs/controlmap_format.html]Data Format Changelog[/url].
 	</description>
 	<tutorials>
 	</tutorials>
@@ -119,7 +119,7 @@
 		<member name="control_map" type="Image" setter="set_control_map" getter="get_control_map">
 			This map tells the shader which textures to use where, how to blend, where to place holes, etc.
 			Image format: FORMAT_RF, 32-bit per pixel as full-precision floating-point.
-			However, we interpret these images as format: [url=https://docs.godotengine.org/en/stable/classes/class_renderingdevice.html#class-renderingdevice-constant-data-format-r32-uint]RenderingDevice.DATA_FORMAT_R32_UINT[/url] aka OpenGL RG32UI 32-bit per pixel as unsigned integer. See [url=../docs/controlmap_format.html]Control map format[/url].
+			However, we interpret these images as format: [url=https://docs.godotengine.org/en/stable/classes/class_renderingdevice.html#class-renderingdevice-constant-data-format-r32-uint]RenderingDevice.DATA_FORMAT_R32_UINT[/url] aka OpenGL RG32UI 32-bit per pixel as unsigned integer. See [url=https://terrain3d.readthedocs.io/en/stable/docs/controlmap_format.html]Control map format[/url].
 		</member>
 		<member name="deleted" type="bool" setter="set_deleted" getter="is_deleted">
 			This region is marked for deletion. It won't be rendered once [method Terrain3DData.force_update_maps] rebuilds the map index. The file will be deleted from disk on [method save].
