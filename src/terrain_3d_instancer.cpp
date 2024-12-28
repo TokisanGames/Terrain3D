@@ -760,8 +760,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	int region_size = _terrain->get_region_size();
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 
-	// Build list of potential regions to search, rather than searching the entire terrain, calculate possible regions covered
-	// and check if they are valid; if so add that location to the dictionary keys.
+	// Build list of valid regions within AABB; add the locations as dictionary keys.
 	Dictionary r_locs;
 	// Calculate step distance to ensure every region is checked inside the bounds of brush size.
 	Vector2 step = Vector2(size.x / ceil(size.x / real_t(region_size) / vertex_spacing), size.y / ceil(size.y / real_t(region_size) / vertex_spacing));
@@ -821,7 +820,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			if (cell_queue.size() == 0) {
 				continue;
 			}
-			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
+			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_types[m]);
 			real_t mesh_height_offset = mesh_asset->get_height_offset();
 			for (int c = 0; c < cell_queue.size(); c++) {
 				Vector2i cell = cell_queue[c];
