@@ -71,11 +71,6 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
 	}
-	// Connect height changes to update instances
-	if (!_data->is_connected("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms))) {
-		LOG(DEBUG, "Connecting maps_edited signal to update_transforms()");
-		_data->connect("maps_edited", callable_mp(_instancer, &Terrain3DInstancer::update_transforms));
-	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");

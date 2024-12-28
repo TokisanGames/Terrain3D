@@ -222,7 +222,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			if (map_type == TYPE_HEIGHT) {
 				real_t srcf = src.r;
 				// In case data in existing map has nan or inf saved, check, and reset to real number if required.
-				srcf = std::isnan(srcf) || std::isnan(srcf) ? 0.f : srcf; 
+				srcf = std::isnan(srcf) || std::isnan(srcf) ? 0.f : srcf;
 				real_t destf = srcf;
 
 				switch (_operation) {
@@ -522,6 +522,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		data->force_update_maps(map_type);
 	}
 	data->add_edited_area(edited_area);
+
+	if (_tool == HOLES || _tool == HEIGHT || _tool == SCULPT) {
+		_terrain->get_instancer()->update_transforms(edited_area);
+	}
 }
 
 void Terrain3DEditor::_store_undo() {
