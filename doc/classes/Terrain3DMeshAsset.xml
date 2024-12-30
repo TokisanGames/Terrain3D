@@ -41,7 +41,7 @@
 		<member name="cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="GeometryInstance3D.ShadowCastingSetting" default="1">
 			Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets [code skip-lint]GeometryInstance3D.cast_shadow[/code] on all MultiMeshInstances used by this mesh.
 		</member>
-		<member name="density" type="float" setter="set_density" getter="get_density" default="-1.0">
+		<member name="density" type="float" setter="set_density" getter="get_density" default="10.0">
 			Density is used to set the approximate default spacing between instances based on the size of the mesh. When painting meshes on the terrain, mesh density is multiplied by brush strength.
 			This value is not tied to any real world unit. It is calculated as [code skip-lint]10.f / mesh-&gt;get_aabb().get_volume()[/code], then clamped to a sane range. If the calculated amount is inappropriate, increase or decrease it here.
 		</member>

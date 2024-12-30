@@ -36,7 +36,7 @@ Properties
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | :ref:`ShadowCastingSetting<enum_GeometryInstance3D_ShadowCastingSetting>` | :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>`           | ``1``             |
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | :ref:`float<class_float>`                                                 | :ref:`density<class_Terrain3DMeshAsset_property_density>`                     | ``-1.0``          |
+   | :ref:`float<class_float>`                                                 | :ref:`density<class_Terrain3DMeshAsset_property_density>`                     | ``10.0``          |
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | :ref:`int<class_int>`                                                     | :ref:`generated_faces<class_Terrain3DMeshAsset_property_generated_faces>`     | ``2``             |
    +---------------------------------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
@@ -205,7 +205,7 @@ Tells the renderer how to cast shadows from this mesh asset onto the terrain and
 
 .. rst-class:: classref-property
 
-:ref:`float<class_float>` **density** = ``-1.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_density>`
+:ref:`float<class_float>` **density** = ``10.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_density>`
 
 .. rst-class:: classref-property-setget
 
