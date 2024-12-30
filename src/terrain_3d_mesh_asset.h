@@ -37,8 +37,7 @@ private:
 	Vector2 _generated_size = Vector2(1.f, 1.f);
 	Ref<PackedScene> _packed_scene;
 	Ref<Material> _material_override;
-	real_t _relative_density = -1.f;
-	real_t _calculated_density = -1.f;
+	real_t _density = 10.f;
 
 	// Working data
 	TypedArray<Mesh> _meshes;
@@ -65,7 +64,7 @@ public:
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
 	void set_density(const real_t p_density);
-	real_t get_density() const;
+	real_t get_density() const { return _density; }
 
 	void set_visibility_range(const real_t p_visibility_range);
 	real_t get_visibility_range() const { return _visibility_range; };
