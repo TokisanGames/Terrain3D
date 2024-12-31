@@ -201,6 +201,7 @@
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\docs\user_interface.md" />
     <None Include="doc\index.rst" />
+    <None Include="project\addons\terrain_3d\extras\minimum.gdshader" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />
     <None Include="README.md" />
