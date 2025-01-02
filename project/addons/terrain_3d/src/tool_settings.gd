@@ -173,6 +173,8 @@ func _ready() -> void:
 								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
 	add_setting({ "name":"jitter", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
 								"unit":"%", "range":Vector3(0, 100, 1) })
+	add_setting({ "name":"crosshair_threshold", "type":SettingType.SLIDER, "list":advanced_list, "default":16., 
+								"unit":"m", "range":Vector3(0, 200, 1) })
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout, p_hover_pop: bool = true) -> Container:

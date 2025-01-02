@@ -29,14 +29,14 @@ R"(
 // END_COMPAT_DEFINES
 
 //INSERT: EDITOR_SETUP_DECAL
-uniform highp sampler2D _editor_decal_0 : source_color, filter_linear, repeat_disable;
-uniform highp sampler2D _editor_decal_1 : source_color, filter_linear, repeat_disable;
-uniform highp sampler2D _editor_decal_2 : source_color, filter_linear, repeat_disable;
+uniform highp sampler2D _editor_brush_texture : source_color, filter_linear, repeat_disable;
+uniform highp sampler2D _editor_ring_texture : source_color, filter_linear, repeat_disable;
 uniform vec2 _editor_decal_position[3];
 uniform float _editor_decal_size[3];
 uniform float _editor_decal_rotation[3];
 uniform vec4 _editor_decal_color[3] : source_color;
 uniform bool _editor_decal_visible[3];
+uniform float _editor_crosshair_threshold = 16.0;
 
 // expects uv (Texture/world space 0 to +/- inf 1m units).
 vec3 get_decal(vec3 albedo, vec2 uv) {
@@ -54,23 +54,29 @@ vec3 get_decal(vec3 albedo, vec2 uv) {
 			continue;
 		}
 		float decal = 0.0;
-		// For webGL we cannot use sampler2D[], sampler2DArray requires all textures be the same size,
-		// which might not be the case - so use a switch to read the correct uniform.
 		switch (i) {
 			case 0 :
-				decal = texture(_editor_decal_0, decal_uv + 0.5).r;
+				decal = texture(_editor_brush_texture, decal_uv + 0.5).r;
 				break;
 			case 1:
-				decal = texture(_editor_decal_1, decal_uv + 0.5).r;
-				break;
 			case 2:
-				decal = texture(_editor_decal_2, decal_uv + 0.5).r;
+				decal = texture(_editor_ring_texture, decal_uv + 0.5).r;
 				break;
 		}
-		// Blend in decal; reduce opacity 55% to account for differences in Opengl/Vulkan and/or decals
-		albedo =  mix(albedo, _editor_decal_color[i].rgb, clamp(decal * _editor_decal_color[i].a * .55, 0., .55));
+		// Blend in decal; square for better visual blend
+		albedo =  mix(albedo, _editor_decal_color[i].rgb, decal * decal * _editor_decal_color[i].a);
 	}
-
+	// Crosshair
+	if (_editor_decal_visible[0] && _editor_decal_size[0] <= _editor_crosshair_threshold) {
+		vec2 cross_uv = ((uv - _editor_decal_position[0] * _vertex_density) * _vertex_spacing) * 16.0;
+		cross_uv /= sqrt(length(v_camera_pos - v_vertex));
+		float line_thickness = 0.5;
+		float line_start = _editor_decal_size[0] * 0.5 + 8.;
+		float line_end = _editor_decal_size[0] * 0.5 + 16.;
+		bool h = abs(cross_uv.y) < line_thickness && abs(cross_uv.x) < line_end && abs(cross_uv.x) > line_start;
+		bool v = abs(cross_uv.x) < line_thickness && abs(cross_uv.y) < line_end && abs(cross_uv.y) > line_start;
+		albedo = (h || v) ? mix(albedo, _editor_decal_color[0].rgb, _editor_decal_color[0].a) : albedo;
+	}
 	return albedo;
 }
 

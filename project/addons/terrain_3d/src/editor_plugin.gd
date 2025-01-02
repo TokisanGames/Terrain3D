@@ -156,6 +156,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		return AFTER_GUI_INPUT_PASS
 
 	_read_input(p_event)
+	ui.update_decal()
 	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
@@ -187,8 +188,6 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				return AFTER_GUI_INPUT_STOP
 			mouse_global_position = intersection_point
 
-		ui.update_decal()
-
 		if _input_mode != -1: # Not cam rotation
 			## Update region highlight
 			var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
@@ -205,8 +204,6 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				return AFTER_GUI_INPUT_STOP
 			
 		return AFTER_GUI_INPUT_PASS
-
-	ui.update_decal()
 
 	if p_event is InputEventMouseButton and _input_mode > 0:
 		if p_event.is_pressed():

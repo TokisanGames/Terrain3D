@@ -184,7 +184,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		return shader;
 	}
 	insert_names.clear();
-	if (_compatibility) {
+	if (IS_EDITOR && _terrain && _terrain->get_editor()) {
 		insert_names.push_back("EDITOR_SETUP_DECAL");
 	}
 	for (int i = 0; i < insert_names.size(); i++) {
@@ -251,7 +251,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_show_navigation || (IS_EDITOR && _terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
 		insert_names.push_back("EDITOR_NAVIGATION");
 	}
-	if (_compatibility) {
+	if (IS_EDITOR && _terrain && _terrain->get_editor()) {
 		insert_names.push_back("EDITOR_RENDER_DECAL");
 	}
 	for (int i = 0; i < insert_names.size(); i++) {
