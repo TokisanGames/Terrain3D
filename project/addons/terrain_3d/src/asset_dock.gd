@@ -589,13 +589,9 @@ class ListContainer extends Container:
 				last_offset = 3
 			set_selected_id(clamp(selected_id, 0, entries.size() - last_offset))
 
-		# Update editor with selected brush
-		plugin.ui._on_setting_changed()
-
 
 	func get_selected_id() -> int:
 		return selected_id
-
 
 
 	func set_entry_width(value: float) -> void:

@@ -28,8 +28,8 @@ func _init() -> void:
 	set_custom_minimum_size(Vector2(20, 0))
 
 func _ready() -> void:
-	add_tool_group.connect("pressed", _on_tool_selected)
-	sub_tool_group.connect("pressed", _on_tool_selected)
+	add_tool_group.pressed.connect(_on_tool_selected)
+	sub_tool_group.pressed.connect(_on_tool_selected)
 
 	add_tool_button({ "tool":Terrain3DEditor.REGION, 
 		"add_text":"Add Region", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_REGION_ADD,
