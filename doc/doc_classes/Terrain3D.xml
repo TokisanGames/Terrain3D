@@ -64,11 +64,11 @@
 
 				The main caveats of using this mode is that the call to get_intersection() requests a viewport be drawn, but cannot wait for it to finish as there is no "await" in C++ and no force draw function in Godot. So the return value is one frame behind, and invalid on the first call. This also means the function cannot be used more than once per frame. This mode works well when used continuously, once per frame, where one frame of difference won't matter. The editor uses this mode to place the mouse cursor decal.
 
-				This mode can also be used by your plugins and games, such as a space ship firing lasers at the terrain and causing an explosion at the hit point. However if the calls aren't continuous, you'll need to call once to capture the viewport image, wait for it to be drawn, then call again to get the result:
+				This mode can also be used by your plugins and games, such as a space ship firing lasers at the terrain and causing an explosion at the hit point. However if the calls aren't continuous, eg driven by the mouse, you'll need to call once to capture the viewport image, wait for it to be drawn, then call again to get the result:
 				[codeblock]
-				var target_point = terrain.get_intersection(camera_pos, camera_dir)
+				var target_point = terrain.get_intersection(camera_pos, camera_dir, true)
 				await RenderingServer.frame_post_draw
-				target_point = terrain.get_intersection(camera_pos, camera_dir)
+				target_point = terrain.get_intersection(camera_pos, camera_dir, true)
 				[/codeblock]
 
 				Possible return values:
