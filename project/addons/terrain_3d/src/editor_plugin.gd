@@ -158,35 +158,39 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	_read_input(p_event)
 	ui.update_decal()
 	
+	## Setup active camera & viewport
+	# Always update this for all inputs, as the mouse position can move without
+	# necessarily being a InputEventMouseMotion object. get_intersection() also
+	# returns the last frame position, and should be updated more frequently.
+	
+	# Snap terrain to current camera 
+	terrain.set_camera(p_viewport_camera)
+
+	# Detect if viewport is set to half_resolution
+	# Structure is: Node3DEditorViewportContainer/Node3DEditorViewport(4)/SubViewportContainer/SubViewport/Camera3D
+	var editor_vpc: SubViewportContainer = p_viewport_camera.get_parent().get_parent()
+	var full_resolution: bool = false if editor_vpc.stretch_shrink == 2 else true
+
+	## Get mouse location on terrain
+	# Project 2D mouse position to 3D position and direction
+	var vp_mouse_pos: Vector2 = editor_vpc.get_local_mouse_position()
+	var mouse_pos: Vector2 = vp_mouse_pos if full_resolution else vp_mouse_pos / 2
+	var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
+	var camera_dir: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
+
+	# If region tool, grab mouse position without considering height
+	if editor.get_tool() == Terrain3DEditor.REGION:
+		var t = -Vector3(0, 1, 0).dot(camera_pos) / Vector3(0, 1, 0).dot(camera_dir)
+		mouse_global_position = (camera_pos + t * camera_dir)
+	else:
+	#Else look for intersection with terrain
+		var intersection_point: Vector3 = terrain.get_intersection(camera_pos, camera_dir, true)
+		if intersection_point.z > 3.4e38 or is_nan(intersection_point.y): # max double or nan
+			return AFTER_GUI_INPUT_STOP
+		mouse_global_position = intersection_point
+	
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
-		## Setup active camera & viewport
-
-		# Snap terrain to current camera 
-		terrain.set_camera(p_viewport_camera)
-
-		# Detect if viewport is set to half_resolution
-		# Structure is: Node3DEditorViewportContainer/Node3DEditorViewport(4)/SubViewportContainer/SubViewport/Camera3D
-		var editor_vpc: SubViewportContainer = p_viewport_camera.get_parent().get_parent()
-		var full_resolution: bool = false if editor_vpc.stretch_shrink == 2 else true
-
-		## Get mouse location on terrain
-		
-		# Project 2D mouse position to 3D position and direction
-		var mouse_pos: Vector2 = p_event.position if full_resolution else p_event.position/2
-		var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
-		var camera_dir: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
-
-		# If region tool, grab mouse position without considering height
-		if editor.get_tool() == Terrain3DEditor.REGION:
-			var t = -Vector3(0, 1, 0).dot(camera_pos) / Vector3(0, 1, 0).dot(camera_dir)
-			mouse_global_position = (camera_pos + t * camera_dir)
-		else:			
-			# Else look for intersection with terrain
-			var intersection_point: Vector3 = terrain.get_intersection(camera_pos, camera_dir, true)
-			if intersection_point.z > 3.4e38 or is_nan(intersection_point.y): # max double or nan
-				return AFTER_GUI_INPUT_STOP
-			mouse_global_position = intersection_point
 
 		if _input_mode != -1: # Not cam rotation
 			## Update region highlight
