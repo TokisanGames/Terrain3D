@@ -1,4 +1,4 @@
-// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 // These DEBUG_* are special inserts that injected into the shader code before the last `}`
 // which is assumed to belong to fragment()

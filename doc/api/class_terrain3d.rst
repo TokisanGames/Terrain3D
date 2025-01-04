@@ -1104,13 +1104,13 @@ The main caveats of using this mode is that the call to get_intersection() reque
 
 
 
-This mode can also be used by your plugins and games, such as a space ship firing lasers at the terrain and causing an explosion at the hit point. However if the calls aren't continuous, you'll need to call once to capture the viewport image, wait for it to be drawn, then call again to get the result:
+This mode can also be used by your plugins and games, such as a space ship firing lasers at the terrain and causing an explosion at the hit point. However if the calls aren't continuous, eg driven by the mouse, you'll need to call once to capture the viewport image, wait for it to be drawn, then call again to get the result:
 
 ::
 
-    var target_point = terrain.get_intersection(camera_pos, camera_dir)
+    var target_point = terrain.get_intersection(camera_pos, camera_dir, true)
     await RenderingServer.frame_post_draw
-    target_point = terrain.get_intersection(camera_pos, camera_dir)
+    target_point = terrain.get_intersection(camera_pos, camera_dir, true)
 
 
 

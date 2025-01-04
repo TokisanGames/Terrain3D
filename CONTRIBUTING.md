@@ -4,7 +4,7 @@ We need your help to make this the best terrain plugin for Godot.
 
 Please see [System Architecture](https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html) to gain an understanding of how the system works. Then review the [roadmap](https://github.com/users/TokisanGames/projects/3) for priority of issues.
 
-If you wish to take on a major component, it's best to join our [discord server](https://tokisan.com/discord) and discuss your plans with Cory to make sure your efforts are aligned with other plans.
+If you wish to take on a major component, it's best to join our [discord server](https://tokisan.com/discord) and discuss your plans in #terrain3d-dev to make sure your efforts are aligned with other plans.
 
 **Table of Contents**
 * [Important Directories](#important-directories)
@@ -16,16 +16,16 @@ If you wish to take on a major component, it's best to join our [discord server]
  
 ## Important Directories
 
-* src - C++ source for the library
-* src/shaders - GLSL source for the default shader
-* doc/doc_classes - XML docs for C++ classes
-* doc/docs - MD tutorial docs
-* project/addons/terrain_3d
-	* src - GDScript for the editor plugin: the user interface for hand editing
-	* menu - GDScript for the tools menu: bakers, channel packer
-	* tools - GDScript for the importer, which will eventually be merged into the menu
-	* utils - GDScript for other objects, eg. terrain_3d_objects.gd
-	* extras - GDScript examples for users
+* `src` - C++ source for the library
+* `src/shaders` - GLSL source for the default shader
+* `doc/doc_classes` - XML docs for C++ classes
+* `doc/docs` - MD tutorial docs
+* `project/addons/terrain_3d`
+  * `src` - GDScript for the editor plugin: the user interface for hand editing
+  * `menu` - GDScript for the tools menu: bakers, channel packer
+  * `tools` - GDScript for the importer, which will eventually be merged into the menu
+  * `utils` - GDScript for other objects, eg. terrain_3d_objects.gd
+  * `extras` - GDScript examples for users
 
 
 ## Setup Your System

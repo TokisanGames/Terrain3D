@@ -1,4 +1,4 @@
-// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef GENERATEDTEXTURE_CLASS_H
 #define GENERATEDTEXTURE_CLASS_H
