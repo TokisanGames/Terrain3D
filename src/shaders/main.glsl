@@ -215,14 +215,14 @@ vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
 	return uv;
 }
 
-vec2 rotate_normal(vec2 normal, float angle) {
-	float new_x = dot(vec2(cos(angle), sin(angle)), normal);
+vec2 rotate_plane(vec2 plane, float angle) {
+	float new_x = dot(vec2(cos(angle), sin(angle)), plane);
 	angle = fma(PI, 0.5, angle);
-	float new_y = dot(vec2(cos(angle), sin(angle)), normal);
+	float new_y = dot(vec2(cos(angle), sin(angle)), plane);
 	return vec2(new_x, new_y);
 }
 
-// 2-4 lookups
+// 2-4 lookups ( 2-6 with dual scaling )
 void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
 	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0);
 	vec2 uv_center = vec2(iuv_center.xy);
@@ -264,6 +264,8 @@ void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 
 	float normal_angle2 = uv_rotation;
 	vec2 matUV2 = detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
 	vec4 dd2 = ddxy * mat_scale2;
+	dd2.xy = rotate_plane(dd2.xy, -normal_angle2);
+	dd2.zw = rotate_plane(dd2.zw, -normal_angle2);
 	vec4 albedo_ht2 = textureGrad(_texture_array_albedo, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
 	vec4 normal_rg2 = textureGrad(_texture_array_normal, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
 
@@ -273,7 +275,7 @@ void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 
 	if (out_mat.blend > 0.f) {
 		// Unpack & rotate overlay normal for blending
 		normal_rg2.xz = unpack_normal(normal_rg2).xz;
-		normal_rg2.xz = rotate_normal(normal_rg2.xz, -normal_angle2);
+		normal_rg2.xz = rotate_plane(normal_rg2.xz, -normal_angle2);
 
 //INSERT: DUAL_SCALING_OVERLAY
 		// Apply color to overlay
@@ -342,7 +344,7 @@ void fragment() {
 	indexUV[2] = get_region_uv(index_id + offsets.yx);
 	indexUV[3] = get_region_uv(index_id + offsets.xx);
 	
-	// Terrain normals
+	// Terrain normals 3-8 lookups
 	vec3 index_normal[4];
 	float h[8];
 	// allows additional derivatives, eg world noise, brush previews etc.
@@ -359,7 +361,14 @@ void fragment() {
 	// Set flat world normal - overriden if bilerp is true.
 	vec3 w_normal = index_normal[3];
 
+	// Setting this here, instead of after the branch is appears to be 10%~ faster.
+	// Likley as flat derivatives seem more cache friendly for texture lookups.
+	if (enable_projection) {
+		base_derivatives *= 1.0 + (1.0 - w_normal.y);
+	}
+
 	// Branching smooth normals must be done seperatley for correct normals at all 4 index ids.
+	// +5 lookups
 	if (bilerp) {
 		// Fetch the additional required height values for smooth normals
 		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
@@ -388,11 +397,7 @@ void fragment() {
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 
-	if (enable_projection) {
-		base_derivatives *= 1.0 + (1.0 - w_normal.y);
-	}
-
-	// Minimum amount of lookups for sub fragment sized index domains.
+	// 5 lookups for sub fragment sized index domains.
 	uint control[4];
 	control[3] = texelFetch(_control_maps, indexUV[3], 0).r;
 
@@ -403,6 +408,7 @@ void fragment() {
 	vec4 normal_rough = mat[3].nrm_rg;
 
 	// Otherwise do full bilinear interpolation
+	// +15 lookups + 1 noise lookup
 	if (bilerp) {	
 		control[0] = texelFetch(_control_maps, indexUV[0], 0).r;
 		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
