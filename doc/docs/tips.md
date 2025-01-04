@@ -97,58 +97,100 @@ This also works with the control and color maps.
 
 Here's an example of using a custom texture map for one texture, such as adding an emissive texture for lava. Add in this code and add an emissive texture, then adjust the emissive ID to match the lava texture, and adjust the strength.
 
-Add the uniforms at the top of the file:
+Add these uniforms at the top of the file with the other uniforms:
 ```glsl
 uniform int emissive_id : hint_range(0, 31) = 0;
 uniform float emissive_strength = 1.0;
-uniform sampler2D emissive_tex : source_color, filter_linear_mipmap_anisotropic;
+uniform sampler2D emissive_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 ```
 
-Modify the return struct to house the emissive texture.
+Add a variable to store emissive value in the Material struct.
 
 ```glsl
-struct Material {
+// struct Material {
 	...
 	vec3 emissive;
-};
+// };
 ```
 
-Modify `get_material()` to read the emissive texture.
+Modify `get_material()` to read the emissive texture with the next several options. 
+
+Add the initial value for emissive by adding a vec3 at the end
 ```glsl
-// Add the initial value for emissive, adding the last vec3
-out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, vec3(0.));
-
-// Immediately after albedo_ht and normal_rg get assigned:
-// albedo_ht = ...
-// normal_rg = ...
-vec4 emissive = vec4(0.);
-if(out_mat.base == emissive_id) {
-	emissive = texture(emissive_tex, matUV);
-}
-
-// Immediately after albedo_ht2 and normal_rg2 get assigned:
-// albedo_ht2 = ...
-// normal_rg2 = ...
-vec4 emissive2 = vec4(0.);
-emissive2 = texture(emissive_tex, matUV2) * float(out_mat.over == emissive_id);
-
-// Immediately after the calls to height_blend:
-// albedo_ht = height_blend(...
-// normal_rg = height_blend(...
-emissive = height_blend(emissive, albedo_ht.a, emissive2, albedo_ht2.a, out_mat.blend);
-
-// At the bottom of the function, just before `return`.
-out_mat.emissive = emissive.rgb;
+// void get_material(vec2 base_uv, ...
+	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, vec3(0.));
 ```
 
-// Then at the very bottom of `fragment()`, before the final }, apply the weighting and send it to the GPU.
+Look for this conditional:
 ```glsl
-vec3 emissive = weight_inv * (
+	if (out_mat.blend > 0.) {
+```
+
+Right before that, add:
+```glsl
+	vec4 emissive = vec4(0.);
+	if(out_mat.base == emissive_id) {
+		emissive = textureGrad(emissive_tex, matUV, dd1.xy, dd1.zw);
+	}
+
+//	if (out_mat.blend > 0.) {
+```
+
+At the end of that block, before the `}`, add:
+```glsl
+	vec4 emissive2 = vec4(0.);
+	emissive2 = textureGrad(emissive_tex, matUV2, dd2.xy, dd2.zw) * float(out_mat.over == emissive_id);
+	emissive = height_blend(emissive, albedo_ht.a, emissive2, albedo_ht2.a, out_mat.blend);
+
+//	}
+```
+
+At the end of the `get_material()` function, add the emissive value to the material
+```glsl
+//	out_mat.alb_ht = albedo_ht;
+//	out_mat.nrm_rg = normal_rg;
+	out_mat.emissive = emissive.rgb;
+//	return;
+//	}
+```
+
+At the very bottom of `fragment()`, before the final `}`, apply the weighting and send it to the GPU.
+```glsl
+vec3 emissive = 
 	mat[0].emissive * weights.x +
 	mat[1].emissive * weights.y +
 	mat[2].emissive * weights.z +
-	mat[3].emissive * weights.w );
+	mat[3].emissive * weights.w ;
 EMISSION = emissive * emissive_strength;
+
+// }
 ```
 
-Note: Avoid sub branches: an if statement within an if statement, and enable your FPS counter so you can test as you build your code. Some branch configurations may be free, some may be very expensive, or even more performant than you expect.
+Next, add your emissive texture to the texture sampler and adjust the values on the newly exposed uniforms.
+
+
+### Avoid sub branches
+
+Avoid placing an if statement within an if statement. Enable your FPS counter so you can test as you build your code. Some branch configurations may be free, some may be very expensive, or even more performant than you expect. Always test.
+
+Sometimes it's faster to always calculate than it is to branch.
+
+Sometimes you can do tricks like this to avoid sub branching:
+
+```glsl
+uniform bool auto_shader;
+if (height > 256) {
+   if (auto_shader) {
+     albedo = snow_color;
+   }
+}
+```
+
+```glsl
+uniform bool auto_shader;
+if (height > 256) {
+  albedo = float(!auto_shader)*albedo + float(auto_shader)*snow_color;
+}
+```
+
+These two are equivalent, and avoids the sub branch by always calculating. If auto_shader is true, the line is `albedo = 0.*albedo + 1.*snow_color`.
