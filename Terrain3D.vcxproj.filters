@@ -205,9 +205,6 @@
     <None Include="doc\docs\games.md">
       <Filter>2. Docs</Filter>
     </None>
-    <None Include="doc\docs\misc.md">
-      <Filter>2. Docs</Filter>
-    </None>
     <None Include="doc\docs\instancer.md">
       <Filter>2. Docs</Filter>
     </None>
@@ -238,6 +235,9 @@
     <None Include="project\addons\terrain_3d\extras\minimum.gdshader">
       <Filter>4. Shaders</Filter>
     </None>
+    <None Include="doc\docs\heightmaps.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -256,9 +256,6 @@
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\occlusion_culling.md">
-      <Filter>2. Docs</Filter>
-    </Text>
-    <Text Include="doc\docs\project_status.md">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\shader_design.md">

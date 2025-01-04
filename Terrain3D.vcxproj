@@ -193,11 +193,11 @@
     <None Include="doc\docs\double_precision.md" />
     <None Include="doc\docs\games.md" />
     <None Include="doc\docs\instancer.md" />
-    <None Include="doc\docs\misc.md" />
     <None Include="doc\docs\platforms.md" />
     <None Include="doc\docs\nightly_builds.md" />
     <None Include="doc\docs\press.md" />
     <None Include="doc\docs\data_format.md" />
+    <None Include="doc\docs\heightmaps.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\docs\user_interface.md" />
     <None Include="doc\index.rst" />
@@ -216,7 +216,6 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml" />
-    <Text Include="doc\docs\project_status.md" />
     <Text Include="doc\docs\import_export.md" />
     <Text Include="doc\docs\programming_languages.md" />
     <Text Include="doc\docs\occlusion_culling.md" />

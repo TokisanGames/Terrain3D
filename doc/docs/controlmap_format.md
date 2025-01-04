@@ -21,6 +21,7 @@ We process each uint32 pixel as a bit field with the following definition, start
 * We use a FORMAT_RF 32-bit float Image or Texture to allocate the memory. Then in C++, we read or write each uint32 pixel directly into the "float" memory. The values are meaningless when interpreted as floats. We don't convert the integer values to float, so there is no precision loss. Godot shaders support usamplers so we can interpret the memory directly as uint32, without requiring any conversion.
 * Gamedevs can use the conversion and testing functions found in Terrain3DUtil defined in [C++](https://github.com/TokisanGames/Terrain3D/blob/main/src/terrain_3d_util.h) and [GDScript](../api/class_terrain3dutil.rst).
 * Possible future plans for reserved bits:
+  * 2 bits - Hole and Navigation might be stored elsewhere, freeing up 2 bits
   * 5 bits - 32 paintable particles
   * 3 bits - paintable slope array index+
   * 2 bits - 4 layers (including Hole above, eg water, non-destructive, hole, normal mesh) 

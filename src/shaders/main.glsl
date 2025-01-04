@@ -1,4 +1,4 @@
-// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 // Raw strings have a limit of 64k, but MSVC has a limit of 2k in a string literal. This file is split into
 // multiple raw strings that are concatenated by the compiler.

@@ -1,4 +1,4 @@
-// Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 // This shader is the minimum needed to allow the terrain to function, without any texturing.
 
 shader_type spatial;

@@ -22,10 +22,14 @@ func reset_settings(p_value) -> void:
 		r16_size = Vector2i(1024, 1024)
 		material = null
 		assets = null
+		reset_terrain(true)
 
 
 func reset_terrain(p_value) -> void:
 	data_directory = ""
+	for region:Terrain3DRegion in data.get_regions_active():
+		data.remove_region(region, false)
+	data.force_update_maps()
 
 
 func update_heights(p_value) -> void:
