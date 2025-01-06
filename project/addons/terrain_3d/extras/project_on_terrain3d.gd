@@ -1,16 +1,11 @@
-# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 # This script is an addon for HungryProton's Scatter https://github.com/HungryProton/scatter
 # It provides a `Project on Terrain3D` modifier, which allows Scatter 
 # to detect the terrain height from Terrain3D without using collision.
-# Copy this file into /addons/proton_scatter/src/modifiers
-# Then uncomment everything below
-# In the editor, add this modifier to Scatter, then set your Terrain3D node
-
-# This script is an addon for HungryProton's Scatter https://github.com/HungryProton/scatter
-# It allows Scatter to detect the terrain height from Terrain3D
+#
 # Copy this file into /addons/proton_scatter/src/modifiers
 # Then uncomment everything below (select, press CTRL+K)
-# In the editor, add this modifier, then set your Terrain3D node
+# In the editor, add this modifier to Scatter, then set your Terrain3D node
 
 #@tool
 #extends "base_modifier.gd"
@@ -21,6 +16,7 @@
 #
 #@export var terrain_node : NodePath
 #@export var align_with_collision_normal := false
+#@export_range(0.0, 90.0, 0.1) var max_slope = 90.0
 #
 #var _terrain: Terrain3D
 #
@@ -69,20 +65,29 @@
 	## Get global transform
 	#var gt: Transform3D = domain.get_global_transform()
 	#var gt_inverse := gt.affine_inverse()
+	#var new_transforms_array: Array[Transform3D] = []
+	#var remapped_max_slope: float = remap(max_slope, 0.0, 90.0, 0.0, 1.0)
 	#for i in transforms.list.size():
-		#var location: Vector3 = (gt * transforms.list[i]).origin
+		#var t: Transform3D = transforms.list[i]
+		#
+		#var location: Vector3 = (gt * t).origin
 		#var height: float = _terrain.data.get_height(location)
 		#var normal: Vector3 = _terrain.data.get_normal(location)
 		#
 		#if align_with_collision_normal and not is_nan(normal.x):
-			#transforms.list[i].basis.y = normal
-			#transforms.list[i].basis.x = -transforms.list[i].basis.z.cross(normal)
-			#transforms.list[i].basis = transforms.list[i].basis.orthonormalized()
+			#t.basis.y = normal
+			#t.basis.x = -t.basis.z.cross(normal)
+			#t.basis = t.basis.orthonormalized()
 #
-		#transforms.list[i].origin.y = gt.origin.y if is_nan(height) else height - gt.origin.y
+		#if abs(Vector3.UP.dot(normal)) >= (1.0 - remapped_max_slope):
+			#t.origin.y = gt.origin.y if is_nan(height) else height - gt.origin.y
+			#new_transforms_array.push_back(t)
+#
+	#transforms.list.clear()
+	#transforms.list.append_array(new_transforms_array)
 #
 	#if transforms.is_empty():
-		#warning += """Every point has been removed. Possible reasons include: \n
+		#warning += """All transforms have been removed. Possible reasons include: \n
 		#+ No collider is close enough to the shapes.
 		#+ Ray length is too short.
 		#+ Ray direction is incorrect.
