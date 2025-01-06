@@ -3,7 +3,7 @@ Heightmaps
 
 Terrain3D can be used with pre-made heightmaps. They can be found online, created from heightmap generators, or downloaded from real world data.
 
-Once you have your heightmap source, ensure it is 16 or 32-bit, scaled properly (below), and converted to `exr` or `16`. Then read [Importing Data](import_export.md) to learn how to import it. What is not covered here is how to use Photoshop, Krita, or Gimp, but you can find tutorials on YouTube.
+Once you have your heightmap source, ensure it is 16 or 32-bit, scaled properly (below), and converted to `exr` or `r16`. Then read [Importing Data](import_export.md) to learn how to import it. What is not covered here is how to use Photoshop, Krita, or Gimp, but you can find tutorials on YouTube.
 
 **Table of Contents**
 * [Pre-made Heightmaps](#pre-made-heightmaps)

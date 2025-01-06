@@ -455,8 +455,8 @@ void fragment() {
 	if (enable_macro_variation) {
 		float noise1 = texture(noise_texture, rotate(uv * noise1_scale * .1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;
 		float noise2 = texture(noise_texture, uv * noise2_scale * .1).r;
-		macrov = mix(macro_variation1, vec3(1.), clamp(noise1 + v_vertex_xz_dist * .0002, 0., 1.));
-		macrov *= mix(macro_variation2, vec3(1.), clamp(noise2 + v_vertex_xz_dist * .0002, 0., 1.));
+		macrov = mix(macro_variation1, vec3(1.), noise1);
+		macrov *= mix(macro_variation2, vec3(1.), noise2);
 		macrov = mix(vec3(1.0), macrov, clamp(w_normal.y + macro_variation_slope, 0., 1.));
 	}
 	
