@@ -1,11 +1,50 @@
 Tips
 ======
 
+## Are Certain Features Supported?
+
+This list are for items that don't already have dedicated pages in the documentation.
+
+| Feature | Status | 
+| ------------- | ------------- | 
+| Destructibility | Real-time modification is technically possible by fetching the height and control maps and directly modifying them. That's how the editor works. But most gamedevs who want destructible terrains are better served by [Zylann's Voxel Tools](https://github.com/Zylann/godot_voxel).
+| GPU Sculpting| [Pending](https://github.com/TokisanGames/Terrain3D/issues/174). Currently painting occurs on the CPU in C++. It's reasonably fast, but we have a soft limit of 200 on the brush size, as larger sizes lag.
+| Holes | Holes work for both visual and collision.
+| Jolt | [Godot-Jolt](https://github.com/godot-jolt/godot-jolt) works as a drop-in replacement for Godot Physics. Collision is generated where regions are defined.
+| Non-destructive layers | Used for things like river beds, roads or paths that follow a curve and tweak the terrain. It's [possible](https://github.com/TokisanGames/Terrain3D/issues/129) in the future.
+| Object placement | The [instancer](instancer.md) supports placing foliage. Placing objects that shouldn't be in a MultiMeshInstance node is [out of scope](https://github.com/TokisanGames/Terrain3D/issues/47). See 3rd party tools below.
+| Streaming | No streaming is supported. In the future we will stream regions.
+| Water | Use [WaterWays](https://github.com/Arnklit/Waterways) for rivers, or [Realistic Water Shader](https://github.com/godot-extended-libraries/godot-realistic-water/) or [Infinite Ocean](https://stayathomedev.com/tutorials/making-an-infinite-ocean-in-godot-4/) for lakes or oceans.
+|**Rendering**|
+| Frustum Culling | The terrain is made up of several meshes, so half can be culled if the camera is near the ground.
+| SDFGI | Works fine.
+| VoxelGI | Works fine.
+| Lightmaps | Not possible. There is no static mesh, nor UV2 channel to bake lightmaps on to.
+| **3rd Party Tools** |
+| [Scatter](https://github.com/HungryProton/scatter) | For placing objects algorithmically, with or without collision. We provide [a script](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/extras/project_on_terrain3d.gd) that allows Scatter to detect our terrain. Or you can change collision mode to `Full / Editor` and use the default `Project on Colliders`.
+| [AssetPlacer](https://cookiebadger.itch.io/assetplacer) | A level design tool for placing assets manually. Works on Terrain3D with placement mode set to Terrain3D or using the default mode and collision mode set to `Full / Editor`.
+
+
 ## Regions
 
 Outside of regions, there is no collision. Raycasts won't hit anything. Querying terrain heights or other data will result in NANs or INF. Look through the API for specific return values.
 
 You can determine if a given location is within a region by using `Terrain3DData.has_regionp(global_position)`. It will return -1 if the XZ location is not within a region. Y is ignored.
+
+
+## Terrain3DObjects
+
+Just add the instancer keeps foliage stuck to the ground when sculpting, we provide a special node that does the same for regular MeshInstance3D objects.
+
+Objects that are children of this node will maintain the same vertical offset relative to the terrain as they are moved laterally or as the terrain is sculpted.
+
+For example you can place a sphere on the ground, move it laterally where a hill exists, and it will snap up to the new ground height. Or you can lower the ground and the sphere will drop with the changes. 
+
+You can then adjust the vertical position of the sphere so it is half embedded in the ground, then repeat either of the above and the sphere will snap with the same vertical offset, half embedded in the ground.
+
+To use it:
+* Create a new node of type Terrain3DObjects
+* Add your MeshInstance3D objects as children of this node
 
 
 ## Performance
@@ -19,6 +58,13 @@ You can determine if a given location is within a region by using `Terrain3DData
 
 
 ## Shaders
+
+### Minimal Shader
+
+This terrain is driven by the GPU, and controlled by our shader. We provide a minimal shader that has only the code needed to shape the terrain mesh without any texturing. You can find it in `extras/minimum.gdshader`.
+
+Load this shader into the override shader slot and enable it. It includes no texturing so you can create your own.
+
 
 ### Day/Night cycles & light under the terrain
 The terrain shader is set to `cull_back`, meaning back faces are neither rendered, nor do they block light. If you have a day/night cycle and the sun sets below the horizon, it will shine through the terrain. Enable the shader override and change the second line to `cull_disabled` and the horizon will block sunlight. This does cost performance. 

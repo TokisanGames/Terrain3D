@@ -14,10 +14,11 @@ Terrain3D is being used in the following games. To add yours, submit it to the #
 | [Pest Apocalypse](https://store.steampowered.com/app/2506810/Pest_Apocalypse/) | [Kikimora Games](https://x.com/KikimoraGames) | Post-apocalyptic pizza delivery
 | [Forg](https://store.steampowered.com/app/2807130/Forg/) | [Crow Games](https://www.youtube.com/@crowgamesdev) | FPS tower defense
 | [open-fpsz](https://gitlab.com/open-fpsz/open-fpsz) | [anyreso](https://mastodon.gamedev.place/@anyreso) | Open-source, Tribes-like FPS multiplayer shooter
+| [Element](https://devanew.itch.io/element) | [Luke Aaron](https://www.youtube.com/watch?v=b18jDnY1YS4) | Gamejam FPS tactial shooter
 
-## Tech Demos
+## Demos
 
 | Game | Studio | Description |
 |------|--------|-------------|
-| [Landscape Demo](https://github.com/OverfortGames/LandscapeDemo) | [Overfort Games](https://x.com/OverfortGames) | Island demo w/ source
+| [Island Demo](https://github.com/OverfortGames/LandscapeDemo) | [Overfort Games](https://x.com/OverfortGames) | Island demo w/ source
 | [Jungle Demo](https://wrobot.itch.io/jungledemo) | [WrobotGames](https://x.com/wrobot123) | Godot rendering demo in a jungle

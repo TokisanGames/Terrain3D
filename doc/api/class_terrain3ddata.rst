@@ -929,7 +929,7 @@ Returns ``Vector3(base texture id, overlay id, blend value)``.
 
 Returns ``Vector3(NAN, NAN, NAN)`` if the position is a hole or outside of defined regions.
 
-This is often used for playing footstep sounds. It's up to the gamedev to determine which is visually apparent based on shader settings.
+This is often used for playing sounds on footsteps. It's up to the gamedev to determine which is visually apparent based on shader settings.
 
 Due to blending, it won't be pixel perfect. Try having your player controller print this value while walking around to see how the blending values look. Perhaps you'll find that the overlay texture is visible starting at a blend value of .3 to .5, otherwise the base is visible. You can also observe the control blend debug view with :ref:`Terrain3DMaterial.show_control_blend<class_Terrain3DMaterial_property_show_control_blend>`.
 

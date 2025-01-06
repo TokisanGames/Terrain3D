@@ -22,13 +22,16 @@ The flat meshes and heightmap data are sent to the GPU, which adjusts the vertic
 
 The terrain is divided into regions, which represent both physical space, and containers for terrain data.
 
-By default, regions are 256m x 256m, and are adjustable. This lays out a grid in the world with region borders at -256, 0, 256, 512, 768, 1024, etc. This region size also corresponds to the 256x256 pixel size of the images and textures used to store terrain data.
+By default, regions are 256m x 256m, and are adjustable. This defines a grid in the world with region borders at -256, 0, 256, 512, 768, 1024, etc. This region size also corresponds to the 256x256 pixel size of the images and textures used to store terrain data.
 
-You pay in memory and vram only for the regions you allocate. Space between the regions can be set to empty, flat, or shader generated noise (See `Terrain3D / Material / WorldBackground`). No collisions are generated outside of regions.
+You pay in memory and VRAM only for the regions you allocate. Space between the regions can be set to empty, flat, or shader generated noise (See `Terrain3D / Material / WorldBackground`). No collisions are generated outside of regions.
+
+There is currently a limit of 1024 regions or 32 x 32. So the maximum dimensions of the your world are `32 * region_size`. The maximum being 32 * 2048 or 65,536m per side.
 
 Region files are stored in the data directory as individual files, with their location coordinates in the filename. e.g. terrain3d_01-02.res, which represents region (+01, -02).
 
 The region grid is visible if `View Gizmos` is enabled in the Godot `Perspective` menu. Or if `Terrain3D / Regions / Show Grid` is enabled.
+
 
 ## Region Location
 
@@ -37,6 +40,7 @@ Region locations are the grid coordinates that regions fit into. Represented as 
 Converting a global position to a region location is calculated by `floor(global position / region size)`, or by calling the function [Terrain3DData.get_region_location()](../api/class_terrain3ddata.rst#class-terrain3ddata-method-get-region-location). e.g. If region size is 1024, a global position of (2500, 0, 3700) would convert to (2, 3). It gets more complicated as [region_size](../api/class_terrain3d.rst#class-terrain3d-property-region-size) changes.
 
 Set `Terrain3D / Regions / Label Distance` to 1024-4096 to see region coordinates in the viewport.
+
 
 ## Vertex Painting
 
