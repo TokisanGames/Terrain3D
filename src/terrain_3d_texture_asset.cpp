@@ -66,9 +66,22 @@ void Terrain3DTextureAsset::set_albedo_texture(const Ref<Texture2D> &p_texture) 
 	LOG(INFO, "Setting albedo texture: ", p_texture);
 	if (_is_valid_format(p_texture)) {
 		_albedo_texture = p_texture;
-		if (p_texture.is_valid() && _name == "New Texture") {
-			_name = p_texture->get_path().get_file().get_basename();
-			LOG(INFO, "Naming texture based on filename: ", _name);
+		if (p_texture.is_valid()) {
+			String filename = p_texture->get_path().get_file().get_basename();
+			if (_name == "New Texture") {
+				_name = filename;
+				LOG(INFO, "Naming texture based on filename: ", _name);
+			}
+			Ref<Image> img = p_texture->get_image();
+			if (!img->has_mipmaps()) {
+				LOG(WARN, "Texture '", filename, "' has no mipmaps. Change on the Import panel if desired.");
+			}
+			if (img->get_width() != img->get_height()) {
+				LOG(WARN, "Texture '", filename, "' is not square. Mipmaps might have artifacts.");
+			}
+			if (!is_power_of_2(img->get_width()) || !is_power_of_2(img->get_height())) {
+				LOG(WARN, "Texture '", filename, "' size is not power of 2. This is sub-optimal.");
+			}
 		}
 		emit_signal("file_changed");
 	}
@@ -78,6 +91,19 @@ void Terrain3DTextureAsset::set_normal_texture(const Ref<Texture2D> &p_texture) 
 	LOG(INFO, "Setting normal texture: ", p_texture);
 	if (_is_valid_format(p_texture)) {
 		_normal_texture = p_texture;
+		if (p_texture.is_valid()) {
+			String filename = p_texture->get_path().get_file().get_basename();
+			Ref<Image> img = p_texture->get_image();
+			if (!img->has_mipmaps()) {
+				LOG(WARN, "Texture '", filename, "' has no mipmaps. Change on the Import panel if desired.");
+			}
+			if (img->get_width() != img->get_height()) {
+				LOG(WARN, "Texture '", filename, "' is not square. Not recommended. Mipmaps might have artifacts.");
+			}
+			if (!is_power_of_2(img->get_width()) || !is_power_of_2(img->get_height())) {
+				LOG(WARN, "Texture '", filename, "' dimensions are not power of 2. This is sub-optimal.");
+			}
+		}
 		emit_signal("file_changed");
 	}
 }

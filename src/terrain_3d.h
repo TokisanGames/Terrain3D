@@ -47,6 +47,7 @@ private:
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
+	uint8_t _warnings = 0;
 
 	// Object references
 	Terrain3DData *_data = nullptr;
@@ -253,7 +254,9 @@ public:
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
 
-	// Godot Callbacks
+	// Warnings
+	void set_warning(const uint8_t p_warning, const bool p_enabled);
+	uint8_t get_warnings() const { return _warnings; }
 	PackedStringArray _get_configuration_warnings() const override;
 
 protected:

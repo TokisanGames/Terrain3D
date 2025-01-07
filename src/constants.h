@@ -32,6 +32,12 @@ using namespace godot;
 #define V3_ZERO Vector3(0.f, 0.f, 0.f)
 #define V3_MAX Vector3(FLT_MAX, FLT_MAX, FLT_MAX)
 
+// Terrain3D::_warnings is uint8_t
+#define WARN_MISMATCHED_SIZE 0x01
+#define WARN_MISMATCHED_FORMAT 0x02
+#define WARN_MISMATCHED_MIPMAPS 0x04
+#define WARN_ALL 0xFF
+
 // Set class name for logger.h
 
 #define CLASS_NAME() const String __class__ = get_class_static() + \
