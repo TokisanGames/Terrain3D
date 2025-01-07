@@ -762,7 +762,9 @@ void Terrain3D::set_data_directory(String p_dir) {
 		_data_directory = p_dir;
 		_initialize();
 	}
+	update_configuration_warnings();
 }
+
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 	if (_material != p_material) {
 		_clear_meshes();
@@ -1291,13 +1293,28 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_gl
 	return faces;
 }
 
+void Terrain3D::set_warning(const uint8_t p_warning, const bool p_enabled) {
+	if (p_enabled) {
+		_warnings |= p_warning;
+	} else {
+		_warnings &= ~p_warning;
+	}
+	update_configuration_warnings();
+}
+
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_data_directory.is_empty()) {
 		psa.push_back("No data directory specified. Select a directory then save the scene to write data.");
 	}
-	if (!psa.is_empty()) {
-		psa.push_back("To update this message, deselect and reselect Terrain3D in the Scene panel.");
+	if (_warnings & WARN_MISMATCHED_SIZE) {
+		psa.push_back("Texture dimensions don't match. Double-click a texture in the FileSystem panel to see its size. Read Texture Prep in docs.");
+	}
+	if (_warnings & WARN_MISMATCHED_FORMAT) {
+		psa.push_back("Texture formats don't match. Double-click a texture in the FileSystem panel to see its format. Check Import panel. Read Texture Prep in docs.");
+	}
+	if (_warnings & WARN_MISMATCHED_MIPMAPS) {
+		psa.push_back("Texture mipmap settings don't match. Change on the Import panel.");
 	}
 	return psa;
 }

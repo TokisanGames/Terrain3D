@@ -1,5 +1,6 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/environment.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
@@ -165,15 +166,14 @@ void Terrain3DAssets::_update_texture_files() {
 	}
 
 	// Detect image sizes and formats
-
-	LOG(INFO, "Validating texture sizes");
+	LOG(DEBUG, "Validating texture sizes");
 	Vector2i albedo_size = V2I_ZERO;
 	Vector2i normal_size = V2I_ZERO;
-
 	Image::Format albedo_format = Image::FORMAT_MAX;
 	Image::Format normal_format = Image::FORMAT_MAX;
 	bool albedo_mipmaps = true;
 	bool normal_mipmaps = true;
+	_terrain->set_warning(WARN_ALL, false);
 	//DEPRECATED 1.0 - remove in Godot 4.4
 	bool warn_compatibility_decompress = false;
 
@@ -182,58 +182,80 @@ void Terrain3DAssets::_update_texture_files() {
 		if (texture_set.is_null()) {
 			continue;
 		}
-		Ref<Texture2D> albedo_tex = texture_set->_albedo_texture;
-		Ref<Texture2D> normal_tex = texture_set->_normal_texture;
 
-		// If this is the first texture, set expected size and format for the arrays
+		Ref<Texture2D> albedo_tex = texture_set->_albedo_texture;
 		if (albedo_tex.is_valid()) {
 			Vector2i tex_size = albedo_tex->get_size();
-			if (albedo_size.length() == 0.0) {
-				albedo_size = tex_size;
-			} else if (tex_size != albedo_size) {
-				LOG(ERROR, "Texture ID ", i, " albedo size: ", tex_size, " doesn't match size of first texture: ", albedo_size, ". They must be identical. Read Texture Prep in docs.");
-				return;
-			}
 			Ref<Image> img = albedo_tex->get_image();
+			Image::Format format = img->get_format();
+			bool mipmaps = img->has_mipmaps();
+
 			//DEPRECATED 1.0 - remove in Godot 4.4
 			if (_terrain->is_compatibility_mode() && img->is_compressed()) {
 				warn_compatibility_decompress = true;
 				img->decompress();
 			}
-			Image::Format format = img->get_format();
+
+			// If this is the first valid texture, set expected size and format for the arrays
 			if (albedo_format == Image::FORMAT_MAX) {
+				albedo_size = tex_size;
 				albedo_format = format;
-				albedo_mipmaps = img->has_mipmaps();
-			} else if (format != albedo_format) {
-				LOG(ERROR, "Texture ID ", i, " albedo format: ", format, " doesn't match format of first texture: ", albedo_format, ". They must be identical. Read Texture Prep in docs.");
-				return;
+				albedo_mipmaps = mipmaps;
+			} else { // else validate against first texture
+				if (tex_size != albedo_size) {
+					_terrain->set_warning(WARN_MISMATCHED_SIZE, true);
+					LOG(ERROR, "Texture ID ", i, " albedo size: ", tex_size, " doesn't match size of first texture: ", albedo_size, ". They must be identical. Read Texture Prep in docs.");
+				}
+				if (format != albedo_format) {
+					_terrain->set_warning(WARN_MISMATCHED_FORMAT, true);
+					LOG(ERROR, "Texture ID ", i, " albedo format: ", format, " doesn't match format of first texture: ", albedo_format, ". They must be identical. Read Texture Prep in docs.");
+				}
+				if (mipmaps != albedo_mipmaps) {
+					_terrain->set_warning(WARN_MISMATCHED_MIPMAPS, true);
+					LOG(ERROR, "Texture ID ", i, " albedo mipmap setting (", mipmaps, ") doesn't match first texture (", albedo_mipmaps, "). They must be identical. Read Texture Prep in docs.");
+				}
 			}
 		}
+
+		Ref<Texture2D> normal_tex = texture_set->_normal_texture;
 		if (normal_tex.is_valid()) {
 			Vector2i tex_size = normal_tex->get_size();
-			if (normal_size.length() == 0.0) {
-				normal_size = tex_size;
-			} else if (tex_size != normal_size) {
-				LOG(ERROR, "Texture ID ", i, " normal size: ", tex_size, " doesn't match size of first texture: ", normal_size, ". They must be identical. Read Texture Prep in docs.");
-				return;
-			}
 			Ref<Image> img = normal_tex->get_image();
+			Image::Format format = img->get_format();
+			bool mipmaps = img->has_mipmaps();
+
 			//DEPRECATED 1.0 - remove in Godot 4.4
 			if (_terrain->is_compatibility_mode() && img->is_compressed()) {
 				warn_compatibility_decompress = true;
 				img->decompress();
 			}
-			Image::Format format = img->get_format();
+
+			// If this is the first valid texture, set expected size and format for the arrays
 			if (normal_format == Image::FORMAT_MAX) {
+				normal_size = tex_size;
 				normal_format = format;
-				normal_mipmaps = img->has_mipmaps();
-			} else if (format != normal_format) {
-				LOG(ERROR, "Texture ID ", i, " normal format: ", format, " doesn't match format of first texture: ", normal_format, ". They must be identical. Read Texture Prep in docs.");
-				return;
+				normal_mipmaps = mipmaps;
+			} else { // else validate against first texture
+				if (tex_size != normal_size) {
+					_terrain->set_warning(WARN_MISMATCHED_SIZE, true);
+					LOG(ERROR, "Texture ID ", i, " normal size: ", tex_size, " doesn't match size of first texture: ", normal_size, ". They must be identical. Read Texture Prep in docs.");
+				}
+				if (format != normal_format) {
+					_terrain->set_warning(WARN_MISMATCHED_FORMAT, true);
+					LOG(ERROR, "Texture ID ", i, " normal format: ", format, " doesn't match format of first texture: ", normal_format, ". They must be identical. Read Texture Prep in docs.");
+				}
+				if (mipmaps != normal_mipmaps) {
+					_terrain->set_warning(WARN_MISMATCHED_MIPMAPS, true);
+					LOG(ERROR, "Texture ID ", i, " normal mipmap setting (", mipmaps, ") doesn't match first texture (", albedo_mipmaps, "). They must be identical. Read Texture Prep in docs.");
+				}
 			}
 		}
 	}
+	if (_terrain->get_warnings()) {
+		return;
+	}
 
+	// Setup defaults for generated texture
 	if (normal_size == V2I_ZERO) {
 		normal_size = albedo_size;
 	} else if (albedo_size == V2I_ZERO) {
@@ -270,6 +292,9 @@ void Terrain3DAssets::_update_texture_files() {
 				}
 				LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
 			}
+			if (!IS_EDITOR && !tex->get_path().get_file().is_valid_filename()) {
+				LOG(WARN, "ID ", i, " normal texture is not connected to a file.");
+			}
 			albedo_texture_array.push_back(img);
 		}
 		if (!albedo_texture_array.is_empty()) {
@@ -302,6 +327,9 @@ void Terrain3DAssets::_update_texture_files() {
 					img->decompress();
 				}
 				LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
+			}
+			if (!IS_EDITOR && !tex->get_path().get_file().is_valid_filename()) {
+				LOG(WARN, "ID ", i, " normal texture is not connected to a file.");
 			}
 			normal_texture_array.push_back(img);
 		}
