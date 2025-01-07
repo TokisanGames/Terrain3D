@@ -17,7 +17,6 @@ distance_fade_max_distance = 75.0
 
 [sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_2qf8x"]
 height_offset = 0.5
-density = 10.0
 material_override = SubResource("StandardMaterial3D_mapyw")
 generated_type = 1
 

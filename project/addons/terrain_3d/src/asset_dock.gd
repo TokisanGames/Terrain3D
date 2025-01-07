@@ -1,4 +1,4 @@
-# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 # Asset Dock for Terrain3D
 @tool
 extends PanelContainer

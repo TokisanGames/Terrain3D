@@ -1,4 +1,4 @@
-# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 # Toolbar for Terrain3D
 extends VFlowContainer
 

@@ -1,4 +1,4 @@
-# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 # Gradient Operation Builder for Terrain3D
 extends "res://addons/terrain_3d/src/operation_builder.gd"
 

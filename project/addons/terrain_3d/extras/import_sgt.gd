@@ -1,4 +1,4 @@
-# Copyright © 2024 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 # Import From SimpleGrassTextured
 # 
 # This script demonstrates how to import transforms from SimpleGrassTextured. To use it:

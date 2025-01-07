@@ -6,9 +6,11 @@ Project Leads
 * Cory Petkovsek [@TokisanGames](https://github.com/TokisanGames)
 * Roope Palmroos [@outobugi](https://github.com/outobugi)
 
-Contributors
+MVPs
 * Emerson Rowland [@XTarsia](https://github.com/XTarsia)
 * Tom Coxon [@tcoxon](https://github.com/tcoxon)
+
+Contributors
 * Loïc Chen (陳明佑) [@painfulexistence](https://github.com/painfulexistence)
 * Lorenz Wildberg [@lw64](https://github.com/lw64)
 * Jacob Coughenour [@jacobcoughenour](https://github.com/jacobcoughenour)
@@ -30,4 +32,5 @@ Contributors
 * [@directedchaossoftware](https://github.com/directedchaossoftware)
 * [@stakira](https://github.com/stakira) / [@lfxu](https://github.com/lfxu)
 * Sven Cannivy [@svencan](https://github.com/svencan)
+* [@DissonantVoid](https://github.com/DissonantVoid)
 
