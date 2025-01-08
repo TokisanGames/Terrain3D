@@ -66,7 +66,7 @@ uniform float noise1_scale : hint_range(0.001, 1.) = 0.04; // Used for macro var
 uniform float noise1_angle : hint_range(0, 6.283) = 0.;
 uniform vec2 noise1_offset = vec2(0.5);
 uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;	// Used for macro variation 2. Scaled up 10x
-uniform float noise3_scale : hint_range(0.001, 1.) = 0.225; // Used for texture blending edge.
+uniform float noise3_scale : hint_range(0.001, 1.) = 0.225; // Used for texture blending edge
 
 // Varyings & Types
 
@@ -106,7 +106,7 @@ ivec3 get_region_uv(const vec2 uv) {
 // XY: (0 to 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
 vec3 get_region_uv2(const vec2 uv2) {
-	// Remove Texel Offset to ensure correct region index.
+	// Remove texel offset to ensure correct region index
 	ivec2 pos = ivec2(floor(uv2 - vec2(_region_texel_size * 0.5))) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
@@ -140,7 +140,7 @@ void vertex() {
 			(hole || (_background_mode == 0u && (get_region_uv(UV - _region_texel_size) & v_region).z < 0))) {
 		v_vertex.x = 0. / 0.;
 	} else {		
-		// Set final vertex height & calculate vertex normals. 3 lookups.
+		// Set final vertex height & calculate vertex normals. 3 lookups
 		float h = texelFetch(_height_maps, v_region, 0).r;
 		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0)), 0).r;
 		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1)), 0).r;
@@ -149,7 +149,7 @@ void vertex() {
 		v_normal = vec3(h - u, _vertex_spacing, h - v);
 	}
 
-	// Transform UVs to local to avoid poor precision during varying interpolation.
+	// Transform UVs to local to avoid poor precision during varying interpolation
 	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
 	UV -= v_uv_offset;
 	v_uv2_offset = v_uv_offset * _region_texel_size;
@@ -233,6 +233,7 @@ void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 
 	// Control map scale & rotation, apply to both base and 
 	// uv_center. Translate uv center to the current region.
 	uv_center += _region_locations[region] * _region_size;
+	uv_center *= _vertex_spacing;
 	// Define base scale from control map value as array index. 0.5 as baseline.
 	float[8] scale_array = { 0.5, 0.4, 0.3, 0.2, 0.1, 0.8, 0.7, 0.6};
 	float control_scale = scale_array[(control >>7u & 0x7u)];
@@ -240,16 +241,16 @@ void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 
 	uv_center *=  control_scale;
 	ddxy *= control_scale;
 
-	// Apply global uv rotation from control map.
+	// Apply global uv rotation from control map
 	float uv_rotation = float(control >>10u & 0xFu) / 16. * TAU;
 	base_uv = rotate_around(base_uv, vec2(0), uv_rotation);
 	uv_center = rotate_around(uv_center, vec2(0), uv_rotation);
 
 	vec2 matUV = base_uv;
 	vec4 albedo_ht = vec4(0.);
-	vec4 normal_rg = vec4(0.5f, 0.5f, 1.0f, 1.0f);
+	vec4 normal_rg = vec4(0.5, 0.5, 1.0, 1.0);
 	vec4 albedo_far = vec4(0.);
-	vec4 normal_far = vec4(0.5f, 0.5f, 1.0f, 1.0f);
+	vec4 normal_far = vec4(0.5, 0.5, 1.0, 1.0);
 	float mat_scale = _texture_uv_scale_array[out_mat.base];
 	float normal_angle = uv_rotation;
 	vec4 dd1 = ddxy;
@@ -259,20 +260,18 @@ void get_material(vec2 base_uv, vec4 ddxy, uint control, ivec3 iuv_center, vec3 
 	// Apply color to base
 	albedo_ht.rgb *= _texture_color_array[out_mat.base].rgb;
 
-	// Setup overlay texture to blend
-	float mat_scale2 = _texture_uv_scale_array[out_mat.over];
-	float normal_angle2 = uv_rotation;
-	vec2 matUV2 = detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
-	vec4 dd2 = ddxy * mat_scale2;
-	dd2.xy = rotate_plane(dd2.xy, -normal_angle2);
-	dd2.zw = rotate_plane(dd2.zw, -normal_angle2);
-	vec4 albedo_ht2 = textureGrad(_texture_array_albedo, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
-	vec4 normal_rg2 = textureGrad(_texture_array_normal, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
+	if (out_mat.blend > 0.) {
+		// 2 lookups
+		// Setup overlay texture to blend
+		float mat_scale2 = _texture_uv_scale_array[out_mat.over];
+		float normal_angle2 = uv_rotation;
+		vec2 matUV2 = detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
+		vec4 dd2 = ddxy * mat_scale2;
+		dd2.xy = rotate_plane(dd2.xy, -normal_angle2);
+		dd2.zw = rotate_plane(dd2.zw, -normal_angle2);
+		vec4 albedo_ht2 = textureGrad(_texture_array_albedo, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
+		vec4 normal_rg2 = textureGrad(_texture_array_normal, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
 
-	// Though it would seem having the above lookups in this block, or removing the branch would
-	// be more optimal, the first introduces artifacts #276, and the second is noticably slower. 
-	// It seems the branching off dual scaling and the color array lookup is more optimal.
-	if (out_mat.blend > 0.f) {
 		// Unpack & rotate overlay normal for blending
 		normal_rg2.xz = unpack_normal(normal_rg2).xz;
 		normal_rg2.xz = rotate_plane(normal_rg2.xz, -normal_angle2);
@@ -344,32 +343,32 @@ void fragment() {
 	indexUV[2] = get_region_uv(index_id + offsets.yx);
 	indexUV[3] = get_region_uv(index_id + offsets.xx);
 	
-	// Terrain normals 3-8 lookups
+	// Terrain normals
 	vec3 index_normal[4];
 	float h[8];
-	// allows additional derivatives, eg world noise, brush previews etc.
+	// allows additional derivatives, eg world noise, brush previews etc
 	float u = 0.0;
 	float v = 0.0;
 	
 //INSERT: WORLD_NOISE3	
-	// Re-use the indexUVs for the first 4 lookups, skipping some math.
+	// Re-use the indexUVs for the first lookups, skipping some math. 3 lookups
 	h[0] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
 	h[1] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
 	h[2] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
 	index_normal[3] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[2] + v));
 
-	// Set flat world normal - overriden if bilerp is true.
+	// Set flat world normal - overriden if bilerp is true
 	vec3 w_normal = index_normal[3];
 
-	// Setting this here, instead of after the branch is appears to be 10%~ faster.
+	// Setting this here, instead of after the branch appears to be ~10% faster.
 	// Likley as flat derivatives seem more cache friendly for texture lookups.
-	if (enable_projection) {
-		base_derivatives *= 1.0 + (1.0 - w_normal.y);
+	if (enable_projection && v_region.z > -1) {
+		base_derivatives *= 1.0 + (1.0 - round(w_normal.y * 4.0) * 0.25);
 	}
 
-	// Branching smooth normals must be done seperatley for correct normals at all 4 index ids.
-	// +5 lookups
+	// Branching smooth normals must be done seperatley for correct normals at all 4 index ids
 	if (bilerp) {
+		// 5 lookups
 		// Fetch the additional required height values for smooth normals
 		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
 		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz), 0).r; // 4 (1,2)
@@ -390,14 +389,15 @@ void fragment() {
 			index_normal[3] * weights[3] ;
 	}
 		
-	// Apply Terrain normals.
+	// Apply terrain normals
 	vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
 	vec3 w_binormal = normalize(cross(w_normal, w_tangent));
 	NORMAL = mat3(VIEW_MATRIX) * w_normal;
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 
-	// 5 lookups for sub fragment sized index domains.
+	// Get last index
+	// 1 lookup + get_material() = 3-7 total
 	uint control[4];
 	control[3] = texelFetch(_control_maps, indexUV[3], 0).r;
 
@@ -408,8 +408,8 @@ void fragment() {
 	vec4 normal_rough = mat[3].nrm_rg;
 
 	// Otherwise do full bilinear interpolation
-	// +15 lookups + 1 noise lookup
 	if (bilerp) {	
+		// 4 lookups + 3x get_material() = 10-22 total
 		control[0] = texelFetch(_control_maps, indexUV[0], 0).r;
 		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
 		control[2] = texelFetch(_control_maps, indexUV[2], 0).r;
@@ -456,7 +456,7 @@ void fragment() {
 		color_map = textureLod(_color_maps, region_uv, lod);
 	}
 	
-	// Macro variation. 2 Lookups
+	// Macro variation. 2 lookups
 	vec3 macrov = vec3(1.);
 	if (enable_macro_variation) {
 		float noise1 = texture(noise_texture, rotate(uv * noise1_scale * .1, cos(noise1_angle), sin(noise1_angle)) + noise1_offset).r;

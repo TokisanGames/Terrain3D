@@ -123,6 +123,7 @@ void fragment() {
 
 	// Terrain normals, sample height map 8 times, because these are adjacent values
 	// they are cache friendly. texelFetch avoids any cross texture border interpolation errors.
+	// 8 lookups
 	float h[8];
 	h[0] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xx), 0).r; // 0 (0,0)
 	h[1] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yx), 0).r; // 1 (1,0)
