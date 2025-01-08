@@ -69,7 +69,7 @@ func create_texture_asset(asset_name: String, gradient: Gradient, texture_size: 
 	var fnl := FastNoiseLite.new()
 	fnl.frequency = 0.004
 	
-	# Create albodo noise texture
+	# Create albedo noise texture
 	var alb_noise_tex := NoiseTexture2D.new()
 	alb_noise_tex.width = texture_size
 	alb_noise_tex.height = texture_size

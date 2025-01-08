@@ -451,10 +451,9 @@ func _pack_textures(p_rgb_image: Image, p_a_image: Image, p_dst_path: String, p_
 		if not output_image:
 			_show_message(ERROR, "Failed to pack textures")
 			return FAILED
-		if output_image.detect_used_channels() != 5:
-			_show_message(ERROR, "Packing Error, Alpha Channel empty")
-			return FAILED
-	
+		if output_image.detect_alpha() != Image.ALPHA_BLEND:
+			_show_message(WARN, "Warning, Alpha channel empty")
+
 		output_image.save_png(p_dst_path)
 		_create_import_file(p_dst_path)
 		_show_message(INFO, "Packed to " + p_dst_path + ".")

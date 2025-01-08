@@ -9,6 +9,8 @@ Covers:
 * Installation from Github
 * Setup (storage is out of date, specify a directory now)
 * Basic Usage
+* Preparing textures
+* Importing/Exporting data
 
 <iframe width="560" height="315" src="https://www.youtube.com/embed/oV8c9alXVwU?si=0kTuPwnHHwBmHsss" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
