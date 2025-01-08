@@ -149,4 +149,3 @@ func _bake_finished(p_nav_mesh: NavigationMesh) -> void:
 	
 	bake_finished.emit()
 	assert(!NavigationServer3D.region_get_use_edge_connections(_nav_region.get_region_rid()))
-
