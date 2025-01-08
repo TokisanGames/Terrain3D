@@ -291,9 +291,9 @@ void Terrain3DAssets::_update_texture_files() {
 					img->decompress();
 				}
 				LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
-			}
-			if (!IS_EDITOR && !tex->get_path().get_file().is_valid_filename()) {
-				LOG(WARN, "ID ", i, " normal texture is not connected to a file.");
+				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
+					LOG(WARN, "ID ", i, " albedo texture is not connected to a file.");
+				}
 			}
 			albedo_texture_array.push_back(img);
 		}
@@ -327,9 +327,9 @@ void Terrain3DAssets::_update_texture_files() {
 					img->decompress();
 				}
 				LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
-			}
-			if (!IS_EDITOR && !tex->get_path().get_file().is_valid_filename()) {
-				LOG(WARN, "ID ", i, " normal texture is not connected to a file.");
+				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
+					LOG(WARN, "ID ", i, " normal texture is not connected to a file.");
+				}
 			}
 			normal_texture_array.push_back(img);
 		}
