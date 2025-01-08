@@ -909,8 +909,8 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 	for (int y = 0; y < slices_height; y++) {
 		for (int x = 0; x < slices_width; x++) {
 			Vector2i start_coords = Vector2i(x * _region_size, y * _region_size);
-			LOG(DEBUG, "Reviewing image section ", start_coords, " to ", end_coords);
 			Vector2i end_coords = Vector2i((x + 1) * _region_size - 1, (y + 1) * _region_size - 1);
+			LOG(DEBUG, "Reviewing image section ", start_coords, " to ", end_coords);
 
 			Vector2i size_to_copy;
 			if (end_coords.x <= img_size.x && end_coords.y <= img_size.y) {
