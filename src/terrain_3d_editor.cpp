@@ -527,6 +527,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	if (_tool == HOLES || _tool == HEIGHT || _tool == SCULPT) {
 		_terrain->get_instancer()->update_transforms(edited_area);
 	}
+	// Update Dynamic / Editor collision
+	if (_terrain->get_collision_mode() == Terrain3DCollision::DYNAMIC_EDITOR) {
+		_terrain->get_collision()->update(true);
+	}
 }
 
 void Terrain3DEditor::_store_undo() {

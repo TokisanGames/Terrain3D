@@ -5,6 +5,7 @@
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 #include "constants.h"
 #include "generated_texture.h"
@@ -59,21 +60,78 @@ typedef Terrain3DUtil Util;
 // Inline Functions
 
 ///////////////////////////
+// Type Conversion
+///////////////////////////
+
+// Convert Vector3 to Vector2i, ignoring Y
+inline Vector2i v3v2i(const Vector3 &p_v3) {
+	return Vector2i(p_v3.x, p_v3.z);
+}
+
+// Convert Vector2i to Vector3, ignoring Y
+inline Vector3 v2iv3(const Vector2i &p_v2) {
+	return Vector3(p_v2.x, 0., p_v2.y);
+}
+
+// Convert Vector3 to Vector2, ignoring Y
+inline Vector2 v3v2(const Vector3 &p_v3) {
+	return Vector2(p_v3.x, p_v3.z);
+}
+
+// Convert Vector2 to Vector3, ignoring Y
+inline Vector3 v2v3(const Vector2 &p_v2) {
+	return Vector3(p_v2.x, 0., p_v2.y);
+}
+
+///////////////////////////
 // Math
 ///////////////////////////
 
-inline bool is_power_of_2(const int p_n) {
+template <typename T>
+inline bool is_power_of_2(const T p_n) {
 	return p_n && !(p_n & (p_n - 1));
+}
+
+// Integer round to multiples
+// https://stackoverflow.com/questions/3407012/rounding-up-to-the-nearest-multiple-of-a-number
+
+// Integer round up to a multiple
+template <typename T>
+inline T int_ceil_mult(const T numToRound, const T multiple) {
+	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
+	ASSERT(multiple != 0, 0);
+	T isPositive = (T)(numToRound >= 0);
+	return ((numToRound + isPositive * (multiple - 1)) / multiple) * multiple;
+}
+
+// Integer round up to a power of 2 multiple (3.7x faster)
+template <typename T>
+inline T int_ceil_pow2(T numToRound, T multiple) {
+	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
+	ASSERT(is_power_of_2(multiple), int_ceil_mult(numToRound, multiple));
+	return (numToRound + multiple - 1) & -multiple;
+}
+
+// Integer round to nearest +/- multiple
+// https://stackoverflow.com/questions/29557459/round-to-nearest-multiple-of-a-number
+template <typename T>
+inline T int_round_mult(const T numToRound, const T multiple) {
+	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
+	ASSERT(multiple != 0, 0);
+	T result = abs(numToRound) + multiple / 2;
+	result -= result % multiple;
+	result *= numToRound > 0 ? 1 : -1;
+	return result;
 }
 
 // Integer division with rounding up, down, nearest
 // https : //stackoverflow.com/questions/2422712/rounding-integer-division-instead-of-truncating/58568736#58568736
-#define V2I_DIVIDE_CEIL(v, f) Vector2i(int_divide_ceil(v.x, f), int_divide_ceil(v.y, f))
-#define V2I_DIVIDE_FLOOR(v, f) Vector2i(int_divide_floor(v.x, f), int_divide_floor(v.y, f))
+#define V2I_DIVIDE_CEIL(v, f) Vector2i(int_divide_ceil(v.x, int32_t(f)), int_divide_ceil(v.y, int32_t(f)))
+#define V2I_DIVIDE_FLOOR(v, f) Vector2i(int_divide_floor(v.x, int32_t(f)), int_divide_floor(v.y, int32_t(f)))
 
 // Integer division rounding up
 template <typename T>
-T int_divide_ceil(T numer, T denom) {
+inline T int_divide_ceil(const T numer, const T denom) {
 	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
 	T result = ((numer) < 0) != ((denom) < 0) ? (numer) / (denom) : ((numer) + ((denom) < 0 ? (denom) + 1 : (denom)-1)) / (denom);
 	return result;
@@ -81,7 +139,7 @@ T int_divide_ceil(T numer, T denom) {
 
 // Integer division rounding down
 template <typename T>
-T int_divide_floor(T numer, T denom) {
+inline T int_divide_floor(const T numer, const T denom) {
 	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
 	T result = ((numer) < 0) != ((denom) < 0) ? ((numer) - ((denom) < 0 ? (denom) + 1 : (denom)-1)) / (denom) : (numer) / (denom);
 	return result;
@@ -89,7 +147,7 @@ T int_divide_floor(T numer, T denom) {
 
 // Integer division rounding to nearest int
 template <typename T>
-T int_divide_round(T numer, T denom) {
+inline T int_divide_round(const T numer, const T denom) {
 	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
 	T result = ((numer) < 0) != ((denom) < 0) ? ((numer) - ((denom) / 2)) / (denom) : ((numer) + ((denom) / 2)) / (denom);
 	return result;

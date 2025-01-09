@@ -72,6 +72,9 @@
     <ClInclude Include="src\terrain_3d_data.h">
       <Filter>5. Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\terrain_3d_collision.h">
+      <Filter>5. Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\geoclipmap.cpp">
@@ -111,6 +114,9 @@
       <Filter>6. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_data.cpp">
+      <Filter>6. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_3d_collision.cpp">
       <Filter>6. C++</Filter>
     </ClCompile>
   </ItemGroup>
