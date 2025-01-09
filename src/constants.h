@@ -8,6 +8,7 @@ using namespace godot;
 // Constants
 
 #define RS RenderingServer::get_singleton()
+#define PS PhysicsServer3D::get_singleton()
 #define IS_EDITOR Engine::get_singleton()->is_editor_hint()
 
 #define COLOR_NAN Color(NAN, NAN, NAN, NAN)
@@ -27,11 +28,13 @@ using namespace godot;
 #endif
 
 #define V2(x) Vector2(x, x)
+#define V2I(x) Vector2i(x, x)
 #define V2_ZERO Vector2(0.f, 0.f)
 #define V2I_ZERO Vector2i(0, 0)
 #define V2_MAX Vector2(FLT_MAX, FLT_MAX)
 #define V2I_MAX Vector2i(INT32_MAX, INT32_MAX)
 #define V3(x) Vector3(x, x, x)
+#define V3_(x) Vector3(x, 0.f, x)
 #define V3_ZERO Vector3(0.f, 0.f, 0.f)
 #define V3_MAX Vector3(FLT_MAX, FLT_MAX, FLT_MAX)
 
@@ -49,6 +52,12 @@ using namespace godot;
 #define CLASS_NAME_STATIC(p_name) static inline const char *__class__ = p_name;
 
 // Validation macros
+
+#define ASSERT(cond, ret)                                                                            \
+	if (!(cond)) {                                                                                   \
+		UtilityFunctions::push_error("Assertion '", #cond, "' failed at ", __FILE__, ":", __LINE__); \
+		return ret;                                                                                  \
+	}
 
 #define VOID // a return value for void, to avoid compiler warnings
 

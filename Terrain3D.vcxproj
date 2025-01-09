@@ -145,6 +145,7 @@
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\terrain_3d.h" />
     <ClInclude Include="src\terrain_3d_asset_resource.h" />
+    <ClInclude Include="src\terrain_3d_collision.h" />
     <ClInclude Include="src\terrain_3d_data.h" />
     <ClInclude Include="src\terrain_3d_editor.h" />
     <ClInclude Include="src\logger.h" />
@@ -161,6 +162,7 @@
     <ClCompile Include="src\geoclipmap.cpp" />
     <ClCompile Include="src\register_types.cpp" />
     <ClCompile Include="src\terrain_3d.cpp" />
+    <ClCompile Include="src\terrain_3d_collision.cpp" />
     <ClCompile Include="src\terrain_3d_data.cpp" />
     <ClCompile Include="src\terrain_3d_editor.cpp" />
     <ClCompile Include="src\terrain_3d_instancer.cpp" />
