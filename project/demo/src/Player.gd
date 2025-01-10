@@ -28,7 +28,7 @@ extends CharacterBody3D
 
 func _physics_process(p_delta) -> void:
 	var direction: Vector3 = get_camera_relative_input()
-	var h_veloc: Vector2 = Vector2(direction.x, direction.z) * MOVE_SPEED
+	var h_veloc: Vector2 = Vector2(direction.x, direction.z).normalized() * MOVE_SPEED
 	if Input.is_key_pressed(KEY_SHIFT):
 		h_veloc *= 2
 	velocity.x = h_veloc.x
@@ -57,7 +57,7 @@ func get_camera_relative_input() -> Vector3:
 		MOVE_SPEED = clamp(MOVE_SPEED + .5, 5, 9999)
 	if Input.is_key_pressed(KEY_KP_SUBTRACT) or Input.is_key_pressed(KEY_MINUS):
 		MOVE_SPEED = clamp(MOVE_SPEED - .5, 5, 9999)
-	return input_dir		
+	return input_dir
 
 
 func _input(p_event: InputEvent) -> void:
