@@ -1,7 +1,7 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
-// These DEBUG_* are special inserts that injected into the shader code before the last `}`
-// which is assumed to belong to fragment()
+// These special inserts are injected into the shader code at the end of fragment().
+// Variables should be prefaced with __ to avoid name conflicts.
 
 R"(
 //INSERT: DEBUG_CHECKERED
@@ -25,7 +25,7 @@ R"(
 
 //INSERT: DEBUG_HEIGHTMAP
 	// Show heightmap
-	ALBEDO = vec3(smoothstep(-0.1, 2.0, 0.5 + get_height(uv2)/300.0));
+	ALBEDO = vec3(smoothstep(-0.1, 2.0, 0.5 + v_vertex.y/300.0));
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
@@ -47,41 +47,41 @@ R"(
 //INSERT: DEBUG_CONTROL_TEXTURE
 	
 	// Show control map texture selection
-	vec3 _t_colors[32];
-	_t_colors[0] = vec3(1.0, 0.0, 0.0);
-	_t_colors[1] = vec3(0.0, 1.0, 0.0);
-	_t_colors[2] = vec3(0.0, 0.0, 1.0);
-	_t_colors[3] = vec3(1.0, 0.0, 1.0);
-	_t_colors[4] = vec3(0.0, 1.0, 1.0);
-	_t_colors[5] = vec3(1.0, 1.0, 0.0);
-	_t_colors[6] = vec3(0.2, 0.0, 0.0);
-	_t_colors[7] = vec3(0.0, 0.2, 0.0);
-	_t_colors[8] = vec3(0.0, 0.0, 0.35);
-	_t_colors[9] = vec3(0.2, 0.0, 0.2);
-	_t_colors[10] = vec3(0.0, 0.2, 0.2);
-	_t_colors[11] = vec3(0.2, 0.2, 0.0);
-	_t_colors[12] = vec3(0.1, 0.0, 0.0);
-	_t_colors[13] = vec3(0.0, 0.1, 0.0);
-	_t_colors[14] = vec3(0.0, 0.0, 0.15);
-	_t_colors[15] = vec3(0.1, 0.0, 0.1);
-	_t_colors[16] = vec3(0.0, 0.1, 0.1);
-	_t_colors[17] = vec3(0.1, 0.1, 0.0);
-	_t_colors[18] = vec3(0.2, 0.05, 0.05);
-	_t_colors[19] = vec3(0.1, 0.3, 0.1);
-	_t_colors[20] = vec3(0.05, 0.05, 0.2);
-	_t_colors[21] = vec3(0.1, 0.05, 0.2);
-	_t_colors[22] = vec3(0.05, 0.15, 0.2);
-	_t_colors[23] = vec3(0.2, 0.2, 0.1);
-	_t_colors[24] = vec3(1.0);
-	_t_colors[25] = vec3(0.5);
-	_t_colors[26] = vec3(0.35);
-	_t_colors[27] = vec3(0.25);
-	_t_colors[28] = vec3(0.15);
-	_t_colors[29] = vec3(0.1);
-	_t_colors[30] = vec3(0.05);
-	_t_colors[31] = vec3(0.0125);
-	vec3 __ctrl_base = _t_colors[mat[3].base];
-	vec3 __ctrl_over = _t_colors[mat[3].over];
+	vec3 __t_colors[32];
+	__t_colors[0] = vec3(1.0, 0.0, 0.0);
+	__t_colors[1] = vec3(0.0, 1.0, 0.0);
+	__t_colors[2] = vec3(0.0, 0.0, 1.0);
+	__t_colors[3] = vec3(1.0, 0.0, 1.0);
+	__t_colors[4] = vec3(0.0, 1.0, 1.0);
+	__t_colors[5] = vec3(1.0, 1.0, 0.0);
+	__t_colors[6] = vec3(0.2, 0.0, 0.0);
+	__t_colors[7] = vec3(0.0, 0.2, 0.0);
+	__t_colors[8] = vec3(0.0, 0.0, 0.35);
+	__t_colors[9] = vec3(0.2, 0.0, 0.2);
+	__t_colors[10] = vec3(0.0, 0.2, 0.2);
+	__t_colors[11] = vec3(0.2, 0.2, 0.0);
+	__t_colors[12] = vec3(0.1, 0.0, 0.0);
+	__t_colors[13] = vec3(0.0, 0.1, 0.0);
+	__t_colors[14] = vec3(0.0, 0.0, 0.15);
+	__t_colors[15] = vec3(0.1, 0.0, 0.1);
+	__t_colors[16] = vec3(0.0, 0.1, 0.1);
+	__t_colors[17] = vec3(0.1, 0.1, 0.0);
+	__t_colors[18] = vec3(0.2, 0.05, 0.05);
+	__t_colors[19] = vec3(0.1, 0.3, 0.1);
+	__t_colors[20] = vec3(0.05, 0.05, 0.2);
+	__t_colors[21] = vec3(0.1, 0.05, 0.2);
+	__t_colors[22] = vec3(0.05, 0.15, 0.2);
+	__t_colors[23] = vec3(0.2, 0.2, 0.1);
+	__t_colors[24] = vec3(1.0);
+	__t_colors[25] = vec3(0.5);
+	__t_colors[26] = vec3(0.35);
+	__t_colors[27] = vec3(0.25);
+	__t_colors[28] = vec3(0.15);
+	__t_colors[29] = vec3(0.1);
+	__t_colors[30] = vec3(0.05);
+	__t_colors[31] = vec3(0.0125);
+	vec3 __ctrl_base = __t_colors[mat[3].base];
+	vec3 __ctrl_over = __t_colors[mat[3].over];
 	float base_over = (length(fract(uv) - 0.5) < fma(mat[3].blend, 0.45, 0.1) ? 1.0 : 0.0);
 	ALBEDO = mix(__ctrl_base, __ctrl_over, base_over);	
 	ROUGHNESS = 1.0;

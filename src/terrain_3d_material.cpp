@@ -194,7 +194,25 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	}
 
 	// Insert at the end of the shader, before the end of `fragment(){ }`
-	idx = shader.rfind("}");
+	// Check for each nested {} pair until the closing } is found.
+	regex->compile("void\\s*fragment\\s*\\(\\s*\\)\\s*{");
+	match = regex->search(shader);
+	idx = -1;
+	if (match.is_valid()) {
+		int start_idx = match->get_end() - 1;
+		int pair = 0;
+		for (int i = start_idx; i < shader.length(); i++) {
+			if (shader[i] == '{') {
+				pair++;
+			} else if (shader[i] == '}') {
+				pair--;
+			}
+			if (pair == 0) {
+				idx = i;
+				break;
+			}
+		}
+	}
 	if (idx < 0) {
 		LOG(DEBUG, "No ending bracket; cannot inject editor code");
 		return shader;
@@ -256,7 +274,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	}
 	for (int i = 0; i < insert_names.size(); i++) {
 		String insert = _shader_code[insert_names[i]];
-		shader = shader.insert(idx - 1, "\n" + insert);
+		shader = shader.insert(idx, "\n" + insert);
 		idx += insert.length();
 	}
 	return shader;

@@ -1,7 +1,6 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
-// These EDITOR_* are special inserts that injected into the shader code before the last `}`
-// which is assumed to belong to fragment()
+// These special inserts are injected into the shader code at the end of fragment().
 
 R"(
 //INSERT: EDITOR_NAVIGATION
