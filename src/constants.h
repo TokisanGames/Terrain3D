@@ -18,9 +18,12 @@ using namespace godot;
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 #define COLOR_CONTROL Color(as_float(enc_auto(true)), 0.f, 0.f, 1.0f)
 
-#ifndef FLT_MAX
 // For consistency between MSVC, gcc, clang
+#ifndef FLT_MAX
 #define FLT_MAX __FLT_MAX__
+#endif
+#ifndef FLT_MIN
+#define FLT_MIN __FLT_MIN__
 #endif
 
 #define V2(x) Vector2(x, x)
