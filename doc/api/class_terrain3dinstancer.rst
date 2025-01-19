@@ -234,7 +234,7 @@ Removes and rebuilds all MultiMeshInstance3Ds attached to the tree.
 
 |void| **remove_instances**\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DInstancer_method_remove_instances>`
 
-Uses parameters asset_id, size, strength, fixed_scale, random_scale, to randomly remove instances within the indicated brush position and size.
+Uses parameters asset_id, size, strength, fixed_scale, random_scale, slope (Vector2), to randomly remove instances within the indicated brush position and size.
 
 .. rst-class:: classref-item-separator
 

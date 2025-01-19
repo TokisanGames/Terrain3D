@@ -119,7 +119,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="params" type="Dictionary" />
 			<description>
-				Uses parameters asset_id, size, strength, fixed_scale, random_scale, to randomly remove instances within the indicated brush position and size.
+				Uses parameters asset_id, size, strength, fixed_scale, random_scale, slope (Vector2), to randomly remove instances within the indicated brush position and size.
 			</description>
 		</method>
 		<method name="swap_ids">
