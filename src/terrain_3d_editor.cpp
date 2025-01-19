@@ -691,7 +691,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.1f, 4096.f); // Diameter in meters
 	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
-	Vector2 slope = p_data.get("slope", V2_ZERO);
+	Vector2 slope = p_data.get("slope", Vector2(0.f, 90.f));
 	slope.x = CLAMP(slope.x, 0.f, 90.f);
 	slope.y = CLAMP(slope.y, 0.f, 90.f);
 	_brush_data["slope"] = slope; // 0-90 (degrees)
