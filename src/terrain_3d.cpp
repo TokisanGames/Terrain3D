@@ -1,6 +1,7 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/collision_shape3d.hpp>
+#include <godot_cpp/classes/compositor.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/environment.hpp>
@@ -591,6 +592,9 @@ void Terrain3D::_setup_mouse_picking() {
 	env.instantiate();
 	env->set_tonemapper(Environment::TONE_MAPPER_LINEAR);
 	_mouse_cam->set_environment(env);
+	Ref<Compositor> comp;
+	comp.instantiate();
+	_mouse_cam->set_compositor(comp);
 	_mouse_cam->set_projection(Camera3D::PROJECTION_ORTHOGONAL);
 	_mouse_cam->set_size(0.1f);
 	_mouse_cam->set_far(100000.f);
