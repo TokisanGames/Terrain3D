@@ -268,19 +268,19 @@ void Terrain3D::_update_collision() {
 					if (map_x.is_valid()) {
 						map_data[index] = (is_hole(cmap_x->get_pixel(0, z).r)) ? NAN : map_x->get_pixel(0, z).r;
 					} else {
-						map_data[index] = 0.0f;
+						map_data[index] = (is_hole(cmap->get_pixel(x - 1, z).r)) ? NAN : map->get_pixel(x - 1, z).r;
 					}
 				} else if (z == _region_size && x < _region_size) {
 					if (map_z.is_valid()) {
 						map_data[index] = (is_hole(cmap_z->get_pixel(x, 0).r)) ? NAN : map_z->get_pixel(x, 0).r;
 					} else {
-						map_data[index] = 0.0f;
+						map_data[index] = (is_hole(cmap->get_pixel(x, z - 1).r)) ? NAN : map->get_pixel(x, z - 1).r;
 					}
 				} else if (x == _region_size && z == _region_size) {
 					if (map_xz.is_valid()) {
 						map_data[index] = (is_hole(cmap_xz->get_pixel(0, 0).r)) ? NAN : map_xz->get_pixel(0, 0).r;
 					} else {
-						map_data[index] = 0.0f;
+						map_data[index] = (is_hole(cmap->get_pixel(x - 1, z - 1).r)) ? NAN : map->get_pixel(x - 1, z - 1).r;
 					}
 				}
 			}
