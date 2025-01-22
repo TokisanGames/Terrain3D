@@ -23,8 +23,12 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
  *
  */
 
-// Private uniforms
+// Defined Constants
+#define SKIP_PASS 0
+#define VERTEX_PASS 1
+#define FRAGMENT_PASS 2
 
+// Private uniforms
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
 uniform float _vertex_spacing = 1.0;
@@ -92,14 +96,24 @@ varying vec3 v_normal;
 // Vertex
 ////////////////////////
 
-// Takes in UV world space coordinates, returns ivec3 with:
+// Takes in UV world space coordinates & search depth (only applicable for background mode none)
+// Returns ivec3 with:
 // XY: (0 to _region_size) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_region_uv(const vec2 uv) {
-	ivec2 pos = ivec2(floor(uv * _region_texel_size)) + (_region_map_size / 2);
-	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
-	return ivec3(ivec2(mod(uv,_region_size)), layer_index);
+ivec3 get_region_uv(const vec2 uv, const int search) {
+	vec2 r_uv = uv;
+	vec2 o_uv = mod(r_uv,_region_size);
+	ivec2 pos;
+	int bounds, layer_index = -1;
+	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
+		if ((layer_index == -1 && _background_mode == 0u ) || i < 0) {
+			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
+			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
+			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
+		}
+	}
+	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
 }
 
 // Takes in UV2 region space coordinates, returns vec3 with:
@@ -131,19 +145,19 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	v_region = get_region_uv(UV);
+	v_region = get_region_uv(UV, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
 	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
-			(hole || (_background_mode == 0u && (get_region_uv(UV - _region_texel_size) & v_region).z < 0))) {
+			(hole || (_background_mode == 0u && v_region.z < 0))) {
 		v_vertex.x = 0. / 0.;
 	} else {		
 		// Set final vertex height & calculate vertex normals. 3 lookups
 		float h = texelFetch(_height_maps, v_region, 0).r;
-		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0)), 0).r;
-		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1)), 0).r;
+		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
+		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
 //INSERT: WORLD_NOISE2
 		v_vertex.y = h;
 		v_normal = vec3(h - u, _vertex_spacing, h - v);
@@ -338,10 +352,10 @@ void fragment() {
 
 	ivec3 indexUV[4];
 	// control map lookups, used for some normal lookups as well
-	indexUV[0] = get_region_uv(index_id + offsets.xy);
-	indexUV[1] = get_region_uv(index_id + offsets.yy);
-	indexUV[2] = get_region_uv(index_id + offsets.yx);
-	indexUV[3] = get_region_uv(index_id + offsets.xx);
+	indexUV[0] = get_region_uv(index_id + offsets.xy, FRAGMENT_PASS);
+	indexUV[1] = get_region_uv(index_id + offsets.yy, FRAGMENT_PASS);
+	indexUV[2] = get_region_uv(index_id + offsets.yx, FRAGMENT_PASS);
+	indexUV[3] = get_region_uv(index_id + offsets.xx, FRAGMENT_PASS);
 	
 	// Terrain normals
 	vec3 index_normal[4];
@@ -371,10 +385,10 @@ void fragment() {
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
 		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
-		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz), 0).r; // 4 (1,2)
-		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy), 0).r; // 5 (2,1)
-		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx), 0).r; // 6 (2,0)
-		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz), 0).r; // 7 (0,2)
+		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
+		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
+		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
+		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
 
 		// Calculate the normal for the remaining index ids.
 		index_normal[0] = normalize(vec3(h[2] - h[3] + u, _vertex_spacing, h[2] - h[7] + v));

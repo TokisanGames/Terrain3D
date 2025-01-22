@@ -259,21 +259,22 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						Vector3 right_position = brush_global_position + Vector3(vertex_spacing, 0.f, 0.f);
 						Vector3 down_position = brush_global_position - Vector3(0.f, 0.f, vertex_spacing);
 						Vector3 up_position = brush_global_position + Vector3(0.f, 0.f, vertex_spacing);
+						real_t bg_srcf_zero = _terrain->get_material()->get_world_background() == 0u ? srcf : 0.0;
 						real_t left = data->get_pixel(map_type, left_position).r;
 						if (std::isnan(left)) {
-							left = 0.f;
+							left = bg_srcf_zero;
 						}
 						real_t right = data->get_pixel(map_type, right_position).r;
 						if (std::isnan(right)) {
-							right = 0.f;
+							right = bg_srcf_zero;
 						}
 						real_t up = data->get_pixel(map_type, up_position).r;
 						if (std::isnan(up)) {
-							up = 0.f;
+							up = bg_srcf_zero;
 						}
 						real_t down = data->get_pixel(map_type, down_position).r;
 						if (std::isnan(down)) {
-							down = 0.f;
+							down = bg_srcf_zero;
 						}
 						real_t avg = (srcf + left + right + up + down) * 0.2f;
 						destf = Math::lerp(srcf, avg, CLAMP(brush_alpha * strength * 2.f, .02f, 1.f));
