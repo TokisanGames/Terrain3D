@@ -18,10 +18,10 @@ script = ExtResource("1_h7vyv")
 [node name="Environment" parent="." instance=ExtResource("3_71ikj")]
 
 [node name="Player" parent="." instance=ExtResource("2_3v2uf")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 200, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 0)
 
 [node name="Enemy" parent="." node_paths=PackedStringArray("target") instance=ExtResource("4_p8qry")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 200, -10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 50, -10)
 target = NodePath("../Player")
 
 [node name="UI" parent="." instance=ExtResource("4_x5ge4")]
