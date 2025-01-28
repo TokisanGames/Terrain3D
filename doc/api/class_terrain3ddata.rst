@@ -140,7 +140,7 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`load_directory<class_Terrain3DData_method_load_directory>`\ (\ directory\: ``String``\ )                                                                                                                             |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                                     | :ref:`load_region<class_Terrain3DData_method_load_region>`\ (\ directory\: ``Vector2i``, region_location\: ``String``, update\: ``bool`` = true\ )                                                                         |
+   | |void|                                                                     | :ref:`load_region<class_Terrain3DData_method_load_region>`\ (\ region_location\: ``Vector2i``, directory\: ``String``, update\: ``bool`` = true\ )                                                                         |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`remove_region<class_Terrain3DData_method_remove_region>`\ (\ region\: :ref:`Terrain3DRegion<class_Terrain3DRegion>`, update\: ``bool`` = true\ )                                                                     |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -150,7 +150,7 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`save_directory<class_Terrain3DData_method_save_directory>`\ (\ directory\: ``String``\ )                                                                                                                             |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                                     | :ref:`save_region<class_Terrain3DData_method_save_region>`\ (\ directory\: ``Vector2i``, region_location\: ``String``, 16_bit\: ``bool`` = false\ )                                                                        |
+   | |void|                                                                     | :ref:`save_region<class_Terrain3DData_method_save_region>`\ (\ region_location\: ``Vector2i``, directory\: ``String``, 16_bit\: ``bool`` = false\ )                                                                        |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`set_color<class_Terrain3DData_method_set_color>`\ (\ global_position\: ``Vector3``, color\: ``Color``\ )                                                                                                             |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -1047,7 +1047,7 @@ Loads all of the Terrain3DRegion files found in the specified directory. Then it
 
 .. rst-class:: classref-method
 
-|void| **load_region**\ (\ directory\: ``Vector2i``, region_location\: ``String``, update\: ``bool`` = true\ ) :ref:`🔗<class_Terrain3DData_method_load_region>`
+|void| **load_region**\ (\ region_location\: ``Vector2i``, directory\: ``String``, update\: ``bool`` = true\ ) :ref:`🔗<class_Terrain3DData_method_load_region>`
 
 Loads the specified region location file.
 
@@ -1109,7 +1109,7 @@ This saves all active regions into the specified directory.
 
 .. rst-class:: classref-method
 
-|void| **save_region**\ (\ directory\: ``Vector2i``, region_location\: ``String``, 16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_save_region>`
+|void| **save_region**\ (\ region_location\: ``Vector2i``, directory\: ``String``, 16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_save_region>`
 
 Saves the specified active region to the directory. See :ref:`Terrain3DRegion.save<class_Terrain3DRegion_method_save>`.
 

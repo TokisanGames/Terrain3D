@@ -10,13 +10,13 @@ You should use raycasting only when you don't already know the X, Z of the colli
 
 Collision is generated at runtime using the physics server. Regular PhysicsBodies will interact with this collision as expected. To detect ground height, use a [ray cast](https://docs.godotengine.org/en/stable/tutorials/physics/ray-casting.html). There is no collision outside of regions, so raycasts won't hit.
 
-Normally the editor doesn't generate collision, but some addons or other activities do need editor collision. To generate it, set `Terrain3D/Collision/Collision Mode`, or `Terrain3D.collision_mode`, to `Full / Editor`. You can run in game with this enabled.
+Normally the editor doesn't generate collision, but some addons or other activities do need editor collision. To generate it, set `Terrain3D/Collision/Collision Mode`, or `Terrain3D.collision.mode`, to `Full / Editor` or `Dynamic / Editor`. You can run in game with this enabled.
 
-This option will generate collision one time when enabled or at startup. If the terrain is sculpted afterwards, this collision will be inaccurate to the visual mesh until collision is disabled and enabled again. On a Core-i9 12900H, generating collision takes about 145ms per 1024m region, so updating it several times per second while sculpting is not practical. Currently all regions are regenerated, rather than only modified regions so it is not optimal. You can follow [PR#278](https://github.com/TokisanGames/Terrain3D/pull/278) for an improved system.
+Full mode will generate collision for all regions when enabled or at startup. It's a bit slow due to the amount of data. Dynamic mode will generate a small area around the camera and can be updated on the fly.
 
-See the [Terrain3D API](../api/class_terrain3d.rst) for various functions that configure the collision priority, layers, and mask.
+See the [Terrain3DCollision API](../api/class_terrain3dcollision.rst) for various functions to configure other properties like layers, mask, and priority.
 
-Finally, Godot Physics is far from perfect. If you have issues with raycasts or other physics calculations, try switching to Jolt. Also if your raycast is perfectly vertical, you can try angling it ever so slightly, or use get_height().
+Finally, Godot Physics is far from perfect. If you have issues with raycasts or other physics calculations, try switching to Jolt. Also if your raycast is perfectly vertical, you can try angling it ever so slightly, or use an option below.
 
 
 ## Raycasting Without Physics
@@ -65,16 +65,34 @@ However, note that `get_height()` above will [interpolate between vertices](http
 ## Additional Tips
 
 
-### Getting The Normal
-
-After getting the height, you may also wish to get the normal with `Terrain3DData.get_normal(global_position)`. The normal is a Vector3 that points perpendulcar to the terrain face.
-
-
 ### Visualizing Collision
 
-To see the collision shape, first set `Terrain3D/Collision/Collision Mode` to `Full / Editor`.
+To see the collision shape, first set `Terrain3D/Collision/Collision Mode` to `Full / Editor` or `Dynamic / Editor`.
 
-To see it in the editor, in the Godot `Perspective` menu, enable `View Gizmos`. Disable this option on slow systems.
+To see it in the editor, in the Godot `Perspective` menu, enable `View Gizmos`. Avoid using the Full option on slow systems.
 
 To see debug collision in game, in the Godot `Debug` menu, enable `Visible Collision Shapes` and run the scene.
 
+
+### Enemy Collision
+
+The easy approach is to give every enemy a capsule collision shape, and start creating your level. As you fill your level with terrain, rocks, caves, canyons, and dungeons, you'll quickly learn that this approach is terrible for performance.
+
+Your system will be brought to its knees when you have 5-10 enemies follow the player into a tight area with many faceted collision shapes. The physics server will need to calculate collisions against hundreds of faces in the area for each of the 10 character bodies.
+
+A better alternative is to use physics collision only for the player, and use raycasts for the enemies. This allows you to limit the collision checks to a few per enemy, regardless of how many collision faces there are.
+
+However both methods above require collision shapes where the enemy is. What if you want to have enemies stay on the ground when far from the camera, while using a dynamic collision mode?
+
+Have each enemy query `Terrain3DData.get_height()`, either in conjunction with checking height with a raycast or physics, or in place of. It could come right after applying gravity so it will snap back to the surface if it dips below.
+
+e.g.
+```
+    global_position.y -= gravity * p_delta
+    global_position.y = maxf(global_position.y, terrain.data.get_height(global_position))
+```
+
+
+### Retreiving The Normal
+
+After getting the height, you may also wish to get the normal with `Terrain3DData.get_normal(global_position)`. The normal is a Vector3 that points perpendulcar to the terrain face.

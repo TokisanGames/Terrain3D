@@ -389,8 +389,8 @@
 		</method>
 		<method name="load_region">
 			<return type="void" />
-			<param index="0" name="directory" type="Vector2i" />
-			<param index="1" name="region_location" type="String" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<param index="1" name="directory" type="String" />
 			<param index="2" name="update" type="bool" default="true" />
 			<description>
 				Loads the specified region location file.
@@ -430,8 +430,8 @@
 		</method>
 		<method name="save_region">
 			<return type="void" />
-			<param index="0" name="directory" type="Vector2i" />
-			<param index="1" name="region_location" type="String" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<param index="1" name="directory" type="String" />
 			<param index="2" name="16_bit" type="bool" default="false" />
 			<description>
 				Saves the specified active region to the directory. See [method Terrain3DRegion.save].

@@ -335,5 +335,8 @@
     <Xml Include="doc\doc_classes\Terrain3DUtil.xml">
       <Filter>3. XML</Filter>
     </Xml>
+    <Xml Include="doc\doc_classes\Terrain3DCollision.xml">
+      <Filter>3. XML</Filter>
+    </Xml>
   </ItemGroup>
 </Project>
