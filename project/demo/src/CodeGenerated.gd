@@ -1,5 +1,7 @@
 extends Node
 
+var terrain: Terrain3D
+
 
 func _ready() -> void:
 	$UI.player = $Player
@@ -7,7 +9,7 @@ func _ready() -> void:
 	if has_node("RunThisSceneLabel3D"):
 		$RunThisSceneLabel3D.queue_free()
 
-	var terrain: Terrain3D = await create_terrain()
+	terrain = await create_terrain()
 
 	# Enable runtime navigation baking using the terrain
 	# Enable `Debug/Visible Navigation` if you wish to see it
@@ -34,7 +36,6 @@ func create_terrain() -> Terrain3D:
 	# Create a terrain
 	var terrain := Terrain3D.new()
 	terrain.name = "Terrain3D"
-	terrain.set_collision_enabled(false)
 	add_child(terrain, true)
 
 	# Set material and assets
@@ -56,10 +57,8 @@ func create_terrain() -> Terrain3D:
 	terrain.region_size = 1024
 	terrain.data.import_images([img, null, null], Vector3(-1024, 0, -1024), 0.0, 150.0)
 
-	# Enable collision
-	# Enable this and `Debug/Visible Collision Shapes` to see collision
-	#terrain.set_collision_mode(Terrain3D.FULL_EDITOR)
-	terrain.set_collision_enabled(true)
+	# Enable the next line and `Debug/Visible Collision Shapes` to see collision
+	#terrain.collision.mode = Terrain3DCollision.DYNAMIC_EDITOR
 
 	return terrain
 
