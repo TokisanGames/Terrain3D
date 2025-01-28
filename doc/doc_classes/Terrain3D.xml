@@ -4,7 +4,7 @@
 	</brief_description>
 	<description>
 		Terrain3D is a high performance, editable terrain system for Godot 4. It provides a clipmap based terrain that supports terrains from 64x64m up to 65.5x65.5km with multiple LODs, 32 textures, and editor tools for importing or creating terrains.
-		This class handles mesh and collision generation, and management of the whole system. See [url=https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html]System Architecture[/url] for design details.
+		This class handles mesh generation, and management of the whole system. See [url=https://terrain3d.readthedocs.io/en/stable/docs/system_architecture.html]System Architecture[/url] for design details.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -33,12 +33,6 @@
 			<return type="Camera3D" />
 			<description>
 				Returns the camera the terrain is currently snapping to.
-			</description>
-		</method>
-		<method name="get_collision_rid" qualifiers="const">
-			<return type="RID" />
-			<description>
-				Returns the RID of the active StaticBody.
 			</description>
 		</method>
 		<method name="get_editor" qualifiers="const">
@@ -83,6 +77,12 @@
 				Returns the EditorPlugin connected to Terrain3D.
 			</description>
 		</method>
+		<method name="get_snapped_position" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Returns the last position the terrain was centered on.
+			</description>
+		</method>
 		<method name="is_compatibility_mode" qualifiers="const">
 			<return type="bool" />
 			<description>
@@ -118,22 +118,26 @@
 		<member name="cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="RenderingServer.ShadowCastingSetting" default="1">
 			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
 		</member>
-		<member name="collision_enabled" type="bool" setter="set_collision_enabled" getter="get_collision_enabled" default="true">
-			If enabled, collision is generated according to the mode selected. By default collision is generated for all regions at run time only using the physics server. Also see [member collision_mode].
+		<member name="collision" type="Terrain3DCollision" setter="" getter="get_collision">
+			The active [Terrain3DCollision] object.
 		</member>
 		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="1">
-			The physics layers the terrain lives in. Also see [member collision_mask].
+			Alias for [member Terrain3DCollision.layer].
 		</member>
 		<member name="collision_mask" type="int" setter="set_collision_mask" getter="get_collision_mask" default="1">
-			The physics layers the terrain scans for colliding objects. Also see [member collision_layer].
+			Alias for [member Terrain3DCollision.mask].
 		</member>
-		<member name="collision_mode" type="int" setter="set_collision_mode" getter="get_collision_mode" enum="Terrain3D.CollisionMode" default="0">
-			If collision is enabled, collision_mode specifies when and where collision is generated:
-			* FULL_GAME - all regions are generated at startup in game only.
-			* FULL_GAME - all regions are generated in the editor. Necessary for some 3rd party plugins to find the terrain. The collision mesh can also be made visible in the editor by enabling [code skip-lint]View Gizmos[/code] in the viewport menu.
+		<member name="collision_mode" type="int" setter="set_collision_mode" getter="get_collision_mode" enum="Terrain3DCollision.CollisionMode" default="1">
+			Alias for [member Terrain3DCollision.mode].
 		</member>
 		<member name="collision_priority" type="float" setter="set_collision_priority" getter="get_collision_priority" default="1.0">
-			The priority used to solve collisions. The higher priority, the lower the penetration of a colliding object.
+			Alias for [member Terrain3DCollision.priority].
+		</member>
+		<member name="collision_radius" type="int" setter="set_collision_radius" getter="get_collision_radius" default="64">
+			Alias for [member Terrain3DCollision.radius].
+		</member>
+		<member name="collision_shape_size" type="int" setter="set_collision_shape_size" getter="get_collision_shape_size" default="16">
+			Alias for [member Terrain3DCollision.shape_size].
 		</member>
 		<member name="cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
 			This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
@@ -278,12 +282,6 @@
 		</constant>
 		<constant name="SIZE_2048" value="2048" enum="RegionSize">
 			The region size is 2048 x 2048 meters, vertices, and pixels on Image maps.
-		</constant>
-		<constant name="FULL_GAME" value="0" enum="CollisionMode">
-			Generates collision for all regions in game only.
-		</constant>
-		<constant name="FULL_EDITOR" value="1" enum="CollisionMode">
-			Generates collision for all regions in the editor and in game.
 		</constant>
 	</constants>
 </class>

@@ -239,6 +239,7 @@
   </ItemGroup>
   <ItemGroup>
     <Xml Include="doc\doc_classes\Terrain3D.xml" />
+    <Xml Include="doc\doc_classes\Terrain3DCollision.xml" />
     <Xml Include="doc\doc_classes\Terrain3DData.xml" />
     <Xml Include="doc\doc_classes\Terrain3DEditor.xml" />
     <Xml Include="doc\doc_classes\Terrain3DInstancer.xml" />
