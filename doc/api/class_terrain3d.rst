@@ -100,6 +100,8 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_instancer_grid<class_Terrain3D_property_show_instancer_grid>`   | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``bool``                                                    | :ref:`show_instances<class_Terrain3D_property_show_instances>`             | ``true``        |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_navigation<class_Terrain3D_property_show_navigation>`           | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_region_grid<class_Terrain3D_property_show_region_grid>`         | ``false``       |
@@ -847,6 +849,23 @@ Alias for :ref:`Terrain3DMaterial.show_heightmap<class_Terrain3DMaterial_propert
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
 Alias for :ref:`Terrain3DMaterial.show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_show_instances:
+
+.. rst-class:: classref-property
+
+``bool`` **show_instances** = ``true`` :ref:`🔗<class_Terrain3D_property_show_instances>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_instances**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_instances**\ (\ )
+
+Shows or hides all instancer meshes.
 
 .. rst-class:: classref-item-separator
 
