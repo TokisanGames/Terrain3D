@@ -17,13 +17,17 @@ Terrain3DMeshAsset
 Description
 -----------
 
-This class provides one of two mesh types for instancing.
+This class manages meshes used for instancing. There are two broad types of meshes it can host.
 
-First, this class will generate a texture card, using a QuadMesh.	The typical use for a texture card is to place a flat grass texture in the `albedo texture` slot in the override material, and enable alpha scissor. This will generate low poly grass.
+1. Generated Texture Card - this class will generate a QuadMesh. The typical use for this is to create a material in the override material, place a 2D grass texture in the `albedo texture` slot, and enable alpha scissor. This will generate low poly grass.
 
-Second, you can link this resource to a mesh scene file, which is specifically a PackedScene (.tscn, .scn, .glb, .fbx, etc). You can override the material if desired. Multimeshes only support one mesh object, so complex objects like tree trunks and leaves, or a door frame and door either need to be combined into one object with multiple materials, or placed by another method. Read the `Godot MultiMesh docs <https://docs.godotengine.org/en/stable/classes/class_multimesh.html>`__ for more information.
+2. Scene File - you can provide your own mesh in a scene file, which is specifically a PackedScene (.tscn, .scn, .glb, .fbx, etc). You can override the material if desired. MultiMeshes only support one mesh object, so complex objects like tree trunks and leaves, or a door frame and door either need to be combined into one object with multiple materials, or placed by another method. The system will look for MeshInstance3D nodes in the file to use as Levels of Detail (LODs). Ideally they have suffixes like `LOD0`, `LOD1`. We support up to 10 LODs, but recommend no more than 4.
 
-Currently, the system will use only the first MeshInstance3D it finds in the file. It doesn't apply any transforms nor collision found in the file. Auto generated LODs are used by the engine. Manual LODs will be supported later.
+\ **Read More:**\ 
+
+- **Tutorial:** `Foliage Instancing <https://terrain3d.readthedocs.io/en/stable/docs/instancer.html>`__\ 
+
+- **Godot Reference:** `MultiMesh <https://docs.godotengine.org/en/stable/classes/class_multimesh.html>`__, `MultiMeshInstance3D <https://docs.godotengine.org/en/stable/classes/class_meshinstance3d.html#class-meshinstance3d>`__
 
 .. rst-class:: classref-reftable-group
 
@@ -38,6 +42,10 @@ Properties
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``float``                                       | :ref:`density<class_Terrain3DMeshAsset_property_density>`                     | ``10.0``          |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``bool``                                        | :ref:`enabled<class_Terrain3DMeshAsset_property_enabled>`                     | ``true``          |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`fade_margin<class_Terrain3DMeshAsset_property_fade_margin>`             | ``0.0``           |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``int``                                         | :ref:`generated_faces<class_Terrain3DMeshAsset_property_generated_faces>`     | ``2``             |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``Vector2``                                     | :ref:`generated_size<class_Terrain3DMeshAsset_property_generated_size>`       | ``Vector2(1, 1)`` |
@@ -48,13 +56,43 @@ Properties
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``int``                                         | :ref:`id<class_Terrain3DMeshAsset_property_id>`                               | ``0``             |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``int``                                         | :ref:`last_lod<class_Terrain3DMeshAsset_property_last_lod>`                   | ``9``             |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``int``                                         | :ref:`last_shadow_lod<class_Terrain3DMeshAsset_property_last_shadow_lod>`     | ``9``             |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`               | ``32.0``          |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod1_range<class_Terrain3DMeshAsset_property_lod1_range>`               | ``64.0``          |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod2_range<class_Terrain3DMeshAsset_property_lod2_range>`               | ``96.0``          |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod3_range<class_Terrain3DMeshAsset_property_lod3_range>`               | ``128.0``         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod4_range<class_Terrain3DMeshAsset_property_lod4_range>`               | ``160.0``         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod5_range<class_Terrain3DMeshAsset_property_lod5_range>`               | ``192.0``         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod6_range<class_Terrain3DMeshAsset_property_lod6_range>`               | ``224.0``         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod7_range<class_Terrain3DMeshAsset_property_lod7_range>`               | ``256.0``         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod8_range<class_Terrain3DMeshAsset_property_lod8_range>`               | ``288.0``         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`lod9_range<class_Terrain3DMeshAsset_property_lod9_range>`               | ``320.0``         |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``int``                                         | :ref:`lod_count<class_Terrain3DMeshAsset_property_lod_count>`                 | ``0``             |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``Material``                                    | :ref:`material_overlay<class_Terrain3DMeshAsset_property_material_overlay>`   |                   |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``Material``                                    | :ref:`material_override<class_Terrain3DMeshAsset_property_material_override>` |                   |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``String``                                      | :ref:`name<class_Terrain3DMeshAsset_property_name>`                           | ``"New Mesh"``    |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``PackedScene``                                 | :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>`               |                   |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | ``float``                                       | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   | ``100.0``         |
+   | ``int``                                         | :ref:`shadow_impostor<class_Terrain3DMeshAsset_property_shadow_impostor>`     | ``0``             |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``float``                                       | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   | ``32.0``          |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
@@ -65,15 +103,17 @@ Methods
 .. table::
    :widths: auto
 
-   +---------------+--------------------------------------------------------------------------------------+
-   | |void|        | :ref:`clear<class_Terrain3DMeshAsset_method_clear>`\ (\ )                            |
-   +---------------+--------------------------------------------------------------------------------------+
-   | ``Mesh``      | :ref:`get_mesh<class_Terrain3DMeshAsset_method_get_mesh>`\ (\ index\: ``int`` = 0\ ) |
-   +---------------+--------------------------------------------------------------------------------------+
-   | ``int``       | :ref:`get_mesh_count<class_Terrain3DMeshAsset_method_get_mesh_count>`\ (\ ) |const|  |
-   +---------------+--------------------------------------------------------------------------------------+
-   | ``Texture2D`` | :ref:`get_thumbnail<class_Terrain3DMeshAsset_method_get_thumbnail>`\ (\ ) |const|    |
-   +---------------+--------------------------------------------------------------------------------------+
+   +---------------+----------------------------------------------------------------------------------------------------------------+
+   | |void|        | :ref:`clear<class_Terrain3DMeshAsset_method_clear>`\ (\ )                                                      |
+   +---------------+----------------------------------------------------------------------------------------------------------------+
+   | ``float``     | :ref:`get_lod_range<class_Terrain3DMeshAsset_method_get_lod_range>`\ (\ lod\: ``int``\ ) |const|               |
+   +---------------+----------------------------------------------------------------------------------------------------------------+
+   | ``Mesh``      | :ref:`get_mesh<class_Terrain3DMeshAsset_method_get_mesh>`\ (\ lod\: ``int`` = 0\ ) |const|                     |
+   +---------------+----------------------------------------------------------------------------------------------------------------+
+   | ``Texture2D`` | :ref:`get_thumbnail<class_Terrain3DMeshAsset_method_get_thumbnail>`\ (\ ) |const|                              |
+   +---------------+----------------------------------------------------------------------------------------------------------------+
+   | |void|        | :ref:`set_lod_range<class_Terrain3DMeshAsset_method_set_lod_range>`\ (\ lod\: ``int``, distance\: ``float``\ ) |
+   +---------------+----------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -114,7 +154,7 @@ Emitted when :ref:`id<class_Terrain3DMeshAsset_property_id>` is changed.
 
 **instancer_setting_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_instancer_setting_changed>`
 
-Emitted when instancer specific settings are changed on this mesh asset, such as :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` or :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`.
+Emitted when instancer specific settings are changed on this mesh asset, such as :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` or :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`, and triggers an instancer rebuild.
 
 .. rst-class:: classref-item-separator
 
@@ -149,11 +189,7 @@ enum **GenType**: :ref:`🔗<enum_Terrain3DMeshAsset_GenType>`
 
 :ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **TYPE_NONE** = ``0``
 
-.. container:: contribute
-
-	There is currently no description for this enum. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
-
-
+No generated mesh is in use, likely because a scene file is used.
 
 .. _class_Terrain3DMeshAsset_constant_TYPE_TEXTURE_CARD:
 
@@ -161,7 +197,7 @@ enum **GenType**: :ref:`🔗<enum_Terrain3DMeshAsset_GenType>`
 
 :ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **TYPE_TEXTURE_CARD** = ``1``
 
-Generate a QuadMesh to be used as a texture card.
+Generates a QuadMesh to be used as a texture card.
 
 .. _class_Terrain3DMeshAsset_constant_TYPE_MAX:
 
@@ -169,11 +205,7 @@ Generate a QuadMesh to be used as a texture card.
 
 :ref:`GenType<enum_Terrain3DMeshAsset_GenType>` **TYPE_MAX** = ``2``
 
-.. container:: contribute
-
-	There is currently no description for this enum. Please help us by :ref:`contributing one <doc_updating_the_class_reference>`!
-
-
+Maximum value for this enum.
 
 .. rst-class:: classref-section-separator
 
@@ -220,6 +252,44 @@ This value is not tied to any real world unit. It is calculated as ``10.f / mesh
 
 ----
 
+.. _class_Terrain3DMeshAsset_property_enabled:
+
+.. rst-class:: classref-property
+
+``bool`` **enabled** = ``true`` :ref:`🔗<class_Terrain3DMeshAsset_property_enabled>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_enabled**\ (\ value\: ``bool``\ )
+- ``bool`` **is_enabled**\ (\ )
+
+If enabled, MultiMeshInstance3Ds will be generated for this mesh asset.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_fade_margin:
+
+.. rst-class:: classref-property
+
+``float`` **fade_margin** = ``0.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_fade_margin>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_fade_margin**\ (\ value\: ``float``\ )
+- ``float`` **get_fade_margin**\ (\ )
+
+If > 0, sets ``GeometryInstance3D.fade_mode = self``, sets this margin in ``GeometryInstance3D.visibility_range_begin_margin`` and ``GeometryInstance3D.visibility_range_end_margin`` and adjusts the ranges to allow fading between lods.
+
+Limited to the smaller of half the distance between LOD0 and LOD1, or 64m.
+
+Currently broken and hidden in the inspector until `Godot issue #102799 <https://github.com/godotengine/godot/issues/102799>`__ is fixed.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DMeshAsset_property_generated_faces:
 
 .. rst-class:: classref-property
@@ -231,7 +301,7 @@ This value is not tied to any real world unit. It is calculated as ``10.f / mesh
 - |void| **set_generated_faces**\ (\ value\: ``int``\ )
 - ``int`` **get_generated_faces**\ (\ )
 
-Select if you want the generated texture card to have a single QuadMesh, 2 meshes rotated at 90° in a cross, or 3 roated at 60°.
+Select if you want the generated texture card to have a single QuadMesh, 2 meshes rotated 90° in a cross, or 3 rotated at 60°.
 
 .. rst-class:: classref-item-separator
 
@@ -282,7 +352,7 @@ If enabled, this mesh asset will be set to a generated QuadMesh to be used as a 
 - |void| **set_height_offset**\ (\ value\: ``float``\ )
 - ``float`` **get_height_offset**\ (\ )
 
-Vertically offset the origin point of a mesh asset. You can also set this when painting. For example, if you have a 2 meter diameter rock with the mesh origin point in the center, but you want all rocks to be sitting on the ground, you could enter 1 or 0.9 here and it will be placed near its edge.
+Vertically offsets the origin point of the mesh asset. For example, if you have a 2 meter diameter rock with the mesh origin point in the center, but you want all rocks to be sitting on the ground, you could enter 1 or 0.9 here and it will be placed near its edge. You can also adjust this when painting using the tool settings bar; both options are cummulative.
 
 .. rst-class:: classref-item-separator
 
@@ -305,6 +375,247 @@ The user settable ID of the mesh. You can change this to reorder meshes in the l
 
 ----
 
+.. _class_Terrain3DMeshAsset_property_last_lod:
+
+.. rst-class:: classref-property
+
+``int`` **last_lod** = ``9`` :ref:`🔗<class_Terrain3DMeshAsset_property_last_lod>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_last_lod**\ (\ value\: ``int``\ )
+- ``int`` **get_last_lod**\ (\ )
+
+Sets the farthest Level of Detail (LOD) that will be rendered. Farther LODs (greater than this number) will be ignored.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_last_shadow_lod:
+
+.. rst-class:: classref-property
+
+``int`` **last_shadow_lod** = ``9`` :ref:`🔗<class_Terrain3DMeshAsset_property_last_shadow_lod>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_last_shadow_lod**\ (\ value\: ``int``\ )
+- ``int`` **get_last_shadow_lod**\ (\ )
+
+Sets the farthest Level of Detail (LOD) that will cast shadows. Farther LODs (greater than this number) won't cast shadows. If :ref:`shadow_impostor<class_Terrain3DMeshAsset_property_shadow_impostor>` is greater than this number, the shadow impostor will still cast shadows.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod0_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod0_range** = ``32.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod0_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod0_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod0_range**\ (\ )
+
+Sets ``GeometryInstance3D.visibility_range_end`` on all MultiMeshInstances used by this mesh at the closest Level of Detail (LOD), the most detailed.
+
+Allows the renderer to cull MMIs beyond this distance. The next LOD level will use this value for its ``GeometryInstance3D.visibility_range_begin``.
+
+Set to 0 to disable culling and see this LOD at any distance.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod1_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod1_range** = ``64.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod1_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod1_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod1_range**\ (\ )
+
+Sets the end visible range for LOD1. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod2_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod2_range** = ``96.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod2_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod2_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod2_range**\ (\ )
+
+Sets the end visible range for LOD2. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod3_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod3_range** = ``128.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod3_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod3_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod3_range**\ (\ )
+
+Sets the end visible range for LOD3. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod4_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod4_range** = ``160.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod4_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod4_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod4_range**\ (\ )
+
+Sets the end visible range for LOD4. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod5_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod5_range** = ``192.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod5_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod5_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod5_range**\ (\ )
+
+Sets the end visible range for LOD5. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod6_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod6_range** = ``224.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod6_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod6_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod6_range**\ (\ )
+
+Sets the end visible range for LOD6. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod7_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod7_range** = ``256.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod7_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod7_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod7_range**\ (\ )
+
+Sets the end visible range for LOD7. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod8_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod8_range** = ``288.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod8_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod8_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod8_range**\ (\ )
+
+Sets the end visible range for LOD8. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod9_range:
+
+.. rst-class:: classref-property
+
+``float`` **lod9_range** = ``320.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod9_range>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_lod9_range**\ (\ value\: ``float``\ )
+- ``float`` **get_lod9_range**\ (\ )
+
+Sets the end visible range for LOD9. See :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_lod_count:
+
+.. rst-class:: classref-property
+
+``int`` **lod_count** = ``0`` :ref:`🔗<class_Terrain3DMeshAsset_property_lod_count>`
+
+.. rst-class:: classref-property-setget
+
+- ``int`` **get_lod_count**\ (\ )
+
+Provides the detected number of Levels of Detail (LODs) found in the provided scene file or generated mesh. Read only.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_material_overlay:
+
+.. rst-class:: classref-property
+
+``Material`` **material_overlay** :ref:`🔗<class_Terrain3DMeshAsset_property_material_overlay>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_material_overlay**\ (\ value\: ``Material``\ )
+- ``Material`` **get_material_overlay**\ (\ )
+
+This sets ``GeometryInstance3D.material_overlay``, which applies an overriding material using ``next_pass`` that overlays the base material.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DMeshAsset_property_material_override:
 
 .. rst-class:: classref-property
@@ -316,7 +627,7 @@ The user settable ID of the mesh. You can change this to reorder meshes in the l
 - |void| **set_material_override**\ (\ value\: ``Material``\ )
 - ``Material`` **get_material_override**\ (\ )
 
-This material will override the material on either packed scenes or generated mesh cards.
+This sets ``GeometryInstance3D.material_override``, which replaces the rendered mesh material with this one.
 
 .. rst-class:: classref-item-separator
 
@@ -333,7 +644,7 @@ This material will override the material on either packed scenes or generated me
 - |void| **set_name**\ (\ value\: ``String``\ )
 - ``String`` **get_name**\ (\ )
 
-A user specified name for this asset.
+The user specified name for this asset.
 
 .. rst-class:: classref-item-separator
 
@@ -350,7 +661,30 @@ A user specified name for this asset.
 - |void| **set_scene_file**\ (\ value\: ``PackedScene``\ )
 - ``PackedScene`` **get_scene_file**\ (\ )
 
-A packed scene to load the mesh from. See the top description.
+Specifies the PackedScene (.tscn, .scn, .glb, .fbx, etc) to load the mesh from. See the top description.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_shadow_impostor:
+
+.. rst-class:: classref-property
+
+``int`` **shadow_impostor** = ``0`` :ref:`🔗<class_Terrain3DMeshAsset_property_shadow_impostor>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_shadow_impostor**\ (\ value\: ``int``\ )
+- ``int`` **get_shadow_impostor**\ (\ )
+
+Uses this lower quality Level of Detail (LOD) to calculate shadows (as an impostor) instead of the visible mesh.
+
+e.g. Normally each LOD casts its own shadows. Given LOD0-3, if ``shadow_impostor = 2`` then when LOD0-1 are visible, they are set to no shadows and LOD2 is set to cast shadows only. When LOD2-3 are visible, each casts their own shadow as normal.
+
+Increase to improve performance by lowering shadow quality.
+
+Shadow impostors are disabled if this is set to 0 or if :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` is set to shadows only.
 
 .. rst-class:: classref-item-separator
 
@@ -360,14 +694,14 @@ A packed scene to load the mesh from. See the top description.
 
 .. rst-class:: classref-property
 
-``float`` **visibility_range** = ``100.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
+``float`` **visibility_range** = ``32.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
 
 .. rst-class:: classref-property-setget
 
 - |void| **set_visibility_range**\ (\ value\: ``float``\ )
-- ``float`` **get_visibility_range**\ (\ )
+- ``float`` **get_lod0_range**\ (\ )
 
-Sets ``GeometryInstance3D.visibility_range_end`` on all MultiMeshInstances used by this mesh. Allows the renderer to cull MMIs beyond this distance. Set to 0 to disable culling.
+Deprecated, see :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
 
 .. rst-class:: classref-section-separator
 
@@ -384,7 +718,19 @@ Method Descriptions
 
 |void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_clear>`
 
-Reset this resource to default settings.
+Resets this resource to default settings.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_method_get_lod_range:
+
+.. rst-class:: classref-method
+
+``float`` **get_lod_range**\ (\ lod\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DMeshAsset_method_get_lod_range>`
+
+Returns the far visible distance for the specified Level of Detail (LOD). The near visible distance is the LOD range for the next closest LOD.
 
 .. rst-class:: classref-item-separator
 
@@ -394,21 +740,9 @@ Reset this resource to default settings.
 
 .. rst-class:: classref-method
 
-``Mesh`` **get_mesh**\ (\ index\: ``int`` = 0\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_get_mesh>`
+``Mesh`` **get_mesh**\ (\ lod\: ``int`` = 0\ ) |const| :ref:`🔗<class_Terrain3DMeshAsset_method_get_mesh>`
 
-Returns the specified Mesh resource indicated. Only id 0 is used currently.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DMeshAsset_method_get_mesh_count:
-
-.. rst-class:: classref-method
-
-``int`` **get_mesh_count**\ (\ ) |const| :ref:`🔗<class_Terrain3DMeshAsset_method_get_mesh_count>`
-
-Returns the number of Mesh resources found in the scene file and stored.
+Returns the ``Mesh`` resource for the specified Level of Detail (LOD).
 
 .. rst-class:: classref-item-separator
 
@@ -421,6 +755,18 @@ Returns the number of Mesh resources found in the scene file and stored.
 ``Texture2D`` **get_thumbnail**\ (\ ) |const| :ref:`🔗<class_Terrain3DMeshAsset_method_get_thumbnail>`
 
 Returns the thumbnail generated by :ref:`Terrain3DAssets<class_Terrain3DAssets>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_method_set_lod_range:
+
+.. rst-class:: classref-method
+
+|void| **set_lod_range**\ (\ lod\: ``int``, distance\: ``float``\ ) :ref:`🔗<class_Terrain3DMeshAsset_method_set_lod_range>`
+
+Sets the far visible distance for the specified Level of Detail (LOD).
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

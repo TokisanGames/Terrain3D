@@ -7,13 +7,13 @@ This list are for items that don't already have dedicated pages in the documenta
 
 | Feature | Status | 
 | ------------- | ------------- | 
-| Destructibility | Real-time modification is technically possible by fetching the height and control maps and directly modifying them. That's how the editor works. But most gamedevs who want destructible terrains are better served by [Zylann's Voxel Tools](https://github.com/Zylann/godot_voxel).
+| Destructibility | Real-time modification is possible by changing the data and updating the maps and collision. You can sculpt heights, change textures, or make holes. If you want tunnels or caves though you need to add your own meshes or use [Zylann's Voxel Tools](https://github.com/Zylann/godot_voxel).
 | GPU Sculpting| [Pending](https://github.com/TokisanGames/Terrain3D/issues/174). Currently painting occurs on the CPU in C++. It's reasonably fast, but we have a soft limit of 200 on the brush size, as larger sizes lag.
 | Holes | Holes work for both visual and collision.
 | Jolt | [Godot-Jolt](https://github.com/godot-jolt/godot-jolt) works as a drop-in replacement for Godot Physics. Collision is generated where regions are defined.
 | Non-destructive layers | Used for things like river beds, roads or paths that follow a curve and tweak the terrain. It's [possible](https://github.com/TokisanGames/Terrain3D/issues/129) in the future.
 | Object placement | The [instancer](instancer.md) supports placing foliage. Placing objects that shouldn't be in a MultiMeshInstance node is [out of scope](https://github.com/TokisanGames/Terrain3D/issues/47). See 3rd party tools below.
-| Streaming | No streaming is supported. In the future we will stream regions.
+| Streaming | Streaming is not yet supported by Godot or Terrain3D. In the future we will stream regions.
 | Water | Use [WaterWays](https://github.com/Arnklit/Waterways) for rivers, or [Realistic Water Shader](https://github.com/godot-extended-libraries/godot-realistic-water/) or [Infinite Ocean](https://stayathomedev.com/tutorials/making-an-infinite-ocean-in-godot-4/) for lakes or oceans.
 |**Rendering**|
 | Frustum Culling | The terrain is made up of several meshes, so half can be culled if the camera is near the ground.

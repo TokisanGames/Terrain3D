@@ -221,6 +221,9 @@
 		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
 			Alias for [member Terrain3DMaterial.show_instancer_grid].
 		</member>
+		<member name="show_instances" type="bool" setter="set_show_instances" getter="get_show_instances" default="true">
+			Shows or hides all instancer meshes.
+		</member>
 		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
 			Alias for [member Terrain3DMaterial.show_navigation].
 		</member>
