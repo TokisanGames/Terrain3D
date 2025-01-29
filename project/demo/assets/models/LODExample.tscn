@@ -1,0 +1,56 @@
+[gd_scene load_steps=9 format=3 uid="uid://bn5nf4esciwex"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_788j8"]
+albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_u4ac2"]
+material = SubResource("StandardMaterial3D_788j8")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3i52q"]
+albedo_color = Color(1, 0.540167, 0.11, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_xyuxq"]
+material = SubResource("StandardMaterial3D_3i52q")
+size = Vector3(0.85, 0.85, 0.85)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p0ha4"]
+albedo_color = Color(0.48, 1, 0.497333, 1)
+
+[sub_resource type="PrismMesh" id="PrismMesh_xnm4h"]
+material = SubResource("StandardMaterial3D_p0ha4")
+size = Vector3(1, 1, 0.855)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4koei"]
+albedo_color = Color(0.45, 0.596667, 1, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_dp7xj"]
+material = SubResource("StandardMaterial3D_4koei")
+top_radius = 0.0
+bottom_radius = 0.34
+height = 1.54
+radial_segments = 4
+
+[node name="TestMultimesh" type="Node3D"]
+
+[node name="Node3D" type="Node3D" parent="."]
+
+[node name="MeshInstance3D1" type="MeshInstance3D" parent="Node3D"]
+mesh = SubResource("SphereMesh_u4ac2")
+skeleton = NodePath("../..")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="Node3D"]
+visible = false
+mesh = SubResource("BoxMesh_xyuxq")
+skeleton = NodePath("../..")
+
+[node name="MeshInstance3D3" type="MeshInstance3D" parent="Node3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.118133, 0)
+visible = false
+mesh = SubResource("PrismMesh_xnm4h")
+skeleton = NodePath("../..")
+
+[node name="MeshInstance3D4" type="MeshInstance3D" parent="Node3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
+visible = false
+mesh = SubResource("CylinderMesh_dp7xj")
+skeleton = NodePath("../..")
