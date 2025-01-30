@@ -339,16 +339,13 @@ void fragment() {
 		invert.x * invert.y  // 3
 	);
 	
-	vec4 base_derivatives = vec4(dFdxCoarse(uv), dFdyCoarse(uv)) * _vertex_spacing;
+	vec3 base_ddx = dFdxCoarse(v_vertex);
+	vec3 base_ddy = dFdyCoarse(v_vertex);
+	vec4 base_derivatives = vec4(base_ddx.xz, base_ddy.xz);
 	// When this exceeds 2.0, as derivatives are across 2x2 fragments it means that 
 	// each control map texel is less than 1 pixel in screen space as such we can 
 	// skip all extra lookups required for bilinear blend.
-	bool bilerp = length(base_derivatives) <= 2.0;
-
-	// Adjust derivatives for mipmap bias and depth blur effect
-	base_derivatives *=  mix(mipmap_bias,
-		depth_blur + 1.,
-		smoothstep(0.0, 1.0, (v_vertex_xz_dist - bias_distance) / bias_distance));
+	bool bilerp = length(base_derivatives  * _vertex_density) <= 2.0;
 
 	ivec3 indexUV[4];
 	// control map lookups, used for some normal lookups as well
@@ -376,9 +373,17 @@ void fragment() {
 
 	// Setting this here, instead of after the branch appears to be ~10% faster.
 	// Likley as flat derivatives seem more cache friendly for texture lookups.
-	if (enable_projection && v_region.z > -1) {
-		base_derivatives *= 1.0 + (1.0 - round(w_normal.y * 4.0) * 0.25);
+	if (enable_projection && v_region.z > -1 && w_normal.y < projection_threshold) {
+		vec3 p_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
+		vec3 p_binormal = normalize(cross(p_tangent, w_normal));
+		base_derivatives.xy = vec2(dot(base_ddx, p_tangent), dot(base_ddx, p_binormal));
+		base_derivatives.zw = vec2(dot(base_ddy, p_tangent), dot(base_ddy, p_binormal));
 	}
+	
+	// Adjust derivatives for mipmap bias and depth blur effect
+	base_derivatives *=  mix(mipmap_bias,
+		depth_blur + 1.,
+		smoothstep(0.0, 1.0, (v_vertex_xz_dist - bias_distance) / bias_distance));
 
 	// Branching smooth normals must be done seperatley for correct normals at all 4 index ids
 	if (bilerp) {
