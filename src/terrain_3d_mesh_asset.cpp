@@ -143,6 +143,9 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 Terrain3DMeshAsset::Terrain3DMeshAsset() {
 	_name = "New Mesh";
 	_id = 0;
+
+	_lod_visibility_ranges.resize(MAX_LOD_COUNT);
+	_lod_visibility_ranges.fill(0.f);
 }
 
 void Terrain3DMeshAsset::clear() {
@@ -152,6 +155,13 @@ void Terrain3DMeshAsset::clear() {
 	_visibility_range = 100.f;
 	_visibility_margin = 0.f;
 	_cast_shadows = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
+	_maximum_lod = 0;
+	_maximum_shadow_lod = 0;
+	_minimum_shadow_lod = 0;
+
+	_lod_visibility_ranges.resize(MAX_LOD_COUNT);
+	_lod_visibility_ranges.fill(0.f);
+
 	_generated_faces = 2.f;
 	_generated_size = Vector2(1.f, 1.f);
 	_density = 10.f;
@@ -185,12 +195,6 @@ void Terrain3DMeshAsset::set_density(const real_t p_density) {
 	_density = CLAMP(p_density, 0.01f, 10.f);
 }
 
-void Terrain3DMeshAsset::set_visibility_range(const real_t p_visibility_range) {
-	_visibility_range = CLAMP(p_visibility_range, 0.f, 100000.f);
-	LOG(INFO, "Setting visbility range: ", _visibility_range);
-	emit_signal("instancer_setting_changed");
-}
-
 void Terrain3DMeshAsset::set_visibility_margin(const real_t p_visibility_margin) {
 	_visibility_margin = CLAMP(p_visibility_margin, 0.f, 100000.f);
 	LOG(INFO, "Setting visbility margin: ", _visibility_margin);
@@ -201,6 +205,89 @@ void Terrain3DMeshAsset::set_cast_shadows(const GeometryInstance3D::ShadowCastin
 	_cast_shadows = p_cast_shadows;
 	LOG(INFO, "Setting shadow casting mode: ", _cast_shadows);
 	emit_signal("instancer_setting_changed");
+}
+
+int Terrain3DMeshAsset::get_valid_lod() const {
+	// As long as the packed scene was not loaded, we don't enforce the LOD ids
+	if (_packed_scene.is_null()) {
+		return MAX_LOD_COUNT - 1;
+	}
+
+	return MIN(MAX_LOD_COUNT - 1, get_mesh_count() - 1);
+}
+
+void Terrain3DMeshAsset::refresh_valid_lods() {
+	// Make sure the lods are consistent with the mesh count
+	set_maximum_lod(get_maximum_lod());
+	set_maximum_shadow_lod(get_maximum_shadow_lod());
+	set_minimum_shadow_lod(get_minimum_shadow_lod());
+}
+
+void Terrain3DMeshAsset::set_maximum_lod(const int p_lod) {
+	_maximum_lod = CLAMP(p_lod, 0, get_valid_lod());
+	LOG(INFO, "Setting maximum LOD: ", _maximum_lod);
+	emit_signal("instancer_setting_changed");
+}
+
+void Terrain3DMeshAsset::set_maximum_shadow_lod(const int p_lod) {
+	_maximum_shadow_lod = CLAMP(p_lod, 0, get_maximum_lod());
+	LOG(INFO, "Setting maximum shadow LOD: ", _maximum_shadow_lod);
+	emit_signal("instancer_setting_changed");
+}
+
+void Terrain3DMeshAsset::set_minimum_shadow_lod(const int p_lod) {
+	_minimum_shadow_lod = CLAMP(p_lod, 0, get_maximum_lod());
+	LOG(INFO, "Setting minimum shadow LOD: ", _minimum_shadow_lod);
+	emit_signal("instancer_setting_changed");
+}
+
+void Terrain3DMeshAsset::set_lod_visibility_range(const int p_lod, const real_t p_distance) {
+	// TODO: validate distances make sense with each other?
+	_lod_visibility_ranges[p_lod] = CLAMP(p_distance, 0.f, 100000.f);
+	LOG(INFO, "Setting LOD ", p_lod, " visibility range: ", _lod_visibility_ranges[p_lod]);
+	emit_signal("instancer_setting_changed");
+}
+
+void Terrain3DMeshAsset::set_lod_0_visibility_range(const real_t p_distance) {
+	set_lod_visibility_range(0, p_distance);
+}
+
+void Terrain3DMeshAsset::set_lod_1_visibility_range(const real_t p_distance) {
+	set_lod_visibility_range(1, p_distance);
+}
+
+void Terrain3DMeshAsset::set_lod_2_visibility_range(const real_t p_distance) {
+	set_lod_visibility_range(2, p_distance);
+}
+
+void Terrain3DMeshAsset::set_lod_3_visibility_range(const real_t p_distance) {
+	set_lod_visibility_range(3, p_distance);
+}
+
+real_t Terrain3DMeshAsset::get_lod_visibility_range_begin(const int p_lod_id) const {
+	if (p_lod_id == 0 || p_lod_id == SHADOW_LOD_INSTANCE) {
+		return 0.f;
+	}
+
+	if (p_lod_id < 0 || p_lod_id > get_maximum_lod()) {
+		LOG(ERROR, "Invalid LOD: ", p_lod_id);
+		return -1.f;
+	}
+
+	return _lod_visibility_ranges[p_lod_id - 1];
+}
+
+real_t Terrain3DMeshAsset::get_lod_visibility_range_end(const int p_lod_id) const {
+	if (p_lod_id == SHADOW_LOD_INSTANCE) {
+		return _lod_visibility_ranges[get_minimum_shadow_lod()];
+	}
+
+	if (p_lod_id < 0 || p_lod_id > get_maximum_lod()) {
+		LOG(ERROR, "Invalid LOD: ", p_lod_id);
+		return -1.f;
+	}
+
+	return _lod_visibility_ranges[p_lod_id];
 }
 
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
@@ -240,6 +327,10 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 				mesh->surface_set_material(j, mat);
 			}
 			_meshes.push_back(mesh);
+
+			if (_meshes.size() == MAX_LOD_COUNT) {
+				break;
+			}
 		}
 		if (_meshes.size() > 0) {
 			Ref<Mesh> mesh = _meshes[0];
@@ -252,6 +343,10 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 		set_generated_type(TYPE_TEXTURE_CARD);
 		_density = 10.f;
 	}
+
+	// Make sure LODs are still valid
+	refresh_valid_lods();
+
 	LOG(DEBUG, "Emitting file_changed");
 	emit_signal("file_changed");
 	emit_signal("instancer_setting_changed");
@@ -300,6 +395,52 @@ void Terrain3DMeshAsset::set_generated_size(const Vector2 &p_size) {
 	}
 }
 
+GeometryInstance3D::ShadowCastingSetting Terrain3DMeshAsset::get_lod_cast_shadows(const int p_lod_id) const {
+	// Shadow casting is disabled, no question asked
+	if (get_cast_shadows() == GeometryInstance3D::SHADOW_CASTING_SETTING_OFF) {
+		return GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
+	}
+	// That lod id is strictly reserved for shadow casting at min shadow lod and below
+	if (p_lod_id == SHADOW_LOD_INSTANCE) {
+		return GeometryInstance3D::SHADOW_CASTING_SETTING_SHADOWS_ONLY;
+	}
+	// That lod is in the special case where each lod uses its own shadow
+	if (p_lod_id == 0 && p_lod_id == get_minimum_shadow_lod()) {
+		return get_cast_shadows();
+	}
+	// That lod relies on the min shadow lod
+	if (p_lod_id <= get_minimum_shadow_lod()) {
+		return GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
+	}
+	// That lod is too far away to deserve shadows
+	if (p_lod_id > get_maximum_shadow_lod()) {
+		return GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
+	}
+	return get_cast_shadows();
+}
+
+Ref<Mesh> Terrain3DMeshAsset::get_lod_mesh(const int p_lod_id) {
+	// Requesting the special case shadow lod
+	if (p_lod_id == SHADOW_LOD_INSTANCE) {
+		// we don't use a shadow lod because we're in case where each lod uses its own shadow
+		if (get_minimum_shadow_lod() == 0) {
+			return Ref<Mesh>();
+		}
+		// We completely disabled shadows
+		if (get_cast_shadows() == GeometryInstance3D::SHADOW_CASTING_SETTING_OFF) {
+			return Ref<Mesh>();
+		}
+
+		return get_mesh(get_minimum_shadow_lod());
+	}
+
+	if (p_lod_id > get_maximum_lod()) {
+		return Ref<Mesh>();
+	}
+
+	return get_mesh(p_lod_id);
+}
+
 Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_index) {
 	if (p_index >= 0 && p_index < _meshes.size()) {
 		return _meshes[p_index];
@@ -319,6 +460,9 @@ void Terrain3DMeshAsset::_validate_property(PropertyInfo &p_property) const {
 		} else {
 			p_property.usage = PROPERTY_USAGE_DEFAULT;
 		}
+	}
+	if (p_property.name == StringName("mesh_count")) {
+		p_property.usage = PROPERTY_USAGE_READ_ONLY;
 	}
 }
 
@@ -341,12 +485,24 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_height_offset"), &Terrain3DMeshAsset::get_height_offset);
 	ClassDB::bind_method(D_METHOD("set_density", "density"), &Terrain3DMeshAsset::set_density);
 	ClassDB::bind_method(D_METHOD("get_density"), &Terrain3DMeshAsset::get_density);
-	ClassDB::bind_method(D_METHOD("set_visibility_range", "distance"), &Terrain3DMeshAsset::set_visibility_range);
-	ClassDB::bind_method(D_METHOD("get_visibility_range"), &Terrain3DMeshAsset::get_visibility_range);
-	//ClassDB::bind_method(D_METHOD("set_visibility_margin", "distance"), &Terrain3DMeshAsset::set_visibility_margin);
-	//ClassDB::bind_method(D_METHOD("get_visibility_margin"), &Terrain3DMeshAsset::get_visibility_margin);
+	ClassDB::bind_method(D_METHOD("set_visibility_margin", "distance"), &Terrain3DMeshAsset::set_visibility_margin);
+	ClassDB::bind_method(D_METHOD("get_visibility_margin"), &Terrain3DMeshAsset::get_visibility_margin);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mode"), &Terrain3DMeshAsset::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3DMeshAsset::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_maximum_lod", "lod"), &Terrain3DMeshAsset::set_maximum_lod);
+	ClassDB::bind_method(D_METHOD("get_maximum_lod"), &Terrain3DMeshAsset::get_maximum_lod);
+	ClassDB::bind_method(D_METHOD("set_maximum_shadow_lod", "lod"), &Terrain3DMeshAsset::set_maximum_shadow_lod);
+	ClassDB::bind_method(D_METHOD("get_maximum_shadow_lod"), &Terrain3DMeshAsset::get_maximum_shadow_lod);
+	ClassDB::bind_method(D_METHOD("set_minimum_shadow_lod", "lod"), &Terrain3DMeshAsset::set_minimum_shadow_lod);
+	ClassDB::bind_method(D_METHOD("get_minimum_shadow_lod"), &Terrain3DMeshAsset::get_minimum_shadow_lod);
+	ClassDB::bind_method(D_METHOD("set_lod_0_visibility_range", "distance"), &Terrain3DMeshAsset::set_lod_0_visibility_range);
+	ClassDB::bind_method(D_METHOD("get_lod_0_visibility_range"), &Terrain3DMeshAsset::get_lod_0_visibility_range);
+	ClassDB::bind_method(D_METHOD("set_lod_1_visibility_range", "distance"), &Terrain3DMeshAsset::set_lod_1_visibility_range);
+	ClassDB::bind_method(D_METHOD("get_lod_1_visibility_range"), &Terrain3DMeshAsset::get_lod_1_visibility_range);
+	ClassDB::bind_method(D_METHOD("set_lod_2_visibility_range", "distance"), &Terrain3DMeshAsset::set_lod_2_visibility_range);
+	ClassDB::bind_method(D_METHOD("get_lod_2_visibility_range"), &Terrain3DMeshAsset::get_lod_2_visibility_range);
+	ClassDB::bind_method(D_METHOD("set_lod_3_visibility_range", "distance"), &Terrain3DMeshAsset::set_lod_3_visibility_range);
+	ClassDB::bind_method(D_METHOD("get_lod_3_visibility_range"), &Terrain3DMeshAsset::get_lod_3_visibility_range);
 	ClassDB::bind_method(D_METHOD("set_scene_file", "scene_file"), &Terrain3DMeshAsset::set_scene_file);
 	ClassDB::bind_method(D_METHOD("get_scene_file"), &Terrain3DMeshAsset::get_scene_file);
 	ClassDB::bind_method(D_METHOD("set_material_override", "material"), &Terrain3DMeshAsset::set_material_override);
@@ -359,18 +515,36 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_generated_size"), &Terrain3DMeshAsset::get_generated_size);
 	ClassDB::bind_method(D_METHOD("get_mesh", "index"), &Terrain3DMeshAsset::get_mesh, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("get_mesh_count"), &Terrain3DMeshAsset::get_mesh_count);
+	ClassDB::bind_method(D_METHOD("set_mesh_count", "count"), &Terrain3DMeshAsset::set_mesh_count);
 	ClassDB::bind_method(D_METHOD("get_thumbnail"), &Terrain3DMeshAsset::get_thumbnail);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, ".01,10.0,.005"), "set_density", "get_density");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_visibility_range", "get_visibility_range");
-	//ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_margin", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_visibility_margin", "get_visibility_margin");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_margin", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_visibility_margin", "get_visibility_margin");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "maximum_lod", PROPERTY_HINT_NONE), "set_maximum_lod", "get_maximum_lod");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "minimum_shadow_lod", PROPERTY_HINT_NONE), "set_minimum_shadow_lod", "get_minimum_shadow_lod");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "maximum_shadow_lod", PROPERTY_HINT_NONE), "set_maximum_shadow_lod", "get_maximum_shadow_lod");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod_0_visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod_0_visibility_range", "get_lod_0_visibility_range");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod_1_visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod_1_visibility_range", "get_lod_1_visibility_range");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod_2_visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod_2_visibility_range", "get_lod_2_visibility_range");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod_3_visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod_3_visibility_range", "get_lod_3_visibility_range");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_count", PROPERTY_HINT_NONE), "set_mesh_count", "get_mesh_count");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_override", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_override", "get_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_faces", PROPERTY_HINT_NONE), "set_generated_faces", "get_generated_faces");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "generated_size", PROPERTY_HINT_NONE), "set_generated_size", "get_generated_size");
+
+	//DEPRECATED 1.0 - Remove 1.1
+	ClassDB::bind_method(D_METHOD("set_visibility_range", "distance"), &Terrain3DMeshAsset::set_visibility_range);
+	ClassDB::bind_method(D_METHOD("get_visibility_range"), &Terrain3DMeshAsset::get_lod_0_visibility_range);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater", PROPERTY_USAGE_NO_EDITOR), "set_visibility_range", "get_visibility_range");
+}
+
+//DEPRECATED 1.0 - Remove 1.1
+void Terrain3DMeshAsset::set_visibility_range(const real_t p_visibility_range) {
+	set_lod_0_visibility_range(p_visibility_range);
 }

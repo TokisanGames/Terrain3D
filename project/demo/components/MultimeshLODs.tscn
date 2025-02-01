@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3 uid="uid://bn5nf4esciwex"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_u4ac2"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_ntfxj"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_74bvi"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_g2vnq"]
+
+[node name="TestMultimesh" type="Node3D"]
+
+[node name="Node3D" type="Node3D" parent="."]
+
+[node name="MeshInstance3D1" type="MeshInstance3D" parent="Node3D"]
+mesh = SubResource("SphereMesh_u4ac2")
+skeleton = NodePath("../..")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="Node3D"]
+mesh = SubResource("CapsuleMesh_ntfxj")
+skeleton = NodePath("../..")
+
+[node name="MeshInstance3D3" type="MeshInstance3D" parent="Node3D"]
+mesh = SubResource("BoxMesh_74bvi")
+skeleton = NodePath("../..")
+
+[node name="MeshInstance3D4" type="MeshInstance3D" parent="Node3D"]
+mesh = SubResource("CylinderMesh_g2vnq")
+skeleton = NodePath("../..")

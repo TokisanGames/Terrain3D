@@ -18,3 +18,14 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+install:
+	python -m venv .venv && \
+	. .venv/bin/activate && \
+	pip install -r requirements.txt && \
+	echo "Setup complete. Remember to run 'source .venv/bin/activate' to activate the virtual environment."
+
+serve:
+	source ./.venv/bin/activate && \
+	make html && \
+	python -m http.server --directory _build/html
