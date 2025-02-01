@@ -67,7 +67,7 @@ If upgrading from a very old version, you may need to go through multiple steps 
 
 | Starting Version | Can Upgrade w/ Data Conversion |
 |------------------|-------------------|
-| 1.0.0 | 0.9.3 |
+| 0.9.3 | 1.0.0 |
 | 0.9.2 | 0.9.3* |
 | 0.9.1 | 0.9.2 - 0.9.3* |
 | 0.9.0 | 0.9.2 - 0.9.3* |

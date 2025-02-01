@@ -45,6 +45,11 @@ If you already know the X, Z position, use `get_height()`:
 This is ideal for one lookup. Use the next option for greater efficiency.
 
 
+### Retreiving The Normal
+
+After getting the height, you may also wish to get the normal with `Terrain3DData.get_normal(global_position)`. The normal is a Vector3 that points perpendulcar to the terrain face.
+
+
 ## Query Many Heights
 
 If you wish to look up thousands of heights, it will be faster to retrieve the heightmap Image for the region and query the data directly. 
@@ -92,7 +97,3 @@ e.g.
     global_position.y = maxf(global_position.y, terrain.data.get_height(global_position))
 ```
 
-
-### Retreiving The Normal
-
-After getting the height, you may also wish to get the normal with `Terrain3DData.get_normal(global_position)`. The normal is a Vector3 that points perpendulcar to the terrain face.

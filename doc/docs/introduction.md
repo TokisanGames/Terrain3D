@@ -57,6 +57,8 @@ Aplication Programming Interface. This is the [list of variables and functions](
 
 Like Godot, this documentation is separated in two parts in the sidebar. The first lists various free form tutorial pages describing each aspect of the terrain system, such as what you are reading now. 
 
-The second is the API. You can find it at the very bottom left of the document titles. You should be familiar with both documentation types in order to make full use of Terrain3D.
+The second section is the API. You can find it at the very bottom left of the document titles. You should be familiar with both documentation types in order to make full use of Terrain3D.
+
+The API documentation is also compiled into the library and is availble within the built in editor help.
 
 Finally, this documentation is versioned. Select the version that matches your version of the plugin in the menu.

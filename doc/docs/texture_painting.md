@@ -8,14 +8,14 @@ Terrain3D supports up to 32 texture sets.
 ### Installing a Texture
 1. Once you've [created your textures](texture_prep.md), place them in your Godot project folder.
 2. Set the appropriate Import settings for them as defined in [compression formats](texture_prep.md#compression-format).
-3. Make a new texture slot in the `Textures` panel by clicking `Add New`. 
+3. Make a new texture slot in the `Textures` section of the [Asset Dock](user_interface.md#asset-dock) by clicking `Add New`. 
 4. Drag your texture file for albedo+height from the `FileSystem` panel into the albedo slot. Drag your normal+roughness texture into the normal slot. 
 5. In the inspector, name the texture and adjust the other settings as needed.
 
 
 ### Managing the Texture List
 * Unused texture slots take up memory with the default generated textures. Remove unused slots.
-* Right-click any texture slot in the panel to bring it into edit mode.
+* Right-click any texture slot in the Asset Dock to bring it into edit mode.
 * Middle-click any texture slot to clear or delete it. You can only delete the last texture in the list.
 * Reorder textures by changing the texture id. This will change the texture rendered in the viewport as it does not change the values painted on the control map. In the future we'll add image processing tools that will allow changing texture ids painted on the terrain.
 

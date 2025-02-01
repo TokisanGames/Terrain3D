@@ -3,7 +3,7 @@ Heightmaps
 
 Terrain3D can be used with pre-made heightmaps. They can be found online, created from heightmap generators, or downloaded from real world data.
 
-Once you have your heightmap source, ensure it is 16 or 32-bit, scaled properly (below), and converted to `exr` or `r16`. Then read [Importing Data](import_export.md) to learn how to import it. What is not covered here is how to use Photoshop, Krita, or Gimp, but you can find tutorials on YouTube.
+Once you have your heightmap source, ensure it is 16 or 32-bit, [scaled properly](#scaling), and converted to `exr` or `r16`. Then read [Importing Data](import_export.md) to learn how to import it. What is not covered here is how to use Photoshop, Krita, or Gimp, but you can find tutorials on YouTube.
 
 **Table of Contents**
 * [Pre-made Heightmaps](#pre-made-heightmaps)
@@ -15,7 +15,7 @@ Once you have your heightmap source, ensure it is 16 or 32-bit, scaled properly 
 
 ## Pre-made Heightmaps
 
-A simple web search for `download terrain heightmaps` will allow you to find heightmaps in a few minutes. Some pages might say `free heightmaps for Unity` or `Unreal Engine`. All of these will work. You need to understand what format they are giving you, ensure it is at least 16 or 32-bit, and [convert](#converting-data) that to EXR for import. 
+A simple web search for `download terrain heightmaps` will allow you to find heightmaps in a few minutes. Some pages might say `free heightmaps for Unity` or `Unreal Engine`. All of these will work. You need to understand what format they are giving you, ensure it is at least 16 or 32-bit, and [convert](#converting-data) that to `exr` for import. 
 
 There are also asset packs for game engines like Unreal Engine or Unity that come with premade heightmaps. Both engines provide the ability to export these to a format you can use elsewhere. Be sure to verify the license of the content you're using, but generally anything you've bought can be modified and used elsewhere.
 
@@ -28,9 +28,9 @@ You can use software to generate heightmaps, and in some cases, texture layout m
 
 Search github for `heightmap generator` or `noise generator` to see the current projects. Anything that can produce *and* export a 16-bit grayscale image will work. Here are some examples.
 
-* [wgen](https://github.com/jice-nospam/wgen) - MIT License. Written in Rust. Exports to 16-bit PNG or EXR.
+* [wgen](https://github.com/jice-nospam/wgen) - MIT License. Written in Rust. Exports to 16-bit `png` or `exr`.
 
-* [HTerrain](https://github.com/Zylann/godot_heightmap_plugin) - MIT License. A GDScript based terrain system for Godot. It includes a terrain generator that can save a heightmap as a native Godot .res file, or you can export to EXR. Both will work for Terrain3D.
+* [HTerrain](https://github.com/Zylann/godot_heightmap_plugin) - MIT License. A GDScript based terrain system for Godot. It includes a terrain generator that can save a heightmap as a native Godot .res file, or you can export to `exr`. Both will work for Terrain3D.
 
 * In the future, Terrain3D will include a generator. Follow [Issue 101](https://github.com/TokisanGames/Terrain3D/issues/101) for progress.
 
@@ -58,23 +58,21 @@ You could export a baked image of the textures, like a satellite image and impor
  
 ## Real World Data
 
-There are some websites that allow you to download a heightmap from real world data, however often they are unusable 8-bit heightmaps. These sites might provide usable data:
+Geographic Information System (GIS) professionals use real world height data from satellite and aircraft surveys. Much of it is available for free from government websites. This data is often referred to as a Digital Elevation Model (DEM), or Surface (DSM) or Terrain (DTM). A DSM might contain buildings, DTM only the ground, while DEM is the umbrella term. This data may come in a variety of formats.
 
-* [https://manticorp.github.io/unrealheightmap/](https://manticorp.github.io/unrealheightmap/) - exports 16-bit PNGs
-* [https://touchterrain.geol.iastate.edu/](https://touchterrain.geol.iastate.edu/) - exports GeoTiff
-
-Geographic Information System (GIS) professionals use real world world height data from satellite and aircraft mapping. Much of it is available for free from government websites. This data is often referred to as a Digital Elevation Model (DEM), or Surface (DSM) or Terrain (DTM). A DSM might contain buildings, DTM only the ground, while DEM is the umbrella term. This data may come in a variety of formats.
-
-Example sources:
+There are many, many sources available online. Here are a few examples:
 
 * [USGS](https://www.usgs.gov/the-national-map-data-delivery/gis-data-download) provides several tools to download DEMs and Tiffs for the US down to 1m resolution.
 * [European Space Agency Copernicus program](https://ec.europa.eu/eurostat/web/gisco/geodata/digital-elevation-model/copernicus) provides DEMs for the whole world.
-* [EU-DEM](https://ec.europa.eu/eurostat/web/gisco/geodata/digital-elevation-model/eu-dem) has tiff files.
-* [http://www.terrainmap.com/rm39.html](http://www.terrainmap.com/rm39.html) - Here's a list of other websites with GIS data.
-
-There are many sources available online.
+* [EU-DEM](https://ec.europa.eu/eurostat/web/gisco/geodata/digital-elevation-model/eu-dem)
+* [http://www.terrainmap.com/rm39.html](http://www.terrainmap.com/rm39.html) - A list of other websites with GIS data.
 
 Some GIS data might include sattelite imagery. You can import that into our color map, and enable `Debug Views / Colormap`.
+
+There are some websites that allow you to download a heightmap from real world data, however often they are unusable 8-bit heightmaps. The sites below are some examples that might have higher quality, usable data. But government GIS survey data is probably superior.
+
+* [https://manticorp.github.io/unrealheightmap/](https://manticorp.github.io/unrealheightmap/) - exports 16-bit `png`
+* [https://touchterrain.geol.iastate.edu/](https://touchterrain.geol.iastate.edu/) - exports GeoTiff
 
 
 ## Converting Data
@@ -88,11 +86,11 @@ How we get there depends on your source data and tools available. Photoshop, Kri
 
 ### File Format
 
-Hopefully your source data is a 16-bit PNG or Tiff/GeoTiff file, which may allow you to convert it directly just by saving the file as an EXR or r16 in Krita. GeoTiff is a Tiff file with geospatial metadata embedded.
+Hopefully your source data is a 16-bit `png` or Tiff/GeoTiff file, which may allow you to convert it directly just by saving the file as an `exr` or `r16`. GeoTiff is a `tiff` file with geospatial metadata embedded.
 
 Some Tiff formats are newer and not supported by all image editing apps, and may require experimentation with multiple tools. 
 
-You might be able to convert it with a python script such as the following, which produces an r16 file (named raw):
+You might be able to convert it with a python script such as the following, which produces an `r16` file (named raw):
 ```
 	from PIL import Image
 	import numpy
@@ -102,7 +100,7 @@ You might be able to convert it with a python script such as the following, whic
 	imarray.astype('int16').tofile("image.raw")
 ```
 
-If your GIS source data is in a non-image format, you can try converting it with [VTBuilder](http://vterrain.org/). Drag the file into the window, and if it loads, use `Elevation/Export To` and save it as 16-bit PNG or GeoTiff.
+If your GIS source data is in a non-image format, you can try converting it with [VTBuilder](http://vterrain.org/). Drag the file into the window, and if it loads, use `Elevation/Export To` and save it as 16-bit `png` or GeoTiff.
 
 
 ### Normalized Data
@@ -111,20 +109,20 @@ Once the source file is opened in an image editing program, the map might show o
 
 If the file shows a smooth gradient heightmap, then it's normalized, with all values between 0 and 1. Ensure the image is 16 or 32-bit. 8-bit will give you an ugly terraced terrain and will require a lot of smoothing to be usable.
 
-Either normalized values or real values are fine, as long as you understand how your data is formatted and that you must scale normalized values on import. That means knowing how much to scale by, and that info should have been provided with the data source.
+Either normalized values or real values are fine, as long as you understand how your data is formatted and that you must [scale](#scaling) normalized values on import. That means knowing how much to scale by, and that info should have been provided with the data source.
 
 
 ### Conversion Examples
 
-* **Ex 1:** I exported a 16-bit PNG from a commercial tool. I opened the file in Photoshop and exported it as EXR. Or I could have opened it in Krita and exported as EXR or R16.
+* **Ex 1:** I exported a 16-bit `png` from a commercial tool. I opened the file in Photoshop and exported it as `exr`. Or I could have opened it in Krita and exported as `exr` or `r16`.
 
 * **Ex 2:** I downloaded a Digital Elevation Model (DEM) from a govt website and received GeoTiff files. 
   * Though I've opened other GeoTiff files in Photoshop before, it couldn't read these. Krita opened them but only displayed black. 
-  * I was able open them in Gimp, and reviewing the pixel data showed the ocean at `-inf`, and the land at real world values. I exported as EXR and imported to Terrain3D, but the land was extremely high. 
-  * I was able to open the EXR in Photoshop and compare with my other known working EXR files. The landscape shape appeared, but the height values were extremely large. I experimented with various color management and bit depth conversions within Gimp to see if I could get a correct looking EXR in Photoshop, but couldn't. 
-  * In Gimp, I exported as Tiff, which gave me a Tiff I could open in Photoshop and gave me what I was looking, except the ocean still showed `-inf`. This was a problem as it produced holes in Terrain3D, but not our kind of holes that can be filled in. 
+  * I was able open them in Gimp, and reviewing the pixel data showed the ocean at `-inf`, and the land at real world values. I exported as `exr` and imported to Terrain3D, but the land was extremely high. 
+  * I was able to open the `exr` in Photoshop and compare with my other known working `exr` files. The landscape shape appeared, but the height values were extremely large. I experimented with various color management and bit depth conversions within Gimp to see if I could get a correct looking `exr` in Photoshop, but couldn't. 
+  * In Gimp, I exported as `tiff`, which gave me a file I could open in Photoshop and gave me the heights I was looking for, except the ocean still showed `-inf`. This was a problem as it produced holes in Terrain3D, but not our kind of holes that can be filled in. 
   * In Gimp I found `Colors / RGBClip` in the menu and used it to limit `-inf` to 0, while retaining height values above 1.
-  * Then I exported the Tiff to Photoshop, confirmed the values looked good, exported that to EXR for import and finally got the desired result.
+  * Then I exported the Tiff to Photoshop, confirmed the values looked good, exported that to `exr` for import and finally got the desired result.
 
 
 ## Scaling
@@ -133,14 +131,14 @@ Terrain3D generally expects a ratio of 1px = 1m lateral space with real world he
 
 1. **Vertical Scale**. If your data is not normalized, your data has real values and vertical scale should remain 1 on import. Most likely 0 is defined as sea level. This is how Terrain3D stores data internally. If your data is normalized with values 0-1, you can multiply by a vertical scale in the import tool to set the peak height according to what your source defines. You can also apply an offset to adjust how your data aligns with 0.
 
-2. **Vertical Aspect Ratio (VAR)**. This is often called `resolution` in GIS and terrain documentation, but there is a crucial distinction from image resolution. Your data has an inherent ratio of lateral space to height, or a 3D aspect ratio of XZ to Y. Terrain3D expects 1px = 1m with real world heights, giving a VAR of 1m lateral to 1m vertical. If your data is 1px = 10m with real world heights, the VAR is 10:1, different by a factor of 10. This can be adjusted by scaling the heightmap image in Photoshop before import (preferred), or scaling the heights on import, or adjusting [Mesh / Vertex Spacing](../api/class_terrain3d.rst#class-terrain3d-property-vertex-spacing) on or after import.
+2. **Vertical Aspect Ratio (VAR)**. This is often called `resolution` in GIS and terrain documentation, but there is a crucial distinction from image resolution. Your data has an inherent ratio of lateral space to height, or a 3D aspect ratio of XZ to Y (up). Terrain3D expects 1px = 1m with real world heights, giving a VAR of 1m lateral to 1m vertical. If your data is 1px = 10m with real world heights, the VAR is 10:1. That means your data is 10x wider than it is high and you need to either adjust the data or adjust Terrain3D settings to account for this difference to get an accurate result. This means scaling the heightmap image in Photoshop before import, scaling the heights on import, or adjusting [Mesh / Vertex Spacing](../api/class_terrain3d.rst#class-terrain3d-property-vertex-spacing) on or after import. Which one you choose depends on your needs, as described below.
 
 
 ### Scaling Examples
 
-Here are some examples of adjusting settings to account for both of these both of these characteristics. These examples will be more meaningful if you have read the [import doc](import_export.md) and have imported at least one heightmap first.
+Here are some examples of adjusting settings to account for vertical scale and VAR. These examples will be more meaningful if you've read the [import doc](import_export.md) and have imported at least one heightmap first.
 
-* **Ex 1**: I downloaded GIS data that is a 20m resolution DEM and received a GeoTiff. Upon loading it in Photoshop, the dropper tool revealed that sea level is at 0 and other points on land have real world values in meters. This means the vertical scale is built in, and every 1px on the map represents 20m of lateral space, which represents our VAR of 20:1. I want to work with this map in Terrain3D at the default resolution of 1px = 1m.
+* **Ex 1**: I downloaded GIS data that is a 20m resolution DEM and received a GeoTiff. Upon loading it in Photoshop, the dropper tool revealed that sea level is at 0 and other points on land have real world values in meters. This means the vertical scale is built in to the data, and every 1px on the map represents 20m of lateral space, giving us a VAR of 20:1. I want to work with this map in Terrain3D at the default resolution of 1px = 1m.
   * **Option 1**: In Photoshop I crop the image down to a small 500x500px area that I want to import, then scale the image 20x to 10k x 10k. 
 	* Given the large image size, in Terrain3D I increase the region size to 512 (10k / 32 = 312.5 minimum). (Read [why 32](introduction.md#regions)). 
 	* Next I import with a scale of 1, offset of 0, and leave vertex_spacing at 1. 
@@ -157,4 +155,4 @@ Here are some examples of adjusting settings to account for both of these both o
 	* On import, I repeat the region size, offset, and scale as above, but leave vertex_spacing at 1. 
 	* I still have a 4k x 4k world, with an accurate scale and VAR, but now my terrain resolution is a more optimal 1m. I could also split the difference with a 0.5 or 0.667 vertex_spacing.
 
-Read [Importing Data](import_export.md) to learn how to import your EXR.
+Read [Importing Data](import_export.md) to learn how to import your `exr`.
