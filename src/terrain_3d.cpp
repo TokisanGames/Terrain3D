@@ -16,6 +16,7 @@
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/core/version.hpp>
 
 #include "geoclipmap.h"
 #include "logger.h"
@@ -803,6 +804,9 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 	Transform3D scaled_t = Transform3D().scaled(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
 	scaled_t.origin = _snapped_position;
 	RS->instance_set_transform(_mesh_data.cross, scaled_t);
+#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
+	RS->instance_reset_physics_interpolation(_mesh_data.cross);
+#endif
 
 	int edge = 0;
 	int tile = 0;
@@ -828,6 +832,9 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 				t.origin = tile_tl;
 
 				RS->instance_set_transform(_mesh_data.tiles[tile], t);
+#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
+				RS->instance_reset_physics_interpolation(_mesh_data.tiles[tile]);
+#endif
 
 				tile++;
 			}
@@ -836,6 +843,9 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 			Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 			t.origin = snapped_pos;
 			RS->instance_set_transform(_mesh_data.fillers[l], t);
+#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
+			RS->instance_reset_physics_interpolation(_mesh_data.fillers[l]);
+#endif
 		}
 
 		if (l != _mesh_lods - 1) {
@@ -858,6 +868,9 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 				t = t.scaled(Vector3(scale, 1.f, scale));
 				t.origin = tile_center;
 				RS->instance_set_transform(_mesh_data.trims[edge], t);
+#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
+				RS->instance_reset_physics_interpolation(_mesh_data.trims[edge]);
+#endif
 			}
 
 			// Position seams
@@ -866,6 +879,9 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
 				t.origin = next_base;
 				RS->instance_set_transform(_mesh_data.seams[edge], t);
+#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
+				RS->instance_reset_physics_interpolation(_mesh_data.seams[edge]);
+#endif
 			}
 			edge++;
 		}
