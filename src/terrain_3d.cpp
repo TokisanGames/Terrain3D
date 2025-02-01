@@ -103,7 +103,7 @@ void Terrain3D::_initialize() {
  * This is a proxy for _process(delta) called by _notification() due to
  * https://github.com/godotengine/godot-cpp/issues/1022
  */
-void Terrain3D::__process(const double p_delta) {
+void Terrain3D::__physics_process(const double p_delta) {
 	if (!_initialized)
 		return;
 
@@ -140,7 +140,7 @@ void Terrain3D::_grab_camera() {
 		_camera_instance_id = _camera->get_instance_id();
 	} else {
 		_camera_instance_id = 0;
-		set_process(false); // disable snapping
+		set_physics_process(false); // disable snapping
 		LOG(ERROR, "Cannot find the active camera. Set it manually with Terrain3D.set_camera(). Stopping _process()");
 	}
 }
@@ -634,7 +634,7 @@ void Terrain3D::set_camera(Camera3D *p_camera) {
 			_camera_instance_id = _camera->get_instance_id();
 			LOG(DEBUG, "Setting camera: ", _camera);
 			_initialize();
-			set_process(true); // enable __process snapping
+			set_physics_process(true); // enable snapping
 		}
 	}
 }
@@ -1115,7 +1115,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_meta("_edit_lock_", true);
 			_setup_mouse_picking();
 			_initialize(); // Rebuild anything freed: meshes, collision, instancer
-			set_process(true);
+			set_physics_process(true);
 			break;
 		}
 
@@ -1127,9 +1127,9 @@ void Terrain3D::_notification(const int p_what) {
 
 			/// Game Loop notifications
 
-		case NOTIFICATION_PROCESS: {
-			// Node is processing one frame
-			__process(get_process_delta_time());
+		case NOTIFICATION_PHYSICS_PROCESS: {
+			// Node is processing one physics frame
+			__physics_process(get_process_delta_time());
 			break;
 		}
 
@@ -1195,7 +1195,7 @@ void Terrain3D::_notification(const int p_what) {
 			// Node is about to exit a SceneTree
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
-			set_process(false);
+			set_physics_process(false);
 			_clear_meshes();
 			_destroy_mouse_picking();
 			break;

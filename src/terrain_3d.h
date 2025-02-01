@@ -96,7 +96,7 @@ private:
 	Node3D *_mmi_parent;
 
 	void _initialize();
-	void __process(const double p_delta);
+	void __physics_process(const double p_delta);
 	void _grab_camera();
 
 	void _build_containers();
