@@ -69,8 +69,38 @@
 		<member name="scene_file" type="PackedScene" setter="set_scene_file" getter="get_scene_file">
 			A packed scene to load the mesh from. See the top description.
 		</member>
+		<member name="maximum_lod" type="int" setter="set_maximum_lod" getter="get_maximum_lod" default="0">
+			Sets the maximum level of detail (LOD) for this mesh asset. LODs above this value will be ignored.
+		</member>
+		<member name="maximum_shadow_lod" type="int" setter="set_maximum_shadow_lod" getter="get_maximum_shadow_lod" default="0">
+			Sets the maximum shadow level of detail (LOD) for this mesh asset. LODs above this value will not cast shadows.
+			This reduces the performance cost of shadow casting by not casting shadows for distant objects.
+		</member>
+		<member name="minimum_shadow_lod" type="int" setter="set_minimum_shadow_lod" getter="get_minimum_shadow_lod" default="0">
+			Sets the minimum shadow level of detail (LOD) for this mesh asset. When a lower LOD is used, it will cast the shadow of this LOD level.
+			This reduces the performance cost of shadow casting by using less detailed meshes for shadow rendering.
+		</member>
+		<member name="lod_0_visibility_range" type="float" setter="set_lod_0_visibility_range" getter="get_lod_0_visibility_range" default="0.0">
+			Sets [code skip-lint]GeometryInstance3D.set_visibility_range_end[/code] on all MultiMeshInstances used by this mesh at the first LOD level (the most detailed).
+			Allows the renderer to cull MMIs beyond this distance. The next LOD level will use this value its [code skip-lint]GeometryInstance3D.set_visibility_range_begin[/code].
+			Set to 0 to disable culling.
+		</member>
+		<member name="lod_1_visibility_range" type="float" setter="set_lod_1_visibility_range" getter="get_lod_1_visibility_range" default="0.0">
+			See [lod_0_visibility_range]. Applies to the second LOD level.
+		</member>
+		<member name="lod_2_visibility_range" type="float" setter="set_lod_2_visibility_range" getter="get_lod_2_visibility_range" default="0.0">
+			See [lod_0_visibility_range]. Applies to the third LOD level.
+		</member>
+		<member name="lod_3_visibility_range" type="float" setter="set_lod_3_visibility_range" getter="get_lod_3_visibility_range" default="0.0">
+			See [lod_0_visibility_range]. Applies to the fourth and last LOD level.
+		</member>
+		<member name="visibility_margin" type="float" setter="set_visibility_margin" getter="get_visibility_margin" default="0.0">
+			Sets the [code skip-lint]GeometryInstance3D.set_visibility_range_begin_margin[/code] and [code skip-lint]GeometryInstance3D.set_visibility_range_end_margin[/code] on all multimeshes used by this mesh.
+			We use Godot's default `Disabled` Fade mode, which uses hysteresis to switch between LOD levels. This prevents situations where LOD levels are switched back and forth quickly when the player moves around a transition point.
+		</member>
 		<member name="visibility_range" type="float" setter="set_visibility_range" getter="get_visibility_range" default="100.0">
 			Sets [code skip-lint]GeometryInstance3D.visibility_range_end[/code] on all MultiMeshInstances used by this mesh. Allows the renderer to cull MMIs beyond this distance. Set to 0 to disable culling.
+			Deprecated, see [lod_0_visibility_range].
 		</member>
 	</members>
 	<signals>
