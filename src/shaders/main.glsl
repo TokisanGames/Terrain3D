@@ -6,13 +6,9 @@
 R"(shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
 
-/* This shader is generated based upon the debug views you have selected.
- * The terrain function depends on this shader. So don't change:
- * - vertex positioning in vertex()
- * - terrain normal calculation in fragment()
- * - the last function being fragment() as the editor injects code before the closing }
- *
- * Most will only want to customize the material calculation and PBR application in fragment()
+/* The terrain depends on this shader to function. Don't change most things in vertex() or 
+ * terrain normal calculations in fragment(). You probably only want to customize the 
+ * material calculation and PBR application in fragment().
  *
  * Uniforms that begin with _ are private and will not display in the inspector. However, 
  * you can set them via code. You are welcome to create more of your own hidden uniforms.

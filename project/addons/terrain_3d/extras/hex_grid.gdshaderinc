@@ -1,24 +1,21 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 // This shader snippet draws a hex grid
-// Contributed by Broco
 
-shader_type spatial;
+// To use it, add this line to the top of your shader:
+// #include "res://addons/terrain_3d/extras/hex_grid.gdshaderinc"
 
-// 1. Uncomment and paste this function outside of any other function block:
+// And this line at the bottom of your shader:
+// 	draw_hex_grid(uv2, _region_texel_size, w_normal, ALBEDO);
 
-/*
 mat2 rotate2d(float _angle) {
 	return mat2(vec2(cos(_angle),-sin(_angle)), vec2(sin(_angle), cos(_angle)));
 }
-*/
 
-// 2. Uncomment and paste this code at the end of the fragment shader, before the last }
-
-/*
+void draw_hex_grid(vec2 uv, float texel_size, vec3 normal, inout vec3 albedo) {
 	float hex_size = 0.02;
 	float line_thickness = 0.04;
 
-	vec2 guv = (uv2 - vec2(0.5 * _region_texel_size)) / hex_size;
+	vec2 guv = (uv - vec2(0.5 * texel_size)) / hex_size;
 
 	// Convert UV to axial hex coordinates
 	float q = (sqrt(3.0) / 3.0 * guv.x - 1.0 / 3.0 * guv.y);
@@ -61,10 +58,10 @@ mat2 rotate2d(float _angle) {
 
 	// Filter lines by slope
 	float slope = 4.; // Can also assign to (auto_slope * 4.) to match grass placement
-	float slope_factor = clamp(dot(vec3(0., 1., 0.), slope * (w_normal - 1.) + 1.), 0., 1.);
+	float slope_factor = clamp(dot(vec3(0., 1., 0.), slope * (normal - 1.) + 1.), 0., 1.);
 
 	// Draw hex grid
-	ALBEDO = mix(ALBEDO, vec3(1.0), smoothstep(line_thickness + 0.02, line_thickness, line) * slope_factor);
+	albedo = mix(albedo, vec3(1.0), smoothstep(line_thickness + 0.02, line_thickness, line) * slope_factor);
 	// Draw Hex center dot
-	ALBEDO = mix(ALBEDO, vec3(0.0, 0.5, 0.5), smoothstep(0.11, 0.10, length(local_pos)) * slope_factor);
-*/
+	albedo = mix(albedo, vec3(0.0, 0.5, 0.5), smoothstep(0.11, 0.10, length(local_pos)) * slope_factor);
+}

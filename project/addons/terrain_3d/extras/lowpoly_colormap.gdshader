@@ -1,17 +1,9 @@
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// This is an example of a minimal, low-poly style shader colored by the color map and wetness tools.
+// No textures are needed or used in this shader.
+
 shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
-
-/* This shader is an example of a minimal, low-poly style.
- * The terrain function depends on this shader. So don't change:
- * - vertex positioning in vertex()
- * - terrain normal calculation in fragment()
- *
- * Uniforms that begin with _ are private and will not display in the inspector. However, 
- * you can set them via code. You are welcome to create more of your own hidden uniforms.
- *
- * This shader only supports the color map.
- *
- */
 
 // Defined Constants
 #define SKIP_PASS 0
@@ -35,10 +27,12 @@ uniform highp sampler2DArray _color_maps : source_color, filter_nearest_mipmap, 
 // Public uniforms
 uniform float default_roughness : hint_range(0.0, 1.0, 0.01) = 0.8;
 
-varying flat vec3 v_camera_pos; // required for editor functions
-varying vec3 v_vertex; // required for editor functions
+// Varyings & Types
+// Some are required for editor functions
+varying flat vec3 v_camera_pos;
 varying flat vec2 v_uv_offset;
 varying flat vec2 v_uv2_offset;
+varying vec3 v_vertex;
 
 ////////////////////////
 // Vertex
@@ -146,5 +140,4 @@ void fragment() {
 	ALBEDO = color_map.rgb;
 	ROUGHNESS = roughness;
 	SPECULAR = 1.0 - roughness;
-
 }

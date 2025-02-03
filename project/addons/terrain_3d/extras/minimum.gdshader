@@ -4,7 +4,13 @@
 shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
 
+// Defined Constants
+#define SKIP_PASS 0
+#define VERTEX_PASS 1
+#define FRAGMENT_PASS 2
+
 // Private uniforms
+// Commented uniforms aren't needed for this shader, but are available for your own needs.
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
 uniform float _vertex_spacing = 1.0;
@@ -14,46 +20,47 @@ uniform float _region_texel_size = 0.0009765625; // = 1/1024
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
-uniform float _texture_uv_scale_array[32];
-uniform float _texture_detile_array[32];
-uniform vec4 _texture_color_array[32];
+//uniform float _texture_uv_scale_array[32];
+//uniform float _texture_detile_array[32];
+//uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp usampler2DArray _control_maps : repeat_disable;
-uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
-uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+//uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+//uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+//uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 
 // Varyings & Types
+// Some are required for editor functions
 varying flat vec3 v_camera_pos;
 varying flat ivec3 v_region;
 varying flat vec2 v_uv_offset;
 varying flat vec2 v_uv2_offset;
 varying float v_vertex_xz_dist;
 varying vec3 v_vertex;
+varying vec3 v_normal;
 
 ////////////////////////
 // Vertex
 ////////////////////////
 
-// Takes in UV world space coordinates, returns ivec3 with:
+// Takes in UV world space coordinates & search depth (only applicable for background mode none)
+// Returns ivec3 with:
 // XY: (0 to _region_size) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_region_uv(const vec2 uv) {
-	ivec2 pos = ivec2(floor(uv * _region_texel_size)) + (_region_map_size / 2);
-	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
-	return ivec3(ivec2(mod(uv,_region_size)), layer_index);
-}
-
-// Takes in UV2 region space coordinates, returns vec3 with:
-// XY: (0 to 1) coordinates within a region
-// Z: layer index used for texturearrays, -1 if not in a region
-vec3 get_region_uv2(const vec2 uv2) {
-	// Remove Texel Offset to ensure correct region index.
-	ivec2 pos = ivec2(floor(uv2 - vec2(_region_texel_size * 0.5))) + (_region_map_size / 2);
-	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
-	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
+ivec3 get_region_uv(const vec2 uv, const int search) {
+	vec2 r_uv = uv;
+	vec2 o_uv = mod(r_uv,_region_size);
+	ivec2 pos;
+	int bounds, layer_index = -1;
+	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
+		if ((layer_index == -1 && _background_mode == 0u ) || i < 0) {
+			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
+			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
+			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
+		}
+	}
+	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
 }
 
 void vertex() {
@@ -73,21 +80,24 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	v_region = get_region_uv(UV);
+	v_region = get_region_uv(UV, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
-	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
-			(hole || (_background_mode == 0u && (get_region_uv(UV - _region_texel_size) & v_region).z < 0))) {
+	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
+			(hole || (_background_mode == 0u && v_region.z < 0))) {
 		v_vertex.x = 0. / 0.;
-	} else {
-		// Set final vertex height, 1 lookup.
+	} else {		
+		// Set final vertex height & calculate vertex normals. 3 lookups
 		float h = texelFetch(_height_maps, v_region, 0).r;
+		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
+		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
 		v_vertex.y = h;
+		v_normal = vec3(h - u, _vertex_spacing, h - v);
 	}
 
-	// Transform UVs to local to avoid poor precision during varying interpolation.
+	// Transform UVs to local to avoid poor precision during varying interpolation
 	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
 	UV -= v_uv_offset;
 	v_uv2_offset = v_uv_offset * _region_texel_size;
@@ -108,8 +118,8 @@ void fragment() {
 	// Recover UVs
 	vec2 uv = UV + v_uv_offset;
 	vec2 uv2 = UV2 + v_uv2_offset;
-
-	// Lookup offsets, ID and bilinear weights
+	
+	// Lookup offsets, ID and blend weight
 	const vec3 offsets = vec3(0, 1, 2);
 	vec2 index_id = floor(uv);
 	vec2 weight = fract(uv);
@@ -120,40 +130,69 @@ void fragment() {
 		weight.x * invert.y, // 2
 		invert.x * invert.y  // 3
 	);
+	
+	vec3 base_ddx = dFdxCoarse(v_vertex);
+	vec3 base_ddy = dFdyCoarse(v_vertex);
+	vec4 base_derivatives = vec4(base_ddx.xz, base_ddy.xz);
+	// When this exceeds 2.0, as derivatives are across 2x2 fragments it means that 
+	// each control map texel is less than 1 pixel in screen space as such we can 
+	// skip all extra lookups required for bilinear blend.
+	bool bilerp = length(base_derivatives  * _vertex_density) <= 2.0;
 
-	// Terrain normals, sample height map 8 times, because these are adjacent values
-	// they are cache friendly. texelFetch avoids any cross texture border interpolation errors.
-	// 8 lookups
-	float h[8];
-	h[0] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xx), 0).r; // 0 (0,0)
-	h[1] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yx), 0).r; // 1 (1,0)
-	h[2] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xy), 0).r; // 2 (0,1)
-	h[3] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yy), 0).r; // 3 (1,1)
-	h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz), 0).r; // 4 (1,2)
-	h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy), 0).r; // 5 (2,1)
-	h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx), 0).r; // 6 (2,0)
-	h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz), 0).r; // 7 (0,2)
-
-	// Calculate the normal from height map derivatives at 4 points.
+	ivec3 indexUV[4];
+	// control map lookups, used for some normal lookups as well
+	indexUV[0] = get_region_uv(index_id + offsets.xy, FRAGMENT_PASS);
+	indexUV[1] = get_region_uv(index_id + offsets.yy, FRAGMENT_PASS);
+	indexUV[2] = get_region_uv(index_id + offsets.yx, FRAGMENT_PASS);
+	indexUV[3] = get_region_uv(index_id + offsets.xx, FRAGMENT_PASS);
+	
+	// Terrain normals
 	vec3 index_normal[4];
-	index_normal[0] = normalize(vec3(h[2] - h[3], _vertex_spacing, h[2] - h[7]));
-	index_normal[1] = normalize(vec3(h[3] - h[5], _vertex_spacing, h[3] - h[4]));
-	index_normal[2] = normalize(vec3(h[1] - h[6], _vertex_spacing, h[1] - h[3]));
-	index_normal[3] = normalize(vec3(h[0] - h[1], _vertex_spacing, h[0] - h[2]));
+	float h[8];
+	// allows additional derivatives, eg world noise, brush previews etc
+	float u = 0.0;
+	float v = 0.0;
+	
+	// Re-use the indexUVs for the first lookups, skipping some math. 3 lookups
+	h[0] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
+	h[1] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
+	h[2] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
+	index_normal[3] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[2] + v));
 
-	// Interpolate
-	vec3 w_normal =
-		index_normal[0] * weights[0] +
-		index_normal[1] * weights[1] +
-		index_normal[2] * weights[2] +
-		index_normal[3] * weights[3];
+	// Set flat world normal - overriden if bilerp is true
+	vec3 w_normal = index_normal[3];
 
+	// Branching smooth normals must be done seperatley for correct normals at all 4 index ids
+	if (bilerp) {
+		// 5 lookups
+		// Fetch the additional required height values for smooth normals
+		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
+		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
+		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
+		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
+		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
+
+		// Calculate the normal for the remaining index ids.
+		index_normal[0] = normalize(vec3(h[2] - h[3] + u, _vertex_spacing, h[2] - h[7] + v));
+		index_normal[1] = normalize(vec3(h[3] - h[5] + u, _vertex_spacing, h[3] - h[4] + v));
+		index_normal[2] = normalize(vec3(h[1] - h[6] + u, _vertex_spacing, h[1] - h[3] + v));
+
+		// Set interpolated world normal
+		w_normal = 
+			index_normal[0] * weights[0] +
+			index_normal[1] * weights[1] +
+			index_normal[2] * weights[2] +
+			index_normal[3] * weights[3] ;
+	}
+		
+	// Apply terrain normals
 	vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
 	vec3 w_binormal = normalize(cross(w_normal, w_tangent));
 	NORMAL = mat3(VIEW_MATRIX) * w_normal;
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
-
+	
 	// Apply PBR
-	ALBEDO = vec3(0.2);
+	ALBEDO = vec3(.2);
+	ROUGHNESS = .7;
 }
