@@ -447,7 +447,7 @@ func add_setting(p_args: Dictionary) -> void:
 			pending_children.push_back(option)
 			control = option
 
-		SettingType.SLIDER, SettingType.DOUBLE_SLIDER:			
+		SettingType.SLIDER, SettingType.DOUBLE_SLIDER:
 			var slider: Control
 			if p_type == SettingType.SLIDER:
 				# Create an editable value box
@@ -477,7 +477,7 @@ func add_setting(p_args: Dictionary) -> void:
 			else: # DOUBLE_SLIDER
 				var label := Label.new()
 				label.set_custom_minimum_size(Vector2(60, 0))
-				label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_RIGHT)
+				label.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
 				slider = DoubleSlider.new()
 				slider.label = label
 				slider.suffix = p_suffix
