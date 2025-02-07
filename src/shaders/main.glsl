@@ -338,10 +338,10 @@ void fragment() {
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);
 	vec4 base_derivatives = vec4(base_ddx.xz, base_ddy.xz);
-	// When this exceeds 2.0, as derivatives are across 2x2 fragments it means that 
-	// each control map texel is less than 1 pixel in screen space as such we can 
+	// Calculate the effective mipmap for regionspace, and when less than 0,
 	// skip all extra lookups required for bilinear blend.
-	bool bilerp = length(base_derivatives  * _vertex_density) <= 2.0;
+	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
+	bool bilerp = region_mip < 0.0;
 
 	ivec3 indexUV[4];
 	// control map lookups, used for some normal lookups as well
@@ -381,8 +381,29 @@ void fragment() {
 		depth_blur + 1.,
 		smoothstep(0.0, 1.0, (v_vertex_xz_dist - bias_distance) / bias_distance));
 
-	// Branching smooth normals must be done seperatley for correct normals at all 4 index ids
+	// Colormap. 1 - 4 lookups
+	#define COLOR_MAP vec4(1.0, 1.0, 1.0, 0.5)
+	vec4 color_map;
+	vec3 region_uv = get_region_uv2(uv2);
+	color_map = region_uv.z > -1.0 && !bilerp ? textureLod(_color_maps, region_uv, region_mip) : COLOR_MAP;
+
+	// Branching smooth normals and interpolated color map must be done seperatley with unmodified weights.
 	if (bilerp) {
+		vec4 col_map[4];
+		col_map[3] = indexUV[3].z > -1 ? texelFetch(_color_maps, indexUV[3], 0) : COLOR_MAP;
+		color_map = col_map[3];
+		#ifdef FILTER_LINEAR
+		col_map[0] = indexUV[0].z > -1 ? texelFetch(_color_maps, indexUV[0], 0) : COLOR_MAP;
+		col_map[1] = indexUV[1].z > -1 ? texelFetch(_color_maps, indexUV[1], 0) : COLOR_MAP;
+		col_map[2] = indexUV[2].z > -1 ? texelFetch(_color_maps, indexUV[2], 0) : COLOR_MAP;
+		
+		color_map = 
+			col_map[0] * weights[0] +
+			col_map[1] * weights[1] +
+			col_map[2] * weights[2] +
+			col_map[3] * weights[3] ;
+		#endif
+
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
 		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
@@ -459,16 +480,6 @@ void fragment() {
 			mat[1].nrm_rg * weights[1] +
 			mat[2].nrm_rg * weights[2] +
 			mat[3].nrm_rg * weights[3] ;
-	}
-	
-	// Determine if we're in a region or not (region_uv.z>0)
-	vec3 region_uv = get_region_uv2(uv2);
-	
-	// Colormap. 1 lookup
-	vec4 color_map = vec4(1., 1., 1., .5);
-	if (region_uv.z >= 0.) {
-		float lod = textureQueryLod(_color_maps, uv2.xy).y;
-		color_map = textureLod(_color_maps, region_uv, lod);
 	}
 	
 	// Macro variation. 2 lookups
