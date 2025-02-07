@@ -3,6 +3,7 @@
 R"(
 
 //INSERT: TEXTURE_SAMPLERS_LINEAR
+#define FILTER_LINEAR 
 uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
