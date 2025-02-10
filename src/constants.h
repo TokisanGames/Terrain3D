@@ -5,12 +5,12 @@
 
 using namespace godot;
 
-// Constants
-
+// Macros
 #define RS RenderingServer::get_singleton()
 #define PS PhysicsServer3D::get_singleton()
 #define IS_EDITOR Engine::get_singleton()->is_editor_hint()
 
+// Constants
 #define COLOR_NAN Color(NAN, NAN, NAN, NAN)
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
 #define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
