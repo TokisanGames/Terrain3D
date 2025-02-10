@@ -62,8 +62,7 @@ ivec3 get_region_uv(const vec2 uv, const int search) {
 // XY: (0 to 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
 vec3 get_region_uv2(const vec2 uv2) {
-	// Remove texel offset to ensure correct region index
-	ivec2 pos = ivec2(floor(uv2 - vec2(_region_texel_size * 0.5))) + (_region_map_size / 2);
+	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
@@ -119,7 +118,9 @@ void fragment() {
 	vec2 uv2 = UV2 + v_uv2_offset;
 	
 	// Apply terrain normals
-	NORMAL = normalize(cross(dFdyCoarse(VERTEX),dFdxCoarse(VERTEX)));
+	vec3 ddx = dFdxCoarse(VERTEX);
+	vec3 ddy = dFdyCoarse(VERTEX);
+	NORMAL = normalize(cross(ddy, ddx));
 	TANGENT = normalize(cross(NORMAL, vec3(0.0, 0.0, 1.0)));
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
 	
@@ -127,11 +128,9 @@ void fragment() {
 	vec3 region_uv = get_region_uv2(uv2);
 	
 	// Colormap. 1 lookup
-	vec4 color_map = vec4(1., 1., 1., .5);
-	if (region_uv.z >= 0.) {
-		float lod = textureQueryLod(_color_maps, uv2.xy).y;
-		color_map = textureLod(_color_maps, region_uv, lod);
-	}
+	float lod = log2(max(length(ddx.xz), length(ddy.xz)) * _vertex_density);
+	vec4 color_map = region_uv.z > -1.0 ?
+		textureLod(_color_maps, region_uv, lod) : vec4(1., 1., 1., .5);
 	
 	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range
 	float roughness = fma(color_map.a - 0.5, 2.0, default_roughness);

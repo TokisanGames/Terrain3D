@@ -134,10 +134,10 @@ void fragment() {
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);
 	vec4 base_derivatives = vec4(base_ddx.xz, base_ddy.xz);
-	// When this exceeds 2.0, as derivatives are across 2x2 fragments it means that 
-	// each control map texel is less than 1 pixel in screen space as such we can 
+	// Calculate the effective mipmap for regionspace, and if less than 0,
 	// skip all extra lookups required for bilinear blend.
-	bool bilerp = length(base_derivatives  * _vertex_density) <= 2.0;
+	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
+	bool bilerp = region_mip < 0.0;
 
 	ivec3 indexUV[4];
 	// control map lookups, used for some normal lookups as well
