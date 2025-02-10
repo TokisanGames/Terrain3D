@@ -116,8 +116,7 @@ ivec3 get_region_uv(const vec2 uv, const int search) {
 // XY: (0 to 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
 vec3 get_region_uv2(const vec2 uv2) {
-	// Remove texel offset to ensure correct region index
-	ivec2 pos = ivec2(floor(uv2 - vec2(_region_texel_size * 0.5))) + (_region_map_size / 2);
+	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
