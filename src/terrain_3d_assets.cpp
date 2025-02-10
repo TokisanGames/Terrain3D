@@ -500,21 +500,30 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 
 	LOG(INFO, "Creating thumbnails for ids: ", start, " through ", end - 1);
 	for (int i = start; i < end; i++) {
-		Ref<Terrain3DMeshAsset> tmesh = get_mesh_asset(i);
-		if (tmesh.is_null()) {
+		Ref<Terrain3DMeshAsset> ma = get_mesh_asset(i);
+		if (ma.is_null()) {
 			LOG(WARN, i, ": Terrain3DMeshAsset is null");
 			continue;
 		}
-		LOG(DEBUG, i, ": Getting Terrain3DMeshAsset: ", String::num_uint64(tmesh->get_instance_id()));
-		Ref<Mesh> mesh = tmesh->get_mesh(0);
+		// Setup mesh
+		LOG(DEBUG, i, ": Getting Terrain3DMeshAsset: ", String::num_uint64(ma->get_instance_id()));
+		Ref<Mesh> mesh = ma->get_mesh(0);
 		LOG(DEBUG, i, ": Getting Mesh 0: ", mesh);
 		if (mesh.is_null()) {
 			LOG(WARN, i, ": Mesh is null");
 			continue;
 		}
-
 		RS->instance_set_base(mesh_instance, mesh->get_rid());
 
+		// Setup material
+		Ref<Material> mat = ma->get_material_override();
+		RID rid = mat.is_valid() ? mat->get_rid() : RID();
+		RS->instance_geometry_set_material_override(mesh_instance, rid);
+		mat = ma->get_material_overlay();
+		rid = mat.is_valid() ? mat->get_rid() : RID();
+		RS->instance_geometry_set_material_overlay(mesh_instance, rid);
+
+		// Setup scene
 		AABB aabb = mesh->get_aabb();
 		Vector3 ofs = aabb.get_center();
 		aabb.position -= ofs;
@@ -546,7 +555,7 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 			continue;
 		}
 
-		tmesh->_thumbnail = ImageTexture::create_from_image(img);
+		ma->_thumbnail = ImageTexture::create_from_image(img);
 	}
 	return;
 }
