@@ -362,7 +362,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 	LOG(INFO, "Loading region files from ", p_dir);
 	PackedStringArray files = da->get_files();
 	for (int i = 0; i < files.size(); i++) {
-		String fname = files[i];
+		String fname = files[i].trim_suffix(".remap");
 		String path = p_dir + String("/") + fname;
 		if (!fname.begins_with("terrain3d") || !fname.ends_with(".res")) {
 			continue;
