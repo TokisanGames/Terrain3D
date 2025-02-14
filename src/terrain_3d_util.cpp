@@ -361,7 +361,7 @@ Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Imag
 		return Ref<Image>();
 	}
 	if (p_alpha_channel < 0 || p_alpha_channel > 3) {
-		LOG(ERROR, "Source Channel of Height/Roughness invalid. Cannot Pack")
+		LOG(ERROR, "Source Channel of Height/Roughness invalid. Cannot Pack");
 		return Ref<Image>();
 	}
 	Ref<Image> dst = Image::create_empty(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGBA8);

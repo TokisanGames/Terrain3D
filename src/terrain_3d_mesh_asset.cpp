@@ -123,6 +123,7 @@ void Terrain3DMeshAsset::clear() {
 	LOG(INFO, "Clearing MeshAsset");
 	_name = "New Mesh";
 	_id = 0;
+	_enabled = true;
 	_packed_scene.unref();
 	_generated_type = TYPE_NONE;
 	_meshes.clear();
@@ -154,6 +155,12 @@ void Terrain3DMeshAsset::set_id(const int p_new_id) {
 	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES);
 	LOG(INFO, "Setting mesh id: ", _id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, p_new_id);
+}
+
+void Terrain3DMeshAsset::set_enabled(const bool p_enabled) {
+	_enabled = p_enabled;
+	LOG(INFO, "Setting enabled: ", p_enabled);
+	emit_signal("instancer_setting_changed");
 }
 
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
@@ -465,6 +472,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_name"), &Terrain3DMeshAsset::get_name);
 	ClassDB::bind_method(D_METHOD("set_id", "id"), &Terrain3DMeshAsset::set_id);
 	ClassDB::bind_method(D_METHOD("get_id"), &Terrain3DMeshAsset::get_id);
+	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Terrain3DMeshAsset::set_enabled);
+	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DMeshAsset::is_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_scene_file", "scene_file"), &Terrain3DMeshAsset::set_scene_file);
 	ClassDB::bind_method(D_METHOD("get_scene_file"), &Terrain3DMeshAsset::get_scene_file);
@@ -523,6 +532,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled", PROPERTY_HINT_NONE), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
