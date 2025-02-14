@@ -180,6 +180,8 @@ public:
 	void set_cull_margin(const real_t p_margin);
 	real_t get_cull_margin() const { return _cull_margin; };
 	bool is_compatibility_mode() const { return _compatibility; };
+	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
+	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
 
 	// Processing
 	void snap(const Vector3 &p_cam_pos);

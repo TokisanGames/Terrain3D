@@ -47,6 +47,9 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			// Verify mesh id is valid and has some meshes
 			Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
 			if (ma.is_valid()) {
+				if (!ma->is_enabled()) {
+					continue;
+				}
 				if (ma->get_lod_count() == 0) {
 					LOG(WARN, "MeshAsset ", mesh_id, " valid but has no meshes, skipping");
 					continue;

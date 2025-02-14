@@ -445,9 +445,6 @@ class ListContainer extends Container:
 	func _ready() -> void:
 		set_v_size_flags(SIZE_EXPAND_FILL)
 		set_h_size_flags(SIZE_EXPAND_FILL)
-		focus_style = get_theme_stylebox("focus", "Button").duplicate()
-		focus_style.set_border_width_all(2)
-		focus_style.set_border_color(Color(1, 1, 1, .67))
 
 
 	func clear() -> void:
@@ -595,7 +592,7 @@ class ListContainer extends Container:
 
 
 	func set_entry_width(value: float) -> void:
-		width = clamp(value, 56, 230)
+		width = clamp(value, 66, 230)
 		redraw()
 
 
@@ -648,45 +645,86 @@ class ListEntry extends VBoxContainer:
 	var is_selected: bool = false
 	var asset_list: Terrain3DAssets
 	
-	var button_clear: TextureButton
-	var button_edit: TextureButton
-	var name_label: Label
-	
-	@onready var add_icon: Texture2D = get_theme_icon("Add", "EditorIcons")
+	@onready var button_row := HBoxContainer.new()
+	@onready var button_clear := TextureButton.new()
+	@onready var button_edit := TextureButton.new()
+	@onready var spacer := Control.new()
+	@onready var button_enabled := TextureButton.new()
 	@onready var clear_icon: Texture2D = get_theme_icon("Close", "EditorIcons")
 	@onready var edit_icon: Texture2D = get_theme_icon("Edit", "EditorIcons")
+	@onready var enabled_icon: Texture2D = get_theme_icon("GuiVisibilityVisible", "EditorIcons")
+	@onready var disabled_icon: Texture2D = get_theme_icon("GuiVisibilityHidden", "EditorIcons")
+
+	var name_label: Label
+	@onready var add_icon: Texture2D = get_theme_icon("Add", "EditorIcons")
 	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
-	var focus_style: StyleBox
+	@onready var focus_style: StyleBox = get_theme_stylebox("focus", "Button").duplicate()
 
 
 	func _ready() -> void:
+		setup_buttons()
+		setup_label()
+		focus_style.set_border_width_all(2)
+		focus_style.set_border_color(Color(1, 1, 1, .67))
+
+
+	func setup_buttons() -> void:
 		var icon_size: Vector2 = Vector2(12, 12)
+		var margin_container := MarginContainer.new()
+		margin_container.mouse_filter = Control.MOUSE_FILTER_PASS
+		margin_container.add_theme_constant_override("margin_top", 5)
+		margin_container.add_theme_constant_override("margin_left", 5)
+		margin_container.add_theme_constant_override("margin_right", 5)
+		add_child(margin_container)
 		
-		button_clear = TextureButton.new()
-		button_clear.set_texture_normal(clear_icon)
-		button_clear.set_custom_minimum_size(icon_size)
-		button_clear.set_h_size_flags(Control.SIZE_SHRINK_END)
-		button_clear.set_visible(resource != null)
-		button_clear.pressed.connect(clear)
-		add_child(button_clear)
+		button_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		button_row.mouse_filter = Control.MOUSE_FILTER_PASS
+		margin_container.add_child(button_row)
+
+		if type == Terrain3DAssets.TYPE_MESH:
+			button_enabled.set_texture_normal(enabled_icon)
+			button_enabled.set_texture_pressed(disabled_icon)
+			button_enabled.set_custom_minimum_size(icon_size)
+			button_enabled.set_h_size_flags(Control.SIZE_SHRINK_END)
+			button_enabled.set_visible(resource != null)
+			button_enabled.toggle_mode = true
+			button_enabled.mouse_filter = Control.MOUSE_FILTER_PASS
+			button_enabled.pressed.connect(enable)
+			button_row.add_child(button_enabled)
 		
-		button_edit = TextureButton.new()
 		button_edit.set_texture_normal(edit_icon)
 		button_edit.set_custom_minimum_size(icon_size)
 		button_edit.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_edit.set_visible(resource != null)
+		button_edit.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_edit.pressed.connect(edit)
-		add_child(button_edit)
+		button_row.add_child(button_edit)
+
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spacer.mouse_filter = Control.MOUSE_FILTER_PASS
+		button_row.add_child(spacer)
 		
+		button_clear.set_texture_normal(clear_icon)
+		button_clear.set_custom_minimum_size(icon_size)
+		button_clear.set_h_size_flags(Control.SIZE_SHRINK_END)
+		button_clear.set_visible(resource != null)
+		button_clear.mouse_filter = Control.MOUSE_FILTER_PASS
+		button_clear.pressed.connect(clear)
+		button_row.add_child(button_clear)
+
+
+	func setup_label() -> void:
 		name_label = Label.new()
 		add_child(name_label, true)
 		name_label.visible = false
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		name_label.add_theme_color_override("font_color", Color.WHITE)
 		name_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-		name_label.add_theme_constant_override("shadow_offset_x", 1)
-		name_label.add_theme_constant_override("shadow_offset_y", 1)
+		name_label.add_theme_constant_override("shadow_offset_x", 1.)
+		name_label.add_theme_constant_override("shadow_offset_y", 1.)
 		name_label.add_theme_font_size_override("font_size", 15)
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -699,6 +737,9 @@ class ListEntry extends VBoxContainer:
 	func _notification(p_what) -> void:
 		match p_what:
 			NOTIFICATION_DRAW:
+				# Hide spacer if icons are crowding small textures
+				spacer.visible = size.x > 70 or type == Terrain3DAssets.TYPE_TEXTURE
+				
 				var rect: Rect2 = Rect2(Vector2.ZERO, get_size())
 				if !resource:
 					draw_style_box(background, rect)
@@ -720,6 +761,7 @@ class ListEntry extends VBoxContainer:
 							texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 						else:
 							draw_rect(rect, Color(.15, .15, .15, 1.))
+						button_enabled.set_pressed_no_signal(!resource.is_enabled())
 				name_label.add_theme_font_size_override("font_size", 4 + rect.size.x/10)
 				if drop_data:
 					draw_style_box(focus_style, rect)
@@ -805,6 +847,8 @@ class ListEntry extends VBoxContainer:
 		if resource:
 			resource.setting_changed.connect(_on_resource_changed)
 			resource.file_changed.connect(_on_resource_changed)
+			if resource is Terrain3DMeshAsset:
+				resource.instancer_setting_changed.connect(_on_resource_changed)
 		
 		if button_clear:
 			button_clear.set_visible(resource != null)
@@ -815,6 +859,7 @@ class ListEntry extends VBoxContainer:
 
 
 	func _on_resource_changed() -> void:
+		queue_redraw()
 		emit_signal("changed", resource)
 
 
@@ -831,3 +876,8 @@ class ListEntry extends VBoxContainer:
 	func edit() -> void:
 		emit_signal("selected")
 		emit_signal("inspected", resource)
+
+
+	func enable() -> void:
+		if resource is Terrain3DMeshAsset:
+			resource.set_enabled(!resource.is_enabled())

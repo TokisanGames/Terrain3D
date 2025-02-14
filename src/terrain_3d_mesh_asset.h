@@ -36,6 +36,7 @@ public:
 
 private:
 	// Saved data
+	bool _enabled = true;
 	Ref<PackedScene> _packed_scene;
 	GenType _generated_type = TYPE_NONE;
 
@@ -73,6 +74,8 @@ public:
 	String get_name() const override { return _name; }
 	void set_id(const int p_new_id) override;
 	int get_id() const override { return _id; }
+	void set_enabled(const bool p_enabled);
+	bool is_enabled() const { return _enabled; }
 
 	void set_scene_file(const Ref<PackedScene> &p_scene_file);
 	Ref<PackedScene> get_scene_file() const { return _packed_scene; }
