@@ -141,7 +141,7 @@
   <ItemGroup>
     <ClInclude Include="src\constants.h" />
     <ClInclude Include="src\generated_texture.h" />
-    <ClInclude Include="src\geoclipmap.h" />
+    <ClInclude Include="src\terrain_3d_mesher.h" />
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\terrain_3d.h" />
     <ClInclude Include="src\terrain_3d_asset_resource.h" />
@@ -159,7 +159,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\generated_texture.cpp" />
-    <ClCompile Include="src\geoclipmap.cpp" />
+    <ClCompile Include="src\terrain_3d_mesher.cpp" />
     <ClCompile Include="src\register_types.cpp" />
     <ClCompile Include="src\terrain_3d.cpp" />
     <ClCompile Include="src\terrain_3d_collision.cpp" />

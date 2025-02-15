@@ -5,6 +5,7 @@ project/_export/
 project/_tests/
 project/test/
 src/_archive/
+src/gen/
 _misc/
 _patches/
 *.zip

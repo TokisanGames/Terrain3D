@@ -436,10 +436,11 @@ void Terrain3DUtil::benchmark(Terrain3D *p_terrain) {
 	}
 	uint64_t start_time;
 	Vector3 vec;
+	Color col;
 	for (int i = 0; i < 3; i++) {
 		start_time = Time::get_singleton()->get_ticks_msec();
 		for (uint32_t j = 0; j < 10000000; j++) {
-			data->get_pixel(TYPE_HEIGHT, vec);
+			col = data->get_pixel(TYPE_HEIGHT, vec);
 		}
 		LOG(MESG, "get_pixel() 10M: ", Time::get_singleton()->get_ticks_msec() - start_time, "ms");
 	}

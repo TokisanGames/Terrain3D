@@ -392,7 +392,7 @@ void Terrain3DMaterial::_update_shader() {
 		}
 		code = _shader_override->get_code();
 		if (_compatibility) {
-			if (!code.contains("COMPATIBILITY_DEFINES")) {
+			if (!code.contains("#define IS_COMPATIBILITY")) {
 				// Insert after render_mode
 				regex->compile("render_mode.*;?");
 				match = regex->search(code);
@@ -523,6 +523,9 @@ void Terrain3DMaterial::_update_maps() {
 	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
 	RS->material_set_param(_material, "_vertex_spacing", spacing);
 	RS->material_set_param(_material, "_vertex_density", 1.0f / spacing);
+
+	real_t mesh_size = real_t(_terrain->get_mesh_size());
+	RS->material_set_param(_material, "_mesh_size", mesh_size);
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list

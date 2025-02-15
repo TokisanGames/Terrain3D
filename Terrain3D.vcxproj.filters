@@ -27,7 +27,7 @@
     <ClInclude Include="src\terrain_3d_assets.h">
       <Filter>5. Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\geoclipmap.h">
+    <ClInclude Include="src\terrain_3d_mesher.h">
       <Filter>5. Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\register_types.h">
@@ -77,7 +77,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\geoclipmap.cpp">
+    <ClCompile Include="src\terrain_3d_mesher.cpp">
       <Filter>6. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\register_types.cpp">

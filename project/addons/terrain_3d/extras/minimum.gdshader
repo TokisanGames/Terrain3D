@@ -11,6 +11,8 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 // Private uniforms
 // Commented uniforms aren't needed for this shader, but are available for your own needs.
+uniform vec3 _camera_pos = vec3(0.f);
+uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
 uniform float _vertex_spacing = 1.0;
@@ -31,7 +33,6 @@ uniform highp usampler2DArray _control_maps : repeat_disable;
 
 // Varyings & Types
 // Some are required for editor functions
-varying flat vec3 v_camera_pos;
 varying flat ivec3 v_region;
 varying flat vec2 v_uv_offset;
 varying flat vec2 v_uv2_offset;
@@ -48,7 +49,7 @@ varying vec3 v_normal;
 // XY: (0 to _region_size) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
 ivec3 get_region_uv(const vec2 uv, const int search) {
-	vec2 r_uv = uv;
+	vec2 r_uv = round(uv);
 	vec2 o_uv = mod(r_uv,_region_size);
 	ivec2 pos;
 	int bounds, layer_index = -1;
@@ -64,33 +65,49 @@ ivec3 get_region_uv(const vec2 uv, const int search) {
 }
 
 void vertex() {
-	// Get camera pos in world vertex coords
-	v_camera_pos = INV_VIEW_MATRIX[3].xyz;
-
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
 	// Camera distance to vertex on flat plane
-	v_vertex_xz_dist = length(v_vertex.xz - v_camera_pos.xz);
+	v_vertex_xz_dist = length(v_vertex.xz - _camera_pos.xz);
+
+	// Geomorph vertex, set end and start for linear height interpolate
+	float scale = MODEL_MATRIX[0][0];
+	float vertex_lerp = smoothstep(0.55, 0.95, (v_vertex_xz_dist / scale - _mesh_size - 4.0) / (_mesh_size - 2.0));
+	vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
+	// For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
+	vec2 shift = (scale < _vertex_spacing + 1e-6) ? // LOD0 or not
+		// Shift from regular to symetric
+		mix(v_fract, vec2(v_fract.x, -v_fract.y),
+			round(fract(round(mod(v_vertex.z * _vertex_density, 4.0)) *
+			round(mod(v_vertex.x * _vertex_density, 4.0)) * 0.25))
+			) :
+		// Symetric shift
+		v_fract * round((fract(v_vertex.xz * 0.25 / scale) - 0.5) * 4.0);
+	vec2 start_pos = v_vertex.xz * _vertex_density;
+	vec2 end_pos = (v_vertex.xz - shift * scale) * _vertex_density;
+	v_vertex.xz -= shift * scale * vertex_lerp;
 
 	// UV coordinates in world space. Values are 0 to _region_size within regions
-	UV = round(v_vertex.xz * _vertex_density);
+	UV = v_vertex.xz * _vertex_density;
 
 	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	v_region = get_region_uv(UV, VERTEX_PASS);
+	v_region = get_region_uv(start_pos, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
-	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
+	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
 			(hole || (_background_mode == 0u && v_region.z < 0))) {
 		v_vertex.x = 0. / 0.;
-	} else {		
-		// Set final vertex height & calculate vertex normals. 3 lookups
-		float h = texelFetch(_height_maps, v_region, 0).r;
+	} else {
+		// Interpolate Geomorph Start & End, set height. 2 Lookups.
+		ivec3 uv_a = get_region_uv(start_pos, VERTEX_PASS);
+		ivec3 uv_b = get_region_uv(end_pos, VERTEX_PASS);
+		float h = mix(texelFetch(_height_maps, uv_a, 0).r, texelFetch(_height_maps, uv_b, 0).r, vertex_lerp);
 		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
 		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
 		v_vertex.y = h;
@@ -118,7 +135,7 @@ void fragment() {
 	// Recover UVs
 	vec2 uv = UV + v_uv_offset;
 	vec2 uv2 = UV2 + v_uv2_offset;
-	
+
 	// Lookup offsets, ID and blend weight
 	const vec3 offsets = vec3(0, 1, 2);
 	vec2 index_id = floor(uv);
@@ -130,7 +147,7 @@ void fragment() {
 		weight.x * invert.y, // 2
 		invert.x * invert.y  // 3
 	);
-	
+
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);
 	vec4 base_derivatives = vec4(base_ddx.xz, base_ddy.xz);
@@ -145,14 +162,14 @@ void fragment() {
 	indexUV[1] = get_region_uv(index_id + offsets.yy, FRAGMENT_PASS);
 	indexUV[2] = get_region_uv(index_id + offsets.yx, FRAGMENT_PASS);
 	indexUV[3] = get_region_uv(index_id + offsets.xx, FRAGMENT_PASS);
-	
+
 	// Terrain normals
 	vec3 index_normal[4];
 	float h[8];
 	// allows additional derivatives, eg world noise, brush previews etc
 	float u = 0.0;
 	float v = 0.0;
-	
+
 	// Re-use the indexUVs for the first lookups, skipping some math. 3 lookups
 	h[0] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
 	h[1] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
@@ -178,20 +195,20 @@ void fragment() {
 		index_normal[2] = normalize(vec3(h[1] - h[6] + u, _vertex_spacing, h[1] - h[3] + v));
 
 		// Set interpolated world normal
-		w_normal = 
+		w_normal =
 			index_normal[0] * weights[0] +
 			index_normal[1] * weights[1] +
 			index_normal[2] * weights[2] +
 			index_normal[3] * weights[3] ;
 	}
-		
+
 	// Apply terrain normals
 	vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
 	vec3 w_binormal = normalize(cross(w_normal, w_tangent));
 	NORMAL = mat3(VIEW_MATRIX) * w_normal;
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
-	
+
 	// Apply PBR
 	ALBEDO = vec3(.2);
 	ROUGHNESS = .7;

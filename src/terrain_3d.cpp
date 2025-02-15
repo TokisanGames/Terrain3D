@@ -18,7 +18,6 @@
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/version.hpp>
 
-#include "geoclipmap.h"
 #include "logger.h"
 #include "terrain_3d.h"
 #include "terrain_3d_util.h"
@@ -54,6 +53,10 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Creating instancer");
 		_instancer = memnew(Terrain3DInstancer);
 	}
+	if (!_mesher) {
+		LOG(DEBUG, "Creating mesher");
+		_mesher = new Terrain3DMesher();
+	}
 
 	// Connect signals
 	// Any region was changed, update region labels
@@ -72,9 +75,9 @@ void Terrain3D::_initialize() {
 		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
 	// Height map was regenerated, update aabbs
-	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs))) {
+	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs))) {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
-		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::update_aabbs));
+		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
@@ -94,7 +97,7 @@ void Terrain3D::_initialize() {
 		_assets->initialize(this);
 		_collision->initialize(this);
 		_instancer->initialize(this);
-		_build_meshes(_mesh_lods, _mesh_size);
+		_mesher->initialize(this);
 		_initialized = true;
 	}
 	update_configuration_warnings();
@@ -118,9 +121,16 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (is_instance_valid(_camera_instance_id) && _camera->is_inside_tree()) {
 		Vector3 cam_pos = _camera->get_global_position();
 		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
+		RS->material_set_param(_material->get_material_rid(), "_camera_pos", cam_pos);
 		if (_camera_last_position.distance_to(cam_pos_2d) > 0.2f) {
-			snap(cam_pos);
+			if (_mesher) {
+				_mesher->snap(cam_pos);
+			}
+			_snapped_position = (cam_pos / _vertex_spacing).floor() * _vertex_spacing;
 			_camera_last_position = cam_pos_2d;
+			if (_collision && _collision->is_dynamic_mode()) {
+				_collision->update();
+			}
 		}
 	}
 }
@@ -184,209 +194,15 @@ void Terrain3D::_destroy_collision(const bool p_final) {
 	}
 }
 
-void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
-	if (!is_inside_tree() || !_data) {
-		LOG(DEBUG, "Not inside the tree or no valid _data, skipping build");
-		return;
-	}
-	LOG(INFO, "Building the terrain meshes");
-
-	// Generate terrain meshes, lods, seams
-	_meshes = GeoClipMap::generate(p_mesh_size, p_mesh_lods);
-	ERR_FAIL_COND(_meshes.is_empty());
-
-	// Set the current terrain material on all meshes
-	RID material_rid = _material->get_material_rid();
-	for (const RID rid : _meshes) {
-		RS->mesh_surface_set_material(rid, 0, material_rid);
-	}
-
-	LOG(DEBUG, "Creating mesh instances");
-
-	// Get current visual scenario so the instances appear in the scene
-	RID scenario = get_world_3d()->get_scenario();
-
-	bool baked_light;
-	bool dynamic_gi;
-	switch (_gi_mode) {
-		case GeometryInstance3D::GI_MODE_DISABLED: {
-			baked_light = false;
-			dynamic_gi = false;
-		} break;
-		case GeometryInstance3D::GI_MODE_DYNAMIC: {
-			baked_light = false;
-			dynamic_gi = true;
-		} break;
-		case GeometryInstance3D::GI_MODE_STATIC:
-		default: {
-			baked_light = true;
-			dynamic_gi = false;
-		} break;
-	}
-
-	_mesh_data.cross = RS->instance_create2(_meshes[GeoClipMap::CROSS], scenario);
-	RS->instance_set_layer_mask(_mesh_data.cross, _render_layers);
-	RS->instance_geometry_set_cast_shadows_setting(_mesh_data.cross, _cast_shadows);
-	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-
-	for (int lod = 0; lod < p_mesh_lods; lod++) {
-		for (int x = 0; x < 4; x++) {
-			for (int y = 0; y < 4; y++) {
-				if (lod != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
-					continue;
-				}
-				RID tile;
-				if (lod == 0) {
-					tile = RS->instance_create2(_meshes[GeoClipMap::TILE_INNER], scenario);
-				} else {
-					tile = RS->instance_create2(_meshes[GeoClipMap::TILE], scenario);
-				}
-				RS->instance_set_layer_mask(tile, _render_layers);
-				RS->instance_geometry_set_cast_shadows_setting(tile, _cast_shadows);
-				RS->instance_geometry_set_flag(tile, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-				RS->instance_geometry_set_flag(tile, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-				_mesh_data.tiles.push_back(tile);
-			}
-		}
-
-		RID filler;
-		if (lod == 0) {
-			filler = RS->instance_create2(_meshes[GeoClipMap::FILLER_INNER], scenario);
-		} else {
-			filler = RS->instance_create2(_meshes[GeoClipMap::FILLER], scenario);
-		}
-		RS->instance_set_layer_mask(filler, _render_layers);
-		RS->instance_geometry_set_cast_shadows_setting(filler, _cast_shadows);
-		RS->instance_geometry_set_flag(filler, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-		RS->instance_geometry_set_flag(filler, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-		_mesh_data.fillers.push_back(filler);
-
-		if (lod != p_mesh_lods - 1) {
-			RID trim;
-			if (lod == 0) {
-				trim = RS->instance_create2(_meshes[GeoClipMap::TRIM_INNER], scenario);
-			} else {
-				trim = RS->instance_create2(_meshes[GeoClipMap::TRIM], scenario);
-			}
-			RS->instance_set_layer_mask(trim, _render_layers);
-			RS->instance_geometry_set_cast_shadows_setting(trim, _cast_shadows);
-			RS->instance_geometry_set_flag(trim, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-			RS->instance_geometry_set_flag(trim, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-			_mesh_data.trims.push_back(trim);
-
-			RID seam = RS->instance_create2(_meshes[GeoClipMap::SEAM], scenario);
-			RS->instance_set_layer_mask(seam, _render_layers);
-			RS->instance_geometry_set_cast_shadows_setting(seam, _cast_shadows);
-			RS->instance_geometry_set_flag(seam, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-			RS->instance_geometry_set_flag(seam, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-			_mesh_data.seams.push_back(seam);
+void Terrain3D::_destroy_mesher(const bool p_final) {
+	LOG(INFO, "Destroying GeoMesh");
+	if (_mesher) {
+		_mesher->destroy();
+		if (p_final) {
+			delete _mesher;
+			_mesher = nullptr;
 		}
 	}
-
-	update_aabbs();
-	// Force a snap update
-	_camera_last_position = V2_MAX;
-}
-
-/**
- * Make all mesh instances visible or not
- * Update all mesh instances with the new world scenario so they appear
- */
-void Terrain3D::_update_mesh_instances() {
-	if (!_initialized || !_is_inside_world || !is_inside_tree()) {
-		return;
-	}
-
-	RID _scenario = get_world_3d()->get_scenario();
-
-	bool baked_light;
-	bool dynamic_gi;
-	switch (_gi_mode) {
-		case GeometryInstance3D::GI_MODE_DISABLED: {
-			baked_light = false;
-			dynamic_gi = false;
-		} break;
-		case GeometryInstance3D::GI_MODE_DYNAMIC: {
-			baked_light = false;
-			dynamic_gi = true;
-		} break;
-		case GeometryInstance3D::GI_MODE_STATIC:
-		default: {
-			baked_light = true;
-			dynamic_gi = false;
-		} break;
-	}
-
-	bool v = is_visible_in_tree();
-	RS->instance_set_visible(_mesh_data.cross, v);
-	RS->instance_set_scenario(_mesh_data.cross, _scenario);
-	RS->instance_set_layer_mask(_mesh_data.cross, _render_layers);
-	RS->instance_geometry_set_cast_shadows_setting(_mesh_data.cross, _cast_shadows);
-	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-	RS->instance_geometry_set_flag(_mesh_data.cross, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-
-	for (const RID rid : _mesh_data.tiles) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_set_layer_mask(rid, _render_layers);
-		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-	}
-
-	for (const RID rid : _mesh_data.fillers) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_set_layer_mask(rid, _render_layers);
-		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-	}
-
-	for (const RID rid : _mesh_data.trims) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_set_layer_mask(rid, _render_layers);
-		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-	}
-
-	for (const RID rid : _mesh_data.seams) {
-		RS->instance_set_visible(rid, v);
-		RS->instance_set_scenario(rid, _scenario);
-		RS->instance_set_layer_mask(rid, _render_layers);
-		RS->instance_geometry_set_cast_shadows_setting(rid, _cast_shadows);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-		RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
-	}
-}
-
-void Terrain3D::_clear_meshes() {
-	LOG(INFO, "Clearing the terrain meshes");
-	for (const RID rid : _meshes) {
-		RS->free_rid(rid);
-	}
-	RS->free_rid(_mesh_data.cross);
-	for (const RID rid : _mesh_data.tiles) {
-		RS->free_rid(rid);
-	}
-	for (const RID rid : _mesh_data.fillers) {
-		RS->free_rid(rid);
-	}
-	for (const RID rid : _mesh_data.trims) {
-		RS->free_rid(rid);
-	}
-	for (const RID rid : _mesh_data.seams) {
-		RS->free_rid(rid);
-	}
-	_meshes.clear();
-	_mesh_data.tiles.clear();
-	_mesh_data.fillers.clear();
-	_mesh_data.trims.clear();
-	_mesh_data.seams.clear();
-	_initialized = false;
 }
 
 void Terrain3D::_setup_mouse_picking() {
@@ -618,7 +434,7 @@ void Terrain3D::set_debug_level(const int p_level) {
 void Terrain3D::set_data_directory(String p_dir) {
 	LOG(INFO, "Setting data directory to ", p_dir);
 	if (_data_directory != p_dir) {
-		_clear_meshes();
+		_initialized = false;
 		_destroy_labels();
 		_destroy_collision();
 		_destroy_instancer();
@@ -631,7 +447,7 @@ void Terrain3D::set_data_directory(String p_dir) {
 
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 	if (_material != p_material) {
-		_clear_meshes();
+		_initialized = false;
 		LOG(INFO, "Setting material");
 		_material = p_material;
 		_initialize();
@@ -641,7 +457,7 @@ void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 
 void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 	if (_assets != p_assets) {
-		_clear_meshes();
+		_initialized = false;
 		LOG(INFO, "Setting asset list");
 		_assets = p_assets;
 		_initialize();
@@ -651,7 +467,9 @@ void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 
 void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
 	_editor = p_editor;
-	_material->update();
+	if (_material.is_valid()) {
+		_material->update();
+	}
 	LOG(DEBUG, "Received Terrain3DEditor: ", p_editor);
 }
 
@@ -747,21 +565,22 @@ void Terrain3D::update_region_labels() {
 
 void Terrain3D::set_mesh_lods(const int p_count) {
 	if (_mesh_lods != p_count) {
-		_clear_meshes();
-		_destroy_collision();
 		LOG(INFO, "Setting mesh levels: ", p_count);
 		_mesh_lods = p_count;
-		_initialize();
+		if (_mesher) {
+			_mesher->initialize(this);
+		}
 	}
 }
 
 void Terrain3D::set_mesh_size(const int p_size) {
 	if (_mesh_size != p_size) {
-		_clear_meshes();
-		_destroy_collision();
 		LOG(INFO, "Setting mesh size: ", p_size);
 		_mesh_size = p_size;
-		_initialize();
+		if (_mesher && _material.is_valid()) {
+			_material->_update_maps();
+			_mesher->initialize(this);
+		}
 	}
 }
 
@@ -770,13 +589,15 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 	if (_vertex_spacing != spacing) {
 		_vertex_spacing = spacing;
 		LOG(INFO, "Setting vertex spacing: ", _vertex_spacing);
-		_clear_meshes();
-		_destroy_collision();
-		_destroy_instancer();
-		_initialize();
-		_data->_vertex_spacing = _vertex_spacing;
-		update_region_labels();
-		_instancer->_update_vertex_spacing(_vertex_spacing);
+		if (_collision && _data && _instancer && _material.is_valid()) {
+			_data->_vertex_spacing = _vertex_spacing;
+			update_region_labels();
+			_instancer->_update_vertex_spacing(_vertex_spacing);
+			_camera_last_position = V2_MAX;
+			_material->_update_maps();
+			_collision->destroy();
+			_collision->build();
+		}
 	}
 	if (IS_EDITOR && _plugin) {
 		_plugin->call("update_region_grid");
@@ -786,7 +607,9 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 void Terrain3D::set_render_layers(const uint32_t p_layers) {
 	LOG(INFO, "Setting terrain render layers to: ", p_layers);
 	_render_layers = p_layers;
-	_update_mesh_instances();
+	if (_mesher) {
+		_mesher->update();
+	}
 }
 
 void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
@@ -814,161 +637,23 @@ void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
 
 void Terrain3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
 	_cast_shadows = p_cast_shadows;
-	_update_mesh_instances();
+	if (_mesher) {
+		_mesher->update();
+	}
 }
 
 void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
 	_gi_mode = p_gi_mode;
-	_update_mesh_instances();
+	if (_mesher) {
+		_mesher->update();
+	}
 }
 
 void Terrain3D::set_cull_margin(const real_t p_margin) {
 	LOG(INFO, "Setting extra cull margin: ", p_margin);
 	_cull_margin = p_margin;
-	update_aabbs();
-}
-
-/**
- * Centers the terrain and LODs on a provided position. Y height is ignored.
- */
-void Terrain3D::snap(const Vector3 &p_cam_pos) {
-	Vector3 cam_pos = p_cam_pos;
-	cam_pos.y = 0.f;
-	_snapped_position = (cam_pos / _vertex_spacing).floor() * _vertex_spacing;
-	LOG(EXTREME, "Snapping terrain to: ", _snapped_position);
-
-	Transform3D scaled_t = Transform3D().scaled(Vector3(_vertex_spacing, 1.f, _vertex_spacing));
-	scaled_t.origin = _snapped_position;
-	RS->instance_set_transform(_mesh_data.cross, scaled_t);
-#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
-	RS->instance_reset_physics_interpolation(_mesh_data.cross);
-#endif
-
-	int edge = 0;
-	int tile = 0;
-
-	for (int l = 0; l < _mesh_lods; l++) {
-		real_t scale = real_t(1 << l) * _vertex_spacing;
-		Vector3 snapped_pos = (cam_pos / scale).floor() * scale;
-		Vector3 tile_size = Vector3(real_t(_mesh_size << l), 0, real_t(_mesh_size << l)) * _vertex_spacing;
-		Vector3 base = snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _vertex_spacing;
-
-		// Position tiles
-		for (int x = 0; x < 4; x++) {
-			for (int y = 0; y < 4; y++) {
-				if (l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2)) {
-					continue;
-				}
-
-				Vector3 fill = Vector3(x >= 2 ? 1.f : 0.f, 0.f, y >= 2 ? 1.f : 0.f) * scale;
-				Vector3 tile_tl = base + Vector3(x, 0.f, y) * tile_size + fill;
-				//Vector3 tile_br = tile_tl + tile_size;
-
-				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
-				t.origin = tile_tl;
-
-				RS->instance_set_transform(_mesh_data.tiles[tile], t);
-#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
-				RS->instance_reset_physics_interpolation(_mesh_data.tiles[tile]);
-#endif
-
-				tile++;
-			}
-		}
-		{
-			Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
-			t.origin = snapped_pos;
-			RS->instance_set_transform(_mesh_data.fillers[l], t);
-#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
-			RS->instance_reset_physics_interpolation(_mesh_data.fillers[l]);
-#endif
-		}
-
-		if (l != _mesh_lods - 1) {
-			real_t next_scale = scale * 2.f;
-			Vector3 next_snapped_pos = (cam_pos / next_scale).floor() * next_scale;
-
-			// Position trims
-			{
-				Vector3 tile_center = snapped_pos + (Vector3(scale, 0.f, scale) * 0.5f);
-				Vector3 d = cam_pos - next_snapped_pos;
-
-				int r = 0;
-				r |= d.x >= scale ? 0 : 2;
-				r |= d.z >= scale ? 0 : 1;
-
-				real_t rotations[4] = { 0.f, 270.f, 90.f, 180.f };
-
-				real_t angle = UtilityFunctions::deg_to_rad(rotations[r]);
-				Transform3D t = Transform3D().rotated(Vector3(0.f, 1.f, 0.f), -angle);
-				t = t.scaled(Vector3(scale, 1.f, scale));
-				t.origin = tile_center;
-				RS->instance_set_transform(_mesh_data.trims[edge], t);
-#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
-				RS->instance_reset_physics_interpolation(_mesh_data.trims[edge]);
-#endif
-			}
-
-			// Position seams
-			{
-				Vector3 next_base = next_snapped_pos - Vector3(real_t(_mesh_size << (l + 1)), 0.f, real_t(_mesh_size << (l + 1))) * _vertex_spacing;
-				Transform3D t = Transform3D().scaled(Vector3(scale, 1.f, scale));
-				t.origin = next_base;
-				RS->instance_set_transform(_mesh_data.seams[edge], t);
-#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
-				RS->instance_reset_physics_interpolation(_mesh_data.seams[edge]);
-#endif
-			}
-			edge++;
-		}
-	}
-
-	if (_collision && _collision->is_dynamic_mode()) {
-		_collision->update();
-	}
-}
-
-void Terrain3D::update_aabbs() {
-	if (_meshes.is_empty() || !_data) {
-		LOG(DEBUG, "Update AABB called before terrain meshes built. Returning.");
-		return;
-	}
-
-	Vector2 height_range = _data->get_height_range();
-	LOG(EXTREME, "Updating AABBs. Total height range: ", height_range, ", extra cull margin: ", _cull_margin);
-	height_range.y += abs(height_range.x); // Add below zero to total size
-
-	AABB aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::CROSS]);
-	aabb.position.y = height_range.x - _cull_margin;
-	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	RS->instance_set_custom_aabb(_mesh_data.cross, aabb);
-
-	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TILE]);
-	aabb.position.y = height_range.x - _cull_margin;
-	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _mesh_data.tiles.size(); i++) {
-		RS->instance_set_custom_aabb(_mesh_data.tiles[i], aabb);
-	}
-
-	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::FILLER]);
-	aabb.position.y = height_range.x - _cull_margin;
-	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _mesh_data.fillers.size(); i++) {
-		RS->instance_set_custom_aabb(_mesh_data.fillers[i], aabb);
-	}
-
-	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::TRIM]);
-	aabb.position.y = height_range.x - _cull_margin;
-	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _mesh_data.trims.size(); i++) {
-		RS->instance_set_custom_aabb(_mesh_data.trims[i], aabb);
-	}
-
-	aabb = RS->mesh_get_custom_aabb(_meshes[GeoClipMap::SEAM]);
-	aabb.position.y = height_range.x - _cull_margin;
-	aabb.size.y = height_range.y + _cull_margin * 2.f;
-	for (int i = 0; i < _mesh_data.seams.size(); i++) {
-		RS->instance_set_custom_aabb(_mesh_data.seams[i], aabb);
+	if (_mesher) {
+		_mesher->update_aabbs();
 	}
 }
 
@@ -1154,7 +839,9 @@ void Terrain3D::_notification(const int p_what) {
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
 			_is_inside_world = true;
-			_update_mesh_instances();
+			if (_mesher) {
+				_mesher->update();
+			}
 			break;
 		}
 
@@ -1196,7 +883,9 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			// Node3D visibility changed
 			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
-			_update_mesh_instances();
+			if (_mesher) {
+				_mesher->update();
+			}
 			break;
 		}
 
@@ -1248,8 +937,9 @@ void Terrain3D::_notification(const int p_what) {
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_physics_process(false);
-			_clear_meshes();
+			_destroy_mesher();
 			_destroy_mouse_picking();
+			_initialized = false;
 			break;
 		}
 
@@ -1264,6 +954,7 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_PREDELETE: {
 			// Object is about to be deleted
 			LOG(INFO, "NOTIFICATION_PREDELETE");
+			_destroy_mesher(true);
 			_destroy_collision(true);
 			_destroy_instancer();
 			_destroy_labels();
@@ -1426,7 +1117,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,1"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 
 	ADD_GROUP("Rendering", "");
