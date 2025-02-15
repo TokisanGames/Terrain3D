@@ -14,7 +14,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 	if(region < 0) {
 		mat_scale *= tri_scale_reduction;
 	}
-	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - v_camera_pos)), 0.0, 1.0);
+	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - _camera_pos)), 0.0, 1.0);
 	if (out_mat.blend < 1.0 && (
 			(far_factor < 1. && (out_mat.base == dual_scale_texture)) || out_mat.base != dual_scale_texture)) {
 		// 2 lookups
