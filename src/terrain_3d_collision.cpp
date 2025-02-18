@@ -1,7 +1,7 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/concave_polygon_shape3d.hpp>
 #include <godot_cpp/classes/engine.hpp>
-#include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 
@@ -24,9 +24,9 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 
 	int hshape_size = p_size + 1; // Calculate last vertex at end
 	PackedFloat32Array map_data = PackedFloat32Array();
+	PackedVector3Array faces = PackedVector3Array();
 	map_data.resize(hshape_size * hshape_size);
-	real_t min_height = FLT_MAX;
-	real_t max_height = FLT_MIN;
+	faces.resize(p_size * p_size * 6);
 
 	Ref<Image> map, map_x, map_z, map_xz; // height maps
 	Ref<Image> cmap, cmap_x, cmap_z, cmap_xz; // control maps w/ holes
@@ -98,9 +98,36 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 				}
 			}
 			map_data[index] = height;
-			if (!std::isnan(height)) {
-				min_height = MIN(min_height, height);
-				max_height = MAX(max_height, height);
+		}
+	}
+
+	// Generate faces for quads with alternating diagonals
+	for (int y = 0; y < p_size; ++y) {
+		for (int x = 0; x < p_size; ++x) {
+			int index = (y * p_size + x) * 6;
+			int bottomLeft = y * (p_size + 1) + x;
+			int bottomRight = bottomLeft + 1;
+			int topLeft = (y + 1) * (p_size + 1) + x;
+			int topRight = topLeft + 1;
+			int ox = x - p_size / 2;
+			int oy = y - p_size / 2;
+
+			if ((x + y) % 2 == 0) {
+				faces[index] = Vector3(ox, map_data[bottomLeft], oy);
+				faces[index + 1] = Vector3(ox + 1, map_data[topRight], oy + 1);
+				faces[index + 2] = Vector3(ox, map_data[topLeft], oy + 1);
+
+				faces[index + 3] = Vector3(ox, map_data[bottomLeft], oy);
+				faces[index + 4] = Vector3(ox + 1, map_data[bottomRight], oy);
+				faces[index + 5] = Vector3(ox + 1, map_data[topRight], oy + 1);
+			} else {
+				faces[index] = Vector3(ox, map_data[bottomLeft], oy);
+				faces[index + 1] = Vector3(ox + 1, map_data[bottomRight], oy);
+				faces[index + 2] = Vector3(ox, map_data[topLeft], oy + 1);
+
+				faces[index + 3] = Vector3(ox, map_data[topLeft], oy + 1);
+				faces[index + 4] = Vector3(ox + 1, map_data[bottomRight], oy);
+				faces[index + 5] = Vector3(ox + 1, map_data[topRight], oy + 1);
 			}
 		}
 	}
@@ -110,12 +137,8 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 	// Rotated shape Y=90 for -90 rotated array index
 	Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5), v2iv3(p_position + V2I(p_size / 2)));
 	Dictionary shape_data;
-	shape_data["width"] = hshape_size;
-	shape_data["depth"] = hshape_size;
-	shape_data["heights"] = map_data;
+	shape_data["faces"] = faces;
 	shape_data["xform"] = xform;
-	shape_data["min_height"] = min_height;
-	shape_data["max_height"] = max_height;
 	return shape_data;
 }
 
@@ -150,10 +173,13 @@ Vector3 Terrain3DCollision::_shape_get_position(const int p_shape_id) const {
 void Terrain3DCollision::_shape_set_data(const int p_shape_id, const Dictionary &p_dict) {
 	if (is_editor_mode()) {
 		CollisionShape3D *shape = _shapes[p_shape_id];
-		Ref<HeightMapShape3D> hshape = shape->get_shape();
-		hshape->set_map_data(p_dict["heights"]);
+		//Ref<HeightMapShape3D> hshape = shape->get_shape();
+		//hshape->set_map_data(p_dict["heights"]);
+		Ref<ConcavePolygonShape3D> concaveshape = shape->get_shape();
+		concaveshape->set_faces(p_dict["faces"]);
 	} else {
 		RID shape_rid = PS->body_get_shape(_static_body_rid, p_shape_id);
+		//PS->shape_set_data(shape_rid, p_dict);
 		PS->shape_set_data(shape_rid, p_dict);
 	}
 }
@@ -262,16 +288,14 @@ void Terrain3DCollision::build() {
 			col_shape->set_name("CollisionShape3D");
 			col_shape->set_disabled(true);
 			col_shape->set_visible(true);
-			Ref<HeightMapShape3D> hshape;
-			hshape.instantiate();
-			hshape->set_map_width(hshape_size);
-			hshape->set_map_depth(hshape_size);
-			col_shape->set_shape(hshape);
+			Ref<ConcavePolygonShape3D> concave_shape;
+			concave_shape.instantiate();
+			col_shape->set_shape(concave_shape);
 			_static_body->add_child(col_shape, true);
 			col_shape->set_owner(_static_body);
 			col_shape->set_transform(xform);
 		} else {
-			RID shape_rid = PS->heightmap_shape_create();
+			RID shape_rid = PS->concave_polygon_shape_create();
 			PS->body_add_shape(_static_body_rid, shape_rid, xform, true);
 			LOG(DEBUG, "Adding shape: ", i, ", rid: ", shape_rid.get_id(), " pos: ", _shape_get_position(i));
 		}
