@@ -349,6 +349,7 @@ void Terrain3DAssets::_update_texture_settings() {
 	if (!_texture_list.is_empty()) {
 		LOG(INFO, "Updating terrain color and scale arrays");
 		_texture_colors.clear();
+		_texture_normal_depths.clear();
 		_texture_uv_scales.clear();
 		_texture_detiles.clear();
 
@@ -358,6 +359,7 @@ void Terrain3DAssets::_update_texture_settings() {
 				continue;
 			}
 			_texture_colors.push_back(texture_set->get_albedo_color());
+			_texture_normal_depths.push_back(texture_set->get_normal_depth());
 			_texture_uv_scales.push_back(texture_set->get_uv_scale());
 			_texture_detiles.push_back(texture_set->get_detiling());
 		}
@@ -671,6 +673,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_albedo_array_rid"), &Terrain3DAssets::get_albedo_array_rid);
 	ClassDB::bind_method(D_METHOD("get_normal_array_rid"), &Terrain3DAssets::get_normal_array_rid);
 	ClassDB::bind_method(D_METHOD("get_texture_colors"), &Terrain3DAssets::get_texture_colors);
+	ClassDB::bind_method(D_METHOD("get_texture_normal_depths"), &Terrain3DAssets::get_texture_normal_depths);
 	ClassDB::bind_method(D_METHOD("get_texture_uv_scales"), &Terrain3DAssets::get_texture_uv_scales);
 	ClassDB::bind_method(D_METHOD("get_texture_detiles"), &Terrain3DAssets::get_texture_detiles);
 	ClassDB::bind_method(D_METHOD("clear_textures", "update"), &Terrain3DAssets::clear_textures, DEFVAL(false));
