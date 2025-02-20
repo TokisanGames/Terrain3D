@@ -18,6 +18,7 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	Color _albedo_color = Color(1.f, 1.f, 1.f, 1.f);
 	Ref<Texture2D> _albedo_texture;
 	Ref<Texture2D> _normal_texture;
+	real_t _normal_depth = 1.0f;
 	real_t _uv_scale = 0.1f;
 	real_t _detiling = 0.0f;
 
@@ -43,6 +44,9 @@ public:
 
 	void set_normal_texture(const Ref<Texture2D> &p_texture);
 	Ref<Texture2D> get_normal_texture() const { return _normal_texture; }
+
+	void set_normal_depth(const real_t p_detiling);
+	real_t get_normal_depth() const { return _normal_depth; }
 
 	void set_uv_scale(const real_t p_scale);
 	real_t get_uv_scale() const { return _uv_scale; }

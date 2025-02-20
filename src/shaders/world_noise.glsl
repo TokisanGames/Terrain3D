@@ -116,8 +116,6 @@ float get_noise_height(const vec2 uv) {
 				get_noise_height(nuv_b + vec2(0.0, _region_texel_size)),vertex_lerp);
 			world_noise_ddxy = vec2(nh - nu, nh - nv);
 			h += nh;
-			u += nu;
-			v += nv;
 		}
 
 //INSERT: WORLD_NOISE3
