@@ -57,7 +57,7 @@ You can instantiate through ClassDB, set variables and call it.
 ```c#
      var terrain = ClassDB.Instantiate("Terrain3D");
      terrain.AsGodotObject().Set("assets", ClassDB.Instantiate("Terrain3DAssets"));
-     terrain.AsGodotObject().Call("set_collision_enabled", true);
+     terrain.AsGodotObject().Call("set_show_region_grid", true);
 ```
 
 You can also check if a node is a Terrain3D object:
@@ -73,7 +73,7 @@ You can also check if a node is a Terrain3D object:
 ```c#
 private bool CheckTerrain3D(Node myNode) {
         if (myNode.IsClass("Terrain3D")) {
-            var collisionEnabled = myNode.Call("get_collision_enabled").AsInt32();
+            var collisionMode = myNode.Call("get_collision_mode").AsInt32();
 ```
 
 For more information on C# and other languages, read [Cross-language scripting](https://docs.godotengine.org/en/stable/tutorials/scripting/cross_language_scripting.html) in the Godot docs.

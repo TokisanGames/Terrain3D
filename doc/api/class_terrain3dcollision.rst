@@ -27,19 +27,21 @@ Properties
 .. table::
    :widths: auto
 
-   +-------------------------------------------------------------+-----------------------------------------------------------------+---------+
-   | ``int``                                                     | :ref:`layer<class_Terrain3DCollision_property_layer>`           | ``1``   |
-   +-------------------------------------------------------------+-----------------------------------------------------------------+---------+
-   | ``int``                                                     | :ref:`mask<class_Terrain3DCollision_property_mask>`             | ``1``   |
-   +-------------------------------------------------------------+-----------------------------------------------------------------+---------+
-   | :ref:`CollisionMode<enum_Terrain3DCollision_CollisionMode>` | :ref:`mode<class_Terrain3DCollision_property_mode>`             | ``1``   |
-   +-------------------------------------------------------------+-----------------------------------------------------------------+---------+
-   | ``float``                                                   | :ref:`priority<class_Terrain3DCollision_property_priority>`     | ``1.0`` |
-   +-------------------------------------------------------------+-----------------------------------------------------------------+---------+
-   | ``int``                                                     | :ref:`radius<class_Terrain3DCollision_property_radius>`         | ``64``  |
-   +-------------------------------------------------------------+-----------------------------------------------------------------+---------+
-   | ``int``                                                     | :ref:`shape_size<class_Terrain3DCollision_property_shape_size>` | ``16``  |
-   +-------------------------------------------------------------+-----------------------------------------------------------------+---------+
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
+   | ``int``                                                     | :ref:`layer<class_Terrain3DCollision_property_layer>`                       | ``1``   |
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
+   | ``int``                                                     | :ref:`mask<class_Terrain3DCollision_property_mask>`                         | ``1``   |
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
+   | :ref:`CollisionMode<enum_Terrain3DCollision_CollisionMode>` | :ref:`mode<class_Terrain3DCollision_property_mode>`                         | ``1``   |
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
+   | ``PhysicsMaterial``                                         | :ref:`physics_material<class_Terrain3DCollision_property_physics_material>` |         |
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
+   | ``float``                                                   | :ref:`priority<class_Terrain3DCollision_property_priority>`                 | ``1.0`` |
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
+   | ``int``                                                     | :ref:`radius<class_Terrain3DCollision_property_radius>`                     | ``64``  |
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
+   | ``int``                                                     | :ref:`shape_size<class_Terrain3DCollision_property_shape_size>`             | ``16``  |
+   +-------------------------------------------------------------+-----------------------------------------------------------------------------+---------+
 
 .. rst-class:: classref-reftable-group
 
@@ -49,21 +51,23 @@ Methods
 .. table::
    :widths: auto
 
-   +----------+---------------------------------------------------------------------------------------+
-   | |void|   | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                             |
-   +----------+---------------------------------------------------------------------------------------+
-   | |void|   | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                         |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``RID``  | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                 |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const| |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|   |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|           |
-   +----------+---------------------------------------------------------------------------------------+
-   | |void|   | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ force\: ``bool`` = false\ ) |
-   +----------+---------------------------------------------------------------------------------------+
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | |void|                            | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                             |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | |void|                            | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                         |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | ``RID``                           | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                 |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | :ref:`Terrain3D<class_Terrain3D>` | :ref:`get_terrain<class_Terrain3DCollision_method_get_terrain>`\ (\ )                 |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | ``bool``                          | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const| |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | ``bool``                          | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|   |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | ``bool``                          | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|           |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
+   | |void|                            | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ force\: ``bool`` = false\ ) |
+   +-----------------------------------+---------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -180,6 +184,25 @@ The selected mode determines if collision is generated and how. See :ref:`Collis
 
 ----
 
+.. _class_Terrain3DCollision_property_physics_material:
+
+.. rst-class:: classref-property
+
+``PhysicsMaterial`` **physics_material** :ref:`🔗<class_Terrain3DCollision_property_physics_material>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_physics_material**\ (\ value\: ``PhysicsMaterial``\ )
+- ``PhysicsMaterial`` **get_physics_material**\ (\ )
+
+Applies a ``PhysicsMaterial`` override to the StaticBody.
+
+There's no ability built into Godot to change physics material parameters based on texture or any other factor. However, it might be possible to extend `PhysicsMaterial` in order to inject code into the queries. It would need references to an object position and a terrain, and then it could run :ref:`Terrain3DData.get_texture_id<class_Terrain3DData_method_get_texture_id>` based on the position and return different physics settings per texture. That would change the settings for the entire terrain for that moment.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DCollision_property_priority:
 
 .. rst-class:: classref-property
@@ -267,6 +290,18 @@ Removes all collision shapes and frees any memory used.
 ``RID`` **get_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DCollision_method_get_rid>`
 
 Returns the RID of the active StaticBody.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DCollision_method_get_terrain:
+
+.. rst-class:: classref-method
+
+:ref:`Terrain3D<class_Terrain3D>` **get_terrain**\ (\ ) :ref:`🔗<class_Terrain3DCollision_method_get_terrain>`
+
+Returns the Terrain3D node this object is connected to. Since raycasts return this object, this function allows you to retreive the Terrain3D node.
 
 .. rst-class:: classref-item-separator
 

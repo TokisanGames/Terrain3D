@@ -72,6 +72,8 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`mouse_layer<class_Terrain3D_property_mouse_layer>`                   | ``32``          |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``PhysicsMaterial``                                         | :ref:`physics_material<class_Terrain3D_property_physics_material>`         |                 |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`RegionSize<enum_Terrain3D_RegionSize>`                | :ref:`region_size<class_Terrain3D_property_region_size>`                   | ``256``         |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`render_layers<class_Terrain3D_property_render_layers>`               | ``2147483649``  |
@@ -609,6 +611,23 @@ This variable sets the editor render layer (21-32) to be used by ``get_intersect
 You may place other objects on this layer, however ``get_intersection`` will report intersections with them. So either dedicate this layer to Terrain3D, or if you must use all 32 layers, dedicate this one during editing or when using ``get_intersection``, and then you can use it during game play.
 
 See :ref:`get_intersection<class_Terrain3D_method_get_intersection>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_physics_material:
+
+.. rst-class:: classref-property
+
+``PhysicsMaterial`` **physics_material** :ref:`🔗<class_Terrain3D_property_physics_material>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_physics_material**\ (\ value\: ``PhysicsMaterial``\ )
+- ``PhysicsMaterial`` **get_physics_material**\ (\ )
+
+Alias for :ref:`Terrain3DCollision.physics_material<class_Terrain3DCollision_property_physics_material>`.
 
 .. rst-class:: classref-item-separator
 
