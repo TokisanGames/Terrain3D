@@ -4,6 +4,7 @@
 #define TERRAIN3D_COLLISION_CLASS_H
 
 #include <godot_cpp/classes/collision_shape3d.hpp>
+#include <godot_cpp/classes/physics_material.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <vector>
 
@@ -37,6 +38,7 @@ private:
 	uint32_t _layer = 1;
 	uint32_t _mask = 1;
 	real_t _priority = 1.f;
+	Ref<PhysicsMaterial> _physics_material;
 
 	// Work data
 	RID _static_body_rid; // Physics Server Static Body
@@ -55,10 +57,13 @@ private:
 	Vector3 _shape_get_position(const int p_shape_id) const;
 	void _shape_set_data(const int p_shape_id, const Dictionary &p_dict);
 
+	void _reload_physics_material();
+
 public:
 	Terrain3DCollision() {}
 	~Terrain3DCollision() { destroy(); }
 	void initialize(Terrain3D *p_terrain);
+	Terrain3D *get_terrain() const { return _terrain; }
 
 	void build();
 	void update(const bool p_force = false);
@@ -80,6 +85,8 @@ public:
 	uint32_t get_mask() const { return _mask; };
 	void set_priority(const real_t p_priority);
 	real_t get_priority() const { return _priority; }
+	void set_physics_material(const Ref<PhysicsMaterial> &p_mat);
+	Ref<PhysicsMaterial> get_physics_material() { return _physics_material; }
 	RID get_rid() const;
 
 protected:

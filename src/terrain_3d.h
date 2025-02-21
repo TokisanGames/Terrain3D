@@ -210,6 +210,8 @@ public:
 	uint32_t get_collision_mask() const { return (_collision != nullptr) ? _collision->get_mask() : 1; }
 	void set_collision_priority(const real_t p_priority) { (_collision != nullptr) ? _collision->set_priority(p_priority) : void(); }
 	real_t get_collision_priority() const { return (_collision != nullptr) ? _collision->get_priority() : 1.f; }
+	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { (_collision != nullptr) ? _collision->set_physics_material(p_mat) : void(); }
+	Ref<PhysicsMaterial> get_physics_material() const { return (_collision != nullptr) ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
 
 	// Debug View Aliases
 	void set_show_checkered(const bool p_enabled) { (_material != nullptr) ? _material->set_show_checkered(p_enabled) : void(); }

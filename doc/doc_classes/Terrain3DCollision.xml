@@ -26,6 +26,12 @@
 				Returns the RID of the active StaticBody.
 			</description>
 		</method>
+		<method name="get_terrain">
+			<return type="Terrain3D" />
+			<description>
+				Returns the Terrain3D node this object is connected to. Since raycasts return this object, this function allows you to retreive the Terrain3D node.
+			</description>
+		</method>
 		<method name="is_dynamic_mode" qualifiers="const">
 			<return type="bool" />
 			<description>
@@ -62,6 +68,10 @@
 		</member>
 		<member name="mode" type="int" setter="set_mode" getter="get_mode" enum="Terrain3DCollision.CollisionMode" default="1">
 			The selected mode determines if collision is generated and how. See [enum CollisionMode] for details.
+		</member>
+		<member name="physics_material" type="PhysicsMaterial" setter="set_physics_material" getter="get_physics_material">
+			Applies a [code skip-lint]PhysicsMaterial[/code] override to the StaticBody.
+			There's no ability built into Godot to change physics material parameters based on texture or any other factor. However, it might be possible to extend `PhysicsMaterial` in order to inject code into the queries. It would need references to an object position and a terrain, and then it could run [method Terrain3DData.get_texture_id] based on the position and return different physics settings per texture. That would change the settings for the entire terrain for that moment.
 		</member>
 		<member name="priority" type="float" setter="set_priority" getter="get_priority" default="1.0">
 			The priority with which the physics server uses to solve collisions. The higher the priority, the lower the penetration of a colliding object. Sets [code skip-lint]CollisionObject3D.collision_priority[/code].

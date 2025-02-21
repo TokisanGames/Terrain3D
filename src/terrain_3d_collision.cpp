@@ -158,6 +158,29 @@ void Terrain3DCollision::_shape_set_data(const int p_shape_id, const Dictionary 
 	}
 }
 
+void Terrain3DCollision::_reload_physics_material() {
+	if (is_editor_mode()) {
+		if (_static_body != nullptr) {
+			_static_body->set_physics_material_override(_physics_material);
+		}
+	} else {
+		if (_static_body_rid.is_valid()) {
+			if (_physics_material.is_null()) {
+				PS->body_set_param(_static_body_rid, PhysicsServer3D::BODY_PARAM_BOUNCE, 0.f);
+				PS->body_set_param(_static_body_rid, PhysicsServer3D::BODY_PARAM_FRICTION, 1.f);
+			} else {
+				real_t computed_bounce = _physics_material->get_bounce() * (_physics_material->is_absorbent() ? -1.f : 1.f);
+				real_t computed_friction = _physics_material->get_friction() * (_physics_material->is_rough() ? -1.f : 1.f);
+				PS->body_set_param(_static_body_rid, PhysicsServer3D::BODY_PARAM_BOUNCE, computed_bounce);
+				PS->body_set_param(_static_body_rid, PhysicsServer3D::BODY_PARAM_FRICTION, computed_friction);
+			}
+		}
+	}
+	if (_physics_material.is_valid()) {
+		LOG(DEBUG, "Setting PhysicsMaterial bounce: ", _physics_material->get_bounce(), ", friction: ", _physics_material->get_friction());
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -210,6 +233,7 @@ void Terrain3DCollision::build() {
 		PS->body_set_collision_layer(_static_body_rid, _layer);
 		PS->body_set_collision_priority(_static_body_rid, _priority);
 	}
+	_reload_physics_material();
 
 	// Create CollisionShape3Ds
 	int shape_count;
@@ -500,6 +524,22 @@ void Terrain3DCollision::set_priority(const real_t p_priority) {
 	}
 }
 
+void Terrain3DCollision::set_physics_material(const Ref<PhysicsMaterial> &p_mat) {
+	LOG(INFO, "Setting physics material: ", p_mat);
+	if (_physics_material.is_valid()) {
+		if (_physics_material->is_connected("changed", callable_mp(this, &Terrain3DCollision::_reload_physics_material))) {
+			LOG(DEBUG, "Disconnecting _physics_material::changed signal to _reload_physics_material()");
+			_physics_material->disconnect("changed", callable_mp(this, &Terrain3DCollision::_reload_physics_material));
+		}
+	}
+	_physics_material = p_mat;
+	if (_physics_material.is_valid()) {
+		LOG(DEBUG, "Connecting _physics_material::changed signal to _reload_physics_material()");
+		_physics_material->connect("changed", callable_mp(this, &Terrain3DCollision::_reload_physics_material));
+	}
+	_reload_physics_material();
+}
+
 RID Terrain3DCollision::get_rid() const {
 	if (!is_editor_mode()) {
 		return _static_body_rid;
@@ -522,6 +562,7 @@ void Terrain3DCollision::_bind_methods() {
 	BIND_ENUM_CONSTANT(FULL_GAME);
 	BIND_ENUM_CONSTANT(FULL_EDITOR);
 
+	ClassDB::bind_method(D_METHOD("get_terrain"), &Terrain3DCollision::get_terrain);
 	ClassDB::bind_method(D_METHOD("build"), &Terrain3DCollision::build);
 	ClassDB::bind_method(D_METHOD("update", "force"), &Terrain3DCollision::update, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("destroy"), &Terrain3DCollision::destroy);
@@ -541,6 +582,8 @@ void Terrain3DCollision::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mask"), &Terrain3DCollision::get_mask);
 	ClassDB::bind_method(D_METHOD("set_priority", "priority"), &Terrain3DCollision::set_priority);
 	ClassDB::bind_method(D_METHOD("get_priority"), &Terrain3DCollision::get_priority);
+	ClassDB::bind_method(D_METHOD("set_physics_material", "material"), &Terrain3DCollision::set_physics_material);
+	ClassDB::bind_method(D_METHOD("get_physics_material"), &Terrain3DCollision::get_physics_material);
 	ClassDB::bind_method(D_METHOD("get_rid"), &Terrain3DCollision::get_rid);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_mode", "get_mode");
@@ -549,4 +592,5 @@ void Terrain3DCollision::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_layer", "get_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_mask", "get_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "priority", PROPERTY_HINT_RANGE, "0.1,256,.1"), "set_priority", "get_priority");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
 }

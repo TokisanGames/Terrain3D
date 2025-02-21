@@ -178,6 +178,9 @@
 			You may place other objects on this layer, however [code skip-lint]get_intersection[/code] will report intersections with them. So either dedicate this layer to Terrain3D, or if you must use all 32 layers, dedicate this one during editing or when using [code skip-lint]get_intersection[/code], and then you can use it during game play.
 			See [method get_intersection].
 		</member>
+		<member name="physics_material" type="PhysicsMaterial" setter="set_physics_material" getter="get_physics_material">
+			Alias for [member Terrain3DCollision.physics_material].
+		</member>
 		<member name="region_size" type="int" setter="change_region_size" getter="get_region_size" enum="Terrain3D.RegionSize" default="256">
 			The number of vertices in each region, and the number of pixels for each map in [Terrain3DRegion]. 1 pixel always corresponds to 1 vertex. [member Terrain3D.vertex_spacing] laterally scales regions, but does not change the number of vertices or pixels in each.
 		</member>
