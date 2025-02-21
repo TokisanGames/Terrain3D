@@ -308,7 +308,7 @@ void get_material(vec3 i_normal, vec4 ddxy, uint control, ivec3 iuv_center, vec3
 		// 2 lookups
 		// Setup overlay texture to blend
 		float mat_scale2 = _texture_uv_scale_array[out_mat.over];
-		float normal_angle2 = uv_rotation;
+		float normal_angle2 = uv_rotation + p_angle;
 		vec2 matUV2 = detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
 		vec4 dd2 = ddxy * mat_scale2;
 		dd2.xy = rotate_plane(dd2.xy, -normal_angle2);
