@@ -799,7 +799,7 @@ void Terrain3D::_notification(const int p_what) {
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
 			_is_inside_world = true;
-			if (_initialized && _is_inside_world && is_inside_tree()) {
+			if (_initialized && is_inside_tree()) {
 				_geomesh->update_clipmap_instances();
 			}
 			break;
@@ -899,6 +899,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_physics_process(false);
 			_destroy_geomesh();
 			_destroy_mouse_picking();
+			_initialized = false;
 			break;
 		}
 
