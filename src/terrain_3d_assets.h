@@ -36,7 +36,7 @@ private:
 	PackedColorArray _texture_colors;
 	PackedFloat32Array _texture_normal_depths;
 	PackedFloat32Array _texture_uv_scales;
-	PackedFloat32Array _texture_detiles;
+	PackedVector2Array _texture_detiles;
 
 	// Mesh Thumbnail Generation
 	RID _scenario;
@@ -75,10 +75,10 @@ public:
 	PackedColorArray get_texture_colors() const { return _texture_colors; }
 	PackedFloat32Array get_texture_normal_depths() const { return _texture_normal_depths; }
 	PackedFloat32Array get_texture_uv_scales() const { return _texture_uv_scales; }
-	PackedFloat32Array get_texture_detiles() const { return _texture_detiles; }
+	PackedVector2Array get_texture_detiles() const { return _texture_detiles; }
+
 	void clear_textures(const bool p_update = false);
 	void update_texture_list();
-
 	void set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset);
 	Ref<Terrain3DMeshAsset> get_mesh_asset(const int p_id) const;
 	void set_mesh_list(const TypedArray<Terrain3DMeshAsset> &p_mesh_list);
