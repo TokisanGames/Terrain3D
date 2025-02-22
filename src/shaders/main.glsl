@@ -81,12 +81,9 @@ struct Material {
 };
 
 varying flat vec3 v_camera_pos;
-varying flat ivec3 v_region;
-varying flat vec2 v_uv_offset;
-varying flat vec2 v_uv2_offset;
 varying float v_vertex_xz_dist;
 varying vec3 v_vertex;
-varying vec3 v_normal;
+//varying vec3 v_normal;
 )"
 
 		R"(
@@ -142,7 +139,7 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	v_region = get_region_uv(UV, VERTEX_PASS);
+	ivec3 v_region = get_region_uv(UV, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
@@ -153,18 +150,12 @@ void vertex() {
 	} else {		
 		// Set final vertex height & calculate vertex normals. 3 lookups
 		float h = texelFetch(_height_maps, v_region, 0).r;
-		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
-		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
+		//float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
+		//float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
 //INSERT: WORLD_NOISE2
 		v_vertex.y = h;
-		v_normal = vec3(h - u, _vertex_spacing, h - v);
+		//v_normal = vec3(h - u, _vertex_spacing, h - v);
 	}
-
-	// Transform UVs to local to avoid poor precision during varying interpolation
-	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
-	UV -= v_uv_offset;
-	v_uv2_offset = v_uv_offset * _region_texel_size;
-	UV2 -= v_uv2_offset;
 
 	// Convert model space to view space w/ skip_vertex_transform render mode
 	VERTEX = (VIEW_MATRIX * vec4(v_vertex, 1.0)).xyz;
@@ -342,8 +333,8 @@ float blend_weights(float weight, float detail) {
 
 void fragment() {
 	// Recover UVs
-	vec2 uv = UV + v_uv_offset;
-	vec2 uv2 = UV2 + v_uv2_offset;
+	vec2 uv = UV;
+	vec2 uv2 = UV2;
 	
 	// Lookup offsets, ID and blend weight
 	const vec3 offsets = vec3(0, 1, 2);
@@ -391,7 +382,7 @@ void fragment() {
 
 	// Setting this here, instead of after the branch appears to be ~10% faster.
 	// Likley as flat derivatives seem more cache friendly for texture lookups.
-	if (enable_projection && v_region.z > -1 && w_normal.y < projection_threshold) {
+	if (enable_projection && indexUV[3].z > -1 && w_normal.y < projection_threshold) {
 		vec3 p_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
 		vec3 p_binormal = normalize(cross(p_tangent, w_normal));
 		base_derivatives.xy = vec2(dot(base_ddx, p_tangent), dot(base_ddx, p_binormal));
