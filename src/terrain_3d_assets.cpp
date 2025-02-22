@@ -361,7 +361,7 @@ void Terrain3DAssets::_update_texture_settings() {
 			_texture_colors.push_back(texture_set->get_albedo_color());
 			_texture_normal_depths.push_back(texture_set->get_normal_depth());
 			_texture_uv_scales.push_back(texture_set->get_uv_scale());
-			_texture_detiles.push_back(texture_set->get_detiling());
+			_texture_detiles.push_back(Vector2(texture_set->get_detiling_rotation(), texture_set->get_detiling_shift()));
 		}
 	}
 	emit_signal("textures_changed");

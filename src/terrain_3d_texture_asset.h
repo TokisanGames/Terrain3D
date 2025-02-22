@@ -20,7 +20,8 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	Ref<Texture2D> _normal_texture;
 	real_t _normal_depth = 1.0f;
 	real_t _uv_scale = 0.1f;
-	real_t _detiling = 0.0f;
+	real_t _detiling_rotation = 0.0f;
+	real_t _detiling_shift = 0.0f;
 
 	bool _is_valid_format(const Ref<Texture2D> &p_texture) const;
 
@@ -45,14 +46,17 @@ public:
 	void set_normal_texture(const Ref<Texture2D> &p_texture);
 	Ref<Texture2D> get_normal_texture() const { return _normal_texture; }
 
-	void set_normal_depth(const real_t p_detiling);
+	void set_normal_depth(const real_t p_normal_depth);
 	real_t get_normal_depth() const { return _normal_depth; }
 
 	void set_uv_scale(const real_t p_scale);
 	real_t get_uv_scale() const { return _uv_scale; }
 
-	void set_detiling(const real_t p_detiling);
-	real_t get_detiling() const { return _detiling; }
+	void set_detiling_rotation(const real_t p_detiling_rotation);
+	real_t get_detiling_rotation() const { return _detiling_rotation; }
+
+	void set_detiling_shift(const real_t p_detiling_shift);
+	real_t get_detiling_shift() const { return _detiling_shift; }
 
 protected:
 	static void _bind_methods();
