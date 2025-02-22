@@ -171,10 +171,10 @@ void fragment() {
 	float v = 0.0;
 
 	// Re-use the indexUVs for the first lookups, skipping some math. 3 lookups
-	h[0] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
-	h[1] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
-	h[2] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
-	index_normal[3] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[2] + v));
+	h[3] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
+	h[2] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
+	h[0] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
+	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// Set flat world normal - overriden if bilerp is true
 	vec3 w_normal = index_normal[3];
@@ -183,16 +183,16 @@ void fragment() {
 	if (bilerp) {
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
-		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
+		h[1] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
 		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
 		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
 		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
 		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
 
 		// Calculate the normal for the remaining index ids.
-		index_normal[0] = normalize(vec3(h[2] - h[3] + u, _vertex_spacing, h[2] - h[7] + v));
-		index_normal[1] = normalize(vec3(h[3] - h[5] + u, _vertex_spacing, h[3] - h[4] + v));
-		index_normal[2] = normalize(vec3(h[1] - h[6] + u, _vertex_spacing, h[1] - h[3] + v));
+		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[7] + v));
+		index_normal[1] = normalize(vec3(h[1] - h[5] + u, _vertex_spacing, h[1] - h[4] + v));
+		index_normal[2] = normalize(vec3(h[2] - h[6] + u, _vertex_spacing, h[2] - h[1] + v));
 
 		// Set interpolated world normal
 		w_normal =
