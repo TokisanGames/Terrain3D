@@ -270,28 +270,28 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 
 		MultiMeshInstance3D *mmi = cell_mmi_dict[p_cell];
 		LOG(EXTREME, "Freeing ", uint64_t(mmi), " and erasing mmi cell ", p_cell);
-		cell_mmi_dict.erase(p_cell);
 		remove_from_tree(mmi);
 		memdelete_safely(mmi);
-
+		cell_mmi_dict.erase(p_cell);
 		if (cell_mmi_dict.empty()) {
 			LOG(EXTREME, "Removing mesh ", mesh_key, " from cell MMI dictionary");
-			mesh_mmi_dict.erase(mesh_key);
+			mesh_mmi_dict.erase(mesh_key); // invalidates cell_mmi_dict
 		}
+	}
 
-		if (mesh_mmi_dict.empty()) {
-			LOG(EXTREME, "Removing region ", p_region_loc, " from mesh MMI dictionary");
-			_mmi_nodes.erase(p_region_loc);
-			if (_mmi_containers.count(p_region_loc) > 0) {
-				Node *node = _mmi_containers[p_region_loc];
-				if (node && node->get_child_count() == 0) {
-					LOG(EXTREME, "Removing ", node->get_name());
-					_mmi_containers.erase(p_region_loc);
-					remove_from_tree(node);
-					memdelete_safely(node);
-				}
+	if (mesh_mmi_dict.empty()) {
+		LOG(EXTREME, "Removing region ", p_region_loc, " from mesh MMI dictionary");
+		if (_mmi_containers.count(p_region_loc) > 0) {
+			Node *node = _mmi_containers[p_region_loc];
+			if (node && node->get_child_count() == 0) {
+				LOG(EXTREME, "Removing ", node->get_name());
+				_mmi_containers.erase(p_region_loc);
+				remove_from_tree(node);
+				memdelete_safely(node);
 			}
 		}
+		_mmi_nodes.erase(p_region_loc); // invalidates mesh_mmi_dict
+		return;
 	}
 }
 
