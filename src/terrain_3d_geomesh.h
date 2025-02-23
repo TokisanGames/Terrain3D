@@ -23,7 +23,7 @@ private:
 
 	RID _instantiate_mesh(const PackedVector3Array &p_vertices, const PackedInt32Array &p_indices, const AABB &p_aabb);
 	void _generate_offset_data(const int mesh_size);
-	RID _generate_mesh(const Vector2i size);
+	RID _generate_mesh(const Vector2i size, const bool standard_grid = false);
 	void _generate_mesh_types(const int mesh_size);
 	void _clear_mesh_types();
 	void _generate_clipmap(const int size, const int lods, const RID &scenario);
@@ -66,8 +66,11 @@ public:
 		EDGE_B,
 		FILL_A,
 		FILL_B,
-		TRIM_A,
-		TRIM_B,
+		STANDARD_TRIM_A,
+		STANDARD_TRIM_B,
+		STANDARD_TILE,
+		STANDARD_EDGE_A,
+		STANDARD_EDGE_B,
 	};
 
 protected:

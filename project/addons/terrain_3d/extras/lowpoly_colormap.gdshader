@@ -81,7 +81,12 @@ void vertex() {
 	// Geomorph vertex, set end and start for linear height interpolate
 	float scale = MODEL_MATRIX[0][0];
 	float vertex_lerp = smoothstep(0.5, 0.95, (v_vertex_xz_dist / scale - _mesh_size) / _mesh_size);
-	vec2 shift = fract(VERTEX.xz * 0.5) * round((fract(v_vertex.xz * 0.25 / scale) - 0.5) * 8.0);
+	vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
+	// For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
+	vec2 shift = (scale < _vertex_spacing + 1e-6) ?
+		mix(v_fract, vec2(v_fract.x, -v_fract.y),
+		round(fract(v_vertex.z * v_vertex.x * 0.25 * _vertex_density * _vertex_density))) :
+		v_fract * round((fract(v_vertex.xz * 0.25 / scale) - 0.5) * 4.0);
 	vec2 start_pos = v_vertex.xz * _vertex_density;
 	vec2 end_pos = (v_vertex.xz - shift * scale) * _vertex_density;
 	v_vertex.xz -= shift * vertex_lerp * scale;

@@ -115,14 +115,20 @@ void Terrain3DGeoMesh::_generate_mesh_types(const int size) {
 	_mesh_rids.push_back(_generate_mesh(Vector2i(4, size)));
 	//# 4 FILL_B - mesh_size by 4
 	_mesh_rids.push_back(_generate_mesh(Vector2i(size, 4)));
-	//# 5 TRIM_A - 2 by (mesh_size * 4 + 2) strips for LOD0 +-Z axis edge
-	_mesh_rids.push_back(_generate_mesh(Vector2i(2, size * 4 + 2)));
-	//# 6 TRIM_B - (mesh_size * 4 + 4) by 2 strips for LOD0 +-X axis edge
-	_mesh_rids.push_back(_generate_mesh(Vector2i(size * 4 + 2, 2)));
+	//# 5 STANDARD_TRIM_A - 2 by (mesh_size * 4 + 2) strips for LOD0 +-Z axis edge
+	_mesh_rids.push_back(_generate_mesh(Vector2i(2, size * 4 + 2), true));
+	//# 6 STANDARD_TRIM_B - (mesh_size * 4 + 4) by 2 strips for LOD0 +-X axis edge
+	_mesh_rids.push_back(_generate_mesh(Vector2i(size * 4 + 2, 2), true));
+	//# 7 STANDARD_TILE - mesh_size x mesh_size tiles
+	_mesh_rids.push_back(_generate_mesh(Vector2i(size, size), true));
+	//# 8 STANDARD_EDGE_A - 2 by (mesh_size * 4 + 8) strips to bridge LOD transitions along +-Z axis
+	_mesh_rids.push_back(_generate_mesh(Vector2i(2, size * 4 + 8), true));
+	//# 9 STANDARD_EDGE_B - (mesh_size * 4 + 4) by 2 strips to bridge LOD transitions along +-X axis
+	_mesh_rids.push_back(_generate_mesh(Vector2i(size * 4 + 4, 2), true));
 	return;
 }
 
-RID Terrain3DGeoMesh::_generate_mesh(const Vector2i size) {
+RID Terrain3DGeoMesh::_generate_mesh(const Vector2i size, const bool standard_grid) {
 	PackedVector3Array vertices;
 	PackedInt32Array indices;
 	AABB aabb = AABB(V3_ZERO, Vector3(size.x, 0.1f, size.y));
@@ -143,7 +149,7 @@ RID Terrain3DGeoMesh::_generate_mesh(const Vector2i size) {
 			int topLeft = (y + 1) * (size.x + 1) + x;
 			int topRight = topLeft + 1;
 
-			if ((x + y) % 2 == 0) {
+			if ((x + y) % 2 == 0 || standard_grid) {
 				indices.push_back(bottomLeft);
 				indices.push_back(topRight);
 				indices.push_back(topLeft);
@@ -205,7 +211,7 @@ void Terrain3DGeoMesh::_generate_clipmap(const int size, const int lods, const R
 		int tile_ammount = (level == 0) ? 16 : 12;
 
 		for (int i = 0; i < tile_ammount; i++) {
-		RID tile_rid = RS->instance_create2(_mesh_rids[TILE], scenario);
+			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], scenario);
 			tile_rids.append(tile_rid);
 		}
 		lod.append(tile_rids); // index 0 TILE
@@ -213,14 +219,14 @@ void Terrain3DGeoMesh::_generate_clipmap(const int size, const int lods, const R
 		// 4 Edges present on all LODs
 		Array edge_a_rids;
 		for (int i = 0; i < 2; i++) {
-			RID edge_a_rid = RS->instance_create2(_mesh_rids[EDGE_A], scenario);
+			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], scenario);
 			edge_a_rids.append(edge_a_rid);
 		}
 		lod.append(edge_a_rids); // index 1 EDGE_A
 
 		Array edge_b_rids;
 		for (int i = 0; i < 2; i++) {
-			RID edge_b_rid = RS->instance_create2(_mesh_rids[EDGE_B], scenario);
+			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], scenario);
 			edge_b_rids.append(edge_b_rid);
 		}
 		lod.append(edge_b_rids); // index 2 EDGE_B
@@ -244,14 +250,14 @@ void Terrain3DGeoMesh::_generate_clipmap(const int size, const int lods, const R
 		} else {
 			Array trim_a_rids;
 			for (int i = 0; i < 2; i++) {
-				RID trim_a_rid = RS->instance_create2(_mesh_rids[TRIM_A], scenario);
+				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], scenario);
 				trim_a_rids.append(trim_a_rid);
 			}
 			lod.append(trim_a_rids); // index 6 TRIM_A
 
 			Array trim_b_rids;
 			for (int i = 0; i < 2; i++) {
-				RID trim_b_rid = RS->instance_create2(_mesh_rids[TRIM_B], scenario);
+				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], scenario);
 				trim_b_rids.append(trim_b_rid);
 			}
 			lod.append(trim_b_rids); // index 7 TRIM_B
