@@ -507,7 +507,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	uint32_t control1 = _data->get_control(xz);
 	uint32_t control2 = _data->get_control(xszs);
 	uint32_t control3 = _data->get_control(xzs);
-	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
+	if (!p_require_nav || (is_nav(control1) || is_nav(control2) || is_nav(control3))) {
 		Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
 		Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xzs);
@@ -526,7 +526,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	control1 = _data->get_control(xz);
 	control2 = _data->get_control(xsz);
 	control3 = _data->get_control(xszs);
-	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
+	if (!p_require_nav || (is_nav(control1) || is_nav(control2) || is_nav(control3))) {
 		Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
 		Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xsz);
 		Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
