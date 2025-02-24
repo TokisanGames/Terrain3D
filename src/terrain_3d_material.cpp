@@ -434,6 +434,9 @@ void Terrain3DMaterial::_update_maps() {
 	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
 	RS->material_set_param(_material, "_vertex_spacing", spacing);
 	RS->material_set_param(_material, "_vertex_density", 1.0f / spacing);
+
+	real_t mesh_size = real_t(_terrain->get_mesh_size());
+	RS->material_set_param(_material, "_mesh_size", mesh_size);
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list
