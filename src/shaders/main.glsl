@@ -36,7 +36,7 @@ uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_normal_depth_array[32];
 uniform float _texture_uv_scale_array[32];
-uniform float _texture_detile_array[32];
+uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp usampler2DArray _control_maps : repeat_disable;
@@ -220,12 +220,16 @@ float height_blend1(float a_value, float a_height, float b_value, float b_height
 }
 
 vec2 detiling(vec2 uv, vec2 uv_center, int mat_id, inout float normal_rotation){
-	if (_texture_detile_array[mat_id] >= 0.001){
+	if ((_texture_detile_array[mat_id].x + _texture_detile_array[mat_id].y) >= 0.001){
 		uv_center = floor(uv_center) + 0.5;
-		float detile = fma(random(uv_center), 2.0, -1.0) * TAU * _texture_detile_array[mat_id]; // -180deg to 180deg
-		uv = rotate_around(uv, uv_center, detile);
+		float detile = fma(random(uv_center), 2.0, -1.0) * TAU; // -180deg to 180deg
+		// Rotation
+		float rotation = detile * _texture_detile_array[mat_id].x;
+		uv = rotate_around(uv, uv_center, rotation);
 		// Accumulate total rotation for normal rotation
-		normal_rotation += detile;
+		normal_rotation += rotation;
+		// Shift
+		uv += rotate(vec2(_texture_detile_array[mat_id].y * detile), cos(detile), sin(detile));
 	}
 	return uv;
 }
@@ -238,10 +242,14 @@ vec2 rotate_plane(vec2 plane, float angle) {
 }
 
 // 2-4 lookups ( 2-6 with dual scaling )
-void get_material(vec3 i_normal, vec4 ddxy, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
+void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
 	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, 0.0);
 	vec2 uv_center = vec2(iuv_center.xy);
 	int region = iuv_center.z;
+	
+	// Translate uv center to the current region.
+	uv_center += _region_locations[region] * _region_size;
+	uv_center *= _vertex_spacing;
 	
 	vec2 base_uv;
 	float p_angle = 0.0;
@@ -256,16 +264,16 @@ void get_material(vec3 i_normal, vec4 ddxy, uint control, ivec3 iuv_center, vec3
 		vec3 p_tangent = normalize(cross(p_normal, vec3(1e-6, 1.0, 1e-6)));
 	    p_angle = atan(-p_normal.x, -p_normal.z);
 		base_uv = vec2(dot(v_vertex, p_tangent), dot(v_vertex, normalize(cross(p_tangent, p_normal))));
+		// Project uv_center for detiling
+		vec3 i_center = vec3(uv_center.x, i_height, uv_center.y);
+		uv_center = vec2(dot(i_center, p_tangent), dot(i_center, normalize(cross(p_tangent, p_normal))));
 	}
 
 //INSERT: AUTO_SHADER_TEXTURE_ID
 //INSERT: TEXTURE_ID
 	out_mat.nrm_depth = _texture_normal_depth_array[out_mat.base];
 
-	// Control map scale & rotation, apply to both base and 
-	// uv_center. Translate uv center to the current region.
-	uv_center += _region_locations[region] * _region_size;
-	uv_center *= _vertex_spacing;
+	// Control map scale & rotation, apply to both base and uv_center.
 	// Define base scale from control map value as array index. 0.5 as baseline.
 	float[8] scale_array = { 0.5, 0.4, 0.3, 0.2, 0.1, 0.8, 0.7, 0.6};
 	float control_scale = scale_array[(control >>7u & 0x7u)];
@@ -372,10 +380,10 @@ void fragment() {
 	
 //INSERT: WORLD_NOISE3	
 	// Re-use the indexUVs for the first lookups, skipping some math. 3 lookups
-	h[0] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
-	h[1] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
-	h[2] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
-	index_normal[3] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[2] + v));
+	h[3] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
+	h[2] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
+	h[0] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
+	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// Set flat world normal - overriden if bilerp is true
 	vec3 w_normal = index_normal[3];
@@ -419,16 +427,16 @@ void fragment() {
 
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
-		h[3] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
+		h[1] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
 		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
 		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
 		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
 		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
 
 		// Calculate the normal for the remaining index ids.
-		index_normal[0] = normalize(vec3(h[2] - h[3] + u, _vertex_spacing, h[2] - h[7] + v));
-		index_normal[1] = normalize(vec3(h[3] - h[5] + u, _vertex_spacing, h[3] - h[4] + v));
-		index_normal[2] = normalize(vec3(h[1] - h[6] + u, _vertex_spacing, h[1] - h[3] + v));
+		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[7] + v));
+		index_normal[1] = normalize(vec3(h[1] - h[5] + u, _vertex_spacing, h[1] - h[4] + v));
+		index_normal[2] = normalize(vec3(h[2] - h[6] + u, _vertex_spacing, h[2] - h[1] + v));
 
 		// Set interpolated world normal
 		w_normal = 
@@ -451,7 +459,7 @@ void fragment() {
 	control[3] = texelFetch(_control_maps, indexUV[3], 0).r;
 
 	Material mat[4];
-	get_material(index_normal[3], base_derivatives, control[3], indexUV[3], w_normal, mat[3]);
+	get_material(index_normal[3], h[3], base_derivatives, control[3], indexUV[3], w_normal, mat[3]);
 
 	vec4 albedo_height = mat[3].alb_ht;
 	vec4 normal_rough = mat[3].nrm_rg;
@@ -464,9 +472,9 @@ void fragment() {
 		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
 		control[2] = texelFetch(_control_maps, indexUV[2], 0).r;
 
-		get_material(index_normal[0], base_derivatives, control[0], indexUV[0], w_normal, mat[0]);
-		get_material(index_normal[1], base_derivatives, control[1], indexUV[1], w_normal, mat[1]);
-		get_material(index_normal[2], base_derivatives, control[2], indexUV[2], w_normal, mat[2]);
+		get_material(index_normal[0], h[0], base_derivatives, control[0], indexUV[0], w_normal, mat[0]);
+		get_material(index_normal[1], h[1], base_derivatives, control[1], indexUV[1], w_normal, mat[1]);
+		get_material(index_normal[2], h[2], base_derivatives, control[2], indexUV[2], w_normal, mat[2]);
 
 		// rebuild weights for detail and noise blending
 		float noise3 = texture(noise_texture, uv * noise3_scale).r * blend_sharpness;
