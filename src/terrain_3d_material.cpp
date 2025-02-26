@@ -155,6 +155,12 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	Ref<RegEx> regex;
 	Ref<RegExMatch> match;
 	regex.instantiate();
+	// Strip all comments from the shader before inserting editor code.
+	// The resulting shader is not written back, and doesn't modify the source.
+	regex->compile("//.*");
+	shader = regex->sub(shader, "", true);
+	regex->compile("\\/\\*[^*]*(?:\\*(?!\\/)[^*]*)*\\*\\/");
+	shader = regex->sub(shader, "", true);
 
 	// Insert after render_mode
 	regex->compile("render_mode.*;?");
