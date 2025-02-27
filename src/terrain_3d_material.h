@@ -72,6 +72,7 @@ private:
 	void _parse_shader(const String &p_shader, const String &p_name);
 	String _apply_inserts(const String &p_shader, const Array &p_excludes = Array()) const;
 	String _generate_shader_code() const;
+	String _strip_comments(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
 	void _update_maps();

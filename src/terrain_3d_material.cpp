@@ -149,21 +149,110 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	return shader;
 }
 
+// Ripped from ShaderPreprocessor::CommentRemover::strip()
+String Terrain3DMaterial::_strip_comments(const String &p_shader) const {
+	Vector<char32_t> stripped;
+	String code = p_shader;
+	int index = 0;
+	int line = 0;
+	int comment_line_open = 0;
+	int comments_open = 0;
+	int strings_open = 0;
+	const char32_t CURSOR = 0xFFFF;
+
+	// Embedded supporting functions
+
+	auto peek = [&]() { return (index < code.length()) ? code[index] : 0; };
+
+	auto advance = [&](char32_t p_what) {
+		while (index < code.length()) {
+			char32_t c = code[index++];
+			if (c == '\n') {
+				line++;
+				stripped.push_back('\n');
+			}
+			if (c == p_what) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	auto vector_to_string = [](const Vector<char32_t> &p_v, int p_start = 0, int p_end = -1) {
+		const int stop = (p_end == -1) ? p_v.size() : p_end;
+		const int count = stop - p_start;
+		String result;
+		result.resize(count + 1);
+		for (int i = 0; i < count; i++) {
+			result[i] = p_v[p_start + i];
+		}
+		result[count] = 0; // Ensure string is null terminated for length() to work.
+		return result;
+	};
+
+	// Main function
+
+	while (index < code.length()) {
+		char32_t c = code[index++];
+		if (c == CURSOR) {
+			// Cursor. Maintain.
+			stripped.push_back(c);
+		} else if (c == '"') {
+			if (strings_open <= 0) {
+				strings_open++;
+			} else {
+				strings_open--;
+			}
+			stripped.push_back(c);
+		} else if (c == '/' && strings_open == 0) {
+			char32_t p = peek();
+			if (p == '/') { // Single line comment.
+				advance('\n');
+			} else if (p == '*') { // Start of a block comment.
+				index++;
+				comment_line_open = line;
+				comments_open++;
+				while (advance('*')) {
+					if (peek() == '/') { // End of a block comment.
+						comments_open--;
+						index++;
+						break;
+					}
+				}
+			} else {
+				stripped.push_back(c);
+			}
+		} else if (c == '*' && strings_open == 0) {
+			if (peek() == '/') { // Unmatched end of a block comment.
+				comment_line_open = line;
+				comments_open--;
+			} else {
+				stripped.push_back(c);
+			}
+		} else if (c == '\n') {
+			line++;
+			stripped.push_back(c);
+		} else {
+			stripped.push_back(c);
+		}
+	}
+	return vector_to_string(stripped);
+}
+
 String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
-	String shader = p_shader;
-	Array insert_names;
-	Ref<RegEx> regex;
-	Ref<RegExMatch> match;
-	regex.instantiate();
+	String shader = _strip_comments(p_shader);
 
 	// Insert after render_mode
+	Ref<RegEx> regex;
+	regex.instantiate();
 	regex->compile("render_mode.*;?");
-	match = regex->search(shader);
+	Ref<RegExMatch> match = regex->search(shader);
 	int idx = match.is_valid() ? match->get_end() : -1;
 	if (idx < 0) {
 		LOG(DEBUG, "No render mode; cannot inject editor code");
 		return shader;
 	}
+	Array insert_names;
 	if (_compatibility) {
 		if (!shader.contains("COMPATIBILITY_DEFINES")) {
 			insert_names.push_back("EDITOR_COMPATIBILITY_DEFINES");
@@ -193,7 +282,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		idx += insert.length();
 	}
 
-	// Insert at the end of the shader, before the end of `fragment(){ }`
+	// Insert at the end of `fragment(){ }`
 	// Check for each nested {} pair until the closing } is found.
 	regex->compile("void\\s*fragment\\s*\\(\\s*\\)\\s*{");
 	match = regex->search(shader);
