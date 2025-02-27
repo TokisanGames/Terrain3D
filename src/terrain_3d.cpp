@@ -616,6 +616,7 @@ void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 
 void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
 	_editor = p_editor;
+	_material->update();
 	LOG(DEBUG, "Received Terrain3DEditor: ", p_editor);
 }
 
