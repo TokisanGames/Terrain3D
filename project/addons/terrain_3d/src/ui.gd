@@ -62,7 +62,8 @@ var editor_decal_fade: float :
 		editor_decal_fade = value
 		if editor_decal_color.size() > 0:
 			editor_decal_color[0].a = value
-			RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
+			if is_shader_valid():
+				RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
 @onready var editor_ring_texture_rid: RID = ring_texture.get_rid()
 
 
@@ -422,19 +423,29 @@ func update_decal() -> void:
 	
 	editor_decal_fade = editor_decal_color[0].a
 	# Update Shader params
-	RenderingServer.material_set_param(mat_rid, "_editor_brush_texture", editor_brush_texture_rid)
-	RenderingServer.material_set_param(mat_rid, "_editor_ring_texture", editor_ring_texture_rid)
-	RenderingServer.material_set_param(mat_rid, "_editor_decal_position", editor_decal_position)
-	RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
-	RenderingServer.material_set_param(mat_rid, "_editor_decal_size", editor_decal_size)
-	RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
-	RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
-	RenderingServer.material_set_param(mat_rid, "_editor_crosshair_threshold", brush_data["crosshair_threshold"] + 0.1)
+	if is_shader_valid():
+		RenderingServer.material_set_param(mat_rid, "_editor_brush_texture", editor_brush_texture_rid)
+		RenderingServer.material_set_param(mat_rid, "_editor_ring_texture", editor_ring_texture_rid)
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_position", editor_decal_position)
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_size", editor_decal_size)
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
+		RenderingServer.material_set_param(mat_rid, "_editor_crosshair_threshold", brush_data["crosshair_threshold"] + 0.1)
 
+func is_shader_valid() -> bool:
+	# As long as the compiled shader would contain at least 1 uniform to check against, we can
+	# check if the shader compilation has failed as this will then return an empty dictionary.
+	var params = RenderingServer.get_shader_parameter_list(plugin.terrain.material.get_shader_rid())
+	if params.is_empty():
+		return false
+	else:
+		return true
 
 func hide_decal() -> void:
 	editor_decal_visible = [false, false, false]
-	RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
+	if is_shader_valid():
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
 
 
 # These array sizes are reset to 0 when closing scenes for some unknown reason, so check and reset
@@ -450,8 +461,8 @@ func reset_decal_arrays() -> void:
 
 func set_decal_rotation(p_rot: float) -> void:
 	editor_decal_rotation[0] = p_rot
-	var mat_rid: RID = plugin.terrain.material.get_material_rid()
-	RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
+	if is_shader_valid():
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
 
 
 func _on_picking(p_type: int, p_callback: Callable) -> void:
