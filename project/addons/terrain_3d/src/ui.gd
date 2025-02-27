@@ -33,7 +33,12 @@ const OP_NEGATIVE_ONLY: int = 0x02
 
 const RING1: String = "res://addons/terrain_3d/brushes/ring1.exr"
 @onready var ring_texture := ImageTexture.create_from_image(Terrain3DUtil.black_to_alpha(Image.load_from_file(RING1)))
-
+@onready var region_texture := ImageTexture.new() :
+	set(value):
+		var image: Image = Image.create_empty(1, 1, false, Image.FORMAT_R8)
+		image.fill(Color.WHITE)
+		value.create_from_image(image)
+		region_texture = value
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var toolbar: Toolbar
 var tool_settings: ToolSettings
@@ -313,7 +318,6 @@ func update_decal() -> void:
 		# See https://github.com/godotengine/godot/issues/70098
 		Time.get_ticks_msec() - last_rmb_time <= 30 or \
 		brush_data.is_empty() or \
-		plugin.editor.get_tool() == Terrain3DEditor.REGION or \
 		(plugin._input_mode > 0 and not brush_data["show_cursor_while_painting"]):
 			hide_decal()
 			return
@@ -321,7 +325,9 @@ func update_decal() -> void:
 	reset_decal_arrays()
 	editor_decal_position[0] = Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z)
 	editor_decal_visible[0] = true
-	editor_decal_size[0] = maxf(brush_data["size"], .5)
+	var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
+	var size: float = brush_data.get("size") if brush_data.has("size") else 0.0
+	editor_decal_size[0] = maxf(size, .5)
 	if brush_data["align_to_view"]:
 		var cam: Camera3D = plugin.terrain.get_camera();
 		if (cam):
@@ -344,6 +350,27 @@ func update_decal() -> void:
 	else:
 		editor_brush_texture_rid = brush_data["brush"][1].get_rid()
 		match plugin.editor.get_tool():
+			Terrain3DEditor.REGION:
+				var r_size: float = float(plugin.terrain.get_region_size()) * plugin.terrain.get_vertex_spacing()
+				var map_size: int = plugin.terrain.data.REGION_MAP_SIZE
+				var half_r_size: float = r_size * 0.5
+				var pos: Vector2 = Vector2(plugin.mouse_global_position.x + half_r_size,
+					plugin.mouse_global_position.z + half_r_size).snappedf(r_size) - Vector2(half_r_size, half_r_size)
+				editor_brush_texture_rid = region_texture.get_rid()
+				editor_decal_position[0] = pos
+				editor_decal_size[0] = r_size
+				editor_decal_rotation[0] = 0.0
+				var loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
+				loc += Vector2i(map_size / 2, map_size / 2)
+				var index: int = clampi(loc.y * map_size + loc.x, 0, map_size * map_size - 1)
+				r_map[index] = -2 if r_map[index] == 0 else r_map[index]
+				match plugin.editor.get_operation():
+					Terrain3DEditor.ADD:
+						editor_decal_color[0] = Color.WHITE
+						editor_decal_color[0].a = 0.25
+					Terrain3DEditor.SUBTRACT:
+						editor_decal_color[0] = Color.WHITE * .15
+						editor_decal_color[0].a = 0.75
 			Terrain3DEditor.SCULPT:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.ADD:
@@ -432,10 +459,12 @@ func update_decal() -> void:
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
 		RenderingServer.material_set_param(mat_rid, "_editor_crosshair_threshold", brush_data["crosshair_threshold"] + 0.1)
+		RenderingServer.material_set_param(mat_rid, "_region_map", r_map)
+
 
 func is_shader_valid() -> bool:
-	# As long as the compiled shader would contain at least 1 uniform to check against, we can
-	# check if the shader compilation has failed as this will then return an empty dictionary.
+	# As long as the compiled shader contains at least 1 uniform, we can use it to check
+	# if the shader compilation has failed, as this will then return an empty dictionary.
 	if not plugin.terrain:
 		return false
 	var params = RenderingServer.get_shader_parameter_list(plugin.terrain.material.get_shader_rid())
@@ -444,10 +473,13 @@ func is_shader_valid() -> bool:
 	else:
 		return true
 
+
 func hide_decal() -> void:
 	editor_decal_visible = [false, false, false]
 	if is_shader_valid():
+		var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
+		RenderingServer.material_set_param(mat_rid, "_region_map", r_map)
 
 
 # These array sizes are reset to 0 when closing scenes for some unknown reason, so check and reset
