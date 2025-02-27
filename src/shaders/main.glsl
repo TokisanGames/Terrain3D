@@ -146,7 +146,7 @@ void vertex() {
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
 	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
-			(hole || (_background_mode == 0u && v_region.z < 0))) {
+			(hole || (_background_mode == 0u && v_region.z == -1))) {
 		v_vertex.x = 0. / 0.;
 	} else {		
 		// Set final vertex height & calculate vertex normals. 3 lookups
