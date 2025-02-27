@@ -436,6 +436,8 @@ func update_decal() -> void:
 func is_shader_valid() -> bool:
 	# As long as the compiled shader would contain at least 1 uniform to check against, we can
 	# check if the shader compilation has failed as this will then return an empty dictionary.
+	if not plugin.terrain:
+		return false
 	var params = RenderingServer.get_shader_parameter_list(plugin.terrain.material.get_shader_rid())
 	if params.is_empty():
 		return false
