@@ -260,6 +260,7 @@ void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
 			_material_override = _get_material();
 		}
 		_density = 10.f;
+		_height_offset = 0.5f;
 		_last_lod = 0;
 		_last_shadow_lod = 0;
 		_shadow_impostor = 0;
