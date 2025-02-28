@@ -316,7 +316,7 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 		vec4 normal_rg2 = textureGrad(_texture_array_normal, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
 
 		// Unpack & rotate overlay normal for blending
-		normal_rg2.xz = unpack_normal(normal_rg2).xz;
+		normal_rg2.xyz = unpack_normal(normal_rg2);
 		normal_rg2.xz = rotate_plane(normal_rg2.xz, -normal_angle2);
 
 //INSERT: DUAL_SCALING_OVERLAY
