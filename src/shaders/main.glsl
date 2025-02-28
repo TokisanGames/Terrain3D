@@ -49,6 +49,7 @@ uniform highp usampler2DArray _control_maps : repeat_disable;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
 uniform bool height_blending = true;
+uniform bool world_space_normal_blend = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 
 uniform bool enable_projection = true;
@@ -256,7 +257,7 @@ vec2 rotate_plane(vec2 plane, float angle) {
 }
 
 // 2-4 lookups ( 2-6 with dual scaling )
-void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 iuv_center, vec3 normal, out Material out_mat) {
+void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 iuv_center, mat3 TANGENT_WORLD_MATRIX, out Material out_mat) {
 	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, 0.0);
 	vec2 uv_center = vec2(iuv_center.xy);
 	int region = iuv_center.z;
@@ -276,7 +277,7 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 		#define SQRT3 1.73205080757
 		vec3 p_normal = normalize(round(i_normal * SQRT3 * projection_angular_division));
 		vec3 p_tangent = normalize(cross(p_normal, vec3(1e-6, 1.0, 1e-6)));
-	    p_angle = atan(-p_normal.x, -p_normal.z);
+	    p_angle = atan(-i_normal.x, -i_normal.z);
 		base_uv = vec2(dot(v_vertex, p_tangent), dot(v_vertex, normalize(cross(p_tangent, p_normal))));
 		// Project uv_center for detiling
 		vec3 i_center = vec3(uv_center.x, i_height, uv_center.y);
@@ -330,12 +331,17 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 		vec4 normal_rg2 = textureGrad(_texture_array_normal, vec3(matUV2, float(out_mat.over)), dd2.xy, dd2.zw);
 
 		// Unpack & rotate overlay normal for blending
-		normal_rg2.xz = unpack_normal(normal_rg2).xz;
+		normal_rg2.xyz = unpack_normal(normal_rg2);
 		normal_rg2.xz = rotate_plane(normal_rg2.xz, -normal_angle2);
 
 //INSERT: DUAL_SCALING_OVERLAY
 		// Apply color to overlay
 		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
+
+		// apply world space normal weighting from base, to overlay layer
+		if (world_space_normal_blend) {
+			albedo_ht2.a *= bool(control >>3u & 0x1u) ? 1.0 : clamp((TANGENT_WORLD_MATRIX * normal_rg.xyz).y, 0.0, 1.0);
+		}
 
 		// Blend overlay and base
 		out_mat.alb_ht = height_blend4(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, out_mat.blend);
@@ -466,6 +472,9 @@ void fragment() {
 	NORMAL = mat3(VIEW_MATRIX) * w_normal;
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
+	
+	// Used for material world space normal map blending
+	mat3 TANGENT_WORLD_MATRIX = mat3(w_tangent, w_normal, w_binormal);
 
 	// Get last index
 	// 1 lookup + get_material() = 3-7 total
@@ -473,7 +482,7 @@ void fragment() {
 	control[3] = texelFetch(_control_maps, indexUV[3], 0).r;
 
 	Material mat[4];
-	get_material(index_normal[3], h[3], base_derivatives, control[3], indexUV[3], w_normal, mat[3]);
+	get_material(index_normal[3], h[3], base_derivatives, control[3], indexUV[3], TANGENT_WORLD_MATRIX, mat[3]);
 
 	vec4 albedo_height = mat[3].alb_ht;
 	vec4 normal_rough = mat[3].nrm_rg;
@@ -486,9 +495,9 @@ void fragment() {
 		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
 		control[2] = texelFetch(_control_maps, indexUV[2], 0).r;
 
-		get_material(index_normal[0], h[0], base_derivatives, control[0], indexUV[0], w_normal, mat[0]);
-		get_material(index_normal[1], h[1], base_derivatives, control[1], indexUV[1], w_normal, mat[1]);
-		get_material(index_normal[2], h[2], base_derivatives, control[2], indexUV[2], w_normal, mat[2]);
+		get_material(index_normal[0], h[0], base_derivatives, control[0], indexUV[0], TANGENT_WORLD_MATRIX, mat[0]);
+		get_material(index_normal[1], h[1], base_derivatives, control[1], indexUV[1], TANGENT_WORLD_MATRIX, mat[1]);
+		get_material(index_normal[2], h[2], base_derivatives, control[2], indexUV[2], TANGENT_WORLD_MATRIX, mat[2]);
 
 		// rebuild weights for detail and noise blending
 		float noise3 = texture(noise_texture, uv * noise3_scale).r * blend_sharpness;
