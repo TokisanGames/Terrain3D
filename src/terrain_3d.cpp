@@ -462,6 +462,7 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 	ERR_FAIL_COND(_data == nullptr);
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
+	// Bake whole mesh, e.g. bake_mesh and painted navigation
 	if (!p_global_aabb.has_volume()) {
 		int32_t region_size = (int32_t)_region_size;
 
@@ -476,6 +477,7 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 			}
 		}
 	} else {
+		// Bake within an AABB, e.g. runtime navigation baker
 		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z / _vertex_spacing);
 		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z / _vertex_spacing) + 1;
 		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x / _vertex_spacing);
@@ -492,53 +494,86 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 	}
 }
 
+// Generates two triangles: Top 124, Bottom 143
+//		1  __  2
+//		  |\ |
+//		  | \|
+//		3  --  4
 // p_vertices is assumed to exist and the destination for data
 // p_uvs might not exist, so a pointer is fine
+// p_require_nav is false for the runtime baker, which ignores navigation
 void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs,
 		const int32_t p_lod, const Terrain3DData::HeightFilter p_filter, const bool p_require_nav,
 		const int32_t x, const int32_t z) const {
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
-
 	Vector3 xz = Vector3(x, 0.0f, z) * _vertex_spacing;
 	Vector3 xsz = Vector3(x + step, 0.0f, z) * _vertex_spacing;
 	Vector3 xzs = Vector3(x, 0.0f, z + step) * _vertex_spacing;
 	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _vertex_spacing;
-
-	uint32_t control1 = _data->get_control(xz);
-	uint32_t control2 = _data->get_control(xszs);
-	uint32_t control3 = _data->get_control(xzs);
-	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
-		Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
-		Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
-		Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xzs);
-		if (!std::isnan(v1.y) && !std::isnan(v2.y) && !std::isnan(v3.y)) {
-			p_vertices.push_back(v1);
-			p_vertices.push_back(v2);
-			p_vertices.push_back(v3);
-			if (p_uvs != nullptr) {
-				p_uvs->push_back(Vector2(v1.x, v1.z));
-				p_uvs->push_back(Vector2(v2.x, v2.z));
-				p_uvs->push_back(Vector2(v3.x, v3.z));
-			}
+	Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
+	bool nan1 = std::isnan(v1.y);
+	if (nan1) {
+		return;
+	}
+	Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xsz);
+	Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xzs);
+	Vector3 v4 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
+	bool nan2 = std::isnan(v2.y);
+	bool nan3 = std::isnan(v3.y);
+	bool nan4 = std::isnan(v4.y);
+	// If on the region edge, duplicate the edge pixels
+	// Check #2 upper right
+	if (nan2) {
+		v2.y = v1.y;
+	}
+	// Check #3 lower left
+	if (nan3) {
+		v3.y = v1.y;
+	}
+	// Check #4 lower right
+	if (nan4) {
+		if (!nan2) {
+			v4.y = v2.y;
+		} else if (!nan3) {
+			v4.y = v3.y;
+		} else {
+			v4.y = v1.y;
 		}
 	}
-
-	control1 = _data->get_control(xz);
-	control2 = _data->get_control(xsz);
-	control3 = _data->get_control(xszs);
-	if (!p_require_nav || (is_nav(control1) && is_nav(control2) && is_nav(control3))) {
-		Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
-		Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xsz);
-		Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
-		if (!std::isnan(v1.y) && !std::isnan(v2.y) && !std::isnan(v3.y)) {
-			p_vertices.push_back(v1);
-			p_vertices.push_back(v2);
-			p_vertices.push_back(v3);
-			if (p_uvs != nullptr) {
-				p_uvs->push_back(Vector2(v1.x, v1.z));
-				p_uvs->push_back(Vector2(v2.x, v2.z));
-				p_uvs->push_back(Vector2(v3.x, v3.z));
-			}
+	uint32_t ctrl1 = _data->get_control(xz);
+	uint32_t ctrl2 = _data->get_control(xsz);
+	uint32_t ctrl3 = _data->get_control(xzs);
+	uint32_t ctrl4 = _data->get_control(xszs);
+	// Holes are only where the control map is valid and the bit is set
+	bool hole1 = ctrl1 != UINT32_MAX && is_hole(ctrl1);
+	bool hole2 = ctrl2 != UINT32_MAX && is_hole(ctrl2);
+	bool hole3 = ctrl3 != UINT32_MAX && is_hole(ctrl3);
+	bool hole4 = ctrl4 != UINT32_MAX && is_hole(ctrl4);
+	// Navigation is where the control map is valid and the bit is set, or it's the region edge and nav1 is set
+	bool nav1 = ctrl1 != UINT32_MAX && is_nav(ctrl1);
+	bool nav2 = ctrl2 != UINT32_MAX && is_nav(ctrl2) || nan2 && nav1;
+	bool nav3 = ctrl3 != UINT32_MAX && is_nav(ctrl3) || nan3 && nav1;
+	bool nav4 = ctrl4 != UINT32_MAX && is_nav(ctrl4) || nan4 && nav1;
+	//Bottom 143 triangle
+	if (!(hole1 || hole4 || hole3) && (!p_require_nav || (nav1 && nav4 && nav3))) {
+		p_vertices.push_back(v1);
+		p_vertices.push_back(v4);
+		p_vertices.push_back(v3);
+		if (p_uvs != nullptr) {
+			p_uvs->push_back(Vector2(v1.x, v1.z));
+			p_uvs->push_back(Vector2(v4.x, v4.z));
+			p_uvs->push_back(Vector2(v3.x, v3.z));
+		}
+	}
+	// Top 124 triangle
+	if (!(hole1 || hole2 || hole4) && (!p_require_nav || (nav1 && nav2 && nav4))) {
+		p_vertices.push_back(v1);
+		p_vertices.push_back(v2);
+		p_vertices.push_back(v4);
+		if (p_uvs != nullptr) {
+			p_uvs->push_back(Vector2(v1.x, v1.z));
+			p_uvs->push_back(Vector2(v2.x, v2.z));
+			p_uvs->push_back(Vector2(v4.x, v4.z));
 		}
 	}
 }
