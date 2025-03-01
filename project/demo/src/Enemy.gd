@@ -47,7 +47,9 @@ func _physics_process(p_delta: float) -> void:
 
 	# Ensure enemy doesn't fall through terrain when collision absent
 	if get_parent().terrain:
-		global_position.y = maxf(global_position.y, get_parent().terrain.data.get_height(global_position))
+		var height: float = get_parent().terrain.data.get_height(global_position)
+		if not is_nan(height):
+			global_position.y = maxf(global_position.y, height)
 
 
 func _on_velocity_computed(p_safe_velocity: Vector3) -> void:
