@@ -19,6 +19,7 @@ distance_fade_max_distance = 96.0
 [sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_2qf8x"]
 name = "TextureCard"
 generated_type = 1
+height_offset = 0.5
 material_override = SubResource("StandardMaterial3D_b2vqk")
 last_lod = 0
 last_shadow_lod = 0
@@ -29,6 +30,7 @@ visibility_range = 128.0
 name = "LODExample"
 id = 1
 scene_file = ExtResource("1_4jrdu")
+height_offset = 0.5
 last_lod = 3
 last_shadow_lod = 3
 
