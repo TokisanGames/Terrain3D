@@ -41,15 +41,12 @@ Ref<Image> Terrain3DRegion::get_map(const MapType p_map_type) const {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
 			return get_height_map();
-			break;
 		case TYPE_CONTROL:
 			return get_control_map();
-			break;
 		case TYPE_COLOR:
 			return get_color_map();
-			break;
 		default:
-			LOG(ERROR, "Requested map type is invalid");
+			LOG(ERROR, "Requested map type ", p_map_type, ", is invalid");
 			return Ref<Image>();
 	}
 }
@@ -58,15 +55,12 @@ Image *Terrain3DRegion::get_map_ptr(const MapType p_map_type) const {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
 			return *_height_map;
-			break;
 		case TYPE_CONTROL:
 			return *_control_map;
-			break;
 		case TYPE_COLOR:
 			return *_color_map;
-			break;
 		default:
-			LOG(ERROR, "Requested map type is invalid");
+			LOG(ERROR, "Requested map type ", p_map_type, ", is invalid");
 			return nullptr;
 	}
 }

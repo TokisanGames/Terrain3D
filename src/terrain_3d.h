@@ -129,7 +129,7 @@ public:
 	void set_debug_level(const int p_level);
 	int get_debug_level() const { return debug_level; }
 	void set_data_directory(String p_dir);
-	String get_data_directory() const { return (_data == nullptr) ? "" : _data_directory; }
+	String get_data_directory() const { return _data ? _data_directory : ""; }
 
 	// Object references
 	Terrain3DData *get_data() const { return _data; }
@@ -150,7 +150,7 @@ public:
 	// Regions
 	void set_region_size(const RegionSize p_size);
 	RegionSize get_region_size() const { return _region_size; }
-	void change_region_size(const RegionSize p_size) { (_data != nullptr) ? _data->change_region_size(p_size) : void(); }
+	void change_region_size(const RegionSize p_size) { _data ? _data->change_region_size(p_size) : void(); }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
 	void set_label_distance(const real_t p_distance);
@@ -198,56 +198,56 @@ public:
 	PackedStringArray _get_configuration_warnings() const override;
 
 	// Collision Aliases
-	void set_collision_mode(const CollisionMode p_mode) { (_collision != nullptr) ? _collision->set_mode(p_mode) : void(); }
-	CollisionMode get_collision_mode() const { return (_collision != nullptr) ? _collision->get_mode() : CollisionMode::DYNAMIC_GAME; }
-	void set_collision_shape_size(const uint16_t p_size) { (_collision != nullptr) ? _collision->set_shape_size(p_size) : void(); }
-	uint16_t get_collision_shape_size() const { return (_collision != nullptr) ? _collision->get_shape_size() : 16; }
-	void set_collision_radius(const uint16_t p_radius) { (_collision != nullptr) ? _collision->set_radius(p_radius) : void(); }
-	uint16_t get_collision_radius() const { return (_collision != nullptr) ? _collision->get_radius() : 64; }
-	void set_collision_layer(const uint32_t p_layers) { (_collision != nullptr) ? _collision->set_layer(p_layers) : void(); }
-	uint32_t get_collision_layer() const { return (_collision != nullptr) ? _collision->get_layer() : 1; }
-	void set_collision_mask(const uint32_t p_mask) { (_collision != nullptr) ? _collision->set_mask(p_mask) : void(); }
-	uint32_t get_collision_mask() const { return (_collision != nullptr) ? _collision->get_mask() : 1; }
-	void set_collision_priority(const real_t p_priority) { (_collision != nullptr) ? _collision->set_priority(p_priority) : void(); }
-	real_t get_collision_priority() const { return (_collision != nullptr) ? _collision->get_priority() : 1.f; }
-	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { (_collision != nullptr) ? _collision->set_physics_material(p_mat) : void(); }
-	Ref<PhysicsMaterial> get_physics_material() const { return (_collision != nullptr) ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
+	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }
+	CollisionMode get_collision_mode() const { return _collision ? _collision->get_mode() : CollisionMode::DYNAMIC_GAME; }
+	void set_collision_shape_size(const uint16_t p_size) { _collision ? _collision->set_shape_size(p_size) : void(); }
+	uint16_t get_collision_shape_size() const { return _collision ? _collision->get_shape_size() : 16; }
+	void set_collision_radius(const uint16_t p_radius) { _collision ? _collision->set_radius(p_radius) : void(); }
+	uint16_t get_collision_radius() const { return _collision ? _collision->get_radius() : 64; }
+	void set_collision_layer(const uint32_t p_layers) { _collision ? _collision->set_layer(p_layers) : void(); }
+	uint32_t get_collision_layer() const { return _collision ? _collision->get_layer() : 1; }
+	void set_collision_mask(const uint32_t p_mask) { _collision ? _collision->set_mask(p_mask) : void(); }
+	uint32_t get_collision_mask() const { return _collision ? _collision->get_mask() : 1; }
+	void set_collision_priority(const real_t p_priority) { _collision ? _collision->set_priority(p_priority) : void(); }
+	real_t get_collision_priority() const { return _collision ? _collision->get_priority() : 1.f; }
+	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { _collision ? _collision->set_physics_material(p_mat) : void(); }
+	Ref<PhysicsMaterial> get_physics_material() const { return _collision ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
 
 	// Debug View Aliases
-	void set_show_checkered(const bool p_enabled) { (_material != nullptr) ? _material->set_show_checkered(p_enabled) : void(); }
-	bool get_show_checkered() const { return (_material != nullptr) ? _material->get_show_checkered() : false; }
-	void set_show_grey(const bool p_enabled) { (_material != nullptr) ? _material->set_show_grey(p_enabled) : void(); }
-	bool get_show_grey() const { return (_material != nullptr) ? _material->get_show_grey() : false; }
-	void set_show_heightmap(const bool p_enabled) { (_material != nullptr) ? _material->set_show_heightmap(p_enabled) : void(); }
-	bool get_show_heightmap() const { return (_material != nullptr) ? _material->get_show_heightmap() : false; }
-	void set_show_colormap(const bool p_enabled) { (_material != nullptr) ? _material->set_show_colormap(p_enabled) : void(); }
-	bool get_show_colormap() const { return (_material != nullptr) ? _material->get_show_colormap() : false; }
-	void set_show_roughmap(const bool p_enabled) { (_material != nullptr) ? _material->set_show_roughmap(p_enabled) : void(); }
-	bool get_show_roughmap() const { return (_material != nullptr) ? _material->get_show_roughmap() : false; }
-	void set_show_control_texture(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_texture(p_enabled) : void(); }
-	bool get_show_control_texture() const { return (_material != nullptr) ? _material->get_show_control_texture() : false; }
-	void set_show_control_angle(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_angle(p_enabled) : void(); }
-	bool get_show_control_angle() const { return (_material != nullptr) ? _material->get_show_control_angle() : false; }
-	void set_show_control_scale(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_scale(p_enabled) : void(); }
-	bool get_show_control_scale() const { return (_material != nullptr) ? _material->get_show_control_scale() : false; }
-	void set_show_control_blend(const bool p_enabled) { (_material != nullptr) ? _material->set_show_control_blend(p_enabled) : void(); }
-	bool get_show_control_blend() const { return (_material != nullptr) ? _material->get_show_control_blend() : false; }
-	void set_show_autoshader(const bool p_enabled) { (_material != nullptr) ? _material->set_show_autoshader(p_enabled) : void(); }
-	bool get_show_autoshader() const { return (_material != nullptr) ? _material->get_show_autoshader() : false; }
-	void set_show_navigation(const bool p_enabled) { (_material != nullptr) ? _material->set_show_navigation(p_enabled) : void(); }
-	bool get_show_navigation() const { return (_material != nullptr) ? _material->get_show_navigation() : false; }
-	void set_show_texture_height(const bool p_enabled) { (_material != nullptr) ? _material->set_show_texture_height(p_enabled) : void(); }
-	bool get_show_texture_height() const { return (_material != nullptr) ? _material->get_show_texture_height() : false; }
-	void set_show_texture_normal(const bool p_enabled) { (_material != nullptr) ? _material->set_show_texture_normal(p_enabled) : void(); }
-	bool get_show_texture_normal() const { return (_material != nullptr) ? _material->get_show_texture_normal() : false; }
-	void set_show_texture_rough(const bool p_enabled) { (_material != nullptr) ? _material->set_show_texture_rough(p_enabled) : void(); }
-	bool get_show_texture_rough() const { return (_material != nullptr) ? _material->get_show_texture_rough() : false; }
-	void set_show_region_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_region_grid(p_enabled) : void(); }
-	bool get_show_region_grid() const { return (_material != nullptr) ? _material->get_show_region_grid() : false; }
-	void set_show_instancer_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_instancer_grid(p_enabled) : void(); }
-	bool get_show_instancer_grid() const { return (_material != nullptr) ? _material->get_show_instancer_grid() : false; }
-	void set_show_vertex_grid(const bool p_enabled) { (_material != nullptr) ? _material->set_show_vertex_grid(p_enabled) : void(); }
-	bool get_show_vertex_grid() const { return (_material != nullptr) ? _material->get_show_vertex_grid() : false; }
+	void set_show_checkered(const bool p_enabled) { _material.is_valid() ? _material->set_show_checkered(p_enabled) : void(); }
+	bool get_show_checkered() const { return _material.is_valid() ? _material->get_show_checkered() : false; }
+	void set_show_grey(const bool p_enabled) { _material.is_valid() ? _material->set_show_grey(p_enabled) : void(); }
+	bool get_show_grey() const { return _material.is_valid() ? _material->get_show_grey() : false; }
+	void set_show_heightmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_heightmap(p_enabled) : void(); }
+	bool get_show_heightmap() const { return _material.is_valid() ? _material->get_show_heightmap() : false; }
+	void set_show_colormap(const bool p_enabled) { _material.is_valid() ? _material->set_show_colormap(p_enabled) : void(); }
+	bool get_show_colormap() const { return _material.is_valid() ? _material->get_show_colormap() : false; }
+	void set_show_roughmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_roughmap(p_enabled) : void(); }
+	bool get_show_roughmap() const { return _material.is_valid() ? _material->get_show_roughmap() : false; }
+	void set_show_control_texture(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_texture(p_enabled) : void(); }
+	bool get_show_control_texture() const { return _material.is_valid() ? _material->get_show_control_texture() : false; }
+	void set_show_control_angle(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_angle(p_enabled) : void(); }
+	bool get_show_control_angle() const { return _material.is_valid() ? _material->get_show_control_angle() : false; }
+	void set_show_control_scale(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_scale(p_enabled) : void(); }
+	bool get_show_control_scale() const { return _material.is_valid() ? _material->get_show_control_scale() : false; }
+	void set_show_control_blend(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_blend(p_enabled) : void(); }
+	bool get_show_control_blend() const { return _material.is_valid() ? _material->get_show_control_blend() : false; }
+	void set_show_autoshader(const bool p_enabled) { _material.is_valid() ? _material->set_show_autoshader(p_enabled) : void(); }
+	bool get_show_autoshader() const { return _material.is_valid() ? _material->get_show_autoshader() : false; }
+	void set_show_navigation(const bool p_enabled) { _material.is_valid() ? _material->set_show_navigation(p_enabled) : void(); }
+	bool get_show_navigation() const { return _material.is_valid() ? _material->get_show_navigation() : false; }
+	void set_show_texture_height(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_height(p_enabled) : void(); }
+	bool get_show_texture_height() const { return _material.is_valid() ? _material->get_show_texture_height() : false; }
+	void set_show_texture_normal(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_normal(p_enabled) : void(); }
+	bool get_show_texture_normal() const { return _material.is_valid() ? _material->get_show_texture_normal() : false; }
+	void set_show_texture_rough(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_rough(p_enabled) : void(); }
+	bool get_show_texture_rough() const { return _material.is_valid() ? _material->get_show_texture_rough() : false; }
+	void set_show_region_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_region_grid(p_enabled) : void(); }
+	bool get_show_region_grid() const { return _material.is_valid() ? _material->get_show_region_grid() : false; }
+	void set_show_instancer_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_instancer_grid(p_enabled) : void(); }
+	bool get_show_instancer_grid() const { return _material.is_valid() ? _material->get_show_instancer_grid() : false; }
+	void set_show_vertex_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_vertex_grid(p_enabled) : void(); }
+	bool get_show_vertex_grid() const { return _material.is_valid() ? _material->get_show_vertex_grid() : false; }
 
 protected:
 	void _notification(const int p_what);

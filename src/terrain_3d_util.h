@@ -50,6 +50,7 @@ public:
 			const bool p_invert_alpha = false,
 			const int p_alpha_channel = 0);
 	static Ref<Image> luminance_to_height(const Ref<Image> &p_src_rgb);
+	static void benchmark(Terrain3D *p_terrain);
 
 protected:
 	static void _bind_methods();
@@ -248,7 +249,7 @@ inline bool gd_is_auto(const uint32_t p_pixel) { return is_auto(p_pixel); }
 
 template <typename TType>
 _FORCE_INLINE_ bool memdelete_safely(TType *&p_ptr) {
-	if (p_ptr != nullptr) {
+	if (p_ptr) {
 		memdelete(p_ptr);
 		p_ptr = nullptr;
 		return true;
@@ -258,9 +259,9 @@ _FORCE_INLINE_ bool memdelete_safely(TType *&p_ptr) {
 
 _FORCE_INLINE_ bool remove_from_tree(Node *p_node) {
 	// Note: is_in_tree() doesn't work in Godot-cpp 4.1.3
-	if (p_node != nullptr) {
+	if (p_node) {
 		Node *parent = p_node->get_parent();
-		if (parent != nullptr) {
+		if (parent) {
 			parent->remove_child(p_node);
 			return true;
 		}
@@ -273,10 +274,10 @@ _FORCE_INLINE_ bool remove_from_tree(Node *p_node) {
 // See https://github.com/godotengine/godot-cpp/issues/1390#issuecomment-1937570699
 _FORCE_INLINE_ bool is_instance_valid(const uint64_t p_instance_id, Object *p_object = nullptr) {
 	Object *obj = ObjectDB::get_instance(p_instance_id);
-	if (p_object != nullptr) {
+	if (p_object) {
 		return p_instance_id > 0 && p_object == obj;
 	} else {
-		return p_instance_id > 0 && obj != nullptr;
+		return p_instance_id > 0 && obj;
 	}
 }
 

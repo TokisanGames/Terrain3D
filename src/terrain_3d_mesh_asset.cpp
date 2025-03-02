@@ -169,7 +169,7 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	_meshes.clear();
 	if (_packed_scene.is_valid()) {
 		Node *node = _packed_scene->instantiate();
-		if (node == nullptr) {
+		if (!node) {
 			LOG(ERROR, "Drag a non-empty glb, fbx, scn, or tscn file into the scene_file slot");
 			_packed_scene.unref();
 			return;

@@ -61,48 +61,48 @@ using namespace godot;
 
 #define VOID // a return value for void, to avoid compiler warnings
 
-#define IS_INIT(ret)           \
-	if (_terrain == nullptr) { \
-		return ret;            \
+#define IS_INIT(ret) \
+	if (!_terrain) { \
+		return ret;  \
 	}
 
 #define IS_INIT_MESG(mesg, ret) \
-	if (_terrain == nullptr) {  \
+	if (!_terrain) {            \
 		LOG(ERROR, mesg);       \
 		return ret;             \
 	}
 
-#define IS_INIT_COND(cond, ret)        \
-	if (_terrain == nullptr || cond) { \
-		return ret;                    \
+#define IS_INIT_COND(cond, ret) \
+	if (!_terrain || cond) {    \
+		return ret;             \
 	}
 
 #define IS_INIT_COND_MESG(cond, mesg, ret) \
-	if (_terrain == nullptr || cond) {     \
+	if (!_terrain || cond) {               \
 		LOG(ERROR, mesg);                  \
 		return ret;                        \
 	}
 
-#define IS_INSTANCER_INIT(ret)                                         \
-	if (_terrain == nullptr || _terrain->get_instancer() == nullptr) { \
-		return ret;                                                    \
+#define IS_INSTANCER_INIT(ret)                     \
+	if (!_terrain || !_terrain->get_instancer()) { \
+		return ret;                                \
 	}
 
-#define IS_INSTANCER_INIT_MESG(mesg, ret)                              \
-	if (_terrain == nullptr || _terrain->get_instancer() == nullptr) { \
-		LOG(ERROR, mesg);                                              \
-		return ret;                                                    \
+#define IS_INSTANCER_INIT_MESG(mesg, ret)          \
+	if (!_terrain || !_terrain->get_instancer()) { \
+		LOG(ERROR, mesg);                          \
+		return ret;                                \
 	}
 
-#define IS_DATA_INIT(ret)                                         \
-	if (_terrain == nullptr || _terrain->get_data() == nullptr) { \
-		return ret;                                               \
+#define IS_DATA_INIT(ret)                     \
+	if (!_terrain || !_terrain->get_data()) { \
+		return ret;                           \
 	}
 
-#define IS_DATA_INIT_MESG(mesg, ret)                              \
-	if (_terrain == nullptr || _terrain->get_data() == nullptr) { \
-		LOG(ERROR, mesg);                                         \
-		return ret;                                               \
+#define IS_DATA_INIT_MESG(mesg, ret)          \
+	if (!_terrain || !_terrain->get_data()) { \
+		LOG(ERROR, mesg);                     \
+		return ret;                           \
 	}
 
 // Global Types
