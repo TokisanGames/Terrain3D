@@ -38,7 +38,7 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Creating blank material");
 		_material.instantiate();
 	}
-	if (_data == nullptr) {
+	if (!_data) {
 		LOG(DEBUG, "Creating blank data object");
 		_data = memnew(Terrain3DData);
 	}
@@ -46,11 +46,11 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Creating blank texture list");
 		_assets.instantiate();
 	}
-	if (_collision == nullptr) {
+	if (!_collision) {
 		LOG(DEBUG, "Creating collision manager");
 		_collision = memnew(Terrain3DCollision);
 	}
-	if (_instancer == nullptr) {
+	if (!_instancer) {
 		LOG(DEBUG, "Creating instancer");
 		_instancer = memnew(Terrain3DInstancer);
 	}
@@ -185,7 +185,7 @@ void Terrain3D::_destroy_collision(const bool p_final) {
 }
 
 void Terrain3D::_build_meshes(const int p_mesh_lods, const int p_mesh_size) {
-	if (!is_inside_tree() || _data == nullptr) {
+	if (!is_inside_tree() || !_data) {
 		LOG(DEBUG, "Not inside the tree or no valid _data, skipping build");
 		return;
 	}
@@ -559,7 +559,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		p_vertices.push_back(v1);
 		p_vertices.push_back(v4);
 		p_vertices.push_back(v3);
-		if (p_uvs != nullptr) {
+		if (p_uvs) {
 			p_uvs->push_back(Vector2(v1.x, v1.z));
 			p_uvs->push_back(Vector2(v4.x, v4.z));
 			p_uvs->push_back(Vector2(v3.x, v3.z));
@@ -570,7 +570,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		p_vertices.push_back(v1);
 		p_vertices.push_back(v2);
 		p_vertices.push_back(v4);
-		if (p_uvs != nullptr) {
+		if (p_uvs) {
 			p_uvs->push_back(Vector2(v1.x, v1.z));
 			p_uvs->push_back(Vector2(v2.x, v2.z));
 			p_uvs->push_back(Vector2(v4.x, v4.z));
@@ -663,7 +663,7 @@ void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
 void Terrain3D::set_camera(Camera3D *p_camera) {
 	if (_camera != p_camera) {
 		_camera = p_camera;
-		if (p_camera == nullptr) {
+		if (!p_camera) {
 			LOG(DEBUG, "Received null camera. Calling _grab_camera()");
 			_grab_camera();
 		} else {
@@ -715,7 +715,7 @@ void Terrain3D::set_label_size(const int p_size) {
 
 void Terrain3D::update_region_labels() {
 	_destroy_labels();
-	if (_label_distance > 0.f && _data != nullptr) {
+	if (_label_distance > 0.f && _data) {
 		Array region_locations = _data->get_region_locations();
 		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
 		for (int i = 0; i < region_locations.size(); i++) {
@@ -778,7 +778,7 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 		update_region_labels();
 		_instancer->_update_vertex_spacing(_vertex_spacing);
 	}
-	if (IS_EDITOR && _plugin != nullptr) {
+	if (IS_EDITOR && _plugin) {
 		_plugin->call("update_region_grid");
 	}
 }
@@ -799,15 +799,15 @@ void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
 	// Mask off editor render layers by ORing user layers 1-20 and current mouse layer
 	set_render_layers((_render_layers & 0xFFFFF) | mouse_mask);
 	// Set terrain shader to exclude mouse camera from showing holes
-	if (_material != nullptr) {
+	if (_material.is_valid()) {
 		_material->set_shader_param("_mouse_layer", mouse_mask);
 	}
 	// Set mouse camera to see only mouse layer
-	if (_mouse_cam != nullptr) {
+	if (_mouse_cam) {
 		_mouse_cam->set_cull_mask(mouse_mask);
 	}
 	// Set screenquad to mouse layer
-	if (_mouse_quad != nullptr) {
+	if (_mouse_quad) {
 		_mouse_quad->set_layer_mask(mouse_mask);
 	}
 }
@@ -929,7 +929,7 @@ void Terrain3D::snap(const Vector3 &p_cam_pos) {
 }
 
 void Terrain3D::update_aabbs() {
-	if (_meshes.is_empty() || _data == nullptr) {
+	if (_meshes.is_empty() || !_data) {
 		LOG(DEBUG, "Update AABB called before terrain meshes built. Returning.");
 		return;
 	}
@@ -983,7 +983,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		LOG(ERROR, "Invalid camera");
 		return Vector3(NAN, NAN, NAN);
 	}
-	if (_mouse_cam == nullptr) {
+	if (!_mouse_cam) {
 		LOG(ERROR, "Invalid mouse camera");
 		return Vector3(NAN, NAN, NAN);
 	}
@@ -1211,7 +1211,7 @@ void Terrain3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
 			if (_data_directory.is_empty()) {
 				LOG(ERROR, "Data directory is empty. Set it to write data to disk.");
-			} else if (_data == nullptr) {
+			} else if (!_data) {
 				LOG(DEBUG, "Save requested, but no valid data object. Skipping");
 			} else {
 				_data->save_directory(_data_directory);
@@ -1394,7 +1394,7 @@ void Terrain3D::_bind_methods() {
 
 	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction", "gpu_mode"), &Terrain3D::get_intersection, DEFVAL(false));
-	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh);
+	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh, DEFVAL(Terrain3DData::HEIGHT_FILTER_NEAREST));
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");

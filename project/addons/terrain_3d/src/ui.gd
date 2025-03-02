@@ -309,7 +309,7 @@ func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_N
 
 
 func update_decal() -> void:
-	if not plugin.terrain or brush_data.is_empty():
+	if not plugin.terrain or brush_data.size() <= 3:
 		return
 	mat_rid = plugin.terrain.material.get_material_rid()
 	editor_decal_timer.start()

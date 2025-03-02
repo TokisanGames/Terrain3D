@@ -25,7 +25,7 @@ void Terrain3DEditor::_send_region_aabb(const Vector2i &p_region_loc, const Vect
 }
 
 // Process location to add new region, mark as deleted, or just retrieve
-Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_loc) {
+Terrain3DRegion *Terrain3DEditor::_operate_region(const Vector2i &p_region_loc) {
 	bool changed = false;
 	Vector2 height_range;
 	Terrain3DData *data = _terrain->get_data();
@@ -42,23 +42,23 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 			LOG(INFO, "Location ", p_region_loc, " out of bounds. Max: ",
 					-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);
 		}
-		return Ref<Terrain3DRegion>();
+		return nullptr;
 	}
 
 	// Get Region & dump data if debug
-	Ref<Terrain3DRegion> region = data->get_region(p_region_loc);
+	Terrain3DRegion *region = data->get_region_ptr(p_region_loc);
 	if (can_print) {
 		LOG(DEBUG, "Tool: ", _tool, " Op: ", _operation, " processing region ", p_region_loc, ": ",
-				region.is_valid() ? String::num_uint64(region->get_instance_id()) : "Null");
+				region ? String::num_uint64(region->get_instance_id()) : "Null");
 	}
 
 	// Create new region if location is null or deleted
-	if (region.is_null() || (region.is_valid() && region->is_deleted())) {
+	if (!region || (region && region->is_deleted())) {
 		// And tool is Add Region, or Height + auto_regions
 		if ((_tool == REGION && _operation == ADD) || ((_tool == SCULPT || _tool == HEIGHT) && _brush_data["auto_regions"])) {
-			region = data->add_region_blank(p_region_loc);
+			region = *(data->add_region_blank(p_region_loc));
 			changed = true;
-			if (region.is_null()) {
+			if (!region) {
 				// A new region can't be made
 				LOG(ERROR, "A new region cannot be created");
 				return region;
@@ -67,7 +67,7 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	}
 
 	// If removing region
-	else if (region.is_valid() && _tool == REGION && _operation == SUBTRACT) {
+	else if (region && _tool == REGION && _operation == SUBTRACT) {
 		_original_regions.push_back(region);
 		height_range = region->get_height_range();
 		_terrain->get_data()->remove_region(region);
@@ -104,8 +104,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	bool modifier_ctrl = _brush_data["modifier_ctrl"];
 	//bool modifier_shift = _brush_data["modifier_shift"];
 
-	Ref<Image> brush_image = _brush_data["brush_image"];
-	if (brush_image.is_null()) {
+	Image *brush_image = cast_to<Image>(_brush_data["brush_image"]);
+	if (!brush_image) {
 		LOG(ERROR, "Invalid brush image. Returning");
 		return;
 	}
@@ -153,7 +153,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		rot += p_camera_direction;
 	}
 	// Rotate the decal to align with the brush
-	if (IS_EDITOR && _terrain->get_plugin() != nullptr) {
+	if (IS_EDITOR && _terrain->get_plugin()) {
 		cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
 	}
 	AABB edited_area;
@@ -186,14 +186,17 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 			// Get region for current brush pixel global position
 			Vector2i region_loc = data->get_region_location(brush_global_position);
-			Ref<Terrain3DRegion> region = _operate_region(region_loc);
+			Terrain3DRegion *region = _operate_region(region_loc);
 			// If no region and can't make one, skip
-			if (region.is_null()) {
+			if (!region) {
 				continue;
 			}
 
 			// Get map for this region and tool
-			Ref<Image> map = region->get_map(map_type);
+			Image *map = region->get_map_ptr(map_type);
+			if (!map) {
+				continue;
+			}
 
 			// Identify position on map image
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size, vertex_spacing);
@@ -472,8 +475,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			} else if (map_type == TYPE_COLOR) {
 				// Filter by visible texture
 				if (enable_texture) {
-					Ref<Image> map = region->get_map(TYPE_CONTROL);
-					real_t src_ctrl = map->get_pixelv(map_pixel_position).r;
+					Image *cmap = region->get_map_ptr(TYPE_CONTROL);
+					if (!cmap) {
+						continue;
+					}
+					real_t src_ctrl = cmap->get_pixelv(map_pixel_position).r;
 					int tex_id = (get_blend(src_ctrl) > 110 + int(_brush_data.get("margin", 0))) ? get_overlay(src_ctrl) : get_base(src_ctrl);
 					if (tex_id != asset_id) {
 						continue;
@@ -511,8 +517,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	// Regenerate color mipmaps for edited regions
 	if (map_type == TYPE_COLOR) {
 		for (int i = 0; i < _edited_regions.size(); i++) {
-			Ref<Terrain3DRegion> region = _edited_regions[i];
-			region->get_map(map_type)->generate_mipmaps();
+			Terrain3DRegion *region = cast_to<Terrain3DRegion>(_edited_regions[i]);
+			if (region) {
+				region->get_map(map_type)->generate_mipmaps();
+			}
 		}
 	}
 	// If no added or removed regions, update only changed texture array layers from the edited regions in the rendering server
@@ -534,7 +542,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 }
 
 void Terrain3DEditor::_store_undo() {
-	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", VOID);
+	IS_INIT_COND_MESG(!_terrain->get_plugin(), "_terrain isn't initialized, returning", VOID);
 	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return;
 	}
@@ -581,7 +589,7 @@ void Terrain3DEditor::_store_undo() {
 }
 
 void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
-	IS_INIT_COND_MESG(_terrain->get_plugin() == nullptr, "_terrain isn't initialized, returning", VOID);
+	IS_INIT_COND_MESG(!_terrain->get_plugin(), "_terrain isn't initialized, returning", VOID);
 	LOG(INFO, "Applying Undo/Redo data");
 
 	Terrain3DData *data = _terrain->get_data();
@@ -626,8 +634,8 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			data->set_region_deleted(region_locs[i], false);
 			data->set_region_modified(region_locs[i], true);
 			LOG(DEBUG, "Marking region: ", region_locs[i], " -deleted, +modified");
-			Ref<Terrain3DRegion> region = data->get_region(region_locs[i]);
-			if (region.is_valid()) {
+			Terrain3DRegion *region = data->get_region_ptr(region_locs[i]);
+			if (region) {
 				_send_region_aabb(region_locs[i], region->get_height_range());
 			}
 		}
@@ -650,8 +658,10 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	if (p_data.has("edited_regions")) {
 		TypedArray<Terrain3DRegion> undo_regions = p_data["edited_regions"];
 		for (int i = 0; i < undo_regions.size(); i++) {
-			Ref<Terrain3DRegion> region = undo_regions[i];
-			region->set_edited(false);
+			Terrain3DRegion *region = cast_to<Terrain3DRegion>(undo_regions[i]);
+			if (region) {
+				region->set_edited(false);
+			}
 		}
 	}
 	_terrain->get_instancer()->force_update_mmis();

@@ -87,7 +87,7 @@ public:
 
 	void update();
 	RID get_material_rid() const { return _material; }
-	RID get_shader_rid() const { return _shader->get_rid(); }
+	RID get_shader_rid() const { return _shader.is_valid() ? _shader->get_rid() : RID(); }
 
 	// Material settings
 	void set_world_background(const WorldBackground p_background);

@@ -566,7 +566,7 @@ void Terrain3DMaterial::_set_shader_parameters(const Dictionary &p_dict) {
 // Godot likes to create resource objects at startup, so this prevents it from creating
 // uninitialized materials.
 void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
-	if (p_terrain != nullptr) {
+	if (p_terrain) {
 		_terrain = p_terrain;
 	} else {
 		LOG(ERROR, "Initialization failed, p_terrain is null");

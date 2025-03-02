@@ -160,7 +160,7 @@ void Terrain3DCollision::_shape_set_data(const int p_shape_id, const Dictionary 
 
 void Terrain3DCollision::_reload_physics_material() {
 	if (is_editor_mode()) {
-		if (_static_body != nullptr) {
+		if (_static_body) {
 			_static_body->set_physics_material_override(_physics_material);
 		}
 	} else {
@@ -198,7 +198,7 @@ void Terrain3DCollision::initialize(Terrain3D *p_terrain) {
 }
 
 void Terrain3DCollision::build() {
-	if (_terrain == nullptr) {
+	if (!_terrain) {
 		LOG(DEBUG, "Build called before terrain initialized. Returning.");
 		return;
 	}
@@ -435,7 +435,7 @@ void Terrain3DCollision::destroy() {
 		memdelete_safely(shape);
 	}
 	_shapes.clear();
-	if (_static_body != nullptr) {
+	if (_static_body) {
 		LOG(DEBUG, "Freeing StaticBody3D");
 		remove_from_tree(_static_body);
 		memdelete_safely(_static_body);
@@ -486,7 +486,7 @@ void Terrain3DCollision::set_layer(const uint32_t p_layers) {
 	LOG(INFO, "Setting collision layers: ", p_layers);
 	_layer = p_layers;
 	if (is_editor_mode()) {
-		if (_static_body != nullptr) {
+		if (_static_body) {
 			_static_body->set_collision_layer(_layer);
 		}
 	} else {
@@ -500,7 +500,7 @@ void Terrain3DCollision::set_mask(const uint32_t p_mask) {
 	LOG(INFO, "Setting collision mask: ", p_mask);
 	_mask = p_mask;
 	if (is_editor_mode()) {
-		if (_static_body != nullptr) {
+		if (_static_body) {
 			_static_body->set_collision_mask(_mask);
 		}
 	} else {
@@ -514,7 +514,7 @@ void Terrain3DCollision::set_priority(const real_t p_priority) {
 	LOG(INFO, "Setting collision priority: ", p_priority);
 	_priority = p_priority;
 	if (is_editor_mode()) {
-		if (_static_body != nullptr) {
+		if (_static_body) {
 			_static_body->set_collision_priority(_priority);
 		}
 	} else {
@@ -544,7 +544,7 @@ RID Terrain3DCollision::get_rid() const {
 	if (!is_editor_mode()) {
 		return _static_body_rid;
 	} else {
-		if (_static_body != nullptr) {
+		if (_static_body) {
 			return _static_body->get_rid();
 		}
 	}

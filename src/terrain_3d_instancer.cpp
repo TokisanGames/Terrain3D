@@ -27,8 +27,8 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 	}
 	for (int r = 0; r < region_locations.size(); r++) {
 		Vector2i region_loc = region_locations[r];
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
-		if (region.is_null()) {
+		Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+		if (!region) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
 		}
@@ -122,7 +122,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 
 						//Attach to tree
 						Node *node_container = _terrain->get_mmi_parent()->get_node_internal(rname);
-						if (node_container == nullptr) {
+						if (!node_container) {
 							LOG(ERROR, rname, " isn't attached to the tree.");
 							continue;
 						}
@@ -180,7 +180,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 }
 
 void Terrain3DInstancer::_setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod) {
-	if (p_mmi == nullptr || p_ma.is_null()) {
+	if (!p_mmi || p_ma.is_null()) {
 		return;
 	}
 	real_t margin = p_ma->get_fade_margin();
@@ -205,8 +205,8 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 	Array region_locations = _terrain->get_data()->get_region_locations();
 	for (int r = 0; r < region_locations.size(); r++) {
 		Vector2i region_loc = region_locations[r];
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
-		if (region.is_null()) {
+		Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+		if (!region) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
 		}
@@ -321,14 +321,14 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 }
 
 void Terrain3DInstancer::_backup_regionl(const Vector2i &p_region_loc) {
-	if (_terrain->get_data() != nullptr) {
+	if (_terrain && _terrain->get_data()) {
 		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 		_backup_region(region);
 	}
 }
 
 void Terrain3DInstancer::_backup_region(const Ref<Terrain3DRegion> &p_region) {
-	if (_terrain->get_editor() != nullptr) {
+	if (_terrain && _terrain->get_editor()) {
 		_terrain->get_editor()->backup_region(p_region);
 	} else {
 		p_region->set_modified(true);
@@ -589,7 +589,11 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
-		Ref<Terrain3DRegion> region = data->get_region(region_loc);
+		Terrain3DRegion *region = data->get_region_ptr(region_loc);
+		if (!region) {
+			LOG(WARN, "Errant null region found at: ", region_loc);
+			continue;
+		}
 
 		Dictionary mesh_inst_dict = region->get_instances();
 		Array mesh_types = mesh_inst_dict.keys();
@@ -940,7 +944,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 // p_src_rect is the vertex/pixel offset into the region data, NOT a global position
 // Need to force_update_mmis() after
 void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region) {
-	if (p_src_region == nullptr || p_dst_region == nullptr) {
+	if (!p_src_region || !p_dst_region) {
 		LOG(ERROR, "Source (", p_src_region, ") or destination (", p_dst_region, ") regions are null");
 		return;
 	}
