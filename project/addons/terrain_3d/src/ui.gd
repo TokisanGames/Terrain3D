@@ -306,7 +306,7 @@ func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_N
 
 
 func update_decal() -> void:
-	if not plugin.terrain:
+	if not plugin.terrain or brush_data.is_empty():
 		return
 	mat_rid = plugin.terrain.material.get_material_rid()
 	editor_decal_timer.start()
@@ -317,7 +317,6 @@ func update_decal() -> void:
 		# Wait for cursor to recenter after moving camera before revealing
 		# See https://github.com/godotengine/godot/issues/70098
 		Time.get_ticks_msec() - last_rmb_time <= 30 or \
-		brush_data.is_empty() or \
 		(plugin._input_mode > 0 and not brush_data["show_cursor_while_painting"]):
 			hide_decal()
 			return
@@ -326,17 +325,33 @@ func update_decal() -> void:
 	editor_decal_position[0] = Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z)
 	editor_decal_visible[0] = true
 	var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
-	var size: float = brush_data.get("size") if brush_data.has("size") else 0.0
-	editor_decal_size[0] = maxf(size, .5)
-	if brush_data["align_to_view"]:
-		var cam: Camera3D = plugin.terrain.get_camera();
-		if (cam):
-			editor_decal_rotation[0] = cam.rotation.y
-	else:
-		editor_decal_rotation[0] = 0.
-	
+	if plugin.editor.get_tool() == Terrain3DEditor.REGION:
+		var r_size: float = float(plugin.terrain.get_region_size()) * plugin.terrain.get_vertex_spacing()
+		var map_size: int = plugin.terrain.data.REGION_MAP_SIZE
+		var half_r_size: float = r_size * 0.5
+		var pos: Vector2 = Vector2(plugin.mouse_global_position.x + half_r_size,
+			plugin.mouse_global_position.z + half_r_size).snappedf(r_size) - Vector2(half_r_size, half_r_size)
+		editor_brush_texture_rid = region_texture.get_rid()
+		editor_decal_position[0] = pos
+		editor_decal_size[0] = r_size
+		editor_decal_rotation[0] = 0.0
+		var loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
+		loc += Vector2i(map_size / 2, map_size / 2)
+		if not(loc.x < 0 or loc.x > map_size - 1 or loc.y < 0 or loc.y > map_size - 1):
+			if plugin.terrain.material.get_world_background() == Terrain3DMaterial.WorldBackground.NONE:
+				var index: int = clampi(loc.y * map_size + loc.x, 0, map_size * map_size - 1)
+				r_map[index] = -index - 1 if r_map[index] == 0 else r_map[index]
+			match plugin.editor.get_operation():
+				Terrain3DEditor.ADD:
+					editor_decal_color[0] = Color.WHITE
+					editor_decal_color[0].a = 0.25
+				Terrain3DEditor.SUBTRACT:
+					editor_decal_color[0] = Color.WHITE * .15
+					editor_decal_color[0].a = 0.75
+		else:
+			hide_decal()
 	# Set texture and color
-	if picking != Terrain3DEditor.TOOL_MAX:
+	elif picking != Terrain3DEditor.TOOL_MAX:
 		editor_brush_texture_rid = ring_texture.get_rid()
 		editor_decal_size[0] = 10. * plugin.terrain.get_vertex_spacing()
 		match picking:
@@ -349,28 +364,14 @@ func update_decal() -> void:
 		editor_decal_color[0].a = 1.0
 	else:
 		editor_brush_texture_rid = brush_data["brush"][1].get_rid()
+		editor_decal_size[0] = maxf(brush_data["size"], .5)
+		if brush_data["align_to_view"]:
+			var cam: Camera3D = plugin.terrain.get_camera();
+			if (cam):
+				editor_decal_rotation[0] = cam.rotation.y
+			else:
+				editor_decal_rotation[0] = 0.
 		match plugin.editor.get_tool():
-			Terrain3DEditor.REGION:
-				var r_size: float = float(plugin.terrain.get_region_size()) * plugin.terrain.get_vertex_spacing()
-				var map_size: int = plugin.terrain.data.REGION_MAP_SIZE
-				var half_r_size: float = r_size * 0.5
-				var pos: Vector2 = Vector2(plugin.mouse_global_position.x + half_r_size,
-					plugin.mouse_global_position.z + half_r_size).snappedf(r_size) - Vector2(half_r_size, half_r_size)
-				editor_brush_texture_rid = region_texture.get_rid()
-				editor_decal_position[0] = pos
-				editor_decal_size[0] = r_size
-				editor_decal_rotation[0] = 0.0
-				var loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
-				loc += Vector2i(map_size / 2, map_size / 2)
-				var index: int = clampi(loc.y * map_size + loc.x, 0, map_size * map_size - 1)
-				r_map[index] = -2 if r_map[index] == 0 else r_map[index]
-				match plugin.editor.get_operation():
-					Terrain3DEditor.ADD:
-						editor_decal_color[0] = Color.WHITE
-						editor_decal_color[0].a = 0.25
-					Terrain3DEditor.SUBTRACT:
-						editor_decal_color[0] = Color.WHITE * .15
-						editor_decal_color[0].a = 0.75
 			Terrain3DEditor.SCULPT:
 				match plugin.editor.get_operation():
 					Terrain3DEditor.ADD:
