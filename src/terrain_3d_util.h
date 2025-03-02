@@ -50,6 +50,7 @@ public:
 			const bool p_invert_alpha = false,
 			const int p_alpha_channel = 0);
 	static Ref<Image> luminance_to_height(const Ref<Image> &p_src_rgb);
+	static void benchmark(Terrain3D *p_terrain);
 
 protected:
 	static void _bind_methods();
