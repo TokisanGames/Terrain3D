@@ -27,8 +27,8 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 	}
 	for (int r = 0; r < region_locations.size(); r++) {
 		Vector2i region_loc = region_locations[r];
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
-		if (region.is_null()) {
+		Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+		if (!region) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
 		}
@@ -205,8 +205,8 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 	Array region_locations = _terrain->get_data()->get_region_locations();
 	for (int r = 0; r < region_locations.size(); r++) {
 		Vector2i region_loc = region_locations[r];
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
-		if (region.is_null()) {
+		Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+		if (!region) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
 		}
@@ -589,7 +589,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
-		Ref<Terrain3DRegion> region = data->get_region(region_loc);
+		Terrain3DRegion *region = data->get_region_ptr(region_loc);
 
 		Dictionary mesh_inst_dict = region->get_instances();
 		Array mesh_types = mesh_inst_dict.keys();
