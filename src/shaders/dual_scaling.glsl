@@ -65,7 +65,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		normal_rg = textureGrad(_texture_array_normal, vec3(matUV, float(out_mat.base)), dd1.xy, dd1.zw);
 
 		// Unpack & rotate base normal for blending
-		normal_rg.xz = unpack_normal(normal_rg).xz;
+		normal_rg.xyz = unpack_normal(normal_rg).xyz;
 		normal_rg.xz = rotate_plane(normal_rg.xz, -normal_angle);
 	}
 
