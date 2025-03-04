@@ -821,8 +821,7 @@ void Terrain3DData::calc_height_range(const bool p_recursive) {
 		Vector2i region_loc = _region_locations[i];
 		Terrain3DRegion *region = get_region_ptr(region_loc);
 		if (!region) {
-			LOG(ERROR, "Region not found at: ", region_loc);
-			return;
+			continue;
 		}
 		if (p_recursive) {
 			region->calc_height_range();
