@@ -157,7 +157,7 @@ R"(
 	// Show region grid
 	vec3 __pixel_pos1 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
 	float __region_line = 1.0;		// Region line thickness
-	__region_line *= .1*sqrt(length(v_camera_pos - __pixel_pos1));
+	__region_line *= .1*sqrt(length(_camera_pos - __pixel_pos1));
 	if (mod(__pixel_pos1.x * _vertex_density + __region_line*.5, _region_size) <= __region_line || 
 		mod(__pixel_pos1.z * _vertex_density + __region_line*.5, _region_size) <= __region_line ) {
 		ALBEDO = vec3(1.);
@@ -172,7 +172,7 @@ R"(
 	float __view_distance = 300.0;	// Visible distance of grid
 	vec3 __vertex_mul = vec3(0.);
 	vec3 __vertex_add = vec3(0.);
-	float __distance_factor = clamp(1.-length(v_camera_pos - __pixel_pos2)/__view_distance, 0., 1.);
+	float __distance_factor = clamp(1.-length(_camera_pos - __pixel_pos2)/__view_distance, 0., 1.);
 	// Draw vertex grid
 	if ( mod(__pixel_pos2.x * _vertex_density + __grid_line*.5, __grid_step) < __grid_line || 
 	  	 mod(__pixel_pos2.z * _vertex_density + __grid_line*.5, __grid_step) < __grid_line ) { 
@@ -189,7 +189,7 @@ R"(
 	// Show region grid
 	vec3 __pixel_pos3 = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
 	float __cell_line = 0.5;		// Cell line thickness
-	__cell_line *= .1*sqrt(length(v_camera_pos - __pixel_pos3));
+	__cell_line *= .1*sqrt(length(_camera_pos - __pixel_pos3));
 	#define CELL_SIZE 32
 	if (mod(__pixel_pos3.x * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line || 
 		mod(__pixel_pos3.z * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line ) {

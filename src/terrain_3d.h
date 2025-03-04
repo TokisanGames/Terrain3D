@@ -17,6 +17,7 @@
 #include "terrain_3d_collision.h"
 #include "terrain_3d_data.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_geomesh.h"
 #include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
 
@@ -49,6 +50,7 @@ private:
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DCollision *_collision = nullptr;
+	Terrain3DGeoMesh *_geomesh = nullptr;
 	Terrain3DEditor *_editor = nullptr;
 	EditorPlugin *_plugin = nullptr;
 	// Current editor or gameplay camera we are centering the terrain on.
@@ -68,15 +70,6 @@ private:
 	int _mesh_size = 48;
 	real_t _vertex_spacing = 1.0f;
 	Vector3 _snapped_position = V3_ZERO;
-
-	Vector<RID> _meshes;
-	struct Instances {
-		RID cross;
-		Vector<RID> tiles;
-		Vector<RID> fillers;
-		Vector<RID> trims;
-		Vector<RID> seams;
-	} _mesh_data;
 
 	// Rendering
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
@@ -105,10 +98,7 @@ private:
 
 	void _destroy_instancer();
 	void _destroy_collision(const bool p_final = false);
-
-	void _build_meshes(const int p_mesh_lods, const int p_mesh_size);
-	void _update_mesh_instances();
-	void _clear_meshes();
+	void _destroy_geomesh(const bool p_final = false);
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
@@ -139,6 +129,7 @@ public:
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DCollision *get_collision() const { return _collision; }
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
+	Terrain3DGeoMesh *get_geomesh() const { return _geomesh; }
 	Node *get_mmi_parent() const { return _mmi_parent; }
 	void set_editor(Terrain3DEditor *p_editor);
 	Terrain3DEditor *get_editor() const { return _editor; }
@@ -182,10 +173,6 @@ public:
 	bool is_compatibility_mode() const { return _compatibility; };
 	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
 	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
-
-	// Processing
-	void snap(const Vector3 &p_cam_pos);
-	void update_aabbs();
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
