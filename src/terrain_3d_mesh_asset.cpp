@@ -227,6 +227,7 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 				break;
 			}
 		}
+		node->queue_free();
 	}
 	if (_meshes.size() > 0) {
 		Ref<Mesh> mesh = _meshes[0];
@@ -234,7 +235,6 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	} else {
 		set_generated_type(TYPE_TEXTURE_CARD);
 	}
-
 	_last_lod = _meshes.size() - 1;
 	_last_shadow_lod = _last_lod;
 	_shadow_impostor = 0;
