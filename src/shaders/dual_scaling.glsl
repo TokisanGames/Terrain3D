@@ -27,7 +27,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		normal_rg = textureGrad(_texture_array_normal, vec3(matUV, float(out_mat.base)), dd1.xy, dd1.zw);
 
 		// Unpack & rotate base normal for blending
-		normal_rg.xz = unpack_normal(normal_rg).xz;
+		normal_rg.xyz = unpack_normal(normal_rg);
 		normal_rg.xz = rotate_plane(normal_rg.xz, -normal_angle);
 	}
 
@@ -35,7 +35,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 			|| (out_mat.over == dual_scale_texture && out_mat.blend > 0.0))) {
 		// 2 lookups
 		mat_scale *= dual_scale_reduction;
-		float dual_scale_normal = uv_rotation; //do not add near & far rotations
+		float dual_scale_normal = uv_rotation + p_angle; //do not add near & far rotations
 		// Do not apply detiling if tri-scale reduction occurs.
 		matUV = region < 0 ? base_uv * mat_scale : detiling(base_uv * mat_scale, uv_center * mat_scale, dual_scale_texture, dual_scale_normal);
 		dd1.xy = rotate_plane(ddxy.xy, -dual_scale_normal);
@@ -45,7 +45,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		normal_far = textureGrad(_texture_array_normal, vec3(matUV, float(dual_scale_texture)), dd1.xy, dd1.zw);
 
 		// Unpack & rotate dual scale normal for blending
-		normal_far.xz = unpack_normal(normal_far).xz;
+		normal_far.xyz = unpack_normal(normal_far);
 		normal_far.xz = rotate_plane(normal_far.xz, -dual_scale_normal);
 	}
 	
@@ -65,7 +65,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		normal_rg = textureGrad(_texture_array_normal, vec3(matUV, float(out_mat.base)), dd1.xy, dd1.zw);
 
 		// Unpack & rotate base normal for blending
-		normal_rg.xz = unpack_normal(normal_rg).xz;
+		normal_rg.xyz = unpack_normal(normal_rg).xyz;
 		normal_rg.xz = rotate_plane(normal_rg.xz, -normal_angle);
 	}
 

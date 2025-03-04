@@ -40,7 +40,8 @@ void Terrain3DTextureAsset::clear() {
 	_albedo_texture.unref();
 	_normal_texture.unref();
 	_uv_scale = 0.1f;
-	_detiling = 0.0f;
+	_detiling_rotation = 0.0f;
+	_detiling_shift = 0.0f;
 }
 
 void Terrain3DTextureAsset::set_name(const String &p_name) {
@@ -108,15 +109,27 @@ void Terrain3DTextureAsset::set_normal_texture(const Ref<Texture2D> &p_texture) 
 	}
 }
 
+void Terrain3DTextureAsset::set_normal_depth(const real_t p_normal_depth) {
+	_normal_depth = CLAMP(p_normal_depth, 0.0f, 2.0f);
+	LOG(INFO, "Setting normal_depth: ", _normal_depth);
+	emit_signal("setting_changed");
+}
+
 void Terrain3DTextureAsset::set_uv_scale(const real_t p_scale) {
 	_uv_scale = CLAMP(p_scale, .001f, 2.f);
 	LOG(INFO, "Setting uv_scale: ", _uv_scale);
 	emit_signal("setting_changed");
 }
 
-void Terrain3DTextureAsset::set_detiling(const real_t p_detiling) {
-	_detiling = CLAMP(p_detiling, 0.0f, 1.0f);
-	LOG(INFO, "Setting detiling: ", _detiling);
+void Terrain3DTextureAsset::set_detiling_rotation(const real_t p_detiling_rotation) {
+	_detiling_rotation = CLAMP(p_detiling_rotation, 0.0f, 1.0f);
+	LOG(INFO, "Setting detiling_rotation: ", _detiling_rotation);
+	emit_signal("setting_changed");
+}
+
+void Terrain3DTextureAsset::set_detiling_shift(const real_t p_detiling_shift) {
+	_detiling_shift = CLAMP(p_detiling_shift, 0.0f, 1.0f);
+	LOG(INFO, "Setting detiling_shift: ", _detiling_shift);
 	emit_signal("setting_changed");
 }
 
@@ -140,16 +153,22 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_albedo_texture"), &Terrain3DTextureAsset::get_albedo_texture);
 	ClassDB::bind_method(D_METHOD("set_normal_texture", "texture"), &Terrain3DTextureAsset::set_normal_texture);
 	ClassDB::bind_method(D_METHOD("get_normal_texture"), &Terrain3DTextureAsset::get_normal_texture);
+	ClassDB::bind_method(D_METHOD("set_normal_depth", "normal_depth"), &Terrain3DTextureAsset::set_normal_depth);
+	ClassDB::bind_method(D_METHOD("get_normal_depth"), &Terrain3DTextureAsset::get_normal_depth);
 	ClassDB::bind_method(D_METHOD("set_uv_scale", "scale"), &Terrain3DTextureAsset::set_uv_scale);
 	ClassDB::bind_method(D_METHOD("get_uv_scale"), &Terrain3DTextureAsset::get_uv_scale);
-	ClassDB::bind_method(D_METHOD("set_detiling", "detiling"), &Terrain3DTextureAsset::set_detiling);
-	ClassDB::bind_method(D_METHOD("get_detiling"), &Terrain3DTextureAsset::get_detiling);
+	ClassDB::bind_method(D_METHOD("set_detiling_rotation", "detiling_rotation"), &Terrain3DTextureAsset::set_detiling_rotation);
+	ClassDB::bind_method(D_METHOD("get_detiling_rotation"), &Terrain3DTextureAsset::get_detiling_rotation);
+	ClassDB::bind_method(D_METHOD("set_detiling_shift", "detiling_shift"), &Terrain3DTextureAsset::set_detiling_shift);
+	ClassDB::bind_method(D_METHOD("get_detiling_shift"), &Terrain3DTextureAsset::get_detiling_shift);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "albedo_color", PROPERTY_HINT_COLOR_NO_ALPHA), "set_albedo_color", "get_albedo_color");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_albedo_texture", "get_albedo_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_normal_texture", "get_normal_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "normal_depth", PROPERTY_HINT_RANGE, "0.0, 2.0"), "set_normal_depth", "get_normal_depth");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0"), "set_uv_scale", "get_uv_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling", "get_detiling");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_rotation", "get_detiling_rotation");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_shift", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_shift", "get_detiling_shift");
 }
