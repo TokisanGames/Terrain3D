@@ -752,11 +752,7 @@ Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
 			Vector3 normal = get_normal(p_global_position);
 			uint32_t base_id = t_material->get_shader_param("auto_base_texture");
 			uint32_t overlay_id = t_material->get_shader_param("auto_overlay_texture");
-			real_t blend = CLAMP(
-					vec3_dot(Vector3(0.f, 1.f, 0.f),
-							normal * auto_slope * 2.f - Vector3(auto_slope, auto_slope, auto_slope)) -
-							auto_height_reduction * .01f * height,
-					0.f, 1.f);
+			real_t blend = CLAMP((auto_slope * 2.f * (normal.y - 1.f) + 1.f) - auto_height_reduction * .01f * height, 0.f, 1.f);
 			return Vector3(real_t(base_id), real_t(overlay_id), blend);
 		}
 	}
