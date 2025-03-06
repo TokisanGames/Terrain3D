@@ -69,6 +69,9 @@ var editor_decal_fade: float :
 			editor_decal_color[0].a = value
 			if is_shader_valid():
 				RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
+				if value < 0.001:
+					var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
+					RenderingServer.material_set_param(mat_rid, "_region_map", r_map)
 @onready var editor_ring_texture_rid: RID = ring_texture.get_rid()
 
 
@@ -324,30 +327,43 @@ func update_decal() -> void:
 	reset_decal_arrays()
 	editor_decal_position[0] = Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z)
 	editor_decal_visible[0] = true
+	# Set region size, and modify region map for none background mode.
 	var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
 	if plugin.editor.get_tool() == Terrain3DEditor.REGION:
 		var r_size: float = float(plugin.terrain.get_region_size()) * plugin.terrain.get_vertex_spacing()
 		var map_size: int = plugin.terrain.data.REGION_MAP_SIZE
 		var half_r_size: float = r_size * 0.5
-		var pos: Vector2 = Vector2(plugin.mouse_global_position.x + half_r_size,
-			plugin.mouse_global_position.z + half_r_size).snappedf(r_size) - Vector2(half_r_size, half_r_size)
+		var pos: Vector2 = (Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z) +
+			Vector2(half_r_size, half_r_size)).snappedf(r_size) - Vector2(half_r_size, half_r_size)
 		editor_brush_texture_rid = region_texture.get_rid()
 		editor_decal_position[0] = pos
 		editor_decal_size[0] = r_size
 		editor_decal_rotation[0] = 0.0
+		
 		var loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
 		loc += Vector2i(map_size / 2, map_size / 2)
-		if not(loc.x < 0 or loc.x > map_size - 1 or loc.y < 0 or loc.y > map_size - 1):
+		if !(loc.x < 0 or loc.x > map_size - 1 or loc.y < 0 or loc.y > map_size - 1):
+			var index: int = clampi(loc.y * map_size + loc.x, 0, map_size * map_size - 1)
 			if plugin.terrain.material.get_world_background() == Terrain3DMaterial.WorldBackground.NONE:
-				var index: int = clampi(loc.y * map_size + loc.x, 0, map_size * map_size - 1)
-				r_map[index] = -index - 1 if r_map[index] == 0 else r_map[index]
+				if r_map[index] == 0 and plugin.editor.get_operation() == Terrain3DEditor.ADD:
+					r_map[index] = -index - 1
+				else:
+					r_map[index] = r_map[index]
+			
 			match plugin.editor.get_operation():
 				Terrain3DEditor.ADD:
-					editor_decal_color[0] = Color.WHITE
-					editor_decal_color[0].a = 0.25
+					if r_map[index] <= 0:
+						editor_decal_color[0] = Color.WHITE
+						editor_decal_color[0].a = 0.25
+					else:
+						hide_decal()
+				
 				Terrain3DEditor.SUBTRACT:
-					editor_decal_color[0] = Color.WHITE * .15
-					editor_decal_color[0].a = 0.75
+					if r_map[index] > 0:
+						editor_decal_color[0] = Color.WHITE * .15
+						editor_decal_color[0].a = 0.75
+					else:
+						hide_decal()
 		else:
 			hide_decal()
 	# Set texture and color
