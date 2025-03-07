@@ -37,6 +37,7 @@ uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_normal_depth_array[32];
+uniform float _texture_ao_strength_array[32];
 uniform float _texture_uv_scale_array[32];
 uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
@@ -53,7 +54,7 @@ uniform bool world_space_normal_blend = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.87;
 
 uniform bool enable_projection = true;
-uniform float projection_threshold : hint_range(0.0, 1.0, 0.01) = 0.8;
+uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 uniform float projection_angular_division : hint_range(1.0, 16.0, 0.001) = 2.0;
 
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
@@ -81,6 +82,7 @@ struct Material {
 	int over;
 	float blend;
 	float nrm_depth;
+	float ao_str;
 };
 
 
@@ -258,7 +260,7 @@ vec2 rotate_plane(vec2 plane, float angle) {
 
 // 2-4 lookups ( 2-6 with dual scaling )
 void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 iuv_center, mat3 TANGENT_WORLD_MATRIX, out Material out_mat) {
-	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, 0.0);
+	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, 0.0, 0.0);
 	vec2 uv_center = vec2(iuv_center.xy);
 	int region = iuv_center.z;
 	
@@ -291,6 +293,7 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 //INSERT: AUTO_SHADER_TEXTURE_ID
 //INSERT: TEXTURE_ID
 	out_mat.nrm_depth = _texture_normal_depth_array[out_mat.base];
+	out_mat.ao_str = _texture_ao_strength_array[out_mat.base];
 
 	// Control map scale & rotation, apply to both base and uv_center.
 	// Define base scale from control map value as array index. 0.5 as baseline.
@@ -343,15 +346,18 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
 
 		// apply world space normal weighting from base, to overlay layer
+		float over_blend = albedo_ht2.a; // dont modify actual height value
 		if (world_space_normal_blend) {
-			albedo_ht2.a *= bool(control >>3u & 0x1u) ? 1.0 : clamp((TANGENT_WORLD_MATRIX * normal_rg.xyz).y, 0.0, 1.0);
+			over_blend *= bool(control >>3u & 0x1u) ? 1.0 : clamp((TANGENT_WORLD_MATRIX * normal_rg.xyz).y, 0.0, 1.0);
 		}
 
 		// Blend overlay and base
-		out_mat.alb_ht = height_blend4(albedo_ht, albedo_ht.a, albedo_ht2, albedo_ht2.a, out_mat.blend);
-		out_mat.nrm_rg = height_blend4(normal_rg, albedo_ht.a, normal_rg2, albedo_ht2.a, out_mat.blend);
+		out_mat.alb_ht = height_blend4(albedo_ht, albedo_ht.a, albedo_ht2, over_blend, out_mat.blend);
+		out_mat.nrm_rg = height_blend4(normal_rg, albedo_ht.a, normal_rg2, over_blend, out_mat.blend);
 		out_mat.nrm_depth = height_blend1(_texture_normal_depth_array[out_mat.base], albedo_ht.a,
-			_texture_normal_depth_array[out_mat.over], albedo_ht2.a, out_mat.blend);
+			_texture_normal_depth_array[out_mat.over], over_blend, out_mat.blend);
+		out_mat.ao_str = height_blend1(_texture_ao_strength_array[out_mat.base], albedo_ht.a,
+			_texture_ao_strength_array[out_mat.over], over_blend, out_mat.blend);
 	}
 	return;
 }
@@ -491,9 +497,10 @@ void fragment() {
 	vec4 albedo_height = mat[3].alb_ht;
 	vec4 normal_rough = mat[3].nrm_rg;
 	float normal_map_depth = mat[3].nrm_depth;
+	float ao_strength = mat[3].ao_str;
 
 	// Otherwise do full bilinear interpolation
-	if (bilerp) {	
+	if (bilerp) {
 		// 4 lookups + 3x get_material() = 10-22 total
 		control[0] = texelFetch(_control_maps, indexUV[0], 0).r;
 		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
@@ -535,6 +542,12 @@ void fragment() {
 			mat[1].nrm_depth * weights[1] +
 			mat[2].nrm_depth * weights[2] +
 			mat[3].nrm_depth * weights[3] ;
+		
+		ao_strength = 
+			mat[0].ao_str * weights[0] +
+			mat[1].ao_str * weights[1] +
+			mat[2].ao_str * weights[2] +
+			mat[3].ao_str * weights[3] ;
 	}
 	
 	// Macro variation. 2 lookups
@@ -556,6 +569,11 @@ void fragment() {
 	SPECULAR = 1. - normal_rough.a;
 	NORMAL_MAP = pack_normal(normal_rough.rgb);
 	NORMAL_MAP_DEPTH = normal_map_depth;
+
+	// Higher and/or facing up, less occluded.
+	float ao = (1.0 - (albedo_height.a * log(2.1 - ao_strength))) * (1.0 - normal_rough.g);
+	AO = clamp(1.0 - ao * ao_strength, albedo_height.a, 1.0);
+	AO_LIGHT_AFFECT = albedo_height.a;
 
 }
 

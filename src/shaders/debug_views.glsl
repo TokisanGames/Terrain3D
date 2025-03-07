@@ -15,6 +15,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_GREY
 	// Show all grey
@@ -22,6 +23,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_HEIGHTMAP
 	// Show heightmap
@@ -29,6 +31,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_COLORMAP
 	// Show colormap
@@ -36,6 +39,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_ROUGHMAP
 	// Show roughness map
@@ -43,6 +47,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_CONTROL_TEXTURE
 	
@@ -87,6 +92,7 @@ R"(
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_CONTROL_ANGLE
 	ivec3 __auv = get_region_uv(floor(uv), SKIP_PASS);
@@ -102,6 +108,7 @@ R"(
 	ROUGHNESS = 1.;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_CONTROL_SCALE
 	ivec3 __suv = get_region_uv(floor(uv), SKIP_PASS);
@@ -115,6 +122,7 @@ R"(
 	ROUGHNESS = 1.;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5 ,0.5 ,1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_CONTROL_BLEND
 	// Show control map blend values
@@ -123,6 +131,7 @@ R"(
 	ROUGHNESS = 1.;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_AUTOSHADER
 	ivec3 __ruv = get_region_uv(floor(uv), SKIP_PASS);
@@ -131,6 +140,8 @@ R"(
 	ALBEDO = vec3(__autoshader);
 	ROUGHNESS = 1.;
 	SPECULAR = 0.;
+	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_TEXTURE_HEIGHT
 	// Show height textures
@@ -138,6 +149,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_TEXTURE_NORMAL
 	// Show normal map textures
@@ -145,6 +157,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_TEXTURE_ROUGHNESS
 	// Show roughness textures
@@ -152,6 +165,7 @@ R"(
 	ROUGHNESS = 0.7;
 	SPECULAR = 0.;
 	NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+	AO = 1.0;
 
 //INSERT: DEBUG_REGION_GRID
 	// Show region grid
