@@ -542,6 +542,7 @@ void Terrain3DMaterial::_update_texture_arrays() {
 	RS->material_set_param(_material, "_texture_array_normal", asset_list->get_normal_array_rid());
 	RS->material_set_param(_material, "_texture_color_array", asset_list->get_texture_colors());
 	RS->material_set_param(_material, "_texture_normal_depth_array", asset_list->get_texture_normal_depths());
+	RS->material_set_param(_material, "_texture_ao_strength_array", asset_list->get_texture_ao_strengths());
 	RS->material_set_param(_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
 	RS->material_set_param(_material, "_texture_detile_array", asset_list->get_texture_detiles());
 
