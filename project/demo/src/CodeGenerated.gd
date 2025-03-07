@@ -32,6 +32,8 @@ func create_terrain() -> Terrain3D:
 	var brown_ta: Terrain3DTextureAsset = await create_texture_asset("Dirt", brown_gr, 1024)
 	brown_ta.uv_scale = 0.03
 	green_ta.detiling = 0.1
+	
+	var grass_ma: Terrain3DMeshAsset = create_mesh_asset("Grass", Color.from_hsv(120./360., .4, .37)) 
 
 	# Create a terrain
 	var terrain := Terrain3D.new()
@@ -46,6 +48,7 @@ func create_terrain() -> Terrain3D:
 	terrain.assets = Terrain3DAssets.new()
 	terrain.assets.set_texture(0, green_ta)
 	terrain.assets.set_texture(1, brown_ta)
+	terrain.assets.set_mesh_asset(0, grass_ma)
 
 	# Generate height map w/ 32-bit noise and import it with scale
 	var noise := FastNoiseLite.new()
@@ -56,6 +59,17 @@ func create_terrain() -> Terrain3D:
 			img.set_pixel(x, y, Color(noise.get_noise_2d(x, y), 0., 0., 1.))
 	terrain.region_size = 1024
 	terrain.data.import_images([img, null, null], Vector3(-1024, 0, -1024), 0.0, 150.0)
+
+	# Instance foliage
+	var xforms: Array[Transform3D]
+	var width: int = 100
+	var step: int = 2
+	for x in range(0, width, step):
+		for z in range(0, width, step):
+			var pos := Vector3(x, 0, z) - Vector3(width, 0, width) * .5
+			pos.y = terrain.data.get_height(pos)
+			xforms.push_back(Transform3D(Basis(), pos))
+	terrain.instancer.add_transforms(0, xforms)
 
 	# Enable the next line and `Debug/Visible Collision Shapes` to see collision
 	#terrain.collision.mode = Terrain3DCollision.DYNAMIC_EDITOR
@@ -108,5 +122,12 @@ func create_texture_asset(asset_name: String, gradient: Gradient, texture_size: 
 	ta.name = asset_name
 	ta.albedo_texture = albedo
 	ta.normal_texture = normal
-
 	return ta
+
+
+func create_mesh_asset(asset_name: String, color: Color) -> Terrain3DMeshAsset:
+	var ma := Terrain3DMeshAsset.new()
+	ma.name = asset_name
+	ma.generated_type = Terrain3DMeshAsset.TYPE_TEXTURE_CARD
+	ma.material_override.albedo_color = color
+	return ma
