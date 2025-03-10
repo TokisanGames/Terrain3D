@@ -24,7 +24,6 @@ material_override = SubResource("StandardMaterial3D_b2vqk")
 last_lod = 0
 last_shadow_lod = 0
 lod0_range = 128.0
-visibility_range = 128.0
 
 [sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_or12t"]
 name = "LODExample"

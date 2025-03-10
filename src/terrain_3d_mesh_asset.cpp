@@ -566,7 +566,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 
 	//DEPRECATED 1.0 - Remove 1.1
 	ClassDB::bind_method(D_METHOD("set_visibility_range", "distance"), &Terrain3DMeshAsset::set_visibility_range);
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater", PROPERTY_USAGE_NO_EDITOR), "set_visibility_range", "get_lod0_range");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater", PROPERTY_USAGE_NONE), "set_visibility_range", "get_lod0_range");
 }
 
 //DEPRECATED 1.0 - Remove 1.1

@@ -34,7 +34,7 @@ You can determine if a given location is within a region by using `Terrain3DData
 
 ## Terrain3DObjects
 
-Just add the instancer keeps foliage stuck to the ground when sculpting, we provide a special node that does the same for regular MeshInstance3D objects.
+Just as the instancer keeps foliage stuck to the ground when sculpting, we provide a special node that does the same for regular MeshInstance3D objects.
 
 Objects that are children of this node will maintain the same vertical offset relative to the terrain as they are moved laterally or as the terrain is sculpted.
 
