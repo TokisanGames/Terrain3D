@@ -53,9 +53,9 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Creating instancer");
 		_instancer = memnew(Terrain3DInstancer);
 	}
-	if (!_geomesh) {
-		LOG(DEBUG, "Creating geomesh");
-		_geomesh = memnew(Terrain3DGeoMesh);
+	if (!_mesher) {
+		LOG(DEBUG, "Creating mesher");
+		_mesher = memnew(Terrain3DMesher);
 	}
 
 	// Connect signals
@@ -75,9 +75,9 @@ void Terrain3D::_initialize() {
 		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
 	// Height map was regenerated, update aabbs
-	if (!_data->is_connected("height_maps_changed", callable_mp(_geomesh, &Terrain3DGeoMesh::update_aabbs))) {
+	if (!_data->is_connected("height_maps_changed", callable_mp(_mesher, &Terrain3DMesher::update_aabbs))) {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
-		_data->connect("height_maps_changed", callable_mp(_geomesh, &Terrain3DGeoMesh::update_aabbs));
+		_data->connect("height_maps_changed", callable_mp(_mesher, &Terrain3DMesher::update_aabbs));
 	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
@@ -97,7 +97,7 @@ void Terrain3D::_initialize() {
 		_assets->initialize(this);
 		_collision->initialize(this);
 		_instancer->initialize(this);
-		_geomesh->initialize(this);
+		_mesher->initialize(this);
 		_initialized = true;
 	}
 	update_configuration_warnings();
@@ -123,8 +123,8 @@ void Terrain3D::__physics_process(const double p_delta) {
 		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
 		RS->material_set_param(_material->get_material_rid(), "_camera_pos", cam_pos);
 		if (_camera_last_position.distance_to(cam_pos_2d) > 0.2f) {
-			if (_geomesh) {
-				_geomesh->snap(cam_pos, _vertex_spacing);
+			if (_mesher) {
+				_mesher->snap(cam_pos);
 			}
 			_snapped_position = (cam_pos / _vertex_spacing).floor() * _vertex_spacing;
 			_camera_last_position = cam_pos_2d;
@@ -194,13 +194,13 @@ void Terrain3D::_destroy_collision(const bool p_final) {
 	}
 }
 
-void Terrain3D::_destroy_geomesh(const bool p_final) {
+void Terrain3D::_destroy_mesher(const bool p_final) {
 	LOG(INFO, "Destroying GeoMesh");
-	if (_geomesh) {
-		_geomesh->destroy();
+	if (_mesher) {
+		_mesher->destroy();
 	}
 	if (p_final) {
-		memdelete_safely(_geomesh);
+		memdelete_safely(_mesher);
 	}
 }
 
@@ -604,8 +604,8 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 void Terrain3D::set_render_layers(const uint32_t p_layers) {
 	LOG(INFO, "Setting terrain render layers to: ", p_layers);
 	_render_layers = p_layers;
-	if (_geomesh) {
-		_geomesh->update();
+	if (_mesher) {
+		_mesher->update();
 	}
 }
 
@@ -634,23 +634,23 @@ void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
 
 void Terrain3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
 	_cast_shadows = p_cast_shadows;
-	if (_geomesh) {
-		_geomesh->update();
+	if (_mesher) {
+		_mesher->update();
 	}
 }
 
 void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
 	_gi_mode = p_gi_mode;
-	if (_geomesh) {
-		_geomesh->update();
+	if (_mesher) {
+		_mesher->update();
 	}
 }
 
 void Terrain3D::set_cull_margin(const real_t p_margin) {
 	LOG(INFO, "Setting extra cull margin: ", p_margin);
 	_cull_margin = p_margin;
-	if (_geomesh) {
-		_geomesh->update_aabbs();
+	if (_mesher) {
+		_mesher->update_aabbs();
 	}
 }
 
@@ -836,8 +836,8 @@ void Terrain3D::_notification(const int p_what) {
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
 			_is_inside_world = true;
-			if (_geomesh) {
-				_geomesh->update();
+			if (_mesher) {
+				_mesher->update();
 			}
 			break;
 		}
@@ -880,8 +880,8 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			// Node3D visibility changed
 			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
-			if (_geomesh) {
-				_geomesh->update();
+			if (_mesher) {
+				_mesher->update();
 			}
 			break;
 		}
@@ -934,7 +934,7 @@ void Terrain3D::_notification(const int p_what) {
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_physics_process(false);
-			_destroy_geomesh();
+			_destroy_mesher();
 			_destroy_mouse_picking();
 			_initialized = false;
 			break;
@@ -951,7 +951,7 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_PREDELETE: {
 			// Object is about to be deleted
 			LOG(INFO, "NOTIFICATION_PREDELETE");
-			_destroy_geomesh(true);
+			_destroy_mesher(true);
 			_destroy_collision(true);
 			_destroy_instancer();
 			_destroy_labels();
@@ -987,7 +987,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
 	ClassDB::bind_method(D_METHOD("get_collision"), &Terrain3D::get_collision);
 	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
-	ClassDB::bind_method(D_METHOD("get_geomesh"), &Terrain3D::get_geomesh);
+	ClassDB::bind_method(D_METHOD("get_mesher"), &Terrain3D::get_mesher);
 	ClassDB::bind_method(D_METHOD("set_editor", "editor"), &Terrain3D::set_editor);
 	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
@@ -1096,7 +1096,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision", PROPERTY_HINT_NONE, "Terrain3DCollision", PROPERTY_USAGE_NONE), "", "get_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "geomesh", PROPERTY_HINT_NONE, "Terrain3DGeoMesh", PROPERTY_USAGE_NONE), "", "get_geomesh");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "mesher", PROPERTY_HINT_NONE, "Terrain3DMesher", PROPERTY_USAGE_NONE), "", "get_mesher");
 
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
@@ -1117,7 +1117,7 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "16,64,2"), "set_mesh_size", "get_mesh_size");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.01,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
