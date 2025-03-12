@@ -55,7 +55,7 @@ void Terrain3D::_initialize() {
 	}
 	if (!_mesher) {
 		LOG(DEBUG, "Creating mesher");
-		_mesher = memnew(Terrain3DMesher);
+		_mesher = new Terrain3DMesher();
 	}
 
 	// Connect signals
@@ -75,9 +75,9 @@ void Terrain3D::_initialize() {
 		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
 	}
 	// Height map was regenerated, update aabbs
-	if (!_data->is_connected("height_maps_changed", callable_mp(_mesher, &Terrain3DMesher::update_aabbs))) {
+	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs))) {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
-		_data->connect("height_maps_changed", callable_mp(_mesher, &Terrain3DMesher::update_aabbs));
+		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
@@ -200,7 +200,13 @@ void Terrain3D::_destroy_mesher(const bool p_final) {
 		_mesher->destroy();
 	}
 	if (p_final) {
-		memdelete_safely(_mesher);
+		delete _mesher;
+	}
+}
+
+void Terrain3D::_update_mesher_aabbs() {
+	if (_mesher) {
+		_mesher->update_aabbs();
 	}
 }
 
@@ -987,7 +993,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_assets"), &Terrain3D::get_assets);
 	ClassDB::bind_method(D_METHOD("get_collision"), &Terrain3D::get_collision);
 	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
-	ClassDB::bind_method(D_METHOD("get_mesher"), &Terrain3D::get_mesher);
 	ClassDB::bind_method(D_METHOD("set_editor", "editor"), &Terrain3D::set_editor);
 	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
@@ -1096,7 +1101,6 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "assets", PROPERTY_HINT_RESOURCE_TYPE, "Terrain3DAssets"), "set_assets", "get_assets");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision", PROPERTY_HINT_NONE, "Terrain3DCollision", PROPERTY_USAGE_NONE), "", "get_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "Terrain3DInstancer", PROPERTY_USAGE_NONE), "", "get_instancer");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "mesher", PROPERTY_HINT_NONE, "Terrain3DMesher", PROPERTY_USAGE_NONE), "", "get_mesher");
 
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");

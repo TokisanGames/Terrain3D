@@ -9,9 +9,8 @@ using namespace godot;
 
 class Terrain3D;
 
-class Terrain3DMesher : public Object {
-	GDCLASS(Terrain3DMesher, Object);
-	CLASS_NAME();
+class Terrain3DMesher {
+	CLASS_NAME_STATIC("Terrain3DMesher");
 
 // Constants
 public:
@@ -54,9 +53,9 @@ private:
 	PackedVector3Array _fill_b_pos;
 	PackedVector3Array _tile_pos;
 	// All LOD Levels
-	real_t _offset_a;
-	real_t _offset_b;
-	real_t _offset_c;
+	real_t _offset_a = 0.f;
+	real_t _offset_b = 0.f;
+	real_t _offset_c = 0.f;
 	PackedVector3Array _edge_pos;
 
 public:
@@ -70,8 +69,6 @@ public:
 	void update();
 	void update_aabbs();
 
-protected:
-	static void _bind_methods();
 };
 // Inline Functions
 

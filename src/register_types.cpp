@@ -20,7 +20,6 @@ void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DCollision>();
 	ClassDB::register_class<Terrain3DInstancer>();
 	ClassDB::register_class<Terrain3DMaterial>();
-	ClassDB::register_class<Terrain3DMesher>();
 	ClassDB::register_class<Terrain3DMeshAsset>();
 	ClassDB::register_class<Terrain3DRegion>();
 	ClassDB::register_class<Terrain3DTextureAsset>();

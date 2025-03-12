@@ -451,5 +451,3 @@ void Terrain3DMesher::update_aabbs() {
 	return;
 }
 
-void Terrain3DMesher::_bind_methods() {
-}

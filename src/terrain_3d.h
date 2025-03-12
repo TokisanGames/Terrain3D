@@ -99,6 +99,7 @@ private:
 	void _destroy_instancer();
 	void _destroy_collision(const bool p_final = false);
 	void _destroy_mesher(const bool p_final = false);
+	void _update_mesher_aabbs();
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
@@ -129,7 +130,6 @@ public:
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DCollision *get_collision() const { return _collision; }
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
-	Terrain3DMesher *get_mesher() const { return _mesher; }
 	Node *get_mmi_parent() const { return _mmi_parent; }
 	void set_editor(Terrain3DEditor *p_editor);
 	Terrain3DEditor *get_editor() const { return _editor; }
