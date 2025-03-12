@@ -472,7 +472,9 @@ void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 
 void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
 	_editor = p_editor;
-	_material->update();
+	if (_material.is_valid()) {
+		_material->update();
+	}
 	LOG(DEBUG, "Received Terrain3DEditor: ", p_editor);
 }
 
@@ -568,22 +570,22 @@ void Terrain3D::update_region_labels() {
 
 void Terrain3D::set_mesh_lods(const int p_count) {
 	if (_mesh_lods != p_count) {
-		_initialized = false;
-		_destroy_collision();
 		LOG(INFO, "Setting mesh levels: ", p_count);
 		_mesh_lods = p_count;
-		_initialize();
+		if (_mesher) {
+			_mesher->initialize(this);
+		}
 	}
 }
 
 void Terrain3D::set_mesh_size(const int p_size) {
 	if (_mesh_size != p_size) {
-		_initialized = false;
-		_destroy_collision();
 		LOG(INFO, "Setting mesh size: ", p_size);
 		_mesh_size = p_size;
-		_initialize();
-		_material->_update_maps();
+		if (_mesher && _material.is_valid()) {
+			_material->_update_maps();
+			_mesher->initialize(this);
+		}
 	}
 }
 
@@ -592,15 +594,15 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 	if (_vertex_spacing != spacing) {
 		_vertex_spacing = spacing;
 		LOG(INFO, "Setting vertex spacing: ", _vertex_spacing);
-		_initialized = false;
-		_destroy_collision();
-		_destroy_instancer();
-		_initialize();
-		_data->_vertex_spacing = _vertex_spacing;
-		update_region_labels();
-		_instancer->_update_vertex_spacing(_vertex_spacing);
-		_camera_last_position = V2_MAX;
-		_material->_update_maps();
+		if (_collision && _data && _instancer && _material.is_valid()) {
+			_data->_vertex_spacing = _vertex_spacing;
+			update_region_labels();
+			_instancer->_update_vertex_spacing(_vertex_spacing);
+			_camera_last_position = V2_MAX;
+			_material->_update_maps();
+			_collision->destroy();
+			_collision->build();
+		}
 	}
 	if (IS_EDITOR && _plugin) {
 		_plugin->call("update_region_grid");
