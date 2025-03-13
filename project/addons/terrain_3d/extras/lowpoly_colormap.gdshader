@@ -80,14 +80,14 @@ void vertex() {
 
 	// Geomorph vertex, set end and start for linear height interpolate
 	float scale = MODEL_MATRIX[0][0];
-	float vertex_lerp = smoothstep(0.5, 0.95, (v_vertex_xz_dist / scale - _mesh_size - 2.0) / _mesh_size);
+	float vertex_lerp = smoothstep(0.55, 0.95, (v_vertex_xz_dist / scale - _mesh_size - 4.0) / (_mesh_size - 2.0));
 	vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
 	// For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
 	vec2 shift = (scale < _vertex_spacing + 1e-6) ? // LOD0 or not
 		// Shift from regular to symetric
 		mix(v_fract, vec2(v_fract.x, -v_fract.y),
-			round(fract(round(mod(v_vertex.z, 4.0) * _vertex_density) *
-			round(mod(v_vertex.x, 4.0) * _vertex_density) * 0.25))
+			round(fract(round(mod(v_vertex.z * _vertex_density, 4.0)) *
+			round(mod(v_vertex.x * _vertex_density, 4.0)) * 0.25))
 			) :
 		// Symetric shift
 		v_fract * round((fract(v_vertex.xz * 0.25 / scale) - 0.5) * 4.0);
@@ -107,7 +107,7 @@ void vertex() {
 	bool hole = bool(control >>2u & 0x1u);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
-	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
+	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
 			(hole || (_background_mode == 0u && region.z < 0))) {
 		v_vertex.x = 0. / 0.;
 	} else {
@@ -117,7 +117,7 @@ void vertex() {
 		float h = mix(texelFetch(_height_maps, uv_a, 0).r, texelFetch(_height_maps, uv_b, 0).r, vertex_lerp);
 		v_vertex.y = h;
 	}
-	
+
 	// Transform UVs to local to avoid poor precision during varying interpolation.
 	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
 	UV -= v_uv_offset;
@@ -139,25 +139,25 @@ void fragment() {
 	// Recover UVs
 	vec2 uv = UV + v_uv_offset;
 	vec2 uv2 = UV2 + v_uv2_offset;
-	
+
 	// Apply terrain normals
 	vec3 ddx = dFdxCoarse(VERTEX);
 	vec3 ddy = dFdyCoarse(VERTEX);
 	NORMAL = normalize(cross(ddy, ddx));
 	TANGENT = normalize(cross(NORMAL, vec3(0.0, 0.0, 1.0)));
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
-	
+
 	// Determine if we're in a region or not (region_uv.z>0)
 	vec3 region_uv = get_region_uv2(uv2);
-	
+
 	// Colormap. 1 lookup
 	float lod = log2(max(length(ddx.xz), length(ddy.xz)) * _vertex_density);
 	vec4 color_map = region_uv.z > -1.0 ?
 		textureLod(_color_maps, region_uv, lod) : vec4(1., 1., 1., .5);
-	
+
 	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range
 	float roughness = fma(color_map.a - 0.5, 2.0, default_roughness);
-	
+
 	// Apply PBR
 	ALBEDO = color_map.rgb;
 	ROUGHNESS = roughness;

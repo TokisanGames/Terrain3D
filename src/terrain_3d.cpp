@@ -1122,7 +1122,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "16,64,2"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 
 	ADD_GROUP("Rendering", "");
