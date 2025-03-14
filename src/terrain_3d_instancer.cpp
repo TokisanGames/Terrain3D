@@ -196,7 +196,7 @@ void Terrain3DInstancer::_setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const
 		p_mmi->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 	} else {
 		p_mmi->set_visibility_range_begin(p_ma->get_lod_range_begin(p_lod));
-		p_mmi->set_visibility_range_end(p_ma->get_lod_range_end(p_lod));
+		p_mmi->set_visibility_range_end(p_ma->get_lod_range_end(p_lod) * 1.0005f);
 	}
 }
 
