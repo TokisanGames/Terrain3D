@@ -107,9 +107,13 @@ float get_noise_height(const vec2 uv) {
 //INSERT: WORLD_NOISE2
 		// World Noise
 		if (_background_mode == 2u) {
-			float nh = get_noise_height(UV2);
-			float nu = get_noise_height(UV2 + vec2(_region_texel_size, 0.0));
-			float nv = get_noise_height(UV2 + vec2(0.0, _region_texel_size));
+			vec2 nuv_a = fma(start_pos, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
+			vec2 nuv_b = fma(end_pos, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
+			float nh = mix(get_noise_height(nuv_a),get_noise_height(nuv_b),vertex_lerp);
+			float nu = mix(get_noise_height(nuv_a + vec2(_region_texel_size, 0.0)),
+				get_noise_height(nuv_b + vec2(_region_texel_size, 0.0)),vertex_lerp);
+			float nv = mix(get_noise_height(nuv_a + vec2(0.0, _region_texel_size)),
+				get_noise_height(nuv_b + vec2(0.0, _region_texel_size)),vertex_lerp);
 			world_noise_ddxy = vec2(nh - nu, nh - nv);
 			h += nh;
 			u += nu;

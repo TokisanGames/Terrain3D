@@ -25,6 +25,8 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #define FRAGMENT_PASS 2
 
 // Private uniforms
+uniform vec3 _camera_pos = vec3(0.f);
+uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
 uniform float _vertex_spacing = 1.0;
@@ -78,7 +80,6 @@ struct Material {
 	float blend;
 };
 
-varying flat vec3 v_camera_pos;
 varying flat ivec3 v_region;
 varying flat vec2 v_uv_offset;
 varying flat vec2 v_uv2_offset;
@@ -97,7 +98,7 @@ varying vec3 v_normal;
 // XY: (0 to _region_size) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
 ivec3 get_region_uv(const vec2 uv, const int search) {
-	vec2 r_uv = uv;
+	vec2 r_uv = round(uv);
 	vec2 o_uv = mod(r_uv,_region_size);
 	ivec2 pos;
 	int bounds, layer_index = -1;
@@ -124,23 +125,37 @@ vec3 get_region_uv2(const vec2 uv2) {
 
 //INSERT: WORLD_NOISE1
 void vertex() {
-	// Get camera pos in world vertex coords
-	v_camera_pos = INV_VIEW_MATRIX[3].xyz;
-
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
 	// Camera distance to vertex on flat plane
-	v_vertex_xz_dist = length(v_vertex.xz - v_camera_pos.xz);
+	v_vertex_xz_dist = length(v_vertex.xz - _camera_pos.xz);
+
+	// Geomorph vertex, set end and start for linear height interpolate
+	float scale = MODEL_MATRIX[0][0];
+	float vertex_lerp = smoothstep(0.55, 0.95, (v_vertex_xz_dist / scale - _mesh_size - 4.0) / (_mesh_size - 2.0));
+	vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
+	// For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
+	vec2 shift = (scale < _vertex_spacing + 1e-6) ? // LOD0 or not
+		// Shift from regular to symetric
+		mix(v_fract, vec2(v_fract.x, -v_fract.y),
+			round(fract(round(mod(v_vertex.z * _vertex_density, 4.0)) *
+			round(mod(v_vertex.x * _vertex_density, 4.0)) * 0.25))
+			) :
+		// Symetric shift
+		v_fract * round((fract(v_vertex.xz * 0.25 / scale) - 0.5) * 4.0);
+	vec2 start_pos = v_vertex.xz * _vertex_density;
+	vec2 end_pos = (v_vertex.xz - shift * scale) * _vertex_density;
+	v_vertex.xz -= shift * scale * vertex_lerp;
 
 	// UV coordinates in world space. Values are 0 to _region_size within regions
-	UV = round(v_vertex.xz * _vertex_density);
+	UV = v_vertex.xz * _vertex_density;
 
 	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	v_region = get_region_uv(UV, VERTEX_PASS);
+	v_region = get_region_uv(start_pos, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
@@ -150,7 +165,9 @@ void vertex() {
 		v_vertex.x = 0. / 0.;
 	} else {		
 		// Set final vertex height & calculate vertex normals. 3 lookups
-		float h = texelFetch(_height_maps, v_region, 0).r;
+		ivec3 uv_a = get_region_uv(start_pos, VERTEX_PASS);
+		ivec3 uv_b = get_region_uv(end_pos, VERTEX_PASS);
+		float h = mix(texelFetch(_height_maps, uv_a, 0).r,texelFetch(_height_maps, uv_b, 0).r,vertex_lerp);
 		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
 		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
 //INSERT: WORLD_NOISE2
