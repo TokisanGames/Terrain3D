@@ -112,13 +112,16 @@ Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {
 	if (p_image.is_null()) {
 		return Ref<Image>();
 	}
-	Ref<Image> img = Image::create_empty(p_image->get_width(), p_image->get_height(), p_image->has_mipmaps(), Image::FORMAT_RGBAF);
+	Ref<Image> img = Image::create_empty(p_image->get_width(), p_image->get_height(), false, Image::FORMAT_RGBAF);
 	for (int y = 0; y < img->get_height(); y++) {
 		for (int x = 0; x < img->get_width(); x++) {
 			Color pixel = p_image->get_pixel(x, y);
 			pixel.a = pixel.get_luminance();
 			img->set_pixel(x, y, pixel);
 		}
+	}
+	if (p_image->has_mipmaps()) {
+		img->generate_mipmaps();
 	}
 	return img;
 }

@@ -271,15 +271,22 @@ func add_brushes(p_parent: Control) -> void:
 		while file_name != "":
 			if !dir.current_is_dir() and file_name.ends_with(".exr"):
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
-				img = Terrain3DUtil.black_to_alpha(img)
+				var thumbimg: Image = img.duplicate()
+				img.convert(Image.FORMAT_RF)
 				if img.get_width() < 1024 and img.get_height() < 1024:
 					img.resize(1024, 1024, Image.INTERPOLATE_CUBIC)
 				var tex: ImageTexture = ImageTexture.create_from_image(img)
 
+				thumbimg.resize(100, 100, Image.INTERPOLATE_BILINEAR)
+				thumbimg = Terrain3DUtil.black_to_alpha(thumbimg)
+				thumbimg.convert(Image.FORMAT_LA8)
+				var thumbtex: ImageTexture = ImageTexture.create_from_image(thumbimg)
+				
 				var btn: Button = Button.new()
 				btn.set_custom_minimum_size(Vector2.ONE * 100)
-				btn.set_button_icon(tex)
+				btn.set_button_icon(thumbtex)
 				btn.set_meta("image", img)
+				btn.set_meta("texture", tex)
 				btn.set_expand_icon(true)
 				btn.set_material(_get_brush_preview_material())
 				btn.set_toggle_mode(true)
@@ -565,7 +572,7 @@ func get_setting(p_setting: String) -> Variant:
 		value = object.get_value()
 	elif object is ButtonGroup: # "brush"
 		var img: Image = object.get_pressed_button().get_meta("image")
-		var tex: Texture2D = object.get_pressed_button().get_button_icon()
+		var tex: Texture2D = object.get_pressed_button().get_meta("texture")
 		value = [ img, tex ]
 	elif object is CheckBox:
 		value = object.is_pressed()
