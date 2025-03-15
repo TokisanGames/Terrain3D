@@ -14,17 +14,9 @@ R"(
 // COMPATIBILITY_DEFINES - This code block is added and removed by the editor, do not modify it.
 // This is added automatically when in compatibility mode. It is not required for Mobile or Forward+.
 #define IS_COMPATIBILITY
-#define fma(a, b, c) (a) * (b) + (c)
+#define fma(a, b, c) ((a) * (b) + (c))
 #define dFdxCoarse(a) dFdx(a)
 #define dFdyCoarse(a) dFdy(a)
-#define textureQueryLod(a, b) vec4(0.0)
-#define texelOffset(b, c) ivec3(ivec2(b.xy * _region_size + c - 0.4979), int(b.z))
-#define textureGather(a, b) vec4( \
-    texelFetch(a, texelOffset(b, vec2(0,1)), 0).r, \
-    texelFetch(a, texelOffset(b, vec2(1,1)), 0).r, \
-    texelFetch(a, texelOffset(b, vec2(1,0)), 0).r, \
-    texelFetch(a, texelOffset(b, vec2(0,0)), 0).r  \
-)
 // END_COMPAT_DEFINES
 
 //INSERT: EDITOR_SETUP_DECAL

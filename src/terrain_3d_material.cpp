@@ -254,7 +254,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	}
 	Array insert_names;
 	if (_compatibility) {
-		if (!shader.contains("COMPATIBILITY_DEFINES")) {
+		if (!shader.contains("#define IS_COMPATIBILITY")) {
 			insert_names.push_back("EDITOR_COMPATIBILITY_DEFINES");
 		}
 	}
