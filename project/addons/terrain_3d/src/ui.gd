@@ -32,7 +32,7 @@ const OP_POSITIVE_ONLY: int = 0x01
 const OP_NEGATIVE_ONLY: int = 0x02
 
 const RING1: String = "res://addons/terrain_3d/brushes/ring1.exr"
-@onready var ring_texture := ImageTexture.create_from_image(Terrain3DUtil.black_to_alpha(Image.load_from_file(RING1)))
+var ring_texture : ImageTexture
 @onready var region_texture := ImageTexture.new() :
 	set(value):
 		var image: Image = Image.create_empty(1, 1, false, Image.FORMAT_R8)
@@ -72,7 +72,7 @@ var editor_decal_fade: float :
 				if value < 0.001:
 					var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
 					RenderingServer.material_set_param(mat_rid, "_region_map", r_map)
-@onready var editor_ring_texture_rid: RID = ring_texture.get_rid()
+var editor_ring_texture_rid: RID
 
 
 func _enter_tree() -> void:
@@ -104,6 +104,13 @@ func _enter_tree() -> void:
 	add_child(editor_decal_timer)
 
 
+func _ready() -> void:
+	var img: Image = Image.load_from_file(RING1)
+	img.convert(Image.FORMAT_R8)
+	ring_texture = ImageTexture.create_from_image(img)
+	editor_ring_texture_rid = ring_texture.get_rid()
+
+
 func _exit_tree() -> void:
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, tool_settings)
@@ -111,6 +118,7 @@ func _exit_tree() -> void:
 	tool_settings.queue_free()
 	terrain_menu.queue_free()
 	editor_decal_timer.queue_free()
+
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 	terrain_menu.set_visible(p_visible)

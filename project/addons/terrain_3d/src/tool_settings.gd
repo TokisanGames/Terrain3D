@@ -41,6 +41,7 @@ const NO_SAVE: int = 0x20 # Don't save this in EditorSettings
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var brush_preview_material: ShaderMaterial
 var select_brush_button: Button
+var selected_brush_imgs: Array
 var main_list: HFlowContainer
 var advanced_list: VBoxContainer
 var height_list: VBoxContainer
@@ -273,34 +274,31 @@ func add_brushes(p_parent: Control) -> void:
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
 				var thumbimg: Image = img.duplicate()
 				img.convert(Image.FORMAT_RF)
-				if img.get_width() < 1024 and img.get_height() < 1024:
-					img.resize(1024, 1024, Image.INTERPOLATE_CUBIC)
-				var tex: ImageTexture = ImageTexture.create_from_image(img)
 
-				thumbimg.resize(100, 100, Image.INTERPOLATE_BILINEAR)
+				if thumbimg.get_width() != 100 and thumbimg.get_height() != 100:
+					thumbimg.resize(100, 100, Image.INTERPOLATE_CUBIC)
 				thumbimg = Terrain3DUtil.black_to_alpha(thumbimg)
 				thumbimg.convert(Image.FORMAT_LA8)
 				var thumbtex: ImageTexture = ImageTexture.create_from_image(thumbimg)
 				
-				var btn: Button = Button.new()
-				btn.set_custom_minimum_size(Vector2.ONE * 100)
-				btn.set_button_icon(thumbtex)
-				btn.set_meta("image", img)
-				btn.set_meta("texture", tex)
-				btn.set_expand_icon(true)
-				btn.set_material(_get_brush_preview_material())
-				btn.set_toggle_mode(true)
-				btn.set_button_group(brush_button_group)
-				btn.mouse_entered.connect(_on_brush_hover.bind(true, btn))
-				btn.mouse_exited.connect(_on_brush_hover.bind(false, btn))
-				brush_list.add_child(btn, true)
+				var brush_btn: Button = Button.new()
+				brush_btn.set_custom_minimum_size(Vector2.ONE * 100)
+				brush_btn.set_button_icon(thumbtex)
+				brush_btn.set_meta("image", img)
+				brush_btn.set_expand_icon(true)
+				brush_btn.set_material(_get_brush_preview_material())
+				brush_btn.set_toggle_mode(true)
+				brush_btn.set_button_group(brush_button_group)
+				brush_btn.mouse_entered.connect(_on_brush_hover.bind(true, brush_btn))
+				brush_btn.mouse_exited.connect(_on_brush_hover.bind(false, brush_btn))
+				brush_list.add_child(brush_btn, true)
 				if file_name == DEFAULT_BRUSH:
-					default_brush_btn = btn 
+					default_brush_btn = brush_btn 
 				
 				var lbl: Label = Label.new()
-				btn.name = file_name.get_basename().to_pascal_case()
-				btn.add_child(lbl, true)
-				lbl.text = btn.name
+				brush_btn.name = file_name.get_basename().to_pascal_case()
+				brush_btn.add_child(lbl, true)
+				lbl.text = brush_btn.name
 				lbl.visible = false
 				lbl.position.y = 70
 				lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
@@ -315,6 +313,7 @@ func add_brushes(p_parent: Control) -> void:
 	if not default_brush_btn:
 		default_brush_btn = brush_button_group.get_buttons()[0]
 	default_brush_btn.set_pressed(true)
+	_generate_brush_texture(default_brush_btn)
 	
 	settings["brush"] = brush_button_group
 
@@ -571,9 +570,7 @@ func get_setting(p_setting: String) -> Variant:
 	elif object is DoubleSlider:
 		value = object.get_value()
 	elif object is ButtonGroup: # "brush"
-		var img: Image = object.get_pressed_button().get_meta("image")
-		var tex: Texture2D = object.get_pressed_button().get_meta("texture")
-		value = [ img, tex ]
+		value = selected_brush_imgs
 	elif object is CheckBox:
 		value = object.is_pressed()
 	elif object is ColorPickerButton:
@@ -621,19 +618,30 @@ func show_settings(p_settings: PackedStringArray) -> void:
 			select_brush_button.show()
 
 
-func _on_setting_changed(p_data: Variant = null) -> void:
-	# If a button was clicked on a submenu
-	if p_data is Button and p_data.get_parent().get_parent() is PopupPanel:
-		if p_data.get_parent().name == "BrushList":
-			# Optionally Set selected brush texture in main brush button
-			p_data.get_parent().get_parent().get_parent().set_button_icon(p_data.get_button_icon())
-			# Hide popup
-			p_data.get_parent().get_parent().set_visible(false)
-			# Hide label
-			if p_data.get_child_count() > 0:
-				p_data.get_child(0).visible = false
+func _on_setting_changed(p_object: Variant = null) -> void:
+	# If a brush was selected
+	if p_object is Button and p_object.get_parent().name == "BrushList":
+		_generate_brush_texture(p_object)
+		# Optionally Set selected brush texture in main brush button
+		if select_brush_button:
+			select_brush_button.set_button_icon(p_object.get_button_icon())
+		# Hide popup
+		p_object.get_parent().get_parent().set_visible(false)
+		# Hide label
+		if p_object.get_child_count() > 0:
+			p_object.get_child(0).visible = false
 	emit_signal("setting_changed")
-	
+
+
+func _generate_brush_texture(p_btn: Button) -> void:
+	if p_btn is Button:
+		var img: Image = p_btn.get_meta("image")
+		if img.get_width() < 1024 and img.get_height() < 1024:
+			img = img.duplicate()
+			img.resize(1024, 1024, Image.INTERPOLATE_CUBIC)
+		var tex: ImageTexture = ImageTexture.create_from_image(img)
+		selected_brush_imgs = [ img, tex ]
+
 
 func _on_drawable_toggled(p_button_pressed: bool) -> void:
 	if not p_button_pressed:
