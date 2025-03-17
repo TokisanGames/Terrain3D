@@ -18,8 +18,8 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	Color _albedo_color = Color(1.f, 1.f, 1.f, 1.f);
 	Ref<Texture2D> _albedo_texture;
 	Ref<Texture2D> _normal_texture;
-	real_t _normal_depth = 1.0f;
-	real_t _ao_strength = 1.0f;
+	real_t _normal_depth = 0.5f;
+	real_t _ao_strength = 0.5f;
 	real_t _uv_scale = 0.1f;
 	real_t _detiling_rotation = 0.0f;
 	real_t _detiling_shift = 0.0f;
