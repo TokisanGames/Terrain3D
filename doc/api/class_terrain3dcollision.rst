@@ -51,23 +51,21 @@ Methods
 .. table::
    :widths: auto
 
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | |void|                            | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                             |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | |void|                            | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                         |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | ``RID``                           | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                 |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | :ref:`Terrain3D<class_Terrain3D>` | :ref:`get_terrain<class_Terrain3DCollision_method_get_terrain>`\ (\ )                 |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | ``bool``                          | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const| |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | ``bool``                          | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|   |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | ``bool``                          | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|           |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
-   | |void|                            | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ force\: ``bool`` = false\ ) |
-   +-----------------------------------+---------------------------------------------------------------------------------------+
+   +----------+---------------------------------------------------------------------------------------+
+   | |void|   | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                             |
+   +----------+---------------------------------------------------------------------------------------+
+   | |void|   | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                         |
+   +----------+---------------------------------------------------------------------------------------+
+   | ``RID``  | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                 |
+   +----------+---------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const| |
+   +----------+---------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|   |
+   +----------+---------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|           |
+   +----------+---------------------------------------------------------------------------------------+
+   | |void|   | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ force\: ``bool`` = false\ ) |
+   +----------+---------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -290,18 +288,6 @@ Removes all collision shapes and frees any memory used.
 ``RID`` **get_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DCollision_method_get_rid>`
 
 Returns the RID of the active StaticBody.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DCollision_method_get_terrain:
-
-.. rst-class:: classref-method
-
-:ref:`Terrain3D<class_Terrain3D>` **get_terrain**\ (\ ) :ref:`🔗<class_Terrain3DCollision_method_get_terrain>`
-
-Returns the Terrain3D node this object is connected to. Since raycasts return this object, this function allows you to retreive the Terrain3D node.
 
 .. rst-class:: classref-item-separator
 

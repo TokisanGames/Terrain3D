@@ -12,7 +12,7 @@
 		<method name="bake_mesh" qualifiers="const">
 			<return type="Mesh" />
 			<param index="0" name="lod" type="int" />
-			<param index="1" name="filter" type="int" enum="Terrain3DData.HeightFilter" />
+			<param index="1" name="filter" type="int" enum="Terrain3DData.HeightFilter" default="0" />
 			<description>
 				Generates a static ArrayMesh for the terrain.
 				[code skip-lint]lod[/code] - Determines the granularity of the generated mesh. The range is 0-8. 4 is recommended.

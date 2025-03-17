@@ -138,7 +138,7 @@
 			Increase to improve performance by lowering shadow quality.
 			Shadow impostors are disabled if this is set to 0 or if [member cast_shadows] is set to shadows only.
 		</member>
-		<member name="visibility_range" type="float" setter="set_visibility_range" getter="get_lod0_range" default="32.0">
+		<member name="visibility_range" type="float" setter="set_visibility_range" getter="get_lod0_range">
 			Deprecated, see [member lod0_range].
 		</member>
 	</members>

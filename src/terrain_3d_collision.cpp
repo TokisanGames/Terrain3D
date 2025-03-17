@@ -228,7 +228,7 @@ void Terrain3DCollision::build() {
 		_static_body_rid = PS->body_create();
 		PS->body_set_mode(_static_body_rid, PhysicsServer3D::BODY_MODE_STATIC);
 		PS->body_set_space(_static_body_rid, _terrain->get_world_3d()->get_space());
-		PS->body_attach_object_instance_id(_static_body_rid, get_instance_id());
+		PS->body_attach_object_instance_id(_static_body_rid, _terrain->get_instance_id());
 		PS->body_set_collision_mask(_static_body_rid, _mask);
 		PS->body_set_collision_layer(_static_body_rid, _layer);
 		PS->body_set_collision_priority(_static_body_rid, _priority);
@@ -562,7 +562,6 @@ void Terrain3DCollision::_bind_methods() {
 	BIND_ENUM_CONSTANT(FULL_GAME);
 	BIND_ENUM_CONSTANT(FULL_EDITOR);
 
-	ClassDB::bind_method(D_METHOD("get_terrain"), &Terrain3DCollision::get_terrain);
 	ClassDB::bind_method(D_METHOD("build"), &Terrain3DCollision::build);
 	ClassDB::bind_method(D_METHOD("update", "force"), &Terrain3DCollision::update, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("destroy"), &Terrain3DCollision::destroy);
