@@ -56,6 +56,8 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`debug_level<class_Terrain3D_property_debug_level>`                   | ``0``           |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``bool``                                                    | :ref:`free_editor_textures<class_Terrain3D_property_free_editor_textures>` | ``true``        |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | GeometryInstance3D.GIMode                                   | :ref:`gi_mode<class_Terrain3D_property_gi_mode>`                           | ``1``           |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DInstancer<class_Terrain3DInstancer>`         | :ref:`instancer<class_Terrain3D_property_instancer>`                       |                 |
@@ -470,6 +472,23 @@ The directory where terrain data will be saved to and loaded from.
 - ``int`` **get_debug_level**\ (\ )
 
 The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using ``--terrain3d-debug=LEVEL`` where ``LEVEL`` is one of ``ERROR, INFO, DEBUG, EXTREME``. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_free_editor_textures:
+
+.. rst-class:: classref-property
+
+``bool`` **free_editor_textures** = ``true`` :ref:`🔗<class_Terrain3D_property_free_editor_textures>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_free_editor_textures**\ (\ value\: ``bool``\ )
+- ``bool`` **get_free_editor_textures**\ (\ )
+
+Frees ground textures used for editing at the start of the game. These textures are used to generate the TextureArrays, so if you don't change any :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` settings in game, this can be enabled. Calls :ref:`Terrain3DAssets.clear_textures<class_Terrain3DAssets_method_clear_textures>`.
 
 .. rst-class:: classref-item-separator
 

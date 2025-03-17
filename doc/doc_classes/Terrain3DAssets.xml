@@ -8,6 +8,15 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="clear_textures">
+			<return type="void" />
+			<param index="0" name="update" type="bool" default="false" />
+			<description>
+				After textures are loaded, they are combined into a TextureArray. The originals remain in VRAM and are only used if the [Terrain3DTextureAsset] settings are changed and regenerating the TextureArrays are necessary. Use this function to clear the originals if not needed. It removes all textures from the asset list, freeing them if they are not referenced by other objects.
+				Update will regenerate the texture arrays housing the textures drawn on the terrain. This will remove all textures and turn the terrain checkerboard.
+				A similar [code skip-lint]clear_meshes[/code] is less useful so hasn't been included. However you can do the same thing with [code skip-lint]get_mesh_list().clear()[/code].
+			</description>
+		</method>
 		<method name="create_mesh_thumbnails">
 			<return type="void" />
 			<param index="0" name="id" type="int" default="-1" />

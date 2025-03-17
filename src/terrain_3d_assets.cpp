@@ -379,32 +379,32 @@ void Terrain3DAssets::initialize(Terrain3D *p_terrain) {
 	_terrain = p_terrain;
 
 	// Setup Mesh preview environment
-	scenario = RS->scenario_create();
+	_scenario = RS->scenario_create();
 
-	viewport = RS->viewport_create();
-	RS->viewport_set_update_mode(viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
-	RS->viewport_set_scenario(viewport, scenario);
-	RS->viewport_set_size(viewport, 128, 128);
-	RS->viewport_set_transparent_background(viewport, true);
-	RS->viewport_set_active(viewport, true);
-	viewport_texture = RS->viewport_get_texture(viewport);
+	_viewport = RS->viewport_create();
+	RS->viewport_set_update_mode(_viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
+	RS->viewport_set_scenario(_viewport, _scenario);
+	RS->viewport_set_size(_viewport, 128, 128);
+	RS->viewport_set_transparent_background(_viewport, true);
+	RS->viewport_set_active(_viewport, true);
+	_viewport_texture = RS->viewport_get_texture(_viewport);
 
-	camera = RS->camera_create();
-	RS->viewport_attach_camera(viewport, camera);
-	RS->camera_set_transform(camera, Transform3D(Basis(), Vector3(0, 0, 3)));
-	RS->camera_set_orthogonal(camera, 1.0, 0.01, 1000.0);
+	_camera = RS->camera_create();
+	RS->viewport_attach_camera(_viewport, _camera);
+	RS->camera_set_transform(_camera, Transform3D(Basis(), Vector3(0, 0, 3)));
+	RS->camera_set_orthogonal(_camera, 1.0, 0.01, 1000.0);
 
-	key_light = RS->directional_light_create();
-	key_light_instance = RS->instance_create2(key_light, scenario);
-	RS->instance_set_transform(key_light_instance, Transform3D().looking_at(Vector3(-1, -1, -1), Vector3(0, 1, 0)));
+	_key_light = RS->directional_light_create();
+	_key_light_instance = RS->instance_create2(_key_light, _scenario);
+	RS->instance_set_transform(_key_light_instance, Transform3D().looking_at(Vector3(-1, -1, -1), Vector3(0, 1, 0)));
 
-	fill_light = RS->directional_light_create();
-	RS->light_set_color(fill_light, Color(0.3, 0.3, 0.3));
-	fill_light_instance = RS->instance_create2(fill_light, scenario);
-	RS->instance_set_transform(fill_light_instance, Transform3D().looking_at(Vector3(0, 1, 0), Vector3(0, 0, 1)));
+	_fill_light = RS->directional_light_create();
+	RS->light_set_color(_fill_light, Color(0.3, 0.3, 0.3));
+	_fill_light_instance = RS->instance_create2(_fill_light, _scenario);
+	RS->instance_set_transform(_fill_light_instance, Transform3D().looking_at(Vector3(0, 1, 0), Vector3(0, 0, 1)));
 
-	mesh_instance = RS->instance_create();
-	RS->instance_set_scenario(mesh_instance, scenario);
+	_mesh_instance = RS->instance_create();
+	RS->instance_set_scenario(_mesh_instance, _scenario);
 
 	// Update assets
 	update_texture_list();
@@ -414,14 +414,14 @@ void Terrain3DAssets::initialize(Terrain3D *p_terrain) {
 Terrain3DAssets::~Terrain3DAssets() {
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
-	RS->free_rid(mesh_instance);
-	RS->free_rid(fill_light_instance);
-	RS->free_rid(fill_light);
-	RS->free_rid(key_light_instance);
-	RS->free_rid(key_light);
-	RS->free_rid(camera);
-	RS->free_rid(viewport);
-	RS->free_rid(scenario);
+	RS->free_rid(_mesh_instance);
+	RS->free_rid(_fill_light_instance);
+	RS->free_rid(_fill_light);
+	RS->free_rid(_key_light_instance);
+	RS->free_rid(_key_light);
+	RS->free_rid(_camera);
+	RS->free_rid(_viewport);
+	RS->free_rid(_scenario);
 }
 
 void Terrain3DAssets::set_texture(const int p_id, const Ref<Terrain3DTextureAsset> &p_texture) {
@@ -436,6 +436,14 @@ void Terrain3DAssets::set_texture_list(const TypedArray<Terrain3DTextureAsset> &
 	LOG(INFO, "Setting texture list with ", p_texture_list.size(), " entries");
 	_set_asset_list(TYPE_TEXTURE, p_texture_list);
 	update_texture_list();
+}
+
+void Terrain3DAssets::clear_textures(const bool p_update) {
+	LOG(INFO, "Clearing texture list");
+	_texture_list.clear();
+	if (p_update) {
+		update_texture_list();
+	}
 }
 
 void Terrain3DAssets::update_texture_list() {
@@ -513,15 +521,15 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 			LOG(WARN, i, ": Mesh is null");
 			continue;
 		}
-		RS->instance_set_base(mesh_instance, mesh->get_rid());
+		RS->instance_set_base(_mesh_instance, mesh->get_rid());
 
 		// Setup material
 		Ref<Material> mat = ma->get_material_override();
 		RID rid = mat.is_valid() ? mat->get_rid() : RID();
-		RS->instance_geometry_set_material_override(mesh_instance, rid);
+		RS->instance_geometry_set_material_override(_mesh_instance, rid);
 		mat = ma->get_material_overlay();
 		rid = mat.is_valid() ? mat->get_rid() : RID();
-		RS->instance_geometry_set_material_overlay(mesh_instance, rid);
+		RS->instance_geometry_set_material_overlay(_mesh_instance, rid);
 
 		// Setup scene
 		AABB aabb = mesh->get_aabb();
@@ -539,19 +547,19 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 		xform.basis.scale(Vector3(m, m, m));
 		xform.origin = -xform.basis.xform(ofs);
 		xform.origin.z -= rot_aabb.size.z * 2.f;
-		RS->instance_set_transform(mesh_instance, xform);
+		RS->instance_set_transform(_mesh_instance, xform);
 
-		RS->viewport_set_size(viewport, size.x, size.y);
-		RS->viewport_set_update_mode(viewport, RenderingServer::VIEWPORT_UPDATE_ONCE);
+		RS->viewport_set_size(_viewport, size.x, size.y);
+		RS->viewport_set_update_mode(_viewport, RenderingServer::VIEWPORT_UPDATE_ONCE);
 		RS->force_draw();
 
-		Ref<Image> img = RS->texture_2d_get(viewport_texture);
-		RS->instance_set_base(mesh_instance, RID());
+		Ref<Image> img = RS->texture_2d_get(_viewport_texture);
+		RS->instance_set_base(_mesh_instance, RID());
 
 		if (img.is_valid()) {
 			LOG(DEBUG, i, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
 		} else {
-			LOG(WARN, "Viewport texture is null");
+			LOG(WARN, "_viewport_texture is null");
 			continue;
 		}
 
@@ -651,6 +659,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_texture_colors"), &Terrain3DAssets::get_texture_colors);
 	ClassDB::bind_method(D_METHOD("get_texture_uv_scales"), &Terrain3DAssets::get_texture_uv_scales);
 	ClassDB::bind_method(D_METHOD("get_texture_detiles"), &Terrain3DAssets::get_texture_detiles);
+	ClassDB::bind_method(D_METHOD("clear_textures", "update"), &Terrain3DAssets::clear_textures, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("update_texture_list"), &Terrain3DAssets::update_texture_list);
 
 	ClassDB::bind_method(D_METHOD("set_mesh_asset", "id", "mesh"), &Terrain3DAssets::set_mesh_asset);

@@ -42,6 +42,8 @@ Methods
    :widths: auto
 
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                    | :ref:`clear_textures<class_Terrain3DAssets_method_clear_textures>`\ (\ update\: ``bool`` = false\ )                                                   |
+   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                    | :ref:`create_mesh_thumbnails<class_Terrain3DAssets_method_create_mesh_thumbnails>`\ (\ id\: ``int`` = -1, size\: ``Vector2i`` = Vector2i(128, 128)\ ) |
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``RID``                                                   | :ref:`get_albedo_array_rid<class_Terrain3DAssets_method_get_albedo_array_rid>`\ (\ ) |const|                                                          |
@@ -205,6 +207,22 @@ The list of texture assets.
 
 Method Descriptions
 -------------------
+
+.. _class_Terrain3DAssets_method_clear_textures:
+
+.. rst-class:: classref-method
+
+|void| **clear_textures**\ (\ update\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DAssets_method_clear_textures>`
+
+After textures are loaded, they are combined into a TextureArray. The originals remain in VRAM and are only used if the :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` settings are changed and regenerating the TextureArrays are necessary. Use this function to clear the originals if not needed. It removes all textures from the asset list, freeing them if they are not referenced by other objects.
+
+Update will regenerate the texture arrays housing the textures drawn on the terrain. This will remove all textures and turn the terrain checkerboard.
+
+A similar ``clear_meshes`` is less useful so hasn't been included. However you can do the same thing with ``get_mesh_list().clear()``.
+
+.. rst-class:: classref-item-separator
+
+----
 
 .. _class_Terrain3DAssets_method_create_mesh_thumbnails:
 

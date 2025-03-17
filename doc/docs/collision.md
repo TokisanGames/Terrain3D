@@ -12,7 +12,7 @@ To enable physics based collision, we must generate a StaticBody and CollisionSh
 
 Collision generation can be slow and consume a lot of memory, so we offer five options:
 * `Dynamic / Game` is the default, which only generates around the camera while in game. It is node-less and the fastest option.
-* `Dynamic / Editor` generates around the camera in editor or in game. It attaches nodes to the tree, so is slightly slower, but this allows the shapes to be [visualized](#visualize-collision).
+* `Dynamic / Editor` generates around the camera in editor or in game. It attaches nodes to the tree, so is slightly slower, but this allows the shapes to be [visualized](#visualizing-collision).
 * `Full / Game` generates collision for the entire terrain at game start, using node-less shapes. It consumes a lot of memory on large terrains.
 * `Full / Editor` does the above with viewable shapes in the editor.
 * `Disabled` is self explanatory.
