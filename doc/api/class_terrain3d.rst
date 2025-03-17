@@ -132,7 +132,7 @@ Methods
    :widths: auto
 
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``Mesh``                                      | :ref:`bake_mesh<class_Terrain3D_method_bake_mesh>`\ (\ lod\: ``int``, filter\: :ref:`HeightFilter<enum_Terrain3DData_HeightFilter>`\ ) |const|                          |
+   | ``Mesh``                                      | :ref:`bake_mesh<class_Terrain3D_method_bake_mesh>`\ (\ lod\: ``int``, filter\: :ref:`HeightFilter<enum_Terrain3DData_HeightFilter>` = 0\ ) |const|                      |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedVector3Array``                        | :ref:`generate_nav_mesh_source_geometry<class_Terrain3D_method_generate_nav_mesh_source_geometry>`\ (\ global_aabb\: ``AABB``, require_nav\: ``bool`` = true\ ) |const| |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -1057,7 +1057,7 @@ Method Descriptions
 
 .. rst-class:: classref-method
 
-``Mesh`` **bake_mesh**\ (\ lod\: ``int``, filter\: :ref:`HeightFilter<enum_Terrain3DData_HeightFilter>`\ ) |const| :ref:`🔗<class_Terrain3D_method_bake_mesh>`
+``Mesh`` **bake_mesh**\ (\ lod\: ``int``, filter\: :ref:`HeightFilter<enum_Terrain3DData_HeightFilter>` = 0\ ) |const| :ref:`🔗<class_Terrain3D_method_bake_mesh>`
 
 Generates a static ArrayMesh for the terrain.
 

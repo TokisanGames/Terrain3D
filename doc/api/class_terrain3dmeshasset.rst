@@ -92,7 +92,7 @@ Properties
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``int``                                         | :ref:`shadow_impostor<class_Terrain3DMeshAsset_property_shadow_impostor>`     | ``0``             |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | ``float``                                       | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   | ``32.0``          |
+   | ``float``                                       | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   |                   |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
@@ -694,7 +694,7 @@ Shadow impostors are disabled if this is set to 0 or if :ref:`cast_shadows<class
 
 .. rst-class:: classref-property
 
-``float`` **visibility_range** = ``32.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
+``float`` **visibility_range** :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
 
 .. rst-class:: classref-property-setget
 

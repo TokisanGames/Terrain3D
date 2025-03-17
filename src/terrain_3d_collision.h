@@ -63,7 +63,6 @@ public:
 	Terrain3DCollision() {}
 	~Terrain3DCollision() { destroy(); }
 	void initialize(Terrain3D *p_terrain);
-	Terrain3D *get_terrain() const { return _terrain; }
 
 	void build();
 	void update(const bool p_force = false);

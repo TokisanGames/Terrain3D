@@ -26,12 +26,6 @@
 				Returns the RID of the active StaticBody.
 			</description>
 		</method>
-		<method name="get_terrain">
-			<return type="Terrain3D" />
-			<description>
-				Returns the Terrain3D node this object is connected to. Since raycasts return this object, this function allows you to retreive the Terrain3D node.
-			</description>
-		</method>
 		<method name="is_dynamic_mode" qualifiers="const">
 			<return type="bool" />
 			<description>

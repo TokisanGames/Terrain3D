@@ -8,27 +8,37 @@ You should use raycasting only when you don't already know the X, Z of the colli
 
 ## Physics Based Collision & Raycasting
 
-Collision is generated at runtime using the physics server. Regular PhysicsBodies will interact with this collision as expected. 
+To enable physics based collision, we must generate a StaticBody and CollisionShapes that match the shape of the terrain. This means collision is only generated where you have defined regions. Out in the WorldNoise background, there is no terrain data, so no collision.
 
-To detect ground height with this method, use a [ray cast](https://docs.godotengine.org/en/stable/tutorials/physics/ray-casting.html). Below is an example. The colliding object will be a [Terrain3DCollision](../api/class_terrain3dcollision.rst) object, which contains but is not a StaticBody. Run `get_terrain()` to get the Terrain3D node, or `get_rid()` to retreive the StaticBody RID. See that link for other functions to configure other properties like layers, mask, priority, and physics material.
+Collision generation can be slow and consume a lot of memory, so we offer five options:
+* `Dynamic / Game` is the default, which only generates around the camera while in game. It is node-less and the fastest option.
+* `Dynamic / Editor` generates around the camera in editor or in game. It attaches nodes to the tree, so is slightly slower, but this allows the shapes to be [visualized](#visualize-collision).
+* `Full / Game` generates collision for the entire terrain at game start, using node-less shapes. It consumes a lot of memory on large terrains.
+* `Full / Editor` does the above with viewable shapes in the editor.
+* `Disabled` is self explanatory.
+
+Some addons or other activities need collision in the editor, which can be enabled with an `Editor` mode above. You can run the game with any option, but the default is recommended for the best performance. See [set_mode](../api/class_terrain3dcollision.rst#class-terrain3dcollision-property-mode) and [CollisionMode](../api/class_terrain3dcollision.rst#enum-terrain3dcollision-collisionmode).
+
+Once the desired collision mode is set, to detect ground height with physics, you can use a [ray cast](https://docs.godotengine.org/en/stable/tutorials/physics/ray-casting.html). The colliding object will either be the [Terrain3D](../api/class_terrain3d.rst) node if in a `Game` mode. Or it will be a StaticBody if using an `Editor` mode. In the latter case, the StaticBody is a child of Terrain3D. Below is an example that will handle either scenario.
 
 ```gdscript
-    var space_state: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-    var query := PhysicsRayQueryParameters3D.create(position, position + Vector3(0, -500, 0))
-    query.exclude = [ self ]
-    var result: Dictionary = space_state.intersect_ray(query)
-    if result and result["collider"] is Terrain3DCollision:
-        print("Found Terrain3DCollision")
-        var terrain: Terrain3D = result["collider"].get_terrain()
-        if terrain:
-            print("Found Terrain3D")
+	var space_state: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(position, position + Vector3(0, -500, 0))
+	query.exclude = [ self ]
+	var result: Dictionary = space_state.intersect_ray(query)
+	if result:
+		var node: Node = result["collider"]
+		# Change node to StaticBody parent in `Editor` collision modes
+		if node is StaticBody3D and node.get_parent() is Terrain3D:
+			node = node.get_parent()
+		# Detect Terrain3D with `is`, since printing the node returns `[Wrapped:0]`
+		if node is Terrain3D:
+			print("Hit: Terrain3D") 
+		else:
+			print("Hit: ", node)
 ```
 
-Raycasts won't hit the terrain where no collision shapes are generated. This occurs outside of regions and may also depend on your collision mode setting. Read about `Terrain3D/Collision/Collision Mode`, or `Terrain3D.collision.mode` in the API above. 
-
-Normally, collision mode is set `Dynamic / Game`, which only generates around the player while in game. Some addons or other activities need collision in the editor, so you can set the mode to `Full / Editor` or `Dynamic / Editor`. Full mode will generate collision for all regions when enabled or at startup. It's a bit slow due to the amount of data. You can run in game with these other modes enabled, but the default is recommended for the best performance.
-
-Finally, Godot Physics is far from perfect. If you have issues with raycasts or other physics calculations, try switching to Jolt. Also if your raycast is perfectly vertical, you can try angling it ever so slightly, or use an option below.
+Godot Physics is far from perfect. If you have issues with raycasts or other physics calculations, try switching to Jolt. If you have trouble with a perfectly vertical raycast, try angling it ever so slightly. Finally, consider using an alternate method below.
 
 
 ## Raycasting Without Physics
