@@ -37,16 +37,16 @@ private:
 	PackedFloat32Array _texture_uv_scales;
 	PackedFloat32Array _texture_detiles;
 
-	// Mesh previews
-	RID scenario;
-	RID viewport;
-	RID viewport_texture;
-	RID camera;
-	RID key_light;
-	RID key_light_instance;
-	RID fill_light;
-	RID fill_light_instance;
-	RID mesh_instance;
+	// Mesh Thumbnail Generation
+	RID _scenario;
+	RID _viewport;
+	RID _viewport_texture;
+	RID _camera;
+	RID _key_light;
+	RID _key_light_instance;
+	RID _fill_light;
+	RID _fill_light_instance;
+	RID _mesh_instance;
 
 	void _swap_ids(const AssetType p_type, const int p_src_id, const int p_dst_id);
 	void _set_asset_list(const AssetType p_type, const TypedArray<Terrain3DAssetResource> &p_list);
@@ -71,6 +71,7 @@ public:
 	PackedColorArray get_texture_colors() const { return _texture_colors; }
 	PackedFloat32Array get_texture_uv_scales() const { return _texture_uv_scales; }
 	PackedFloat32Array get_texture_detiles() const { return _texture_detiles; }
+	void clear_textures(const bool p_update = false);
 	void update_texture_list();
 
 	void set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset);

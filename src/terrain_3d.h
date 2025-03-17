@@ -76,6 +76,7 @@ private:
 	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
+	bool _free_editor_textures = true;
 	bool _compatibility = false;
 
 	// Mouse cursor
@@ -170,9 +171,11 @@ public:
 	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
 	void set_cull_margin(const real_t p_margin);
 	real_t get_cull_margin() const { return _cull_margin; };
-	bool is_compatibility_mode() const { return _compatibility; };
+	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
+	bool get_free_editor_textures() const { return _free_editor_textures; };
 	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
 	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
+	bool is_compatibility_mode() const { return _compatibility; };
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
