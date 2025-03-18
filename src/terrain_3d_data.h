@@ -289,7 +289,7 @@ inline uint32_t Terrain3DData::get_control_base_id(const Vector3 &p_global_posit
 inline void Terrain3DData::set_control_overlay_id(const Vector3 &p_global_position, const uint8_t p_overlay) {
 	uint32_t control = get_control(p_global_position);
 	uint8_t overlay = CLAMP(p_overlay, uint8_t(0), uint8_t(31));
-	set_control(p_global_position, (control & ~(0x1F << 22)) | enc_base(overlay));
+	set_control(p_global_position, (control & ~(0x1F << 22)) | enc_overlay(overlay));
 }
 
 inline uint32_t Terrain3DData::get_control_overlay_id(const Vector3 &p_global_position) const {
