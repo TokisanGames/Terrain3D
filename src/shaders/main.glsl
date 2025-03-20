@@ -269,15 +269,19 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 	vec2 base_uv;
 	float p_angle = 0.0;
 	
-	if (region < 0 || i_normal.y >= projection_threshold || !enable_projection) {
+	if (i_normal.y >= projection_threshold || !enable_projection) {
 		base_uv = v_vertex.xz;
-	} else { // Project UVs and determine surface normal angle
+	} else {
+		// Project UVs and determine surface normal angle
 		// Quantize the normal otherwise textures lose continuity across domains
-		// Avoid potential singularitys
-		#define SQRT3 1.73205080757
-		vec3 p_normal = normalize(round(i_normal * SQRT3 * projection_angular_division));
-		vec3 p_tangent = normalize(cross(p_normal, vec3(1e-6, 1.0, 1e-6)));
-	    p_angle = atan(-i_normal.x, -i_normal.z);
+		// Avoid potential singularitys for unit length normal, usually worst case would be
+		// sqrt(3.0)/2.0, however as we are nullifying y component and renormalizing, 
+		// we can tollerate sqrt(2.0)/2.0, as a lower bound.
+		#define SQRT2_HALF 0.7071067811865476
+		vec3 p_normal = normalize(vec3(i_normal.x, 0., i_normal.z));
+		p_normal = normalize(round(p_normal * SQRT2_HALF * projection_angular_division));
+		vec3 p_tangent = normalize(cross(p_normal, vec3(0., 1., 0.)));
+		p_angle = atan(-i_normal.x, -i_normal.z);
 		base_uv = vec2(dot(v_vertex, p_tangent), dot(v_vertex, normalize(cross(p_tangent, p_normal))));
 		// Project uv_center for detiling
 		vec3 i_center = vec3(uv_center.x, i_height, uv_center.y);
@@ -410,7 +414,7 @@ void fragment() {
 
 	// Setting this here, instead of after the branch appears to be ~10% faster.
 	// Likley as flat derivatives seem more cache friendly for texture lookups.
-	if (enable_projection && indexUV[3].z > -1 && w_normal.y < projection_threshold) {
+	if (enable_projection && w_normal.y < projection_threshold) {
 		vec3 p_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
 		vec3 p_binormal = normalize(cross(p_tangent, w_normal));
 		base_derivatives.xy = vec2(dot(base_ddx, p_tangent), dot(base_ddx, p_binormal));
