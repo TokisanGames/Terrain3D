@@ -31,9 +31,6 @@ uniform float default_roughness : hint_range(0.0, 1.0, 0.01) = 0.8;
 
 // Varyings & Types
 // Some are required for editor functions
-varying flat vec3 v_camera_pos;
-varying flat vec2 v_uv_offset;
-varying flat vec2 v_uv2_offset;
 varying float v_vertex_xz_dist;
 varying vec3 v_vertex;
 
@@ -41,11 +38,11 @@ varying vec3 v_vertex;
 // Vertex
 ////////////////////////
 
-// Takes in UV world space coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
 // Returns ivec3 with:
-// XY: (0 to _region_size) coordinates within a region
+// XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_region_uv(const vec2 uv, const int search) {
+ivec3 get_index_coord(const vec2 uv, const int search) {
 	vec2 r_uv = round(uv);
 	vec2 o_uv = mod(r_uv,_region_size);
 	ivec2 pos;
@@ -61,10 +58,10 @@ ivec3 get_region_uv(const vec2 uv, const int search) {
 	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
 }
 
-// Takes in UV2 region space coordinates, returns vec3 with:
-// XY: (0 to 1) coordinates within a region
+// Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
+// XY: (0. to 1.) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-vec3 get_region_uv2(const vec2 uv2) {
+vec3 get_index_uv(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
@@ -102,7 +99,7 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	ivec3 region = get_region_uv(start_pos, VERTEX_PASS);
+	ivec3 region = get_index_coord(start_pos, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
@@ -112,18 +109,12 @@ void vertex() {
 		v_vertex.x = 0. / 0.;
 	} else {
 		// Interpolate Geomorph Start & End, set height. 2 Lookups.
-		ivec3 uv_a = get_region_uv(start_pos, VERTEX_PASS);
-		ivec3 uv_b = get_region_uv(end_pos, VERTEX_PASS);
+		ivec3 uv_a = get_index_coord(start_pos, VERTEX_PASS);
+		ivec3 uv_b = get_index_coord(end_pos, VERTEX_PASS);
 		float h = mix(texelFetch(_height_maps, uv_a, 0).r, texelFetch(_height_maps, uv_b, 0).r, vertex_lerp);
 		v_vertex.y = h;
 	}
-
-	// Transform UVs to local to avoid poor precision during varying interpolation.
-	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
-	UV -= v_uv_offset;
-	v_uv2_offset = v_uv_offset * _region_texel_size;
-	UV2 -= v_uv2_offset;
-
+	
 	// Convert model space to view space w/ skip_vertex_transform render mode
 	VERTEX = (VIEW_MATRIX * vec4(v_vertex, 1.0)).xyz;
 	NORMAL = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -137,8 +128,8 @@ void vertex() {
 
 void fragment() {
 	// Recover UVs
-	vec2 uv = UV + v_uv_offset;
-	vec2 uv2 = UV2 + v_uv2_offset;
+	vec2 uv = UV;
+	vec2 uv2 = UV2;
 
 	// Apply terrain normals
 	vec3 ddx = dFdxCoarse(VERTEX);
@@ -148,7 +139,7 @@ void fragment() {
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
 
 	// Determine if we're in a region or not (region_uv.z>0)
-	vec3 region_uv = get_region_uv2(uv2);
+	vec3 region_uv = get_index_uv(uv2);
 
 	// Colormap. 1 lookup
 	float lod = log2(max(length(ddx.xz), length(ddy.xz)) * _vertex_density);
