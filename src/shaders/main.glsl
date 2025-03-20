@@ -88,7 +88,6 @@ struct Material {
 
 varying float v_vertex_xz_dist;
 varying vec3 v_vertex;
-//varying vec3 v_normal;
 )"
 
 		R"(
@@ -171,11 +170,8 @@ void vertex() {
 		ivec3 uv_a = get_region_uv(start_pos, VERTEX_PASS);
 		ivec3 uv_b = get_region_uv(end_pos, VERTEX_PASS);
 		float h = mix(texelFetch(_height_maps, uv_a, 0).r,texelFetch(_height_maps, uv_b, 0).r,vertex_lerp);
-		//float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
-		//float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
 //INSERT: WORLD_NOISE2
 		v_vertex.y = h;
-		//v_normal = vec3(h - u, _vertex_spacing, h - v);
 	}
 
 	// Convert model space to view space w/ skip_vertex_transform render mode
