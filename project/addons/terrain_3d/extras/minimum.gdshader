@@ -33,22 +33,18 @@ uniform highp usampler2DArray _control_maps : repeat_disable;
 
 // Varyings & Types
 // Some are required for editor functions
-varying flat ivec3 v_region;
-varying flat vec2 v_uv_offset;
-varying flat vec2 v_uv2_offset;
 varying float v_vertex_xz_dist;
 varying vec3 v_vertex;
-varying vec3 v_normal;
 
 ////////////////////////
 // Vertex
 ////////////////////////
 
-// Takes in UV world space coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
 // Returns ivec3 with:
-// XY: (0 to _region_size) coordinates within a region
+// XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_region_uv(const vec2 uv, const int search) {
+ivec3 get_index_coord(const vec2 uv, const int search) {
 	vec2 r_uv = round(uv);
 	vec2 o_uv = mod(r_uv,_region_size);
 	ivec2 pos;
@@ -95,7 +91,7 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	v_region = get_region_uv(start_pos, VERTEX_PASS);
+	ivec3 v_region = get_index_coord(start_pos, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
@@ -105,20 +101,11 @@ void vertex() {
 		v_vertex.x = 0. / 0.;
 	} else {
 		// Interpolate Geomorph Start & End, set height. 2 Lookups.
-		ivec3 uv_a = get_region_uv(start_pos, VERTEX_PASS);
-		ivec3 uv_b = get_region_uv(end_pos, VERTEX_PASS);
+		ivec3 uv_a = get_index_coord(start_pos, VERTEX_PASS);
+		ivec3 uv_b = get_index_coord(end_pos, VERTEX_PASS);
 		float h = mix(texelFetch(_height_maps, uv_a, 0).r, texelFetch(_height_maps, uv_b, 0).r, vertex_lerp);
-		float u = texelFetch(_height_maps, get_region_uv(UV + vec2(1,0), VERTEX_PASS), 0).r;
-		float v = texelFetch(_height_maps, get_region_uv(UV + vec2(0,1), VERTEX_PASS), 0).r;
 		v_vertex.y = h;
-		v_normal = vec3(h - u, _vertex_spacing, h - v);
 	}
-
-	// Transform UVs to local to avoid poor precision during varying interpolation
-	v_uv_offset = MODEL_MATRIX[3].xz * _vertex_density;
-	UV -= v_uv_offset;
-	v_uv2_offset = v_uv_offset * _region_texel_size;
-	UV2 -= v_uv2_offset;
 
 	// Convert model space to view space w/ skip_vertex_transform render mode
 	VERTEX = (VIEW_MATRIX * vec4(v_vertex, 1.0)).xyz;
@@ -133,8 +120,8 @@ void vertex() {
 
 void fragment() {
 	// Recover UVs
-	vec2 uv = UV + v_uv_offset;
-	vec2 uv2 = UV2 + v_uv2_offset;
+	vec2 uv = UV;
+	vec2 uv2 = UV2;
 
 	// Lookup offsets, ID and blend weight
 	const vec3 offsets = vec3(0, 1, 2);
@@ -158,10 +145,10 @@ void fragment() {
 
 	ivec3 indexUV[4];
 	// control map lookups, used for some normal lookups as well
-	indexUV[0] = get_region_uv(index_id + offsets.xy, FRAGMENT_PASS);
-	indexUV[1] = get_region_uv(index_id + offsets.yy, FRAGMENT_PASS);
-	indexUV[2] = get_region_uv(index_id + offsets.yx, FRAGMENT_PASS);
-	indexUV[3] = get_region_uv(index_id + offsets.xx, FRAGMENT_PASS);
+	indexUV[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
+	indexUV[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
+	indexUV[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
+	indexUV[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
 
 	// Terrain normals
 	vec3 index_normal[4];
@@ -184,10 +171,10 @@ void fragment() {
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
 		h[1] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
-		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
-		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
-		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
-		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
+		h[4] = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
+		h[5] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
+		h[6] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
+		h[7] = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
 
 		// Calculate the normal for the remaining index ids.
 		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[7] + v));
