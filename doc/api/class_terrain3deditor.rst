@@ -263,7 +263,7 @@ Undo the previous changes, with the provided data. Used by Godot, not gamedevs.
 
 |void| **backup_region**\ (\ region\: :ref:`Terrain3DRegion<class_Terrain3DRegion>`\ ) :ref:`🔗<class_Terrain3DEditor_method_backup_region>`
 
-Adds a region to the currently pending operation undo snapshot. :ref:`is_operating<class_Terrain3DEditor_method_is_operating>` must be true.
+Adds a region to the currently pending operation undo snapshot. :ref:`is_operating()<class_Terrain3DEditor_method_is_operating>` must be true.
 
 .. rst-class:: classref-item-separator
 

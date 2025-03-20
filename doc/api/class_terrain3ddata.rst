@@ -407,7 +407,7 @@ The region should already be configured with the desired location and maps befor
 
 Upon saving, this region will be written to a data file stored in :ref:`Terrain3D.data_directory<class_Terrain3D_property_data_directory>`.
 
-- update - regenerates the texture arrays if true. Set to false if bulk adding many regions, then true on the last one or use :ref:`force_update_maps<class_Terrain3DData_method_force_update_maps>`.
+- update - regenerates the texture arrays if true. Set to false if bulk adding many regions, then true on the last one or use :ref:`force_update_maps()<class_Terrain3DData_method_force_update_maps>`.
 
 .. rst-class:: classref-item-separator
 
@@ -419,7 +419,7 @@ Upon saving, this region will be written to a data file stored in :ref:`Terrain3
 
 :ref:`Terrain3DRegion<class_Terrain3DRegion>` **add_region_blank**\ (\ region_location\: ``Vector2i``, update\: ``bool`` = true\ ) :ref:`🔗<class_Terrain3DData_method_add_region_blank>`
 
-Creates and adds a blank region at the specified location. See :ref:`add_region<class_Terrain3DData_method_add_region>`.
+Creates and adds a blank region at the specified location. See :ref:`add_region()<class_Terrain3DData_method_add_region>`.
 
 .. rst-class:: classref-item-separator
 
@@ -431,7 +431,7 @@ Creates and adds a blank region at the specified location. See :ref:`add_region<
 
 :ref:`Terrain3DRegion<class_Terrain3DRegion>` **add_region_blankp**\ (\ global_position\: ``Vector3``, update\: ``bool`` = true\ ) :ref:`🔗<class_Terrain3DData_method_add_region_blankp>`
 
-Creates and adds a blank region at a region location encompassing the specified global position. See :ref:`add_region<class_Terrain3DData_method_add_region>`.
+Creates and adds a blank region at a region location encompassing the specified global position. See :ref:`add_region()<class_Terrain3DData_method_add_region>`.
 
 .. rst-class:: classref-item-separator
 
@@ -445,7 +445,7 @@ Creates and adds a blank region at a region location encompassing the specified 
 
 Recalculates the master height range for the whole terrain by summing the height ranges of all active regions.
 
-Recursive mode does the same, but has each region recalculate heights from each heightmap pixel. See :ref:`Terrain3DRegion.calc_height_range<class_Terrain3DRegion_method_calc_height_range>`.
+Recursive mode does the same, but has each region recalculate heights from each heightmap pixel. See :ref:`Terrain3DRegion.calc_height_range()<class_Terrain3DRegion_method_calc_height_range>`.
 
 .. rst-class:: classref-item-separator
 
@@ -709,7 +709,7 @@ Returns the resource ID of the generated height map texture array sent to the sh
 
 ``Vector2`` **get_height_range**\ (\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_height_range>`
 
-Returns the highest and lowest heights for the sculpted terrain used to set the world AABB. See :ref:`calc_height_range<class_Terrain3DData_method_calc_height_range>`.
+Returns the highest and lowest heights for the sculpted terrain used to set the world AABB. See :ref:`calc_height_range()<class_Terrain3DData_method_calc_height_range>`.
 
 Any :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` used that extends the mesh outside of this range will not change this variable. You need to set :ref:`Terrain3D.cull_margin<class_Terrain3D_property_cull_margin>` or the renderer will clip meshes.
 
@@ -753,7 +753,7 @@ Returns the position of a terrain vertex at a certain LOD. If the position is ou
 
 ``Vector3`` **get_normal**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_normal>`
 
-Returns the terrain normal at the specified position. This function uses :ref:`get_height<class_Terrain3DData_method_get_height>`.
+Returns the terrain normal at the specified position. This function uses :ref:`get_height()<class_Terrain3DData_method_get_height>`.
 
 Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outside of defined regions.
 
@@ -819,7 +819,7 @@ The region_id is the index into the TextureArrays sent to the shader, and can ch
 
 ``int`` **get_region_idp**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_region_idp>`
 
-Returns the region id at a global position. See :ref:`get_region_id<class_Terrain3DData_method_get_region_id>`.
+Returns the region id at a global position. See :ref:`get_region_id()<class_Terrain3DData_method_get_region_id>`.
 
 .. rst-class:: classref-item-separator
 
@@ -831,7 +831,7 @@ Returns the region id at a global position. See :ref:`get_region_id<class_Terrai
 
 ``Vector2i`` **get_region_location**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_region_location>`
 
-Returns the calculated region location for the given global position. This is just a calculation and does no bounds checking or verification that a region exists. See :ref:`get_region_map_index<class_Terrain3DData_method_get_region_map_index>` for bounds checking, or :ref:`has_region<class_Terrain3DData_method_has_region>` for checking existance.
+Returns the calculated region location for the given global position. This is just a calculation and does no bounds checking or verification that a region exists. See :ref:`get_region_map_index()<class_Terrain3DData_method_get_region_map_index>` for bounds checking, or :ref:`has_region()<class_Terrain3DData_method_has_region>` for checking existance.
 
 .. rst-class:: classref-item-separator
 
@@ -845,7 +845,7 @@ Returns the calculated region location for the given global position. This is ju
 
 Returns a fully populated 32 x 32 array. The array location contains the region id + 1, or 0, which means no region.
 
-See :ref:`get_region_map_index<class_Terrain3DData_method_get_region_map_index>`.
+See :ref:`get_region_map_index()<class_Terrain3DData_method_get_region_map_index>`.
 
 .. rst-class:: classref-item-separator
 
@@ -857,7 +857,7 @@ See :ref:`get_region_map_index<class_Terrain3DData_method_get_region_map_index>`
 
 ``int`` **get_region_map_index**\ (\ region_location\: ``Vector2i``\ ) |static| :ref:`🔗<class_Terrain3DData_method_get_region_map_index>`
 
-Given a region location, returns the index into the region map array. See :ref:`get_region_map<class_Terrain3DData_method_get_region_map>`.
+Given a region location, returns the index into the region map array. See :ref:`get_region_map()<class_Terrain3DData_method_get_region_map>`.
 
 You can use this function to quickly determine if a location is within the greater world bounds (-16,-16) to (15, 15). It returns -1 if not.
 
@@ -1075,7 +1075,7 @@ Marks the specified region as deleted. This deactivates it so it won't render it
 
 |void| **remove_regionl**\ (\ region_location\: ``Vector2i``, update\: ``bool`` = true\ ) :ref:`🔗<class_Terrain3DData_method_remove_regionl>`
 
-Removes the region at the specified location. See :ref:`remove_region<class_Terrain3DData_method_remove_region>`.
+Removes the region at the specified location. See :ref:`remove_region()<class_Terrain3DData_method_remove_region>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1087,7 +1087,7 @@ Removes the region at the specified location. See :ref:`remove_region<class_Terr
 
 |void| **remove_regionp**\ (\ global_position\: ``Vector3``, update\: ``bool`` = true\ ) :ref:`🔗<class_Terrain3DData_method_remove_regionp>`
 
-Removes the region at the specified global_position. See :ref:`remove_region<class_Terrain3DData_method_remove_region>`.
+Removes the region at the specified global_position. See :ref:`remove_region()<class_Terrain3DData_method_remove_region>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1111,7 +1111,7 @@ This saves all active regions into the specified directory.
 
 |void| **save_region**\ (\ region_location\: ``Vector2i``, directory\: ``String``, 16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_save_region>`
 
-Saves the specified active region to the directory. See :ref:`Terrain3DRegion.save<class_Terrain3DRegion_method_save>`.
+Saves the specified active region to the directory. See :ref:`Terrain3DRegion.save()<class_Terrain3DRegion_method_save>`.
 
 - region_location - the region to save.
 
@@ -1127,7 +1127,7 @@ Saves the specified active region to the directory. See :ref:`Terrain3DRegion.sa
 
 |void| **set_color**\ (\ global_position\: ``Vector3``, color\: ``Color``\ ) :ref:`🔗<class_Terrain3DData_method_set_color>`
 
-Sets the color on the color map pixel associated with the specified position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+Sets the color on the color map pixel associated with the specified position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1139,7 +1139,7 @@ Sets the color on the color map pixel associated with the specified position. Se
 
 |void| **set_control**\ (\ global_position\: ``Vector3``, control\: ``int``\ ) :ref:`🔗<class_Terrain3DData_method_set_control>`
 
-Sets the value on the control map pixel associated with the specified position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+Sets the value on the control map pixel associated with the specified position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1153,7 +1153,7 @@ Sets the value on the control map pixel associated with the specified position. 
 
 Sets the angle, aka uv rotation, on the control map at the requested position. Values are rounded to the nearest 22.5 degree interval, for a maximum of 16 angles. 360 / 16 = 22.5.
 
-See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1167,7 +1167,7 @@ See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important informa
 
 Sets if the material should render the autoshader or manual texturing on the control map at the requested position.
 
-See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1181,7 +1181,7 @@ See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important informa
 
 Sets the base texture ID on the control map at the requested position. Values are clamped to 0 - 31, matching the ID of the texture asset in the asset dock.
 
-See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1195,7 +1195,7 @@ See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important informa
 
 Sets the blend value between the base texture ID, and the overlay texture ID. The value is clamped between 0.0 - 1.0 where 0.0 shows only the base texture, and 1.0 shows only the overlay texture.
 
-See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1207,7 +1207,7 @@ See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important informa
 
 |void| **set_control_hole**\ (\ global_position\: ``Vector3``, enable\: ``bool``\ ) :ref:`🔗<class_Terrain3DData_method_set_control_hole>`
 
-Sets if a hole should be rendered on the control map at the requested position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+Sets if a hole should be rendered on the control map at the requested position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1219,7 +1219,7 @@ Sets if a hole should be rendered on the control map at the requested position. 
 
 |void| **set_control_navigation**\ (\ global_position\: ``Vector3``, enable\: ``bool``\ ) :ref:`🔗<class_Terrain3DData_method_set_control_navigation>`
 
-Sets if navigation generation is enabled on the control map at the requested position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+Sets if navigation generation is enabled on the control map at the requested position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1233,7 +1233,7 @@ Sets if navigation generation is enabled on the control map at the requested pos
 
 Sets the overlay texture ID on the control map at the requested position. Values are clamped to 0 - 31, matching the ID of the texture asset in the asset dock.
 
-See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1247,7 +1247,7 @@ See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important informa
 
 Sets the uv scale on the control map at the requested position. The value is rounded to the nearest 20% difference from 100%, ranging between -60% to +80%.
 
-See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. rst-class:: classref-item-separator
 
@@ -1259,9 +1259,9 @@ See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important informa
 
 |void| **set_height**\ (\ global_position\: ``Vector3``, height\: ``float``\ ) :ref:`🔗<class_Terrain3DData_method_set_height>`
 
-Sets the height value on the heightmap pixel associated with the specified position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+Sets the height value on the heightmap pixel associated with the specified position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
-Unlike :ref:`get_height<class_Terrain3DData_method_get_height>`, which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
+Unlike :ref:`get_height()<class_Terrain3DData_method_get_height>`, which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
 
 .. rst-class:: classref-item-separator
 
@@ -1273,9 +1273,9 @@ Unlike :ref:`get_height<class_Terrain3DData_method_get_height>`, which interpola
 
 |void| **set_pixel**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`, global_position\: ``Vector3``, pixel\: ``Color``\ ) :ref:`🔗<class_Terrain3DData_method_set_pixel>`
 
-Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
+Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map()<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
 
-After setting pixels you need to call :ref:`force_update_maps<class_Terrain3DData_method_force_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
+After setting pixels you need to call :ref:`force_update_maps()<class_Terrain3DData_method_force_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
 
 .. rst-class:: classref-item-separator
 
@@ -1311,7 +1311,7 @@ Sets the region as modified. It will be written to disk when saved. Syntactic su
 
 |void| **set_roughness**\ (\ global_position\: ``Vector3``, roughness\: ``float``\ ) :ref:`🔗<class_Terrain3DData_method_set_roughness>`
 
-Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. See :ref:`set_pixel<class_Terrain3DData_method_set_pixel>` for important information.
+Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

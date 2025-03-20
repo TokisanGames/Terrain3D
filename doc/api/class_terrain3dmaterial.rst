@@ -36,7 +36,7 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``Dictionary``                                                   | :ref:`_shader_parameters<class_Terrain3DMaterial_property__shader_parameters>`           | ``{}``    |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`auto_shader<class_Terrain3DMaterial_property_auto_shader>`                         | ``false`` |
+   | ``bool``                                                         | :ref:`auto_shader<class_Terrain3DMaterial_property_auto_shader>`                         | ``true``  |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`dual_scaling<class_Terrain3DMaterial_property_dual_scaling>`                       | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
@@ -195,7 +195,7 @@ This private dictionary stores all of the shader parameters in the resource. It 
 
 .. rst-class:: classref-property
 
-``bool`` **auto_shader** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_auto_shader>`
+``bool`` **auto_shader** = ``true`` :ref:`🔗<class_Terrain3DMaterial_property_auto_shader>`
 
 .. rst-class:: classref-property-setget
 

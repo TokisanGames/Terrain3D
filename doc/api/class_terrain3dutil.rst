@@ -124,7 +124,7 @@ This function does not convert integer values to float values (e.g. 4 -> 4.0). I
 
 \ ``my_float == util.as_float(util.as_uint(my_float))``\ 
 
-See :ref:`as_uint<class_Terrain3DUtil_method_as_uint>` for the opposite.
+See :ref:`as_uint()<class_Terrain3DUtil_method_as_uint>` for the opposite.
 
 .. rst-class:: classref-item-separator
 
@@ -142,7 +142,7 @@ This function does not convert float values to integer values (e.g. 4.0 -> 4). I
 
 \ ``my_int == util.as_uint(util.as_float(my_int))``\ 
 
-See :ref:`as_float<class_Terrain3DUtil_method_as_float>` for the opposite.
+See :ref:`as_float()<class_Terrain3DUtil_method_as_float>` for the opposite.
 
 .. rst-class:: classref-item-separator
 
@@ -238,7 +238,7 @@ Returns a control map uint with the overlay texture ID encoded. See the top desc
 
 ``int`` **enc_uv_rotation**\ (\ rotation\: ``int``\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_uv_rotation>`
 
-Returns a control map uint with the texture rotation encoded. See the top description for usage.  See :ref:`get_uv_rotation<class_Terrain3DUtil_method_get_uv_rotation>` for values.
+Returns a control map uint with the texture rotation encoded. See the top description for usage.  See :ref:`get_uv_rotation()<class_Terrain3DUtil_method_get_uv_rotation>` for values.
 
 .. rst-class:: classref-item-separator
 
@@ -250,7 +250,7 @@ Returns a control map uint with the texture rotation encoded. See the top descri
 
 ``int`` **enc_uv_scale**\ (\ scale\: ``int``\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_enc_uv_scale>`
 
-Returns a control map uint with the texture scale encoded. See the top description for usage. See :ref:`get_uv_scale<class_Terrain3DUtil_method_get_uv_scale>` for values.
+Returns a control map uint with the texture scale encoded. See the top description for usage. See :ref:`get_uv_scale()<class_Terrain3DUtil_method_get_uv_scale>` for values.
 
 .. rst-class:: classref-item-separator
 

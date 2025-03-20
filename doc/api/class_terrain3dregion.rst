@@ -202,7 +202,7 @@ However, we interpret these images as format: `RenderingDevice.DATA_FORMAT_R32_U
 - |void| **set_deleted**\ (\ value\: ``bool``\ )
 - ``bool`` **is_deleted**\ (\ )
 
-This region is marked for deletion. It won't be rendered once :ref:`Terrain3DData.force_update_maps<class_Terrain3DData_method_force_update_maps>` rebuilds the map index. The file will be deleted from disk on :ref:`save<class_Terrain3DRegion_method_save>`.
+This region is marked for deletion. It won't be rendered once :ref:`Terrain3DData.force_update_maps()<class_Terrain3DData_method_force_update_maps>` rebuilds the map index. The file will be deleted from disk on :ref:`save()<class_Terrain3DRegion_method_save>`.
 
 .. rst-class:: classref-item-separator
 
@@ -259,7 +259,7 @@ Editing is always done in 32-bit. We do provide an option to save as 16-bit, see
 - |void| **set_height_range**\ (\ value\: ``Vector2``\ )
 - ``Vector2`` **get_height_range**\ (\ )
 
-The current minimum and maximum height range for this region, used to calculate the AABB of the terrain. Update it with :ref:`update_height<class_Terrain3DRegion_method_update_height>`, and recalculate it with :ref:`calc_height_range<class_Terrain3DRegion_method_calc_height_range>`.
+The current minimum and maximum height range for this region, used to calculate the AABB of the terrain. Update it with :ref:`update_height()<class_Terrain3DRegion_method_update_height>`, and recalculate it with :ref:`calc_height_range()<class_Terrain3DRegion_method_calc_height_range>`.
 
 .. rst-class:: classref-item-separator
 
@@ -292,7 +292,7 @@ The format is instances{mesh_id:int} -> cells{grid_location:Vector2i} -> ( Array
 
 - 2: A bool that tracks if this cell has been modified
 
-After changing this data, :ref:`Terrain3DInstancer.force_update_mmis<class_Terrain3DInstancer_method_force_update_mmis>` should be called to rebuild the MMIs.
+After changing this data, :ref:`Terrain3DInstancer.force_update_mmis()<class_Terrain3DInstancer_method_force_update_mmis>` should be called to rebuild the MMIs.
 
 .. rst-class:: classref-item-separator
 
@@ -468,7 +468,7 @@ Validates and adjusts the map size and format if possible, or creates a usable b
 
 |void| **sanitize_maps**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_sanitize_maps>`
 
-Sanitizes all map types. See :ref:`sanitize_map<class_Terrain3DRegion_method_sanitize_map>`.
+Sanitizes all map types. See :ref:`sanitize_map()<class_Terrain3DRegion_method_sanitize_map>`.
 
 .. rst-class:: classref-item-separator
 

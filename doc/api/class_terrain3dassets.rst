@@ -364,7 +364,7 @@ path - specifies a directory and file name to use from now on.
 
 |void| **set_mesh_asset**\ (\ id\: ``int``, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ ) :ref:`🔗<class_Terrain3DAssets_method_set_mesh_asset>`
 
-Assigns the Terrain3DMeshAsset to the specified ID slot. It can be null to clear the slot. See :ref:`set_texture<class_Terrain3DAssets_method_set_texture>`.
+Assigns the Terrain3DMeshAsset to the specified ID slot. It can be null to clear the slot. See :ref:`set_texture()<class_Terrain3DAssets_method_set_texture>`.
 
 .. rst-class:: classref-item-separator
 

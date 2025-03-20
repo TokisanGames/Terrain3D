@@ -23,23 +23,23 @@ Data is currently stored in :ref:`Terrain3DRegion.instances<class_Terrain3DRegio
 
 \ **The methods available for adding instances are:**\ 
 
-- :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>` - Accepts your list of transforms and parses them by region and cell location and stores in our data storage. Recommended for general API instancing.
+- :ref:`add_transforms()<class_Terrain3DInstancer_method_add_transforms>` - Accepts your list of transforms and parses them by region and cell location and stores in our data storage. Recommended for general API instancing.
 
-- :ref:`add_multimesh<class_Terrain3DInstancer_method_add_multimesh>` - Pulls the transforms out of your MultiMesh and calls add_transforms.
+- :ref:`add_multimesh()<class_Terrain3DInstancer_method_add_multimesh>` - Pulls the transforms out of your MultiMesh and calls add_transforms.
 
-- :ref:`add_instances<class_Terrain3DInstancer_method_add_instances>` - A feature rich function designed for hand editing via Terrain3DEditor.
+- :ref:`add_instances()<class_Terrain3DInstancer_method_add_instances>` - A feature rich function designed for hand editing via Terrain3DEditor.
 
 - Creating your own instance data and inserting it directly into :ref:`Terrain3DRegion.instances<class_Terrain3DRegion_property_instances>`. It's not difficult to do this in GDScript, but a thorough understanding of the C++ code in this class is recommended.
 
 \ **The methods available for removing instances are:**\ 
 
-- :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>` - Like add_instances, this is can be used procedurally but is designed for hand editing.
+- :ref:`remove_instances()<class_Terrain3DInstancer_method_remove_instances>` - Like add_instances, this is can be used procedurally but is designed for hand editing.
 
-- :ref:`clear_by_mesh<class_Terrain3DInstancer_method_clear_by_mesh>`, :ref:`clear_by_location<class_Terrain3DInstancer_method_clear_by_location>` - To erase large sections of instances
+- :ref:`clear_by_mesh()<class_Terrain3DInstancer_method_clear_by_mesh>`, :ref:`clear_by_location()<class_Terrain3DInstancer_method_clear_by_location>` - To erase large sections of instances
 
 - Editing :ref:`Terrain3DRegion.instances<class_Terrain3DRegion_property_instances>` directly.
 
-After modifying region data, run :ref:`force_update_mmis<class_Terrain3DInstancer_method_force_update_mmis>` to rebuild the MultiMeshInstance3Ds.
+After modifying region data, run :ref:`force_update_mmis()<class_Terrain3DInstancer_method_force_update_mmis>` to rebuild the MultiMeshInstance3Ds.
 
 \ **Read More:**\ 
 
@@ -112,7 +112,7 @@ Used by Terrain3DEditor to place instances given many brush parameters. In addit
 
 |void| **add_multimesh**\ (\ mesh_id\: ``int``, multimesh\: ``MultiMesh``, transform\: ``Transform3D`` = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0), update\: ``bool`` = true\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_multimesh>`
 
-Allows procedural placement of meshes, or importing from another MultiMeshInstancer placement tool. The specified mesh_id should already be setup as a :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` in the asset dock. This function extracts the instance transforms and colors from a multimesh and passes it to :ref:`add_transforms<class_Terrain3DInstancer_method_add_transforms>`.
+Allows procedural placement of meshes, or importing from another MultiMeshInstancer placement tool. The specified mesh_id should already be setup as a :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>` in the asset dock. This function extracts the instance transforms and colors from a multimesh and passes it to :ref:`add_transforms()<class_Terrain3DInstancer_method_add_transforms>`.
 
 Update will regenerate the MultiMeshInstances. Disable for bulk adding, then call at the end.
 
