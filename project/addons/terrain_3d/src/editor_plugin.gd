@@ -217,6 +217,11 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				if not ui.operation_builder or not ui.operation_builder.is_ready():
 					return AFTER_GUI_INPUT_STOP
 			
+			if modifier_ctrl and editor.get_tool() == Terrain3DEditor.HEIGHT:
+				var height: float = terrain.data.get_height(mouse_global_position)
+				ui.brush_data["height"] = height
+				ui.tool_settings.set_setting("height", height)
+				
 			# If adjusting regions
 			if editor.get_tool() == Terrain3DEditor.REGION:
 				# Skip regions that already exist or don't
