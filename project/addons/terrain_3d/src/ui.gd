@@ -202,7 +202,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("color")
 			to_show.push_back("color_picker")
 			to_show.push_back("slope")
-			to_show.push_back("enable_texture")
+			to_show.push_back("texture_filter")
 			to_show.push_back("margin")
 			to_show.push_back("remove")
 
@@ -213,7 +213,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("roughness")
 			to_show.push_back("roughness_picker")
 			to_show.push_back("slope")
-			to_show.push_back("enable_texture")
+			to_show.push_back("texture_filter")
 			to_show.push_back("margin")
 			to_show.push_back("remove")
 

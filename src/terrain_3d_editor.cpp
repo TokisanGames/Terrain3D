@@ -134,6 +134,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	real_t roughness = _brush_data["roughness"];
 
 	bool enable_texture = _brush_data["enable_texture"];
+	bool texture_filter = _brush_data["texture_filter"];
+	int margin = _brush_data["margin"];
 	int asset_id = _brush_data["asset_id"];
 
 	Vector2 slope_range = _brush_data["slope"];
@@ -474,13 +476,13 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 			} else if (map_type == TYPE_COLOR) {
 				// Filter by visible texture
-				if (enable_texture) {
+				if (texture_filter) {
 					Image *cmap = region->get_map_ptr(TYPE_CONTROL);
 					if (!cmap) {
 						continue;
 					}
 					real_t src_ctrl = cmap->get_pixelv(map_pixel_position).r;
-					int tex_id = (get_blend(src_ctrl) > 110 + int(_brush_data.get("margin", 0))) ? get_overlay(src_ctrl) : get_base(src_ctrl);
+					int tex_id = (get_blend(src_ctrl) > 110 - margin) ? get_overlay(src_ctrl) : get_base(src_ctrl);
 					if (tex_id != asset_id) {
 						continue;
 					}
@@ -720,6 +722,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["roughness"] = CLAMP(real_t(p_data.get("roughness", 0.f)), -100.f, 100.f) * .01f; // Percentage
 
 	_brush_data["enable_texture"] = p_data.get("enable_texture", true);
+	_brush_data["texture_filter"] = p_data.get("texture_filter", false);
 	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, ((_tool == INSTANCER) ? Terrain3DAssets::MAX_MESHES : Terrain3DAssets::MAX_TEXTURES) - 1);
 	_brush_data["margin"] = CLAMP(int(p_data.get("margin", 0)), -100, 100);
 

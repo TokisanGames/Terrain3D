@@ -89,6 +89,9 @@ func _ready() -> void:
 	add_setting({ "name":"enable_texture", "label":"Texture", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
 
+	add_setting({ "name":"texture_filter", "label":"Texture Filter", "type":SettingType.CHECKBOX, 
+								"list":main_list, "default":false, "flags":ADD_SEPARATOR })
+
 	add_setting({ "name":"margin", "type":SettingType.SLIDER, "list":main_list, "default":0, 
 								"unit":"", "range":Vector3(-50, 50, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 
