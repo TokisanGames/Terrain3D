@@ -57,7 +57,7 @@
 		<member name="_shader_parameters" type="Dictionary" setter="_set_shader_parameters" getter="_get_shader_parameters" default="{}">
 			This private dictionary stores all of the shader parameters in the resource. It is not a cache.
 		</member>
-		<member name="auto_shader" type="bool" setter="set_auto_shader" getter="get_auto_shader" default="false">
+		<member name="auto_shader" type="bool" setter="set_auto_shader" getter="get_auto_shader" default="true">
 			Enables selecting two texture IDs that will automatically be applied to the terrain based upon slope.
 		</member>
 		<member name="dual_scaling" type="bool" setter="set_dual_scaling" getter="get_dual_scaling" default="false">

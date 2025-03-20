@@ -35,7 +35,6 @@ Developed for the Godot community by:
 
 And other contributors displayed on the right of the github page and in [AUTHORS.md](https://terrain3d.readthedocs.io/en/stable/docs/authors.html).
 
-Geometry clipmap mesh code created by [Mike J. Savage](https://mikejsavage.co.uk/blog/geometry-clipmaps.html). Blog and repository code released under the MIT license per email communication with Mike.
 
 ## Contributing
 

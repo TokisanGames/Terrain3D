@@ -195,7 +195,7 @@ The selected mode determines if collision is generated and how. See :ref:`Collis
 
 Applies a ``PhysicsMaterial`` override to the StaticBody.
 
-There's no ability built into Godot to change physics material parameters based on texture or any other factor. However, it might be possible to extend `PhysicsMaterial` in order to inject code into the queries. It would need references to an object position and a terrain, and then it could run :ref:`Terrain3DData.get_texture_id<class_Terrain3DData_method_get_texture_id>` based on the position and return different physics settings per texture. That would change the settings for the entire terrain for that moment.
+There's no ability built into Godot to change physics material parameters based on texture or any other factor. However, it might be possible to extend `PhysicsMaterial` in order to inject code into the queries. It would need references to an object position and a terrain, and then it could run :ref:`Terrain3DData.get_texture_id()<class_Terrain3DData_method_get_texture_id>` based on the position and return different physics settings per texture. That would change the settings for the entire terrain for that moment.
 
 .. rst-class:: classref-item-separator
 
@@ -263,7 +263,7 @@ Method Descriptions
 
 |void| **build**\ (\ ) :ref:`🔗<class_Terrain3DCollision_method_build>`
 
-Creates collision shapes and calls :ref:`update<class_Terrain3DCollision_method_update>` to shape them. Calls :ref:`destroy<class_Terrain3DCollision_method_destroy>` first, so it is safe to call this to fully rebuild collision any time.
+Creates collision shapes and calls :ref:`update()<class_Terrain3DCollision_method_update>` to shape them. Calls :ref:`destroy()<class_Terrain3DCollision_method_destroy>` first, so it is safe to call this to fully rebuild collision any time.
 
 .. rst-class:: classref-item-separator
 
@@ -335,7 +335,7 @@ Returns true if :ref:`mode<class_Terrain3DCollision_property_mode>` is not ``Dis
 
 |void| **update**\ (\ force\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DCollision_method_update>`
 
-- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Full, updates the existing collision shapes. If regions have been added or removed, set ``force`` to true or call :ref:`build<class_Terrain3DCollision_method_build>` instead. Can be slow.
+- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Full, updates the existing collision shapes. If regions have been added or removed, set ``force`` to true or call :ref:`build()<class_Terrain3DCollision_method_build>` instead. Can be slow.
 
 - If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculated ones not already in place, skipping those that are. Set ``force`` to true to recalculate all shapes. This is very fast, and can be updated at 60fps for little cost.
 

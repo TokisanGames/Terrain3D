@@ -421,7 +421,7 @@ Alias for :ref:`Terrain3DCollision.shape_size<class_Terrain3DCollision_property_
 - |void| **set_cull_margin**\ (\ value\: ``float``\ )
 - ``float`` **get_cull_margin**\ (\ )
 
-This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from :ref:`Terrain3DData.get_height_range<class_Terrain3DData_method_get_height_range>`, which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` with NOISE and a height value larger than the terrain heights. This setting is similar to ``GeometryInstance3D.extra_cull_margin``, but it only affects the Y axis.
+This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from :ref:`Terrain3DData.get_height_range()<class_Terrain3DData_method_get_height_range>`, which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using :ref:`Terrain3DMaterial.world_background<class_Terrain3DMaterial_property_world_background>` with NOISE and a height value larger than the terrain heights. This setting is similar to ``GeometryInstance3D.extra_cull_margin``, but it only affects the Y axis.
 
 .. rst-class:: classref-item-separator
 
@@ -488,7 +488,7 @@ The verbosity of debug messages printed to the console. Errors and warnings are 
 - |void| **set_free_editor_textures**\ (\ value\: ``bool``\ )
 - ``bool`` **get_free_editor_textures**\ (\ )
 
-Frees ground textures used for editing at the start of the game. These textures are used to generate the TextureArrays, so if you don't change any :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` settings in game, this can be enabled. Calls :ref:`Terrain3DAssets.clear_textures<class_Terrain3DAssets_method_clear_textures>`.
+Frees ground textures used for editing at the start of the game. These textures are used to generate the TextureArrays, so if you don't change any :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` settings in game, this can be enabled. Calls :ref:`Terrain3DAssets.clear_textures()<class_Terrain3DAssets_method_clear_textures>`.
 
 .. rst-class:: classref-item-separator
 
@@ -629,7 +629,7 @@ This variable sets the editor render layer (21-32) to be used by ``get_intersect
 
 You may place other objects on this layer, however ``get_intersection`` will report intersections with them. So either dedicate this layer to Terrain3D, or if you must use all 32 layers, dedicate this one during editing or when using ``get_intersection``, and then you can use it during game play.
 
-See :ref:`get_intersection<class_Terrain3D_method_get_intersection>`.
+See :ref:`get_intersection()<class_Terrain3D_method_get_intersection>`.
 
 .. rst-class:: classref-item-separator
 
@@ -664,6 +664,8 @@ Alias for :ref:`Terrain3DCollision.physics_material<class_Terrain3DCollision_pro
 - :ref:`RegionSize<enum_Terrain3D_RegionSize>` **get_region_size**\ (\ )
 
 The number of vertices in each region, and the number of pixels for each map in :ref:`Terrain3DRegion<class_Terrain3DRegion>`. 1 pixel always corresponds to 1 vertex. :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>` laterally scales regions, but does not change the number of vertices or pixels in each.
+
+There is no undo for this operation. However you can apply it again to reslice, as long as your data doesn't hit the maximum boundaries.
 
 .. rst-class:: classref-item-separator
 
@@ -1059,7 +1061,7 @@ The distance between vertices. Godot units are typically considered to be meters
 
 This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
 
-All Terrain3D functions with a global_position expect an absolute global value. If you would normally use :ref:`Terrain3DData.import_images<class_Terrain3DData_method_import_images>` to import an image in the region at (-1024, -1024), with a vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
+All Terrain3D functions with a global_position expect an absolute global value. If you would normally use :ref:`Terrain3DData.import_images()<class_Terrain3DData_method_import_images>` to import an image in the region at (-1024, -1024), with a vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
 
 To scale heights, export the height map and reimport it with a new height scale.
 
