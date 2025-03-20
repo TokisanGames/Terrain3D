@@ -29,11 +29,13 @@ The following mouse and keyboard shortcuts are available.
 
 ### General Keys
 * <kbd>LMB</kbd> - Click the terrain to positively apply the current tool.
-* <kbd>Ctrl + LMB</kbd> - **Inverse** the tool. Removes regions, height, color, wetness, autoshader, holes, navigation, foliage. Use <kbd>Cmd</kbd> on **macOS**.
+* <kbd>Ctrl + LMB</kbd> - **Inverse** the tool. Removes regions, color, wetness, autoshader, holes, navigation, foliage. Height picks first+. Use <kbd>Cmd</kbd> on **macOS**.
 * <kbd>Shift + LMB</kbd> - Temporarily change to the **Smooth** sculpting tool.
 * <kbd>Ctrl + Z</kbd> - **Undo**. You can view the entries in the Godot `History` panel.
 * <kbd>Ctrl + Shift + Z</kbd> - **Redo**.
 * <kbd>Ctrl + S</kbd> - **Save** the scene and all data.
+
++ To clarify **Ctrl + Height**, this picks the height at the mouse cursor first, then flattens the landscape at that height.
 
 ### Slope Filter
 

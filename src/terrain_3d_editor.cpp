@@ -247,8 +247,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					}
 					case SUBTRACT: {
 						if (_tool == HEIGHT) {
-							// Height at 0
-							destf = Math::lerp(srcf, 0.f, CLAMP(brush_alpha * strength, 0.f, 1.f));
+							// Height, but GDScript has already picked height at cursor
+							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						} else if (modifier_alt && !std::isnan(p_global_position.y)) {
 							// Flatten peaks
 							real_t brush_center_y = p_global_position.y - brush_alpha * strength;
