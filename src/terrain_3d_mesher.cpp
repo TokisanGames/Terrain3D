@@ -42,7 +42,7 @@ RID Terrain3DMesher::_generate_mesh(const Vector2i &p_size, const bool p_standar
 	PackedVector3Array vertices;
 	PackedInt32Array indices;
 	AABB aabb = AABB(V3_ZERO, Vector3(p_size.x, 0.1f, p_size.y));
-	LOG(DEBUG, "Generating verticies and indicies for a", p_standard_grid ? " symetric ":" standard ", "grid mesh of width: ", p_size.x, " and height: ", p_size.y);
+	LOG(DEBUG, "Generating verticies and indicies for a", p_standard_grid ? " symetric " : " standard ", "grid mesh of width: ", p_size.x, " and height: ", p_size.y);
 
 	// Generate vertices
 	for (int y = 0; y <= p_size.y; ++y) {
@@ -115,7 +115,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 	_generate_mesh_types(p_size);
 	_generate_offset_data(p_size);
 	LOG(DEBUG, "Creating instances for all mesh segments for clipmap of size ", p_size, " for ", p_lods, " LODs");
-	
+
 	for (int level = 0; level < p_lods; level++) {
 		Array lod;
 		// 12 Tiles LOD1+, 16 for LOD0
@@ -158,8 +158,8 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 				fill_b_rids.append(fill_b_rid);
 			}
 			lod.append(fill_b_rids); // index 5 FILL_B
-		// Trims only on LOD 0 These share the indicies of the fills for the offsets.
-		// When snapping LOD 0 Trim a/b positions are looked up instead of Fill a/b
+			// Trims only on LOD 0 These share the indicies of the fills for the offsets.
+			// When snapping LOD 0 Trim a/b positions are looked up instead of Fill a/b
 		} else {
 			Array trim_a_rids;
 			for (int i = 0; i < 2; i++) {
@@ -287,8 +287,8 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
 	} else {
 		return;
 	}
-	if (_terrain->get_world_3d().is_null()) {
-		LOG(DEBUG, "Terrain3D's world3D is null")
+	if (!_terrain->is_inside_world()) {
+		LOG(DEBUG, "Terrain3D's world3D is null");
 		return;
 	}
 	LOG(INFO, "Initializing GeoMesh");
@@ -379,9 +379,9 @@ void Terrain3DMesher::snap(const Vector3 &p_tracked_pos) {
 				t = t.scaled(lod_scale);
 				t.origin += pos;
 				RS->instance_set_transform(mesh_array[instance], t);
-				#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
+#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
 				RS->instance_reset_physics_interpolation(mesh_array[instance]);
-				#endif
+#endif
 			}
 		}
 	}
@@ -391,7 +391,8 @@ void Terrain3DMesher::snap(const Vector3 &p_tracked_pos) {
 // Iterates over every instance of every mesh and updates all properties.
 void Terrain3DMesher::update() {
 	IS_INIT(VOID);
-	if (_terrain->get_world_3d().is_null()) {
+	if (!_terrain->is_inside_world()) {
+		LOG(DEBUG, "Terrain3D's world3D is null");
 		return;
 	}
 	bool baked_light;
@@ -453,4 +454,3 @@ void Terrain3DMesher::update_aabbs() {
 	}
 	return;
 }
-

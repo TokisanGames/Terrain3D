@@ -115,6 +115,7 @@ public:
 
 	Terrain3D();
 	~Terrain3D() {}
+	bool is_inside_world() { return _is_inside_world; }
 
 	// Terrain
 	String get_version() const { return _version; }

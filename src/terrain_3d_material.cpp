@@ -530,11 +530,11 @@ void Terrain3DMaterial::_update_maps() {
 
 // Called from signal connected in Terrain3D, emitted by texture_list
 void Terrain3DMaterial::_update_texture_arrays() {
-	IS_DATA_INIT_MESG("Material not initialized", VOID);
+	IS_DATA_INIT(VOID);
 	Ref<Terrain3DAssets> asset_list = _terrain->get_assets();
 	LOG(INFO, "Updating texture arrays in shader");
-	if (asset_list.is_null()) {
-		LOG(ERROR, "Asset list is null");
+	if (asset_list.is_null() || !asset_list->is_initialized()) {
+		LOG(ERROR, "Asset list is not initialized");
 		return;
 	}
 
@@ -598,9 +598,15 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	}
 }
 
-Terrain3DMaterial::~Terrain3DMaterial() {
+void Terrain3DMaterial::uninitialize() {
+	LOG(INFO, "Uninitializing material");
+	_terrain = nullptr;
+}
+
+void Terrain3DMaterial::destroy() {
 	IS_INIT(VOID);
 	LOG(INFO, "Destroying material");
+	_terrain = nullptr;
 	RS->free_rid(_material);
 }
 

@@ -198,11 +198,11 @@ void Terrain3DCollision::initialize(Terrain3D *p_terrain) {
 }
 
 void Terrain3DCollision::build() {
-	if (!_terrain) {
-		LOG(DEBUG, "Build called before terrain initialized. Returning.");
+	IS_DATA_INIT(VOID);
+	if (!_terrain->is_inside_world()) {
+		LOG(ERROR, "Terrain isn't inside world. Returning.");
 		return;
 	}
-	IS_DATA_INIT_MESG("Terrain3D not initialized.", VOID);
 
 	// Clear collision as the user might change modes in the editor
 	destroy();

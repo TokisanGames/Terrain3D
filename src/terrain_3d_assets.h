@@ -58,8 +58,11 @@ private:
 
 public:
 	Terrain3DAssets() {}
+	~Terrain3DAssets() { destroy(); }
 	void initialize(Terrain3D *p_terrain);
-	~Terrain3DAssets();
+	bool is_initialized() { return _terrain != nullptr; }
+	void uninitialize();
+	void destroy();
 
 	void set_texture(const int p_id, const Ref<Terrain3DTextureAsset> &p_texture);
 	Ref<Terrain3DTextureAsset> get_texture(const int p_id) const { return _texture_list[p_id]; }

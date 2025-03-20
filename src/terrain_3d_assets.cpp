@@ -376,7 +376,13 @@ void Terrain3DAssets::_update_thumbnail(const Ref<Terrain3DMeshAsset> &p_mesh_as
 ///////////////////////////
 
 void Terrain3DAssets::initialize(Terrain3D *p_terrain) {
-	_terrain = p_terrain;
+	if (p_terrain) {
+		_terrain = p_terrain;
+	} else {
+		LOG(ERROR, "Initialization failed, p_terrain is null");
+		return;
+	}
+	LOG(INFO, "Initializing assets");
 
 	// Setup Mesh preview environment
 	_scenario = RS->scenario_create();
@@ -411,7 +417,15 @@ void Terrain3DAssets::initialize(Terrain3D *p_terrain) {
 	update_mesh_list();
 }
 
-Terrain3DAssets::~Terrain3DAssets() {
+void Terrain3DAssets::uninitialize() {
+	LOG(INFO, "Uninitializing assets");
+	_terrain = nullptr;
+}
+
+void Terrain3DAssets::destroy() {
+	IS_INIT(VOID);
+	LOG(INFO, "Destroying assets");
+	_terrain = nullptr;
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
 	RS->free_rid(_mesh_instance);

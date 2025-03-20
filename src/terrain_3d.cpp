@@ -30,16 +30,16 @@
 int Terrain3D::debug_level{ ERROR };
 
 void Terrain3D::_initialize() {
-	LOG(INFO, "Checking initialization of main subsystems");
+	LOG(INFO, "Instantiating main subsystems");
 
 	// Make blank objects if needed
-	if (_material.is_null()) {
-		LOG(DEBUG, "Creating blank material");
-		_material.instantiate();
-	}
 	if (!_data) {
 		LOG(DEBUG, "Creating blank data object");
 		_data = memnew(Terrain3DData);
+	}
+	if (_material.is_null()) {
+		LOG(DEBUG, "Creating blank material");
+		_material.instantiate();
 	}
 	if (_assets.is_null()) {
 		LOG(DEBUG, "Creating blank texture list");
@@ -92,6 +92,7 @@ void Terrain3D::_initialize() {
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
+		LOG(INFO, "Initializing main subsystems");
 		_data->initialize(this);
 		_material->initialize(this);
 		_assets->initialize(this);
@@ -861,7 +862,7 @@ void Terrain3D::_notification(const int p_what) {
 		case NOTIFICATION_READY: {
 			// Node is ready
 			LOG(INFO, "NOTIFICATION_READY");
-			if (_free_editor_textures && !IS_EDITOR) {
+			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid()) {
 				_assets->clear_textures();
 			}
 			break;
@@ -928,7 +929,7 @@ void Terrain3D::_notification(const int p_what) {
 
 		case NOTIFICATION_CRASH: {
 			// Godot's crash handler reports engine is about to crash
-			// Only on desktop if the crash handler is enabled
+			// Only works on desktop if the crash handler is enabled
 			LOG(WARN, "NOTIFICATION_CRASH");
 			break;
 		}
@@ -942,6 +943,12 @@ void Terrain3D::_notification(const int p_what) {
 			set_physics_process(false);
 			_destroy_mesher();
 			_destroy_mouse_picking();
+			if (_assets.is_valid()) {
+				_assets->uninitialize();
+			}
+			if (_material.is_valid()) {
+				_material->uninitialize();
+			}
 			_initialized = false;
 			break;
 		}
@@ -958,11 +965,13 @@ void Terrain3D::_notification(const int p_what) {
 			// Object is about to be deleted
 			LOG(INFO, "NOTIFICATION_PREDELETE");
 			_destroy_mesher(true);
-			_destroy_collision(true);
 			_destroy_instancer();
+			_destroy_collision(true);
+			_assets.unref();
+			_material.unref();
+			memdelete_safely(_data);
 			_destroy_labels();
 			_destroy_containers();
-			memdelete_safely(_data);
 			break;
 		}
 
