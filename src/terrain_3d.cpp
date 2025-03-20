@@ -435,13 +435,17 @@ void Terrain3D::set_debug_level(const int p_level) {
 void Terrain3D::set_data_directory(String p_dir) {
 	LOG(INFO, "Setting data directory to ", p_dir);
 	if (_data_directory != p_dir) {
-		_initialized = false;
-		_destroy_labels();
-		_destroy_collision();
-		_destroy_instancer();
-		memdelete_safely(_data);
-		_data_directory = p_dir;
-		_initialize();
+		if (_data_directory.is_empty()) {
+			_data_directory = p_dir;
+		} else {
+			_initialized = false;
+			_destroy_labels();
+			_destroy_collision();
+			_destroy_instancer();
+			memdelete_safely(_data);
+			_data_directory = p_dir;
+			_initialize();
+		}
 	}
 	update_configuration_warnings();
 }
