@@ -82,8 +82,11 @@ private:
 
 public:
 	Terrain3DMaterial() {}
+	~Terrain3DMaterial() { destroy(); }
 	void initialize(Terrain3D *p_terrain);
-	~Terrain3DMaterial();
+	bool is_initialized() { return _terrain != nullptr; }
+	void uninitialize();
+	void destroy();
 
 	void update();
 	RID get_material_rid() const { return _material; }
