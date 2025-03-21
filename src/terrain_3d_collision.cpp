@@ -416,9 +416,10 @@ void Terrain3DCollision::destroy() {
 
 	// Physics Server
 	if (_static_body_rid.is_valid()) {
-		for (int i = 0; i < PS->body_get_shape_count(_static_body_rid); i++) {
-			RID rid = PS->body_get_shape(_static_body_rid, i);
-			LOG(DEBUG, "Freeing CollisionShape RID ", i);
+		// Shape IDs change as they are freed, so it's not safe to iterate over them while freeing.
+		while (PS->body_get_shape_count(_static_body_rid) > 0) {
+			RID rid = PS->body_get_shape(_static_body_rid, 0);
+			LOG(DEBUG, "Freeing CollisionShape RID ", rid);
 			PS->free_rid(rid);
 		}
 
