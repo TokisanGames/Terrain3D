@@ -19,7 +19,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 			(far_factor < 1. && (out_mat.base == dual_scale_texture)) || out_mat.base != dual_scale_texture)) {
 		// 2 lookups
 		//each time we change scale, recalculate antitiling from baseline to maintain continuity.
-		matUV = detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base, normal_angle);
+		matUV = detiling(base_uv * mat_scale, index_pos * mat_scale, out_mat.base, normal_angle);
 		dd1.xy = rotate_plane(ddxy.xy, -normal_angle);
 		dd1.zw = rotate_plane(ddxy.zw, -normal_angle);
 		dd1 *= mat_scale;
@@ -37,7 +37,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 		mat_scale *= dual_scale_reduction;
 		float dual_scale_normal = uv_rotation + p_angle; //do not add near & far rotations
 		// Do not apply detiling if tri-scale reduction occurs.
-		matUV = region < 0 ? base_uv * mat_scale : detiling(base_uv * mat_scale, uv_center * mat_scale, dual_scale_texture, dual_scale_normal);
+		matUV = region < 0 ? base_uv * mat_scale : detiling(base_uv * mat_scale, index_pos * mat_scale, dual_scale_texture, dual_scale_normal);
 		dd1.xy = rotate_plane(ddxy.xy, -dual_scale_normal);
 		dd1.zw = rotate_plane(ddxy.zw, -dual_scale_normal);
 		dd1 *= mat_scale;
@@ -57,7 +57,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 //INSERT: UNI_SCALING_BASE
 	if (out_mat.blend < 1.0) {
 		// 2 lookups
-		matUV = detiling(base_uv * mat_scale, uv_center * mat_scale, out_mat.base, normal_angle);
+		matUV = detiling(base_uv * mat_scale, index_pos * mat_scale, out_mat.base, normal_angle);
 		dd1.xy = rotate_plane(ddxy.xy, -normal_angle);
 		dd1.zw = rotate_plane(ddxy.zw, -normal_angle);
 		dd1 *= mat_scale;
