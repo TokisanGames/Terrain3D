@@ -95,11 +95,11 @@ varying vec3 v_vertex;
 // Vertex
 ////////////////////////
 
-// Takes in UV world space coordinates & search depth (only applicable for background mode none)
+// Takes in world space uv coordinates & search depth (only applicable for background mode none)
 // Returns ivec3 with:
-// XY: (0 to _region_size) coordinates within a region
+// XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_region_uv(const vec2 uv, const int search) {
+ivec3 get_index_coord(const vec2 uv, const int search) {
 	vec2 r_uv = round(uv);
 	vec2 o_uv = mod(r_uv,_region_size);
 	ivec2 pos;
@@ -115,10 +115,10 @@ ivec3 get_region_uv(const vec2 uv, const int search) {
 	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
 }
 
-// Takes in UV2 region space coordinates, returns vec3 with:
+// Takes in descaled (world_space / region_size) world to region space uv2 coordinates, returns vec3 with:
 // XY: (0 to 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-vec3 get_region_uv2(const vec2 uv2) {
+vec3 get_index_uv(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
@@ -157,7 +157,7 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	ivec3 v_region = get_region_uv(start_pos, VERTEX_PASS);
+	ivec3 v_region = get_index_coord(start_pos, VERTEX_PASS);
 	uint control = texelFetch(_control_maps, v_region, 0).r;
 	bool hole = bool(control >>2u & 0x1u);
 
@@ -167,9 +167,9 @@ void vertex() {
 		v_vertex.x = 0. / 0.;
 	} else {		
 		// Set final vertex height & calculate vertex normals. 3 lookups
-		ivec3 uv_a = get_region_uv(start_pos, VERTEX_PASS);
-		ivec3 uv_b = get_region_uv(end_pos, VERTEX_PASS);
-		float h = mix(texelFetch(_height_maps, uv_a, 0).r,texelFetch(_height_maps, uv_b, 0).r,vertex_lerp);
+		ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
+		ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
+		float h = mix(texelFetch(_height_maps, coord_a, 0).r,texelFetch(_height_maps, coord_b, 0).r,vertex_lerp);
 //INSERT: WORLD_NOISE2
 		v_vertex.y = h;
 	}
@@ -259,14 +259,14 @@ vec2 rotate_plane(vec2 plane, float angle) {
 }
 
 // 2-4 lookups ( 2-6 with dual scaling )
-void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 iuv_center, mat3 TANGENT_WORLD_MATRIX, out Material out_mat) {
+void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 index, mat3 TANGENT_WORLD_MATRIX, out Material out_mat) {
 	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, 0.0, 0.0);
-	vec2 uv_center = vec2(iuv_center.xy);
-	int region = iuv_center.z;
+	vec2 index_pos = vec2(index.xy);
+	int region = index.z;
 	
-	// Translate uv center to the current region.
-	uv_center += _region_locations[region] * _region_size;
-	uv_center *= _vertex_spacing;
+	// Translate index position to world space.
+	index_pos += _region_locations[region] * _region_size;
+	index_pos *= _vertex_spacing;
 	
 	vec2 base_uv;
 	float p_angle = 0.0;
@@ -286,8 +286,8 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 		p_angle = atan(-i_normal.x, -i_normal.z);
 		base_uv = vec2(dot(v_vertex, p_tangent), dot(v_vertex, normalize(cross(p_tangent, p_normal))));
 		// Project uv_center for detiling
-		vec3 i_center = vec3(uv_center.x, i_height, uv_center.y);
-		uv_center = vec2(dot(i_center, p_tangent), dot(i_center, normalize(cross(p_tangent, p_normal))));
+		vec3 i_pos = vec3(index_pos.x, i_height, index_pos.y);
+		index_pos = vec2(dot(i_pos, p_tangent), dot(i_pos, normalize(cross(p_tangent, p_normal))));
 	}
 
 //INSERT: AUTO_SHADER_TEXTURE_ID
@@ -300,13 +300,13 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 	float[8] scale_array = { 0.5, 0.4, 0.3, 0.2, 0.1, 0.8, 0.7, 0.6};
 	float control_scale = scale_array[(control >>7u & 0x7u)];
 	base_uv *= control_scale;
-	uv_center *=  control_scale;
+	index_pos *=  control_scale;
 	ddxy *= control_scale;
 
 	// Apply global uv rotation from control map
 	float uv_rotation = float(control >>10u & 0xFu) / 16. * TAU;
 	base_uv = rotate_around(base_uv, vec2(0), uv_rotation);
-	uv_center = rotate_around(uv_center, vec2(0), uv_rotation);
+	index_pos = rotate_around(index_pos, vec2(0), uv_rotation);
 
 	vec2 matUV = base_uv;
 	vec4 albedo_ht = vec4(0.);
@@ -330,7 +330,7 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 		// Setup overlay texture to blend
 		float mat_scale2 = _texture_uv_scale_array[out_mat.over];
 		float normal_angle2 = uv_rotation + p_angle;
-		vec2 matUV2 = detiling(base_uv * mat_scale2, uv_center * mat_scale2, out_mat.over, normal_angle2);
+		vec2 matUV2 = detiling(base_uv * mat_scale2, index_pos * mat_scale2, out_mat.over, normal_angle2);
 		vec4 dd2 = ddxy * mat_scale2;
 		dd2.xy = rotate_plane(dd2.xy, -normal_angle2);
 		dd2.zw = rotate_plane(dd2.zw, -normal_angle2);
@@ -394,12 +394,12 @@ void fragment() {
 	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
 	bool bilerp = region_mip < 0.0;
 
-	ivec3 indexUV[4];
+	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well
-	indexUV[0] = get_region_uv(index_id + offsets.xy, FRAGMENT_PASS);
-	indexUV[1] = get_region_uv(index_id + offsets.yy, FRAGMENT_PASS);
-	indexUV[2] = get_region_uv(index_id + offsets.yx, FRAGMENT_PASS);
-	indexUV[3] = get_region_uv(index_id + offsets.xx, FRAGMENT_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
+	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
+	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
+	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
 	
 	// Terrain normals
 	vec3 index_normal[4];
@@ -409,10 +409,10 @@ void fragment() {
 	float v = 0.0;
 	
 //INSERT: WORLD_NOISE3	
-	// Re-use the indexUVs for the first lookups, skipping some math. 3 lookups
-	h[3] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
-	h[2] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
-	h[0] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
+	// Re-use index[] for the first lookups, skipping some math. 3 lookups
+	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0,0)
+	h[2] = texelFetch(_height_maps, index[2], 0).r; // 1 (1,0)
+	h[0] = texelFetch(_height_maps, index[0], 0).r; // 2 (0,1)
 	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// Set flat world normal - overriden if bilerp is true
@@ -435,18 +435,18 @@ void fragment() {
 	// Colormap. 1 - 4 lookups
 	#define COLOR_MAP vec4(1.0, 1.0, 1.0, 0.5)
 	vec4 color_map;
-	vec3 region_uv = get_region_uv2(uv2);
+	vec3 region_uv = get_index_uv(uv2);
 	color_map = region_uv.z > -1.0 && !bilerp ? textureLod(_color_maps, region_uv, region_mip) : COLOR_MAP;
 
 	// Branching smooth normals and interpolated color map must be done seperatley with unmodified weights.
 	if (bilerp) {
 		vec4 col_map[4];
-		col_map[3] = indexUV[3].z > -1 ? texelFetch(_color_maps, indexUV[3], 0) : COLOR_MAP;
+		col_map[3] = index[3].z > -1 ? texelFetch(_color_maps, index[3], 0) : COLOR_MAP;
 		color_map = col_map[3];
 		#ifdef FILTER_LINEAR
-		col_map[0] = indexUV[0].z > -1 ? texelFetch(_color_maps, indexUV[0], 0) : COLOR_MAP;
-		col_map[1] = indexUV[1].z > -1 ? texelFetch(_color_maps, indexUV[1], 0) : COLOR_MAP;
-		col_map[2] = indexUV[2].z > -1 ? texelFetch(_color_maps, indexUV[2], 0) : COLOR_MAP;
+		col_map[0] = index[0].z > -1 ? texelFetch(_color_maps, index[0], 0) : COLOR_MAP;
+		col_map[1] = index[1].z > -1 ? texelFetch(_color_maps, index[1], 0) : COLOR_MAP;
+		col_map[2] = index[2].z > -1 ? texelFetch(_color_maps, index[2], 0) : COLOR_MAP;
 		
 		color_map = 
 			col_map[0] * weights[0] +
@@ -457,11 +457,11 @@ void fragment() {
 
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
-		h[1] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
-		h[4] = texelFetch(_height_maps, get_region_uv(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
-		h[5] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
-		h[6] = texelFetch(_height_maps, get_region_uv(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
-		h[7] = texelFetch(_height_maps, get_region_uv(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
+		h[1] = texelFetch(_height_maps, index[1], 0).r; // 3 (1,1)
+		h[4] = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
+		h[5] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
+		h[6] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
+		h[7] = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
 
 		// Calculate the normal for the remaining index ids.
 		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[7] + v));
@@ -489,10 +489,10 @@ void fragment() {
 	// Get last index
 	// 1 lookup + get_material() = 3-7 total
 	uint control[4];
-	control[3] = texelFetch(_control_maps, indexUV[3], 0).r;
+	control[3] = texelFetch(_control_maps, index[3], 0).r;
 
 	Material mat[4];
-	get_material(index_normal[3], h[3], base_derivatives, control[3], indexUV[3], TANGENT_WORLD_MATRIX, mat[3]);
+	get_material(index_normal[3], h[3], base_derivatives, control[3], index[3], TANGENT_WORLD_MATRIX, mat[3]);
 
 	vec4 albedo_height = mat[3].alb_ht;
 	vec4 normal_rough = mat[3].nrm_rg;
@@ -502,13 +502,13 @@ void fragment() {
 	// Otherwise do full bilinear interpolation
 	if (bilerp) {
 		// 4 lookups + 3x get_material() = 10-22 total
-		control[0] = texelFetch(_control_maps, indexUV[0], 0).r;
-		control[1] = texelFetch(_control_maps, indexUV[1], 0).r;
-		control[2] = texelFetch(_control_maps, indexUV[2], 0).r;
+		control[0] = texelFetch(_control_maps, index[0], 0).r;
+		control[1] = texelFetch(_control_maps, index[1], 0).r;
+		control[2] = texelFetch(_control_maps, index[2], 0).r;
 
-		get_material(index_normal[0], h[0], base_derivatives, control[0], indexUV[0], TANGENT_WORLD_MATRIX, mat[0]);
-		get_material(index_normal[1], h[1], base_derivatives, control[1], indexUV[1], TANGENT_WORLD_MATRIX, mat[1]);
-		get_material(index_normal[2], h[2], base_derivatives, control[2], indexUV[2], TANGENT_WORLD_MATRIX, mat[2]);
+		get_material(index_normal[0], h[0], base_derivatives, control[0], index[0], TANGENT_WORLD_MATRIX, mat[0]);
+		get_material(index_normal[1], h[1], base_derivatives, control[1], index[1], TANGENT_WORLD_MATRIX, mat[1]);
+		get_material(index_normal[2], h[2], base_derivatives, control[2], index[2], TANGENT_WORLD_MATRIX, mat[2]);
 
 		// rebuild weights for detail and noise blending
 		float noise3 = texture(noise_texture, uv * noise3_scale).r * blend_sharpness;
