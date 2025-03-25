@@ -36,6 +36,7 @@ private:
 	PackedColorArray _texture_colors;
 	PackedFloat32Array _texture_normal_depths;
 	PackedFloat32Array _texture_ao_strengths;
+	PackedFloat32Array _texture_roughness_mods;
 	PackedFloat32Array _texture_uv_scales;
 	PackedVector2Array _texture_detiles;
 
@@ -76,6 +77,7 @@ public:
 	PackedColorArray get_texture_colors() const { return _texture_colors; }
 	PackedFloat32Array get_texture_normal_depths() const { return _texture_normal_depths; }
 	PackedFloat32Array get_texture_ao_strengths() const { return _texture_ao_strengths; }
+	PackedFloat32Array get_texture_roughness_mods() const { return _texture_roughness_mods; }
 	PackedFloat32Array get_texture_uv_scales() const { return _texture_uv_scales; }
 	PackedVector2Array get_texture_detiles() const { return _texture_detiles; }
 

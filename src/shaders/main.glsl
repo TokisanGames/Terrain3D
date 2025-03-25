@@ -38,6 +38,7 @@ uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
+uniform float _texture_roughness_mod_array[32];
 uniform float _texture_uv_scale_array[32];
 uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
@@ -95,7 +96,7 @@ varying vec3 v_vertex;
 // Vertex
 ////////////////////////
 
-// Takes in world space uv coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
@@ -115,8 +116,8 @@ ivec3 get_index_coord(const vec2 uv, const int search) {
 	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
 }
 
-// Takes in descaled (world_space / region_size) world to region space uv2 coordinates, returns vec3 with:
-// XY: (0 to 1) coordinates within a region
+// Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
+// XY: (0. to 1.) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
 vec3 get_index_uv(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
@@ -278,16 +279,17 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 		// Quantize the normal otherwise textures lose continuity across domains
 		// Avoid potential singularitys for unit length normal, usually worst case would be
 		// sqrt(3.0)/2.0, however as we are nullifying y component and renormalizing, 
-		// we can tollerate sqrt(2.0)/2.0, as a lower bound.
+		// we can use sqrt(2.0)/2.0, as a lower bound.
 		#define SQRT2_HALF 0.7071067811865476
 		vec3 p_normal = normalize(vec3(i_normal.x, 0., i_normal.z));
 		p_normal = normalize(round(p_normal * SQRT2_HALF * projection_angular_division));
 		vec3 p_tangent = normalize(cross(p_normal, vec3(0., 1., 0.)));
+		vec3 p_binormal = normalize(cross(p_tangent, p_normal));
 		p_angle = atan(-i_normal.x, -i_normal.z);
-		base_uv = vec2(dot(v_vertex, p_tangent), dot(v_vertex, normalize(cross(p_tangent, p_normal))));
+		base_uv = vec2(dot(v_vertex, p_tangent), dot(v_vertex, p_binormal));
 		// Project uv_center for detiling
 		vec3 i_pos = vec3(index_pos.x, i_height, index_pos.y);
-		index_pos = vec2(dot(i_pos, p_tangent), dot(i_pos, normalize(cross(p_tangent, p_normal))));
+		index_pos = vec2(dot(i_pos, p_tangent), dot(i_pos, p_binormal));
 	}
 
 //INSERT: AUTO_SHADER_TEXTURE_ID
@@ -322,6 +324,9 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 	// Apply color to base
 	albedo_ht.rgb *= _texture_color_array[out_mat.base].rgb;
 
+	// Apply Roughness modifier to base
+	normal_rg.a = clamp(normal_rg.a + _texture_roughness_mod_array[out_mat.base], 0., 1.);
+
 	out_mat.alb_ht = albedo_ht;
 	out_mat.nrm_rg = normal_rg;
 
@@ -344,6 +349,9 @@ void get_material(vec3 i_normal, float i_height, vec4 ddxy, uint control, ivec3 
 //INSERT: DUAL_SCALING_OVERLAY
 		// Apply color to overlay
 		albedo_ht2.rgb *= _texture_color_array[out_mat.over].rgb;
+
+		// Apply Roughness modifier to overlay
+		normal_rg2.a = clamp(normal_rg2.a + _texture_roughness_mod_array[out_mat.over], 0., 1.);
 
 		// apply world space normal weighting from base, to overlay layer
 		float over_blend = albedo_ht2.a; // dont modify actual height value
@@ -571,9 +579,9 @@ void fragment() {
 	NORMAL_MAP_DEPTH = normal_map_depth;
 
 	// Higher and/or facing up, less occluded.
-	float ao = (1.0 - (albedo_height.a * log(2.1 - ao_strength))) * (1.0 - normal_rough.g);
-	AO = clamp(1.0 - ao * ao_strength, albedo_height.a, 1.0);
-	AO_LIGHT_AFFECT = albedo_height.a;
+	float ao = (1. - (albedo_height.a * log(2.1 - ao_strength))) * (1. - normal_rough.y);
+	AO = clamp(1. - ao * ao_strength, albedo_height.a, 1.0);
+	AO_LIGHT_AFFECT = 1. - albedo_height.a;
 
 }
 
