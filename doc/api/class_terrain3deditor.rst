@@ -383,7 +383,7 @@ Sets the tool selected in the editor plugin.
 
 |void| **start_operation**\ (\ position\: ``Vector3``\ ) :ref:`🔗<class_Terrain3DEditor_method_start_operation>`
 
-Begin a sculpting or painting operation.
+Begin a sculpting or painting operation. Prepares to create an undo/redo commit.
 
 .. rst-class:: classref-item-separator
 
@@ -395,7 +395,7 @@ Begin a sculpting or painting operation.
 
 |void| **stop_operation**\ (\ ) :ref:`🔗<class_Terrain3DEditor_method_stop_operation>`
 
-End a sculpting or painting operation.
+End a sculpting or painting operation. Commits any regions marked with :ref:`Terrain3DRegion.edited<class_Terrain3DRegion_property_edited>` in the undo/redo system and clears that flag.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

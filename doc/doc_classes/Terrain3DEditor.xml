@@ -86,13 +86,13 @@
 			<return type="void" />
 			<param index="0" name="position" type="Vector3" />
 			<description>
-				Begin a sculpting or painting operation.
+				Begin a sculpting or painting operation. Prepares to create an undo/redo commit.
 			</description>
 		</method>
 		<method name="stop_operation">
 			<return type="void" />
 			<description>
-				End a sculpting or painting operation.
+				End a sculpting or painting operation. Commits any regions marked with [member Terrain3DRegion.edited] in the undo/redo system and clears that flag.
 			</description>
 		</method>
 	</methods>

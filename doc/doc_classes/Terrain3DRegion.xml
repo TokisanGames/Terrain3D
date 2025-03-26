@@ -62,7 +62,7 @@
 			<description>
 				Saves this region to the current file name.
 				- path - specifies a directory and file name to use from now on.
-				- 16-bit - save this region with 16-bit height map instead of 32-bit. This process is lossy.
+				- 16-bit - save this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
 			</description>
 		</method>
 		<method name="set_data">
@@ -122,10 +122,10 @@
 			However, we interpret these images as format: [url=https://docs.godotengine.org/en/stable/classes/class_renderingdevice.html#class-renderingdevice-constant-data-format-r32-uint]RenderingDevice.DATA_FORMAT_R32_UINT[/url] aka OpenGL RG32UI 32-bit per pixel as unsigned integer. See [url=https://terrain3d.readthedocs.io/en/stable/docs/controlmap_format.html]Control map format[/url].
 		</member>
 		<member name="deleted" type="bool" setter="set_deleted" getter="is_deleted">
-			This region is marked for deletion. It won't be rendered once [method Terrain3DData.force_update_maps] rebuilds the map index. The file will be deleted from disk on [method save].
+			This region is marked for deletion. It won't be rendered once [method Terrain3DData.update_maps] rebuilds the map index. The file will be deleted from disk on [method save].
 		</member>
 		<member name="edited" type="bool" setter="set_edited" getter="is_edited">
-			This region is marked for saving in the undo/redo system by [Terrain3DEditor] during an operation.
+			This region is marked for updating by [method Terrain3DData.update_maps] and for undo/redo tracking when set between [method Terrain3DEditor.start_operation] and [method Terrain3DEditor.stop_operation]. The latter method clears the edited flag. This flag serves a different purpose than [member modified].
 		</member>
 		<member name="height_map" type="Image" setter="set_height_map" getter="get_height_map">
 			This map contains the real value heights for the terrain.
@@ -151,7 +151,7 @@
 			The region location, or region grid coordinates in the world space where this region lives.
 		</member>
 		<member name="modified" type="bool" setter="set_modified" getter="is_modified">
-			This region has been modified and will be saved.
+			This region has been modified and will be saved to disk upon [method save]. This serves a different purpose than the temporary [member edited] setting.
 		</member>
 		<member name="region_size" type="int" setter="set_region_size" getter="get_region_size" default="0">
 			The current region size for this region, calculated from the dimensions of the first loaded map. It should match [member Terrain3D.region_size].
@@ -174,7 +174,7 @@
 			Color map - paints color on the terrain
 		</constant>
 		<constant name="TYPE_MAX" value="3" enum="MapType">
-			The number of elements in this enum.
+			The number of elements in this enum. Often used to specify all map types for functions that request one.
 		</constant>
 	</constants>
 </class>

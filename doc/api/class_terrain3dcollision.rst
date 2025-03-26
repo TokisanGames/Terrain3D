@@ -337,7 +337,7 @@ Returns true if :ref:`mode<class_Terrain3DCollision_property_mode>` is not ``Dis
 
 - If :ref:`mode<class_Terrain3DCollision_property_mode>` is Full, updates the existing collision shapes. If regions have been added or removed, set ``force`` to true or call :ref:`build()<class_Terrain3DCollision_method_build>` instead. Can be slow.
 
-- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculated ones not already in place, skipping those that are. Set ``force`` to true to recalculate all shapes. This is very fast, and can be updated at 60fps for little cost.
+- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set ``force`` to true to recalculate all shapes. This is very fast, and can be updated at 60fps for little cost.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

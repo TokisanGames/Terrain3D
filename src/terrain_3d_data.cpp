@@ -68,7 +68,7 @@ void Terrain3DData::set_region_locations(const TypedArray<Vector2i> &p_locations
 	LOG(INFO, "Setting _region_locations with array sized: ", p_locations.size());
 	_region_locations = p_locations;
 	_region_map_dirty = true;
-	update_maps();
+	update_maps(TYPE_MAX, false, false); // only rebuild region map
 }
 
 // Returns an array of active regions, optionally a shallow or deep copy
@@ -174,8 +174,8 @@ void Terrain3DData::change_region_size(int p_new_size) {
 	}
 
 	calc_height_range(true);
-	force_update_maps(TYPE_MAX, true);
-	_terrain->get_instancer()->force_update_mmis();
+	update_maps(TYPE_MAX, true, true);
+	_terrain->get_instancer()->update_mmis(true);
 }
 
 void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
@@ -260,7 +260,7 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 	_region_map_dirty = true;
 	LOG(DEBUG, "Storing region ", region_loc, " version ", vformat("%.3f", p_region->get_version()), " id: ", _region_locations.size());
 	if (p_update) {
-		force_update_maps();
+		update_maps(TYPE_MAX, true, false);
 		_terrain->get_instancer()->force_update_mmis();
 	}
 	return OK;
@@ -297,7 +297,7 @@ void Terrain3DData::remove_region(const Ref<Terrain3DRegion> &p_region, const bo
 	LOG(DEBUG, "Removing from region_locations, new size: ", _region_locations.size());
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
-		force_update_maps();
+		update_maps(TYPE_MAX, true, false);
 		_terrain->get_instancer()->force_update_mmis();
 	}
 }
@@ -395,7 +395,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 		region->set_version(CURRENT_VERSION); // Sends upgrade warning if old version
 		add_region(region, false);
 	}
-	force_update_maps();
+	update_maps(TYPE_MAX, true, false);
 }
 
 //TODO have load_directory call load_region, or make a load_file that loads a specific path
@@ -447,41 +447,45 @@ TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 	return TypedArray<Image>();
 }
 
-void Terrain3DData::force_update_maps(const MapType p_map_type, const bool p_generate_mipmaps) {
-	LOG(EXTREME, "Regenerating maps of type: ", p_map_type);
-	switch (p_map_type) {
-		case TYPE_HEIGHT:
-			_generated_height_maps.clear();
-			break;
-		case TYPE_CONTROL:
-			_generated_control_maps.clear();
-			break;
-		case TYPE_COLOR:
-			_generated_color_maps.clear();
-			break;
-		default:
-			_generated_height_maps.clear();
-			_generated_control_maps.clear();
-			_generated_color_maps.clear();
-			_region_map_dirty = true;
-			break;
-	}
+void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
+	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
 		LOG(EXTREME, "Regenerating color mipmaps");
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
 			Terrain3DRegion *region = get_region_ptr(region_loc);
-			if (region) {
+			// Generate all or only those marked edited
+			if (region && (p_all_regions || region->is_edited())) {
 				region->get_color_map()->generate_mipmaps();
 			}
 		}
 	}
-	update_maps();
-}
 
-void Terrain3DData::update_maps(const MapType p_map_type) {
+	// Mark texture arrays dirty for rebuilding
+	if (p_all_regions) {
+		LOG(EXTREME, "Marking dirty maps of type: ", p_map_type);
+		switch (p_map_type) {
+			case TYPE_HEIGHT:
+				_generated_height_maps.clear();
+				break;
+			case TYPE_CONTROL:
+				_generated_control_maps.clear();
+				break;
+			case TYPE_COLOR:
+				_generated_color_maps.clear();
+				break;
+			default:
+				_generated_height_maps.clear();
+				_generated_control_maps.clear();
+				_generated_color_maps.clear();
+				_region_map_dirty = true;
+				break;
+		}
+	}
+
 	bool any_changed = false;
 
+	// Rebuild region map if dirty
 	if (_region_map_dirty) {
 		LOG(EXTREME, "Regenerating ", REGION_MAP_VSIZE, " region map array from active regions");
 		_region_map.clear();
@@ -505,6 +509,7 @@ void Terrain3DData::update_maps(const MapType p_map_type) {
 		emit_signal("region_map_changed");
 	}
 
+	// Rebulid height maps if dirty
 	if (_generated_height_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating height texture array from regions");
 		_height_maps.clear();
@@ -525,6 +530,7 @@ void Terrain3DData::update_maps(const MapType p_map_type) {
 		emit_signal("height_maps_changed");
 	}
 
+	// Rebulid control maps if dirty
 	if (_generated_control_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating control texture array from regions");
 		_control_maps.clear();
@@ -540,6 +546,7 @@ void Terrain3DData::update_maps(const MapType p_map_type) {
 		emit_signal("control_maps_changed");
 	}
 
+	// Rebulid color maps if dirty
 	if (_generated_color_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating color texture array from regions");
 		_color_maps.clear();
@@ -555,9 +562,9 @@ void Terrain3DData::update_maps(const MapType p_map_type) {
 		emit_signal("color_maps_changed");
 	}
 
+	// If no maps have been rebuilt, update only individual regions in the array.
+	// Regions marked Edited have been changed by Terrain3DEditor::_operate_map or undo / redo processing.
 	if (!any_changed) {
-		// If no maps have been rebuilt, it's safe to update individual layers. Regions marked Edited
-		// have either been recently changed by Terrain3DEditor::_operate_map or were marked by undo / redo.
 		for (int i = 0; i < _region_locations.size(); i++) {
 			Vector2i region_loc = _region_locations[i];
 			Terrain3DRegion *region = cast_to<Terrain3DRegion>(_regions[region_loc]);
@@ -1166,7 +1173,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
 	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
-	ClassDB::bind_method(D_METHOD("force_update_maps", "map_type", "generate_mipmaps"), &Terrain3DData::force_update_maps, DEFVAL(TYPE_MAX), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update_maps", "map_type", "all_maps ", "generate_mipmaps"), &Terrain3DData::update_maps, DEFVAL(TYPE_MAX), DEFVAL(true), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DData::get_height_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DData::get_control_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_color_maps_rid"), &Terrain3DData::get_color_maps_rid);
