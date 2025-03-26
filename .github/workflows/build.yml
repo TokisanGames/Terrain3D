@@ -3,7 +3,7 @@
 name: 🛠️ Build All
 on: 
     push:
-        branches: [ main ]
+        branches: [ main, 1.0-godot4.3 ]
     pull_request:
         paths: [ '**' ]
     workflow_dispatch:
