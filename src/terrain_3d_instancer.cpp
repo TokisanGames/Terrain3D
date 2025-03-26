@@ -942,7 +942,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 
 // Transfer foliage data from one region to another
 // p_src_rect is the vertex/pixel offset into the region data, NOT a global position
-// Need to force_update_mmis() after
+// Need to update_mmis() after
 void Terrain3DInstancer::copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region) {
 	if (!p_src_region || !p_dst_region) {
 		LOG(ERROR, "Source (", p_src_region, ") or destination (", p_dst_region, ") regions are null");
@@ -1043,12 +1043,14 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 			}
 			LOG(MESG, "Swapped mesh_ids for region: ", region_loc);
 		}
-		force_update_mmis();
+		update_mmis(true);
 	}
 }
 
-void Terrain3DInstancer::force_update_mmis() {
-	destroy();
+void Terrain3DInstancer::update_mmis(const bool p_rebuild) {
+	if (p_rebuild) {
+		destroy();
+	}
 	_update_mmis();
 }
 
@@ -1122,7 +1124,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
-	ClassDB::bind_method(D_METHOD("force_update_mmis"), &Terrain3DInstancer::force_update_mmis);
+	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);

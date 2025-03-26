@@ -626,9 +626,9 @@ void Terrain3DAssets::update_mesh_list() {
 			LOG(DEBUG, "Connecting setting_changed signal to _update_thumbnail");
 			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset));
 		}
-		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::force_update_mmis))) {
+		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(true))) {
 			LOG(DEBUG, "Connecting instancer_setting_changed signal to _update_mmis");
-			mesh_asset->connect("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::force_update_mmis));
+			mesh_asset->connect("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(true));
 		}
 	}
 	LOG(DEBUG, "Emitting meshes_changed");

@@ -51,21 +51,21 @@ Methods
 .. table::
    :widths: auto
 
-   +----------+---------------------------------------------------------------------------------------+
-   | |void|   | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                             |
-   +----------+---------------------------------------------------------------------------------------+
-   | |void|   | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                         |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``RID``  | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                 |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const| |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|   |
-   +----------+---------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|           |
-   +----------+---------------------------------------------------------------------------------------+
-   | |void|   | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ force\: ``bool`` = false\ ) |
-   +----------+---------------------------------------------------------------------------------------+
+   +----------+-----------------------------------------------------------------------------------------+
+   | |void|   | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                               |
+   +----------+-----------------------------------------------------------------------------------------+
+   | |void|   | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                           |
+   +----------+-----------------------------------------------------------------------------------------+
+   | ``RID``  | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                   |
+   +----------+-----------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const|   |
+   +----------+-----------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|     |
+   +----------+-----------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|             |
+   +----------+-----------------------------------------------------------------------------------------+
+   | |void|   | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ rebuild\: ``bool`` = false\ ) |
+   +----------+-----------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -333,11 +333,11 @@ Returns true if :ref:`mode<class_Terrain3DCollision_property_mode>` is not ``Dis
 
 .. rst-class:: classref-method
 
-|void| **update**\ (\ force\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DCollision_method_update>`
+|void| **update**\ (\ rebuild\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DCollision_method_update>`
 
-- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Full, updates the existing collision shapes. If regions have been added or removed, set ``force`` to true or call :ref:`build()<class_Terrain3DCollision_method_build>` instead. Can be slow.
+- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Full, recalculates the existing collision shapes. If regions have been added or removed, set ``rebuild`` to true or call :ref:`build()<class_Terrain3DCollision_method_build>` instead. Can be slow.
 
-- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set ``force`` to true to recalculate all shapes. This is very fast, and can be updated at 60fps for little cost.
+- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set ``rebuild`` to true to recalculate all shapes within :ref:`radius<class_Terrain3DCollision_property_radius>`. This is very fast, and can be updated at 60fps for little cost.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

@@ -39,7 +39,7 @@ Data is currently stored in :ref:`Terrain3DRegion.instances<class_Terrain3DRegio
 
 - Editing :ref:`Terrain3DRegion.instances<class_Terrain3DRegion_property_instances>` directly.
 
-After modifying region data, run :ref:`force_update_mmis()<class_Terrain3DInstancer_method_force_update_mmis>` to rebuild the MultiMeshInstance3Ds.
+After modifying region data, run :ref:`update_mmis()<class_Terrain3DInstancer_method_update_mmis>` to rebuild the MultiMeshInstance3Ds.
 
 \ **Read More:**\ 
 
@@ -76,11 +76,11 @@ Methods
    +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void| | :ref:`dump_mmis<class_Terrain3DInstancer_method_dump_mmis>`\ (\ )                                                                                                                                                                                                        |
    +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void| | :ref:`force_update_mmis<class_Terrain3DInstancer_method_force_update_mmis>`\ (\ )                                                                                                                                                                                        |
-   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void| | :ref:`remove_instances<class_Terrain3DInstancer_method_remove_instances>`\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ )                                                                                                                                  |
    +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void| | :ref:`swap_ids<class_Terrain3DInstancer_method_swap_ids>`\ (\ src_id\: ``int``, dest_id\: ``int``\ )                                                                                                                                                                     |
+   +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void| | :ref:`update_mmis<class_Terrain3DInstancer_method_update_mmis>`\ (\ rebuild\: ``bool`` = false\ )                                                                                                                                                                        |
    +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void| | :ref:`update_transforms<class_Terrain3DInstancer_method_update_transforms>`\ (\ aabb\: ``AABB``\ )                                                                                                                                                                       |
    +--------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -224,18 +224,6 @@ Dumps the MultiMeshInstance3Ds attached to the tree and information about the no
 
 ----
 
-.. _class_Terrain3DInstancer_method_force_update_mmis:
-
-.. rst-class:: classref-method
-
-|void| **force_update_mmis**\ (\ ) :ref:`🔗<class_Terrain3DInstancer_method_force_update_mmis>`
-
-Removes and rebuilds all MultiMeshInstance3Ds attached to the tree.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3DInstancer_method_remove_instances:
 
 .. rst-class:: classref-method
@@ -255,6 +243,20 @@ Uses parameters asset_id, size, strength, fixed_scale, random_scale, slope (Vect
 |void| **swap_ids**\ (\ src_id\: ``int``, dest_id\: ``int``\ ) :ref:`🔗<class_Terrain3DInstancer_method_swap_ids>`
 
 Swaps the ID of two meshes without changing the mesh instances on the ground.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DInstancer_method_update_mmis:
+
+.. rst-class:: classref-method
+
+|void| **update_mmis**\ (\ rebuild\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DInstancer_method_update_mmis>`
+
+Rebuilds the MMIs in cells that have been modified or are missing. See :ref:`Terrain3DRegion.instances<class_Terrain3DRegion_property_instances>`.
+
+- rebuild - Destroys all MMIs first then rebuilds all of them from scratch.
 
 .. rst-class:: classref-item-separator
 

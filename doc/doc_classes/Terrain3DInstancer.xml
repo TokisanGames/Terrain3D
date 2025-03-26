@@ -14,7 +14,7 @@
 		- [method remove_instances] - Like add_instances, this is can be used procedurally but is designed for hand editing.
 		- [method clear_by_mesh], [method clear_by_location] - To erase large sections of instances
 		- Editing [member Terrain3DRegion.instances] directly.
-		After modifying region data, run [method force_update_mmis] to rebuild the MultiMeshInstance3Ds.
+		After modifying region data, run [method update_mmis] to rebuild the MultiMeshInstance3Ds.
 		[b]Read More:[/b]
 		- [b]Tutorial:[/b] [url=https://terrain3d.readthedocs.io/en/stable/docs/instancer.html]Foliage Instancing[/url]
 		- [b]Godot Reference:[/b] [url=https://docs.godotengine.org/en/stable/classes/class_multimesh.html]MultiMesh[/url]
@@ -112,12 +112,6 @@
 				Dumps the MultiMeshInstance3Ds attached to the tree and information about the nodes for all regions.
 			</description>
 		</method>
-		<method name="force_update_mmis">
-			<return type="void" />
-			<description>
-				Removes and rebuilds all MultiMeshInstance3Ds attached to the tree.
-			</description>
-		</method>
 		<method name="remove_instances">
 			<return type="void" />
 			<param index="0" name="global_position" type="Vector3" />
@@ -132,6 +126,14 @@
 			<param index="1" name="dest_id" type="int" />
 			<description>
 				Swaps the ID of two meshes without changing the mesh instances on the ground.
+			</description>
+		</method>
+		<method name="update_mmis">
+			<return type="void" />
+			<param index="0" name="rebuild" type="bool" default="false" />
+			<description>
+				Rebuilds the MMIs in cells that have been modified or are missing. See [member Terrain3DRegion.instances].
+				- rebuild - Destroys all MMIs first then rebuilds all of them from scratch.
 			</description>
 		</method>
 		<method name="update_transforms">

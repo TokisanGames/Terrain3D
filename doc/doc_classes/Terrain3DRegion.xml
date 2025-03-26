@@ -145,7 +145,7 @@
 			- 0: An Array of Transform3Ds
 			- 1: A PackedColorArray with instance colors, same index as above
 			- 2: A bool that tracks if this cell has been modified
-			After changing this data, [method Terrain3DInstancer.force_update_mmis] should be called to rebuild the MMIs.
+			After changing this data, call [method Terrain3DInstancer.update_mmis] to rebuild the MMIs.
 		</member>
 		<member name="location" type="Vector2i" setter="set_location" getter="get_location">
 			The region location, or region grid coordinates in the world space where this region lives.

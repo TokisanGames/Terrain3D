@@ -292,7 +292,7 @@ The format is instances{mesh_id:int} -> cells{grid_location:Vector2i} -> ( Array
 
 - 2: A bool that tracks if this cell has been modified
 
-After changing this data, :ref:`Terrain3DInstancer.force_update_mmis()<class_Terrain3DInstancer_method_force_update_mmis>` should be called to rebuild the MMIs.
+After changing this data, call :ref:`Terrain3DInstancer.update_mmis()<class_Terrain3DInstancer_method_update_mmis>` to rebuild the MMIs.
 
 .. rst-class:: classref-item-separator
 
