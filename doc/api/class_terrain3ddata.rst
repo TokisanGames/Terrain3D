@@ -60,8 +60,6 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | Error                                                                      | :ref:`export_image<class_Terrain3DData_method_export_image>`\ (\ file_name\: ``String``, map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`\ ) |const|                                                                |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                                     | :ref:`force_update_maps<class_Terrain3DData_method_force_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, generate_mipmaps\: ``bool`` = false\ )                                             |
-   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Color``                                                                  | :ref:`get_color<class_Terrain3DData_method_get_color>`\ (\ global_position\: ``Vector3``\ ) |const|                                                                                                                        |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``RID``                                                                    | :ref:`get_color_maps_rid<class_Terrain3DData_method_get_color_maps_rid>`\ (\ ) |const|                                                                                                                                     |
@@ -181,6 +179,8 @@ Methods
    | |void|                                                                     | :ref:`set_region_modified<class_Terrain3DData_method_set_region_modified>`\ (\ region_location\: ``Vector2i``, modified\: ``bool``\ )                                                                                      |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`set_roughness<class_Terrain3DData_method_set_roughness>`\ (\ global_position\: ``Vector3``, roughness\: ``float``\ )                                                                                                 |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`update_maps<class_Terrain3DData_method_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, all_maps \: ``bool`` = true, generate_mipmaps\: ``bool`` = false\ )                            |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
@@ -407,7 +407,7 @@ The region should already be configured with the desired location and maps befor
 
 Upon saving, this region will be written to a data file stored in :ref:`Terrain3D.data_directory<class_Terrain3D_property_data_directory>`.
 
-- update - regenerates the texture arrays if true. Set to false if bulk adding many regions, then true on the last one or use :ref:`force_update_maps()<class_Terrain3DData_method_force_update_maps>`.
+- update - regenerates the texture arrays if true. Set to false if bulk adding many regions, then true on the last one or use :ref:`update_maps()<class_Terrain3DData_method_update_maps>`.
 
 .. rst-class:: classref-item-separator
 
@@ -492,22 +492,6 @@ R16 or exr are recommended for roundtrip external editing.
 R16 can be edited by Krita, however you must know the dimensions and min/max before reimporting. This information is printed to the console.
 
 Res/tres stores in Godot's native data format.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DData_method_force_update_maps:
-
-.. rst-class:: classref-method
-
-|void| **force_update_maps**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, generate_mipmaps\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_force_update_maps>`
-
-Regenerates the region map and TextureArrays that house the requested map types. Using the default :ref:`MapType<enum_Terrain3DRegion_MapType>` TYPE_MAX(3) will regenerate all map types.
-
-This function needs to be called after editing any of the maps.
-
-- generate_mipmaps - Generates mipmaps for the color maps. This can also be done on individual regions with ``region.get_color_map().generate_mipmaps()``.
 
 .. rst-class:: classref-item-separator
 
@@ -1275,7 +1259,7 @@ Unlike :ref:`get_height()<class_Terrain3DData_method_get_height>`, which interpo
 
 Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map()<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
 
-After setting pixels you need to call :ref:`force_update_maps()<class_Terrain3DData_method_force_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
+After setting pixels you need to call :ref:`update_maps()<class_Terrain3DData_method_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
 
 .. rst-class:: classref-item-separator
 
@@ -1312,6 +1296,36 @@ Sets the region as modified. It will be written to disk when saved. Syntactic su
 |void| **set_roughness**\ (\ global_position\: ``Vector3``, roughness\: ``float``\ ) :ref:`🔗<class_Terrain3DData_method_set_roughness>`
 
 Sets the roughness modifier (wetness) on the color map alpha channel associated with the specified position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_update_maps:
+
+.. rst-class:: classref-method
+
+|void| **update_maps**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, all_maps \: ``bool`` = true, generate_mipmaps\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_update_maps>`
+
+Regenerates the region map and the TextureArrays that combine the requested map types. This function needs to be called after editing any of the maps.
+
+By default, this function rebuilds all maps for all regions.
+
+- map_type - Regenerate only maps of this type.
+
+- all_regions - Regenerate all regions if true, otherwise only those marked with :ref:`Terrain3DRegion.edited<class_Terrain3DRegion_property_edited>`.
+
+- generate_mipmaps - Regenerate mipmaps if map_type is color or all (max), for the regions specified above. This can also be done on individual regions before calling this function with ``region.get_color_map().generate_mipmaps()``.
+
+For frequent editing, rather than enabling all_regions, it is more optimal to only update changed regions as follows:
+
+::
+
+    terrain.data.set_height(global_position, 10.0)
+    var region:Terrain3DRegion = terrain.data.get_regionp(global_position)
+    region.set_edited(true)
+    terrain.data.update_maps(Terrain3DRegion.TYPE_HEIGHT, false)
+    region.set_edited(false)
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

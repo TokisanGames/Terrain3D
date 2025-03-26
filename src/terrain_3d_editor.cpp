@@ -527,10 +527,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 	// If no added or removed regions, update only changed texture array layers from the edited regions in the rendering server
 	if (_added_removed_locations.size() == regions_added_removed) {
-		data->update_maps(map_type);
+		data->update_maps(map_type, false, false);
 	} else {
 		// If region qty was changed, must fully rebuild the maps
-		data->force_update_maps(map_type);
+		data->update_maps(map_type, true, map_type == TYPE_COLOR);
 	}
 	data->add_edited_area(edited_area);
 
@@ -652,9 +652,9 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	}
 	// If this undo set modifies the region qty, we must rebuild the arrays. Otherwise we can update individual layers
 	if (p_data.has("added_regions") || p_data.has("removed_regions")) {
-		data->force_update_maps();
+		data->update_maps(TYPE_MAX, true, false);
 	} else {
-		data->update_maps();
+		data->update_maps(TYPE_MAX, false, false);
 	}
 	// After TextureArray updates clear edited regions flag.
 	if (p_data.has("edited_regions")) {

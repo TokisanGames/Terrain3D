@@ -29,7 +29,7 @@ func reset_terrain(p_value) -> void:
 	data_directory = ""
 	for region:Terrain3DRegion in data.get_regions_active():
 		data.remove_region(region, false)
-	data.force_update_maps()
+	data.update_maps(Terrain3DRegion.TYPE_MAX, true, false)
 
 
 func update_heights(p_value) -> void:

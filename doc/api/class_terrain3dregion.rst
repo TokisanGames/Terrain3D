@@ -136,7 +136,7 @@ Color map - paints color on the terrain
 
 :ref:`MapType<enum_Terrain3DRegion_MapType>` **TYPE_MAX** = ``3``
 
-The number of elements in this enum.
+The number of elements in this enum. Often used to specify all map types for functions that request one.
 
 .. rst-class:: classref-section-separator
 
@@ -202,7 +202,7 @@ However, we interpret these images as format: `RenderingDevice.DATA_FORMAT_R32_U
 - |void| **set_deleted**\ (\ value\: ``bool``\ )
 - ``bool`` **is_deleted**\ (\ )
 
-This region is marked for deletion. It won't be rendered once :ref:`Terrain3DData.force_update_maps()<class_Terrain3DData_method_force_update_maps>` rebuilds the map index. The file will be deleted from disk on :ref:`save()<class_Terrain3DRegion_method_save>`.
+This region is marked for deletion. It won't be rendered once :ref:`Terrain3DData.update_maps()<class_Terrain3DData_method_update_maps>` rebuilds the map index. The file will be deleted from disk on :ref:`save()<class_Terrain3DRegion_method_save>`.
 
 .. rst-class:: classref-item-separator
 
@@ -219,7 +219,7 @@ This region is marked for deletion. It won't be rendered once :ref:`Terrain3DDat
 - |void| **set_edited**\ (\ value\: ``bool``\ )
 - ``bool`` **is_edited**\ (\ )
 
-This region is marked for saving in the undo/redo system by :ref:`Terrain3DEditor<class_Terrain3DEditor>` during an operation.
+This region is marked for updating by :ref:`Terrain3DData.update_maps()<class_Terrain3DData_method_update_maps>` and for undo/redo tracking when set between :ref:`Terrain3DEditor.start_operation()<class_Terrain3DEditor_method_start_operation>` and :ref:`Terrain3DEditor.stop_operation()<class_Terrain3DEditor_method_stop_operation>`. The latter method clears the edited flag. This flag serves a different purpose than :ref:`modified<class_Terrain3DRegion_property_modified>`.
 
 .. rst-class:: classref-item-separator
 
@@ -326,7 +326,7 @@ The region location, or region grid coordinates in the world space where this re
 - |void| **set_modified**\ (\ value\: ``bool``\ )
 - ``bool`` **is_modified**\ (\ )
 
-This region has been modified and will be saved.
+This region has been modified and will be saved to disk upon :ref:`save()<class_Terrain3DRegion_method_save>`. This serves a different purpose than the temporary :ref:`edited<class_Terrain3DRegion_property_edited>` setting.
 
 .. rst-class:: classref-item-separator
 
@@ -484,7 +484,7 @@ Saves this region to the current file name.
 
 - path - specifies a directory and file name to use from now on.
 
-- 16-bit - save this region with 16-bit height map instead of 32-bit. This process is lossy.
+- 16-bit - save this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
 
 .. rst-class:: classref-item-separator
 
