@@ -46,10 +46,10 @@
 		</method>
 		<method name="update">
 			<return type="void" />
-			<param index="0" name="force" type="bool" default="false" />
+			<param index="0" name="rebuild" type="bool" default="false" />
 			<description>
-				- If [member mode] is Full, updates the existing collision shapes. If regions have been added or removed, set [code skip-lint]force[/code] to true or call [method build] instead. Can be slow.
-				- If [member mode] is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set [code skip-lint]force[/code] to true to recalculate all shapes. This is very fast, and can be updated at 60fps for little cost.
+				- If [member mode] is Full, recalculates the existing collision shapes. If regions have been added or removed, set [code skip-lint]rebuild[/code] to true or call [method build] instead. Can be slow.
+				- If [member mode] is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set [code skip-lint]rebuild[/code] to true to recalculate all shapes within [member radius]. This is very fast, and can be updated at 60fps for little cost.
 			</description>
 		</method>
 	</methods>

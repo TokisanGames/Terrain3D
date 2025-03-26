@@ -65,7 +65,7 @@ public:
 	void initialize(Terrain3D *p_terrain);
 
 	void build();
-	void update(const bool p_force = false);
+	void update(const bool p_rebuild = false);
 	void destroy();
 
 	void set_mode(const CollisionMode p_mode);

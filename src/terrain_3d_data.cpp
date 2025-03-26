@@ -261,7 +261,7 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 	LOG(DEBUG, "Storing region ", region_loc, " version ", vformat("%.3f", p_region->get_version()), " id: ", _region_locations.size());
 	if (p_update) {
 		update_maps(TYPE_MAX, true, false);
-		_terrain->get_instancer()->force_update_mmis();
+		_terrain->get_instancer()->update_mmis(true);
 	}
 	return OK;
 }
@@ -298,7 +298,7 @@ void Terrain3DData::remove_region(const Ref<Terrain3DRegion> &p_region, const bo
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
 		update_maps(TYPE_MAX, true, false);
-		_terrain->get_instancer()->force_update_mmis();
+		_terrain->get_instancer()->update_mmis(true);
 	}
 }
 

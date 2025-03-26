@@ -281,11 +281,11 @@ void Terrain3DCollision::build() {
 	update();
 }
 
-void Terrain3DCollision::update(const bool p_force) {
+void Terrain3DCollision::update(const bool p_rebuild) {
 	if (!_initialized) {
 		return;
 	}
-	if (p_force && !is_dynamic_mode()) {
+	if (p_rebuild && !is_dynamic_mode()) {
 		build();
 		return;
 	}
@@ -298,7 +298,7 @@ void Terrain3DCollision::update(const bool p_force) {
 		LOG(EXTREME, "Updating collision at ", snapped_pos);
 
 		// Skip if location hasn't moved to next step
-		if (!p_force && (_last_snapped_pos - snapped_pos).length() < _shape_size) {
+		if (!p_rebuild && (_last_snapped_pos - snapped_pos).length() < _shape_size) {
 			return;
 		}
 
@@ -331,7 +331,7 @@ void Terrain3DCollision::update(const bool p_force) {
 			// Unique key: Top left corner of shape, snapped to grid
 			Vector2i shape_pos = _snap_to_grid(v3v2i(shape_center) - shape_offset);
 			// Optionally could adjust radius to account for corner (sqrt(_shape_size*2))
-			if (!p_force && (shape_center.x < FLT_MAX && v3v2i(shape_center).distance_to(snapped_pos) <= real_t(_radius))) {
+			if (!p_rebuild && (shape_center.x < FLT_MAX && v3v2i(shape_center).distance_to(snapped_pos) <= real_t(_radius))) {
 				// Get index into shape array
 				Vector2i grid_loc = (shape_pos - grid_pos) / _shape_size;
 				grid[grid_loc.y * grid_width + grid_loc.x] = i;
@@ -360,7 +360,7 @@ void Terrain3DCollision::update(const bool p_force) {
 				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " out of circle, skipping");
 				continue;
 			}
-			if (!p_force && grid[i] >= 0) {
+			if (!p_rebuild && grid[i] >= 0) {
 				Vector2i center_pos = v3v2i(_shape_get_position(i));
 				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " act ", center_pos - shape_offset, " Has active shape id: ", grid[i]);
 				continue;
@@ -564,7 +564,7 @@ void Terrain3DCollision::_bind_methods() {
 	BIND_ENUM_CONSTANT(FULL_EDITOR);
 
 	ClassDB::bind_method(D_METHOD("build"), &Terrain3DCollision::build);
-	ClassDB::bind_method(D_METHOD("update", "force"), &Terrain3DCollision::update, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update", "rebuild"), &Terrain3DCollision::update, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("destroy"), &Terrain3DCollision::destroy);
 	ClassDB::bind_method(D_METHOD("set_mode", "mode"), &Terrain3DCollision::set_mode);
 	ClassDB::bind_method(D_METHOD("get_mode"), &Terrain3DCollision::get_mode);
