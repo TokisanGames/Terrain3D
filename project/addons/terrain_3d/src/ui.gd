@@ -469,7 +469,7 @@ func update_decal() -> void:
 			editor_decal_visible[2] = true
 			editor_decal_position[2] = Vector2(point2.x, point2.z)
 	
-	if plugin.terrain.is_compatibility_mode():
+	if RenderingServer.get_current_rendering_method().contains("gl_compatibility"):
 		for i in editor_decal_color.size():
 			editor_decal_color[i].a = maxf(0.1, editor_decal_color[i].a - .25)
 	

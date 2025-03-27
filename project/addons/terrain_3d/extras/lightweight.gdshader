@@ -14,6 +14,12 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #define VERTEX_PASS 1
 #define FRAGMENT_PASS 2
 
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+    #define fma(a, b, c) ((a) * (b) + (c))
+    #define dFdxCoarse(a) dFdx(a)
+    #define dFdyCoarse(a) dFdy(a)
+#endif
+
 // Private uniforms
 uniform vec3 _camera_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;

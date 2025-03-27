@@ -9,16 +9,6 @@ R"(
 		ALBEDO *= vec3(.5, .0, .85);
 	}
 
-
-//INSERT: EDITOR_COMPATIBILITY_DEFINES
-// COMPATIBILITY_DEFINES - This code block is added and removed by the editor, do not modify it.
-// This is added automatically when in compatibility mode. It is not required for Mobile or Forward+.
-#define IS_COMPATIBILITY
-#define fma(a, b, c) ((a) * (b) + (c))
-#define dFdxCoarse(a) dFdx(a)
-#define dFdyCoarse(a) dFdy(a)
-// END_COMPAT_DEFINES
-
 //INSERT: EDITOR_SETUP_DECAL
 uniform highp sampler2D _editor_brush_texture : source_color, filter_linear, repeat_disable;
 uniform highp sampler2D _editor_ring_texture : source_color, filter_linear, repeat_disable;
