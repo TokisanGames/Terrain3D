@@ -9,14 +9,11 @@ render_mode unshaded;
 
 uniform highp sampler2D depth_texture : source_color, hint_depth_texture, filter_nearest, repeat_disable;
 
-uniform float camera_far = 100000.0;
-uniform bool compatibility = false;
-	
 void fragment() {
 	float depth = textureLod(depth_texture, SCREEN_UV, 0.).x;
-	if (compatibility) {
-	 depth = depth * 2.0 - 1.0;
-	}
+	#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	depth = depth * 2.0 - 1.0;
+	#endif
 	vec3 ndc = vec3(SCREEN_UV * 2.0 - 1.0, depth);
 	vec4 view = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
 	view.xyz /= view.w;

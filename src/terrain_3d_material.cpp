@@ -253,16 +253,14 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		return shader;
 	}
 	Array insert_names;
-	if (_compatibility) {
-		if (!shader.contains("#define IS_COMPATIBILITY")) {
-			insert_names.push_back("EDITOR_COMPATIBILITY_DEFINES");
-		}
-	}
-	for (int i = 0; i < insert_names.size(); i++) {
-		String insert = _shader_code[insert_names[i]];
-		shader = shader.insert(idx, "\n\n" + insert);
-		idx += insert.length();
-	}
+
+	// Whilst this currently does nothing, it can serve as placeholder for future refactor
+	// when useing pre-processor headers to control shader features.
+	//for (int i = 0; i < insert_names.size(); i++) {
+	//	String insert = _shader_code[insert_names[i]];
+	//	shader = shader.insert(idx, "\n\n" + insert);
+	//	idx += insert.length();
+	//}
 
 	// Insert before vertex()
 	regex->compile("void\\s+vertex\\s*\\(");
@@ -378,31 +376,9 @@ void Terrain3DMaterial::_update_shader() {
 	regex.instantiate();
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		if (_shader_override->get_code().is_empty()) {
-			if (_compatibility) {
-				code = _generate_shader_code();
-				// Insert after render_mode
-				regex->compile("render_mode.*;?");
-				match = regex->search(code);
-				if (match.is_valid()) {
-					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"]).strip_edges()));
-				}
-			} else {
-				_shader_override->set_code(_generate_shader_code());
-			}
+			_shader_override->set_code(_generate_shader_code());
 		}
 		code = _shader_override->get_code();
-		if (_compatibility) {
-			if (!code.contains("#define IS_COMPATIBILITY")) {
-				// Insert after render_mode
-				regex->compile("render_mode.*;?");
-				match = regex->search(code);
-				if (match.is_valid()) {
-					_shader_override->set_code(code.insert(match->get_end(), "\n\n" + String(_shader_code["EDITOR_COMPATIBILITY_DEFINES"]).strip_edges()));
-					LOG(WARN, "Inserting compatibility defines into your shader. Save to finalize");
-					code = _shader_override->get_code();
-				}
-			}
-		}
 		if (!_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
 			LOG(DEBUG, "Connecting changed signal to _update_shader()");
 			_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
@@ -579,26 +555,11 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 		return;
 	}
 	LOG(INFO, "Initializing material");
-	_compatibility = _terrain->is_compatibility_mode();
 	_preload_shaders();
 	_material = RS->material_create();
 	_shader.instantiate();
 	_update_shader();
 	_update_maps();
-	if (!_compatibility) {
-		if (_shader_override_enabled && _shader_override.is_valid()) {
-			if (_shader_override->get_code().contains("COMPATIBILITY_DEFINES")) {
-				String code = _shader_override->get_code();
-				// using the length of the insert itself could lead to breaking if changes made to it between versions.
-				int idx = code.find("// COMPATIBILITY_DEFINES") - 2; // removes the "\n\n" as well
-				int chars = code.find("// END_COMPAT_DEFINES") - idx;
-				code = code.erase(idx, chars + 21); // + length of "// END_COMPAT_DEFINES"
-				_shader_override->set_code(code);
-				LOG(WARN, "Compatibility renderer not detected. Removed COMPATIBILITY_DEFINES in override shader. Save to finalize");
-				_update_shader();
-			}
-		}
-	}
 }
 
 void Terrain3DMaterial::uninitialize() {

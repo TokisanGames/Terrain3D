@@ -77,7 +77,6 @@ private:
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
 	bool _free_editor_textures = true;
-	bool _compatibility = false;
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -176,7 +175,6 @@ public:
 	bool get_free_editor_textures() const { return _free_editor_textures; };
 	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
 	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
-	bool is_compatibility_mode() const { return _compatibility; };
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
