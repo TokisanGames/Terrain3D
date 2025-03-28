@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://djhl3foqkj4e2"]
+[gd_scene load_steps=10 format=3 uid="uid://djhl3foqkj4e2"]
 
 [ext_resource type="PackedScene" uid="uid://be6nrf0b8j4l0" path="res://demo/assets/models/RockA.tscn" id="1_m1xck"]
 [ext_resource type="PackedScene" uid="uid://bwvtgwartxt0g" path="res://demo/assets/models/RockB.tscn" id="2_hybky"]
@@ -6,30 +6,8 @@
 [ext_resource type="PackedScene" uid="uid://vvayjv3rbx1d" path="res://demo/assets/models/Tunnel.tscn" id="4_klbpo"]
 [ext_resource type="PackedScene" uid="uid://cribhhvg03u8g" path="res://demo/assets/models/CrystalC.tscn" id="5_bb2w0"]
 [ext_resource type="Material" uid="uid://cso4f2iyuxpmc" path="res://demo/assets/materials/M_crystal_purple.tres" id="6_s6twx"]
-[ext_resource type="Texture2D" uid="uid://br7bfxcxh60df" path="res://demo/assets/textures/rock030_alb_ht.png" id="7_pqaf8"]
-[ext_resource type="Texture2D" uid="uid://cr72kjil43vgj" path="res://demo/assets/textures/rock030_nrm_rgh.png" id="8_hh7se"]
-[ext_resource type="Script" path="res://demo/src/CaveEntrance.gd" id="9_fn2ke"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0v0nf"]
-transparency = 1
-albedo_color = Color(0.670588, 0.0588235, 0.384314, 0.509804)
-metallic_specular = 1.0
-roughness = 0.2
-roughness_texture = ExtResource("8_hh7se")
-roughness_texture_channel = 3
-emission_enabled = true
-emission = Color(0.258824, 0.0823529, 0.25098, 1)
-normal_enabled = true
-normal_scale = 0.4
-normal_texture = ExtResource("8_hh7se")
-rim_enabled = true
-rim = 0.25
-clearcoat_roughness = 0.0
-ao_light_affect = 1.0
-ao_texture = ExtResource("7_pqaf8")
-ao_texture_channel = 3
-refraction_enabled = true
-refraction_scale = -0.1
+[ext_resource type="Material" uid="uid://ickkffutwcvo" path="res://demo/assets/materials/M_crystal_red.tres" id="7_7fkm2"]
+[ext_resource type="Script" uid="uid://c444j1ucmv5ti" path="res://demo/src/CaveEntrance.gd" id="9_fn2ke"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_goiy4"]
 size = Vector3(530.482, 38.6343, 235.603)
@@ -151,19 +129,19 @@ transform = Transform3D(-0.536793, -0.0213862, -0.199931, 0.0789312, -0.546626, 
 transform = Transform3D(0.898105, -0.188271, 0.0864646, 0.196692, 0.654036, -0.618921, 0.0650697, 0.621535, 0.677476, 0.589844, 2.22089, 3.04785)
 
 [node name="Rock3" parent="CrystalGroup3/CrystalC" index="0"]
-surface_material_override/0 = SubResource("StandardMaterial3D_0v0nf")
+surface_material_override/0 = ExtResource("7_7fkm2")
 
 [node name="CrystalC3" parent="CrystalGroup3" instance=ExtResource("5_bb2w0")]
 transform = Transform3D(0.15544, 0.0752453, -1.06348, -0.370935, 1.01139, 0.0173435, 0.999527, 0.363637, 0.171821, 4.00867, 3.69458, -0.617432)
 
 [node name="Rock3" parent="CrystalGroup3/CrystalC3" index="0"]
-surface_material_override/0 = SubResource("StandardMaterial3D_0v0nf")
+surface_material_override/0 = ExtResource("7_7fkm2")
 
 [node name="CrystalC2" parent="CrystalGroup3" instance=ExtResource("5_bb2w0")]
 transform = Transform3D(-0.573134, -0.100696, 0.847536, 0.285048, 0.939695, 0.304405, -0.804489, 0.404691, -0.495942, 7.2887, 1.71283, 4.52771)
 
 [node name="Rock3" parent="CrystalGroup3/CrystalC2" index="0"]
-surface_material_override/0 = SubResource("StandardMaterial3D_0v0nf")
+surface_material_override/0 = ExtResource("7_7fkm2")
 
 [node name="OmniLight3D" type="OmniLight3D" parent="CrystalGroup3"]
 transform = Transform3D(1.74454, 2.98023e-08, -2.98023e-08, -5.60482e-08, 1.74454, 1.49012e-07, 3.43338e-08, -1.78814e-07, 1.74454, 1.11737, 4.79865, 1.8949)
