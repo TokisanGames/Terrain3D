@@ -1,8 +1,6 @@
-[gd_resource type="Terrain3DAssets" load_steps=14 format=3 uid="uid://dal3jhw6241qg"]
+[gd_resource type="Terrain3DAssets" load_steps=11 format=3 uid="uid://dal3jhw6241qg"]
 
 [ext_resource type="PackedScene" uid="uid://bn5nf4esciwex" path="res://demo/assets/models/LODExample.tscn" id="1_4jrdu"]
-[ext_resource type="Texture2D" uid="uid://br7bfxcxh60df" path="res://demo/assets/textures/rock030_alb_ht.png" id="1_v81ad"]
-[ext_resource type="Texture2D" uid="uid://cr72kjil43vgj" path="res://demo/assets/textures/rock030_nrm_rgh.png" id="2_72dup"]
 [ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="2_pog6b"]
 [ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="3_g8f2m"]
 [ext_resource type="Texture2D" uid="uid://c307hdmos4gtm" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="3_wncaf"]
@@ -39,8 +37,9 @@ last_shadow_lod = 3
 name = "Cliff"
 albedo_texture = ExtResource("2_pog6b")
 normal_texture = ExtResource("3_wncaf")
-normal_depth = 1.2
-ao_strength = 1.2
+normal_depth = 1.0
+ao_strength = 2.0
+roughness = -0.05
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_od0q7"]
 name = "Grass"
@@ -48,16 +47,11 @@ id = 1
 albedo_color = Color(0.67451, 0.74902, 0.686275, 1)
 albedo_texture = ExtResource("3_g8f2m")
 normal_texture = ExtResource("4_aw5y1")
+normal_depth = 1.0
+ao_strength = 2.0
 uv_scale = 0.2
 detiling_rotation = 0.161
 
-[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_mup2f"]
-name = "Rock"
-id = 2
-albedo_color = Color(1.596, 1.56, 1.5, 1)
-albedo_texture = ExtResource("1_v81ad")
-normal_texture = ExtResource("2_72dup")
-
 [resource]
 mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_or12t")])
-texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_lha57"), SubResource("Terrain3DTextureAsset_od0q7"), SubResource("Terrain3DTextureAsset_mup2f")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_lha57"), SubResource("Terrain3DTextureAsset_od0q7")])

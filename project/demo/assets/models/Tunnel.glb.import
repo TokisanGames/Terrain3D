@@ -34,8 +34,8 @@ import_script/path=""
 _subresources={
 "materials": {
 "material_0": {
-"use_external/enabled": true,
-"use_external/path": "res://demo/assets/materials/M_rock30_tp.tres"
+"use_external/enabled": false,
+"use_external/path": "uid://nbbdrx8vma80"
 }
 }
 }

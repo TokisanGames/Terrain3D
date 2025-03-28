@@ -1,0 +1,16 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3 uid="uid://nbbdrx8vma80"]
+
+[ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="1_mek0c"]
+[ext_resource type="Texture2D" uid="uid://c307hdmos4gtm" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="2_pp13c"]
+
+[resource]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.83, 0.83, 0.83, 1)
+albedo_texture = ExtResource("1_mek0c")
+normal_enabled = true
+normal_texture = ExtResource("2_pp13c")
+uv1_scale = Vector3(0.02, 0.02, 0.02)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 6.06286
+uv1_world_triplanar = true
+texture_filter = 5
