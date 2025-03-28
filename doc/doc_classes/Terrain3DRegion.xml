@@ -148,7 +148,7 @@
 			After changing this data, call [method Terrain3DInstancer.update_mmis] to rebuild the MMIs.
 		</member>
 		<member name="location" type="Vector2i" setter="set_location" getter="get_location">
-			The region location, or region grid coordinates in the world space where this region lives.
+			The location in region grid space [code skip-lint](world space / region_size)[/code] coordinates. e.g. (-1, 1) equates to (-1024, 1024) in world space given a [member region_size] of 1024.
 		</member>
 		<member name="modified" type="bool" setter="set_modified" getter="is_modified">
 			This region has been modified and will be saved to disk upon [method save]. This serves a different purpose than the temporary [member edited] setting.

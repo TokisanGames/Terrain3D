@@ -57,10 +57,16 @@
 				Returns the Terrain3DTextureAsset with the requested ID.
 			</description>
 		</method>
+		<method name="get_texture_ao_strengths" qualifiers="const">
+			<return type="PackedFloat32Array" />
+			<description>
+				Returns the array of AO strengths for each texture asset, indexed by asset id.
+			</description>
+		</method>
 		<method name="get_texture_colors" qualifiers="const">
 			<return type="PackedColorArray" />
 			<description>
-				Returns the array of all albedo colors used in the texture assets, indexed by asset id.
+				Returns the array of albedo tints for each texture asset, indexed by asset id.
 			</description>
 		</method>
 		<method name="get_texture_count" qualifiers="const">
@@ -70,15 +76,27 @@
 			</description>
 		</method>
 		<method name="get_texture_detiles" qualifiers="const">
+			<return type="PackedVector2Array" />
+			<description>
+				Returns the array of detiling values for each texture asset, indexed by asset id.
+			</description>
+		</method>
+		<method name="get_texture_normal_depths" qualifiers="const">
 			<return type="PackedFloat32Array" />
 			<description>
-				Returns the array of all detiling values used in the texture assets, indexed by asset id.
+				Returns the array of normal strengths for each texture asset, indexed by asset id.
+			</description>
+		</method>
+		<method name="get_texture_roughness_mods" qualifiers="const">
+			<return type="PackedFloat32Array" />
+			<description>
+				Returns the array of roughness modification values for each texture asset, indexed by asset id.
 			</description>
 		</method>
 		<method name="get_texture_uv_scales" qualifiers="const">
 			<return type="PackedFloat32Array" />
 			<description>
-				Returns the array of all uv scale values used in the texture assets, indexed by asset id.
+				Returns the array of uv scale values for each texture asset, indexed by asset id.
 			</description>
 		</method>
 		<method name="save">

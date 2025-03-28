@@ -42,7 +42,7 @@ These notable [Terrain3DData](../api/class_terrain3ddata.rst) arrays are passed 
 
 The CPU has already created flat mesh components that make up the clipmap mesh, and collision shapes with heights. The vertex shader adjusts the mesh to match the collision shape defined by the heightmap. `vertex()` is run for every vertex on these mesh components.
 
-Noteworthy supporting functions include `get_region_uv/_uv2()` which take in UV coordinates and return region coordinates, either real or normalized. They also return the region ID, which indexes into the texture arrays.
+Noteworthy supporting functions include `get_index_coord()` and `get_index_uv` which take in world space XZ coordinates and return region coordinates, either real or normalized. They also return the region ID, which indexes into the texture arrays.
 
 Within `vertex()`, the controlmap is read to determine if a vertex is a hole, the heightmap is read if valid, and if world noise should be calculated. The values are accumulated to determine the final height, and vertex normal.
 

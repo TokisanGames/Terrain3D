@@ -148,8 +148,6 @@ Methods
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Vector3``                                   | :ref:`get_snapped_position<class_Terrain3D_method_get_snapped_position>`\ (\ ) |const|                                                                                  |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``bool``                                      | :ref:`is_compatibility_mode<class_Terrain3D_method_is_compatibility_mode>`\ (\ ) |const|                                                                                |
-   +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_camera<class_Terrain3D_method_set_camera>`\ (\ camera\: ``Camera3D``\ )                                                                                       |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_editor<class_Terrain3D_method_set_editor>`\ (\ editor\: :ref:`Terrain3DEditor<class_Terrain3DEditor>`\ )                                                      |
@@ -1199,18 +1197,6 @@ Returns the EditorPlugin connected to Terrain3D.
 ``Vector3`` **get_snapped_position**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_snapped_position>`
 
 Returns the last position the terrain was centered on.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_method_is_compatibility_mode:
-
-.. rst-class:: classref-method
-
-``bool`` **is_compatibility_mode**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_is_compatibility_mode>`
-
-Returns true if Terrain3D has detected that the Compatibility renderer is in use.
 
 .. rst-class:: classref-item-separator
 

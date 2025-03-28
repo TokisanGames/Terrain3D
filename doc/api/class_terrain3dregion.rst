@@ -309,7 +309,7 @@ After changing this data, call :ref:`Terrain3DInstancer.update_mmis()<class_Terr
 - |void| **set_location**\ (\ value\: ``Vector2i``\ )
 - ``Vector2i`` **get_location**\ (\ )
 
-The region location, or region grid coordinates in the world space where this region lives.
+The location in region grid space ``(world space / region_size)`` coordinates. e.g. (-1, 1) equates to (-1024, 1024) in world space given a :ref:`region_size<class_Terrain3DRegion_property_region_size>` of 1024.
 
 .. rst-class:: classref-item-separator
 
