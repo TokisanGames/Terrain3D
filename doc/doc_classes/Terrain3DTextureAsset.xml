@@ -22,8 +22,14 @@
 		<member name="albedo_texture" type="Texture2D" setter="set_albedo_texture" getter="get_albedo_texture">
 			The texture file with albedo on RGB and height on A.
 		</member>
-		<member name="detiling" type="float" setter="set_detiling" getter="get_detiling" default="0.0">
+		<member name="ao_strength" type="float" setter="set_ao_strength" getter="get_ao_strength" default="0.5">
+			The shader generates AO based on the height texture, based on this strength value.
+		</member>
+		<member name="detiling_rotation" type="float" setter="set_detiling_rotation" getter="get_detiling_rotation" default="0.0">
 			The shader rotates UV lookups in a detiling pattern based on this value.
+		</member>
+		<member name="detiling_shift" type="float" setter="set_detiling_shift" getter="get_detiling_shift" default="0.0">
+			The shader laterally shifts UV lookups in a detiling pattern based on this value.
 		</member>
 		<member name="id" type="int" setter="set_id" getter="get_id" default="0">
 			The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
@@ -31,8 +37,14 @@
 		<member name="name" type="String" setter="set_name" getter="get_name" default="&quot;New Texture&quot;">
 			A user specified name for this texture set.
 		</member>
+		<member name="normal_depth" type="float" setter="set_normal_depth" getter="get_normal_depth" default="0.5">
+			Increases or decreases the strength of the normal texture.
+		</member>
 		<member name="normal_texture" type="Texture2D" setter="set_normal_texture" getter="get_normal_texture">
 			The texture file with normal on RGB and roughness on A.
+		</member>
+		<member name="roughness" type="float" setter="set_roughness" getter="get_roughness" default="0.0">
+			Increases or decreases the roughness texture values.
 		</member>
 		<member name="uv_scale" type="float" setter="set_uv_scale" getter="get_uv_scale" default="0.1">
 			The scale of the textures.

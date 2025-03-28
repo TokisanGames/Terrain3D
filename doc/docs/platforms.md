@@ -108,7 +108,7 @@ Further reading:
 
 ## WebGL
 
-Web Exports are very experimental. We have a working test environment. It requires using the [Compatibility Renderer (read more)](#compatibility). See the progress and setup instructions in [Issue 502](https://github.com/TokisanGames/Terrain3D/issues/502).
+The releases and nightly builds include a web build, but web exports are very experimental. We have had success on some platforms. See the progress and setup instructions in [Issue 502](https://github.com/TokisanGames/Terrain3D/issues/502).
 
 
 Supported Renderers
@@ -126,7 +126,7 @@ The Forward+ Vulkan renderer is fully supported.
 
 ## D3D12
 
-The Forward+ Direct3D 12 renderer was recently merged into Godot 4.3. TextureArrays are not fully supported yet (no mipmaps). Follow [Issue 529](https://github.com/TokisanGames/Terrain3D/issues/529) for progress.
+The Forward+ Direct3D 12 renderer was merged into Godot 4.3. TextureArrays are not fully supported yet (no mipmaps). Follow [Issue 529](https://github.com/TokisanGames/Terrain3D/issues/529) for progress.
 
 
 ## Metal
@@ -141,20 +141,4 @@ The Forward Vulkan Mobile renderer is fully supported.
 
 ## Compatibility
 
-The OpenGLES 3.0 Compatibility renderer is mostly supported from Terrain3D 0.9.3 though there are some caveats with Godot 4.3:
-
-* If using a custom override shader, we add a special COMPATIBILITY_DEFINES section to your shader that will allow certain features to work properly (eg the fma() function). We remove this block from your shader if you switch back to Mobile or Forward. It is normal to receive a shader dump in your console during this transition, but it should not repeat every start, once saved.
-
-* `IS_COMPATIBILITY` is defined in this section should you wish to check against it with your own custom preprocessor statements.
-
-* If enabling compatibility mode on the command line, we cannot detect that currently. You can tell Terrain3D with a special parameter:
-
-    `Godot_v4.3-stable_win64_console.exe --rendering-driver opengl3 -e project.godot --terrain3d-renderer=compatibility`
-
-* Textures that are imported with `VRAM Compressed` are forced uncompressed and a warning issued. You can disable the warning by manually selecting `VRAM Uncompressed` or `Lossless` on the Import tab and reimport for all of your textures. VRAM compression seems to be fixed in 4.4.
- 
-Further reading:
-
-* [Issue 217](https://github.com/TokisanGames/Terrain3D/issues/217)
-* [PR 500](https://github.com/TokisanGames/Terrain3D/pull/500)
-* [PR 564](https://github.com/TokisanGames/Terrain3D/pull/564)
+The OpenGLES 3.0 Compatibility renderer is fully supported in Terrain3D 1.0 and Godot 4.4. A small set of shader pre-processor statements are used to override fma() and dFdxCoarse(). This allows the shader to work with the compatibility renderer without intrusive changes.

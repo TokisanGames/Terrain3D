@@ -27,21 +27,29 @@ Properties
 .. table::
    :widths: auto
 
-   +---------------+----------------------------------------------------------------------------+-----------------------+
-   | ``Color``     | :ref:`albedo_color<class_Terrain3DTextureAsset_property_albedo_color>`     | ``Color(1, 1, 1, 1)`` |
-   +---------------+----------------------------------------------------------------------------+-----------------------+
-   | ``Texture2D`` | :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_texture>` |                       |
-   +---------------+----------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`detiling<class_Terrain3DTextureAsset_property_detiling>`             | ``0.0``               |
-   +---------------+----------------------------------------------------------------------------+-----------------------+
-   | ``int``       | :ref:`id<class_Terrain3DTextureAsset_property_id>`                         | ``0``                 |
-   +---------------+----------------------------------------------------------------------------+-----------------------+
-   | ``String``    | :ref:`name<class_Terrain3DTextureAsset_property_name>`                     | ``"New Texture"``     |
-   +---------------+----------------------------------------------------------------------------+-----------------------+
-   | ``Texture2D`` | :ref:`normal_texture<class_Terrain3DTextureAsset_property_normal_texture>` |                       |
-   +---------------+----------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`uv_scale<class_Terrain3DTextureAsset_property_uv_scale>`             | ``0.1``               |
-   +---------------+----------------------------------------------------------------------------+-----------------------+
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``Color``     | :ref:`albedo_color<class_Terrain3DTextureAsset_property_albedo_color>`           | ``Color(1, 1, 1, 1)`` |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``Texture2D`` | :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_texture>`       |                       |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`ao_strength<class_Terrain3DTextureAsset_property_ao_strength>`             | ``0.5``               |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`detiling_rotation<class_Terrain3DTextureAsset_property_detiling_rotation>` | ``0.0``               |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`detiling_shift<class_Terrain3DTextureAsset_property_detiling_shift>`       | ``0.0``               |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``int``       | :ref:`id<class_Terrain3DTextureAsset_property_id>`                               | ``0``                 |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``String``    | :ref:`name<class_Terrain3DTextureAsset_property_name>`                           | ``"New Texture"``     |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`normal_depth<class_Terrain3DTextureAsset_property_normal_depth>`           | ``0.5``               |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``Texture2D`` | :ref:`normal_texture<class_Terrain3DTextureAsset_property_normal_texture>`       |                       |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`roughness<class_Terrain3DTextureAsset_property_roughness>`                 | ``0.0``               |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`uv_scale<class_Terrain3DTextureAsset_property_uv_scale>`                   | ``0.1``               |
+   +---------------+----------------------------------------------------------------------------------+-----------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -139,18 +147,52 @@ The texture file with albedo on RGB and height on A.
 
 ----
 
-.. _class_Terrain3DTextureAsset_property_detiling:
+.. _class_Terrain3DTextureAsset_property_ao_strength:
 
 .. rst-class:: classref-property
 
-``float`` **detiling** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_detiling>`
+``float`` **ao_strength** = ``0.5`` :ref:`🔗<class_Terrain3DTextureAsset_property_ao_strength>`
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_detiling**\ (\ value\: ``float``\ )
-- ``float`` **get_detiling**\ (\ )
+- |void| **set_ao_strength**\ (\ value\: ``float``\ )
+- ``float`` **get_ao_strength**\ (\ )
+
+The shader generates AO based on the height texture, based on this strength value.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_property_detiling_rotation:
+
+.. rst-class:: classref-property
+
+``float`` **detiling_rotation** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_detiling_rotation>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_detiling_rotation**\ (\ value\: ``float``\ )
+- ``float`` **get_detiling_rotation**\ (\ )
 
 The shader rotates UV lookups in a detiling pattern based on this value.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_property_detiling_shift:
+
+.. rst-class:: classref-property
+
+``float`` **detiling_shift** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_detiling_shift>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_detiling_shift**\ (\ value\: ``float``\ )
+- ``float`` **get_detiling_shift**\ (\ )
+
+The shader laterally shifts UV lookups in a detiling pattern based on this value.
 
 .. rst-class:: classref-item-separator
 
@@ -190,6 +232,23 @@ A user specified name for this texture set.
 
 ----
 
+.. _class_Terrain3DTextureAsset_property_normal_depth:
+
+.. rst-class:: classref-property
+
+``float`` **normal_depth** = ``0.5`` :ref:`🔗<class_Terrain3DTextureAsset_property_normal_depth>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_normal_depth**\ (\ value\: ``float``\ )
+- ``float`` **get_normal_depth**\ (\ )
+
+Increases or decreases the strength of the normal texture.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DTextureAsset_property_normal_texture:
 
 .. rst-class:: classref-property
@@ -202,6 +261,23 @@ A user specified name for this texture set.
 - ``Texture2D`` **get_normal_texture**\ (\ )
 
 The texture file with normal on RGB and roughness on A.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_property_roughness:
+
+.. rst-class:: classref-property
+
+``float`` **roughness** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_roughness>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_roughness**\ (\ value\: ``float``\ )
+- ``float`` **get_roughness**\ (\ )
+
+Increases or decreases the roughness texture values.
 
 .. rst-class:: classref-item-separator
 

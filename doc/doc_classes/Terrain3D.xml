@@ -83,12 +83,6 @@
 				Returns the last position the terrain was centered on.
 			</description>
 		</method>
-		<method name="is_compatibility_mode" qualifiers="const">
-			<return type="bool" />
-			<description>
-				Returns true if Terrain3D has detected that the Compatibility renderer is in use.
-			</description>
-		</method>
 		<method name="set_camera">
 			<return type="void" />
 			<param index="0" name="camera" type="Camera3D" />

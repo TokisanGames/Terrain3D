@@ -7,7 +7,7 @@ Project Leads
 * Roope Palmroos [@outobugi](https://github.com/outobugi)
 
 MVPs
-* Emerson Rowland [@XTarsia](https://github.com/XTarsia)
+* Emerson Rowland [@Xtarsia](https://github.com/Xtarsia)
 * Tom Coxon [@tcoxon](https://github.com/tcoxon)
 
 Contributors

@@ -56,11 +56,17 @@ Methods
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` | :ref:`get_texture<class_Terrain3DAssets_method_get_texture>`\ (\ id\: ``int``\ ) |const|                                                              |
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_ao_strengths<class_Terrain3DAssets_method_get_texture_ao_strengths>`\ (\ ) |const|                                                  |
+   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedColorArray``                                      | :ref:`get_texture_colors<class_Terrain3DAssets_method_get_texture_colors>`\ (\ ) |const|                                                              |
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``int``                                                   | :ref:`get_texture_count<class_Terrain3DAssets_method_get_texture_count>`\ (\ ) |const|                                                                |
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``PackedFloat32Array``                                    | :ref:`get_texture_detiles<class_Terrain3DAssets_method_get_texture_detiles>`\ (\ ) |const|                                                            |
+   | ``PackedVector2Array``                                    | :ref:`get_texture_detiles<class_Terrain3DAssets_method_get_texture_detiles>`\ (\ ) |const|                                                            |
+   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_normal_depths<class_Terrain3DAssets_method_get_texture_normal_depths>`\ (\ ) |const|                                                |
+   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_roughness_mods<class_Terrain3DAssets_method_get_texture_roughness_mods>`\ (\ ) |const|                                              |
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedFloat32Array``                                    | :ref:`get_texture_uv_scales<class_Terrain3DAssets_method_get_texture_uv_scales>`\ (\ ) |const|                                                        |
    +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -296,13 +302,25 @@ Returns the Terrain3DTextureAsset with the requested ID.
 
 ----
 
+.. _class_Terrain3DAssets_method_get_texture_ao_strengths:
+
+.. rst-class:: classref-method
+
+``PackedFloat32Array`` **get_texture_ao_strengths**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_ao_strengths>`
+
+Returns the array of AO strengths for each texture asset, indexed by asset id.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DAssets_method_get_texture_colors:
 
 .. rst-class:: classref-method
 
 ``PackedColorArray`` **get_texture_colors**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_colors>`
 
-Returns the array of all albedo colors used in the texture assets, indexed by asset id.
+Returns the array of albedo tints for each texture asset, indexed by asset id.
 
 .. rst-class:: classref-item-separator
 
@@ -324,9 +342,33 @@ Returns the number of texture slots used.
 
 .. rst-class:: classref-method
 
-``PackedFloat32Array`` **get_texture_detiles**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_detiles>`
+``PackedVector2Array`` **get_texture_detiles**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_detiles>`
 
-Returns the array of all detiling values used in the texture assets, indexed by asset id.
+Returns the array of detiling values for each texture asset, indexed by asset id.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DAssets_method_get_texture_normal_depths:
+
+.. rst-class:: classref-method
+
+``PackedFloat32Array`` **get_texture_normal_depths**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_normal_depths>`
+
+Returns the array of normal strengths for each texture asset, indexed by asset id.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DAssets_method_get_texture_roughness_mods:
+
+.. rst-class:: classref-method
+
+``PackedFloat32Array`` **get_texture_roughness_mods**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_roughness_mods>`
+
+Returns the array of roughness modification values for each texture asset, indexed by asset id.
 
 .. rst-class:: classref-item-separator
 
@@ -338,7 +380,7 @@ Returns the array of all detiling values used in the texture assets, indexed by 
 
 ``PackedFloat32Array`` **get_texture_uv_scales**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_uv_scales>`
 
-Returns the array of all uv scale values used in the texture assets, indexed by asset id.
+Returns the array of uv scale values for each texture asset, indexed by asset id.
 
 .. rst-class:: classref-item-separator
 
