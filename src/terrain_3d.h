@@ -47,7 +47,7 @@ public: // Constants
 	};
 
 private:
-	String _version = "1.0.0";
+	String _version = "1.0.1";
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
