@@ -1,5 +1,6 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/time.hpp>
@@ -106,6 +107,25 @@ String Terrain3DUtil::location_to_string(const Vector2i &p_region_loc) {
 	x_str = vformat((p_region_loc.x >= 0) ? POS_REGION_FORMAT : NEG_REGION_FORMAT, p_region_loc.x);
 	y_str = vformat((p_region_loc.y >= 0) ? POS_REGION_FORMAT : NEG_REGION_FORMAT, p_region_loc.y);
 	return x_str + y_str;
+}
+
+PackedStringArray Terrain3DUtil::get_files(const String &p_dir, const String &p_glob) {
+	PackedStringArray files;
+	Ref<DirAccess> da = DirAccess::open(p_dir);
+	if (da.is_null()) {
+		LOG(ERROR, "Cannot open directory: ", p_dir);
+		return files;
+	}
+	PackedStringArray dir_files = da->get_files();
+	for (int i = 0; i < dir_files.size(); i++) {
+		String fname = dir_files[i].trim_suffix(".remap");
+		if (!fname.matchn(p_glob)) {
+			continue;
+		}
+		LOG(DEBUG, "Found file: ", p_dir + String("/") + fname);
+		files.push_back(fname);
+	}
+	return files;
 }
 
 Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {

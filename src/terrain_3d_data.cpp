@@ -351,24 +351,21 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 
 void Terrain3DData::load_directory(const String &p_dir) {
 	if (p_dir.is_empty()) {
-		LOG(ERROR, "Specified data directory is blank");
+		LOG(ERROR, "Specified directory name is blank");
 		return;
 	}
-	Ref<DirAccess> da = DirAccess::open(p_dir);
-	if (da.is_null()) {
-		LOG(ERROR, "Cannot read Terrain3D data directory: ", p_dir);
-		return;
-	}
-	_clear();
 
 	LOG(INFO, "Loading region files from ", p_dir);
-	PackedStringArray files = da->get_files();
+	PackedStringArray files = Util::get_files(p_dir, "terrain3d*.res");
+	if (files.size() == 0) {
+		LOG(INFO, "No Terrain3D region files found in: ", p_dir);
+		return;
+	}
+
+	_clear();
 	for (int i = 0; i < files.size(); i++) {
-		String fname = files[i].trim_suffix(".remap");
+		String fname = files[i];
 		String path = p_dir + String("/") + fname;
-		if (!fname.begins_with("terrain3d") || !fname.ends_with(".res")) {
-			continue;
-		}
 		LOG(DEBUG, "Loading region from ", path);
 		Vector2i loc = Util::filename_to_location(fname);
 		if (loc.x == INT32_MAX) {
