@@ -27,7 +27,7 @@ func _process(p_delta) -> void:
 			UI toggle: F9
 			Render mode: F10
 			Full screen: F11
-			Mouse toggle: Escape
+			Mouse toggle: Escape / F12
 			"""
 
 
@@ -47,7 +47,7 @@ func _unhandled_key_input(p_event: InputEvent) -> void:
 			KEY_F11:
 				toggle_fullscreen()
 				get_viewport().set_input_as_handled()
-			KEY_ESCAPE:
+			KEY_ESCAPE, KEY_F12:
 				if Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
 					Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 				else:
