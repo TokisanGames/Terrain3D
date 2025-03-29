@@ -128,8 +128,10 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	}
 	if (_texture_filtering == LINEAR) {
 		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+		excludes.push_back("NOISE_SAMPLER_NEAREST");
 	} else {
 		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+		excludes.push_back("NOISE_SAMPLER_LINEAR");
 	}
 	if (_auto_shader) {
 		excludes.push_back("TEXTURE_ID");
