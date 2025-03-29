@@ -74,6 +74,8 @@ uniform vec3 macro_variation2 : source_color = vec3(1.);
 uniform float macro_variation_slope : hint_range(0., 1.)  = 0.333;
 
 // Generic noise at 3 scales, which can be used for anything 
+//INSERT: NOISE_SAMPLER_NEAREST
+//INSERT: NOISE_SAMPLER_LINEAR
 uniform float noise1_scale : hint_range(0.001, 1.) = 0.04; // Used for macro variation 1. Scaled up 10x
 uniform float noise1_angle : hint_range(0, 6.283) = 0.;
 uniform vec2 noise1_offset = vec2(0.5);
