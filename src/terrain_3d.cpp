@@ -425,9 +425,12 @@ void Terrain3D::set_debug_level(const int p_level) {
 void Terrain3D::set_data_directory(String p_dir) {
 	LOG(INFO, "Setting data directory to ", p_dir);
 	if (_data_directory != p_dir) {
-		if (_data_directory.is_empty()) {
+		if (_data_directory.is_empty() && Util::get_files(p_dir, "terrain3d*.res").size() == 0) {
+			// If _data_directory was empty and now specified, and has no data
+			// assume we want to retain the current data
 			_data_directory = p_dir;
 		} else {
+			// Else clear data and if not null, load
 			_initialized = false;
 			_destroy_labels();
 			_destroy_collision();
@@ -897,7 +900,7 @@ void Terrain3D::_notification(const int p_what) {
 			// Editor Node is about to save the current scene
 			LOG(INFO, "NOTIFICATION_EDITOR_PRE_SAVE");
 			if (_data_directory.is_empty()) {
-				LOG(ERROR, "Data directory is empty. Set it to write data to disk.");
+				LOG(ERROR, "Data directory is empty. Set it to save regions to disk.");
 			} else if (!_data) {
 				LOG(DEBUG, "Save requested, but no valid data object. Skipping");
 			} else {
