@@ -3,7 +3,7 @@
 name: 🛠️ Build All
 on: 
     push:
-        branches: [ main ]
+        branches: [ main, 1.0 ]
     pull_request:
         paths: [ '**' ]
     workflow_dispatch:
