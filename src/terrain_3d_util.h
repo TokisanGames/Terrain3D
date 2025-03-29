@@ -33,6 +33,7 @@ public:
 	static Vector2i string_to_location(const String &p_string);
 	static String location_to_filename(const Vector2i &p_region_loc);
 	static String location_to_string(const Vector2i &p_region_loc);
+	static PackedStringArray get_files(const String &p_dir, const String &p_glob = "*");
 
 	// Image operations
 	static Ref<Image> black_to_alpha(const Ref<Image> &p_image);

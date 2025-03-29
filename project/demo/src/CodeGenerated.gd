@@ -24,14 +24,14 @@ func create_terrain() -> Terrain3D:
 	green_gr.set_color(1, Color.from_hsv(120./360., .4, .37))
 	var green_ta: Terrain3DTextureAsset = await create_texture_asset("Grass", green_gr, 1024)
 	green_ta.uv_scale = 0.1
-	green_ta.detiling = 0.1
+	green_ta.detiling_rotation = 0.1
 
 	var brown_gr := Gradient.new()
 	brown_gr.set_color(0, Color.from_hsv(30./360., .4, .3))
 	brown_gr.set_color(1, Color.from_hsv(30./360., .4, .4))
 	var brown_ta: Terrain3DTextureAsset = await create_texture_asset("Dirt", brown_gr, 1024)
 	brown_ta.uv_scale = 0.03
-	green_ta.detiling = 0.1
+	green_ta.detiling_rotation = 0.1
 	
 	var grass_ma: Terrain3DMeshAsset = create_mesh_asset("Grass", Color.from_hsv(120./360., .4, .37)) 
 
