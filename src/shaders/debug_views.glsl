@@ -96,7 +96,7 @@ R"(
 
 //INSERT: DEBUG_CONTROL_ANGLE
 	ivec3 __auv = get_index_coord(floor(uv), SKIP_PASS);
-	uint __a_control = texelFetch(_control_maps, __auv, 0).r;
+	uint __a_control = floatBitsToUint(texelFetch(_control_maps, __auv, 0)).r;
 	uint __angle = (__a_control >>10u & 0xFu);
 	vec3 __a_colors[16] = {
 		vec3(1., .2, .0), vec3(.8, 0., .2), vec3(.6, .0, .4), vec3(.4, .0, .6),
@@ -112,7 +112,7 @@ R"(
 
 //INSERT: DEBUG_CONTROL_SCALE
 	ivec3 __suv = get_index_coord(floor(uv), SKIP_PASS);
-	uint __s_control = texelFetch(_control_maps, __suv, 0).r;
+	uint __s_control = floatBitsToUint(texelFetch(_control_maps, __suv, 0)).r;
 	uint __scale = (__s_control >>7u & 0x7u);
 	vec3 __s_colors[8] = {
 		vec3(.5, .5, .5), vec3(.675, .25, .375), vec3(.75, .125, .25), vec3(.875, .0, .125), vec3(1., 0., 0.),
@@ -135,7 +135,7 @@ R"(
 
 //INSERT: DEBUG_AUTOSHADER
 	ivec3 __ruv = get_index_coord(floor(uv), SKIP_PASS);
-	uint __control = texelFetch(_control_maps, __ruv, 0).r;
+	uint __control = floatBitsToUint(texelFetch(_control_maps, __ruv, 0)).r;
 	float __autoshader = float( bool(__control & 0x1u) || __ruv.z<0 );
 	ALBEDO = vec3(__autoshader);
 	ROUGHNESS = 1.;

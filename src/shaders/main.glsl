@@ -49,7 +49,7 @@ uniform float _texture_uv_scale_array[32];
 uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
-uniform highp usampler2DArray _control_maps : repeat_disable;
+uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
 
@@ -165,7 +165,7 @@ void vertex() {
 
 	// Discard vertices for Holes. 1 lookup
 	ivec3 v_region = get_index_coord(start_pos, VERTEX_PASS);
-	uint control = texelFetch(_control_maps, v_region, 0).r;
+	uint control = floatBitsToUint(texelFetch(_control_maps, v_region, 0)).r;
 	bool hole = bool(control >>2u & 0x1u);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
@@ -503,7 +503,7 @@ void fragment() {
 	// Get last index
 	// 1 lookup + get_material() = 3-7 total
 	uint control[4];
-	control[3] = texelFetch(_control_maps, index[3], 0).r;
+	control[3] = floatBitsToUint(texelFetch(_control_maps, index[3], 0)).r;
 
 	Material mat[4];
 	get_material(index_normal[3], h[3], base_derivatives, control[3], index[3], TANGENT_WORLD_MATRIX, mat[3]);
@@ -516,9 +516,9 @@ void fragment() {
 	// Otherwise do full bilinear interpolation
 	if (bilerp) {
 		// 4 lookups + 3x get_material() = 10-22 total
-		control[0] = texelFetch(_control_maps, index[0], 0).r;
-		control[1] = texelFetch(_control_maps, index[1], 0).r;
-		control[2] = texelFetch(_control_maps, index[2], 0).r;
+		control[0] = floatBitsToUint(texelFetch(_control_maps, index[0], 0)).r;
+		control[1] = floatBitsToUint(texelFetch(_control_maps, index[1], 0)).r;
+		control[2] = floatBitsToUint(texelFetch(_control_maps, index[2], 0)).r;
 
 		get_material(index_normal[0], h[0], base_derivatives, control[0], index[0], TANGENT_WORLD_MATRIX, mat[0]);
 		get_material(index_normal[1], h[1], base_derivatives, control[1], index[1], TANGENT_WORLD_MATRIX, mat[1]);
