@@ -774,7 +774,6 @@ void Terrain3DMaterial::set_show_vertex_grid(const bool p_enabled) {
 
 Error Terrain3DMaterial::save(const String &p_path) {
 	if (p_path.is_empty() && get_path().is_empty()) {
-		LOG(ERROR, "No valid path provided");
 		return ERR_FILE_NOT_FOUND;
 	}
 	if (!p_path.is_empty()) {
