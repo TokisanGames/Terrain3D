@@ -29,7 +29,7 @@ uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform highp sampler2DArray _height_maps : repeat_disable;
-uniform highp usampler2DArray _control_maps : repeat_disable;
+uniform highp sampler2DArray _control_maps : repeat_disable;
 
 // Varyings & Types
 // Some are required for editor functions
@@ -92,7 +92,7 @@ void vertex() {
 
 	// Discard vertices for Holes. 1 lookup
 	ivec3 region = get_index_coord(start_pos, VERTEX_PASS);
-	uint control = texelFetch(_control_maps, region, 0).r;
+	uint control = floatBitsToUint(texelFetch(_control_maps, region, 0)).r;
 	bool hole = bool(control >>2u & 0x1u);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
