@@ -356,7 +356,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 											// Angle from mouse movement.
 											angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
 											// Avoid negative, align texture "up" with mouse direction.
-											angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
+											angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, real_t(360.f)));
 										}
 										// Convert from degrees to 0 - 15 value range
 										uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
@@ -407,7 +407,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 											// Angle from mouse movement.
 											angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
 											// Avoid negative, align texture "up" with mouse direction.
-											angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, 360.f));
+											angle = real_t(Math::fmod(Math::rad_to_deg(angle) + 450.f, real_t(360.f)));
 										}
 										// Convert from degrees to 0 - 15 value range
 										uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
@@ -481,7 +481,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					if (!cmap) {
 						continue;
 					}
-					real_t src_ctrl = cmap->get_pixelv(map_pixel_position).r;
+					float src_ctrl = cmap->get_pixelv(map_pixel_position).r; // Must be float
 					int tex_id = (get_blend(src_ctrl) > 110 - margin) ? get_overlay(src_ctrl) : get_base(src_ctrl);
 					if (tex_id != asset_id) {
 						continue;
