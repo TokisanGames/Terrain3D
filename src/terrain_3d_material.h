@@ -45,7 +45,7 @@ private:
 	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
 	bool _dual_scaling = false;
-	bool _auto_shader = true;
+	bool _auto_shader = false;
 
 	// Editor Functions / Debug views
 	bool _show_navigation = false;
