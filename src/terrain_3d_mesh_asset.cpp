@@ -141,8 +141,6 @@ void Terrain3DMeshAsset::clear() {
 	_shadow_impostor = 0;
 	_clear_lod_ranges();
 	_fade_margin = 0.f;
-	// DEPRECATED 1.0 - Remove 1.1
-	_visibility_range = 100.f;
 }
 
 void Terrain3DMeshAsset::set_name(const String &p_name) {
@@ -561,13 +559,4 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod9_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod9_range", "get_lod9_range");
 	// Fade disabled until https://github.com/godotengine/godot/issues/102799 is fixed
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fade_margin", PROPERTY_HINT_RANGE, "0.,64.0,.05,or_greater", PROPERTY_USAGE_NO_EDITOR), "set_fade_margin", "get_fade_margin");
-
-	//DEPRECATED 1.0 - Remove 1.1
-	ClassDB::bind_method(D_METHOD("set_visibility_range", "distance"), &Terrain3DMeshAsset::set_visibility_range);
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "visibility_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater", PROPERTY_USAGE_NONE), "set_visibility_range", "get_lod0_range");
-}
-
-//DEPRECATED 1.0 - Remove 1.1
-void Terrain3DMeshAsset::set_visibility_range(const real_t p_visibility_range) {
-	set_lod_range(_last_lod, p_visibility_range);
 }
