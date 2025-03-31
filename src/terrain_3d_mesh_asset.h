@@ -57,9 +57,6 @@ private:
 	TypedArray<Mesh> _meshes;
 	Ref<Texture2D> _thumbnail;
 
-	//DEPRECATED 1.0 - Remove 1.1
-	real_t _visibility_range = 100.f;
-
 	void _clear_lod_ranges();
 	static bool _sort_lod_nodes(const Node *a, const Node *b);
 	Ref<ArrayMesh> _get_generated_mesh() const;
@@ -134,9 +131,6 @@ public:
 	real_t get_lod9_range() const { return _lod_ranges[9]; }
 	void set_fade_margin(const real_t p_fade_margin);
 	real_t get_fade_margin() const { return _fade_margin; };
-
-	//DEPRECATED 1.0 - Remove 1.1
-	void set_visibility_range(const real_t p_visibility_range);
 
 protected:
 	void _validate_property(PropertyInfo &p_property) const;
