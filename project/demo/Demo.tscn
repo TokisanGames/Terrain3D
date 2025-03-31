@@ -70,6 +70,7 @@ _shader_parameters = {
 "world_space_normal_blend": true
 }
 world_background = 2
+auto_shader = true
 dual_scaling = true
 
 [node name="Demo" type="Node"]
