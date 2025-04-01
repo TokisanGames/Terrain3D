@@ -1,9 +1,14 @@
 Foliage Instancing
 ====================
 
-The [Terrain3DInstancer](../api/class_terrain3dinstancer.rst) can be used to optimally render hundreds of thousands of meshes in a single draw call. Meshes aren't limited to plants. They can be rocks, trees, pinecones, debris, or anything else.
+Terrain3D provides two types of instancing systems that can be used to render not only grass, but also rocks, trees, pinecones, debris, or anything else you want.
 
-The instancer uses Godot's [MultiMesh](https://docs.godotengine.org/en/stable/classes/class_multimesh.html) class. See that link for capabilities and engine tutorials.
+1. A Particle Shader allows the GPU to automatically generate meshes around the camera. We have provided an example that you can modify and extend for your own needs in `extras/particle_example`. We refer to these meshes as `particles`.
+
+2. [Terrain3DInstancer](../api/class_terrain3dinstancer.rst) optimally renders hundreds of thousands of meshes that have been intentionally placed either by code or by hand using Godot's [MultiMesh](https://docs.godotengine.org/en/stable/classes/class_multimesh.html) class. See this link for capabilities and engine tutorials. We refer to these meshes as `instances`.
+
+See [Procedural Placement](#procedural-placement) for a comparision between these two methods. The rest of this page is dedicated to learning how to use the instancer for manual and code placement.
+
 
 **Table of Contents**
 * [How To Use The Instancer](#how-to-use-the-instancer)
@@ -193,9 +198,9 @@ These features can be implemented by having a wind shader or player interaction 
 
 ## Procedural Placement
 
-Placing instances via code is possible. See the [Terrain3DInstancer API](../api/class_terrain3dinstancer.rst).
+Placing instances via code is possible. See the [Terrain3DInstancer API](../api/class_terrain3dinstancer.rst) for available functions. Also read this and the next section.
 
-One thing you must consider is if it makes sense to use this MultiMesh based instancer, or if it's more efficient to use a (self-implemented) particle shader.
+One thing you must consider is if it makes sense to use the MultiMesh based instancer, or if it's more efficient to use a particle shader, such as the example included in our `extras/particle_example` directory.
 
 **MultiMesh Pros & Cons:**
 * Designed for hand painting and manual control
@@ -209,6 +214,8 @@ One thing you must consider is if it makes sense to use this MultiMesh based ins
 * All automatic placement, no manual control
 * Less control over placement that can only consider one instance in the logic
 * No data stored, so the number of instances in memory can be significantly less. For very large or procedural worlds this is much more efficient when loading and running.
+
+Perhaps it makes sense to use both, such as particles for grass, and instances for rocks, bushes and trees. You'll need to test and determine which methods will help you achieve your goal best.
 
 
 ## Importing From Other Tools
