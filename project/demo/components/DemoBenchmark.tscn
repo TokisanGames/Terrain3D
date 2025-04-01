@@ -1,11 +1,11 @@
 [gd_scene load_steps=11 format=3 uid="uid://dyt8c2xqmddo2"]
 
-[ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
-[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="2_2yeq8"]
-[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_cw38j"]
-[ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="3_ht63y"]
-[ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="4_gk532"]
-[ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="7_mnexy"]
+[ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_2gjn4"]
+[ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_3obxr"]
+[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="3_b7ioy"]
+[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="4_nn6wp"]
+[ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="5_bwggt"]
+[ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="6_3r2au"]
 
 [sub_resource type="Gradient" id="Gradient_f1plm"]
 offsets = PackedFloat32Array(0.2, 1)
@@ -56,28 +56,29 @@ _shader_parameters = {
 "noise_texture": SubResource("NoiseTexture2D_quxx0"),
 "projection_angular_division": 1.436,
 "projection_threshold": 0.8,
-"tri_scale_reduction": 0.3
+"tri_scale_reduction": 0.3,
+&"world_space_normal_blend": true
 }
 auto_shader = true
 dual_scaling = true
 
 [node name="Demo" type="Node"]
-script = ExtResource("1_k7qca")
+script = ExtResource("1_2gjn4")
 
-[node name="UI" parent="." instance=ExtResource("4_gk532")]
+[node name="UI" parent="." instance=ExtResource("2_3obxr")]
 
-[node name="World" parent="." instance=ExtResource("2_2yeq8")]
+[node name="World" parent="." instance=ExtResource("3_b7ioy")]
 
-[node name="Borders" parent="." instance=ExtResource("3_cw38j")]
+[node name="Borders" parent="." instance=ExtResource("4_nn6wp")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 0, 512)
 
-[node name="Player" parent="." instance=ExtResource("3_ht63y")]
-transform = Transform3D(0.134125, 0, -0.990965, 0, 1, 0, 0.990965, 0, 0.134125, 568, 85, -1926)
+[node name="Player" parent="." instance=ExtResource("5_bwggt")]
+transform = Transform3D(0.134125, 0, -0.990965, 0, 1, 0, 0.990965, 0, 0.134125, 216.455, 103.968, -1835.34)
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
 data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_klrp5")
-assets = ExtResource("7_mnexy")
+assets = ExtResource("6_3r2au")
 collision_mask = 3
 top_level = true
 metadata/_edit_lock_ = true
