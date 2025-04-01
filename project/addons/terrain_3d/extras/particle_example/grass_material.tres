@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://ljo1wt61kbkq"]
+
+[ext_resource type="Shader" uid="uid://dq3lfyp3u5oxt" path="res://addons/terrain_3d/extras/particle_example/grass.gdshader" id="1_nkru0"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_nkru0")
+shader_parameter/wind_direction = Vector2(1, 1)
