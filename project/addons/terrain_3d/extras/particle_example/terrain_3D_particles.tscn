@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3 uid="uid://d3sr0a7dxfkr8"]
+
+[ext_resource type="Script" uid="uid://bp7r4ppgq1m0g" path="res://addons/terrain_3d/extras/particle_example/terrain3D_particles.gd" id="1_gl3qg"]
+[ext_resource type="Material" uid="uid://brd70e8kd4rt5" path="res://addons/terrain_3d/extras/particle_example/terrain3D_particle_process.material" id="2_2gon1"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_egbwy"]
+size = Vector3(0.2, 1.5, 0.2)
+
+[node name="Terrain3DParticles" type="Node3D"]
+script = ExtResource("1_gl3qg")
+min_draw_distance = 48.0
+particle_count = 9216
+rows = 32
+amount = 1024
+process_material = ExtResource("2_2gon1")
+mesh = SubResource("BoxMesh_egbwy")
+metadata/_edit_lock_ = true
