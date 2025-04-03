@@ -23,6 +23,17 @@ extends Node3D
 		rows = maxi(int(cell_width / instance_spacing), 1)
 		amount = rows * rows
 		min_draw_distance = 1.0
+		# Have to update aabb
+		var hr: Vector2 = terrain.data.get_height_range()
+		var height: float = hr.x - hr.y
+		var aabb: AABB = AABB()
+		aabb.size = Vector3(
+			float(rows) * instance_spacing, height,
+			float(rows) * instance_spacing)
+		aabb.position = aabb.size * -0.5
+		aabb.position.y = hr.y
+		for p in particle_nodes:
+			p.custom_aabb = aabb
 		_set_offsets()
 
 ## Grid width. Must be odd. Higher values cull slightly better, draw further out.
