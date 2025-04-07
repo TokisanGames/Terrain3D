@@ -16,9 +16,10 @@ void vertex() {
 	// Ribbon used as a grass mesh.. so pinch the top.
 	VERTEX.xz *= (1.0 - data[2]);
 
-	// Brighten tips, Darken base
+	// Brighten tips
 	COLOR = mix(COLOR, vec4(1.0), smoothstep(0.9, 1.0, data[2]));
-	COLOR *= mix(1.0, 0.5, smoothstep(0.35, 0.0, data[2]));
+	// Darken base, skip is scale is less than threshold, as this means "grow in" is occuring.
+	COLOR *= INSTANCE_CUSTOM[3] < 0.35 ? 1. : mix(1.0, 0.75, smoothstep(0.35, 0.0, data[2]));
 	// Save red/green shift for fragment
 	data.rg = INSTANCE_CUSTOM.rg;
 

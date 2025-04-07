@@ -6,8 +6,7 @@
 
 [sub_resource type="RibbonTrailMesh" id="RibbonTrailMesh_fwrtk"]
 shape = 0
-sections = 3
-section_length = 0.3
+section_length = 0.18
 section_segments = 1
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_egbwy"]
@@ -17,11 +16,15 @@ shader_parameter/wind_direction = Vector2(1, 1)
 
 [node name="Terrain3DParticles" type="Node3D"]
 script = ExtResource("1_gl3qg")
-rows = 64
-amount = 4096
+instance_spacing = 0.25
+cell_width = 24.0
+grid_width = 5
+rows = 96
+amount = 9216
 process_material = ExtResource("2_2gon1")
 mesh = SubResource("RibbonTrailMesh_fwrtk")
+shadow_mode = 0
 mesh_material_override = SubResource("ShaderMaterial_egbwy")
-min_draw_distance = 144.0
-particle_count = 331776
+min_draw_distance = 60.0
+particle_count = 230400
 metadata/_edit_lock_ = true
