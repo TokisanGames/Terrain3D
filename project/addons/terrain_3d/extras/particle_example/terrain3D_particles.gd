@@ -9,9 +9,9 @@ extends Node3D
 		_create_grid()
 
 ## Distance between instances
-@export_range(0.125, 2.0, 0.03125) var instance_spacing: float = 0.5:
+@export_range(0.125, 2.0, 0.015625) var instance_spacing: float = 0.5:
 	set(value):
-		instance_spacing = clamp(round(value * 16.0) * 0.0625, 0.125, 2.0)
+		instance_spacing = clamp(round(value * 64.0) * 0.015625, 0.125, 2.0)
 		rows = maxi(int(cell_width / instance_spacing), 1)
 		amount = rows * rows
 		_set_offsets()
@@ -174,7 +174,8 @@ func _create_grid() -> void:
 func _position_grid(pos: Vector3) -> void:
 	for i in particle_nodes.size():
 		var node = particle_nodes[i]
-		node.global_position = Vector3(pos.x, 0, pos.z) + offsets[i]
+		var snap = Vector3(pos.x, 0, pos.z).snapped(Vector3.ONE) + offsets[i]
+		node.global_position = (snap / instance_spacing).round() * instance_spacing
 		node.restart(true) # keep the same seed.
 
 func _destroy_grid() -> void:
@@ -197,8 +198,8 @@ func _physics_process(delta: float) -> void:
 	if terrain:
 		var camera := terrain.get_camera()
 		if camera:
-			if last_pos.distance_squared_to(camera.global_position) > 0.5:
-				var pos: Vector3 = Vector3(camera.global_position / instance_spacing).round() * instance_spacing
+			if last_pos.distance_squared_to(camera.global_position) > 1.0:
+				var pos: Vector3 = camera.global_position.snapped(Vector3.ONE)
 				_position_grid(pos)
 				RenderingServer.material_set_param(process_material.get_rid(), "camera_position", pos )
 				last_pos = camera.global_position
