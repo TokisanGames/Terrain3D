@@ -21,12 +21,12 @@
 #include "terrain_3d.h"
 #include "terrain_3d_util.h"
 
+// Initialize static member variable
+Terrain3D::DebugLevel Terrain3D::debug_level{ ERROR };
+
 ///////////////////////////
 // Private Functions
 ///////////////////////////
-
-// Initialize static member variable
-int Terrain3D::debug_level{ ERROR };
 
 void Terrain3D::_initialize() {
 	LOG(INFO, "Instantiating main subsystems");
@@ -417,9 +417,9 @@ Terrain3D::Terrain3D() {
 	}
 }
 
-void Terrain3D::set_debug_level(const int p_level) {
+void Terrain3D::set_debug_level(const DebugLevel p_level) {
 	LOG(INFO, "Setting debug level: ", p_level);
-	debug_level = CLAMP(p_level, 0, EXTREME);
+	debug_level = CLAMP(p_level, ERROR, EXTREME);
 }
 
 void Terrain3D::set_data_directory(String p_dir) {
@@ -978,6 +978,11 @@ void Terrain3D::_notification(const int p_what) {
 }
 
 void Terrain3D::_bind_methods() {
+	BIND_ENUM_CONSTANT(ERROR);
+	BIND_ENUM_CONSTANT(INFO);
+	BIND_ENUM_CONSTANT(DEBUG);
+	BIND_ENUM_CONSTANT(EXTREME);
+
 	BIND_ENUM_CONSTANT(SIZE_64);
 	BIND_ENUM_CONSTANT(SIZE_128);
 	BIND_ENUM_CONSTANT(SIZE_256);

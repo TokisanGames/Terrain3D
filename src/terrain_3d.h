@@ -28,6 +28,15 @@ class Terrain3D : public Node3D {
 	CLASS_NAME();
 
 public: // Constants
+	enum DebugLevel {
+		MESG = -2, // Always print except in release builds
+		WARN = -1, // Always print except in release builds
+		ERROR = 0, // Always print except in release builds
+		INFO = 1, // Print every function call and important entries
+		DEBUG = 2, // Print details within functions
+		EXTREME = 3, // Continuous operations like snapping
+	};
+
 	enum RegionSize {
 		SIZE_64 = 64,
 		SIZE_128 = 128,
@@ -110,7 +119,7 @@ private:
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
 
 public:
-	static int debug_level;
+	static DebugLevel debug_level; // Initialized in terrain_3d.cpp
 
 	Terrain3D();
 	~Terrain3D() {}
@@ -118,8 +127,8 @@ public:
 
 	// Terrain
 	String get_version() const { return _version; }
-	void set_debug_level(const int p_level);
-	int get_debug_level() const { return debug_level; }
+	void set_debug_level(const DebugLevel p_level);
+	DebugLevel get_debug_level() const { return debug_level; }
 	void set_data_directory(String p_dir);
 	String get_data_directory() const { return _data ? _data_directory : ""; }
 
@@ -244,5 +253,13 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Terrain3D::RegionSize);
+VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
+
+constexpr Terrain3D::DebugLevel MESG = Terrain3D::DebugLevel::MESG;
+constexpr Terrain3D::DebugLevel WARN = Terrain3D::DebugLevel::WARN;
+constexpr Terrain3D::DebugLevel ERROR = Terrain3D::DebugLevel::ERROR;
+constexpr Terrain3D::DebugLevel INFO = Terrain3D::DebugLevel::INFO;
+constexpr Terrain3D::DebugLevel DEBUG = Terrain3D::DebugLevel::DEBUG;
+constexpr Terrain3D::DebugLevel EXTREME = Terrain3D::DebugLevel::EXTREME;
 
 #endif // TERRAIN3D_CLASS_H

@@ -4,7 +4,9 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/time.hpp>
 
+#include "constants.h"
 #include "logger.h"
+#include "terrain_3d.h"
 #include "terrain_3d_data.h"
 #include "terrain_3d_editor.h"
 #include "terrain_3d_util.h"
