@@ -9,7 +9,9 @@
 
 #include "constants.h"
 #include "logger.h"
+#include "terrain_3d.h"
 #include "terrain_3d_collision.h"
+#include "terrain_3d_data.h"
 #include "terrain_3d_util.h"
 
 ///////////////////////////

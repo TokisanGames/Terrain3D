@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/standard_material3d.hpp>
 
 #include "logger.h"
+#include "terrain_3d_instancer.h"
 #include "terrain_3d_mesh_asset.h"
 
 ///////////////////////////

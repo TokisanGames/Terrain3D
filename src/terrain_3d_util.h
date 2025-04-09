@@ -9,6 +9,7 @@
 
 #include "constants.h"
 #include "generated_texture.h"
+#include "terrain_3d.h"
 
 using namespace godot;
 
