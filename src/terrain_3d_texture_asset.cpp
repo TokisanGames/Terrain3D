@@ -3,6 +3,7 @@
 #include <godot_cpp/classes/image.hpp>
 
 #include "logger.h"
+#include "terrain_3d.h"
 #include "terrain_3d_texture_asset.h"
 
 ///////////////////////////

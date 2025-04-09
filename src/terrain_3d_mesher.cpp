@@ -4,9 +4,9 @@
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/version.hpp>
 
-#include "terrain_3d_mesher.h"
-
 #include "logger.h"
+#include "terrain_3d.h"
+#include "terrain_3d_mesher.h"
 
 ///////////////////////////
 // Private Functions
