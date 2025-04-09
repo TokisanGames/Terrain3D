@@ -4,6 +4,7 @@
 
 #include "generated_texture.h"
 #include "logger.h"
+#include "terrain_3d.h"
 
 ///////////////////////////
 // Public Functions
