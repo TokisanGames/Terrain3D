@@ -33,7 +33,7 @@ constexpr Terrain3D::DebugLevel EXTREME = Terrain3D::DebugLevel::EXTREME;
 		UtilityFunctions::push_error(__class__, ":", __func__, ": ", __VA_ARGS__);   \
 	else if (level == WARN)                                                          \
 		UtilityFunctions::push_warning(__class__, ":", __func__, ": ", __VA_ARGS__); \
-	else if (Terrain3D::debug_level >= level)                                        \
+	else if (Terrain3D::debug_level >= Terrain3D::DebugLevel(level))                 \
 		UtilityFunctions::print(__class__, ":", __func__, ": ", __VA_ARGS__);
 #else
 #define LOG(...)
