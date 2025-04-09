@@ -5,6 +5,7 @@
 
 #include "constants.h"
 #include "generated_texture.h"
+#include "terrain_3d.h"
 #include "terrain_3d_region.h"
 
 class Terrain3D;
