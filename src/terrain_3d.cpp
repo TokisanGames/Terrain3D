@@ -122,6 +122,7 @@ void Terrain3D::__physics_process(const double p_delta) {
 		Vector3 cam_pos = _camera->get_global_position();
 		Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
 		RS->material_set_param(_material->get_material_rid(), "_camera_pos", cam_pos);
+
 		if (_camera_last_position.distance_to(cam_pos_2d) > 0.2f) {
 			if (_mesher) {
 				_mesher->snap(cam_pos);
@@ -130,6 +131,16 @@ void Terrain3D::__physics_process(const double p_delta) {
 			_camera_last_position = cam_pos_2d;
 			if (_collision && _collision->is_dynamic_mode()) {
 				_collision->update();
+			}
+		}
+
+		if (_enable_streaming && _data) {
+			static double stream_timer = 0.0;
+			stream_timer += p_delta;
+
+			if (stream_timer >= 0.1) {
+				stream_timer = 0.0;
+				_data->update_streaming(cam_pos);
 			}
 		}
 	}
@@ -798,6 +809,31 @@ void Terrain3D::set_warning(const uint8_t p_warning, const bool p_enabled) {
 	update_configuration_warnings();
 }
 
+void Terrain3D::set_enable_streaming(const bool p_enabled) {
+	LOG(INFO, "Setting enable streaming: ", p_enabled);
+	_enable_streaming = p_enabled;
+	if (_data) {
+		_data->set_enable_streaming(p_enabled);
+	}
+}
+
+bool Terrain3D::get_enable_streaming() const {
+	return _enable_streaming;
+}
+
+void Terrain3D::set_streaming_distance(const real_t p_distance) {
+	real_t distance = CLAMP(p_distance, 1.0f, 10000.0f);
+	LOG(INFO, "Setting streaming distance: ", distance);
+	_streaming_distance = distance;
+	if (_data) {
+		_data->set_streaming_distance(distance);
+	}
+}
+
+real_t Terrain3D::get_streaming_distance() const {
+	return _streaming_distance;
+}
+
 PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	PackedStringArray psa;
 	if (_data_directory.is_empty()) {
@@ -1015,6 +1051,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
 	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
 	ClassDB::bind_method(D_METHOD("get_label_size"), &Terrain3D::get_label_size);
+	ClassDB::bind_method(D_METHOD("set_enable_streaming", "enabled"), &Terrain3D::set_enable_streaming);
+	ClassDB::bind_method(D_METHOD("get_enable_streaming"), &Terrain3D::get_enable_streaming);
+	ClassDB::bind_method(D_METHOD("set_streaming_distance", "distance"), &Terrain3D::set_streaming_distance);
+	ClassDB::bind_method(D_METHOD("get_streaming_distance"), &Terrain3D::get_streaming_distance);
 
 	// Collision
 	ClassDB::bind_method(D_METHOD("set_collision_mode", "mode"), &Terrain3D::set_collision_mode);
@@ -1115,6 +1155,8 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "label_distance", PROPERTY_HINT_RANGE, "0.0,10000.0,0.5,or_greater"), "set_label_distance", "get_label_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "label_size", PROPERTY_HINT_RANGE, "24,128,1"), "set_label_size", "get_label_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid"), "set_show_region_grid", "get_show_region_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_streaming"), "set_enable_streaming", "get_enable_streaming");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "streaming_distance", PROPERTY_HINT_RANGE, "1.0,10000.0,0.5,or_greater"), "set_streaming_distance", "get_streaming_distance");
 
 	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");

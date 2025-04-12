@@ -33,6 +33,10 @@ private:
 	int _region_size = 0; // Set by Terrain3D::set_region_size
 	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
 	real_t _vertex_spacing = 1.f; // Set by Terrain3D::set_vertex_spacing
+	
+	// Region Streaming
+	bool _enable_streaming = false;
+	real_t _streaming_distance = 1000.0f;
 
 	AABB _edited_area;
 	Vector2 _master_height_range = V2_ZERO;
@@ -112,6 +116,13 @@ public:
 	void set_region_deleted(const Vector2i &p_region_loc, const bool p_deleted = true);
 	bool is_region_deleted(const Vector2i &p_region_loc) const;
 
+	// Region Streaming
+	void set_enable_streaming(const bool p_enabled);
+	bool get_enable_streaming() const { return _enable_streaming; }
+	void set_streaming_distance(const real_t p_distance);
+	real_t get_streaming_distance() const { return _streaming_distance; }
+	void update_streaming(const Vector3 &p_camera_pos, const int p_max_regions_per_update = 1);
+
 	Ref<Terrain3DRegion> add_region_blankp(const Vector3 &p_global_position, const bool p_update = true);
 	Ref<Terrain3DRegion> add_region_blank(const Vector2i &p_region_loc, const bool p_update = true);
 	Error add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update = true);
@@ -123,7 +134,7 @@ public:
 	void save_directory(const String &p_dir);
 	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false);
 	void load_directory(const String &p_dir);
-	void load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update = true);
+	bool load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update = true);
 
 	// Maps
 	TypedArray<Image> get_height_maps() const { return _height_maps; }

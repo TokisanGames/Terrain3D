@@ -78,6 +78,10 @@ private:
 	real_t _cull_margin = 0.0f;
 	bool _free_editor_textures = true;
 
+	// Region Streaming
+	bool _enable_streaming = false;
+	real_t _streaming_distance = 1000.0f;
+
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
 	Camera3D *_mouse_cam = nullptr;
@@ -150,6 +154,12 @@ public:
 	void set_label_size(const int p_size);
 	int get_label_size() const { return _label_size; }
 	void update_region_labels();
+
+	// Region Streaming (in Regions group)
+	void set_enable_streaming(const bool p_enabled);
+	bool get_enable_streaming() const;
+	void set_streaming_distance(const real_t p_distance);
+	real_t get_streaming_distance() const;
 
 	// Meshes
 	void set_mesh_lods(const int p_count);
