@@ -6,6 +6,8 @@
 #include "constants.h"
 #include "generated_texture.h"
 #include "terrain_3d_region.h"
+#include <godot_cpp/classes/mutex.hpp>
+#include <godot_cpp/classes/thread.hpp>
 
 class Terrain3D;
 
@@ -36,7 +38,7 @@ private:
 	
 	// Region Streaming
 	bool _enable_streaming = false;
-	real_t _streaming_distance = 1000.0f;
+	int _streaming_rings = 1;
 
 	AABB _edited_area;
 	Vector2 _master_height_range = V2_ZERO;
@@ -79,14 +81,28 @@ private:
 	GeneratedTexture _generated_control_maps;
 	GeneratedTexture _generated_color_maps;
 
+	// Threading for region streaming
+	bool _thread_exit = false;
+	bool _thread_running = false;
+	bool _thread_work_available = false;
+	Ref<Thread> _loading_thread;
+	Ref<Mutex> _loading_mutex;
+	Array _regions_to_load;
+	Dictionary _loaded_regions;
+
 	// Functions
 	void _clear();
 	void _copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
+	void _start_loading_thread();
+	void _stop_loading_thread();
+	void _loading_thread_func();
+	void _process_loaded_regions();
+	void _add_region_to_loading_queue(const Vector2i &p_region_loc, const String &p_dir);
 
 public:
-	Terrain3DData() {}
+	Terrain3DData();
 	void initialize(Terrain3D *p_terrain);
-	~Terrain3DData() { _clear(); }
+	~Terrain3DData();
 
 	// Regions
 
@@ -119,9 +135,15 @@ public:
 	// Region Streaming
 	void set_enable_streaming(const bool p_enabled);
 	bool get_enable_streaming() const { return _enable_streaming; }
+	void set_streaming_rings(const int p_rings);
+	int get_streaming_rings() const { return _streaming_rings; }
+	
+	// Backward compatibility
 	void set_streaming_distance(const real_t p_distance);
-	real_t get_streaming_distance() const { return _streaming_distance; }
-	void update_streaming(const Vector3 &p_camera_pos, const int p_max_regions_per_update = 1);
+	real_t get_streaming_distance() const;
+	
+	void update_streaming(const Vector3 &p_camera_pos);
+	void _process_streaming();
 
 	Ref<Terrain3DRegion> add_region_blankp(const Vector3 &p_global_position, const bool p_update = true);
 	Ref<Terrain3DRegion> add_region_blank(const Vector2i &p_region_loc, const bool p_update = true);
@@ -246,10 +268,16 @@ inline Ref<Terrain3DRegion> Terrain3DData::get_region(const Vector2i &p_region_l
 }
 
 inline Terrain3DRegion *Terrain3DData::get_region_ptr(const Vector2i &p_region_loc) const {
-	if (has_region(p_region_loc)) {
-		return cast_to<Terrain3DRegion>(_regions[p_region_loc]);
+	if (!_regions.has(p_region_loc)) {
+		return nullptr;
 	}
-	return nullptr;
+	
+	Object* obj = _regions[p_region_loc];
+	if (!obj) {
+		return nullptr;
+	}
+	
+	return cast_to<Terrain3DRegion>(obj);
 }
 
 inline Ref<Terrain3DRegion> Terrain3DData::get_regionp(const Vector3 &p_global_position) const {

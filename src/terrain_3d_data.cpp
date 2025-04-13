@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/time.hpp>
 
@@ -31,16 +32,45 @@ void Terrain3DData::_clear() {
 // Structured to work with do_for_regions. Should be renamed when copy_paste is expanded
 void Terrain3DData::_copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region) {
 	if (!p_src_region || !p_dst_region) {
+		LOG(ERROR, "Copy-paste source or destination region is null");
 		return;
 	}
+	
+	LOG(DEBUG, "Copying from region ", p_src_region->get_location(), " rect ", p_src_rect, 
+		" to region ", p_dst_region->get_location(), " rect ", p_dst_rect);
+		
 	TypedArray<Image> src_maps = p_src_region->get_maps();
 	TypedArray<Image> dst_maps = p_dst_region->get_maps();
+	
+	// Check sizes are compatible
+	if (src_maps.size() != dst_maps.size()) {
+		LOG(ERROR, "Source and destination map arrays have different sizes");
+		return;
+	}
+	
+	// Copy each map type (height, control, color)
 	for (int i = 0; i < dst_maps.size(); i++) {
 		Image *img = cast_to<Image>(dst_maps[i]);
-		if (img) {
-			img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
+		Image *src_img = cast_to<Image>(src_maps[i]);
+		if (img && src_img) {
+			// Make sure rect sizes are valid for the images
+			if (p_src_rect.position.x >= 0 && p_src_rect.position.y >= 0 && 
+				p_src_rect.get_end().x <= src_img->get_width() && p_src_rect.get_end().y <= src_img->get_height() &&
+				p_dst_rect.position.x >= 0 && p_dst_rect.position.y >= 0 &&
+				p_dst_rect.position.x + p_src_rect.size.x <= img->get_width() &&
+				p_dst_rect.position.y + p_src_rect.size.y <= img->get_height()) {
+				
+				// Blit the rectangle from source to destination
+				img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
+			} else {
+				LOG(WARN, "Invalid rect dimensions for copy: src_rect=", p_src_rect, 
+					" (img size: ", src_img->get_size(), "), dst_rect=", p_dst_rect, 
+					" (img size: ", img->get_size(), ")");
+			}
 		}
 	}
+	
+	// Copy instancer data (trees, grass, etc.)
 	_terrain->get_instancer()->copy_paste_dfr(p_src_region, p_src_rect, p_dst_region);
 }
 
@@ -112,6 +142,21 @@ void Terrain3DData::do_for_regions(const Rect2i &p_area, const Callable &p_callb
 	}
 }
 
+/**
+ * Changes the region size by subdividing or consolidating regions.
+ *
+ * When reducing region size (subdividing):
+ * - Each original region is split into multiple smaller regions
+ * - Data is copied directly from the original region to the new regions
+ * - The actual terrain dimensions remain unchanged
+ * - Loading performance improves as only needed smaller regions can be loaded
+ *
+ * When increasing region size (consolidating):
+ * - Multiple smaller regions are combined into larger regions
+ * - Data is copied from overlapping regions to the new larger regions
+ *
+ * @param p_new_size The new region size (must be power of 2: 64, 128, 256, 512, 1024, 2048)
+ */
 void Terrain3DData::change_region_size(int p_new_size) {
 	LOG(INFO, "Changing region size from: ", _region_size, " to ", p_new_size);
 	if (p_new_size < 64 || p_new_size > 2048 || !is_power_of_2(p_new_size)) {
@@ -122,56 +167,116 @@ void Terrain3DData::change_region_size(int p_new_size) {
 		return;
 	}
 
-	// Get current region corners expressed in new region_size coordinates
+	float size_ratio = float(_region_size) / float(p_new_size);
+	int regions_per_dimension = p_new_size < _region_size ? _region_size / p_new_size : 1;
+	LOG(INFO, "Region size change: old=", _region_size, ", new=", p_new_size, 
+		", subdivision factor=", regions_per_dimension);
+
+	TypedArray<Terrain3DRegion> old_regions = get_regions_active(true, false);
 	Dictionary new_region_points;
-	Array locs = _regions.keys();
-	for (int i = 0; i < locs.size(); i++) {
-		Terrain3DRegion *region = get_region_ptr(locs[i]);
-		if (region && !region->is_deleted()) {
-			Point2i region_position = region->get_location() * _region_size;
-			Rect2i location_bounds(V2I_DIVIDE_FLOOR(region_position, p_new_size), V2I_DIVIDE_CEIL(_region_sizev, p_new_size));
-			for (int y = location_bounds.position.y; y < location_bounds.get_end().y; y++) {
-				for (int x = location_bounds.position.x; x < location_bounds.get_end().x; x++) {
-					new_region_points[Point2i(x, y)] = 1;
+
+	if (p_new_size < _region_size) {
+		LOG(INFO, "Subdividing ", old_regions.size(), " regions, each into ", regions_per_dimension * regions_per_dimension, " parts");
+
+		TypedArray<Terrain3DRegion> new_regions;
+		for (int i = 0; i < old_regions.size(); i++) {
+			Terrain3DRegion *old_region = cast_to<Terrain3DRegion>(old_regions[i]);
+			if (old_region && !old_region->is_deleted()) {
+				Point2i old_region_loc = old_region->get_location();
+
+				// Generate new region locations that cover the old region
+				for (int y = 0; y < regions_per_dimension; y++) {
+					for (int x = 0; x < regions_per_dimension; x++) {
+						Point2i new_region_loc = Point2i(
+							old_region_loc.x * regions_per_dimension + x,
+							old_region_loc.y * regions_per_dimension + y
+						);
+
+						Ref<Terrain3DRegion> new_region;
+						new_region.instantiate();
+						new_region->set_location(new_region_loc);
+						new_region->set_region_size(p_new_size);
+						new_region->set_vertex_spacing(_vertex_spacing);
+						new_region->set_modified(true);
+						new_region->sanitize_maps();
+
+						Point2i src_start = Point2i(x * p_new_size, y * p_new_size);
+						Rect2i src_rect(src_start, Vector2i(p_new_size, p_new_size));
+						Rect2i dst_rect(Vector2i(0, 0), Vector2i(p_new_size, p_new_size));
+
+						TypedArray<Image> src_maps = old_region->get_maps();
+						TypedArray<Image> dst_maps = new_region->get_maps();
+
+						for (int map_i = 0; map_i < dst_maps.size(); map_i++) {
+							Image *dst_img = cast_to<Image>(dst_maps[map_i]);
+							Image *src_img = cast_to<Image>(src_maps[map_i]);
+							if (dst_img && src_img) {
+								dst_img->blit_rect(src_img, src_rect, Vector2i(0, 0));
+							}
+						}
+
+						_terrain->get_instancer()->copy_paste_dfr(old_region, src_rect, new_region.ptr());
+						new_regions.push_back(new_region);
+					}
 				}
 			}
 		}
+
+		_terrain->get_instancer()->destroy();
+		for (int i = 0; i < old_regions.size(); i++) {
+			remove_region(old_regions[i], false);
+		}
+
+		_terrain->set_region_size((Terrain3D::RegionSize)p_new_size);
+
+		for (int i = 0; i < new_regions.size(); i++) {
+			add_region(new_regions[i], false);
+		}
 	}
 
-	// Make new regions to receive copied data
-	TypedArray<Terrain3DRegion> new_regions;
-	Array keys = new_region_points.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		Point2i loc = keys[i];
-		Ref<Terrain3DRegion> new_region;
-		new_region.instantiate();
-		new_region->set_location(loc);
-		new_region->set_region_size(p_new_size);
-		new_region->set_vertex_spacing(_vertex_spacing);
-		new_region->set_modified(true);
-		new_region->sanitize_maps();
+	else {
 
-		// Copy current data from current into new region, up to new region size
-		Rect2i area;
-		area.position = loc * p_new_size;
-		area.size = Vector2i(p_new_size, p_new_size);
-		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste_dfr).bind(new_region.ptr()));
-		new_regions.push_back(new_region);
-	}
+		LOG(INFO, "Consolidating regions to larger size: ", p_new_size);
+		Array locs = _regions.keys();
+		for (int i = 0; i < locs.size(); i++) {
+			Terrain3DRegion *region = get_region_ptr(locs[i]);
+			if (region && !region->is_deleted()) {
+				Point2i region_position = region->get_location() * _region_size;
 
-	// Remove old data
-	_terrain->get_instancer()->destroy();
-	TypedArray<Terrain3DRegion> old_regions = get_regions_active();
-	for (int i = 0; i < old_regions.size(); i++) {
-		remove_region(old_regions[i], false);
-	}
+				Point2i new_region_loc = V2I_DIVIDE_FLOOR(region_position, p_new_size);
+				new_region_points[new_region_loc] = 1;
+			}
+		}
 
-	// Change region size
-	_terrain->set_region_size((Terrain3D::RegionSize)p_new_size);
+		TypedArray<Terrain3DRegion> new_regions;
+		Array keys = new_region_points.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			Point2i loc = keys[i];
+			Ref<Terrain3DRegion> new_region;
+			new_region.instantiate();
+			new_region->set_location(loc);
+			new_region->set_region_size(p_new_size);
+			new_region->set_vertex_spacing(_vertex_spacing);
+			new_region->set_modified(true);
+			new_region->sanitize_maps();
 
-	// Add new regions and rebuild
-	for (int i = 0; i < new_regions.size(); i++) {
-		add_region(new_regions[i], false);
+			Rect2i area;
+			area.position = loc * p_new_size;
+			area.size = Vector2i(p_new_size, p_new_size);
+			do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste_dfr).bind(new_region.ptr()));
+			new_regions.push_back(new_region);
+		}
+
+		_terrain->get_instancer()->destroy();
+		for (int i = 0; i < old_regions.size(); i++) {
+			remove_region(old_regions[i], false);
+		}
+
+		_terrain->set_region_size((Terrain3D::RegionSize)p_new_size);
+
+		for (int i = 0; i < new_regions.size(); i++) {
+			add_region(new_regions[i], false);
+		}
 	}
 
 	calc_height_range(true);
@@ -204,26 +309,40 @@ void Terrain3DData::set_region_deleted(const Vector2i &p_region_loc, const bool 
 		return;
 	}
 
+	LOG(INFO, "Setting region ", p_region_loc, " deleted state to: ", p_deleted);
+	region->set_deleted(p_deleted);
+
 	if (p_deleted) {
 		int region_id = _region_locations.find(p_region_loc);
 		if (region_id >= 0) {
+			LOG(DEBUG, "Removing from region_locations: ", p_region_loc);
 			_region_locations.remove_at(region_id);
 			_region_map_dirty = true;
+		} else {
+			LOG(WARN, "Region ", p_region_loc, " not found in region_locations when marking as deleted");
 		}
 	}
 
 	else {
 		if (!_region_locations.has(p_region_loc)) {
+			LOG(DEBUG, "Adding back to region_locations: ", p_region_loc);
 			_region_locations.push_back(p_region_loc);
 			_region_map_dirty = true;
+		} else {
+			LOG(DEBUG, "Region ", p_region_loc, " already in region_locations when marking as not deleted");
 		}
 	}
 }
 
 bool Terrain3DData::is_region_deleted(const Vector2i &p_region_loc) const {
+
+	if (!_regions.has(p_region_loc)) {
+		return true;
+	}
+
 	Terrain3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region) {
-		LOG(ERROR, "Region not found at: ", p_region_loc);
+		LOG(DEBUG, "Region exists in dictionary but failed to get pointer for: ", p_region_loc);
 		return true;
 	}
 	return region->is_deleted();
@@ -412,65 +531,23 @@ void Terrain3DData::load_directory(const String &p_dir) {
 
 bool Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update) {
 
-	PackedStringArray filename_variants;
-
-	String x_separator = (p_region_loc.x >= 0) ? "_" : "-";
-	String y_separator = (p_region_loc.y >= 0) ? "_" : "-";
-
-	String x_value = String::num_int64(abs(p_region_loc.x));
-	String y_value = String::num_int64(abs(p_region_loc.y));
-
-	if (abs(p_region_loc.x) < 10) x_value = "0" + x_value;
-	if (abs(p_region_loc.y) < 10) y_value = "0" + y_value;
-
-	String primary_filename = "terrain3d" + x_separator + x_value + y_separator + y_value + ".res";
-	filename_variants.push_back(primary_filename);
-
-	String non_padded = "terrain3d" + x_separator + String::num_int64(abs(p_region_loc.x)) + 
-		y_separator + String::num_int64(abs(p_region_loc.y)) + ".res";
-	if (non_padded != primary_filename) {
-		filename_variants.push_back(non_padded);
+	if (_region_locations.has(p_region_loc) && !is_region_deleted(p_region_loc)) {
+		return true;
 	}
 
-	String util_filename = Util::location_to_filename(p_region_loc);
-	if (!filename_variants.has(util_filename)) {
-		filename_variants.push_back(util_filename);
-	}
-
-	String found_path;
-	for (int i = 0; i < filename_variants.size(); i++) {
-		String test_path = p_dir + String("/") + filename_variants[i];
-		if (FileAccess::file_exists(test_path)) {
-			found_path = test_path;
-			LOG(INFO, "Found region file at: ", found_path);
-			break;
+	if (_regions.has(p_region_loc)) {
+		Terrain3DRegion *region = get_region_ptr(p_region_loc);
+		if (region && region->is_deleted()) {
+			set_region_deleted(p_region_loc, false);
+			if (p_update) {
+				update_maps(TYPE_MAX, true, false);
+			}
+			return true;
 		}
 	}
 
-	if (found_path.is_empty()) {
-		LOG(ERROR, "No region file found at location ", p_region_loc, " in directory ", p_dir);
-		LOG(ERROR, "Tried filenames: ", filename_variants);
-		return false;
-	}
-
-	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(found_path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
-	if (region.is_null()) {
-		LOG(ERROR, "Cannot load region at ", found_path);
-		return false;
-	}
-	if (_regions.is_empty()) {
-		_terrain->set_region_size((Terrain3D::RegionSize)region->get_region_size());
-	} else {
-		if (_terrain->get_region_size() != (Terrain3D::RegionSize)region->get_region_size()) {
-			LOG(ERROR, "Region size mismatch. First loaded: ", _terrain->get_region_size(), " next: ",
-					region->get_region_size(), " in file: ", found_path);
-			return false;
-		}
-	}
-	region->take_over_path(found_path);
-	region->set_location(p_region_loc);
-	region->set_version(CURRENT_VERSION); // Sends upgrade warning if old version
-	return add_region(region, p_update) == OK;
+	_add_region_to_loading_queue(p_region_loc, p_dir);
+	return true;
 }
 
 TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
@@ -1173,19 +1250,30 @@ void Terrain3DData::set_enable_streaming(const bool p_enabled) {
 	_enable_streaming = p_enabled;
 }
 
-void Terrain3DData::set_streaming_distance(const real_t p_distance) {
-	_streaming_distance = CLAMP(p_distance, 1.0f, 10000.0f);
+void Terrain3DData::set_streaming_rings(const int p_rings) {
+	_streaming_rings = CLAMP(p_rings, 1, REGION_MAP_SIZE/2 - 1);
 }
 
-void Terrain3DData::update_streaming(const Vector3 &p_camera_pos, const int p_max_regions_per_update) {
+void Terrain3DData::update_streaming(const Vector3 &p_camera_pos) {
 	if (!_enable_streaming || !_terrain) {
 		return;
 	}
 
+	_process_streaming();
+
 	Vector2i camera_region_loc = get_region_location(p_camera_pos);
 
-	int region_distance = (int)(_streaming_distance / (_region_size * _vertex_spacing));
-	if (region_distance < 1) region_distance = 1;
+	if (get_region_map_index(camera_region_loc) < 0) {
+		Vector2i clamped_loc = camera_region_loc;
+		int half_size = REGION_MAP_SIZE / 2;
+		clamped_loc.x = CLAMP(clamped_loc.x, -half_size, half_size - 1);
+		clamped_loc.y = CLAMP(clamped_loc.y, -half_size, half_size - 1);
+
+		LOG(INFO, "Camera region location ", camera_region_loc, " out of bounds. Clamped to ", clamped_loc);
+		camera_region_loc = clamped_loc;
+	}
+
+	int region_distance = _streaming_rings;
 
 	static Dictionary available_files;
 	static String last_dir;
@@ -1194,146 +1282,110 @@ void Terrain3DData::update_streaming(const Vector3 &p_camera_pos, const int p_ma
 
 	String current_dir = _terrain->get_data_directory();
 
-	if (current_dir != last_dir || available_files.is_empty() || (current_time - last_scan_time > 10.0)) {
+	if (current_dir != last_dir || available_files.is_empty() || (current_time - last_scan_time > 2.0)) {
 		available_files.clear();
 
 		if (!current_dir.is_empty()) {
+			LOG(INFO, "Scanning directory for region files: ", current_dir);
 			PackedStringArray files = Util::get_files(current_dir, "terrain3d*.res");
 			for (int i = 0; i < files.size(); i++) {
 				Vector2i loc = Util::filename_to_location(files[i]);
 				if (loc != V2I_MAX) { // Valid location
 					available_files[loc] = files[i];
+					LOG(DEBUG, "Found region file: ", files[i], " at location ", loc);
 				}
 			}
-			LOG(DEBUG, "Scanned directory, found ", available_files.size(), " region files");
+			LOG(INFO, "Found ", available_files.size(), " region files in directory");
 		}
 
 		last_dir = current_dir;
 		last_scan_time = current_time;
 	}
 
-	bool modified = false;
 	Dictionary regions_to_keep;
+	bool modified = false;
 
-	if (!has_region(camera_region_loc)) {
-		// Load region from disk if available
-		if (available_files.has(camera_region_loc)) {
-			String filename = available_files[camera_region_loc];
-			String path = current_dir + "/" + filename;
+	if (!_region_locations.has(camera_region_loc)) {
 
-			Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
-			if (region.is_valid()) {
-				region->take_over_path(path);
-				region->set_location(camera_region_loc);
-				add_region(region, false);
+		if (_regions.has(camera_region_loc)) {
+			Terrain3DRegion *region = get_region_ptr(camera_region_loc);
+			if (region && region->is_deleted()) {
+				LOG(INFO, "Undeleting camera region at: ", camera_region_loc);
+				set_region_deleted(camera_region_loc, false);
 				modified = true;
 			}
 		}
+
+		else if (available_files.has(camera_region_loc)) {
+			LOG(INFO, "Queueing camera region for loading at: ", camera_region_loc);
+			_add_region_to_loading_queue(camera_region_loc, current_dir);
+		}
+
 		else {
-			// Create blank region if file doesn't exist
+			LOG(INFO, "Creating new blank region at camera location: ", camera_region_loc);
 			add_region_blank(camera_region_loc, false);
 			modified = true;
 		}
 	}
-	else if (is_region_deleted(camera_region_loc)) {
-		set_region_deleted(camera_region_loc, false);
-		modified = true;
-	}
 
-	// Keep region under camera
 	regions_to_keep[camera_region_loc] = true;
 
+	int max_regions_to_queue = 5;
+	int regions_queued = 0;
 
-	Dictionary regions_by_priority;
-	Array priorities;
+	for (int x = camera_region_loc.x - region_distance; x <= camera_region_loc.x + region_distance; x++) {
+		for (int z = camera_region_loc.y - region_distance; z <= camera_region_loc.y + region_distance; z++) {
+			Vector2i region_loc(x, z);
 
-	int max_dist = region_distance * 2;
-
-	// Build region spiral pattern
-	for (int z = -max_dist; z <= max_dist; z++) {
-		for (int x = -max_dist; x <= max_dist; x++) {
-			if (x == 0 && z == 0) continue;
-
-			Vector2i offset(x, z);
-			Vector2i region_loc = camera_region_loc + offset;
-
-			// Calculate distance - manhattan distance is faster
-			int distance = ABS(x) + ABS(z);
-			if (distance <= region_distance) {
-				regions_to_keep[region_loc] = true;
-
-				// Priority, lower is more important
-				int priority = distance;
-
-				// Bias toward visible regions
-				if (ABS(x) <= 2 && z >= 0 && z <= 4) {
-					priority -= 2; // Higher priority for regions in front of camera
-				}
-
-				// Add to priority list
-				if (!regions_by_priority.has(priority)) {
-					regions_by_priority[priority] = Array();
-					priorities.push_back(priority);
-				}
-				Array regions_at_priority = regions_by_priority[priority];
-				regions_at_priority.push_back(region_loc);
-				regions_by_priority[priority] = regions_at_priority;
-			}
-		}
-	}
-
-
-	priorities.sort();
-
-	int regions_loaded = 0;
-	int max_regions_to_load = p_max_regions_per_update;
-
-	for (int i = 0; i < priorities.size(); i++) {
-		if (regions_loaded >= max_regions_to_load) {
-			break;
-
-		}
-		int priority = priorities[i];
-		Array regions_at_priority = regions_by_priority[priority];
-
-		for (int j = 0; j < regions_at_priority.size(); j++) {
-			if (regions_loaded >= max_regions_to_load) {
-				break;
+			if (get_region_map_index(region_loc) < 0) {
+				continue;
 			}
 
-			Vector2i region_loc = regions_at_priority[j];
+			regions_to_keep[region_loc] = true;
+
+			if (_region_locations.has(region_loc)) {
+				continue;
+			}
+
+			Vector2i diff = region_loc - camera_region_loc;
+			int manhattan_distance = abs(diff.x) + abs(diff.y);
+
+			if (manhattan_distance > region_distance) {
+				continue;
+			}
 
 			if (_regions.has(region_loc)) {
 				Terrain3DRegion *region = get_region_ptr(region_loc);
-				if (region && region->is_deleted()) {
-
-					if (priority <= region_distance / 2) {
+				if (region) {
+					if (region->is_deleted()) {
+						LOG(INFO, "Undeleting region at: ", region_loc);
 						set_region_deleted(region_loc, false);
 						modified = true;
-						regions_loaded++;
-					}
-				}
-			} 
+					} else if (!_region_locations.has(region_loc)) {
 
-			else if (available_files.has(region_loc)) {
-
-				if (priority <= region_distance / 2) {
-					String filename = available_files[region_loc];
-					String path = current_dir + "/" + filename;
-
-					Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
-					if (region.is_valid()) {
-						region->take_over_path(path);
-						region->set_location(region_loc);
-						add_region(region, false);
+						LOG(INFO, "Re-adding active region to locations: ", region_loc);
+						_region_locations.push_back(region_loc);
+						_region_map_dirty = true;
 						modified = true;
-						regions_loaded++;
 					}
+					continue;
 				}
+			}
+
+			if (available_files.has(region_loc) && regions_queued < max_regions_to_queue) {
+				LOG(INFO, "Loading region from disk at: ", region_loc);
+				_add_region_to_loading_queue(region_loc, current_dir);
+				regions_queued++;
+				continue;
+			}
+
+			if (manhattan_distance <= region_distance / 2) {
+				LOG(INFO, "Creating new blank region at: ", region_loc);
+				add_region_blank(region_loc, false);
+				modified = true;
 			}
 		}
 	}
-
 
 	TypedArray<Vector2i> regions_to_remove;
 	for (int i = 0; i < _region_locations.size(); i++) {
@@ -1343,10 +1395,11 @@ void Terrain3DData::update_streaming(const Vector3 &p_camera_pos, const int p_ma
 		}
 	}
 
-
+	LOG(DEBUG, "Marking ", regions_to_remove.size(), " regions for deletion");
 	for (int i = 0; i < regions_to_remove.size(); i++) {
 		Vector2i region_loc = regions_to_remove[i];
 		if (has_region(region_loc) && !is_region_deleted(region_loc)) {
+			LOG(INFO, "Marking region for deletion at: ", region_loc);
 			set_region_deleted(region_loc, true);
 			modified = true;
 		}
@@ -1356,26 +1409,62 @@ void Terrain3DData::update_streaming(const Vector3 &p_camera_pos, const int p_ma
 	int cleanup_distance = region_distance + 3;
 	Array regions_keys = _regions.keys();
 
+	int regions_saved = 0;
+	int regions_removed = 0;
+	LOG(DEBUG, "Checking ", regions_keys.size(), " regions for cleanup");
 	for (int i = 0; i < regions_keys.size(); i++) {
 		Vector2i region_loc = regions_keys[i];
 
-		int distance = (region_loc - camera_region_loc).length();
-		if (distance > cleanup_distance) {
+		if (_region_locations.has(region_loc)) {
+			continue;
+		}
+
+		Vector2i diff = region_loc - camera_region_loc;
+		int manhattan_distance = abs(diff.x) + abs(diff.y);
+
+		if (manhattan_distance > cleanup_distance) {
+
+			if (!_regions.has(region_loc)) {
+				continue;
+			}
+
 			Terrain3DRegion *region = get_region_ptr(region_loc);
-			if (region && region->is_deleted()) {
+			if (!region) {
+
+				LOG(WARN, "Invalid region reference found at ", region_loc, ", removing");
+				_regions.erase(region_loc);
+				regions_removed++;
+				continue;
+			}
+
+			if (region->is_deleted()) {
 
 				if (region->is_modified() && !current_dir.is_empty()) {
-					save_region(region_loc, current_dir, false);
+					LOG(INFO, "Saving modified region before cleanup: ", region_loc);
+					save_region(region_loc, current_dir, _terrain->get_save_16_bit());
+					regions_saved++;
 				}
 
 				_regions.erase(region_loc);
+				regions_removed++;
 			}
 		}
 	}
 
 	if (modified) {
-		update_maps();
+		LOG(INFO, "Updating maps due to region changes");
+		_region_map_dirty = true;
+		update_maps(TYPE_MAX, true, false);
 	}
+}
+
+
+void Terrain3DData::set_streaming_distance(const real_t p_distance) {
+	_streaming_rings = CLAMP(int(p_distance / (_region_size * _vertex_spacing)), 1, 20);
+}
+
+real_t Terrain3DData::get_streaming_distance() const {
+	return _streaming_rings * (_region_size * _vertex_spacing);
 }
 
 ///////////////////////////
@@ -1476,9 +1565,13 @@ void Terrain3DData::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_enable_streaming", "enabled"), &Terrain3DData::set_enable_streaming);
 	ClassDB::bind_method(D_METHOD("get_enable_streaming"), &Terrain3DData::get_enable_streaming);
+	ClassDB::bind_method(D_METHOD("set_streaming_rings", "rings"), &Terrain3DData::set_streaming_rings);
+	ClassDB::bind_method(D_METHOD("get_streaming_rings"), &Terrain3DData::get_streaming_rings);
 	ClassDB::bind_method(D_METHOD("set_streaming_distance", "distance"), &Terrain3DData::set_streaming_distance);
 	ClassDB::bind_method(D_METHOD("get_streaming_distance"), &Terrain3DData::get_streaming_distance);
-	ClassDB::bind_method(D_METHOD("update_streaming", "camera_position", "max_regions_per_update"), &Terrain3DData::update_streaming, DEFVAL(1));
+	ClassDB::bind_method(D_METHOD("update_streaming", "camera_position"), &Terrain3DData::update_streaming);
+	ClassDB::bind_method(D_METHOD("_process_streaming"), &Terrain3DData::_process_streaming);
+	ClassDB::bind_method(D_METHOD("_loading_thread_func"), &Terrain3DData::_loading_thread_func);
 
 	int ro_flags = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_locations", PROPERTY_HINT_ARRAY_TYPE, vformat("%tex_size/%tex_size:%tex_size", Variant::VECTOR2, PROPERTY_HINT_NONE), ro_flags), "set_region_locations", "get_region_locations");
@@ -1492,4 +1585,240 @@ void Terrain3DData::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("control_maps_changed"));
 	ADD_SIGNAL(MethodInfo("color_maps_changed"));
 	ADD_SIGNAL(MethodInfo("maps_edited", PropertyInfo(Variant::AABB, "edited_area")));
+}
+
+
+Terrain3DData::Terrain3DData() {
+	_loading_mutex.instantiate();
+	_loading_thread.instantiate();
+	_start_loading_thread();
+}
+
+Terrain3DData::~Terrain3DData() {
+	_stop_loading_thread();
+	_clear();
+}
+
+void Terrain3DData::_start_loading_thread() {
+	if (_thread_running) {
+		return;
+	}
+
+	_thread_exit = false;
+	_thread_work_available = false;
+	_thread_running = true;
+
+	Callable callable = Callable(this, "_loading_thread_func");
+	_loading_thread->start(callable);
+}
+
+void Terrain3DData::_stop_loading_thread() {
+	if (!_thread_running) {
+		return;
+	}
+
+	_thread_exit = true;
+
+	_loading_mutex->lock();
+	_thread_work_available = true;
+	_loading_mutex->unlock();
+	_loading_thread->wait_to_finish();
+	_thread_running = false;
+}
+
+void Terrain3DData::_loading_thread_func() {
+	while (!_thread_exit) {
+
+		bool has_work = false;
+		Array regions_to_load;
+
+		_loading_mutex->lock();
+		has_work = _thread_work_available && _regions_to_load.size() > 0;
+		if (has_work) {
+			regions_to_load = _regions_to_load.duplicate();
+			_regions_to_load.clear();
+		}
+		_thread_work_available = false;
+		_loading_mutex->unlock();
+
+		if (!has_work) {
+			OS::get_singleton()->delay_msec(100);
+			continue;
+		}
+
+		for (int i = 0; i < regions_to_load.size(); i++) {
+			if (_thread_exit) {
+				break;
+			}
+
+			Dictionary region_data = regions_to_load[i];
+			Vector2i region_loc = region_data["location"];
+			String directory = region_data["directory"];
+
+			LOG(INFO, "Thread loading region from location ", region_loc);
+
+
+			_loading_mutex->lock();
+			bool already_loaded = _loaded_regions.has(region_loc);
+			_loading_mutex->unlock();
+
+			if (already_loaded) {
+				LOG(DEBUG, "Region at ", region_loc, " already queued for loading, skipping");
+				continue;
+			}
+
+			PackedStringArray filename_variants;
+
+			String x_separator = (region_loc.x >= 0) ? "_" : "-";
+			String y_separator = (region_loc.y >= 0) ? "_" : "-";
+
+			String x_value = String::num_int64(abs(region_loc.x));
+			String y_value = String::num_int64(abs(region_loc.y));
+
+			if (abs(region_loc.x) < 10) x_value = "0" + x_value;
+			if (abs(region_loc.y) < 10) y_value = "0" + y_value;
+
+			String primary_filename = "terrain3d" + x_separator + x_value + y_separator + y_value + ".res";
+			filename_variants.push_back(primary_filename);
+
+			String non_padded = "terrain3d" + x_separator + String::num_int64(abs(region_loc.x)) + 
+				y_separator + String::num_int64(abs(region_loc.y)) + ".res";
+			if (non_padded != primary_filename) {
+				filename_variants.push_back(non_padded);
+			}
+
+			String util_filename = Util::location_to_filename(region_loc);
+			if (!filename_variants.has(util_filename)) {
+				filename_variants.push_back(util_filename);
+			}
+
+			String variants_str;
+			for (int j = 0; j < filename_variants.size(); j++) {
+				if (j > 0) variants_str += ", ";
+				variants_str += filename_variants[j];
+			}
+
+			String found_path;
+			for (int j = 0; j < filename_variants.size(); j++) {
+				String test_path = directory + String("/") + filename_variants[j];
+
+				if (FileAccess::file_exists(test_path)) {
+					found_path = test_path;
+					LOG(INFO, "Thread found region file at: ", found_path);
+					break;
+				} else {
+					LOG(DEBUG, "File not found: ", test_path);
+				}
+			}
+
+			if (!found_path.is_empty()) {
+				LOG(INFO, "Thread loading resource from: ", found_path);
+
+				Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(found_path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+
+				if (region.is_valid()) {
+					LOG(INFO, "Thread successfully loaded region at ", region_loc);
+
+					region->take_over_path(found_path);
+					region->set_location(region_loc);
+					region->set_version(CURRENT_VERSION);
+
+
+					_loading_mutex->lock();
+					_loaded_regions[region_loc] = region;
+					_loading_mutex->unlock();
+				} else {
+					LOG(ERROR, "Thread failed to load region from ", found_path);
+				}
+			} else {
+				LOG(INFO, "Thread could not find any region file variants for ", region_loc);
+			}
+		}
+	}
+}
+
+void Terrain3DData::_add_region_to_loading_queue(const Vector2i &p_region_loc, const String &p_dir) {
+	_loading_mutex->lock();
+
+	bool already_queued = false;
+	for (int i = 0; i < _regions_to_load.size(); i++) {
+		Dictionary item = _regions_to_load[i];
+		if (item["location"] == p_region_loc) {
+			already_queued = true;
+			break;
+		}
+	}
+
+	if (!already_queued) {
+		Dictionary region_data;
+		region_data["location"] = p_region_loc;
+		region_data["directory"] = p_dir;
+		_regions_to_load.push_back(region_data);
+		_thread_work_available = true;
+	}
+
+	_loading_mutex->unlock();
+}
+
+void Terrain3DData::_process_streaming() {
+
+	if (_loaded_regions.size() > 0) {
+		LOG(INFO, "Processing ", _loaded_regions.size(), " loaded regions");
+
+		_loading_mutex->lock();
+		Dictionary loaded_regions = _loaded_regions.duplicate();
+		_loaded_regions.clear();
+		_loading_mutex->unlock();
+
+		Dictionary processed_regions;
+
+		Array region_locs = loaded_regions.keys();
+		int added = 0;
+		int restored = 0;
+
+		for (int i = 0; i < region_locs.size(); i++) {
+			Vector2i region_loc = region_locs[i];
+
+			if (processed_regions.has(region_loc)) {
+				continue;
+			}
+			processed_regions[region_loc] = true;
+
+			Ref<Terrain3DRegion> region = loaded_regions[region_loc];
+
+			if (region.is_valid()) {
+
+				if (_regions.has(region_loc)) {
+					Terrain3DRegion *existing_region = get_region_ptr(region_loc);
+					if (existing_region && existing_region->is_deleted()) {
+						LOG(INFO, "Restoring deleted region at ", region_loc);
+						set_region_deleted(region_loc, false);
+						restored++;
+					} else if (!_region_locations.has(region_loc)) {
+						LOG(WARN, "Region at ", region_loc, " exists but not in active locations, restoring");
+						_region_locations.push_back(region_loc);
+						_region_map_dirty = true;
+						restored++;
+					} else {
+						LOG(DEBUG, "Region at ", region_loc, " already loaded, skipping");
+					}
+				} else {
+					LOG(INFO, "Adding newly loaded region at ", region_loc);
+					if (add_region(region, false) == OK) {
+						added++;
+					} else {
+						LOG(ERROR, "Failed to add region at ", region_loc);
+					}
+				}
+			} else {
+				LOG(ERROR, "Invalid region loaded for location ", region_loc);
+			}
+		}
+
+		if (added > 0 || restored > 0) {
+			LOG(INFO, "Updating maps with newly loaded regions");
+			_region_map_dirty = true;
+			update_maps(TYPE_MAX, true, false);
+		}
+	}
 }
