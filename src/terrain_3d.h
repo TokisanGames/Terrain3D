@@ -28,6 +28,13 @@ class Terrain3D : public Node3D {
 	CLASS_NAME();
 
 public: // Constants
+	enum DebugLevel {
+		ERROR = 0, // Always print
+		INFO = 1,
+		DEBUG = 2,
+		EXTREME = 3,
+	};
+
 	enum RegionSize {
 		SIZE_64 = 64,
 		SIZE_128 = 128,
@@ -110,7 +117,7 @@ private:
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
 
 public:
-	static int debug_level;
+	static DebugLevel debug_level;
 
 	Terrain3D();
 	~Terrain3D() {}
@@ -118,8 +125,8 @@ public:
 
 	// Terrain
 	String get_version() const { return _version; }
-	void set_debug_level(const int p_level);
-	int get_debug_level() const { return debug_level; }
+	void set_debug_level(const DebugLevel p_level);
+	DebugLevel get_debug_level() const { return debug_level; }
 	void set_data_directory(String p_dir);
 	String get_data_directory() const { return _data ? _data_directory : ""; }
 
@@ -244,5 +251,6 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Terrain3D::RegionSize);
+VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
 
 #endif // TERRAIN3D_CLASS_H

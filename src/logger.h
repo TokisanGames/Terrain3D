@@ -20,19 +20,20 @@ using namespace godot;
  * This is most likely caused by us printing messages as Godot is
  * attempting to quit.
  */
-#define MESG -2 // Always print
-#define WARN -1 // Always print
-#define ERROR 0 // Always print
-#define INFO 1
-#define DEBUG 2
-#define EXTREME 3
+constexpr int MESG = -2; // Always print
+constexpr int WARN = -1; // Always print
+constexpr Terrain3D::DebugLevel ERROR = Terrain3D::DebugLevel::ERROR;
+constexpr Terrain3D::DebugLevel INFO = Terrain3D::DebugLevel::INFO;
+constexpr Terrain3D::DebugLevel DEBUG = Terrain3D::DebugLevel::DEBUG;
+constexpr Terrain3D::DebugLevel EXTREME = Terrain3D::DebugLevel::EXTREME;
+
 #ifdef DEBUG_ENABLED
 #define LOG(level, ...)                                                              \
 	if (level == ERROR)                                                              \
 		UtilityFunctions::push_error(__class__, ":", __func__, ": ", __VA_ARGS__);   \
 	else if (level == WARN)                                                          \
 		UtilityFunctions::push_warning(__class__, ":", __func__, ": ", __VA_ARGS__); \
-	else if (Terrain3D::debug_level >= level)                                        \
+	else if (Terrain3D::debug_level >= Terrain3D::DebugLevel(level))                 \
 		UtilityFunctions::print(__class__, ":", __func__, ": ", __VA_ARGS__);
 #else
 #define LOG(...)

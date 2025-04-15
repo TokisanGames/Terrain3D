@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 #include "constants.h"
+#include "terrain_3d_region.h"
 
 using namespace godot;
 
