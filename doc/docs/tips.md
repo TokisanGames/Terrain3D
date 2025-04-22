@@ -7,27 +7,27 @@ This list are for items that don't already have dedicated pages in the documenta
 
 | Feature | Status | 
 | ------------- | ------------- | 
-| Destructibility | Real-time modification is possible by changing the data and updating the maps and collision. You can sculpt heights, change textures, or make holes. If you want tunnels or caves though you need to add your own meshes or use [Zylann's Voxel Tools](https://github.com/Zylann/godot_voxel).
+| Destructibility | Real-time modification is possible by changing the data and updating the maps and collision. You can sculpt heights, change textures, or make holes. If you want tunnels or caves though you need to add your own meshes or use [Zylann's Voxel Terrain](https://github.com/Zylann/godot_voxel).
 | GPU Sculpting| [Pending](https://github.com/TokisanGames/Terrain3D/issues/174). Currently painting occurs on the CPU in C++. It's reasonably fast, but we have a soft limit of 200 on the brush size, as larger sizes lag.
 | Holes | Holes work for both visual and collision.
 | Jolt | [Godot-Jolt](https://github.com/godot-jolt/godot-jolt) works as a drop-in replacement for Godot Physics. Collision is generated where regions are defined.
 | Non-destructive layers | Used for things like river beds, roads or paths that follow a curve and tweak the terrain. It's [possible](https://github.com/TokisanGames/Terrain3D/issues/129) in the future.
 | Object placement | The [instancer](instancer.md) supports placing foliage. Placing objects that shouldn't be in a MultiMeshInstance node is [out of scope](https://github.com/TokisanGames/Terrain3D/issues/47). See 3rd party tools below.
-| Streaming | Streaming is not yet supported by Godot or Terrain3D. In the future we will stream regions.
-| Water | Use [WaterWays](https://github.com/Arnklit/Waterways) for rivers, or [Realistic Water Shader](https://github.com/godot-extended-libraries/godot-realistic-water/) or [Infinite Ocean](https://stayathomedev.com/tutorials/making-an-infinite-ocean-in-godot-4/) for lakes or oceans.
+| Streaming | Region Streaming is [in progress](https://github.com/TokisanGames/Terrain3D/pull/675).
+| Water | Use [WaterWays](https://github.com/Arnklit/Waterways) for rivers, or [Realistic Water Shader](https://github.com/godot-extended-libraries/godot-realistic-water/) or [Infinite Ocean](https://stayathomedev.com/tutorials/general-tutorials/infinite-ocean) for lakes or oceans.
 |**Rendering**|
 | Frustum Culling | The terrain is made up of several meshes, so half can be culled if the camera is near the ground.
 | SDFGI | Works fine.
 | VoxelGI | Works fine.
 | Lightmaps | Not possible. There is no static mesh, nor UV2 channel to bake lightmaps on to.
 | **3rd Party Tools** |
-| [Scatter](https://github.com/HungryProton/scatter) | For placing objects algorithmically, with or without collision. We provide [a script](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/extras/project_on_terrain3d.gd) that allows Scatter to detect our terrain. Or you can change collision mode to `Full / Editor` and use the default `Project on Colliders`.
-| [AssetPlacer](https://cookiebadger.itch.io/assetplacer) | A level design tool for placing assets manually. Works on Terrain3D with placement mode set to Terrain3D or using the default mode and collision mode set to `Full / Editor`.
+| [Scatter](https://github.com/HungryProton/scatter) | For placing MeshInstance3D objects algorithmically, with or without collision. We provide [a script](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/extras/project_on_terrain3d.gd) that allows Scatter to detect our terrain. Or you can change collision mode to `Full / Editor` and use the default `Project on Colliders`. Don't use for MultiMeshInstances, use our built in system.
+| [AssetPlacer](https://cookiebadger.itch.io/assetplacer) | A level design tool for placing MeshInstance3D assets manually. Works on Terrain3D with placement mode set to Terrain3D or using the default mode and collision mode set to `Full / Editor`.
 
 
 ## Regions
 
-Outside of regions, there is no collision. Raycasts won't hit anything. Querying terrain heights or other data will result in NANs or INF. Look through the API for specific return values.
+Outside of regions, there is no collision. Raycasts won't hit anything. Querying terrain heights or other data will result in NANs or INF. Look through the API for specific return values. See [Collision] for more.
 
 You can determine if a given location is within a region by using `Terrain3DData.has_regionp(global_position)`. It will return -1 if the XZ location is not within a region. Y is ignored.
 
@@ -52,18 +52,33 @@ To use it:
     * Set `WorldBackground` to `Flat` or `None`
 	* Disable `Auto Shader`
 	* Disable `Dual Scaling`
-* `WorldBackground` as `Noise` exposes additional shader settings, such as octaves and LOD. You can adjust these settings for performance. However this world generating noise is expensive. Consider not using it at all in a commercial game, and instead obscure your background with meshes, or use an HDR skybox.
+* `WorldBackground` as `Noise` exposes additional shader settings, such as octaves and LOD. You can adjust these settings for performance. However this world generating noise is expensive. Consider not using it at all in a commercial game, and instead obscure your background with meshes, or use an HDR skybox with mountains built in.
 * Reduce the size of the mesh and levels of detail by reducing `Mesh/Size` (`mesh_size`) or `Mesh/Lods` (`mesh_lods`) in the `Terrain3D` node.
-* Don't use `Terrain3D/Renderer/Cull Margin`. It should only be needed if using the noise background. Otherwise the AABB should be correctly calculated via editing, so there is no need to expand the cull margin. Keeping it enabled can cost more processing time.
+* Don't use `Renderer/Cull Margin`. It should only be needed if using the noise background. Otherwise the AABB should be correctly calculated via editing, so there is no need to expand the cull margin. Keeping it enabled can cost more processing time.
 
 
 ## Shaders
 
-### Minimal Shader
+### Minimal Shaders
 
-This terrain is driven by the GPU, and controlled by our shader. We provide a minimal shader that has only the code needed to shape the terrain mesh without any texturing. You can find it in `extras/minimum.gdshader`.
+This terrain is driven by the GPU, and controlled by our shader. We provide a minimal shader that has only the code needed to shape the terrain mesh without any texturing that you can use as a base to build your own. There's also versions that use the color map, and have a low-poly look with flat normals. Find them all in `extras/minimum.gdshader`.
 
 Load this shader into the override shader slot and enable it. It includes no texturing so you can create your own.
+
+### Low-poly & PS1 Styles
+
+Older style asthetics has a few different looks:
+
+**PS1 style** often has blocky textures, which can be achieved by:
+* Use low res textures
+* In the Terrain3DTextureAsset, decreasing UV Scale
+* In the material, change Texture Filtering to Nearest. If you make your own shader, make sure to change your samplers to use Nearest filtering instead of Linear.
+
+**Low-poly Style** often has large, flat shaded polygons. To get the best results:
+* Increase `vertex_spacing` to a large value like 10
+* Start with a low-poly shader in `extras`
+
+Extend the shaders to make it your own. The low poly shaders don't come with texturing, but you can combine the flat normal technique with the default textured shader if you want elements of both styles.
 
 
 ### Day/Night cycles & light under the terrain

@@ -148,7 +148,7 @@
 		<member name="data_directory" type="String" setter="set_data_directory" getter="get_data_directory" default="&quot;&quot;">
 			The directory where terrain data will be saved to and loaded from.
 		</member>
-		<member name="debug_level" type="int" setter="set_debug_level" getter="get_debug_level" default="0">
+		<member name="debug_level" type="int" setter="set_debug_level" getter="get_debug_level" enum="Terrain3D.DebugLevel" default="0">
 			The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using [code skip-lint]--terrain3d-debug=LEVEL[/code] where [code skip-lint]LEVEL[/code] is one of [code skip-lint]ERROR, INFO, DEBUG, EXTREME[/code]. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
 		</member>
 		<member name="free_editor_textures" type="bool" setter="set_free_editor_textures" getter="get_free_editor_textures" default="true">
@@ -252,7 +252,7 @@
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
 			Alias for [member Terrain3DMaterial.show_vertex_grid].
 		</member>
-		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.0.0-dev&quot;">
+		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.0.0&quot;">
 			The current version of Terrain3D.
 		</member>
 		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
@@ -275,6 +275,18 @@
 		</signal>
 	</signals>
 	<constants>
+		<constant name="ERROR" value="0" enum="DebugLevel">
+			Errors and warnings always print.
+		</constant>
+		<constant name="INFO" value="1" enum="DebugLevel">
+			Typically every function call and other important informational messages.
+		</constant>
+		<constant name="DEBUG" value="2" enum="DebugLevel">
+			Detailed steps within functions.
+		</constant>
+		<constant name="EXTREME" value="3" enum="DebugLevel">
+			Messages for continuous operations like snapping and editing.
+		</constant>
 		<constant name="SIZE_64" value="64" enum="RegionSize">
 			The region size is 64 x 64 meters, vertices, and pixels on Image maps.
 		</constant>

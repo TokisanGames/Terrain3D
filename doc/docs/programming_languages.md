@@ -84,7 +84,7 @@ These options are for programming scenarios where a user action is intented to p
 
 * If collision is enabled in game (default) or in the editor (debug only), you can run a raycast and if it hits, it will return a `Terrain3D` object. See more in the [raycasting](collision.md#physics-based-collision-raycasting) section.
 
-* Your script can provide a NodePath and allow the user to select their Terrain3D node as was done in [the script](https://github.com/TokisanGames/Terrain3D/blob/v0.9.1-beta/project/addons/terrain_3d/extras/project_on_terrain3d.gd#L14) provided for use with Scatter.
+* Your script can provide a NodePath and allow the user to select their Terrain3D node.
 
 * You can search the current scene tree for [nodes of type](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-find-children) "Terrain3D".
 ```gdscript

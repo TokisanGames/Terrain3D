@@ -213,7 +213,7 @@ One thing you must consider is if it makes sense to use this MultiMesh based ins
 
 ## Importing From Other Tools
 
-You can find a sample script that will import data from SimpleGrassTextured in `project/addons/terrain_3d/extras/import_sgt.gd`. SGT is another MultiMesh management tool, so the only data that we need from it are the transforms.
+You can find a sample script that will import data from SimpleGrassTextured in `project/addons/terrain_3d/extras/import_sgt.gd`. SGT is another MultiMesh management tool, so the only data that we need from it are the transforms. You could do something similar for other tools.
 
 **To use it:**
 1. Setup the mesh asset you wish to use in the asset dock.

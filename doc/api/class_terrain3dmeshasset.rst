@@ -154,7 +154,7 @@ Emitted when :ref:`id<class_Terrain3DMeshAsset_property_id>` is changed.
 
 **instancer_setting_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_instancer_setting_changed>`
 
-Emitted when instancer specific settings are changed on this mesh asset, such as :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` or :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`, and triggers an instancer rebuild.
+Emitted when instancer specific settings are changed on this mesh asset, such as :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>`, and triggers an instancer rebuild.
 
 .. rst-class:: classref-item-separator
 

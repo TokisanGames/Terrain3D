@@ -155,7 +155,7 @@
 		</signal>
 		<signal name="instancer_setting_changed">
 			<description>
-				Emitted when instancer specific settings are changed on this mesh asset, such as [member cast_shadows] or [member visibility_range], and triggers an instancer rebuild.
+				Emitted when instancer specific settings are changed on this mesh asset, such as [member cast_shadows], and triggers an instancer rebuild.
 			</description>
 		</signal>
 		<signal name="setting_changed">
