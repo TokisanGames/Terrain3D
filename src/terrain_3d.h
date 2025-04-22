@@ -211,6 +211,18 @@ public:
 	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { _collision ? _collision->set_physics_material(p_mat) : void(); }
 	Ref<PhysicsMaterial> get_physics_material() const { return _collision ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
 
+	// Overlay Aliases
+	void set_show_region_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_region_grid(p_enabled) : void(); }
+	bool get_show_region_grid() const { return _material.is_valid() ? _material->get_show_region_grid() : false; }
+	void set_show_instancer_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_instancer_grid(p_enabled) : void(); }
+	bool get_show_instancer_grid() const { return _material.is_valid() ? _material->get_show_instancer_grid() : false; }
+	void set_show_vertex_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_vertex_grid(p_enabled) : void(); }
+	bool get_show_vertex_grid() const { return _material.is_valid() ? _material->get_show_vertex_grid() : false; }
+	void set_show_contours(const bool p_enabled) { _material.is_valid() ? _material->set_show_contours(p_enabled) : void(); }
+	bool get_show_contours() const { return _material.is_valid() ? _material->get_show_contours() : false; }
+	void set_show_navigation(const bool p_enabled) { _material.is_valid() ? _material->set_show_navigation(p_enabled) : void(); }
+	bool get_show_navigation() const { return _material.is_valid() ? _material->get_show_navigation() : false; }
+
 	// Debug View Aliases
 	void set_show_checkered(const bool p_enabled) { _material.is_valid() ? _material->set_show_checkered(p_enabled) : void(); }
 	bool get_show_checkered() const { return _material.is_valid() ? _material->get_show_checkered() : false; }
@@ -232,20 +244,12 @@ public:
 	bool get_show_control_blend() const { return _material.is_valid() ? _material->get_show_control_blend() : false; }
 	void set_show_autoshader(const bool p_enabled) { _material.is_valid() ? _material->set_show_autoshader(p_enabled) : void(); }
 	bool get_show_autoshader() const { return _material.is_valid() ? _material->get_show_autoshader() : false; }
-	void set_show_navigation(const bool p_enabled) { _material.is_valid() ? _material->set_show_navigation(p_enabled) : void(); }
-	bool get_show_navigation() const { return _material.is_valid() ? _material->get_show_navigation() : false; }
 	void set_show_texture_height(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_height(p_enabled) : void(); }
 	bool get_show_texture_height() const { return _material.is_valid() ? _material->get_show_texture_height() : false; }
 	void set_show_texture_normal(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_normal(p_enabled) : void(); }
 	bool get_show_texture_normal() const { return _material.is_valid() ? _material->get_show_texture_normal() : false; }
 	void set_show_texture_rough(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_rough(p_enabled) : void(); }
 	bool get_show_texture_rough() const { return _material.is_valid() ? _material->get_show_texture_rough() : false; }
-	void set_show_region_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_region_grid(p_enabled) : void(); }
-	bool get_show_region_grid() const { return _material.is_valid() ? _material->get_show_region_grid() : false; }
-	void set_show_instancer_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_instancer_grid(p_enabled) : void(); }
-	bool get_show_instancer_grid() const { return _material.is_valid() ? _material->get_show_instancer_grid() : false; }
-	void set_show_vertex_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_vertex_grid(p_enabled) : void(); }
-	bool get_show_vertex_grid() const { return _material.is_valid() ? _material->get_show_vertex_grid() : false; }
 
 protected:
 	void _notification(const int p_what);

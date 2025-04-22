@@ -80,13 +80,13 @@ If loading scenes via code, this is because `free_editor_textures` is enabled by
 To load them in all scenes, you can either:
 * Disable `free_editor_textures`
 * Make your asset list unique to each scene. (Think about this one. A shared texture list is useful.)
-* Reload the textures when loading a scene with Terrain3D
-
+* Reload the textures when loading a scene with Terrain3D:
 
 ```
 terrain.assets = ResourceLoader.load("res://scenes/terrains/asset_list.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 ```
 
+Terrain3D will continue to clear the textures on `_ready()` after compiling the arrays. You can clear textures at other times with `terrain.assets.clear_textures()`.
 
 ---
 
