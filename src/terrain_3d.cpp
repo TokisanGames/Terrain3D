@@ -1062,6 +1062,18 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_instances", "visible"), &Terrain3D::set_show_instances);
 	ClassDB::bind_method(D_METHOD("get_show_instances"), &Terrain3D::get_show_instances);
 
+	// Overlays
+	ClassDB::bind_method(D_METHOD("set_show_region_grid", "enabled"), &Terrain3D::set_show_region_grid);
+	ClassDB::bind_method(D_METHOD("get_show_region_grid"), &Terrain3D::get_show_region_grid);
+	ClassDB::bind_method(D_METHOD("set_show_instancer_grid", "enabled"), &Terrain3D::set_show_instancer_grid);
+	ClassDB::bind_method(D_METHOD("get_show_instancer_grid"), &Terrain3D::get_show_instancer_grid);
+	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3D::set_show_vertex_grid);
+	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3D::get_show_vertex_grid);
+	ClassDB::bind_method(D_METHOD("set_show_contours", "enabled"), &Terrain3D::set_show_contours);
+	ClassDB::bind_method(D_METHOD("get_show_contours"), &Terrain3D::get_show_contours);
+	ClassDB::bind_method(D_METHOD("set_show_navigation", "enabled"), &Terrain3D::set_show_navigation);
+	ClassDB::bind_method(D_METHOD("get_show_navigation"), &Terrain3D::get_show_navigation);
+
 	// Debug Views
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3D::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3D::get_show_checkered);
@@ -1083,20 +1095,12 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3D::get_show_control_blend);
 	ClassDB::bind_method(D_METHOD("set_show_autoshader", "enabled"), &Terrain3D::set_show_autoshader);
 	ClassDB::bind_method(D_METHOD("get_show_autoshader"), &Terrain3D::get_show_autoshader);
-	ClassDB::bind_method(D_METHOD("set_show_navigation", "enabled"), &Terrain3D::set_show_navigation);
-	ClassDB::bind_method(D_METHOD("get_show_navigation"), &Terrain3D::get_show_navigation);
 	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3D::set_show_texture_height);
 	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3D::get_show_texture_height);
 	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3D::set_show_texture_normal);
 	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3D::get_show_texture_normal);
 	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3D::set_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3D::get_show_texture_rough);
-	ClassDB::bind_method(D_METHOD("set_show_region_grid", "enabled"), &Terrain3D::set_show_region_grid);
-	ClassDB::bind_method(D_METHOD("get_show_region_grid"), &Terrain3D::get_show_region_grid);
-	ClassDB::bind_method(D_METHOD("set_show_instancer_grid", "enabled"), &Terrain3D::set_show_instancer_grid);
-	ClassDB::bind_method(D_METHOD("get_show_instancer_grid"), &Terrain3D::get_show_instancer_grid);
-	ClassDB::bind_method(D_METHOD("set_show_vertex_grid", "enabled"), &Terrain3D::set_show_vertex_grid);
-	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3D::get_show_vertex_grid);
 
 	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction", "gpu_mode"), &Terrain3D::get_intersection, DEFVAL(false));
@@ -1144,6 +1148,13 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_editor_textures"), "set_free_editor_textures", "get_free_editor_textures");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_instances"), "set_show_instances", "get_show_instances");
 
+	ADD_GROUP("Overlays", "show_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_grid"), "set_show_region_grid", "get_show_region_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_instancer_grid"), "set_show_instancer_grid", "get_show_instancer_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid"), "set_show_vertex_grid", "get_show_vertex_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_contours"), "set_show_contours", "get_show_contours");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation"), "set_show_navigation", "get_show_navigation");
+
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered"), "set_show_checkered", "get_show_checkered");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grey"), "set_show_grey", "get_show_grey");
@@ -1155,13 +1166,9 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_scale"), "set_show_control_scale", "get_show_control_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend"), "set_show_control_blend", "get_show_control_blend");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader"), "set_show_autoshader", "get_show_autoshader");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation"), "set_show_navigation", "get_show_navigation");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_grid"), "set_show_region_grid", "get_show_region_grid");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_instancer_grid"), "set_show_instancer_grid", "get_show_instancer_grid");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid"), "set_show_vertex_grid", "get_show_vertex_grid");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
