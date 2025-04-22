@@ -2,7 +2,7 @@
 // This shader snippet draws a hex grid
 
 // To use it, add this line to the top of your shader:
-// #include "res://addons/terrain_3d/extras/hex_grid.gdshaderinc"
+// #include "res://addons/terrain_3d/extras/shaders/hex_grid.gdshaderinc"
 
 // And this line at the bottom of your shader:
 // 	draw_hex_grid(uv2, _region_texel_size, w_normal, ALBEDO);
