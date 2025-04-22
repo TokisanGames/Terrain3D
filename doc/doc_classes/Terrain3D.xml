@@ -246,7 +246,7 @@
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
 			Alias for [member Terrain3DMaterial.show_vertex_grid].
 		</member>
-		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.0.0&quot;">
+		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.0.1&quot;">
 			The current version of Terrain3D.
 		</member>
 		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">

@@ -21,7 +21,7 @@ This list are for items that don't already have dedicated pages in the documenta
 | VoxelGI | Works fine.
 | Lightmaps | Not possible. There is no static mesh, nor UV2 channel to bake lightmaps on to.
 | **3rd Party Tools** |
-| [Scatter](https://github.com/HungryProton/scatter) | For placing MeshInstance3D objects algorithmically, with or without collision. We provide [a script](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/extras/project_on_terrain3d.gd) that allows Scatter to detect our terrain. Or you can change collision mode to `Full / Editor` and use the default `Project on Colliders`. Don't use for MultiMeshInstances, use our built in system.
+| [Scatter](https://github.com/HungryProton/scatter) | For placing MeshInstance3D objects algorithmically, with or without collision. We provide [a script](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/extras/3rd_party/project_on_terrain3d.gd) that allows Scatter to detect our terrain. Or you can change collision mode to `Full / Editor` and use the default `Project on Colliders`. Don't use for MultiMeshInstances, use our built in system.
 | [AssetPlacer](https://cookiebadger.itch.io/assetplacer) | A level design tool for placing MeshInstance3D assets manually. Works on Terrain3D with placement mode set to Terrain3D or using the default mode and collision mode set to `Full / Editor`.
 
 
@@ -55,14 +55,13 @@ To use it:
 * `WorldBackground` as `Noise` exposes additional shader settings, such as octaves and LOD. You can adjust these settings for performance. However this world generating noise is expensive. Consider not using it at all in a commercial game, and instead obscure your background with meshes, or use an HDR skybox with mountains built in.
 * Reduce the size of the mesh and levels of detail by reducing `Mesh/Size` (`mesh_size`) or `Mesh/Lods` (`mesh_lods`) in the `Terrain3D` node.
 * Don't use `Renderer/Cull Margin`. It should only be needed if using the noise background. Otherwise the AABB should be correctly calculated via editing, so there is no need to expand the cull margin. Keeping it enabled can cost more processing time.
-* Experiment with `Renderer/free_editor_textures`, which is enabled by default. It saves VRAM by removing the initial textures used to generate the texture arrays.
 
 
 ## Shaders
 
 ### Minimal Shaders
 
-This terrain is driven by the GPU, and controlled by our shader. We provide a minimal shader that has only the code needed to shape the terrain mesh without any texturing that you can use as a base to build your own. There's also versions that use the color map, and have a low-poly look with flat normals. Find them all in `extras/minimum.gdshader`.
+This terrain is driven by the GPU, and controlled by our shader. We provide a minimal shader that has only the code needed to shape the terrain mesh without any texturing that you can use as a base to build your own. There's also versions that use the color map, and have a low-poly look with flat normals. Find them all in `extras/shaders/minimum.gdshader`.
 
 Load this shader into the override shader slot and enable it. It includes no texturing so you can create your own.
 
@@ -77,7 +76,7 @@ Older style asthetics has a few different looks:
 
 **Low-poly Style** often has large, flat shaded polygons. To get the best results:
 * Increase `vertex_spacing` to a large value like 10
-* Start with a low-poly shader in `extras`
+* Start with a low-poly shader in `extras/shaders`
 
 Extend the shaders to make it your own. The low poly shaders don't come with texturing, but you can combine the flat normal technique with the default textured shader if you want elements of both styles.
 

@@ -220,7 +220,7 @@ Perhaps it makes sense to use both, such as particles for grass, and instances f
 
 ## Importing From Other Tools
 
-You can find a sample script that will import data from SimpleGrassTextured in `project/addons/terrain_3d/extras/import_sgt.gd`. SGT is another MultiMesh management tool, so the only data that we need from it are the transforms. You could do something similar for other tools.
+You can find a sample script that will import data from SimpleGrassTextured in `project/addons/terrain_3d/extras/3rd_party/import_sgt.gd`. SGT is another MultiMesh management tool, so the only data that we need from it are the transforms. You could do something similar for other tools.
 
 **To use it:**
 1. Setup the mesh asset you wish to use in the asset dock.

@@ -92,8 +92,6 @@ Properties
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``int``                                         | :ref:`shadow_impostor<class_Terrain3DMeshAsset_property_shadow_impostor>`     | ``0``             |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | ``float``                                       | :ref:`visibility_range<class_Terrain3DMeshAsset_property_visibility_range>`   |                   |
-   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -685,23 +683,6 @@ e.g. Normally each LOD casts its own shadows. Given LOD0-3, if ``shadow_impostor
 Increase to improve performance by lowering shadow quality.
 
 Shadow impostors are disabled if this is set to 0 or if :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` is set to shadows only.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DMeshAsset_property_visibility_range:
-
-.. rst-class:: classref-property
-
-``float`` **visibility_range** :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_range>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_visibility_range**\ (\ value\: ``float``\ )
-- ``float`` **get_lod0_range**\ (\ )
-
-Deprecated, see :ref:`lod0_range<class_Terrain3DMeshAsset_property_lod0_range>`.
 
 .. rst-class:: classref-section-separator
 
