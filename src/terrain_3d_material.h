@@ -68,6 +68,7 @@ private:
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
+	bool _debug_view_jaggedness = false;
 
 	// Functions
 	void _preload_shaders();
@@ -131,6 +132,8 @@ public:
 	bool get_show_grey() const { return _debug_view_grey; }
 	void set_show_heightmap(const bool p_enabled);
 	bool get_show_heightmap() const { return _debug_view_heightmap; }
+	void set_show_jaggedness(const bool p_enabled);
+	bool get_show_jaggedness() const { return _debug_view_jaggedness; }
 	void set_show_colormap(const bool p_enabled);
 	bool get_show_colormap() const { return _debug_view_colormap; }
 	void set_show_roughmap(const bool p_enabled);

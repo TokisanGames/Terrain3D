@@ -467,7 +467,6 @@ void fragment() {
 	};
 
 //INSERT: AUTO_SHADER
-
 	// Set per texture ID weighting.
 	for (int i = 0; i < 4; i++) {
 		data[i].texture_weight[0] = accumulate_weight(data[i].texture_id[0], data, weights);

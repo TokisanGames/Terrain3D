@@ -230,6 +230,8 @@ public:
 	bool get_show_grey() const { return _material.is_valid() ? _material->get_show_grey() : false; }
 	void set_show_heightmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_heightmap(p_enabled) : void(); }
 	bool get_show_heightmap() const { return _material.is_valid() ? _material->get_show_heightmap() : false; }
+	void set_show_jaggedness(const bool p_enabled) { _material.is_valid() ? _material->set_show_jaggedness(p_enabled) : void(); }
+	bool get_show_jaggedness() const { return _material.is_valid() ? _material->get_show_jaggedness() : false; }
 	void set_show_colormap(const bool p_enabled) { _material.is_valid() ? _material->set_show_colormap(p_enabled) : void(); }
 	bool get_show_colormap() const { return _material.is_valid() ? _material->get_show_colormap() : false; }
 	void set_show_roughmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_roughmap(p_enabled) : void(); }
