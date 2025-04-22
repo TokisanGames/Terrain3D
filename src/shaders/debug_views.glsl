@@ -39,6 +39,32 @@ R"(
 		AO = 1.0;
 	}
 
+//INSERT: DEBUG_JAGGEDNESS
+	// Show turbulent areas of the terrain surface
+	{
+		const vec3 __offsets = vec3(0, 1, 2);
+		vec2 __index_id = floor((INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xz);
+		float __h[6];
+		__h[0] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xy, FRAGMENT_PASS), 0).r;
+		__h[1] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.yy, FRAGMENT_PASS), 0).r;
+		__h[2] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.yx, FRAGMENT_PASS), 0).r;
+		__h[3] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xx, FRAGMENT_PASS), 0).r;
+		__h[4] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.zx, FRAGMENT_PASS), 0).r;
+		__h[5] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xz, FRAGMENT_PASS), 0).r;
+
+		vec3 __normal[3];
+		__normal[0] = normalize(vec3(__h[0] - __h[1], _vertex_spacing, __h[0] - __h[5]));
+		__normal[1] = normalize(vec3(__h[2] - __h[4], _vertex_spacing, __h[2] - __h[1]));
+		__normal[2] = normalize(vec3(__h[3] - __h[2], _vertex_spacing, __h[3] - __h[0]));
+
+		float __jaggedness = max(length(__normal[2] - __normal[1]),length(__normal[2] - __normal[0]));
+		ALBEDO = vec3(0.01 + pow(__jaggedness, 8.));
+		ROUGHNESS = 0.7;
+		SPECULAR = 0.;
+		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+		AO = 1.0;
+	}
+
 //INSERT: DEBUG_COLORMAP
 	// Show colormap
 	{
@@ -95,9 +121,12 @@ R"(
 		__t_colors[29] = vec3(0.1);
 		__t_colors[30] = vec3(0.05);
 		__t_colors[31] = vec3(0.0125);
-		vec3 __ctrl_base = __t_colors[mat[3].base];
-		vec3 __ctrl_over = __t_colors[mat[3].over];
-		float base_over = (length(fract(uv) - 0.5) < fma(mat[3].blend, 0.45, 0.1) ? 1.0 : 0.0);
+		ivec3 __uv = get_index_coord(floor(uv), SKIP_PASS);
+		uint __control = floatBitsToUint(texelFetch(_control_maps, __uv, 0).r);
+		vec3 __ctrl_base = __t_colors[int(__control >> 27u & 0x1Fu)];
+		vec3 __ctrl_over = __t_colors[int(__control >> 22u & 0x1Fu)];
+		float __blend = float(__control >> 14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
+		float base_over = (length(fract(uv) - 0.5) < fma(__blend, 0.45, 0.1) ? 1.0 : 0.0);
 		ALBEDO = mix(__ctrl_base, __ctrl_over, base_over);	
 		ROUGHNESS = 1.0;
 		SPECULAR = 0.0;
@@ -144,8 +173,16 @@ R"(
 //INSERT: DEBUG_CONTROL_BLEND
 	// Show control map blend values
 	{
-		float __ctrl_blend = mat[3].blend;
-		ALBEDO = vec3(__ctrl_blend);
+		ivec3 __uv = get_index_coord(floor(uv), SKIP_PASS);
+        uint __control = floatBitsToUint(texelFetch(_control_maps, __uv, 0).r);
+        float __ctrl_blend = float(control[3] >> 14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
+        float __auto_blend = 0.;
+		#ifdef AUTO_SHADER
+			__auto_blend = clamp((auto_slope * 2. * ( (mat3(INV_VIEW_MATRIX) * NORMAL).y - 1.) + 1.)
+	            - auto_height_reduction * .01 * (mat3(INV_VIEW_MATRIX) * VERTEX).y // Reduce as vertices get higher
+		        , 0., 1.);
+		#endif
+		ALBEDO = vec3(__ctrl_blend, 0., __auto_blend * float( bool(__control & 0x1u) || __uv.z<0 ));
 		ROUGHNESS = 1.;
 		SPECULAR = 0.;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
@@ -156,7 +193,7 @@ R"(
 	// Show where autoshader enabled
 	{
 		ivec3 __ruv = get_index_coord(floor(uv), SKIP_PASS);
-		uint __control = floatBitsToUint(texelFetch(_control_maps, __ruv, 0)).r;
+		uint __control = floatBitsToUint(texelFetch(_control_maps, __ruv, 0).r);
 		float __autoshader = float( bool(__control & 0x1u) || __ruv.z<0 );
 		ALBEDO = vec3(__autoshader);
 		ROUGHNESS = 1.;
@@ -168,7 +205,7 @@ R"(
 //INSERT: DEBUG_TEXTURE_HEIGHT
 	// Show height textures
 	{
-		ALBEDO = vec3(albedo_height.a);
+		ALBEDO = vec3(mat.albedo_height.a);
 		ROUGHNESS = 0.7;
 		SPECULAR = 0.;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
@@ -178,7 +215,7 @@ R"(
 //INSERT: DEBUG_TEXTURE_NORMAL
 	// Show normal map textures
 	{
-		ALBEDO = pack_normal(normal_rough.rgb);
+		ALBEDO = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
 		ROUGHNESS = 0.7;
 		SPECULAR = 0.;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
@@ -188,7 +225,7 @@ R"(
 //INSERT: DEBUG_TEXTURE_ROUGHNESS
 	// Show roughness textures
 	{
-		ALBEDO = vec3(normal_rough.a);
+		ALBEDO = vec3(mat.normal_rough.a);
 		ROUGHNESS = 0.7;
 		SPECULAR = 0.;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
