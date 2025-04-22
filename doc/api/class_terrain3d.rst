@@ -54,7 +54,7 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``String``                                                  | :ref:`data_directory<class_Terrain3D_property_data_directory>`             | ``""``          |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
-   | ``int``                                                     | :ref:`debug_level<class_Terrain3D_property_debug_level>`                   | ``0``           |
+   | :ref:`DebugLevel<enum_Terrain3D_DebugLevel>`                | :ref:`debug_level<class_Terrain3D_property_debug_level>`                   | ``0``           |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`free_editor_textures<class_Terrain3D_property_free_editor_textures>` | ``true``        |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
@@ -120,7 +120,7 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_vertex_grid<class_Terrain3D_property_show_vertex_grid>`         | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
-   | ``String``                                                  | :ref:`version<class_Terrain3D_property_version>`                           | ``"1.0.0-dev"`` |
+   | ``String``                                                  | :ref:`version<class_Terrain3D_property_version>`                           | ``"1.1.0-dev"`` |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``float``                                                   | :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>`             | ``1.0``         |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
@@ -192,6 +192,48 @@ Emitted when :ref:`material<class_Terrain3D_property_material>` is changed.
 
 Enumerations
 ------------
+
+.. _enum_Terrain3D_DebugLevel:
+
+.. rst-class:: classref-enumeration
+
+enum **DebugLevel**: :ref:`🔗<enum_Terrain3D_DebugLevel>`
+
+.. _class_Terrain3D_constant_ERROR:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`DebugLevel<enum_Terrain3D_DebugLevel>` **ERROR** = ``0``
+
+Errors and warnings always print.
+
+.. _class_Terrain3D_constant_INFO:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`DebugLevel<enum_Terrain3D_DebugLevel>` **INFO** = ``1``
+
+Typically every function call and other important informational messages.
+
+.. _class_Terrain3D_constant_DEBUG:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`DebugLevel<enum_Terrain3D_DebugLevel>` **DEBUG** = ``2``
+
+Detailed steps within functions.
+
+.. _class_Terrain3D_constant_EXTREME:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`DebugLevel<enum_Terrain3D_DebugLevel>` **EXTREME** = ``3``
+
+Messages for continuous operations like snapping and editing.
+
+.. rst-class:: classref-item-separator
+
+----
 
 .. _enum_Terrain3D_RegionSize:
 
@@ -462,12 +504,12 @@ The directory where terrain data will be saved to and loaded from.
 
 .. rst-class:: classref-property
 
-``int`` **debug_level** = ``0`` :ref:`🔗<class_Terrain3D_property_debug_level>`
+:ref:`DebugLevel<enum_Terrain3D_DebugLevel>` **debug_level** = ``0`` :ref:`🔗<class_Terrain3D_property_debug_level>`
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_debug_level**\ (\ value\: ``int``\ )
-- ``int`` **get_debug_level**\ (\ )
+- |void| **set_debug_level**\ (\ value\: :ref:`DebugLevel<enum_Terrain3D_DebugLevel>`\ )
+- :ref:`DebugLevel<enum_Terrain3D_DebugLevel>` **get_debug_level**\ (\ )
 
 The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using ``--terrain3d-debug=LEVEL`` where ``LEVEL`` is one of ``ERROR, INFO, DEBUG, EXTREME``. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
 
@@ -1032,7 +1074,7 @@ Alias for :ref:`Terrain3DMaterial.show_vertex_grid<class_Terrain3DMaterial_prope
 
 .. rst-class:: classref-property
 
-``String`` **version** = ``"1.0.0-dev"`` :ref:`🔗<class_Terrain3D_property_version>`
+``String`` **version** = ``"1.1.0-dev"`` :ref:`🔗<class_Terrain3D_property_version>`
 
 .. rst-class:: classref-property-setget
 

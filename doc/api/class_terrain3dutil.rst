@@ -98,7 +98,7 @@ Methods
    +--------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``String``   | :ref:`location_to_filename<class_Terrain3DUtil_method_location_to_filename>`\ (\ region_location\: ``Vector2i``\ ) |static|                                                                                           |
    +--------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``Image``    | :ref:`luminance_to_height<class_Terrain3DUtil_method_luminance_to_height>`\ (\ src_rgb\: ``Image`` = false\ ) |static|                                                                                                |
+   | ``Image``    | :ref:`luminance_to_height<class_Terrain3DUtil_method_luminance_to_height>`\ (\ src_rgb\: ``Image``\ ) |static|                                                                                                        |
    +--------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Image``    | :ref:`pack_image<class_Terrain3DUtil_method_pack_image>`\ (\ src_rgb\: ``Image``, src_a\: ``Image``, invert_green\: ``bool`` = false, invert_alpha\: ``bool`` = false, alpha_channel\: ``int`` = 0\ ) |static|        |
    +--------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -446,7 +446,7 @@ Converts a region location like ``(-1, 2)`` to a file name string like ``terrain
 
 .. rst-class:: classref-method
 
-``Image`` **luminance_to_height**\ (\ src_rgb\: ``Image`` = false\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_luminance_to_height>`
+``Image`` **luminance_to_height**\ (\ src_rgb\: ``Image``\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_luminance_to_height>`
 
 Generates a greyscale RGB8 height texture from the luminance values of the source image.
 

@@ -222,7 +222,7 @@
 		</method>
 		<method name="luminance_to_height" qualifiers="static">
 			<return type="Image" />
-			<param index="0" name="src_rgb" type="Image" default="false" />
+			<param index="0" name="src_rgb" type="Image" />
 			<description>
 				Generates a greyscale RGB8 height texture from the luminance values of the source image.
 			</description>
