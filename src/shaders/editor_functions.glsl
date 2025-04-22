@@ -5,11 +5,13 @@
 R"(
 //INSERT: EDITOR_NAVIGATION
 	// Show navigation
-	if(bool(floatBitsToUint(texelFetch(_control_maps, get_index_coord(floor(uv + 0.5), SKIP_PASS), 0)).r >>1u & 0x1u)) {
-		ALBEDO *= vec3(.5, .0, .85);
+	{
+		if(bool(floatBitsToUint(texelFetch(_control_maps, get_index_coord(floor(uv + 0.5), SKIP_PASS), 0)).r >>1u & 0x1u)) {
+			ALBEDO *= vec3(.5, .0, .85);
+		}
 	}
 
-//INSERT: EDITOR_SETUP_DECAL
+//INSERT: EDITOR_DECAL_SETUP
 uniform highp sampler2D _editor_brush_texture : source_color, filter_linear, repeat_disable;
 uniform highp sampler2D _editor_ring_texture : source_color, filter_linear, repeat_disable;
 uniform vec2 _editor_decal_position[3];
@@ -61,7 +63,9 @@ vec3 get_decal(vec3 albedo, vec2 uv) {
 	return albedo;
 }
 
-//INSERT: EDITOR_RENDER_DECAL
-	ALBEDO = get_decal(ALBEDO, uv);
-
+//INSERT: EDITOR_DECAL_RENDER
+	// Render decal
+	{
+		ALBEDO = get_decal(ALBEDO, uv);
+	}
 )"

@@ -46,8 +46,14 @@ private:
 	bool _dual_scaling = false;
 	bool _auto_shader = false;
 
-	// Editor Functions / Debug views
+	// Overlays
+	bool _show_region_grid = false;
+	bool _show_instancer_grid = false;
+	bool _show_vertex_grid = false;
+	bool _show_contours = false;
 	bool _show_navigation = false;
+
+	// Debug Views
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
@@ -62,9 +68,6 @@ private:
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
-	bool _debug_view_region_grid = false;
-	bool _debug_view_instancer_grid = false;
-	bool _debug_view_vertex_grid = false;
 
 	// Functions
 	void _preload_shaders();
@@ -109,7 +112,19 @@ public:
 	void set_shader_param(const StringName &p_name, const Variant &p_value);
 	Variant get_shader_param(const StringName &p_name) const;
 
-	// Editor functions / Debug views
+	// Overlays
+	void set_show_region_grid(const bool p_enabled);
+	bool get_show_region_grid() const { return _show_region_grid; }
+	void set_show_instancer_grid(const bool p_enabled);
+	bool get_show_instancer_grid() const { return _show_instancer_grid; }
+	void set_show_vertex_grid(const bool p_enabled);
+	bool get_show_vertex_grid() const { return _show_vertex_grid; }
+	void set_show_contours(const bool p_enabled);
+	bool get_show_contours() const { return _show_contours; }
+	void set_show_navigation(const bool p_enabled);
+	bool get_show_navigation() const { return _show_navigation; }
+
+	// Debug views
 	void set_show_checkered(const bool p_enabled);
 	bool get_show_checkered() const { return _debug_view_checkered; }
 	void set_show_grey(const bool p_enabled);
@@ -130,20 +145,12 @@ public:
 	bool get_show_control_blend() const { return _debug_view_control_blend; }
 	void set_show_autoshader(const bool p_enabled);
 	bool get_show_autoshader() const { return _debug_view_autoshader; }
-	void set_show_navigation(const bool p_enabled);
-	bool get_show_navigation() const { return _show_navigation; }
 	void set_show_texture_height(const bool p_enabled);
 	bool get_show_texture_height() const { return _debug_view_tex_height; }
 	void set_show_texture_normal(const bool p_enabled);
 	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
 	void set_show_texture_rough(const bool p_enabled);
 	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
-	void set_show_region_grid(const bool p_enabled);
-	bool get_show_region_grid() const { return _debug_view_region_grid; }
-	void set_show_instancer_grid(const bool p_enabled);
-	bool get_show_instancer_grid() const { return _debug_view_instancer_grid; }
-	void set_show_vertex_grid(const bool p_enabled);
-	bool get_show_vertex_grid() const { return _debug_view_vertex_grid; }
 
 	Error save(const String &p_path = "");
 
