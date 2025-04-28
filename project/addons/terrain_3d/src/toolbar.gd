@@ -22,70 +22,72 @@ const ICON_INSTANCER: String = "res://addons/terrain_3d/icons/multimesh.svg"
 
 var add_tool_group: ButtonGroup = ButtonGroup.new()
 var sub_tool_group: ButtonGroup = ButtonGroup.new()
+var buttons: Dictionary
 
 
 func _init() -> void:
 	set_custom_minimum_size(Vector2(20, 0))
+
 
 func _ready() -> void:
 	add_tool_group.pressed.connect(_on_tool_selected)
 	sub_tool_group.pressed.connect(_on_tool_selected)
 
 	add_tool_button({ "tool":Terrain3DEditor.REGION, 
-		"add_text":"Add Region", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_REGION_ADD,
+		"add_text":"Add Region (E)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_REGION_ADD,
 		"sub_text":"Remove Region", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_REGION_REMOVE })
 	
 	add_child(HSeparator.new())
 	
 	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
-		"add_text":"Raise", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_ADD,
-		"sub_text":"Lower", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
+		"add_text":"Raise (R)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_ADD,
+		"sub_text":"Lower (R)", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
 
 	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
-		"add_text":"Smooth", "add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })
+		"add_text":"Smooth (Shift)", "add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })
 
 	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
-		"add_text":"Height", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_FLAT,
-		"sub_text":"Zero", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_FLAT })
+		"add_text":"Height (H)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_FLAT,
+		"sub_text":"Height (H)", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_FLAT })
 
 	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
-		"add_text":"Slope", "add_op":Terrain3DEditor.GRADIENT, "add_icon":ICON_HEIGHT_SLOPE })
+		"add_text":"Slope (S)", "add_op":Terrain3DEditor.GRADIENT, "add_icon":ICON_HEIGHT_SLOPE })
 
 	add_child(HSeparator.new())
 
 	add_tool_button({ "tool":Terrain3DEditor.TEXTURE, 
-		"add_text":"Paint Base Texture", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_PAINT_TEXTURE })
+		"add_text":"Paint Base Texture (B)", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_PAINT_TEXTURE })
 
 	add_tool_button({ "tool":Terrain3DEditor.TEXTURE, 
-		"add_text":"Spray Overlay Texture", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_SPRAY_TEXTURE })
+		"add_text":"Spray Overlay Texture (V)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_SPRAY_TEXTURE })
 
 	add_tool_button({ "tool":Terrain3DEditor.AUTOSHADER,
-		"add_text":"Enable Autoshader", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_AUTOSHADER,
-		"sub_text":"Disable Autoshader", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Autoshader (A)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_AUTOSHADER,
+		"sub_text":"Disable Autoshader (A)", "sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_child(HSeparator.new())
 
 	add_tool_button({ "tool":Terrain3DEditor.COLOR,
-		"add_text":"Paint Color", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_COLOR,
-		"sub_text":"Remove Color", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Color (C)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_COLOR,
+		"sub_text":"Remove Color (C)", "sub_op":Terrain3DEditor.SUBTRACT })
 	
 	add_tool_button({ "tool":Terrain3DEditor.ROUGHNESS,
-		"add_text":"Paint Wetness", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_WETNESS,
-		"sub_text":"Remove Wetness", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Wetness (W)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_WETNESS,
+		"sub_text":"Remove Wetness (W)", "sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_child(HSeparator.new())
 
 	add_tool_button({ "tool":Terrain3DEditor.HOLES,
-		"add_text":"Add Holes", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HOLES,
-		"sub_text":"Remove Holes", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Add Holes (X)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HOLES,
+		"sub_text":"Remove Holes (X)", "sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_tool_button({ "tool":Terrain3DEditor.NAVIGATION,
-		"add_text":"Paint Navigable Area", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_NAVIGATION,
-		"sub_text":"Remove Navigable Area", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Navigable Area (N)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_NAVIGATION,
+		"sub_text":"Remove Navigable Area (N)", "sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_tool_button({ "tool":Terrain3DEditor.INSTANCER,
-		"add_text":"Instance Meshes", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_INSTANCER,
-		"sub_text":"Remove Meshes", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Instance Meshes (I)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_INSTANCER,
+		"sub_text":"Remove Meshes (I)", "sub_op":Terrain3DEditor.SUBTRACT })
 
 	# Select first button
 	var buttons: Array[BaseButton] = add_tool_group.get_buttons()
@@ -96,7 +98,8 @@ func _ready() -> void:
 func add_tool_button(p_params: Dictionary) -> void:
 	# Additive button
 	var button := Button.new()
-	button.set_name(p_params.get("add_text", "blank").to_pascal_case())
+	var name_str: String = p_params.get("add_text", "blank").get_slice('(', 0).to_pascal_case()
+	button.set_name(name_str)
 	button.set_meta("Tool", p_params.get("tool", 0))
 	button.set_meta("Operation", p_params.get("add_op", 0))
 	button.set_meta("ID", add_tool_group.get_buttons().size() + 1)
@@ -107,12 +110,14 @@ func add_tool_button(p_params: Dictionary) -> void:
 	button.set_h_size_flags(SIZE_SHRINK_END)
 	button.set_button_group(p_params.get("group", add_tool_group))
 	add_child(button, true)
+	buttons[button.get_name()] = button
 
 	# Subtractive button
 	var button2: Button
 	if p_params.has("sub_text"):
 		button2 = Button.new()
-		button2.set_name(p_params.get("sub_text", "blank").to_pascal_case())
+		name_str = p_params.get("sub_text", "blank").get_slice('(', 0).to_pascal_case()
+		button.set_name(name_str)
 		button2.set_meta("Tool", p_params.get("tool", 0))
 		button2.set_meta("Operation", p_params.get("sub_op", 0))
 		button2.set_meta("ID", button.get_meta("ID"))
@@ -125,6 +130,11 @@ func add_tool_button(p_params: Dictionary) -> void:
 		button2 = button.duplicate()
 	button2.set_button_group(p_params.get("group", sub_tool_group))
 	add_child(button2, true)
+	buttons[button2.get_name()] = button
+
+
+func get_button(p_name: String) -> Button:
+	return buttons.get(p_name, null)
 
 
 func show_add_buttons(p_enable: bool) -> void:

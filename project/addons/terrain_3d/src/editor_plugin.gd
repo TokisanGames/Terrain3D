@@ -151,11 +151,13 @@ func _clear() -> void:
 	region_gizmo.clear()
 
 
-func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> int:
+func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> AfterGUIInput:
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 
-	_read_input(p_event)
+	var continue_input: AfterGUIInput = _read_input(p_event)
+	if continue_input != AFTER_GUI_INPUT_CUSTOM:
+		return continue_input
 	ui.update_decal()
 	
 	## Setup active camera & viewport
@@ -249,7 +251,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	return AFTER_GUI_INPUT_PASS
 
 
-func _read_input(p_event: InputEvent = null) -> void:
+func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 	## Determine if user is moving camera or applying
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or \
 		p_event is InputEventMouseButton and p_event.is_released() and \
@@ -276,7 +278,8 @@ func _read_input(p_event: InputEvent = null) -> void:
 				p_event.get_button_index() == MOUSE_BUTTON_MIDDLE ):
 					ui.last_rmb_time = Time.get_ticks_msec()
 	if _input_mode < 0:
-		return
+		# Camera is moving, skip input
+		return AFTER_GUI_INPUT_PASS
 
 	## Determine modifiers pressed
 	modifier_shift = Input.is_key_pressed(KEY_SHIFT)
@@ -289,18 +292,26 @@ func _read_input(p_event: InputEvent = null) -> void:
 		1: alt_key = KEY_SPACE
 		0, _: alt_key = KEY_ALT
 	modifier_alt = Input.is_key_pressed(alt_key)
-
-	# Return if modifiers haven't changed AND brush_data has them;
-	# modifiers disappear from brush_data when clicking asset_dock (Why?)
 	var current_mods: int = int(modifier_shift) | int(modifier_ctrl) << 1 | int(modifier_alt) << 2
-	if _last_modifiers == current_mods and ui.brush_data.has("modifier_shift"):
-		return
-	
-	_last_modifiers = current_mods
-	ui.brush_data["modifier_shift"] = modifier_shift
-	ui.brush_data["modifier_ctrl"] = modifier_ctrl
-	ui.brush_data["modifier_alt"] = modifier_alt
-	ui.update_modifiers()
+
+	## Process Hotkeys
+	if p_event is InputEventKey and current_mods == 0 and p_event.is_pressed() and \
+			ui.consume_hotkey(p_event.keycode):
+		# Hotkey found, consume event, and stop input processing
+		EditorInterface.get_editor_viewport_3d().set_input_as_handled()
+		return AFTER_GUI_INPUT_STOP
+
+	# Brush data is cleared on set_tool, or clicking textures in the asset dock
+	# Update modifiers if changed or missing
+	if  _last_modifiers != current_mods or not ui.brush_data.has("modifier_shift"):
+		_last_modifiers = current_mods
+		ui.brush_data["modifier_shift"] = modifier_shift
+		ui.brush_data["modifier_ctrl"] = modifier_ctrl
+		ui.brush_data["modifier_alt"] = modifier_alt
+		ui.update_modifiers()
+
+	## Continue processing input
+	return AFTER_GUI_INPUT_CUSTOM
 
 
 func update_region_grid() -> void:
