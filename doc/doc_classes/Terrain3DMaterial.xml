@@ -79,6 +79,9 @@
 		<member name="show_colormap" type="bool" setter="set_show_colormap" getter="get_show_colormap" default="false">
 			Places the color map in the albedo channel.
 		</member>
+		<member name="show_contours" type="bool" setter="set_show_contours" getter="get_show_contours" default="false">
+			Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
+		</member>
 		<member name="show_control_angle" type="bool" setter="set_show_control_angle" getter="get_show_control_angle" default="false">
 			Albedo shows the painted angle. Orange means 0°, Yellow 270°, Cyan 180°, Violet 90°. Or warm colors towards -Z, cool colors +Z, greens/yellows +X, reds/blues -X. Draw all angles coming from the center of a circle for a better understanding.
 		</member>
@@ -98,13 +101,13 @@
 			Albedo is a white to black gradient depending on height. The gradient is scaled to a height of 300, so above that or far below 0 will be all white or black.
 		</member>
 		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
-			Draws the 32x32m cell grid on the terrain, which shows how the instancer data is partitioned.
+			Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
 		</member>
 		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
 			Displays the area designated for generating the navigation mesh.
 		</member>
 		<member name="show_region_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
-			Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
+			Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. Press `1` with the mouse in the viewport to toggle.
 		</member>
 		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
 			Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
@@ -119,7 +122,7 @@
 			Albedo is set to the painted Roughness textures. This is different from the roughness modification map above.
 		</member>
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
-			Show a grid on the vertices, overlaying any above shader.
+			Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
 		</member>
 		<member name="texture_filtering" type="int" setter="set_texture_filtering" getter="get_texture_filtering" enum="Terrain3DMaterial.TextureFiltering" default="0">
 			Sets how the renderer should filter textures. See [enum TextureFiltering] for options.
