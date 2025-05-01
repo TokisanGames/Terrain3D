@@ -198,6 +198,9 @@
 		<member name="show_colormap" type="bool" setter="set_show_colormap" getter="get_show_colormap" default="false">
 			Alias for [member Terrain3DMaterial.show_colormap].
 		</member>
+		<member name="show_contours" type="bool" setter="set_show_contours" getter="get_show_contours" default="false">
+			Alias for [member Terrain3DMaterial.show_contours]. Press `4` with the mouse in the viewport to toggle. Customize in the material.
+		</member>
 		<member name="show_control_angle" type="bool" setter="set_show_control_angle" getter="get_show_control_angle" default="false">
 			Alias for [member Terrain3DMaterial.show_control_angle].
 		</member>
@@ -214,13 +217,13 @@
 			Alias for [member Terrain3DMaterial.show_grey].
 		</member>
 		<member name="show_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_region_grid].
+			Alias for [member Terrain3DMaterial.show_region_grid]. Press `1` with the mouse in the viewport to toggle.
 		</member>
 		<member name="show_heightmap" type="bool" setter="set_show_heightmap" getter="get_show_heightmap" default="false">
 			Alias for [member Terrain3DMaterial.show_heightmap].
 		</member>
 		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_instancer_grid].
+			Alias for [member Terrain3DMaterial.show_instancer_grid]. Press `2` with the mouse in the viewport to toggle.
 		</member>
 		<member name="show_instances" type="bool" setter="set_show_instances" getter="get_show_instances" default="true">
 			Shows or hides all instancer meshes.
@@ -229,7 +232,7 @@
 			Alias for [member Terrain3DMaterial.show_navigation].
 		</member>
 		<member name="show_region_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_region_grid].
+			Alias for [member Terrain3DMaterial.show_region_grid]. Press `1` with the mouse in the viewport to toggle.
 		</member>
 		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
 			Alias for [member Terrain3DMaterial.show_autoshader].
@@ -244,7 +247,7 @@
 			Alias for [member Terrain3DMaterial.show_texture_rough].
 		</member>
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_vertex_grid].
+			Alias for [member Terrain3DMaterial.show_vertex_grid]. Press `3` with the mouse in the viewport to toggle.
 		</member>
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.1.0-dev&quot;">
 			The current version of Terrain3D.
