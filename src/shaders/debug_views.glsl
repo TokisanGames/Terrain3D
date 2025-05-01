@@ -245,24 +245,9 @@ R"(
 	}
 
 //INSERT: OVERLAY_CONTOURS_SETUP
-uniform bool contour_dynamic = true;
 uniform float contour_interval: hint_range(0.25, 100.0, 0.001) = 1.0;
 uniform float contour_thickness : hint_range(0.0, 10.0, 0.001) = 1.0;
 uniform vec4 contour_color : source_color = vec4(.85, .85, .19, 1.);
-
-float contour_lines(float thickness, float interval, vec3 spatial_coords, vec3 normal, vec3 base_ddx, vec3 base_ddy) {
-    float y = spatial_coords.y;
-    float y_fwidth = abs(base_ddx.y) + abs(base_ddy.y);
-    thickness *= smoothstep(0., 0.0125, clamp(1.0 - normal.y, 0., 1.));
-    float mi = max(0.0, thickness - 1.0);
-    float ma = max(1.0, thickness);
-    float mx = max(0.0, 1.0 - thickness);
-    float inv_interval = 1.0 / interval;
-    float f_a = abs(fract((y + interval * 0.5) * inv_interval) - 0.5);
-    float df_a = y_fwidth * inv_interval;
-    float line_a = clamp((f_a - df_a * mi) / (df_a * (ma - mi)), mx, 1.0);
-    return line_a;
-}
 
 float fractal_contour_lines(float thickness, float interval, vec3 spatial_coords, vec3 normal, vec3 base_ddx, vec3 base_ddy) {
     float depth = max(log(length(spatial_coords - _camera_pos) / interval) * (1.0 / log2(2.0)) - 1.0, 1.0);
@@ -306,17 +291,11 @@ float fractal_contour_lines(float thickness, float interval, vec3 spatial_coords
 //INSERT: OVERLAY_CONTOURS_RENDER
 	// Show contour lines
 	{
-		float __line = 0.;
 		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
 		vec3 __base_ddx = dFdxCoarse(__pixel_pos);
 		vec3 __base_ddy = dFdyCoarse(__pixel_pos);
 		vec3 __w_normal = normalize(cross(__base_ddy, __base_ddx));
-
-		if(contour_dynamic) {
-			__line = fractal_contour_lines(contour_thickness, contour_interval, __pixel_pos, __w_normal, __base_ddx, __base_ddy);
-		} else {
-			__line = contour_lines(contour_thickness, contour_interval, __pixel_pos, __w_normal, __base_ddx, __base_ddy);
-		}
+		float __line = fractal_contour_lines(contour_thickness, contour_interval, __pixel_pos, __w_normal, __base_ddx, __base_ddy);
 		ALBEDO = mix(ALBEDO, contour_color.rgb, (1.-__line) * contour_color.a);
 	}
 )"
