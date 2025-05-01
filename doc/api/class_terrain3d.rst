@@ -88,6 +88,8 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_colormap<class_Terrain3D_property_show_colormap>`               | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``bool``                                                    | :ref:`show_contours<class_Terrain3D_property_show_contours>`               | ``false``       |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_control_angle<class_Terrain3D_property_show_control_angle>`     | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_control_blend<class_Terrain3D_property_show_control_blend>`     | ``false``       |
@@ -798,6 +800,23 @@ Alias for :ref:`Terrain3DMaterial.show_colormap<class_Terrain3DMaterial_property
 
 ----
 
+.. _class_Terrain3D_property_show_contours:
+
+.. rst-class:: classref-property
+
+``bool`` **show_contours** = ``false`` :ref:`🔗<class_Terrain3D_property_show_contours>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_contours**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_contours**\ (\ )
+
+Alias for :ref:`Terrain3DMaterial.show_contours<class_Terrain3DMaterial_property_show_contours>`. Press `4` with the mouse in the viewport to toggle. Customize in the material.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_show_control_angle:
 
 .. rst-class:: classref-property
@@ -894,7 +913,7 @@ Alias for :ref:`Terrain3DMaterial.show_grey<class_Terrain3DMaterial_property_sho
 - |void| **set_show_region_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_region_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`.
+Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`. Press `1` with the mouse in the viewport to toggle.
 
 .. rst-class:: classref-item-separator
 
@@ -928,7 +947,7 @@ Alias for :ref:`Terrain3DMaterial.show_heightmap<class_Terrain3DMaterial_propert
 - |void| **set_show_instancer_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`.
+Alias for :ref:`Terrain3DMaterial.show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`. Press `2` with the mouse in the viewport to toggle.
 
 .. rst-class:: classref-item-separator
 
@@ -979,7 +998,7 @@ Alias for :ref:`Terrain3DMaterial.show_navigation<class_Terrain3DMaterial_proper
 - |void| **set_show_region_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_region_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`.
+Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`. Press `1` with the mouse in the viewport to toggle.
 
 .. rst-class:: classref-item-separator
 
@@ -1064,7 +1083,7 @@ Alias for :ref:`Terrain3DMaterial.show_texture_rough<class_Terrain3DMaterial_pro
 - |void| **set_show_vertex_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_vertex_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_vertex_grid<class_Terrain3DMaterial_property_show_vertex_grid>`.
+Alias for :ref:`Terrain3DMaterial.show_vertex_grid<class_Terrain3DMaterial_property_show_vertex_grid>`. Press `3` with the mouse in the viewport to toggle.
 
 .. rst-class:: classref-item-separator
 

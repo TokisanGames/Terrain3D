@@ -50,6 +50,8 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_colormap<class_Terrain3DMaterial_property_show_colormap>`                     | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_contours<class_Terrain3DMaterial_property_show_contours>`                     | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_control_angle<class_Terrain3DMaterial_property_show_control_angle>`           | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_control_blend<class_Terrain3DMaterial_property_show_control_blend>`           | ``false`` |
@@ -312,6 +314,23 @@ Places the color map in the albedo channel.
 
 ----
 
+.. _class_Terrain3DMaterial_property_show_contours:
+
+.. rst-class:: classref-property
+
+``bool`` **show_contours** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_contours>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_contours**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_contours**\ (\ )
+
+Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DMaterial_property_show_control_angle:
 
 .. rst-class:: classref-property
@@ -425,7 +444,7 @@ Albedo is a white to black gradient depending on height. The gradient is scaled 
 - |void| **set_show_instancer_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
-Draws the 32x32m cell grid on the terrain, which shows how the instancer data is partitioned.
+Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
 
 .. rst-class:: classref-item-separator
 
@@ -459,7 +478,7 @@ Displays the area designated for generating the navigation mesh.
 - |void| **set_show_region_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_region_grid**\ (\ )
 
-Draws the region grid directly on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing.
+Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. Press `1` with the mouse in the viewport to toggle.
 
 .. rst-class:: classref-item-separator
 
@@ -544,7 +563,7 @@ Albedo is set to the painted Roughness textures. This is different from the roug
 - |void| **set_show_vertex_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_vertex_grid**\ (\ )
 
-Show a grid on the vertices, overlaying any above shader.
+Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
 
 .. rst-class:: classref-item-separator
 
