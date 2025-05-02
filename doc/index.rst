@@ -119,6 +119,7 @@ Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk
    docs/shader_design
    docs/controlmap_format
    docs/data_format
+   docs/generating_csharp_bindings
    docs/contributing
 
 
