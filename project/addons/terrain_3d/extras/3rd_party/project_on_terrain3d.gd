@@ -15,8 +15,12 @@
 #
 #
 #@export var terrain_node : NodePath
-#@export var align_with_collision_normal := false
-#@export_range(0.0, 90.0, 0.1) var max_slope = 90.0
+#@export var align_with_collision_normal : bool = false
+#@export_range(0.0, 90.0, 0.1) var max_slope : float = 90.0
+#@export var enable_texture_filtering : bool = false
+#@export_range(0, 31) var target_texture_id : int = 0
+#@export var not_target_texture : bool = false
+#@export_range(0.0, 1.0, 0.01) var texture_threshold : float = 0.8
 #
 #var _terrain: Terrain3D
 #
@@ -31,8 +35,8 @@
 	#use_global_space_by_default()
 #
 	#documentation.add_paragraph(
-		#"This is a duplicate of `Project on Colliders` that queries the terrain system
-		#for height and sets the transform height appropriately.
+		#"This is a modified version of `Project on Colliders` that queries Terrain3D
+		#for heights without using collision. It constrains placement by slope or texture.
 #
 		#This modifier must have terrain_node set to a Terrain3D node.")
 #
@@ -45,6 +49,25 @@
 	#p.set_description(
 		#"Rotate the transform to align it with the collision normal in case
 		#the ray cast hit a collider.")
+		#
+	#p = documentation.add_parameter("Enable Texture Filtering")
+	#p.set_type("bool")
+	#p.set_description(
+		#"If enabled, objects will only be placed based on the ground texture specified.")
+		#
+	#p = documentation.add_parameter("Target Texture ID")
+	#p.set_type("int")
+	#p.set_description(
+		#"The ID of the texture to place objects on (0-31). Objects will only be placed on this texture.")
+		#
+	#p = documentation.add_parameter("Not Target Texture")
+	#p.set_type("bool") 
+	#p.set_description(
+		#"If true, objects will be placed on all textures EXCEPT the target texture.")
+		#
+	#p = documentation.add_parameter("Texture Threshold")
+	#p.set_type("float") 
+	#p.set_description("The blend value required for placement on the texture.")
 #
 #
 #func _process_transforms(transforms, domain, _seed) -> void:
@@ -62,7 +85,7 @@
 		#warning += """Terrain3DData is not initialized"""
 		#return
 #
-	## Get global transform
+	## Review transforms
 	#var gt: Transform3D = domain.get_global_transform()
 	#var gt_inverse := gt.affine_inverse()
 	#var new_transforms_array: Array[Transform3D] = []
@@ -71,24 +94,42 @@
 		#var t: Transform3D = transforms.list[i]
 		#
 		#var location: Vector3 = (gt * t).origin
-		#var height: float = _terrain.data.get_height(location)
-		#var normal: Vector3 = _terrain.data.get_normal(location)
+		#var height: float = _terrain.data.get_height(location)		
+		#if is_nan(height):
+			#continue
 		#
+		#var normal: Vector3 = _terrain.data.get_normal(location)
+		#if not abs(Vector3.UP.dot(normal)) >= (1.0 - remapped_max_slope):
+			#continue
+		#
+		#if enable_texture_filtering:
+			#var texture_info: Vector3 = _terrain.data.get_texture_id(location)
+			#var base_id: int = int(texture_info.x)
+			#var overlay_id: int = int(texture_info.y)
+			#var blend_value: float = texture_info.z
+			## Skip if overlay or blend != target texture, unless inverted
+			#if ((overlay_id != target_texture_id or blend_value < texture_threshold) and \
+				#(base_id != target_texture_id or blend_value >= texture_threshold)) != not_target_texture:
+					#continue
+#
 		#if align_with_collision_normal and not is_nan(normal.x):
 			#t.basis.y = normal
 			#t.basis.x = -t.basis.z.cross(normal)
 			#t.basis = t.basis.orthonormalized()
 #
-		#if abs(Vector3.UP.dot(normal)) >= (1.0 - remapped_max_slope):
-			#t.origin.y = gt.origin.y if is_nan(height) else height - gt.origin.y
-			#new_transforms_array.push_back(t)
+		#t.origin.y = height - gt.origin.y
+		#new_transforms_array.push_back(t)
 #
 	#transforms.list.clear()
 	#transforms.list.append_array(new_transforms_array)
 #
 	#if transforms.is_empty():
-		#warning += """All transforms have been removed. Possible reasons include: \n
-		#+ No collider is close enough to the shapes.
+		#warning += """All transforms have been removed. Possible reasons include: \n"""
+		#if enable_texture_filtering:
+			#warning += """+ No matching texture found at any position.
+			#+ Texture threshold may be too high.
+			#"""
+		#warning += """+ No collider is close enough to the shapes.
 		#+ Ray length is too short.
 		#+ Ray direction is incorrect.
 		#+ Collision mask is not set properly.
