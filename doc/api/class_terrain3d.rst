@@ -530,7 +530,7 @@ The verbosity of debug messages printed to the console. Errors and warnings are 
 - |void| **set_free_editor_textures**\ (\ value\: ``bool``\ )
 - ``bool`` **get_free_editor_textures**\ (\ )
 
-Frees ground textures used for editing at the start of the game. These textures are used to generate the TextureArrays, so if you don't change any :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` settings in game, this can be enabled. Calls :ref:`Terrain3DAssets.clear_textures()<class_Terrain3DAssets_method_clear_textures>`.
+Frees ground textures used for editing in _ready(). These textures are used to generate the TextureArrays, so if you don't change any :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` settings in game, this can be enabled. Also reloads the texture asset list in _enter_tree() in case you load scenes via code and need the textures again. Calls :ref:`Terrain3DAssets.clear_textures()<class_Terrain3DAssets_method_clear_textures>`.
 
 .. rst-class:: classref-item-separator
 
