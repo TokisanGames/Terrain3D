@@ -236,9 +236,10 @@ void start() {
 	bool auto = bool(control & 0x1u);
 	int base = int(control >>27u & 0x1Fu);
 	int over = int(control >> 22u & 0x1Fu);
+	float blend = float(control >> 14u & 0xFFu) * 0.003921568627450; // 1. / 255.
 
 	// Hardcoded example, hand painted texture id 0 is filtered out.
-	if (!auto && (base == 0 || over == 0)) {
+	if (!auto && ((base == 0 && blend < 0.7) || (over == 0 && blend >= 0.3))) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
 	}
