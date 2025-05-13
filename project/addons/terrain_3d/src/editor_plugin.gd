@@ -176,6 +176,15 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	## Get mouse location on terrain
 	# Project 2D mouse position to 3D position and direction
 	var vp_mouse_pos: Vector2 = editor_vpc.get_local_mouse_position()
+
+	# Tablets often send input events with correct coordinates but don't 
+	# automatically move the system cursor
+	if p_event is InputEventMouseMotion:
+		var event_pos = p_event.position
+		if event_pos.distance_to(vp_mouse_pos) > 1.0:
+			DisplayServer.warp_mouse(Vector2i(p_event.global_position))
+			vp_mouse_pos = event_pos
+
 	var mouse_pos: Vector2 = vp_mouse_pos if full_resolution else vp_mouse_pos / 2
 	var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
 	var camera_dir: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
