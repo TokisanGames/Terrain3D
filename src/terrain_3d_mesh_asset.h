@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
+#include <godot_cpp/classes/shape3d.hpp>
 
 #include "constants.h"
 #include "terrain_3d_asset_resource.h"
@@ -50,11 +51,14 @@ private:
 	int _last_lod = MAX_LOD_COUNT - 1;
 	int _last_shadow_lod = MAX_LOD_COUNT - 1;
 	int _shadow_impostor = 0;
+	int _shape_count = 0;
 	PackedFloat32Array _lod_ranges;
 	real_t _fade_margin = 0.f;
 
 	// Working data
 	TypedArray<Mesh> _meshes;
+	TypedArray<Shape3D> _shapes;
+	Transform3D _shape_transform;
 	Ref<Texture2D> _thumbnail;
 
 	void _clear_lod_ranges();
@@ -79,6 +83,9 @@ public:
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
+	Ref<Shape3D> get_shape() const;
+	int get_shape_count() const;
+	Transform3D get_shape_transform() const;
 	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
@@ -140,3 +147,5 @@ protected:
 VARIANT_ENUM_CAST(Terrain3DMeshAsset::GenType);
 
 #endif // TERRAIN3D_MESH_ASSET_CLASS_H
+
+

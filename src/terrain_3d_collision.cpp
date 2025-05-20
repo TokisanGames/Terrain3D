@@ -386,6 +386,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 			}
 		}
 		_last_snapped_pos = snapped_pos;
+
 		LOG(EXTREME, "Setting _last_snapped_pos: ", _last_snapped_pos);
 		LOG(EXTREME, "inactive_shape_ids size: ", inactive_shape_ids.size());
 
@@ -409,7 +410,245 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 			_shape_set_data(i, shape_data);
 		}
 	}
-	LOG(EXTREME, "Collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+
+	destroy_collision_instances();
+	create_collision_instances();
+
+	LOG(INFO, "Collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+}
+
+void Terrain3DCollision::create_collision_instances() {
+	const Vector3 world_pos = Vector3(_last_snapped_pos.x, 0.0, _last_snapped_pos.y);
+	const Vector2i player_region = _terrain->get_data()->get_region_location(world_pos);
+
+	TypedArray<Vector2i> region_locs;
+
+	if (is_dynamic_mode()) {
+		// Get neighbour regions
+		const int y[] = { 0, -1, -1, -1, 1, 1, 1, 0, 0 };
+		const int x[] = { 0, -1, 0, 1, -1, 0, 1, -1, 1 };
+
+		for (int i = 0; i < 9; ++i) {
+			Vector2i region_loc = Vector2i(player_region.x + x[i], player_region.y + y[i]);
+			LOG(DEBUG, "Checking region location ", region_loc);
+			if (_terrain->get_data()->has_region(region_loc)) {
+				region_locs.push_back(region_loc);
+			}
+		}
+	} else {
+		// Full collision - get all regions
+		region_locs = _terrain->get_data()->get_region_locations();
+	}
+
+	LOG(DEBUG, "Generating instance collision for ", region_locs.size(), " regions");
+
+	for (int i = 0; i < region_locs.size(); i++) {
+		const Vector2i region_loc = region_locs[i];
+
+		LOG(DEBUG, " Updating instance collisions at ", region_loc);
+
+		const Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+
+		if (!region) {
+			LOG(WARN, "Errant null region found at: ", region_loc);
+			continue;
+		}
+
+		// Get the region location in global space
+		Transform3D t = Transform3D();
+		const int region_size = region->get_region_size();
+		const real_t vertex_spacing = _terrain->get_vertex_spacing();
+		t.origin.x += region_loc.x * region_size * vertex_spacing;
+		t.origin.z += region_loc.y * region_size * vertex_spacing;
+
+		const Dictionary mesh_inst_dict = region->get_instances();
+
+		// For specified mesh id in that region, or -1 for all
+		const Array mesh_types = mesh_inst_dict.keys();
+
+		for (int m = 0; m < mesh_types.size(); m++) {
+			const int mesh_id = mesh_types[m];
+
+			// Verify mesh id is valid and has some meshes
+			const Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
+			if (ma.is_valid()) {
+				LOG(INFO, " dealing with mesh ", mesh_id)
+				if (!ma->is_enabled()) {
+					continue;
+				}
+				if (ma->get_shape_count() == 0) {
+					LOG(WARN, "MeshAsset ", mesh_id, " valid but has no collision shape, skipping");
+					continue;
+				}
+			} else {
+				LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
+				continue;
+			}
+
+			const Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			const Array cell_locations = cell_inst_dict.keys();
+			for (int c = 0; c < cell_locations.size(); c++) {
+				// Get instances
+				const Vector2i cell = cell_locations[c];
+				Array triple = cell_inst_dict[cell];
+
+				if (triple.size() < 3) {
+					LOG(WARN, "Triple is empty");
+					continue;
+				}
+
+				const TypedArray<Transform3D> xforms = triple[0];
+
+				bool modified = triple[2];
+
+				if (xforms.size() == 0) {
+					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
+					continue;
+				}
+
+				LOG(EXTREME, "Transforms to handle : ", xforms.size())
+
+				for (int x = 0; x < xforms.size(); x++) {
+					Transform3D xform = xforms[x];
+					xform = t * xform;
+
+					if (world_pos.distance_to(xform.get_origin() * Vector3(1.0, 0.0, 1.0)) > get_radius() && is_dynamic_mode()) {
+						LOG(EXTREME, "xform outside radius, skipping");
+						continue;
+					}
+
+					// Create StaticBody3D
+					if (is_editor_mode()) {
+						LOG(DEBUG, "Building collision for editor ");
+						StaticBody3D *my_static_body = memnew(StaticBody3D);
+						instance_bodies.push_back(my_static_body);
+						//String node_name = "StaticBody3D" + x;
+						//my_static_body->set_name(node_name);
+						my_static_body->set_as_top_level(true);
+						_terrain->add_child(my_static_body, true);
+						my_static_body->set_owner(_terrain);
+						my_static_body->set_collision_mask(_mask);
+						my_static_body->set_collision_layer(_layer);
+						my_static_body->set_collision_priority(_priority);
+
+						//LOG(DEBUG, "Body added ", my_static_body->get_name());
+
+						CollisionShape3D *col_shape = memnew(CollisionShape3D);
+						instance_shapes.push_back(col_shape);
+
+						//col_shape->set_name("CollisionShape3D" + x);
+						col_shape->set_disabled(false);
+						col_shape->set_visible(true);
+
+						const Ref<Shape3D> cpshape = ma->get_shape();
+						instance_shape_shapes.push_back(*cpshape);
+
+						col_shape->set_shape(cpshape);
+						my_static_body->add_child(col_shape, true);
+						col_shape->set_owner(my_static_body);
+						col_shape->set_global_transform(ma->get_shape_transform());
+
+						my_static_body->set_global_transform(xform);
+
+					} else {
+						LOG(DEBUG, "Building instance collision with Physics Server");
+						const RID my_static_body_rid = PS->body_create();
+						RID shape_rid;
+						const int shape_type = PS->shape_get_type(ma->get_shape()->get_rid());
+
+						instance_body_rids.push_back(my_static_body_rid);
+
+						PS->body_set_mode(my_static_body_rid, PhysicsServer3D::BODY_MODE_STATIC);
+						PS->body_set_space(my_static_body_rid, _terrain->get_world_3d()->get_space());
+						PS->body_attach_object_instance_id(my_static_body_rid, _terrain->get_instance_id());
+						PS->body_set_collision_mask(my_static_body_rid, _mask);
+						PS->body_set_collision_layer(my_static_body_rid, _layer);
+						PS->body_set_collision_priority(my_static_body_rid, _priority);
+						PS->body_set_state(my_static_body_rid, PS->BODY_STATE_TRANSFORM, xform);
+
+						switch (shape_type) {
+							case 2:
+								// SHAPE_SPHERE
+								shape_rid = PS->sphere_shape_create();
+								break;
+							case 3:
+								// SHAPE_BOX
+								shape_rid = PS->box_shape_create();
+								break;
+							case 4:
+								// SHAPE_CAPSULE
+								shape_rid = PS->capsule_shape_create();
+								break;
+							case 5:
+								// SHAPE_CYLINDER
+								shape_rid = PS->cylinder_shape_create();
+								break;
+							case 6:
+								// SHAPE_CONVEX_POLYGON
+								shape_rid = PS->convex_polygon_shape_create();
+								break;
+							case 7:
+								// SHAPE_CONCAVE_POLYGON
+								shape_rid = PS->concave_polygon_shape_create();
+								break;
+							default:
+								LOG(WARN, "Tried to use unsupported shape type : ", shape_type);
+								break;
+						}
+
+						instance_shape_rids.push_back(shape_rid);
+
+						PS->body_add_shape(my_static_body_rid, shape_rid, ma->get_shape_transform(), false);
+						PS->shape_set_data(shape_rid, PS->shape_get_data(ma->get_shape()->get_rid()));
+					}
+				}
+			}
+		}
+	}
+}
+
+void Terrain3DCollision::destroy_collision_instances() {
+	LOG(INFO, "Destroying collision instances");
+
+	// Physics Server
+	for (int i = 0; i < instance_body_rids.size(); i++) {
+		const RID body_rid = instance_body_rids[i];
+		// Physics Server
+		if (body_rid.is_valid()) {
+			// Shape IDs change as they are freed, so it's not safe to iterate over them while freeing.
+			while (PS->body_get_shape_count(body_rid) > 0) {
+				RID rid = PS->body_get_shape(body_rid, 0);
+				LOG(EXTREME, "Freeing CollisionShape RID ", rid);
+				PS->free_rid(rid);
+			}
+			PS->free_rid(body_rid);
+		}
+	}
+
+	// Scene Tree
+	for (int i = 0; i < instance_shapes.size(); i++) {
+		CollisionShape3D *shape = cast_to<CollisionShape3D>(instance_shapes[i]);
+		LOG(EXTREME, "Freeing CollisionShape3D ", i, " ", shape->get_name());
+		if (shape) {
+			remove_from_tree(shape);
+			memdelete_safely(shape);
+		}
+	}
+
+	for (int i = 0; i < instance_bodies.size(); i++) {
+		StaticBody3D *body = cast_to<StaticBody3D>(instance_bodies[i]);
+		if (body) {
+			LOG(EXTREME, "Freeing StaticBody3D ", i, " ", body->get_name());
+			remove_from_tree(body);
+			memdelete_safely(body);
+		}
+	}
+
+	instance_shapes.clear();
+	instance_shape_shapes.clear();
+	instance_bodies.clear();
+	instance_body_rids.clear();
+	instance_shape_rids.clear();
 }
 
 void Terrain3DCollision::destroy() {
@@ -443,6 +682,8 @@ void Terrain3DCollision::destroy() {
 		remove_from_tree(_static_body);
 		memdelete_safely(_static_body);
 	}
+
+	destroy_collision_instances();
 }
 
 void Terrain3DCollision::set_mode(const CollisionMode p_mode) {
@@ -567,6 +808,8 @@ void Terrain3DCollision::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("build"), &Terrain3DCollision::build);
 	ClassDB::bind_method(D_METHOD("update", "rebuild"), &Terrain3DCollision::update, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("destroy_collision_instances"), &Terrain3DCollision::destroy_collision_instances);
+	ClassDB::bind_method(D_METHOD("create_collision_instances"), &Terrain3DCollision::create_collision_instances);
 	ClassDB::bind_method(D_METHOD("destroy"), &Terrain3DCollision::destroy);
 	ClassDB::bind_method(D_METHOD("set_mode", "mode"), &Terrain3DCollision::set_mode);
 	ClassDB::bind_method(D_METHOD("get_mode"), &Terrain3DCollision::get_mode);

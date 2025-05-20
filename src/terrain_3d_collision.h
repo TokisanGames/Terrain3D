@@ -45,6 +45,12 @@ private:
 	StaticBody3D *_static_body = nullptr; // Editor mode StaticBody3D
 	std::vector<CollisionShape3D *> _shapes; // All CollisionShape3Ds
 
+	TypedArray<RID> instance_body_rids; // Physics server RIDs
+	TypedArray<RID> instance_shape_rids;
+	TypedArray<StaticBody3D> instance_bodies; //Editor mode bodies
+	std::vector<CollisionShape3D*> instance_shapes;
+	std::vector<Shape3D*> instance_shape_shapes;
+
 	bool _initialized = false;
 	Vector2i _last_snapped_pos = V2I_MAX;
 
@@ -66,6 +72,8 @@ public:
 
 	void build();
 	void update(const bool p_rebuild = false);
+	void create_collision_instances();
+	void destroy_collision_instances();
 	void destroy();
 
 	void set_mode(const CollisionMode p_mode);
