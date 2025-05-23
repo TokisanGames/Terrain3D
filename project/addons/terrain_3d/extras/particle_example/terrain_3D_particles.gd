@@ -10,10 +10,11 @@ extends Node3D
 
 #region settings
 ## Auto set if attached as a child of a Terrain3D node
-@export var terrain: Terrain3D :
+@export var terrain: Terrain3D:
 	set(value):
 		terrain = value
 		_create_grid()
+
 
 ## Distance between instances
 @export_range(0.125, 2.0, 0.015625) var instance_spacing: float = 0.5:
@@ -23,6 +24,7 @@ extends Node3D
 		amount = rows * rows
 		_set_offsets()
 
+
 ## Width of an individual cell of the grid
 @export_range(8.0, 256.0, 1.0) var cell_width: float = 32.0:
 	set(value):
@@ -31,29 +33,31 @@ extends Node3D
 		amount = rows * rows
 		min_draw_distance = 1.0
 		# Have to update aabb
-		if terrain:
-			if terrain.data:
-				var height_range: Vector2 = terrain.data.get_height_range()
-				var height: float = height_range[0] - height_range[1]
-				var aabb: AABB = AABB()
-				aabb.size = Vector3(cell_width, height, cell_width)
-				aabb.position = aabb.size * -0.5
-				aabb.position.y = height_range[1]
-				for p in particle_nodes:
-					p.custom_aabb = aabb
+		if terrain and terrain.data:
+			var height_range: Vector2 = terrain.data.get_height_range()
+			var height: float = height_range[0] - height_range[1]
+			var aabb: AABB = AABB()
+			aabb.size = Vector3(cell_width, height, cell_width)
+			aabb.position = aabb.size * -0.5
+			aabb.position.y = height_range[1]
+			for p in particle_nodes:
+				p.custom_aabb = aabb
 		_set_offsets()
+
 
 ## Grid width. Must be odd. 
 ## Higher values cull slightly better, draw further out.
-@export_range(1, 15, 2) var grid_width: int = 9 :
+@export_range(1, 15, 2) var grid_width: int = 9:
 	set(value):
 		grid_width = value
 		particle_count = 1
 		min_draw_distance = 1.0
 		_create_grid()
 
+
 @export_storage var rows: int = 1
-@export_storage var amount: int = 1 :
+
+@export_storage var amount: int = 1:
 	set(value):
 		amount = value
 		particle_count = value
@@ -61,12 +65,14 @@ extends Node3D
 		for p in particle_nodes:
 			p.amount = amount
 
-@export_range(1, 256, 1) var process_fixed_fps: int = 30 :
+
+@export_range(1, 256, 1) var process_fixed_fps: int = 30:
 	set(value):
 		process_fixed_fps = maxi(value, 1)
 		for p in particle_nodes:
 			p.fixed_fps = process_fixed_fps
 			p.preprocess = 1.0 / float(process_fixed_fps)
+
 
 ## Access to process material parameters
 @export var process_material: ShaderMaterial
@@ -75,11 +81,12 @@ extends Node3D
 @export var mesh: Mesh
 
 @export var shadow_mode: GeometryInstance3D.ShadowCastingSetting = (
-	GeometryInstance3D.ShadowCastingSetting.SHADOW_CASTING_SETTING_ON):
+		GeometryInstance3D.ShadowCastingSetting.SHADOW_CASTING_SETTING_ON):
 	set(value):
 		shadow_mode = value
 		for p in particle_nodes:
 			p.cast_shadow = value
+
 
 ## Override material for the particle mesh
 @export_custom(
@@ -90,6 +97,7 @@ extends Node3D
 		for p in particle_nodes:
 			p.material_override = mesh_material_override
 
+
 @export_group("Info")
 ## The minimum distance that particles will be drawn upto
 ## If using fade out effects like pixel alpha this is the limit to use.
@@ -97,11 +105,14 @@ extends Node3D
 	set(value):
 		min_draw_distance = float(cell_width * grid_width) * 0.5
 
+
 ## Displays current total particle count based on Cell Width and Instance Spacing
 @export var particle_count: int = 1:
 	set(value):
 		particle_count = amount * grid_width * grid_width
+
 #endregion
+
 
 var offsets: Array[Vector3]
 var last_pos: Vector3 = Vector3.ZERO
@@ -109,9 +120,10 @@ var particle_nodes: Array[GPUParticles3D]
 
 
 func _ready() -> void:
-	var parent = get_parent()
-	if parent is Terrain3D:
-		terrain = parent
+	if not terrain:
+		var parent: Node = get_parent()
+		if parent is Terrain3D:
+			terrain = parent
 	_create_grid()
 
 
@@ -122,7 +134,7 @@ func _notification(what: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	if terrain:
-		var camera := terrain.get_camera()
+		var camera: Camera3D = terrain.get_camera()
 		if camera:
 			if last_pos.distance_squared_to(camera.global_position) > 1.0:
 				var pos: Vector3 = camera.global_position.snapped(Vector3.ONE)
@@ -130,12 +142,15 @@ func _physics_process(delta: float) -> void:
 				RenderingServer.material_set_param(process_material.get_rid(), "camera_position", pos )
 				last_pos = camera.global_position
 		_update_process_parameters()
+	else:
+		set_physics_process(false)
 
 
 func _create_grid() -> void:
 	_destroy_grid()
 	if not terrain:
 		return
+	set_physics_process(true)
 	_set_offsets()
 	var hr: Vector2 = terrain.data.get_height_range()
 	var height: float = hr.x - hr.y
@@ -178,7 +193,7 @@ func _set_offsets() -> void:
 	offsets.clear()
 	for x in range(-half_grid, half_grid + 1):
 		for z in range(-half_grid, half_grid + 1):
-			var offset = Vector3(
+			var offset := Vector3(
 				float(x * rows) * instance_spacing,
 				0.0,
 				float(z * rows) * instance_spacing
@@ -187,7 +202,7 @@ func _set_offsets() -> void:
 
 
 func _destroy_grid() -> void:
-	for node in particle_nodes:
+	for node: GPUParticles3D in particle_nodes:
 		if is_instance_valid(node):
 			node.queue_free()
 	particle_nodes.clear()
@@ -195,9 +210,10 @@ func _destroy_grid() -> void:
 
 func _position_grid(pos: Vector3) -> void:
 	for i in particle_nodes.size():
-		var node = particle_nodes[i]
+		var node: GPUParticles3D = particle_nodes[i]
 		var snap = Vector3(pos.x, 0, pos.z).snapped(Vector3.ONE) + offsets[i]
 		node.global_position = (snap / instance_spacing).round() * instance_spacing
+		node.reset_physics_interpolation()
 		node.restart(true) # keep the same seed.
 
 
