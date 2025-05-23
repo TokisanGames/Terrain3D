@@ -1,0 +1,212 @@
+[gd_scene load_steps=4 format=3 uid="uid://b5wxp6lton0et"]
+
+[ext_resource type="Theme" uid="uid://bb2773v41h8r" path="res://addons/terrain_3d/menu/terrain3d_theme.tres" id="1_xbcvl"]
+[ext_resource type="Script" uid="uid://pkievxeb101w" path="res://addons/terrain_3d/menu/menu_ui.gd" id="2_xbcvl"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_uxh0t"]
+
+[node name="MenuUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("1_xbcvl")
+script = ExtResource("2_xbcvl")
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Tabs" type="TabContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+current_tab = 0
+clip_tabs = false
+
+[node name="TextureIDs" type="MarginContainer" parent="Scroll/Tabs"]
+unique_name_in_owner = true
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="VBox" type="VBoxContainer" parent="Scroll/Tabs/TextureIDs"]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="Header" type="Label" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "Change Texture IDs"
+
+[node name="SubHeader" type="Label" parent="Scroll/Tabs/TextureIDs/VBox"]
+visible = false
+layout_mode = 2
+text = "This tool changes texture data on the currently selected terrain."
+
+[node name="HSeparator" type="HSeparator" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+
+[node name="Instructions" type="Label" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+text = "This tool will look at every pixel in every region and all Base or Overlay IDs that match the source ID will be changed to the destination ID.
+
+There is no undo, however you can reload your project without saving. Data is not written until you save.
+
+1. Specify the source and destination texture IDs 0-31 from your Asset list.
+2. Enter up to 2 more pairs if desired. Swap IDs in 3 steps with any unused ID (use 32 if all textures are used). 
+    e.g. To swap 0 and 1, set 0 -> 32, 1 -> 0, 32 -> 1.
+3. Click Process.
+4. Close this panel and Save."
+
+[node name="HSeparator2" type="HSeparator" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 30
+theme_override_styles/separator = SubResource("StyleBoxEmpty_uxh0t")
+
+[node name="HBox1" type="HBoxContainer" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+
+[node name="SrcLbl" type="Label" parent="Scroll/Tabs/TextureIDs/VBox/HBox1"]
+layout_mode = 2
+text = "1. Source ID: "
+
+[node name="SrcID1" type="SpinBox" parent="Scroll/Tabs/TextureIDs/VBox/HBox1"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 32.0
+
+[node name="VSeparator" type="VSeparator" parent="Scroll/Tabs/TextureIDs/VBox/HBox1"]
+layout_mode = 2
+theme_override_constants/separation = 20
+theme_override_styles/separator = SubResource("StyleBoxEmpty_uxh0t")
+
+[node name="DestLbl" type="Label" parent="Scroll/Tabs/TextureIDs/VBox/HBox1"]
+layout_mode = 2
+text = "Destination ID: "
+
+[node name="DestID1" type="SpinBox" parent="Scroll/Tabs/TextureIDs/VBox/HBox1"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 32.0
+
+[node name="HBox2" type="HBoxContainer" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+
+[node name="SrcLbl" type="Label" parent="Scroll/Tabs/TextureIDs/VBox/HBox2"]
+layout_mode = 2
+text = "2. Source ID: "
+
+[node name="SrcID2" type="SpinBox" parent="Scroll/Tabs/TextureIDs/VBox/HBox2"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 32.0
+
+[node name="VSeparator" type="VSeparator" parent="Scroll/Tabs/TextureIDs/VBox/HBox2"]
+layout_mode = 2
+theme_override_constants/separation = 20
+theme_override_styles/separator = SubResource("StyleBoxEmpty_uxh0t")
+
+[node name="DestLbl" type="Label" parent="Scroll/Tabs/TextureIDs/VBox/HBox2"]
+layout_mode = 2
+text = "Destination ID: "
+
+[node name="DestID2" type="SpinBox" parent="Scroll/Tabs/TextureIDs/VBox/HBox2"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 32.0
+
+[node name="HBox3" type="HBoxContainer" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+
+[node name="SrcLbl" type="Label" parent="Scroll/Tabs/TextureIDs/VBox/HBox3"]
+layout_mode = 2
+text = "3. Source ID: "
+
+[node name="SrcID3" type="SpinBox" parent="Scroll/Tabs/TextureIDs/VBox/HBox3"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 32.0
+
+[node name="VSeparator" type="VSeparator" parent="Scroll/Tabs/TextureIDs/VBox/HBox3"]
+layout_mode = 2
+theme_override_constants/separation = 20
+theme_override_styles/separator = SubResource("StyleBoxEmpty_uxh0t")
+
+[node name="DestLbl" type="Label" parent="Scroll/Tabs/TextureIDs/VBox/HBox3"]
+layout_mode = 2
+text = "Destination ID: "
+
+[node name="DestID3" type="SpinBox" parent="Scroll/Tabs/TextureIDs/VBox/HBox3"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 32.0
+
+[node name="HSeparator3" type="HSeparator" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 30
+theme_override_styles/separator = SubResource("StyleBoxEmpty_uxh0t")
+
+[node name="TextureStartBtn" type="Button" parent="Scroll/Tabs/TextureIDs/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+text = "Process"
+
+[node name="HSeparator4" type="HSeparator" parent="Scroll/Tabs/TextureIDs/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 30
+theme_override_styles/separator = SubResource("StyleBoxEmpty_uxh0t")
+
+[node name="TextureStatus" type="Label" parent="Scroll/Tabs/TextureIDs/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+text = "Finished"
+
+[node name="Baking" type="MarginContainer" parent="Scroll/Tabs"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="Texture Packing" type="MarginContainer" parent="Scroll/Tabs"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+metadata/_tab_index = 2
+
+[node name="Import" type="MarginContainer" parent="Scroll/Tabs"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+metadata/_tab_index = 3
+
+[node name="Export" type="MarginContainer" parent="Scroll/Tabs"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+metadata/_tab_index = 4
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -50.0
+offset_bottom = 31.0
+grow_horizontal = 0
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="Close" type="Button" parent="Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"

@@ -6,6 +6,7 @@ extends HBoxContainer
 const DirectoryWizard: Script = preload("res://addons/terrain_3d/menu/directory_setup.gd")
 const Packer: Script = preload("res://addons/terrain_3d/menu/channel_packer.gd")
 const Baker: Script = preload("res://addons/terrain_3d/menu/baker.gd")
+const NewUIScn: String = "res://addons/terrain_3d/menu/menu_ui.tscn"
 
 var plugin: EditorPlugin
 var menu_button: MenuButton = MenuButton.new()
@@ -17,6 +18,7 @@ var baker: Baker = Baker.new()
 enum {
 	MENU_DIRECTORY_SETUP,
 	MENU_PACK_TEXTURES,
+	MENU_NEW_UI,
 	MENU_SEPARATOR,
 	MENU_BAKE_ARRAY_MESH,
 	MENU_BAKE_OCCLUDER,
@@ -36,6 +38,7 @@ func _enter_tree() -> void:
 	menu_button.text = "Terrain3D"
 	menu_button.get_popup().add_item("Directory Setup...", 	MENU_DIRECTORY_SETUP)
 	menu_button.get_popup().add_item("Pack Textures...", MENU_PACK_TEXTURES)	
+	menu_button.get_popup().add_item("Change Texture IDs...", MENU_NEW_UI)	
 	menu_button.get_popup().add_separator("", MENU_SEPARATOR)
 	menu_button.get_popup().add_item("Bake ArrayMesh...", MENU_BAKE_ARRAY_MESH)
 	menu_button.get_popup().add_item("Bake Occluder3D...", MENU_BAKE_OCCLUDER)
@@ -54,6 +57,10 @@ func _on_menu_pressed(p_id: int) -> void:
 			directory_setup.directory_setup_popup()
 		MENU_PACK_TEXTURES:
 			packer.pack_textures_popup()			
+		MENU_NEW_UI:
+			var newui: Control = load(NewUIScn).instantiate()
+			newui.terrain = plugin.terrain
+			plugin.godot_editor_vp_container.add_child(newui)
 		MENU_BAKE_ARRAY_MESH:
 			baker.bake_mesh_popup()
 		MENU_BAKE_OCCLUDER:
@@ -67,6 +74,7 @@ func _on_menu_pressed(p_id: int) -> void:
 func _on_menu_about_to_popup() -> void:
 	menu_button.get_popup().set_item_disabled(MENU_DIRECTORY_SETUP, not plugin.terrain)
 	menu_button.get_popup().set_item_disabled(MENU_PACK_TEXTURES, not plugin.terrain)
+	menu_button.get_popup().set_item_disabled(MENU_NEW_UI, not plugin.terrain)
 	menu_button.get_popup().set_item_disabled(MENU_BAKE_ARRAY_MESH, not plugin.terrain)
 	menu_button.get_popup().set_item_disabled(MENU_BAKE_OCCLUDER, not plugin.terrain)
 
