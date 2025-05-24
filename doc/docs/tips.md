@@ -56,6 +56,7 @@ To use it:
 * Reduce the size of the mesh and levels of detail by reducing `Mesh/Size` (`mesh_size`) or `Mesh/Lods` (`mesh_lods`) in the `Terrain3D` node.
 * Don't use `Renderer/Cull Margin`. It should only be needed if using the noise background. Otherwise the AABB should be correctly calculated via editing, so there is no need to expand the cull margin. Keeping it enabled can cost more processing time.
 * Experiment with `Renderer/free_editor_textures`, which is enabled by default. It saves VRAM by removing the initial textures used to generate the texture arrays.
+* For cases where performance is paramount, an example `lightweight` shader is provided in `extras/shaders`. This shader is designed to do the minimum possible amount of texture lookups, whilst still providing basic texturing, including height blending. Normals are also fully calculated in `vertex()`. This shader removes advanced features like projection, detiling, and paintable rotation and scale for significant performance gains on low-end hardware, mobile, and VR applications.
 
 
 ## Shaders
@@ -77,9 +78,7 @@ Older style asthetics has a few different looks:
 
 **Low-poly Style** often has large, flat shaded polygons. To get the best results:
 * Increase `vertex_spacing` to a large value like 10
-* Start with a low-poly shader in `extras/shaders`
-
-Extend the shaders to make it your own. The low poly shaders don't come with texturing, but you can combine the flat normal technique with the default textured shader if you want elements of both styles.
+* Enable `Flat Terrain Normals` in the material settings.
 
 
 ### Day/Night cycles & light under the terrain
@@ -123,63 +122,43 @@ uniform sampler2D emissive_tex : source_color, filter_linear_mipmap_anisotropic,
 Add a variable to store emissive value in the Material struct.
 
 ```glsl
-// struct Material {
+struct material {
 	...
 	vec3 emissive;
-// };
+};
 ```
 
-Modify `get_material()` to read the emissive texture with the next several options. 
+Modify `accumulate_material()` to read the emissive texture with the next several options. 
 
-Add the initial value for emissive by adding a vec3 at the end
+Add the initial value for emissive by adding a vec3 at the end:
 ```glsl
-// void get_material(vec2 base_uv, ...
-	out_mat = Material(vec4(0.), vec4(0.), 0, 0, 0.0, vec3(0.));
+	// Struct to accumulate all texture data.
+	material mat = material(vec4(0.0), vec4(0.0), 0., 0., 0., vec3(0.));
 ```
 
-Look for this conditional:
+Near the bottom of `accumulate_material()`:
 ```glsl
-	if (out_mat.blend > 0.) {
+	mat.normal_rough += nrm * id_weight;
+	mat.normal_map_depth += _texture_normal_depth_array[id] * id_weight;
+	mat.ao_strength += _texture_ao_strength_array[id] * id_weight;
+	mat.total_weight += id_weight;
 ```
 
-Right before that, add:
+on the next line add:
 ```glsl
-	vec4 emissive = vec4(0.);
-	if(out_mat.base == emissive_id) {
-		emissive = textureGrad(emissive_tex, matUV, dd1.xy, dd1.zw);
+	if(id == emissive_id) {
+		mat.emissive += textureGrad(emissive_tex, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw).rgb *= id_weight;
 	}
-
-//	if (out_mat.blend > 0.) {
 ```
 
-At the end of that block, before the `}`, add:
+Find this in `fragment()`, before the final `}`, apply the weighting and send it to the GPU.
 ```glsl
-	vec4 emissive2 = vec4(0.);
-	emissive2 = textureGrad(emissive_tex, matUV2, dd2.xy, dd2.zw) * float(out_mat.over == emissive_id);
-	emissive = height_blend(emissive, albedo_ht.a, emissive2, albedo_ht2.a, out_mat.blend);
-
-//	}
-```
-
-At the end of the `get_material()` function, add the emissive value to the material
-```glsl
-//	out_mat.alb_ht = albedo_ht;
-//	out_mat.nrm_rg = normal_rg;
-	out_mat.emissive = emissive.rgb;
-//	return;
-//	}
-```
-
-At the very bottom of `fragment()`, before the final `}`, apply the weighting and send it to the GPU.
-```glsl
-vec3 emissive = 
-	mat[0].emissive * weights.x +
-	mat[1].emissive * weights.y +
-	mat[2].emissive * weights.z +
-	mat[3].emissive * weights.w ;
-EMISSION = emissive * emissive_strength;
-
-// }
+	// normalize accumulated values back to 0.0 - 1.0 range.
+	float weight_inv = 1.0 / total_weight;
+	mat.albedo_height *= weight_inv;
+	...
+	mat.emissive *= weight_inv;
+	EMISSION = mat.emissive * emissive_strength;
 ```
 
 Next, add your emissive texture to the texture sampler and adjust the values on the newly exposed uniforms.
