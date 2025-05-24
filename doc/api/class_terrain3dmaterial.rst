@@ -66,6 +66,8 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`         | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_jaggedness<class_Terrain3DMaterial_property_show_jaggedness>`                 | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_navigation<class_Terrain3DMaterial_property_show_navigation>`                 | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`               | ``false`` |
@@ -359,7 +361,7 @@ Albedo shows the painted angle. Orange means 0°, Yellow 270°, Cyan 180°, Viol
 - |void| **set_show_control_blend**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_control_blend**\ (\ )
 
-Albedo shows the blend value used to blend the base and overlay textures as greyscale. This is especially helpful to see how the noise texture adjusts the blending edges.
+Displays the values used to blend the textures. Blue shows the autoshader blending, red shows manually painted blending.
 
 .. rst-class:: classref-item-separator
 
@@ -445,6 +447,23 @@ Albedo is a white to black gradient depending on height. The gradient is scaled 
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
 Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_show_jaggedness:
+
+.. rst-class:: classref-property
+
+``bool`` **show_jaggedness** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_jaggedness>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_jaggedness**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_jaggedness**\ (\ )
+
+Highlights non-smooth areas of the terrain. Jagged peaks, troughs, or edges that are a bit rough with sharp angles between vertices.
 
 .. rst-class:: classref-item-separator
 
