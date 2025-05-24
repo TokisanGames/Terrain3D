@@ -228,6 +228,9 @@
 		<member name="show_instances" type="bool" setter="set_show_instances" getter="get_show_instances" default="true">
 			Shows or hides all instancer meshes.
 		</member>
+		<member name="show_jaggedness" type="bool" setter="set_show_jaggedness" getter="get_show_jaggedness" default="false">
+			Alias for [member Terrain3DMaterial.show_jaggedness].
+		</member>
 		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
 			Alias for [member Terrain3DMaterial.show_navigation].
 		</member>
@@ -235,7 +238,7 @@
 			Alias for [member Terrain3DMaterial.show_region_grid]. Press `1` with the mouse in the viewport to toggle.
 		</member>
 		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
-			Alias for [member Terrain3DMaterial.show_autoshader].
+			Alias for [member Terrain3DMaterial.show_roughmap].
 		</member>
 		<member name="show_texture_height" type="bool" setter="set_show_texture_height" getter="get_show_texture_height" default="false">
 			Alias for [member Terrain3DMaterial.show_texture_height].

@@ -16,6 +16,7 @@ Terrain3D is being used in the following games. To add yours, submit it to the #
 | [Forg](https://store.steampowered.com/app/2807130/Forg/) | [Crow Games](https://www.youtube.com/@crowgamesdev) | FPS tower defense
 | [open-fpsz](https://gitlab.com/open-fpsz/open-fpsz) | [anyreso](https://mastodon.gamedev.place/@anyreso) | Open-source, Tribes-like FPS multiplayer shooter
 | [Element](https://devanew.itch.io/element) | [Luke Aaron](https://www.youtube.com/watch?v=b18jDnY1YS4) | Gamejam FPS tactial shooter
+| [Castaway Cove](https://boolburg.itch.io/castaway-cove) | [Boolburg](https://boolburg.itch.io/) | Tropical island exploration
 
 ## Demos
 

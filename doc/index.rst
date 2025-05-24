@@ -62,10 +62,7 @@ Developed for the Godot community by:
    :target: https://www.youtube.com/@outobugi
    :width: 24
 
-And other contributors displayed on `github contributors <https://github.com/TokisanGames/Terrain3D/graphs/contributors>`_ and in :doc:`docs/authors`.
-
-Geometry clipmap mesh code created by `Mike J. Savage <https://mikejsavage.co.uk/blog/geometry-clipmaps.html>`_. Blog and repository code released under the MIT license per email communication with Mike.
-
+And the contribution team in :doc:`docs/authors` and displayed on `github contributors <https://github.com/TokisanGames/Terrain3D/graphs/contributors>`_.
 
 .. toctree::
    :maxdepth: 1
