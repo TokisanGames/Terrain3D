@@ -180,7 +180,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("height")
 			to_show.push_back("height_picker")
 
-		Terrain3DEditor.TEXTURE:	
+		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("enable_texture")
@@ -345,9 +345,9 @@ func consume_hotkey(keycode: int) -> bool:
 		KEY_W:
 			toolbar.get_button("PaintWetness").set_pressed(true)
 		KEY_B:
-			toolbar.get_button("PaintBaseTexture").set_pressed(true)
+			toolbar.get_button("PaintTexture").set_pressed(true)
 		KEY_V:
-			toolbar.get_button("SprayOverlayTexture").set_pressed(true)
+			toolbar.get_button("SprayTexture").set_pressed(true)
 		KEY_A:
 			toolbar.get_button("PaintAutoshader").set_pressed(true)
 		_:
