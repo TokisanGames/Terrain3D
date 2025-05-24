@@ -133,19 +133,14 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
 		excludes.push_back("NOISE_SAMPLER_LINEAR");
 	}
-	if (_auto_shader) {
-		excludes.push_back("TEXTURE_ID");
-	} else {
+	if (!_auto_shader) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
-		excludes.push_back("AUTO_SHADER_TEXTURE_ID");
+		excludes.push_back("AUTO_SHADER");
 	}
-	if (_dual_scaling) {
-		excludes.push_back("UNI_SCALING_BASE");
-	} else {
+	if (!_dual_scaling) {
 		excludes.push_back("DUAL_SCALING_UNIFORMS");
-		excludes.push_back("DUAL_SCALING_VERTEX");
-		excludes.push_back("DUAL_SCALING_BASE");
-		excludes.push_back("DUAL_SCALING_OVERLAY");
+		excludes.push_back("DUAL_SCALING");
+		excludes.push_back("DUAL_SCALING_MIX");
 	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
 	return shader;

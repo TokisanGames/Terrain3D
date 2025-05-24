@@ -27,7 +27,7 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1/1024
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
-uniform vec2 _region_locations[1024];
+//uniform vec2 _region_locations[1024];
 //uniform float _texture_uv_scale_array[32];
 //uniform float _texture_detile_array[32];
 //uniform vec4 _texture_color_array[32];
@@ -36,6 +36,9 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 //uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 //uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 //uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+
+// Public Uniforms
+uniform bool flat_terrain_normals = false;
 
 // Varyings & Types
 // Some are required for editor functions
@@ -127,7 +130,7 @@ void vertex() {
 void fragment() {
 	// Recover UVs
 	vec2 uv = UV;
-	vec2 uv2 = UV2;
+	//vec2 uv2 = UV2;
 
 	// Lookup offsets, ID and blend weight
 	const vec3 offsets = vec3(0, 1, 2);
@@ -143,30 +146,30 @@ void fragment() {
 
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);
-	vec4 base_derivatives = vec4(base_ddx.xz, base_ddy.xz);
+	//vec4 base_derivatives = vec4(base_ddx.xz, base_ddy.xz);
 	// Calculate the effective mipmap for regionspace, and if less than 0,
 	// skip all extra lookups required for bilinear blend.
 	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
 	bool bilerp = region_mip < 0.0;
 
-	ivec3 indexUV[4];
+	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well
-	indexUV[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
-	indexUV[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
-	indexUV[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
-	indexUV[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
+	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
+	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
+	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
 
 	// Terrain normals
 	vec3 index_normal[4];
-	float h[8];
+	float h[4];
 	// allows additional derivatives, eg world noise, brush previews etc
 	float u = 0.0;
 	float v = 0.0;
 
-	// Re-use the indexUVs for the first lookups, skipping some math. 3 lookups
-	h[3] = texelFetch(_height_maps, indexUV[3], 0).r; // 0 (0,0)
-	h[2] = texelFetch(_height_maps, indexUV[2], 0).r; // 1 (1,0)
-	h[0] = texelFetch(_height_maps, indexUV[0], 0).r; // 2 (0,1)
+	// Re-use index[] for the first lookups, skipping some math. 3 lookups
+	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0,0)
+	h[2] = texelFetch(_height_maps, index[2], 0).r; // 1 (1,0)
+	h[0] = texelFetch(_height_maps, index[0], 0).r; // 2 (0,1)
 	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// Set flat world normal - overriden if bilerp is true
@@ -176,16 +179,16 @@ void fragment() {
 	if (bilerp) {
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
-		h[1] = texelFetch(_height_maps, indexUV[1], 0).r; // 3 (1,1)
-		h[4] = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
-		h[5] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
-		h[6] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
-		h[7] = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
+		h[1] = texelFetch(_height_maps, index[1], 0).r; // 3 (1,1)
+		float h_4 = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
+		float h_5 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
+		float h_6 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
+		float h_7 = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
 
 		// Calculate the normal for the remaining index ids.
-		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h[7] + v));
-		index_normal[1] = normalize(vec3(h[1] - h[5] + u, _vertex_spacing, h[1] - h[4] + v));
-		index_normal[2] = normalize(vec3(h[2] - h[6] + u, _vertex_spacing, h[2] - h[1] + v));
+		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h_7 + v));
+		index_normal[1] = normalize(vec3(h[1] - h_5 + u, _vertex_spacing, h[1] - h_4 + v));
+		index_normal[2] = normalize(vec3(h[2] - h_6 + u, _vertex_spacing, h[2] - h[1] + v));
 
 		// Set interpolated world normal
 		w_normal =
@@ -201,6 +204,12 @@ void fragment() {
 	NORMAL = mat3(VIEW_MATRIX) * w_normal;
 	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
 	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
+
+	if (flat_terrain_normals) {
+		NORMAL = normalize(cross(dFdyCoarse(VERTEX),dFdxCoarse(VERTEX)));
+		TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
+		BINORMAL = normalize(cross(NORMAL, TANGENT));
+	}
 
 	// Apply PBR
 	ALBEDO = vec3(.2);
