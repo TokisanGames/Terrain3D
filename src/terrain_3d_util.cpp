@@ -371,7 +371,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
  * If p_invert_alpha is true, the destination alpha channel will be 1.0 - input source channel.
  */
 Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Image> &p_src_a,
-		const bool p_invert_green, const bool p_invert_alpha, const int p_alpha_channel) {
+		const bool p_invert_green, const bool p_invert_alpha, const bool p_normalize_alpha, const int p_alpha_channel) {
 	if (!p_src_rgb.is_valid() || !p_src_a.is_valid()) {
 		LOG(ERROR, "Provided images are not valid. Cannot pack");
 		return Ref<Image>();
@@ -388,12 +388,32 @@ Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Imag
 		LOG(ERROR, "Source Channel of Height/Roughness invalid. Cannot Pack");
 		return Ref<Image>();
 	}
+
+	real_t a_max = 0.0f;
+	real_t a_min = 0.0f;
+	real_t contrast = 1.0f;
+	if (p_normalize_alpha) {
+		a_min = 1.0f;
+		// Calculate contrast and offset so that we can make full use of the height channel range.
+		for (int y = 0; y < p_src_rgb->get_height(); y++) {
+			for (int x = 0; x < p_src_rgb->get_width(); x++) {
+				real_t h = p_src_a->get_pixel(x, y)[p_alpha_channel];
+				a_max = MAX(h, a_max);
+				a_min = MIN(h, a_min);
+			}
+		}
+		contrast /= MAX(a_max - a_min, 1e-6f);
+	}
+
 	Ref<Image> dst = Image::create_empty(p_src_rgb->get_width(), p_src_rgb->get_height(), false, Image::FORMAT_RGBA8);
 	LOG(INFO, "Creating image from source RGB + source channel images");
 	for (int y = 0; y < p_src_rgb->get_height(); y++) {
 		for (int x = 0; x < p_src_rgb->get_width(); x++) {
 			Color col = p_src_rgb->get_pixel(x, y);
 			col.a = p_src_a->get_pixel(x, y)[p_alpha_channel];
+			if (p_normalize_alpha) {
+				col.a = CLAMP((col.a * contrast - a_min), 0.0f, 1.0f);
+			}
 			if (p_invert_green) {
 				col.g = 1.0f - col.g;
 			}
@@ -459,7 +479,7 @@ void Terrain3DUtil::benchmark(Terrain3D *p_terrain) {
 	Color col;
 	for (int i = 0; i < 3; i++) {
 		start_time = Time::get_singleton()->get_ticks_msec();
-		for (uint32_t j = 0; j < 10000000; j++) {
+		for (int j = 0; j < 10000000; j++) {
 			col = data->get_pixel(TYPE_HEIGHT, vec);
 		}
 		LOG(MESG, "get_pixel() 10M: ", Time::get_singleton()->get_ticks_msec() - start_time, "ms");
@@ -468,7 +488,7 @@ void Terrain3DUtil::benchmark(Terrain3D *p_terrain) {
 	vec = Vector3(0.5f, 0.f, 0.5f);
 	for (int i = 0; i < 3; i++) {
 		start_time = Time::get_singleton()->get_ticks_msec();
-		for (uint32_t j = 0; j < 1000000; j++) {
+		for (int j = 0; j < 1000000; j++) {
 			data->get_height(vec);
 		}
 		LOG(MESG, "get_height() 1M interpolated: ", Time::get_singleton()->get_ticks_msec() - start_time, "ms");
@@ -516,6 +536,6 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(Vector2i(256, 256)));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(V2I_ZERO));
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "invert_green", "invert_alpha", "alpha_channel"), &Terrain3DUtil::pack_image, DEFVAL(false), DEFVAL(false), DEFVAL(0));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "invert_green", "invert_alpha", "normalize_alpha", "alpha_channel"), &Terrain3DUtil::pack_image, DEFVAL(false), DEFVAL(false), DEFVAL(false), DEFVAL(0));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("luminance_to_height", "src_rgb"), &Terrain3DUtil::luminance_to_height);
 }
