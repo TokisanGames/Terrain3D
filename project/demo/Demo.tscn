@@ -76,6 +76,7 @@ dual_scaling = true
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")
+nb_test_instance_rows = 500
 
 [node name="UI" parent="." instance=ExtResource("2_nqak5")]
 
