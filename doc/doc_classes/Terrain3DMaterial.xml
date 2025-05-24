@@ -86,7 +86,7 @@
 			Albedo shows the painted angle. Orange means 0°, Yellow 270°, Cyan 180°, Violet 90°. Or warm colors towards -Z, cool colors +Z, greens/yellows +X, reds/blues -X. Draw all angles coming from the center of a circle for a better understanding.
 		</member>
 		<member name="show_control_blend" type="bool" setter="set_show_control_blend" getter="get_show_control_blend" default="false">
-			Albedo shows the blend value used to blend the base and overlay textures as greyscale. This is especially helpful to see how the noise texture adjusts the blending edges.
+			Displays the values used to blend the textures. Blue shows the autoshader blending, red shows manually painted blending.
 		</member>
 		<member name="show_control_scale" type="bool" setter="set_show_control_scale" getter="get_show_control_scale" default="false">
 			Albedo shows the painted scale. Larger scales are more red, smaller scales are more blue. 0.5 middle grey is the default 100% scale.
@@ -102,6 +102,9 @@
 		</member>
 		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
 			Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
+		</member>
+		<member name="show_jaggedness" type="bool" setter="set_show_jaggedness" getter="get_show_jaggedness" default="false">
+			Highlights non-smooth areas of the terrain. Jagged peaks, troughs, or edges that are a bit rough with sharp angles between vertices.
 		</member>
 		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
 			Displays the area designated for generating the navigation mesh.

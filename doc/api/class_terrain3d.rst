@@ -108,6 +108,8 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_instances<class_Terrain3D_property_show_instances>`             | ``true``        |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``bool``                                                    | :ref:`show_jaggedness<class_Terrain3D_property_show_jaggedness>`           | ``false``       |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_navigation<class_Terrain3D_property_show_navigation>`           | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_region_grid<class_Terrain3D_property_show_region_grid>`         | ``false``       |
@@ -970,6 +972,23 @@ Shows or hides all instancer meshes.
 
 ----
 
+.. _class_Terrain3D_property_show_jaggedness:
+
+.. rst-class:: classref-property
+
+``bool`` **show_jaggedness** = ``false`` :ref:`🔗<class_Terrain3D_property_show_jaggedness>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_jaggedness**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_jaggedness**\ (\ )
+
+Alias for :ref:`Terrain3DMaterial.show_jaggedness<class_Terrain3DMaterial_property_show_jaggedness>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_show_navigation:
 
 .. rst-class:: classref-property
@@ -1015,7 +1034,7 @@ Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_prope
 - |void| **set_show_roughmap**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_roughmap**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_autoshader<class_Terrain3DMaterial_property_show_autoshader>`.
+Alias for :ref:`Terrain3DMaterial.show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`.
 
 .. rst-class:: classref-item-separator
 

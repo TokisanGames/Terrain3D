@@ -43,7 +43,7 @@ RID Terrain3DMesher::_generate_mesh(const Vector2i &p_size, const bool p_standar
 	PackedVector3Array vertices;
 	PackedInt32Array indices;
 	AABB aabb = AABB(V3_ZERO, Vector3(p_size.x, 0.1f, p_size.y));
-	LOG(DEBUG, "Generating verticies and indicies for a", p_standard_grid ? " symetric " : " standard ", "grid mesh of width: ", p_size.x, " and height: ", p_size.y);
+	LOG(DEBUG, "Generating verticies and indices for a", p_standard_grid ? " symetric " : " standard ", "grid mesh of width: ", p_size.x, " and height: ", p_size.y);
 
 	// Generate vertices
 	for (int y = 0; y <= p_size.y; ++y) {
@@ -159,7 +159,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 				fill_b_rids.append(fill_b_rid);
 			}
 			lod.append(fill_b_rids); // index 5 FILL_B
-			// Trims only on LOD 0 These share the indicies of the fills for the offsets.
+			// Trims only on LOD 0 These share the indices of the fills for the offsets.
 			// When snapping LOD 0 Trim a/b positions are looked up instead of Fill a/b
 		} else {
 			Array trim_a_rids;
