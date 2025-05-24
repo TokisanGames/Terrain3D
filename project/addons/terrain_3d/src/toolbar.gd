@@ -56,10 +56,10 @@ func _ready() -> void:
 	add_child(HSeparator.new())
 
 	add_tool_button({ "tool":Terrain3DEditor.TEXTURE, 
-		"add_text":"Paint Base Texture (B)", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_PAINT_TEXTURE })
+		"add_text":"Paint Texture (B)", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_PAINT_TEXTURE })
 
 	add_tool_button({ "tool":Terrain3DEditor.TEXTURE, 
-		"add_text":"Spray Overlay Texture (V)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_SPRAY_TEXTURE })
+		"add_text":"Spray Texture (V)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_SPRAY_TEXTURE })
 
 	add_tool_button({ "tool":Terrain3DEditor.AUTOSHADER,
 		"add_text":"Paint Autoshader (A)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_AUTOSHADER,
