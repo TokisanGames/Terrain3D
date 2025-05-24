@@ -133,19 +133,14 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
 		excludes.push_back("NOISE_SAMPLER_LINEAR");
 	}
-	if (_auto_shader) {
-		excludes.push_back("TEXTURE_ID");
-	} else {
+	if (!_auto_shader) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
-		excludes.push_back("AUTO_SHADER_TEXTURE_ID");
+		excludes.push_back("AUTO_SHADER");
 	}
-	if (_dual_scaling) {
-		excludes.push_back("UNI_SCALING_BASE");
-	} else {
+	if (!_dual_scaling) {
 		excludes.push_back("DUAL_SCALING_UNIFORMS");
-		excludes.push_back("DUAL_SCALING_VERTEX");
-		excludes.push_back("DUAL_SCALING_BASE");
-		excludes.push_back("DUAL_SCALING_OVERLAY");
+		excludes.push_back("DUAL_SCALING");
+		excludes.push_back("DUAL_SCALING_MIX");
 	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
 	return shader;
@@ -351,6 +346,9 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	}
 	if (_debug_view_tex_rough) {
 		insert_names.push_back("DEBUG_TEXTURE_ROUGHNESS");
+	}
+	if (_debug_view_jaggedness) {
+		insert_names.push_back("DEBUG_JAGGEDNESS");
 	}
 
 	// Overlays & Editor Functions
@@ -753,6 +751,12 @@ void Terrain3DMaterial::set_show_texture_rough(const bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_show_jaggedness(const bool p_enabled) {
+	LOG(INFO, "Enable show_jaggedness: ", p_enabled);
+	_debug_view_jaggedness = p_enabled;
+	_update_shader();
+}
+
 Error Terrain3DMaterial::save(const String &p_path) {
 	if (p_path.is_empty() && get_path().is_empty()) {
 		return ERR_FILE_NOT_FOUND;
@@ -986,6 +990,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3DMaterial::get_show_texture_normal);
 	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3DMaterial::set_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3DMaterial::get_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("set_show_jaggedness", "enabled"), &Terrain3DMaterial::set_show_jaggedness);
+	ClassDB::bind_method(D_METHOD("get_show_jaggedness"), &Terrain3DMaterial::get_show_jaggedness);
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DMaterial::save, DEFVAL(""));
 
@@ -1018,4 +1024,5 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_jaggedness"), "set_show_jaggedness", "get_show_jaggedness");
 }

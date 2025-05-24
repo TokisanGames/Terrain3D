@@ -180,7 +180,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("height")
 			to_show.push_back("height_picker")
 
-		Terrain3DEditor.TEXTURE:	
+		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("enable_texture")
