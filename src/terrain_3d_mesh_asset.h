@@ -58,7 +58,7 @@ private:
 	// Working data
 	TypedArray<Mesh> _meshes;
 	TypedArray<Shape3D> _shapes;
-	Transform3D _shape_transform;
+	TypedArray<Transform3D> _shape_transforms;
 	Ref<Texture2D> _thumbnail;
 
 	void _clear_lod_ranges();
@@ -83,9 +83,9 @@ public:
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
-	Ref<Shape3D> get_shape() const;
+	TypedArray<Shape3D> get_shapes() const;
 	int get_shape_count() const;
-	Transform3D get_shape_transform() const;
+	TypedArray<Transform3D> get_shape_transforms() const;
 	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }

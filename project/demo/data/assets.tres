@@ -1,7 +1,8 @@
-[gd_resource type="Terrain3DAssets" load_steps=13 format=3 uid="uid://dal3jhw6241qg"]
+[gd_resource type="Terrain3DAssets" load_steps=15 format=3 uid="uid://dal3jhw6241qg"]
 
 [ext_resource type="PackedScene" uid="uid://bn5nf4esciwex" path="res://demo/assets/models/LODExample.tscn" id="1_4jrdu"]
 [ext_resource type="PackedScene" uid="uid://be6nrf0b8j4l0" path="res://demo/assets/models/RockA.tscn" id="2_adagb"]
+[ext_resource type="PackedScene" uid="uid://bwvtgwartxt0g" path="res://demo/assets/models/RockB.tscn" id="2_e6edf"]
 [ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="2_pog6b"]
 [ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="3_g8f2m"]
 [ext_resource type="Texture2D" uid="uid://c307hdmos4gtm" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="3_wncaf"]
@@ -34,9 +35,18 @@ height_offset = 0.5
 last_lod = 3
 last_shadow_lod = 3
 
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_cmr6o"]
+name = "RockB"
+id = 2
+scene_file = ExtResource("2_e6edf")
+density = 0.029499
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
+
 [sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_adagb"]
 name = "RockA"
-id = 2
+id = 3
 scene_file = ExtResource("2_adagb")
 density = 0.0364415
 last_lod = 0
@@ -63,5 +73,5 @@ uv_scale = 0.2
 detiling_rotation = 0.161
 
 [resource]
-mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_or12t"), SubResource("Terrain3DMeshAsset_adagb")])
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_or12t"), SubResource("Terrain3DMeshAsset_cmr6o"), SubResource("Terrain3DMeshAsset_adagb")])
 texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_lha57"), SubResource("Terrain3DTextureAsset_od0q7")])

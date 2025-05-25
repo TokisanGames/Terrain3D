@@ -514,7 +514,7 @@ void Terrain3DCollision::create_collision_instances() {
 				continue;
 			}
 			
-			const PhysicsServer3D::ShapeType shape_type = PS->shape_get_type(ma->get_shape()->get_rid());
+			
 
 			const Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
 			const Array cell_locations = cell_inst_dict.keys();
@@ -536,65 +536,74 @@ void Terrain3DCollision::create_collision_instances() {
 
 				for (int x = 0; x < xforms.size(); x++) {
 					Transform3D xform = xforms[x];
-					xform = t * xform * ma->get_shape_transform();
+					xform = t * xform;
 
 					if (is_dynamic_mode()) {					
 						if (world_pos.distance_to(xform.get_origin() * Vector3(1.0, 0.0, 1.0)) > get_radius()) {
-							LOG(DEBUG, "xform origin outside radius, skipping");
+							LOG(EXTREME, "xform origin outside radius, skipping");
 							continue;
 						}
 					}
 
-					if (is_editor_mode()) {
-						CollisionShape3D *col_shape = memnew(CollisionShape3D);
-						instance_shapes.push_back(col_shape);
+					LOG(INFO, "Found ", ma->get_shape_count(), " shapes in mesh asset")
+					for (int s = 0; s < ma->get_shape_count(); s++) {
+						Shape3D *my_shape = cast_to<Shape3D>(ma->get_shapes()[s]);
+						Transform3D shape_transform = ma->get_shape_transforms()[s];
+						shape_transform = xform * shape_transform;
+				
+						const PhysicsServer3D::ShapeType shape_type = PS->shape_get_type(my_shape->get_rid());
 
-						col_shape->set_disabled(false);
-						col_shape->set_visible(true);
+						if (is_editor_mode()) {
+							CollisionShape3D *col_shape = memnew(CollisionShape3D);
+							instance_shapes.push_back(col_shape);
 
-						col_shape->set_shape(ma->get_shape());
-						my_static_body->add_child(col_shape, true);
-						col_shape->set_owner(my_static_body);
-						col_shape->set_global_transform(xform);
+							col_shape->set_disabled(false);
+							col_shape->set_visible(true);
 
-						my_static_body->set_global_transform(t);
+							col_shape->set_shape(my_shape);
+							my_static_body->add_child(col_shape, true);
+							col_shape->set_owner(my_static_body);
+							col_shape->set_global_transform(shape_transform);
 
-					} else {
-						RID shape_rid;
-						
-						switch (shape_type) {
-							case PhysicsServer3D::ShapeType::SHAPE_SPHERE:
-								shape_rid = PS->sphere_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_BOX:
-								shape_rid = PS->box_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CAPSULE:
-								shape_rid = PS->capsule_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CYLINDER:
-								shape_rid = PS->cylinder_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CONVEX_POLYGON:
-								shape_rid = PS->convex_polygon_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CONCAVE_POLYGON:
-								shape_rid = PS->concave_polygon_shape_create();
-								break;
-							default:
-								LOG(WARN, "Tried to use unsupported shape type : ", shape_type);
-								break;
+							my_static_body->set_global_transform(t);
+
+						} else {
+							RID shape_rid;
+
+							switch (shape_type) {
+								case PhysicsServer3D::ShapeType::SHAPE_SPHERE:
+									shape_rid = PS->sphere_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_BOX:
+									shape_rid = PS->box_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CAPSULE:
+									shape_rid = PS->capsule_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CYLINDER:
+									shape_rid = PS->cylinder_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CONVEX_POLYGON:
+									shape_rid = PS->convex_polygon_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CONCAVE_POLYGON:
+									shape_rid = PS->concave_polygon_shape_create();
+									break;
+								default:
+									LOG(WARN, "Tried to use unsupported shape type : ", shape_type);
+									break;
+							}
+
+							PS->body_add_shape(my_static_body_rid, shape_rid, xform, false);
+							PS->shape_set_data(shape_rid, PS->shape_get_data(my_shape->get_rid()));
 						}
-
-						PS->body_add_shape(my_static_body_rid, shape_rid, xform, false);
-						PS->shape_set_data(shape_rid, PS->shape_get_data(ma->get_shape()->get_rid()));
 					}
 				}
 			}
 		}
 	}
 
-	LOG(ERROR, "Instance collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+	LOG(EXTREME, "Instance collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }
 
 void Terrain3DCollision::destroy_collision_instances() {
@@ -603,7 +612,6 @@ void Terrain3DCollision::destroy_collision_instances() {
 	// Physics Server
 	for (int i = 0; i < instance_body_rids.size(); i++) {
 		RID body_rid = instance_body_rids[i];
-		// Physics Server
 		if (body_rid.is_valid()) {
 			// Shape IDs change as they are freed, so it's not safe to iterate over them while freeing.
 			while (PS->body_get_shape_count(body_rid) > 0) {

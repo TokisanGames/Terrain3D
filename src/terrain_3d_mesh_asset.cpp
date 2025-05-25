@@ -233,11 +233,14 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 		// Read and store phyics shapes
 		collision_shapes = node->find_children("*", "CollisionShape3D");
 		if (collision_shapes.size() > 0) {
-			LOG(INFO, "Found ", collision_shapes.size(), " CollisionShapes");
-			CollisionShape3D *collision_shape = cast_to<CollisionShape3D>(collision_shapes[0]);
-			Ref<Shape3D> shape = collision_shape->get_shape();
-			_shapes.push_back(shape);
-			_shape_transform = collision_shape->get_transform();
+			LOG(INFO, "Found ", collision_shapes.size(), " CollisionShapes in scene file");
+			for (int i = 0; i < collision_shapes.size(); i++) {
+				CollisionShape3D *collision_shape = cast_to<CollisionShape3D>(collision_shapes[i]);
+				Ref<Shape3D> shape = collision_shape->get_shape();
+				Transform3D xform = collision_shape->get_transform();
+				_shapes.push_back(shape);
+				_shape_transforms.push_back(xform);
+			}
 		}
 
 		node->queue_free();
@@ -292,19 +295,16 @@ Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
 	return Ref<Mesh>();
 }
 
-Ref<Shape3D> Terrain3DMeshAsset::get_shape() const {
-	if (_shapes.size() > 0) {
-		return _shapes[0];
-	}
-	return Ref<Shape3D>();
+TypedArray<Shape3D> Terrain3DMeshAsset::get_shapes() const {
+		return _shapes;
 }
 
 int Terrain3DMeshAsset::get_shape_count() const {
 	return _shapes.size();
 }
 
-Transform3D Terrain3DMeshAsset::get_shape_transform() const {
-	return _shape_transform;
+TypedArray<Transform3D> Terrain3DMeshAsset::get_shape_transforms() const {
+	return _shape_transforms;
 }
 
 void Terrain3DMeshAsset::set_height_offset(const real_t p_offset) {
@@ -509,9 +509,9 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_generated_type", "type"), &Terrain3DMeshAsset::set_generated_type);
 	ClassDB::bind_method(D_METHOD("get_generated_type"), &Terrain3DMeshAsset::get_generated_type);
 	ClassDB::bind_method(D_METHOD("get_mesh", "lod"), &Terrain3DMeshAsset::get_mesh, DEFVAL(0));
-	ClassDB::bind_method(D_METHOD("get_shape"), &Terrain3DMeshAsset::get_shape);
+	ClassDB::bind_method(D_METHOD("get_shapes"), &Terrain3DMeshAsset::get_shapes);
 	ClassDB::bind_method(D_METHOD("get_shape_count"), &Terrain3DMeshAsset::get_shape_count);
-	ClassDB::bind_method(D_METHOD("get_shape_transform"), &Terrain3DMeshAsset::get_shape_transform);
+	ClassDB::bind_method(D_METHOD("get_shape_transforms"), &Terrain3DMeshAsset::get_shape_transforms);
 	ClassDB::bind_method(D_METHOD("get_thumbnail"), &Terrain3DMeshAsset::get_thumbnail);
 	ClassDB::bind_method(D_METHOD("set_height_offset", "offset"), &Terrain3DMeshAsset::set_height_offset);
 	ClassDB::bind_method(D_METHOD("get_height_offset"), &Terrain3DMeshAsset::get_height_offset);
