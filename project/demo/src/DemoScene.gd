@@ -6,8 +6,15 @@ extends Node
 	set(value):
 		nb_test_instance_rows = value
 		if Engine.is_editor_hint():		
-			spawn_instances(nb_test_instance_rows)
+			spawn_instances(nb_test_instance_rows, test_instance_pitch)
 			
+@export var test_instance_pitch:float = 1.0:
+	set(value):
+		test_instance_pitch = value
+		if Engine.is_editor_hint():
+			spawn_instances(nb_test_instance_rows, test_instance_pitch)
+
+
 func _ready():
 	if not Engine.is_editor_hint() and has_node("UI"):
 		$UI.player = $Player
@@ -24,11 +31,12 @@ func _ready():
 			sky3d.current_time = 10
 			sky3d.enable_editor_time = false
 		
-	spawn_instances(nb_test_instance_rows)
+	spawn_instances(nb_test_instance_rows, test_instance_pitch)
 		
 func spawn_instances(width: int = 10, pitch:float = 20.0):
+	if nb_test_instance_rows == 0:
+		return
 	terrain.instancer.clear_by_mesh(2)
-		# Instance foliage
 	var xforms: Array[Transform3D]
 	
 	var step: int = 1
