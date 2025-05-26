@@ -215,6 +215,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_name("MouseViewport");
 	add_child(_mouse_vp, true);
 	_mouse_vp->set_size(Vector2i(2, 2));
+	_mouse_vp->set_scaling_3d_mode(Viewport::SCALING_3D_MODE_BILINEAR);
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 	_mouse_vp->set_handle_input_locally(false);
 	_mouse_vp->set_canvas_cull_mask(0);
