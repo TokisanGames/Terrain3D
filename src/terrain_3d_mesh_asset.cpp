@@ -210,7 +210,7 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 		}
 
 		// Now process the meshes
-		for (int i = 0; i < mesh_instances.size(); i++) {
+		for (int i = 0, count = MIN(mesh_instances.size(), MAX_LOD_COUNT); i < count; i++) {
 			MeshInstance3D *mi = cast_to<MeshInstance3D>(mesh_instances[i]);
 			LOG(DEBUG, "Found mesh: ", mi->get_name());
 			if (_name == "New Mesh") {
@@ -224,9 +224,6 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 				mesh->surface_set_material(j, mat);
 			}
 			_meshes.push_back(mesh);
-			if (i == MAX_LOD_COUNT) {
-				break;
-			}
 		}
 		node->queue_free();
 	}
