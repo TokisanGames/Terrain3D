@@ -747,7 +747,6 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 		_update_instance_collision();
 
 		_last_snapped_pos = snapped_pos;
-
 		LOG(EXTREME, "Setting _last_snapped_pos: ", _last_snapped_pos);
 		LOG(EXTREME, "inactive_shape_ids size: ", inactive_shape_ids.size());
 
@@ -773,7 +772,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 
 		_update_instance_collision();
 	}
-	LOG(INFO, "Total collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+	LOG(EXTREME, "Total collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }
 
 void Terrain3DCollision::destroy() {
