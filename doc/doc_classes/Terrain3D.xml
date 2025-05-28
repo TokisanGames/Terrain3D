@@ -146,7 +146,7 @@
 			The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using [code skip-lint]--terrain3d-debug=LEVEL[/code] where [code skip-lint]LEVEL[/code] is one of [code skip-lint]ERROR, INFO, DEBUG, EXTREME[/code]. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
 		</member>
 		<member name="free_editor_textures" type="bool" setter="set_free_editor_textures" getter="get_free_editor_textures" default="true">
-			Frees ground textures used for editing at the start of the game. These textures are used to generate the TextureArrays, so if you don't change any [Terrain3DTextureAsset] settings in game, this can be enabled. Calls [method Terrain3DAssets.clear_textures].
+			Frees ground textures used for editing in _ready(). These textures are used to generate the TextureArrays, so if you don't change any [Terrain3DTextureAsset] settings in game, this can be enabled. Also reloads the texture asset list in _enter_tree() in case you load scenes via code and need the textures again. Calls [method Terrain3DAssets.clear_textures].
 		</member>
 		<member name="gi_mode" type="int" setter="set_gi_mode" getter="get_gi_mode" enum="GeometryInstance3D.GIMode" default="1">
 			Tells the renderer which global illumination mode to use for Terrain3D. This sets [code skip-lint]GeometryInstance3D.gi_mode[/code] in the engine.
