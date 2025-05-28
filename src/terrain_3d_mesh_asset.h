@@ -51,7 +51,6 @@ private:
 	int _last_lod = MAX_LOD_COUNT - 1;
 	int _last_shadow_lod = MAX_LOD_COUNT - 1;
 	int _shadow_impostor = 0;
-	int _shape_count = 0;
 	PackedFloat32Array _lod_ranges;
 	real_t _fade_margin = 0.f;
 
