@@ -772,7 +772,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 		LOG(EXTREME, "Terrain collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 		_update_instance_collision();
 	}
-	LOG(EXTREME, "Total collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+	LOG(EXTREME, "Collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }
 
 void Terrain3DCollision::destroy() {
