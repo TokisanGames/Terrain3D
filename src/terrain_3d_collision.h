@@ -45,11 +45,12 @@ private:
 	StaticBody3D *_static_body = nullptr; // Editor mode StaticBody3D
 	std::vector<CollisionShape3D *> _shapes; // All CollisionShape3Ds
 
-	Dictionary _instancer_bodies_dict = {};
-	Dictionary shape_visual_instance_pairs;
-
 	bool _initialized = false;
 	Vector2i _last_snapped_pos = V2I_MAX;
+
+	// Instance collision data
+	Dictionary _instancer_bodies_dict = {};
+	Dictionary shape_visual_instance_pairs;
 
 	Vector2i _snap_to_grid(const Vector2i &p_pos) const;
 	Vector2i _snap_to_grid(const Vector3 &p_pos) const;
@@ -62,8 +63,13 @@ private:
 
 	void _reload_physics_material();
 
-	void _destroy_body_rid(const RID p_body_rid);
+	void _update_instance_collision();
+	void _destroy_instance_collision();
+	void _destroy_instance_collision_inside_radius(const Vector3 p_origin, const real_t p_radius);
+	void _destroy_instance_collision_outside_radius(const Vector3 p_origin, const real_t p_radius);
 
+
+	void _destroy_body_rid(const RID p_body_rid);
 	void _create_visual_instance(const RID p_shape_rid, Ref<ArrayMesh> p_debug_mesh, const Transform3D &p_xform);
 	void _update_visual_instance(const RID p_shape_rid, const Transform3D &p_xform);
 	void _destroy_visual_instance(const RID p_shape_rid);
@@ -76,10 +82,6 @@ public:
 
 	void build();
 	void update(const bool p_rebuild = false);
-	void update_collision_instances();
-	void destroy_instance_bodies_inside_radius(const Vector3 p_origin, const real_t p_radius);
-	void destroy_instance_bodies_outside_radius(const Vector3 p_origin, const real_t p_radius);
-	void destroy_instance_collision();
 	void destroy();
 
 	void set_mode(const CollisionMode p_mode);
