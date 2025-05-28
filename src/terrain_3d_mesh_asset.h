@@ -147,5 +147,3 @@ protected:
 VARIANT_ENUM_CAST(Terrain3DMeshAsset::GenType);
 
 #endif // TERRAIN3D_MESH_ASSET_CLASS_H
-
-
