@@ -743,7 +743,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 				_shape_set_data(shape_id, shape_data);
 			}
 		}
-
+		LOG(EXTREME, "Terrain collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 		_update_instance_collision();
 
 		_last_snapped_pos = snapped_pos;
@@ -769,7 +769,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 			_shape_set_disabled(i, false);
 			_shape_set_data(i, shape_data);
 		}
-
+		LOG(EXTREME, "Terrain collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 		_update_instance_collision();
 	}
 	LOG(EXTREME, "Total collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
