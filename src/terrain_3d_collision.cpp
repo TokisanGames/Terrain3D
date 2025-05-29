@@ -183,6 +183,460 @@ void Terrain3DCollision::_reload_physics_material() {
 	}
 }
 
+void Terrain3DCollision::_destroy_shape(const RID &p_shape_rid) {
+	LOG(EXTREME, "Freeing ", p_shape_rid);
+	PS->free_rid(p_shape_rid);
+	_destroy_visual_instance(p_shape_rid);
+}
+
+void Terrain3DCollision::_rebuild_shape_dictionary_ids() {
+
+	for (int i = 0; i < PS->body_get_shape_count(instance_static_body_rid); i++) {
+		
+		RID shape_rid = PS->body_get_shape(instance_static_body_rid, i);
+		int shape_type = PS->shape_get_type(shape_rid);
+
+		Dictionary shape_dict = _active_instance_shapes[shape_type];
+		shape_dict[shape_rid] = i;
+		_active_instance_shapes[shape_type] = shape_dict;
+	}
+}
+
+void Terrain3DCollision::_destroy_unused_shapes() {
+	LOG(EXTREME, "Destroying unused shapes");
+	Array shape_types = _unused_instance_shapes.keys();
+	LOG(EXTREME, "    Found ", shape_types.size(), " shape_types");
+	for (int i = 0; i < shape_types.size(); i++) {
+		Dictionary inactive_shapes = _unused_instance_shapes[shape_types[i]];
+		Array shape_keys = inactive_shapes.keys();
+		LOG(INFO, "    Shape type: ", shape_types[i], " Found ", shape_keys.size(), " shapes");
+		for (int s = 0; s < shape_keys.size(); s++) {
+			RID shape_rid = shape_keys[s];
+			LOG(EXTREME, "Destroying ", shape_rid);
+			_destroy_shape(shape_rid);
+
+		}
+		_unused_instance_shapes.erase(shape_types[i]);
+	}	
+	_rebuild_shape_dictionary_ids();
+}
+
+void Terrain3DCollision::_instance_shape_set_disabled(const RID &instance_static_body_rid, const RID &p_shape_rid) {
+	int shape_type = PS->shape_get_type(p_shape_rid);
+
+	Dictionary active_shapes = _active_instance_shapes[shape_type];
+	int shape_id = active_shapes[p_shape_rid];
+	active_shapes.erase(p_shape_rid);
+	_active_instance_shapes[shape_type] = active_shapes;
+
+	PS->body_set_shape_disabled(instance_static_body_rid, shape_id, true);
+	_destroy_visual_instance(p_shape_rid);
+
+	Dictionary spare_shapes = _unused_instance_shapes[shape_type];
+	spare_shapes[p_shape_rid] = shape_id;
+	_unused_instance_shapes[shape_type] = spare_shapes;
+}
+
+void Terrain3DCollision::_add_instance_shape(const Ref<Terrain3DMeshAsset> ma, const Transform3D &region_transform, const TypedArray<Transform3D> &xforms) {
+	for (int i = 0; i < ma->get_shape_count(); i++) {
+		Shape3D *shape = cast_to<Shape3D>(ma->get_shapes()[i]);
+		const PhysicsServer3D::ShapeType shape_type = PS->shape_get_type(shape->get_rid());
+		Transform3D shape_transform = ma->get_shape_transforms()[i];
+		shape_transform = shape_transform;
+
+		for (int x = 0; x < xforms.size(); x++) {
+			Transform3D xform = xforms[i];
+			xform = region_transform * xform * shape_transform;
+			RID shape_rid;
+			int shape_id;
+			LOG(EXTREME, "_unused_shapes has ", _unused_instance_shapes.keys().size(), " shape types");
+			if (_unused_instance_shapes.has(shape_type)) {
+				LOG(EXTREME, "_unused_instance_shapes had key ", shape_type);
+				Dictionary spare_shapes = _unused_instance_shapes[shape_type];
+
+				Array shape_keys = spare_shapes.keys();
+
+				if (shape_keys.size()) {
+					shape_rid = shape_keys[0];
+
+					shape_id = spare_shapes[shape_rid];
+					LOG(INFO, "Reusing RID : ", shape_rid, " | shape ID = ", shape_id);
+					spare_shapes.erase(shape_rid);
+					if (spare_shapes.size()) {
+						_unused_instance_shapes[shape_type] = spare_shapes;
+					} else {						
+						_unused_instance_shapes.erase(shape_type);
+					}		
+
+					PS->body_set_shape_transform(instance_static_body_rid, shape_id, xform);
+					PS->body_set_shape_disabled(instance_static_body_rid, shape_id, false);
+				}
+			} 
+
+			if (!shape_rid.is_valid()){
+				// Create shape using PS
+				// Different methods are required to create different shapes
+				switch (shape_type) {
+					case PhysicsServer3D::ShapeType::SHAPE_SPHERE:
+						shape_rid = PS->sphere_shape_create();
+						break;
+					case PhysicsServer3D::ShapeType::SHAPE_BOX:
+						shape_rid = PS->box_shape_create();
+						break;
+					case PhysicsServer3D::ShapeType::SHAPE_CAPSULE:
+						shape_rid = PS->capsule_shape_create();
+						break;
+					case PhysicsServer3D::ShapeType::SHAPE_CYLINDER:
+						shape_rid = PS->cylinder_shape_create();
+						break;
+					case PhysicsServer3D::ShapeType::SHAPE_CONVEX_POLYGON:
+						shape_rid = PS->convex_polygon_shape_create();
+						break;
+					case PhysicsServer3D::ShapeType::SHAPE_CONCAVE_POLYGON:
+						shape_rid = PS->concave_polygon_shape_create();
+						break;
+					default:
+						LOG(WARN, "Tried to use unsupported shape type : ", shape_type);
+						break;
+				}
+				if (!shape_rid.is_valid()) {
+					LOG(ERROR, "Failed to create shape");
+					continue;
+				}
+				shape_id = PS->body_get_shape_count(instance_static_body_rid);
+				PS->body_add_shape(instance_static_body_rid, shape_rid, xform, false);
+			}
+
+			PS->shape_set_data(shape_rid, PS->shape_get_data(shape->get_rid()));
+
+			Dictionary active_shapes = {};
+
+			if (_active_instance_shapes.has(shape_type)) {
+				active_shapes = _active_instance_shapes[shape_type];
+			}
+			active_shapes[shape_rid] = shape_id;
+			_active_instance_shapes[shape_type] = active_shapes;
+
+			if (is_editor_mode()) {
+				_create_visual_instance(shape_rid, shape->get_debug_mesh(), xform);
+			}
+		}
+	}
+}
+
+void Terrain3DCollision::_debug_print_active_shapes() {
+	LOG(EXTREME, "ACTIVE SHAPES : ");
+	Array shape_types = _active_instance_shapes.keys();
+	LOG(EXTREME, shape_types);
+	for (int i = 0; i < shape_types.size(); i++) {
+		Dictionary shape_rids = _active_instance_shapes[shape_types[i]];
+		Array shape_keys = shape_rids.keys();
+		LOG(EXTREME, shape_types[i], " : ", shape_keys.size());
+	}
+}
+
+void Terrain3DCollision::_debug_print_inactive_shapes() {
+	LOG(EXTREME, "UNUSED SHAPES : ");
+	Array shape_types = _unused_instance_shapes.keys();
+	LOG(EXTREME, shape_types);
+	for (int i = 0; i < shape_types.size(); i++) {
+		Dictionary shape_rids = _unused_instance_shapes[shape_types[i]];
+		Array shape_keys = shape_rids.keys();
+		LOG(EXTREME, shape_types[i], " : ", shape_keys.size());
+		for (int j = 0; j < shape_keys.size(); j++) {
+			RID rid = shape_keys[j];
+			LOG(EXTREME, "RID: ", rid);
+		
+		}
+	}
+}
+
+void Terrain3DCollision::_update_instance_collision() {
+	// Update only in applicable modes
+	if (!is_enabled() || (IS_EDITOR && !is_editor_mode())) {
+		return;
+	}
+
+	int time = Time::get_singleton()->get_ticks_usec();
+	const real_t vertex_spacing = _terrain->get_vertex_spacing();
+	Vector2i snapped_pos = _snap_to_grid(_terrain->get_snapped_position() / vertex_spacing);
+
+	if (!instance_static_body_rid.is_valid()) {
+		instance_static_body_rid = PS->body_create();
+		PS->body_set_mode(instance_static_body_rid, PhysicsServer3D::BODY_MODE_STATIC);
+		PS->body_set_space(instance_static_body_rid, _terrain->get_world_3d()->get_space());
+		PS->body_attach_object_instance_id(instance_static_body_rid, _terrain->get_instance_id());
+		PS->body_set_collision_mask(instance_static_body_rid, _mask);
+		PS->body_set_collision_layer(instance_static_body_rid, _layer);
+		PS->body_set_collision_priority(instance_static_body_rid, _priority);
+	}
+
+	if (is_dynamic_mode()) {
+		_destroy_instance_collision_outside_radius(v2iv3(snapped_pos), real_t(_radius));
+		_debug_print_inactive_shapes();
+	}
+
+	const Vector2i player_region = _terrain->get_data()->get_region_location(v2iv3(snapped_pos));
+
+	TypedArray<Vector2i> region_locs;
+
+	if (is_dynamic_mode()) {
+		// Get neighbour regions
+		const int y[] = { 0, -1, -1, -1, 1, 1, 1, 0, 0 };
+		const int x[] = { 0, -1, 0, 1, -1, 0, 1, -1, 1 };
+
+		for (int i = 0; i < 9; ++i) {
+			Vector2i region_loc = Vector2i(player_region.x + x[i], player_region.y + y[i]);
+			LOG(DEBUG, "Checking region location ", region_loc);
+			if (_terrain->get_data()->has_region(region_loc)) {
+				region_locs.push_back(region_loc);
+			}
+		}
+	} else {
+		// Full collision - get all regions
+		region_locs = _terrain->get_data()->get_region_locations();
+	}
+
+	LOG(EXTREME, "Generating instance collision for ", region_locs.size(), " regions");
+
+	for (int i = 0; i < region_locs.size(); i++) {
+		const Vector2i region_loc = region_locs[i];
+
+		LOG(EXTREME, "Generating instance collisions for region ", region_loc);
+
+		const Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+
+		if (!region) {
+			LOG(WARN, "Errant null region found at: ", region_loc);
+			continue;
+		}
+
+		// Get the region transform
+		Transform3D region_transform = Transform3D();
+		const int region_size = region->get_region_size();
+		region_transform.origin.x += region_loc.x * region_size * vertex_spacing;
+		region_transform.origin.z += region_loc.y * region_size * vertex_spacing;
+
+		const Dictionary mesh_inst_dict = region->get_instances();
+
+		const Array mesh_types = mesh_inst_dict.keys();
+
+		for (int m = 0; m < mesh_types.size(); m++) {
+			const int mesh_id = mesh_types[m];
+
+			// Verify mesh id is valid and has some meshes
+			const Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
+			if (ma.is_valid()) {
+				if (!ma->is_enabled()) {
+					continue;
+				}
+				if (ma->get_shape_count() == 0) {
+					LOG(EXTREME, "MeshAsset ", mesh_id, " valid but has no collision shape, skipping");
+					continue;
+				}
+			} else {
+				LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
+				continue;
+			}
+
+			const Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cell_locations = cell_inst_dict.keys();
+
+			for (int c = 0; c < cell_locations.size(); c++) {
+				const Vector2i cell = cell_locations[c];
+
+				// Exclude cell if outside of radius
+				Vector2i cell_local_pos = cell * vertex_spacing * (real_t(region_size) / 32.0f);
+				Transform3D cell_transform = region_transform * Transform3D(Basis(), v2iv3(cell_local_pos));
+
+				if (is_dynamic_mode()) {
+					if (cell_transform.origin.distance_to(v2iv3(snapped_pos)) > real_t(_radius)) {
+						LOG(EXTREME, "Cell ouside of current radius. Origin: ", cell_transform.origin, " Snapped pos: ", snapped_pos);
+						continue;
+					}
+
+					if (cell_transform.origin.distance_to(v2iv3(_last_snapped_pos)) < real_t(_radius)) {
+						LOG(EXTREME, "Cell inside of previous radius. Origin: ", cell_transform.origin, " | last_snapped_pos: ", _last_snapped_pos);
+						continue;
+					}
+				}
+	
+				const Array triple = cell_inst_dict[cell];
+
+				if (triple.size() < 3) {
+					LOG(WARN, "Triple is empty");
+					continue;
+				}
+
+				const TypedArray<Transform3D> xforms = triple[0];
+				_add_instance_shape(ma, region_transform, xforms);
+			}
+		}
+	}
+	_destroy_unused_shapes();
+	//_debug_print_active_shapes();
+	
+	LOG(INFO, "Instance shape count = ", PS->body_get_shape_count(instance_static_body_rid));
+	LOG(EXTREME, "Instance collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+}
+
+void Terrain3DCollision::_destroy_instance_collision() {
+	int time = Time::get_singleton()->get_ticks_usec();
+	_destroy_body_rid(instance_static_body_rid);
+	LOG(EXTREME, "Destroy instance collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+}
+
+void Terrain3DCollision::_destroy_instance_collision_inside_radius(const Vector3 p_origin, const real_t p_radius) {
+	int time = Time::get_singleton()->get_ticks_usec();
+
+	Array active_shapes_keys = _active_instance_shapes.keys();
+
+	for (int i = 0; i < active_shapes_keys.size(); i++) {
+		Dictionary active_shapes = _active_instance_shapes[active_shapes_keys[i]];
+		Array shape_keys = active_shapes.keys();
+		for (int s = 0; s < shape_keys.size(); s++) {
+			int shape_id = active_shapes[shape_keys[s]];
+			Transform3D shape_xform = PS->body_get_shape_transform(instance_static_body_rid, shape_id);
+			Vector3 shape_origin = shape_xform.origin * Vector3(1.0, 0.0, 1.0);
+			if (shape_origin.distance_to(p_origin) <= p_radius) {
+				_instance_shape_set_disabled(instance_static_body_rid, shape_keys[s]);
+			}
+		}
+	}
+
+	LOG(EXTREME, "Instance destroy collision inside radius time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+}
+
+void Terrain3DCollision::_destroy_instance_collision_outside_radius(const Vector3 p_origin, const real_t p_radius) {
+	int time = Time::get_singleton()->get_ticks_usec();
+
+	Array active_shapes_keys = _active_instance_shapes.keys();
+
+	for (int i = 0; i < active_shapes_keys.size(); i++) {
+		Dictionary active_shapes = _active_instance_shapes[active_shapes_keys[i]];
+		Array shape_keys = active_shapes.keys();
+		for (int s = 0; s < shape_keys.size(); s++) {
+			int shape_id = active_shapes[shape_keys[s]];
+			Transform3D shape_xform = PS->body_get_shape_transform(instance_static_body_rid, shape_id);
+			Vector3 shape_origin = shape_xform.origin * Vector3(1.0, 0.0, 1.0);
+			if (shape_origin.distance_to(p_origin) >= p_radius * 1.5) {
+				_instance_shape_set_disabled(instance_static_body_rid, shape_keys[s]);
+			}
+		}
+	}
+
+	LOG(EXTREME, "Instance destroy collision outside radius time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+}
+
+void Terrain3DCollision::_destroy_body_rid(const RID p_body_rid) {
+	LOG(EXTREME, "Destroying body ", p_body_rid);
+	if (p_body_rid.is_valid()) {
+		for (int i = 0; i < PS->body_get_shape_count(p_body_rid); i++) {
+			_instance_shape_set_disabled(p_body_rid, PS->body_get_shape(p_body_rid, i));
+		}
+
+		// Shape IDs change as they are freed, so it's not safe to iterate over them while freeing.
+
+		while (PS->body_get_shape_count(p_body_rid) > 0) {
+			RID rid = PS->body_get_shape(p_body_rid, 0);
+			LOG(EXTREME, "Freeing CollisionShape RID ", rid);
+			_destroy_visual_instance(rid);
+			PS->free_rid(rid);
+		}
+		//PS->free_rid(p_body_rid);
+	}
+}
+
+void Terrain3DCollision::_create_visual_instance(const RID p_shape_rid, Ref<ArrayMesh> debug_mesh, const Transform3D &xform) {
+	if (!p_shape_rid.is_valid()) {
+		LOG(WARN, "Tried to create visual instance for invalid shape rid");
+		return;
+	}
+
+	if (!xform.is_finite()) {
+		LOG(WARN, "Transform invalid for shape ", p_shape_rid);
+		LOG(WARN, "xform: ", xform);
+		return;
+	}
+
+	if (!debug_mesh.is_valid()) {
+		LOG(WARN, "Invalid debug mesh for shape ", p_shape_rid);
+		return;
+	}
+
+	if (instance_shape_visual_pairs.has(p_shape_rid)) {
+		LOG(WARN, "Visual instance already exists for shape ", p_shape_rid);
+		return;
+	}
+
+	RID visual_rid = RS->instance_create();
+	RS->instance_set_scenario(visual_rid, _terrain->get_world_3d()->get_scenario());
+	RS->instance_set_base(visual_rid, debug_mesh->get_rid());
+	RS->instance_set_transform(visual_rid, xform);
+
+	instance_shape_visual_pairs[p_shape_rid] = visual_rid;
+
+	LOG(EXTREME, "Created visual rid ", visual_rid, "to pair with ", p_shape_rid, " at ", xform.origin);
+}
+
+void Terrain3DCollision::_update_visual_instance(const RID p_shape_rid, const Transform3D &xform) {
+	if (!p_shape_rid.is_valid()) {
+		LOG(WARN, "Tried to update visual instance for invalid shape rid");
+		return;
+	}
+
+	if (!instance_shape_visual_pairs.has(p_shape_rid)) {
+		LOG(WARN, "Visual instance does not exist, skipping");
+		return;
+	}
+
+	RID visual_rid = instance_shape_visual_pairs[p_shape_rid];
+
+	if (!visual_rid.is_valid()) {
+		LOG(WARN, "Visual instance RID for shape ", p_shape_rid, " was invalid, skipping");
+		return;
+	}
+
+	RS->instance_set_transform(visual_rid, xform);
+}
+
+void Terrain3DCollision::_destroy_visual_instance(const RID p_shape_rid) {
+
+	if (!instance_shape_visual_pairs.size()) {
+		return;
+	}
+
+	LOG(EXTREME, "Destroying instance collision for shape ", p_shape_rid);
+	if (!instance_shape_visual_pairs.has(p_shape_rid)) {
+		LOG(EXTREME, "Visual instance does not exist, skipping");
+		return;
+	}
+
+	RID visual_rid = instance_shape_visual_pairs[p_shape_rid];
+
+	if (!visual_rid.is_valid()) {
+		LOG(WARN, "Visual instance RID invalid, skipping");
+		return;
+	}
+
+	LOG(EXTREME, "Destroying ", visual_rid, " which was paired with shape ", p_shape_rid);
+
+	RS->free_rid(visual_rid);
+	instance_shape_visual_pairs.erase(p_shape_rid);
+}
+
+void Terrain3DCollision::_destroy_visual_instances() {
+	Array keys = instance_shape_visual_pairs.keys();
+
+	for (int i = 0; i < keys.size(); i++) {
+		RID shape_rid = instance_shape_visual_pairs[keys[i]];
+		if (!shape_rid.is_valid()) {
+			continue;
+		}
+		_destroy_visual_instance(shape_rid);
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -385,6 +839,9 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 				_shape_set_data(shape_id, shape_data);
 			}
 		}
+		LOG(EXTREME, "Terrain collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+		_update_instance_collision();
+
 		_last_snapped_pos = snapped_pos;
 		LOG(EXTREME, "Setting _last_snapped_pos: ", _last_snapped_pos);
 		LOG(EXTREME, "inactive_shape_ids size: ", inactive_shape_ids.size());
@@ -408,6 +865,8 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 			_shape_set_disabled(i, false);
 			_shape_set_data(i, shape_data);
 		}
+		LOG(EXTREME, "Terrain collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+		_update_instance_collision();
 	}
 	LOG(EXTREME, "Collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }
@@ -443,6 +902,8 @@ void Terrain3DCollision::destroy() {
 		remove_from_tree(_static_body);
 		memdelete_safely(_static_body);
 	}
+
+	//_destroy_instance_collision();
 }
 
 void Terrain3DCollision::set_mode(const CollisionMode p_mode) {

@@ -48,6 +48,13 @@ private:
 	bool _initialized = false;
 	Vector2i _last_snapped_pos = V2I_MAX;
 
+	// Instance collision data
+	RID instance_static_body_rid;
+	//Dictionary _instance_bodies_dict = {};
+	Dictionary instance_shape_visual_pairs = {};
+	Dictionary _unused_instance_shapes = {};
+	Dictionary _active_instance_shapes = {};
+
 	Vector2i _snap_to_grid(const Vector2i &p_pos) const;
 	Vector2i _snap_to_grid(const Vector3 &p_pos) const;
 	Dictionary _get_shape_data(const Vector2i &p_position, const int p_size);
@@ -58,6 +65,31 @@ private:
 	void _shape_set_data(const int p_shape_id, const Dictionary &p_dict);
 
 	void _reload_physics_material();
+
+	void _destroy_shape(const RID &shape_rid);
+
+	void _rebuild_shape_dictionary_ids();
+
+	void _destroy_unused_shapes();
+
+	void _instance_shape_set_disabled(const RID &instance_static_body_rid, const RID &p_shape_rid);
+
+	void _add_instance_shape(const Ref<Terrain3DMeshAsset> ma, const Transform3D &region_transform, const TypedArray<Transform3D> &xforms);
+
+	void _debug_print_active_shapes();
+
+	void _debug_print_inactive_shapes();
+
+	void _update_instance_collision();
+	void _destroy_instance_collision();
+	void _destroy_instance_collision_inside_radius(const Vector3 p_origin, const real_t p_radius);
+	void _destroy_instance_collision_outside_radius(const Vector3 p_origin, const real_t p_radius);
+
+	void _destroy_body_rid(const RID p_body_rid);
+	void _create_visual_instance(const RID p_shape_rid, Ref<ArrayMesh> p_debug_mesh, const Transform3D &p_xform);
+	void _update_visual_instance(const RID p_shape_rid, const Transform3D &p_xform);
+	void _destroy_visual_instance(const RID p_shape_rid);
+	void _destroy_visual_instances();
 
 public:
 	Terrain3DCollision() {}
