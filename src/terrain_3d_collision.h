@@ -68,11 +68,17 @@ private:
 
 	void _destroy_shape(const RID &shape_rid);
 
+	void _rebuild_shape_dictionary_ids();
+
 	void _destroy_unused_shapes();
 
 	void _instance_shape_set_disabled(const RID &instance_static_body_rid, const RID &p_shape_rid);
 
-	void _add_instance_shape(const RID &instance_static_body_rid, const Ref<Terrain3DMeshAsset> ma, const Transform3D &region_transform, const TypedArray<Transform3D> &xforms);
+	void _add_instance_shape(const Ref<Terrain3DMeshAsset> ma, const Transform3D &region_transform, const TypedArray<Transform3D> &xforms);
+
+	void _debug_print_active_shapes();
+
+	void _debug_print_inactive_shapes();
 
 	void _update_instance_collision();
 	void _destroy_instance_collision();
