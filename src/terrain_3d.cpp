@@ -215,7 +215,6 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_name("MouseViewport");
 	add_child(_mouse_vp, true);
 	_mouse_vp->set_size(Vector2i(2, 2));
-	_mouse_vp->set_scaling_3d_mode(Viewport::SCALING_3D_MODE_BILINEAR);
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 	_mouse_vp->set_handle_input_locally(false);
 	_mouse_vp->set_canvas_cull_mask(0);
@@ -852,11 +851,6 @@ void Terrain3D::_notification(const int p_what) {
 			set_notify_transform(true);
 			set_meta("_edit_lock_", true);
 			_setup_mouse_picking();
-			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid()) {
-				LOG(INFO, "free_editor_textures enabled, reloading Assets path: ", _assets->get_path());
-				_assets = ResourceLoader::get_singleton()->load(_assets->get_path(), "", ResourceLoader::CACHE_MODE_IGNORE);
-			}
-
 			_initialize(); // Rebuild anything freed: meshes, collision, instancer
 			set_physics_process(true);
 			break;
@@ -866,7 +860,6 @@ void Terrain3D::_notification(const int p_what) {
 			// Node is ready
 			LOG(INFO, "NOTIFICATION_READY");
 			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid()) {
-				LOG(INFO, "free_editor_textures enabled, clearing texture assets");
 				_assets->clear_textures();
 			}
 			break;

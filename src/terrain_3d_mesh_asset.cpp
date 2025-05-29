@@ -211,7 +211,7 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 		}
 
 		// Now process the meshes
-		for (int i = 0, count = MIN(mesh_instances.size(), MAX_LOD_COUNT); i < count; i++) {
+		for (int i = 0; i < mesh_instances.size(); i++) {
 			MeshInstance3D *mi = cast_to<MeshInstance3D>(mesh_instances[i]);
 			LOG(DEBUG, "Found mesh: ", mi->get_name());
 			if (_name == "New Mesh") {
@@ -225,6 +225,9 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 				mesh->surface_set_material(j, mat);
 			}
 			_meshes.push_back(mesh);
+			if (i == MAX_LOD_COUNT) {
+				break;
+			}
 		}
 
 		// Read and store phyics shapes
@@ -293,7 +296,7 @@ Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
 }
 
 TypedArray<Shape3D> Terrain3DMeshAsset::get_shapes() const {
-		return _shapes;
+	return _shapes;
 }
 
 int Terrain3DMeshAsset::get_shape_count() const {
