@@ -68,6 +68,7 @@ private:
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
+	bool _debug_view_jaggedness = false;
 
 	// Functions
 	void _preload_shaders();
@@ -151,6 +152,8 @@ public:
 	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
 	void set_show_texture_rough(const bool p_enabled);
 	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
+	void set_show_jaggedness(const bool p_enabled);
+	bool get_show_jaggedness() const { return _debug_view_jaggedness; }
 
 	Error save(const String &p_path = "");
 

@@ -25,6 +25,7 @@ var open_file_dialog: EditorFileDialog
 var invert_green_checkbox: CheckBox
 var invert_smooth_checkbox: CheckBox
 var invert_height_checkbox: CheckBox
+var normalize_height_checkbox: CheckBox
 var lumin_height_button: Button
 var generate_mipmaps_checkbox: CheckBox
 var high_quality_checkbox: CheckBox
@@ -65,6 +66,7 @@ func pack_textures_popup() -> void:
 	invert_green_checkbox = window.find_child("InvertGreenChannelCheckBox") as CheckBox
 	invert_smooth_checkbox = window.find_child("InvertSmoothCheckBox") as CheckBox
 	invert_height_checkbox = window.find_child("ConvertDepthToHeight") as CheckBox
+	normalize_height_checkbox = window.find_child("NormalizeHeight") as CheckBox
 	lumin_height_button = window.find_child("LuminanceAsHeightButton") as Button
 	generate_mipmaps_checkbox = window.find_child("GenerateMipmapsCheckBox") as CheckBox
 	high_quality_checkbox = window.find_child("HighQualityCheckBox") as CheckBox
@@ -349,11 +351,11 @@ func _on_save_file_selected(p_dst_path) -> void:
 	var error: int
 	if packing_albedo:
 		error = _pack_textures(images[IMAGE_ALBEDO], images[IMAGE_HEIGHT], p_dst_path, false,
-		invert_height_checkbox.button_pressed, false, height_channel_selected)
+		invert_height_checkbox.button_pressed, false, normalize_height_checkbox.button_pressed, height_channel_selected)
 	else:
 		error = _pack_textures(images[IMAGE_NORMAL], images[IMAGE_ROUGHNESS], p_dst_path,
 			invert_green_checkbox.button_pressed, invert_smooth_checkbox.button_pressed,
-			align_normals_checkbox.button_pressed, roughness_channel_selected)
+			align_normals_checkbox.button_pressed, false, roughness_channel_selected)
 	
 	if error == OK:
 		EditorInterface.get_resource_filesystem().scan()
@@ -429,7 +431,7 @@ func _align_normals(source: Image, iteration: int = 0) -> void:
 
 
 func _pack_textures(p_rgb_image: Image, p_a_image: Image, p_dst_path: String, p_invert_green: bool,
-	p_invert_smooth: bool, p_align_normals : bool, p_alpha_channel: int) -> Error:
+	p_invert_smooth: bool, p_align_normals: bool, p_normalize_height: bool, p_alpha_channel: int) -> Error:
 	if p_rgb_image and p_a_image:
 		if p_rgb_image.get_size() != p_a_image.get_size() and !resize_toggle_checkbox.button_pressed:
 			_show_message(ERROR, "Textures must be the same size.\nEnable resize to override image dimensions")
@@ -446,7 +448,7 @@ func _pack_textures(p_rgb_image: Image, p_a_image: Image, p_dst_path: String, p_
 			_show_message(INFO, "Alignment OK, skipping Normal Orthogonalization")
 	
 		var output_image: Image = Terrain3DUtil.pack_image(p_rgb_image, p_a_image,
-			p_invert_green, p_invert_smooth, p_alpha_channel)
+			p_invert_green, p_invert_smooth, p_normalize_height, p_alpha_channel)
 	
 		if not output_image:
 			_show_message(ERROR, "Failed to pack textures")

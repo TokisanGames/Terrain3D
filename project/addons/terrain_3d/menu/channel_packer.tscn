@@ -37,7 +37,7 @@ corner_radius_bottom_left = 5
 [node name="Window" type="Window"]
 title = "Terrain3D Channel Packer"
 initial_position = 1
-size = Vector2i(583, 856)
+size = Vector2i(583, 891)
 wrap_controls = true
 always_on_top = true
 
@@ -228,6 +228,15 @@ alignment = 1
 [node name="ConvertDepthToHeight" type="CheckBox" parent="PanelContainer/MarginContainer/VBoxContainer/AlbedoHeightPanel/MarginContainer/HBoxContainer/HeightVBox/HBoxContainer2"]
 layout_mode = 2
 text = " Convert Depth to Height"
+icon_alignment = 2
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/AlbedoHeightPanel/MarginContainer/HBoxContainer/HeightVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="NormalizeHeight" type="CheckBox" parent="PanelContainer/MarginContainer/VBoxContainer/AlbedoHeightPanel/MarginContainer/HBoxContainer/HeightVBox/HBoxContainer3"]
+layout_mode = 2
+text = "Normalize Height"
 icon_alignment = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/AlbedoHeightPanel/MarginContainer/HBoxContainer/HeightVBox"]
