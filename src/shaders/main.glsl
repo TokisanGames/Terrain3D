@@ -508,8 +508,8 @@ void fragment() {
 		macrov = mix(vec3(1.0), macrov, clamp(w_normal.y + macro_variation_slope, 0., 1.));
 	}
 	
-	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range
-	float roughness = fma(color_map.a - 0.5, 2.0, mat.normal_rough.a);
+	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
+	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
 	
 	// Apply PBR
 	ALBEDO = mat.albedo_height.rgb * color_map.rgb * macrov;
