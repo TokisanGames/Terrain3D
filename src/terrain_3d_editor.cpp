@@ -509,9 +509,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						 * We round the final amount in tool_settings.gd:_on_picked().
 						 */
 						if (_operation == ADD) {
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f + .5f * roughness), brush_alpha * strength);
+							real_t target = .5f + .5f * roughness;
+							dest.a = Math::lerp(real_t(src.a), target, brush_alpha * strength);
+							dest.a = float(int(dest.a * 255.f)) / 255.f; // Quantize explicitly so picked values match painted values
 						} else {
 							dest.a = Math::lerp(real_t(src.a), real_t(.5f), brush_alpha * strength);
+							dest.a = float(int(dest.a * 255.f)) / 255.f;
 						}
 						break;
 					default:

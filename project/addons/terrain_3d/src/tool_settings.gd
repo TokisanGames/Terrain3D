@@ -346,12 +346,13 @@ func _on_pick(p_type: Terrain3DEditor.Tool) -> void:
 func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position: Vector3) -> void:
 	match p_type:
 		Terrain3DEditor.HEIGHT:
-			settings["height"].value = p_color.r if not is_nan(p_color.r) else 0
+			settings["height"].value = p_color.r if not is_nan(p_color.r) else 0.
 		Terrain3DEditor.COLOR:
 			settings["color"].color = p_color if not is_nan(p_color.r) else Color.WHITE
 		Terrain3DEditor.ROUGHNESS:
-			# 200... -.5 converts 0,1 to -100,100
-			settings["roughness"].value = round(200 * (p_color.a - 0.5)) if not is_nan(p_color.r) else 0.499
+			# This converts 0,1 to -100,100
+			# It also quantizes explicitly so picked values matches painted values
+			settings["roughness"].value = round(200. * float(int(p_color.a * 255.) / 255. - .5)) if not is_nan(p_color.r) else 0.
 		Terrain3DEditor.ANGLE:
 			settings["angle"].value = p_color.r
 		Terrain3DEditor.SCALE:
