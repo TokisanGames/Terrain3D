@@ -1170,7 +1170,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
 	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
-	ClassDB::bind_method(D_METHOD("update_maps", "map_type", "all_maps ", "generate_mipmaps"), &Terrain3DData::update_maps, DEFVAL(TYPE_MAX), DEFVAL(true), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update_maps", "map_type", "all_regions", "generate_mipmaps"), &Terrain3DData::update_maps, DEFVAL(TYPE_MAX), DEFVAL(true), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DData::get_height_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DData::get_control_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_color_maps_rid"), &Terrain3DData::get_color_maps_rid);
