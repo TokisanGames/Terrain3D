@@ -46,6 +46,21 @@ private:
 	bool _initialized = false;
 	Vector2i _last_snapped_pos = V2I_MAX;
 
+	// Instance collision data
+	RID _instance_static_body_rid;
+
+	// Stored as {PS_rid:RID} -> RS_rid:RID
+	Dictionary _instance_shape_visual_pairs = {};
+
+	// Stored as {ShapeType:int} -> [shapes] -> [RID, Body_ID]}
+	Dictionary _unused_instance_shapes = {};
+
+	// Stored as {cell_loc:v3} -> {mesh_asset_id:int} -> [instances] -> [shapes] -> [RID, Body_ID]
+	Dictionary _active_instance_cells = {};
+
+	// Stored as {mesh_asset_id:int} -> [shapes] -> [RID, Body_ID]
+	Dictionary _inactive_mesh_asset_instances = {};
+
 	Vector2i _snap_to_grid(const Vector2i &p_pos) const;
 	Vector2i _snap_to_grid(const Vector3 &p_pos) const;
 	Dictionary _get_shape_data(const Vector2i &p_position, const int p_size);
@@ -56,10 +71,35 @@ private:
 	void _shape_set_data(const int p_shape_id, const Dictionary &p_dict);
 
 	void _reload_physics_material();
+	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size);
+	void _destroy_unused_shapes();
+
+	void _rebuild_shape_indices();
+
+	void _generate_instance_collision_cell(const Vector3 &cell_origin);
+
+	void _decompose_cells_outside_of_radius(const Vector3 &p_decompose_origin, const real_t p_radius);
+
+	void _decompose_instance_collision_cell(const Vector3 &cell_origin);
+
+	void _decompose_mesh_asset_to_unused_shapes(const int &p_mesh_id, Array &ma_dict);
+
+	void _decompose_inactive_mesh_assets();
+
+	void _add_mesh_asset_instance(const int &p_mesh_asset_id, const Ref<Terrain3DMeshAsset> p_ma, const Transform3D &p_region_transform, const Vector3 &p_cell_origin, const TypedArray<Transform3D> &p_xforms);
+
+	void _update_instance_collision();
+
+	void _destroy_instance_collision();
+
+	void _create_visual_instance(const RID &p_shape_rid, Ref<ArrayMesh> p_debug_mesh, const Transform3D &p_xform);
 
 public:
 	Terrain3DCollision() {}
 	~Terrain3DCollision() { destroy(); }
+	void _update_visual_instance(const RID &p_shape_rid, const Transform3D &p_xform);
+	void _destroy_visual_instance(const RID &p_shape_rid);
+	void _destroy_visual_instances();
 	void initialize(Terrain3D *p_terrain);
 
 	void build();
