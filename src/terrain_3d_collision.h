@@ -49,18 +49,18 @@ private:
 	Vector2i _last_snapped_pos = V2I_MAX;
 
 	// Instance collision data
-	RID instance_static_body_rid;
+	RID _instance_static_body_rid;
 
-	// Dictionary { PS_RID, RS_RID }
-	Dictionary instance_shape_visual_pairs = {};
+	// Stored as {PS_rid:RID} -> RS_rid:RID
+	Dictionary _instance_shape_visual_pairs = {};
 
-	// Dictioanry { ShapeType, [shapes] -> [RID, Body_ID]}
+	// Stored as {ShapeType:int} -> [shapes] -> [RID, Body_ID]}
 	Dictionary _unused_instance_shapes = {};
 
-	// Dictionary { cell_loc, {mesh_asset_id, [instances] -> [shapes] -> [RID, Body_ID] } ]
+	// Stored as {cell_loc:v3} -> {mesh_asset_id:int} -> [instances] -> [shapes] -> [RID, Body_ID]
 	Dictionary _active_instance_cells = {};
 
-	// Dictioanry { mesh_asset_id, [shapes] -> [RID, Body_ID]}
+	// Stored as {mesh_asset_id:int} -> [shapes] -> [RID, Body_ID]
 	Dictionary _inactive_mesh_asset_instances = {};
 
 	Vector2i _snap_to_grid(const Vector2i &p_pos) const;
@@ -76,7 +76,7 @@ private:
 	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size);
 	void _destroy_unused_shapes();
 
-	void _rebuild_shape_ids();
+	void _rebuild_shape_indices();
 
 	void _generate_instance_collision_cell(const Vector3 &cell_origin);
 
@@ -94,13 +94,13 @@ private:
 
 	void _destroy_instance_collision();
 
-	void _create_visual_instance(const RID p_shape_rid, Ref<ArrayMesh> debug_mesh, const Transform3D &xform);
+	void _create_visual_instance(const RID &p_shape_rid, Ref<ArrayMesh> p_debug_mesh, const Transform3D &p_xform);
 
 public:
 	Terrain3DCollision() {}
 	~Terrain3DCollision() { destroy(); }
-	void _update_visual_instance(const RID p_shape_rid, const Transform3D &xform);
-	void _destroy_visual_instance(const RID p_shape_rid);
+	void _update_visual_instance(const RID &p_shape_rid, const Transform3D &p_xform);
+	void _destroy_visual_instance(const RID &p_shape_rid);
 	void _destroy_visual_instances();
 	void initialize(Terrain3D *p_terrain);
 
