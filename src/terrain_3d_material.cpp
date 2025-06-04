@@ -568,7 +568,9 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	}
 	LOG(INFO, "Initializing material");
 	_preload_shaders();
-	_material = RS->material_create();
+	if (!_material.is_valid()) {
+		_material = RS->material_create();
+	}
 	_shader.instantiate();
 	_update_shader();
 	_update_maps();
@@ -580,10 +582,16 @@ void Terrain3DMaterial::uninitialize() {
 }
 
 void Terrain3DMaterial::destroy() {
-	IS_INIT(VOID);
 	LOG(INFO, "Destroying material");
 	_terrain = nullptr;
-	RS->free_rid(_material);
+	_shader.unref();
+	_shader_code.clear();
+	_active_params.clear();
+	_shader_params.clear();
+	if (_material.is_valid()) {
+		RS->free_rid(_material);
+		_material = RID();
+	}
 }
 
 void Terrain3DMaterial::update() {
