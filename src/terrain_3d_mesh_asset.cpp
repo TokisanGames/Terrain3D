@@ -128,6 +128,8 @@ void Terrain3DMeshAsset::clear() {
 	_packed_scene.unref();
 	_generated_type = TYPE_NONE;
 	_meshes.clear();
+	_shapes.clear();
+	_shape_transforms.clear();
 	_thumbnail.unref();
 	_height_offset = 0.f;
 	_density = 10.f;
@@ -223,6 +225,19 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 			}
 			_meshes.push_back(mesh);
 		}
+
+		// Read and store phyics shapes
+		TypedArray<Node> collision_shapes = node->find_children("*", "CollisionShape3D");
+		if (collision_shapes.size() > 0) {
+			LOG(INFO, "Found ", collision_shapes.size(), " CollisionShapes in scene file");
+			for (int i = 0; i < collision_shapes.size(); i++) {
+				CollisionShape3D *collision_shape = cast_to<CollisionShape3D>(collision_shapes[i]);
+				Ref<Shape3D> shape = collision_shape->get_shape();
+				Transform3D xform = collision_shape->get_transform();
+				_shapes.push_back(shape);
+				_shape_transforms.push_back(xform);
+			}
+		}
 		node->queue_free();
 	}
 	if (_meshes.size() > 0) {
@@ -275,6 +290,17 @@ Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
 	return Ref<Mesh>();
 }
 
+TypedArray<Shape3D> Terrain3DMeshAsset::get_shapes() const {
+	return _shapes;
+}
+
+int Terrain3DMeshAsset::get_shape_count() const {
+	return _shapes.size();
+}
+
+TypedArray<Transform3D> Terrain3DMeshAsset::get_shape_transforms() const {
+	return _shape_transforms;
+}
 void Terrain3DMeshAsset::set_height_offset(const real_t p_offset) {
 	_height_offset = CLAMP(p_offset, -50.f, 50.f);
 	LOG(INFO, "Setting height offset: ", _height_offset);
