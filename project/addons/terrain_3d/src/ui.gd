@@ -51,7 +51,6 @@ var brush_data: Dictionary
 var operation_builder: OperationBuilder
 var last_tool: Terrain3DEditor.Tool
 var last_operation: Terrain3DEditor.Operation
-var last_rmb_time: int = 0 # Set in editor.gd
 
 # Editor decals, indices; 0 = main brush, 1 = slope point A, 2 = slope point B
 var mat_rid: RID
@@ -316,45 +315,6 @@ func _invert_operation(p_operation: Terrain3DEditor.Operation, flags: int = OP_N
 	return p_operation
 
 
-func consume_hotkey(keycode: int) -> bool:
-	match keycode:
-		KEY_1:
-			plugin.terrain.material.set_show_region_grid(!plugin.terrain.material.get_show_region_grid())
-		KEY_2:
-			plugin.terrain.material.set_show_instancer_grid(!plugin.terrain.material.get_show_instancer_grid())
-		KEY_3:
-			plugin.terrain.material.set_show_vertex_grid(!plugin.terrain.material.get_show_vertex_grid())
-		KEY_4:
-			plugin.terrain.material.set_show_contours(!plugin.terrain.material.get_show_contours())
-		KEY_E:
-			toolbar.get_button("AddRegion").set_pressed(true)
-		KEY_R:
-			toolbar.get_button("Raise").set_pressed(true)
-		KEY_H:
-			toolbar.get_button("Height").set_pressed(true)
-		KEY_S:
-			toolbar.get_button("Slope").set_pressed(true)
-		KEY_C:
-			toolbar.get_button("PaintColor").set_pressed(true)
-		KEY_N:
-			toolbar.get_button("PaintNavigableArea").set_pressed(true)
-		KEY_I:
-			toolbar.get_button("InstanceMeshes").set_pressed(true)
-		KEY_X:
-			toolbar.get_button("AddHoles").set_pressed(true)
-		KEY_W:
-			toolbar.get_button("PaintWetness").set_pressed(true)
-		KEY_B:
-			toolbar.get_button("PaintTexture").set_pressed(true)
-		KEY_V:
-			toolbar.get_button("SprayTexture").set_pressed(true)
-		KEY_A:
-			toolbar.get_button("PaintAutoshader").set_pressed(true)
-		_:
-			return false
-	return true
-
-
 func update_decal() -> void:
 	if not plugin.terrain or brush_data.size() <= 3:
 		return
@@ -364,9 +324,9 @@ func update_decal() -> void:
 	# If not a state that should show the decal, hide everything and return
 	if not visible or \
 		plugin._input_mode < 0 or \
-		# Wait for cursor to recenter after moving camera before revealing
+		# After moving camera, wait for mouse cursor to update before revealing
 		# See https://github.com/godotengine/godot/issues/70098
-		Time.get_ticks_msec() - last_rmb_time <= 30 or \
+		Time.get_ticks_msec() - plugin.rmb_release_time <= 100 or \
 		(plugin._input_mode > 0 and not brush_data["show_cursor_while_painting"]):
 			hide_decal()
 			return
