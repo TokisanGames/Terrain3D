@@ -58,6 +58,7 @@ private:
 
 	void _update_texture_files();
 	void _update_texture_settings();
+	void _setup_thumbnail_creation();
 	void _update_thumbnail(const Ref<Terrain3DMeshAsset> &p_mesh_asset);
 
 public:
