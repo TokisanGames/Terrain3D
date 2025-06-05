@@ -530,7 +530,7 @@ class ListContainer extends Container:
 		# Select Paint tool if clicking a texture
 		if type == Terrain3DAssets.TYPE_TEXTURE and \
 				not plugin.editor.get_tool() in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
-			var paint_btn: Button = plugin.ui.toolbar.get_node_or_null("PaintBaseTexture")
+			var paint_btn: Button = plugin.ui.toolbar.get_node_or_null("PaintTexture")
 			if paint_btn:
 				paint_btn.set_pressed(true)
 				plugin.ui._on_tool_changed(Terrain3DEditor.TEXTURE, Terrain3DEditor.REPLACE)

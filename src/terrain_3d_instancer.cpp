@@ -328,7 +328,7 @@ void Terrain3DInstancer::_backup_regionl(const Vector2i &p_region_loc) {
 }
 
 void Terrain3DInstancer::_backup_region(const Ref<Terrain3DRegion> &p_region) {
-	if (_terrain && _terrain->get_editor()) {
+	if (_terrain && _terrain->get_editor() && _terrain->get_editor()->is_operating()) {
 		_terrain->get_editor()->backup_region(p_region);
 	} else {
 		p_region->set_modified(true);

@@ -117,7 +117,7 @@ func add_tool_button(p_params: Dictionary) -> void:
 	if p_params.has("sub_text"):
 		button2 = Button.new()
 		name_str = p_params.get("sub_text", "blank").get_slice('(', 0).to_pascal_case()
-		button.set_name(name_str)
+		button2.set_name(name_str)
 		button2.set_meta("Tool", p_params.get("tool", 0))
 		button2.set_meta("Operation", p_params.get("sub_op", 0))
 		button2.set_meta("ID", button.get_meta("ID"))
