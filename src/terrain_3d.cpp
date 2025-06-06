@@ -718,15 +718,37 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		}
 
 	} else if (!p_gpu_mode) {
-		// Else if not gpu mode, use raymarching mode
-		point = p_src_pos;
-		for (int i = 0; i < 4000; i++) {
-			real_t height = _data->get_height(point);
-			if (point.y - height <= 0) {
+// Else if not gpu mode, use raymarching mode
+
+		direction *= _vertex_spacing;
+		real_t height;
+		Vector3 snapped_point;
+		Vector3 last_point;
+
+		for (int i = 0; i < 2000; i++) {
+			point = p_src_pos + (direction * i * 2);
+			if (i) {
+				last_point = p_src_pos + (direction * (i - 1) * 2);
+			} else {
+				last_point = point;
+			}
+
+			snapped_point = point.snapped(Vector3(_vertex_spacing, point.y, _vertex_spacing));
+			height = _data->get_height(snapped_point);
+
+			if (isnan(height)) {
+				return V3_MAX;
+			}
+
+			if (snapped_point.y - height <= 0.0f) {
+				height = _data->get_height(last_point);
+				if (last_point.y - height <= 0.0f) {
+					return last_point;
+				}
 				return point;
 			}
-			point += direction;
 		}
+
 		return V3_MAX;
 
 	} else {
