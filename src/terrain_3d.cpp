@@ -718,37 +718,70 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		}
 
 	} else if (!p_gpu_mode) {
-// Else if not gpu mode, use raymarching mode
-
+		int time = Time::get_singleton()->get_ticks_usec();
+		// Else if not gpu mode, use raymarching mode
 		direction *= _vertex_spacing;
-		real_t height;
-		Vector3 snapped_point;
-		Vector3 last_point;
+		real_t height = FLT_MAX;
+		Vector3 snapped_point = V3_MAX;
+		Vector3 last_point = p_src_pos;
+		const int PRIMARY_STEP_SIZE = 5;
+		const int MAX_SECONDARY_STEPS = 5;
+		const real_t height_difference_tolerance = 0.001f;
 
-		for (int i = 0; i < 2000; i++) {
-			point = p_src_pos + (direction * i * 2);
-			if (i) {
-				last_point = p_src_pos + (direction * (i - 1) * 2);
-			} else {
-				last_point = point;
-			}
+		for (int i = 0; i < 4000; i += PRIMARY_STEP_SIZE) {
+			point = p_src_pos + (direction * i);
 
 			snapped_point = point.snapped(Vector3(_vertex_spacing, point.y, _vertex_spacing));
 			height = _data->get_height(snapped_point);
 
+			// Early return if outside of regions
 			if (isnan(height)) {
+				LOG(EXTREME, "Determined no intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
 				return V3_MAX;
 			}
 
 			if (snapped_point.y - height <= 0.0f) {
-				height = _data->get_height(last_point);
-				if (last_point.y - height <= 0.0f) {
-					return last_point;
-				}
-				return point;
-			}
-		}
+				real_t height_difference = FLT_MAX;
 
+				Vector3 u_bound = point;
+				Vector3 l_bound = last_point;
+				Vector3 u_terrain = Vector3(point.x, _data->get_height(point), point.z);
+				Vector3 l_terrain = Vector3(last_point.x, _data->get_height(last_point), last_point.z);
+
+				Vector3 estimated_intersection = V3_MAX;
+				
+				for (int j = 0; j < MAX_SECONDARY_STEPS; j++) {		
+					
+					// Define 4-vertex plane from any three vertices
+					Plane plane(l_terrain, u_terrain, l_terrain + l_terrain.direction_to(p_src_pos).cross(l_terrain.direction_to(u_terrain)));
+
+					// Compute ray-plane intersection
+					float t = -plane.distance_to(p_src_pos) / plane.get_normal().dot(p_direction);
+
+					estimated_intersection = p_src_pos + p_direction * t;
+			
+					height = _data->get_height(estimated_intersection);
+					height_difference = estimated_intersection.y - height;
+
+					if (abs(height_difference) <= height_difference_tolerance) {
+						LOG(EXTREME, "Determined intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
+						return estimated_intersection;
+					}
+
+					if (height_difference <= 0.0f) {
+						u_bound = estimated_intersection;
+						u_terrain = Vector3(u_bound.x, height, u_bound.z);
+					} else {
+						l_bound = estimated_intersection;
+						l_terrain = Vector3(l_bound.x, height, l_bound.z);
+					}
+				}
+				LOG(EXTREME, "Determined intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
+				return estimated_intersection;
+			}
+			last_point = point;
+		}
+		LOG(EXTREME, "Determined no intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
 		return V3_MAX;
 
 	} else {
