@@ -14,7 +14,7 @@ release = '1.1.0'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['myst_parser', 'sphinx_rtd_dark_mode']
+extensions = ['myst_parser', 'sphinx_rtd_dark_mode', 'sphinx_tabs.tabs']
 
 myst_heading_anchors = 3
 default_dark_mode = False
