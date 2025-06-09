@@ -75,16 +75,6 @@ uniform vec2 noise1_offset = vec2(0.5);
 uniform float noise2_scale : hint_range(0.001, 1.) = 0.076; // Used for macro variation 2. Scaled up 10x
 
 // Varyings & Types
-
-// This struct contains data that requires accessing multiple times across potential branches
-// or iterations, and/or can change after the intial decode, such as via the autoshader.
-struct control_data {
-	ivec2 texture_id;
-	float blend;
-};
-// control_data constructor
-#define CONTROL_DATA(control) control_data(ivec2(DECODE_BASE(control), DECODE_OVER(control)), DECODE_BLEND(control))
-
 varying vec3 v_normal;
 varying vec3 v_vertex;
 varying mat3 TBN;
@@ -200,16 +190,6 @@ mat2 rotate_plane(float angle) {
 	return mat2(vec2(c, s), vec2(-s, c));
 }
 
-// Computes total accumulated weight for a given texture_id across all 4 indices.
-float accumulate_weight(int texture_id, control_data data[4], vec4 weights) {
-	float w = 0.0;
-	for (int i = 0; i < 4; i++) {
-		w += weights[i] * (1.0 - data[i].blend) * float(data[i].texture_id[0] == texture_id);
-		w += weights[i] * data[i].blend * float(data[i].texture_id[1] == texture_id);
-	}
-	return w;
-}
-
 void fragment() {
 	// Recover UVs
 	vec2 uv = UV;
@@ -265,34 +245,53 @@ void fragment() {
 		float total_weight = 0.;
 		float sharpness = fma(56., blend_sharpness, 8.);
 
-		// Get index control map data
-		// 4 lookups
-		uint control[4] = {
-			floatBitsToUint(texelFetch(_control_maps, index[0], 0).r),
-			floatBitsToUint(texelFetch(_control_maps, index[1], 0).r),
-			floatBitsToUint(texelFetch(_control_maps, index[2], 0).r),
-			floatBitsToUint(texelFetch(_control_maps, index[3], 0).r)
-		};
+		// Get index control data
+		// 1 - 4 lookups
+		uvec4 control = floatBitsToUint(vec4(
+			texelFetch(_control_maps, index[0], 0).r,
+			texelFetch(_control_maps, index[1], 0).r,
+			texelFetch(_control_maps, index[2], 0).r,
+			texelFetch(_control_maps, index[3], 0).r));
 
-		// Parse control data
-		control_data data[4] = {
-			CONTROL_DATA(control[0]),
-			CONTROL_DATA(control[1]),
-			CONTROL_DATA(control[2]),
-			CONTROL_DATA(control[3])
-		};
-
-		// Enable Autoshader if outside regions or painted in regions, otherwise manual painted
-		float auto_blend = clamp((auto_slope * 2. * (v_normal.y - 1.) + 1.)
-				- auto_height_reduction * .01 * v_vertex.y // Reduce as vertices get higher
-				, 0., 1.);
-		for (int i = 0; i < 4; i++) {
-			if (index[i].z < 0 || DECODE_AUTO(control[i])) {
-				data[i].texture_id[0] = auto_base_texture;
-				data[i].texture_id[1] = auto_overlay_texture;
-				data[i].blend = auto_blend;
-			}
+		{
+			// Auto blend calculation
+			float auto_blend = clamp(fma(auto_slope * 2.0, (v_normal.y - 1.0), 1.0)
+				- auto_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);
+			// Enable Autoshader if outside regions or painted in regions, otherwise manual painted
+			uvec4 is_auto = (control & uvec4(0x1u)) | uvec4(uint(region_uv.z < 0.0));
+			uint u_auto = 
+				((uint(auto_base_texture) & 0x1Fu) << 27u) |
+				((uint(auto_overlay_texture) & 0x1Fu) << 22u) |
+				((uint(fma(auto_blend, 255.0 , 0.5)) & 0xFFu) << 14u);
+			control = control * (1u - is_auto) + u_auto * is_auto;
 		}
+
+
+		// Texture weights
+		// Vectorised Deocode of all texture IDs, then swizzle to per index mapping.
+		ivec4 t_id[2] = {ivec4(control >> uvec4(27u) & uvec4(0x1Fu)),
+			ivec4(control >> uvec4(22u) & uvec4(0x1Fu))};
+		ivec2 texture_ids[4] = ivec2[4](
+			ivec2(t_id[0].x, t_id[1].x),
+			ivec2(t_id[0].y, t_id[1].y),
+			ivec2(t_id[0].z, t_id[1].z),
+			ivec2(t_id[0].w, t_id[1].w));
+
+		// interpolated weights.
+		vec4 weights_id_1 = vec4(control >> uvec4(14u) & uvec4(0xFFu)) * DIV_255 * weights;
+		vec4 weights_id_0 = weights - weights_id_1;
+		vec2 t_weights[4] = {vec2(0), vec2(0), vec2(0), vec2(0)};
+		for (int i = 0; i < 4; i++) {
+				vec2 w_0 = vec2(weights_id_0[i]);
+				vec2 w_1 = vec2(weights_id_1[i]);
+				ivec2 id_0 = texture_ids[i].xx;
+				ivec2 id_1 = texture_ids[i].yy;
+				t_weights[0] += fma(w_0, vec2(equal(texture_ids[0], id_0)), w_1 * vec2(equal(texture_ids[0], id_1)));
+				t_weights[1] += fma(w_0, vec2(equal(texture_ids[1], id_0)), w_1 * vec2(equal(texture_ids[1], id_1)));
+				t_weights[2] += fma(w_0, vec2(equal(texture_ids[2], id_0)), w_1 * vec2(equal(texture_ids[2], id_1)));
+				t_weights[3] += fma(w_0, vec2(equal(texture_ids[3], id_0)), w_1 * vec2(equal(texture_ids[3], id_1)));
+		}
+
 
 		// Process control data to determine each texture ID present, so that only
 		// a single sample will be needed later, as all id are contiguous when features
@@ -305,17 +304,17 @@ void fragment() {
 		uv *= _vertex_spacing;
 		for (int i = 0; i < 4; i++) {
 			for (int t = 0; t < 2; t++) {
-				int id = data[i].texture_id[t];
+				int id = texture_ids[i][t];
 				uint mask = 1u << uint(id);
 				if ((id_read & mask) == 0u) {
 					// Set this id bit
 					id_read |= mask;
-					float id_w = accumulate_weight(id, data, weights);
+					float id_w = t_weights[i][t];
 					float id_scale = _texture_uv_scale_array[id] * 0.5;
-					vec2 id_uv = uv * id_scale;
+					vec2 id_uv = fma(uv, vec2(id_scale), vec2(0.5));
 					vec4 i_dd = base_dd * id_scale;
 					vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), i_dd.xy, i_dd.zw);
-					float world_normal = clamp((TBN * normalize(nrm.xyz)).y, 0., 1.);
+					float world_normal = clamp(fma(TBN[0], vec3(nrm.x), fma(TBN[1], vec3(nrm.z), v_normal * vec3(nrm.y))).y, 0., 1.);
 					nrm = textureGrad(_texture_array_normal, vec3(id_uv, float(id)), i_dd.xy, i_dd.zw);
 					alb.rgb *= _texture_color_array[id].rgb;
 					nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
@@ -361,9 +360,8 @@ void fragment() {
 	NORMAL_MAP_DEPTH = normal_map_depth;
 
 	// Higher and/or facing up, less occluded.
-	// Higher and/or facing up, less occluded.
 	float ao = (1. - (albedo_height.a * log(2.1 - ao_strength))) * (1. - normal_rough.y);
 	AO = clamp(1. - ao * ao_strength, albedo_height.a, 1.0);
-	AO_LIGHT_AFFECT = (1.0 - albedo_height.a) * normal_rough.y;
+	AO_LIGHT_AFFECT = (1.0 - albedo_height.a) * clamp(normal_rough.y, 0., 1.);
 
 }
