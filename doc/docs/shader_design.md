@@ -84,7 +84,7 @@ Generating normals in the shader works fine, and modern GPUs can easily handle t
 
 The control maps are queried for each of the 4 adjacent grid points (aka vertices and indices) and stored in `control[0]`-`control[3]`.
 
-The control map bits, as defined in [Controlmap Format](controlmap_format.md), are parsed into an array of control_data structs, which include the decoded `texture_id`, `texture_weight`, `blend`, `scale`, and `angle` values.
+The control map bits, are decoded when needed, as defined in [Controlmap Format](controlmap_format.md).
 
 If the Autoshader is enabled, the control_data for each of the 4 grid points is overwritten with the autoshader ids and blend value calculated from the terrain normal and height.
 
