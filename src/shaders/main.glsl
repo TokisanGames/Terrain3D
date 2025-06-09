@@ -94,17 +94,6 @@ uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;	// Used for macro va
 
 // Varyings & Types
 
-// This struct contains decoded control map values, that may be accessed multiple times.
-struct control_data {
-	ivec2 texture_id;
-	vec2 texture_weight;
-	float blend;
-	float angle;
-	float scale;
-};
-// control_data constructor
-#define CONTROL_DATA(control) control_data(ivec2(DECODE_BASE(control), DECODE_OVER(control)), vec2(0.), DECODE_BLEND(control), DECODE_ANGLE(control), DECODE_SCALE(control))
-
 struct material {
 	vec4 albedo_height;
 	vec4 normal_rough;
@@ -218,120 +207,142 @@ float random(in vec2 xy) {
 	return fract(sin(dot(xy, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-mat2 rotate_plane(float angle) {
-	float c = cos(angle), s = sin(angle);
-	return mat2(vec2(c, s), vec2(-s, c));
-}
-
-// Computes total accumulated weight for a given texture_id across all 4 indicies.
-float accumulate_weight(int texture_id, control_data data[4], vec4 weights) {
-	float w = 0.0;
-	for (int i = 0; i < 4; i++) {
-		w += weights[i] * (1.0 - data[i].blend) * float(data[i].texture_id[0] == texture_id);
-		w += weights[i] * data[i].blend * float(data[i].texture_id[1] == texture_id);
-	}
-	return w;
+vec2 rotate_vec2(const vec2 v, const vec2 cs) {
+	return vec2(fma(cs.x, v.x,  cs.y * v.y), fma(cs.x, v.y, -cs.y * v.x));
 }
 
 // 2-4 lookups ( 2-6 with dual scaling )
-void accumulate_material(vec3 base_ddx, vec3 base_ddy, float weight, ivec3 index, control_data data,
-			vec3 i_normal, float h, mat3 TANGENT_WORLD_MATRIX, float sharpness, inout material mat) {
+void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float weight, const ivec3 index,
+			const uint control, const vec2 texture_weight, const ivec2 texture_id, const vec3 i_normal,
+			const float h, inout material mat) {
 
-		// Index position for detiling & projection.
-		vec2 i_pos = vec2(index.xy);
-		i_pos += _region_locations[index.z] * _region_size;
-		i_pos *= _vertex_spacing;
+	// Index position for detiling.
+	vec2 i_pos = fma(_region_locations[index.z], vec2(_region_size), vec2(index.xy)) * _vertex_spacing;
 
-		// Projection
-		vec2 i_uv = v_vertex.xz;
-		vec4 i_dd = vec4(base_ddx.xz, base_ddy.xz);
-		mat2 p_align = mat2(1.);
-		if (i_normal.y <= projection_threshold && enable_projection) {
-			// Projected normal map alignment matrix
-			p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
-			// Fast 45 degree snapping https://iquilezles.org/articles/noatan/
-			vec2 xz = round(normalize(-i_normal.xz) * 1.3065629648763765); // sqrt(1.0 + sqrt(0.5))
-			xz *= abs(xz.x) + abs(xz.y) > 1.5? sqrt(0.5) : 1.0;
-			xz = vec2(-xz.y, xz.x);
-			i_pos = floor(vec2(dot(i_pos, xz), -h));
-			i_uv = vec2(dot(v_vertex.xz, xz), -v_vertex.y);
-			i_dd.xy = vec2(dot(base_ddx.xz, xz), -base_ddx.y);
-			i_dd.zw = vec2(dot(base_ddy.xz, xz), -base_ddy.y);
-		}
+	// Projection
+	vec2 i_uv = v_vertex.xz;
+	vec4 i_dd = vec4(base_ddx.xz, base_ddy.xz);
+	mat2 p_align = mat2(1.);
+	if (i_normal.y <= projection_threshold && enable_projection) {
+		// Projected normal map alignment matrix
+		p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
+		// Fast 45 degree snapping https://iquilezles.org/articles/noatan/
+		vec2 xz = round(normalize(-i_normal.xz) * 1.3065629648763765); // sqrt(1.0 + sqrt(0.5))
+		xz *= abs(xz.x) + abs(xz.y) > 1.5 ? 0.7071067811865475 : 1.0; // sqrt(0.5)
+		xz = vec2(-xz.y, xz.x);
+		i_pos = floor(vec2(dot(i_pos, xz), -h));
+		i_uv = vec2(dot(v_vertex.xz, xz), -v_vertex.y);
+		i_dd.xy = vec2(dot(base_ddx.xz, xz), -base_ddx.y);
+		i_dd.zw = vec2(dot(base_ddy.xz, xz), -base_ddy.y);
+	}
 
-		// Control map scale
-		i_dd *= data.scale;
-		i_uv *= data.scale;
-		i_pos *= data.scale;
+	// Control map scale
+	float control_scale = DECODE_SCALE(control);
+	i_dd *= control_scale;
+	i_uv *= control_scale;
+	i_pos *= control_scale;
 
-		// Control map rotation
-		mat2 c_align = rotate_plane(-data.angle);
-		i_dd.xy *= c_align;
-		i_dd.zw *= c_align;
-		i_uv *= c_align;
-		i_pos *= c_align;
+	// Control map rotation. Must be applied seperatley from detiling to maintain UV continuity.
+	float c_angle = DECODE_ANGLE(control);
+	vec2 c_cs_angle = vec2(cos(c_angle), sin(c_angle));
+	i_uv = rotate_vec2(i_uv, c_cs_angle);
+	i_pos = rotate_vec2(i_pos, c_cs_angle);
+
+	// Blend adjustment of Higher ID from Lower ID normal map in world space.
+	float world_normal = 1.;
+	vec3 T = normalize(base_ddx), B = -normalize(base_ddy);
+	// mat3 multiply, reduced to 2x fma and 1x mult.
+	#define FAST_WORLD_NORMAL(n) fma(T, vec3(n.x), fma(B, vec3(n.z), i_normal * vec3(n.y)))
+	
+	float blend = DECODE_BLEND(control); // only used for branching.
+	float sharpness = fma(56., blend_sharpness, 8.);
 
 //INSERT: DUAL_SCALING
 
-		// world normal adjustment requires acess to base layer from next iteration
-		vec4 nrm = vec4(0.,1.,0.,1.); // if base is skipped dont reduce any of the overlay height value
-		for (int t = 0; t < 2; t++) {
-			// 3 seperate checks is faster..
-			// base layer not visible.
-			if (t == 0 && data.blend > 0.999) {
-				continue;
-			}
-			// both id match on the same index.
-			if (t == 1 && data.texture_id[1] == data.texture_id[0]) {
-				continue;
-			}
-			// overlay layer not visible.
-			if (t == 1 && data.blend < 0.01) {
-				continue;
-			}
+	// 1st Texture Asset ID
+	if (blend < 1.0 
+	//INSERT: DUAL_SCALING_CONDITION_0
+		) {
+		const int id = texture_id[0];
+		const float id_w = texture_weight[0];
+		float id_scale = _texture_uv_scale_array[id];
+		vec4 id_dd = i_dd * id_scale;
 
-			int id = data.texture_id[t];
-			float id_w = data.texture_weight[t];
-			float id_scale = _texture_uv_scale_array[id];
-			vec2 id_uv = i_uv * id_scale;
-			vec4 id_dd = i_dd * id_scale;
-			
-			// Detiling and Control map rotation
-			vec2 uv_center = floor(i_pos * id_scale + 0.5);
-			float detile = fma(random(uv_center), 2.0, -1.0) * TAU;
-			vec2 detile_shift = vec2(_texture_detile_array[id].y * detile);
-			// detile rotation matrix
-			mat2 id_align = rotate_plane(detile * _texture_detile_array[id].x);
-			// Apply rotation and shift around pivot, offset to center UV over pivot.
-			id_uv = id_align * (id_uv - uv_center + detile_shift) + uv_center + 0.5;
-			// Transpose to rotate derivatives and normals counter to uv rotation, include control map rotation.
-			id_align = transpose(id_align) * c_align;
-			// Align derivatives for correct anisotropic filtering
-			id_dd.xy *= id_align;
-			id_dd.zw *= id_align;
-			
-			vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
-			// do this before its overwriten
-			float world_normal = t == 0 ? 1. : clamp((TANGENT_WORLD_MATRIX * normalize(nrm.xyz)).y, 0., 1.);
-			nrm = textureGrad(_texture_array_normal, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
-			alb.rgb *= _texture_color_array[id].rgb;
-			nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
-			// Unpack and rotate normal map.
-			nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
-			nrm.xz *= id_align;
+		// Detiling and Control map rotation
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
+		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
+		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
+		// Apply UV rotation and shift around pivot.
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
+		// including control map rotation. avoids extra matrix op, and sin/cos calls.
+		id_cs_angle = vec2(
+			fma(id_cs_angle.x, c_cs_angle.x, -id_cs_angle.y * c_cs_angle.y),
+			fma(id_cs_angle.y, c_cs_angle.x, id_cs_angle.x * c_cs_angle.y));
+		// Align derivatives for correct anisotropic filtering
+		id_dd.xy = rotate_vec2(id_dd.xy, id_cs_angle);
+		id_dd.zw = rotate_vec2(id_dd.zw, id_cs_angle);
+
+		vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
+		vec4 nrm = textureGrad(_texture_array_normal, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
+
+		alb.rgb *= _texture_color_array[id].rgb;
+		nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
+		// Unpack and rotate normal map.
+		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
 
 //INSERT: DUAL_SCALING_MIX
+		world_normal = FAST_WORLD_NORMAL(nrm).y;
 
-			// Align normals to projection plane, identity matrix if not projected.
-			nrm.xz *= p_align;
+		float id_weight = exp2(sharpness * log2(weight + id_w + alb.a)) * weight;
+		mat.albedo_height = fma(alb, vec4(id_weight), mat.albedo_height);
+		mat.normal_rough = fma(nrm, vec4(id_weight), mat.normal_rough);
+		mat.normal_map_depth = fma(_texture_normal_depth_array[id], id_weight, mat.normal_map_depth);
+		mat.ao_strength = fma(_texture_ao_strength_array[id], id_weight, mat.ao_strength);
+		mat.total_weight += id_weight;
+	}
 
-			float id_weight = exp2(sharpness * log2(weight + id_w + alb.a * world_normal)) * weight;
-			mat.albedo_height += alb * id_weight;
-			mat.normal_rough += nrm * id_weight;
-			mat.normal_map_depth += _texture_normal_depth_array[id] * id_weight;
-			mat.ao_strength += _texture_ao_strength_array[id] * id_weight;
-			mat.total_weight += id_weight;
-		}
+	// 2nd Texture Asset ID
+	if (blend > 0.0 && texture_id[1] != texture_id[0]
+//INSERT: DUAL_SCALING_CONDITION_1
+		) {
+		const int id = texture_id[1];
+		const float id_w = texture_weight[1];
+		float id_scale = _texture_uv_scale_array[id];
+		vec4 id_dd = i_dd * id_scale;
+
+		// Detiling and Control map rotation
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
+		vec2 id_detile = _texture_detile_array[id] * fma(random(uv_center), 2.0, -1.0) * TAU;
+		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
+		// Apply UV rotation and shift around pivot.
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
+		// including control map rotation. avoids extra matrix op, and sin/cos calls.
+		id_cs_angle = vec2(
+			fma(id_cs_angle.x, c_cs_angle.x, -id_cs_angle.y * c_cs_angle.y),
+			fma(id_cs_angle.y, c_cs_angle.x,  id_cs_angle.x * c_cs_angle.y));
+		// Align derivatives for correct anisotropic filtering
+		id_dd.xy = rotate_vec2(id_dd.xy, id_cs_angle);
+		id_dd.zw = rotate_vec2(id_dd.zw, id_cs_angle);
+
+		vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
+		vec4 nrm = textureGrad(_texture_array_normal, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
+		alb.rgb *= _texture_color_array[id].rgb;
+		nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
+		// Unpack and rotate normal map.
+		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
+
+//INSERT: DUAL_SCALING_MIX
+		float id_weight = exp2(sharpness * log2(weight + id_w + alb.a * clamp(world_normal, 0., 1.))) * weight;
+		mat.albedo_height = fma(alb, vec4(id_weight), mat.albedo_height);
+		mat.normal_rough = fma(nrm, vec4(id_weight), mat.normal_rough);
+		mat.normal_map_depth = fma(_texture_normal_depth_array[id], id_weight, mat.normal_map_depth);
+		mat.ao_strength = fma(_texture_ao_strength_array[id], id_weight, mat.ao_strength);
+		mat.total_weight += id_weight;
+	}
 }
 
 void fragment() {
@@ -380,7 +391,7 @@ void fragment() {
 	h[0] = texelFetch(_height_maps, index[0], 0).r; // 2 (0,1)
 	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
-	// Set flat world normal - overriden if bilerp is true
+	// Set flat world normal - overwritten if bilerp is true
 	vec3 w_normal = index_normal[3];
 
 	// Adjust derivatives for mipmap bias and depth blur effect
@@ -432,63 +443,86 @@ void fragment() {
 			index_normal[2] * weights[2] +
 			index_normal[3] * weights[3] ;
 	}
-		
+
 	// Apply terrain normals
-	vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
-	vec3 w_binormal = normalize(cross(w_normal, w_tangent));
-	NORMAL = mat3(VIEW_MATRIX) * w_normal;
-	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
-	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
-	// Apply per face normals directly without modifying world normal values, as they are used for texture blending
 	if (flat_terrain_normals) {
 		NORMAL = normalize(cross(dFdyCoarse(VERTEX),dFdxCoarse(VERTEX)));
 		TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
 		BINORMAL = normalize(cross(NORMAL, TANGENT));
+	} else {
+		vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
+		vec3 w_binormal = normalize(cross(w_normal, w_tangent));
+		NORMAL = mat3(VIEW_MATRIX) * w_normal;
+		TANGENT = mat3(VIEW_MATRIX) * w_tangent;
+		BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
 	}
-	
-	// Used for material world space normal map blending
-	mat3 TANGENT_WORLD_MATRIX = mat3(w_tangent, w_normal, w_binormal);
 
 	// Get index control data
-	// 4 lookups
-	uint control[4] = {
+	// 1 - 4 lookups
+	uvec4 control = uvec4(floatBitsToUint(texelFetch(_control_maps, index[3], 0).r));
+	if (bilerp) {
+		control = uvec4(
 		floatBitsToUint(texelFetch(_control_maps, index[0], 0).r),
 		floatBitsToUint(texelFetch(_control_maps, index[1], 0).r),
 		floatBitsToUint(texelFetch(_control_maps, index[2], 0).r),
-		floatBitsToUint(texelFetch(_control_maps, index[3], 0).r)
-	};
-
-	// Parse control data
-	control_data data[4] = {
-		CONTROL_DATA(control[0]),
-		CONTROL_DATA(control[1]),
-		CONTROL_DATA(control[2]),
-		CONTROL_DATA(control[3])
-	};
+		control[3]);
+	}
 
 //INSERT: AUTO_SHADER
-	// Set per texture ID weighting.
-	for (int i = 0; i < 4; i++) {
-		data[i].texture_weight[0] = accumulate_weight(data[i].texture_id[0], data, weights);
-		data[i].texture_weight[1] = accumulate_weight(data[i].texture_id[1], data, weights);
+
+	// Texture weights
+	// Vectorised Deocode of all texture IDs, then swizzle to per index mapping.
+	// Passed to accumulate_material to avoid repeated decoding.
+	ivec4 t_id[2] = {ivec4(control >> uvec4(27u) & uvec4(0x1Fu)),
+		ivec4(control >> uvec4(22u) & uvec4(0x1Fu))};
+	ivec2 texture_ids[4] = ivec2[4](
+		ivec2(t_id[0].x, t_id[1].x),
+		ivec2(t_id[0].y, t_id[1].y),
+		ivec2(t_id[0].z, t_id[1].z),
+		ivec2(t_id[0].w, t_id[1].w));
+
+	// uninterpolated weights.
+	vec4 weights_id_1 = vec4(control >> uvec4(14u) & uvec4(0xFFu)) * DIV_255;
+	vec4 weights_id_0 = 1.0 - weights_id_1;
+	vec2 t_weights[4] = vec2[4](
+				vec2(weights_id_0[0], weights_id_1[0]),
+				vec2(weights_id_0[1], weights_id_1[1]),
+				vec2(weights_id_0[2], weights_id_1[2]),
+				vec2(weights_id_0[3], weights_id_1[3]));
+	// interpolated weights
+	#if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
+	if (bilerp) {
+		t_weights = {vec2(0), vec2(0), vec2(0), vec2(0)};
+		weights_id_0 *= weights;
+		weights_id_1 *= weights;
+		for (int i = 0; i < 4; i++) {
+			vec2 w_0 = vec2(weights_id_0[i]);
+			vec2 w_1 = vec2(weights_id_1[i]);
+			ivec2 id_0 = texture_ids[i].xx;
+			ivec2 id_1 = texture_ids[i].yy;
+			t_weights[0] += fma(w_0, vec2(equal(texture_ids[0], id_0)), w_1 * vec2(equal(texture_ids[0], id_1)));
+			t_weights[1] += fma(w_0, vec2(equal(texture_ids[1], id_0)), w_1 * vec2(equal(texture_ids[1], id_1)));
+			t_weights[2] += fma(w_0, vec2(equal(texture_ids[2], id_0)), w_1 * vec2(equal(texture_ids[2], id_1)));
+			t_weights[3] += fma(w_0, vec2(equal(texture_ids[3], id_0)), w_1 * vec2(equal(texture_ids[3], id_1)));
+		}
 	}
+	#endif
 
 	// Struct to accumulate all texture data.
 	material mat = material(vec4(0.0), vec4(0.0), 0., 0., 0.);
-	float sharpness = fma(56., blend_sharpness, 8.);
-	
+
 	// 2 - 4 lookups, 2 - 6 if dual scale texture
-	accumulate_material(base_ddx, base_ddy, weights[3], index[3], data[3], index_normal[3], h[3],
-		TANGENT_WORLD_MATRIX, sharpness, mat);
+	accumulate_material(base_ddx, base_ddy, weights[3], index[3], control[3], t_weights[3],
+		texture_ids[3], index_normal[3], h[3], mat);
 
 	// 6 - 12 lookups, 6 - 18 if dual scale texture
 	if (bilerp) {
-		accumulate_material(base_ddx, base_ddy, weights[2], index[2], data[2], index_normal[2], h[2],
-			TANGENT_WORLD_MATRIX, sharpness, mat);
-		accumulate_material(base_ddx, base_ddy, weights[1], index[1], data[1], index_normal[1], h[1],
-			TANGENT_WORLD_MATRIX, sharpness, mat);
-		accumulate_material(base_ddx, base_ddy, weights[0], index[0], data[0], index_normal[0], h[0],
-			TANGENT_WORLD_MATRIX, sharpness, mat);
+		accumulate_material(base_ddx, base_ddy, weights[2], index[2], control[2], t_weights[2],
+			texture_ids[2], index_normal[2], h[2], mat);
+		accumulate_material(base_ddx, base_ddy, weights[1], index[1], control[1], t_weights[1],
+			texture_ids[1], index_normal[1], h[1], mat);
+		accumulate_material(base_ddx, base_ddy, weights[0], index[0], control[0], t_weights[0],
+			texture_ids[0], index_normal[0], h[0], mat);
 	}
 
 	// normalize accumulated values back to 0.0 - 1.0 range.
@@ -501,7 +535,7 @@ void fragment() {
 	// Macro variation. 2 lookups
 	vec3 macrov = vec3(1.);
 	if (enable_macro_variation) {
-		float noise1 = texture(noise_texture, (uv * noise1_scale * .1 + noise1_offset) * rotate_plane(noise1_angle)).r;
+		float noise1 = texture(noise_texture, rotate_vec2(fma(uv, vec2(noise1_scale * .1), noise1_offset) , vec2(cos(noise1_angle), sin(noise1_angle)))).r;
 		float noise2 = texture(noise_texture, uv * noise2_scale * .1).r;
 		macrov = mix(macro_variation1, vec3(1.), noise1);
 		macrov *= mix(macro_variation2, vec3(1.), noise2);
@@ -522,7 +556,7 @@ void fragment() {
 	// Higher and/or facing up, less occluded.
 	float ao = (1. - (mat.albedo_height.a * log(2.1 - mat.ao_strength))) * (1. - mat.normal_rough.y);
 	AO = clamp(1. - ao * mat.ao_strength, mat.albedo_height.a, 1.0);
-	AO_LIGHT_AFFECT = (1.0 - mat.albedo_height.a) * mat.normal_rough.y;
+	AO_LIGHT_AFFECT = (1.0 - mat.albedo_height.a) * clamp(mat.normal_rough.y, 0., 1.);
 
 }
 

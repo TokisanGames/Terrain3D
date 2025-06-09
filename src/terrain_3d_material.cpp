@@ -140,6 +140,8 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	if (!_dual_scaling) {
 		excludes.push_back("DUAL_SCALING_UNIFORMS");
 		excludes.push_back("DUAL_SCALING");
+		excludes.push_back("DUAL_SCALING_CONDITION_0");
+		excludes.push_back("DUAL_SCALING_CONDITION_1");
 		excludes.push_back("DUAL_SCALING_MIX");
 	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
