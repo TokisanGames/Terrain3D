@@ -58,7 +58,7 @@
 		<method name="save">
 			<return type="int" enum="Error" />
 			<param index="0" name="path" type="String" default="&quot;&quot;" />
-			<param index="1" name="16-bit" type="bool" default="false" />
+			<param index="1" name="save_16_bit" type="bool" default="false" />
 			<description>
 				Saves this region to the current file name.
 				- path - specifies a directory and file name to use from now on.
