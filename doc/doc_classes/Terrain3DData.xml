@@ -422,7 +422,7 @@
 			<return type="void" />
 			<param index="0" name="region_location" type="Vector2i" />
 			<param index="1" name="directory" type="String" />
-			<param index="2" name="16_bit" type="bool" default="false" />
+			<param index="2" name="save_16_bit" type="bool" default="false" />
 			<description>
 				Saves the specified active region to the directory. See [method Terrain3DRegion.save].
 				- region_location - the region to save.
