@@ -718,71 +718,85 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		}
 
 	} else if (!p_gpu_mode) {
-		int time = Time::get_singleton()->get_ticks_usec();
 		// Else if not gpu mode, use raymarching mode
+
+		int time = Time::get_singleton()->get_ticks_usec();
+
+		const int PRIMARY_STEP_SIZE = 5;
+		const int MAX_SECONDARY_STEPS = 5;
+		const real_t TOLERANCE = 0.001f;
+
 		direction *= _vertex_spacing;
 		real_t height = FLT_MAX;
 		Vector3 snapped_point = V3_MAX;
-		Vector3 last_point = p_src_pos;
-		const int PRIMARY_STEP_SIZE = 5;
-		const int MAX_SECONDARY_STEPS = 5;
-		const real_t height_difference_tolerance = 0.001f;
 
+		// Points defining the ray segment
+		Vector3 upper_ray_bound = V3_MAX;
+		Vector3 lower_ray_bound = V3_MAX;
+
+		// First find the boundaries using broad steps
+		//
+		// Get the first pair of points where one is above Terrain3D (lower bound) and one is below (upper bound)
 		for (int i = 0; i < 4000; i += PRIMARY_STEP_SIZE) {
-			point = p_src_pos + (direction * i);
+			upper_ray_bound = p_src_pos + (direction * i);
 
-			snapped_point = point.snapped(Vector3(_vertex_spacing, point.y, _vertex_spacing));
+			// Snap the point to avoid expensive interpolation in get_height()
+			snapped_point = upper_ray_bound.snapped(Vector3(_vertex_spacing, upper_ray_bound.y, _vertex_spacing));
 			height = _data->get_height(snapped_point);
 
-			// Early return if outside of regions
-			if (isnan(height)) {
-				LOG(EXTREME, "Determined no intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
-				return V3_MAX;
-			}
-
 			if (snapped_point.y - height <= 0.0f) {
-				real_t height_difference = FLT_MAX;
-
-				Vector3 u_bound = point;
-				Vector3 l_bound = last_point;
-				Vector3 u_terrain = Vector3(point.x, _data->get_height(point), point.z);
-				Vector3 l_terrain = Vector3(last_point.x, _data->get_height(last_point), last_point.z);
-
-				Vector3 estimated_intersection = V3_MAX;
-				
-				for (int j = 0; j < MAX_SECONDARY_STEPS; j++) {		
-					
-					// Define 4-vertex plane from any three vertices
-					Plane plane(l_terrain, u_terrain, l_terrain + l_terrain.direction_to(p_src_pos).cross(l_terrain.direction_to(u_terrain)));
-
-					// Compute ray-plane intersection
-					float t = -plane.distance_to(p_src_pos) / plane.get_normal().dot(p_direction);
-
-					estimated_intersection = p_src_pos + p_direction * t;
-			
-					height = _data->get_height(estimated_intersection);
-					height_difference = estimated_intersection.y - height;
-
-					if (abs(height_difference) <= height_difference_tolerance) {
-						LOG(EXTREME, "Determined intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
-						return estimated_intersection;
-					}
-
-					if (height_difference <= 0.0f) {
-						u_bound = estimated_intersection;
-						u_terrain = Vector3(u_bound.x, height, u_bound.z);
-					} else {
-						l_bound = estimated_intersection;
-						l_terrain = Vector3(l_bound.x, height, l_bound.z);
-					}
-				}
-				LOG(EXTREME, "Determined intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
-				return estimated_intersection;
+				// Point is below Terrain3D, we found the boundaries
+				break;
 			}
-			last_point = point;
+			lower_ray_bound = upper_ray_bound;
 		}
-		LOG(EXTREME, "Determined no intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
-		return V3_MAX;
+
+		if (lower_ray_bound == upper_ray_bound) {
+			// There were no points below Terrain3D
+			LOG(EXTREME, "Determined no intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
+			return V3_MAX;
+		}
+
+		// Now we know the boundaries we refine them until we are within tolerance or exceed MAX_SECONDARY_STEPS
+		//
+		// Boundary points with y snapped to Terrain3D height. This is used to define a triangle, which is used to define a plane, which we will test for intersection.
+		Vector3 upper_triangle_point = Vector3(upper_ray_bound.x, _data->get_height(upper_ray_bound), upper_ray_bound.z);
+		Vector3 lower_triangle_point = Vector3(lower_ray_bound.x, _data->get_height(lower_ray_bound), lower_ray_bound.z);
+
+		// To define the triangle we need at least three vertices. We so we will calculate a third using cross product
+		Vector3 third_triangle_point = lower_triangle_point + lower_triangle_point.direction_to(p_src_pos).cross(lower_triangle_point.direction_to(upper_triangle_point));
+
+		Vector3 estimated_intersection = V3_MAX;
+
+		for (int j = 0; j < MAX_SECONDARY_STEPS; j++) {
+			Plane plane(lower_triangle_point, upper_triangle_point, third_triangle_point);
+
+			// Compute ray-plane intersection
+			plane.intersects_ray(p_src_pos, p_direction, &estimated_intersection);
+
+			height = _data->get_height(estimated_intersection);
+			real_t height_difference = estimated_intersection.y - height;
+
+			if (abs(height_difference) <= TOLERANCE) {
+				// We found an acceptable intersection estimate, no need to continue refinement
+				break;
+			}
+
+			if (height_difference <= 0.0f) {
+				// Ray below Terrain3D, move upper boundary and update the triangle points
+				upper_ray_bound = estimated_intersection;
+				upper_triangle_point = Vector3(upper_ray_bound.x, height, upper_ray_bound.z);
+			} else {
+				// Ray above Terrain3D, move lower boundary and update the triangle points
+				lower_ray_bound = estimated_intersection;
+				lower_triangle_point = Vector3(lower_ray_bound.x, height, lower_ray_bound.z);
+			}
+			// Recalculate third vertex based on new triangle points
+			third_triangle_point = lower_triangle_point + lower_triangle_point.direction_to(p_src_pos).cross(lower_triangle_point.direction_to(upper_triangle_point));
+		}
+
+		LOG(EXTREME, "Determined intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
+		return estimated_intersection;
 
 	} else {
 		// Else use GPU mode, which requires multiple calls
