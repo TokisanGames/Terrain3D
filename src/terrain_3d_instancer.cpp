@@ -503,15 +503,6 @@ RID Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const int p_lod, 
 	return mm;
 }
 
-Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const int p_region_size) const {
-	IS_INIT(V2I_ZERO);
-	real_t vertex_spacing = _terrain->get_vertex_spacing();
-	Vector2i cell;
-	cell.x = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.x / vertex_spacing), p_region_size) / CELL_SIZE;
-	cell.y = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.z / vertex_spacing), p_region_size) / CELL_SIZE;
-	return cell;
-}
-
 // Get appropriate terrain height. Could find terrain (excluding slope or holes) or optional collision
 Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_on_collision, const real_t p_raycast_start) const {
 	IS_DATA_INIT(Array());
@@ -982,7 +973,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 	for (int i = 0; i < p_xforms.size(); i++) {
 		Transform3D xform = p_xforms[i];
 		Color col = p_colors[i];
-		Vector2i cell = _get_cell(xform.origin, region_size);
+		Vector2i cell = Util::get_cell(xform.origin, region_size, p_region->get_vertex_spacing(), CELL_SIZE);
 
 		// Get current instance arrays or create if none
 		Array triple = cell_locations[cell];
@@ -1144,7 +1135,7 @@ int Terrain3DInstancer::get_closest_mesh_id(const Vector3 &p_global_position) co
 	}
 	int region_size = region->get_region_size();
 	Vector3 region_global_pos = v2iv3(region_loc) * real_t(region_size) * _terrain->get_vertex_spacing();
-	Vector2i cell = _get_cell(p_global_position, region_size);
+	Vector2i cell = Util::get_cell(p_global_position, region_size, region->get_vertex_spacing(), CELL_SIZE);
 	Dictionary mesh_inst_dict = region->get_instances();
 	if (mesh_inst_dict.is_empty()) {
 		return -1; // No meshes found

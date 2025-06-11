@@ -99,8 +99,8 @@ public:
 	bool is_highlighted() const override { return _highlighted; }
 	Ref<Material> get_highlight_material() const { return _highlighted ? _highlight_mat : Ref<Material>(); }
 	Color get_highlight_color() const override;
+	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
 	Ref<Texture2D> get_thumbnail() const override { return _thumbnail; }
-
 	void set_enabled(const bool p_enabled);
 	bool is_enabled() const { return _enabled; }
 
@@ -117,8 +117,6 @@ public:
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
 	TypedArray<Shape3D> get_shapes() const;
 	int get_shape_count() const;
-	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
-	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
 	TypedArray<Transform3D> get_shape_transforms() const;
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
