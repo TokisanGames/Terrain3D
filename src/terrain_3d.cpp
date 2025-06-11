@@ -1099,6 +1099,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_physics_process(false);
 			_destroy_mesher();
 			_destroy_instancer();
+			_destroy_collision();
 			_destroy_mouse_picking();
 			_destroy_displacement_buffer();
 			if (_assets.is_valid()) {
