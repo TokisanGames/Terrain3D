@@ -295,12 +295,8 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 	real_t spacing = _terrain->get_vertex_spacing();
 
 	if (is_dynamic_mode()) {
-		if (!_custom_collision_node3d) {
-			LOG(WARN, "Collision reference node was null. Could not update collision");
-			return;
-		}
 		// Snap descaled position to a _shape_size grid (eg. multiples of 16)
-		Vector2i snapped_pos = _snap_to_grid(_custom_collision_node3d->get_global_position() / spacing);
+		Vector2i snapped_pos = _snap_to_grid(_terrain->get_collision_target_position() / spacing);
 		LOG(EXTREME, "Updating collision at ", snapped_pos);
 
 		// Skip if location hasn't moved to next step
@@ -558,12 +554,6 @@ RID Terrain3DCollision::get_rid() const {
 	return RID();
 }
 
-void Terrain3DCollision::set_custom_collision_node(Node3D *p_node) {
-	if (_custom_collision_node3d != p_node) {
-		_custom_collision_node3d = p_node;
-	}
-}
-
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -597,8 +587,6 @@ void Terrain3DCollision::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_physics_material", "material"), &Terrain3DCollision::set_physics_material);
 	ClassDB::bind_method(D_METHOD("get_physics_material"), &Terrain3DCollision::get_physics_material);
 	ClassDB::bind_method(D_METHOD("get_rid"), &Terrain3DCollision::get_rid);
-	ClassDB::bind_method(D_METHOD("set_custom_collision_node", "node"), &Terrain3DCollision::set_custom_collision_node);
-	ClassDB::bind_method(D_METHOD("get_custom_collision_node"), &Terrain3DCollision::get_custom_collision_node);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_mode", "get_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shape_size", PROPERTY_HINT_RANGE, "8,64,8"), "set_shape_size", "get_shape_size");
@@ -607,5 +595,4 @@ void Terrain3DCollision::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_mask", "get_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "priority", PROPERTY_HINT_RANGE, "0.1,256,.1"), "set_priority", "get_priority");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "custom_collision_node", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_custom_collision_node", "get_custom_collision_node");
 }

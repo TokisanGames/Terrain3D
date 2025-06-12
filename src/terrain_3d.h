@@ -23,6 +23,38 @@
 
 using namespace godot;
 
+// Does this struct belong here?
+struct TargetNode3D {
+	uint64_t instance_id = 0;
+	Node3D *target = nullptr;
+
+	void set_target(Node3D *p_node_3d) {
+		if (p_node_3d) {
+			target = p_node_3d;
+			instance_id = p_node_3d->get_instance_id();
+		} else {
+			target = nullptr;
+			instance_id = 0;
+		}
+	}
+
+	Node3D *get_target() {
+		return target;
+	}
+
+	Vector3 get_global_position() {
+		return target->get_global_position();
+	}
+
+	bool is_valid() {
+		return is_instance_valid(instance_id, target);
+	}
+
+	bool is_inside_tree() {
+		return is_valid() && target->is_inside_tree();
+	}
+};
+
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 	CLASS_NAME();
@@ -63,10 +95,14 @@ private:
 	Terrain3DEditor *_editor = nullptr;
 	EditorPlugin *_plugin = nullptr;
 	// Current editor or gameplay camera we are centering the terrain on.
-	Camera3D *_camera = nullptr;
-	uint64_t _camera_instance_id = 0;
+	//Camera3D *_camera = nullptr;
+	//uint64_t _camera_instance_id = 0;
+	//
 	// X,Z Position of the camera during the previous snapping. Set to max real_t value to force a snap update.
 	Vector2 _camera_last_position = V2_MAX;
+
+	TargetNode3D _collision_target_override;
+	TargetNode3D _clipmap_target_override;
 
 	// Regions
 	RegionSize _region_size = SIZE_256;
@@ -146,7 +182,17 @@ public:
 	void set_plugin(EditorPlugin *p_plugin);
 	EditorPlugin *get_plugin() const { return _plugin; }
 	void set_camera(Camera3D *p_camera);
-	Camera3D *get_camera() const { return _camera; }
+	Node3D *get_camera() const { return _camera.target; }
+
+	TargetNode3D _camera;
+
+	Node3D *get_collision_target_override();
+	void set_collision_target_override(Node3D *p_node);
+	Vector3 get_collision_target_position();
+
+	Node3D *get_clipmap_target_override();
+	void set_clipmap_target_override(Node3D *p_node);
+	Vector3 get_clipmap_target_position();
 
 	// Regions
 	void set_region_size(const RegionSize p_size);
@@ -210,8 +256,6 @@ public:
 	real_t get_collision_priority() const { return _collision ? _collision->get_priority() : 1.f; }
 	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { _collision ? _collision->set_physics_material(p_mat) : void(); }
 	Ref<PhysicsMaterial> get_physics_material() const { return _collision ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
-	Node3D *get_custom_collision_node() const { return _collision ? _collision->get_custom_collision_node() : _camera; }
-	void set_custom_collision_node(Node3D *p_node) const { _collision ? _collision->set_custom_collision_node(p_node) : void(); };
 
 	// Overlay Aliases
 	void set_show_region_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_region_grid(p_enabled) : void(); }

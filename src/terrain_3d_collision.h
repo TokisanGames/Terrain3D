@@ -39,7 +39,6 @@ private:
 	uint32_t _mask = 1;
 	real_t _priority = 1.f;
 	Ref<PhysicsMaterial> _physics_material;
-	Node3D *_custom_collision_node3d = nullptr;
 
 	// Work data
 	RID _static_body_rid; // Physics Server Static Body
@@ -88,8 +87,6 @@ public:
 	void set_physics_material(const Ref<PhysicsMaterial> &p_mat);
 	Ref<PhysicsMaterial> get_physics_material() { return _physics_material; }
 	RID get_rid() const;
-	void set_custom_collision_node(Node3D *p_node);
-	Node3D *get_custom_collision_node() { return _custom_collision_node3d; }
 
 protected:
 	static void _bind_methods();
