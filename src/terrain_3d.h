@@ -47,7 +47,7 @@ public: // Constants
 	};
 
 private:
-	String _version = "1.1.0-dev";
+	String _version = "1.0.0";
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
@@ -86,6 +86,10 @@ private:
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
 	bool _free_editor_textures = true;
+
+	// Region Streaming
+	bool _enable_streaming = false;
+	int _streaming_rings = 1;
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -184,6 +188,16 @@ public:
 	bool get_free_editor_textures() const { return _free_editor_textures; };
 	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
 	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
+
+	// Region Streaming
+	void set_enable_streaming(const bool p_enabled);
+	bool get_enable_streaming() const;
+	void set_streaming_rings(const int p_rings);
+	int get_streaming_rings() const;
+
+	// Backward compatibility
+	void set_streaming_distance(const real_t p_distance);
+	real_t get_streaming_distance() const;
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
