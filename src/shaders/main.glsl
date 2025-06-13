@@ -38,6 +38,8 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #define DECODE_SCALE(control) (0.9 - float(((control >>7u & 0x7u) + 3u) % 8u + 1u) * 0.1)
 #define DECODE_HOLE(control) bool(control >>2u & 0x1u)
 
+#define TEXTURE_ID_PROJECTED(id) bool((_texture_uv_projections >> uint(id)) & 0x1u)
+
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
     #define fma(a, b, c) ((a) * (b) + (c))
     #define dFdxCoarse(a) dFdx(a)
@@ -60,6 +62,7 @@ uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
 uniform float _texture_roughness_mod_array[32];
 uniform float _texture_uv_scale_array[32];
+uniform uint _texture_uv_projections;
 uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
@@ -212,17 +215,31 @@ vec2 rotate_vec2(const vec2 v, const vec2 cs) {
 }
 
 // 2-4 lookups ( 2-6 with dual scaling )
-void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float weight, const ivec3 index,
-			const uint control, const vec2 texture_weight, const ivec2 texture_id, const vec3 i_normal,
-			const float h, inout material mat) {
+void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const ivec3 index, const uint control,
+			const vec2 texture_weight, const ivec2 texture_id, const vec3 i_normal, float h, inout material mat) {
+
+	// Applying scaling before projection reduces the number of multiplys ops required.
+	vec3 i_vertex = v_vertex;
+
+	// Control map scale
+	float control_scale = DECODE_SCALE(control);
+//INSERT: TRI_scaling
+	base_ddx *= control_scale;
+	base_ddy *= control_scale;
+	i_vertex *= control_scale;
+	h *= control_scale;
 
 	// Index position for detiling.
-	vec2 i_pos = fma(_region_locations[index.z], vec2(_region_size), vec2(index.xy)) * _vertex_spacing;
+	vec2 i_pos = fma(_region_locations[index.z], vec2(_region_size), vec2(index.xy));
+	i_pos *= _vertex_spacing * control_scale;
 
 	// Projection
-	vec2 i_uv = v_vertex.xz;
+	vec2 i_uv = i_vertex.xz;
 	vec4 i_dd = vec4(base_ddx.xz, base_ddy.xz);
 	mat2 p_align = mat2(1.);
+	vec2 p_uv = i_uv;
+	vec4 p_dd = i_dd;
+	vec2 p_pos = i_pos;
 	if (i_normal.y <= projection_threshold && enable_projection) {
 		// Projected normal map alignment matrix
 		p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
@@ -230,23 +247,19 @@ void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float w
 		vec2 xz = round(normalize(-i_normal.xz) * 1.3065629648763765); // sqrt(1.0 + sqrt(0.5))
 		xz *= abs(xz.x) + abs(xz.y) > 1.5 ? 0.7071067811865475 : 1.0; // sqrt(0.5)
 		xz = vec2(-xz.y, xz.x);
-		i_pos = floor(vec2(dot(i_pos, xz), -h));
-		i_uv = vec2(dot(v_vertex.xz, xz), -v_vertex.y);
-		i_dd.xy = vec2(dot(base_ddx.xz, xz), -base_ddx.y);
-		i_dd.zw = vec2(dot(base_ddy.xz, xz), -base_ddy.y);
+		p_pos = floor(vec2(dot(i_pos, xz), -h));
+		p_uv = vec2(dot(i_vertex.xz, xz), -i_vertex.y);
+		p_dd.xy = vec2(dot(base_ddx.xz, xz), -base_ddx.y);
+		p_dd.zw = vec2(dot(base_ddy.xz, xz), -base_ddy.y);
 	}
-
-	// Control map scale
-	float control_scale = DECODE_SCALE(control);
-	i_dd *= control_scale;
-	i_uv *= control_scale;
-	i_pos *= control_scale;
 
 	// Control map rotation. Must be applied seperatley from detiling to maintain UV continuity.
 	float c_angle = DECODE_ANGLE(control);
 	vec2 c_cs_angle = vec2(cos(c_angle), sin(c_angle));
 	i_uv = rotate_vec2(i_uv, c_cs_angle);
 	i_pos = rotate_vec2(i_pos, c_cs_angle);
+	p_uv = rotate_vec2(p_uv, c_cs_angle);
+	p_pos = rotate_vec2(p_pos, c_cs_angle);
 
 	// Blend adjustment of Higher ID from Lower ID normal map in world space.
 	float world_normal = 1.;
@@ -264,16 +277,19 @@ void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float w
 	//INSERT: DUAL_SCALING_CONDITION_0
 		) {
 		const int id = texture_id[0];
+		bool projected = TEXTURE_ID_PROJECTED(id);
 		const float id_w = texture_weight[0];
 		float id_scale = _texture_uv_scale_array[id];
-		vec4 id_dd = i_dd * id_scale;
+		vec4 id_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * id_scale;
 
 		// Detiling and Control map rotation
-		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
+		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
+		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
 		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
+		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
@@ -285,12 +301,12 @@ void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float w
 
 		vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
 		vec4 nrm = textureGrad(_texture_array_normal, vec3(id_uv, float(id)), id_dd.xy, id_dd.zw);
-
 		alb.rgb *= _texture_color_array[id].rgb;
 		nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
 		// Unpack and rotate normal map.
 		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
-		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
+		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
 
 //INSERT: DUAL_SCALING_MIX
 		world_normal = FAST_WORLD_NORMAL(nrm).y;
@@ -308,21 +324,24 @@ void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float w
 //INSERT: DUAL_SCALING_CONDITION_1
 		) {
 		const int id = texture_id[1];
+		bool projected = TEXTURE_ID_PROJECTED(id);
 		const float id_w = texture_weight[1];
 		float id_scale = _texture_uv_scale_array[id];
-		vec4 id_dd = i_dd * id_scale;
+		vec4 id_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * id_scale;
 
 		// Detiling and Control map rotation
-		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
-		vec2 id_detile = _texture_detile_array[id] * fma(random(uv_center), 2.0, -1.0) * TAU;
+		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
+		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
+		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
+		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
 			fma(id_cs_angle.x, c_cs_angle.x, -id_cs_angle.y * c_cs_angle.y),
-			fma(id_cs_angle.y, c_cs_angle.x,  id_cs_angle.x * c_cs_angle.y));
+			fma(id_cs_angle.y, c_cs_angle.x, id_cs_angle.x * c_cs_angle.y));
 		// Align derivatives for correct anisotropic filtering
 		id_dd.xy = rotate_vec2(id_dd.xy, id_cs_angle);
 		id_dd.zw = rotate_vec2(id_dd.zw, id_cs_angle);
@@ -333,7 +352,8 @@ void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float w
 		nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
 		// Unpack and rotate normal map.
 		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
-		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
+		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
 
 //INSERT: DUAL_SCALING_MIX
 		float id_weight = exp2(sharpness * log2(weight + id_w + alb.a * clamp(world_normal, 0., 1.))) * weight;
