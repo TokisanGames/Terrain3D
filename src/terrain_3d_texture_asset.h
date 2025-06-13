@@ -22,6 +22,7 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	real_t _ao_strength = 0.5f;
 	real_t _roughness = 0.f;
 	real_t _uv_scale = 0.1f;
+	bool _uv_projection = true;
 	real_t _detiling_rotation = 0.0f;
 	real_t _detiling_shift = 0.0f;
 
@@ -59,6 +60,9 @@ public:
 
 	void set_uv_scale(const real_t p_scale);
 	real_t get_uv_scale() const { return _uv_scale; }
+
+	void set_uv_projection(const bool p_projection);
+	bool get_uv_projection() const { return _uv_projection; }
 
 	void set_detiling_rotation(const real_t p_detiling_rotation);
 	real_t get_detiling_rotation() const { return _detiling_rotation; }
