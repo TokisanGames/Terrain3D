@@ -39,6 +39,7 @@ private:
 	PackedFloat32Array _texture_ao_strengths;
 	PackedFloat32Array _texture_roughness_mods;
 	PackedFloat32Array _texture_uv_scales;
+	uint32_t _texture_uv_projections;
 	PackedVector2Array _texture_detiles;
 
 	// Mesh Thumbnail Generation
@@ -81,6 +82,7 @@ public:
 	PackedFloat32Array get_texture_ao_strengths() const { return _texture_ao_strengths; }
 	PackedFloat32Array get_texture_roughness_mods() const { return _texture_roughness_mods; }
 	PackedFloat32Array get_texture_uv_scales() const { return _texture_uv_scales; }
+	uint32_t get_texture_uv_projections() const { return _texture_uv_projections; }
 	PackedVector2Array get_texture_detiles() const { return _texture_detiles; }
 
 	void clear_textures(const bool p_update = false);

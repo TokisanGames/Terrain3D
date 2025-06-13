@@ -143,6 +143,7 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("DUAL_SCALING_CONDITION_0");
 		excludes.push_back("DUAL_SCALING_CONDITION_1");
 		excludes.push_back("DUAL_SCALING_MIX");
+		excludes.push_back("TRI_SCALING");
 	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
 	return shader;
@@ -535,6 +536,7 @@ void Terrain3DMaterial::_update_texture_arrays() {
 	RS->material_set_param(_material, "_texture_ao_strength_array", asset_list->get_texture_ao_strengths());
 	RS->material_set_param(_material, "_texture_roughness_mod_array", asset_list->get_texture_roughness_mods());
 	RS->material_set_param(_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
+	RS->material_set_param(_material, "_texture_uv_projections", asset_list->get_texture_uv_projections());
 	RS->material_set_param(_material, "_texture_detile_array", asset_list->get_texture_detiles());
 
 	// Enable checkered view if texture_count is 0, disable if not
