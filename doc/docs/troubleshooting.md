@@ -3,7 +3,7 @@ Troubleshooting
 
 Make sure to watch the [tutorial videos](tutorial_videos.md) which show proper installation and setup.
 
-Also see [Tips](tips.md) which may have other helpful information.
+Also see [Technical Tips](tips_technical.md) which may have other helpful information.
 
 **Table of Contents**
 * [Installation](#installation)

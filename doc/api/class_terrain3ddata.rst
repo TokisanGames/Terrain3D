@@ -148,7 +148,7 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`save_directory<class_Terrain3DData_method_save_directory>`\ (\ directory\: ``String``\ )                                                                                                                             |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                                     | :ref:`save_region<class_Terrain3DData_method_save_region>`\ (\ region_location\: ``Vector2i``, directory\: ``String``, 16_bit\: ``bool`` = false\ )                                                                        |
+   | |void|                                                                     | :ref:`save_region<class_Terrain3DData_method_save_region>`\ (\ region_location\: ``Vector2i``, directory\: ``String``, save_16_bit\: ``bool`` = false\ )                                                                   |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`set_color<class_Terrain3DData_method_set_color>`\ (\ global_position\: ``Vector3``, color\: ``Color``\ )                                                                                                             |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -180,7 +180,7 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`set_roughness<class_Terrain3DData_method_set_roughness>`\ (\ global_position\: ``Vector3``, roughness\: ``float``\ )                                                                                                 |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                                     | :ref:`update_maps<class_Terrain3DData_method_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, all_maps \: ``bool`` = true, generate_mipmaps\: ``bool`` = false\ )                            |
+   | |void|                                                                     | :ref:`update_maps<class_Terrain3DData_method_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, all_regions\: ``bool`` = true, generate_mipmaps\: ``bool`` = false\ )                          |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
@@ -1093,7 +1093,7 @@ This saves all active regions into the specified directory.
 
 .. rst-class:: classref-method
 
-|void| **save_region**\ (\ region_location\: ``Vector2i``, directory\: ``String``, 16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_save_region>`
+|void| **save_region**\ (\ region_location\: ``Vector2i``, directory\: ``String``, save_16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_save_region>`
 
 Saves the specified active region to the directory. See :ref:`Terrain3DRegion.save()<class_Terrain3DRegion_method_save>`.
 
@@ -1305,7 +1305,7 @@ Sets the roughness modifier (wetness) on the color map alpha channel associated 
 
 .. rst-class:: classref-method
 
-|void| **update_maps**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, all_maps \: ``bool`` = true, generate_mipmaps\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_update_maps>`
+|void| **update_maps**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, all_regions\: ``bool`` = true, generate_mipmaps\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_update_maps>`
 
 Regenerates the region map and the TextureArrays that combine the requested map types. This function needs to be called after editing any of the maps.
 
