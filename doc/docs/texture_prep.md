@@ -204,7 +204,7 @@ Most terrain textures like grass, rock, and dirt do not need these.
 
 The only one that might be useful generally is AO, however that is debatable. We do have height, which can double for AO in a custom shader. Or, if you have no height texture, you can substitute an AO texture. These two are similar depending on the specific texture, and it's not worth allocating another texture array just for AO.
 
-Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both height and AO. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. You can add a [custom shader](tips.md#add-a-custom-texture-map) to add the individual texture map.
+Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both height and AO. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. You can add a [custom shader](tips_technical.md#add-a-custom-texture-map) to add the individual texture map.
 
 ### Why not use Standard Godot materials?
 

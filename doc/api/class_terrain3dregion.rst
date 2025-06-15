@@ -76,7 +76,7 @@ Methods
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`sanitize_maps<class_Terrain3DRegion_method_sanitize_maps>`\ (\ )                                                                                 |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | Error                                         | :ref:`save<class_Terrain3DRegion_method_save>`\ (\ path\: ``String`` = "", 16-bit\: ``bool`` = false\ )                                                |
+   | Error                                         | :ref:`save<class_Terrain3DRegion_method_save>`\ (\ path\: ``String`` = "", save_16_bit\: ``bool`` = false\ )                                           |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_data<class_Terrain3DRegion_method_set_data>`\ (\ data\: ``Dictionary``\ )                                                                    |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -478,7 +478,7 @@ Sanitizes all map types. See :ref:`sanitize_map()<class_Terrain3DRegion_method_s
 
 .. rst-class:: classref-method
 
-Error **save**\ (\ path\: ``String`` = "", 16-bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DRegion_method_save>`
+Error **save**\ (\ path\: ``String`` = "", save_16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DRegion_method_save>`
 
 Saves this region to the current file name.
 
