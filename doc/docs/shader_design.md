@@ -30,7 +30,7 @@ Here's a quick summary of potential operations we might use to retreive a texel:
 
 ## Uniforms
 
-[Terrain3DMaterial](../api/class_terrain3dmaterial.rst) exposes uniforms found in the shader, including any you have added. Uniforms that begin with `_` are considered private and are hidden, but you can still access them via code. See [Tips](tips.md#accessing-private-shader-variables).
+[Terrain3DMaterial](../api/class_terrain3dmaterial.rst) exposes uniforms found in the shader, including any you have added. Uniforms that begin with `_` are considered private and are hidden, but you can still access them via code. See [Tips](tips_technical.md#accessing-private-shader-variables).
 
 These notable [Terrain3DData](../api/class_terrain3ddata.rst) arrays are passed in as uniforms. The API has more information on each.
 * [_region_map](../api/class_terrain3ddata.rst#class-terrain3ddata-method-get-region-map), [_region_locations](../api/class_terrain3ddata.rst#class-terrain3ddata-property-region-locations) store the location and ID of each region
@@ -84,7 +84,7 @@ Generating normals in the shader works fine, and modern GPUs can easily handle t
 
 The control maps are queried for each of the 4 adjacent grid points (aka vertices and indices) and stored in `control[0]`-`control[3]`.
 
-The control map bits, as defined in [Controlmap Format](controlmap_format.md), are parsed into an array of control_data structs, which include the decoded `texture_id`, `texture_weight`, `blend`, `scale`, and `angle` values.
+The control map bits, are decoded when needed, as defined in [Controlmap Format](controlmap_format.md).
 
 If the Autoshader is enabled, the control_data for each of the 4 grid points is overwritten with the autoshader ids and blend value calculated from the terrain normal and height.
 

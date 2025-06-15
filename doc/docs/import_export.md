@@ -129,13 +129,13 @@ Notes:
 
 ## Exporting GLTF
 
-You can also export the terrain as a mesh.
+You can export the terrain as a mesh, without texturing.
 
-1. Create a new scene, and add a Terrain3D node.
+1. Create a new empty scene and add a Terrain3D node.
 2. Load your terrain `Data Directory`.
-3. Select the Terrain3D Above the viewport, select the Terrain3D 
+3. Select the Terrain3D node.
 4. At the top of the viewport, select `Terrain3D / Bake ArrayMesh...` and bake at the desired LOD.
 5. Delete the Terrain3D and other nodes, leaving only the generated MeshInstance3D node in this scene.
 6. In the Godot menu, select `Scene / Export As... / GLTF 2.0 Scene...`.
 
-You can then use this mesh in Blender or other tools for reference. It's fine for reference, but isn't an optimal mesh as there is a vertex every meter. You can decimate or remesh it if you need a more optimal version.
+You can then use this mesh in Blender or other tools. It's fine for reference, but isn't an optimal mesh as there is a vertex every square meter. You can decimate or remesh it if you need a more optimal version.
