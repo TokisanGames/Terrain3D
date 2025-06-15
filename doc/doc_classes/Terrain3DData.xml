@@ -561,7 +561,7 @@
 		<method name="update_maps">
 			<return type="void" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DRegion.MapType" default="3" />
-			<param index="1" name="all_maps " type="bool" default="true" />
+			<param index="1" name="all_regions" type="bool" default="true" />
 			<param index="2" name="generate_mipmaps" type="bool" default="false" />
 			<description>
 				Regenerates the region map and the TextureArrays that combine the requested map types. This function needs to be called after editing any of the maps.

@@ -94,7 +94,8 @@ And the contribution team in :doc:`docs/authors` and displayed on `github contri
    docs/heightmaps
    docs/import_export
    docs/instancer
-   docs/tips
+   docs/tips_technical
+   docs/tips_environment
 
 .. toctree::
    :maxdepth: 1
