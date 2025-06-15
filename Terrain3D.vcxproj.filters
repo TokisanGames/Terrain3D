@@ -244,6 +244,9 @@
     <None Include="doc\docs\heightmaps.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="doc\docs\tips_environment.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -273,7 +276,7 @@
     <Text Include="doc\docs\texture_prep.md">
       <Filter>2. Docs</Filter>
     </Text>
-    <Text Include="doc\docs\tips.md">
+    <Text Include="doc\docs\tips_technical.md">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\troubleshooting.md">
