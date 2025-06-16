@@ -196,7 +196,9 @@ void Terrain3DInstancer::_setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const
 		p_mmi->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 	} else {
 		p_mmi->set_visibility_range_begin(p_ma->get_lod_range_begin(p_lod));
-		p_mmi->set_visibility_range_end(p_ma->get_lod_range_end(p_lod) * 1.0005f);
+		// MMI ranges have gaps. Some users experienced worse gaps with billboards (assumed to be last lod)
+		float lod_overlap = (p_lod < p_ma->get_last_lod() - 1) ? 1.0005f : 1.0024f;
+		p_mmi->set_visibility_range_end(p_ma->get_lod_range_end(p_lod) * lod_overlap);
 	}
 }
 
