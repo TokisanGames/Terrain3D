@@ -595,6 +595,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		col.set_v(CLAMP(col.get_v() - random_darken * UtilityFunctions::randf(), 0.f, 1.f));
 		col.set_h(fmod(col.get_h() + random_hue * (2.f * UtilityFunctions::randf() - 1.f), 1.f));
 
+		t *= mesh_asset->get_mesh_transform(); // Apply mesh asset transform
+
 		xforms.push_back(t);
 		colors.push_back(col);
 	}

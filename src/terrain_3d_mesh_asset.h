@@ -55,6 +55,7 @@ private:
 
 	// Working data
 	TypedArray<Mesh> _meshes;
+	Transform3D _mesh_transform = Transform3D();
 	Ref<Texture2D> _thumbnail;
 
 	void _clear_lod_ranges();
@@ -79,6 +80,7 @@ public:
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
+	Transform3D get_mesh_transform() const { return _mesh_transform; }
 	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
