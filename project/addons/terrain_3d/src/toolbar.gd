@@ -151,5 +151,4 @@ func _on_tool_selected(p_button: BaseButton) -> void:
 	var id: int = p_button.get_meta("ID", -2)
 	for button in change_group.get_buttons():
 		button.set_pressed_no_signal(button.get_meta("ID", -1) == id)
-	
 	emit_signal("tool_changed", p_button.get_meta("Tool", Terrain3DEditor.TOOL_MAX), p_button.get_meta("Operation", Terrain3DEditor.OP_MAX))

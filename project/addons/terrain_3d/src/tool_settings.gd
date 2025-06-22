@@ -158,7 +158,7 @@ func _ready() -> void:
 								#"range":Vector3(0, 3, 1) })
 
 	if DisplayServer.is_touchscreen_available():
-		add_setting({ "name":"remove", "label":"Invert", "type":SettingType.CHECKBOX, "list":main_list, "default":false, "flags":ADD_SEPARATOR })
+		add_setting({ "name":"invert", "label":"Invert", "type":SettingType.CHECKBOX, "list":main_list, "default":false, "flags":ADD_SEPARATOR })
 
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
