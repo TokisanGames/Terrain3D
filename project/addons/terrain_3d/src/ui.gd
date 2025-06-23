@@ -191,6 +191,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("enable_texture")
 			if _selected_operation == Terrain3DEditor.ADD:
 				to_show.push_back("strength")
+				to_show.push_back("invert")
 			to_show.push_back("slope")
 			to_show.push_back("enable_angle")
 			to_show.push_back("angle")
@@ -270,14 +271,16 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	plugin.update_region_grid()
 
 
-func _on_setting_changed() -> void:
-	if not plugin.asset_dock: # Necessary check to verify we're _ready()
+func _on_setting_changed(p_setting: Variant = null) -> void:
+	if not plugin.asset_dock: # Skip function if not _ready()
 		return
 	brush_data = tool_settings.get_settings()
 	brush_data["asset_id"] = plugin.asset_dock.get_current_list().get_selected_id()
 	if plugin.editor:
 		plugin.editor.set_brush_data(brush_data)
 	inverted_input = brush_data.get("invert", false)
+	if p_setting is CheckBox and p_setting.name == &"Invert":
+		plugin._read_input() # Revalidate keyboard input for modifier_ctrl
 	set_active_operation()
 	update_decal()
 
@@ -523,7 +526,7 @@ func set_decal_rotation(p_rot: float) -> void:
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
 
 
-func _on_picking(p_type: int, p_callback: Callable) -> void:
+func _on_picking(p_type: Terrain3DEditor.Tool, p_callback: Callable) -> void:
 	picking = p_type
 	picking_callback = p_callback
 	update_decal()

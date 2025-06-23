@@ -2,8 +2,8 @@
 # Tool settings bar for Terrain3D
 extends PanelContainer
 
-signal picking(type, callback)
-signal setting_changed
+signal picking(type: Terrain3DEditor.Tool, callback: Callable)
+signal setting_changed(setting: Variant)
 
 enum Layout {
 	HORIZONTAL,
@@ -622,19 +622,19 @@ func show_settings(p_settings: PackedStringArray) -> void:
 			select_brush_button.show()
 
 
-func _on_setting_changed(p_object: Variant = null) -> void:
+func _on_setting_changed(p_setting: Variant = null) -> void:
 	# If a brush was selected
-	if p_object is Button and p_object.get_parent().name == "BrushList":
-		_generate_brush_texture(p_object)
+	if p_setting is Button and p_setting.get_parent().name == "BrushList":
+		_generate_brush_texture(p_setting)
 		# Optionally Set selected brush texture in main brush button
 		if select_brush_button:
-			select_brush_button.set_button_icon(p_object.get_button_icon())
+			select_brush_button.set_button_icon(p_setting.get_button_icon())
 		# Hide popup
-		p_object.get_parent().get_parent().set_visible(false)
+		p_setting.get_parent().get_parent().set_visible(false)
 		# Hide label
-		if p_object.get_child_count() > 0:
-			p_object.get_child(0).visible = false
-	emit_signal("setting_changed")
+		if p_setting.get_child_count() > 0:
+			p_setting.get_child(0).visible = false
+	emit_signal("setting_changed", p_setting)
 
 
 func _generate_brush_texture(p_btn: Button) -> void:
