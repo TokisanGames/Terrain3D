@@ -158,7 +158,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					if (mat.is_valid()) {
 						mmi->set_material_override(mat);
 					}
-					mat = ma->get_material_overlay();
+					mat = ma->get_material_overlay_internal();
 					if (mat.is_valid()) {
 						mmi->set_material_overlay(mat);
 					}
