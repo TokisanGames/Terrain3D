@@ -16,6 +16,8 @@
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/classes/physics_direct_space_state3d.hpp>
+#include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
 
 #include "logger.h"
 #include "terrain_3d.h"
@@ -736,6 +738,20 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	}
 
 	return point;
+}
+
+/* Returns the results of a physics ray cast
+ *	p_src_pos (camera position)
+ *	p_direction (camera direction)
+ */
+Dictionary Terrain3D::get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const real_t &p_distance) {
+
+    // Replace the problematic line with the following code to access the PhysicsDirectSpaceState3D correctly:
+    Ref<World3D> world = get_world_3d();
+    PhysicsDirectSpaceState3D *space_state = world->get_direct_space_state();
+	Ref<PhysicsRayQueryParameters3D> query = PhysicsRayQueryParameters3D::create(p_src_pos, p_src_pos + p_direction * p_distance);
+
+	 return space_state->intersect_ray(query);
 }
 
 /**

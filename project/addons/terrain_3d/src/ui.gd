@@ -249,6 +249,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("random_darken")
 			to_show.push_back("random_hue")
 			to_show.push_back("invert")
+			to_show.push_back("on_collision")
 
 		_:
 			pass
