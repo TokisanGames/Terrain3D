@@ -236,7 +236,7 @@ inline Ref<Terrain3DRegion> Terrain3DData::get_region(const Vector2i &p_region_l
 }
 
 inline Terrain3DRegion *Terrain3DData::get_region_ptr(const Vector2i &p_region_loc) const {
-	if (has_region(p_region_loc)) {
+	if (_regions.has(p_region_loc)) {
 		return cast_to<Terrain3DRegion>(_regions[p_region_loc]);
 	}
 	return nullptr;
