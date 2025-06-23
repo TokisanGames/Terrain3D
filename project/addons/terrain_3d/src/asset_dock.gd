@@ -291,6 +291,8 @@ func _on_meshes_pressed() -> void:
 
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
+	remove_all_highlights()
+	
 	if p_tool == Terrain3DEditor.INSTANCER:
 		_on_meshes_pressed()
 	elif p_tool in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
@@ -313,6 +315,16 @@ func update_assets() -> void:
 
 	_current_list.update_asset_list()
 
+
+func remove_all_highlights():
+	if not plugin.terrain:
+		return
+		
+	for i: int in mesh_list.entries.size():
+		var resource: Terrain3DMeshAsset = mesh_list.entries[i].resource 
+		if resource:
+			resource.set_highlighted(false)
+	
 
 ## Window Management
 
@@ -643,6 +655,8 @@ class ListEntry extends VBoxContainer:
 	var drop_data: bool = false
 	var is_hovered: bool = false
 	var is_selected: bool = false
+	var is_highlighted: bool = false
+		
 	var asset_list: Terrain3DAssets
 	
 	@onready var button_row := HBoxContainer.new()
@@ -650,10 +664,14 @@ class ListEntry extends VBoxContainer:
 	@onready var button_edit := TextureButton.new()
 	@onready var spacer := Control.new()
 	@onready var button_enabled := TextureButton.new()
+	@onready var button_highlight := TextureButton.new()
 	@onready var clear_icon: Texture2D = get_theme_icon("Close", "EditorIcons")
 	@onready var edit_icon: Texture2D = get_theme_icon("Edit", "EditorIcons")
 	@onready var enabled_icon: Texture2D = get_theme_icon("GuiVisibilityVisible", "EditorIcons")
 	@onready var disabled_icon: Texture2D = get_theme_icon("GuiVisibilityHidden", "EditorIcons")
+	@onready var enable_highlight_icon: Texture2D = get_theme_icon("PreviewSun", "EditorIcons")
+	@onready var disable_highlight_icon: Texture2D = get_theme_icon("DirectionalLight3D", "EditorIcons")
+
 
 	var name_label: Label
 	@onready var add_icon: Texture2D = get_theme_icon("Add", "EditorIcons")
@@ -662,6 +680,8 @@ class ListEntry extends VBoxContainer:
 
 
 	func _ready() -> void:
+		if resource is Terrain3DMeshAsset:
+			is_highlighted = resource.get_highlighted()
 		setup_buttons()
 		setup_label()
 		focus_style.set_border_width_all(2)
@@ -688,15 +708,29 @@ class ListEntry extends VBoxContainer:
 			button_enabled.set_custom_minimum_size(icon_size)
 			button_enabled.set_h_size_flags(Control.SIZE_SHRINK_END)
 			button_enabled.set_visible(resource != null)
+			button_enabled.tooltip_text = "Enable/Disable"
 			button_enabled.toggle_mode = true
 			button_enabled.mouse_filter = Control.MOUSE_FILTER_PASS
 			button_enabled.pressed.connect(enable)
 			button_row.add_child(button_enabled)
+			
+			button_highlight.set_texture_normal(enable_highlight_icon)
+			button_highlight.set_texture_pressed(disable_highlight_icon)
+			button_highlight.set_custom_minimum_size(icon_size)
+			button_highlight.set_h_size_flags(Control.SIZE_SHRINK_END)
+			button_highlight.set_visible(resource != null)
+			button_highlight.tooltip_text = "Highlight Instances"
+			button_highlight.toggle_mode = true
+			button_highlight.mouse_filter = Control.MOUSE_FILTER_PASS
+			button_highlight.set_pressed_no_signal(is_highlighted)
+			button_highlight.pressed.connect(highlight)
+			button_row.add_child(button_highlight)
 		
 		button_edit.set_texture_normal(edit_icon)
 		button_edit.set_custom_minimum_size(icon_size)
 		button_edit.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_edit.set_visible(resource != null)
+		button_edit.tooltip_text = "Edit"
 		button_edit.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_edit.pressed.connect(edit)
 		button_row.add_child(button_edit)
@@ -709,6 +743,7 @@ class ListEntry extends VBoxContainer:
 		button_clear.set_custom_minimum_size(icon_size)
 		button_clear.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_clear.set_visible(resource != null)
+		button_clear.tooltip_text = "Clear"
 		button_clear.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_clear.pressed.connect(clear)
 		button_row.add_child(button_clear)
@@ -881,3 +916,9 @@ class ListEntry extends VBoxContainer:
 	func enable() -> void:
 		if resource is Terrain3DMeshAsset:
 			resource.set_enabled(!resource.is_enabled())
+
+
+	func highlight() -> void:
+		if resource is Terrain3DMeshAsset:
+			is_highlighted = !is_highlighted
+			resource.set_highlighted(is_highlighted)
