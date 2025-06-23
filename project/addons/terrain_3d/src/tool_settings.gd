@@ -154,6 +154,8 @@ func _ready() -> void:
 								"list":color_list, "default":0, "unit":"°", "range":Vector3(0, 360, 1) })
 	add_setting({ "name":"random_darken", "type":SettingType.SLIDER, "list":color_list, "default":50, 
 								"unit":"%", "range":Vector3(0, 100, 1) })
+	add_setting({ "name":"mesh_asset_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.INSTANCER, "flags":NO_LABEL })
 	#add_setting({ "name":"blend_mode", "type":SettingType.OPTION, "list":color_list, "default":0, 
 								#"range":Vector3(0, 3, 1) })
 
@@ -357,6 +359,9 @@ func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position:
 			settings["angle"].value = p_color.r
 		Terrain3DEditor.SCALE:
 			settings["scale"].value = p_color.r
+		Terrain3DEditor.INSTANCER:
+			plugin.asset_dock.on_picked_mesh_asset_from_terrain(p_color.r)
+
 	_on_setting_changed()
 
 

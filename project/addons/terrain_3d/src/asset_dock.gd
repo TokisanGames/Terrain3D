@@ -377,6 +377,13 @@ func _on_window_input(event: InputEvent) -> void:
 		EditorInterface.save_scene()
 
 
+func on_picked_mesh_asset_from_terrain(mesh_asset_id: int):
+	if not mesh_asset_id >= 0:
+		return
+		
+	mesh_list.set_selected_id(mesh_asset_id)
+	
+	
 func _on_godot_window_entered() -> void:
 	if is_instance_valid(window) and window.has_focus():
 		plugin.godot_editor_window.grab_focus()
