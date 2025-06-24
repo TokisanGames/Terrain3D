@@ -668,6 +668,7 @@ class ListEntry extends VBoxContainer:
 	@onready var disabled_icon: Texture2D = get_theme_icon("GuiVisibilityHidden", "EditorIcons")
 	@onready var highlight_icon: Texture2D = get_theme_icon("PreviewSun", "EditorIcons")
 	var name_label: Label
+	var count_label: Label
 	@onready var add_icon: Texture2D = get_theme_icon("Add", "EditorIcons")
 	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
 	@onready var focus_style: StyleBox = get_theme_stylebox("focus", "Button").duplicate()
@@ -678,6 +679,7 @@ class ListEntry extends VBoxContainer:
 			is_highlighted = resource.is_highlighted()
 		setup_buttons()
 		setup_label()
+		setup_count_label()
 		focus_style.set_border_width_all(2)
 		focus_style.set_border_color(Color(1, 1, 1, .67))
 
@@ -764,6 +766,41 @@ class ListEntry extends VBoxContainer:
 			name_label.text = "Add Texture"
 		else:
 			name_label.text = "Add Mesh"
+
+
+	func setup_count_label() -> void:
+		if type == Terrain3DAssets.TYPE_TEXTURE:
+			return			
+		count_label = Label.new()
+		add_child(count_label, true)
+		count_label.visible = true
+		count_label.position.x = -5
+		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		count_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		count_label.add_theme_color_override("font_color", Color.WHITE)
+		count_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+		count_label.add_theme_constant_override("shadow_offset_x", 1.)
+		count_label.add_theme_constant_override("shadow_offset_y", 1.)
+		count_label.add_theme_font_size_override("font_size", 14)
+		count_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		count_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		
+		var mesh_resource: Terrain3DMeshAsset = resource as Terrain3DMeshAsset
+		if not mesh_resource: 
+			return
+		mesh_resource.instance_count_changed.connect(update_count_label)
+		update_count_label()
+
+
+	func update_count_label() -> void:
+		if not type == Terrain3DAssets.AssetType.TYPE_MESH:
+			return
+		var mesh_resource: Terrain3DMeshAsset = resource as Terrain3DMeshAsset
+		if not mesh_resource:
+			count_label.text = str(0)
+		else:
+			count_label.text = format_number(mesh_resource.get_instance_count())
 
 
 	func _notification(p_what) -> void:
@@ -875,7 +912,6 @@ class ListEntry extends VBoxContainer:
 			emit_signal("inspected", resource)
 
 
-
 	func set_edited_resource(p_res: Resource, p_no_signal: bool = true) -> void:
 		resource = p_res
 		if resource:
@@ -888,7 +924,7 @@ class ListEntry extends VBoxContainer:
 			button_clear.set_visible(resource != null)
 			
 		queue_redraw()
-		if !p_no_signal:
+		if not p_no_signal:
 			emit_signal("changed", resource)
 
 
@@ -905,6 +941,7 @@ class ListEntry extends VBoxContainer:
 	func clear() -> void:
 		if resource:
 			set_edited_resource(null, false)
+			update_count_label()
 
 	
 	func edit() -> void:
@@ -921,3 +958,15 @@ class ListEntry extends VBoxContainer:
 		if resource is Terrain3DMeshAsset:
 			is_highlighted = !is_highlighted
 			resource.set_highlighted(is_highlighted)
+
+
+	func format_number(num: int) -> String:
+		var is_negative: bool = num < 0
+		var str_num: String = str(abs(num))
+		var result: String = ""
+		var length: int = str_num.length()
+		for i in length:
+			result = str_num[length - 1 - i] + result
+			if i < length - 1 and (i + 1) % 3 == 0:
+				result = "," + result
+		return "-" + result if is_negative else result
