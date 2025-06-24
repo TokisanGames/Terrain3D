@@ -163,6 +163,18 @@ void Terrain3DMeshAsset::set_enabled(const bool p_enabled) {
 	emit_signal("instancer_setting_changed");
 }
 
+void Terrain3DMeshAsset::update_instance_count(const uint32_t p_amount) {
+	uint64_t new_count = _instance_count + p_amount;
+	_instance_count = CLAMP(new_count, 0, UINT32_MAX);
+	emit_signal("instance_count_changed");
+}
+
+void Terrain3DMeshAsset::set_instance_count(const uint32_t p_amount) {
+	uint64_t new_count = p_amount;
+	_instance_count = CLAMP(new_count, 0, UINT32_MAX);
+	emit_signal("instance_count_changed");
+}
+
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	LOG(INFO, "Setting scene file and instantiating node: ", p_scene_file);
 	_packed_scene = p_scene_file;
@@ -489,6 +501,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("file_changed"));
 	ADD_SIGNAL(MethodInfo("setting_changed"));
 	ADD_SIGNAL(MethodInfo("instancer_setting_changed"));
+	ADD_SIGNAL(MethodInfo("instance_count_changed"));
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DMeshAsset::clear);
 	ClassDB::bind_method(D_METHOD("set_name", "name"), &Terrain3DMeshAsset::set_name);
@@ -556,6 +569,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_lod9_range"), &Terrain3DMeshAsset::get_lod9_range);
 	ClassDB::bind_method(D_METHOD("set_fade_margin", "distance"), &Terrain3DMeshAsset::set_fade_margin);
 	ClassDB::bind_method(D_METHOD("get_fade_margin"), &Terrain3DMeshAsset::get_fade_margin);
+
+	ClassDB::bind_method(D_METHOD("get_instance_count"), &Terrain3DMeshAsset::get_instance_count);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");

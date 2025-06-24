@@ -137,6 +137,13 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 
 					// Create MM and assign to MMI
 					mmi = cell_mmi_dict[cell];
+
+					// Update count : Subtract previous count for this cell
+					if (ma.is_valid() && mmi->get_multimesh().is_valid()) {
+						if (lod == ma->get_last_lod()) {
+							ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
+						}
+					}
 					Ref<MultiMesh> mm;
 					if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
 						// Reuse LOD MM as shadow impostor
@@ -176,6 +183,12 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					t.origin.z += region_loc.y * region_size * vertex_spacing;
 					mmi->set_global_transform(t);
 
+					// Update count : Add current count for this cell
+					if (ma.is_valid() && mmi->get_multimesh().is_valid()) {
+						if (lod == ma->get_last_lod()) {
+							ma->update_instance_count(mmi->get_multimesh()->get_instance_count());
+						}
+					}
 					// Clear the cell modified state
 					triple[2] = false;
 				}
@@ -283,6 +296,8 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 	}
 	MeshMMIDict &mesh_mmi_dict = _mmi_nodes[p_region_loc];
 
+	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
+
 	for (int lod = Terrain3DMeshAsset::SHADOW_LOD_ID; lod < Terrain3DMeshAsset::MAX_LOD_COUNT; lod++) {
 		Vector2i mesh_key(p_mesh_id, lod);
 		if (mesh_mmi_dict.count(mesh_key) == 0) {
@@ -295,6 +310,12 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		}
 
 		MultiMeshInstance3D *mmi = cell_mmi_dict[p_cell];
+		if (ma.is_valid() && mmi->get_multimesh().is_valid()) {
+			if (lod == ma->get_last_lod()) {
+				ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
+			}
+		}
+
 		LOG(EXTREME, "Freeing ", ptr_to_str(mmi), " and erasing mmi cell ", p_cell);
 		remove_from_tree(mmi);
 		memdelete_safely(mmi);
@@ -475,6 +496,8 @@ void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
 	for (int i = 0; i < region_locations.size(); i++) {
 		clear_by_location(region_locations[i], p_mesh_id);
 	}
+	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
+	ma.is_valid() ? ma->set_instance_count(0) : void(); // Reset count for this mesh
 }
 
 void Terrain3DInstancer::clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
