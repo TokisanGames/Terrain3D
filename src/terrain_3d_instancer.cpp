@@ -177,6 +177,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			}
 		}
 	}
+	_update_instance_count_array();
 }
 
 void Terrain3DInstancer::_setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod) {
@@ -368,6 +369,41 @@ Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const i
 	cell.x = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.x / vertex_spacing), p_region_size) / CELL_SIZE;
 	cell.y = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.z / vertex_spacing), p_region_size) / CELL_SIZE;
 	return cell;
+}
+
+void Terrain3DInstancer::_update_instance_count_array() {
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
+	LOG(INFO, "Updating MMI count array");
+	Array region_locations = _terrain->get_data()->get_region_locations();
+	_instance_count_array.clear();
+	_instance_count_array.resize(_terrain->get_assets()->get_mesh_count());
+	_instance_count_array.fill(0);
+
+	for (int i = 0; i < region_locations.size(); i++) {
+		Vector2i region_loc = region_locations[i];
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		if (region.is_null()) {
+			LOG(WARN, "No region found at: ", region_loc);
+			continue;
+		}
+		Dictionary mesh_inst_dict = region->get_instances();
+		Array mesh_ids = mesh_inst_dict.keys();
+		for (int m = 0; m < mesh_ids.size(); m++) {
+			int mesh_id = mesh_ids[m];
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cells = cell_inst_dict.keys();
+			for (int c = 0; c < cells.size(); c++) {
+				Vector2i cell = cells[c];
+				Array triple = cell_inst_dict[cell];
+				if (triple.size() != 3) {
+					continue;
+				}
+				Array xforms = triple[0];
+				_instance_count_array[mesh_id] = int(_instance_count_array[mesh_id]) + xforms.size();
+			}
+		}
+	}
+	emit_signal("instance_count_changed");
 }
 
 ///////////////////////////
@@ -1124,6 +1160,9 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
 	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
+	ClassDB::bind_method(D_METHOD("get_instance_count_array"), &Terrain3DInstancer::get_instance_count_array);	
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
+
+	ADD_SIGNAL(MethodInfo("instance_count_changed"));
 }
