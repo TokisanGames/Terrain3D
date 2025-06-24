@@ -198,6 +198,8 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			}
 		}
 	}
+	_update_instance_count_array(p_mesh_id);
+	emit_signal("mmis_updated");
 }
 
 void Terrain3DInstancer::_setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod) {
@@ -429,6 +431,56 @@ Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, c
 	triple[1] = raycast_hit;
 	triple[2] = raycast_normal;
 	return triple;
+}
+
+void Terrain3DInstancer::_update_instance_count_array(const int p_mesh_id) {
+	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
+	LOG(INFO, "Updating MMI count array");
+	Array region_locations = _terrain->get_data()->get_region_locations();
+
+	if (p_mesh_id < 0) {
+		_instance_count_array.clear();
+		_instance_count_array.resize(_terrain->get_assets()->get_mesh_count());
+		_instance_count_array.fill(0);
+	} else {
+		while (_instance_count_array.size() < p_mesh_id + 1) {
+			_instance_count_array.push_back(0);
+		}
+		_instance_count_array[p_mesh_id] = int(0); // Reset count for this mesh_id
+	}
+
+	for (int i = 0; i < region_locations.size(); i++) {
+		Vector2i region_loc = region_locations[i];
+		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		if (region.is_null()) {
+			LOG(WARN, "No region found at: ", region_loc);
+			continue;
+		}
+		Dictionary mesh_inst_dict = region->get_instances();
+		Array mesh_ids; // = mesh_inst_dict.keys();
+
+		// For specified mesh id in that region, or -1 for all
+		if (p_mesh_id < 0) {
+			mesh_ids = mesh_inst_dict.keys();
+		} else {
+			mesh_ids.push_back(p_mesh_id);
+		}
+
+		for (int m = 0; m < mesh_ids.size(); m++) {
+			int mesh_id = mesh_ids[m];
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+			Array cells = cell_inst_dict.keys();
+			for (int c = 0; c < cells.size(); c++) {
+				Vector2i cell = cells[c];
+				Array triple = cell_inst_dict[cell];
+				if (triple.size() != 3) {
+					continue;
+				}
+				Array xforms = triple[0];
+				_instance_count_array[mesh_id] = int(_instance_count_array[mesh_id]) + xforms.size();
+			}
+		}
+	}
 }
 
 ///////////////////////////
@@ -1188,6 +1240,9 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
 	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
+	ClassDB::bind_method(D_METHOD("get_instance_count_array"), &Terrain3DInstancer::get_instance_count_array);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
+
+	ADD_SIGNAL(MethodInfo("mmis_updated"));
 }
