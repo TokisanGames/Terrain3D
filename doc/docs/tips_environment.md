@@ -194,11 +194,11 @@ Each vertex also has a normal. If they are messed up, you might see odd lighting
 
 In real life, tree canopies are often lit as if they are a sphere or dome, rather than individual leaves as a 3D renderer would handle them. Some of your tree assets will look better by editing the vertex normals to mimic this quality of real trees.
 
-```{image} https://ericchadwick.com/img/ericchadwick_tree-normals-comparison.gif
-:target: https://ericchadwick.com/img/tree_shading_examples.html
+```{image} images/vertex_normals.jpg
+:target: ../_images/vertex_normals.jpg
 ```
 
-You can read more about this concept here:
+Read more about this concept here:
 * [https://ericchadwick.com/img/tree_shading_examples.html](https://ericchadwick.com/img/tree_shading_examples.html)
 * [http://wiki.polycount.com/wiki/VertexNormal#Transfer_Attributes](http://wiki.polycount.com/wiki/VertexNormal#Transfer_Attributes)
 
