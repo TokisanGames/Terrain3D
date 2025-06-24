@@ -284,7 +284,13 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 
 	## Determine modifiers pressed
 	modifier_shift = Input.is_key_pressed(KEY_SHIFT)
-	modifier_ctrl = Input.is_key_pressed(KEY_META) if _use_meta else Input.is_key_pressed(KEY_CTRL)
+	
+	# Editor responds to modifier_ctrl so we must register touchscreen Invert 
+	if _use_meta:
+		modifier_ctrl = Input.is_key_pressed(KEY_META) || ui.inverted_input
+	else:
+		modifier_ctrl = Input.is_key_pressed(KEY_CTRL) || ui.inverted_input
+	
 	# Keybind enum: Alt,Space,Meta,Capslock
 	var alt_key: int
 	match get_setting("terrain3d/config/alt_key_bind", 0):
@@ -312,7 +318,7 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 		ui.brush_data["modifier_shift"] = modifier_shift
 		ui.brush_data["modifier_ctrl"] = modifier_ctrl
 		ui.brush_data["modifier_alt"] = modifier_alt
-		ui.update_modifiers()
+		ui.set_active_operation()
 
 	## Continue processing input
 	return AFTER_GUI_INPUT_CUSTOM
