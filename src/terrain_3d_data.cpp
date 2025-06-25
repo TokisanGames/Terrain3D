@@ -506,7 +506,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		emit_signal("region_map_changed");
 	}
 
-	// Rebulid height maps if dirty
+	// Rebuild height maps if dirty
 	if (_generated_height_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating height texture array from regions");
 		_height_maps.clear();
