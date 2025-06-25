@@ -58,13 +58,15 @@ Terrain3DRegion *Terrain3DEditor::_operate_region(const Vector2i &p_region_loc) 
 	if (!region || (region && region->is_deleted())) {
 		// And tool is Add Region, or Height + auto_regions
 		if ((_tool == REGION && _operation == ADD) || ((_tool == SCULPT || _tool == HEIGHT) && _brush_data["auto_regions"])) {
-			region = *(data->add_region_blank(p_region_loc));
-			changed = true;
-			if (!region) {
-				// A new region can't be made
+			Ref<Terrain3DRegion> region_ref = data->add_region_blank(p_region_loc);
+			if (region_ref.is_null()) {
 				LOG(ERROR, "A new region cannot be created");
-				return region;
+				return nullptr;
 			}
+			// Ensure new region is added to the redo set
+			_edited_regions.push_back(region_ref);
+			changed = true;
+			region = *region_ref;
 		}
 	}
 
@@ -621,6 +623,8 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			region->set_modified(true);
 			// Tell update_maps() this region has layers that can be individually updated
 			region->set_edited(true);
+			// Ensure This region is not marked for deletion.
+			region->set_deleted(false);
 		}
 	}
 
