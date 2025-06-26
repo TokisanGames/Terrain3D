@@ -274,6 +274,9 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (IS_EDITOR && _terrain && _terrain->get_editor()) {
 		insert_names.push_back("EDITOR_DECAL_SETUP");
 	}
+	if (_debug_view_heightmap) {
+		insert_names.push_back("DEBUG_HEIGHTMAP_SETUP");
+	}
 	if (_show_contours) {
 		insert_names.push_back("OVERLAY_CONTOURS_SETUP");
 	}
