@@ -29,10 +29,14 @@ R"(
 		AO = 1.0;
 	}
 
+//INSERT: DEBUG_HEIGHTMAP_SETUP
+uniform float heightmap_min = 0.0;
+uniform float heightmap_max = 300.0;
+
 //INSERT: DEBUG_HEIGHTMAP
 	// Show heightmap
 	{
-		ALBEDO = vec3(smoothstep(-0.1, 2.0, 0.5 + v_vertex.y/300.0));
+		ALBEDO = vec3(smoothstep(0.0, 1.0, clamp((v_vertex.y - heightmap_min) / (heightmap_max - heightmap_min), 0.0, 1.0)));
 		ROUGHNESS = 0.7;
 		SPECULAR = 0.;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
