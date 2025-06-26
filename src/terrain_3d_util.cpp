@@ -26,8 +26,9 @@ void Terrain3DUtil::print_arr(const String &p_name, const Array &p_arr, const in
 				break;
 			}
 			case Variant::OBJECT: {
-				String inst = "Object#" + String::num_uint64(cast_to<Object>(var)->get_instance_id());
-				LOG(p_level, i, ": ", inst);
+				Object *obj = cast_to<Object>(var);
+				String str = "Object#" + String::num_uint64(obj->get_instance_id()) + ", " + ptr_to_str(obj);
+				LOG(p_level, i, ": ", str);
 				break;
 			}
 			default: {
@@ -53,8 +54,9 @@ void Terrain3DUtil::print_dict(const String &p_name, const Dictionary &p_dict, c
 				break;
 			}
 			case Variant::OBJECT: {
-				String inst = "Object#" + String::num_uint64(cast_to<Object>(var)->get_instance_id());
-				LOG(p_level, "\"", keys[i], "\": ", inst);
+				Object *obj = cast_to<Object>(var);
+				String str = "Object#" + String::num_uint64(obj->get_instance_id()) + ", " + ptr_to_str(obj);
+				LOG(p_level, "\"", keys[i], "\": ", str);
 				break;
 			}
 			default: {

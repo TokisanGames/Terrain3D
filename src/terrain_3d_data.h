@@ -106,6 +106,8 @@ public:
 	bool has_regionp(const Vector3 &p_global_position) const { return get_region_idp(p_global_position) != -1; }
 	Ref<Terrain3DRegion> get_region(const Vector2i &p_region_loc) const;
 	Terrain3DRegion *get_region_ptr(const Vector2i &p_region_loc) const;
+	template <typename T> // Catch invalid types. See note below in implementation.
+	Terrain3DRegion *get_region_ptr(const T &p_region_loc) const = delete;
 	Ref<Terrain3DRegion> get_regionp(const Vector3 &p_global_position) const;
 
 	void set_region_modified(const Vector2i &p_region_loc, const bool p_modified = true);
@@ -231,10 +233,26 @@ inline int Terrain3DData::get_region_idp(const Vector3 &p_global_position) const
 	return get_region_id(get_region_location(p_global_position));
 }
 
+// This function is slower than the version below, but safer when interacting with Godot, which requires
+// References. This includes backing up regions in the UndoRedoManager.
+// Ref<> has a pointer constructor, so a reference can be created with Ref<>(ptr). Godot detects the
+// pointer is already tracked and increments the reference counter.
+// Passing the pointer to a function with a Ref<> parameter works, and there's an implicit conversion to Ref.
+// However, let's require explicit conversions for clarity, so wrap a Ref around it:
+// eg. backup_region(Ref<Terrain3D>(raw_ptr));
+// Should be used for most functions in Editor and Instancer.
 inline Ref<Terrain3DRegion> Terrain3DData::get_region(const Vector2i &p_region_loc) const {
 	return _regions.get(p_region_loc, Ref<Terrain3DRegion>());
 }
 
+// Using the raw pointer is faster than creating a Ref<>. It can also safely be converted to a Ref as needed
+// with Ref<>(ptr). Use this function when retreiving regions frequently, eg looping over get_pixel().
+// Should be used for most data processing in Data, but not region handling.
+// Re overloaded template
+// get_region_ptr(region_locs[i]) worked with an implicit conversion of Variant::Vector2i to Vector2i.
+// However it also worked for Variant::Object, which silently sent invalid data.
+// The overloaded template was added to catch this. Pulling out of a dictionary/array gives a Variant,
+// so now explicit conversion is required, eg. get_region_ptr(Vector2i(locs[i])).
 inline Terrain3DRegion *Terrain3DData::get_region_ptr(const Vector2i &p_region_loc) const {
 	if (_regions.has(p_region_loc)) {
 		return cast_to<Terrain3DRegion>(_regions[p_region_loc]);
