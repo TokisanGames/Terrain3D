@@ -215,7 +215,8 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 				_name = _packed_scene->get_path().get_file().get_basename();
 				LOG(INFO, "Setting name based on filename: ", _name);
 			}
-			Ref<Mesh> mesh = mi->get_mesh();
+			// Duplicate the mesh to make each Terrain3DMeshAsset unique
+			Ref<Mesh> mesh = mi->get_mesh()->duplicate();
 			// Apply the active material from the scene to the mesh, including MI or Geom overrides
 			for (int j = 0; j < mi->get_surface_override_material_count(); j++) {
 				Ref<Material> mat = mi->get_active_material(j);
