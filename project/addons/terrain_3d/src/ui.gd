@@ -275,7 +275,15 @@ func _on_setting_changed(p_setting: Variant = null) -> void:
 	if not plugin.asset_dock: # Skip function if not _ready()
 		return
 	brush_data = tool_settings.get_settings()
-	brush_data["asset_id"] = plugin.asset_dock.get_current_list().get_selected_id()
+	
+	# Set asset_id: int for texture painting
+
+	brush_data["asset_id"] = plugin.asset_dock.texture_list.get_selected_ids().values()[0]
+	
+	# Set asset_ids: Array for instancer
+	brush_data["asset_ids"] = plugin.asset_dock.mesh_list.get_selected_ids()
+	
+	
 	if plugin.editor:
 		plugin.editor.set_brush_data(brush_data)
 	inverted_input = brush_data.get("invert", false)
