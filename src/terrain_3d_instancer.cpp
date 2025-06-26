@@ -322,14 +322,10 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 	}
 }
 
-void Terrain3DInstancer::_backup_regionl(const Vector2i &p_region_loc) {
-	if (_terrain && _terrain->get_data()) {
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
-		_backup_region(region);
-	}
-}
-
 void Terrain3DInstancer::_backup_region(const Ref<Terrain3DRegion> &p_region) {
+	if (p_region.is_null()) {
+		return;
+	}
 	if (_terrain && _terrain->get_editor() && _terrain->get_editor()->is_operating()) {
 		_terrain->get_editor()->backup_region(p_region);
 	} else {
@@ -591,8 +587,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
-		Terrain3DRegion *region = data->get_region_ptr(region_loc);
-		if (!region) {
+		Ref<Terrain3DRegion> region = data->get_region(region_loc);
+		if (region.is_null()) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
 		}
