@@ -59,7 +59,7 @@ It's going to be very difficult to produce an attractive game if your screen loo
 	* Lenovo laptop monitors have been very good in recent years (through 2024 at least).
 * Calibrate your monitor.
 
-* 
+
 ### Monitor Calibration
 
 The easy way is to buy a device to calibrate your monitor like something from Calibrite or Datacolor.
@@ -175,13 +175,13 @@ void fragment() {
 
 A normal is the perpendular vector of any given point of an object. This helps the renderer figure out the appropriate direction to bounce a light ray. 
 
-Each mesh face has a normal. Each vertex has a normal. Each pixel of the normal map texture has a normal.
+Each face has a normal. Each vertex has a normal. Each pixel of the normal map texture has a normal.
 
-#### Mesh Face Normals
+#### Face Normals
 
-You've likely read about "recalculating your normals in Blender". That typically means recalculating the vector perpendicular to each **front face**. That needs to be done for proper rendering of a mesh or the lighting on it will look weird. Typically once calculated in Blender, this doesn't need to be accessed in the shader.
+You've likely read about "recalculating your normals in Blender". That typically means recalculating the vector perpendicular to each **front face**. That needs to be done for proper rendering of a mesh or light reflects off of it will look weird. Typically once calculated in Blender, this doesn't need to be accessed in the shader.
 
-However, you can reverse the normals of back faces so that all faces will render like they are front faces. Note NORMAL, not NORMAL_MAP.
+However, you can reverse the normals of back faces so that all faces will render like they are front faces. This is good for your foliage leaves made of cards. We want to see above and below leaves without the lighting reversed because of the face normal. Note NORMAL, not NORMAL_MAP.
 ```glsl
 void fragment() {
 	NORMAL = !FRONT_FACING ? -NORMAL : NORMAL;
@@ -190,19 +190,25 @@ void fragment() {
 
 #### Vertex Normals
 
-Each vertex also has a normal. If they are messed up, you might see odd lighting in the corners of mesh faces instead of on the whole mesh. These can also be reset in Blender. 
+Like faces, each vertex also has a normal. If they are messed up, you might see odd lighting in the corners of faces instead of on the whole mesh. These can also be reset in Blender. 
 
-In real life, tree canopies are often lit as if they are a sphere or dome, rather than individual leaves as a 3D renderer would handle them. Some of your tree assets will look better by editing the vertex normals to mimic this quality of real trees.
+Vertex normals have a unique caveat when rendering foliage like thick tree canopies and bushes. First, let's look at real life. Notice how the canopies are made up of many individual elements, yet the overall lighting is very consistent with light on top and darkness on bottom.
 
-```{image} images/vertex_normals.jpg
-:target: ../_images/vertex_normals.jpg
+```{image} images/vertex_normals_photo.jpg
+:target: ../_images/vertex_normals_photo.jpg
 ```
 
-Read more about this concept here:
+Unfortunately, if you render foliage in the same way as other 3D objects, some meshes will be lit inconsistently. Observe this Poplar tree below with the default lighting on the left compared to the above real trees and a more desirable rendering.
+
+```{image} images/vertex_normals_3d.jpg
+:target: ../_images/vertex_normals_3d.jpg
+```
+
+To achieve the effect on the right, edit your mesh in Blender or another tool and reorient the vertex normals of the canopy as if they are extending outward from the origin of the mesh like an expanding sphere or dome. You will have to learn how your DCC can transfer vertex normals from one object to another, as a Blender tutorial is out of scope for this documentation. But you can learn more about the concept and applying it in DCCs here:
 * [https://ericchadwick.com/img/tree_shading_examples.html](https://ericchadwick.com/img/tree_shading_examples.html)
 * [http://wiki.polycount.com/wiki/VertexNormal#Transfer_Attributes](http://wiki.polycount.com/wiki/VertexNormal#Transfer_Attributes)
 
-You can achieve a similar affect in the shader by calculating vertex normals as they extend outward from the origin of the mesh.
+You can achieve a similar affect in the shader by calculating vertex normals as they extend outward from the origin of the mesh. You can apply this to the shader on your leaves. This is how the above image on the right was created.
 
 ```glsl
 void vertex() {
@@ -214,11 +220,12 @@ void vertex() {
 
 #### Texture Normals
 
-Normals applied by textures are assigned to `NORMAL_MAP`, whereas normals applied by vertices and faces are assigned to `NORMAL`.
+As the renderer displays each pixel of a mesh on screen, it uses the texture normal map to determine how light will bounce off of the material. 
 
-Sometimes the normal map you got from an asset pack is not OpenGL or DirectX as you expected. Unlike with rocks, it's often much harder to visually tell them apart with foliage.
+Normal maps are either in a format for DirectX systems, others are in OpenGL format. You need to be able to convert between them. Sometimes the map you got is mislabeled, and needs to be corrected.
 
-You can convert between OpenGL and DirectX by inverting the green channel either in Photoshop, in the Godot import settings, or with the shader code below. The latter is useful to be able to quickly compare how the light reflects off of the leaves. Make sure you're looking at the front face of the texture card (see above). Add the line referencing `NORMAL_MAP.g` after your NORMAL_MAP texture lookup, then you can toggle the uniform to switch.
+You can convert between OpenGL and DirectX by inverting the green channel either in Photoshop, in the Godot import settings, or with the shader code below. The latter is useful to be able to quickly compare how the light reflects off of the leaves. Unlike with rocks, it's often much harder to visually tell them apart on foliage. Make sure you're looking at the front face of the texture card (see above). Add the line referencing `NORMAL_MAP.g` after your NORMAL_MAP texture lookup, then you can toggle the uniform to switch.
+
 
 ```glsl
 uniform bool directx_normals = false;
