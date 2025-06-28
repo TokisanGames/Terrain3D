@@ -249,6 +249,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("random_darken")
 			to_show.push_back("random_hue")
 			to_show.push_back("invert")
+			to_show.push_back("mesh_asset_picker")
 
 		_:
 			pass
@@ -560,6 +561,10 @@ func pick(p_global_position: Vector3) -> void:
 				color = Color(plugin.terrain.data.get_control_angle(p_global_position), 0., 0., 1.)
 			Terrain3DEditor.SCALE:
 				color = Color(plugin.terrain.data.get_control_scale(p_global_position), 0., 0., 1.)
+			Terrain3DEditor.INSTANCER:
+				var mesh_asset_id: int = plugin.terrain.instancer.get_closest_asset_id(p_global_position)
+				color = Color(mesh_asset_id, 0., 0., 1.)
+				
 			_:
 				push_error("Unsupported picking type: ", picking)
 				return
