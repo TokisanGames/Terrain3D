@@ -24,7 +24,7 @@ You need two files per texture set. Terrain3D is designed for textures that are 
 
 The terrain can work without the alpha channels, however it won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
 
-Textures can be channel packed using the Pack Textures option in the Terrain3D Tools menu at the top of the viewport, or in tools like [Gimp](https://www.gimp.org/). Photoshop or [Krita](https://krita.org/) are possible, but working with alpha channels can be a bit challenging.
+Textures can be channel packed using the Pack Textures option in the Terrain3D menu at the top of the viewport, or in tools like [Gimp](https://www.gimp.org/). Photoshop or [Krita](https://krita.org/) are possible, but working with alpha channels can be a bit challenging.
 
 ### Texture Sizes
 All albedo textures must be the same size, and all normal textures must be the same size. Each type gets combined into separate Texture2DArrays, so their sizes of the two arrays can differ.
@@ -111,7 +111,11 @@ You can tell which is which just by looking at distinctive textures and thinking
 
 You can use our built in tool to pack textures for you.
 
-1. At the top of your viewport, click the `Terrain3D Tools` menu, then `Pack Textures`.
+```{image} images/terrain3d_menu.png
+:target: ../_images/terrain3d_menu.png
+```
+
+1. At the top of your viewport, click the `Terrain3D` menu, then `Pack Textures`.
 2. Select your textures for albedo and height.
 3. Optionally, select textures for normal and roughness.
 4. Optionally, convert a DirectX normal map to OpenGL, or smoothness to roughness map.
@@ -162,9 +166,9 @@ Also recommended is to export directly into your Godot project folder. Then drag
 
 ## Where to Get Textures
 
-### Tools
+### Texture Software
 
-You can make textures in dedicated texture tools, such as those below. There are many other tools and ai texture generators to be found online. You can also paint textures in applications like krita/gimp/photoshop.
+You can make textures in dedicated texture software, such as those below. There are many other tools and ai texture generators to be found online. You can also paint textures in applications like krita/gimp/photoshop.
  
 * [Materialize](http://boundingboxsoftware.com/materialize/) - Great free tool for generating missing maps. e.g. you only have an albedo texture that you love and want to generate a normal and height map
 * [Material Maker](https://www.materialmaker.org/) - Free, open source material maker made in Godot
@@ -190,7 +194,7 @@ Regular textures are now supported from v0.9.1. However if you want a realistic 
 
 Channel packing is a very common task done by professional game developers. Every pro asset pack you've used has channel packed textures. When you download texture packs from websites, they provide individual textures so you can pack them how you want. They are not intended to be used individually!
 
-We offer a built in `Pack Textures` tool, found in the Terrain3D Tools menu at the top of the viewport that facilitates the texture creation process within Godot.
+We offer a built in `Pack Textures` tool, found in the Terrain3D menu at the top of the viewport that facilitates the texture creation process within Godot.
 
 Finally, we provide easy, 5-step instructions for packing textures with Gimp, which takes less than 2 minutes once you're familiar with the process. 
 

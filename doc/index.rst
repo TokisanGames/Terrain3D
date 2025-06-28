@@ -82,6 +82,7 @@ And the contribution team in :doc:`docs/authors` and displayed on `github contri
    docs/installation
    docs/platforms
    docs/user_interface
+   docs/keyboard_shortcuts
    docs/troubleshooting
    docs/getting_help
 

@@ -15,11 +15,11 @@ First, enable `use_occlusion_culling` in the project settings.
 Then in the editor:
 
 * Select Terrain3D.
-* Click `Terrain3D Tools`, then `Bake Occluder3D` in the top menu. 
+* Click `Terrain3D`, then `Bake Occluder3D` in the menu above the viewport. 
 * On the popup window accept the default, LOD 4.
 
-```{image} images/terrain3d_tools.png
-:target: ../_images/terrain3d_tools.png
+```{image} images/terrain3d_menu.png
+:target: ../_images/terrain3d_menu.png
 ```
 
 * Select the OccluderInstance3D child node.
@@ -48,4 +48,4 @@ Godot has a built-in tool for baking occlusion for all meshes. It is visible whe
 :target: ../_images/oc_oc_menu.png
 ```
 
-This tool doesn't know about Terrain3D, so it will bake all MeshInstances and ignore Terrain3D. To get a complete bake, you will need to use our tool to bake the terrain occluder, then add a separate OccluderInstance3D to your scene and bake all of your other meshes.
+This tool doesn't know about Terrain3D, so it will bake all MeshInstances and ignore Terrain3D. To get a complete bake, you will need to use our menu to bake the terrain occluder, then add a separate OccluderInstance3D to your scene and bake all of your other meshes.
