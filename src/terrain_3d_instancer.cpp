@@ -1,6 +1,7 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/resource_saver.hpp>
+#include <godot_cpp/classes/standard_material3d.hpp>
 
 #include "constants.h"
 #include "logger.h"
@@ -401,6 +402,15 @@ void Terrain3DInstancer::destroy() {
 			_destroy_mmi_by_location(region_loc, m);
 		}
 	}
+
+	Array highlight_material_keys = _highlight_materials.keys();
+	for (int mat = 0; mat < highlight_material_keys.size(); mat++) {
+		Ref<StandardMaterial3D> _highlight_mat = _highlight_materials[highlight_material_keys[mat]];
+		if (_highlight_mat.is_valid()) {
+			_highlight_mat.unref();
+		}
+	}
+	_highlight_materials.clear();
 }
 
 void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
@@ -938,6 +948,75 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	}
 }
 
+void Terrain3DInstancer::set_highlighted(const int &p_mesh_id, const bool p_highlight_state) {
+	LOG(INFO, "Setting ", p_mesh_id, " highlighted = ", p_highlight_state);
+
+	Ref<StandardMaterial3D> highlight_mat;
+	if (_highlight_materials.has(p_mesh_id)) {
+		highlight_mat = _highlight_materials[p_mesh_id];
+	}
+
+	if (!highlight_mat.is_valid()) {
+		LOG(DEBUG, "Highlight material not found, creating new material for ", p_mesh_id);
+		highlight_mat.instantiate();
+		highlight_mat->set_grow_enabled(true);
+		highlight_mat->set_grow(0.01);
+
+		Color color;
+		real_t random_float = real_t(rand()) / RAND_MAX;
+		color.set_hsv(random_float, 1.0, 1.0, 1.0);
+
+		highlight_mat->set_albedo(color);
+	}
+
+	if (!highlight_mat.is_valid()) {
+		LOG(ERROR, "Failed to get or instantiate highlight material for ", p_mesh_id);
+		return;
+	}
+
+	_highlight_materials[p_mesh_id] = highlight_mat;
+
+	TypedArray<Vector2i> region_locations = _terrain->get_data()->get_region_locations();
+	for (int i = 0; i < region_locations.size(); i++) {
+		Vector2i region_loc = region_locations[i];
+		MeshMMIDict &mesh_mmi_dict = _mmi_nodes[region_loc];
+
+		for (int lod = Terrain3DMeshAsset::SHADOW_LOD_ID; lod < Terrain3DMeshAsset::MAX_LOD_COUNT; lod++) {
+			Vector2i mesh_key(p_mesh_id, lod);
+			if (mesh_mmi_dict.count(mesh_key) == 0) {
+				continue;
+			}
+			CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+			for (const auto &pair : cell_mmi_dict) {
+				const Vector2i &cell_key = pair.first;
+				MultiMeshInstance3D *mmi = pair.second;
+				if (!mmi) {
+					LOG(WARN, "Invalid mmi found at for mesh: ", p_mesh_id, " lod: ", lod, " in cell: ", cell_key, ". Skipping");
+					continue;
+				}
+				if (p_highlight_state) {
+					if (mmi->get_material_overlay().is_valid()) {
+						if (mmi->get_material_overlay()->get_rid() != highlight_mat->get_rid()) {
+							_stashed_materials[mmi->get_instance()] = mmi->get_material_overlay();
+						}
+					}
+					mmi->set_material_overlay(highlight_mat);
+				} else {
+					if (mmi->get_material_overlay().is_valid()) {
+						if (mmi->get_material_overlay()->get_rid() == highlight_mat->get_rid()) {
+							if (_stashed_materials.has(mmi->get_instance())) {
+								mmi->set_material_overlay(_stashed_materials[mmi->get_instance()]);
+							} else {
+								mmi->set_material_overlay(NULL);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 // Transfer foliage data from one region to another
 // p_src_rect is the vertex/pixel offset into the region data, NOT a global position
 // Need to update_mmis() after
@@ -1122,6 +1201,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
+	ClassDB::bind_method(D_METHOD("set_highlighted", "mesh_asset_id", "highlight_state"), &Terrain3DInstancer::set_highlighted);
 	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);

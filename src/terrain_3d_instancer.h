@@ -3,8 +3,10 @@
 #ifndef TERRAIN3D_INSTANCER_CLASS_H
 #define TERRAIN3D_INSTANCER_CLASS_H
 
+#include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
+
 #include <unordered_map>
 
 #include "constants.h"
@@ -42,6 +44,12 @@ private:
 	uint32_t _density_counter = 0;
 	uint32_t _get_density_count(const real_t p_density);
 
+	// Highlight materials
+	// Stored as {mesh_id: int} -> Material3D
+	Dictionary _highlight_materials;
+	// Stored as {mmi_rid: RID} -> Material
+	Dictionary _stashed_materials;
+
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
 	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell);
@@ -71,6 +79,7 @@ public:
 	void append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms,
 			const PackedColorArray &p_colors, const bool p_update = true);
 	void update_transforms(const AABB &p_aabb);
+	void set_highlighted(const int &p_mesh_id, const bool p_highlight_state);
 	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
