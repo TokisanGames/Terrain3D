@@ -13,10 +13,10 @@ Nav meshes take a long time to bake, and in most games, it would be wasteful to 
 :target: ../_images/nav_painting.png
 ```
 
-Next, you will need a `NavigationRegion3D` node. If you don't already have one, Terrain3D provides a convenient tool to set one up for you. Select your `Terrain3D` node, then in the `Terrain3D Tools` menu on top, click `Set up Navigation`.
+Next, you will need a `NavigationRegion3D` node. If you don't already have one, Terrain3D provides a convenient tool to set one up for you. Select your `Terrain3D` node, then in the `Terrain3D` menu on top, click `Set up Navigation`.
 
-```{image} images/terrain3d_tools.png
-:target: ../_images/terrain3d_tools.png
+```{image} images/terrain3d_menu.png
+:target: ../_images/terrain3d_menu.png
 ```
 
 The same steps can be performed manually if you prefer:
@@ -31,15 +31,15 @@ The same steps can be performed manually if you prefer:
 Once navigation has been set up, baking and re-baking it is straight-forward:
 
 1. Select the `Terrain3D` node.
-2. In Terrain3D Tools, click `Bake NavMesh`. This can take a long time to complete.
+2. In Terrain3D menu, click `Bake NavMesh`. This can take a long time to complete.
 
-Note that the standard `Bake NavMesh` button that `NavigationRegion3D` provides will not generate a nav mesh for Terrain3D (see [godot-proposals#5138](https://github.com/godotengine/godot-proposals/issues/5138)). Only use the Terrain3D Tools baker, which appears whenever you click the `Terrain3D` node or any `NavigationRegion3D` nodes. 
+Note that the standard `Bake NavMesh` button that `NavigationRegion3D` provides will not generate a nav mesh for Terrain3D (see [godot-proposals#5138](https://github.com/godotengine/godot-proposals/issues/5138)). Only use the Terrain3D baker, which appears whenever you click the `Terrain3D` node or any `NavigationRegion3D` nodes. 
 
 ```{image} images/nav_baking.png
 :target: ../_images/nav_baking.png
 ```
 
-Note: After loading a scene and clicking a NavigationRegion3D, the menu won't appear until Terrain3D has been clicked.
+Note: After loading a scene and clicking a NavigationRegion3D, the menu won't appear until after Terrain3D has been clicked.
 
 If this is your first time setting up and baking a nav mesh, the only thing left to do is add your navigation agents. See [Godot's very clear and thorough documentation on navigation agents](https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationagents.html), which provides several handy template scripts you can use.
 
