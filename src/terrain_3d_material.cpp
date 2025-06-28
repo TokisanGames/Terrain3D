@@ -36,6 +36,9 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/debug_views.glsl"
 			, "debug_views");
 	_parse_shader(
+#include "shaders/overlays.glsl"
+			, "debug_views");
+	_parse_shader(
 #include "shaders/editor_functions.glsl"
 			, "editor_functions");
 
@@ -356,8 +359,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_debug_view_tex_rough) {
 		insert_names.push_back("DEBUG_TEXTURE_ROUGHNESS");
 	}
-
-	// Overlays & Editor Functions
+	// Overlays
 	if (_show_contours) {
 		insert_names.push_back("OVERLAY_CONTOURS_RENDER");
 	}
@@ -370,6 +372,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_show_vertex_grid) {
 		insert_names.push_back("OVERLAY_VERTEX_GRID");
 	}
+	// Editor Functions
 	if (_show_navigation || (IS_EDITOR && _terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
 		insert_names.push_back("EDITOR_NAVIGATION");
 	}
