@@ -270,7 +270,8 @@ func _on_textures_pressed() -> void:
 	mesh_list.visible = false
 	textures_btn.button_pressed = true
 	meshes_btn.button_pressed = false
-	texture_list.set_selected_id(texture_list.selected_id)
+	#texture_list.update_selected_entries()
+	texture_list.set_selected_ids(texture_list.selected_ids)
 	if plugin.is_terrain_valid():
 		EditorInterface.edit_node(plugin.terrain)
 	save_editor_settings()
@@ -283,7 +284,8 @@ func _on_meshes_pressed() -> void:
 	texture_list.visible = false
 	meshes_btn.button_pressed = true
 	textures_btn.button_pressed = false
-	mesh_list.set_selected_id(mesh_list.selected_id)
+	#mesh_list.update_selected_entries()
+	mesh_list.set_selected_ids(mesh_list.selected_ids)
 	if plugin.is_terrain_valid():
 		EditorInterface.edit_node(plugin.terrain)
 	update_thumbnails()
@@ -312,7 +314,7 @@ func update_assets() -> void:
 			plugin.terrain.assets.meshes_changed.connect(mesh_list.update_asset_list)
 
 	_current_list.update_asset_list()
-
+	
 
 ## Window Management
 
@@ -436,7 +438,7 @@ class ListContainer extends Container:
 	var plugin: EditorPlugin
 	var type := Terrain3DAssets.TYPE_TEXTURE
 	var entries: Array[ListEntry]
-	var selected_id: int = 0
+	var selected_ids: Dictionary = {}
 	var height: float = 0
 	var width: float = 83
 	var focus_style: StyleBox
@@ -445,6 +447,7 @@ class ListContainer extends Container:
 	func _ready() -> void:
 		set_v_size_flags(SIZE_EXPAND_FILL)
 		set_h_size_flags(SIZE_EXPAND_FILL)
+		set_id_selected(0, true)
 
 
 	func clear() -> void:
@@ -471,22 +474,57 @@ class ListContainer extends Container:
 		
 		if type == Terrain3DAssets.TYPE_TEXTURE:
 			var texture_count: int = t.assets.get_texture_count()
-			for i in texture_count:
+			for i: int in texture_count:
 				var texture: Terrain3DTextureAsset = t.assets.get_texture(i)
 				add_item(texture)
 			if texture_count < Terrain3DAssets.MAX_TEXTURES:
 				add_item()
+			if selected_ids.size() > texture_count or selected_ids.size() == 0:
+				set_id_selected(0, true)
 		else:
 			var mesh_count: int = t.assets.get_mesh_count()
-			for i in mesh_count:
+			for i: int in mesh_count:
 				var mesh: Terrain3DMeshAsset = t.assets.get_mesh_asset(i)
 				add_item(mesh, t.assets)
 			if mesh_count < Terrain3DAssets.MAX_MESHES:
 				add_item()
-			if selected_id >= mesh_count or selected_id < 0:
-				set_selected_id(0)
+			if selected_ids.size() > mesh_count or selected_ids.size() == 0:
+				set_id_selected(0, true)
+		
+		update_selected_entries()
+	
+		
+	func update_selected_entries():
+		for i: int in range(entries.size()):
+			var entry: ListEntry = entries[i]
+			entry.set_selected(i in selected_ids)
+		plugin.ui._on_setting_changed()
+		
+
+	func set_id_selected(p_id: int, p_clear_previous_selection: bool = false):
+		if type == Terrain3DAssets.TYPE_TEXTURE:
+			selected_ids.clear()
+			selected_ids[p_id] = p_id
+			update_selected_entries()
+			return
+			
+		if selected_ids.has(p_id):
+			set_id_deselected(p_id)
+		else:
+			if p_clear_previous_selection:
+				selected_ids.clear()
+			selected_ids[p_id] = p_id
+			update_selected_entries()
 
 
+	func set_id_deselected(p_id: int):
+		# Always keep at least one asset selected
+		if selected_ids.size() > 1:
+			if selected_ids.has(p_id):
+				selected_ids.erase(p_id)
+			update_selected_entries()
+		
+			
 	func add_item(p_resource: Resource = null, p_assets: Terrain3DAssets = null) -> void:
 		var entry: ListEntry = ListEntry.new()
 		entry.focus_style = focus_style
@@ -494,7 +532,7 @@ class ListContainer extends Container:
 		
 		entry.set_edited_resource(p_resource)
 		entry.hovered.connect(_on_resource_hovered.bind(id))
-		entry.selected.connect(set_selected_id.bind(id))
+		entry.selected.connect(set_id_selected.bind(id))
 		entry.inspected.connect(_on_resource_inspected)
 		entry.changed.connect(_on_resource_changed.bind(id))
 		entry.type = type
@@ -502,28 +540,16 @@ class ListContainer extends Container:
 		add_child(entry)
 		entries.push_back(entry)
 		
-		if p_resource:
-			entry.set_selected(id == selected_id)
-			if not p_resource.id_changed.is_connected(set_selected_after_swap):
-				p_resource.id_changed.connect(set_selected_after_swap)
-
 
 	func _on_resource_hovered(p_id: int):
 		if type == Terrain3DAssets.TYPE_MESH:
 			if plugin.terrain:
 				plugin.terrain.assets.create_mesh_thumbnails(p_id)
 
-	
-	func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
-		set_selected_id(clamp(p_new_id, 0, entries.size() - 2))
 
-
-	func set_selected_id(p_id: int) -> void:
-		selected_id = p_id
-		
-		for i in entries.size():
-			var entry: ListEntry = entries[i]
-			entry.set_selected(i == selected_id)
+	func set_selected_ids(p_selected_ids: Dictionary) -> void:
+		selected_ids = p_selected_ids
+		update_selected_entries()
 		
 		plugin.select_terrain()
 
@@ -584,11 +610,11 @@ class ListContainer extends Container:
 			var last_offset: int = 2
 			if p_id == entries.size()-2:
 				last_offset = 3
-			set_selected_id(clamp(selected_id, 0, entries.size() - last_offset))
+			set_id_deselected(p_id)
 
 
-	func get_selected_id() -> int:
-		return selected_id
+	func get_selected_ids() -> Dictionary:
+		return selected_ids
 
 
 	func set_entry_width(value: float) -> void:
@@ -709,7 +735,7 @@ class ListEntry extends VBoxContainer:
 		button_clear.set_custom_minimum_size(icon_size)
 		button_clear.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_clear.set_visible(resource != null)
-		button_clear.mouse_filter = Control.MOUSE_FILTER_PASS
+		button_clear.mouse_filter = Control.MOUSE_FILTER_STOP
 		button_clear.pressed.connect(clear)
 		button_row.add_child(button_clear)
 
@@ -841,7 +867,6 @@ class ListEntry extends VBoxContainer:
 			emit_signal("inspected", resource)
 
 
-
 	func set_edited_resource(p_res: Resource, p_no_signal: bool = true) -> void:
 		resource = p_res
 		if resource:
@@ -866,7 +891,7 @@ class ListEntry extends VBoxContainer:
 	func set_selected(value: bool) -> void:
 		is_selected = value
 		queue_redraw()
-
+		
 
 	func clear() -> void:
 		if resource:
