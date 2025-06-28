@@ -472,6 +472,9 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	real_t random_darken = CLAMP(real_t(p_params.get("random_darken", 0.f)) * .01f, 0.f, 1.f); // 0-100%
 
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
+
+	bool on_collision = bool(p_params.get("on_collision", false));
+
 	bool invert = p_params["modifier_alt"];
 	Terrain3DData *data = _terrain->get_data();
 
@@ -486,7 +489,29 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		Vector3 rand_vec = Vector3(r_radius * cos(r_theta), 0.f, r_radius * sin(r_theta));
 		Vector3 position = p_global_position + rand_vec;
 		// Get height, but skip holes
-		real_t height = data->get_height(position);
+	
+		real_t height = FLT_MAX;
+
+		// Store the raycast result to use for position and normal if on_collision is true
+		Dictionary raycast_result;
+
+		if (on_collision) {		
+			// Check for physics intersection
+			raycast_result = _terrain->get_raycast_result(position + Vector3(0.0f, 100.0f, 0.0f), Vector3(0.0f, -1.0f, 0.0f), 200.0f);
+			
+			if (raycast_result.has("position")) {
+				// If raycast hit something, use that height
+				Vector3 ray_cast_hit_position = raycast_result["position"];
+				height = ray_cast_hit_position.y;
+				LOG(EXTREME, "Instancing on collision at height ", height);
+			} 
+		} 
+		// If not painting on collision or phyics intersection returned FLT_MAX, get height from terrain data
+		if (height == FLT_MAX) {		
+			height = _terrain->get_data()->get_height(position);
+			LOG(EXTREME, "Instancing on terrain at height ", height);
+		}
+
 		if (std::isnan(height)) {
 			continue;
 		} else {
@@ -497,18 +522,32 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		}
 
 		// Orientation
-		Vector3 normal = Vector3(0.f, 1.f, 0.f);
+		Vector3 normal = Vector3(NAN, NAN, NAN);
 		if (align_to_normal) {
-			normal = data->get_normal(position);
+			// If using paint on collision, try to get normal from raycast result
+			if (on_collision) {
+				if (raycast_result.has("normal")) {
+					normal = raycast_result["normal"];
+					LOG(EXTREME, "Using raycast normal: ", normal);
+				}
+			}
+
+			// If not using paint on collision or no normal was returned, get normal from terrain data
 			if (std::isnan(normal.x)) {
-				normal = Vector3(0.f, 1.f, 0.f);
-			} else {
-				normal = normal.normalized();
-				Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
-				Vector3 x_axis = -z_axis.cross(normal);
-				t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
+				normal = data->get_normal(position);
+				LOG(EXTREME, "Using terrain normal: ", normal);
 			}
 		}
+		if (std::isnan(normal.x)) {
+			normal = Vector3(0.f, 1.f, 0.f);
+			LOG(EXTREME, "No normal found, using default UP: ", normal);
+		} else {
+			normal = normal.normalized();
+			Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
+			Vector3 x_axis = -z_axis.cross(normal);
+			t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
+		}
+	
 		real_t spin = (fixed_spin + random_spin * UtilityFunctions::randf()) * Math_PI / 180.f;
 		if (abs(spin) > 0.001f) {
 			t.basis = t.basis.rotated(normal, spin);
