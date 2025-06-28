@@ -210,6 +210,10 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 		// Now process the meshes
 		for (int i = 0, count = MIN(mesh_instances.size(), MAX_LOD_COUNT); i < count; i++) {
 			MeshInstance3D *mi = cast_to<MeshInstance3D>(mesh_instances[i]);
+			// Store the traansform of the first mesh instance
+			if (i == 0) {
+				_mesh_transform = mi->get_transform();
+			}
 			LOG(DEBUG, "Found mesh: ", mi->get_name());
 			if (_name == "New Mesh") {
 				_name = _packed_scene->get_path().get_file().get_basename();
