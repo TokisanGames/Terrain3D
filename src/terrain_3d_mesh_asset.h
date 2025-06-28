@@ -4,7 +4,7 @@
 #define TERRAIN3D_MESH_ASSET_CLASS_H
 
 #include <godot_cpp/classes/array_mesh.hpp>
-#include <godot_cpp/classes/geometry_instance3d.hpp>
+//#include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
@@ -14,10 +14,10 @@
 #include "terrain_3d_asset_resource.h"
 
 using namespace godot;
-typedef GeometryInstance3D::ShadowCastingSetting ShadowCasting;
-constexpr ShadowCasting SHADOWS_ON = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
-constexpr ShadowCasting SHADOWS_OFF = GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
-constexpr ShadowCasting SHADOWS_ONLY = GeometryInstance3D::SHADOW_CASTING_SETTING_SHADOWS_ONLY;
+typedef RenderingServer::ShadowCastingSetting ShadowCasting;
+constexpr ShadowCasting SHADOWS_ON = RenderingServer::SHADOW_CASTING_SETTING_ON;
+constexpr ShadowCasting SHADOWS_OFF = RenderingServer::SHADOW_CASTING_SETTING_OFF;
+constexpr ShadowCasting SHADOWS_ONLY = RenderingServer::SHADOW_CASTING_SETTING_SHADOWS_ONLY;
 
 class Terrain3DMeshAsset : public Terrain3DAssetResource {
 	GDCLASS(Terrain3DMeshAsset, Terrain3DAssetResource);
