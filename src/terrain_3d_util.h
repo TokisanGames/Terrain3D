@@ -267,18 +267,6 @@ _FORCE_INLINE_ bool remove_from_tree(Node *p_node) {
 	return false;
 }
 
-// UtilityFunctions::is_instance_valid() is faulty and shouldn't be used.
-// Use this version instead on objects that might be freed by the user.
-// See https://github.com/godotengine/godot-cpp/issues/1390#issuecomment-1937570699
-_FORCE_INLINE_ bool is_instance_valid(const uint64_t p_instance_id, Object *p_object = nullptr) {
-	Object *obj = ObjectDB::get_instance(p_instance_id);
-	if (p_object) {
-		return p_instance_id > 0 && p_object == obj;
-	} else {
-		return p_instance_id > 0 && obj;
-	}
-}
-
 _FORCE_INLINE_ String ptr_to_str(const void *p_ptr) {
 	return "0x" + String::num_uint64(uint64_t(p_ptr), 16, true);
 }

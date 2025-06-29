@@ -296,7 +296,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 
 	if (is_dynamic_mode()) {
 		// Snap descaled position to a _shape_size grid (eg. multiples of 16)
-		Vector2i snapped_pos = _snap_to_grid(_terrain->get_snapped_position() / spacing);
+		Vector2i snapped_pos = _snap_to_grid(_terrain->get_collision_target_position() / spacing);
 		LOG(EXTREME, "Updating collision at ", snapped_pos);
 
 		// Skip if location hasn't moved to next step
