@@ -23,6 +23,58 @@
 
 using namespace godot;
 
+// Does this struct belong here?
+struct TargetNode3D {
+
+private:
+	uint64_t _instance_id = 0;
+	Node3D *_target = nullptr;
+
+public:
+	void set_target(Node3D *p_node_3d) {
+		if (p_node_3d) {
+			_target = p_node_3d;
+			_instance_id = p_node_3d->get_instance_id();
+		} else {
+			_target = nullptr;
+			_instance_id = 0;
+		}
+	}
+
+	Node3D *get_target() {
+		return _target;
+	}
+
+	Vector3 get_global_position() {
+		if (is_inside_tree()) {
+			return _target->get_global_position();
+		}
+		return Vector3(NAN, NAN, NAN);
+	}
+	
+	// UtilityFunctions::is_instance_valid() is faulty and shouldn't be used.
+	// See https://github.com/godotengine/godot-cpp/issues/1390#issuecomment-1937570699
+	bool is_valid() {
+		Object *obj = ObjectDB::get_instance(_instance_id);
+		if (_target) {
+			return _instance_id > 0 && _target == obj;
+		} else {
+			return _instance_id > 0 && obj;
+		}
+	}
+
+	bool is_null() { 
+		return !is_valid(); 
+	}
+
+	bool is_inside_tree() {
+		if (is_valid()) {
+			return _target->is_inside_tree();
+		}
+		return false;
+	}
+};
+
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 	CLASS_NAME();
@@ -62,11 +114,13 @@ private:
 	Terrain3DMesher *_mesher = nullptr;
 	Terrain3DEditor *_editor = nullptr;
 	EditorPlugin *_plugin = nullptr;
-	// Current editor or gameplay camera we are centering the terrain on.
-	Camera3D *_camera = nullptr;
-	uint64_t _camera_instance_id = 0;
+
 	// X,Z Position of the camera during the previous snapping. Set to max real_t value to force a snap update.
 	Vector2 _camera_last_position = V2_MAX;
+
+	TargetNode3D _camera; // Fallback target for clipmap and collision
+	TargetNode3D _collision_target_override;
+	TargetNode3D _clipmap_target_override;
 
 	// Regions
 	RegionSize _region_size = SIZE_256;
@@ -146,7 +200,15 @@ public:
 	void set_plugin(EditorPlugin *p_plugin);
 	EditorPlugin *get_plugin() const { return _plugin; }
 	void set_camera(Camera3D *p_camera);
-	Camera3D *get_camera() const { return _camera; }
+	Node3D *get_camera() { return _camera.get_target(); }
+
+	Node3D *get_collision_target_override();
+	void set_collision_target_override(Node3D *p_node);
+	Vector3 get_collision_target_position();
+
+	Node3D *get_clipmap_target_override();
+	void set_clipmap_target_override(Node3D *p_node);
+	Vector3 get_clipmap_target_position();
 
 	// Regions
 	void set_region_size(const RegionSize p_size);
