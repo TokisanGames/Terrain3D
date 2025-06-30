@@ -363,11 +363,53 @@ Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const 
 }
 
 Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const int p_region_size) {
+	IS_INIT(Vector2i());
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Vector2i cell;
 	cell.x = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.x / vertex_spacing), p_region_size) / CELL_SIZE;
 	cell.y = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.z / vertex_spacing), p_region_size) / CELL_SIZE;
 	return cell;
+}
+
+// Get appropriate terrain height. Could find terrain (excluding slope or holes) or optional collision
+Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert, const bool p_on_collision) const {
+	IS_DATA_INIT(Array());
+	Terrain3DData *data = _terrain->get_data();
+	real_t height = data->get_height(p_global_position);
+	Dictionary raycast_result;
+	bool raycast_hit = false;
+	real_t raycast_height = FLT_MIN;
+	Vector3 raycast_normal = Vector3(0.f, 1.f, 0.f);
+	// Raycast physics if using on_collision
+	if (p_on_collision) {
+		raycast_result = _terrain->get_raycast_result(p_global_position + Vector3(0.0f, 100.0f, 0.0f), Vector3(0.0f, -200.0f, 0.0f));
+		if (raycast_result.has("position")) {
+			raycast_hit = true;
+			raycast_height = ((Vector3)raycast_result["position"]).y;
+			raycast_normal = raycast_result["normal"];
+		}
+	}
+	// Hole, use collision if can or quit
+	if (std::isnan(height)) {
+		if (!raycast_hit) {
+			return Array();
+		}
+		height = raycast_height;
+	}
+	// No hole, use collision if higher
+	else if (raycast_hit && raycast_height > height) {
+		height = raycast_height;
+	}
+	// No hole or collision, use height if in slope or quit
+	else if (!data->is_in_slope(p_global_position, p_slope_range, p_invert)) {
+		return Array();
+	}
+	Array triple;
+	triple.resize(3);
+	triple[0] = height;
+	triple[1] = raycast_hit;
+	triple[2] = raycast_normal;
+	return triple;
 }
 
 ///////////////////////////
@@ -472,9 +514,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	real_t random_darken = CLAMP(real_t(p_params.get("random_darken", 0.f)) * .01f, 0.f, 1.f); // 0-100%
 
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
-
 	bool on_collision = bool(p_params.get("on_collision", false));
-
 	bool invert = p_params["modifier_alt"];
 	Terrain3DData *data = _terrain->get_data();
 
@@ -488,66 +528,31 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		real_t r_theta = UtilityFunctions::randf() * Math_TAU;
 		Vector3 rand_vec = Vector3(r_radius * cos(r_theta), 0.f, r_radius * sin(r_theta));
 		Vector3 position = p_global_position + rand_vec;
-		// Get height, but skip holes
-	
-		real_t height = FLT_MAX;
 
-		// Store the raycast result to use for position and normal if on_collision is true
-		Dictionary raycast_result;
-
-		if (on_collision) {		
-			// Check for physics intersection
-			raycast_result = _terrain->get_raycast_result(position + Vector3(0.0f, 100.0f, 0.0f), Vector3(0.0f, -1.0f, 0.0f), 200.0f);
-			
-			if (raycast_result.has("position")) {
-				// If raycast hit something, use that height
-				Vector3 ray_cast_hit_position = raycast_result["position"];
-				height = ray_cast_hit_position.y;
-				LOG(EXTREME, "Instancing on collision at height ", height);
-			} 
-		} 
-		// If not painting on collision or phyics intersection returned FLT_MAX, get height from terrain data
-		if (height == FLT_MAX) {		
-			height = _terrain->get_data()->get_height(position);
-			LOG(EXTREME, "Instancing on terrain at height ", height);
-		}
-
-		if (std::isnan(height)) {
-			continue;
-		} else {
-			position.y = height;
-		}
-		if (!data->is_in_slope(position, slope_range, invert)) {
+		// Get height
+		Array height_data = _get_usable_height(position, slope_range, invert, on_collision);
+		if (height_data.size() != 3) {
 			continue;
 		}
+		position.y = height_data[0];
+		bool raycast_hit = height_data[1];
 
 		// Orientation
-		Vector3 normal = Vector3(NAN, NAN, NAN);
+		Vector3 normal = Vector3(0.f, 1.f, 0.f);
 		if (align_to_normal) {
-			// If using paint on collision, try to get normal from raycast result
-			if (on_collision) {
-				if (raycast_result.has("normal")) {
-					normal = raycast_result["normal"];
-					LOG(EXTREME, "Using raycast normal: ", normal);
+			// Use either collision normal or terrain normal
+			normal = (on_collision && raycast_hit) ? (Vector3)height_data[2] : data->get_normal(position);
+			if (!normal.is_finite()) {
+				normal = Vector3(0.f, 1.f, 0.f);
+			} else {
+				normal = normal.normalized();
+				Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
+				Vector3 x_axis = -z_axis.cross(normal);
+				if (x_axis.length_squared() > 0.001) {
+					t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
 				}
 			}
-
-			// If not using paint on collision or no normal was returned, get normal from terrain data
-			if (std::isnan(normal.x)) {
-				normal = data->get_normal(position);
-				LOG(EXTREME, "Using terrain normal: ", normal);
-			}
 		}
-		if (std::isnan(normal.x)) {
-			normal = Vector3(0.f, 1.f, 0.f);
-			LOG(EXTREME, "No normal found, using default UP: ", normal);
-		} else {
-			normal = normal.normalized();
-			Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
-			Vector3 x_axis = -z_axis.cross(normal);
-			t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
-		}
-	
 		real_t spin = (fixed_spin + random_spin * UtilityFunctions::randf()) * Math_PI / 180.f;
 		if (abs(spin) > 0.001f) {
 			t.basis = t.basis.rotated(normal, spin);
@@ -869,6 +874,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	}
 
 	Terrain3DData *data = _terrain->get_data();
+	bool on_collision = _terrain->get_editor() ? (bool)(_terrain->get_editor()->get_brush_data().get("on_collision", false)) : false;
 	int region_size = _terrain->get_region_size();
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 
@@ -892,7 +898,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 
 	for (int r = 0; r < region_queue.size(); r++) {
 		Vector2i region_loc = region_queue[r];
-		Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(region_loc);
+		Ref<Terrain3DRegion> region = data->get_region(region_loc);
 		_backup_region(region);
 
 		Dictionary mesh_inst_dict = region->get_instances();
@@ -947,12 +953,12 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					if (rect.has_point(Vector2(global_origin.x, global_origin.z))) {
 						Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
 						t.origin -= height_offset;
-						real_t height = _terrain->get_data()->get_height(global_origin);
-						// If the new height is a nan due to creating a hole, remove the instance
-						if (std::isnan(height)) {
+						Array height_data = _get_usable_height(global_origin, Vector2(0.f, 90.f), false, on_collision);
+						if (height_data.size() != 3) {
 							continue;
 						}
-						t.origin.y = height;
+						t.origin.y = height_data[0];
+
 						t.origin += height_offset;
 					}
 					updated_xforms.push_back(t);
