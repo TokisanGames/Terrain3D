@@ -123,7 +123,7 @@ public:
 
 	Terrain3D();
 	~Terrain3D() {}
-	bool is_inside_world() { return _is_inside_world; }
+	bool is_inside_world() const { return _is_inside_world; }
 
 	// Terrain
 	String get_version() const { return _version; }
@@ -187,7 +187,7 @@ public:
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
-	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const real_t &distance);
+	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_destination, const bool p_exclude_self = true) const;
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
 
