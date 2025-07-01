@@ -25,8 +25,10 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	bool _vertical_projection = false;
 	real_t _detiling_rotation = 0.0f;
 	real_t _detiling_shift = 0.0f;
+	real_t _displacement_offset = 0.0f;
+	real_t _displacement_scale = 1.0f;
 	Color _highlight_color = Color();
-
+	
 	bool _is_valid_format(const Ref<Texture2D> &p_texture) const;
 
 public:
@@ -74,6 +76,12 @@ public:
 
 	void set_detiling_shift(const real_t p_detiling_shift);
 	real_t get_detiling_shift() const { return _detiling_shift; }
+
+	void set_displacement_offset(const real_t p_displacement_offset);
+	real_t get_displacement_offset() const { return _displacement_offset; }
+
+	void set_displacement_scale(const real_t p_displacement_scale);
+	real_t get_displacement_scale() const { return _displacement_scale; }
 
 protected:
 	static void _bind_methods();

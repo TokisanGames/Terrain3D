@@ -3,6 +3,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 /* This is an example stripped down shader with maximum performance in mind.
  * Only Autoshader/Base/Over/Blend/Holes/Colormap are supported.
+ * Displacement is not enabled. Mesh Tesselation level must be set to 0.
  * All terrain normal calculations take place in vertex().
  *
  * Control map indices are processed such that each ID only requires reading ONCE.
@@ -32,7 +33,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #endif
 
 // Private uniforms
-uniform vec3 _camera_pos = vec3(0.f);
+uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
@@ -83,6 +84,7 @@ group_uniforms;
 // Varyings & Types
 varying vec3 v_normal;
 varying vec3 v_vertex;
+varying vec3 v_camera_pos;
 varying mat3 TBN;
 
 ////////////////////////
@@ -120,11 +122,14 @@ vec3 get_index_uv(const vec2 uv2) {
 }
 
 void vertex() {
+	// Save Camera Position to varying for access in later functions
+	v_camera_pos = MAIN_CAM_INV_VIEW_MATRIX[3].xyz;
+
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
 	// Camera distance to vertex on flat plane
-	float v_vertex_xz_dist = length(v_vertex.xz - _camera_pos.xz);
+	float v_vertex_xz_dist = length(v_vertex.xz - _target_pos.xz);
 
 	// Geomorph vertex, set end and start for linear height interpolate
 	float scale = MODEL_MATRIX[0][0];
