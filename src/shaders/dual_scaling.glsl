@@ -13,7 +13,7 @@ group_uniforms;
 
 //INSERT: DUAL_SCALING
 	// dual scaling
-	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - _camera_pos)), 0.0, 1.0);
+	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - v_camera_pos)), 0.0, 1.0);
 	vec4 far_alb = vec4(0.);
 	vec4 far_nrm = vec4(0.);
 	float far_ao = 1.0;

@@ -41,6 +41,7 @@ _shader_parameters = {
 "bias_distance": 512.0,
 "blend_sharpness": 0.5,
 "depth_blur": 0.0,
+&"displacement": null,
 "dual_scale_far": 170.0,
 "dual_scale_near": 100.0,
 "dual_scale_reduction": 0.3,
@@ -51,6 +52,7 @@ _shader_parameters = {
 &"macro_variation": true,
 "macro_variation1": Color(0.855, 0.8625, 0.9, 1),
 "macro_variation2": Color(0.9, 0.885, 0.81, 1),
+&"macro_variation_enabled": true,
 "macro_variation_slope": 0.333,
 "mipmap_bias": 1.0,
 &"mipmaps": null,
@@ -75,6 +77,7 @@ _shader_parameters = {
 world_background = 2
 auto_shader_enabled = true
 dual_scaling_enabled = true
+displacement_sharpness = 0.25
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")
@@ -96,9 +99,11 @@ transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 22
 data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_jrc01")
 assets = ExtResource("8_g2of2")
-collision_mask = 3
 collision_target = NodePath("../Player")
+collision_mask = 3
 clipmap_target = NodePath("../Player")
+mesh_size = 96
+tessellation_level = 3
 top_level = true
 metadata/_edit_lock_ = true
 

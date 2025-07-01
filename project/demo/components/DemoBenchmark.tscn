@@ -30,37 +30,29 @@ noise = SubResource("FastNoiseLite_bfcw0")
 
 [sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_klrp5"]
 _shader_parameters = {
-"auto_base_texture": 0,
-"auto_height_reduction": 0.1,
-"auto_overlay_texture": 1,
-"auto_slope": 1.0,
 "bias_distance": 512.0,
 "blend_sharpness": 0.87,
 "depth_blur": 0.0,
-"dual_scale_far": 170.0,
-"dual_scale_near": 100.0,
-"dual_scale_reduction": 0.3,
-"dual_scale_texture": 0,
-"enable_macro_variation": true,
-"enable_projection": true,
-"height_blending": true,
+&"displacement": null,
+&"displacement_scale": 1.0,
+&"displacement_sharpness": 0.5,
+&"flat_terrain_normals": false,
+&"general": null,
+&"macro_variation": null,
 "macro_variation1": Color(1, 1, 1, 1),
 "macro_variation2": Color(1, 1, 1, 1),
+"macro_variation_enabled": true,
 "macro_variation_slope": 0.333,
 "mipmap_bias": 1.0,
+&"mipmaps": null,
 "noise1_angle": 0.0,
 "noise1_offset": Vector2(0.5, 0.5),
 "noise1_scale": 0.04,
 "noise2_scale": 0.076,
-"noise3_scale": 0.225,
 "noise_texture": SubResource("NoiseTexture2D_quxx0"),
-"projection_angular_division": 1.436,
 "projection_threshold": 0.8,
-"tri_scale_reduction": 0.3,
-&"world_space_normal_blend": true
+&"vertical_projection": true
 }
-auto_shader = true
-dual_scaling = true
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_2gjn4")

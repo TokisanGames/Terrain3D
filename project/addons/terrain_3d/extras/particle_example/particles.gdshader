@@ -114,7 +114,7 @@ mat3 align_to_vector(vec3 normal) {
 
 void start() {
 	// Create centered a grid
-	vec3 pos = vec3(float(INDEX % instance_rows), 0.0, float(INDEX / instance_rows)) - float(instance_rows >> 1u);
+	vec3 pos = vec3(float(INDEX % instance_rows), 0.0, float(INDEX / instance_rows)) - float(instance_rows >>1u);
 
 	// Apply spcaing
 	pos *= instance_spacing;
@@ -239,7 +239,7 @@ void start() {
 		floatBitsToUint(texelFetch(_control_maps, index[3], 0).r));
 	bool hole = any(bvec4(control >> uvec4(2u) & uvec4(0x1u)));
 	bool auto = any(bvec4(control & uvec4(0x1u)));
-	int base = int(control[3] >>27u & 0x1Fu);
+	int base = int(control[3] >> 27u & 0x1Fu);
 	int over = int(control[3] >> 22u & 0x1Fu);
 	float blend = float(control[3] >> 14u & 0xFFu) * 0.003921568627450; // 1. / 255.
 

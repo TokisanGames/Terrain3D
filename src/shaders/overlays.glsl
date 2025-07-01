@@ -8,8 +8,9 @@ R"(
 	// Show region grid
 	{
 		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
+		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
 		float __region_line = 1.0;		// Region line thickness
-		__region_line *= .1*sqrt(length(_camera_pos - __pixel_pos));
+		__region_line *= .1*sqrt(length(__camera_pos - __pixel_pos));
 		if (mod(__pixel_pos.x * _vertex_density + __region_line*.5, _region_size) <= __region_line || 
 			mod(__pixel_pos.z * _vertex_density + __region_line*.5, _region_size) <= __region_line ) {
 			ALBEDO = vec3(1.);
@@ -20,8 +21,9 @@ R"(
 	// Show region grid
 	{
 		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
+		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
 		float __cell_line = 0.5;		// Cell line thickness
-		__cell_line *= .1*sqrt(length(_camera_pos - __pixel_pos));
+		__cell_line *= .1*sqrt(length(__camera_pos - __pixel_pos));
 		#define CELL_SIZE 32
 		if (mod(__pixel_pos.x * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line || 
 			mod(__pixel_pos.z * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line ) {
@@ -33,13 +35,14 @@ R"(
 	// Show vertex grids
 	{
 		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
+		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
 		float __grid_line = 0.05;		// Vertex grid line thickness
 		float __grid_step = 1.0;			// Vertex grid size, 1.0 == integer units
 		float __vertex_size = 4.;		// Size of vertices
 		float __view_distance = 300.0;	// Visible distance of grid
 		vec3 __vertex_mul = vec3(0.);
 		vec3 __vertex_add = vec3(0.);
-		float __distance_factor = clamp(1.-length(_camera_pos - __pixel_pos)/__view_distance, 0., 1.);
+		float __distance_factor = clamp(1.-length(__camera_pos - __pixel_pos)/__view_distance, 0., 1.);
 		// Draw vertex grid
 		if ( mod(__pixel_pos.x * _vertex_density + __grid_line*.5, __grid_step) < __grid_line || 
 	  		 mod(__pixel_pos.z * _vertex_density + __grid_line*.5, __grid_step) < __grid_line ) { 
@@ -60,8 +63,8 @@ uniform float contour_thickness : hint_range(0.0, 10.0, 0.001) = 1.0;
 uniform vec4 contour_color : source_color = vec4(.85, .85, .19, 1.);
 group_uniforms;
 
-float fractal_contour_lines(float thickness, float interval, vec3 spatial_coords, vec3 normal, vec3 base_ddx, vec3 base_ddy) {
-    float depth = max(log(length(spatial_coords - _camera_pos) / interval) * (1.0 / log2(2.0)) - 1.0, 1.0);
+float fractal_contour_lines(float thickness, float interval, vec3 spatial_coords, vec3 normal, vec3 base_ddx, vec3 base_ddy, vec3 __camera_pos) {
+    float depth = max(log(length(spatial_coords - __camera_pos) / interval) * (1.0 / log2(2.0)) - 1.0, 1.0);
 
     float interval_a = interval * exp2(max(floor(depth) - 1.0, 1.0)) * 0.5;
     float interval_b = interval * exp2(max(floor(depth), 1.0)) * 0.5;
@@ -103,10 +106,11 @@ float fractal_contour_lines(float thickness, float interval, vec3 spatial_coords
 	// Show contour lines
 	{
 		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
+		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
 		vec3 __base_ddx = dFdxCoarse(__pixel_pos);
 		vec3 __base_ddy = dFdyCoarse(__pixel_pos);
 		vec3 __w_normal = normalize(cross(__base_ddy, __base_ddx));
-		float __line = fractal_contour_lines(contour_thickness, contour_interval, __pixel_pos, __w_normal, __base_ddx, __base_ddy);
+		float __line = fractal_contour_lines(contour_thickness, contour_interval, __pixel_pos, __w_normal, __base_ddx, __base_ddy, __camera_pos);
 		ALBEDO = mix(ALBEDO, contour_color.rgb, (1.-__line) * contour_color.a);
 	}
 )"

@@ -1,6 +1,6 @@
 [gd_scene load_steps=14 format=3 uid="uid://x34e4v60vdmy"]
 
-[ext_resource type="Script" path="res://demo/src/DemoScene.gd" id="1_po4vw"]
+[ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_po4vw"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="2_i74wg"]
 [ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_3upu0"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="4_fk3ul"]
@@ -37,7 +37,8 @@ _shader_parameters = {
 "auto_base_texture": 0,
 "auto_height_reduction": 0.1,
 "auto_overlay_texture": 1,
-"auto_slope": 1.0,
+&"auto_shader": null,
+"auto_slope": 0.5,
 "bias_distance": 512.0,
 "blend_sharpness": 0.87,
 "depth_blur": 0.0,
@@ -45,26 +46,28 @@ _shader_parameters = {
 "dual_scale_near": 100.0,
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
-"enable_macro_variation": true,
-"enable_projection": true,
-"height_blending": true,
+&"dual_scaling": null,
+&"flat_terrain_normals": false,
+&"general": null,
+&"macro_variation": null,
 "macro_variation1": Color(0.878431, 0.862745, 0.901961, 1),
 "macro_variation2": Color(0.898039, 0.898039, 0.803922, 1),
+"macro_variation_enabled": true,
 "macro_variation_slope": 0.333,
 "mipmap_bias": 1.0,
+&"mipmaps": null,
 "noise1_angle": 0.1,
 "noise1_offset": Vector2(0.5, 0.5),
 "noise1_scale": 0.04,
 "noise2_scale": 0.076,
-"noise3_scale": 0.225,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
-"projection_angular_division": 1.436,
 "projection_threshold": 0.8,
-"tri_scale_reduction": 0.3
+"tri_scale_reduction": 0.3,
+&"vertical_projection": true
 }
 world_background = 0
-auto_shader = true
-dual_scaling = true
+auto_shader_enabled = true
+dual_scaling_enabled = true
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_po4vw")

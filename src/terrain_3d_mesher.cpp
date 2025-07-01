@@ -43,7 +43,7 @@ RID Terrain3DMesher::_generate_mesh(const Vector2i &p_size, const bool p_standar
 	PackedVector3Array vertices;
 	PackedInt32Array indices;
 	AABB aabb = AABB(V3_ZERO, Vector3(p_size.x, 0.1f, p_size.y));
-	LOG(DEBUG, "Generating verticies and indices for a", p_standard_grid ? " symetric " : " standard ", "grid mesh of width: ", p_size.x, " and height: ", p_size.y);
+	LOG(DEBUG, "Generating verticies and indices for a", p_standard_grid ? " symmetric " : " standard ", "grid mesh of width: ", p_size.x, " and height: ", p_size.y);
 
 	// Generate vertices
 	for (int y = 0; y <= p_size.y; ++y) {
@@ -292,7 +292,7 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
 	}
 	LOG(INFO, "Initializing GeoMesh");
 	int size = _terrain->get_mesh_size();
-	int lods = _terrain->get_mesh_lods();
+	int lods = _terrain->get_mesh_lods() + _terrain->get_tessellation_level();
 	_generate_clipmap(size, lods, _terrain->get_world_3d()->get_scenario());
 	update();
 	update_aabbs();
@@ -314,18 +314,21 @@ void Terrain3DMesher::destroy() {
 
 void Terrain3DMesher::snap() {
 	IS_INIT(VOID);
-	// If clipmap target has moved enough, re-center terrain on the target.
+	// Always update target position in shader
 	Vector3 target_pos = _terrain->get_clipmap_target_position();
+	RS->material_set_param(_terrain->get_material()->get_material_rid(), "_target_pos", target_pos);
+
+	// If clipmap target hasn't moved enough, skip
 	Vector2 target_pos_2d = v3v2(target_pos);
-	if (_last_target_position.distance_squared_to(target_pos_2d) < 0.04f) {
+	real_t tessellation_density = 1.f / pow(2.f, _terrain->get_tessellation_level());
+	real_t vertex_spacing = _terrain->get_vertex_spacing() * tessellation_density;
+	if (MAX(abs(_last_target_position.x - target_pos_2d.x), abs(_last_target_position.y - target_pos_2d.y)) < vertex_spacing) {
 		return;
 	}
+
+	// Recenter terrain on the target
 	_last_target_position = target_pos_2d;
-
-	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Vector3 snapped_pos = (target_pos / vertex_spacing).floor() * vertex_spacing;
-	RS->material_set_param(_terrain->get_material()->get_material_rid(), "_camera_pos", snapped_pos);
-
 	Vector3 pos = V3_ZERO;
 	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
 		real_t snap_step = pow(2.f, lod + 1.f) * vertex_spacing;

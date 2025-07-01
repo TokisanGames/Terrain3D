@@ -17,7 +17,6 @@ bool Terrain3DTextureAsset::_is_valid_format(const Ref<Texture2D> &p_texture) co
 		LOG(DEBUG, "Provided texture is null.");
 		return true;
 	}
-
 	Ref<Image> img = p_texture->get_image();
 	Image::Format format = Image::FORMAT_MAX;
 	if (img.is_valid()) {
@@ -27,7 +26,6 @@ bool Terrain3DTextureAsset::_is_valid_format(const Ref<Texture2D> &p_texture) co
 		LOG(ERROR, "Invalid texture format. See documentation for format specification.");
 		return false;
 	}
-
 	return true;
 }
 
@@ -49,10 +47,13 @@ void Terrain3DTextureAsset::clear() {
 	_albedo_texture.unref();
 	_normal_texture.unref();
 	_thumbnail.unref();
+
 	_normal_depth = 1.0f;
 	_ao_strength = 0.5f;
 	_ao_light_affect = 0.0f;
 	_roughness = 0.f;
+	_displacement_scale = 0.f;
+	_displacement_offset = 0.f;
 	_uv_scale = 0.1f;
 	_vertical_projection = false;
 	_detiling_rotation = 0.0f;
@@ -178,6 +179,20 @@ void Terrain3DTextureAsset::set_ao_light_affect(const real_t p_ao_light_affect) 
 	emit_signal("setting_changed");
 }
 
+void Terrain3DTextureAsset::set_displacement_scale(const real_t p_displacement_scale) {
+	SET_IF_DIFF(_displacement_scale, CLAMP(p_displacement_scale, 0.0f, 2.0f));
+	LOG(INFO, "Setting displacement_scale: ", _displacement_scale);
+	LOG(DEBUG, "Emitting setting_changed");
+	emit_signal("setting_changed");
+}
+
+void Terrain3DTextureAsset::set_displacement_offset(const real_t p_displacement_offset) {
+	SET_IF_DIFF(_displacement_offset, CLAMP(p_displacement_offset, -1.0f, 1.0f));
+	LOG(INFO, "Setting displacement_offset: ", _displacement_offset);
+	LOG(DEBUG, "Emitting setting_changed");
+	emit_signal("setting_changed");
+}
+
 void Terrain3DTextureAsset::set_uv_scale(const real_t p_scale) {
 	SET_IF_DIFF(_uv_scale, CLAMP(p_scale, 0.001f, 100.0f));
 	LOG(INFO, "Setting uv_scale: ", _uv_scale);
@@ -238,6 +253,10 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_ao_light_affect"), &Terrain3DTextureAsset::get_ao_light_affect);
 	ClassDB::bind_method(D_METHOD("set_roughness", "roughness"), &Terrain3DTextureAsset::set_roughness);
 	ClassDB::bind_method(D_METHOD("get_roughness"), &Terrain3DTextureAsset::get_roughness);
+	ClassDB::bind_method(D_METHOD("set_displacement_scale", "displacement_scale"), &Terrain3DTextureAsset::set_displacement_scale);
+	ClassDB::bind_method(D_METHOD("get_displacement_scale"), &Terrain3DTextureAsset::get_displacement_scale);
+	ClassDB::bind_method(D_METHOD("set_displacement_offset", "displacement_offset"), &Terrain3DTextureAsset::set_displacement_offset);
+	ClassDB::bind_method(D_METHOD("get_displacement_offset"), &Terrain3DTextureAsset::get_displacement_offset);
 	ClassDB::bind_method(D_METHOD("set_uv_scale", "scale"), &Terrain3DTextureAsset::set_uv_scale);
 	ClassDB::bind_method(D_METHOD("get_uv_scale"), &Terrain3DTextureAsset::get_uv_scale);
 	ClassDB::bind_method(D_METHOD("set_vertical_projection", "projection"), &Terrain3DTextureAsset::set_vertical_projection);
@@ -256,7 +275,10 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_strength", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_ao_strength", "get_ao_strength");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_light_affect", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_ao_light_affect", "get_ao_light_affect");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "roughness", PROPERTY_HINT_RANGE, "-1.0, 1.0"), "set_roughness", "get_roughness");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_scale", PROPERTY_HINT_RANGE, "0.0, 2.0"), "set_displacement_scale", "get_displacement_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_offset", PROPERTY_HINT_RANGE, "-1.0, 1.0"), "set_displacement_offset", "get_displacement_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0, or_greater"), "set_uv_scale", "get_uv_scale");
+	ADD_GROUP("Projection", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "vertical_projection", PROPERTY_HINT_NONE), "set_vertical_projection", "get_vertical_projection");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_rotation", "get_detiling_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_shift", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_shift", "get_detiling_shift");

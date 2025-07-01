@@ -355,6 +355,7 @@ void Terrain3DAssets::_update_texture_settings() {
 		_texture_uv_scales.clear();
 		_texture_vertical_projections = 0u;
 		_texture_detiles.clear();
+		_texture_displacements.clear();
 
 		for (const Ref<Terrain3DTextureAsset> &ta : _texture_list) {
 			if (ta.is_null()) {
@@ -372,6 +373,7 @@ void Terrain3DAssets::_update_texture_settings() {
 			_texture_uv_scales.push_back(ta->get_uv_scale());
 			_texture_vertical_projections |= (ta->get_vertical_projection() ? (uint32_t(1u) << uint32_t(ta->get_id())) : uint32_t(0u));
 			_texture_detiles.push_back(Vector2(ta->get_detiling_rotation(), ta->get_detiling_shift()));
+			_texture_displacements.push_back(Vector2(ta->get_displacement_offset(), ta->get_displacement_scale()));
 		}
 	}
 	LOG(DEBUG, "Emitting textures_changed");
@@ -737,6 +739,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_texture_uv_scales"), &Terrain3DAssets::get_texture_uv_scales);
 	ClassDB::bind_method(D_METHOD("get_texture_vertical_projections"), &Terrain3DAssets::get_texture_vertical_projections);
 	ClassDB::bind_method(D_METHOD("get_texture_detiles"), &Terrain3DAssets::get_texture_detiles);
+	ClassDB::bind_method(D_METHOD("get_texture_displacements"), &Terrain3DAssets::get_texture_displacements);
 	ClassDB::bind_method(D_METHOD("clear_textures", "update"), &Terrain3DAssets::clear_textures, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("update_texture_list"), &Terrain3DAssets::update_texture_list);
 

@@ -3,8 +3,8 @@
 [ext_resource type="PackedScene" uid="uid://bn5nf4esciwex" path="res://demo/assets/models/LOD5Example.tscn" id="1_4jrdu"]
 [ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="2_pog6b"]
 [ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="3_g8f2m"]
-[ext_resource type="Texture2D" uid="uid://c307hdmos4gtm" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="3_wncaf"]
-[ext_resource type="Texture2D" uid="uid://c1ots7w6i0i1q" path="res://demo/assets/textures/ground037_nrm_rgh.png" id="4_aw5y1"]
+[ext_resource type="Texture2D" uid="uid://dabyathlpy04p" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="3_wncaf"]
+[ext_resource type="Texture2D" uid="uid://g80pbqtklcws" path="res://demo/assets/textures/ground037_nrm_rgh.png" id="4_aw5y1"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_b2vqk"]
 transparency = 4
@@ -18,7 +18,9 @@ distance_fade_max_distance = 96.0
 
 [sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_2qf8x"]
 name = "TextureCard"
+generated_type = 1
 height_offset = 0.5
+density = 10.0
 material_override = SubResource("StandardMaterial3D_b2vqk")
 last_lod = 0
 last_shadow_lod = 0
@@ -29,6 +31,7 @@ name = "LODExample"
 id = 1
 scene_file = ExtResource("1_4jrdu")
 height_offset = 0.5
+density = 10.0
 last_lod = 4
 last_shadow_lod = 4
 lod4_range = 256.0
@@ -37,9 +40,11 @@ lod4_range = 256.0
 name = "Cliff"
 albedo_texture = ExtResource("2_pog6b")
 normal_texture = ExtResource("3_wncaf")
-normal_depth = 1.0
-ao_strength = 2.0
+normal_depth = 1.5
+ao_strength = 1.0
+ao_light_affect = 0.8
 roughness = -0.05
+displacement_scale = 0.65
 vertical_projection = true
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_od0q7"]
@@ -48,8 +53,9 @@ id = 1
 albedo_color = Color(0.67451, 0.74902, 0.686275, 1)
 albedo_texture = ExtResource("3_g8f2m")
 normal_texture = ExtResource("4_aw5y1")
-normal_depth = 1.0
-ao_strength = 2.0
+normal_depth = 1.4
+ao_strength = 1.0
+displacement_scale = 0.2
 detiling_rotation = 0.161
 
 [resource]
