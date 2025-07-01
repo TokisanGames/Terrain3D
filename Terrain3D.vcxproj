@@ -215,6 +215,8 @@
     <None Include="README.md" />
     <None Include="SConstruct" />
     <None Include="src\shaders\debug_views.glsl" />
+    <None Include="src\shaders\displacement.glsl" />
+    <None Include="src\shaders\displacement_buffer.glsl" />
     <None Include="src\shaders\main.glsl" />
     <None Include="src\shaders\overlays.glsl" />
     <None Include="src\shaders\samplers.glsl" />

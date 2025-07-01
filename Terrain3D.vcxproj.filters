@@ -256,6 +256,12 @@
     <None Include="doc\docs\keyboard_shortcuts.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="src\shaders\displacement.glsl">
+      <Filter>4. Shaders</Filter>
+    </None>
+    <None Include="src\shaders\displacement_buffer.glsl">
+      <Filter>4. Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
