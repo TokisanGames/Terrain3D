@@ -52,6 +52,8 @@ normal_texture = ExtResource("4_aw5y1")
 normal_depth = 1.0
 ao_strength = 2.0
 detiling_rotation = 0.161
+displacement_offset = 0.4
+displacement_scale = 0.25
 
 [resource]
 mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_y3ibi")])

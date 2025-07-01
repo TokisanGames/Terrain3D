@@ -1,5 +1,6 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/color_rect.hpp>
 #include <godot_cpp/classes/compositor.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
@@ -90,6 +91,15 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->_update_mmis()");
 		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::_update_mmis).bind(V2I_MAX, -1));
 	}
+	// Displacement buffer updates
+	if (!_assets->is_connected("textures_changed", callable_mp(this, &Terrain3D::_update_displacement_buffer))) {
+		LOG(DEBUG, "Connecting _assets.textures_changed to _update_displacement_buffer()");
+		_assets->connect("textures_changed", callable_mp(this, &Terrain3D::_update_displacement_buffer));
+	}
+	if (!_data->is_connected("maps_changed", callable_mp(this, &Terrain3D::_update_displacement_buffer))) {
+		LOG(DEBUG, "Connecting _data::maps_changed to _update_displacement_buffer()");
+		_data->is_connected("maps_changed", callable_mp(this, &Terrain3D::_update_displacement_buffer));
+	}
 
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
@@ -100,6 +110,7 @@ void Terrain3D::_initialize() {
 		_collision->initialize(this);
 		_instancer->initialize(this);
 		_mesher->initialize(this);
+		_update_displacement_buffer();
 		_initialized = true;
 		snap();
 	}
@@ -123,6 +134,11 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
+	if (_d_buffer_vp) {
+		RS->material_set_param(_d_buffer_rect->get_material()->get_rid(), "_camera_pos", get_clipmap_target_position());
+		_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	}
+	
 }
 
 /**
@@ -258,6 +274,82 @@ void Terrain3D::_destroy_mouse_picking() {
 	memdelete_safely(_mouse_cam);
 	LOG(DEBUG, "Freeing mouse_vp");
 	memdelete_safely(_mouse_vp);
+}
+
+void Terrain3D::_setup_displacement_buffer() {
+	if (!is_inside_tree()) {
+		LOG(ERROR, "Not inside the tree, skipping displacement buffer setup");
+		return;
+	}
+	_destroy_displacement_buffer();
+	LOG(INFO, "Setting up displacement buffer");
+	_d_buffer_vp = memnew(SubViewport);
+	_d_buffer_vp->set_name("DBufferViewport");
+	add_child(_d_buffer_vp, true);
+	_d_buffer_vp->set_size(Vector2i(2, 2));
+	_d_buffer_vp->set_disable_3d(true);
+	_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	
+	_d_buffer_rect = memnew(ColorRect);
+	_d_buffer_rect->set_name("DBufferRect");
+	_d_buffer_vp->add_child(_d_buffer_rect, true);
+
+	String shader_code = "shader_type canvas_item;";
+	if (_material.is_valid()) {
+		shader_code = _material->get_displacement_buffer_code();
+	}
+	Ref<Shader> shader;
+	shader.instantiate();
+	shader->set_code(shader_code);
+	Ref<ShaderMaterial> shader_material;
+	shader_material.instantiate();
+	shader_material->set_shader(shader);
+	_d_buffer_rect->set_material(shader_material);
+	_d_buffer_rect->set_anchors_preset(Control::PRESET_FULL_RECT);
+}
+
+void Terrain3D::_update_displacement_buffer() {
+	if (!_d_buffer_vp) {
+		return;
+	}
+	if (_tesselation_level == 0) {
+		_d_buffer_vp->set_size(Vector2i(0, 0));
+		_d_buffer_rect->set_size(Vector2i(0, 0));
+	} else if (_data && _assets.is_valid() && _material.is_valid()) {
+		LOG(DEBUG, "Updating displacement buffer");
+		_d_buffer_vp->set_size(Vector2i(_mesh_size * 4 * _tesselation_level, _mesh_size * 4));
+		_d_buffer_rect->set_size(Vector2i(_mesh_size * 4 * _tesselation_level, _mesh_size * 4));
+		Ref<ShaderMaterial> shader_material = _d_buffer_rect->get_material();
+		shader_material->get_shader()->set_code(_material->get_displacement_buffer_code());
+		RID buffer = shader_material->get_rid();
+		RS->material_set_param(buffer, "_tesselation_level", _tesselation_level);
+		RS->material_set_param(buffer, "_mesh_size", _mesh_size);
+		RS->material_set_param(buffer, "_vertex_spacing", _vertex_spacing);
+		RS->material_set_param(buffer, "_vertex_density", 1.0 / _vertex_spacing);
+		RS->material_set_param(buffer, "_region_size", _region_size);
+		RS->material_set_param(buffer, "_region_texel_size", 1.0 / _region_size);
+		RS->material_set_param(buffer, "_region_map_size", 32);
+		RS->material_set_param(buffer, "_region_map", _data->get_region_map());
+		RS->material_set_param(buffer, "_region_locations", _data->get_region_locations());
+		RS->material_set_param(buffer, "_height_maps", _data->get_height_maps_rid());
+		RS->material_set_param(buffer, "_control_maps", _data->get_control_maps_rid());
+		RS->material_set_param(buffer, "_texture_uv_scale_array", _assets->get_texture_uv_scales());
+		RS->material_set_param(buffer, "_texture_detile_array", _assets->get_texture_detiles());
+		RS->material_set_param(buffer, "_texture_array_albedo", _assets->get_albedo_array_rid());
+		RS->material_set_param(buffer, "_texture_array_normal", _assets->get_normal_array_rid());
+		RS->material_set_param(buffer, "_texture_uv_projections", _assets->get_texture_uv_projections());
+		RS->material_set_param(buffer, "_texture_displacement_array", _assets->get_texture_displacements());
+		if (_material->get_material_rid().is_valid()) {
+			RS->material_set_param(_material->get_material_rid(), "_displacement_buffer", _d_buffer_vp->get_texture()->get_rid());
+		}
+	}
+}
+
+void Terrain3D::_destroy_displacement_buffer() {
+	LOG(DEBUG, "Freeing d_buffer_rect");
+	memdelete_safely(_d_buffer_rect);
+	LOG(DEBUG, "Freeing d_buffer_vp");
+	memdelete_safely(_d_buffer_vp);
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
@@ -544,6 +636,7 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 	if (_material.is_valid()) {
 		_material->_update_maps();
 	}
+	_update_displacement_buffer();
 }
 
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
@@ -618,6 +711,19 @@ void Terrain3D::set_mesh_size(const int p_size) {
 		if (_mesher && _material.is_valid()) {
 			_material->_update_maps();
 			_mesher->initialize(this);
+			_update_displacement_buffer();
+		}
+	}
+}
+
+void Terrain3D::set_tesselation_level(const int p_level) {
+	if (_tesselation_level != p_level) {
+		LOG(INFO, "Setting tesselation level: ", p_level);
+		_tesselation_level = CLAMP(p_level, 0, 5);
+		if (_mesher && _material.is_valid()) {
+			_material->update();
+			_mesher->initialize(this);
+			_update_displacement_buffer();
 		}
 	}
 }
@@ -635,6 +741,7 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 			_material->_update_maps();
 			_collision->destroy();
 			_collision->build();
+			_update_displacement_buffer();
 		}
 	}
 	if (IS_EDITOR && _plugin) {
@@ -903,6 +1010,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_notify_transform(true);
 			set_meta("_edit_lock_", true);
 			_setup_mouse_picking();
+			_setup_displacement_buffer();
 			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid() && !_assets->get_path().contains("Terrain3DAssets")) {
 				LOG(INFO, "free_editor_textures enabled, reloading Assets path: ", _assets->get_path());
 				_assets = ResourceLoader::get_singleton()->load(_assets->get_path(), "", ResourceLoader::CACHE_MODE_IGNORE);
@@ -1001,6 +1109,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_physics_process(false);
 			_destroy_mesher();
 			_destroy_mouse_picking();
+			_destroy_displacement_buffer();
 			if (_assets.is_valid()) {
 				_assets->uninitialize();
 			}
@@ -1112,6 +1221,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_tesselation_level", "size"), &Terrain3D::set_tesselation_level);
+	ClassDB::bind_method(D_METHOD("get_tesselation_level"), &Terrain3D::get_tesselation_level);
 	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
 
@@ -1172,6 +1283,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3D::get_show_texture_normal);
 	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3D::set_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3D::get_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("set_show_displacement_buffer", "enabled"), &Terrain3D::set_show_displacement_buffer);
+	ClassDB::bind_method(D_METHOD("get_show_displacement_buffer"), &Terrain3D::get_show_displacement_buffer);
 
 	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction", "gpu_mode"), &Terrain3D::get_intersection, DEFVAL(false));
@@ -1209,6 +1322,7 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "tesselation_level", PROPERTY_HINT_RANGE, "0,5,1"), "set_tesselation_level", "get_tesselation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_clipmap_target", "get_clipmap_target");
 
@@ -1243,6 +1357,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_displacement_buffer"), "set_show_displacement_buffer", "get_show_displacement_buffer");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));

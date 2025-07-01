@@ -294,7 +294,7 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
 	}
 	LOG(INFO, "Initializing GeoMesh");
 	int size = _terrain->get_mesh_size();
-	int lods = _terrain->get_mesh_lods();
+	int lods = _terrain->get_mesh_lods() + _terrain->get_tesselation_level();
 	_generate_clipmap(size, lods, _terrain->get_world_3d()->get_scenario());
 	update();
 	update_aabbs();
@@ -318,12 +318,12 @@ void Terrain3DMesher::snap() {
 	// If clipmap target has moved enough, re-center terrain on the target.
 	Vector3 target_pos = _terrain->get_clipmap_target_position();
 	Vector2 target_pos_2d = v3v2(target_pos);
-	if (_last_target_position.distance_squared_to(target_pos_2d) < 0.04f) {
+	real_t tessellation_density = 1.f / pow(2.f, _terrain->get_tesselation_level());
+	if (_last_target_position.distance_squared_to(target_pos_2d) < 0.04f * tessellation_density) {
 		return;
 	}
 	_last_target_position = target_pos_2d;
-
-	real_t vertex_spacing = _terrain->get_vertex_spacing();
+	real_t vertex_spacing = _terrain->get_vertex_spacing() * tessellation_density;
 	Vector3 snapped_pos = (target_pos / vertex_spacing).floor() * vertex_spacing;
 	RS->material_set_param(_terrain->get_material()->get_material_rid(), "_camera_pos", snapped_pos);
 
