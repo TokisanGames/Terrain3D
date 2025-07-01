@@ -21,6 +21,8 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	real_t _normal_depth = 0.5f;
 	real_t _ao_strength = 0.5f;
 	real_t _roughness = 0.f;
+	real_t _displacement_offset = 0.45f;
+	real_t _displacement_scale = .1f;
 	real_t _uv_scale = 0.1f;
 	bool _vertical_projection = false;
 	real_t _detiling_rotation = 0.0f;
@@ -74,6 +76,12 @@ public:
 
 	void set_detiling_shift(const real_t p_detiling_shift);
 	real_t get_detiling_shift() const { return _detiling_shift; }
+
+	void set_displacement_offset(const real_t p_displacement_offset);
+	real_t get_displacement_offset() const { return _displacement_offset; }
+
+	void set_displacement_scale(const real_t p_displacement_scale);
+	real_t get_displacement_scale() const { return _displacement_scale; }
 
 protected:
 	static void _bind_methods();
