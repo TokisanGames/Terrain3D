@@ -294,7 +294,7 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
 	}
 	LOG(INFO, "Initializing GeoMesh");
 	int size = _terrain->get_mesh_size();
-	int lods = _terrain->get_mesh_lods();
+	int lods = _terrain->get_mesh_lods() + _terrain->get_tesselation_level();
 	_generate_clipmap(size, lods, _terrain->get_world_3d()->get_scenario());
 	update();
 	update_aabbs();
@@ -315,7 +315,7 @@ void Terrain3DMesher::destroy() {
 
 void Terrain3DMesher::snap(const Vector3 &p_tracked_pos) {
 	IS_INIT(VOID);
-	real_t mesh_density = _terrain->get_vertex_spacing();
+	real_t mesh_density = _terrain->get_vertex_spacing() / pow(2.f, _terrain->get_tesselation_level());
 	Vector3 pos = Vector3(0.f, 0.f, 0.f);
 
 	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
