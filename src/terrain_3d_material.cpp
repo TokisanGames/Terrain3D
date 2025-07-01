@@ -33,6 +33,9 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/dual_scaling.glsl"
 			, "dual_scaling");
 	_parse_shader(
+#include "shaders/displacement.glsl"
+			, "displacement");
+	_parse_shader(
 #include "shaders/debug_views.glsl"
 			, "debug_views");
 	_parse_shader(
@@ -45,6 +48,9 @@ void Terrain3DMaterial::_preload_shaders() {
 	// Load main code
 	_shader_code["main"] = String(
 #include "shaders/main.glsl"
+	);
+	_shader_code["displacement_buffer"] = String(
+#include "shaders/displacement_buffer.glsl"
 	);
 
 	if (Terrain3D::debug_level >= DEBUG) {
@@ -148,6 +154,10 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("DUAL_SCALING_CONDITION_1");
 		excludes.push_back("DUAL_SCALING_MIX");
 		excludes.push_back("TRI_SCALING");
+	}
+	if (_terrain->get_tesselation_level() == 0) {
+		excludes.push_back("DISPLACEMENT_FUNCTIONS");
+		excludes.push_back("DISPLACEMENT_VERTEX");
 	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
 	return shader;
@@ -360,6 +370,9 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_debug_view_tex_rough) {
 		insert_names.push_back("DEBUG_TEXTURE_ROUGHNESS");
 	}
+	if (_debug_view_displacement_buffer) {
+		insert_names.push_back("DEBUG_DISPLACEMENT_BUFFER");
+	}
 	// Overlays
 	if (_show_contours) {
 		insert_names.push_back("OVERLAY_CONTOURS_RENDER");
@@ -524,6 +537,9 @@ void Terrain3DMaterial::_update_maps() {
 
 	real_t mesh_size = real_t(_terrain->get_mesh_size());
 	RS->material_set_param(_material, "_mesh_size", mesh_size);
+
+	real_t subdiv = real_t(pow(2, _terrain->get_tesselation_level()));
+	RS->material_set_param(_material, "_subdiv", subdiv);
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list
@@ -608,6 +624,24 @@ void Terrain3DMaterial::destroy() {
 void Terrain3DMaterial::update() {
 	_update_shader();
 	_update_maps();
+}
+
+String Terrain3DMaterial::get_displacement_buffer_code() {
+	LOG(INFO, "Generating default displacement buffer shader code");
+	Array excludes;
+	if (_texture_filtering == LINEAR) {
+		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+		excludes.push_back("NOISE_SAMPLER_NEAREST");
+	} else {
+		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+		excludes.push_back("NOISE_SAMPLER_LINEAR");
+	}
+	if (!_auto_shader) {
+		excludes.push_back("AUTO_SHADER_UNIFORMS");
+		excludes.push_back("AUTO_SHADER");
+	}
+	String shader = _apply_inserts(_shader_code["displacement_buffer"], excludes);
+	return shader;
 }
 
 void Terrain3DMaterial::set_world_background(const WorldBackground p_background) {
@@ -773,6 +807,11 @@ void Terrain3DMaterial::set_show_texture_normal(const bool p_enabled) {
 void Terrain3DMaterial::set_show_texture_rough(const bool p_enabled) {
 	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
 	_debug_view_tex_rough = p_enabled;
+	_update_shader();
+}
+void Terrain3DMaterial::set_show_displacement_buffer(const bool p_enabled) {
+	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
+	_debug_view_displacement_buffer = p_enabled;
 	_update_shader();
 }
 
@@ -1019,6 +1058,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3DMaterial::get_show_texture_normal);
 	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3DMaterial::set_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3DMaterial::get_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("set_show_displacement_buffer", "enabled"), &Terrain3DMaterial::set_show_displacement_buffer);
+	ClassDB::bind_method(D_METHOD("get_show_displacement_buffer"), &Terrain3DMaterial::get_show_displacement_buffer);
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DMaterial::save, DEFVAL(""));
 
@@ -1054,4 +1095,5 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_rough", "get_show_texture_rough");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_displacement_buffer", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_displacement_buffer", "get_show_displacement_buffer");
 }
