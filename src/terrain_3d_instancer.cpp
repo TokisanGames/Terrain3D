@@ -174,6 +174,25 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					// Clear the cell modified state
 					triple[2] = false;
 				}
+
+				// Set all LOD mmi AABB to match LOD0 to ensure no gaps between transitions.
+				AABB mmi_custom_aabb = AABB();
+				for (int lod = 0; lod <= ma->get_last_lod(); lod++) {
+					Vector2i mesh_key(mesh_id, lod);
+					CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+					MultiMeshInstance3D *mmi = cell_mmi_dict[cell];
+					if (lod == 0) {
+						mmi_custom_aabb = mmi->get_aabb();
+					} else {
+						mmi->set_custom_aabb(mmi_custom_aabb);
+					}
+				}
+				if (ma->get_shadow_impostor() >= 0) {
+					Vector2i mesh_key(mesh_id, Terrain3DMeshAsset::SHADOW_LOD_ID);
+					CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+					MultiMeshInstance3D *mmi = cell_mmi_dict[cell];
+					mmi->set_custom_aabb(mmi_custom_aabb);
+				}
 			}
 		}
 	}
