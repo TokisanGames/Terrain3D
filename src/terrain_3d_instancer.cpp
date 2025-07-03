@@ -111,7 +111,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					MultiMeshInstance3D *mmi;
 					if (cell_mmi_dict.count(cell) == 0) {
 						mmi = memnew(MultiMeshInstance3D);
-						LOG(DEBUG, "No MMI found, Created new MultiMeshInstance3D: ", uint64_t(mmi));
+						LOG(DEBUG, "No MMI found, Created new MultiMeshInstance3D: ", ptr_to_str(mmi));
 						// Node name is MMI3D_Cell##_##_Mesh#_LOD#
 						String cstring = "_C" + Util::location_to_string(cell).trim_prefix("_");
 						String mstring = "_M" + String::num_int64(mesh_id);
@@ -187,11 +187,13 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 						mmi->set_custom_aabb(mmi_custom_aabb);
 					}
 				}
-				if (ma->get_shadow_impostor() >= 0) {
+				if (ma->get_shadow_impostor() > 0) {
 					Vector2i mesh_key(mesh_id, Terrain3DMeshAsset::SHADOW_LOD_ID);
 					CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
 					MultiMeshInstance3D *mmi = cell_mmi_dict[cell];
-					mmi->set_custom_aabb(mmi_custom_aabb);
+					if (mmi) {
+						mmi->set_custom_aabb(mmi_custom_aabb);
+					}
 				}
 			}
 		}
@@ -215,9 +217,7 @@ void Terrain3DInstancer::_setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const
 		p_mmi->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 	} else {
 		p_mmi->set_visibility_range_begin(p_ma->get_lod_range_begin(p_lod));
-		// MMI ranges have gaps. Some users experienced worse gaps with billboards (assumed to be last lod)
-		float lod_overlap = (p_lod < p_ma->get_last_lod() - 1) ? 1.0005f : 1.0024f;
-		p_mmi->set_visibility_range_end(p_ma->get_lod_range_end(p_lod) * lod_overlap);
+		p_mmi->set_visibility_range_end(p_ma->get_lod_range_end(p_lod));
 	}
 }
 
@@ -290,7 +290,7 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		}
 
 		MultiMeshInstance3D *mmi = cell_mmi_dict[p_cell];
-		LOG(EXTREME, "Freeing ", uint64_t(mmi), " and erasing mmi cell ", p_cell);
+		LOG(EXTREME, "Freeing ", ptr_to_str(mmi), " and erasing mmi cell ", p_cell);
 		remove_from_tree(mmi);
 		memdelete_safely(mmi);
 		cell_mmi_dict.erase(p_cell);
@@ -1155,17 +1155,17 @@ void Terrain3DInstancer::dump_mmis() {
 	LOG(WARN, "Dumping MMI tree and node containers");
 	LOG(MESG, "_mmi_containers size: ", int(_mmi_containers.size()));
 	for (auto &it : _mmi_containers) {
-		LOG(MESG, "_mmi_containers region: ", it.first, ", node ptr: ", uint64_t(it.second));
+		LOG(MESG, "_mmi_containers region: ", it.first, ", node ptr: ", ptr_to_str(it.second));
 	}
 	LOG(MESG, "_mmi tree: ");
 	_terrain->get_mmi_parent()->print_tree();
 	LOG(MESG, "_mmi_nodes size: ", int(_mmi_nodes.size()));
 	for (auto &i : _mmi_nodes) {
-		LOG(MESG, "_mmi_nodes region: ", i.first, ", dict ptr: ", uint64_t(&i.second));
+		LOG(MESG, "_mmi_nodes region: ", i.first, ", dict ptr: ", ptr_to_str(&i.second));
 		for (auto &j : i.second) {
-			LOG(MESG, "mesh_mmi_dict mesh: ", j.first, ", dict ptr: ", uint64_t(&j.second));
+			LOG(MESG, "mesh_mmi_dict mesh: ", j.first, ", dict ptr: ", ptr_to_str(&j.second));
 			for (auto &k : j.second) {
-				LOG(MESG, "cell_mmi_dict cell: ", k.first, ", mmi ptr: ", uint64_t(k.second));
+				LOG(MESG, "cell_mmi_dict cell: ", k.first, ", mmi ptr: ", ptr_to_str(k.second));
 			}
 		}
 	}

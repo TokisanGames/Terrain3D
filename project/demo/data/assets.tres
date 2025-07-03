@@ -25,13 +25,14 @@ last_lod = 0
 last_shadow_lod = 0
 lod0_range = 128.0
 
-[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_or12t"]
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_y3ibi"]
 name = "LODExample"
 id = 1
 scene_file = ExtResource("1_4jrdu")
 height_offset = 0.5
-last_lod = 3
-last_shadow_lod = 3
+last_lod = 4
+last_shadow_lod = 4
+lod4_range = 256.0
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_lha57"]
 name = "Cliff"
@@ -53,5 +54,5 @@ ao_strength = 2.0
 detiling_rotation = 0.161
 
 [resource]
-mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_or12t")])
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_y3ibi")])
 texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_lha57"), SubResource("Terrain3DTextureAsset_od0q7")])
