@@ -231,12 +231,23 @@ void start() {
 
 	COLOR = color_map;
 
-	// Read control map
-	uint control = floatBitsToUint(texelFetch(_control_maps, index[3], 0).r);
-	bool auto = bool(control & 0x1u);
-	int base = int(control >>27u & 0x1Fu);
-	int over = int(control >> 22u & 0x1Fu);
-	float blend = float(control >> 14u & 0xFFu) * 0.003921568627450; // 1. / 255.
+	// Read control maps
+	uvec4 control = uvec4(
+		floatBitsToUint(texelFetch(_control_maps, index[0], 0).r),
+		floatBitsToUint(texelFetch(_control_maps, index[1], 0).r),
+		floatBitsToUint(texelFetch(_control_maps, index[2], 0).r),
+		floatBitsToUint(texelFetch(_control_maps, index[3], 0).r));
+	bool hole = any(bvec4(control >> uvec4(2u) & uvec4(0x1u)));
+	bool auto = any(bvec4(control & uvec4(0x1u)));
+	int base = int(control[3] >>27u & 0x1Fu);
+	int over = int(control[3] >> 22u & 0x1Fu);
+	float blend = float(control[3] >> 14u & 0xFFu) * 0.003921568627450; // 1. / 255.
+	
+	// Filter out holes
+	if (hole) {
+		pos.y = 0. / 0.;
+		pos.xz = vec2(100000.0);
+	}
 
 	// Hardcoded example, hand painted texture id 0 is filtered out.
 	if (!auto && ((base == 0 && blend < 0.7) || (over == 0 && blend >= 0.3))) {
