@@ -141,6 +141,7 @@
   <ItemGroup>
     <ClInclude Include="src\constants.h" />
     <ClInclude Include="src\generated_texture.h" />
+    <ClInclude Include="src\target_node_3d.h" />
     <ClInclude Include="src\terrain_3d_mesher.h" />
     <ClInclude Include="src\register_types.h" />
     <ClInclude Include="src\terrain_3d.h" />

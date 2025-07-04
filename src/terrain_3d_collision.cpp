@@ -284,6 +284,7 @@ void Terrain3DCollision::build() {
 }
 
 void Terrain3DCollision::update(const bool p_rebuild) {
+	IS_INIT(VOID);
 	if (!_initialized) {
 		return;
 	}
@@ -300,7 +301,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 		LOG(EXTREME, "Updating collision at ", snapped_pos);
 
 		// Skip if location hasn't moved to next step
-		if (!p_rebuild && (_last_snapped_pos - snapped_pos).length() < _shape_size) {
+		if (!p_rebuild && (_last_snapped_pos - snapped_pos).length_squared() < (_shape_size * _shape_size)) {
 			return;
 		}
 
@@ -326,6 +327,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 		// Stores index into _shapes array
 		TypedArray<int> inactive_shape_ids;
 
+		real_t radius_sqr = real_t(_radius * _radius);
 		int shape_count = is_editor_mode() ? _shapes.size() : PS->body_get_shape_count(_static_body_rid);
 		for (int i = 0; i < shape_count; i++) {
 			// Descaled global position of shape center
@@ -333,7 +335,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 			// Unique key: Top left corner of shape, snapped to grid
 			Vector2i shape_pos = _snap_to_grid(v3v2i(shape_center) - shape_offset);
 			// Optionally could adjust radius to account for corner (sqrt(_shape_size*2))
-			if (!p_rebuild && (shape_center.x < FLT_MAX && v3v2i(shape_center).distance_to(snapped_pos) <= real_t(_radius))) {
+			if (!p_rebuild && (shape_center.x < FLT_MAX && v3v2i(shape_center).distance_squared_to(snapped_pos) <= radius_sqr)) {
 				// Get index into shape array
 				Vector2i grid_loc = (shape_pos - grid_pos) / _shape_size;
 				grid[grid_loc.y * grid_width + grid_loc.x] = i;
@@ -358,7 +360,7 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 			// Unique key: Top left corner of shape, snapped to grid
 			Vector2i shape_pos = grid_pos + grid_loc * _shape_size;
 
-			if ((shape_pos + shape_offset).distance_to(snapped_pos) > real_t(_radius)) {
+			if ((shape_pos + shape_offset).distance_squared_to(snapped_pos) > radius_sqr) {
 				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " out of circle, skipping");
 				continue;
 			}

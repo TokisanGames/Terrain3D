@@ -13,6 +13,7 @@
 #include <godot_cpp/classes/sub_viewport.hpp>
 
 #include "constants.h"
+#include "target_node_3d.h"
 #include "terrain_3d_assets.h"
 #include "terrain_3d_collision.h"
 #include "terrain_3d_data.h"
@@ -22,58 +23,6 @@
 #include "terrain_3d_mesher.h"
 
 using namespace godot;
-
-// Does this struct belong here?
-struct TargetNode3D {
-
-private:
-	uint64_t _instance_id = 0;
-	Node3D *_target = nullptr;
-
-public:
-	void set_target(Node3D *p_node_3d) {
-		if (p_node_3d) {
-			_target = p_node_3d;
-			_instance_id = p_node_3d->get_instance_id();
-		} else {
-			_target = nullptr;
-			_instance_id = 0;
-		}
-	}
-
-	Node3D *get_target() {
-		return _target;
-	}
-
-	Vector3 get_global_position() {
-		if (is_inside_tree()) {
-			return _target->get_global_position();
-		}
-		return Vector3(NAN, NAN, NAN);
-	}
-	
-	// UtilityFunctions::is_instance_valid() is faulty and shouldn't be used.
-	// See https://github.com/godotengine/godot-cpp/issues/1390#issuecomment-1937570699
-	bool is_valid() {
-		Object *obj = ObjectDB::get_instance(_instance_id);
-		if (_target) {
-			return _instance_id > 0 && _target == obj;
-		} else {
-			return _instance_id > 0 && obj;
-		}
-	}
-
-	bool is_null() { 
-		return !is_valid(); 
-	}
-
-	bool is_inside_tree() {
-		if (is_valid()) {
-			return _target->is_inside_tree();
-		}
-		return false;
-	}
-};
 
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
@@ -115,12 +64,10 @@ private:
 	Terrain3DEditor *_editor = nullptr;
 	EditorPlugin *_plugin = nullptr;
 
-	// X,Z Position of the camera during the previous snapping. Set to max real_t value to force a snap update.
-	Vector2 _camera_last_position = V2_MAX;
-
+	// Tracked Targets
+	TargetNode3D _clipmap_target;
+	TargetNode3D _collision_target;
 	TargetNode3D _camera; // Fallback target for clipmap and collision
-	TargetNode3D _collision_target_override;
-	TargetNode3D _clipmap_target_override;
 
 	// Regions
 	RegionSize _region_size = SIZE_256;
@@ -132,7 +79,6 @@ private:
 	int _mesh_lods = 7;
 	int _mesh_size = 48;
 	real_t _vertex_spacing = 1.0f;
-	Vector3 _snapped_position = V3_ZERO;
 
 	// Rendering
 	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
@@ -199,16 +145,16 @@ public:
 	Terrain3DEditor *get_editor() const { return _editor; }
 	void set_plugin(EditorPlugin *p_plugin);
 	EditorPlugin *get_plugin() const { return _plugin; }
+
+	// Target Tracking
+	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
+	void set_clipmap_target(Node3D *p_node);
+	Vector3 get_clipmap_target_position() const;
+	Node3D *get_collision_target() const { return _collision_target.ptr(); }
+	void set_collision_target(Node3D *p_node);
+	Vector3 get_collision_target_position() const;
 	void set_camera(Camera3D *p_camera);
-	Node3D *get_camera() { return _camera.get_target(); }
-
-	Node3D *get_collision_target_override();
-	void set_collision_target_override(Node3D *p_node);
-	Vector3 get_collision_target_position();
-
-	Node3D *get_clipmap_target_override();
-	void set_clipmap_target_override(Node3D *p_node);
-	Vector3 get_clipmap_target_position();
+	Camera3D *get_camera() const { return cast_to<Camera3D>(_camera.ptr()); }
 
 	// Regions
 	void set_region_size(const RegionSize p_size);
@@ -229,7 +175,6 @@ public:
 	int get_mesh_size() const { return _mesh_size; }
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
-	Vector3 get_snapped_position() const { return _snapped_position; }
 
 	// Rendering
 	void set_render_layers(const uint32_t p_layers);
