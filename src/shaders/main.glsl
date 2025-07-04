@@ -223,7 +223,7 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 
 	// Control map scale
 	float control_scale = DECODE_SCALE(control);
-//INSERT: TRI_scaling
+//INSERT: TRI_SCALING
 	base_ddx *= control_scale;
 	base_ddy *= control_scale;
 	i_vertex *= control_scale;
