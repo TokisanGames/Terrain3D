@@ -38,7 +38,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #define DECODE_SCALE(control) (0.9 - float(((control >>7u & 0x7u) + 3u) % 8u + 1u) * 0.1)
 #define DECODE_HOLE(control) bool(control >>2u & 0x1u)
 
-#define TEXTURE_ID_PROJECTED(id) bool((_texture_uv_projections >> uint(id)) & 0x1u)
+#define TEXTURE_ID_PROJECTED(id) bool((_texture_vertical_projections >> uint(id)) & 0x1u)
 
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
     #define fma(a, b, c) ((a) * (b) + (c))
@@ -62,7 +62,7 @@ uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
 uniform float _texture_roughness_mod_array[32];
 uniform float _texture_uv_scale_array[32];
-uniform uint _texture_uv_projections;
+uniform uint _texture_vertical_projections;
 uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
@@ -75,14 +75,14 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: DUAL_SCALING_UNIFORMS
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 uniform bool flat_terrain_normals = false;
-uniform bool enable_projection = true;
+uniform bool vertical_projection = true;
 uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
 uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
 
-uniform bool enable_macro_variation = true;
+uniform bool macro_variation = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
 uniform float macro_variation_slope : hint_range(0., 1.)  = 0.333;
@@ -240,7 +240,7 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 	vec2 p_uv = i_uv;
 	vec4 p_dd = i_dd;
 	vec2 p_pos = i_pos;
-	if (i_normal.y <= projection_threshold && enable_projection) {
+	if (i_normal.y <= projection_threshold && vertical_projection) {
 		// Projected normal map alignment matrix
 		p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
 		// Fast 45 degree snapping https://iquilezles.org/articles/noatan/
@@ -554,7 +554,7 @@ void fragment() {
 
 	// Macro variation. 2 lookups
 	vec3 macrov = vec3(1.);
-	if (enable_macro_variation) {
+	if (macro_variation) {
 		float noise1 = texture(noise_texture, rotate_vec2(fma(uv, vec2(noise1_scale * .1), noise1_offset) , vec2(cos(noise1_angle), sin(noise1_angle)))).r;
 		float noise2 = texture(noise_texture, uv * noise2_scale * .1).r;
 		macrov = mix(macro_variation1, vec3(1.), noise1);

@@ -41,7 +41,7 @@ void Terrain3DTextureAsset::clear() {
 	_albedo_texture.unref();
 	_normal_texture.unref();
 	_uv_scale = 0.1f;
-	_uv_projection = true;
+	_vertical_projection = false;
 	_detiling_rotation = 0.0f;
 	_detiling_shift = 0.0f;
 }
@@ -135,9 +135,9 @@ void Terrain3DTextureAsset::set_uv_scale(const real_t p_scale) {
 	emit_signal("setting_changed");
 }
 
-void Terrain3DTextureAsset::set_uv_projection(const bool p_projection) {
-	_uv_projection = p_projection;
-	LOG(INFO, "Setting uv projection: ", _uv_projection);
+void Terrain3DTextureAsset::set_vertical_projection(const bool p_projection) {
+	_vertical_projection = p_projection;
+	LOG(INFO, "Setting uv projection: ", _vertical_projection);
 	emit_signal("setting_changed");
 }
 
@@ -181,8 +181,8 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_roughness"), &Terrain3DTextureAsset::get_roughness);
 	ClassDB::bind_method(D_METHOD("set_uv_scale", "scale"), &Terrain3DTextureAsset::set_uv_scale);
 	ClassDB::bind_method(D_METHOD("get_uv_scale"), &Terrain3DTextureAsset::get_uv_scale);
-	ClassDB::bind_method(D_METHOD("set_uv_projection", "projection"), &Terrain3DTextureAsset::set_uv_projection);
-	ClassDB::bind_method(D_METHOD("get_uv_projection"), &Terrain3DTextureAsset::get_uv_projection);
+	ClassDB::bind_method(D_METHOD("set_vertical_projection", "projection"), &Terrain3DTextureAsset::set_vertical_projection);
+	ClassDB::bind_method(D_METHOD("get_vertical_projection"), &Terrain3DTextureAsset::get_vertical_projection);
 	ClassDB::bind_method(D_METHOD("set_detiling_rotation", "detiling_rotation"), &Terrain3DTextureAsset::set_detiling_rotation);
 	ClassDB::bind_method(D_METHOD("get_detiling_rotation"), &Terrain3DTextureAsset::get_detiling_rotation);
 	ClassDB::bind_method(D_METHOD("set_detiling_shift", "detiling_shift"), &Terrain3DTextureAsset::set_detiling_shift);
@@ -197,7 +197,7 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_strength", PROPERTY_HINT_RANGE, "0.0, 2.0"), "set_ao_strength", "get_ao_strength");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "roughness", PROPERTY_HINT_RANGE, "-1.0, 1.0"), "set_roughness", "get_roughness");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0"), "set_uv_scale", "get_uv_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "uv_projection", PROPERTY_HINT_NONE), "set_uv_projection", "get_uv_projection");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "vertical_projection", PROPERTY_HINT_NONE), "set_vertical_projection", "get_vertical_projection");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_rotation", "get_detiling_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_shift", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_shift", "get_detiling_shift");
 }
