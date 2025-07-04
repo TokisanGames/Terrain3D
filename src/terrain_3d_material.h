@@ -45,6 +45,7 @@ private:
 	TextureFiltering _texture_filtering = LINEAR;
 	bool _dual_scaling = false;
 	bool _auto_shader = false;
+	bool _displacement = false;
 
 	// Overlays
 	bool _show_region_grid = false;
@@ -69,6 +70,7 @@ private:
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
 	bool _debug_view_jaggedness = false;
+	bool _debug_view_displacement_buffer = false;
 
 	// Functions
 	void _preload_shaders();
@@ -95,6 +97,9 @@ public:
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader.is_valid() ? _shader->get_rid() : RID(); }
 
+	// Displacement buffer code
+	String get_displacement_buffer_code();
+
 	// Material settings
 	void set_world_background(const WorldBackground p_background);
 	WorldBackground get_world_background() const { return _world_background; }
@@ -104,6 +109,8 @@ public:
 	bool get_auto_shader() const { return _auto_shader; }
 	void set_dual_scaling(const bool p_enabled);
 	bool get_dual_scaling() const { return _dual_scaling; }
+	void set_displacement(const bool p_enabled);
+	bool get_displacement() const { return _displacement; }
 
 	void enable_shader_override(const bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
@@ -154,6 +161,8 @@ public:
 	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
 	void set_show_texture_rough(const bool p_enabled);
 	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
+	void set_show_displacement_buffer(const bool p_enabled);
+	bool get_show_displacement_buffer() const { return _debug_view_displacement_buffer; }
 
 	Error save(const String &p_path = "");
 
