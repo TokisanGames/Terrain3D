@@ -32,7 +32,19 @@
 		<method name="get_camera" qualifiers="const">
 			<return type="Camera3D" />
 			<description>
-				Returns the camera the terrain is currently snapping to.
+				Returns the camera the terrain is currently tracking for position, if not overridden by [member clipmap_target]. See [method set_camera].
+			</description>
+		</method>
+		<method name="get_clipmap_target_position" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Returns the position on which the terrain mesh is centered, which may be the camera or a target node. See [member clipmap_target].
+			</description>
+		</method>
+		<method name="get_collision_target_position" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Returns the position on which the terrain collision is centered, which may be the camera or a target node. See [member collision_target].
 			</description>
 		</method>
 		<method name="get_editor" qualifiers="const">
@@ -77,17 +89,14 @@
 				Returns the EditorPlugin connected to Terrain3D.
 			</description>
 		</method>
-		<method name="get_snapped_position" qualifiers="const">
-			<return type="Vector3" />
-			<description>
-				Returns the last position the terrain was centered on.
-			</description>
-		</method>
 		<method name="set_camera">
 			<return type="void" />
 			<param index="0" name="camera" type="Camera3D" />
 			<description>
-				Sets the camera the terrain snaps to.
+				Specifies the camera on which the terrain centers. It attempts to aquire the camera from the active viewport.
+				If the camera is instanced in a sub scene or by code, Terrain3D might not be able to find it, will issue an error, and the terrain will center at (0,0,0) causing LODs to not update until a trackable node is set.
+				Either specify the camera, or specify the clipmap and/or collision targets. It will use the targets first and fall back to the camera if they are null.
+				See [member clipmap_target] and [member collision_target].
 			</description>
 		</method>
 		<method name="set_editor">
@@ -112,6 +121,9 @@
 		<member name="cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="RenderingServer.ShadowCastingSetting" default="1">
 			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
 		</member>
+		<member name="clipmap_target" type="Node3D" setter="set_clipmap_target" getter="get_clipmap_target">
+			The terrain mesh will center itself at the position of this node. If null, it will fall back to the camera position. See [method set_camera].
+		</member>
 		<member name="collision" type="Terrain3DCollision" setter="" getter="get_collision">
 			The active [Terrain3DCollision] object.
 		</member>
@@ -132,6 +144,9 @@
 		</member>
 		<member name="collision_shape_size" type="int" setter="set_collision_shape_size" getter="get_collision_shape_size" default="16">
 			Alias for [member Terrain3DCollision.shape_size].
+		</member>
+		<member name="collision_target" type="Node3D" setter="set_collision_target" getter="get_collision_target">
+			In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the [member clipmap_target] position and failing that will use the camera position. See [method set_camera].
 		</member>
 		<member name="cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
 			This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
