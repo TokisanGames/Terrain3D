@@ -40,6 +40,7 @@ normal_texture = ExtResource("3_wncaf")
 normal_depth = 1.0
 ao_strength = 2.0
 roughness = -0.05
+vertical_projection = true
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_od0q7"]
 name = "Grass"
@@ -49,7 +50,6 @@ albedo_texture = ExtResource("3_g8f2m")
 normal_texture = ExtResource("4_aw5y1")
 normal_depth = 1.0
 ao_strength = 2.0
-uv_projection = false
 detiling_rotation = 0.161
 
 [resource]
