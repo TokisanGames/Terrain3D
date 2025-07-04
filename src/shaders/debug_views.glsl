@@ -183,14 +183,12 @@ uniform float heightmap_white_height: hint_range(-2048.,2048.,.5) = 300.0;
 	{
 		ivec3 __uv = get_index_coord(floor(uv), SKIP_PASS);
         uint __control = floatBitsToUint(texelFetch(_control_maps, __uv, 0).r);
-        float __ctrl_blend = float(control[3] >> 14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
-        float __auto_blend = 0.;
+        float __ctrl_blend = float(__control >> 14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
+		float __is_auto = 0.;
 		#ifdef AUTO_SHADER
-			__auto_blend = clamp((auto_slope * 2. * ( (mat3(INV_VIEW_MATRIX) * NORMAL).y - 1.) + 1.)
-	            - auto_height_reduction * .01 * (mat3(INV_VIEW_MATRIX) * VERTEX).y // Reduce as vertices get higher
-		        , 0., 1.);
+			__is_auto = float( bool(__control & 0x1u) || __uv.z<0 );
 		#endif
-		ALBEDO = vec3(__ctrl_blend, 0., __auto_blend * float( bool(__control & 0x1u) || __uv.z<0 ));
+		ALBEDO = vec3(__ctrl_blend) * (1.0 - __is_auto) + vec3(0.2, 0.0, 0.0) * __is_auto;
 		ROUGHNESS = 1.;
 		SPECULAR = 0.;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
