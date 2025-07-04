@@ -68,7 +68,7 @@ uniform float dual_scale_near : hint_range(0,1000) = 100.0;
 			alb = mix(alb, far_alb, far_factor);
 			nrm = mix(nrm, far_nrm, far_factor);
 		}
-//INSERT: TRI_scaling
+//INSERT: TRI_SCALING
 	// tri scaling
 	if (index.z < 0) {
 		control_scale *= tri_scale_reduction;
