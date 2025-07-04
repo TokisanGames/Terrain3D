@@ -91,11 +91,6 @@ inline Vector3 v2v3(const Vector2 &p_v2) {
 // Math
 ///////////////////////////
 
-template <typename T>
-inline bool is_power_of_2(const T p_n) {
-	return p_n && !(p_n & (p_n - 1));
-}
-
 // Integer round to multiples
 // https://stackoverflow.com/questions/3407012/rounding-up-to-the-nearest-multiple-of-a-number
 
