@@ -27,29 +27,31 @@ Properties
 .. table::
    :widths: auto
 
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``Color``     | :ref:`albedo_color<class_Terrain3DTextureAsset_property_albedo_color>`           | ``Color(1, 1, 1, 1)`` |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``Texture2D`` | :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_texture>`       |                       |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`ao_strength<class_Terrain3DTextureAsset_property_ao_strength>`             | ``0.5``               |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`detiling_rotation<class_Terrain3DTextureAsset_property_detiling_rotation>` | ``0.0``               |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`detiling_shift<class_Terrain3DTextureAsset_property_detiling_shift>`       | ``0.0``               |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``int``       | :ref:`id<class_Terrain3DTextureAsset_property_id>`                               | ``0``                 |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``String``    | :ref:`name<class_Terrain3DTextureAsset_property_name>`                           | ``"New Texture"``     |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`normal_depth<class_Terrain3DTextureAsset_property_normal_depth>`           | ``0.5``               |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``Texture2D`` | :ref:`normal_texture<class_Terrain3DTextureAsset_property_normal_texture>`       |                       |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`roughness<class_Terrain3DTextureAsset_property_roughness>`                 | ``0.0``               |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`uv_scale<class_Terrain3DTextureAsset_property_uv_scale>`                   | ``0.1``               |
-   +---------------+----------------------------------------------------------------------------------+-----------------------+
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``Color``     | :ref:`albedo_color<class_Terrain3DTextureAsset_property_albedo_color>`               | ``Color(1, 1, 1, 1)`` |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``Texture2D`` | :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_texture>`           |                       |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`ao_strength<class_Terrain3DTextureAsset_property_ao_strength>`                 | ``0.5``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`detiling_rotation<class_Terrain3DTextureAsset_property_detiling_rotation>`     | ``0.0``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`detiling_shift<class_Terrain3DTextureAsset_property_detiling_shift>`           | ``0.0``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``int``       | :ref:`id<class_Terrain3DTextureAsset_property_id>`                                   | ``0``                 |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``String``    | :ref:`name<class_Terrain3DTextureAsset_property_name>`                               | ``"New Texture"``     |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`normal_depth<class_Terrain3DTextureAsset_property_normal_depth>`               | ``0.5``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``Texture2D`` | :ref:`normal_texture<class_Terrain3DTextureAsset_property_normal_texture>`           |                       |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`roughness<class_Terrain3DTextureAsset_property_roughness>`                     | ``0.0``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`uv_scale<class_Terrain3DTextureAsset_property_uv_scale>`                       | ``0.1``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``bool``      | :ref:`vertical_projection<class_Terrain3DTextureAsset_property_vertical_projection>` | ``false``             |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -295,6 +297,23 @@ Increases or decreases the roughness texture values.
 - ``float`` **get_uv_scale**\ (\ )
 
 The scale of the textures.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_property_vertical_projection:
+
+.. rst-class:: classref-property
+
+``bool`` **vertical_projection** = ``false`` :ref:`🔗<class_Terrain3DTextureAsset_property_vertical_projection>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_vertical_projection**\ (\ value\: ``bool``\ )
+- ``bool`` **get_vertical_projection**\ (\ )
+
+Projects this texture vertically so it is suitable for the stretched polygons on cliff faces. Turn this on for textures you'll use on cliffs. It can still work on horizontal areas with care and blending. Enable Vertical Projection and adjust the settings in the material.
 
 .. rst-class:: classref-section-separator
 

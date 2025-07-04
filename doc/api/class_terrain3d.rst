@@ -34,6 +34,8 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | RenderingServer.ShadowCastingSetting                        | :ref:`cast_shadows<class_Terrain3D_property_cast_shadows>`                 | ``1``           |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``Node3D``                                                  | :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>`             |                 |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DCollision<class_Terrain3DCollision>`         | :ref:`collision<class_Terrain3D_property_collision>`                       |                 |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`collision_layer<class_Terrain3D_property_collision_layer>`           | ``1``           |
@@ -47,6 +49,8 @@ Properties
    | ``int``                                                     | :ref:`collision_radius<class_Terrain3D_property_collision_radius>`         | ``64``          |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`collision_shape_size<class_Terrain3D_property_collision_shape_size>` | ``16``          |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``Node3D``                                                  | :ref:`collision_target<class_Terrain3D_property_collision_target>`         |                 |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``float``                                                   | :ref:`cull_margin<class_Terrain3D_property_cull_margin>`                   | ``0.0``         |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
@@ -144,13 +148,15 @@ Methods
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Camera3D``                                  | :ref:`get_camera<class_Terrain3D_method_get_camera>`\ (\ ) |const|                                                                                                      |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``Vector3``                                   | :ref:`get_clipmap_target_position<class_Terrain3D_method_get_clipmap_target_position>`\ (\ ) |const|                                                                    |
+   +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``Vector3``                                   | :ref:`get_collision_target_position<class_Terrain3D_method_get_collision_target_position>`\ (\ ) |const|                                                                |
+   +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Terrain3DEditor<class_Terrain3DEditor>` | :ref:`get_editor<class_Terrain3D_method_get_editor>`\ (\ ) |const|                                                                                                      |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Vector3``                                   | :ref:`get_intersection<class_Terrain3D_method_get_intersection>`\ (\ src_pos\: ``Vector3``, direction\: ``Vector3``, gpu_mode\: ``bool`` = false\ )                     |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``EditorPlugin``                              | :ref:`get_plugin<class_Terrain3D_method_get_plugin>`\ (\ ) |const|                                                                                                      |
-   +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``Vector3``                                   | :ref:`get_snapped_position<class_Terrain3D_method_get_snapped_position>`\ (\ ) |const|                                                                                  |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_camera<class_Terrain3D_method_set_camera>`\ (\ camera\: ``Camera3D``\ )                                                                                       |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -336,6 +342,23 @@ Tells the renderer how to cast shadows from the terrain onto other objects. This
 
 ----
 
+.. _class_Terrain3D_property_clipmap_target:
+
+.. rst-class:: classref-property
+
+``Node3D`` **clipmap_target** :ref:`🔗<class_Terrain3D_property_clipmap_target>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_clipmap_target**\ (\ value\: ``Node3D``\ )
+- ``Node3D`` **get_clipmap_target**\ (\ )
+
+The terrain mesh will center itself at the position of this node. If null, it will fall back to the camera position. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_collision:
 
 .. rst-class:: classref-property
@@ -449,6 +472,23 @@ Alias for :ref:`Terrain3DCollision.radius<class_Terrain3DCollision_property_radi
 - ``int`` **get_collision_shape_size**\ (\ )
 
 Alias for :ref:`Terrain3DCollision.shape_size<class_Terrain3DCollision_property_shape_size>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_collision_target:
+
+.. rst-class:: classref-property
+
+``Node3D`` **collision_target** :ref:`🔗<class_Terrain3D_property_collision_target>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_collision_target**\ (\ value\: ``Node3D``\ )
+- ``Node3D`` **get_collision_target**\ (\ )
+
+In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>` position and failing that will use the camera position. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1190,7 +1230,31 @@ Generates source geometry faces for input to nav mesh baking. Geometry is only g
 
 ``Camera3D`` **get_camera**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_camera>`
 
-Returns the camera the terrain is currently snapping to.
+Returns the camera the terrain is currently tracking for position, if not overridden by :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>`. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_method_get_clipmap_target_position:
+
+.. rst-class:: classref-method
+
+``Vector3`` **get_clipmap_target_position**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_clipmap_target_position>`
+
+Returns the position on which the terrain mesh is centered, which may be the camera or a target node. See :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_method_get_collision_target_position:
+
+.. rst-class:: classref-method
+
+``Vector3`` **get_collision_target_position**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_collision_target_position>`
+
+Returns the position on which the terrain collision is centered, which may be the camera or a target node. See :ref:`collision_target<class_Terrain3D_property_collision_target>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1270,25 +1334,19 @@ Returns the EditorPlugin connected to Terrain3D.
 
 ----
 
-.. _class_Terrain3D_method_get_snapped_position:
-
-.. rst-class:: classref-method
-
-``Vector3`` **get_snapped_position**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_snapped_position>`
-
-Returns the last position the terrain was centered on.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3D_method_set_camera:
 
 .. rst-class:: classref-method
 
 |void| **set_camera**\ (\ camera\: ``Camera3D``\ ) :ref:`🔗<class_Terrain3D_method_set_camera>`
 
-Sets the camera the terrain snaps to.
+Specifies the camera on which the terrain centers. It attempts to aquire the camera from the active viewport.
+
+If the camera is instanced in a sub scene or by code, Terrain3D might not be able to find it, will issue an error, and the terrain will center at (0,0,0) causing LODs to not update until a trackable node is set.
+
+Either specify the camera, or specify the clipmap and/or collision targets. It will use the targets first and fall back to the camera if they are null.
+
+See :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>` and :ref:`collision_target<class_Terrain3D_property_collision_target>`.
 
 .. rst-class:: classref-item-separator
 
