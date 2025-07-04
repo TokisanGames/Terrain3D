@@ -31,13 +31,13 @@ private:
 
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-	typedef std::unordered_map<Vector2i, MultiMeshInstance3D *, Vector2iHash> CellMMIDict;
+	typedef std::unordered_map<Vector2i, RID, Vector2iHash> CellMMIDict;
 	typedef std::unordered_map<Vector2i, CellMMIDict, Vector2iHash> MeshMMIDict;
 	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_nodes;
 
 	// Region MMI containers named Terrain3D/MMI/Region* are stored here as
-	// _mmi_containers{region_loc} -> Node3D
-	std::unordered_map<Vector2i, Node3D *, Vector2iHash> _mmi_containers;
+	//_mmi_containers{region_loc} -> Node3D
+	//std::unordered_map<Vector2i, RID, Vector2iHash> _mmi_containers;
 
 	uint32_t _density_counter = 0;
 	uint32_t _get_density_count(const real_t p_density);
@@ -48,9 +48,10 @@ private:
 	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
-	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
+	RID _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
 	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size);
 	Array _get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert, const bool p_on_collision) const;
+	void _setup_mmi_lod_ranges(const RID &p_mm, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
 
 public:
 	Terrain3DInstancer() {}
