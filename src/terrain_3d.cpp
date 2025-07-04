@@ -112,26 +112,16 @@ void Terrain3D::_initialize() {
 void Terrain3D::__physics_process(const double p_delta) {
 	if (!_initialized)
 		return;
-
 	if (!_camera.is_valid()) {
 		LOG(DEBUG, "Camera is null, getting the current one");
 		_grab_camera();
 	}
-
-	// If clipmap target has moved enough, re-center the terrain on it.
-	Vector3 target_pos = get_clipmap_target_position();
-	Vector2 target_pos_2d = Vector2(target_pos.x, target_pos.z);
-	RS->material_set_param(_material->get_material_rid(), "_camera_pos", target_pos);
-	if (_camera_last_position.distance_to(target_pos_2d) > 0.2f) {
-		if (_mesher) {
-			_mesher->snap(target_pos);
-		}
-		_snapped_position = (target_pos / _vertex_spacing).floor() * _vertex_spacing;
-		_camera_last_position = target_pos_2d;
+	if (_mesher) {
+		_mesher->snap();
 	}
-
-	// For collision, distance moved and re-centering is handled internally.
-	_collision->update();
+	if (_collision) {
+		_collision->update();
+	}
 }
 
 /**
@@ -146,9 +136,9 @@ void Terrain3D::_grab_camera() {
 		_camera.set_target(get_viewport()->get_camera_3d());
 		LOG(DEBUG, "Grabbing the in-game viewport camera: ", _camera.get_target());
 	}
-	if (!_camera.is_valid() && !_clipmap_target_override.is_valid()) {
-		set_physics_process(false); // disable snapping
-		LOG(ERROR, "Cannot find clipmap target or the active camera. Set it manually with Terrain3D.set_camera(). Stopping _physics_process()");
+	if (!_camera.is_valid() && !_clipmap_target.is_valid()) {
+		set_physics_process(false); // No target to follow, disable snapping until one set
+		LOG(ERROR, "Cannot find clipmap target or active camera. LODs won't be updated. Set manually with set_clipmap_target() or set_camera()");
 	}
 }
 
@@ -461,65 +451,73 @@ void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 }
 
 void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
+	if (p_editor && p_editor->is_queued_for_deletion()) {
+		LOG(ERROR, "Attempted to set a node queued for deletion");
+		return;
+	}
+	LOG(INFO, "Set Terrain3DEditor: ", p_editor);
 	_editor = p_editor;
 	if (_material.is_valid()) {
 		_material->update();
 	}
-	LOG(DEBUG, "Received Terrain3DEditor: ", p_editor);
 }
 
 void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
+	if (p_plugin && p_plugin->is_queued_for_deletion()) {
+		LOG(ERROR, "Attempted to set a node queued for deletion");
+		return;
+	}
+	LOG(INFO, "Set EditorPlugin: ", p_plugin);
 	_plugin = p_plugin;
-	LOG(DEBUG, "Received editor plugin: ", p_plugin);
+}
+
+void Terrain3D::set_clipmap_target(Node3D *p_node) {
+	if (p_node && p_node->is_queued_for_deletion()) {
+		LOG(ERROR, "Attempted to set a node queued for deletion");
+		_clipmap_target.clear();
+		return;
+	}
+	LOG(INFO, "Setting clipmap target: ", p_node);
+	_clipmap_target.set_target(p_node);
+	set_physics_process(true);
+}
+
+Vector3 Terrain3D::get_clipmap_target_position() const {
+	if (_clipmap_target.is_inside_tree()) {
+		return _clipmap_target.ptr()->get_global_position();
+	}
+	if (_camera.is_inside_tree()) {
+		return _camera.ptr()->get_global_position();
+	}
+	return V3_ZERO;
+}
+
+void Terrain3D::set_collision_target(Node3D *p_node) {
+	if (p_node && p_node->is_queued_for_deletion()) {
+		LOG(ERROR, "Attempted to set a node queued for deletion");
+		_collision_target.clear();
+		return;
+	}
+	LOG(INFO, "Setting collision target: ", p_node);
+	_collision_target.set_target(p_node);
+}
+
+Vector3 Terrain3D::get_collision_target_position() const {
+	if (_collision_target.is_inside_tree()) {
+		return _collision_target.ptr()->get_global_position();
+	}
+	return get_clipmap_target_position();
 }
 
 void Terrain3D::set_camera(Camera3D *p_camera) {
-	LOG(INFO, "Setting camera");
+	if (p_camera && p_camera->is_queued_for_deletion()) {
+		LOG(ERROR, "Attempted to set a node queued for deletion");
+		_camera.clear();
+		return;
+	}
+	LOG(INFO, "Setting camera: ", p_camera);
 	_camera.set_target(p_camera);
-}
-
-Node3D *Terrain3D::get_collision_target_override() {
-	return _collision_target_override.get_target();
-}
-
-void Terrain3D::set_collision_target_override(Node3D *p_node) {
-	LOG(INFO, "Setting collision target override");
-	_collision_target_override.set_target(p_node);
-}
-
-Vector3 Terrain3D::get_collision_target_position() {
-	if (_collision_target_override.is_valid()) {
-		return _collision_target_override.get_global_position();
-	}
-	if (_camera.is_valid()) {
-		return _camera.get_global_position();
-	}
-	if (_clipmap_target_override.is_valid()) {
-		return _clipmap_target_override.get_global_position();
-	}
-
-	return Vector3(NAN, NAN, NAN);
-}
-
-Node3D *Terrain3D::get_clipmap_target_override() {
-	return _clipmap_target_override.get_target();
-}
-
-void Terrain3D::set_clipmap_target_override(Node3D *p_node) {
-	LOG(INFO, "Setting clipmap target override");
-	_clipmap_target_override.set_target(p_node);
-}
-
-Vector3 Terrain3D::get_clipmap_target_position() {
-	if (_clipmap_target_override.is_valid()) {
-		return _clipmap_target_override.get_global_position();
-	}
-
-	if (_camera.is_valid()) {
-		return _camera.get_global_position();
-	}
-
-	return Vector3(NAN, NAN, NAN);
+	set_physics_process(true);
 }
 
 void Terrain3D::set_region_size(const RegionSize p_size) {
@@ -621,7 +619,7 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 			_data->_vertex_spacing = _vertex_spacing;
 			update_region_labels();
 			_instancer->_update_vertex_spacing(_vertex_spacing);
-			_camera_last_position = V2_MAX;
+			_mesher->reset_target_position();
 			_material->_update_maps();
 			_collision->destroy();
 			_collision->build();
@@ -692,11 +690,6 @@ void Terrain3D::set_cull_margin(const real_t p_margin) {
  * Returns Vec3(NAN) on error or vec3(3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode) {
-	// Why does this need a camera...?
-	if (!_camera.is_valid()) {
-		LOG(ERROR, "Invalid camera");
-		return Vector3(NAN, NAN, NAN);
-	}
 	if (!_mouse_cam) {
 		LOG(ERROR, "Invalid mouse camera");
 		return Vector3(NAN, NAN, NAN);
@@ -1064,10 +1057,18 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
 	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
+
+	// Target Tracking
 	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
 	ClassDB::bind_method(D_METHOD("get_camera"), &Terrain3D::get_camera);
+	ClassDB::bind_method(D_METHOD("set_clipmap_target", "node"), &Terrain3D::set_clipmap_target);
+	ClassDB::bind_method(D_METHOD("get_clipmap_target"), &Terrain3D::get_clipmap_target);
+	ClassDB::bind_method(D_METHOD("get_clipmap_target_position"), &Terrain3D::get_clipmap_target_position);
+	ClassDB::bind_method(D_METHOD("set_collision_target", "node"), &Terrain3D::set_collision_target);
+	ClassDB::bind_method(D_METHOD("get_collision_target"), &Terrain3D::get_collision_target);
+	ClassDB::bind_method(D_METHOD("get_collision_target_position"), &Terrain3D::get_collision_target_position);
 
-	//Regions
+	// Regions
 	ClassDB::bind_method(D_METHOD("change_region_size", "size"), &Terrain3D::change_region_size);
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
@@ -1092,8 +1093,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_priority"), &Terrain3D::get_collision_priority);
 	ClassDB::bind_method(D_METHOD("set_physics_material", "material"), &Terrain3D::set_physics_material);
 	ClassDB::bind_method(D_METHOD("get_physics_material"), &Terrain3D::get_physics_material);
-	ClassDB::bind_method(D_METHOD("set_collision_target_override", "node"), &Terrain3D::set_collision_target_override);
-	ClassDB::bind_method(D_METHOD("get_collision_target_override"), &Terrain3D::get_collision_target_override);
 
 	// Meshes
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
@@ -1102,9 +1101,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
 	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
-	ClassDB::bind_method(D_METHOD("get_snapped_position"), &Terrain3D::get_snapped_position);
-	ClassDB::bind_method(D_METHOD("set_clipmap_target_override", "node"), &Terrain3D::set_clipmap_target_override);
-	ClassDB::bind_method(D_METHOD("get_clipmap_target_override"), &Terrain3D::get_clipmap_target_override);
 
 	// Rendering
 	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
@@ -1189,19 +1185,19 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision_target_override", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_collision_target_override", "get_collision_target_override");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_shape_size", PROPERTY_HINT_RANGE, "8,64,8"), "set_collision_shape_size", "get_collision_shape_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_radius", PROPERTY_HINT_RANGE, "16,256,16"), "set_collision_radius", "get_collision_radius");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority", PROPERTY_HINT_RANGE, "0.1,256,.1"), "set_collision_priority", "get_collision_priority");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision_target", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_collision_target", "get_collision_target");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
 
 	ADD_GROUP("Mesh", "");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target_override", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_clipmap_target_override", "get_clipmap_target_override");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_clipmap_target", "get_clipmap_target");
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");

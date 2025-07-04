@@ -298,7 +298,7 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
 	_generate_clipmap(size, lods, _terrain->get_world_3d()->get_scenario());
 	update();
 	update_aabbs();
-	snap(_terrain->get_snapped_position());
+	snap();
 }
 
 void Terrain3DMesher::destroy() {
@@ -313,25 +313,35 @@ void Terrain3DMesher::destroy() {
 	_fill_b_pos.clear();
 }
 
-void Terrain3DMesher::snap(const Vector3 &p_tracked_pos) {
+void Terrain3DMesher::snap() {
 	IS_INIT(VOID);
-	real_t mesh_density = _terrain->get_vertex_spacing();
-	Vector3 pos = Vector3(0.f, 0.f, 0.f);
+	// If clipmap target has moved enough, re-center terrain on the target.
+	Vector3 target_pos = _terrain->get_clipmap_target_position();
+	Vector2 target_pos_2d = v3v2(target_pos);
+	if (_last_target_position.distance_squared_to(target_pos_2d) < 0.04f) {
+		return;
+	}
+	_last_target_position = target_pos_2d;
 
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
+	Vector3 snapped_pos = (target_pos / vertex_spacing).floor() * vertex_spacing;
+	RS->material_set_param(_terrain->get_material()->get_material_rid(), "_camera_pos", snapped_pos);
+
+	Vector3 pos = Vector3(0.f, 0.f, 0.f);
 	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
-		real_t snap_step = pow(2.f, lod + 1.f) * mesh_density;
-		Vector3 lod_scale = Vector3(pow(2.f, lod) * mesh_density, 1.f, pow(2.f, lod) * mesh_density);
+		real_t snap_step = pow(2.f, lod + 1.f) * vertex_spacing;
+		Vector3 lod_scale = Vector3(pow(2.f, lod) * vertex_spacing, 1.f, pow(2.f, lod) * vertex_spacing);
 
 		// Snap pos.xz
-		pos.x = round(p_tracked_pos.x / snap_step) * snap_step;
-		pos.z = round(p_tracked_pos.z / snap_step) * snap_step;
+		pos.x = round(snapped_pos.x / snap_step) * snap_step;
+		pos.z = round(snapped_pos.z / snap_step) * snap_step;
 
 		LOG(EXTREME, "Snapping clipmap LOD", lod, " to position: ", pos);
 
 		// test_x and test_z for edge strip positions
-		real_t next_snap_step = pow(2.f, lod + 2.f) * mesh_density;
-		real_t next_x = round(p_tracked_pos.x / next_snap_step) * next_snap_step;
-		real_t next_z = round(p_tracked_pos.z / next_snap_step) * next_snap_step;
+		real_t next_snap_step = pow(2.f, lod + 2.f) * vertex_spacing;
+		real_t next_x = round(snapped_pos.x / next_snap_step) * next_snap_step;
+		real_t next_z = round(snapped_pos.z / next_snap_step) * next_snap_step;
 		int test_x = CLAMP(int(round((pos.x - next_x) / snap_step)) + 1, 0, 2);
 		int test_z = CLAMP(int(round((pos.z - next_z) / snap_step)) + 1, 0, 2);
 		Array lod_array = _clipmap_rids[lod];
