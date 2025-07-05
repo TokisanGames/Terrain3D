@@ -329,14 +329,14 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_debug_view_jaggedness) {
 		insert_names.push_back("DEBUG_JAGGEDNESS");
 	}
-	if (_debug_view_colormap) {
-		insert_names.push_back("DEBUG_COLORMAP");
-	}
-	if (_debug_view_roughmap) {
-		insert_names.push_back("DEBUG_ROUGHMAP");
+	if (_debug_view_autoshader) {
+		insert_names.push_back("DEBUG_AUTOSHADER");
 	}
 	if (_debug_view_control_texture) {
 		insert_names.push_back("DEBUG_CONTROL_TEXTURE");
+	}
+	if (_debug_view_control_blend) {
+		insert_names.push_back("DEBUG_CONTROL_BLEND");
 	}
 	if (_debug_view_control_angle) {
 		insert_names.push_back("DEBUG_CONTROL_ANGLE");
@@ -344,11 +344,11 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_debug_view_control_scale) {
 		insert_names.push_back("DEBUG_CONTROL_SCALE");
 	}
-	if (_debug_view_control_blend) {
-		insert_names.push_back("DEBUG_CONTROL_BLEND");
+	if (_debug_view_colormap) {
+		insert_names.push_back("DEBUG_COLORMAP");
 	}
-	if (_debug_view_autoshader) {
-		insert_names.push_back("DEBUG_AUTOSHADER");
+	if (_debug_view_roughmap) {
+		insert_names.push_back("DEBUG_ROUGHMAP");
 	}
 	if (_debug_view_tex_height) {
 		insert_names.push_back("DEBUG_TEXTURE_HEIGHT");
@@ -715,21 +715,21 @@ void Terrain3DMaterial::set_show_jaggedness(const bool p_enabled) {
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_show_colormap(const bool p_enabled) {
-	LOG(INFO, "Enable show_colormap: ", p_enabled);
-	_debug_view_colormap = p_enabled;
-	_update_shader();
-}
-
-void Terrain3DMaterial::set_show_roughmap(const bool p_enabled) {
-	LOG(INFO, "Enable show_roughmap: ", p_enabled);
-	_debug_view_roughmap = p_enabled;
+void Terrain3DMaterial::set_show_autoshader(const bool p_enabled) {
+	LOG(INFO, "Enable show_autoshader: ", p_enabled);
+	_debug_view_autoshader = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_texture(const bool p_enabled) {
 	LOG(INFO, "Enable show_control_texture: ", p_enabled);
 	_debug_view_control_texture = p_enabled;
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_show_control_blend(const bool p_enabled) {
+	LOG(INFO, "Enable show_control_blend: ", p_enabled);
+	_debug_view_control_blend = p_enabled;
 	_update_shader();
 }
 
@@ -745,15 +745,15 @@ void Terrain3DMaterial::set_show_control_scale(const bool p_enabled) {
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_show_control_blend(const bool p_enabled) {
-	LOG(INFO, "Enable show_control_blend: ", p_enabled);
-	_debug_view_control_blend = p_enabled;
+void Terrain3DMaterial::set_show_colormap(const bool p_enabled) {
+	LOG(INFO, "Enable show_colormap: ", p_enabled);
+	_debug_view_colormap = p_enabled;
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_show_autoshader(const bool p_enabled) {
-	LOG(INFO, "Enable show_autoshader: ", p_enabled);
-	_debug_view_autoshader = p_enabled;
+void Terrain3DMaterial::set_show_roughmap(const bool p_enabled) {
+	LOG(INFO, "Enable show_roughmap: ", p_enabled);
+	_debug_view_roughmap = p_enabled;
 	_update_shader();
 }
 
@@ -990,20 +990,20 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_heightmap"), &Terrain3DMaterial::get_show_heightmap);
 	ClassDB::bind_method(D_METHOD("set_show_jaggedness", "enabled"), &Terrain3DMaterial::set_show_jaggedness);
 	ClassDB::bind_method(D_METHOD("get_show_jaggedness"), &Terrain3DMaterial::get_show_jaggedness);
-	ClassDB::bind_method(D_METHOD("set_show_colormap", "enabled"), &Terrain3DMaterial::set_show_colormap);
-	ClassDB::bind_method(D_METHOD("get_show_colormap"), &Terrain3DMaterial::get_show_colormap);
-	ClassDB::bind_method(D_METHOD("set_show_roughmap", "enabled"), &Terrain3DMaterial::set_show_roughmap);
-	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DMaterial::get_show_roughmap);
+	ClassDB::bind_method(D_METHOD("set_show_autoshader", "enabled"), &Terrain3DMaterial::set_show_autoshader);
+	ClassDB::bind_method(D_METHOD("get_show_autoshader"), &Terrain3DMaterial::get_show_autoshader);
 	ClassDB::bind_method(D_METHOD("set_show_control_texture", "enabled"), &Terrain3DMaterial::set_show_control_texture);
 	ClassDB::bind_method(D_METHOD("get_show_control_texture"), &Terrain3DMaterial::get_show_control_texture);
+	ClassDB::bind_method(D_METHOD("set_show_control_blend", "enabled"), &Terrain3DMaterial::set_show_control_blend);
+	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3DMaterial::get_show_control_blend);
 	ClassDB::bind_method(D_METHOD("set_show_control_angle", "enabled"), &Terrain3DMaterial::set_show_control_angle);
 	ClassDB::bind_method(D_METHOD("get_show_control_angle"), &Terrain3DMaterial::get_show_control_angle);
 	ClassDB::bind_method(D_METHOD("set_show_control_scale", "enabled"), &Terrain3DMaterial::set_show_control_scale);
 	ClassDB::bind_method(D_METHOD("get_show_control_scale"), &Terrain3DMaterial::get_show_control_scale);
-	ClassDB::bind_method(D_METHOD("set_show_control_blend", "enabled"), &Terrain3DMaterial::set_show_control_blend);
-	ClassDB::bind_method(D_METHOD("get_show_control_blend"), &Terrain3DMaterial::get_show_control_blend);
-	ClassDB::bind_method(D_METHOD("set_show_autoshader", "enabled"), &Terrain3DMaterial::set_show_autoshader);
-	ClassDB::bind_method(D_METHOD("get_show_autoshader"), &Terrain3DMaterial::get_show_autoshader);
+	ClassDB::bind_method(D_METHOD("set_show_colormap", "enabled"), &Terrain3DMaterial::set_show_colormap);
+	ClassDB::bind_method(D_METHOD("get_show_colormap"), &Terrain3DMaterial::get_show_colormap);
+	ClassDB::bind_method(D_METHOD("set_show_roughmap", "enabled"), &Terrain3DMaterial::set_show_roughmap);
+	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DMaterial::get_show_roughmap);
 	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3DMaterial::set_show_texture_height);
 	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3DMaterial::get_show_texture_height);
 	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3DMaterial::set_show_texture_normal);
@@ -1033,13 +1033,13 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grey"), "set_show_grey", "get_show_grey");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_heightmap"), "set_show_heightmap", "get_show_heightmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_jaggedness"), "set_show_jaggedness", "get_show_jaggedness");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap"), "set_show_colormap", "get_show_colormap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap"), "set_show_roughmap", "get_show_roughmap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader"), "set_show_autoshader", "get_show_autoshader");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture"), "set_show_control_texture", "get_show_control_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend"), "set_show_control_blend", "get_show_control_blend");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_angle"), "set_show_control_angle", "get_show_control_angle");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_scale"), "set_show_control_scale", "get_show_control_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend"), "set_show_control_blend", "get_show_control_blend");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader"), "set_show_autoshader", "get_show_autoshader");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap"), "set_show_colormap", "get_show_colormap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap"), "set_show_roughmap", "get_show_roughmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");

@@ -57,18 +57,18 @@ private:
 	bool _debug_view_checkered = false;
 	bool _debug_view_grey = false;
 	bool _debug_view_heightmap = false;
-	bool _debug_view_colormap = false;
-	bool _debug_view_roughmap = false;
+	bool _debug_view_jaggedness = false;
+	bool _debug_view_autoshader = false;
 	bool _debug_view_control_texture = false;
+	bool _debug_view_control_blend = false;
 	bool _debug_view_control_angle = false;
 	bool _debug_view_control_scale = false;
-	bool _debug_view_control_blend = false;
-	bool _debug_view_autoshader = false;
 	bool _debug_view_holes = false;
+	bool _debug_view_colormap = false;
+	bool _debug_view_roughmap = false;
 	bool _debug_view_tex_height = false;
 	bool _debug_view_tex_normal = false;
 	bool _debug_view_tex_rough = false;
-	bool _debug_view_jaggedness = false;
 
 	// Functions
 	void _preload_shaders();
@@ -134,20 +134,20 @@ public:
 	bool get_show_heightmap() const { return _debug_view_heightmap; }
 	void set_show_jaggedness(const bool p_enabled);
 	bool get_show_jaggedness() const { return _debug_view_jaggedness; }
-	void set_show_colormap(const bool p_enabled);
-	bool get_show_colormap() const { return _debug_view_colormap; }
-	void set_show_roughmap(const bool p_enabled);
-	bool get_show_roughmap() const { return _debug_view_roughmap; }
+	void set_show_autoshader(const bool p_enabled);
+	bool get_show_autoshader() const { return _debug_view_autoshader; }
 	void set_show_control_texture(const bool p_enabled);
 	bool get_show_control_texture() const { return _debug_view_control_texture; }
+	void set_show_control_blend(const bool p_enabled);
+	bool get_show_control_blend() const { return _debug_view_control_blend; }
 	void set_show_control_angle(const bool p_enabled);
 	bool get_show_control_angle() const { return _debug_view_control_angle; }
 	void set_show_control_scale(const bool p_enabled);
 	bool get_show_control_scale() const { return _debug_view_control_scale; }
-	void set_show_control_blend(const bool p_enabled);
-	bool get_show_control_blend() const { return _debug_view_control_blend; }
-	void set_show_autoshader(const bool p_enabled);
-	bool get_show_autoshader() const { return _debug_view_autoshader; }
+	void set_show_colormap(const bool p_enabled);
+	bool get_show_colormap() const { return _debug_view_colormap; }
+	void set_show_roughmap(const bool p_enabled);
+	bool get_show_roughmap() const { return _debug_view_roughmap; }
 	void set_show_texture_height(const bool p_enabled);
 	bool get_show_texture_height() const { return _debug_view_tex_height; }
 	void set_show_texture_normal(const bool p_enabled);

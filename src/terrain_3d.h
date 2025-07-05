@@ -240,20 +240,20 @@ public:
 	bool get_show_heightmap() const { return _material.is_valid() ? _material->get_show_heightmap() : false; }
 	void set_show_jaggedness(const bool p_enabled) { _material.is_valid() ? _material->set_show_jaggedness(p_enabled) : void(); }
 	bool get_show_jaggedness() const { return _material.is_valid() ? _material->get_show_jaggedness() : false; }
-	void set_show_colormap(const bool p_enabled) { _material.is_valid() ? _material->set_show_colormap(p_enabled) : void(); }
-	bool get_show_colormap() const { return _material.is_valid() ? _material->get_show_colormap() : false; }
-	void set_show_roughmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_roughmap(p_enabled) : void(); }
-	bool get_show_roughmap() const { return _material.is_valid() ? _material->get_show_roughmap() : false; }
+	void set_show_autoshader(const bool p_enabled) { _material.is_valid() ? _material->set_show_autoshader(p_enabled) : void(); }
+	bool get_show_autoshader() const { return _material.is_valid() ? _material->get_show_autoshader() : false; }
 	void set_show_control_texture(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_texture(p_enabled) : void(); }
 	bool get_show_control_texture() const { return _material.is_valid() ? _material->get_show_control_texture() : false; }
+	void set_show_control_blend(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_blend(p_enabled) : void(); }
+	bool get_show_control_blend() const { return _material.is_valid() ? _material->get_show_control_blend() : false; }
 	void set_show_control_angle(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_angle(p_enabled) : void(); }
 	bool get_show_control_angle() const { return _material.is_valid() ? _material->get_show_control_angle() : false; }
 	void set_show_control_scale(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_scale(p_enabled) : void(); }
 	bool get_show_control_scale() const { return _material.is_valid() ? _material->get_show_control_scale() : false; }
-	void set_show_control_blend(const bool p_enabled) { _material.is_valid() ? _material->set_show_control_blend(p_enabled) : void(); }
-	bool get_show_control_blend() const { return _material.is_valid() ? _material->get_show_control_blend() : false; }
-	void set_show_autoshader(const bool p_enabled) { _material.is_valid() ? _material->set_show_autoshader(p_enabled) : void(); }
-	bool get_show_autoshader() const { return _material.is_valid() ? _material->get_show_autoshader() : false; }
+	void set_show_colormap(const bool p_enabled) { _material.is_valid() ? _material->set_show_colormap(p_enabled) : void(); }
+	bool get_show_colormap() const { return _material.is_valid() ? _material->get_show_colormap() : false; }
+	void set_show_roughmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_roughmap(p_enabled) : void(); }
+	bool get_show_roughmap() const { return _material.is_valid() ? _material->get_show_roughmap() : false; }
 	void set_show_texture_height(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_height(p_enabled) : void(); }
 	bool get_show_texture_height() const { return _material.is_valid() ? _material->get_show_texture_height() : false; }
 	void set_show_texture_normal(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_normal(p_enabled) : void(); }
