@@ -134,8 +134,8 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
-	if (_d_buffer_vp) {
-		RS->material_set_param(_d_buffer_rect->get_material()->get_rid(), "_camera_pos", get_clipmap_target_position());
+	if (_d_buffer_vp && _tesselation_level > 0) {
+		RS->material_set_param(_d_buffer_rect->get_material()->get_rid(), "_target_pos", get_clipmap_target_position());
 		_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 	}
 	
@@ -337,7 +337,7 @@ void Terrain3D::_update_displacement_buffer() {
 		RS->material_set_param(buffer, "_texture_detile_array", _assets->get_texture_detiles());
 		RS->material_set_param(buffer, "_texture_array_albedo", _assets->get_albedo_array_rid());
 		RS->material_set_param(buffer, "_texture_array_normal", _assets->get_normal_array_rid());
-		RS->material_set_param(buffer, "_texture_uv_projections", _assets->get_texture_uv_projections());
+		RS->material_set_param(buffer, "_texture_vertical_projections", _assets->get_texture_vertical_projections());
 		RS->material_set_param(buffer, "_texture_displacement_array", _assets->get_texture_displacements());
 		if (_material->get_material_rid().is_valid()) {
 			RS->material_set_param(_material->get_material_rid(), "_displacement_buffer", _d_buffer_vp->get_texture()->get_rid());

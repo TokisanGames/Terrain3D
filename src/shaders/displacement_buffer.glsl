@@ -26,7 +26,7 @@ R"(shader_type canvas_item;
 #define DECODE_SCALE(control) (0.9 - float(((control >>7u & 0x7u) + 3u) % 8u + 1u) * 0.1)
 #define DECODE_HOLE(control) bool(control >>2u & 0x1u)
 
-#define TEXTURE_ID_PROJECTED(id) bool((_texture_uv_projections >> uint(id)) & 0x1u)
+#define TEXTURE_ID_PROJECTED(id) bool((_texture_vertical_projections >> uint(id)) & 0x1u)
 
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
     #define fma(a, b, c) ((a) * (b) + (c))
@@ -36,7 +36,7 @@ R"(shader_type canvas_item;
 
 // Private uniforms
 uniform float _tesselation_level = 0.;
-uniform vec3 _camera_pos = vec3(0.f);
+uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform float _vertex_spacing = 1.0;
@@ -47,7 +47,7 @@ uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_uv_scale_array[32];
-uniform uint _texture_uv_projections;
+uniform uint _texture_vertical_projections;
 uniform vec2 _texture_detile_array[32];
 uniform vec2 _texture_displacement_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
@@ -250,7 +250,7 @@ void fragment() {
 	float scale = floor(UV.x * (_tesselation_level));
 	float p_scale = pow(2.0, scale);
 	vec2 uv = (vec2(fract(UV.x * _tesselation_level), UV.y) - 0.5) * (_mesh_size * 2.0) / p_scale;
-	uv += round(_camera_pos.xz * _vertex_density * p_scale) / p_scale;
+	uv += round(_target_pos.xz * _vertex_density * p_scale) / p_scale;
 	vec2 uv2 = uv * _region_texel_size;
 
 	// Lookup offsets, ID and blend weight
