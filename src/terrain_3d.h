@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
@@ -95,9 +96,12 @@ private:
 	MeshInstance3D *_mouse_quad = nullptr;
 	uint32_t _mouse_layer = 32;
 
-	// Displacement Buffer
+	// Displacement
 	SubViewport *_d_buffer_vp = nullptr;
 	ColorRect *_d_buffer_rect = nullptr;
+	Ref<ShaderMaterial> _d_buffer_material;
+	bool _enable_d_buffer_override = false;
+	Ref<ShaderMaterial> _d_buffer_override;
 
 	// Parent containers for child nodes
 	Node3D *_label_parent;
@@ -187,6 +191,10 @@ public:
 	int get_tesselation_level() const { return _tesselation_level; }
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
+	void set_enable_d_buffer_override(const bool p_enable);
+	bool get_enable_d_buffer_override() const { return _enable_d_buffer_override; }
+	void set_d_buffer_override(const Ref<ShaderMaterial> &p_shader_material);
+	Ref<ShaderMaterial> get_d_buffer_override() const { return _d_buffer_override; }
 
 	// Rendering
 	void set_render_layers(const uint32_t p_layers);

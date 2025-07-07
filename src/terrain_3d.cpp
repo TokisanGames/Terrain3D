@@ -293,17 +293,20 @@ void Terrain3D::_setup_displacement_buffer() {
 	_d_buffer_rect->set_name("DBufferRect");
 	_d_buffer_vp->add_child(_d_buffer_rect, true);
 
-	String shader_code = "shader_type canvas_item;";
-	if (_material.is_valid()) {
-		shader_code = _material->get_displacement_buffer_code();
+	if (_d_buffer_material.is_null()) {
+		String shader_code = "shader_type canvas_item;";
+		if (_material.is_valid()) {
+			shader_code = _material->get_displacement_buffer_code();
+		}
+		Ref<Shader> shader;
+		shader.instantiate();
+		shader->set_code(shader_code);
+		Ref<ShaderMaterial> shader_material;
+		shader_material.instantiate();
+		shader_material->set_shader(shader);
+		_d_buffer_material = shader_material;
 	}
-	Ref<Shader> shader;
-	shader.instantiate();
-	shader->set_code(shader_code);
-	Ref<ShaderMaterial> shader_material;
-	shader_material.instantiate();
-	shader_material->set_shader(shader);
-	_d_buffer_rect->set_material(shader_material);
+	_d_buffer_rect->set_material(_d_buffer_material);
 	_d_buffer_rect->set_anchors_preset(Control::PRESET_FULL_RECT);
 }
 
@@ -314,12 +317,19 @@ void Terrain3D::_update_displacement_buffer() {
 	if (_tesselation_level == 0) {
 		_d_buffer_vp->set_size(Vector2i(0, 0));
 		_d_buffer_rect->set_size(Vector2i(0, 0));
-	} else if (_data && _assets.is_valid() && _material.is_valid()) {
+	} else if (_data && _assets.is_valid() && _material.is_valid() && _d_buffer_material.is_valid()) {
 		LOG(DEBUG, "Updating displacement buffer");
 		_d_buffer_vp->set_size(Vector2i(_mesh_size * 4 * _tesselation_level, _mesh_size * 4));
 		_d_buffer_rect->set_size(Vector2i(_mesh_size * 4 * _tesselation_level, _mesh_size * 4));
-		Ref<ShaderMaterial> shader_material = _d_buffer_rect->get_material();
-		shader_material->get_shader()->set_code(_material->get_displacement_buffer_code());
+		Ref<ShaderMaterial> shader_material;
+		if (_enable_d_buffer_override && _d_buffer_override.is_valid()) {
+			shader_material = _d_buffer_override;
+		} else {
+			shader_material = _d_buffer_material;
+			// potentially material options have changed
+			shader_material->get_shader()->set_code(_material->get_displacement_buffer_code());
+		}
+		_d_buffer_rect->set_material(shader_material);
 		RID buffer = shader_material->get_rid();
 		RS->material_set_param(buffer, "_tesselation_level", _tesselation_level);
 		RS->material_set_param(buffer, "_mesh_size", _mesh_size);
@@ -714,6 +724,28 @@ void Terrain3D::set_tesselation_level(const int p_level) {
 			_update_displacement_buffer();
 		}
 	}
+}
+
+void Terrain3D::set_enable_d_buffer_override(const bool p_enable) {
+	_enable_d_buffer_override = p_enable;
+	if (_enable_d_buffer_override  && !_d_buffer_override.is_valid()) {
+		String shader_code = "shader_type canvas_item;";
+		if (_material.is_valid()) {
+			shader_code = _material->get_displacement_buffer_code();
+		}
+		Ref<Shader> shader;
+		shader.instantiate();
+		shader->set_code(shader_code);
+		Ref<ShaderMaterial> shader_material;
+		shader_material.instantiate();
+		shader_material->set_shader(shader);
+		_d_buffer_override = shader_material;
+	}
+	_update_displacement_buffer();
+}
+
+void Terrain3D::set_d_buffer_override(const Ref<ShaderMaterial> &p_shader_material) {
+	_d_buffer_override = p_shader_material;
 }
 
 void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
@@ -1212,6 +1244,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tesselation_level"), &Terrain3D::get_tesselation_level);
 	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("set_enable_d_buffer_override", "enable"), &Terrain3D::set_enable_d_buffer_override);
+	ClassDB::bind_method(D_METHOD("get_enable_d_buffer_override"), &Terrain3D::get_enable_d_buffer_override);
+	ClassDB::bind_method(D_METHOD("set_d_buffer_override", "ShaderMaterial"), &Terrain3D::set_d_buffer_override);
+	ClassDB::bind_method(D_METHOD("get_d_buffer_override"), &Terrain3D::get_d_buffer_override);
 
 	// Rendering
 	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
@@ -1309,9 +1345,12 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "tesselation_level", PROPERTY_HINT_RANGE, "0,5,1"), "set_tesselation_level", "get_tesselation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_clipmap_target", "get_clipmap_target");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "tesselation_level", PROPERTY_HINT_RANGE, "0,5,1"), "set_tesselation_level", "get_tesselation_level");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_buffer_override"), "set_enable_d_buffer_override", "get_enable_d_buffer_override");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "buffer_override", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial"), "set_d_buffer_override", "get_d_buffer_override");
+
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
