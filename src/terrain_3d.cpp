@@ -483,7 +483,7 @@ void Terrain3D::set_clipmap_target(Node3D *p_node) {
 }
 
 Vector3 Terrain3D::get_clipmap_target_position() const {
-	if (_clipmap_target.is_inside_tree()) {
+	if (!IS_EDITOR && _clipmap_target.is_inside_tree()) {
 		return _clipmap_target.ptr()->get_global_position();
 	}
 	if (_camera.is_inside_tree()) {
@@ -503,7 +503,7 @@ void Terrain3D::set_collision_target(Node3D *p_node) {
 }
 
 Vector3 Terrain3D::get_collision_target_position() const {
-	if (_collision_target.is_inside_tree()) {
+	if (!IS_EDITOR && _collision_target.is_inside_tree()) {
 		return _collision_target.ptr()->get_global_position();
 	}
 	return get_clipmap_target_position();
