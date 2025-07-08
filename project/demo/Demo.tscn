@@ -93,11 +93,13 @@ collision_mask = 3
 [node name="Player" parent="." instance=ExtResource("3_ht63y")]
 transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
 
-[node name="Terrain3D" type="Terrain3D" parent="."]
+[node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("collision_target", "clipmap_target")]
 data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_jrc01")
 assets = ExtResource("8_g2of2")
 collision_mask = 3
+collision_target = NodePath("../Player")
+clipmap_target = NodePath("../Player")
 top_level = true
 metadata/_edit_lock_ = true
 
