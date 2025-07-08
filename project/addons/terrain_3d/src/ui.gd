@@ -294,8 +294,20 @@ func set_active_operation() -> void:
 	
 	# If Shift, Smoothness
 	if plugin.modifier_shift and not inverted:
-		active_tool = Terrain3DEditor.SCULPT
-		active_operation = Terrain3DEditor.AVERAGE
+		match _selected_tool:
+			Terrain3DEditor.SCULPT, Terrain3DEditor.HEIGHT, Terrain3DEditor.HOLES, \
+			Terrain3DEditor.AUTOSHADER, Terrain3DEditor.NAVIGATION, Terrain3DEditor.INSTANCER:
+				active_tool = Terrain3DEditor.SCULPT
+				active_operation = Terrain3DEditor.AVERAGE
+			Terrain3DEditor.TEXTURE:
+				active_tool = Terrain3DEditor.TEXTURE
+				active_operation = Terrain3DEditor.AVERAGE
+			Terrain3DEditor.COLOR:
+				active_tool = Terrain3DEditor.COLOR
+				active_operation = Terrain3DEditor.AVERAGE
+			Terrain3DEditor.ROUGHNESS:
+				active_tool = Terrain3DEditor.ROUGHNESS
+				active_operation = Terrain3DEditor.AVERAGE
 	
 	# Else if Ctrl/Invert checked, opposite
 	elif _selected_operation == Terrain3DEditor.ADD and inverted:
