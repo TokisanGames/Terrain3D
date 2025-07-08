@@ -200,6 +200,8 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("enable_scale")
 			to_show.push_back("scale")
 			to_show.push_back("scale_picker")
+			to_show.push_back("alt_blend_mode")
+
 
 		Terrain3DEditor.COLOR:
 			to_show.push_back("brush")
