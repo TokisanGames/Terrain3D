@@ -292,9 +292,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (gradient_points.size() == 2) {
 							Vector3 point_1 = gradient_points[0];
 							Vector3 point_2 = gradient_points[1];
-
 							Vector2 point_1_xz = Vector2(point_1.x, point_1.z);
 							Vector2 point_2_xz = Vector2(point_2.x, point_2.z);
+							Vector2 dir = point_2_xz - point_1_xz;
+							if (dir.length_squared() < 0.01f) {
+								return;
+							}
 							Vector2 brush_xz = Vector2(brush_global_position.x, brush_global_position.z);
 
 							if (_operation_movement.length_squared() > 0.f) {
@@ -305,7 +308,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 								brush_xz = Vector2(p_global_position.x + offset.x, p_global_position.z + offset.y);
 							}
 
-							Vector2 dir = point_2_xz - point_1_xz;
 							real_t weight = dir.normalized().dot(brush_xz - point_1_xz) / dir.length();
 							weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
 							real_t height = Math::lerp(point_1.y, point_2.y, weight);
