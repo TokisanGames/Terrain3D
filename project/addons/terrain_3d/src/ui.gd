@@ -202,7 +202,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("scale_picker")
 			to_show.push_back("alt_blend_mode")
 
-
 		Terrain3DEditor.COLOR:
 			to_show.push_back("brush")
 			to_show.push_back("size")
@@ -265,11 +264,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	to_show.push_back("crosshair_threshold")
 	tool_settings.show_settings(to_show)
 
-	operation_builder = null
-	if _selected_operation == Terrain3DEditor.GRADIENT:
-		operation_builder = GradientOperationBuilder.new()
-		operation_builder.tool_settings = tool_settings
-
 	_on_setting_changed()
 	plugin.update_region_grid()
 
@@ -298,10 +292,10 @@ func set_active_operation() -> void:
 	# Toggle toolbar buttons
 	toolbar.show_add_buttons(not inverted)
 	
-	# If Shift, Smoothness 
+	# If Shift, Smoothness
 	if plugin.modifier_shift and not inverted:
 		active_tool = Terrain3DEditor.SCULPT
-		active_operation = Terrain3DEditor.AVERAGE	
+		active_operation = Terrain3DEditor.AVERAGE
 	
 	# Else if Ctrl/Invert checked, opposite
 	elif _selected_operation == Terrain3DEditor.ADD and inverted:
@@ -315,6 +309,12 @@ func set_active_operation() -> void:
 	else:
 		active_tool = _selected_tool
 		active_operation = _selected_operation
+
+	# Initiate Multipoint operation
+	operation_builder = null
+	if active_operation == Terrain3DEditor.GRADIENT:
+		operation_builder = GradientOperationBuilder.new()
+		operation_builder.tool_settings = tool_settings
 
 	if plugin.editor:
 		plugin.editor.set_tool(active_tool)
