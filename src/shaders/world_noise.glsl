@@ -4,6 +4,7 @@ R"(
 
 //INSERT: WORLD_NOISE1
 // World Noise
+group_uniforms background_world_noise;
 uniform bool world_noise_fragment_normals = false;
 uniform float world_noise_region_blend : hint_range(0.05, 0.95, 0.01) = 0.33;
 uniform int world_noise_max_octaves : hint_range(0, 15) = 4;
@@ -12,6 +13,7 @@ uniform float world_noise_lod_distance : hint_range(0, 40000, 1) = 7500.;
 uniform float world_noise_scale : hint_range(0.25, 20, 0.01) = 5.0;
 uniform float world_noise_height : hint_range(0, 1000, 0.1) = 64.0;
 uniform vec3 world_noise_offset = vec3(0.0);
+group_uniforms;
 varying vec2 world_noise_ddxy;
 
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.

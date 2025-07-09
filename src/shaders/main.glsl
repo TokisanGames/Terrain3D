@@ -73,27 +73,28 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 // Public uniforms
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
+group_uniforms general_options;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 uniform bool flat_terrain_normals = false;
 uniform bool vertical_projection = true;
 uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
-
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
 uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
+group_uniforms;
 
+group_uniforms macro_variation;
 uniform bool macro_variation = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
 uniform float macro_variation_slope : hint_range(0., 1.)  = 0.333;
-
-// Generic noise at 2 scales, which can be used for anything 
 //INSERT: NOISE_SAMPLER_NEAREST
 //INSERT: NOISE_SAMPLER_LINEAR
 uniform float noise1_scale : hint_range(0.001, 1.) = 0.04; // Used for macro variation 1. Scaled up 10x
 uniform float noise1_angle : hint_range(0, 6.283) = 0.;
 uniform vec2 noise1_offset = vec2(0.5);
 uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;	// Used for macro variation 2. Scaled up 10x
+group_uniforms;
 
 // Varyings & Types
 

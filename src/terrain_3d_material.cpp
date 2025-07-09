@@ -852,16 +852,24 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	for (int i = 0; i < param_list.size(); i++) {
 		Dictionary dict = param_list[i];
 		StringName name = dict["name"];
+
 		// Filter out private uniforms that start with _
 		if (!name.begins_with("_")) {
 			// Populate Godot's property list
 			PropertyInfo pi;
-			pi.name = name;
+			uint64_t use = dict["usage"];
+			if (use == PROPERTY_USAGE_GROUP) {
+				PackedStringArray split_name = name.split("::");
+				pi.name = split_name[MAX(split_name.size() - 1, 0)].capitalize();	
+				pi.usage = (name.contains("::") ? PROPERTY_USAGE_SUBGROUP : PROPERTY_USAGE_GROUP) | PROPERTY_USAGE_EDITOR;
+			} else {
+				pi.name = name;
+				pi.usage = PROPERTY_USAGE_EDITOR;
+			}
 			pi.class_name = dict["class_name"];
 			pi.type = Variant::Type(int(dict["type"]));
 			pi.hint = dict["hint"];
 			pi.hint_string = dict["hint_string"];
-			pi.usage = PROPERTY_USAGE_EDITOR;
 			p_list->push_back(pi);
 
 			// Populate list of public parameters for current shader
@@ -1015,8 +1023,8 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader"), "set_auto_shader", "get_auto_shader");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling"), "set_dual_scaling", "get_dual_scaling");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader_enabled"), "set_auto_shader", "get_auto_shader");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling", "get_dual_scaling");
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
