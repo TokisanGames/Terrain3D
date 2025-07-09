@@ -32,11 +32,14 @@ noise = SubResource("FastNoiseLite_d8lcj")
 
 [sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_jrc01"]
 _shader_parameters = {
+&"": null,
 "_mouse_layer": 2147483648,
 "auto_base_texture": 0,
 "auto_height_reduction": 0.05,
 "auto_overlay_texture": 1,
+&"auto_shader": null,
 "auto_slope": 0.45,
+&"background_world_noise": null,
 "bias_distance": 512.0,
 "blend_sharpness": 0.5,
 "depth_blur": 0.0,
@@ -44,7 +47,9 @@ _shader_parameters = {
 "dual_scale_near": 100.0,
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
+&"dual_scaling": null,
 &"flat_terrain_normals": false,
+&"general_options": null,
 &"macro_variation": true,
 "macro_variation1": Color(0.855, 0.8625, 0.9, 1),
 "macro_variation2": Color(0.9, 0.885, 0.81, 1),
@@ -68,8 +73,8 @@ _shader_parameters = {
 "world_noise_scale": 9.85
 }
 world_background = 2
-auto_shader = true
-dual_scaling = true
+auto_shader_enabled = true
+dual_scaling_enabled = true
 
 [node name="Demo" type="Node"]
 script = ExtResource("1_k7qca")

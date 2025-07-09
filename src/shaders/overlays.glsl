@@ -54,9 +54,11 @@ R"(
 	}
 
 //INSERT: OVERLAY_CONTOURS_SETUP
+group_uniforms contour_lines;
 uniform float contour_interval: hint_range(0.25, 100.0, 0.001) = 1.0;
 uniform float contour_thickness : hint_range(0.0, 10.0, 0.001) = 1.0;
 uniform vec4 contour_color : source_color = vec4(.85, .85, .19, 1.);
+group_uniforms;
 
 float fractal_contour_lines(float thickness, float interval, vec3 spatial_coords, vec3 normal, vec3 base_ddx, vec3 base_ddy) {
     float depth = max(log(length(spatial_coords - _camera_pos) / interval) * (1.0 / log2(2.0)) - 1.0, 1.0);
