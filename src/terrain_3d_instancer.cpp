@@ -527,7 +527,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), 0.1f, 4096.f); // Meters
-	real_t radius = brush_size * .4f; // Ring1's inner radius
+	real_t radius = brush_size * .5f;
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
@@ -590,7 +590,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 				normal = normal.normalized();
 				Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
 				Vector3 x_axis = -z_axis.cross(normal);
-				if (x_axis.length_squared() > 0.001) {
+				if (x_axis.length_squared() > 0.001f) {
 					t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
 				}
 			}
@@ -640,8 +640,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	bool modifier_shift = p_params.get("modifier_shift", false);
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), .5f, 4096.f); // Meters
-	real_t half_brush_size = brush_size * 0.5 + 1.f; // 1m margin
-	real_t radius = brush_size * .4f; // Ring1's inner radius
+	real_t half_brush_size = brush_size * 0.5f + 1.f; // 1m margin
+	real_t radius = brush_size * .5f;
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
