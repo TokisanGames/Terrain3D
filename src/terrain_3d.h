@@ -4,11 +4,13 @@
 #define TERRAIN3D_CLASS_H
 
 #include <godot_cpp/classes/camera3d.hpp>
+#include <godot_cpp/classes/color_rect.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
@@ -78,6 +80,7 @@ private:
 	// Meshes
 	int _mesh_lods = 7;
 	int _mesh_size = 48;
+	int _tesselation_level = 3;
 	real_t _vertex_spacing = 1.0f;
 
 	// Rendering
@@ -92,6 +95,13 @@ private:
 	Camera3D *_mouse_cam = nullptr;
 	MeshInstance3D *_mouse_quad = nullptr;
 	uint32_t _mouse_layer = 32;
+
+	// Displacement
+	SubViewport *_d_buffer_vp = nullptr;
+	ColorRect *_d_buffer_rect = nullptr;
+	Ref<ShaderMaterial> _d_buffer_material;
+	bool _enable_d_buffer_override = false;
+	Ref<ShaderMaterial> _d_buffer_override;
 
 	// Parent containers for child nodes
 	Node3D *_label_parent;
@@ -112,6 +122,10 @@ private:
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
+
+	void _setup_displacement_buffer();
+	void _update_displacement_buffer();
+	void _destroy_displacement_buffer();
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
@@ -173,8 +187,14 @@ public:
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(const int p_size);
 	int get_mesh_size() const { return _mesh_size; }
+	void set_tesselation_level(const int p_level);
+	int get_tesselation_level() const { return _tesselation_level; }
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
+	void set_enable_d_buffer_override(const bool p_enable);
+	bool get_enable_d_buffer_override() const { return _enable_d_buffer_override; }
+	void set_d_buffer_override(const Ref<ShaderMaterial> &p_shader_material);
+	Ref<ShaderMaterial> get_d_buffer_override() const { return _d_buffer_override; }
 
 	// Rendering
 	void set_render_layers(const uint32_t p_layers);
@@ -260,6 +280,8 @@ public:
 	bool get_show_texture_normal() const { return _material.is_valid() ? _material->get_show_texture_normal() : false; }
 	void set_show_texture_rough(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_rough(p_enabled) : void(); }
 	bool get_show_texture_rough() const { return _material.is_valid() ? _material->get_show_texture_rough() : false; }
+	void set_show_displacement_buffer(const bool p_enabled) { _material.is_valid() ? _material->set_show_displacement_buffer(p_enabled) : void(); }
+	bool get_show_displacement_buffer() const { return _material.is_valid() ? _material->get_show_displacement_buffer() : false; }
 
 protected:
 	void _notification(const int p_what);
