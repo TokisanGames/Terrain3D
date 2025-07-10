@@ -50,16 +50,25 @@ vec3 get_decal(vec3 albedo, vec2 uv) {
 		albedo =  mix(albedo, _editor_decal_color[i].rgb, decal * decal * _editor_decal_color[i].a);
 	}
 	// Crosshair
-	if (_editor_decal_visible[0] && _editor_decal_size[0] <= _editor_crosshair_threshold) {
-		vec2 cross_uv = ((uv - _editor_decal_position[0] * _vertex_density) * _vertex_spacing) * 16.0;
-		cross_uv /= sqrt(length(_camera_pos - v_vertex));
-		float line_thickness = 0.5;
-		float line_start = _editor_decal_size[0] * 0.5 + 8.;
-		float line_end = _editor_decal_size[0] * 0.5 + 16.;
-		bool h = abs(cross_uv.y) < line_thickness && abs(cross_uv.x) < line_end && abs(cross_uv.x) > line_start;
-		bool v = abs(cross_uv.x) < line_thickness && abs(cross_uv.y) < line_end && abs(cross_uv.y) > line_start;
-		albedo = (h || v) ? mix(albedo, _editor_decal_color[0].rgb, _editor_decal_color[0].a) : albedo;
+	{
+	float scale = 16.0 / sqrt(length(_camera_pos - v_vertex));
+	vec2 cross_uv = (uv * _vertex_spacing - _editor_decal_position[0]) * scale;
+	float brush_radius = (_editor_decal_size[0] * 0.5) * scale;
+    float crosshair_size = max(20., _editor_decal_size[0]);
+    float line_start = max(brush_radius, crosshair_size);
+    float line_end = 2. * crosshair_size;
+    float line_thickness = max(.03 * length(cross_uv), 1.);
+
+    // Crosshair
+    vec2 d = abs(cross_uv);
+    float h = smoothstep(line_thickness, 0.0, d.y) * step(d.x, line_end) * step(line_start, d.x);
+    float v = smoothstep(line_thickness, 0.0, d.x) * step(d.y, line_end) * step(line_start, d.y);
+    float crosshair = clamp(h + v, 0.0, 1.0);
+
+    float intensity = clamp(crosshair /*+ circle*/, 0.0, 1.0);
+    albedo = mix(albedo, _editor_decal_color[0].rgb, intensity * _editor_decal_color[0].a);
 	}
+
 	return albedo;
 }
 
