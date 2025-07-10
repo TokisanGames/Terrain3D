@@ -53,7 +53,8 @@ var settings: Dictionary = {}
 
 func _ready() -> void:
 	# Remove old editor settings
-	for setting in ["lift_floor", "flatten_peaks", "lift_flatten", "automatic_regions"]:
+	for setting in ["lift_floor", "flatten_peaks", "lift_flatten", "automatic_regions",
+			"show_cursor_while_painting", "crosshair_threshold"]:
 		plugin.erase_setting(ES_TOOL_SETTINGS + setting)
 
 	# Setup buttons	
@@ -173,15 +174,13 @@ func _ready() -> void:
 								"list":advanced_list, "default":true })
 	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
 								"default":true })
-	add_setting({ "name":"show_cursor_while_painting", "type":SettingType.CHECKBOX, "list":advanced_list, 
+	add_setting({ "name":"show_brush_texture", "type":SettingType.CHECKBOX, "list":advanced_list, 
 								"default":true })
 	advanced_list.add_child(HSeparator.new(), true)
 	add_setting({ "name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
 								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
 	add_setting({ "name":"jitter", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
 								"unit":"%", "range":Vector3(0, 100, 1) })
-	add_setting({ "name":"crosshair_threshold", "type":SettingType.SLIDER, "list":advanced_list, "default":16., 
-								"unit":"m", "range":Vector3(0, 200, 1) })
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout, p_hover_pop: bool = true) -> Container:
