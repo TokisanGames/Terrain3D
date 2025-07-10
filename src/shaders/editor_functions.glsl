@@ -49,24 +49,36 @@ vec3 get_decal(vec3 albedo, vec2 uv) {
 		// Blend in decal; square for better visual blend
 		albedo =  mix(albedo, _editor_decal_color[i].rgb, decal * decal * _editor_decal_color[i].a);
 	}
+
 	// Crosshair
+//	if (_editor_decal_visible[0] && _editor_decal_size[0] <= _editor_crosshair_threshold) {
+//	}
 	{
-	float scale = 16.0 / sqrt(length(_camera_pos - v_vertex));
-	vec2 cross_uv = (uv * _vertex_spacing - _editor_decal_position[0]) * scale;
-	float brush_radius = (_editor_decal_size[0] * 0.5) * scale;
-    float crosshair_size = max(20., _editor_decal_size[0]);
-    float line_start = max(brush_radius, crosshair_size);
-    float line_end = 2. * crosshair_size;
-    float line_thickness = max(.03 * length(cross_uv), 1.);
 
-    // Crosshair
-    vec2 d = abs(cross_uv);
-    float h = smoothstep(line_thickness, 0.0, d.y) * step(d.x, line_end) * step(line_start, d.x);
-    float v = smoothstep(line_thickness, 0.0, d.x) * step(d.y, line_end) * step(line_start, d.y);
-    float crosshair = clamp(h + v, 0.0, 1.0);
+		float cam_dist = length(_camera_pos - v_vertex);
+		float sq_cam_dist = sqrt(cam_dist);
+		float view_scale = 16.0 / sq_cam_dist;
+		vec2 cross_uv = (uv * _vertex_spacing - _editor_decal_position[0]) * view_scale;
+		float brush_radius = max((_editor_decal_size[0] * 0.5) * view_scale, 1.);
+		float line_start = brush_radius + log2(cam_dist);
+		float line_end = 3. * line_start;
+		float line_thickness = .03 * length(cross_uv) + .03 * sq_cam_dist;
 
-    float intensity = clamp(crosshair /*+ circle*/, 0.0, 1.0);
-    albedo = mix(albedo, _editor_decal_color[0].rgb, intensity * _editor_decal_color[0].a);
+		// Crosshair
+		vec2 d = abs(cross_uv);
+		float h = smoothstep(line_thickness, 0.0, d.y) * step(d.x, line_end) * step(line_start, d.x);
+		float v = smoothstep(line_thickness, 0.0, d.x) * step(d.y, line_end) * step(line_start, d.y);
+		float crosshair = h + v;
+
+		// Circle
+		float circle_thickness = 1.5; // Adjust for desired ring thickness
+		float dist = length(cross_uv);
+		h = smoothstep(brush_radius + line_thickness, brush_radius, dist);
+		v = 1.0 - smoothstep(brush_radius, brush_radius - line_thickness, dist);
+		float circle = h * v;
+
+		float intensity = clamp(crosshair + circle, 0.0, 1.0);
+		albedo = mix(albedo, _editor_decal_color[0].rgb, intensity * _editor_decal_color[0].a);
 	}
 
 	return albedo;
