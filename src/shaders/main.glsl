@@ -69,20 +69,17 @@ uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
-
 // Public uniforms
-//INSERT: AUTO_SHADER_UNIFORMS
-//INSERT: DUAL_SCALING_UNIFORMS
-group_uniforms general_options;
-uniform float blend_sharpness : hint_range(0, 1) = 0.5;
+
+group_uniforms general;
 uniform bool flat_terrain_normals = false;
+uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 uniform bool vertical_projection = true;
 uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
-uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
-uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
-uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
 group_uniforms;
 
+//INSERT: AUTO_SHADER_UNIFORMS
+//INSERT: DUAL_SCALING_UNIFORMS
 group_uniforms macro_variation;
 uniform bool macro_variation = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
@@ -95,6 +92,14 @@ uniform float noise1_angle : hint_range(0, 6.283) = 0.;
 uniform vec2 noise1_offset = vec2(0.5);
 uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;	// Used for macro variation 2. Scaled up 10x
 group_uniforms;
+
+group_uniforms mipmaps;
+uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
+uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
+uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
+group_uniforms;
+
+//INSERT: WORLD_NOISE_UNIFORMS
 
 // Varyings & Types
 
@@ -145,7 +150,7 @@ vec3 get_index_uv(const vec2 uv2) {
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
 }
 
-//INSERT: WORLD_NOISE1
+//INSERT: WORLD_NOISE_FUNCTIONS
 void vertex() {
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -190,7 +195,7 @@ void vertex() {
 		ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
 		ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
 		float h = mix(texelFetch(_height_maps, coord_a, 0).r,texelFetch(_height_maps, coord_b, 0).r,vertex_lerp);
-//INSERT: WORLD_NOISE2
+//INSERT: WORLD_NOISE_VERTEX
 		v_vertex.y = h;
 	}
 
@@ -405,7 +410,7 @@ void fragment() {
 	float u = 0.0;
 	float v = 0.0;
 	
-//INSERT: WORLD_NOISE3	
+//INSERT: WORLD_NOISE_FRAGMENT
 	// Re-use index[] for the first lookups, skipping some math. 3 lookups
 	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0,0)
 	h[2] = texelFetch(_height_maps, index[2], 0).r; // 1 (1,0)

@@ -187,7 +187,7 @@
     <None Include="src\shaders\editor_functions.glsl">
       <Filter>4. Shaders</Filter>
     </None>
-    <None Include="src\shaders\uniforms.glsl">
+    <None Include="src\shaders\samplers.glsl">
       <Filter>4. Shaders</Filter>
     </None>
     <None Include="doc\docs\texture_painting.md">

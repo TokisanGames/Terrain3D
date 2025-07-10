@@ -21,8 +21,8 @@
 void Terrain3DMaterial::_preload_shaders() {
 	// Preprocessor loading of external shader inserts
 	_parse_shader(
-#include "shaders/uniforms.glsl"
-			, "uniforms");
+#include "shaders/samplers.glsl"
+			, "samplers");
 	_parse_shader(
 #include "shaders/world_noise.glsl"
 			, "world_noise");
@@ -125,9 +125,10 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
 	if (_world_background != NOISE) {
-		excludes.push_back("WORLD_NOISE1");
-		excludes.push_back("WORLD_NOISE2");
-		excludes.push_back("WORLD_NOISE3");
+		excludes.push_back("WORLD_NOISE_UNIFORMS");
+		excludes.push_back("WORLD_NOISE_FUNCTIONS");
+		excludes.push_back("WORLD_NOISE_VERTEX");
+		excludes.push_back("WORLD_NOISE_FRAGMENT");
 	}
 	if (_texture_filtering == LINEAR) {
 		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
@@ -860,7 +861,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 			uint64_t use = dict["usage"];
 			if (use == PROPERTY_USAGE_GROUP) {
 				PackedStringArray split_name = name.split("::");
-				pi.name = split_name[MAX(split_name.size() - 1, 0)].capitalize();	
+				pi.name = split_name[MAX(split_name.size() - 1, 0)].capitalize();
 				pi.usage = (name.contains("::") ? PROPERTY_USAGE_SUBGROUP : PROPERTY_USAGE_GROUP) | PROPERTY_USAGE_EDITOR;
 			} else {
 				pi.name = name;
@@ -1021,34 +1022,36 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DMaterial::save, DEFVAL(""));
 
+	// These must be different from the names of uniform groups
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader_enabled"), "set_auto_shader", "get_auto_shader");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling", "get_dual_scaling");
-
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
-	ADD_GROUP("Overlays", "show_");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_grid"), "set_show_region_grid", "get_show_region_grid");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_instancer_grid"), "set_show_instancer_grid", "get_show_instancer_grid");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid"), "set_show_vertex_grid", "get_show_vertex_grid");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_contours"), "set_show_contours", "get_show_contours");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation"), "set_show_navigation", "get_show_navigation");
+	// Hidden in Material, aliased in Terrain3D
+	//ADD_GROUP("Overlays", "show_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_grid", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_region_grid", "get_show_region_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_instancer_grid", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_instancer_grid", "get_show_instancer_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_vertex_grid", "get_show_vertex_grid");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_contours", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_contours", "get_show_contours");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_navigation", "get_show_navigation");
 
-	ADD_GROUP("Debug Views", "show_");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered"), "set_show_checkered", "get_show_checkered");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grey"), "set_show_grey", "get_show_grey");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_heightmap"), "set_show_heightmap", "get_show_heightmap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_jaggedness"), "set_show_jaggedness", "get_show_jaggedness");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader"), "set_show_autoshader", "get_show_autoshader");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture"), "set_show_control_texture", "get_show_control_texture");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend"), "set_show_control_blend", "get_show_control_blend");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_angle"), "set_show_control_angle", "get_show_control_angle");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_scale"), "set_show_control_scale", "get_show_control_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap"), "set_show_colormap", "get_show_colormap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap"), "set_show_roughmap", "get_show_roughmap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");
+	// Hidden in Material, aliased in Terrain3D
+	//ADD_GROUP("Debug Views", "show_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_checkered", "get_show_checkered");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grey", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_grey", "get_show_grey");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_heightmap", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_heightmap", "get_show_heightmap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_jaggedness", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_jaggedness", "get_show_jaggedness");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_autoshader", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_autoshader", "get_show_autoshader");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_texture", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_control_texture", "get_show_control_texture");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_blend", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_control_blend", "get_show_control_blend");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_angle", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_control_angle", "get_show_control_angle");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_scale", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_control_scale", "get_show_control_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_colormap", "get_show_colormap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_roughmap", "get_show_roughmap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_height", "get_show_texture_height");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_normal", "get_show_texture_normal");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_rough", "get_show_texture_rough");
 }

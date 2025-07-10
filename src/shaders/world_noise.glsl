@@ -2,9 +2,8 @@
 
 R"(
 
-//INSERT: WORLD_NOISE1
-// World Noise
-group_uniforms background_world_noise;
+//INSERT: WORLD_NOISE_UNIFORMS
+group_uniforms world_background_noise;
 uniform bool world_noise_fragment_normals = false;
 uniform float world_noise_region_blend : hint_range(0.05, 0.95, 0.01) = 0.33;
 uniform int world_noise_max_octaves : hint_range(0, 15) = 4;
@@ -15,6 +14,9 @@ uniform float world_noise_height : hint_range(0, 1000, 0.1) = 64.0;
 uniform vec3 world_noise_offset = vec3(0.0);
 group_uniforms;
 varying vec2 world_noise_ddxy;
+
+//INSERT: WORLD_NOISE_FUNCTIONS
+// World Noise Functions Start
 
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
 float check_region(const vec2 uv2) {
@@ -105,9 +107,9 @@ float get_noise_height(const vec2 uv) {
 	return mix(0.0, noise, weight);
 }
 
-// World Noise end
+// World Noise Functions End
 
-//INSERT: WORLD_NOISE2
+//INSERT: WORLD_NOISE_VERTEX
 		// World Noise
 		if (_background_mode == 2u) {
 			vec2 nuv_a = fma(start_pos, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
@@ -121,7 +123,7 @@ float get_noise_height(const vec2 uv) {
 			h += nh;
 		}
 
-//INSERT: WORLD_NOISE3
+//INSERT: WORLD_NOISE_FRAGMENT
 	// World Noise
 	if (_background_mode == 2u && world_noise_fragment_normals) {
 		float noise_height = get_noise_height(uv2);

@@ -55,15 +55,20 @@ uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear
 uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 
 // Public uniforms
-uniform bool enable_texturing = true;
-uniform float blend_sharpness : hint_range(0, 1) = 0.5;
+group_uniforms general;
 uniform bool flat_terrain_normals = false;
-// Autoshader
+uniform bool enable_textures = true;
+uniform float blend_sharpness : hint_range(0, 1) = 0.5;
+group_uniforms;
+
+group_uniforms auto_shader;
 uniform float auto_slope : hint_range(0, 10) = 1.0;
 uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
 uniform int auto_base_texture : hint_range(0, 31) = 0;
 uniform int auto_overlay_texture : hint_range(0, 31) = 1;
-// Macro Variation
+group_uniforms;
+
+group_uniforms macro_variation;
 uniform bool enable_macro_variation = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
@@ -73,6 +78,7 @@ uniform float noise1_scale : hint_range(0.001, 1.) = 0.04; // Used for macro var
 uniform float noise1_angle : hint_range(0, 6.283) = 0.;
 uniform vec2 noise1_offset = vec2(0.5);
 uniform float noise2_scale : hint_range(0.001, 1.) = 0.076; // Used for macro variation 2. Scaled up 10x
+group_uniforms;
 
 // Varyings & Types
 varying vec3 v_normal;
@@ -236,7 +242,7 @@ void fragment() {
 	float normal_map_depth = 1.;
 	float ao_strength = 0.;
 
-	if (enable_texturing) {
+	if (enable_textures) {
 		// set to zero before accumulation
 		albedo_height = vec4(0.);
 		normal_rough = vec4(0.);
