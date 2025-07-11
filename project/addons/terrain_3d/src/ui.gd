@@ -55,14 +55,15 @@ var active_operation: Terrain3DEditor.Operation
 var _selected_operation: Terrain3DEditor.Operation
 var inverted_input: bool = false
 
-# Editor decals, indices; 0 = main brush, 1 = slope point A, 2 = slope point B
+# 3 Editor decals: 0 = cursor, 1 = slope point1, 2 = slope point2
 var mat_rid: RID
-var editor_decal_position: Array[Vector2] = [Vector2(), Vector2(), Vector2()]
-var editor_decal_rotation: Array[float] = [float(), float(), float()]
-var editor_decal_size: Array[float] = [float(), float(), float()]
-var editor_decal_color: Array[Color] = [Color(), Color(), Color()]
-var editor_decal_visible: Array[bool] = [bool(), bool(), bool()]
 var editor_brush_texture_rid: RID = RID()
+var editor_decal_position: Array[Vector2] = [Vector2(), Vector2(), Vector2()]
+var editor_decal_rotation: Array[float] = [0., 0., 0.]
+var editor_decal_size: Array[float] = [0., 0., 0.]
+var editor_decal_color: Array[Color] = [Color(), Color(), Color()]
+var editor_decal_visible: Array[bool] = [false, false, false]
+var editor_decal_part: Array[bool] = [true, true] # Decal[0] cursor components: brush, reticle
 var editor_decal_timer: Timer
 var editor_decal_fade: float :
 	set(value):
@@ -74,7 +75,6 @@ var editor_decal_fade: float :
 				if value < 0.001:
 					var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
 					RenderingServer.material_set_param(mat_rid, "_region_map", r_map)
-var editor_ring_texture_rid: RID
 
 
 func _enter_tree() -> void:
@@ -110,7 +110,6 @@ func _ready() -> void:
 	var img: Image = Image.load_from_file(RING1)
 	img.convert(Image.FORMAT_R8)
 	ring_texture = ImageTexture.create_from_image(img)
-	editor_ring_texture_rid = ring_texture.get_rid()
 
 
 func _exit_tree() -> void:
@@ -258,10 +257,8 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	# Advanced menu settings
 	to_show.push_back("auto_regions")
 	to_show.push_back("align_to_view")
-	to_show.push_back("show_cursor_while_painting")
 	to_show.push_back("gamma")
 	to_show.push_back("jitter")
-	to_show.push_back("crosshair_threshold")
 	tool_settings.show_settings(to_show)
 
 	_on_setting_changed()
@@ -341,17 +338,18 @@ func update_decal() -> void:
 	
 	# If not a state that should show the decal, hide everything and return
 	if not visible or \
-		plugin._input_mode < 0 or \
+		plugin._input_mode == -1 or \
 		# After moving camera, wait for mouse cursor to update before revealing
 		# See https://github.com/godotengine/godot/issues/70098
-		Time.get_ticks_msec() - plugin.rmb_release_time <= 100 or \
-		(plugin._input_mode > 0 and not brush_data["show_cursor_while_painting"]):
+		Time.get_ticks_msec() - plugin.rmb_release_time <= 100:
 			hide_decal()
 			return
 	
 	reset_decal_arrays()
 	editor_decal_position[0] = Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z)
-	editor_decal_visible[0] = true
+	editor_decal_visible = [true, false, false] # Show cursor by default
+	editor_decal_part = [true, true] # Show brush, and reticle by default
+	
 	# Set region size, and modify region map for none background mode.
 	var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
 	if plugin.editor.get_tool() == Terrain3DEditor.REGION:
@@ -364,6 +362,7 @@ func update_decal() -> void:
 		editor_decal_position[0] = pos
 		editor_decal_size[0] = r_size
 		editor_decal_rotation[0] = 0.0
+		editor_decal_part[1] = false # Disable reticle
 		
 		var loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
 		loc += Vector2i(map_size / 2, map_size / 2)
@@ -439,6 +438,8 @@ func update_decal() -> void:
 				editor_decal_color[0] = COLOR_HEIGHT
 				editor_decal_color[0].a = clamp(brush_data["strength"], .2, .5) + .25
 			Terrain3DEditor.TEXTURE:
+				if plugin._input_mode == 1:
+					editor_decal_part[0] = false # Disable brush texture
 				match active_operation:
 					Terrain3DEditor.REPLACE:
 						editor_decal_color[0] = COLOR_PAINT
@@ -468,21 +469,21 @@ func update_decal() -> void:
 				editor_brush_texture_rid = ring_texture.get_rid()
 				editor_decal_color[0] = COLOR_INSTANCER
 				editor_decal_color[0].a = .75
-	
-	editor_decal_visible[1] = false
-	editor_decal_visible[2] = false
+				if plugin._input_mode == 1:
+					editor_decal_part[0] = false # Disable brush texture
+
 	
 	if active_operation == Terrain3DEditor.GRADIENT:
 		var point1: Vector3 = brush_data["gradient_points"][0]
 		if point1 != Vector3.ZERO:
 			editor_decal_color[1] = COLOR_SLOPE
-			editor_decal_size[1] = 10. * plugin.terrain.get_vertex_spacing()
+			editor_decal_size[1] = 0.25 #plugin.terrain.get_vertex_spacing()
 			editor_decal_visible[1] = true
 			editor_decal_position[1] = Vector2(point1.x, point1.z)
 		var point2: Vector3 = brush_data["gradient_points"][1]
 		if point2 != Vector3.ZERO:
 			editor_decal_color[2] = COLOR_SLOPE
-			editor_decal_size[2] = 10. * plugin.terrain.get_vertex_spacing()
+			editor_decal_size[2] = 0.25 #plugin.terrain.get_vertex_spacing()
 			editor_decal_visible[2] = true
 			editor_decal_position[2] = Vector2(point2.x, point2.z)
 	
@@ -494,13 +495,12 @@ func update_decal() -> void:
 	# Update Shader params
 	if is_shader_valid():
 		RenderingServer.material_set_param(mat_rid, "_editor_brush_texture", editor_brush_texture_rid)
-		RenderingServer.material_set_param(mat_rid, "_editor_ring_texture", editor_ring_texture_rid)
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_position", editor_decal_position)
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_rotation", editor_decal_rotation)
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_size", editor_decal_size)
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_color", editor_decal_color)
 		RenderingServer.material_set_param(mat_rid, "_editor_decal_visible", editor_decal_visible)
-		RenderingServer.material_set_param(mat_rid, "_editor_crosshair_threshold", brush_data["crosshair_threshold"] + 0.1)
+		RenderingServer.material_set_param(mat_rid, "_editor_decal_part", editor_decal_part)
 		RenderingServer.material_set_param(mat_rid, "_region_map", r_map)
 
 
@@ -527,12 +527,13 @@ func hide_decal() -> void:
 # These array sizes are reset to 0 when closing scenes for some unknown reason, so check and reset
 func reset_decal_arrays() -> void:
 	if editor_decal_color.size() < 3:
+		editor_brush_texture_rid = RID()
 		editor_decal_position = [Vector2(), Vector2(), Vector2()]
-		editor_decal_rotation = [float(), float(), float()]
-		editor_decal_size = [float(), float(), float()]
+		editor_decal_rotation = [0., 0., 0.]
+		editor_decal_size = [0., 0., 0.]
 		editor_decal_color = [Color(), Color(), Color()]
 		editor_decal_visible = [false, false, false]
-		editor_brush_texture_rid = RID()
+		editor_decal_part = [true, true]
 
 
 func set_decal_rotation(p_rot: float) -> void:
