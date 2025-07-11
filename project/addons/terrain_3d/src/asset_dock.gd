@@ -291,6 +291,8 @@ func _on_meshes_pressed() -> void:
 
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
+	remove_all_highlights()
+	
 	if p_tool == Terrain3DEditor.INSTANCER:
 		_on_meshes_pressed()
 	elif p_tool in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
@@ -313,6 +315,14 @@ func update_assets() -> void:
 
 	_current_list.update_asset_list()
 
+
+func remove_all_highlights():
+	if not plugin.terrain:
+		return
+		
+	for i: int in mesh_list.entries.size():
+		plugin.terrain.instancer.set_highlighted(i, false)
+	
 
 ## Window Management
 
@@ -496,6 +506,7 @@ class ListContainer extends Container:
 		entry.hovered.connect(_on_resource_hovered.bind(id))
 		entry.selected.connect(set_selected_id.bind(id))
 		entry.inspected.connect(_on_resource_inspected)
+		entry.highlighted.connect(_on_entry_highlighted)
 		entry.changed.connect(_on_resource_changed.bind(id))
 		entry.type = type
 		entry.asset_list = p_assets
@@ -549,6 +560,10 @@ class ListContainer extends Container:
 		await get_tree().create_timer(.01).timeout
 		EditorInterface.edit_resource(p_resource)
 	
+	
+	func _on_entry_highlighted(id: int, state: bool):
+		if plugin:
+			plugin.terrain.instancer.set_highlighted(id, state)
 	
 	func _on_resource_changed(p_resource: Resource, p_id: int) -> void:
 		if not p_resource:
@@ -636,6 +651,7 @@ class ListEntry extends VBoxContainer:
 	signal selected()
 	signal changed(resource: Resource)
 	signal inspected(resource: Resource)
+	signal highlighted(id: int, state: bool)
 	
 	var resource: Resource
 	var type := Terrain3DAssets.TYPE_TEXTURE
@@ -643,6 +659,8 @@ class ListEntry extends VBoxContainer:
 	var drop_data: bool = false
 	var is_hovered: bool = false
 	var is_selected: bool = false
+	var is_highlighted: bool = false
+		
 	var asset_list: Terrain3DAssets
 	
 	@onready var button_row := HBoxContainer.new()
@@ -650,10 +668,14 @@ class ListEntry extends VBoxContainer:
 	@onready var button_edit := TextureButton.new()
 	@onready var spacer := Control.new()
 	@onready var button_enabled := TextureButton.new()
+	@onready var button_highlight := TextureButton.new()
 	@onready var clear_icon: Texture2D = get_theme_icon("Close", "EditorIcons")
 	@onready var edit_icon: Texture2D = get_theme_icon("Edit", "EditorIcons")
 	@onready var enabled_icon: Texture2D = get_theme_icon("GuiVisibilityVisible", "EditorIcons")
 	@onready var disabled_icon: Texture2D = get_theme_icon("GuiVisibilityHidden", "EditorIcons")
+	@onready var enable_highlight_icon: Texture2D = get_theme_icon("PreviewSun", "EditorIcons")
+	@onready var disable_highlight_icon: Texture2D = get_theme_icon("DirectionalLight3D", "EditorIcons")
+
 
 	var name_label: Label
 	@onready var add_icon: Texture2D = get_theme_icon("Add", "EditorIcons")
@@ -688,15 +710,28 @@ class ListEntry extends VBoxContainer:
 			button_enabled.set_custom_minimum_size(icon_size)
 			button_enabled.set_h_size_flags(Control.SIZE_SHRINK_END)
 			button_enabled.set_visible(resource != null)
+			button_enabled.tooltip_text = "Enable/Disable"
 			button_enabled.toggle_mode = true
 			button_enabled.mouse_filter = Control.MOUSE_FILTER_PASS
 			button_enabled.pressed.connect(enable)
 			button_row.add_child(button_enabled)
+			
+			button_highlight.set_texture_normal(enable_highlight_icon)
+			button_highlight.set_texture_pressed(disable_highlight_icon)
+			button_highlight.set_custom_minimum_size(icon_size)
+			button_highlight.set_h_size_flags(Control.SIZE_SHRINK_END)
+			button_highlight.set_visible(resource != null)
+			button_highlight.tooltip_text = "Highlight Instances"
+			button_highlight.toggle_mode = true
+			button_highlight.mouse_filter = Control.MOUSE_FILTER_PASS
+			button_highlight.pressed.connect(highlight)
+			button_row.add_child(button_highlight)
 		
 		button_edit.set_texture_normal(edit_icon)
 		button_edit.set_custom_minimum_size(icon_size)
 		button_edit.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_edit.set_visible(resource != null)
+		button_edit.tooltip_text = "Edit"
 		button_edit.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_edit.pressed.connect(edit)
 		button_row.add_child(button_edit)
@@ -709,6 +744,7 @@ class ListEntry extends VBoxContainer:
 		button_clear.set_custom_minimum_size(icon_size)
 		button_clear.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_clear.set_visible(resource != null)
+		button_clear.tooltip_text = "Clear"
 		button_clear.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_clear.pressed.connect(clear)
 		button_row.add_child(button_clear)
@@ -841,7 +877,6 @@ class ListEntry extends VBoxContainer:
 			emit_signal("inspected", resource)
 
 
-
 	func set_edited_resource(p_res: Resource, p_no_signal: bool = true) -> void:
 		resource = p_res
 		if resource:
@@ -881,3 +916,9 @@ class ListEntry extends VBoxContainer:
 	func enable() -> void:
 		if resource is Terrain3DMeshAsset:
 			resource.set_enabled(!resource.is_enabled())
+
+
+	func highlight() -> void:
+		if resource is Terrain3DMeshAsset:
+			is_highlighted = !is_highlighted
+			highlighted.emit(resource.id, is_highlighted)
