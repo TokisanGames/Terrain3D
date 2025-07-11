@@ -31,8 +31,6 @@ const OP_NONE: int = 0x0
 const OP_POSITIVE_ONLY: int = 0x01
 const OP_NEGATIVE_ONLY: int = 0x02
 
-const RING1: String = "res://addons/terrain_3d/brushes/ring1.exr"
-var ring_texture : ImageTexture
 @onready var region_texture := ImageTexture.new() :
 	set(value):
 		var image: Image = Image.create_empty(1, 1, false, Image.FORMAT_R8)
@@ -104,12 +102,6 @@ func _enter_tree() -> void:
 	editor_decal_timer.timeout.connect(func():
 		get_tree().create_tween().tween_property(self, "editor_decal_fade", 0.0, 0.15))
 	add_child(editor_decal_timer)
-
-
-func _ready() -> void:
-	var img: Image = Image.load_from_file(RING1)
-	img.convert(Image.FORMAT_R8)
-	ring_texture = ImageTexture.create_from_image(img)
 
 
 func _exit_tree() -> void:
@@ -348,9 +340,9 @@ func update_decal() -> void:
 	reset_decal_arrays()
 	editor_decal_position[0] = Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z)
 	editor_decal_visible = [true, false, false] # Show cursor by default
-	editor_decal_part = [true, true] # Show brush, and reticle by default
+	editor_decal_part = [true, true] # Show brush and reticle by default
 	
-	# Set region size, and modify region map for none background mode.
+	## Region Operations
 	var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
 	if plugin.editor.get_tool() == Terrain3DEditor.REGION:
 		var r_size: float = float(plugin.terrain.get_region_size()) * plugin.terrain.get_vertex_spacing()
@@ -390,10 +382,11 @@ func update_decal() -> void:
 						hide_decal()
 		else:
 			hide_decal()
-	# Set texture and color
+
+	## Picking
 	elif picking != Terrain3DEditor.TOOL_MAX:
-		editor_brush_texture_rid = ring_texture.get_rid()
-		editor_decal_size[0] = 10. * plugin.terrain.get_vertex_spacing()
+		editor_decal_part[0] = false # Disable brush
+		editor_decal_size[0] = 1. * plugin.terrain.get_vertex_spacing()
 		match picking:
 			Terrain3DEditor.HEIGHT:
 				editor_decal_color[0] = COLOR_PICK_HEIGHT
@@ -402,6 +395,8 @@ func update_decal() -> void:
 			Terrain3DEditor.ROUGHNESS:
 				editor_decal_color[0] = COLOR_PICK_ROUGH
 		editor_decal_color[0].a = 1.0
+
+	## Brushing Operations
 	else:
 		editor_brush_texture_rid = brush_data["brush"][1].get_rid()
 		editor_decal_size[0] = maxf(brush_data["size"], .5)
@@ -439,7 +434,7 @@ func update_decal() -> void:
 				editor_decal_color[0].a = clamp(brush_data["strength"], .2, .5) + .25
 			Terrain3DEditor.TEXTURE:
 				if plugin._input_mode == 1:
-					editor_decal_part[0] = false # Disable brush texture
+					editor_decal_part[0] = false # Disable brush
 				match active_operation:
 					Terrain3DEditor.REPLACE:
 						editor_decal_color[0] = COLOR_PAINT
@@ -466,11 +461,9 @@ func update_decal() -> void:
 				editor_decal_color[0] = COLOR_NAVIGATION
 				editor_decal_color[0].a = .80
 			Terrain3DEditor.INSTANCER:
-				editor_brush_texture_rid = ring_texture.get_rid()
 				editor_decal_color[0] = COLOR_INSTANCER
 				editor_decal_color[0].a = .75
-				if plugin._input_mode == 1:
-					editor_decal_part[0] = false # Disable brush texture
+				editor_decal_part[0] = false # Disable brush
 
 	
 	if active_operation == Terrain3DEditor.GRADIENT:
