@@ -1,6 +1,7 @@
-[gd_resource type="Terrain3DAssets" load_steps=11 format=3 uid="uid://dal3jhw6241qg"]
+[gd_resource type="Terrain3DAssets" load_steps=13 format=3 uid="uid://dal3jhw6241qg"]
 
 [ext_resource type="PackedScene" uid="uid://bn5nf4esciwex" path="res://demo/assets/models/LODExample.tscn" id="1_4jrdu"]
+[ext_resource type="PackedScene" uid="uid://b1ronv2ln7dhb" path="res://plane.tscn" id="2_adagb"]
 [ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="2_pog6b"]
 [ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="3_g8f2m"]
 [ext_resource type="Texture2D" uid="uid://c307hdmos4gtm" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="3_wncaf"]
@@ -21,6 +22,7 @@ name = "TextureCard"
 generated_type = 1
 height_offset = 0.5
 material_override = SubResource("StandardMaterial3D_b2vqk")
+generated_faces = 1
 last_lod = 0
 last_shadow_lod = 0
 lod0_range = 128.0
@@ -29,10 +31,17 @@ lod0_range = 128.0
 name = "LODExample"
 id = 1
 scene_file = ExtResource("1_4jrdu")
-height_offset = 0.5
 last_lod = 4
 last_shadow_lod = 4
 lod4_range = 256.0
+
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_e6edf"]
+name = "plane"
+id = 2
+scene_file = ExtResource("2_adagb")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_lha57"]
 name = "Cliff"
@@ -54,5 +63,5 @@ ao_strength = 2.0
 detiling_rotation = 0.161
 
 [resource]
-mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_y3ibi")])
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_2qf8x"), SubResource("Terrain3DMeshAsset_y3ibi"), SubResource("Terrain3DMeshAsset_e6edf")])
 texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_lha57"), SubResource("Terrain3DTextureAsset_od0q7")])
