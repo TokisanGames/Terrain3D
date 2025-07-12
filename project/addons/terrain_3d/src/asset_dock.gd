@@ -101,7 +101,6 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	pinned_btn.visible = ( window != null )
 	size_slider.value_changed.connect(_on_slider_changed)
 	plugin.ui.toolbar.tool_changed.connect(_on_tool_changed)
-
 	meshes_btn.add_theme_font_size_override("font_size", 16 * EditorInterface.get_editor_scale())
 	textures_btn.add_theme_font_size_override("font_size", 16 * EditorInterface.get_editor_scale())
 
@@ -133,6 +132,16 @@ func _ready() -> void:
 	confirm_dialog.canceled.connect(func(): _confirmed = false; \
 		emit_signal("confirmation_closed"); \
 		emit_signal("confirmation_canceled") )
+			
+
+func update_instance_count():
+
+	var arr: Array = plugin.terrain.instancer.get_instance_count_array()
+
+	for i: int in mesh_list.entries.size() -1:
+		var entry: ListEntry = mesh_list.entries[i]
+		entry.count_label.visible = true
+		entry.count_label.text = str(arr[i])
 
 
 func get_current_list() -> ListContainer:
@@ -238,13 +247,14 @@ func update_layout() -> void:
 func update_thumbnails() -> void:
 	if not is_instance_valid(plugin.terrain):
 		return
+	if _current_list.type == Terrain3DAssets.TYPE_MESH:
+		update_instance_count()
 	if _current_list.type == Terrain3DAssets.TYPE_MESH and \
 			Time.get_ticks_msec() - _last_thumb_update_time > MAX_UPDATE_TIME:
 		plugin.terrain.assets.create_mesh_thumbnails()
 		_last_thumb_update_time = Time.get_ticks_msec()
 		for mesh_asset in mesh_list.entries:
 			mesh_asset.queue_redraw()
-
 
 ## Dock Button handlers
 
@@ -310,9 +320,11 @@ func update_assets() -> void:
 			plugin.terrain.assets.textures_changed.connect(texture_list.update_asset_list)
 		if not plugin.terrain.assets.meshes_changed.is_connected(mesh_list.update_asset_list):
 			plugin.terrain.assets.meshes_changed.connect(mesh_list.update_asset_list)
-
+		if not plugin.terrain.assets.meshes_changed.is_connected(update_instance_count):
+			plugin.terrain.assets.meshes_changed.connect(update_instance_count)
+		if not plugin.terrain.instancer.instance_count_changed.is_connected(update_instance_count):
+			plugin.terrain.instancer.instance_count_changed.connect(update_instance_count)			
 	_current_list.update_asset_list()
-
 
 ## Window Management
 
@@ -426,7 +438,7 @@ func save_editor_settings() -> void:
 		plugin.set_setting(ES_DOCK_WINDOW_SIZE, window.size)
 		plugin.set_setting(ES_DOCK_WINDOW_POSITION, window.position)
 
-
+		
 ##############################################################
 ## class ListContainer
 ##############################################################
@@ -656,6 +668,7 @@ class ListEntry extends VBoxContainer:
 	@onready var disabled_icon: Texture2D = get_theme_icon("GuiVisibilityHidden", "EditorIcons")
 
 	var name_label: Label
+	var count_label: Label
 	@onready var add_icon: Texture2D = get_theme_icon("Add", "EditorIcons")
 	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
 	@onready var focus_style: StyleBox = get_theme_stylebox("focus", "Button").duplicate()
@@ -664,6 +677,7 @@ class ListEntry extends VBoxContainer:
 	func _ready() -> void:
 		setup_buttons()
 		setup_label()
+		setup_count_label()
 		focus_style.set_border_width_all(2)
 		focus_style.set_border_color(Color(1, 1, 1, .67))
 
@@ -733,6 +747,24 @@ class ListEntry extends VBoxContainer:
 		else:
 			name_label.text = "Add Mesh"
 
+
+	func setup_count_label() -> void:
+		if type == Terrain3DAssets.TYPE_TEXTURE:
+			return			
+		count_label = Label.new()
+		add_child(count_label, true)
+		count_label.visible = false
+		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		count_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		count_label.add_theme_color_override("font_color", Color.WHITE)
+		count_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+		count_label.add_theme_constant_override("shadow_offset_x", 1.)
+		count_label.add_theme_constant_override("shadow_offset_y", 1.)
+		count_label.add_theme_font_size_override("font_size", 14)
+		count_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		count_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		count_label.text = str(0)
 
 	func _notification(p_what) -> void:
 		match p_what:
@@ -839,7 +871,6 @@ class ListEntry extends VBoxContainer:
 				set_edited_resource(res, false)
 			emit_signal("selected")
 			emit_signal("inspected", resource)
-
 
 
 	func set_edited_resource(p_res: Resource, p_no_signal: bool = true) -> void:
