@@ -56,6 +56,7 @@ private:
 	// Working data
 	TypedArray<Mesh> _meshes;
 	Ref<Texture2D> _thumbnail;
+	int _instance_count = 0;
 
 	void _clear_lod_ranges();
 	static bool _sort_lod_nodes(const Node *a, const Node *b);
@@ -73,6 +74,10 @@ public:
 	int get_id() const override { return _id; }
 	void set_enabled(const bool p_enabled);
 	bool is_enabled() const { return _enabled; }
+
+	void update_count(const int p_amount) { _instance_count += p_amount; }
+	void set_instance_count(const int p_count) { _instance_count = p_count; }
+	int get_instance_count() const { return _instance_count; }
 
 	void set_scene_file(const Ref<PackedScene> &p_scene_file);
 	Ref<PackedScene> get_scene_file() const { return _packed_scene; }

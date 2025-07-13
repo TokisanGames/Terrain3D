@@ -137,12 +137,12 @@ func _ready() -> void:
 func update_instance_count():
 	if not _initialized:
 		return
-		
-	var arr: Array = plugin.terrain.instancer.get_instance_count_array()
+
 	for i: int in mesh_list.entries.size() - 1:
 		var entry: ListEntry = mesh_list.entries[i]
 		entry.count_label.visible = true
-		entry.count_label.text = str(arr[i])
+		var resource = entry.resource as Terrain3DMeshAsset
+		entry.count_label.text = str(resource.get_instance_count())
 
 
 func get_current_list() -> ListContainer:
@@ -256,6 +256,7 @@ func update_thumbnails() -> void:
 		_last_thumb_update_time = Time.get_ticks_msec()
 		for mesh_asset in mesh_list.entries:
 			mesh_asset.queue_redraw()
+
 
 ## Dock Button handlers
 

@@ -25,7 +25,7 @@ public: // Constants
 
 private:
 	Terrain3D *_terrain = nullptr;
-	TypedArray<int> _instance_count_array;
+
 	// MM Resources stored in Terrain3DRegion::_instances as
 	// Region::_instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, modified:bool ]
 
@@ -51,7 +51,6 @@ private:
 	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
 	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size);
 	Array _get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert, const bool p_on_collision) const;
-	void _update_instance_count_array(const int p_mesh_id);
 
 public:
 	Terrain3DInstancer() {}
@@ -76,7 +75,6 @@ public:
 	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
-	TypedArray<int> get_instance_count_array() { return _instance_count_array; }
 	void update_mmis(const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
