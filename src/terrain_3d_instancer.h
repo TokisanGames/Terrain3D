@@ -40,8 +40,8 @@ private:
 	std::unordered_map<Vector2i, Node3D *, Vector2iHash> _mmi_containers;
 
 	uint32_t _density_counter = 0;
-	uint32_t _get_density_count(const real_t p_density);
 
+	uint32_t _get_density_count(const real_t p_density);
 	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
 	void _setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);

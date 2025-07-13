@@ -137,6 +137,9 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 
 					// Create MM and assign to MMI
 					mmi = cell_mmi_dict[cell];
+
+					ma->update_count(lod == ma->get_last_lod() && mmi->get_multimesh().is_valid() ? -mmi->get_multimesh()->get_instance_count() : 0);
+
 					Ref<MultiMesh> mm;
 					if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
 						// Reuse LOD MM as shadow impostor
@@ -171,6 +174,8 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					t.origin.z += region_loc.y * region_size * vertex_spacing;
 					mmi->set_global_transform(t);
 
+					ma->update_count(lod == ma->get_last_lod() && mmi->get_multimesh().is_valid() ? mmi->get_multimesh()->get_instance_count() : 0);
+
 					// Clear the cell modified state
 					triple[2] = false;
 				}
@@ -198,6 +203,7 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 			}
 		}
 	}
+	emit_signal("mmis_updated");
 }
 
 void Terrain3DInstancer::_setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod) {
@@ -1190,4 +1196,6 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
+
+	ADD_SIGNAL(MethodInfo("mmis_updated"));
 }
