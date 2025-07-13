@@ -98,8 +98,8 @@ TypedArray<Image> Terrain3DRegion::get_maps() const {
 
 void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 	LOG(INFO, "Setting height map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
-	if (_region_size == 0) {
-		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
+	if (_region_size == 0 && p_map.is_valid()) {
+		set_region_size(p_map->get_width());
 	}
 	Ref<Image> map = sanitize_map(TYPE_HEIGHT, p_map);
 	// If already initialized and receiving a new map, or the map was sanitized
@@ -112,8 +112,8 @@ void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 
 void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
 	LOG(INFO, "Setting control map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
-	if (_region_size == 0) {
-		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
+	if (_region_size == 0 && p_map.is_valid()) {
+		set_region_size(p_map->get_width());
 	}
 	Ref<Image> map = sanitize_map(TYPE_CONTROL, p_map);
 	// If already initialized and receiving a new map, or the map was sanitized
@@ -125,8 +125,8 @@ void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
 
 void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
 	LOG(INFO, "Setting color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
-	if (_region_size == 0) {
-		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
+	if (_region_size == 0 && p_map.is_valid()) {
+		set_region_size(p_map->get_width());
 	}
 	Ref<Image> map = sanitize_map(TYPE_COLOR, p_map);
 	// If already initialized and receiving a new map, or the map was sanitized
