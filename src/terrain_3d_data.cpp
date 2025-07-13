@@ -945,31 +945,33 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 				size_to_copy.y = img_size.y - start_coords.y;
 				LOG(DEBUG, "Uneven end piece. Copying padded slice ", Vector2i(x, y), " size to copy: ", size_to_copy);
 			}
-
 			LOG(DEBUG, "Copying ", size_to_copy, " sized segment");
-			TypedArray<Image> images;
-			images.resize(TYPE_MAX);
+
+			Vector3 global_position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y) * _vertex_spacing;
+			Vector2i region_loc = get_region_location(global_position);
+			Ref<Terrain3DRegion> region = get_region(region_loc);
+			if (region.is_null()) {
+				region.instantiate();
+				region->set_location(region_loc);
+				region->set_region_size(_region_size);
+				region->set_vertex_spacing(_vertex_spacing);
+				region->set_modified(true);
+				add_region(region, false);
+			}
 			for (int i = 0; i < TYPE_MAX; i++) {
 				Ref<Image> img = tmp_images[i];
 				Ref<Image> img_slice;
+				// If incoming map is valid, import it, overwriting
 				if (img.is_valid() && !img->is_empty()) {
 					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
 					img_slice->blit_rect(tmp_images[i], Rect2i(start_coords, size_to_copy), V2I_ZERO);
-				} else {
-					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, FORMAT[i]);
+					region->set_map(static_cast<MapType>(i), img_slice);
 				}
-				images[i] = img_slice;
 			}
-			// Add the heightmap slice and only regenerate on the last one
-			Ref<Terrain3DRegion> region;
-			region.instantiate();
-			Vector3 position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y);
-			position *= _vertex_spacing;
-			region->set_location(get_region_location(position));
-			region->set_maps(images);
-			add_region(region, (x == slices_width - 1 && y == slices_height - 1));
-		}
-	} // for y < slices_height, x < slices_width
+			region->sanitize_maps();
+		} // for x < slices_width
+	} // for y < slices_height
+	update_maps(TYPE_MAX, true, false);
 }
 
 /** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres
