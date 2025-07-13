@@ -101,6 +101,7 @@ void Terrain3D::_initialize() {
 		_instancer->initialize(this);
 		_mesher->initialize(this);
 		_initialized = true;
+		snap();
 	}
 	update_configuration_warnings();
 }
@@ -471,6 +472,17 @@ void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
 	_plugin = p_plugin;
 }
 
+void Terrain3D::set_camera(Camera3D *p_camera) {
+	if (p_camera && p_camera->is_queued_for_deletion()) {
+		LOG(ERROR, "Attempted to set a node queued for deletion");
+		_camera.clear();
+		return;
+	}
+	LOG(INFO, "Setting camera: ", p_camera);
+	_camera.set_target(p_camera);
+	set_physics_process(true);
+}
+
 void Terrain3D::set_clipmap_target(Node3D *p_node) {
 	if (p_node && p_node->is_queued_for_deletion()) {
 		LOG(ERROR, "Attempted to set a node queued for deletion");
@@ -509,15 +521,13 @@ Vector3 Terrain3D::get_collision_target_position() const {
 	return get_clipmap_target_position();
 }
 
-void Terrain3D::set_camera(Camera3D *p_camera) {
-	if (p_camera && p_camera->is_queued_for_deletion()) {
-		LOG(ERROR, "Attempted to set a node queued for deletion");
-		_camera.clear();
-		return;
+void Terrain3D::snap() {
+	if (_mesher) {
+		_mesher->reset_target_position();
 	}
-	LOG(INFO, "Setting camera: ", p_camera);
-	_camera.set_target(p_camera);
-	set_physics_process(true);
+	if (_collision) {
+		_collision->reset_target_position();
+	}
 }
 
 void Terrain3D::set_region_size(const RegionSize p_size) {
@@ -1067,6 +1077,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collision_target", "node"), &Terrain3D::set_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target"), &Terrain3D::get_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target_position"), &Terrain3D::get_collision_target_position);
+	ClassDB::bind_method(D_METHOD("snap"), &Terrain3D::snap);
 
 	// Regions
 	ClassDB::bind_method(D_METHOD("change_region_size", "size"), &Terrain3D::change_region_size);

@@ -147,14 +147,15 @@ public:
 	EditorPlugin *get_plugin() const { return _plugin; }
 
 	// Target Tracking
+	void set_camera(Camera3D *p_camera);
+	Camera3D *get_camera() const { return cast_to<Camera3D>(_camera.ptr()); }
 	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
 	void set_clipmap_target(Node3D *p_node);
 	Vector3 get_clipmap_target_position() const;
 	Node3D *get_collision_target() const { return _collision_target.ptr(); }
 	void set_collision_target(Node3D *p_node);
 	Vector3 get_collision_target_position() const;
-	void set_camera(Camera3D *p_camera);
-	Camera3D *get_camera() const { return cast_to<Camera3D>(_camera.ptr()); }
+	void snap();
 
 	// Regions
 	void set_region_size(const RegionSize p_size);
