@@ -52,7 +52,7 @@ private:
 	Ref<Image> _color_map;
 	// Instancer
 	Dictionary _instances; // Meshes{int} -> Cells{v2i} -> [ Transform3D, Color, Modified ]
-	real_t _vertex_spacing = 1.f; // Vertex Spacing value that transforms are currently scaled.
+	real_t _vertex_spacing = 1.f; // Spacing that instancer transforms are currently scaled by.
 
 	// Working data not saved to disk
 	bool _deleted = false; // Marked for deletion on save
@@ -66,7 +66,7 @@ public:
 
 	void set_version(const real_t p_version);
 	real_t get_version() const { return _version; }
-	void set_region_size(const int p_region_size) { _region_size = CLAMP(p_region_size, 64, 2048); }
+	void set_region_size(const int p_region_size);
 	int get_region_size() const { return _region_size; }
 
 	// Maps
@@ -92,7 +92,7 @@ public:
 	void calc_height_range();
 
 	// Instancer
-	void set_instances(const Dictionary &p_instances) { _instances = p_instances; }
+	void set_instances(const Dictionary &p_instances);
 	Dictionary get_instances() const { return _instances; }
 	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 100.f); }
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
