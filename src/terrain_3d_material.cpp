@@ -155,7 +155,7 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("DUAL_SCALING_MIX");
 		excludes.push_back("TRI_SCALING");
 	}
-	if (_terrain->get_tesselation_level() == 0) {
+	if (_terrain->get_tessellation_level() == 0) {
 		excludes.push_back("DISPLACEMENT_FUNCTIONS");
 		excludes.push_back("DISPLACEMENT_VERTEX");
 	}
@@ -251,6 +251,24 @@ String Terrain3DMaterial::_strip_comments(const String &p_shader) const {
 		}
 	}
 	return vector_to_string(stripped);
+}
+
+String Terrain3DMaterial::_generate_buffer_shader_code() {
+	LOG(INFO, "Generating default displacement buffer shader code");
+	Array excludes;
+	if (_texture_filtering == LINEAR) {
+		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+		excludes.push_back("NOISE_SAMPLER_NEAREST");
+	} else {
+		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+		excludes.push_back("NOISE_SAMPLER_LINEAR");
+	}
+	if (!_auto_shader) {
+		excludes.push_back("AUTO_SHADER_UNIFORMS");
+		excludes.push_back("AUTO_SHADER");
+	}
+	String shader = _apply_inserts(_shader_code["displacement_buffer"], excludes);
+	return shader;
 }
 
 String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
@@ -409,6 +427,7 @@ void Terrain3DMaterial::_update_shader() {
 	Ref<RegEx> regex;
 	Ref<RegExMatch> match;
 	regex.instantiate();
+	// Terrain Material
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		if (_shader_override->get_code().is_empty()) {
 			_shader_override->set_code(_generate_shader_code());
@@ -424,6 +443,23 @@ void Terrain3DMaterial::_update_shader() {
 	_shader->set_code(_inject_editor_code(code));
 	RS->material_set_shader(_material, get_shader_rid());
 	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", get_shader_rid());
+
+	// Displacement Buffer
+	if (_buffer_shader_override_enabled && _buffer_shader_override.is_valid()) {
+		if (_buffer_shader_override->get_code().is_empty()) {
+			_buffer_shader_override->set_code(_generate_buffer_shader_code());
+		}
+		code = _buffer_shader_override->get_code();
+		if (!_buffer_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
+			LOG(DEBUG, "Connecting changed signal to _update_shader()");
+			_buffer_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
+		}
+	} else {
+		code = _generate_buffer_shader_code();
+	}
+	_buffer_shader->set_code(code);
+	RS->material_set_shader(_buffer_material, get_buffer_shader_rid());
+	LOG(DEBUG, "Buffer Material rid: ", _buffer_material, ", buffer shader rid: ", get_buffer_shader_rid());
 
 	// Update custom shader params in RenderingServer
 	{
@@ -442,11 +478,14 @@ void Terrain3DMaterial::_update_shader() {
 			Ref<Texture> tex = value;
 			if (tex.is_valid()) {
 				RS->material_set_param(_material, param, tex->get_rid());
+				RS->material_set_param(_buffer_material, param, tex->get_rid());
 			} else {
 				RS->material_set_param(_material, param, Variant());
+				RS->material_set_param(_buffer_material, param, Variant());
 			}
 		} else {
 			RS->material_set_param(_material, param, value);
+			RS->material_set_param(_buffer_material, param, value);
 		}
 	}
 
@@ -492,7 +531,7 @@ void Terrain3DMaterial::_update_shader() {
 	notify_property_list_changed();
 }
 
-void Terrain3DMaterial::_update_maps() {
+void Terrain3DMaterial::_update_maps(const RID &p_material) {
 	IS_DATA_INIT(VOID);
 	LOG(EXTREME, "Updating maps in shader");
 
@@ -503,8 +542,8 @@ void Terrain3DMaterial::_update_maps() {
 		LOG(ERROR, "Expected region_map.size() of ", Terrain3DData::REGION_MAP_SIZE * Terrain3DData::REGION_MAP_SIZE);
 		return;
 	}
-	RS->material_set_param(_material, "_region_map", region_map);
-	RS->material_set_param(_material, "_region_map_size", Terrain3DData::REGION_MAP_SIZE);
+	RS->material_set_param(p_material, "_region_map", region_map);
+	RS->material_set_param(p_material, "_region_map_size", Terrain3DData::REGION_MAP_SIZE);
 	if (Terrain3D::debug_level >= EXTREME) {
 		LOG(EXTREME, "Region map");
 		for (int i = 0; i < region_map.size(); i++) {
@@ -516,30 +555,32 @@ void Terrain3DMaterial::_update_maps() {
 
 	TypedArray<Vector2i> region_locations = data->get_region_locations();
 	LOG(EXTREME, "Region_locations size: ", region_locations.size(), " ", region_locations);
-	RS->material_set_param(_material, "_region_locations", region_locations);
+	RS->material_set_param(p_material, "_region_locations", region_locations);
 
 	real_t region_size = real_t(_terrain->get_region_size());
 	LOG(EXTREME, "Setting region size in material: ", region_size);
-	RS->material_set_param(_material, "_region_size", region_size);
-	RS->material_set_param(_material, "_region_texel_size", 1.0f / region_size);
+	RS->material_set_param(p_material, "_region_size", region_size);
+	RS->material_set_param(p_material, "_region_texel_size", 1.0f / region_size);
 
-	RS->material_set_param(_material, "_height_maps", data->get_height_maps_rid());
-	RS->material_set_param(_material, "_control_maps", data->get_control_maps_rid());
-	RS->material_set_param(_material, "_color_maps", data->get_color_maps_rid());
+	RS->material_set_param(p_material, "_height_maps", data->get_height_maps_rid());
+	RS->material_set_param(p_material, "_control_maps", data->get_control_maps_rid());
+	RS->material_set_param(p_material, "_color_maps", data->get_color_maps_rid());
 	LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
 	LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
 	LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
 
 	real_t spacing = _terrain->get_vertex_spacing();
 	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
-	RS->material_set_param(_material, "_vertex_spacing", spacing);
-	RS->material_set_param(_material, "_vertex_density", 1.0f / spacing);
+	RS->material_set_param(p_material, "_vertex_spacing", spacing);
+	RS->material_set_param(p_material, "_vertex_density", 1.0f / spacing);
 
 	real_t mesh_size = real_t(_terrain->get_mesh_size());
-	RS->material_set_param(_material, "_mesh_size", mesh_size);
+	RS->material_set_param(p_material, "_mesh_size", mesh_size);
 
-	real_t subdiv = real_t(pow(2, _terrain->get_tesselation_level()));
-	RS->material_set_param(_material, "_subdiv", subdiv);
+	real_t tessellation_level = real_t(_terrain->get_tessellation_level());
+	real_t subdiv = pow(2.f, tessellation_level);
+	RS->material_set_param(p_material, "_subdiv", subdiv);
+	RS->material_set_param(p_material, "_tessellation_level", tessellation_level);
 }
 
 // Called from signal connected in Terrain3D, emitted by texture_list
@@ -561,6 +602,13 @@ void Terrain3DMaterial::_update_texture_arrays() {
 	RS->material_set_param(_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
 	RS->material_set_param(_material, "_texture_vertical_projections", asset_list->get_texture_vertical_projections());
 	RS->material_set_param(_material, "_texture_detile_array", asset_list->get_texture_detiles());
+
+	RS->material_set_param(_buffer_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
+	RS->material_set_param(_buffer_material, "_texture_array_normal", asset_list->get_normal_array_rid());
+	RS->material_set_param(_buffer_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
+	RS->material_set_param(_buffer_material, "_texture_vertical_projections", asset_list->get_texture_vertical_projections());
+	RS->material_set_param(_buffer_material, "_texture_detile_array", asset_list->get_texture_detiles());
+	RS->material_set_param(_buffer_material, "_texture_displacement_array", asset_list->get_texture_displacements());
 
 	// Enable checkered view if texture_count is 0, disable if not
 	if (asset_list->get_texture_count() == 0) {
@@ -598,9 +646,14 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	if (!_material.is_valid()) {
 		_material = RS->material_create();
 	}
+	if (!_buffer_material.is_valid()) {
+		_buffer_material = RS->material_create();
+	}
 	_shader.instantiate();
+	_buffer_shader.instantiate();
 	_update_shader();
-	_update_maps();
+	_update_maps(_material);
+	_update_maps(_buffer_material);
 }
 
 void Terrain3DMaterial::uninitialize() {
@@ -612,6 +665,7 @@ void Terrain3DMaterial::destroy() {
 	LOG(INFO, "Destroying material");
 	_terrain = nullptr;
 	_shader.unref();
+	_buffer_shader.unref();
 	_shader_code.clear();
 	_active_params.clear();
 	_shader_params.clear();
@@ -619,29 +673,18 @@ void Terrain3DMaterial::destroy() {
 		RS->free_rid(_material);
 		_material = RID();
 	}
+	if (_buffer_material.is_valid()) {
+		RS->free_rid(_buffer_material);
+		_buffer_material = RID();
+	}
 }
 
-void Terrain3DMaterial::update() {
-	_update_shader();
-	_update_maps();
-}
-
-String Terrain3DMaterial::get_displacement_buffer_code() {
-	LOG(INFO, "Generating default displacement buffer shader code");
-	Array excludes;
-	if (_texture_filtering == LINEAR) {
-		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-		excludes.push_back("NOISE_SAMPLER_NEAREST");
-	} else {
-		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-		excludes.push_back("NOISE_SAMPLER_LINEAR");
+void Terrain3DMaterial::update(bool p_full) {
+	if (p_full) {
+		_update_shader();
 	}
-	if (!_auto_shader) {
-		excludes.push_back("AUTO_SHADER_UNIFORMS");
-		excludes.push_back("AUTO_SHADER");
-	}
-	String shader = _apply_inserts(_shader_code["displacement_buffer"], excludes);
-	return shader;
+	_update_maps(_material);
+	_update_maps(_buffer_material);
 }
 
 void Terrain3DMaterial::set_world_background(const WorldBackground p_background) {
@@ -681,6 +724,22 @@ void Terrain3DMaterial::enable_shader_override(const bool p_enabled) {
 void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	LOG(INFO, "Setting override shader");
 	_shader_override = p_shader;
+	_update_shader();
+}
+
+void Terrain3DMaterial::enable_buffer_shader_override(const bool p_enabled) {
+	LOG(INFO, "Enable shader override: ", p_enabled);
+	_buffer_shader_override_enabled = p_enabled;
+	if (_buffer_shader_override_enabled && _buffer_shader_override.is_null()) {
+		LOG(DEBUG, "Instantiating new _shader_override");
+		_buffer_shader_override.instantiate();
+	}
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_buffer_shader_override(const Ref<Shader> &p_shader) {
+	LOG(INFO, "Setting override shader");
+	_buffer_shader_override = p_shader;
 	_update_shader();
 }
 
@@ -888,13 +947,21 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 		param_list = RS->get_shader_parameter_list(get_shader_rid());
 	}
 
+	if (_buffer_shader_override_enabled && _buffer_shader_override.is_valid()) {
+		// Get shader parameters from custom shader
+		param_list.append_array(_buffer_shader_override->get_shader_uniform_list(true));
+	} else {
+		// Get shader parameters from default shader (eg world_noise)
+		param_list.append_array(RS->get_shader_parameter_list(get_buffer_shader_rid()));
+	}
+
 	_active_params.clear();
 	for (int i = 0; i < param_list.size(); i++) {
 		Dictionary dict = param_list[i];
 		StringName name = dict["name"];
 
 		// Filter out private uniforms that start with _
-		if (!name.begins_with("_")) {
+		if (!name.begins_with("_") && !_active_params.has(name)) {
 			// Populate Godot's property list
 			PropertyInfo pi;
 			uint64_t use = dict["usage"];
@@ -940,7 +1007,12 @@ bool Terrain3DMaterial::_property_can_revert(const StringName &p_name) const {
 // Provide uniform default values in r_property
 bool Terrain3DMaterial::_property_get_revert(const StringName &p_name, Variant &r_property) const {
 	IS_INIT_COND(!_active_params.has(p_name), Resource::_property_get_revert(p_name, r_property));
-	r_property = RS->shader_get_parameter_default(get_shader_rid(), p_name);
+	Variant prop = RS->shader_get_parameter_default(get_shader_rid(), p_name);
+	// If the default is nil, check the buffer shader for the default value.
+	if (prop.get_type() == Variant::NIL) {
+		prop = RS->shader_get_parameter_default(get_buffer_shader_rid(), p_name);
+	}
+	r_property = prop;
 	return true;
 }
 
@@ -959,12 +1031,15 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 		if (tex.is_valid()) {
 			_shader_params[p_name] = tex;
 			RS->material_set_param(_material, p_name, tex->get_rid());
+			RS->material_set_param(_buffer_material, p_name, tex->get_rid());
 		} else {
 			RS->material_set_param(_material, p_name, Variant());
+			RS->material_set_param(_buffer_material, p_name, Variant());
 		}
 	} else {
 		_shader_params[p_name] = p_property;
 		RS->material_set_param(_material, p_name, p_property);
+		RS->material_set_param(_buffer_material, p_name, p_property);
 	}
 	return true;
 }
@@ -999,6 +1074,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update"), &Terrain3DMaterial::update);
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
+	ClassDB::bind_method(D_METHOD("get_buffer_material_rid"), &Terrain3DMaterial::get_buffer_material_rid);
+	ClassDB::bind_method(D_METHOD("get_buffer_shader_rid"), &Terrain3DMaterial::get_buffer_shader_rid);
 
 	ClassDB::bind_method(D_METHOD("set_world_background", "background"), &Terrain3DMaterial::set_world_background);
 	ClassDB::bind_method(D_METHOD("get_world_background"), &Terrain3DMaterial::get_world_background);
@@ -1013,6 +1090,11 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("set_shader_override", "shader"), &Terrain3DMaterial::set_shader_override);
 	ClassDB::bind_method(D_METHOD("get_shader_override"), &Terrain3DMaterial::get_shader_override);
+
+	ClassDB::bind_method(D_METHOD("enable_buffer_shader_override", "enabled"), &Terrain3DMaterial::enable_buffer_shader_override);
+	ClassDB::bind_method(D_METHOD("is_buffer_shader_override_enabled"), &Terrain3DMaterial::is_buffer_shader_override_enabled);
+	ClassDB::bind_method(D_METHOD("set_buffer_shader_override", "shader"), &Terrain3DMaterial::set_buffer_shader_override);
+	ClassDB::bind_method(D_METHOD("get_buffer_shader_override"), &Terrain3DMaterial::get_buffer_shader_override);
 
 	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
 	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
@@ -1070,6 +1152,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling", "get_dual_scaling");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "enable_shader_override", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "buffer_shader_override_enabled"), "enable_buffer_shader_override", "is_buffer_shader_override_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "buffer_shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_buffer_shader_override", "get_buffer_shader_override");
 
 	// Hidden in Material, aliased in Terrain3D
 	//ADD_GROUP("Overlays", "show_");

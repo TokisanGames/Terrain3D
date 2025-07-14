@@ -40,6 +40,11 @@ private:
 	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
 	mutable Dictionary _shader_params; // Public shader params saved to disk
 
+	RID _buffer_material;
+	Ref<Shader> _buffer_shader; // Active buffer shader
+	bool _buffer_shader_override_enabled = false;
+	Ref<Shader> _buffer_shader_override; // User's shader we copy code from
+
 	// Material Features
 	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
@@ -76,10 +81,11 @@ private:
 	void _parse_shader(const String &p_shader, const String &p_name);
 	String _apply_inserts(const String &p_shader, const Array &p_excludes = Array()) const;
 	String _generate_shader_code() const;
+	String _generate_buffer_shader_code();
 	String _strip_comments(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
-	void _update_maps();
+	void _update_maps(const RID &p_material);
 	void _update_texture_arrays();
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
@@ -92,12 +98,12 @@ public:
 	void uninitialize();
 	void destroy();
 
-	void update();
+	void update(bool p_full = false);
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader.is_valid() ? _shader->get_rid() : RID(); }
 
-	// Displacement buffer code
-	String get_displacement_buffer_code();
+	RID get_buffer_material_rid() const { return _buffer_material; }
+	RID get_buffer_shader_rid() const { return _buffer_shader.is_valid() ? _buffer_shader->get_rid() : RID(); }
 
 	// Material settings
 	void set_world_background(const WorldBackground p_background);
@@ -113,6 +119,11 @@ public:
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return _shader_override; }
+
+	void enable_buffer_shader_override(const bool p_enabled);
+	bool is_buffer_shader_override_enabled() const { return _buffer_shader_override_enabled; }
+	void set_buffer_shader_override(const Ref<Shader> &p_shader);
+	Ref<Shader> get_buffer_shader_override() const { return _buffer_shader_override; }
 
 	void set_shader_param(const StringName &p_name, const Variant &p_value);
 	Variant get_shader_param(const StringName &p_name) const;
