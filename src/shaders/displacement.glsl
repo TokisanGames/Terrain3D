@@ -5,6 +5,7 @@ R"(
 //INSERT: DISPLACEMENT_FUNCTIONS
 #define DISPLACEMENT
 group_uniforms displacement;
+uniform bool displacement_enabled = true;
 uniform float displacement_scale : hint_range(0.0, 2.0, 0.01) = 1.0;
 group_uniforms;
 uniform highp sampler2D _displacement_buffer : repeat_disable, filter_linear;
@@ -27,7 +28,7 @@ vec3 get_displacement(vec2 pos, float scale) {
 }
 
 //INSERT: DISPLACEMENT_VERTEX
-		if (!(CAMERA_VISIBLE_LAYERS == _mouse_layer)) {
+		if (!(CAMERA_VISIBLE_LAYERS == _mouse_layer) && displacement_enabled) {
 			displacement = mix(get_displacement(start_pos, scale), get_displacement(end_pos, scale * 2.0), vertex_lerp);
 		}
 

@@ -3,9 +3,13 @@ R"(shader_type canvas_item;
 // Displacement buffer shader, mimics the main shader in 2d and out puts
 // RG Terrain Normal, and B texture height value. A is unusuable when passing
 // the buffer directly via RID (avoids GPU > CPU > GPU copys) as alpha
-// is premultiplied by the viewport.
+// is premultiplied by the renderer.
 
-// Buffer size is determined as mesh size * 4, and then tiled along the X axis for each Tesselation level.
+// All uniforms should be inside this group.
+// Subgroups should work as expected.
+// Uniforms that are shared with the main shader, are automatically synchronised.
+// Only uniquely named uniforms will be added as new entries to the inspector.
+group_uniforms displacement_buffer;
 
 // Defined Constants
 #define SKIP_PASS 0
@@ -35,7 +39,7 @@ R"(shader_type canvas_item;
 #endif
 
 // Private uniforms
-uniform float _tesselation_level = 0.;
+uniform float _tessellation_level = 0.;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
@@ -57,20 +61,10 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 
 
 // Public uniforms
-#define AUTO_SHADER
-uniform float auto_slope : hint_range(0, 10) = 1.0;
-uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
-uniform int auto_base_texture : hint_range(0, 31) = 0;
-uniform int auto_overlay_texture : hint_range(0, 31) = 1;
+//INSERT: AUTO_SHADER_UNIFORMS
 
-uniform int dual_scale_texture : hint_range(0,31) = 0;
-uniform float dual_scale_reduction : hint_range(0.001,1) = 0.3;
-uniform float tri_scale_reduction : hint_range(0.001,1) = 0.3;
-uniform float dual_scale_far : hint_range(0,1000) = 170.0;
-uniform float dual_scale_near : hint_range(0,1000) = 100.0;
-
-uniform float blend_sharpness : hint_range(0, 1) = 0.5;
-uniform bool enable_projection = true;
+uniform float height_sharpness : hint_range(0.0, 1.0, 0.01) = 0.5;
+uniform bool vertical_projection = true;
 uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 
 // Varyings & Types
@@ -149,7 +143,7 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	mat2 p_align = mat2(1.);
 	vec2 p_uv = i_uv;
 	vec2 p_pos = i_pos;
-	if (i_normal.y <= projection_threshold && enable_projection) {
+	if (i_normal.y <= projection_threshold && vertical_projection) {
 		// Projected normal map alignment matrix
 		p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
 		// Fast 45 degree snapping https://iquilezles.org/articles/noatan/
@@ -174,7 +168,7 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	#define FAST_WORLD_NORMAL(n) fma(TNB[0], vec3(n.x), fma(TNB[2], vec3(n.z), TNB[1] * vec3(n.y)))
 
 	float blend = DECODE_BLEND(control); // only used for branching.
-	float sharpness = fma(11., blend_sharpness, 1.);
+	float sharpness = fma(11., height_sharpness, 1.);
 
 	// 1st Texture Asset ID
 	if (blend < 1.0) {
@@ -247,9 +241,9 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 		R"(
 void fragment() {
 	// Calculate Tiled UVs
-	float scale = floor(UV.x * (_tesselation_level));
+	float scale = floor(UV.x * (_tessellation_level));
 	float p_scale = pow(2.0, scale);
-	vec2 uv = (vec2(fract(UV.x * _tesselation_level), UV.y) - 0.5) * (_mesh_size * 2.0) / p_scale;
+	vec2 uv = (vec2(fract(UV.x * _tessellation_level), UV.y) - 0.5) * (_mesh_size * 2.0) / p_scale;
 	uv += round(_target_pos.xz * _vertex_density * p_scale) / p_scale;
 	vec2 uv2 = uv * _region_texel_size;
 

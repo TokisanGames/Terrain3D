@@ -79,7 +79,7 @@ private:
 	// Meshes
 	int _mesh_lods = 7;
 	int _mesh_size = 48;
-	int _tesselation_level = 3;
+	int _tessellation_level = 3;
 	real_t _vertex_spacing = 1.0f;
 
 	// Rendering
@@ -184,8 +184,8 @@ public:
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(const int p_size);
 	int get_mesh_size() const { return _mesh_size; }
-	void set_tesselation_level(const int p_level);
-	int get_tesselation_level() const { return _tesselation_level; }
+	void set_tessellation_level(const int p_level);
+	int get_tessellation_level() const { return _tessellation_level; }
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
