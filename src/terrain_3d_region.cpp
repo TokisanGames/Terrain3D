@@ -13,11 +13,22 @@
 
 void Terrain3DRegion::set_version(const real_t p_version) {
 	LOG(INFO, vformat("%.3f", p_version));
+	if (_version > 0.8f && _version != p_version) {
+		_modified = true;
+	}
 	_version = p_version;
 	if (_version < Terrain3DData::CURRENT_VERSION) {
 		LOG(WARN, "Region ", get_path(), " version ", vformat("%.3f", _version),
 				" will be updated to ", vformat("%.3f", Terrain3DData::CURRENT_VERSION), " upon save");
 	}
+}
+
+void Terrain3DRegion::set_region_size(const int p_region_size) {
+	if (_region_size > 0 && _region_size != p_region_size) {
+		_modified = true;
+	}
+	_region_size = CLAMP(p_region_size, 64, 2048);
+	LOG(INFO, "Setting region ", _location, " size: ", _region_size);
 }
 
 void Terrain3DRegion::set_map(const MapType p_map_type, const Ref<Image> &p_image) {
@@ -90,7 +101,12 @@ void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 	if (_region_size == 0) {
 		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
 	}
-	_height_map = sanitize_map(TYPE_HEIGHT, p_map);
+	Ref<Image> map = sanitize_map(TYPE_HEIGHT, p_map);
+	// If already initialized and receiving a new map, or the map was sanitized
+	if (_height_map.is_valid() && _height_map != p_map || map != p_map) {
+		_modified = true;
+	}
+	_height_map = map;
 	calc_height_range();
 }
 
@@ -99,7 +115,12 @@ void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
 	if (_region_size == 0) {
 		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
 	}
-	_control_map = sanitize_map(TYPE_CONTROL, p_map);
+	Ref<Image> map = sanitize_map(TYPE_CONTROL, p_map);
+	// If already initialized and receiving a new map, or the map was sanitized
+	if (_control_map.is_valid() && _control_map != p_map || map != p_map) {
+		_modified = true;
+	}
+	_control_map = map;
 }
 
 void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
@@ -107,10 +128,16 @@ void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
 	if (_region_size == 0) {
 		set_region_size((p_map.is_valid()) ? p_map->get_width() : 0);
 	}
-	_color_map = sanitize_map(TYPE_COLOR, p_map);
+	Ref<Image> map = sanitize_map(TYPE_COLOR, p_map);
+	// If already initialized and receiving a new map, or the map was sanitized
+	if (_color_map.is_valid() && _color_map != p_map || map != p_map) {
+		_modified = true;
+	}
+	_color_map = map;
 	if (!_color_map->has_mipmaps()) {
 		LOG(DEBUG, "Color map does not have mipmaps. Generating");
 		_color_map->generate_mipmaps();
+		_modified = true;
 	}
 }
 
@@ -119,9 +146,21 @@ void Terrain3DRegion::sanitize_maps() {
 		LOG(ERROR, "Set region_size first");
 		return;
 	}
-	_height_map = sanitize_map(TYPE_HEIGHT, _height_map);
-	_control_map = sanitize_map(TYPE_CONTROL, _control_map);
-	_color_map = sanitize_map(TYPE_COLOR, _color_map);
+	Ref<Image> map = sanitize_map(TYPE_HEIGHT, _height_map);
+	if (_height_map != map) {
+		_modified = true;
+	}
+	_height_map = map;
+	map = sanitize_map(TYPE_CONTROL, _control_map);
+	if (_control_map != map) {
+		_modified = true;
+	}
+	_control_map = map;
+	map = sanitize_map(TYPE_COLOR, _color_map);
+	if (_color_map != map) {
+		_modified = true;
+	}
+	_color_map = map;
 }
 
 Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const {
@@ -204,6 +243,13 @@ void Terrain3DRegion::calc_height_range() {
 	}
 }
 
+void Terrain3DRegion::set_instances(const Dictionary &p_instances) {
+	if (!_instances.is_empty() && _instances._native_ptr() != p_instances._native_ptr()) {
+		_modified = true;
+	}
+	_instances = p_instances;
+}
+
 Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 	// Initiate save to external file. The scene will save itself.
 	if (_location.x == INT32_MAX) {
@@ -254,6 +300,9 @@ void Terrain3DRegion::set_location(const Vector2i &p_location) {
 		return;
 	}
 	LOG(INFO, "Set location: ", p_location);
+	if (_location < V2I_MAX && _location != p_location) {
+		_modified = true;
+	}
 	_location = p_location;
 }
 
