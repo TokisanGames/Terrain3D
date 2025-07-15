@@ -119,7 +119,7 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_mesher) {
 		_mesher->snap();
 	}
-	if (_collision) {
+	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
 }
