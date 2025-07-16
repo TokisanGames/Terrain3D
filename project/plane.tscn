@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://b1ronv2ln7dhb"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_r8t2q"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_s46f0"]
+cull_mode = 2
+albedo_color = Color(0.79, 0.972, 1, 1)
+
+[node name="root" type="Node3D"]
+
+[node name="Meshes" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Meshes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
+mesh = SubResource("PlaneMesh_r8t2q")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("StandardMaterial3D_s46f0")
