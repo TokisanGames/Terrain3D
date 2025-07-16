@@ -22,7 +22,7 @@ You need two files per texture set. Terrain3D is designed for textures that are 
 | albedo_texture | RGB: Albedo texture, A: Height texture
 | normal_texture| RGB: Normal map texture ([OpenGL +Y](#normal-map-format)), A: Roughness texture
 
-The terrain can work without the alpha channels, however it won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
+The terrain can work without the alpha channels, however it won't have height blending, height displacement, or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
 
 Textures can be channel packed using the Pack Textures option in the Terrain3D menu at the top of the viewport, or in tools like [Gimp](https://www.gimp.org/). Photoshop or [Krita](https://krita.org/) are possible, but working with alpha channels can be a bit challenging.
 
@@ -216,7 +216,9 @@ All materials in Godot are just shaders. The standard shader is both overly comp
 
 ### What about displacement?
 
-Godot doesn't support any sort of texture displacement or tessellation in the renderer. It does have depth parallax (called height), which is quite unattractive and is only usable on certain textures like brick. There are [alternatives](https://github.com/TokisanGames/Terrain3D/issues/175) that might prove useful in the future.
+Godot doesn't support any sort of texture displacement via tessellation (Geometry shader) in the renderer. Instead we allow manually subdividing the clipmap mesh, to allow texture based vertex displacement. For further details see [Texture Displacement](texture_displacement.md)
+
+Effects like depth parallax or occlusion mapping etc require many samples in fragment, which can be prohibitivley expensive when applied to already complex terrain shaders. There are [alternatives](https://github.com/TokisanGames/Terrain3D/issues/175) that might prove useful in the future.
 
 ### What about...
 
