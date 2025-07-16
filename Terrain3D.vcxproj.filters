@@ -270,7 +270,7 @@
     </None>
     <None Include="doc\docs\programming_languages.rst">
       <Filter>2. Docs</Filter>
-	</None>
+    </None>
     <None Include="src\shaders\displacement.glsl">
       <Filter>4. Shaders</Filter>
     </None>
@@ -279,6 +279,9 @@
     </None>
     <None Include="src\shaders\pbr_views.glsl">
       <Filter>4. Shaders</Filter>
+    </None>
+    <None Include="doc\docs\displacement.md">
+      <Filter>2. Docs</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

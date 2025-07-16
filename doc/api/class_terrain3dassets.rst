@@ -66,6 +66,8 @@ Methods
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedVector2Array``                                    | :ref:`get_texture_detiles<class_Terrain3DAssets_method_get_texture_detiles>`\ (\ ) |const|                                                                                      |
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedVector2Array``                                    | :ref:`get_texture_displacements<class_Terrain3DAssets_method_get_texture_displacements>`\ (\ ) |const|                                                                          |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedFloat32Array``                                    | :ref:`get_texture_normal_depths<class_Terrain3DAssets_method_get_texture_normal_depths>`\ (\ ) |const|                                                                          |
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedFloat32Array``                                    | :ref:`get_texture_roughness_mods<class_Terrain3DAssets_method_get_texture_roughness_mods>`\ (\ ) |const|                                                                        |
@@ -361,6 +363,18 @@ Returns the number of texture slots used.
 ``PackedVector2Array`` **get_texture_detiles**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_detiles>`
 
 Returns the array of detiling values for each texture asset, indexed by asset id.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DAssets_method_get_texture_displacements:
+
+.. rst-class:: classref-method
+
+``PackedVector2Array`` **get_texture_displacements**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_displacements>`
+
+Returns the array of displacement offset and scale values for each texture asset, indexed by asset id.
 
 .. rst-class:: classref-item-separator
 

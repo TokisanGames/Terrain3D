@@ -207,6 +207,7 @@
     <None Include="doc\docs\data_format.md" />
     <None Include="doc\docs\heightmaps.md" />
     <None Include="doc\docs\programming_languages.rst" />
+    <None Include="doc\docs\displacement.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\docs\user_interface.md" />
     <None Include="doc\index.rst" />

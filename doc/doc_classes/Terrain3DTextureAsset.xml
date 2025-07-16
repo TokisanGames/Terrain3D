@@ -59,6 +59,13 @@
 		<member name="detiling_shift" type="float" setter="set_detiling_shift" getter="get_detiling_shift" default="0.0">
 			The shader laterally shifts UV lookups in a detiling pattern based on this value.
 		</member>
+		<member name="displacement_offset" type="float" setter="set_displacement_offset" getter="get_displacement_offset" default="0.0">
+			Offset that can be used to raise or lower the displaced surface height for this material.
+			Example: slightly lowering a cobblestone texture so the tops of the cobbles match collision.
+		</member>
+		<member name="displacement_scale" type="float" setter="set_displacement_scale" getter="get_displacement_scale" default="0.0">
+			The scale of the displaced surface height for this material.
+		</member>
 		<member name="id" type="int" setter="set_id" getter="get_id" default="0">
 			The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
 		</member>

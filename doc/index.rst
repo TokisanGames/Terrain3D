@@ -103,6 +103,7 @@ And the contribution team in :doc:`docs/authors` and displayed on `github contri
    :caption: Advanced Usage
 
    docs/collision
+   docs/displacement
    docs/double_precision
    docs/navigation
    docs/occlusion_culling

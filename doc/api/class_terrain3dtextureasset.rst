@@ -40,6 +40,10 @@ Properties
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``float``     | :ref:`detiling_shift<class_Terrain3DTextureAsset_property_detiling_shift>`           | ``0.0``               |
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`displacement_offset<class_Terrain3DTextureAsset_property_displacement_offset>` | ``0.0``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`displacement_scale<class_Terrain3DTextureAsset_property_displacement_scale>`   | ``0.0``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``int``       | :ref:`id<class_Terrain3DTextureAsset_property_id>`                                   | ``0``                 |
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``String``    | :ref:`name<class_Terrain3DTextureAsset_property_name>`                               | ``"New Texture"``     |
@@ -222,6 +226,42 @@ The shader rotates UV lookups in a detiling pattern based on this value.
 - ``float`` **get_detiling_shift**\ (\ )
 
 The shader laterally shifts UV lookups in a detiling pattern based on this value.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_property_displacement_offset:
+
+.. rst-class:: classref-property
+
+``float`` **displacement_offset** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_displacement_offset>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_displacement_offset**\ (\ value\: ``float``\ )
+- ``float`` **get_displacement_offset**\ (\ )
+
+Offset that can be used to raise or lower the displaced surface height for this material.
+
+Example: slightly lowering a cobblestone texture so the tops of the cobbles match collision.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_property_displacement_scale:
+
+.. rst-class:: classref-property
+
+``float`` **displacement_scale** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_displacement_scale>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_displacement_scale**\ (\ value\: ``float``\ )
+- ``float`` **get_displacement_scale**\ (\ )
+
+The scale of the displaced surface height for this material.
 
 .. rst-class:: classref-item-separator
 

@@ -53,9 +53,9 @@ Set `Terrain3D / Regions / Label Distance` to 1024-4096 to see region coordinate
 
 ## Vertex Painting
 
-This system is a vertex painter, not a pixel painter. In order to make a high performance terrain, we are spreading out say a 1024 x 1024 map over 1024m^2. Each square meter is influenced by only 4 pixels in the corners. 
+This system is a vertex painter, not a pixel painter. In order to make a high performance terrain, we are spreading out say 1024 x 1024 pixels over 1024m x 1024m. Each square meter is influenced by only 4 pixels of data in the corners. 
 
-We use sophisticated algorithms that allow natural blending of *quality* textures between the vertices. However, it is not magic. Pixel perfect painting is not practical. Texture artists place 4k or 8k textures on a human sized rock to acheive adequate texel density. How much larger than a rock is a 1024m^2 terrain, let alone 16km^2? Achieving the same texel density on a pixel painted terrain would consume far more VRAM than anyone has.
+We use sophisticated algorithms that allow natural blending of *quality* textures between the vertices. However, it is not magic. Pixel perfect painting is not practical. Texture artists place 4k or 8k textures on a human sized rock to acheive adequate texel density. How much larger than a rock is a 1024m x 1024m terrain, let alone 16km x 16km? Achieving the same texel density on a pixel painted terrain would consume far more VRAM than anyone has.
 
 The system we have works well for producing natural environments and is modeled off of the Witcher 3 terrain system. It will most likely work for your game as well. You'll read more about selecting and preparing quality textures in [Texture Prep](texture_prep.md) and [Texture Painting](texture_painting.md).
 

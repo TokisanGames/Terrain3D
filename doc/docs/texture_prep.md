@@ -77,7 +77,7 @@ If creating your own height textures, aim for a central point of grey (0.5) with
 
 Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. Both formats should be normalized.
 
-DirectX can be converted to OpenGL and vice versa by inverting the green channel in a photo editing app.
+DirectX can be converted to OpenGL and vice versa by inverting the green channel in a photo editing app, or within our texture packing tool.
 
 They can often be identified visually by whether bumps appear to stick out (OpenGL) or appear pushed in (DirectX). The sphere and pyramid on the left in the image below are the clearest examples. 
 
@@ -104,18 +104,18 @@ Natural textures like rock or grass can be very difficult to tell. However if yo
 
 ### Roughness vs Smoothness
 
-Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting the image.
+Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting the image in an image editor, or in our texture packing tool.
 
-You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values are near 0 and should appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite.
+You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values will be near 0 and the texture will appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite.
 
 
 ### Ambient Occlusion
 
-AO maps can be packed into the normal texture set by encoding AO values in the normal map vector scalars. Normal vectors are expected to have a unit length of 1.0 and by scaling the vector length, it is then possible to pack and later extract the AO value from the normal map RGB channels.
+Our built in texture packing tool allows you to easily combine AO texture maps into your normal texture set. This is done by a clever technique of expecting your normal map is normalized, then scaling the vector by the AO value.
 
-The shader will always decode the normal map as if it has AO data included in this way, as the result will be mostly 1.0 (No Ambient Occlusion) when no packing has occured.
+AO maps are not required for any texture. You can even mix and match on different textures, unlike with sizes or formats. If you haven't included an AO texture, AO will be approximated from the normal map.
 
-Our built in channel packer will easily pack an AO map into the normal set. If you wish to do it manually, ensure your normal map is normalized. Then pack in AO with: `unpacked_normal_vector * (sqrt(ao) * 0.5 + 0.5)`.
+If you wish to apply AO to your textures manually or in another tool, ensure your normal map is normalized, then pack AO with: `unpacked_normal_vector * (sqrt(ao) * 0.5 + 0.5)`.
 
 
 ## Channel Pack Textures in Terrain3D
@@ -227,7 +227,9 @@ All materials in Godot are just shaders. The standard shader is both overly comp
 
 ### What about displacement?
 
-Godot doesn't support any sort of texture displacement or tessellation in the renderer. It does have depth parallax (called height), which is quite unattractive and is only usable on certain textures like brick. There are [alternatives](https://github.com/TokisanGames/Terrain3D/issues/175) that might prove useful in the future.
+Godot doesn't support texture displacement via tessellation or geometry shaders in the renderer. However, we provide the option of subdividing the terrain mesh, to allow textures to displace verteices. For further details see [Displacement](displacement.md).
+
+Effects like depth parallax or occlusion mapping etc require many samples in fragment, which can be prohibitivley expensive when applied to already complex terrain shaders. There are [alternatives](https://github.com/TokisanGames/Terrain3D/issues/175) that might prove useful in the future.
 
 ### What about...
 
