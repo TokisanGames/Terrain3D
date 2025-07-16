@@ -24,11 +24,16 @@ void Terrain3DRegion::set_version(const real_t p_version) {
 }
 
 void Terrain3DRegion::set_region_size(const int p_region_size) {
+	LOG(INFO, "Setting region ", _location, " size: ", p_region_size);
+	if (!is_valid_region_size(p_region_size)) {
+		LOG(ERROR, "Invalid region size: ", p_region_size, ". Must be power of 2, 64-2048");
+		return;
+	}
+	// If already initialized and we get a new value
 	if (_region_size > 0 && _region_size != p_region_size) {
 		_modified = true;
 	}
-	_region_size = CLAMP(p_region_size, 64, 2048);
-	LOG(INFO, "Setting region ", _location, " size: ", _region_size);
+	_region_size = p_region_size;
 }
 
 void Terrain3DRegion::set_map(const MapType p_map_type, const Ref<Image> &p_image) {
@@ -134,11 +139,6 @@ void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
 		_modified = true;
 	}
 	_color_map = map;
-	if (!_color_map->has_mipmaps()) {
-		LOG(DEBUG, "Color map does not have mipmaps. Generating");
-		_color_map->generate_mipmaps();
-		_modified = true;
-	}
 }
 
 void Terrain3DRegion::sanitize_maps() {
@@ -164,6 +164,11 @@ void Terrain3DRegion::sanitize_maps() {
 }
 
 Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const {
+	LOG(INFO, "Sanitizing map type: ", p_map_type, ", map: ", p_map);
+	if (!is_valid_region_size(_region_size)) {
+		LOG(ERROR, "Invalid region size: ", _region_size, ". Set it or set a map first. Must be power of 2, 64-2048");
+		return Ref<Image>();
+	}
 	const char *type_str = TYPESTR[p_map_type];
 	Image::Format format = FORMAT[p_map_type];
 	Color color = COLOR[p_map_type];
@@ -194,6 +199,10 @@ Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Ima
 		LOG(DEBUG, "Making new image of type: ", type_str, " and generating mipmaps: ", p_map_type == TYPE_COLOR);
 		return Util::get_filled_image(Vector2i(_region_size, _region_size), color, p_map_type == TYPE_COLOR, format);
 	} else {
+		if (p_map_type == TYPE_COLOR && !map->has_mipmaps()) {
+			LOG(DEBUG, "Color map does not have mipmaps. Generating");
+			map->generate_mipmaps();
+		}
 		return map;
 	}
 }
@@ -204,16 +213,8 @@ bool Terrain3DRegion::validate_map_size(const Ref<Image> &p_map) const {
 		LOG(ERROR, "Image width doesn't match height: ", region_sizev);
 		return false;
 	}
-	if (!is_power_of_2(region_sizev.x) || !is_power_of_2(region_sizev.y)) {
-		LOG(ERROR, "Image dimensions are not a power of 2: ", region_sizev);
-		return false;
-	}
-	if (region_sizev.x < 64 || region_sizev.y > 2048) {
-		LOG(ERROR, "Image size out of bounds (64-2048): ", region_sizev);
-		return false;
-	}
-	if (_region_size == 0) {
-		LOG(ERROR, "Region size is 0, set it or set a map first");
+	if (!is_valid_region_size(region_sizev.x) || !is_valid_region_size(region_sizev.y)) {
+		LOG(ERROR, "Invalid image size: ", region_sizev, ". Must be power of 2, 64-2048 and square");
 		return false;
 	}
 	if (_region_size != region_sizev.x || _region_size != region_sizev.y) {

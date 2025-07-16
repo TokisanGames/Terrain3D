@@ -91,6 +91,10 @@ inline Vector3 v2v3(const Vector2 &p_v2) {
 // Math
 ///////////////////////////
 
+inline bool is_valid_region_size(int value) {
+	return value >= 64 && value <= 2048 && is_power_of_2(value);
+}
+
 // Integer round to multiples
 // https://stackoverflow.com/questions/3407012/rounding-up-to-the-nearest-multiple-of-a-number
 

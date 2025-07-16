@@ -532,8 +532,10 @@ void Terrain3D::snap() {
 
 void Terrain3D::set_region_size(const RegionSize p_size) {
 	LOG(INFO, "Setting region size: ", p_size);
-	ERR_FAIL_COND(p_size < SIZE_64);
-	ERR_FAIL_COND(p_size > SIZE_2048);
+	if (!is_valid_region_size(p_size)) {
+		LOG(ERROR, "Invalid region size: ", p_size, ". Must be power of 2, 64-2048");
+		return;
+	}
 	_region_size = p_size;
 	if (_data) {
 		_data->_region_size = _region_size;
