@@ -262,6 +262,9 @@
     <None Include="src\shaders\displacement_buffer.glsl">
       <Filter>4. Shaders</Filter>
     </None>
+    <None Include="doc\docs\texture_displacement.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">

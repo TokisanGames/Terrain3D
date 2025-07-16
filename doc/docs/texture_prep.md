@@ -22,7 +22,7 @@ You need two files per texture set. Terrain3D is designed for textures that are 
 | albedo_texture | RGB: Albedo texture, A: Height texture
 | normal_texture| RGB: Normal map texture ([OpenGL +Y](#normal-map-format)), A: Roughness texture
 
-The terrain can work without the alpha channels, however it won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
+The terrain can work without the alpha channels, however it won't have height blending, height displacement, or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
 
 Textures can be channel packed using the Pack Textures option in the Terrain3D menu at the top of the viewport, or in tools like [Gimp](https://www.gimp.org/). Photoshop or [Krita](https://krita.org/) are possible, but working with alpha channels can be a bit challenging.
 
