@@ -250,6 +250,9 @@
 		<member name="show_control_texture" type="bool" setter="set_show_control_texture" getter="get_show_control_texture" default="false">
 			Alias for [member Terrain3DMaterial.show_control_texture].
 		</member>
+		<member name="show_displacement_buffer" type="bool" setter="set_show_displacement_buffer" getter="get_show_displacement_buffer" default="false">
+			Alias for [member Terrain3DMaterial.show_displacement_buffer].
+		</member>
 		<member name="show_grey" type="bool" setter="set_show_grey" getter="get_show_grey" default="false">
 			Alias for [member Terrain3DMaterial.show_grey].
 		</member>
@@ -288,6 +291,9 @@
 		</member>
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
 			Alias for [member Terrain3DMaterial.show_vertex_grid]. Press `3` with the mouse in the viewport to toggle.
+		</member>
+		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="3">
+			The number of subdivisions below LOD 0.
 		</member>
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.1.0-dev&quot;">
 			The current version of Terrain3D.
