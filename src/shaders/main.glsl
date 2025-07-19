@@ -282,9 +282,9 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 	if (blend < 1.0 
 	//INSERT: DUAL_SCALING_CONDITION_0
 		) {
-		const int id = texture_id[0];
+		int id = texture_id[0];
 		bool projected = TEXTURE_ID_PROJECTED(id);
-		const float id_w = texture_weight[0];
+		float id_w = texture_weight[0];
 		float id_scale = _texture_uv_scale_array[id];
 		vec4 id_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * id_scale;
 
@@ -329,9 +329,9 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 	if (blend > 0.0 && texture_id[1] != texture_id[0]
 //INSERT: DUAL_SCALING_CONDITION_1
 		) {
-		const int id = texture_id[1];
+		int id = texture_id[1];
 		bool projected = TEXTURE_ID_PROJECTED(id);
-		const float id_w = texture_weight[1];
+		float id_w = texture_weight[1];
 		float id_scale = _texture_uv_scale_array[id];
 		vec4 id_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * id_scale;
 
