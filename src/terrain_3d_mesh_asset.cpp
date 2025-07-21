@@ -335,11 +335,28 @@ void Terrain3DMeshAsset::set_material_overlay(const Ref<Material> &p_material) {
 	emit_signal("instancer_setting_changed");
 }
 
-void Terrain3DMeshAsset::set_material_overlay_internal(const Ref<Material> &p_material) {
-	LOG(INFO, _name, ": Setting material overlay: ", p_material);
-	_material_overlay_internal = p_material;
-	LOG(DEBUG, "Emitting setting_changed");
+void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
+	_highlighted = p_highlighted;
+	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
+	if (_highlighted && _highlight_mat.is_null()) {
+		Ref<StandardMaterial3D> mat;
+		mat.instantiate();
+		mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
+		Color color;
+		real_t random_float = real_t(rand()) / real_t(RAND_MAX);
+		color.set_hsv(random_float, 1.f, 1.f, 1.f);
+		mat->set_albedo(color);
+		_highlight_mat = mat;
+	}
 	emit_signal("instancer_setting_changed");
+}
+
+Color Terrain3DMeshAsset::get_highlight_color() const {
+	StandardMaterial3D *mat = cast_to<StandardMaterial3D>(_highlight_mat.ptr());
+	if (_highlighted && mat) {
+		return mat->get_albedo();
+	}
+	return COLOR_WHITE;
 }
 
 void Terrain3DMeshAsset::set_generated_faces(const int p_count) {
@@ -441,30 +458,6 @@ void Terrain3DMeshAsset::set_fade_margin(const real_t p_fade_margin) {
 	emit_signal("instancer_setting_changed");
 }
 
-void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
-	_highlighted = p_highlighted;
-	if (p_highlighted) {
-		LOG(INFO, "Highlighting mesh: ", _name);
-		if (!_highlight_mat.is_valid()) {
-			_highlight_mat.instantiate();
-			_highlight_mat->set_grow_enabled(true);
-			_highlight_mat->set_grow(0.01);
-			Color color;
-			real_t random_float = real_t(rand()) / RAND_MAX;
-			color.set_hsv(random_float, 1.0, 1.0, 1.0);
-			_highlight_mat->set_albedo(color);
-		}
-		if (!_highlight_mat.is_valid()) {
-			LOG(ERROR, "Failed to get or instantiate highlight material");
-			return;
-		}
-		set_material_overlay_internal(_highlight_mat);
-	} else {
-		LOG(INFO, "Unhighlighting mesh: ", _name);
-		set_material_overlay_internal(get_material_overlay());
-	}
-}
-
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -522,6 +515,10 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_material_overlay", "material"), &Terrain3DMeshAsset::set_material_overlay);
 	ClassDB::bind_method(D_METHOD("get_material_overlay"), &Terrain3DMeshAsset::get_material_overlay);
 
+	ClassDB::bind_method(D_METHOD("set_highlighted", "enabled"), &Terrain3DMeshAsset::set_highlighted);
+	ClassDB::bind_method(D_METHOD("is_highlighted"), &Terrain3DMeshAsset::is_highlighted);
+	ClassDB::bind_method(D_METHOD("get_highlight_color"), &Terrain3DMeshAsset::get_highlight_color);
+
 	ClassDB::bind_method(D_METHOD("set_generated_faces", "count"), &Terrain3DMeshAsset::set_generated_faces);
 	ClassDB::bind_method(D_METHOD("get_generated_faces"), &Terrain3DMeshAsset::get_generated_faces);
 	ClassDB::bind_method(D_METHOD("set_generated_size", "size"), &Terrain3DMeshAsset::set_generated_size);
@@ -559,9 +556,6 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_lod9_range"), &Terrain3DMeshAsset::get_lod9_range);
 	ClassDB::bind_method(D_METHOD("set_fade_margin", "distance"), &Terrain3DMeshAsset::set_fade_margin);
 	ClassDB::bind_method(D_METHOD("get_fade_margin"), &Terrain3DMeshAsset::get_fade_margin);
-
-	ClassDB::bind_method(D_METHOD("set_highlighted", "highlight_state"), &Terrain3DMeshAsset::set_highlighted);
-	ClassDB::bind_method(D_METHOD("get_highlighted"), &Terrain3DMeshAsset::get_highlighted);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
