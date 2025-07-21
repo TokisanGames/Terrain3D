@@ -292,7 +292,6 @@ func _on_meshes_pressed() -> void:
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	remove_all_highlights()
-	
 	if p_tool == Terrain3DEditor.INSTANCER:
 		_on_meshes_pressed()
 	elif p_tool in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
@@ -319,12 +318,11 @@ func update_assets() -> void:
 func remove_all_highlights():
 	if not plugin.terrain:
 		return
-		
 	for i: int in mesh_list.entries.size():
-		var resource: Terrain3DMeshAsset = mesh_list.entries[i].resource 
+		var resource: Terrain3DMeshAsset = mesh_list.entries[i].resource
 		if resource:
 			resource.set_highlighted(false)
-	
+
 
 ## Window Management
 
@@ -656,7 +654,6 @@ class ListEntry extends VBoxContainer:
 	var is_hovered: bool = false
 	var is_selected: bool = false
 	var is_highlighted: bool = false
-		
 	var asset_list: Terrain3DAssets
 	
 	@onready var button_row := HBoxContainer.new()
@@ -669,10 +666,7 @@ class ListEntry extends VBoxContainer:
 	@onready var edit_icon: Texture2D = get_theme_icon("Edit", "EditorIcons")
 	@onready var enabled_icon: Texture2D = get_theme_icon("GuiVisibilityVisible", "EditorIcons")
 	@onready var disabled_icon: Texture2D = get_theme_icon("GuiVisibilityHidden", "EditorIcons")
-	@onready var enable_highlight_icon: Texture2D = get_theme_icon("PreviewSun", "EditorIcons")
-	@onready var disable_highlight_icon: Texture2D = get_theme_icon("DirectionalLight3D", "EditorIcons")
-
-
+	@onready var highlight_icon: Texture2D = get_theme_icon("PreviewSun", "EditorIcons")
 	var name_label: Label
 	@onready var add_icon: Texture2D = get_theme_icon("Add", "EditorIcons")
 	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
@@ -681,7 +675,7 @@ class ListEntry extends VBoxContainer:
 
 	func _ready() -> void:
 		if resource is Terrain3DMeshAsset:
-			is_highlighted = resource.get_highlighted()
+			is_highlighted = resource.is_highlighted()
 		setup_buttons()
 		setup_label()
 		focus_style.set_border_width_all(2)
@@ -708,20 +702,21 @@ class ListEntry extends VBoxContainer:
 			button_enabled.set_custom_minimum_size(icon_size)
 			button_enabled.set_h_size_flags(Control.SIZE_SHRINK_END)
 			button_enabled.set_visible(resource != null)
-			button_enabled.tooltip_text = "Enable/Disable"
+			button_enabled.tooltip_text = "Enable Instances"
 			button_enabled.toggle_mode = true
 			button_enabled.mouse_filter = Control.MOUSE_FILTER_PASS
+			button_enabled.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 			button_enabled.pressed.connect(enable)
 			button_row.add_child(button_enabled)
 			
-			button_highlight.set_texture_normal(enable_highlight_icon)
-			button_highlight.set_texture_pressed(disable_highlight_icon)
+			button_highlight.set_texture_normal(highlight_icon)
 			button_highlight.set_custom_minimum_size(icon_size)
 			button_highlight.set_h_size_flags(Control.SIZE_SHRINK_END)
 			button_highlight.set_visible(resource != null)
 			button_highlight.tooltip_text = "Highlight Instances"
 			button_highlight.toggle_mode = true
 			button_highlight.mouse_filter = Control.MOUSE_FILTER_PASS
+			button_highlight.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 			button_highlight.set_pressed_no_signal(is_highlighted)
 			button_highlight.pressed.connect(highlight)
 			button_row.add_child(button_highlight)
@@ -730,8 +725,9 @@ class ListEntry extends VBoxContainer:
 		button_edit.set_custom_minimum_size(icon_size)
 		button_edit.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_edit.set_visible(resource != null)
-		button_edit.tooltip_text = "Edit"
+		button_edit.tooltip_text = "Edit Asset"
 		button_edit.mouse_filter = Control.MOUSE_FILTER_PASS
+		button_edit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button_edit.pressed.connect(edit)
 		button_row.add_child(button_edit)
 
@@ -743,8 +739,9 @@ class ListEntry extends VBoxContainer:
 		button_clear.set_custom_minimum_size(icon_size)
 		button_clear.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_clear.set_visible(resource != null)
-		button_clear.tooltip_text = "Clear"
+		button_clear.tooltip_text = "Clear Asset"
 		button_clear.mouse_filter = Control.MOUSE_FILTER_PASS
+		button_clear.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button_clear.pressed.connect(clear)
 		button_row.add_child(button_clear)
 
@@ -797,6 +794,8 @@ class ListEntry extends VBoxContainer:
 						else:
 							draw_rect(rect, Color(.15, .15, .15, 1.))
 						button_enabled.set_pressed_no_signal(!resource.is_enabled())
+						button_highlight.self_modulate = Color("FC7F7F") if is_highlighted else Color.WHITE
+						self_modulate = resource.get_highlight_color()
 				name_label.add_theme_font_size_override("font_size", 4 + rect.size.x/10)
 				if drop_data:
 					draw_style_box(focus_style, rect)

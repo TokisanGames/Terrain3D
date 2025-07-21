@@ -154,15 +154,20 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					mmi->set_multimesh(mm);
 					mmi->set_cast_shadows_setting(ma->get_lod_cast_shadows(lod));
 					_setup_mmi_lod_ranges(mmi, ma, lod);
-					Ref<Material> mat = ma->get_material_override();
+					// Setup materials
+					Ref<Material> mat = ma->get_highlight_material();
 					if (mat.is_valid()) {
 						mmi->set_material_override(mat);
+					} else {
+						mat = ma->get_material_override();
+						if (mat.is_valid()) {
+							mmi->set_material_override(mat);
+						}
+						mat = ma->get_material_overlay();
+						if (mat.is_valid()) {
+							mmi->set_material_overlay(mat);
+						}
 					}
-					mat = ma->get_material_overlay_internal();
-					if (mat.is_valid()) {
-						mmi->set_material_overlay(mat);
-					}
-
 					// Reposition the MMI to its region location
 					Transform3D t = Transform3D();
 					int region_size = region->get_region_size();

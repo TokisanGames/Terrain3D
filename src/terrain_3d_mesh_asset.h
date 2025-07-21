@@ -8,7 +8,6 @@
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
-#include <godot_cpp/classes/standard_material3d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 
 #include "constants.h"
@@ -46,9 +45,6 @@ private:
 	ShadowCasting _cast_shadows = SHADOWS_ON;
 	Ref<Material> _material_override;
 	Ref<Material> _material_overlay;
-	Ref<Material> _material_overlay_internal;
-
-	bool _highlighted = false;
 	int _generated_faces = 2;
 	Vector2 _generated_size = Vector2(1.f, 1.f);
 	int _last_lod = MAX_LOD_COUNT - 1;
@@ -57,9 +53,9 @@ private:
 	PackedFloat32Array _lod_ranges;
 	real_t _fade_margin = 0.f;
 
-	Ref<StandardMaterial3D> _highlight_mat;
-
 	// Working data
+	bool _highlighted = false;
+	Ref<Material> _highlight_mat;
 	TypedArray<Mesh> _meshes;
 	Ref<Texture2D> _thumbnail;
 
@@ -96,9 +92,12 @@ public:
 	void set_material_override(const Ref<Material> &p_material);
 	Ref<Material> get_material_override() const { return _material_override; }
 	void set_material_overlay(const Ref<Material> &p_material);
-	void set_material_overlay_internal(const Ref<Material> &p_material);
 	Ref<Material> get_material_overlay() const { return _material_overlay; }
-	Ref<Material> get_material_overlay_internal() const { return _material_overlay_internal; }
+
+	void set_highlighted(const bool p_highlighted);
+	bool is_highlighted() const { return _highlighted; }
+	Ref<Material> get_highlight_material() const { return _highlighted ? _highlight_mat : Ref<Material>(); }
+	Color get_highlight_color() const;
 
 	void set_generated_faces(const int p_count);
 	int get_generated_faces() const { return _generated_faces; }
@@ -138,8 +137,6 @@ public:
 	void set_lod9_range(const real_t p_distance) { set_lod_range(9, p_distance); }
 	real_t get_lod9_range() const { return _lod_ranges[9]; }
 	void set_fade_margin(const real_t p_fade_margin);
-	void set_highlighted(const bool p_highlighted);
-	bool get_highlighted() const { return _highlighted; }
 	real_t get_fade_margin() const { return _fade_margin; };
 
 protected:
