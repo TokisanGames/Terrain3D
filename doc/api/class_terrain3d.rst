@@ -1410,7 +1410,7 @@ Sets the EditorPlugin connected to Terrain3D.
 
 |void| **snap**\ (\ ) :ref:`🔗<class_Terrain3D_method_snap>`
 
-Queues the terrain mesh and collision to snap their positions to the target nodes on the next physics frame. Typically this only happens if the targets have moved sufficiently far.
+Queues the terrain mesh and collision to snap their positions to the target nodes on the next physics frame. Typically this only happens if the targets have moved sufficiently far. See :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>` and :ref:`collision_target<class_Terrain3D_property_collision_target>`.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

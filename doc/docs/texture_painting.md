@@ -3,9 +3,10 @@ Texturing the Terrain
 
 ## Texture List
 
-Terrain3D supports up to 32 texture sets.
+Once your texture files have been prepared, this document describes how to use them to texture your terrain.
 
-### Installing a Texture
+
+### Adding a Texture Set
 1. Once you've [created your textures](texture_prep.md), place them in your Godot project folder.
 2. Set the appropriate Import settings for them as defined in [compression formats](texture_prep.md#compression-format).
 3. Make a new texture slot in the `Textures` section of the [Asset Dock](user_interface.md#asset-dock) by clicking `Add New`. 
@@ -22,26 +23,30 @@ Terrain3D supports up to 32 texture sets.
 
 ## Texture Painting
 
-The idea for texturing the terrain is to enable the autoshader to automatically texture the terrain in most areas, then manually paint textures only where you need it.
+Textures are painted on to the terrain in three values: a base texture ID, an overlay texture ID, and a blending value. Our shader then determines the best way considering a variety of factors including the height texture from each set, to determine which texture to show. In areas where autoshading has been enabled, the painted textures are ignored.
+
+The general idea for texturing the terrain is to enable the autoshader to automatically texture the terrain in most areas, then manually paint textures only where you need it.
 
 There are a handful of tools to familiarize yourself with:
-* The toolbar has a `Paint Texture`, `Spray Texture`, and `Autoshader` tools to paint where the terrain is manually or automatically textured.
+* The toolbar has `Paint Texture`, `Spray Texture`, and `Autoshader` tools to paint where the terrain is manually or automatically textured.
 * The material has an option to enable or disable the autoshader for the whole terrain.
-* The `material/debug view/autoshader` displays where the terrain is automatically or manually textured.
+* The `Debug Views/Autoshader` displays where the terrain is automatically or manually textured.
 
 
 ### Manual Painting Technique
 
-In an area where autoshading has been disabled, each vertex has a base texture, an overlay texture, and a blending value. If the autoshader is enabled, painting textures will disable the autoshader in that area. 
+Painting with natural mixing is easy to do as long as your texture sets have height textures, they are quality textures, and you use the correct technique as follows.
 
-* Use the `Paint Texture` tool to cover large sections with a single texture. This tool sets the blend value to `0.0` and both IDs as the selected texture. You can and should paint similar but different textures in an area for a natural variety. e.g. gravel and dirt; mud, dirt, and rocks.
-* Use the `Spray Texture` tool to blend in textures to give it a natural look, by gradually increasing the weight of the selected texture. The `ctrl` modifier will lower the weight of only the selected texture. If the selected texture isn't present, this tool will reduce lowest weighted texture to zero before setting the new texture.
+* Use the `Paint Texture` tool to cover large sections with a single texture. This tool sets the blend value to `0.0` and both base and overlay IDs to the selected texture.
+* Start Painting your terrain in large sections with this tool.
+* You can and should Paint similar but different textures in an area for a natural variety. e.g. gravel and dirt; mud, dirt, and rocks. Do what blending you can with Paint first.
+* Use the `Spray Texture` tool to blend the edges of the Paint work, or lightly in the center of the Painted areas to give it a natural look. This gradually increases the weight of the selected texture. See the [keyboard shortcuts](keyboard_shortcuts.md) for options you can do while Spraying.
 * Example: Use the Paint tool for both a grass field and a dirt pathway. Then use the Spray tool and repeatedly switch between grass and dirt to blend the edges of the path randomly until it looks realistic.
 * Use the [control texture](../api/class_terrain3dmaterial.rst#class-terrain3dmaterial-property-show-control-texture) and [control blend](../api/class_terrain3dmaterial.rst#class-terrain3dmaterial-property-show-control-blend) debug views to understand how your textures are painted and blended. 
 
 
 ### Autoshading
-New regions are set to enable the autoshader by default. If you started using Terrain3D before the autoshader, all of your regions are set to manual shading. To enable it:
+New regions are set to enable the autoshader by default. If you started using Terrain3D before the autoshader was added, all of your regions are set to manual shading. To enable it:
 * In the material, enable the autoshader.
 * Specify the base and overlay texture IDs the autoshader should use.
 * Use the `Autoshader` tool and paint over the areas you want to be autoshaded.

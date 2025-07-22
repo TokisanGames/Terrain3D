@@ -132,7 +132,7 @@
 		<method name="snap">
 			<return type="void" />
 			<description>
-				Queues the terrain mesh and collision to snap their positions to the target nodes on the next physics frame. Typically this only happens if the targets have moved sufficiently far.
+				Queues the terrain mesh and collision to snap their positions to the target nodes on the next physics frame. Typically this only happens if the targets have moved sufficiently far. See [member clipmap_target] and [member collision_target].
 			</description>
 		</method>
 	</methods>
