@@ -22,7 +22,7 @@
 		<method name="get_highlight_color" qualifiers="const">
 			<return type="Color" />
 			<description>
-				Highlights all instances of this mesh asset in a random color.
+				Returns the color of the current highlight material, if any.
 			</description>
 		</method>
 		<method name="get_instance_count" qualifiers="const">
@@ -54,14 +54,14 @@
 		<method name="is_highlighted" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns true if this mesh has a highlight material applied.
+				Returns true if this mesh asset is currently highlighted. For editor use.
 			</description>
 		</method>
 		<method name="set_highlighted">
 			<return type="void" />
 			<param index="0" name="enabled" type="bool" />
 			<description>
-				Enables or disables the highlight material.
+				Enables or disables adding a highlight material with a random color to the overlay slot for all instances of this mesh asset.
 			</description>
 		</method>
 		<method name="set_lod_range">
