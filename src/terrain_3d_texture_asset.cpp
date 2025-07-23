@@ -44,6 +44,8 @@ void Terrain3DTextureAsset::clear() {
 	_vertical_projection = false;
 	_detiling_rotation = 0.0f;
 	_detiling_shift = 0.0f;
+	_displacement_offset = 0.0f;
+	_displacement_scale = 1.0f;
 }
 
 void Terrain3DTextureAsset::set_name(const String &p_name) {
@@ -153,6 +155,18 @@ void Terrain3DTextureAsset::set_detiling_shift(const real_t p_detiling_shift) {
 	emit_signal("setting_changed");
 }
 
+void Terrain3DTextureAsset::set_displacement_offset(const real_t p_displacement_offset) {
+	_displacement_offset = CLAMP(p_displacement_offset, 0.0f, 1.0f);
+	LOG(INFO, "Setting displacement_offset: ", _displacement_offset);
+	emit_signal("setting_changed");
+}
+
+void Terrain3DTextureAsset::set_displacement_scale(const real_t p_displacement_scale) {
+	_displacement_scale = CLAMP(p_displacement_scale, 0.0f, 1.0f);
+	LOG(INFO, "Setting displacement_scale: ", _displacement_scale);
+	emit_signal("setting_changed");
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -187,6 +201,10 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_detiling_rotation"), &Terrain3DTextureAsset::get_detiling_rotation);
 	ClassDB::bind_method(D_METHOD("set_detiling_shift", "detiling_shift"), &Terrain3DTextureAsset::set_detiling_shift);
 	ClassDB::bind_method(D_METHOD("get_detiling_shift"), &Terrain3DTextureAsset::get_detiling_shift);
+	ClassDB::bind_method(D_METHOD("set_displacement_offset", "displacement_offset"), &Terrain3DTextureAsset::set_displacement_offset);
+	ClassDB::bind_method(D_METHOD("get_displacement_offset"), &Terrain3DTextureAsset::get_displacement_offset);
+	ClassDB::bind_method(D_METHOD("set_displacement_scale", "displacement_scale"), &Terrain3DTextureAsset::set_displacement_scale);
+	ClassDB::bind_method(D_METHOD("get_displacement_scale"), &Terrain3DTextureAsset::get_displacement_scale);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
@@ -200,4 +218,6 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "vertical_projection", PROPERTY_HINT_NONE), "set_vertical_projection", "get_vertical_projection");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_rotation", "get_detiling_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_shift", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_shift", "get_detiling_shift");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_offset", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_displacement_offset", "get_displacement_offset");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_scale", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_displacement_scale", "get_displacement_scale");
 }
