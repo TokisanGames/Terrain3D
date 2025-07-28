@@ -29,6 +29,7 @@ var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
+var godot_editor_vp_container: Node # Houses all editor 3D viewports
 
 
 func _init() -> void:
@@ -38,6 +39,9 @@ func _init() -> void:
 	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
 	godot_editor_window = EditorInterface.get_base_control().get_parent().get_parent()
 	godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
+	# Container of all editor 3D viewports
+	# Node3DEditorViewportContainer/Node3DEditorViewport/SubViewportContainer/SubViewport/Camera3D
+	godot_editor_vp_container = EditorInterface.get_editor_viewport_3d(0).get_parent().get_parent().get_parent()
 
 	
 func _enter_tree() -> void:
