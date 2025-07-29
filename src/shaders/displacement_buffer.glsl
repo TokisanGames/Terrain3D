@@ -62,8 +62,7 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 
 // Public uniforms
 //INSERT: AUTO_SHADER_UNIFORMS
-
-uniform float height_sharpness : hint_range(0.0, 1.0, 0.01) = 0.5;
+uniform float displacement_sharpness : hint_range(0.0, 1.0, 0.01) = 0.5;
 uniform bool vertical_projection = true;
 uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 
@@ -168,7 +167,7 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	#define FAST_WORLD_NORMAL(n) fma(TNB[0], vec3(n.x), fma(TNB[2], vec3(n.z), TNB[1] * vec3(n.y)))
 
 	float blend = DECODE_BLEND(control); // only used for branching.
-	float sharpness = fma(11., height_sharpness, 1.);
+	float sharpness = fma(11., displacement_sharpness, 1.);
 
 	// 1st Texture Asset ID
 	if (blend < 1.0) {
@@ -370,10 +369,7 @@ void fragment() {
 	mat.albedo_height *= weight_inv;
 
 	// Output
-	// Displacement Direction Vector3 (reconstructed from XZ when used later)
-	COLOR.rg = fma(w_normal.xz, vec2(0.5), vec2(0.5));
-	// Displacement Ammount -0.5 to 0.5, stored in 0.0 - 1.0 Range
-	COLOR.b = mat.albedo_height.a;
+	COLOR.rgb = fma(w_normal * (mat.albedo_height.a - 0.5), vec3(0.5), vec3(0.5));
 
 }
 )"

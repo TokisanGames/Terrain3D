@@ -16,15 +16,12 @@ vec3 get_displacement(vec2 pos, float scale) {
 	vec2 d_uv = (pos - round(_target_pos.xz * _vertex_density * scale) / scale) / (_mesh_size * 2.0 / scale) + 0.5;
 	d_uv.x += s - 1.;
 	d_uv.x /= log2(_subdiv);
-	highp vec3 nrm_h = vec3(0.);
+	highp vec3 disp = vec3(0.);
 	if (all(greaterThanEqual(d_uv, vec2(0.0))) && all(lessThanEqual(d_uv, vec2(1.0)))) {
-		nrm_h = textureLod(_displacement_buffer, d_uv, 0.).rgb;
-		float height = nrm_h.z - 0.5;
-		nrm_h.xy = fma(nrm_h.xy, vec2(2.0), vec2(-1.0));
-		nrm_h.z = sqrt(clamp(1.0 - dot(nrm_h.xy, nrm_h.xy), 0.0, 1.0));
-		nrm_h = nrm_h.xzy * height * displacement_scale;
+		disp = textureLod(_displacement_buffer, d_uv, 0.).rgb * 2.0 - 1.0;
+		disp *= displacement_scale;
 	}
-	return nrm_h;
+	return disp;
 }
 
 //INSERT: DISPLACEMENT_VERTEX
