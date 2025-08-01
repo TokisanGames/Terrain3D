@@ -115,6 +115,9 @@ func pack_textures_popup() -> void:
 
 	(window.find_child("PackButton") as Button).pressed.connect(_on_pack_button_pressed)
 
+	# This method will also be called if the `window` is inited and the editor's theme had changed.
+	prepare_theme()
+
 
 func _on_close_requested() -> void:
 	last_file_selected_fn = no_op
@@ -463,3 +466,26 @@ func _pack_textures(p_rgb_image: Image, p_a_image: Image, p_dst_path: String, p_
 	else:
 		_show_message(ERROR, "Failed to load one or more textures")
 		return FAILED
+
+
+func prepare_theme() -> void:
+	# If the `window` is not inited, do not prepare theme.
+	if window == null:
+		return
+
+	var editor_theme := EditorInterface.get_editor_theme()
+
+	var main_panel_stylebox: StyleBoxFlat = window.find_child("PanelContainer").get_theme_stylebox("panel")
+	main_panel_stylebox.bg_color = editor_theme.get_color("background", "Editor")
+
+	var alb_nrm_stylebox: StyleBoxFlat = window.find_child("AlbedoHeightPanel").get_theme_stylebox("panel")
+	alb_nrm_stylebox.bg_color = editor_theme.get_color("base_color", "Editor")
+	alb_nrm_stylebox.border_color = editor_theme.get_color("contrast_color_1", "Editor")
+
+	window.print_tree_pretty()
+	var img_drop_box_stylebox: StyleBoxFlat = window.get_node(
+		"PanelContainer/MarginContainer/VBoxContainer/AlbedoHeightPanel/MarginContainer/HBoxContainer/AlbedoVBox/MarginContainer/Panel"
+	).get_theme_stylebox("panel")
+	# The following line seems not setting the colour.
+	img_drop_box_stylebox.bg_color = editor_theme.get_color("dark_color_1", "Editor")
+	img_drop_box_stylebox.border_color = editor_theme.get_color("contrast_color_2", "Editor")
