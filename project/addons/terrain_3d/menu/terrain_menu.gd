@@ -48,18 +48,12 @@ func _enter_tree() -> void:
 	add_child(menu_button)
 
 
-func _notification(what: int) -> void:
-	match what:
-		Control.NOTIFICATION_THEME_CHANGED:
-			packer.prepare_theme()
-
-
 func _on_menu_pressed(p_id: int) -> void:
 	match p_id:
 		MENU_DIRECTORY_SETUP:
 			directory_setup.directory_setup_popup()
 		MENU_PACK_TEXTURES:
-			packer.pack_textures_popup()			
+			packer.pack_textures_popup()
 		MENU_BAKE_ARRAY_MESH:
 			baker.bake_mesh_popup()
 		MENU_BAKE_OCCLUDER:
