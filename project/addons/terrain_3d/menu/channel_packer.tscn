@@ -1,28 +1,25 @@
-[gd_scene load_steps=7 format=3 uid="uid://nud6dwjcnj5v"]
+[gd_scene load_steps=6 format=3 uid="uid://nud6dwjcnj5v"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ysabf"]
-bg_color = Color(0.115499996, 0.132, 0.15949999, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lcvna"]
-bg_color = Color(0.21, 0.24, 0.29, 1)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mbo40"]
+draw_center = false
 border_width_left = 3
 border_width_top = 3
 border_width_right = 3
 border_width_bottom = 3
-border_color = Color(0.44700003, 0.468, 0.503, 1)
+border_blend = true
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cb0xf"]
-bg_color = Color(0.14699998, 0.16799998, 0.203, 1)
+bg_color = Color(0.147, 0.168, 0.203, 1)
 draw_center = false
 border_width_left = 3
 border_width_top = 3
 border_width_right = 3
 border_width_bottom = 3
-border_color = Color(0.5655, 0.582, 0.60950005, 1)
+border_color = Color(0.5655, 0.582, 0.6095, 1)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -47,7 +44,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_ysabf")
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer"]
 layout_mode = 2
@@ -62,7 +58,7 @@ theme_override_constants/separation = 10
 
 [node name="AlbedoHeightPanel" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_lcvna")
+theme_override_styles/panel = SubResource("StyleBoxFlat_mbo40")
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer/AlbedoHeightPanel"]
 layout_mode = 2
@@ -275,7 +271,7 @@ text = "A"
 
 [node name="NormalRoughnessPanel" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_lcvna")
+theme_override_styles/panel = SubResource("StyleBoxFlat_mbo40")
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer/NormalRoughnessPanel"]
 layout_mode = 2
