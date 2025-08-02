@@ -4,14 +4,14 @@ extends HBoxContainer
 
 
 const DirectoryWizard: Script = preload("res://addons/terrain_3d/menu/directory_setup.gd")
-const Packer: Script = preload("res://addons/terrain_3d/menu/channel_packer.gd")
-const Baker: Script = preload("res://addons/terrain_3d/menu/baker.gd")
+const ChannelPacker: Script = preload("res://addons/terrain_3d/menu/channel_packer.gd")
+const LodBaker: Script = preload("res://addons/terrain_3d/menu/baker.gd")
 
 var plugin: EditorPlugin
 var menu_button: MenuButton = MenuButton.new()
 var directory_setup: DirectoryWizard = DirectoryWizard.new()
-var packer: Packer = Packer.new()
-var baker: Baker = Baker.new()
+var packer: ChannelPacker = ChannelPacker.new()
+var baker: LodBaker = LodBaker.new()
 
 # These are IDs and order must be consistent with add_item and set_disabled IDs
 enum {

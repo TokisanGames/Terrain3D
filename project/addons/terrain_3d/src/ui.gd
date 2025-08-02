@@ -5,8 +5,8 @@ extends Node
 
 # Includes
 const TerrainMenu: Script = preload("res://addons/terrain_3d/menu/terrain_menu.gd")
-const Toolbar: Script = preload("res://addons/terrain_3d/src/toolbar.gd")
-const ToolSettings: Script = preload("res://addons/terrain_3d/src/tool_settings.gd")
+const TerrainToolbar: Script = preload("res://addons/terrain_3d/src/toolbar.gd")
+const TerrainToolSettings: Script = preload("res://addons/terrain_3d/src/tool_settings.gd")
 const OperationBuilder: Script = preload("res://addons/terrain_3d/src/operation_builder.gd")
 const GradientOperationBuilder: Script = preload("res://addons/terrain_3d/src/gradient_operation_builder.gd")
 const COLOR_RAISE := Color.WHITE
@@ -40,8 +40,8 @@ var ring_texture : ImageTexture
 		value.create_from_image(image)
 		region_texture = value
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
-var toolbar: Toolbar
-var tool_settings: ToolSettings
+var toolbar: TerrainToolbar
+var tool_settings: TerrainToolSettings
 var terrain_menu: TerrainMenu
 var setting_has_changed: bool = false
 var visible: bool = false
@@ -78,11 +78,11 @@ var editor_ring_texture_rid: RID
 
 
 func _enter_tree() -> void:
-	toolbar = Toolbar.new()
+	toolbar = TerrainToolbar.new()
 	toolbar.hide()
 	toolbar.tool_changed.connect(_on_tool_changed)
 	
-	tool_settings = ToolSettings.new()
+	tool_settings = TerrainToolSettings.new()
 	tool_settings.setting_changed.connect(_on_setting_changed)
 	tool_settings.picking.connect(_on_picking)
 	tool_settings.plugin = plugin

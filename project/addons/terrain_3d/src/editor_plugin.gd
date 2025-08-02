@@ -5,7 +5,7 @@ extends EditorPlugin
 
 
 # Includes
-const UI: Script = preload("res://addons/terrain_3d/src/ui.gd")
+const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
@@ -43,7 +43,7 @@ func _init() -> void:
 func _enter_tree() -> void:
 	editor = Terrain3DEditor.new()
 	setup_editor_settings()
-	ui = UI.new()
+	ui = Terrain3DUI.new()
 	ui.plugin = self
 	add_child(ui)
 
