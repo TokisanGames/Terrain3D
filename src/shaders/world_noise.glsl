@@ -30,7 +30,7 @@ float check_region(const vec2 uv2) {
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
 float region_blend(vec2 uv2) {
-	uv2 -= 0.5;
+	uv2 -= 0.4989; // Offset from - 0.5 to account for FP errors highlighted by Tessellation.
 	const vec2 offset = vec2(0.0,1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
