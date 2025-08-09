@@ -338,13 +338,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 				switch (_tool) {
 					case TEXTURE: {
-						if (!data->is_in_slope(brush_global_position, slope_range, modifier_alt)) {
-							continue;
-						}
+						real_t slope_factor = pow(data->is_in_slope(brush_global_position, slope_range, modifier_alt), 8.f);
 						switch (_operation) {
 							// Base Paint
 							case REPLACE: {
-								if (brush_alpha > 0.5f) {
+								if (brush_alpha > 0.5f && slope_factor > 0.999f) {
 									if (enable_texture) {
 										// Set base & overlay texture
 										base_id = asset_id;
@@ -376,7 +374,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							// Add asset id, and increase weighting
 							case ADD: {
 								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
-								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
+								real_t brush_value = CLAMP(brush_alpha * spray_strength * slope_factor, 0.f, 1.f);
 								if (enable_texture && brush_alpha * strength * 11.f > 0.1f) {
 									// Pick lowest weighted id, and lower to zero before setting new asset id.
 									if (asset_id != base_id && asset_id != overlay_id) {
@@ -430,7 +428,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							// Lower weight of current asset id
 							case SUBTRACT: {
 								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
-								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
+								real_t brush_value = CLAMP(brush_alpha * spray_strength * slope_factor, 0.f, 1.f);
 								if (base_id == asset_id) {
 									blend = CLAMP(blend + brush_value, 0.f, 1.f);
 								}
@@ -494,12 +492,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						continue;
 					}
 				}
-				if (!data->is_in_slope(brush_global_position, slope_range, modifier_alt)) {
-					continue;
-				}
+				real_t slope_factor = pow(data->is_in_slope(brush_global_position, slope_range, modifier_alt), 8.f);
 				switch (_tool) {
 					case COLOR:
-						dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength);
+						dest = src.lerp((_operation == ADD) ? color : COLOR_WHITE, brush_alpha * strength * slope_factor);
 						dest.a = src.a;
 						break;
 					case ROUGHNESS:
@@ -511,10 +507,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						 */
 						if (_operation == ADD) {
 							real_t target = .5f + .5f * roughness;
-							dest.a = Math::lerp(real_t(src.a), target, brush_alpha * strength);
+							dest.a = Math::lerp(real_t(src.a), target, brush_alpha * strength * slope_factor);
 							dest.a = float(int(dest.a * 255.f)) / 255.f; // Quantize explicitly so picked values match painted values
 						} else {
-							dest.a = Math::lerp(real_t(src.a), real_t(.5f), brush_alpha * strength);
+							dest.a = Math::lerp(real_t(src.a), real_t(.5f), brush_alpha * strength * slope_factor);
 							dest.a = float(int(dest.a * 255.f)) / 255.f;
 						}
 						break;
