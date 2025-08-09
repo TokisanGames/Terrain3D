@@ -138,11 +138,9 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					// Create MM and assign to MMI
 					mmi = cell_mmi_dict[cell];
 
-					// Update count : Subtract previous count for this cell
-					if (ma.is_valid() && mmi->get_multimesh().is_valid()) {
-						if (lod == ma->get_last_lod()) {
-							ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
-						}
+					// Update instance count: Subtract previous count for this cell
+					if (mmi->get_multimesh().is_valid() && lod == ma->get_last_lod()) {
+						ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
 					}
 					Ref<MultiMesh> mm;
 					if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
@@ -182,12 +180,9 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					t.origin.x += region_loc.x * region_size * vertex_spacing;
 					t.origin.z += region_loc.y * region_size * vertex_spacing;
 					mmi->set_global_transform(t);
-
-					// Update count : Add current count for this cell
-					if (ma.is_valid() && mmi->get_multimesh().is_valid()) {
-						if (lod == ma->get_last_lod()) {
-							ma->update_instance_count(mmi->get_multimesh()->get_instance_count());
-						}
+					// Update instance count: Add current count for this cell
+					if (lod == ma->get_last_lod()) {
+						ma->update_instance_count(mm->get_instance_count());
 					}
 					// Clear the cell modified state
 					triple[2] = false;
@@ -310,7 +305,7 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		}
 
 		MultiMeshInstance3D *mmi = cell_mmi_dict[p_cell];
-		if (ma.is_valid() && mmi->get_multimesh().is_valid()) {
+		if (ma.is_valid() && mmi && mmi->get_multimesh().is_valid()) {
 			if (lod == ma->get_last_lod()) {
 				ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
 			}

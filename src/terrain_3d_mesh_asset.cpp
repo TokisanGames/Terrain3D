@@ -170,8 +170,7 @@ void Terrain3DMeshAsset::update_instance_count(const uint32_t p_amount) {
 }
 
 void Terrain3DMeshAsset::set_instance_count(const uint32_t p_amount) {
-	uint64_t new_count = p_amount;
-	_instance_count = CLAMP(new_count, 0, UINT32_MAX);
+	_instance_count = CLAMP(p_amount, 0, UINT32_MAX);
 	emit_signal("instance_count_changed");
 }
 
