@@ -34,6 +34,7 @@ radial_segments = 4
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xl2nj"]
 cull_mode = 2
+albedo_color = Color(0.6205, 0.31, 1, 1)
 
 [node name="TestMultimesh" type="Node3D"]
 

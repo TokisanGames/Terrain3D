@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://dkb6hii5e48m2"]
 
-[ext_resource type="Script" path="res://addons/terrain_3d/src/asset_dock.gd" id="1_e23pg"]
+[ext_resource type="Script" uid="uid://bgoifepft1hjw" path="res://addons/terrain_3d/src/asset_dock.gd" id="1_e23pg"]
 
 [node name="Terrain3D" type="PanelContainer"]
 custom_minimum_size = Vector2(256, 95)
@@ -43,6 +43,7 @@ size_flags_vertical = 0
 selected = 7
 item_count = 9
 popup/item_0/text = "Left_UL"
+popup/item_0/id = 0
 popup/item_1/text = "Left_BL"
 popup/item_1/id = 1
 popup/item_2/text = "Left_UR"
@@ -66,7 +67,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 min_value = 66.0
 max_value = 230.0
-value = 83.0
+value = 90.0
 
 [node name="Floating" type="Button" parent="Box/Buttons"]
 layout_mode = 2
