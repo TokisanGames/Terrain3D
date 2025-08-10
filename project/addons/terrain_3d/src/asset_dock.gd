@@ -461,6 +461,7 @@ class ListContainer extends Container:
 	var height: float = 0
 	var width: float = 83
 	var focus_style: StyleBox
+	var _clearing_resource: bool = false
 
 	
 	func _ready() -> void:
@@ -573,7 +574,10 @@ class ListContainer extends Container:
 	
 	
 	func _on_resource_changed(p_resource: Resource, p_id: int) -> void:
+		if not p_resource and _clearing_resource:
+			return
 		if not p_resource:
+			_clearing_resource = true
 			var asset_dock: Control = get_parent().get_parent().get_parent()
 			if type == Terrain3DAssets.TYPE_TEXTURE:
 				asset_dock.confirm_dialog.dialog_text = "Are you sure you want to clear this texture?"
@@ -583,6 +587,7 @@ class ListContainer extends Container:
 			await asset_dock.confirmation_closed
 			if not asset_dock._confirmed:
 				update_asset_list()
+				_clearing_resource = false
 				return
 			
 		if not plugin.is_terrain_valid():
@@ -607,6 +612,7 @@ class ListContainer extends Container:
 			if p_id == entries.size()-2:
 				last_offset = 3
 			set_selected_id(clamp(selected_id, 0, entries.size() - last_offset))
+		_clearing_resource = false
 
 
 	func get_selected_id() -> int:
