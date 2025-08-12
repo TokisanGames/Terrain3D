@@ -18,6 +18,7 @@ const ES_DOCK_TAB: String = "terrain3d/dock/tab"
 var texture_list: ListContainer
 var mesh_list: ListContainer
 var _current_list: ListContainer
+var _updating_list: bool
 var _last_thumb_update_time: int = 0
 const MAX_UPDATE_TIME: int = 1000
 
@@ -266,6 +267,9 @@ func _on_slider_changed(value: float) -> void:
 
 
 func _on_textures_pressed() -> void:
+	if _updating_list:
+		return
+	_updating_list = true
 	_current_list = texture_list
 	texture_list.update_asset_list()
 	texture_list.visible = true
@@ -276,9 +280,13 @@ func _on_textures_pressed() -> void:
 	if plugin.is_terrain_valid():
 		EditorInterface.edit_node(plugin.terrain)
 	save_editor_settings()
+	_updating_list = false
 
 
 func _on_meshes_pressed() -> void:
+	if _updating_list:
+		return
+	_updating_list = true
 	_current_list = mesh_list
 	mesh_list.update_asset_list()
 	mesh_list.visible = true
@@ -290,6 +298,7 @@ func _on_meshes_pressed() -> void:
 		EditorInterface.edit_node(plugin.terrain)
 	update_thumbnails()
 	save_editor_settings()
+	_updating_list = false
 
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
