@@ -124,13 +124,13 @@ void Terrain3DTextureAsset::set_ao_strength(const real_t p_ao_strength) {
 }
 
 void Terrain3DTextureAsset::set_roughness(const real_t p_roughness) {
-	_roughness = CLAMP(p_roughness, -1.f, 1.0f);
+	_roughness = CLAMP(p_roughness, -1.0f, 1.0f);
 	LOG(INFO, "Setting roughness modifier: ", _roughness);
 	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_uv_scale(const real_t p_scale) {
-	_uv_scale = CLAMP(p_scale, .001f, 2.f);
+	_uv_scale = CLAMP(p_scale, 0.001f, 100.0f);
 	LOG(INFO, "Setting uv_scale: ", _uv_scale);
 	emit_signal("setting_changed");
 }
@@ -196,7 +196,7 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "normal_depth", PROPERTY_HINT_RANGE, "0.0, 2.0"), "set_normal_depth", "get_normal_depth");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_strength", PROPERTY_HINT_RANGE, "0.0, 2.0"), "set_ao_strength", "get_ao_strength");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "roughness", PROPERTY_HINT_RANGE, "-1.0, 1.0"), "set_roughness", "get_roughness");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0"), "set_uv_scale", "get_uv_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0, or_greater"), "set_uv_scale", "get_uv_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "vertical_projection", PROPERTY_HINT_NONE), "set_vertical_projection", "get_vertical_projection");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_rotation", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_rotation", "get_detiling_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "detiling_shift", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_detiling_shift", "get_detiling_shift");
