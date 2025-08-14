@@ -53,7 +53,8 @@ var settings: Dictionary = {}
 
 func _ready() -> void:
 	# Remove old editor settings
-	for setting in ["lift_floor", "flatten_peaks", "lift_flatten", "automatic_regions"]:
+	for setting in ["lift_floor", "flatten_peaks", "lift_flatten", "automatic_regions",
+			"show_cursor_while_painting", "crosshair_threshold"]:
 		plugin.erase_setting(ES_TOOL_SETTINGS + setting)
 
 	# Setup buttons	
@@ -154,11 +155,12 @@ func _ready() -> void:
 								"list":color_list, "default":0, "unit":"°", "range":Vector3(0, 360, 1) })
 	add_setting({ "name":"random_darken", "type":SettingType.SLIDER, "list":color_list, "default":50, 
 								"unit":"%", "range":Vector3(0, 100, 1) })
-	#add_setting({ "name":"blend_mode", "type":SettingType.OPTION, "list":color_list, "default":0, 
-								#"range":Vector3(0, 3, 1) })
+
+	add_setting({ "name":"alt_blend_mode", "type":SettingType.CHECKBOX, "list":main_list, "default":true, 
+								"flags":ADD_SPACER })
 
 	add_setting({ "name":"on_collision", "label":"On Collision", "type":SettingType.CHECKBOX, "list":main_list,
-								"default":true, "flags":ADD_SPACER  })
+								"default":true, "flags":ADD_SPACER })
 
 	if DisplayServer.is_touchscreen_available():
 		add_setting({ "name":"invert", "label":"Invert", "type":SettingType.CHECKBOX, "list":main_list, "default":false, "flags":ADD_SEPARATOR })
@@ -173,15 +175,11 @@ func _ready() -> void:
 								"list":advanced_list, "default":true })
 	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
 								"default":true })
-	add_setting({ "name":"show_cursor_while_painting", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true })
 	advanced_list.add_child(HSeparator.new(), true)
 	add_setting({ "name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
 								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
 	add_setting({ "name":"jitter", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
 								"unit":"%", "range":Vector3(0, 100, 1) })
-	add_setting({ "name":"crosshair_threshold", "type":SettingType.SLIDER, "list":advanced_list, "default":16., 
-								"unit":"m", "range":Vector3(0, 200, 1) })
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout, p_hover_pop: bool = true) -> Container:
