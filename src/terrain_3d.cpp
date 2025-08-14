@@ -1,5 +1,6 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/color_rect.hpp>
 #include <godot_cpp/classes/compositor.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
@@ -71,9 +72,9 @@ void Terrain3D::_initialize() {
 		_data->connect("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build));
 	}
 	// Any map was regenerated or regions changed, update material
-	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
+	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
 		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update_maps()");
-		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
+		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
 	}
 	// Height map was regenerated, update aabbs
 	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs))) {
@@ -100,6 +101,7 @@ void Terrain3D::_initialize() {
 		_collision->initialize(this);
 		_instancer->initialize(this);
 		_mesher->initialize(this);
+		_update_displacement_buffer();
 		_initialized = true;
 		snap();
 	}
@@ -123,6 +125,11 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
+	if (_d_buffer_vp && _tessellation_level > 0) {
+		RS->material_set_param(_material->get_buffer_material_rid(), "_target_pos", get_clipmap_target_position());
+		_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	}
+	
 }
 
 /**
@@ -258,6 +265,51 @@ void Terrain3D::_destroy_mouse_picking() {
 	memdelete_safely(_mouse_cam);
 	LOG(DEBUG, "Freeing mouse_vp");
 	memdelete_safely(_mouse_vp);
+}
+
+void Terrain3D::_setup_displacement_buffer() {
+	if (!is_inside_tree()) {
+		LOG(ERROR, "Not inside the tree, skipping displacement buffer setup");
+		return;
+	}
+	_destroy_displacement_buffer();
+	LOG(INFO, "Setting up displacement buffer");
+	_d_buffer_vp = memnew(SubViewport);
+	_d_buffer_vp->set_name("DBufferViewport");
+	add_child(_d_buffer_vp, true);
+	_d_buffer_vp->set_size(Vector2i(2, 2));
+	_d_buffer_vp->set_disable_3d(true);
+	_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	
+	_d_buffer_rect = memnew(ColorRect);
+	_d_buffer_rect->set_name("DBufferRect");
+	_d_buffer_vp->add_child(_d_buffer_rect, true);
+	_d_buffer_rect->set_anchors_preset(Control::PRESET_FULL_RECT);
+}
+
+void Terrain3D::_update_displacement_buffer() {
+	if (!_d_buffer_vp) {
+		return;
+	}
+	if (_tessellation_level == 0) {
+		_d_buffer_vp->set_size(Vector2i(0, 0));
+		_d_buffer_rect->set_size(Vector2i(0, 0));
+	} else {
+		LOG(DEBUG, "Updating displacement buffer");
+		_d_buffer_vp->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
+		_d_buffer_rect->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
+		if (_material.is_valid() && _material->get_material_rid().is_valid()) {
+			RS->canvas_item_set_material(_d_buffer_rect->get_canvas_item(), _material->get_buffer_material_rid());
+			RS->material_set_param(_material->get_material_rid(), "_displacement_buffer", _d_buffer_vp->get_texture()->get_rid());
+		}
+	}
+}
+
+void Terrain3D::_destroy_displacement_buffer() {
+	LOG(DEBUG, "Freeing d_buffer_rect");
+	memdelete_safely(_d_buffer_rect);
+	LOG(DEBUG, "Freeing d_buffer_vp");
+	memdelete_safely(_d_buffer_vp);
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
@@ -459,7 +511,7 @@ void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
 	LOG(INFO, "Set Terrain3DEditor: ", p_editor);
 	_editor = p_editor;
 	if (_material.is_valid()) {
-		_material->update();
+		_material->update(true);
 	}
 }
 
@@ -542,8 +594,9 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 		_data->_region_sizev = Vector2i(_region_size, _region_size);
 	}
 	if (_material.is_valid()) {
-		_material->_update_maps();
+		_material->update();
 	}
+	_update_displacement_buffer();
 }
 
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
@@ -616,8 +669,21 @@ void Terrain3D::set_mesh_size(const int p_size) {
 		LOG(INFO, "Setting mesh size: ", p_size);
 		_mesh_size = p_size;
 		if (_mesher && _material.is_valid()) {
-			_material->_update_maps();
+			_material->update();
 			_mesher->initialize(this);
+			_update_displacement_buffer();
+		}
+	}
+}
+
+void Terrain3D::set_tessellation_level(const int p_level) {
+	if (_tessellation_level != p_level) {
+		LOG(INFO, "Setting tessellation level: ", p_level);
+		_tessellation_level = CLAMP(p_level, 0, 6);
+		if (_mesher && _material.is_valid()) {
+			_material->update(true);
+			_mesher->initialize(this);
+			_update_displacement_buffer();
 		}
 	}
 }
@@ -632,9 +698,10 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 			update_region_labels();
 			_instancer->_update_vertex_spacing(_vertex_spacing);
 			_mesher->reset_target_position();
-			_material->_update_maps();
+			_material->update();
 			_collision->destroy();
 			_collision->build();
+			_update_displacement_buffer();
 		}
 	}
 	if (IS_EDITOR && _plugin) {
@@ -903,6 +970,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_notify_transform(true);
 			set_meta("_edit_lock_", true);
 			_setup_mouse_picking();
+			_setup_displacement_buffer();
 			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid() && !_assets->get_path().contains("Terrain3DAssets")) {
 				LOG(INFO, "free_editor_textures enabled, reloading Assets path: ", _assets->get_path());
 				_assets = ResourceLoader::get_singleton()->load(_assets->get_path(), "", ResourceLoader::CACHE_MODE_IGNORE);
@@ -1001,6 +1069,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_physics_process(false);
 			_destroy_mesher();
 			_destroy_mouse_picking();
+			_destroy_displacement_buffer();
 			if (_assets.is_valid()) {
 				_assets->uninitialize();
 			}
@@ -1112,6 +1181,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_tessellation_level", "size"), &Terrain3D::set_tessellation_level);
+	ClassDB::bind_method(D_METHOD("get_tessellation_level"), &Terrain3D::get_tessellation_level);
 	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
 
@@ -1172,6 +1243,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3D::get_show_texture_normal);
 	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3D::set_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3D::get_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("set_show_displacement_buffer", "enabled"), &Terrain3D::set_show_displacement_buffer);
+	ClassDB::bind_method(D_METHOD("get_show_displacement_buffer"), &Terrain3D::get_show_displacement_buffer);
 
 	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction", "gpu_mode"), &Terrain3D::get_intersection, DEFVAL(false));
@@ -1209,6 +1282,7 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_tessellation_level", "get_tessellation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_clipmap_target", "get_clipmap_target");
 
@@ -1243,6 +1317,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_displacement_buffer"), "set_show_displacement_buffer", "get_show_displacement_buffer");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
