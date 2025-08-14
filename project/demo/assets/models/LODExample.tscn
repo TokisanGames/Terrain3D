@@ -1,17 +1,17 @@
 [gd_scene load_steps=11 format=3 uid="uid://bn5nf4esciwex"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_788j8"]
-albedo_color = Color(1, 0, 0, 1)
-
-[sub_resource type="SphereMesh" id="SphereMesh_u4ac2"]
-material = SubResource("StandardMaterial3D_788j8")
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3i52q"]
 albedo_color = Color(1, 0.540167, 0.11, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_xyuxq"]
 material = SubResource("StandardMaterial3D_3i52q")
 size = Vector3(0.85, 0.85, 0.85)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_788j8"]
+albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_u4ac2"]
+material = SubResource("StandardMaterial3D_788j8")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p0ha4"]
 albedo_color = Color(0.48, 1, 0.497333, 1)
@@ -39,14 +39,15 @@ albedo_color = Color(0.6205, 0.31, 1, 1)
 [node name="TestMultimesh" type="Node3D"]
 
 [node name="Node3D" type="Node3D" parent="."]
+transform = Transform3D(0.707107, -0.707107, 0, 0.5, 0.5, -0.707107, 0.5, 0.5, 0.707107, 0, 0.725, 0.125)
 
 [node name="MeshInstance3D1" type="MeshInstance3D" parent="Node3D"]
-mesh = SubResource("SphereMesh_u4ac2")
+mesh = SubResource("BoxMesh_xyuxq")
 skeleton = NodePath("../..")
 
 [node name="MeshInstance3D2" type="MeshInstance3D" parent="Node3D"]
 visible = false
-mesh = SubResource("BoxMesh_xyuxq")
+mesh = SubResource("SphereMesh_u4ac2")
 skeleton = NodePath("../..")
 
 [node name="MeshInstance3D3" type="MeshInstance3D" parent="Node3D"]

@@ -563,7 +563,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	TypedArray<Transform3D> xforms;
 	PackedColorArray colors;
 	for (int i = 0; i < count; i++) {
-		Transform3D t;
+		// Start with the mesh transform to correct the mesh to its visual state
+		Transform3D t = mesh_asset->get_mesh_transform();
 
 		// Get random XZ position and height in a circle
 		real_t r_radius = radius * sqrt(UtilityFunctions::randf());
@@ -579,44 +580,54 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		position.y = height_data[0];
 		bool raycast_hit = height_data[1];
 
-		// Orientation
-		Vector3 normal = Vector3(0.f, 1.f, 0.f);
+		// Orientation: Align the corrected mesh's up axis
+		Vector3 mesh_up = t.basis.get_column(1).normalized(); // Mesh's up axis after correction (typically Y)
 		if (align_to_normal) {
-			// Use either collision normal or terrain normal
-			normal = (on_collision && raycast_hit) ? (Vector3)height_data[2] : data->get_normal(position);
-			if (!normal.is_finite()) {
-				normal = Vector3(0.f, 1.f, 0.f);
-			} else {
+			Vector3 normal = (on_collision && raycast_hit) ? (Vector3)height_data[2] : data->get_normal(position);
+			if (normal.is_finite()) {
 				normal = normal.normalized();
-				Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
-				Vector3 x_axis = -z_axis.cross(normal);
-				if (x_axis.length_squared() > 0.001) {
-					t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
+				if (mesh_up.dot(normal) < 0.999f) { // Avoid rotation if already aligned
+					Quaternion rotation = Quaternion(mesh_up, normal);
+					t.basis = Basis(rotation) * t.basis;
 				}
 			}
-		}
-		real_t spin = (fixed_spin + random_spin * UtilityFunctions::randf()) * Math_PI / 180.f;
-		if (abs(spin) > 0.001f) {
-			t.basis = t.basis.rotated(normal, spin);
-		}
-		real_t tilt = (fixed_tilt + random_tilt * (2.f * UtilityFunctions::randf() - 1.f)) * Math_PI / 180.f;
-		if (abs(tilt) > 0.001f) {
-			t.basis = t.basis.rotated(t.basis.get_column(0), tilt); // Rotate pitch, X-axis
+		} else {
+			// Align mesh's up axis to global Y when not aligning to normal
+			if (mesh_up.dot(Vector3(0, 1, 0)) < 0.999f) {
+				Quaternion rotation = Quaternion(mesh_up, Vector3(0, 1, 0));
+				t.basis = Basis(rotation) * t.basis;
+			}
 		}
 
-		// Scale
+		// Apply spin around the current up axis (global Y if align_to_normal is false)
+		real_t spin = (fixed_spin + random_spin * UtilityFunctions::randf()) * Math_PI / 180.f;
+		if (abs(spin) > 0.001f) {
+			t.basis = t.basis.rotated(t.basis.get_column(1), spin);
+		}
+
+		// Apply tilt around the post-transform X-axis
+		real_t tilt = (fixed_tilt + random_tilt * (2.f * UtilityFunctions::randf() - 1.f)) * Math_PI / 180.f;
+		if (abs(tilt) > 0.001f) {
+			t.basis = t.basis.rotated(t.basis.get_column(0), tilt);
+		}
+
+		// Apply scale
 		real_t t_scale = CLAMP(fixed_scale + random_scale * (2.f * UtilityFunctions::randf() - 1.f), 0.01f, 10.f);
 		t = t.scaled(Vector3(t_scale, t_scale, t_scale));
 
-		// Position. mesh_asset height offset added in add_transforms
+		// Apply editor height offset along the post-transform up axis
 		real_t offset = height_offset + random_height * (2.f * UtilityFunctions::randf() - 1.f);
-		position += t.basis.get_column(1) * offset; // Offset along UP axis
-		t = t.translated(position);
+		position += t.basis.get_column(1) * offset;
+
+		// Set the final position
+		t.origin = position;
 
 		// Color
 		Color col = vertex_color;
 		col.set_v(CLAMP(col.get_v() - random_darken * UtilityFunctions::randf(), 0.f, 1.f));
 		col.set_h(fmod(col.get_h() + random_hue * (2.f * UtilityFunctions::randf() - 1.f), 1.f));
+
+		t *= mesh_asset->get_mesh_transform(); // Apply mesh asset transform
 
 		xforms.push_back(t);
 		colors.push_back(col);
@@ -736,9 +747,11 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					// Use localised ring center
 					real_t radial_distance = localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z));
 					Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
+
+					Vector3 base_position = t.origin + global_local_offset - height_offset;
 					if (radial_distance < radius &&
 							UtilityFunctions::randf() < CLAMP(0.175f * strength, 0.005f, 10.f) &&
-							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
+							data->is_in_slope(base_position, slope_range, invert)) {
 						_backup_region(region);
 						continue;
 					} else {
@@ -799,7 +812,10 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	for (int i = 0; i < p_xforms.size(); i++) {
 		// Get adjusted xform/color
 		Transform3D trns = p_xforms[i];
-		trns.origin += trns.basis.get_column(1) * mesh_asset->get_height_offset(); // Offset along UP axis
+		// Apply the mesh transform first
+		trns = mesh_asset->get_mesh_transform() * trns;
+		// Then apply the height offset along the transformed up axis
+		trns.origin += trns.basis.get_column(1) * mesh_asset->get_height_offset();
 		Color col = COLOR_WHITE;
 		if (p_colors.size() > i) {
 			col = p_colors[i];
@@ -993,15 +1009,19 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					Transform3D t = xforms[i];
 					Vector3 global_origin(t.origin + global_local_offset);
 					if (rect.has_point(Vector2(global_origin.x, global_origin.z))) {
-						Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
-						t.origin -= height_offset;
-						Array height_data = _get_usable_height(global_origin, Vector2(0.f, 90.f), false, on_collision);
+						// Get the instance's up axis from its basis (post-transform)
+						Vector3 up_axis = t.basis.get_column(1).normalized();
+						// Calculate the base position by moving down along the up axis by height_offset
+						Vector3 base_position = global_origin - up_axis * mesh_height_offset;
+						// Get the new terrain height at the base position
+						Array height_data = _get_usable_height(base_position, Vector2(0.f, 90.f), false, on_collision);
 						if (height_data.size() != 3) {
 							continue;
 						}
-						t.origin.y = height_data[0];
-
-						t.origin += height_offset;
+						real_t new_terrain_height = height_data[0];
+						// Adjust the instance’s position so its base matches the new terrain height
+						Vector3 adjustment = up_axis * (new_terrain_height - base_position.y);
+						t.origin += adjustment;
 					}
 					updated_xforms.push_back(t);
 					updated_colors.push_back(colors[i]);
