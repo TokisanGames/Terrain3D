@@ -164,6 +164,8 @@ Methods
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_plugin<class_Terrain3D_method_set_plugin>`\ (\ plugin\: ``EditorPlugin``\ )                                                                                   |
    +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`snap<class_Terrain3D_method_snap>`\ (\ )                                                                                                                          |
+   +-----------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -1371,6 +1373,18 @@ Sets the current Terrain3DEditor instance.
 |void| **set_plugin**\ (\ plugin\: ``EditorPlugin``\ ) :ref:`🔗<class_Terrain3D_method_set_plugin>`
 
 Sets the EditorPlugin connected to Terrain3D.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_method_snap:
+
+.. rst-class:: classref-method
+
+|void| **snap**\ (\ ) :ref:`🔗<class_Terrain3D_method_snap>`
+
+Queues the terrain meshes and collision to reposition at the target nodes on the next physics tick. See :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>` and :ref:`collision_target<class_Terrain3D_property_collision_target>`.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

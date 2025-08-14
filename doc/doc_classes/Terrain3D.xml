@@ -113,6 +113,12 @@
 				Sets the EditorPlugin connected to Terrain3D.
 			</description>
 		</method>
+		<method name="snap">
+			<return type="void" />
+			<description>
+				Queues the terrain meshes and collision to reposition at the target nodes on the next physics tick. See [member clipmap_target] and [member collision_target].
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="assets" type="Terrain3DAssets" setter="set_assets" getter="get_assets">
