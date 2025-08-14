@@ -250,7 +250,6 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	_clear_lod_ranges();
 	notify_property_list_changed(); // Call _validate_property to update inspector
 	LOG(DEBUG, "Emitting file_changed");
-	emit_signal("file_changed");
 	emit_signal("instancer_setting_changed");
 }
 
@@ -277,7 +276,6 @@ void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
 	}
 	notify_property_list_changed(); // Call _validate_property to update inspector
 	LOG(DEBUG, "Emitting file_changed");
-	emit_signal("file_changed");
 	emit_signal("instancer_setting_changed");
 }
 
@@ -334,7 +332,6 @@ void Terrain3DMeshAsset::set_material_override(const Ref<Material> &p_material) 
 	LOG(INFO, _name, ": Setting material override: ", p_material);
 	_material_override = p_material;
 	LOG(DEBUG, "Emitting setting_changed");
-	emit_signal("setting_changed");
 	emit_signal("instancer_setting_changed");
 }
 
@@ -342,7 +339,6 @@ void Terrain3DMeshAsset::set_material_overlay(const Ref<Material> &p_material) {
 	LOG(INFO, _name, ": Setting material overlay: ", p_material);
 	_material_overlay = p_material;
 	LOG(DEBUG, "Emitting setting_changed");
-	emit_signal("setting_changed");
 	emit_signal("instancer_setting_changed");
 }
 
@@ -380,7 +376,6 @@ void Terrain3DMeshAsset::set_generated_faces(const int p_count) {
 				_material_override = _get_material();
 			}
 			LOG(DEBUG, "Emitting setting_changed");
-			emit_signal("setting_changed");
 			emit_signal("instancer_setting_changed");
 		}
 	}
@@ -396,7 +391,6 @@ void Terrain3DMeshAsset::set_generated_size(const Vector2 &p_size) {
 				_material_override = _get_material();
 			}
 			LOG(DEBUG, "Emitting setting_changed");
-			emit_signal("setting_changed");
 			emit_signal("instancer_setting_changed");
 		}
 	}
