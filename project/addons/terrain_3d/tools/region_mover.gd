@@ -15,11 +15,11 @@ extends Terrain3D
 
 
 @export var offset: Vector2i
-@export var run: bool = false : set = start_rename
+@export_tool_button("Run") var run = start_rename
 
 
-func start_rename(val: bool = false) -> void:
-	if val == false or offset == Vector2i.ZERO:
+func start_rename() -> void:
+	if offset == Vector2i.ZERO:
 		return
 		
 	var dir_name: String = data_directory
