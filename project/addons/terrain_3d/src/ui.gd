@@ -151,6 +151,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	set_menu_visibility(tool_settings.rotation_list, false)
 	set_menu_visibility(tool_settings.height_list, false)
 	set_menu_visibility(tool_settings.color_list, false)
+	set_menu_visibility(tool_settings.collision_list, false)
 
 	# Select which settings to show. Options in tool_settings.gd:_ready
 	var to_show: PackedStringArray = []
@@ -242,7 +243,9 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("vertex_color")
 			to_show.push_back("random_darken")
 			to_show.push_back("random_hue")
+			set_menu_visibility(tool_settings.collision_list, true)
 			to_show.push_back("on_collision")
+			to_show.push_back("raycast_height")
 			to_show.push_back("invert")
 
 		_:
