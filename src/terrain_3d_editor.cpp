@@ -764,27 +764,29 @@ Color Terrain3DEditor::_average(const Vector3 &p_global_position, const Color &p
 	Vector3 down_position = p_global_position - Vector3(0.f, 0.f, vertex_spacing);
 	Vector3 up_position = p_global_position + Vector3(0.f, 0.f, vertex_spacing);
 
-	Color left = data->get_pixel(TYPE_COLOR, left_position);
+	Color left = data->get_pixel(TYPE_COLOR, left_position).srgb_to_linear();
 	if (std::isnan(left.r)) {
 		left = COLOR_WHITE;
 	}
-	Color right = data->get_pixel(TYPE_COLOR, right_position);
+	Color right = data->get_pixel(TYPE_COLOR, right_position).srgb_to_linear();
 	if (std::isnan(right.r)) {
 		right = COLOR_WHITE;
 	}
-	Color up = data->get_pixel(TYPE_COLOR, up_position);
+	Color up = data->get_pixel(TYPE_COLOR, up_position).srgb_to_linear();
 	if (std::isnan(up.r)) {
 		up = COLOR_WHITE;
 	}
-	Color down = data->get_pixel(TYPE_COLOR, down_position);
+	Color down = data->get_pixel(TYPE_COLOR, down_position).srgb_to_linear();
 	if (std::isnan(down.r)) {
 		down = COLOR_WHITE;
 	}
+	Color base = p_base.srgb_to_linear();
 	return Color(
-			(p_base.r + left.r + right.r + up.r + down.r) * 0.2f,
-			(p_base.g + left.g + right.g + up.g + down.g) * 0.2f,
-			(p_base.b + left.b + right.b + up.b + down.b) * 0.2f,
-			1.f);
+			(base.r + left.r + right.r + up.r + down.r) * 0.2f,
+			(base.g + left.g + right.g + up.g + down.g) * 0.2f,
+			(base.b + left.b + right.b + up.b + down.b) * 0.2f,
+			1.f)
+			.linear_to_srgb();
 }
 
 ///////////////////////////
