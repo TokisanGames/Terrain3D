@@ -394,13 +394,13 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 									if (base_id == asset_id) {
 										blend = CLAMP(blend - brush_value, 0.f, 1.f);
-										if (blend < 0.5f) {
+										if (brush_alpha > 0.5f && blend < 0.5f) {
 											autoshader = false;
 										}
 									}
 									if (overlay_id == asset_id) {
 										blend = CLAMP(blend + brush_value, 0.f, 1.f);
-										if (blend >= 0.5f) {
+										if (brush_alpha > 0.5f && blend >= 0.5f) {
 											autoshader = false;
 										}
 									}
