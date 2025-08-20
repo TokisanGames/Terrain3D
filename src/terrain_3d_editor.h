@@ -100,7 +100,7 @@ private:
 	Vector2 _get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const;
 	void _store_undo();
 	void _apply_undo(const Dictionary &p_data);
-	real_t _average(const AverageMode p_mode, const Vector3 &p_global_position, const real_t p_base, const real_t p_nan_val = 0.f) const;
+	real_t _average(const AverageMode p_mode, const Vector3 &p_global_position, const real_t p_base, const real_t p_nan_val = 0.f, bool p_alt = false) const;
 	Color _average(const Vector3 &p_global_position, const Color &p_base) const;
 
 public:
