@@ -380,27 +380,35 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 								if (enable_texture && brush_alpha * strength * 11.f > 0.1f) {
 									// Pick lowest weighted id, and lower to zero before setting new asset id.
 									if (asset_id != base_id && asset_id != overlay_id) {
-										if (blend >= 0.5f) {
-											blend = CLAMP(blend + brush_value, 0.f, 1.f);
+										if (modifier_alt) {
+											if (blend < 0.5f) {
+												overlay_id = asset_id;
+											} else {
+												base_id = asset_id;
+											}
 										} else {
-											blend = CLAMP(blend - brush_value, 0.f, 1.f);
-										}
-										if (blend <= 1.0f / 254.f) {
-											overlay_id = asset_id;
-										} else if (blend >= (1.f - 1.0f / 254.f)) {
-											base_id = asset_id;
+											if (blend >= 0.5f) {
+												blend = CLAMP(blend + brush_value, 0.f, 1.f);
+											} else {
+												blend = CLAMP(blend - brush_value, 0.f, 1.f);
+											}
+											if (blend <= 1.0f / 254.f) {
+												overlay_id = asset_id;
+											} else if (blend >= (1.f - 1.0f / 254.f)) {
+												base_id = asset_id;
+											}
 										}
 									}
 
 									if (base_id == asset_id) {
 										blend = CLAMP(blend - brush_value, 0.f, 1.f);
-										if (blend < 0.5f) {
+										if (brush_alpha > 0.5f && blend < 0.5f) {
 											autoshader = false;
 										}
 									}
 									if (overlay_id == asset_id) {
 										blend = CLAMP(blend + brush_value, 0.f, 1.f);
-										if (blend >= 0.5f) {
+										if (brush_alpha > 0.5f && blend >= 0.5f) {
 											autoshader = false;
 										}
 									}
