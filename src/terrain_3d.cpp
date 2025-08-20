@@ -775,16 +775,16 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	return point;
 }
 
-/* Returns the results of a physics ray cast, optionally excluding the terrain
+/* Returns the results of a physics raycast, optionally excluding the terrain
  *	p_src_pos (ray start position)
- *	p_direction (ray direction * magnitude)
+ *	p_direction (ray direction * magnitude), relative to src_pos
  */
-Dictionary Terrain3D::get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_destination, const bool p_exclude_self) const {
+Dictionary Terrain3D::get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const uint32_t p_col_mask, const bool p_exclude_self) const {
 	if (!_is_inside_world) {
 		return Dictionary();
 	}
 	PhysicsDirectSpaceState3D *space_state = get_world_3d()->get_direct_space_state();
-	Ref<PhysicsRayQueryParameters3D> query = PhysicsRayQueryParameters3D::create(p_src_pos, p_src_pos + p_destination);
+	Ref<PhysicsRayQueryParameters3D> query = PhysicsRayQueryParameters3D::create(p_src_pos, p_src_pos + p_direction, p_col_mask);
 	if (_collision && p_exclude_self) {
 		query->set_exclude(TypedArray<RID>(_collision->get_rid()));
 	}
@@ -1177,6 +1177,8 @@ void Terrain3D::_bind_methods() {
 
 	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction", "gpu_mode"), &Terrain3D::get_intersection, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("get_raycast_result", "src_pos", "direction", "collision_mask", "exclude_terrain"),
+			&Terrain3D::get_raycast_result, DEFVAL(0xFFFFFFFF), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh, DEFVAL(Terrain3DData::HEIGHT_FILTER_NEAREST));
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
 

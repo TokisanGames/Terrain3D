@@ -412,7 +412,7 @@ Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const i
 }
 
 // Get appropriate terrain height. Could find terrain (excluding slope or holes) or optional collision
-Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert, const bool p_on_collision) const {
+Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert, const bool p_on_collision, const real_t p_raycast_start) const {
 	IS_DATA_INIT(Array());
 	Terrain3DData *data = _terrain->get_data();
 	real_t height = data->get_height(p_global_position);
@@ -422,7 +422,8 @@ Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, c
 	Vector3 raycast_normal = Vector3(0.f, 1.f, 0.f);
 	// Raycast physics if using on_collision
 	if (p_on_collision) {
-		raycast_result = _terrain->get_raycast_result(p_global_position + Vector3(0.0f, 100.0f, 0.0f), Vector3(0.0f, -200.0f, 0.0f));
+		Vector3 start_pos = Vector3(p_global_position.x, height + p_raycast_start, p_global_position.z);
+		raycast_result = _terrain->get_raycast_result(start_pos, Vector3(0.0f, -p_raycast_start - 1.0f, 0.0f), 0xFFFFFFFF, true);
 		if (raycast_result.has("position")) {
 			raycast_hit = true;
 			raycast_height = ((Vector3)raycast_result["position"]).y;
@@ -557,6 +558,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
 	bool on_collision = bool(p_params.get("on_collision", false));
+	real_t raycast_height = p_params.get("raycast_height", 10.f);
 	bool invert = p_params["modifier_alt"];
 	Terrain3DData *data = _terrain->get_data();
 
@@ -572,7 +574,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		Vector3 position = p_global_position + rand_vec;
 
 		// Get height
-		Array height_data = _get_usable_height(position, slope_range, invert, on_collision);
+		Array height_data = _get_usable_height(position, slope_range, invert, on_collision, raycast_height);
 		if (height_data.size() != 3) {
 			continue;
 		}
@@ -916,7 +918,9 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	}
 
 	Terrain3DData *data = _terrain->get_data();
-	bool on_collision = _terrain->get_editor() ? (bool)(_terrain->get_editor()->get_brush_data().get("on_collision", false)) : false;
+	Dictionary params = _terrain->get_editor() ? _terrain->get_editor()->get_brush_data() : Dictionary();
+	bool on_collision = params.get("on_collision", false);
+	real_t raycast_height = params.get("raycast_height", 10.f);
 	int region_size = _terrain->get_region_size();
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 
@@ -995,7 +999,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					if (rect.has_point(Vector2(global_origin.x, global_origin.z))) {
 						Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
 						t.origin -= height_offset;
-						Array height_data = _get_usable_height(global_origin, Vector2(0.f, 90.f), false, on_collision);
+						Array height_data = _get_usable_height(global_origin, Vector2(0.f, 90.f), false, on_collision, raycast_height);
 						if (height_data.size() != 3) {
 							continue;
 						}
