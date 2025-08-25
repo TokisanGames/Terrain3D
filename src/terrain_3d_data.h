@@ -187,7 +187,7 @@ public:
 	Ref<Image> layered_to_image(const MapType p_map_type) const;
 
 	// Utility
-	void print_audit_data() const;
+	void dump(const bool verbose = false) const;
 
 protected:
 	static void _bind_methods();

@@ -114,6 +114,7 @@ public:
 	void set_data(const Dictionary &p_data);
 	Dictionary get_data() const;
 	Ref<Terrain3DRegion> duplicate(const bool p_deep = false);
+	void dump(const bool verbose = false) const;
 
 protected:
 	static void _bind_methods();

@@ -245,6 +245,7 @@ void Terrain3DRegion::calc_height_range() {
 }
 
 void Terrain3DRegion::set_instances(const Dictionary &p_instances) {
+	LOG(INFO, "Region ", _location, " setting instances ptr: ", ptr_to_str(p_instances._native_ptr()));
 	if (!_instances.is_empty() && _instances._native_ptr() != p_instances._native_ptr()) {
 		_modified = true;
 	}
@@ -368,6 +369,41 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 	return region;
 }
 
+void Terrain3DRegion::dump(const bool verbose) const {
+	LOG(MESG, "Region: ", _location, ", version: ", vformat("%.2f", _version), ", size: ", _region_size,
+			", spacing: ", vformat("%.1f", _vertex_spacing), ", range: ", vformat("%.2v", _height_range),
+			", flags (", _edited ? "ed," : "", _modified ? "mod," : "", _deleted ? "del" : "", "), ",
+			ptr_to_str(this));
+	LOG(MESG, "Height map: ", ptr_to_str(*_height_map), ", Control map: ", ptr_to_str(*_control_map),
+			", Color map: ", ptr_to_str(*_color_map));
+	LOG(MESG, "Instances: Mesh IDs: ", _instances.size(), ", ", ptr_to_str(_instances._native_ptr()));
+	Array mesh_ids = _instances.keys();
+	for (int m = 0; m < mesh_ids.size(); m++) {
+		int mesh_id = mesh_ids[m];
+		int counter = 0;
+		Dictionary cell_inst_dict = _instances[mesh_id];
+		Array cells = cell_inst_dict.keys();
+		for (int c = 0; c < cells.size(); c++) {
+			Vector2i cell = cells[c];
+			Array triple = cell_inst_dict[cell];
+			if (triple.size() == 3) {
+				counter += Array(triple[0]).size();
+			} else {
+				LOG(WARN, "Malformed triple at cell ", cell, ": ", triple);
+				continue;
+			}
+			if (verbose) {
+				Array xforms = triple[0];
+				Array colors = triple[1];
+				bool modified = triple[2];
+				LOG(MESG, "Mesh ID: ", mesh_id, " cell: ", cell, " xforms: ", xforms.size(),
+						", colors: ", colors.size(), modified ? ", modified" : "");
+			}
+		}
+		LOG(MESG, "Mesh ID: ", mesh_id, ", instance count: ", counter);
+	}
+}
+
 /////////////////////
 // Protected Functions
 /////////////////////
@@ -422,6 +458,7 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_data", "data"), &Terrain3DRegion::set_data);
 	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3DRegion::get_data);
 	ClassDB::bind_method(D_METHOD("duplicate", "deep"), &Terrain3DRegion::duplicate, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("dump", "verbose"), &Terrain3DRegion::dump, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "version", PROPERTY_HINT_NONE, "", ro_flags), "set_version", "get_version");

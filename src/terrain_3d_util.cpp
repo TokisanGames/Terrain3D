@@ -67,15 +67,17 @@ void Terrain3DUtil::print_dict(const String &p_name, const Dictionary &p_dict, c
 	}
 }
 
-void Terrain3DUtil::dump_gentex(const GeneratedTexture p_gen, const String &p_name, const int p_level) {
-	LOG(p_level, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(), ", image: ", p_gen.get_image());
+void Terrain3DUtil::dump_gentex(const GeneratedTexture &p_gen, const String &p_name) {
+	LOG(MESG, "Generated ", p_name, " RID: ", p_gen.get_rid(), ", dirty: ", p_gen.is_dirty(),
+			", image: ", ptr_to_str(*p_gen.get_image()));
 }
 
 void Terrain3DUtil::dump_maps(const TypedArray<Image> &p_maps, const String &p_name) {
-	LOG(DEBUG, "Dumping ", p_name, " map array. Size: ", p_maps.size());
+	LOG(MESG, "Dumping ", p_name, " array. Size: ", p_maps.size());
 	for (int i = 0; i < p_maps.size(); i++) {
 		Ref<Image> img = p_maps[i];
-		LOG(DEBUG, "[", i, "]: Map size: ", img->get_size(), " format: ", img->get_format(), " ", img);
+		LOG(MESG, "[", i, "]: Map size: ", img->get_size(), ", format: ", img->get_format(),
+				", ", ptr_to_str(*img));
 	}
 }
 

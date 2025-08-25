@@ -175,7 +175,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 
 	calc_height_range(true);
 	update_maps(TYPE_MAX, true, true);
-	_terrain->get_instancer()->update_mmis(true);
+	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 }
 
 void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
@@ -261,7 +261,7 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 	LOG(DEBUG, "Storing region ", region_loc, " version ", vformat("%.3f", p_region->get_version()), " id: ", _region_locations.size());
 	if (p_update) {
 		update_maps(TYPE_MAX, true, false);
-		_terrain->get_instancer()->update_mmis(true);
+		_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 	}
 	return OK;
 }
@@ -298,7 +298,7 @@ void Terrain3DData::remove_region(const Ref<Terrain3DRegion> &p_region, const bo
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
 		update_maps(TYPE_MAX, true, false);
-		_terrain->get_instancer()->update_mmis(true);
+		_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 	}
 }
 
@@ -1124,22 +1124,32 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 	return img;
 }
 
-void Terrain3DData::print_audit_data() const {
-	LOG(INFO, "Dumping data");
-	LOG(INFO, "Region_locations size: ", _region_locations.size(), " ", _region_locations);
-	LOG(INFO, "Region map");
-	for (int i = 0; i < _region_map.size(); i++) {
-		if (_region_map[i]) {
-			LOG(INFO, "Region id: ", _region_map[i], " array index: ", i);
+void Terrain3DData::dump(const bool verbose) const {
+	LOG(MESG, "_region_locations (", _region_locations.size(), "): ", _region_locations);
+	Array keys = _regions.keys();
+	LOG(MESG, "_regions (", keys.size(), "):");
+	for (int i = 0; i < keys.size(); i++) {
+		Vector2i region_loc = keys[i];
+		Terrain3DRegion *region = get_region_ptr(region_loc);
+		if (!region) {
+			LOG(WARN, "No region found at: ", region_loc);
+			continue;
 		}
+		region->dump(verbose);
 	}
-	Util::dump_maps(_height_maps, "Height maps");
-	Util::dump_maps(_control_maps, "Control maps");
-	Util::dump_maps(_color_maps, "Color maps");
-
-	Util::dump_gentex(_generated_height_maps, "height");
-	Util::dump_gentex(_generated_control_maps, "control");
-	Util::dump_gentex(_generated_color_maps, "color");
+	if (verbose) {
+		for (int i = 0; i < _region_map.size(); i++) {
+			if (_region_map[i]) {
+				LOG(MESG, "Region map array index: ", i, " / ", _region_map.size() - 1, ", Region id: ", _region_map[i]);
+			}
+		}
+		Util::dump_maps(_height_maps, "Height maps");
+		Util::dump_gentex(_generated_height_maps, "height");
+		Util::dump_maps(_control_maps, "Control maps");
+		Util::dump_gentex(_generated_control_maps, "control");
+		Util::dump_maps(_color_maps, "Color maps");
+		Util::dump_gentex(_generated_color_maps, "color");
+	}
 }
 
 ///////////////////////////
@@ -1237,6 +1247,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DData::import_images, DEFVAL(V3_ZERO), DEFVAL(0.f), DEFVAL(1.f));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DData::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DData::layered_to_image);
+	ClassDB::bind_method(D_METHOD("dump", "verbose"), &Terrain3DData::dump, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "region_locations", PROPERTY_HINT_ARRAY_TYPE, "Vector2i", ro_flags), "set_region_locations", "get_region_locations");

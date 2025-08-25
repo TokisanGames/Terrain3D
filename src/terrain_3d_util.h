@@ -26,7 +26,7 @@ public:
 	// Print info to the console
 	static void print_arr(const String &p_name, const Array &p_arr, const int p_level = 2); // Level 2: DEBUG
 	static void print_dict(const String &p_name, const Dictionary &p_dict, const int p_level = 2); // Level 2: DEBUG
-	static void dump_gentex(const GeneratedTexture p_gen, const String &name = "", const int p_level = 2);
+	static void dump_gentex(const GeneratedTexture &p_gen, const String &p_name = "");
 	static void dump_maps(const TypedArray<Image> &p_maps, const String &p_name = "");
 
 	// String functions
