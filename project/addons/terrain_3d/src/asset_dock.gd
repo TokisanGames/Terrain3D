@@ -945,7 +945,7 @@ class ListEntry extends MarginContainer:
 			emit_signal("changed", resource)
 
 
-	func _on_resource_changed() -> void:
+	func _on_resource_changed(value: int = 0) -> void:
 		queue_redraw()
 		emit_signal("changed", resource)
 

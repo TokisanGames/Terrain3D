@@ -78,7 +78,7 @@ public:
 	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
-	void update_mmis(const bool p_rebuild = false, const Vector2i &p_region_loc = V2I_MAX, const int p_id = -1);
+	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
 	void dump_data();

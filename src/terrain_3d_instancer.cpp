@@ -340,7 +340,7 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 		region->set_vertex_spacing(p_vertex_spacing);
 		region->set_modified(true);
 	}
-	update_mmis(true);
+	update_mmis(-1, V2I_MAX, true);
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell) {
@@ -823,7 +823,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			if (cell_inst_dict.is_empty()) {
 				mesh_inst_dict.erase(m);
 			}
-			update_mmis(false, region_loc, m);
+			update_mmis(m, region_loc);
 		}
 	}
 }
@@ -963,7 +963,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 	// Write back dictionary. See above comments
 	p_region->get_instances()[p_mesh_id] = cell_locations;
 	if (p_update) {
-		update_mmis(false, p_region->get_location(), p_mesh_id);
+		update_mmis(p_mesh_id, p_region->get_location());
 	}
 }
 
@@ -1084,7 +1084,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					mesh_inst_dict.erase(region_mesh_id);
 				}
 			}
-			update_mmis(false, region_loc, m);
+			update_mmis(m, region_loc);
 		}
 	}
 }
@@ -1192,17 +1192,17 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 			}
 			LOG(MESG, "Swapped mesh_ids for region: ", region_loc);
 		}
-		update_mmis(true);
+		update_mmis(-1, V2I_MAX, true);
 	}
 }
 
 // Defaults to update all regions, all meshes
 // If rebuild is true, will destroy all MMIs, then build everything
 // If region_loc == V2I_MAX, will do all regions for meshes specified
-// If id < 0, will do all meshes in the specified region
+// If mesh_id < 0, will do all meshes in the specified region
 // You safely can call multiple times per frame, and select any combo of options without fillling up the queue.
-void Terrain3DInstancer::update_mmis(const bool p_rebuild, const Vector2i &p_region_loc, const int p_id) {
-	LOG(INFO, "Queueing MMI update for mesh id: ", p_id < 0 ? "all" : String::num_int64(p_id), ", region: ", p_region_loc == V2I_MAX ? "all" : String(p_region_loc), ", destroying first: ", p_rebuild);
+void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_region_loc, const bool p_rebuild) {
+	LOG(INFO, "Queueing MMI update for mesh id: ", p_mesh_id < 0 ? "all" : String::num_int64(p_mesh_id), ", region: ", p_region_loc == V2I_MAX ? "all" : String(p_region_loc), ", destroying first: ", p_rebuild);
 	// Set to destroy and rebuild everything
 	if (p_rebuild) {
 		_queued_updates.clear();
@@ -1222,7 +1222,7 @@ void Terrain3DInstancer::update_mmis(const bool p_rebuild, const Vector2i &p_reg
 		return;
 	}
 	// If all regions for mesh_id are queued, quit
-	int mesh_id = CLAMP(p_id, -1, Terrain3DAssets::MAX_MESHES);
+	int mesh_id = CLAMP(p_mesh_id, -1, Terrain3DAssets::MAX_MESHES);
 	if (_queued_updates.find({ V2I_MAX, mesh_id }) != _queued_updates.end()) {
 		return;
 	}
@@ -1300,7 +1300,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
-	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild", "region_location", "mesh_id"), &Terrain3DInstancer::update_mmis, DEFVAL(false), DEFVAL(V2I_MAX), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("update_mmis", "mesh_id", "region_location", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(-1), DEFVAL(V2I_MAX), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
