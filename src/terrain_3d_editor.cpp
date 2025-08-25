@@ -230,7 +230,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			if (map_type == TYPE_HEIGHT) {
 				real_t srcf = src.r;
 				// In case data in existing map has nan or inf saved, check, and reset to real number if required.
-				srcf = std::isnan(srcf) || std::isnan(srcf) ? 0.f : srcf;
+				srcf = std::isnan(srcf) ? 0.f : srcf;
 				real_t destf = srcf;
 
 				switch (_operation) {
@@ -593,6 +593,23 @@ void Terrain3DEditor::_store_undo() {
 	_undo_data["edited_regions"] = _original_regions;
 	redo_data["edited_regions"] = _edited_regions;
 
+	if (Terrain3D::debug_level >= DEBUG) {
+		LOG(DEBUG, "Storing Original Regions:");
+		for (int i = 0; i < _original_regions.size(); i++) {
+			Ref<Terrain3DRegion> region = _original_regions[i];
+			if (region.is_valid()) {
+				region->dump();
+			}
+		}
+		LOG(DEBUG, "Storing Edited Regions:");
+		for (int i = 0; i < _edited_regions.size(); i++) {
+			Ref<Terrain3DRegion> region = _edited_regions[i];
+			if (region.is_valid()) {
+				region->dump();
+			}
+		}
+	}
+
 	// Store regions that were removed or added
 	if (_added_removed_locations.size() > 0) {
 		if (_tool == REGION && _operation == SUBTRACT) {
@@ -619,10 +636,12 @@ void Terrain3DEditor::_store_undo() {
 	LOG(DEBUG, "Creating undo action: '", action_name, "'");
 	undo_redo->create_action(action_name, UndoRedo::MERGE_DISABLE, _terrain);
 
-	LOG(DEBUG, "Storing undo snapshot: ", _undo_data);
+	LOG(DEBUG, "Storing undo snapshot: ");
+	Util::print_dict("_undo_data snapshot", _undo_data, DEBUG);
 	undo_redo->add_undo_method(this, "apply_undo", _undo_data.duplicate());
 
-	LOG(DEBUG, "Storing redo snapshot: ", redo_data);
+	LOG(DEBUG, "Storing redo snapshot: ");
+	Util::print_dict("redo_data snapshot", redo_data, DEBUG);
 	undo_redo->add_do_method(this, "apply_undo", redo_data);
 
 	LOG(DEBUG, "Committing undo action");
@@ -649,8 +668,12 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			Dictionary regions = data->get_regions_all();
 			regions[region->get_location()] = region;
 			region->set_modified(true); // Tell update_maps() this region has layers that can be individually updated
-			region->set_edited(true);
+			region->set_edited(true); // Flag so update_maps() will include it
 			region->set_deleted(false); // Ensure region not marked for deletion
+			if (Terrain3D::debug_level >= DEBUG) {
+				LOG(DEBUG, "Restoring region:");
+				region->dump();
+			}
 		}
 	}
 
@@ -688,8 +711,8 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	// After all regions are in place, reset the region map, which also calls update_maps
 	if (p_data.has("region_locations")) {
 		// Load w/ duplicate or it gets a bit wonky undoing removed regions w/ saves
-		_terrain->get_data()->set_region_locations(p_data["region_locations"].duplicate());
-		Array locations = data->get_region_locations();
+		TypedArray<Vector2i> locations = p_data["region_locations"];
+		_terrain->get_data()->set_region_locations(locations.duplicate());
 		LOG(DEBUG, "Locations(", locations.size(), "): ", locations);
 	}
 	// If this undo set modifies the region qty, we must rebuild the arrays. Otherwise we can update individual layers
@@ -708,7 +731,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			}
 		}
 	}
-	_terrain->get_instancer()->update_mmis(true);
+	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 	if (_terrain->get_plugin()->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
 		_terrain->get_plugin()->call("update_grid");
@@ -929,10 +952,17 @@ void Terrain3DEditor::backup_region(const Ref<Terrain3DRegion> &p_region) {
 	// Backup region once at the start of an operation. Once Edited is set, this is skipped
 	if (_is_operating && p_region.is_valid() && !p_region->is_edited()) {
 		LOG(DEBUG, "Storing original copy of region: ", p_region->get_location());
-		_original_regions.push_back(p_region->duplicate(true));
+		Ref<Terrain3DRegion> orig_region = p_region->duplicate(true);
+		_original_regions.push_back(orig_region);
 		_edited_regions.push_back(p_region);
 		p_region->set_edited(true);
 		p_region->set_modified(true);
+		if (Terrain3D::debug_level >= DEBUG) {
+			LOG(DEBUG, "Backup original region");
+			orig_region->dump();
+			LOG(DEBUG, "Backup edited region");
+			p_region->dump();
+		}
 	}
 }
 
@@ -946,8 +976,15 @@ void Terrain3DEditor::stop_operation() {
 		for (int i = 0; i < _edited_regions.size(); i++) {
 			Ref<Terrain3DRegion> region = _edited_regions[i];
 			region->set_edited(false);
-			// Make duplicate for redo backup
-			_edited_regions[i] = region->duplicate(true);
+			// Make duplicate for redo, necessary or redos won't work
+			Ref<Terrain3DRegion> redo_region = region->duplicate(true);
+			_edited_regions[i] = redo_region;
+			if (Terrain3D::debug_level >= DEBUG) {
+				LOG(DEBUG, "Edited region:");
+				region->dump();
+				LOG(DEBUG, "Redo region:");
+				redo_region->dump();
+			}
 		}
 		_store_undo();
 	}

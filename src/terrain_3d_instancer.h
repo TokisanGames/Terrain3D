@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "constants.h"
 #include "terrain_3d_region.h"
@@ -31,18 +32,27 @@ private:
 
 	// MMI Objects attached to tree, freed in destructor, stored as
 	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-	typedef std::unordered_map<Vector2i, MultiMeshInstance3D *, Vector2iHash> CellMMIDict;
-	typedef std::unordered_map<Vector2i, CellMMIDict, Vector2iHash> MeshMMIDict;
+	using CellMMIDict = std::unordered_map<Vector2i, MultiMeshInstance3D *, Vector2iHash>;
+	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
 	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_nodes;
 
 	// Region MMI containers named Terrain3D/MMI/Region* are stored here as
 	// _mmi_containers{region_loc} -> Node3D
 	std::unordered_map<Vector2i, Node3D *, Vector2iHash> _mmi_containers;
 
-	uint32_t _density_counter = 0;
-	uint32_t _get_density_count(const real_t p_density);
+	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
+	// <V2I_MAX, -2> means destroy first, then update everything
+	// <V2I_MAX, -1> means update everything
+	// <reg_loc, -1> means update all meshes in that region
+	// <V2I_MAX, N> means update mesh ID N in all regions
+	using V2IIntPair = std::unordered_set<std::pair<Vector2i, int>, PairVector2iIntHash>;
+	V2IIntPair _queued_updates;
 
-	void _update_mmis(const Vector2i &p_region_loc = V2I_MAX, const int p_mesh_id = -1);
+	uint32_t _density_counter = 0;
+
+	uint32_t _get_density_count(const real_t p_density);
+	void _process_updates();
+	void _update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id);
 	void _setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
 	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell);
@@ -76,10 +86,9 @@ public:
 	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
-	void update_mmis(const bool p_rebuild = false);
+	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
-	void dump_data();
 	void dump_mmis();
 
 protected:
