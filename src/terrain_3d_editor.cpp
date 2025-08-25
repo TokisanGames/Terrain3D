@@ -681,7 +681,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 			}
 		}
 	}
-	_terrain->get_instancer()->update_mmis(true);
+	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 	if (_terrain->get_plugin()->has_method("update_grid")) {
 		LOG(DEBUG, "Calling GDScript update_grid()");
 		_terrain->get_plugin()->call("update_grid");
