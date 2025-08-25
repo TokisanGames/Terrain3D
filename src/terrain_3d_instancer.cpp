@@ -8,206 +8,265 @@
 #include "terrain_3d_region.h"
 #include "terrain_3d_util.h"
 
+#include <algorithm>
+
 ///////////////////////////
 // Private Functions
 ///////////////////////////
 
 // Creates MMIs based on stored Multimesh data
-void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_mesh_id) {
-	IS_DATA_INIT(VOID);
-	LOG(INFO, "Updating MMIs for ", (p_region_loc.x == INT32_MAX) ? "all regions" : "region " + String(p_region_loc),
-			(p_mesh_id == -1) ? ", all meshes" : ", mesh " + String::num_int64(p_mesh_id));
-
-	// For specified region_location, or max for all
-	Array region_locations;
-	if (p_region_loc.x == INT32_MAX) {
-		region_locations = _terrain->get_data()->get_region_locations();
-	} else {
-		region_locations.push_back(p_region_loc);
+void Terrain3DInstancer::_process_updates() {
+	if (_queued_updates.empty()) {
+		return;
 	}
-	for (int r = 0; r < region_locations.size(); r++) {
-		Vector2i region_loc = region_locations[r];
-		Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
-		if (!region) {
-			LOG(WARN, "Errant null region found at: ", region_loc);
+	IS_DATA_INIT(VOID);
+	Terrain3DData *data = _terrain->get_data();
+	std::vector<Vector2i> locations;
+	std::vector<int> mesh_ids;
+	locations.reserve(_queued_updates.size());
+	mesh_ids.reserve(_terrain->get_assets()->get_mesh_count());
+
+	bool update_all = false;
+	if (_queued_updates.find({ V2I_MAX, -2 }) != _queued_updates.end()) {
+		destroy();
+		update_all = true;
+	} else if (_queued_updates.find({ V2I_MAX, -1 }) != _queued_updates.end()) {
+		update_all = true;
+	}
+	if (update_all) {
+		TypedArray<Vector2i> region_locations = data->get_region_locations();
+		for (int i = 0; i < region_locations.size(); i++) {
+			const Vector2i &region_loc = region_locations[i];
+			locations.emplace_back(region_loc);
+		}
+		for (int i = 0; i < _terrain->get_assets()->get_mesh_count(); i++) {
+			mesh_ids.push_back(i);
+		}
+	} else {
+		// Collect specific location-mesh pairs
+		for (const auto &[loc, mesh_id] : _queued_updates) {
+			if (loc == V2I_MAX && mesh_id >= 0) {
+				TypedArray<Vector2i> region_locations = data->get_region_locations();
+				for (int i = 0; i < region_locations.size(); i++) {
+					const Vector2i &region_loc = region_locations[i];
+					locations.emplace_back(region_loc);
+				}
+				mesh_ids.push_back(mesh_id);
+			} else if (loc != V2I_MAX && mesh_id == -1) {
+				locations.emplace_back(loc);
+				for (int i = 0; i < _terrain->get_assets()->get_mesh_count(); i++) {
+					mesh_ids.push_back(i);
+				}
+			} else if (loc != V2I_MAX && mesh_id >= 0) {
+				locations.emplace_back(loc);
+				mesh_ids.push_back(mesh_id);
+			}
+		}
+		// Remove duplicates
+		std::sort(locations.begin(), locations.end());
+		locations.erase(std::unique(locations.begin(), locations.end()), locations.end());
+		std::sort(mesh_ids.begin(), mesh_ids.end());
+		mesh_ids.erase(std::unique(mesh_ids.begin(), mesh_ids.end()), mesh_ids.end());
+	}
+
+	// Process queue
+	for (const auto &region_loc : locations) {
+		for (int mesh_id : mesh_ids) {
+			// If region location / mesh_id pair is specifically listed, or all_regions + mesh_id, region + all_meshes
+			if (_queued_updates.find({ region_loc, mesh_id }) != _queued_updates.end() ||
+					_queued_updates.find({ V2I_MAX, mesh_id }) != _queued_updates.end() ||
+					_queued_updates.find({ region_loc, -1 }) != _queued_updates.end()) {
+				Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+				if (!region) {
+					LOG(WARN, "Errant null region found at: ", region_loc);
+					continue;
+				}
+				if (!region->get_instances().has(mesh_id)) {
+					continue;
+				}
+				_update_mmi_by_region(region, mesh_id);
+			}
+		}
+	}
+	_queued_updates.clear();
+}
+
+void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id) {
+	if (!p_region) {
+		LOG(ERROR, "p_region is null");
+		return;
+	}
+	if (p_mesh_id < 0 || p_mesh_id > Terrain3DAssets::MAX_MESHES) {
+		LOG(ERROR, "p_mesh_id is out of bounds");
+		return;
+	}
+	const Terrain3DRegion *&region = p_region;
+	const int &mesh_id = p_mesh_id;
+	const Vector2i &region_loc = region->get_location();
+	const Dictionary &mesh_inst_dict = region->get_instances();
+
+	// Verify mesh id is valid and has some meshes
+	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
+	if (ma.is_valid()) {
+		if (!ma->is_enabled()) {
+			return;
+		}
+		if (ma->get_lod_count() == 0) {
+			LOG(WARN, "MeshAsset ", mesh_id, " valid but has no meshes, skipping");
+			return;
+		}
+	} else {
+		LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
+		return;
+	}
+
+	Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+	Array cell_locations = cell_inst_dict.keys();
+	for (int c = 0; c < cell_locations.size(); c++) {
+		// Get instances
+		Vector2i cell = cell_locations[c];
+		Array triple = cell_inst_dict[cell];
+		if (triple.size() < 3) {
+			LOG(WARN, "Triple is empty");
 			continue;
 		}
-		Dictionary mesh_inst_dict = region->get_instances();
-
-		// For specified mesh id in that region, or -1 for all
-		Array mesh_types;
-		if (p_mesh_id < 0) {
-			mesh_types = mesh_inst_dict.keys();
-		} else {
-			mesh_types.push_back(p_mesh_id);
+		TypedArray<Transform3D> xforms = triple[0];
+		PackedColorArray colors = triple[1];
+		bool modified = triple[2];
+		if (xforms.size() == 0) {
+			LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
+			continue;
 		}
-		for (int m = 0; m < mesh_types.size(); m++) {
-			int mesh_id = mesh_types[m];
 
-			// Verify mesh id is valid and has some meshes
-			Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
-			if (ma.is_valid()) {
-				if (!ma->is_enabled()) {
+		// Create MMI container if needed
+		String rname("Region" + Util::location_to_string(region_loc));
+		if (_mmi_containers.count(region_loc) == 0) {
+			LOG(DEBUG, "Creating new region MMI container Terrain3D/MMI/", rname);
+			Node3D *node = memnew(Node3D);
+			node->set_name(rname);
+			_mmi_containers[region_loc] = node;
+			_terrain->get_mmi_parent()->add_child(node, true);
+		}
+
+		// Setup MMIs for each lod
+		MeshMMIDict &mesh_mmi_dict = _mmi_nodes[region_loc];
+		Ref<MultiMesh> shadow_impostor_source_mm;
+
+		for (int lod = ma->get_last_lod(); lod >= Terrain3DMeshAsset::SHADOW_LOD_ID; lod--) {
+			// Don't create shadow MMI if not needed
+			if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
+				if (ma->get_shadow_impostor() == 0 ||
+						ma->get_cast_shadows() == SHADOWS_OFF ||
+						ma->get_cast_shadows() == SHADOWS_ONLY) {
 					continue;
 				}
-				if (ma->get_lod_count() == 0) {
-					LOG(WARN, "MeshAsset ", mesh_id, " valid but has no meshes, skipping");
-					continue;
-				}
-			} else {
-				LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
+			}
+			// Don't create MMIs for lods > last_shadow_lod in cast shadows mode
+			if (lod > ma->get_last_shadow_lod() && ma->get_cast_shadows() == SHADOWS_ONLY) {
 				continue;
 			}
 
-			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
-			Array cell_locations = cell_inst_dict.keys();
-			for (int c = 0; c < cell_locations.size(); c++) {
-				// Get instances
-				Vector2i cell = cell_locations[c];
-				Array triple = cell_inst_dict[cell];
-				if (triple.size() < 3) {
-					LOG(WARN, "Triple is empty");
+			// Get or create MMI
+			Vector2i mesh_key(mesh_id, lod);
+			CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+			MultiMeshInstance3D *mmi;
+			if (cell_mmi_dict.count(cell) == 0) {
+				mmi = memnew(MultiMeshInstance3D);
+				LOG(DEBUG, "No MMI found, Created new MultiMeshInstance3D: ", ptr_to_str(mmi));
+				// Node name is MMI3D_Cell##_##_Mesh#_LOD#
+				String cstring = "_C" + Util::location_to_string(cell).trim_prefix("_");
+				String mstring = "_M" + String::num_int64(mesh_id);
+				String lstring = "_L" + ((lod == Terrain3DMeshAsset::SHADOW_LOD_ID) ? "S" : String::num_int64(lod));
+				mmi->set_name("MMI3D" + cstring + mstring + lstring);
+				mmi->set_as_top_level(true);
+				cell_mmi_dict[cell] = mmi;
+
+				//Attach to tree
+				Node *node_container = _terrain->get_mmi_parent()->get_node_internal(rname);
+				if (!node_container) {
+					LOG(ERROR, rname, " isn't attached to the tree.");
 					continue;
 				}
-				TypedArray<Transform3D> xforms = triple[0];
-				PackedColorArray colors = triple[1];
-				bool modified = triple[2];
-				if (xforms.size() == 0) {
-					LOG(WARN, "Empty cell in region ", region_loc, " cell ", cell);
-					continue;
+				node_container->add_child(mmi, true);
+				// New MMIs must be updated
+				modified = true;
+			}
+			// If data hasn't changed since last update, skip
+			if (modified == false) {
+				continue;
+			}
+
+			// Create MM and assign to MMI
+			mmi = cell_mmi_dict[cell];
+
+			// Update instance count: Subtract previous count for this cell
+			if (mmi->get_multimesh().is_valid() && lod == ma->get_last_lod()) {
+				ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
+			}
+			Ref<MultiMesh> mm;
+			if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
+				// Reuse LOD MM as shadow impostor
+				mm = shadow_impostor_source_mm;
+			} else {
+				mm = _create_multimesh(mesh_id, lod, xforms, colors);
+			}
+			if (mm.is_null()) {
+				continue;
+			}
+			// If LOD is shadow impostor, save it to use in shadow MMI
+			if (lod == ma->get_shadow_impostor()) {
+				shadow_impostor_source_mm = mm;
+			}
+			mmi->set_multimesh(mm);
+			mmi->set_cast_shadows_setting(ma->get_lod_cast_shadows(lod));
+			_setup_mmi_lod_ranges(mmi, ma, lod);
+			// Setup materials
+			Ref<Material> mat = ma->get_highlight_material();
+			if (mat.is_valid()) {
+				mmi->set_material_override(mat);
+			} else {
+				mat = ma->get_material_override();
+				if (mat.is_valid()) {
+					mmi->set_material_override(mat);
 				}
-
-				// Create MMI container if needed
-				String rname("Region" + Util::location_to_string(region_loc));
-				if (_mmi_containers.count(region_loc) == 0) {
-					LOG(DEBUG, "Creating new region MMI container Terrain3D/MMI/", rname);
-					Node3D *node = memnew(Node3D);
-					node->set_name(rname);
-					_mmi_containers[region_loc] = node;
-					_terrain->get_mmi_parent()->add_child(node, true);
+				mat = ma->get_material_overlay();
+				if (mat.is_valid()) {
+					mmi->set_material_overlay(mat);
 				}
+			}
+			// Reposition the MMI to its region location
+			Transform3D t = Transform3D();
+			int region_size = region->get_region_size();
+			real_t vertex_spacing = _terrain->get_vertex_spacing();
+			t.origin.x += region_loc.x * region_size * vertex_spacing;
+			t.origin.z += region_loc.y * region_size * vertex_spacing;
+			mmi->set_global_transform(t);
+			// Update instance count: Add current count for this cell
+			if (lod == ma->get_last_lod()) {
+				ma->update_instance_count(mm->get_instance_count());
+			}
+			// Clear the cell modified state
+			triple[2] = false;
+		}
 
-				// Setup MMIs for each lod
-				MeshMMIDict &mesh_mmi_dict = _mmi_nodes[region_loc];
-				Ref<MultiMesh> shadow_impostor_source_mm;
-
-				for (int lod = ma->get_last_lod(); lod >= Terrain3DMeshAsset::SHADOW_LOD_ID; lod--) {
-					// Don't create shadow MMI if not needed
-					if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
-						if (ma->get_shadow_impostor() == 0 ||
-								ma->get_cast_shadows() == SHADOWS_OFF ||
-								ma->get_cast_shadows() == SHADOWS_ONLY) {
-							continue;
-						}
-					}
-					// Don't create MMIs for lods > last_shadow_lod in cast shadows mode
-					if (lod > ma->get_last_shadow_lod() && ma->get_cast_shadows() == SHADOWS_ONLY) {
-						continue;
-					}
-
-					// Get or create MMI
-					Vector2i mesh_key(mesh_id, lod);
-					CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-					MultiMeshInstance3D *mmi;
-					if (cell_mmi_dict.count(cell) == 0) {
-						mmi = memnew(MultiMeshInstance3D);
-						LOG(DEBUG, "No MMI found, Created new MultiMeshInstance3D: ", ptr_to_str(mmi));
-						// Node name is MMI3D_Cell##_##_Mesh#_LOD#
-						String cstring = "_C" + Util::location_to_string(cell).trim_prefix("_");
-						String mstring = "_M" + String::num_int64(mesh_id);
-						String lstring = "_L" + ((lod == Terrain3DMeshAsset::SHADOW_LOD_ID) ? "S" : String::num_int64(lod));
-						mmi->set_name("MMI3D" + cstring + mstring + lstring);
-						mmi->set_as_top_level(true);
-						cell_mmi_dict[cell] = mmi;
-
-						//Attach to tree
-						Node *node_container = _terrain->get_mmi_parent()->get_node_internal(rname);
-						if (!node_container) {
-							LOG(ERROR, rname, " isn't attached to the tree.");
-							continue;
-						}
-						node_container->add_child(mmi, true);
-						// New MMIs must be updated
-						modified = true;
-					}
-					// If data hasn't changed since last _update_mmis, skip
-					if (modified == false) {
-						continue;
-					}
-
-					// Create MM and assign to MMI
-					mmi = cell_mmi_dict[cell];
-
-					// Update instance count: Subtract previous count for this cell
-					if (mmi->get_multimesh().is_valid() && lod == ma->get_last_lod()) {
-						ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
-					}
-					Ref<MultiMesh> mm;
-					if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
-						// Reuse LOD MM as shadow impostor
-						mm = shadow_impostor_source_mm;
-					} else {
-						mm = _create_multimesh(mesh_id, lod, xforms, colors);
-					}
-					if (mm.is_null()) {
-						continue;
-					}
-					// If LOD is shadow impostor, save it to use in shadow MMI
-					if (lod == ma->get_shadow_impostor()) {
-						shadow_impostor_source_mm = mm;
-					}
-					mmi->set_multimesh(mm);
-					mmi->set_cast_shadows_setting(ma->get_lod_cast_shadows(lod));
-					_setup_mmi_lod_ranges(mmi, ma, lod);
-					// Setup materials
-					Ref<Material> mat = ma->get_highlight_material();
-					if (mat.is_valid()) {
-						mmi->set_material_override(mat);
-					} else {
-						mat = ma->get_material_override();
-						if (mat.is_valid()) {
-							mmi->set_material_override(mat);
-						}
-						mat = ma->get_material_overlay();
-						if (mat.is_valid()) {
-							mmi->set_material_overlay(mat);
-						}
-					}
-					// Reposition the MMI to its region location
-					Transform3D t = Transform3D();
-					int region_size = region->get_region_size();
-					real_t vertex_spacing = _terrain->get_vertex_spacing();
-					t.origin.x += region_loc.x * region_size * vertex_spacing;
-					t.origin.z += region_loc.y * region_size * vertex_spacing;
-					mmi->set_global_transform(t);
-					// Update instance count: Add current count for this cell
-					if (lod == ma->get_last_lod()) {
-						ma->update_instance_count(mm->get_instance_count());
-					}
-					// Clear the cell modified state
-					triple[2] = false;
-				}
-
-				// Set all LOD mmi AABB to match LOD0 to ensure no gaps between transitions.
-				AABB mmi_custom_aabb = AABB();
-				for (int lod = 0; lod <= ma->get_last_lod(); lod++) {
-					Vector2i mesh_key(mesh_id, lod);
-					CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-					MultiMeshInstance3D *mmi = cell_mmi_dict[cell];
-					if (lod == 0) {
-						mmi_custom_aabb = mmi->get_aabb();
-					} else {
-						mmi->set_custom_aabb(mmi_custom_aabb);
-					}
-				}
-				if (ma->get_shadow_impostor() > 0) {
-					Vector2i mesh_key(mesh_id, Terrain3DMeshAsset::SHADOW_LOD_ID);
-					CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-					MultiMeshInstance3D *mmi = cell_mmi_dict[cell];
-					if (mmi) {
-						mmi->set_custom_aabb(mmi_custom_aabb);
-					}
-				}
+		// Set all LOD mmi AABB to match LOD0 to ensure no gaps between transitions.
+		AABB mmi_custom_aabb = AABB();
+		for (int lod = 0; lod <= ma->get_last_lod(); lod++) {
+			Vector2i mesh_key(mesh_id, lod);
+			CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+			MultiMeshInstance3D *mmi = cell_mmi_dict[cell];
+			if (lod == 0) {
+				mmi_custom_aabb = mmi->get_aabb();
+			} else {
+				mmi->set_custom_aabb(mmi_custom_aabb);
+			}
+		}
+		if (ma->get_shadow_impostor() > 0) {
+			Vector2i mesh_key(mesh_id, Terrain3DMeshAsset::SHADOW_LOD_ID);
+			CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+			MultiMeshInstance3D *mmi = cell_mmi_dict[cell];
+			if (mmi) {
+				mmi->set_custom_aabb(mmi_custom_aabb);
 			}
 		}
 	}
@@ -281,8 +340,7 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 		region->set_vertex_spacing(p_vertex_spacing);
 		region->set_modified(true);
 	}
-	destroy();
-	_update_mmis();
+	update_mmis(true);
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell) {
@@ -462,13 +520,18 @@ void Terrain3DInstancer::initialize(Terrain3D *p_terrain) {
 	}
 	IS_DATA_INIT_MESG("Terrain3D not initialized yet", VOID);
 	LOG(INFO, "Initializing Instancer");
-	_update_mmis();
+	if (!RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates))) {
+		RS->connect("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates));
+	}
+	update_mmis();
 }
 
 void Terrain3DInstancer::destroy() {
 	IS_DATA_INIT(VOID);
 	LOG(INFO, "Destroying all MMIs");
-
+	if (RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates))) {
+		RS->disconnect("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates));
+	}
 	// Iterate over keys as subfunction will invalidate standard iterator
 	std::vector<Vector2i> keys;
 	keys.reserve(_mmi_nodes.size());
@@ -483,6 +546,7 @@ void Terrain3DInstancer::destroy() {
 			_destroy_mmi_by_location(region_loc, m);
 		}
 	}
+	_queued_updates.clear();
 }
 
 void Terrain3DInstancer::clear_by_mesh(const int p_mesh_id) {
@@ -759,8 +823,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			if (cell_inst_dict.is_empty()) {
 				mesh_inst_dict.erase(m);
 			}
+			update_mmis(false, region_loc, m);
 		}
-		_update_mmis(region_loc);
 	}
 }
 
@@ -899,7 +963,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 	// Write back dictionary. See above comments
 	p_region->get_instances()[p_mesh_id] = cell_locations;
 	if (p_update) {
-		_update_mmis(p_region->get_location(), p_mesh_id);
+		update_mmis(false, p_region->get_location(), p_mesh_id);
 	}
 }
 
@@ -1020,8 +1084,8 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					mesh_inst_dict.erase(region_mesh_id);
 				}
 			}
+			update_mmis(false, region_loc, m);
 		}
-		_update_mmis(region_loc);
 	}
 }
 
@@ -1132,11 +1196,38 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 	}
 }
 
-void Terrain3DInstancer::update_mmis(const bool p_rebuild) {
+// Defaults to update all regions, all meshes
+// If rebuild is true, will destroy all MMIs, then build everything
+// If region_loc == V2I_MAX, will do all regions for meshes specified
+// If id < 0, will do all meshes in the specified region
+// You safely can call multiple times per frame, and select any combo of options without fillling up the queue.
+void Terrain3DInstancer::update_mmis(const bool p_rebuild, const Vector2i &p_region_loc, const int p_id) {
+	LOG(INFO, "Queueing MMI update for mesh id: ", p_id < 0 ? "all" : String::num_int64(p_id), ", region: ", p_region_loc == V2I_MAX ? "all" : String(p_region_loc), ", destroying first: ", p_rebuild);
+	// Set to destroy and rebuild everything
 	if (p_rebuild) {
-		destroy();
+		_queued_updates.clear();
+		_queued_updates.emplace(V2I_MAX, -2);
+		return;
 	}
-	_update_mmis();
+	// If already set to destroy, build all, quit
+	if (_queued_updates.find({ V2I_MAX, -2 }) != _queued_updates.end()) {
+		return;
+	}
+	// If already set to build all, quit
+	if (_queued_updates.find({ V2I_MAX, -1 }) != _queued_updates.end()) {
+		return;
+	}
+	// If all meshes for region are queued, quit
+	if (_queued_updates.find({ p_region_loc, -1 }) != _queued_updates.end()) {
+		return;
+	}
+	// If all regions for mesh_id are queued, quit
+	int mesh_id = CLAMP(p_id, -1, Terrain3DAssets::MAX_MESHES);
+	if (_queued_updates.find({ V2I_MAX, mesh_id }) != _queued_updates.end()) {
+		return;
+	}
+	// Else queue up this region/mesh combo
+	_queued_updates.emplace(p_region_loc, mesh_id);
 }
 
 void Terrain3DInstancer::dump_data() {
@@ -1209,7 +1300,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
-	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild", "region_location", "mesh_id"), &Terrain3DInstancer::update_mmis, DEFVAL(false), DEFVAL(V2I_MAX), DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);

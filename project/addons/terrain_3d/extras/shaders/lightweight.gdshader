@@ -3,7 +3,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 /* This is an example stripped down shader with maximum performance in mind.
  * Only Autoshader/Base/Over/Blend/Holes/Colormap are supported.
- * All terrain normal calculations take place in vetex().
+ * All terrain normal calculations take place in vertex().
  *
  * Control map indices are processed such that each ID only requires reading ONCE.
  * The following features: projection, detiling, and paintable rotation / scale

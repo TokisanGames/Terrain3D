@@ -32,11 +32,12 @@ using namespace godot;
 #define V2_ZERO Vector2(0.f, 0.f)
 #define V2I_ZERO Vector2i(0, 0)
 #define V2_MAX Vector2(FLT_MAX, FLT_MAX)
-#define V2I_MAX Vector2i(INT32_MAX, INT32_MAX)
 #define V3(x) Vector3(x, x, x)
 #define V3_(x) Vector3(x, 0.f, x)
 #define V3_ZERO Vector3(0.f, 0.f, 0.f)
 #define V3_MAX Vector3(FLT_MAX, FLT_MAX, FLT_MAX)
+
+static const Vector2i V2I_MAX{ INT32_MAX, INT32_MAX };
 
 // Terrain3D::_warnings is uint8_t
 #define WARN_MISMATCHED_SIZE 0x01
@@ -112,6 +113,14 @@ struct Vector2iHash {
 		std::size_t h1 = std::hash<int>()(v.x);
 		std::size_t h2 = std::hash<int>()(v.y);
 		return h1 ^ (h2 << 1);
+	}
+};
+
+struct PairVector2iIntHash {
+	std::size_t operator()(const std::pair<Vector2i, int> &p) const {
+		std::size_t h1 = Vector2iHash{}(p.first); // Hash Vector2i
+		std::size_t h2 = std::hash<int>{}(p.second); // Hash int
+		return h1 ^ (h2 << 1); // Combine hashes
 	}
 };
 
