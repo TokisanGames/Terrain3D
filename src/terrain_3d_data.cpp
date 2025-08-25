@@ -175,7 +175,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 
 	calc_height_range(true);
 	update_maps(TYPE_MAX, true, true);
-	_terrain->get_instancer()->update_mmis(true);
+	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 }
 
 void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
@@ -261,7 +261,7 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 	LOG(DEBUG, "Storing region ", region_loc, " version ", vformat("%.3f", p_region->get_version()), " id: ", _region_locations.size());
 	if (p_update) {
 		update_maps(TYPE_MAX, true, false);
-		_terrain->get_instancer()->update_mmis(true);
+		_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 	}
 	return OK;
 }
@@ -298,7 +298,7 @@ void Terrain3DData::remove_region(const Ref<Terrain3DRegion> &p_region, const bo
 	if (p_update) {
 		LOG(DEBUG, "Updating generated maps");
 		update_maps(TYPE_MAX, true, false);
-		_terrain->get_instancer()->update_mmis(true);
+		_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 	}
 }
 
