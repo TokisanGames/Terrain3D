@@ -28,7 +28,7 @@ void Terrain3DMesher::_generate_mesh_types(const int p_size) {
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, 4)));
 	// # 5 STANDARD_TRIM_A - 2 by (mesh_size * 4 + 2) strips for LOD0 +-Z axis edge
 	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 2), true));
-	// # 6 STANDARD_TRIM_B - (mesh_size * 4 + 4) by 2 strips for LOD0 +-X axis edge
+	// # 6 STANDARD_TRIM_B - (mesh_size * 4 + 2) by 2 strips for LOD0 +-X axis edge
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 2, 2), true));
 	// # 7 STANDARD_TILE - mesh_size x mesh_size tiles
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, p_size), true));

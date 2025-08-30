@@ -209,6 +209,7 @@
       <SubType>
       </SubType>
     </None>
+    <None Include="project\addons\terrain_3d\extras\shaders\lightweight.gdshader" />
     <None Include="project\addons\terrain_3d\extras\shaders\minimum.gdshader" />
     <None Include="project\addons\terrain_3d\plugin.cfg" />
     <None Include="project\addons\terrain_3d\terrain.gdextension" />

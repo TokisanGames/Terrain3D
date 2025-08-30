@@ -20,7 +20,7 @@ At a minimum we need the following:
     * Or, click your Terrain3D node and provide a full screenshot, which will include that and other information.
 * Your Operating system and GPU.
 * Confirmation of, or a screenshot of your Project Settings / Plugins screen to show that Terrain3D is enabled, and what other plugins you have.
-* A screenshot or copy of all text in your [console](troubleshooting.md#use-the-console), beginning with the initial Godot Engine startup message.
+* A screenshot or copy of all text in your [console](troubleshooting.md#using-the-console), beginning with the initial Godot Engine startup message.
 
 If you have trouble with textures, we also need:
 * Double click a texture file and show the file format and size as reported by the Godot inspector. Select either the first texture, or a relevant problem texture.
