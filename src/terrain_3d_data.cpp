@@ -692,18 +692,18 @@ Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 	return normal;
 }
 
-bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert) const {
+real_t Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert) const {
 	// If slope is full range, it's disabled
 	const Vector2 slope_range = CLAMP(p_slope_range, V2_ZERO, Vector2(90.f, 90.f));
 	if (slope_range.y - slope_range.x > 89.99f) {
-		return true;
+		return real_t(1.f);
 	}
 
 	// Adapted from get_normal to work with holes
 	Vector3 slope_normal;
 	{
 		if (get_region_idp(p_global_position) < 0) {
-			return false;
+			return real_t(0.f);
 		}
 		// Adapted from get_height() to work with holes
 		auto get_height = [&](Vector3 pos) -> real_t {
@@ -723,10 +723,22 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 	}
 
 	const real_t slope_angle = Math::acos(slope_normal.dot(Vector3(0.f, 1.f, 0.f)));
-	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
+	const real_t slope_angle_degrees = CLAMP(Math::rad_to_deg(slope_angle), 0.f, 90.f);
 
 	// XOR: If invert return !a || !b else return a && b
-	return p_invert ^ ((slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y));
+	if (p_invert ^ ((slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y))) {
+		return real_t(1.f);
+	}
+	// 1.0 -> 0.0 -> 1.0 inside range
+	if (p_invert) {
+		return real_t(ABS(2.f * (slope_angle_degrees - slope_range.x) / (slope_range.y - slope_range.x) - 1.f));
+	}
+	// 0.0 > 1.0 below range
+	if (slope_angle_degrees < slope_range.x) {
+		return real_t(slope_angle_degrees / slope_range.x);
+	}
+	// 1.0 -> 0.0 above above
+	return real_t((90.f - slope_angle_degrees) / (90.f - slope_range.y));
 }
 
 /**

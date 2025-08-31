@@ -441,7 +441,7 @@ Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, c
 		height = raycast_height;
 	}
 	// No hole or collision, use height if in slope or quit
-	else if (!data->is_in_slope(p_global_position, p_slope_range, p_invert)) {
+	else if (!(data->is_in_slope(p_global_position, p_slope_range, p_invert) >= 0.999f)) {
 		return Array();
 	}
 	Array triple;
@@ -738,7 +738,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
 					if (radial_distance < radius &&
 							UtilityFunctions::randf() < CLAMP(0.175f * strength, 0.005f, 10.f) &&
-							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
+							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert) > 0.9999f) {
 						_backup_region(region);
 						continue;
 					} else {
