@@ -773,16 +773,16 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	return point;
 }
 
-/* Returns the results of a physics ray cast, optionally excluding the terrain
+/* Returns the results of a physics raycast, optionally excluding the terrain
  *	p_src_pos (ray start position)
- *	p_direction (ray direction * magnitude)
+ *	p_direction (ray direction * magnitude), relative to src_pos
  */
-Dictionary Terrain3D::get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_destination, const bool p_exclude_self) const {
+Dictionary Terrain3D::get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_destination, const uint32_t p_col_mask, const bool p_exclude_self) const {
 	if (!_is_inside_world) {
 		return Dictionary();
 	}
 	PhysicsDirectSpaceState3D *space_state = get_world_3d()->get_direct_space_state();
-	Ref<PhysicsRayQueryParameters3D> query = PhysicsRayQueryParameters3D::create(p_src_pos, p_src_pos + p_destination);
+	Ref<PhysicsRayQueryParameters3D> query = PhysicsRayQueryParameters3D::create(p_src_pos, p_src_pos + p_destination, p_col_mask);
 	if (_collision && p_exclude_self) {
 		query->set_exclude(TypedArray<RID>(_collision->get_rid()));
 	}
