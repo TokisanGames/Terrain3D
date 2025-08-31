@@ -331,7 +331,7 @@ func remove_all_highlights():
 		return
 	for i: int in mesh_list.entries.size():
 		var resource: Terrain3DMeshAsset = mesh_list.entries[i].resource
-		if resource:
+		if resource and resource.is_highlighted():
 			resource.set_highlighted(false)
 
 
@@ -945,7 +945,7 @@ class ListEntry extends MarginContainer:
 			emit_signal("changed", resource)
 
 
-	func _on_resource_changed() -> void:
+	func _on_resource_changed(value: int = 0) -> void:
 		queue_redraw()
 		emit_signal("changed", resource)
 
