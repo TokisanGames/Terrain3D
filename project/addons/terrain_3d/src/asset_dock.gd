@@ -89,7 +89,7 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	mesh_list.plugin = plugin
 	mesh_list.type = Terrain3DAssets.TYPE_MESH
 	mesh_list.visible = false
-	asset_container.add_child(mesh_list)
+	asset_container.add_child(mesh_list, true)
 	_current_list = texture_list
 
 	load_editor_settings()
@@ -143,6 +143,7 @@ func get_current_list() -> ListContainer:
 
 
 ## Dock placement
+
 
 func set_slot(p_slot: int) -> void:
 	p_slot = clamp(p_slot, 0, POS_MAX-1)
@@ -331,7 +332,7 @@ func remove_all_highlights():
 		return
 	for i: int in mesh_list.entries.size():
 		var resource: Terrain3DMeshAsset = mesh_list.entries[i].resource
-		if resource:
+		if resource and resource.is_highlighted():
 			resource.set_highlighted(false)
 
 
@@ -420,6 +421,7 @@ func _on_godot_focus_exited() -> void:
 
 ## Manage Editor Settings
 
+
 func load_editor_settings() -> void:
 	floating_btn.button_pressed = plugin.get_setting(ES_DOCK_FLOATING, false)
 	pinned_btn.button_pressed = plugin.get_setting(ES_DOCK_PINNED, true)
@@ -458,8 +460,8 @@ class ListContainer extends Container:
 	var type := Terrain3DAssets.TYPE_TEXTURE
 	var entries: Array[ListEntry]
 	var selected_id: int = 0
-	var height: float = 0
-	var width: float = 83
+	var height: float = 0.
+	var width: float = 90.
 	var focus_style: StyleBox
 	var _clearing_resource: bool = false
 
@@ -468,6 +470,10 @@ class ListContainer extends Container:
 		name = "ListContainer"
 		set_v_size_flags(SIZE_EXPAND_FILL)
 		set_h_size_flags(SIZE_EXPAND_FILL)
+		add_theme_color_override("font_color", Color.WHITE)
+		add_theme_color_override("font_shadow_color", Color.BLACK)
+		add_theme_constant_override("shadow_offset_x", 1)
+		add_theme_constant_override("shadow_offset_y", 1)
 
 
 	func clear() -> void:
@@ -620,7 +626,7 @@ class ListContainer extends Container:
 
 
 	func set_entry_width(value: float) -> void:
-		width = clamp(value, 66, 230)
+		width = clamp(value, 90., 512.)
 		redraw()
 
 
@@ -631,17 +637,22 @@ class ListContainer extends Container:
 	func redraw() -> void:
 		height = 0
 		var id: int = 0
-		var separation: float = 4
+		var separation: float = 2.
 		var columns: int = 3
 		columns = clamp(size.x / width, 1, 100)
-		
+		var tile_size: Vector2 = Vector2(width, width) - Vector2(separation, separation)
+		var count_font_size = clamp(tile_size.x/11, 11, 16)
+		var name_font_size = clamp(tile_size.x/12, 12, 18)
 		for c in get_children():
 			if is_instance_valid(c):
-				c.size = Vector2(width, width) - Vector2(separation, separation)
+				c.size = tile_size
 				c.position = Vector2(id % columns, id / columns) * width + \
 					Vector2(separation / columns, separation / columns)
 				height = max(height, c.position.y + width)
 				id += 1
+				if type == Terrain3DAssets.TYPE_MESH:
+					c.count_label.add_theme_font_size_override("font_size", count_font_size)
+				c.name_label.add_theme_font_size_override("font_size", name_font_size)
 
 
 	# Needed to enable ScrollContainer scroll bar
@@ -676,7 +687,6 @@ class ListEntry extends MarginContainer:
 	
 	@onready var focus_style: StyleBox = get_theme_stylebox("focus", "Button").duplicate()
 	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
-	@onready var label_rows := VBoxContainer.new()
 	var name_label: Label
 	var count_label: Label
 	@onready var button_row := FlowContainer.new()
@@ -695,17 +705,19 @@ class ListEntry extends MarginContainer:
 
 	func _ready() -> void:
 		name = "ListEntry"
+		custom_minimum_size = Vector2i(86., 86.)
 		mouse_filter = Control.MOUSE_FILTER_PASS
 		add_theme_constant_override("margin_top", 5)
 		add_theme_constant_override("margin_left", 5)
 		add_theme_constant_override("margin_right", 5)
-		add_child(label_rows, true)
+
 		if resource is Terrain3DMeshAsset:
 			is_highlighted = resource.is_highlighted()
 
 		setup_buttons()
 		setup_label()
 		setup_count_label()
+		tooltip_text = get_resource_name()
 		focus_style.set_border_width_all(2)
 		focus_style.set_border_color(Color(1, 1, 1, .67))
 
@@ -716,7 +728,7 @@ class ListEntry extends MarginContainer:
 		button_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button_row.alignment = FlowContainer.ALIGNMENT_CENTER
 		button_row.mouse_filter = Control.MOUSE_FILTER_PASS
-		label_rows.add_child(button_row, true)
+		add_child(button_row, true)
 
 		if type == Terrain3DAssets.TYPE_MESH:
 			button_enabled.set_texture_normal(enabled_icon)
@@ -768,6 +780,15 @@ class ListEntry extends MarginContainer:
 		button_row.add_child(button_clear, true)
 
 
+	func get_resource_name() -> StringName:
+		if resource:
+			if resource is Terrain3DMeshAsset:
+				return (resource as Terrain3DMeshAsset).get_name()
+			elif resource is Terrain3DTextureAsset:
+				return (resource as Terrain3DTextureAsset).get_name()
+		return ""
+
+
 	func setup_label() -> void:
 		name_label = Label.new()
 		name_label.name = "MeshLabel"
@@ -775,12 +796,16 @@ class ListEntry extends MarginContainer:
 		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		name_label.add_theme_font_size_override("font_size", 14)
 		name_label.add_theme_color_override("font_color", Color.WHITE)
 		name_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-		name_label.add_theme_constant_override("shadow_offset_x", 1.)
-		name_label.add_theme_constant_override("shadow_offset_y", 1.)
-		name_label.add_theme_font_size_override("font_size", 15)
-		label_rows.add_child(name_label, true)
+		name_label.add_theme_constant_override("shadow_offset_x", 1)
+		name_label.add_theme_constant_override("shadow_offset_y", 1)
+		name_label.visible = false
+		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS	
+		name_label.text = get_resource_name()
+		add_child(name_label, true)
 
 
 	func setup_count_label() -> void:
@@ -790,13 +815,13 @@ class ListEntry extends MarginContainer:
 		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		count_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		count_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		count_label.add_theme_font_size_override("font_size", 14)
 		count_label.add_theme_color_override("font_color", Color.WHITE)
 		count_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-		count_label.add_theme_constant_override("shadow_offset_x", 1.)
-		count_label.add_theme_constant_override("shadow_offset_y", 1.)
-		count_label.add_theme_font_size_override("font_size", 14)
-		label_rows.add_child(count_label, true)
-		label_rows.add_theme_constant_override("separation", -5.)
+		count_label.add_theme_constant_override("shadow_offset_x", 1)
+		count_label.add_theme_constant_override("shadow_offset_y", 1)
+		add_child(count_label, true)
 		var mesh_resource: Terrain3DMeshAsset = resource as Terrain3DMeshAsset
 		if not mesh_resource: 
 			return
@@ -820,8 +845,7 @@ class ListEntry extends MarginContainer:
 		match p_what:
 			NOTIFICATION_DRAW:
 				# Hide spacer if icons are crowding small textures
-				spacer.visible = size.x > 90 or type == Terrain3DAssets.TYPE_TEXTURE
-				
+				spacer.visible = size.x > 94. or type == Terrain3DAssets.TYPE_TEXTURE
 				var rect: Rect2 = Rect2(Vector2.ZERO, get_size())
 				if !resource:
 					draw_style_box(background, rect)
@@ -844,8 +868,6 @@ class ListEntry extends MarginContainer:
 						button_enabled.set_pressed_no_signal(!resource.is_enabled())
 						button_highlight.self_modulate = Color("FC7F7F") if is_highlighted else Color.WHITE
 						self_modulate = resource.get_highlight_color()
-				count_label.add_theme_font_size_override("font_size", max(11, rect.size.x/12))
-				name_label.add_theme_font_size_override("font_size", max(12, rect.size.x/10))
 				if drop_data:
 					draw_style_box(focus_style, rect)
 				if is_hovered:
@@ -853,17 +875,15 @@ class ListEntry extends MarginContainer:
 				if is_selected:
 					draw_style_box(focus_style, rect)
 			NOTIFICATION_MOUSE_ENTER:
-				if size.x < 86 or not resource:
-					name_label.text = ""
-				elif type == Terrain3DAssets.TYPE_TEXTURE:
-					name_label.text = (resource as Terrain3DTextureAsset).get_name()
+				if not resource:
+					name_label.visible = false
 				else:
-					name_label.text = (resource as Terrain3DMeshAsset).get_name()
+					name_label.visible = true
 				is_hovered = true
 				emit_signal("hovered")
 				queue_redraw()
 			NOTIFICATION_MOUSE_EXIT:
-				name_label.text = ""
+				name_label.visible = false
 				is_hovered = false
 				drop_data = false
 				queue_redraw()
@@ -957,6 +977,7 @@ class ListEntry extends MarginContainer:
 
 	func clear() -> void:
 		if resource:
+			name_label.hide()
 			set_edited_resource(null, false)
 			update_count_label()
 

@@ -65,8 +65,8 @@ popup/item_8/id = 8
 custom_minimum_size = Vector2(80, 10)
 layout_mode = 2
 size_flags_horizontal = 3
-min_value = 66.0
-max_value = 230.0
+min_value = 90.0
+max_value = 512.0
 value = 90.0
 
 [node name="Floating" type="Button" parent="Box/Buttons"]
