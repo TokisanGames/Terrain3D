@@ -33,6 +33,9 @@ var meshes_btn: Button
 var asset_container: ScrollContainer
 var confirm_dialog: ConfirmationDialog
 var _confirmed: bool = false
+var search_box: TextEdit
+var search_button: Button
+var search_icon: Texture2D
 
 # Used only for editor, so change to single visible/hiddden
 enum {
@@ -78,7 +81,10 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	textures_btn = $Box/Buttons/TexturesBtn
 	meshes_btn = $Box/Buttons/MeshesBtn
 	asset_container = $Box/ScrollContainer
-
+	search_box = $Box/Buttons/SearchBox
+	search_button = $Box/Buttons/SearchBox/Button
+	search_box.owner = null
+	
 	texture_list = ListContainer.new()
 	texture_list.name = "TextureList"
 	texture_list.plugin = plugin
@@ -125,8 +131,16 @@ func _ready() -> void:
 		pinned_btn.text = ""
 		floating_btn.icon = get_theme_icon("MakeFloating", "EditorIcons")
 		floating_btn.text = ""
-
+		search_button.icon = get_theme_icon("Search", "EditorIcons")
+	
+	search_box.focus_entered.connect(search_button.hide)
+	search_box.focus_exited.connect(search_button.show)
+	search_box.text_changed.connect(_on_search_text_changed)
+	search_button.pressed.connect(search_box.grab_focus)
+	box.gui_input.connect(_on_box_gui_input)
+	
 	update_thumbnails()
+	
 	confirm_dialog = ConfirmationDialog.new()
 	add_child(confirm_dialog, true)
 	confirm_dialog.hide()
@@ -136,6 +150,12 @@ func _ready() -> void:
 	confirm_dialog.canceled.connect(func(): _confirmed = false; \
 		emit_signal("confirmation_closed"); \
 		emit_signal("confirmation_canceled") )
+
+
+func _on_box_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		if search_box.has_focus():
+			search_box.release_focus()
 
 
 func get_current_list() -> ListContainer:
@@ -222,9 +242,14 @@ func update_layout() -> void:
 		if size.x >= 500 and size_parent != buttons:
 			size_slider.reparent(buttons)
 			buttons.move_child(size_slider, 3)
+			search_box.reparent(buttons)
+			buttons.move_child(search_box, 4)
 		elif size.x < 500 and size_parent != box:
 			size_slider.reparent(box)
 			box.move_child(size_slider, 1)
+			search_box.reparent(box)
+			box.move_child(search_box, 2)
+			
 		floating_btn.reparent(buttons)
 		buttons.move_child(floating_btn, 4)
 
@@ -232,6 +257,9 @@ func update_layout() -> void:
 	else:
 		size_slider.reparent(buttons)
 		buttons.move_child(size_slider, 3)
+		search_box.reparent(buttons)
+		buttons.move_child(search_box, 4)
+		
 		floating_btn.reparent(box)
 		box.vertical = false
 		buttons.vertical = true
@@ -250,6 +278,13 @@ func update_thumbnails() -> void:
 			mesh_asset.queue_redraw()
 
 
+func _on_search_text_changed() -> void:
+	mesh_list.search_text = search_box.text
+	texture_list.search_text = search_box.text
+	_current_list.update_asset_list()
+	_current_list.set_selected_id(0)
+
+	
 ## Dock Button handlers
 
 
@@ -464,6 +499,7 @@ class ListContainer extends Container:
 	var width: float = 90.
 	var focus_style: StyleBox
 	var _clearing_resource: bool = false
+	var search_text: String = ""
 
 	
 	func _ready() -> void:
@@ -522,6 +558,10 @@ class ListContainer extends Container:
 		var id: int = entries.size()
 		
 		entry.set_edited_resource(p_resource)
+	
+		if not entry.get_resource_name().containsn(search_text) and not search_text == "":
+			return
+		
 		entry.hovered.connect(_on_resource_hovered.bind(id))
 		entry.selected.connect(set_selected_id.bind(id))
 		entry.inspected.connect(_on_resource_inspected)
@@ -625,6 +665,15 @@ class ListContainer extends Container:
 		return selected_id
 
 
+	func get_selected_resource_id() -> int:
+		if get_selected_id() > entries.size() - 1:
+			return 0
+		if type == Terrain3DAssets.AssetType.TYPE_MESH:
+			return (entries[get_selected_id()].resource as Terrain3DMeshAsset).id
+		else:
+			return (entries[get_selected_id()].resource as Terrain3DTextureAsset).id
+
+
 	func set_entry_width(value: float) -> void:
 		width = clamp(value, 90., 512.)
 		redraw()
@@ -653,7 +702,6 @@ class ListContainer extends Container:
 				if type == Terrain3DAssets.TYPE_MESH:
 					c.count_label.add_theme_font_size_override("font_size", count_font_size)
 				c.name_label.add_theme_font_size_override("font_size", name_font_size)
-
 
 	# Needed to enable ScrollContainer scroll bar
 	func _get_minimum_size() -> Vector2:
@@ -721,7 +769,14 @@ class ListEntry extends MarginContainer:
 		focus_style.set_border_width_all(2)
 		focus_style.set_border_color(Color(1, 1, 1, .67))
 
-
+	func get_resource_name() -> StringName:
+		if resource:
+			if resource is Terrain3DMeshAsset:
+				return (resource as Terrain3DMeshAsset).get_name()
+			elif resource is Terrain3DTextureAsset:
+				return (resource as Terrain3DTextureAsset).get_name()
+		return ""
+		
 	func setup_buttons() -> void:
 		var icon_size: Vector2 = Vector2(12, 12)
 		
