@@ -343,6 +343,9 @@ void Terrain3DMeshAsset::set_material_overlay(const Ref<Material> &p_material) {
 }
 
 void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
+	if (p_highlighted == _highlighted) {
+		return; // No change
+	}
 	_highlighted = p_highlighted;
 	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
 	if (_highlighted && _highlight_mat.is_null()) {
