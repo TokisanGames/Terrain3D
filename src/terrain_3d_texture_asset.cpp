@@ -47,8 +47,11 @@ void Terrain3DTextureAsset::clear() {
 }
 
 void Terrain3DTextureAsset::set_name(const String &p_name) {
-	LOG(INFO, "Setting name: ", p_name);
-	_name = p_name;
+	if (p_name.length() > 96) {
+		LOG(WARN, "Name too long, truncating to 96 characters");
+	}
+	LOG(INFO, "Setting name: ", p_name.left(96));
+	_name = p_name.left(96);
 	emit_signal("setting_changed");
 }
 
