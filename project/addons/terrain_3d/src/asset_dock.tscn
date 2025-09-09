@@ -16,6 +16,30 @@ vertical = true
 [node name="Buttons" type="BoxContainer" parent="Box"]
 layout_mode = 2
 
+[node name="SearchBox" type="TextEdit" parent="Box/Buttons"]
+custom_minimum_size = Vector2(100, 30)
+layout_mode = 2
+placeholder_text = "Search"
+emoji_menu_enabled = false
+scroll_fit_content_height = true
+caret_blink = true
+caret_multiple = false
+
+[node name="SearchButton" type="Button" parent="Box/Buttons/SearchBox"]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -13.0
+offset_top = -4.0
+offset_right = -5.0
+offset_bottom = 4.0
+grow_horizontal = 0
+grow_vertical = 2
+action_mode = 0
+
 [node name="TexturesBtn" type="Button" parent="Box/Buttons"]
 custom_minimum_size = Vector2(80, 30)
 layout_mode = 2
@@ -86,28 +110,6 @@ tooltip_text = "Make this window \"Always on top\"."
 toggle_mode = true
 text = "P"
 flat = true
-
-[node name="SearchBox" type="TextEdit" parent="Box/Buttons"]
-custom_minimum_size = Vector2(100, 30)
-layout_mode = 2
-size_flags_horizontal = 3
-placeholder_text = "Search"
-scroll_fit_content_height = true
-scroll_fit_content_width = true
-
-[node name="Button" type="Button" parent="Box/Buttons/SearchBox"]
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -8.0
-offset_top = -4.0
-offset_bottom = 4.0
-grow_horizontal = 0
-grow_vertical = 2
-action_mode = 0
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Box"]
 layout_mode = 2

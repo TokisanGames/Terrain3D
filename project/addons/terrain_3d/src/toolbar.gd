@@ -23,6 +23,7 @@ const ICON_INSTANCER: String = "res://addons/terrain_3d/icons/multimesh.svg"
 var add_tool_group: ButtonGroup = ButtonGroup.new()
 var sub_tool_group: ButtonGroup = ButtonGroup.new()
 var buttons: Dictionary
+var plugin: EditorPlugin
 
 
 func _init() -> void:
@@ -145,10 +146,26 @@ func show_add_buttons(p_enable: bool) -> void:
 
 
 func _on_tool_selected(p_button: BaseButton) -> void:
+	if plugin.debug:
+		print("Terrain3DToolbar: _on_tool_selected: ", p_button)
 	# Select same tool on negative bar
 	var group: ButtonGroup = p_button.get_button_group()
 	var change_group: ButtonGroup = add_tool_group if group == sub_tool_group else sub_tool_group
 	var id: int = p_button.get_meta("ID", -2)
 	for button in change_group.get_buttons():
 		button.set_pressed_no_signal(button.get_meta("ID", -1) == id)
+	if plugin.debug:
+		print("Terrain3DToolbar: _on_tool_selected: emitting tool_changed, ", 
+			p_button.get_meta("Tool", Terrain3DEditor.TOOL_MAX), ", ", 
+			p_button.get_meta("Operation", Terrain3DEditor.OP_MAX))
 	emit_signal("tool_changed", p_button.get_meta("Tool", Terrain3DEditor.TOOL_MAX), p_button.get_meta("Operation", Terrain3DEditor.OP_MAX))
+
+
+func change_tool(p_name: String) -> void:
+	var btn: Button = get_node_or_null(p_name)
+	if plugin.debug:
+		print("Terrain3DToolbar: change_tool: ", p_name, ", pressed: ", btn and btn.button_pressed)
+	if btn and not btn.button_pressed:
+		if plugin.debug:
+			print("Terrain3DToolbar: change_tool: pressing button")
+		btn.set_pressed(true)

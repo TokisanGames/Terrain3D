@@ -9,18 +9,8 @@ const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
-var modifier_ctrl: bool
-var modifier_alt: bool
-var modifier_shift: bool
-var _last_modifiers: int = 0
-var _input_mode: int = 0 # -1: camera move, 0: none, 1: operating
-var rmb_release_time: int = 0
-var _use_meta: bool = false
-
-var terrain: Terrain3D
-var _last_terrain: Terrain3D
-var nav_region: NavigationRegion3D
-
+# Editor Plugin
+var debug: int = 0 # Set 1 normal, 2 verbose, or = terrain.debug in _edit()
 var editor: Terrain3DEditor
 var editor_settings: EditorSettings
 var ui: Node # Terrain3DUI see Godot #75388
@@ -29,6 +19,20 @@ var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
+
+# Terrain
+var terrain: Terrain3D
+var _last_terrain: Terrain3D
+var nav_region: NavigationRegion3D
+
+# Input
+var modifier_ctrl: bool
+var modifier_alt: bool
+var modifier_shift: bool
+var _last_modifiers: int = 0
+var _input_mode: int = 0 # -1: camera move, 0: none, 1: operating
+var rmb_release_time: int = 0
+var _use_meta: bool = false
 
 
 func _init() -> void:
@@ -66,6 +70,8 @@ func _exit_tree() -> void:
 
 
 func _on_godot_focus_entered() -> void:
+	if debug > 1:
+		print("Terrain3DEditorPlugin: _on_godot_focus_entered")
 	_read_input()
 	ui.update_decal()
 
@@ -385,6 +391,8 @@ func update_region_grid() -> void:
 
 
 func _on_scene_changed(scene_root: Node) -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _on_scene_changed: ", scene_root)
 	if not scene_root:
 		return
 		
@@ -395,7 +403,16 @@ func _on_scene_changed(scene_root: Node) -> void:
 	await get_tree().create_timer(2).timeout
 	asset_dock.update_thumbnails()
 
-		
+
+func get_terrain() -> Terrain3D:
+	if is_terrain_valid():
+		return terrain
+	elif is_instance_valid(_last_terrain) and is_terrain_valid(_last_terrain):
+		return _last_terrain
+	else:
+		return null
+
+
 func is_terrain_valid(p_terrain: Terrain3D = null) -> bool:
 	var t: Terrain3D
 	if p_terrain:
@@ -417,8 +434,12 @@ func is_selected() -> bool:
 
 
 func select_terrain() -> void:
+	if debug and is_selected():
+		print("Terrain3DEditorPlugin: Terrain is selected, skipping")
 	if is_instance_valid(_last_terrain) and is_terrain_valid(_last_terrain) and not is_selected():
 		var es: EditorSelection = EditorInterface.get_selection()
+		if debug:
+			print("Terrain3DEditorPlugin: Clearing and reselecting terrain")
 		es.clear()
 		es.add_node(_last_terrain)
 
