@@ -50,8 +50,9 @@ void Terrain3DTextureAsset::set_name(const String &p_name) {
 	if (p_name.length() > 96) {
 		LOG(WARN, "Name too long, truncating to 96 characters");
 	}
-	LOG(INFO, "Setting name: ", p_name.left(96));
 	_name = p_name.left(96);
+	LOG(INFO, "Setting name: ", _name);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
@@ -59,12 +60,14 @@ void Terrain3DTextureAsset::set_id(const int p_new_id) {
 	int old_id = _id;
 	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_TEXTURES);
 	LOG(INFO, "Setting texture id: ", _id);
+	LOG(DEBUG, "Emitting id_changed, ", Terrain3DAssets::TYPE_TEXTURE, ", ", old_id, ", ", _id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_TEXTURE, old_id, _id);
 }
 
 void Terrain3DTextureAsset::set_albedo_color(const Color &p_color) {
 	LOG(INFO, "Setting color: ", p_color);
 	_albedo_color = p_color;
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
@@ -74,21 +77,22 @@ void Terrain3DTextureAsset::set_albedo_texture(const Ref<Texture2D> &p_texture) 
 		_albedo_texture = p_texture;
 		if (p_texture.is_valid()) {
 			String filename = p_texture->get_path().get_file().get_basename();
-			if (_name == "New Texture") {
+			if (_name == "New Texture" && !p_texture->get_path().contains("::")) {
 				_name = filename;
 				LOG(INFO, "Naming texture based on filename: ", _name);
 			}
 			Ref<Image> img = p_texture->get_image();
 			if (!img->has_mipmaps()) {
-				LOG(WARN, "Texture '", filename, "' has no mipmaps. Change on the Import panel if desired.");
+				LOG(WARN, "Albedo texture '", filename, "' has no mipmaps. Change on the Import panel if desired.");
 			}
 			if (img->get_width() != img->get_height()) {
-				LOG(WARN, "Texture '", filename, "' is not square. Mipmaps might have artifacts.");
+				LOG(WARN, "Albedo texture '", filename, "' is not square. Mipmaps might have artifacts.");
 			}
 			if (!is_power_of_2(img->get_width()) || !is_power_of_2(img->get_height())) {
-				LOG(WARN, "Texture '", filename, "' size is not power of 2. This is sub-optimal.");
+				LOG(WARN, "Albedo texture '", filename, "' size is not power of 2. This is sub-optimal.");
 			}
 		}
+		LOG(DEBUG, "Emitting file_changed");
 		emit_signal("file_changed");
 	}
 }
@@ -101,15 +105,16 @@ void Terrain3DTextureAsset::set_normal_texture(const Ref<Texture2D> &p_texture) 
 			String filename = p_texture->get_path().get_file().get_basename();
 			Ref<Image> img = p_texture->get_image();
 			if (!img->has_mipmaps()) {
-				LOG(WARN, "Texture '", filename, "' has no mipmaps. Change on the Import panel if desired.");
+				LOG(WARN, "Normal texture '", filename, "' has no mipmaps. Change on the Import panel if desired.");
 			}
 			if (img->get_width() != img->get_height()) {
-				LOG(WARN, "Texture '", filename, "' is not square. Not recommended. Mipmaps might have artifacts.");
+				LOG(WARN, "Normal texture '", filename, "' is not square. Not recommended. Mipmaps might have artifacts.");
 			}
 			if (!is_power_of_2(img->get_width()) || !is_power_of_2(img->get_height())) {
-				LOG(WARN, "Texture '", filename, "' dimensions are not power of 2. This is sub-optimal.");
+				LOG(WARN, "Normal texture '", filename, "' dimensions are not power of 2. This is sub-optimal.");
 			}
 		}
+		LOG(DEBUG, "Emitting file_changed");
 		emit_signal("file_changed");
 	}
 }
@@ -117,42 +122,49 @@ void Terrain3DTextureAsset::set_normal_texture(const Ref<Texture2D> &p_texture) 
 void Terrain3DTextureAsset::set_normal_depth(const real_t p_normal_depth) {
 	_normal_depth = CLAMP(p_normal_depth, 0.0f, 2.0f);
 	LOG(INFO, "Setting normal_depth: ", _normal_depth);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_ao_strength(const real_t p_ao_strength) {
 	_ao_strength = CLAMP(p_ao_strength, 0.0f, 2.0f);
 	LOG(INFO, "Setting ao_strength: ", _ao_strength);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_roughness(const real_t p_roughness) {
 	_roughness = CLAMP(p_roughness, -1.0f, 1.0f);
 	LOG(INFO, "Setting roughness modifier: ", _roughness);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_uv_scale(const real_t p_scale) {
 	_uv_scale = CLAMP(p_scale, 0.001f, 100.0f);
 	LOG(INFO, "Setting uv_scale: ", _uv_scale);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_vertical_projection(const bool p_projection) {
 	_vertical_projection = p_projection;
 	LOG(INFO, "Setting uv projection: ", _vertical_projection);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_detiling_rotation(const real_t p_detiling_rotation) {
 	_detiling_rotation = CLAMP(p_detiling_rotation, 0.0f, 1.0f);
 	LOG(INFO, "Setting detiling_rotation: ", _detiling_rotation);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_detiling_shift(const real_t p_detiling_shift) {
 	_detiling_shift = CLAMP(p_detiling_shift, 0.0f, 1.0f);
 	LOG(INFO, "Setting detiling_shift: ", _detiling_shift);
+	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
 

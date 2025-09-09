@@ -437,6 +437,7 @@ void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 		LOG(INFO, "Setting material");
 		_material = p_material;
 		_initialize();
+		LOG(DEBUG, "Emitting material_changed");
 		emit_signal("material_changed");
 	}
 }
@@ -447,6 +448,7 @@ void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 		LOG(INFO, "Setting asset list");
 		_assets = p_assets;
 		_initialize();
+		LOG(DEBUG, "Emitting assets_changed");
 		emit_signal("assets_changed");
 	}
 }
