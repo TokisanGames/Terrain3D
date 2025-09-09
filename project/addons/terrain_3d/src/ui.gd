@@ -77,6 +77,7 @@ var editor_decal_fade: float :
 
 func _enter_tree() -> void:
 	toolbar = TerrainToolbar.new()
+	toolbar.plugin = plugin
 	toolbar.hide()
 	toolbar.tool_changed.connect(_on_tool_changed)
 	
@@ -140,6 +141,8 @@ func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
 	
 
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
+	if plugin.debug:
+		print("Terrain3DUI: _on_tool_changed: ", p_tool, ", ", p_operation)
 	_selected_tool = p_tool
 	_selected_operation = p_operation
 	clear_picking()
@@ -263,10 +266,14 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 
 
 func _on_setting_changed(p_setting: Variant = null) -> void:
+	if plugin.debug:
+		print("Terrain3DUI: _on_setting_changed: ", p_setting if p_setting else "update all")
 	if not plugin.asset_dock: # Skip function if not _ready()
 		return
 	brush_data = tool_settings.get_settings()
-	brush_data["asset_id"] = plugin.asset_dock.get_current_list().get_selected_resource_id()
+	brush_data["asset_id"] = plugin.asset_dock.current_list.get_selected_resource_id()
+	if plugin.debug:
+		print("Terrain3DUI: _on_setting_changed: selected resource ID: ", brush_data["asset_id"])
 	if plugin.editor:
 		plugin.editor.set_brush_data(brush_data)
 	inverted_input = brush_data.get("invert", false)
