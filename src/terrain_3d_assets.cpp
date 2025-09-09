@@ -161,6 +161,7 @@ void Terrain3DAssets::_update_texture_files() {
 	_generated_albedo_textures.clear();
 	_generated_normal_textures.clear();
 	if (_texture_list.is_empty()) {
+		LOG(DEBUG, "Emitting textures_changed");
 		emit_signal("textures_changed");
 		return;
 	}
@@ -267,13 +268,13 @@ void Terrain3DAssets::_update_texture_files() {
 
 			if (tex.is_null()) {
 				img = Util::get_filled_image(albedo_size, COLOR_CHECKED, albedo_mipmaps, albedo_format);
-				LOG(DEBUG, "ID ", i, " albedo texture is null. Creating a new one. Format: ", img->get_format());
+				LOG(DEBUG, "Texture ID ", i, " albedo is null. Creating a new one. Format: ", img->get_format());
 				texture_set->_albedo_texture = ImageTexture::create_from_image(img);
 			} else {
 				img = tex->get_image();
-				LOG(DEBUG, "ID ", i, " albedo texture is valid. Format: ", img->get_format());
+				LOG(DEBUG, "Texture ID ", i, " albedo is valid. Format: ", img->get_format());
 				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
-					LOG(WARN, "ID ", i, " albedo texture is not connected to a file.");
+					LOG(WARN, "Texture ID ", i, " albedo is saved in the scene. Save it as a file and link it.");
 				}
 			}
 			albedo_texture_array.push_back(img);
@@ -298,13 +299,13 @@ void Terrain3DAssets::_update_texture_files() {
 
 			if (tex.is_null()) {
 				img = Util::get_filled_image(normal_size, COLOR_NORMAL, normal_mipmaps, normal_format);
-				LOG(DEBUG, "ID ", i, " normal texture is null. Creating a new one. Format: ", img->get_format());
+				LOG(DEBUG, "Texture ID ", i, " normal is null. Creating a new one. Format: ", img->get_format());
 				texture_set->_normal_texture = ImageTexture::create_from_image(img);
 			} else {
 				img = tex->get_image();
-				LOG(DEBUG, "ID ", i, " Normal texture is valid. Format: ", img->get_format());
+				LOG(DEBUG, "Texture ID ", i, " normal is valid. Format: ", img->get_format());
 				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
-					LOG(WARN, "ID ", i, " normal texture is not connected to a file.");
+					LOG(WARN, "Texture ID ", i, " normal is saved in the scene. Save it as a file and link it.");
 				}
 			}
 			normal_texture_array.push_back(img);
@@ -313,6 +314,7 @@ void Terrain3DAssets::_update_texture_files() {
 			_generated_normal_textures.create(normal_texture_array);
 		}
 	}
+	LOG(DEBUG, "Emitting textures_changed");
 	emit_signal("textures_changed");
 }
 
@@ -342,6 +344,7 @@ void Terrain3DAssets::_update_texture_settings() {
 			_texture_detiles.push_back(Vector2(texture_set->get_detiling_rotation(), texture_set->get_detiling_shift()));
 		}
 	}
+	LOG(DEBUG, "Emitting textures_changed");
 	emit_signal("textures_changed");
 }
 
@@ -473,7 +476,7 @@ void Terrain3DAssets::update_texture_list() {
 	for (int i = 0; i < _texture_list.size(); i++) {
 		Ref<Terrain3DTextureAsset> texture_set = _texture_list[i];
 		if (texture_set.is_null()) {
-			LOG(ERROR, "Texture id ", i, " is null, but shouldn't be.");
+			LOG(ERROR, "TextureAsset ID ", i, " is null, but shouldn't be.");
 			continue;
 		}
 		if (!texture_set->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::_update_texture_files))) {

@@ -504,6 +504,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 			}
 		}
 		any_changed = true;
+		LOG(DEBUG, "Emitting region_map_changed");
 		emit_signal("region_map_changed");
 	}
 
@@ -525,6 +526,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		_generated_height_maps.create(_height_maps);
 		calc_height_range();
 		any_changed = true;
+		LOG(DEBUG, "Emitting height_maps_changed");
 		emit_signal("height_maps_changed");
 	}
 
@@ -541,6 +543,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		}
 		_generated_control_maps.create(_control_maps);
 		any_changed = true;
+		LOG(DEBUG, "Emitting control_maps_changed");
 		emit_signal("control_maps_changed");
 	}
 
@@ -557,6 +560,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		}
 		_generated_color_maps.create(_color_maps);
 		any_changed = true;
+		LOG(DEBUG, "Emitting color_maps_changed");
 		emit_signal("color_maps_changed");
 	}
 
@@ -571,16 +575,19 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 				switch (p_map_type) {
 					case TYPE_HEIGHT:
 						_generated_height_maps.update(region->get_height_map(), region_id);
+						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						any_changed = true;
 						break;
 					case TYPE_CONTROL:
 						_generated_control_maps.update(region->get_control_map(), region_id);
+						LOG(DEBUG, "Emitting control_maps_changed");
 						emit_signal("control_maps_changed");
 						any_changed = true;
 						break;
 					case TYPE_COLOR:
 						_generated_color_maps.update(region->get_color_map(), region_id);
+						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
 						any_changed = true;
 						break;
@@ -588,8 +595,11 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						_generated_height_maps.update(region->get_height_map(), region_id);
 						_generated_control_maps.update(region->get_control_map(), region_id);
 						_generated_color_maps.update(region->get_color_map(), region_id);
+						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
+						LOG(DEBUG, "Emitting control_maps_changed");
 						emit_signal("control_maps_changed");
+						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
 						any_changed = true;
 						break;
@@ -598,6 +608,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		}
 	}
 	if (any_changed) {
+		LOG(DEBUG, "Emitting maps_changed");
 		emit_signal("maps_changed");
 		_terrain->snap();
 	}
@@ -824,6 +835,7 @@ void Terrain3DData::add_edited_area(const AABB &p_area) {
 	} else {
 		_edited_area = p_area;
 	}
+	LOG(DEBUG, "Emitting maps_edited");
 	emit_signal("maps_edited", p_area);
 }
 
