@@ -15,7 +15,7 @@
 ///////////////////////////
 
 void Terrain3DAssets::_swap_ids(const AssetType p_type, const int p_src_id, const int p_dst_id) {
-	LOG(INFO, "Swapping asset id: ", p_src_id, " and id: ", p_dst_id);
+	LOG(INFO, "Swapping asset ID: ", p_src_id, " and ID: ", p_dst_id);
 	Array list;
 	switch (p_type) {
 		case TYPE_TEXTURE:
@@ -27,31 +27,40 @@ void Terrain3DAssets::_swap_ids(const AssetType p_type, const int p_src_id, cons
 		default:
 			return;
 	}
-
 	if (p_src_id < 0 || p_src_id >= list.size()) {
-		LOG(ERROR, "Source id out of range: ", p_src_id);
+		LOG(ERROR, "Source ID out of range: ", p_src_id);
 		return;
 	}
-	Ref<Terrain3DAssetResource> res_a = list[p_src_id];
+	Ref<Terrain3DAssetResource> res_src = list[p_src_id];
+	if (res_src.is_null()) {
+		LOG(ERROR, "Source Asset is null at ID: ", p_src_id);
+		return;
+	}
+	// User can type in any value, -1 means swap with first, >size means swap with last
 	int dst_id = CLAMP(p_dst_id, 0, list.size() - 1);
 	if (dst_id == p_src_id) {
-		// Res_a new id was likely out of range, reset it
-		res_a->_id = p_src_id;
+		// They're likely the same due to the clamp, when new ID is <0 or >= array_size)
+		res_src->_id = p_src_id;
 		return;
 	}
-
-	Ref<Terrain3DAssetResource> res_b = list[dst_id];
-	res_a->_id = dst_id;
-	res_b->_id = p_src_id;
-	list[dst_id] = res_a;
-	list[p_src_id] = res_b;
+	Ref<Terrain3DAssetResource> res_dst = list[dst_id];
+	if (res_dst.is_valid()) {
+		res_dst->_id = p_src_id;
+	}
+	res_src->_id = dst_id;
+	list[dst_id] = res_src;
+	list[p_src_id] = res_dst;
 
 	switch (p_type) {
 		case TYPE_TEXTURE:
 			update_texture_list();
 			break;
 		case TYPE_MESH:
-			_terrain->get_instancer()->swap_ids(p_src_id, dst_id);
+			if (_terrain) {
+				_terrain->get_instancer()->swap_ids(p_src_id, dst_id);
+			} else {
+				LOG(ERROR, "Changing IDs before the terrain is initialized. Meshes on the ground may be wrong.");
+			}
 			update_mesh_list();
 			break;
 		default:
@@ -60,7 +69,7 @@ void Terrain3DAssets::_swap_ids(const AssetType p_type, const int p_src_id, cons
 }
 
 /**
- * _set_asset_list attempts to keep the asset id as saved in the resource file.
+ * _set_asset_list attempts to keep the asset ID as saved in the resource file.
  * But if an ID is invalid or already taken, the new ID is changed to the next available one
  */
 void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<Terrain3DAssetResource> &p_list) {
@@ -78,21 +87,25 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 		default:
 			return;
 	}
-
 	int array_size = CLAMP(p_list.size(), 0, max_size);
 	list.resize(array_size);
 	int filled_id = -1;
 	// For all provided textures up to MAX SIZE
 	for (int i = 0; i < array_size; i++) {
 		Ref<Terrain3DAssetResource> res = p_list[i];
+		if (res.is_null()) {
+			LOG(ERROR, "Asset ID: ", i, " is null");
+			continue;
+		}
 		int id = res->get_id();
-		// If saved texture id is in range and doesn't exist, add it
+		// If saved texture ID is in range and doesn't exist, add it
 		if (id >= 0 && id < array_size && !list[id]) {
 			list[id] = res;
 		} else {
-			// Else texture id is invalid or slot is already taken, insert in next available
+			// Else texture ID is invalid or slot is already taken, insert in first available
 			for (int j = filled_id + 1; j < array_size; j++) {
 				if (!list[j]) {
+					LOG(ERROR, res->get_class(), " ID ", id, " already exists. Setting '", res->get_name(), "' to ID ", j, ". Textures/Meshes on the ground may be wrong. Review Asset list to ensure each have unique IDs.");
 					res->set_id(j);
 					list[j] = res;
 					filled_id = j;
@@ -103,6 +116,13 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 		if (!res->is_connected("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids))) {
 			LOG(DEBUG, "Connecting to id_changed");
 			res->connect("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids));
+		}
+	}
+	if (Terrain3D::debug_level >= DEBUG) {
+		for (int i = 0; i < list.size(); i++) {
+			Ref<Terrain3DAssetResource> res = list[i];
+			int id = res.is_valid() ? res->get_id() : -1;
+			LOG(DEBUG, "Asset ", i, ": ", res, ", stored ID: ", id);
 		}
 	}
 }
@@ -609,7 +629,7 @@ void Terrain3DAssets::update_mesh_list() {
 	for (int i = 0; i < _mesh_list.size(); i++) {
 		Ref<Terrain3DMeshAsset> mesh_asset = _mesh_list[i];
 		if (mesh_asset.is_null()) {
-			LOG(ERROR, "Terrain3DMeshAsset id ", i, " is null, but shouldn't be.");
+			LOG(ERROR, "Terrain3DMeshAsset ID ", i, " is null, but shouldn't be");
 			continue;
 		}
 		if (mesh_asset->get_mesh().is_null()) {
