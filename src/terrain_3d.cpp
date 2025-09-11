@@ -475,6 +475,9 @@ void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
 }
 
 void Terrain3D::set_camera(Camera3D *p_camera) {
+	if (p_camera == _camera.get_target()) {
+		return;
+	}
 	if (p_camera && p_camera->is_queued_for_deletion()) {
 		LOG(ERROR, "Attempted to set a node queued for deletion");
 		_camera.clear();
@@ -869,6 +872,13 @@ PackedStringArray Terrain3D::_get_configuration_warnings() const {
 	return psa;
 }
 
+void Terrain3D::set_shadow_material(const Ref<ShaderMaterial> &p_material) {
+	_shadow_material = p_material;
+	if (_mesher) {
+		_mesher->update();
+	}
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1124,6 +1134,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Terrain3D::get_mouse_layer);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
+
+	ClassDB::bind_method(D_METHOD("set_shadow_material", "material"), &Terrain3D::set_shadow_material);
+	ClassDB::bind_method(D_METHOD("get_shadow_material"), &Terrain3D::get_shadow_material);
+
 	ClassDB::bind_method(D_METHOD("set_gi_mode", "gi_mode"), &Terrain3D::set_gi_mode);
 	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
 	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
@@ -1220,6 +1234,9 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shadow_material", PROPERTY_HINT_RESOURCE_TYPE, "Material"), "set_shadow_material", "get_shadow_material");
+
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_gi_mode", "get_gi_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_editor_textures"), "set_free_editor_textures", "get_free_editor_textures");

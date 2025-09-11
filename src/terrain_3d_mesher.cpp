@@ -80,7 +80,6 @@ RID Terrain3DMesher::_generate_mesh(const Vector2i &p_size, const bool p_standar
 			}
 		}
 	}
-
 	return _instantiate_mesh(vertices, indices, aabb);
 }
 
@@ -107,7 +106,6 @@ RID Terrain3DMesher::_instantiate_mesh(const PackedVector3Array &p_vertices, con
 	LOG(DEBUG, "Setting custom aabb: ", p_aabb.position, ", ", p_aabb.size);
 	RS->mesh_set_custom_aabb(mesh, p_aabb);
 	RS->mesh_surface_set_material(mesh, 0, _terrain->get_material()->get_material_rid());
-
 	return mesh;
 }
 
@@ -119,66 +117,96 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 
 	for (int level = 0; level < p_lods; level++) {
 		Array lod;
+		Array shadow_lod;
 		// 12 Tiles LOD1+, 16 for LOD0
 		Array tile_rids;
-		int tile_ammount = (level == 0) ? 16 : 12;
+		Array shadow_tile_rids;
+		int tile_amount = (level == 0) ? 16 : 12;
 
-		for (int i = 0; i < tile_ammount; i++) {
+		for (int i = 0; i < tile_amount; i++) {
 			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
+			RID shadow_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
 			tile_rids.append(tile_rid);
+			shadow_tile_rids.append(shadow_rid);
 		}
 		lod.append(tile_rids); // index 0 TILE
+		shadow_lod.append(shadow_tile_rids);
 
 		// 4 Edges present on all LODs
 		Array edge_a_rids;
+		Array shadow_edge_a_rids;
 		for (int i = 0; i < 2; i++) {
 			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
+			RID shadow_edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
 			edge_a_rids.append(edge_a_rid);
+			shadow_edge_a_rids.append(shadow_edge_a_rid);
 		}
 		lod.append(edge_a_rids); // index 1 EDGE_A
+		shadow_lod.append(shadow_edge_a_rids);
 
 		Array edge_b_rids;
+		Array shadow_edge_b_rids;
 		for (int i = 0; i < 2; i++) {
 			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
+			RID shadow_edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
 			edge_b_rids.append(edge_b_rid);
+			shadow_edge_b_rids.append(shadow_edge_b_rid);
 		}
 		lod.append(edge_b_rids); // index 2 EDGE_B
+		shadow_lod.append(shadow_edge_b_rids);
 
 		// Fills only present on LODs 1+
 		if (level > 0) {
 			Array fill_a_rids;
+			Array shadow_fill_a_rids;
 			for (int i = 0; i < 2; i++) {
 				RID fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
+				RID shadow_fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
 				fill_a_rids.append(fill_a_rid);
+				shadow_fill_a_rids.append(shadow_fill_a_rid);
 			}
 			lod.append(fill_a_rids); // index 4 FILL_A
+			shadow_lod.append(shadow_fill_a_rids);
 
 			Array fill_b_rids;
+			Array shadow_fill_b_rids;
 			for (int i = 0; i < 2; i++) {
 				RID fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
+				RID shadow_fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
 				fill_b_rids.append(fill_b_rid);
+				shadow_fill_b_rids.append(shadow_fill_b_rid);
 			}
 			lod.append(fill_b_rids); // index 5 FILL_B
+			shadow_lod.append(shadow_fill_b_rids);
 			// Trims only on LOD 0 These share the indices of the fills for the offsets.
 			// When snapping LOD 0 Trim a/b positions are looked up instead of Fill a/b
 		} else {
 			Array trim_a_rids;
+			Array shadow_trim_a_rids;
 			for (int i = 0; i < 2; i++) {
 				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
+				RID shadow_trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
 				trim_a_rids.append(trim_a_rid);
+				shadow_trim_a_rids.append(shadow_trim_a_rid);
 			}
 			lod.append(trim_a_rids); // index 4 TRIM_A
+			shadow_lod.append(shadow_trim_a_rids);
 
 			Array trim_b_rids;
+			Array shadow_trim_b_rids;
 			for (int i = 0; i < 2; i++) {
 				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
+				RID shadow_trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
 				trim_b_rids.append(trim_b_rid);
+				shadow_trim_b_rids.append(shadow_trim_b_rid);
 			}
 			lod.append(trim_b_rids); // index 5 TRIM_B
+			shadow_lod.append(shadow_trim_b_rids);
 		}
 
 		// Append LOD to _lod_rids array
 		_clipmap_rids.append(lod);
+		_clipmap_shadow_rids.append(shadow_lod);
 	}
 }
 
@@ -255,16 +283,22 @@ void Terrain3DMesher::_clear_clipmap() {
 	LOG(INFO, "Freeing all clipmap instances");
 	for (int lod = 0; lod < _clipmap_rids.size(); lod++) {
 		Array lod_array = _clipmap_rids[lod];
+		Array shadow_lod_array = _clipmap_shadow_rids[lod];
 		for (int mesh = 0; mesh < lod_array.size(); mesh++) {
 			Array mesh_array = lod_array[mesh];
+			Array shadow_mesh_array = shadow_lod_array[mesh];
 			for (int instance = 0; instance < mesh_array.size(); instance++) {
 				RS->free_rid(mesh_array[instance]);
+				RS->free_rid(shadow_mesh_array[instance]);
 			}
 			mesh_array.clear();
+			shadow_mesh_array.clear();
 		}
 		lod_array.clear();
+		shadow_lod_array.clear();
 	}
 	_clipmap_rids.clear();
+	_clipmap_shadow_rids.clear();
 	return;
 }
 
@@ -326,6 +360,9 @@ void Terrain3DMesher::snap() {
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Vector3 snapped_pos = (target_pos / vertex_spacing).floor() * vertex_spacing;
 	RS->material_set_param(_terrain->get_material()->get_material_rid(), "_camera_pos", snapped_pos);
+	if (_terrain->get_shadow_material().is_valid()) {
+		RS->material_set_param(_terrain->get_shadow_material()->get_rid(), "_camera_pos", snapped_pos);
+	}
 
 	Vector3 pos = V3_ZERO;
 	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
@@ -345,8 +382,10 @@ void Terrain3DMesher::snap() {
 		int test_x = CLAMP(int(round((pos.x - next_x) / snap_step)) + 1, 0, 2);
 		int test_z = CLAMP(int(round((pos.z - next_z) / snap_step)) + 1, 0, 2);
 		Array lod_array = _clipmap_rids[lod];
+		Array shadow_array = _clipmap_shadow_rids[lod];
 		for (int mesh = 0; mesh < lod_array.size(); ++mesh) {
 			Array mesh_array = lod_array[mesh];
+			Array shadow_mesh_array = shadow_array[mesh];
 			for (int instance = 0; instance < mesh_array.size(); ++instance) {
 				Transform3D t = Transform3D();
 				switch (mesh) {
@@ -390,9 +429,11 @@ void Terrain3DMesher::snap() {
 				t = t.scaled(lod_scale);
 				t.origin += pos;
 				RS->instance_set_transform(mesh_array[instance], t);
+				RS->instance_set_transform(shadow_mesh_array[instance], t);
 // Deprecated Godot 4.5+
 #if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
 				RS->instance_reset_physics_interpolation(mesh_array[instance]);
+				RS->instance_reset_physics_interpolation(shadow_mesh_array[instance]);
 #endif
 			}
 		}
@@ -433,19 +474,95 @@ void Terrain3DMesher::update() {
 	LOG(INFO, "Updating all mesh instances for ", _clipmap_rids.size(), " LODs");
 	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
 		Array lod_array = _clipmap_rids[lod];
+		Array lod_shadow_array = _clipmap_shadow_rids[lod];
 		for (int mesh = 0; mesh < lod_array.size(); ++mesh) {
 			Array mesh_array = lod_array[mesh];
+			Array shadow_array = lod_shadow_array[mesh];
 			for (int instance = 0; instance < mesh_array.size(); ++instance) {
 				RS->instance_set_visible(mesh_array[instance], visible);
 				RS->instance_set_scenario(mesh_array[instance], scenario);
 				RS->instance_set_layer_mask(mesh_array[instance], render_layers);
-				RS->instance_geometry_set_cast_shadows_setting(mesh_array[instance], cast_shadows);
 				RS->instance_geometry_set_flag(mesh_array[instance], RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
 				RS->instance_geometry_set_flag(mesh_array[instance], RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
+				RS->instance_geometry_set_cast_shadows_setting(mesh_array[instance], RenderingServer::ShadowCastingSetting::SHADOW_CASTING_SETTING_OFF);
+
+				// Shadow imposter
+				if (!_terrain->get_shadow_material().is_valid()) {
+					LOG(WARN, "No shadow material assigned to terrain, cannot set material override");
+					RS->instance_set_visible(shadow_array[instance], false);
+					continue;
+				}
+				RS->instance_set_visible(shadow_array[instance], visible);
+				RS->instance_set_scenario(shadow_array[instance], scenario);
+				RS->instance_set_layer_mask(shadow_array[instance], render_layers);
+				RS->instance_set_visible(shadow_array[instance], cast_shadows);
+				RS->instance_geometry_set_cast_shadows_setting(shadow_array[instance], cast_shadows);
+				RS->instance_geometry_set_material_override(shadow_array[instance], _terrain->get_shadow_material()->get_rid());
 			}
 		}
 	}
+	_update_maps();
 	return;
+}
+
+void Terrain3DMesher::_update_maps() {
+	IS_DATA_INIT(VOID);
+	LOG(EXTREME, "Updating maps in shader");
+
+	if (!_terrain->get_shadow_material().is_valid()) {
+		LOG(WARN, "No shadow material assigned to terrain, cannot update maps in shader");
+		return;
+	}
+
+	RID material_rid = _terrain->get_shadow_material()->get_rid();
+
+	Terrain3DData *data = _terrain->get_data();
+	PackedInt32Array region_map = data->get_region_map();
+	LOG(EXTREME, "region_map.size(): ", region_map.size());
+	if (region_map.size() != Terrain3DData::REGION_MAP_SIZE * Terrain3DData::REGION_MAP_SIZE) {
+		LOG(ERROR, "Expected region_map.size() of ", Terrain3DData::REGION_MAP_SIZE * Terrain3DData::REGION_MAP_SIZE);
+		return;
+	}
+	RS->material_set_param(material_rid, "_region_map", region_map);
+	RS->material_set_param(material_rid, "_region_map_size", Terrain3DData::REGION_MAP_SIZE);
+	if (Terrain3D::debug_level >= EXTREME) {
+		LOG(EXTREME, "Region map");
+		for (int i = 0; i < region_map.size(); i++) {
+			if (region_map[i]) {
+				LOG(EXTREME, "Region id: ", region_map[i], " array index: ", i);
+			}
+		}
+	}
+
+	TypedArray<Vector2i> region_locations = data->get_region_locations();
+	LOG(EXTREME, "Region_locations size: ", region_locations.size(), " ", region_locations);
+	RS->material_set_param(material_rid, "_region_locations", region_locations);
+
+	real_t region_size = real_t(_terrain->get_region_size());
+	LOG(EXTREME, "Setting region size in material: ", region_size);
+	RS->material_set_param(material_rid, "_region_size", region_size);
+	RS->material_set_param(material_rid, "_region_texel_size", 1.0f / region_size);
+	if (RS->material_get_param(material_rid, "_height_maps")) {
+		LOG(INFO, "Material ", material_rid, " has parameter height maps");
+		LOG(INFO, RS->material_get_param(material_rid, "_height_maps"))
+	} else {
+		LOG(WARN, "Material ", material_rid, " has no parameter height maps");
+	}
+	RS->material_set_param(material_rid, "_height_maps", data->get_height_maps_rid());
+
+	RS->material_set_param(material_rid, "_control_maps", data->get_control_maps_rid());
+	RS->material_set_param(material_rid, "_color_maps", data->get_color_maps_rid());
+	LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
+	LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
+	LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
+
+	real_t spacing = _terrain->get_vertex_spacing();
+	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
+	RS->material_set_param(material_rid, "_vertex_spacing", spacing);
+	RS->material_set_param(material_rid, "_vertex_density", 1.0f / spacing);
+
+	real_t mesh_size = real_t(_terrain->get_mesh_size());
+	RS->material_set_param(material_rid, "_mesh_size", mesh_size);
 }
 
 // Iterates over all meshes and updates their AABBs
