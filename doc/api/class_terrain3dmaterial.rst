@@ -36,9 +36,9 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``Dictionary``                                                   | :ref:`_shader_parameters<class_Terrain3DMaterial_property__shader_parameters>`           | ``{}``    |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`auto_shader<class_Terrain3DMaterial_property_auto_shader>`                         | ``false`` |
+   | ``bool``                                                         | :ref:`auto_shader_enabled<class_Terrain3DMaterial_property_auto_shader_enabled>`         | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`dual_scaling<class_Terrain3DMaterial_property_dual_scaling>`                       | ``false`` |
+   | ``bool``                                                         | :ref:`dual_scaling_enabled<class_Terrain3DMaterial_property_dual_scaling_enabled>`       | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``Shader``                                                       | :ref:`shader_override<class_Terrain3DMaterial_property_shader_override>`                 |           |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
@@ -195,11 +195,11 @@ This private dictionary stores all of the shader parameters in the resource. It 
 
 ----
 
-.. _class_Terrain3DMaterial_property_auto_shader:
+.. _class_Terrain3DMaterial_property_auto_shader_enabled:
 
 .. rst-class:: classref-property
 
-``bool`` **auto_shader** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_auto_shader>`
+``bool`` **auto_shader_enabled** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_auto_shader_enabled>`
 
 .. rst-class:: classref-property-setget
 
@@ -212,18 +212,18 @@ Enables selecting two texture IDs that will automatically be applied to the terr
 
 ----
 
-.. _class_Terrain3DMaterial_property_dual_scaling:
+.. _class_Terrain3DMaterial_property_dual_scaling_enabled:
 
 .. rst-class:: classref-property
 
-``bool`` **dual_scaling** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_dual_scaling>`
+``bool`` **dual_scaling_enabled** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_dual_scaling_enabled>`
 
 .. rst-class:: classref-property-setget
 
 - |void| **set_dual_scaling**\ (\ value\: ``bool``\ )
 - ``bool`` **get_dual_scaling**\ (\ )
 
-Enables selecting one texture ID that will have multiple scales applied based upon camera distance. Use it for something like a rock texture so up close it will be nicely detailed, and far away mountains can be covered in the same rock texture. The two blend together at a specified distance.
+Enables selecting one texture ID that will have multiple scales applied based upon camera distance. Use it for something like a rock texture so up close it will be nicely detailed, and far away mountains can be covered in the same rock texture without looking tiled. The two blend together at a specified distance.
 
 .. rst-class:: classref-item-separator
 

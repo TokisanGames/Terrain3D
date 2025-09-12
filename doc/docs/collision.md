@@ -38,6 +38,12 @@ Once the desired collision mode is set, to detect ground height with physics, yo
 			print("Hit: ", node)
 ```
 
+Alternatively, you can use our helper function:
+
+```gdscript
+	var result: Dictionary = $Terrain3D.get_raycast_result(position, Vector3(0,-500,0)))
+```
+
 Godot Physics is far from perfect. If you have issues with raycasts or other physics calculations, try switching to Jolt. If you have trouble with a perfectly vertical raycast, try angling it ever so slightly. Finally, consider using an alternate method below.
 
 

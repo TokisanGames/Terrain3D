@@ -671,6 +671,8 @@ Returns the height at the requested position. If the position is close to a vert
 
 Returns ``NAN`` if the requested position is a hole or outside of defined regions.
 
+Also see :ref:`Terrain3D.get_raycast_result()<class_Terrain3D_method_get_raycast_result>` and :ref:`Terrain3D.get_intersection()<class_Terrain3D_method_get_intersection>` for alternative functions
+
 .. rst-class:: classref-item-separator
 
 ----

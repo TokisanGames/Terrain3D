@@ -59,7 +59,7 @@
 			<param index="1" name="direction" type="Vector3" />
 			<param index="2" name="gpu_mode" type="bool" default="false" />
 			<description>
-				Casts a ray from [code skip-lint]src_pos[/code] pointing towards [code skip-lint]direction[/code], attempting to intersect the terrain. This operation is does not use physics, so enabling collision is unnecessary.
+				Casts a ray from [code skip-lint]src_pos[/code] pointing towards [code skip-lint]direction[/code], attempting to intersect the terrain. This operation is does not use physics and is not a typical raycast, so enabling collision is unnecessary.
 
 				This function can operate in one of two modes defined by [code skip-lint]gpu_mode[/code]:
 				- If gpu_mode is disabled (default), it raymarches from the camera until the terrain is intersected, up to 4000m away. This works with one function call, but only where regions exist. It is slower than gpu_mode and gets increasingly slower the farther away the terrain is, though you may not notice.
@@ -81,12 +81,28 @@
 				- If the terrain is hit, the intersection point is returned.
 				- If there is no intersection, eg. the ray points towards the sky, it returns the maximum double float value [code skip-lint]Vector3(3.402823466e+38F,...)[/code]. You can check this case with this code: [code skip-lint]if point.z &gt; 3.4e38:[/code]
 				- On error, it returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] and prints a message to the console.
+
+				Also see [method get_raycast_result] and [method Terrain3DData.get_height] for alternative functions.
 			</description>
 		</method>
 		<method name="get_plugin" qualifiers="const">
 			<return type="EditorPlugin" />
 			<description>
 				Returns the EditorPlugin connected to Terrain3D.
+			</description>
+		</method>
+		<method name="get_raycast_result" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="src_pos" type="Vector3" />
+			<param index="1" name="direction" type="Vector3" />
+			<param index="2" name="collision_mask" type="int" default="4294967295" />
+			<param index="3" name="exclude_terrain" type="bool" default="false" />
+			<description>
+				This is a helper function that creates a general physics-based raycast and returns the resulting dictionary; it's not limited to terrain use. Raycasts can only detect collision. It is used by our editor using the `on_collision` option to instance on non-terrain meshes.
+				Direction is added to src_pos and includes magnitude. So to run a raycast from (100, 100, 100) to the ground 100m below, direction would be (0, -110, 0) with margin.
+				Collision_mask has the physics layers the query will detect as a bitmask. By default, all collision layers are detected.
+				See [url=https://docs.godotengine.org/en/stable/classes/class_physicsdirectspacestate3d.html#class-physicsdirectspacestate3d-method-intersect-ray]PhysicsDirectSpaceState3D.intersect_ray[/url] for how to interpret the resulting dictionary.
+				Also see [method get_intersection] and [method Terrain3DData.get_height] for alternative functions.
 			</description>
 		</method>
 		<method name="set_camera">
@@ -111,6 +127,12 @@
 			<param index="0" name="plugin" type="EditorPlugin" />
 			<description>
 				Sets the EditorPlugin connected to Terrain3D.
+			</description>
+		</method>
+		<method name="snap">
+			<return type="void" />
+			<description>
+				Queues the terrain mesh and collision to snap their positions to the target nodes on the next physics frame. Typically this only happens if the targets have moved sufficiently far.
 			</description>
 		</method>
 	</methods>
