@@ -169,6 +169,7 @@
 			<description>
 				Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
 				Returns [code skip-lint]NAN[/code] if the requested position is a hole or outside of defined regions.
+				Also see [method Terrain3D.get_raycast_result] and [method Terrain3D.get_intersection] for alternative functions
 			</description>
 		</method>
 		<method name="get_height_maps_rid" qualifiers="const">
