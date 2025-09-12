@@ -88,6 +88,8 @@ private:
 	real_t _cull_margin = 0.0f;
 	bool _free_editor_textures = true;
 	Ref<ShaderMaterial> _shadow_material;
+	Ref<ShaderMaterial> _ocean_material;
+	float _ocean_level = 0.0f;
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -208,6 +210,11 @@ public:
 
 	void set_shadow_material(const Ref<ShaderMaterial> &p_material);
 	Ref<ShaderMaterial> get_shadow_material() const { return _shadow_material; }
+	void set_ocean_material(const Ref<ShaderMaterial> &p_material);
+	Ref<ShaderMaterial> get_ocean_material() const { return _ocean_material; }
+
+	void set_ocean_level(const float p_level) { _ocean_level = p_level; }
+	float get_ocean_level() const { return _ocean_level; }
 
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }

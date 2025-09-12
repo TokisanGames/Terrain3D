@@ -877,6 +877,13 @@ void Terrain3D::set_shadow_material(const Ref<ShaderMaterial> &p_material) {
 	}
 }
 
+void Terrain3D::set_ocean_material(const Ref<ShaderMaterial> &p_material) {
+	_ocean_material = p_material;
+	if (_mesher) {
+		_mesher->update();
+	}
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1135,6 +1142,10 @@ void Terrain3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_shadow_material", "material"), &Terrain3D::set_shadow_material);
 	ClassDB::bind_method(D_METHOD("get_shadow_material"), &Terrain3D::get_shadow_material);
+	ClassDB::bind_method(D_METHOD("set_ocean_material", "material"), &Terrain3D::set_ocean_material);
+	ClassDB::bind_method(D_METHOD("get_ocean_material"), &Terrain3D::get_ocean_material);
+	ClassDB::bind_method(D_METHOD("get_ocean_level"), &Terrain3D::get_ocean_level);
+	ClassDB::bind_method(D_METHOD("set_ocean_level"), &Terrain3D::set_ocean_level);
 
 	ClassDB::bind_method(D_METHOD("set_gi_mode", "gi_mode"), &Terrain3D::set_gi_mode);
 	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
@@ -1232,6 +1243,8 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shadow_material", PROPERTY_HINT_RESOURCE_TYPE, "Material"), "set_shadow_material", "get_shadow_material");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "Material"), "set_ocean_material", "get_ocean_material");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_level", PROPERTY_HINT_RANGE, "-100.0,100.0,0.05,or_greater"), "set_ocean_level", "get_ocean_level");
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_gi_mode", "get_gi_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");

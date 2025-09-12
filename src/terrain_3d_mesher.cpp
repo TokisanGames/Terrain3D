@@ -118,95 +118,126 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 	for (int level = 0; level < p_lods; level++) {
 		Array lod;
 		Array shadow_lod;
+		Array ocean_lod;
 		// 12 Tiles LOD1+, 16 for LOD0
 		Array tile_rids;
 		Array shadow_tile_rids;
+		Array ocean_tile_rids;
+
 		int tile_amount = (level == 0) ? 16 : 12;
 
 		for (int i = 0; i < tile_amount; i++) {
 			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
 			RID shadow_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
+			RID ocean_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
 			tile_rids.append(tile_rid);
 			shadow_tile_rids.append(shadow_rid);
+			ocean_tile_rids.append(ocean_rid);
 		}
 		lod.append(tile_rids); // index 0 TILE
 		shadow_lod.append(shadow_tile_rids);
+		ocean_lod.append(ocean_tile_rids);
 
 		// 4 Edges present on all LODs
 		Array edge_a_rids;
 		Array shadow_edge_a_rids;
+		Array ocean_edge_a_rids;
 		for (int i = 0; i < 2; i++) {
 			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
 			RID shadow_edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
+			RID ocean_edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
 			edge_a_rids.append(edge_a_rid);
 			shadow_edge_a_rids.append(shadow_edge_a_rid);
+			ocean_edge_a_rids.append(ocean_edge_a_rid);
 		}
 		lod.append(edge_a_rids); // index 1 EDGE_A
 		shadow_lod.append(shadow_edge_a_rids);
+		ocean_lod.append(ocean_edge_a_rids);
 
 		Array edge_b_rids;
 		Array shadow_edge_b_rids;
+		Array ocean_edge_b_rids;
 		for (int i = 0; i < 2; i++) {
 			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
 			RID shadow_edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
+			RID ocean_edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
 			edge_b_rids.append(edge_b_rid);
 			shadow_edge_b_rids.append(shadow_edge_b_rid);
+			ocean_edge_b_rids.append(ocean_edge_b_rid);
 		}
 		lod.append(edge_b_rids); // index 2 EDGE_B
 		shadow_lod.append(shadow_edge_b_rids);
+		ocean_lod.append(ocean_edge_b_rids);
 
 		// Fills only present on LODs 1+
 		if (level > 0) {
 			Array fill_a_rids;
 			Array shadow_fill_a_rids;
+			Array ocean_fill_a_rids;
 			for (int i = 0; i < 2; i++) {
 				RID fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
 				RID shadow_fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
+				RID ocean_fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
 				fill_a_rids.append(fill_a_rid);
 				shadow_fill_a_rids.append(shadow_fill_a_rid);
+				ocean_fill_a_rids.append(ocean_fill_a_rid);
 			}
 			lod.append(fill_a_rids); // index 4 FILL_A
 			shadow_lod.append(shadow_fill_a_rids);
+			ocean_lod.append(ocean_fill_a_rids);
 
 			Array fill_b_rids;
 			Array shadow_fill_b_rids;
+			Array ocean_fill_b_rids;
 			for (int i = 0; i < 2; i++) {
 				RID fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
 				RID shadow_fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
+				RID ocean_fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
 				fill_b_rids.append(fill_b_rid);
 				shadow_fill_b_rids.append(shadow_fill_b_rid);
+				ocean_fill_b_rids.append(ocean_fill_b_rid);
 			}
 			lod.append(fill_b_rids); // index 5 FILL_B
 			shadow_lod.append(shadow_fill_b_rids);
+			ocean_lod.append(ocean_fill_b_rids);
 			// Trims only on LOD 0 These share the indices of the fills for the offsets.
 			// When snapping LOD 0 Trim a/b positions are looked up instead of Fill a/b
 		} else {
 			Array trim_a_rids;
 			Array shadow_trim_a_rids;
+			Array ocean_trim_a_rids;
 			for (int i = 0; i < 2; i++) {
 				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
 				RID shadow_trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
+				RID ocean_trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
 				trim_a_rids.append(trim_a_rid);
 				shadow_trim_a_rids.append(shadow_trim_a_rid);
+				ocean_trim_a_rids.append(ocean_trim_a_rid);
 			}
 			lod.append(trim_a_rids); // index 4 TRIM_A
 			shadow_lod.append(shadow_trim_a_rids);
+			ocean_lod.append(ocean_trim_a_rids);
 
 			Array trim_b_rids;
 			Array shadow_trim_b_rids;
+			Array ocean_trim_b_rids;
 			for (int i = 0; i < 2; i++) {
 				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
 				RID shadow_trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
+				RID ocean_trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
 				trim_b_rids.append(trim_b_rid);
 				shadow_trim_b_rids.append(shadow_trim_b_rid);
+				ocean_trim_b_rids.append(ocean_trim_b_rid);
 			}
 			lod.append(trim_b_rids); // index 5 TRIM_B
 			shadow_lod.append(shadow_trim_b_rids);
+			ocean_lod.append(ocean_trim_b_rids);
 		}
 
 		// Append LOD to _lod_rids array
 		_clipmap_rids.append(lod);
 		_clipmap_shadow_rids.append(shadow_lod);
+		_clipmap_ocean_rids.append(ocean_lod);
 	}
 }
 
@@ -284,21 +315,27 @@ void Terrain3DMesher::_clear_clipmap() {
 	for (int lod = 0; lod < _clipmap_rids.size(); lod++) {
 		Array lod_array = _clipmap_rids[lod];
 		Array shadow_lod_array = _clipmap_shadow_rids[lod];
+		Array ocean_lod_array = _clipmap_ocean_rids[lod];
 		for (int mesh = 0; mesh < lod_array.size(); mesh++) {
 			Array mesh_array = lod_array[mesh];
 			Array shadow_mesh_array = shadow_lod_array[mesh];
+			Array ocean_mesh_array = ocean_lod_array[mesh];
 			for (int instance = 0; instance < mesh_array.size(); instance++) {
 				RS->free_rid(mesh_array[instance]);
 				RS->free_rid(shadow_mesh_array[instance]);
+				RS->free_rid(ocean_mesh_array[instance]);
 			}
 			mesh_array.clear();
 			shadow_mesh_array.clear();
+			ocean_mesh_array.clear();
 		}
 		lod_array.clear();
 		shadow_lod_array.clear();
+		ocean_lod_array.clear();
 	}
 	_clipmap_rids.clear();
 	_clipmap_shadow_rids.clear();
+	_clipmap_ocean_rids.clear();
 	return;
 }
 
@@ -386,9 +423,11 @@ void Terrain3DMesher::snap() {
 		int test_z = CLAMP(int(round((pos.z - next_z) / snap_step)) + 1, 0, 2);
 		Array lod_array = _clipmap_rids[lod];
 		Array shadow_array = _clipmap_shadow_rids[lod];
+		Array ocean_array = _clipmap_ocean_rids[lod];
 		for (int mesh = 0; mesh < lod_array.size(); ++mesh) {
 			Array mesh_array = lod_array[mesh];
 			Array shadow_mesh_array = shadow_array[mesh];
+			Array ocean_mesh_array = ocean_array[mesh];
 			for (int instance = 0; instance < mesh_array.size(); ++instance) {
 				Transform3D t = Transform3D();
 				switch (mesh) {
@@ -433,10 +472,13 @@ void Terrain3DMesher::snap() {
 				t.origin += pos;
 				RS->instance_set_transform(mesh_array[instance], t);
 				RS->instance_set_transform(shadow_mesh_array[instance], t);
+				RS->instance_set_transform(ocean_mesh_array[instance], t);
+
 // Deprecated Godot 4.5+
 #if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
 				RS->instance_reset_physics_interpolation(mesh_array[instance]);
 				RS->instance_reset_physics_interpolation(shadow_mesh_array[instance]);
+				RS->instance_reset_physics_interpolation(ocean_mesh_array[instance]);
 #endif
 			}
 		}
@@ -478,9 +520,11 @@ void Terrain3DMesher::update() {
 	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
 		Array lod_array = _clipmap_rids[lod];
 		Array lod_shadow_array = _clipmap_shadow_rids[lod];
+		Array lod_ocean = _clipmap_ocean_rids[lod];
 		for (int mesh = 0; mesh < lod_array.size(); ++mesh) {
 			Array mesh_array = lod_array[mesh];
 			Array shadow_array = lod_shadow_array[mesh];
+			Array ocean_array = lod_ocean[mesh];
 			for (int instance = 0; instance < mesh_array.size(); ++instance) {
 				RS->instance_set_visible(mesh_array[instance], visible);
 				RS->instance_set_scenario(mesh_array[instance], scenario);
@@ -493,19 +537,31 @@ void Terrain3DMesher::update() {
 				if (!_terrain->get_shadow_material().is_valid()) {
 					LOG(WARN, "No shadow material assigned to terrain, cannot set material override");
 					RS->instance_set_visible(shadow_array[instance], false);
-					continue;
+				} else {
+					RS->instance_set_scenario(shadow_array[instance], scenario);
+					RS->instance_set_layer_mask(shadow_array[instance], render_layers);
+					RS->instance_set_visible(shadow_array[instance], visible && cast_shadows);
+					RS->instance_geometry_set_cast_shadows_setting(shadow_array[instance], cast_shadows);
+					RS->instance_geometry_set_material_override(shadow_array[instance], _terrain->get_shadow_material()->get_rid());
 				}
-				RS->instance_set_visible(shadow_array[instance], visible);
-				RS->instance_set_scenario(shadow_array[instance], scenario);
-				RS->instance_set_layer_mask(shadow_array[instance], render_layers);
-				RS->instance_set_visible(shadow_array[instance], cast_shadows);
-				RS->instance_geometry_set_cast_shadows_setting(shadow_array[instance], cast_shadows);
-				RS->instance_geometry_set_material_override(shadow_array[instance], _terrain->get_shadow_material()->get_rid());
+
+				// Ocean clipmap
+				if (!_terrain->get_ocean_material().is_valid()) {
+					LOG(WARN, "No ocean material assigned to terrain, cannot set material override");
+					RS->instance_set_visible(ocean_array[instance], false);
+				} else {
+					RS->instance_set_visible(ocean_array[instance], visible);
+					RS->instance_set_scenario(ocean_array[instance], scenario);
+					RS->instance_set_layer_mask(ocean_array[instance], render_layers);
+					RS->instance_geometry_set_flag(ocean_array[instance], RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+					RS->instance_geometry_set_flag(ocean_array[instance], RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
+					//RS->instance_geometry_set_cast_shadows_setting(ocean_array[instance], cast_shadows);
+					RS->instance_geometry_set_material_override(ocean_array[instance], _terrain->get_ocean_material()->get_rid());
+				}
 			}
 		}
 	}
 	_update_maps();
-	return;
 }
 
 void Terrain3DMesher::_update_maps() {
@@ -584,5 +640,4 @@ void Terrain3DMesher::update_aabbs() {
 		aabb.size.y = height_range.y + cull_margin * 2.f;
 		RS->mesh_set_custom_aabb(mesh, aabb);
 	}
-	return;
 }

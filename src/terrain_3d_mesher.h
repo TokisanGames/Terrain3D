@@ -34,6 +34,7 @@ private:
 	// LODs -> MeshTypes -> Instances
 	Array _clipmap_rids;
 	Array _clipmap_shadow_rids;
+	Array _clipmap_ocean_rids;
 
 	// Mesh offset data
 	// LOD0 only
