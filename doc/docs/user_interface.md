@@ -51,7 +51,7 @@ Some tools like `Paint`, `Spray`, and `Color` have options to disable some featu
 
 See [Slope Filter](keyboard_shortcuts.md#slope-filter) for hotkeys that expand painting by slope functionality.
 
-The three dots button on the right is the advanced options menu. One noteworthy setting is `Jitter`, which is what causes the brush to spin while painting. Reduce it to zero if you don't want this.
+The three dots button on the right is the advanced options menu. One noteworthy setting is `Brush Spin Speed`, which is what causes the brush to spin while painting. Reduce it to zero if you don't want this.
 
 Brushes can be edited in the `addons/terrain_3d/brushes` directory, using your OS folder explorer. The folder is hidden to Godot. The files are 100x100 alpha masks saved as EXR. Larger sizes should work fine, but will be slow if too big.
 
