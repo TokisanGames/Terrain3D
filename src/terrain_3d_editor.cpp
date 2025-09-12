@@ -153,7 +153,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	PackedVector3Array gradient_points = _brush_data["gradient_points"];
 
 	real_t randf = UtilityFunctions::randf();
-	real_t rot = randf * Math_PI * real_t(_brush_data["jitter"]);
+	real_t rot = randf * Math_PI * real_t(_brush_data["brush_spin_speed"]);
 	if (_brush_data["align_to_view"]) {
 		rot += p_camera_direction;
 	}
@@ -759,7 +759,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["auto_regions"] = bool(p_data.get("auto_regions", true));
 	_brush_data["align_to_view"] = bool(p_data.get("align_to_view", true));
 	_brush_data["gamma"] = CLAMP(real_t(p_data.get("gamma", 1.f)), 0.1f, 2.f);
-	_brush_data["jitter"] = CLAMP(real_t(p_data.get("jitter", 0.f)), 0.f, 1.f);
+	_brush_data["brush_spin_speed"] = CLAMP(real_t(p_data.get("brush_spin_speed", 0.f)), 0.f, 1.f);
 	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
 
 	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, EXTREME);

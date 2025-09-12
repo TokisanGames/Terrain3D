@@ -52,8 +52,8 @@ var settings: Dictionary = {}
 
 
 func _ready() -> void:
-	# Remove old editor settings
-	for setting in ["lift_floor", "flatten_peaks", "lift_flatten", "automatic_regions",
+	# Remove old editor settings, newer first so oldest can be removed
+	for setting in ["jitter", "lift_floor", "flatten_peaks", "lift_flatten", "automatic_regions",
 			"show_cursor_while_painting", "crosshair_threshold"]:
 		plugin.erase_setting(ES_TOOL_SETTINGS + setting)
 
@@ -170,15 +170,15 @@ func _ready() -> void:
 	advanced_list = create_submenu(main_list, "", Layout.VERTICAL, false)
 	add_setting({ "name":"auto_regions", "label":"Add regions while sculpting", "type":SettingType.CHECKBOX, 
 								"list":advanced_list, "default":true })
-	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true })
+	advanced_list.add_child(HSeparator.new(), true)
 	add_setting({ "name":"show_brush_texture", "type":SettingType.CHECKBOX, "list":advanced_list, 
 								"default":true })
-	advanced_list.add_child(HSeparator.new(), true)
+	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
+								"default":true })
+	add_setting({ "name":"brush_spin_speed", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
+								"unit":"%", "range":Vector3(0, 100, 1) })
 	add_setting({ "name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
 								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
-	add_setting({ "name":"jitter", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
-								"unit":"%", "range":Vector3(0, 100, 1) })
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout, p_hover_pop: bool = true) -> Container:

@@ -253,7 +253,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	to_show.push_back("align_to_view")
 	to_show.push_back("show_brush_texture")
 	to_show.push_back("gamma")
-	to_show.push_back("jitter")
+	to_show.push_back("brush_spin_speed")
 	tool_settings.show_settings(to_show)
 
 	operation_builder = null
