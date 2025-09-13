@@ -110,7 +110,7 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 	// Non rotated shape for normal array index above
 	//Transform3D xform = Transform3D(Basis(), global_pos);
 	// Rotated shape Y=90 for -90 rotated array index
-	Transform3D xform = Transform3D(Basis(Vector3(0, 1.0, 0), Math_PI * .5), v2iv3(p_position + V2I(p_size / 2)));
+	Transform3D xform = Transform3D(Basis(V3_UP, Math_PI * .5), v2iv3(p_position + V2I(p_size / 2)));
 	Dictionary shape_data;
 	shape_data["width"] = hshape_size;
 	shape_data["depth"] = hshape_size;

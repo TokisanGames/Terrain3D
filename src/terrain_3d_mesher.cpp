@@ -17,7 +17,7 @@ void Terrain3DMesher::_generate_mesh_types(const int p_size) {
 	LOG(INFO, "Generating all Mesh segments for clipmap of size ", p_size);
 	// Create initial set of Mesh blocks to build the clipmap
 	// # 0 TILE - mesh_size x mesh_size tiles
-	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, p_size)));
+	_mesh_rids.push_back(_generate_mesh(V2I(p_size)));
 	// # 1 EDGE_A - 2 by (mesh_size * 4 + 8) strips to bridge LOD transitions along +-Z axis
 	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 8)));
 	// # 2 EDGE_B - (mesh_size * 4 + 4) by 2 strips to bridge LOD transitions along +-X axis
@@ -49,7 +49,7 @@ RID Terrain3DMesher::_generate_mesh(const Vector2i &p_size, const bool p_standar
 	for (int y = 0; y <= p_size.y; ++y) {
 		for (int x = 0; x <= p_size.x; ++x) {
 			// Match GDScript vertex definitions
-			vertices.push_back(Vector3(x, 0, y)); // bottom-left
+			vertices.push_back(Vector3(x, 0.f, y)); // bottom-left
 		}
 	}
 
@@ -92,7 +92,7 @@ RID Terrain3DMesher::_instantiate_mesh(const PackedVector3Array &p_vertices, con
 
 	PackedVector3Array normals;
 	normals.resize(p_vertices.size());
-	normals.fill(Vector3(0, 1, 0));
+	normals.fill(V3_UP);
 	arrays[RenderingServer::ARRAY_NORMAL] = normals;
 
 	PackedFloat32Array tangents;
@@ -208,7 +208,7 @@ void Terrain3DMesher::_generate_offset_data(const int p_size) {
 	_tile_pos_lod_0.push_back(Vector3(-p_size * 2, 0, p_size));
 	_tile_pos_lod_0.push_back(Vector3(-p_size, 0, p_size));
 	// Inner tiles
-	_tile_pos_lod_0.push_back(Vector3(0, 0, 0));
+	_tile_pos_lod_0.push_back(V3_ZERO);
 	_tile_pos_lod_0.push_back(Vector3(-p_size, 0, 0));
 	_tile_pos_lod_0.push_back(Vector3(0, 0, -p_size));
 	_tile_pos_lod_0.push_back(Vector3(-p_size, 0, -p_size));
@@ -327,7 +327,7 @@ void Terrain3DMesher::snap() {
 	Vector3 snapped_pos = (target_pos / vertex_spacing).floor() * vertex_spacing;
 	RS->material_set_param(_terrain->get_material()->get_material_rid(), "_camera_pos", snapped_pos);
 
-	Vector3 pos = Vector3(0.f, 0.f, 0.f);
+	Vector3 pos = V3_ZERO;
 	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
 		real_t snap_step = pow(2.f, lod + 1.f) * vertex_spacing;
 		Vector3 lod_scale = Vector3(pow(2.f, lod) * vertex_spacing, 1.f, pow(2.f, lod) * vertex_spacing);

@@ -46,7 +46,7 @@ private:
 	Ref<Material> _material_override;
 	Ref<Material> _material_overlay;
 	int _generated_faces = 2;
-	Vector2 _generated_size = Vector2(1.f, 1.f);
+	Vector2 _generated_size = V2(1.f);
 	int _last_lod = MAX_LOD_COUNT - 1;
 	int _last_shadow_lod = MAX_LOD_COUNT - 1;
 	int _shadow_impostor = 0;

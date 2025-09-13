@@ -29,14 +29,14 @@ using namespace godot;
 
 #define V2(x) Vector2(x, x)
 #define V2I(x) Vector2i(x, x)
-#define V2_ZERO Vector2(0.f, 0.f)
-#define V2I_ZERO Vector2i(0, 0)
-#define V2_MAX Vector2(FLT_MAX, FLT_MAX)
-#define V2I_MAX Vector2i(INT32_MAX, INT32_MAX)
 #define V3(x) Vector3(x, x, x)
-#define V3_(x) Vector3(x, 0.f, x)
-#define V3_ZERO Vector3(0.f, 0.f, 0.f)
-#define V3_MAX Vector3(FLT_MAX, FLT_MAX, FLT_MAX)
+static const Vector2 V2_ZERO{ 0.f, 0.f };
+static const Vector2 V2_MAX{ FLT_MAX, FLT_MAX };
+static const Vector2i V2I_ZERO{ 0, 0 };
+static const Vector2i V2I_MAX{ INT32_MAX, INT32_MAX };
+static const Vector3 V3_ZERO{ 0.f, 0.f, 0.f };
+static const Vector3 V3_MAX{ FLT_MAX, FLT_MAX, FLT_MAX };
+static const Vector3 V3_NAN{ NAN, NAN, NAN };
 static const Vector3 V3_UP{ 0.f, 1.f, 0.f };
 
 // Terrain3D::_warnings is uint8_t

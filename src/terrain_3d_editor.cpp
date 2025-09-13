@@ -95,7 +95,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 
 	int region_size = _terrain->get_region_size();
-	Vector2i region_vsize = Vector2i(region_size, region_size);
+	Vector2i region_vsize = V2I(region_size);
 
 	// If no region and can't add one, skip whole function. Checked again later
 	Terrain3DData *data = _terrain->get_data();
@@ -184,7 +184,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
-			Vector2 brush_offset = Vector2(x, y) - (Vector2(brush_size, brush_size) / 2.f);
+			Vector2 brush_offset = Vector2(x, y) - (V2(brush_size) * .5f);
 			Vector3 brush_global_position =
 					Vector3(p_global_position.x + brush_offset.x + .5f, p_global_position.y,
 							p_global_position.z + brush_offset.y + .5f);
@@ -788,7 +788,7 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	_terrain->get_instancer()->reset_density_counter();
 	_terrain->get_data()->clear_edited_area();
 	_operation_position = p_global_position;
-	_operation_movement = Vector3();
+	_operation_movement = V3_ZERO;
 }
 
 // Called on mouse movement with left mouse button down

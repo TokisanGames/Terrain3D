@@ -154,10 +154,10 @@ Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {
 Vector2 Terrain3DUtil::get_min_max(const Ref<Image> &p_image) {
 	if (p_image.is_null()) {
 		LOG(ERROR, "Provided image is not valid. Nothing to analyze");
-		return Vector2(INFINITY, INFINITY);
+		return V2(INFINITY);
 	} else if (p_image->is_empty()) {
 		LOG(ERROR, "Provided image is empty. Nothing to analyze");
-		return Vector2(INFINITY, INFINITY);
+		return V2(INFINITY);
 	}
 
 	Vector2 min_max = Vector2(FLT_MAX, FLT_MIN);
@@ -332,7 +332,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
 			file->seek_end();
 			int fsize = file->get_position();
 			int fwidth = sqrt(fsize / 2);
-			r16_size = Vector2i(fwidth, fwidth);
+			r16_size = V2I(fwidth);
 			LOG(DEBUG, "Total file size is: ", fsize, " calculated width: ", fwidth, " dimensions: ", r16_size);
 			file->seek(0);
 		}
@@ -535,9 +535,9 @@ void Terrain3DUtil::_bind_methods() {
 	// Image handling
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("black_to_alpha", "image"), &Terrain3DUtil::black_to_alpha);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_min_max", "image"), &Terrain3DUtil::get_min_max);
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(Vector2i(256, 256)));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(V2I(256)));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0, 255)), DEFVAL(V2I_ZERO));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0.f, 255.f)), DEFVAL(V2I_ZERO));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "invert_green", "invert_alpha", "normalize_alpha", "alpha_channel"), &Terrain3DUtil::pack_image, DEFVAL(false), DEFVAL(false), DEFVAL(false), DEFVAL(0));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("luminance_to_height", "src_rgb"), &Terrain3DUtil::luminance_to_height);
 }

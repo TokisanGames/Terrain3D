@@ -269,8 +269,8 @@ void Terrain3DAssets::_update_texture_files() {
 		albedo_size = normal_size;
 	}
 	if (albedo_size == V2I_ZERO) {
-		albedo_size = Vector2i(1024, 1024);
-		normal_size = Vector2i(1024, 1024);
+		albedo_size = V2I(1024);
+		normal_size = albedo_size;
 	}
 
 	// Generate TextureArrays and replace nulls with a empty image
@@ -392,12 +392,12 @@ void Terrain3DAssets::_setup_thumbnail_creation() {
 
 	_key_light = RS->directional_light_create();
 	_key_light_instance = RS->instance_create2(_key_light, _scenario);
-	RS->instance_set_transform(_key_light_instance, Transform3D().looking_at(Vector3(-1, -1, -1), Vector3(0, 1, 0)));
+	RS->instance_set_transform(_key_light_instance, Transform3D().looking_at(V3(-1), V3_UP));
 
 	_fill_light = RS->directional_light_create();
 	RS->light_set_color(_fill_light, Color(0.3, 0.3, 0.3));
 	_fill_light_instance = RS->instance_create2(_fill_light, _scenario);
-	RS->instance_set_transform(_fill_light_instance, Transform3D().looking_at(Vector3(0, 1, 0), Vector3(0, 0, 1)));
+	RS->instance_set_transform(_fill_light_instance, Transform3D().looking_at(V3_UP, Vector3(0, 0, 1)));
 
 	_mesh_instance = RS->instance_create();
 	RS->instance_set_scenario(_mesh_instance, _scenario);
@@ -550,7 +550,7 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 		start = CLAMP(p_id, 0, max - 1);
 		end = CLAMP(p_id + 1, 0, max);
 	}
-	Vector2i size = CLAMP(p_size, Vector2i(1, 1), Vector2i(4096, 4096));
+	Vector2i size = CLAMP(p_size, V2I(1), V2I(4096));
 
 	LOG(INFO, "Creating thumbnails for ids: ", start, " through ", end - 1);
 	for (int i = start; i < end; i++) {
@@ -582,7 +582,7 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 		Vector3 ofs = aabb.get_center();
 		aabb.position -= ofs;
 		Transform3D xform;
-		xform.basis = Basis().rotated(Vector3(0.f, 1.f, 0.f), -Math_PI * 0.125f);
+		xform.basis = Basis().rotated(V3_UP, -Math_PI * 0.125f);
 		xform.basis = Basis().rotated(Vector3(1.f, 0.f, 0.f), Math_PI * 0.125f) * xform.basis;
 		AABB rot_aabb = xform.xform(aabb);
 		real_t m = MAX(rot_aabb.size.x, rot_aabb.size.y) * 0.5f;
@@ -590,7 +590,7 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 			m = 1.f;
 		}
 		m = .5f / m;
-		xform.basis.scale(Vector3(m, m, m));
+		xform.basis.scale(V3(m));
 		xform.origin = -xform.basis.xform(ofs);
 		xform.origin.z -= rot_aabb.size.z * 2.f;
 		RS->instance_set_transform(_mesh_instance, xform);
@@ -716,7 +716,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_mesh_list", "mesh_list"), &Terrain3DAssets::set_mesh_list);
 	ClassDB::bind_method(D_METHOD("get_mesh_list"), &Terrain3DAssets::get_mesh_list);
 	ClassDB::bind_method(D_METHOD("get_mesh_count"), &Terrain3DAssets::get_mesh_count);
-	ClassDB::bind_method(D_METHOD("create_mesh_thumbnails", "id", "size"), &Terrain3DAssets::create_mesh_thumbnails, DEFVAL(-1), DEFVAL(Vector2i(128, 128)));
+	ClassDB::bind_method(D_METHOD("create_mesh_thumbnails", "id", "size"), &Terrain3DAssets::create_mesh_thumbnails, DEFVAL(-1), DEFVAL(V2I(128)));
 	ClassDB::bind_method(D_METHOD("update_mesh_list"), &Terrain3DAssets::update_mesh_list);
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DAssets::save, DEFVAL(""));

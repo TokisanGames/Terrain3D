@@ -39,7 +39,7 @@ public:
 	// Image operations
 	static Ref<Image> black_to_alpha(const Ref<Image> &p_image);
 	static Vector2 get_min_max(const Ref<Image> &p_image);
-	static Ref<Image> get_thumbnail(const Ref<Image> &p_image, const Vector2i &p_size = Vector2i(256, 256));
+	static Ref<Image> get_thumbnail(const Ref<Image> &p_image, const Vector2i &p_size = V2I(256));
 	static Ref<Image> get_filled_image(const Vector2i &p_size,
 			const Color &p_color = COLOR_BLACK,
 			const bool p_create_mipmaps = true,

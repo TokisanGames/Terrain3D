@@ -73,8 +73,8 @@ private:
 	Tool _tool = REGION;
 	Operation _operation = ADD;
 	Dictionary _brush_data;
-	Vector3 _operation_position = Vector3();
-	Vector3 _operation_movement = Vector3();
+	Vector3 _operation_position = V3_ZERO;
+	Vector3 _operation_movement = V3_ZERO;
 	Array _operation_movement_history;
 	bool _is_operating = false;
 	uint64_t _last_region_bounds_error = 0;
@@ -85,7 +85,7 @@ private:
 	Dictionary _undo_data; // See _get_undo_data for definition
 	uint64_t _last_pen_tick = 0;
 
-	void _send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range = Vector2());
+	void _send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range = V2_ZERO);
 	Ref<Terrain3DRegion> _operate_region(const Vector2i &p_region_loc);
 	void _operate_map(const Vector3 &p_global_position, const real_t p_camera_direction);
 	MapType _get_map_type() const;
@@ -163,9 +163,9 @@ inline Vector2 Terrain3DEditor::_get_uv_position(const Vector3 &p_global_positio
 }
 
 inline Vector2 Terrain3DEditor::_get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const {
-	Vector2 rotation_offset = Vector2(0.5f, 0.5f);
+	Vector2 rotation_offset = V2(0.5f);
 	Vector2 uv = (p_uv - rotation_offset).rotated(p_angle) + rotation_offset;
-	return uv.clamp(V2_ZERO, Vector2(1.f, 1.f));
+	return uv.clamp(V2_ZERO, V2(1.f));
 }
 
 #endif // TERRAIN3D_EDITOR_CLASS_H

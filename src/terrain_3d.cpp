@@ -201,7 +201,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp = memnew(SubViewport);
 	_mouse_vp->set_name("MouseViewport");
 	add_child(_mouse_vp, true);
-	_mouse_vp->set_size(Vector2i(2, 2));
+	_mouse_vp->set_size(V2I(2));
 	_mouse_vp->set_scaling_3d_mode(Viewport::SCALING_3D_MODE_BILINEAR);
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 	_mouse_vp->set_handle_input_locally(false);
@@ -233,7 +233,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_cam->add_child(_mouse_quad, true);
 	Ref<QuadMesh> quad;
 	quad.instantiate();
-	quad->set_size(Vector2(0.1f, 0.1f));
+	quad->set_size(V2(0.1f));
 	_mouse_quad->set_mesh(quad);
 	String shader_code = String(
 #include "shaders/gpu_depth.glsl"
@@ -541,7 +541,7 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 	_region_size = p_size;
 	if (_data) {
 		_data->_region_size = _region_size;
-		_data->_region_sizev = Vector2i(_region_size, _region_size);
+		_data->_region_sizev = V2I(_region_size);
 	}
 	if (_material.is_valid()) {
 		_material->_update_maps();
@@ -706,7 +706,7 @@ void Terrain3D::set_cull_margin(const real_t p_margin) {
 Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode) {
 	if (!_mouse_cam) {
 		LOG(ERROR, "Invalid mouse camera");
-		return Vector3(NAN, NAN, NAN);
+		return V3_NAN;
 	}
 	Vector3 direction = p_direction.normalized();
 	Vector3 point;
@@ -738,7 +738,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	} else {
 		// Else use GPU mode, which requires multiple calls
 		// Get depth from perspective camera snapshot
-		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, Vector3(0.f, 1.f, 0.f));
+		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, V3_UP);
 		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 		Ref<ViewportTexture> vp_tex = _mouse_vp->get_texture();
 		Ref<Image> vp_img = vp_tex->get_image();
