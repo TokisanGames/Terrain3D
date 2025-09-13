@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
@@ -86,6 +87,9 @@ private:
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
 	bool _free_editor_textures = true;
+	Ref<ShaderMaterial> _shadow_material;
+	Ref<ShaderMaterial> _ocean_material;
+	float _ocean_level = 0.0f;
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -203,6 +207,14 @@ public:
 	void set_warning(const uint8_t p_warning, const bool p_enabled);
 	uint8_t get_warnings() const { return _warnings; }
 	PackedStringArray _get_configuration_warnings() const override;
+
+	void set_shadow_material(const Ref<ShaderMaterial> &p_material);
+	Ref<ShaderMaterial> get_shadow_material() const { return _shadow_material; }
+	void set_ocean_material(const Ref<ShaderMaterial> &p_material);
+	Ref<ShaderMaterial> get_ocean_material() const { return _ocean_material; }
+
+	void set_ocean_level(const float p_level) { _ocean_level = p_level; }
+	float get_ocean_level() const { return _ocean_level; }
 
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }
