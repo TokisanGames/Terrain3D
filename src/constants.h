@@ -37,6 +37,7 @@ using namespace godot;
 #define V3_(x) Vector3(x, 0.f, x)
 #define V3_ZERO Vector3(0.f, 0.f, 0.f)
 #define V3_MAX Vector3(FLT_MAX, FLT_MAX, FLT_MAX)
+static const Vector3 V3_UP{ 0.f, 1.f, 0.f };
 
 // Terrain3D::_warnings is uint8_t
 #define WARN_MISMATCHED_SIZE 0x01

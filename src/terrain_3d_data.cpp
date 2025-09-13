@@ -703,16 +703,19 @@ Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 	return normal;
 }
 
-bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert) const {
-	// If slope is full range, it's disabled
+bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const Vector3 &p_normal) const {
+	// If slope is full range, nothing to do here
 	const Vector2 slope_range = CLAMP(p_slope_range, V2_ZERO, Vector2(90.f, 90.f));
 	if (slope_range.y - slope_range.x > 89.99f) {
 		return true;
 	}
 
-	// Adapted from get_normal to work with holes
-	Vector3 slope_normal;
-	{
+	// Use custom normal if provided
+	Vector3 slope_normal = p_normal;
+	if (!slope_normal.is_zero_approx()) {
+		slope_normal.normalize();
+	} else {
+		// Else, compute terrain normal
 		if (get_region_idp(p_global_position) < 0) {
 			return false;
 		}
@@ -733,11 +736,9 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 		slope_normal.normalize();
 	}
 
-	const real_t slope_angle = Math::acos(slope_normal.dot(Vector3(0.f, 1.f, 0.f)));
+	const real_t slope_angle = Math::acos(slope_normal.dot(V3_UP));
 	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
-
-	// XOR: If invert return !a || !b else return a && b
-	return p_invert ^ ((slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y));
+	return (slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y);
 }
 
 /**
@@ -1226,7 +1227,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_auto", "global_position"), &Terrain3DData::get_control_auto);
 
 	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DData::get_normal);
-	ClassDB::bind_method(D_METHOD("is_in_slope", "global_position", "slope_range", "invert"), &Terrain3DData::is_in_slope, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("is_in_slope", "global_position", "slope_range", "normal"), &Terrain3DData::is_in_slope, DEFVAL(V3_ZERO));
 	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DData::get_texture_id);
 	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DData::get_mesh_vertex);
 

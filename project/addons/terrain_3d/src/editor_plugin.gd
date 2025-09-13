@@ -365,6 +365,8 @@ func consume_hotkey(keycode: int) -> bool:
 			ui.toolbar.get_button("SprayTexture").set_pressed(true)
 		KEY_A:
 			ui.toolbar.get_button("PaintAutoshader").set_pressed(true)
+		KEY_T:
+			ui.tool_settings.inverse_slope_range()
 		_:
 			return false
 	return true

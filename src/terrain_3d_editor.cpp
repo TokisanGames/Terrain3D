@@ -338,7 +338,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 				switch (_tool) {
 					case TEXTURE: {
-						if (!data->is_in_slope(brush_global_position, slope_range, modifier_alt)) {
+						if (!data->is_in_slope(brush_global_position, slope_range)) {
 							continue;
 						}
 						switch (_operation) {
@@ -502,7 +502,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						continue;
 					}
 				}
-				if (!data->is_in_slope(brush_global_position, slope_range, modifier_alt)) {
+				if (!data->is_in_slope(brush_global_position, slope_range)) {
 					continue;
 				}
 				switch (_tool) {
