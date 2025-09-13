@@ -42,11 +42,10 @@ Ref<ArrayMesh> Terrain3DMeshAsset::_get_generated_mesh() const {
 
 	int i, j, prevrow, thisrow, point = 0;
 	float x, z;
-	Size2 start_pos = Vector2(_generated_size.x * -0.5, -0.5f);
-	Vector3 normal = Vector3(0.0, 0.0, 1.0);
+	Size2 start_pos = Vector2(_generated_size.x * -0.5f, -0.5f);
+	Vector3 normal = Vector3(0.f, 0.f, 1.f);
 	thisrow = point;
 	prevrow = 0;
-	Vector3 Up = Vector3(0.f, 1.f, 0.f);
 	for (int m = 1; m <= _generated_faces; m++) {
 		z = start_pos.y;
 		real_t angle = 0.f;
@@ -58,14 +57,13 @@ Ref<ArrayMesh> Terrain3DMeshAsset::_get_generated_mesh() const {
 			for (int i = 0; i <= 1; i++) {
 				float u = i;
 				float v = j;
-
-				vertices.push_back(Vector3(-x, z, 0.0).rotated(Up, angle));
+				vertices.push_back(Vector3(-x, z, 0.f).rotated(V3_UP, angle));
 				normals.push_back(normal);
-				tangents.push_back(1.0);
-				tangents.push_back(0.0);
-				tangents.push_back(0.0);
-				tangents.push_back(1.0);
-				uvs.push_back(Vector2(1.0 - u, 1.0 - v));
+				tangents.push_back(1.f);
+				tangents.push_back(0.f);
+				tangents.push_back(0.f);
+				tangents.push_back(1.f);
+				uvs.push_back(Vector2(1.f - u, 1.f - v));
 				point++;
 				if (i > 0 && j > 0) {
 					indices.push_back(prevrow + i - 1);
@@ -136,7 +134,7 @@ void Terrain3DMeshAsset::clear() {
 	_material_override.unref();
 	_material_overlay.unref();
 	_generated_faces = 2.f;
-	_generated_size = Vector2(1.f, 1.f);
+	_generated_size = V2(1.f);
 	_last_lod = MAX_LOD_COUNT - 1;
 	_last_shadow_lod = MAX_LOD_COUNT - 1;
 	_shadow_impostor = 0;

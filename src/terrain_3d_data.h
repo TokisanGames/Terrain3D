@@ -20,7 +20,7 @@ class Terrain3DData : public Object {
 public: // Constants
 	static inline const real_t CURRENT_VERSION = 0.93f;
 	static inline const int REGION_MAP_SIZE = 32;
-	static inline const Vector2i REGION_MAP_VSIZE = Vector2i(REGION_MAP_SIZE, REGION_MAP_SIZE);
+	static inline const Vector2i REGION_MAP_VSIZE = V2I(REGION_MAP_SIZE);
 
 	enum HeightFilter {
 		HEIGHT_FILTER_NEAREST,
@@ -32,7 +32,7 @@ private:
 
 	// Data Settings & flags
 	int _region_size = 0; // Set by Terrain3D::set_region_size
-	Vector2i _region_sizev = Vector2i(_region_size, _region_size);
+	Vector2i _region_sizev = V2I(_region_size);
 	real_t _vertex_spacing = 1.f; // Set by Terrain3D::set_vertex_spacing
 
 	AABB _edited_area;

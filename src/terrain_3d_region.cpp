@@ -197,7 +197,7 @@ Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Ima
 	}
 	if (map.is_null()) {
 		LOG(DEBUG, "Making new image of type: ", type_str, " and generating mipmaps: ", p_map_type == TYPE_COLOR);
-		return Util::get_filled_image(Vector2i(_region_size, _region_size), color, p_map_type == TYPE_COLOR, format);
+		return Util::get_filled_image(V2I(_region_size), color, p_map_type == TYPE_COLOR, format);
 	} else {
 		if (p_map_type == TYPE_COLOR && !map->has_mipmaps()) {
 			LOG(DEBUG, "Color map does not have mipmaps. Generating");

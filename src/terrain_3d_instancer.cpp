@@ -403,7 +403,7 @@ Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const 
 }
 
 Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const int p_region_size) {
-	IS_INIT(Vector2i());
+	IS_INIT(V2I_ZERO);
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Vector2i cell;
 	cell.x = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.x / vertex_spacing), p_region_size) / CELL_SIZE;
@@ -915,7 +915,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	LOG(EXTREME, "Updating transforms within ", rect);
 	Vector2 global_position = rect.get_center();
 	Vector2 size = rect.get_size();
-	Vector2 half_size = size * 0.5f + Vector2(1.f, 1.f); // 1m margin
+	Vector2 half_size = size * 0.5f + V2(1.f); // 1m margin
 	if (size == V2_ZERO) {
 		return;
 	}

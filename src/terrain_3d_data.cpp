@@ -61,7 +61,7 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 		load_directory(_terrain->get_data_directory());
 	}
 	_region_size = _terrain->get_region_size();
-	_region_sizev = Vector2i(_region_size, _region_size);
+	_region_sizev = V2I(_region_size);
 }
 
 void Terrain3DData::set_region_locations(const TypedArray<Vector2i> &p_locations) {
@@ -125,7 +125,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 	Dictionary new_region_points;
 	Array locs = _regions.keys();
 	for (int i = 0; i < locs.size(); i++) {
-		Terrain3DRegion *region = get_region_ptr(Vector2i(locs[i]));
+		Terrain3DRegion *region = get_region_ptr((Vector2i)locs[i]);
 		if (region && !region->is_deleted()) {
 			Point2i region_position = region->get_location() * _region_size;
 			Rect2i location_bounds(V2I_DIVIDE_FLOOR(region_position, p_new_size), V2I_DIVIDE_CEIL(_region_sizev, p_new_size));
@@ -153,7 +153,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 		// Copy current data from current into new region, up to new region size
 		Rect2i area;
 		area.position = loc * p_new_size;
-		area.size = Vector2i(p_new_size, p_new_size);
+		area.size = V2I(p_new_size);
 		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste_dfr).bind(new_region.ptr()));
 		new_regions.push_back(new_region);
 	}
@@ -632,7 +632,7 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 	Vector2i global_offset = region_loc * _region_size;
 	Vector3 descaled_pos = p_global_position / _vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
-	img_pos = img_pos.clamp(V2I_ZERO, Vector2i(_region_size - 1, _region_size - 1));
+	img_pos = img_pos.clamp(V2I_ZERO, V2I(_region_size - 1));
 	Image *map = region->get_map_ptr(p_map_type);
 	if (map) {
 		map->set_pixelv(img_pos, p_pixel);
@@ -656,7 +656,7 @@ Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global
 	Vector2i global_offset = region_loc * _region_size;
 	Vector3 descaled_pos = p_global_position / _vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
-	img_pos = img_pos.clamp(V2I_ZERO, Vector2i(_region_size - 1, _region_size - 1));
+	img_pos = img_pos.clamp(V2I_ZERO, V2I(_region_size - 1));
 	Image *map = region->get_map_ptr(p_map_type);
 	if (map) {
 		return map->get_pixelv(img_pos);
@@ -693,7 +693,7 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 
 Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 	if (get_region_idp(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
-		return Vector3(NAN, NAN, NAN);
+		return V3_NAN;
 	}
 	real_t height = get_height(p_global_position);
 	real_t u = height - get_height(p_global_position + Vector3(_vertex_spacing, 0.0f, 0.0f));
@@ -705,7 +705,7 @@ Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 
 bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const Vector3 &p_normal) const {
 	// If slope is full range, nothing to do here
-	const Vector2 slope_range = CLAMP(p_slope_range, V2_ZERO, Vector2(90.f, 90.f));
+	const Vector2 slope_range = CLAMP(p_slope_range, V2_ZERO, V2(90.f));
 	if (slope_range.y - slope_range.x > 89.99f) {
 		return true;
 	}
@@ -755,13 +755,13 @@ Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
 	// Verify in a region
 	int region_id = get_region_idp(p_global_position);
 	if (region_id < 0) {
-		return Vector3(NAN, NAN, NAN);
+		return V3_NAN;
 	}
 
 	// Verify not in a hole
 	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // 32-bit float, not double/real
 	if (is_hole(src)) {
-		return Vector3(NAN, NAN, NAN);
+		return V3_NAN;
 	}
 
 	// If material available, autoshader enabled, and pixel set to auto
@@ -1234,7 +1234,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DData::get_height_range);
 	ClassDB::bind_method(D_METHOD("calc_height_range", "recursive"), &Terrain3DData::calc_height_range, DEFVAL(false));
 
-	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DData::import_images, DEFVAL(Vector3(0, 0, 0)), DEFVAL(0.0), DEFVAL(1.0));
+	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DData::import_images, DEFVAL(V3_ZERO), DEFVAL(0.f), DEFVAL(1.f));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DData::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DData::layered_to_image);
 

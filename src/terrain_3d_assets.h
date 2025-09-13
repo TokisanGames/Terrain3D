@@ -92,7 +92,7 @@ public:
 	void set_mesh_list(const TypedArray<Terrain3DMeshAsset> &p_mesh_list);
 	TypedArray<Terrain3DMeshAsset> get_mesh_list() const { return _mesh_list; }
 	int get_mesh_count() const { return _mesh_list.size(); }
-	void create_mesh_thumbnails(const int p_id = -1, const Vector2i &p_size = Vector2i(128, 128));
+	void create_mesh_thumbnails(const int p_id = -1, const Vector2i &p_size = V2I(128));
 	void update_mesh_list();
 
 	Error save(const String &p_path = "");
