@@ -412,14 +412,14 @@ Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const i
 }
 
 // Get appropriate terrain height. Could find terrain (excluding slope or holes) or optional collision
-Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_invert, const bool p_on_collision, const real_t p_raycast_start) const {
+Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_on_collision, const real_t p_raycast_start) const {
 	IS_DATA_INIT(Array());
 	Terrain3DData *data = _terrain->get_data();
 	real_t height = data->get_height(p_global_position);
 	Dictionary raycast_result;
 	bool raycast_hit = false;
 	real_t raycast_height = FLT_MIN;
-	Vector3 raycast_normal = Vector3(0.f, 1.f, 0.f);
+	Vector3 raycast_normal = V3_UP;
 	// Raycast physics if using on_collision
 	if (p_on_collision) {
 		Vector3 start_pos = Vector3(p_global_position.x, height + p_raycast_start, p_global_position.z);
@@ -442,7 +442,7 @@ Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, c
 		height = raycast_height;
 	}
 	// No hole or collision, use height if in slope or quit
-	else if (!data->is_in_slope(p_global_position, p_slope_range, p_invert)) {
+	if (!data->is_in_slope(p_global_position, p_slope_range, raycast_hit ? raycast_normal : V3_ZERO)) {
 		return Array();
 	}
 	Array triple;
@@ -559,7 +559,6 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
 	bool on_collision = bool(p_params.get("on_collision", false));
 	real_t raycast_height = p_params.get("raycast_height", 10.f);
-	bool invert = p_params["modifier_alt"];
 	Terrain3DData *data = _terrain->get_data();
 
 	TypedArray<Transform3D> xforms;
@@ -574,7 +573,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		Vector3 position = p_global_position + rand_vec;
 
 		// Get height
-		Array height_data = _get_usable_height(position, slope_range, invert, on_collision, raycast_height);
+		Array height_data = _get_usable_height(position, slope_range, on_collision, raycast_height);
 		if (height_data.size() != 3) {
 			continue;
 		}
@@ -582,12 +581,12 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		bool raycast_hit = height_data[1];
 
 		// Orientation
-		Vector3 normal = Vector3(0.f, 1.f, 0.f);
+		Vector3 normal = V3_UP;
 		if (align_to_normal) {
 			// Use either collision normal or terrain normal
-			normal = (on_collision && raycast_hit) ? (Vector3)height_data[2] : data->get_normal(position);
+			normal = raycast_hit ? (Vector3)height_data[2] : data->get_normal(position);
 			if (!normal.is_finite()) {
-				normal = Vector3(0.f, 1.f, 0.f);
+				normal = V3_UP;
 			} else {
 				normal = normal.normalized();
 				Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
@@ -640,6 +639,9 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		return;
 	}
 
+	Terrain3DData *data = _terrain->get_data();
+	int region_size = _terrain->get_region_size();
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	bool modifier_shift = p_params.get("modifier_shift", false);
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), .5f, 4096.f); // Meters
 	real_t half_brush_size = brush_size * 0.5f + 1.f; // 1m margin
@@ -647,12 +649,9 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
-
 	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
-	bool invert = p_params["modifier_alt"];
-	Terrain3DData *data = _terrain->get_data();
-	int region_size = _terrain->get_region_size();
-	real_t vertex_spacing = _terrain->get_vertex_spacing();
+	bool on_collision = bool(p_params.get("on_collision", false));
+	real_t raycast_height = p_params.get("raycast_height", 10.f);
 
 	// Build list of potential regions to search, rather than searching the entire terrain, calculate possible regions covered
 	// and check if they are valid; if so add that location to the dictionary keys.
@@ -738,15 +737,19 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					// Use localised ring center
 					real_t radial_distance = localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z));
 					Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
-					if (radial_distance < radius &&
-							UtilityFunctions::randf() < CLAMP(0.175f * strength, 0.005f, 10.f) &&
-							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
-						_backup_region(region);
-						continue;
-					} else {
+					if (radial_distance >= radius || UtilityFunctions::randf() >= CLAMP(0.175f * strength, 0.005f, 10.f)) {
 						updated_xforms.push_back(t);
 						updated_colors.push_back(colors[i]);
+						continue;
 					}
+					Vector3 global_pos = t.origin + global_local_offset - t.basis.get_column(1) * mesh_height_offset;
+					Array height_data = _get_usable_height(global_pos, slope_range, on_collision, raycast_height);
+					if (height_data.size() != 3) {
+						updated_xforms.push_back(t);
+						updated_colors.push_back(colors[i]);
+						continue;
+					}
+					_backup_region(region);
 				}
 				if (updated_xforms.size() > 0) {
 					triple[0] = updated_xforms;
@@ -999,12 +1002,11 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 					if (rect.has_point(Vector2(global_origin.x, global_origin.z))) {
 						Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
 						t.origin -= height_offset;
-						Array height_data = _get_usable_height(global_origin, Vector2(0.f, 90.f), false, on_collision, raycast_height);
+						Array height_data = _get_usable_height(global_origin, Vector2(0.f, 90.f), on_collision, raycast_height);
 						if (height_data.size() != 3) {
 							continue;
 						}
 						t.origin.y = height_data[0];
-
 						t.origin += height_offset;
 					}
 					updated_xforms.push_back(t);
