@@ -35,7 +35,7 @@ Data is currently stored in :ref:`Terrain3DRegion.instances<class_Terrain3DRegio
 
 - :ref:`remove_instances()<class_Terrain3DInstancer_method_remove_instances>` - Like add_instances, this is can be used procedurally but is designed for hand editing.
 
-- :ref:`clear_by_mesh()<class_Terrain3DInstancer_method_clear_by_mesh>`, :ref:`clear_by_location()<class_Terrain3DInstancer_method_clear_by_location>` - To erase large sections of instances
+- :ref:`clear_by_mesh()<class_Terrain3DInstancer_method_clear_by_mesh>`, :ref:`clear_by_location()<class_Terrain3DInstancer_method_clear_by_location>` - To erase large sections of instances.
 
 - Editing :ref:`Terrain3DRegion.instances<class_Terrain3DRegion_property_instances>` directly.
 
@@ -100,7 +100,7 @@ Method Descriptions
 
 |void| **add_instances**\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_instances>`
 
-Used by Terrain3DEditor to place instances given many brush parameters. In addition to the brush position, it also uses the following parameters: asset_id, size, strength, fixed_scale, random_scale, fixed_spin, random_spin, fixed_tilt, random_tilt, align_to_normal, height_offset, random_height, vertex_color, random_hue, random_darken. All of these settings are set in the editor through tool_settings.gd.
+Used by Terrain3DEditor to place instances given many brush parameters. In addition to the brush position, it also uses the following parameters: asset_id:int, size:float, strength:float, fixed_scale:float, random_scale:float, fixed_spin:float, random_spin:float, fixed_tilt:float, random_tilt:float, align_to_normal:bool, height_offset:float, random_height:float, vertex_color:Color, random_hue:float, random_darken:float, slope:Vector2, on_collision:bool, raycast_height:float. All of these settings are set in the editor via tool_settings.gd.
 
 .. rst-class:: classref-item-separator
 
@@ -230,7 +230,7 @@ Dumps the MultiMeshInstance3Ds attached to the tree and information about the no
 
 |void| **remove_instances**\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DInstancer_method_remove_instances>`
 
-Uses parameters asset_id, size, strength, fixed_scale, random_scale, slope (Vector2), to randomly remove instances within the indicated brush position and size.
+Uses parameters asset_id:int, size:float, strength:float, slope:Vector2, on_collision:bool, raycast_height:float to randomly remove instances within the indicated brush position and size.
 
 .. rst-class:: classref-item-separator
 

@@ -12,7 +12,7 @@
 		- Creating your own instance data and inserting it directly into [member Terrain3DRegion.instances]. It's not difficult to do this in GDScript, but a thorough understanding of the C++ code in this class is recommended.
 		[b]The methods available for removing instances are:[/b]
 		- [method remove_instances] - Like add_instances, this is can be used procedurally but is designed for hand editing.
-		- [method clear_by_mesh], [method clear_by_location] - To erase large sections of instances
+		- [method clear_by_mesh], [method clear_by_location] - To erase large sections of instances.
 		- Editing [member Terrain3DRegion.instances] directly.
 		After modifying region data, run [method update_mmis] to rebuild the MultiMeshInstance3Ds.
 		[b]Read More:[/b]
@@ -27,7 +27,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="params" type="Dictionary" />
 			<description>
-				Used by Terrain3DEditor to place instances given many brush parameters. In addition to the brush position, it also uses the following parameters: asset_id, size, strength, fixed_scale, random_scale, fixed_spin, random_spin, fixed_tilt, random_tilt, align_to_normal, height_offset, random_height, vertex_color, random_hue, random_darken. All of these settings are set in the editor through tool_settings.gd.
+				Used by Terrain3DEditor to place instances given many brush parameters. In addition to the brush position, it also uses the following parameters: asset_id:int, size:float, strength:float, fixed_scale:float, random_scale:float, fixed_spin:float, random_spin:float, fixed_tilt:float, random_tilt:float, align_to_normal:bool, height_offset:float, random_height:float, vertex_color:Color, random_hue:float, random_darken:float, slope:Vector2, on_collision:bool, raycast_height:float. All of these settings are set in the editor via tool_settings.gd.
 			</description>
 		</method>
 		<method name="add_multimesh">
@@ -117,7 +117,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="params" type="Dictionary" />
 			<description>
-				Uses parameters asset_id, size, strength, fixed_scale, random_scale, slope (Vector2), to randomly remove instances within the indicated brush position and size.
+				Uses parameters asset_id:int, size:float, strength:float, slope:Vector2, on_collision:bool, raycast_height:float to randomly remove instances within the indicated brush position and size.
 			</description>
 		</method>
 		<method name="swap_ids">
