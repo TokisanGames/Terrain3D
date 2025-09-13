@@ -535,7 +535,6 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
 					MAX(0.01f, fixed_scale + .5f * random_scale),
 			.001f, 1000.f);
-
 	// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
 	uint32_t count = _get_density_count(density);
 	if (count <= 0) {
@@ -556,7 +555,9 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	real_t random_hue = CLAMP(real_t(p_params.get("random_hue", 0.f)) / 360.f, 0.f, 1.f); // degrees -> 0-1
 	real_t random_darken = CLAMP(real_t(p_params.get("random_darken", 0.f)) * .01f, 0.f, 1.f); // 0-100%
 
-	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
+	Vector2 slope_range = p_params.get("slope", Vector2(0.f, 90.f)); // 0-90 degrees
+	slope_range.x = CLAMP(slope_range.x, 0.f, 90.f);
+	slope_range.y = CLAMP(slope_range.y, 0.f, 90.f);
 	bool on_collision = bool(p_params.get("on_collision", false));
 	real_t raycast_height = p_params.get("raycast_height", 10.f);
 	Terrain3DData *data = _terrain->get_data();
@@ -647,9 +648,9 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	real_t half_brush_size = brush_size * 0.5f + 1.f; // 1m margin
 	real_t radius = brush_size * .5f;
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
-	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
-	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
-	Vector2 slope_range = p_params["slope"]; // 0-90 degrees already clamped in Editor
+	Vector2 slope_range = p_params.get("slope", Vector2(0.f, 90.f)); // 0-90 degrees
+	slope_range.x = CLAMP(slope_range.x, 0.f, 90.f);
+	slope_range.y = CLAMP(slope_range.y, 0.f, 90.f);
 	bool on_collision = bool(p_params.get("on_collision", false));
 	real_t raycast_height = p_params.get("raycast_height", 10.f);
 
