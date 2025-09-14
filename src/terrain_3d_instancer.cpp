@@ -402,8 +402,8 @@ Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const 
 	return mm;
 }
 
-Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const int p_region_size) {
-	IS_INIT(V2I_ZERO);
+Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const int p_region_size) const {
+	IS_INIT(Vector2i());
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Vector2i cell;
 	cell.x = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.x / vertex_spacing), p_region_size) / CELL_SIZE;
@@ -1032,6 +1032,57 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	}
 }
 
+int Terrain3DInstancer::get_closest_asset_id(const Vector3 &p_picker_location) const {
+	LOG(INFO, "Finding closest mesh asset type to picked position ", p_picker_location);
+	Vector2i region_loc = _terrain->get_data()->get_region_location(p_picker_location);
+	Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+	if (!region) {
+		LOG(WARN, "No region found at location: ", p_picker_location);
+		return -1; // No region found
+	}
+	Vector3 region_global_pos = v2v3(region_loc) * _terrain->get_region_size() * _terrain->get_vertex_spacing();
+	Vector2i cell = _get_cell(p_picker_location, region->get_region_size());
+	Dictionary mesh_inst_dict = region->get_instances();
+	if (mesh_inst_dict.is_empty()) {
+		return -1; // No meshes found
+	}
+	if (mesh_inst_dict.size() == 1) {
+		// Only one mesh type in this region, return it
+		return mesh_inst_dict.keys()[0];
+	}
+	//Iterate through all mesh types looking for meshes in cell to find the closest transform
+	int closest_id = -1;
+	real_t closest_distance = FLT_MAX;
+	Array mesh_instance_keys = mesh_inst_dict.keys();
+	for (int i = 0; i < mesh_instance_keys.size(); i++) {
+		int mesh_id = mesh_instance_keys[i];
+		Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+		if (!cell_inst_dict.has(cell)) {
+			continue; // No instances in this cell
+		}
+		Array triple = cell_inst_dict[cell];
+		if (triple.size() != 3) {
+			continue; // Invalid triple, skip
+		}
+		TypedArray<Transform3D> xforms = triple[0];
+		if (xforms.is_empty()) {
+			continue; // No transforms in this cell
+		}
+		for (int i = 0; i < xforms.size(); i++) {
+			const Transform3D &instance_transform = xforms[i];
+			Vector3 instance_origin = instance_transform.origin + region_global_pos; // Convert to global position
+
+			real_t distance = instance_origin.distance_squared_to(p_picker_location);
+			if (distance < closest_distance) {
+				closest_distance = distance;
+				closest_id = mesh_id;
+			}
+		}
+	}
+	LOG(EXTREME, "Closest Mesh Asset ID: ", closest_id, " at: ", closest_distance);
+	return closest_id;
+}
+
 // Transfer foliage data from one region to another
 // p_src_rect is the vertex/pixel offset into the region data, NOT a global position
 // Need to update_mmis() after
@@ -1216,6 +1267,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
+	ClassDB::bind_method(D_METHOD("get_closest_asset_id", "picker_location"), &Terrain3DInstancer::get_closest_asset_id);
 	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);

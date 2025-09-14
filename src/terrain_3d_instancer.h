@@ -49,7 +49,7 @@ private:
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
 	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
-	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size);
+	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size) const;
 	Array _get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_on_collision, const real_t p_raycast_start) const;
 
 public:
@@ -72,6 +72,7 @@ public:
 	void append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms,
 			const PackedColorArray &p_colors, const bool p_update = true);
 	void update_transforms(const AABB &p_aabb);
+	int get_closest_asset_id(const Vector3 &p_picker_location) const;
 	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
