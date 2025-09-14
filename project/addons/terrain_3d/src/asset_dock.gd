@@ -272,6 +272,12 @@ func update_thumbnails() -> void:
 			mesh_asset.queue_redraw()
 
 
+func set_selected_by_resource_id(p_id: int) -> void:
+	search_box.text == ""
+	_on_search_text_changed()
+	current_list.set_selected_id(p_id)
+	
+	
 func _on_search_text_changed() -> void:
 	if plugin.debug:
 		print("Terrain3DAssetDock: _on_search_text_changed: ", search_box.text)

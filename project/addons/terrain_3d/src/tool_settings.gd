@@ -156,6 +156,10 @@ func _ready() -> void:
 								"list":color_list, "default":0, "unit":"°", "range":Vector3(0, 360, 1) })
 	add_setting({ "name":"random_darken", "type":SettingType.SLIDER, "list":color_list, "default":50, 
 								"unit":"%", "range":Vector3(0, 100, 1) })
+	add_setting({ "name":"mesh_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.INSTANCER, "flags":NO_LABEL })
+	#add_setting({ "name":"blend_mode", "type":SettingType.OPTION, "list":color_list, "default":0, 
+								#"range":Vector3(0, 3, 1) })
 
 	collision_list = create_submenu(main_list, "Collision", Layout.VERTICAL)
 	add_setting({ "name":"on_collision", "label":"On Collision", "type":SettingType.CHECKBOX, "list":collision_list,
@@ -365,6 +369,11 @@ func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position:
 			settings["angle"].value = p_color.r
 		Terrain3DEditor.SCALE:
 			settings["scale"].value = p_color.r
+		Terrain3DEditor.INSTANCER:
+			if p_color.r < 0:
+				return
+			plugin.asset_dock.set_selected_by_resource_id(p_color.r)
+
 	_on_setting_changed()
 
 
