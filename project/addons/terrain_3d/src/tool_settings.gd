@@ -76,20 +76,23 @@ func _ready() -> void:
 	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":20, 
 								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
 	add_setting({ "name":"height_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.HEIGHT, "flags":NO_LABEL })
+								"default":Terrain3DEditor.HEIGHT, "flags":NO_LABEL, "tooltip":"Height Picker." })
 	
 	add_setting({ "name":"color", "type":SettingType.COLOR_SELECT, "list":main_list, 
 								"default":Color.WHITE, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"color_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.COLOR, "flags":NO_LABEL })
+								"default":Terrain3DEditor.COLOR, "flags":NO_LABEL, "tooltip":"Color Picker." })
 
 	add_setting({ "name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":-65,
 								"unit":"%", "range":Vector3(-100, 100, 1), "flags":ADD_SEPARATOR })
 	add_setting({ "name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL })
+								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL, "tooltip":"Roughness Picker." })
 
 	add_setting({ "name":"enable_texture", "label":"Texture", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
+
+	add_setting({ "name":"texture_picker", "type":SettingType.PICKER, "list":main_list, 
+								"default":Terrain3DEditor.TEXTURE, "flags":NO_LABEL, "tooltip":"Texture Picker." })
 
 	add_setting({ "name":"texture_filter", "label":"Texture Filter", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":false, "flags":ADD_SEPARATOR })
@@ -106,7 +109,7 @@ func _ready() -> void:
 	add_setting({ "name":"angle", "type":SettingType.SLIDER, "list":main_list, "default":0,
 								"unit":"%", "range":Vector3(0, 337.5, 22.5), "flags":NO_LABEL })
 	add_setting({ "name":"angle_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.ANGLE, "flags":NO_LABEL })
+								"default":Terrain3DEditor.ANGLE, "flags":NO_LABEL, "tooltip":"Angle Picker." })
 	add_setting({ "name":"dynamic_angle", "label":"Dynamic", "type":SettingType.CHECKBOX, 
 								"list":main_list, "default":false, "flags":ADD_SPACER })
 	
@@ -115,7 +118,7 @@ func _ready() -> void:
 	add_setting({ "name":"scale", "label":"±", "type":SettingType.SLIDER, "list":main_list, "default":0,
 								"unit":"%", "range":Vector3(-60, 80, 20), "flags":NO_LABEL })
 	add_setting({ "name":"scale_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.SCALE, "flags":NO_LABEL })
+								"default":Terrain3DEditor.SCALE, "flags":NO_LABEL,"tooltip":"Scale Picker." })
 
 	## Slope sculpting brush
 	add_setting({ "name":"gradient_points", "type":SettingType.MULTI_PICKER, "label":"Points", 
@@ -157,7 +160,7 @@ func _ready() -> void:
 	add_setting({ "name":"random_darken", "type":SettingType.SLIDER, "list":color_list, "default":50, 
 								"unit":"%", "range":Vector3(0, 100, 1) })
 	add_setting({ "name":"mesh_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.INSTANCER, "flags":NO_LABEL })
+								"default":Terrain3DEditor.INSTANCER, "flags":NO_LABEL, "tooltip":"Mesh Picker." })
 	#add_setting({ "name":"blend_mode", "type":SettingType.OPTION, "list":color_list, "default":0, 
 								#"range":Vector3(0, 3, 1) })
 
@@ -373,7 +376,10 @@ func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position:
 			if p_color.r < 0:
 				return
 			plugin.asset_dock.set_selected_by_resource_id(p_color.r)
-
+		Terrain3DEditor.TEXTURE:
+			if p_color.r < 0:
+				return
+			plugin.asset_dock.set_selected_by_resource_id(p_color.r)
 	_on_setting_changed()
 
 
@@ -402,6 +408,7 @@ func add_setting(p_args: Dictionary) -> void:
 	var p_maximum: float = p_range.y
 	var p_step: float = p_range.z
 	var p_flags: int = p_args.get("flags", NONE)
+	var p_tooltip: String = p_args.get("tooltip", "")
 	
 	if p_name.is_empty() or p_type == SettingType.TYPE_MAX:
 		return
@@ -410,7 +417,7 @@ func add_setting(p_args: Dictionary) -> void:
 	container.set_v_size_flags(SIZE_EXPAND_FILL)
 	var control: Control	# Houses the setting to be saved
 	var pending_children: Array[Control]
-
+	
 	match p_type:
 		SettingType.LABEL:
 			var label := Label.new()
@@ -453,7 +460,6 @@ func add_setting(p_args: Dictionary) -> void:
 			var button := Button.new()
 			button.set_v_size_flags(SIZE_SHRINK_CENTER)
 			button.icon = get_theme_icon("ColorPick", "EditorIcons")
-			button.tooltip_text = "Pick value from the Terrain"
 			button.pressed.connect(_on_pick.bind(p_default))
 			pending_children.push_back(button)
 			control = button
@@ -530,6 +536,8 @@ func add_setting(p_args: Dictionary) -> void:
 				slider.set_value(p_default)
 
 	control.name = p_name.to_pascal_case()
+	if not p_tooltip.is_empty():
+		control.tooltip_text = p_tooltip
 	settings[p_name] = control
 
 	# Setup button labels
