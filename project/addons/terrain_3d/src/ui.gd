@@ -187,6 +187,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("brush")
 			to_show.push_back("size")
 			to_show.push_back("enable_texture")
+			to_show.push_back("texture_picker")
 			if _selected_operation == Terrain3DEditor.ADD:
 				to_show.push_back("strength")
 				to_show.push_back("invert")
@@ -197,7 +198,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("dynamic_angle")
 			to_show.push_back("enable_scale")
 			to_show.push_back("scale")
-			to_show.push_back("scale_picker")
+			to_show.push_back("scale_picker")			
 
 		Terrain3DEditor.COLOR:
 			to_show.push_back("brush")
@@ -607,7 +608,14 @@ func pick(p_global_position: Vector3) -> void:
 			Terrain3DEditor.INSTANCER:
 				var mesh_asset_id: int = plugin.terrain.instancer.get_closest_asset_id(p_global_position)
 				color = Color(mesh_asset_id, 0., 0., 1.)
-				
+			Terrain3DEditor.TEXTURE:
+				var texture_blend_data: Vector3 = plugin.terrain.data.get_texture_id(p_global_position)
+				if not texture_blend_data.is_finite():
+					return
+				if texture_blend_data.z < 0.5:
+					color = Color(texture_blend_data.x, 0., 0., 1.)
+				else:
+					color = Color(texture_blend_data.y, 0., 0., 1.)
 			_:
 				push_error("Unsupported picking type: ", picking)
 				return
