@@ -770,7 +770,7 @@ Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
 		bool auto_enabled = t_material->get_auto_shader();
 		bool control_auto = is_auto(src);
 		if (auto_enabled && control_auto) {
-			real_t auto_slope = real_t(t_material->get_shader_param("auto_slope")) * 2.f - 1.f;
+			real_t auto_slope = real_t(t_material->get_shader_param("auto_slope"));
 			real_t auto_height_reduction = real_t(t_material->get_shader_param("auto_height_reduction"));
 			real_t height = get_height(p_global_position);
 			Vector3 normal = get_normal(p_global_position);
