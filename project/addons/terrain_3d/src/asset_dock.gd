@@ -812,17 +812,17 @@ class ListEntry extends MarginContainer:
 			button_enabled.pressed.connect(enable)
 			button_row.add_child(button_enabled, true)
 			
-			button_highlight.set_texture_normal(highlight_icon)
-			button_highlight.set_custom_minimum_size(icon_size)
-			button_highlight.set_h_size_flags(Control.SIZE_SHRINK_END)
-			button_highlight.set_visible(resource != null)
-			button_highlight.tooltip_text = "Highlight Instances"
-			button_highlight.toggle_mode = true
-			button_highlight.mouse_filter = Control.MOUSE_FILTER_PASS
-			button_highlight.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-			button_highlight.set_pressed_no_signal(is_highlighted)
-			button_highlight.pressed.connect(highlight)
-			button_row.add_child(button_highlight, true)
+		button_highlight.set_texture_normal(highlight_icon)
+		button_highlight.set_custom_minimum_size(icon_size)
+		button_highlight.set_h_size_flags(Control.SIZE_SHRINK_END)
+		button_highlight.set_visible(resource != null)
+		button_highlight.tooltip_text = "Highlight Instances"
+		button_highlight.toggle_mode = true
+		button_highlight.mouse_filter = Control.MOUSE_FILTER_PASS
+		button_highlight.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		button_highlight.set_pressed_no_signal(is_highlighted)
+		button_highlight.pressed.connect(highlight)
+		button_row.add_child(button_highlight, true)
 		
 		button_edit.set_texture_normal(edit_icon)
 		button_edit.set_custom_minimum_size(icon_size)
@@ -1062,9 +1062,8 @@ class ListEntry extends MarginContainer:
 
 
 	func highlight() -> void:
-		if resource is Terrain3DMeshAsset:
-			is_highlighted = !is_highlighted
-			resource.set_highlighted(is_highlighted)
+		is_highlighted = !is_highlighted
+		resource.set_highlighted(is_highlighted)
 
 
 	func format_number(num: int) -> String:

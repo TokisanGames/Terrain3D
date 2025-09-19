@@ -168,6 +168,25 @@ void Terrain3DTextureAsset::set_detiling_shift(const real_t p_detiling_shift) {
 	emit_signal("setting_changed");
 }
 
+void Terrain3DTextureAsset::set_highlighted(const bool p_highlighted) {
+	if (p_highlighted == _highlighted) {
+		return; // No change
+	}
+	_highlighted = p_highlighted;
+	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
+	real_t random_float = real_t(rand()) / real_t(RAND_MAX);
+	_highight_color.set_hsv(random_float, 1.f, 1.f, 1.f);
+	LOG(DEBUG, "Emitting setting_changed");
+	emit_signal("setting_changed");
+}
+
+Color Terrain3DTextureAsset::get_highlight_color() const {
+	if (_highlighted) {
+		return _highight_color;
+	}
+	return COLOR_WHITE;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -202,6 +221,8 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_detiling_rotation"), &Terrain3DTextureAsset::get_detiling_rotation);
 	ClassDB::bind_method(D_METHOD("set_detiling_shift", "detiling_shift"), &Terrain3DTextureAsset::set_detiling_shift);
 	ClassDB::bind_method(D_METHOD("get_detiling_shift"), &Terrain3DTextureAsset::get_detiling_shift);
+	ClassDB::bind_method(D_METHOD("set_highlighted", "highlight_state"), &Terrain3DTextureAsset::set_highlighted);
+	ClassDB::bind_method(D_METHOD("get_highlighted"), &Terrain3DTextureAsset::get_highlighted);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
