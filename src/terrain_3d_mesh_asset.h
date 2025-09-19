@@ -8,6 +8,7 @@
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/classes/shape3d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 
 #include "constants.h"
@@ -57,6 +58,8 @@ private:
 	bool _highlighted = false;
 	Ref<Material> _highlight_mat;
 	TypedArray<Mesh> _meshes;
+	TypedArray<Shape3D> _shapes;
+	TypedArray<Transform3D> _shape_transforms;
 	Ref<Texture2D> _thumbnail;
 	uint32_t _instance_count = 0;
 
@@ -86,7 +89,10 @@ public:
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
+	TypedArray<Shape3D> get_shapes() const;
+	int get_shape_count() const;
 	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
+	TypedArray<Transform3D> get_shape_transforms() const;
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
 	void set_density(const real_t p_density);
