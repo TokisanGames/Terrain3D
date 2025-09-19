@@ -855,7 +855,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 		StringName name = dict["name"];
 
 		// Filter out private uniforms that start with _
-		if (!name.begins_with("_")) {
+		if (!name.begins_with("_") && !name.is_empty()) {
 			// Populate Godot's property list
 			PropertyInfo pi;
 			uint64_t use = dict["usage"];
