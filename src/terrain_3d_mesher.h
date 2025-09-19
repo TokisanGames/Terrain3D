@@ -33,6 +33,7 @@ private:
 	Array _mesh_rids;
 	// LODs -> MeshTypes -> Instances
 	Array _clipmap_rids;
+	Array _clipmap_shadow_rids;
 
 	// Mesh offset data
 	// LOD0 only
@@ -57,6 +58,7 @@ private:
 
 	void _clear_clipmap();
 	void _clear_mesh_types();
+	void _update_maps();
 
 public:
 	Terrain3DMesher() {}
