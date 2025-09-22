@@ -223,7 +223,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			// Start brushing on the map
 			real_t brush_alpha = brush_image->get_pixelv(brush_pixel_position).r;
 			brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
-			brush_alpha = std::isnan(brush_alpha) || std::isnan(brush_alpha) ? 0.f : CLAMP(brush_alpha, 0.f, 1.f);
+			brush_alpha = std::isnan(brush_alpha) ? 0.f : brush_alpha;
 			Color src = map->get_pixelv(map_pixel_position);
 			Color dest = src;
 
