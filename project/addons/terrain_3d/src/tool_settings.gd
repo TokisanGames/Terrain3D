@@ -279,39 +279,40 @@ func add_brushes(p_parent: Control) -> void:
 		while file_name != "":
 			if !dir.current_is_dir() and file_name.ends_with(".exr"):
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
-				var thumbimg: Image = img.duplicate()
-				img.convert(Image.FORMAT_RF)
+				if img:
+					var thumbimg: Image = img.duplicate()
+					img.convert(Image.FORMAT_RF)
 
-				if thumbimg.get_width() != 100 and thumbimg.get_height() != 100:
-					thumbimg.resize(100, 100, Image.INTERPOLATE_CUBIC)
-				thumbimg = Terrain3DUtil.black_to_alpha(thumbimg)
-				thumbimg.convert(Image.FORMAT_LA8)
-				var thumbtex: ImageTexture = ImageTexture.create_from_image(thumbimg)
-				
-				var brush_btn: Button = Button.new()
-				brush_btn.set_custom_minimum_size(Vector2.ONE * 100)
-				brush_btn.set_button_icon(thumbtex)
-				brush_btn.set_meta("image", img)
-				brush_btn.set_expand_icon(true)
-				brush_btn.set_material(_get_brush_preview_material())
-				brush_btn.set_toggle_mode(true)
-				brush_btn.set_button_group(brush_button_group)
-				brush_btn.mouse_entered.connect(_on_brush_hover.bind(true, brush_btn))
-				brush_btn.mouse_exited.connect(_on_brush_hover.bind(false, brush_btn))
-				brush_list.add_child(brush_btn, true)
-				if file_name == DEFAULT_BRUSH:
-					default_brush_btn = brush_btn 
-				
-				var lbl: Label = Label.new()
-				brush_btn.name = file_name.get_basename().to_pascal_case()
-				brush_btn.add_child(lbl, true)
-				lbl.text = brush_btn.name
-				lbl.visible = false
-				lbl.position.y = 70
-				lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
-				lbl.add_theme_constant_override("shadow_offset_x", 1)
-				lbl.add_theme_constant_override("shadow_offset_y", 1)
-				lbl.add_theme_font_size_override("font_size", 16)
+					if thumbimg.get_width() != 100 and thumbimg.get_height() != 100:
+						thumbimg.resize(100, 100, Image.INTERPOLATE_CUBIC)
+					thumbimg = Terrain3DUtil.black_to_alpha(thumbimg)
+					thumbimg.convert(Image.FORMAT_LA8)
+					var thumbtex: ImageTexture = ImageTexture.create_from_image(thumbimg)
+					
+					var brush_btn: Button = Button.new()
+					brush_btn.set_custom_minimum_size(Vector2.ONE * 100)
+					brush_btn.set_button_icon(thumbtex)
+					brush_btn.set_meta("image", img)
+					brush_btn.set_expand_icon(true)
+					brush_btn.set_material(_get_brush_preview_material())
+					brush_btn.set_toggle_mode(true)
+					brush_btn.set_button_group(brush_button_group)
+					brush_btn.mouse_entered.connect(_on_brush_hover.bind(true, brush_btn))
+					brush_btn.mouse_exited.connect(_on_brush_hover.bind(false, brush_btn))
+					brush_list.add_child(brush_btn, true)
+					if file_name == DEFAULT_BRUSH:
+						default_brush_btn = brush_btn 
+					
+					var lbl: Label = Label.new()
+					brush_btn.name = file_name.get_basename().to_pascal_case()
+					brush_btn.add_child(lbl, true)
+					lbl.text = brush_btn.name
+					lbl.visible = false
+					lbl.position.y = 70
+					lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+					lbl.add_theme_constant_override("shadow_offset_x", 1)
+					lbl.add_theme_constant_override("shadow_offset_y", 1)
+					lbl.add_theme_font_size_override("font_size", 16)
 				
 			file_name = dir.get_next()
 	
