@@ -280,6 +280,9 @@ func add_brushes(p_parent: Control) -> void:
 			if !dir.current_is_dir() and file_name.ends_with(".exr"):
 				var img: Image = Image.load_from_file(BRUSH_PATH + "/" + file_name)
 				if img:
+					var value_range: Vector2 = Terrain3DUtil.get_min_max(img)
+					if value_range.y - value_range.x < 0.333:
+						push_warning("'%s' has a low value range and may not be visible in the brush gallery or cursor" % file_name)
 					var thumbimg: Image = img.duplicate()
 					img.convert(Image.FORMAT_RF)
 
