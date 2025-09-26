@@ -12,53 +12,66 @@
 // Private Functions
 ///////////////////////////
 
-void Terrain3DMesher::_generate_mesh_types(const int p_size) {
+void Terrain3DMesher::_generate_mesh_types(const int p_size, int p_shadow_scale) {
+	p_shadow_scale = CLAMP(p_shadow_scale, 1, 4);
 	_clear_mesh_types();
 	LOG(INFO, "Generating all Mesh segments for clipmap of size ", p_size);
 	// Create initial set of Mesh blocks to build the clipmap
 	// # 0 TILE - mesh_size x mesh_size tiles
 	_mesh_rids.push_back(_generate_mesh(V2I(p_size)));
+	_shadow_mesh_rids.push_back(_generate_mesh(V2I(p_size), false, p_shadow_scale));
 	// # 1 EDGE_A - 2 by (mesh_size * 4 + 8) strips to bridge LOD transitions along +-Z axis
 	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 8)));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 8), false, p_shadow_scale));
 	// # 2 EDGE_B - (mesh_size * 4 + 4) by 2 strips to bridge LOD transitions along +-X axis
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 4, 2)));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 4, 2), false, p_shadow_scale));
 	// # 3 FILL_A - 4 by mesh_size
 	_mesh_rids.push_back(_generate_mesh(Vector2i(4, p_size)));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(4, p_size), false, p_shadow_scale));
 	// # 4 FILL_B - mesh_size by 4
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, 4)));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, 4), false, p_shadow_scale));
 	// # 5 STANDARD_TRIM_A - 2 by (mesh_size * 4 + 2) strips for LOD0 +-Z axis edge
 	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 2), true));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 2), true, p_shadow_scale));
 	// # 6 STANDARD_TRIM_B - (mesh_size * 4 + 2) by 2 strips for LOD0 +-X axis edge
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 2, 2), true));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 2, 2), true, p_shadow_scale));
 	// # 7 STANDARD_TILE - mesh_size x mesh_size tiles
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, p_size), true));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, p_size), true, p_shadow_scale));
 	// # 8 STANDARD_EDGE_A - 2 by (mesh_size * 4 + 8) strips to bridge LOD transitions along +-Z axis
 	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 8), true));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 8), true, p_shadow_scale));
 	// # 9 STANDARD_EDGE_B - (mesh_size * 4 + 4) by 2 strips to bridge LOD transitions along +-X axis
 	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 4, 2), true));
+	_shadow_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 4, 2), true, p_shadow_scale));
 	return;
 }
 
-RID Terrain3DMesher::_generate_mesh(const Vector2i &p_size, const bool p_standard_grid) {
+RID Terrain3DMesher::_generate_mesh(const Vector2i &p_size, const bool p_standard_grid, int p_scale) {
+	p_scale = CLAMP(p_scale, 1, 4);
+
 	PackedVector3Array vertices;
 	PackedInt32Array indices;
 	AABB aabb = AABB(V3_ZERO, Vector3(p_size.x, 0.1f, p_size.y));
 	LOG(DEBUG, "Generating verticies and indices for a", p_standard_grid ? " symetric " : " standard ", "grid mesh of width: ", p_size.x, " and height: ", p_size.y);
 
 	// Generate vertices
-	for (int y = 0; y <= p_size.y; ++y) {
-		for (int x = 0; x <= p_size.x; ++x) {
+	for (int y = 0; y <= p_size.y / p_scale; ++y) {
+		for (int x = 0; x <= p_size.x / p_scale; ++x) {
 			// Match GDScript vertex definitions
-			vertices.push_back(Vector3(x, 0.f, y)); // bottom-left
+			vertices.push_back(Vector3(x * p_scale, 0.f, y * p_scale));
 		}
 	}
 
 	// Generate indices for quads with alternating diagonals
-	for (int y = 0; y < p_size.y; ++y) {
-		for (int x = 0; x < p_size.x; ++x) {
-			int bottomLeft = y * (p_size.x + 1) + x;
+	for (int y = 0; y < p_size.y / p_scale; ++y) {
+		for (int x = 0; x < p_size.x / p_scale; ++x) {
+			int bottomLeft = y * ((p_size.x / p_scale) + 1) + x;
 			int bottomRight = bottomLeft + 1;
-			int topLeft = (y + 1) * (p_size.x + 1) + x;
+			int topLeft = (y + 1) * ((p_size.x / p_scale) + 1) + x;
 			int topRight = topLeft + 1;
 
 			if ((x + y) % 2 == 0 || p_standard_grid) {
@@ -111,7 +124,7 @@ RID Terrain3DMesher::_instantiate_mesh(const PackedVector3Array &p_vertices, con
 
 void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, const RID &p_scenario) {
 	_clear_clipmap();
-	_generate_mesh_types(p_size);
+	_generate_mesh_types(p_size, 2);
 	_generate_offset_data(p_size);
 	LOG(DEBUG, "Creating instances for all mesh segments for clipmap of size ", p_size, " for ", p_lods, " LODs");
 
@@ -125,7 +138,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 
 		for (int i = 0; i < tile_amount; i++) {
 			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
-			RID shadow_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
+			RID shadow_rid = RS->instance_create2(_shadow_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
 			tile_rids.append(tile_rid);
 			shadow_tile_rids.append(shadow_rid);
 		}
@@ -137,7 +150,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 		Array shadow_edge_a_rids;
 		for (int i = 0; i < 2; i++) {
 			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
-			RID shadow_edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
+			RID shadow_edge_a_rid = RS->instance_create2(_shadow_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
 			edge_a_rids.append(edge_a_rid);
 			shadow_edge_a_rids.append(shadow_edge_a_rid);
 		}
@@ -148,7 +161,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 		Array shadow_edge_b_rids;
 		for (int i = 0; i < 2; i++) {
 			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
-			RID shadow_edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
+			RID shadow_edge_b_rid = RS->instance_create2(_shadow_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
 			edge_b_rids.append(edge_b_rid);
 			shadow_edge_b_rids.append(shadow_edge_b_rid);
 		}
@@ -161,7 +174,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 			Array shadow_fill_a_rids;
 			for (int i = 0; i < 2; i++) {
 				RID fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
-				RID shadow_fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
+				RID shadow_fill_a_rid = RS->instance_create2(_shadow_mesh_rids[FILL_A], p_scenario);
 				fill_a_rids.append(fill_a_rid);
 				shadow_fill_a_rids.append(shadow_fill_a_rid);
 			}
@@ -172,7 +185,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 			Array shadow_fill_b_rids;
 			for (int i = 0; i < 2; i++) {
 				RID fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
-				RID shadow_fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
+				RID shadow_fill_b_rid = RS->instance_create2(_shadow_mesh_rids[FILL_B], p_scenario);
 				fill_b_rids.append(fill_b_rid);
 				shadow_fill_b_rids.append(shadow_fill_b_rid);
 			}
@@ -185,7 +198,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 			Array shadow_trim_a_rids;
 			for (int i = 0; i < 2; i++) {
 				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
-				RID shadow_trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
+				RID shadow_trim_a_rid = RS->instance_create2(_shadow_mesh_rids[STANDARD_TRIM_A], p_scenario);
 				trim_a_rids.append(trim_a_rid);
 				shadow_trim_a_rids.append(shadow_trim_a_rid);
 			}
@@ -196,7 +209,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 			Array shadow_trim_b_rids;
 			for (int i = 0; i < 2; i++) {
 				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
-				RID shadow_trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
+				RID shadow_trim_b_rid = RS->instance_create2(_shadow_mesh_rids[STANDARD_TRIM_B], p_scenario);
 				trim_b_rids.append(trim_b_rid);
 				shadow_trim_b_rids.append(shadow_trim_b_rid);
 			}
@@ -307,8 +320,10 @@ void Terrain3DMesher::_clear_mesh_types() {
 	LOG(INFO, "Freeing all clipmap meshes");
 	for (int m = 0; m < _mesh_rids.size(); m++) {
 		RS->free_rid(_mesh_rids[m]);
+		RS->free_rid(_shadow_mesh_rids[m]);
 	}
 	_mesh_rids.clear();
+	_shadow_mesh_rids.clear();
 	return;
 }
 
@@ -576,10 +591,12 @@ void Terrain3DMesher::update_aabbs() {
 	LOG(INFO, "Updating ", _mesh_rids.size(), " meshes AABBs")
 	for (int m = 0; m < _mesh_rids.size(); m++) {
 		RID mesh = _mesh_rids[m];
+		RID shadow_mesh = _shadow_mesh_rids[m];
 		AABB aabb = RS->mesh_get_custom_aabb(mesh);
 		aabb.position.y = height_range.x - cull_margin;
 		aabb.size.y = height_range.y + cull_margin * 2.f;
 		RS->mesh_set_custom_aabb(mesh, aabb);
+		RS->mesh_set_custom_aabb(shadow_mesh, aabb);
 	}
 	return;
 }
