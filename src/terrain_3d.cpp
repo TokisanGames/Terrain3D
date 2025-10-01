@@ -701,6 +701,44 @@ void Terrain3D::set_tessellation_level(const int p_level) {
 	notify_property_list_changed();
 }
 
+// Ocean Mesh
+void Terrain3D::set_ocean_enabled(const bool p_enabled) {
+	_mesher ? _mesher->set_ocean_enabled(p_enabled) : void();
+	notify_property_list_changed();
+}
+
+void Terrain3D::set_ocean_mesh_size(const int p_size) {
+	SET_IF_DIFF(_ocean_mesh_size, CLAMP(p_size & ~1, 8, 256)); // Ensure even
+	LOG(INFO, "Setting ocean_mesh size: ", _ocean_mesh_size);
+	if (_mesher) {
+		_mesher->initialize(this);
+	}
+}
+
+void Terrain3D::set_ocean_mesh_lods(const int p_count) {
+	SET_IF_DIFF(_ocean_mesh_lods, CLAMP(p_count, 1, 10));
+	LOG(INFO, "Setting ocean_mesh levels: ", _ocean_mesh_lods);
+	if (_mesher) {
+		_mesher->initialize(this);
+	}
+}
+
+void Terrain3D::set_ocean_tessellation_level(const int p_level) {
+	SET_IF_DIFF(_ocean_tessellation_level, CLAMP(p_level, 0, 6));
+	LOG(INFO, "Setting ocean_tessellation level: ", p_level);
+	if (_mesher) {
+		_mesher->initialize(this);
+	}
+	notify_property_list_changed();
+}
+
+void Terrain3D::set_ocean_material(const Ref<Material> &p_material) {
+	SET_IF_DIFF(_ocean_material, p_material);
+	if (_mesher) {
+		_mesher->set_ocean_material(_ocean_material);
+	}
+}
+
 void Terrain3D::set_render_layers(const uint32_t p_layers) {
 	SET_IF_DIFF(_render_layers, p_layers);
 	LOG(INFO, "Setting terrain render layers to: ", p_layers);
@@ -1136,6 +1174,14 @@ void Terrain3D::_validate_property(PropertyInfo &p_property) const {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		}
 	}
+	if (!is_ocean_enabled()) {
+		if (p_property.name == StringName("ocean_material") ||
+				p_property.name == StringName("ocean_mesh_lods") ||
+				p_property.name == StringName("ocean_mesh_size") ||
+				p_property.name == StringName("ocean_tessellation_level")) {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+		}
+	}
 }
 
 void Terrain3D::_bind_methods() {
@@ -1224,6 +1270,18 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_buffer_shader_override_enabled"), &Terrain3D::is_buffer_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("set_buffer_shader_override", "shader"), &Terrain3D::set_buffer_shader_override);
 	ClassDB::bind_method(D_METHOD("get_buffer_shader_override"), &Terrain3D::get_buffer_shader_override);
+
+	// Ocean
+	ClassDB::bind_method(D_METHOD("set_ocean_enabled", "enabled"), &Terrain3D::set_ocean_enabled);
+	ClassDB::bind_method(D_METHOD("is_ocean_enabled"), &Terrain3D::is_ocean_enabled);
+	ClassDB::bind_method(D_METHOD("set_ocean_material", "material"), &Terrain3D::set_ocean_material);
+	ClassDB::bind_method(D_METHOD("get_ocean_material"), &Terrain3D::get_ocean_material);
+	ClassDB::bind_method(D_METHOD("set_ocean_mesh_lods", "count"), &Terrain3D::set_ocean_mesh_lods);
+	ClassDB::bind_method(D_METHOD("get_ocean_mesh_lods"), &Terrain3D::get_ocean_mesh_lods);
+	ClassDB::bind_method(D_METHOD("set_ocean_mesh_size", "size"), &Terrain3D::set_ocean_mesh_size);
+	ClassDB::bind_method(D_METHOD("get_ocean_mesh_size"), &Terrain3D::get_ocean_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_ocean_tessellation_level", "size"), &Terrain3D::set_ocean_tessellation_level);
+	ClassDB::bind_method(D_METHOD("get_ocean_tessellation_level"), &Terrain3D::get_ocean_tessellation_level);
 
 	// Rendering
 	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
@@ -1337,6 +1395,12 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_sharpness", PROPERTY_HINT_RANGE, "0.0, 1.0, 0.01"), "set_displacement_sharpness", "get_displacement_sharpness");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "buffer_shader_override_enabled"), "set_buffer_shader_override_enabled", "is_buffer_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "buffer_shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_buffer_shader_override", "get_buffer_shader_override");
+	ADD_GROUP("Ocean", "");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ocean_enabled"), "set_ocean_enabled", "is_ocean_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial"), "set_ocean_material", "get_ocean_material");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_ocean_mesh_lods", "get_ocean_mesh_lods");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_ocean_mesh_size", "get_ocean_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_ocean_tessellation_level", "get_ocean_tessellation_level");
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");

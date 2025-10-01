@@ -79,6 +79,14 @@ private:
 	int _tessellation_level = 0;
 	real_t _vertex_spacing = 1.0f;
 
+	// Ocean meshes
+	int _ocean_mesh_lods = 7;
+	int _ocean_mesh_size = 48;
+	int _ocean_tessellation_level = 0;
+
+	// Ocean material
+	Ref<Material> _ocean_material;
+
 	// Rendering
 	uint32_t _render_layers = 1u | (1u << 31u); // Bit 1 and 32 for the cursor
 	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
@@ -194,6 +202,19 @@ public:
 	bool is_buffer_shader_override_enabled() const { return _material.is_valid() ? _material->is_buffer_shader_override_enabled() : false; }
 	void set_buffer_shader_override(const Ref<Shader> &p_shader) { return _material.is_valid() ? _material->set_buffer_shader_override(p_shader) : void(); }
 	Ref<Shader> get_buffer_shader_override() const { return _material.is_valid() ? _material->get_buffer_shader_override() : Ref<Shader>(); }
+
+	// Ocean Mesh
+	void set_ocean_enabled(const bool p_enabled);
+	bool is_ocean_enabled() const { return _mesher ? _mesher->is_ocean_enabled() : false; }
+	void set_ocean_mesh_lods(const int p_count);
+	int get_ocean_mesh_lods() const { return _ocean_mesh_lods; }
+	void set_ocean_mesh_size(const int p_size);
+	int get_ocean_mesh_size() const { return _ocean_mesh_size; }
+	void set_ocean_tessellation_level(const int p_level);
+	int get_ocean_tessellation_level() const { return _ocean_tessellation_level; }
+	Ref<Material> get_ocean_material() const { return _ocean_material; }
+	void set_ocean_material(const Ref<Material> &p_material);
+	RID get_ocean_material_rid() const { return _ocean_material.is_valid() ? _ocean_material->get_rid() : RID(); }
 
 	// Rendering
 	void set_render_layers(const uint32_t p_layers);
