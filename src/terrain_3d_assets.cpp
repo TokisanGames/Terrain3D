@@ -355,7 +355,11 @@ void Terrain3DAssets::_update_texture_settings() {
 			if (texture_set.is_null()) {
 				continue;
 			}
-			_texture_colors.push_back(texture_set->get_albedo_color());
+			if (texture_set->is_highlighted()) {
+				_texture_colors.push_back(texture_set->get_highlight_color());
+			} else {
+				_texture_colors.push_back(texture_set->get_albedo_color());
+			}
 			_texture_normal_depths.push_back(texture_set->get_normal_depth());
 			_texture_ao_strengths.push_back(texture_set->get_ao_strength());
 			_texture_roughness_mods.push_back(texture_set->get_roughness());

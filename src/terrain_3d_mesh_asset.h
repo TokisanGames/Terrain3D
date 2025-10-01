@@ -54,7 +54,6 @@ private:
 	real_t _fade_margin = 0.f;
 
 	// Working data
-	bool _highlighted = false;
 	Ref<Material> _highlight_mat;
 	TypedArray<Mesh> _meshes;
 	Ref<Texture2D> _thumbnail;
@@ -74,6 +73,11 @@ public:
 	String get_name() const override { return _name; }
 	void set_id(const int p_new_id) override;
 	int get_id() const override { return _id; }
+	void set_highlighted(const bool p_highlighted) override;
+	bool is_highlighted() const override { return _highlighted; }
+	Ref<Material> get_highlight_material() const { return _highlighted ? _highlight_mat : Ref<Material>(); }
+	Color get_highlight_color() const override;
+
 	void set_enabled(const bool p_enabled);
 	bool is_enabled() const { return _enabled; }
 
@@ -98,11 +102,6 @@ public:
 	Ref<Material> get_material_override() const { return _material_override; }
 	void set_material_overlay(const Ref<Material> &p_material);
 	Ref<Material> get_material_overlay() const { return _material_overlay; }
-
-	void set_highlighted(const bool p_highlighted);
-	bool is_highlighted() const { return _highlighted; }
-	Ref<Material> get_highlight_material() const { return _highlighted ? _highlight_mat : Ref<Material>(); }
-	Color get_highlight_color() const;
 
 	void set_generated_faces(const int p_count);
 	int get_generated_faces() const { return _generated_faces; }

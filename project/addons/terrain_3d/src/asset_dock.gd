@@ -272,7 +272,7 @@ func update_thumbnails() -> void:
 			mesh_asset.queue_redraw()
 
 
-func set_selected_by_resource_id(p_id: int) -> void:
+func set_selected_by_asset_id(p_id: int) -> void:
 	search_box.text = ""
 	_on_search_text_changed()
 	current_list.set_selected_id(p_id)
@@ -393,6 +393,10 @@ func update_assets() -> void:
 func remove_all_highlights():
 	if not plugin.terrain:
 		return
+	for i: int in texture_list.entries.size():
+		var resource: Terrain3DTextureAsset = texture_list.entries[i].resource
+		if resource and resource.is_highlighted():
+			resource.set_highlighted(false)
 	for i: int in mesh_list.entries.size():
 		var resource: Terrain3DMeshAsset = mesh_list.entries[i].resource
 		if resource and resource.is_highlighted():
@@ -634,12 +638,12 @@ class ListContainer extends Container:
 		plugin.ui._on_setting_changed()
 
 
-	func get_selected_resource_id() -> int:
+	func get_selected_asset_id() -> int:
 		# "Add new" is the final entry only when search box is blank
 		var max_id: int = max(0, entries.size() - (1 if search_text else 2))
 		var id: int = clamp(selected_id, 0, max_id)
 		if plugin.debug:
-			print("Terrain3DListContainer: get_selected_resource_id: selected_id: ", selected_id, ", clamped: ", id, ", entries: ", entries.size())
+			print("Terrain3DListContainer: get_selected_asset_id: selected_id: ", selected_id, ", clamped: ", id, ", entries: ", entries.size())
 		if id >= entries.size():
 			return 0
 		var res: Resource = entries[id].resource
@@ -780,7 +784,7 @@ class ListEntry extends MarginContainer:
 		add_theme_constant_override("margin_left", 5)
 		add_theme_constant_override("margin_right", 5)
 
-		if resource is Terrain3DMeshAsset:
+		if resource:
 			is_highlighted = resource.is_highlighted()
 
 		setup_buttons()
@@ -809,19 +813,19 @@ class ListEntry extends MarginContainer:
 			button_enabled.toggle_mode = true
 			button_enabled.mouse_filter = Control.MOUSE_FILTER_PASS
 			button_enabled.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-			button_enabled.pressed.connect(enable)
+			button_enabled.pressed.connect(_on_enable)
 			button_row.add_child(button_enabled, true)
 			
 		button_highlight.set_texture_normal(highlight_icon)
 		button_highlight.set_custom_minimum_size(icon_size)
 		button_highlight.set_h_size_flags(Control.SIZE_SHRINK_END)
 		button_highlight.set_visible(resource != null)
-		button_highlight.tooltip_text = "Highlight Instances"
+		button_highlight.tooltip_text = "Highlight " + ( "Instances" if type == Terrain3DAssets.TYPE_MESH else "Texture" )
 		button_highlight.toggle_mode = true
 		button_highlight.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_highlight.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button_highlight.set_pressed_no_signal(is_highlighted)
-		button_highlight.pressed.connect(highlight)
+		button_highlight.pressed.connect(_on_highlight)
 		button_row.add_child(button_highlight, true)
 		
 		button_edit.set_texture_normal(edit_icon)
@@ -831,7 +835,7 @@ class ListEntry extends MarginContainer:
 		button_edit.tooltip_text = "Edit Asset"
 		button_edit.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_edit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		button_edit.pressed.connect(edit)
+		button_edit.pressed.connect(_on_edit)
 		button_row.add_child(button_edit, true)
 
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -845,7 +849,7 @@ class ListEntry extends MarginContainer:
 		button_clear.tooltip_text = "Clear Asset"
 		button_clear.mouse_filter = Control.MOUSE_FILTER_PASS
 		button_clear.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		button_clear.pressed.connect(clear)
+		button_clear.pressed.connect(_on_clear)
 		button_row.add_child(button_clear, true)
 
 
@@ -907,7 +911,7 @@ class ListEntry extends MarginContainer:
 		if not mesh_resource:
 			count_label.text = str(0)
 		else:
-			count_label.text = format_number(mesh_resource.get_instance_count())
+			count_label.text = _format_number(mesh_resource.get_instance_count())
 
 
 	func _notification(p_what) -> void:
@@ -921,7 +925,7 @@ class ListEntry extends MarginContainer:
 					draw_texture(add_icon, (get_size() / 2) - (add_icon.get_size() / 2))
 				else:
 					if type == Terrain3DAssets.TYPE_TEXTURE:
-						self_modulate = resource.get_albedo_color()
+						self_modulate = resource.get_highlight_color() if is_highlighted else resource.get_albedo_color()
 						_thumbnail = resource.get_albedo_texture()
 						if _thumbnail:
 							draw_texture_rect(_thumbnail, rect, false)
@@ -935,8 +939,8 @@ class ListEntry extends MarginContainer:
 						else:
 							draw_rect(rect, Color(.15, .15, .15, 1.))
 						button_enabled.set_pressed_no_signal(!resource.is_enabled())
-						button_highlight.self_modulate = Color("FC7F7F") if is_highlighted else Color.WHITE
 						self_modulate = resource.get_highlight_color()
+					button_highlight.self_modulate = Color("FC7F7F") if is_highlighted else Color.WHITE
 				if drop_data:
 					draw_style_box(focus_style, rect)
 				if is_hovered:
@@ -969,15 +973,15 @@ class ListEntry extends MarginContainer:
 								set_edited_resource(Terrain3DTextureAsset.new(), false)
 							else:
 								set_edited_resource(Terrain3DMeshAsset.new(), false)
-							edit()
+							_on_edit()
 						else:
 							emit_signal("selected")
 					MOUSE_BUTTON_RIGHT:
 						if resource:
-							edit()
+							_on_edit()
 					MOUSE_BUTTON_MIDDLE:
 						if resource:
-							clear()
+							_on_clear()
 
 
 	func _can_drop_data(p_at_position: Vector2, p_data: Variant) -> bool:
@@ -1044,29 +1048,29 @@ class ListEntry extends MarginContainer:
 		queue_redraw()
 
 
-	func clear() -> void:
+	func _on_clear() -> void:
 		if resource:
 			name_label.hide()
 			set_edited_resource(null, false)
 			update_count_label()
 
 	
-	func edit() -> void:
+	func _on_edit() -> void:
 		emit_signal("selected")
 		emit_signal("inspected", resource)
 
 
-	func enable() -> void:
+	func _on_enable() -> void:
 		if resource is Terrain3DMeshAsset:
 			resource.set_enabled(!resource.is_enabled())
 
 
-	func highlight() -> void:
+	func _on_highlight() -> void:
 		is_highlighted = !is_highlighted
 		resource.set_highlighted(is_highlighted)
 
 
-	func format_number(num: int) -> String:
+	func _format_number(num: int) -> String:
 		var is_negative: bool = num < 0
 		var str_num: String = str(abs(num))
 		var result: String = ""

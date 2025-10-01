@@ -29,6 +29,7 @@ const COLOR_HOLES := Color(0.1, 0.1, 0.1) # Near-black
 const COLOR_NAVIGATION := Color(0.5, 0.2, 0.5) # Purple
 const COLOR_INSTANCE := Color(0.863, 0.08, 0.235) # Crimson
 const COLOR_UNINSTANCE := Color(0.2, 0.9, 0.6) # Cyan-green
+const COLOR_PICK := Color.WHITE
 
 const OP_NONE: int = 0x0
 const OP_POSITIVE_ONLY: int = 0x01
@@ -198,7 +199,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("dynamic_angle")
 			to_show.push_back("enable_scale")
 			to_show.push_back("scale")
-			to_show.push_back("scale_picker")			
+			to_show.push_back("scale_picker")
 
 		Terrain3DEditor.COLOR:
 			to_show.push_back("brush")
@@ -231,6 +232,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			to_show.push_back("slope")
+			to_show.push_back("mesh_picker")
 			set_menu_visibility(tool_settings.height_list, true)
 			to_show.push_back("height_offset")
 			to_show.push_back("random_height")
@@ -251,7 +253,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("on_collision")
 			to_show.push_back("raycast_height")
 			to_show.push_back("invert")
-			to_show.push_back("mesh_picker")
 
 		_:
 			pass
@@ -274,7 +275,7 @@ func _on_setting_changed(p_setting: Variant = null) -> void:
 	if not plugin.asset_dock: # Skip function if not _ready()
 		return
 	brush_data = tool_settings.get_settings()
-	brush_data["asset_id"] = plugin.asset_dock.current_list.get_selected_resource_id()
+	brush_data["asset_id"] = plugin.asset_dock.current_list.get_selected_asset_id()
 	if plugin.debug:
 		print("Terrain3DUI: _on_setting_changed: selected resource ID: ", brush_data["asset_id"])
 	if plugin.editor:
@@ -401,9 +402,8 @@ func update_decal() -> void:
 	## Picking
 	elif picking != Terrain3DEditor.TOOL_MAX:
 		editor_decal_part[0] = false # Hide brush
-		editor_decal_size[0] = 1. * plugin.terrain.get_vertex_spacing()
-		if picking == Terrain3DEditor.COLOR:
-				editor_decal_color[0] = Color.WHITE
+		editor_decal_size[0] = plugin.terrain.get_vertex_spacing()
+		editor_decal_color[0] = COLOR_PICK
 		editor_decal_color[0].a = 1.0
 
 	## Brushing Operations
@@ -606,13 +606,13 @@ func pick(p_global_position: Vector3) -> void:
 			Terrain3DEditor.SCALE:
 				color = Color(plugin.terrain.data.get_control_scale(p_global_position), 0., 0., 1.)
 			Terrain3DEditor.INSTANCER:
-				var mesh_asset_id: int = plugin.terrain.instancer.get_closest_asset_id(p_global_position)
+				var mesh_asset_id: int = plugin.terrain.instancer.get_closest_mesh_id(p_global_position)
 				color = Color(mesh_asset_id, 0., 0., 1.)
 			Terrain3DEditor.TEXTURE:
 				var texture_blend_data: Vector3 = plugin.terrain.data.get_texture_id(p_global_position)
 				if not texture_blend_data.is_finite():
 					return
-				if texture_blend_data.z < 0.5:
+				if texture_blend_data.z < 0.65:
 					color = Color(texture_blend_data.x, 0., 0., 1.)
 				else:
 					color = Color(texture_blend_data.y, 0., 0., 1.)
