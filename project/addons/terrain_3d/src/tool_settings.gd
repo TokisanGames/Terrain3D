@@ -68,107 +68,105 @@ func _ready() -> void:
 		"type":SettingType.LABEL, "list":main_list, "flags":NO_LABEL|NO_SAVE })
 
 	add_setting({ "name":"size", "type":SettingType.SLIDER, "list":main_list, "default":20, "unit":"m",
-								"range":Vector3(0.1, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
+							"range":Vector3(0.1, 200, 1), "flags":ALLOW_LARGER|ADD_SPACER })
 		
 	add_setting({ "name":"strength", "type":SettingType.SLIDER, "list":main_list, "default":33, 
-								"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
+							"unit":"%", "range":Vector3(1, 100, 1), "flags":ALLOW_LARGER })
 
 	add_setting({ "name":"height", "type":SettingType.SLIDER, "list":main_list, "default":20, 
-								"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
-	add_setting({ "name":"height_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.HEIGHT, "flags":NO_LABEL, "tooltip":"Height Picker." })
+							"unit":"m", "range":Vector3(-500, 500, 0.1), "flags":ALLOW_OUT_OF_BOUNDS })
+	add_setting({ "name":"height_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.HEIGHT,
+							"flags":NO_LABEL, "tooltip":"Pick Height from the terrain." })
 	
 	add_setting({ "name":"color", "type":SettingType.COLOR_SELECT, "list":main_list, 
-								"default":Color.WHITE, "flags":ADD_SEPARATOR })
-	add_setting({ "name":"color_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.COLOR, "flags":NO_LABEL, "tooltip":"Color Picker." })
+							"default":Color.WHITE, "flags":ADD_SEPARATOR })
+	add_setting({ "name":"color_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.COLOR,
+							"flags":NO_LABEL, "tooltip":"Pick Color from the terrain." })
 
 	add_setting({ "name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":-65,
-								"unit":"%", "range":Vector3(-100, 100, 1), "flags":ADD_SEPARATOR })
-	add_setting({ "name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.ROUGHNESS, "flags":NO_LABEL, "tooltip":"Roughness Picker." })
+							"unit":"%", "range":Vector3(-100, 100, 1), "flags":ADD_SEPARATOR })
+	add_setting({ "name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.ROUGHNESS,
+							"flags":NO_LABEL, "tooltip":"Pick Wetness from the terrain." })
 
 	add_setting({ "name":"enable_texture", "label":"Texture", "type":SettingType.CHECKBOX, 
-								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
+							"list":main_list, "default":true, "flags":ADD_SEPARATOR })
 
-	add_setting({ "name":"texture_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.TEXTURE, "flags":NO_LABEL, "tooltip":"Texture Picker." })
+	add_setting({ "name":"texture_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.TEXTURE,
+							"flags":NO_LABEL, "tooltip":"Pick Texture from the terrain." })
 
 	add_setting({ "name":"texture_filter", "label":"Texture Filter", "type":SettingType.CHECKBOX, 
-								"list":main_list, "default":false, "flags":ADD_SEPARATOR })
+							"list":main_list, "default":false, "flags":ADD_SEPARATOR })
 
 	add_setting({ "name":"margin", "type":SettingType.SLIDER, "list":main_list, "default":0, 
-								"unit":"", "range":Vector3(-50, 50, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+							"unit":"", "range":Vector3(-50, 50, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 
 	# Slope painting filter
-	add_setting({ "name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, "default":Vector2(0, 90), 
-								"unit":"°", "range":Vector3(0, 90, 1), "flags":ADD_SEPARATOR })
+	add_setting({ "name":"slope", "type":SettingType.DOUBLE_SLIDER, "list":main_list, "default":Vector2(0, 90),
+							"unit":"°", "range":Vector3(0, 90, 1), "flags":ADD_SEPARATOR })
 	
 	add_setting({ "name":"enable_angle", "label":"Angle", "type":SettingType.CHECKBOX, 
-								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
+							"list":main_list, "default":true, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"angle", "type":SettingType.SLIDER, "list":main_list, "default":0,
-								"unit":"%", "range":Vector3(0, 337.5, 22.5), "flags":NO_LABEL })
-	add_setting({ "name":"angle_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.ANGLE, "flags":NO_LABEL, "tooltip":"Angle Picker." })
+							"unit":"%", "range":Vector3(0, 337.5, 22.5), "flags":NO_LABEL })
+	add_setting({ "name":"angle_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.ANGLE,
+							"flags":NO_LABEL, "tooltip":"Pick Angle from the terrain." })
 	add_setting({ "name":"dynamic_angle", "label":"Dynamic", "type":SettingType.CHECKBOX, 
-								"list":main_list, "default":false, "flags":ADD_SPACER })
+							"list":main_list, "default":false, "flags":ADD_SPACER })
 	
 	add_setting({ "name":"enable_scale", "label":"Scale", "type":SettingType.CHECKBOX, 
-								"list":main_list, "default":true, "flags":ADD_SEPARATOR })
+							"list":main_list, "default":true, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"scale", "label":"±", "type":SettingType.SLIDER, "list":main_list, "default":0,
-								"unit":"%", "range":Vector3(-60, 80, 20), "flags":NO_LABEL })
-	add_setting({ "name":"scale_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.SCALE, "flags":NO_LABEL,"tooltip":"Scale Picker." })
+							"unit":"%", "range":Vector3(-60, 80, 20), "flags":NO_LABEL })
+	add_setting({ "name":"scale_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.SCALE,
+							"flags":NO_LABEL, "tooltip":"Pick Scale from the terrain." })
 
 	## Slope sculpting brush
 	add_setting({ "name":"gradient_points", "type":SettingType.MULTI_PICKER, "label":"Points", 
-								"list":main_list, "default":Terrain3DEditor.SCULPT, "flags":ADD_SEPARATOR })
+							"list":main_list, "default":Terrain3DEditor.SCULPT, "flags":ADD_SEPARATOR })
 	add_setting({ "name":"drawable", "type":SettingType.CHECKBOX, "list":main_list, "default":false, 
-								"flags":ADD_SEPARATOR })
+							"flags":ADD_SEPARATOR })
 	settings["drawable"].toggled.connect(_on_drawable_toggled)
 	
 	## Instancer
+	add_setting({ "name":"mesh_picker", "type":SettingType.PICKER, "list":main_list,
+							"default":Terrain3DEditor.INSTANCER, "flags":NO_LABEL|ADD_SEPARATOR,
+							"tooltip":"Pick a Mesh asset from the terrain, within an instancer cell. (See overlays.)" })
+
 	height_list = create_submenu(main_list, "Height", Layout.VERTICAL)
 	add_setting({ "name":"height_offset", "type":SettingType.SLIDER, "list":height_list, "default":0, 
-								"unit":"m", "range":Vector3(-10, 10, 0.05), "flags":ALLOW_OUT_OF_BOUNDS })
-	add_setting({ "name":"random_height", "label":"Random Height ±", "type":SettingType.SLIDER, 
-								"list":height_list, "default":0, "unit":"m", "range":Vector3(0, 10, 0.05),
-								"flags":ALLOW_OUT_OF_BOUNDS })
+							"unit":"m", "range":Vector3(-10, 10, 0.05), "flags":ALLOW_OUT_OF_BOUNDS })
+	add_setting({ "name":"random_height", "label":"Random Height ±", "type":SettingType.SLIDER, "list":height_list,
+							"default":0, "unit":"m", "range":Vector3(0, 10, 0.05), "flags":ALLOW_OUT_OF_BOUNDS })
 
 	scale_list = create_submenu(main_list, "Scale", Layout.VERTICAL)
 	add_setting({ "name":"fixed_scale", "type":SettingType.SLIDER, "list":scale_list, "default":100, 
-								"unit":"%", "range":Vector3(1, 1000, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+							"unit":"%", "range":Vector3(1, 1000, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 	add_setting({ "name":"random_scale", "label":"Random Scale ±", "type":SettingType.SLIDER, "list":scale_list, 
-								"default":20, "unit":"%", "range":Vector3(0, 99, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+							"default":20, "unit":"%", "range":Vector3(0, 99, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 
 	rotation_list = create_submenu(main_list, "Rotation", Layout.VERTICAL)
 	add_setting({ "name":"fixed_spin", "label":"Fixed Spin (Around Y)", "type":SettingType.SLIDER, "list":rotation_list, 
-								"default":0, "unit":"°", "range":Vector3(0, 360, 1) })
+							"default":0, "unit":"°", "range":Vector3(0, 360, 1) })
 	add_setting({ "name":"random_spin", "type":SettingType.SLIDER, "list":rotation_list, "default":360, 
-								"unit":"°", "range":Vector3(0, 360, 1) })
+							"unit":"°", "range":Vector3(0, 360, 1) })
 	add_setting({ "name":"fixed_tilt", "label":"Fixed Tilt", "type":SettingType.SLIDER, "list":rotation_list, 
-								"default":0, "unit":"°", "range":Vector3(-85, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+							"default":0, "unit":"°", "range":Vector3(-85, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 	add_setting({ "name":"random_tilt", "label":"Random Tilt ±", "type":SettingType.SLIDER, "list":rotation_list, 
-								"default":10, "unit":"°", "range":Vector3(0, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
+							"default":10, "unit":"°", "range":Vector3(0, 85, 1), "flags":ALLOW_OUT_OF_BOUNDS })
 	add_setting({ "name":"align_to_normal", "type":SettingType.CHECKBOX, "list":rotation_list, "default":false })
 	
 	color_list = create_submenu(main_list, "Color", Layout.VERTICAL)
 	add_setting({ "name":"vertex_color", "type":SettingType.COLOR_SELECT, "list":color_list, 
-								"default":Color.WHITE })
+							"default":Color.WHITE })
 	add_setting({ "name":"random_hue", "label":"Random Hue Shift ±", "type":SettingType.SLIDER, 
-								"list":color_list, "default":0, "unit":"°", "range":Vector3(0, 360, 1) })
+							"list":color_list, "default":0, "unit":"°", "range":Vector3(0, 360, 1) })
 	add_setting({ "name":"random_darken", "type":SettingType.SLIDER, "list":color_list, "default":50, 
-								"unit":"%", "range":Vector3(0, 100, 1) })
-	add_setting({ "name":"mesh_picker", "type":SettingType.PICKER, "list":main_list, 
-								"default":Terrain3DEditor.INSTANCER, "flags":NO_LABEL, "tooltip":"Mesh Picker." })
-	#add_setting({ "name":"blend_mode", "type":SettingType.OPTION, "list":color_list, "default":0, 
-								#"range":Vector3(0, 3, 1) })
-
+							"unit":"%", "range":Vector3(0, 100, 1) })
 	collision_list = create_submenu(main_list, "Collision", Layout.VERTICAL)
 	add_setting({ "name":"on_collision", "label":"On Collision", "type":SettingType.CHECKBOX, "list":collision_list,
-								"default":true })
+							"default":true })
 	add_setting({ "name":"raycast_height", "label":"Raycast Height", "type":SettingType.SLIDER, 
-								"list":collision_list, "default":10, "unit":"m", "range":Vector3(0, 200, .25) })
+							"list":collision_list, "default":10, "unit":"m", "range":Vector3(0, 200, .25) })
 
 	if DisplayServer.is_touchscreen_available():
 		add_setting({ "name":"invert", "label":"Invert", "type":SettingType.CHECKBOX, "list":main_list, "default":false, "flags":ADD_SEPARATOR })
@@ -180,16 +178,14 @@ func _ready() -> void:
 	## Advanced Settings Menu
 	advanced_list = create_submenu(main_list, "", Layout.VERTICAL, false)
 	add_setting({ "name":"auto_regions", "label":"Add regions while sculpting", "type":SettingType.CHECKBOX, 
-								"list":advanced_list, "default":true })
+							"list":advanced_list, "default":true })
 	advanced_list.add_child(HSeparator.new(), true)
-	add_setting({ "name":"show_brush_texture", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true })
-	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, 
-								"default":true })
+	add_setting({ "name":"show_brush_texture", "type":SettingType.CHECKBOX, "list":advanced_list, "default":true })
+	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, "default":true })
 	add_setting({ "name":"brush_spin_speed", "type":SettingType.SLIDER, "list":advanced_list, "default":50, 
-								"unit":"%", "range":Vector3(0, 100, 1) })
+							"unit":"%", "range":Vector3(0, 100, 1) })
 	add_setting({ "name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
-								"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
+							"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout, p_hover_pop: bool = true) -> Container:
@@ -375,11 +371,11 @@ func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position:
 		Terrain3DEditor.INSTANCER:
 			if p_color.r < 0:
 				return
-			plugin.asset_dock.set_selected_by_resource_id(p_color.r)
+			plugin.asset_dock.set_selected_by_asset_id(p_color.r)
 		Terrain3DEditor.TEXTURE:
 			if p_color.r < 0:
 				return
-			plugin.asset_dock.set_selected_by_resource_id(p_color.r)
+			plugin.asset_dock.set_selected_by_asset_id(p_color.r)
 	_on_setting_changed()
 
 

@@ -24,9 +24,14 @@ public:
 	virtual void set_id(const int p_id) = 0;
 	virtual int get_id() const = 0;
 
+	virtual void set_highlighted(const bool p_highlighted) = 0;
+	virtual bool is_highlighted() const = 0;
+	virtual Color get_highlight_color() const = 0;
+
 protected:
 	String _name;
 	int _id = 0;
+	bool _highlighted = false;
 };
 
 #endif // TERRAIN3D_ASSET_RESOURCE_CLASS_H

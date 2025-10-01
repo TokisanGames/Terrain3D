@@ -403,7 +403,7 @@ Ref<MultiMesh> Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const 
 }
 
 Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position, const int p_region_size) const {
-	IS_INIT(Vector2i());
+	IS_INIT(V2I_ZERO);
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
 	Vector2i cell;
 	cell.x = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.x / vertex_spacing), p_region_size) / CELL_SIZE;
@@ -1032,16 +1032,17 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	}
 }
 
-int Terrain3DInstancer::get_closest_asset_id(const Vector3 &p_picker_location) const {
-	LOG(INFO, "Finding closest mesh asset type to picked position ", p_picker_location);
-	Vector2i region_loc = _terrain->get_data()->get_region_location(p_picker_location);
+int Terrain3DInstancer::get_closest_mesh_id(const Vector3 &p_global_position) const {
+	LOG(INFO, "Finding mesh asset ID closest to specified position ", p_global_position);
+	Vector2i region_loc = _terrain->get_data()->get_region_location(p_global_position);
 	Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
 	if (!region) {
-		LOG(WARN, "No region found at location: ", p_picker_location);
+		LOG(WARN, "No region found at position: ", p_global_position);
 		return -1; // No region found
 	}
-	Vector3 region_global_pos = v2v3(region_loc) * _terrain->get_region_size() * _terrain->get_vertex_spacing();
-	Vector2i cell = _get_cell(p_picker_location, region->get_region_size());
+	int region_size = region->get_region_size();
+	Vector3 region_global_pos = v2iv3(region_loc) * real_t(region_size) * _terrain->get_vertex_spacing();
+	Vector2i cell = _get_cell(p_global_position, region_size);
 	Dictionary mesh_inst_dict = region->get_instances();
 	if (mesh_inst_dict.is_empty()) {
 		return -1; // No meshes found
@@ -1056,30 +1057,29 @@ int Terrain3DInstancer::get_closest_asset_id(const Vector3 &p_picker_location) c
 	Array mesh_instance_keys = mesh_inst_dict.keys();
 	for (int i = 0; i < mesh_instance_keys.size(); i++) {
 		int mesh_id = mesh_instance_keys[i];
-		Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
+		const Dictionary &cell_inst_dict = mesh_inst_dict[mesh_id];
 		if (!cell_inst_dict.has(cell)) {
 			continue; // No instances in this cell
 		}
-		Array triple = cell_inst_dict[cell];
+		const Array &triple = cell_inst_dict[cell];
 		if (triple.size() != 3) {
 			continue; // Invalid triple, skip
 		}
-		TypedArray<Transform3D> xforms = triple[0];
+		const TypedArray<Transform3D> &xforms = triple[0];
 		if (xforms.is_empty()) {
 			continue; // No transforms in this cell
 		}
 		for (int i = 0; i < xforms.size(); i++) {
 			const Transform3D &instance_transform = xforms[i];
 			Vector3 instance_origin = instance_transform.origin + region_global_pos; // Convert to global position
-
-			real_t distance = instance_origin.distance_squared_to(p_picker_location);
+			real_t distance = instance_origin.distance_squared_to(p_global_position);
 			if (distance < closest_distance) {
 				closest_distance = distance;
 				closest_id = mesh_id;
 			}
 		}
 	}
-	LOG(EXTREME, "Closest Mesh Asset ID: ", closest_id, " at: ", closest_distance);
+	LOG(DEBUG, "Found closest Mesh Asset ID: ", closest_id, " at: ", closest_distance);
 	return closest_id;
 }
 
@@ -1267,7 +1267,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
-	ClassDB::bind_method(D_METHOD("get_closest_asset_id", "picker_location"), &Terrain3DInstancer::get_closest_asset_id);
+	ClassDB::bind_method(D_METHOD("get_closest_mesh_id", "global_position"), &Terrain3DInstancer::get_closest_mesh_id);
 	ClassDB::bind_method(D_METHOD("update_mmis", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_data"), &Terrain3DInstancer::dump_data);

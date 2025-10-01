@@ -25,9 +25,8 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	bool _vertical_projection = false;
 	real_t _detiling_rotation = 0.0f;
 	real_t _detiling_shift = 0.0f;
+	Color _highlight_color = Color();
 
-	bool _highlighted = false;
-	Color _highight_color = Color();
 	bool _is_valid_format(const Ref<Texture2D> &p_texture) const;
 
 public:
@@ -42,8 +41,12 @@ public:
 	void set_id(const int p_new_id) override;
 	int get_id() const override { return _id; }
 
+	void set_highlighted(const bool p_highlighted) override;
+	bool is_highlighted() const override { return _highlighted; }
+	Color get_highlight_color() const override { return _highlighted ? _highlight_color : COLOR_WHITE; }
+
 	void set_albedo_color(const Color &p_color);
-	Color get_albedo_color() const { return _highlighted ? get_highlight_color() : _albedo_color; }
+	Color get_albedo_color() const { return _albedo_color; }
 
 	void set_albedo_texture(const Ref<Texture2D> &p_texture);
 	Ref<Texture2D> get_albedo_texture() const { return _albedo_texture; }
@@ -71,11 +74,6 @@ public:
 
 	void set_detiling_shift(const real_t p_detiling_shift);
 	real_t get_detiling_shift() const { return _detiling_shift; }
-
-	void set_highlighted(const bool p_highlighted);
-	bool get_highlighted() const { return _highlighted; }
-
-	Color get_highlight_color() const;
 
 protected:
 	static void _bind_methods();

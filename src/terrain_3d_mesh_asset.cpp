@@ -116,13 +116,14 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 
 Terrain3DMeshAsset::Terrain3DMeshAsset() {
 	clear();
-	set_highlighted(false);
 }
 
 void Terrain3DMeshAsset::clear() {
 	LOG(INFO, "Clearing MeshAsset");
 	_name = "New Mesh";
 	_id = 0;
+	_highlighted = false;
+	_highlight_mat = Ref<Material>();
 	_enabled = true;
 	_packed_scene.unref();
 	_generated_type = TYPE_NONE;
@@ -158,6 +159,34 @@ void Terrain3DMeshAsset::set_id(const int p_new_id) {
 	LOG(INFO, "Setting mesh id: ", _id);
 	LOG(DEBUG, "Emitting id_changed, ", Terrain3DAssets::TYPE_MESH, ", ", old_id, ", ", p_new_id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, p_new_id);
+}
+
+void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
+	if (p_highlighted == _highlighted) {
+		return; // No change
+	}
+	_highlighted = p_highlighted;
+	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
+	if (_highlighted && _highlight_mat.is_null()) {
+		Ref<StandardMaterial3D> mat;
+		mat.instantiate();
+		mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
+		Color color;
+		real_t random_float = real_t(rand()) / real_t(RAND_MAX);
+		color.set_hsv(random_float, 1.f, 1.f, 1.f);
+		mat->set_albedo(color);
+		_highlight_mat = mat;
+	}
+	LOG(DEBUG, "Emitting instancer_setting_changed");
+	emit_signal("instancer_setting_changed");
+}
+
+Color Terrain3DMeshAsset::get_highlight_color() const {
+	StandardMaterial3D *mat = cast_to<StandardMaterial3D>(_highlight_mat.ptr());
+	if (_highlighted && mat) {
+		return mat->get_albedo();
+	}
+	return COLOR_WHITE;
 }
 
 void Terrain3DMeshAsset::set_enabled(const bool p_enabled) {
@@ -351,34 +380,6 @@ void Terrain3DMeshAsset::set_material_overlay(const Ref<Material> &p_material) {
 	emit_signal("instancer_setting_changed");
 }
 
-void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
-	if (p_highlighted == _highlighted) {
-		return; // No change
-	}
-	_highlighted = p_highlighted;
-	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
-	if (_highlighted && _highlight_mat.is_null()) {
-		Ref<StandardMaterial3D> mat;
-		mat.instantiate();
-		mat->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
-		Color color;
-		real_t random_float = real_t(rand()) / real_t(RAND_MAX);
-		color.set_hsv(random_float, 1.f, 1.f, 1.f);
-		mat->set_albedo(color);
-		_highlight_mat = mat;
-	}
-	LOG(DEBUG, "Emitting instancer_setting_changed");
-	emit_signal("instancer_setting_changed");
-}
-
-Color Terrain3DMeshAsset::get_highlight_color() const {
-	StandardMaterial3D *mat = cast_to<StandardMaterial3D>(_highlight_mat.ptr());
-	if (_highlighted && mat) {
-		return mat->get_albedo();
-	}
-	return COLOR_WHITE;
-}
-
 void Terrain3DMeshAsset::set_generated_faces(const int p_count) {
 	if (_generated_faces != p_count) {
 		_generated_faces = CLAMP(p_count, 1, 3);
@@ -519,6 +520,10 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_name"), &Terrain3DMeshAsset::get_name);
 	ClassDB::bind_method(D_METHOD("set_id", "id"), &Terrain3DMeshAsset::set_id);
 	ClassDB::bind_method(D_METHOD("get_id"), &Terrain3DMeshAsset::get_id);
+	ClassDB::bind_method(D_METHOD("set_highlighted", "enabled"), &Terrain3DMeshAsset::set_highlighted);
+	ClassDB::bind_method(D_METHOD("is_highlighted"), &Terrain3DMeshAsset::is_highlighted);
+	ClassDB::bind_method(D_METHOD("get_highlight_color"), &Terrain3DMeshAsset::get_highlight_color);
+
 	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Terrain3DMeshAsset::set_enabled);
 	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DMeshAsset::is_enabled);
 
@@ -538,10 +543,6 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_material_override"), &Terrain3DMeshAsset::get_material_override);
 	ClassDB::bind_method(D_METHOD("set_material_overlay", "material"), &Terrain3DMeshAsset::set_material_overlay);
 	ClassDB::bind_method(D_METHOD("get_material_overlay"), &Terrain3DMeshAsset::get_material_overlay);
-
-	ClassDB::bind_method(D_METHOD("set_highlighted", "enabled"), &Terrain3DMeshAsset::set_highlighted);
-	ClassDB::bind_method(D_METHOD("is_highlighted"), &Terrain3DMeshAsset::is_highlighted);
-	ClassDB::bind_method(D_METHOD("get_highlight_color"), &Terrain3DMeshAsset::get_highlight_color);
 
 	ClassDB::bind_method(D_METHOD("set_generated_faces", "count"), &Terrain3DMeshAsset::set_generated_faces);
 	ClassDB::bind_method(D_METHOD("get_generated_faces"), &Terrain3DMeshAsset::get_generated_faces);

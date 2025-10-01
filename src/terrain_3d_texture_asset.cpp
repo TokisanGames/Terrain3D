@@ -37,6 +37,8 @@ bool Terrain3DTextureAsset::_is_valid_format(const Ref<Texture2D> &p_texture) co
 void Terrain3DTextureAsset::clear() {
 	_name = "New Texture";
 	_id = 0;
+	_highlighted = false;
+	_highlight_color = Color();
 	_albedo_color = Color(1.0f, 1.0f, 1.0f, 1.0f);
 	_albedo_texture.unref();
 	_normal_texture.unref();
@@ -62,6 +64,18 @@ void Terrain3DTextureAsset::set_id(const int p_new_id) {
 	LOG(INFO, "Setting texture id: ", _id);
 	LOG(DEBUG, "Emitting id_changed, ", Terrain3DAssets::TYPE_TEXTURE, ", ", old_id, ", ", _id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_TEXTURE, old_id, _id);
+}
+
+void Terrain3DTextureAsset::set_highlighted(const bool p_highlighted) {
+	if (p_highlighted == _highlighted) {
+		return; // No change
+	}
+	_highlighted = p_highlighted;
+	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
+	real_t random_float = real_t(rand()) / real_t(RAND_MAX);
+	_highlight_color.set_hsv(random_float, 1.f, 1.f, 1.f);
+	LOG(DEBUG, "Emitting setting_changed");
+	emit_signal("setting_changed");
 }
 
 void Terrain3DTextureAsset::set_albedo_color(const Color &p_color) {
@@ -168,25 +182,6 @@ void Terrain3DTextureAsset::set_detiling_shift(const real_t p_detiling_shift) {
 	emit_signal("setting_changed");
 }
 
-void Terrain3DTextureAsset::set_highlighted(const bool p_highlighted) {
-	if (p_highlighted == _highlighted) {
-		return; // No change
-	}
-	_highlighted = p_highlighted;
-	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
-	real_t random_float = real_t(rand()) / real_t(RAND_MAX);
-	_highight_color.set_hsv(random_float, 1.f, 1.f, 1.f);
-	LOG(DEBUG, "Emitting setting_changed");
-	emit_signal("setting_changed");
-}
-
-Color Terrain3DTextureAsset::get_highlight_color() const {
-	if (_highlighted) {
-		return _highight_color;
-	}
-	return COLOR_WHITE;
-}
-
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -201,6 +196,9 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_name"), &Terrain3DTextureAsset::get_name);
 	ClassDB::bind_method(D_METHOD("set_id", "id"), &Terrain3DTextureAsset::set_id);
 	ClassDB::bind_method(D_METHOD("get_id"), &Terrain3DTextureAsset::get_id);
+	ClassDB::bind_method(D_METHOD("set_highlighted", "highlight_state"), &Terrain3DTextureAsset::set_highlighted);
+	ClassDB::bind_method(D_METHOD("is_highlighted"), &Terrain3DTextureAsset::is_highlighted);
+	ClassDB::bind_method(D_METHOD("get_highlight_color"), &Terrain3DTextureAsset::get_highlight_color);
 	ClassDB::bind_method(D_METHOD("set_albedo_color", "color"), &Terrain3DTextureAsset::set_albedo_color);
 	ClassDB::bind_method(D_METHOD("get_albedo_color"), &Terrain3DTextureAsset::get_albedo_color);
 	ClassDB::bind_method(D_METHOD("set_albedo_texture", "texture"), &Terrain3DTextureAsset::set_albedo_texture);
@@ -221,8 +219,6 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_detiling_rotation"), &Terrain3DTextureAsset::get_detiling_rotation);
 	ClassDB::bind_method(D_METHOD("set_detiling_shift", "detiling_shift"), &Terrain3DTextureAsset::set_detiling_shift);
 	ClassDB::bind_method(D_METHOD("get_detiling_shift"), &Terrain3DTextureAsset::get_detiling_shift);
-	ClassDB::bind_method(D_METHOD("set_highlighted", "highlight_state"), &Terrain3DTextureAsset::set_highlighted);
-	ClassDB::bind_method(D_METHOD("get_highlighted"), &Terrain3DTextureAsset::get_highlighted);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");

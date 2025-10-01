@@ -72,7 +72,7 @@ public:
 	void append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id, const TypedArray<Transform3D> &p_xforms,
 			const PackedColorArray &p_colors, const bool p_update = true);
 	void update_transforms(const AABB &p_aabb);
-	int get_closest_asset_id(const Vector3 &p_picker_location) const;
+	int get_closest_mesh_id(const Vector3 &p_global_position) const;
 	void copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Terrain3DRegion *p_dst_region);
 
 	void swap_ids(const int p_src_id, const int p_dst_id);
