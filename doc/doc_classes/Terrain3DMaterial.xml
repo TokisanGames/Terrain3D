@@ -11,6 +11,16 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="get_buffer_material_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+			</description>
+		</method>
+		<method name="get_buffer_shader_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+			</description>
+		</method>
 		<method name="get_material_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
@@ -48,6 +58,7 @@
 		</method>
 		<method name="update">
 			<return type="void" />
+			<param index="0" name="_unnamed_arg0" type="bool" />
 			<description>
 				Recompiles the current shader and sends all uniform values to it again.
 			</description>
@@ -59,6 +70,10 @@
 		</member>
 		<member name="auto_shader_enabled" type="bool" setter="set_auto_shader" getter="get_auto_shader" default="false">
 			Enables selecting two texture IDs that will automatically be applied to the terrain based upon slope.
+		</member>
+		<member name="buffer_shader_override" type="Shader" setter="set_buffer_shader_override" getter="get_buffer_shader_override">
+		</member>
+		<member name="buffer_shader_override_enabled" type="bool" setter="enable_buffer_shader_override" getter="is_buffer_shader_override_enabled" default="false">
 		</member>
 		<member name="dual_scaling_enabled" type="bool" setter="set_dual_scaling" getter="get_dual_scaling" default="false">
 			Enables selecting one texture ID that will have multiple scales applied based upon camera distance. Use it for something like a rock texture so up close it will be nicely detailed, and far away mountains can be covered in the same rock texture without looking tiled. The two blend together at a specified distance.
@@ -93,6 +108,8 @@
 		</member>
 		<member name="show_control_texture" type="bool" setter="set_show_control_texture" getter="get_show_control_texture" default="false">
 			Albedo shows the base and overlay texture indices defined by the control map. Red pixels indicate the base texture, with brightness showing texture ids 0 to 31. Green pixels indicate the overlay texture. Yellow indicates both.
+		</member>
+		<member name="show_displacement_buffer" type="bool" setter="set_show_displacement_buffer" getter="get_show_displacement_buffer" default="false">
 		</member>
 		<member name="show_grey" type="bool" setter="set_show_grey" getter="get_show_grey" default="false">
 			Albedo is set to 0.2 grey.
