@@ -1045,6 +1045,10 @@ class ListEntry extends MarginContainer:
 
 	func set_selected(value: bool) -> void:
 		is_selected = value
+		if is_selected:
+			# Handle scrolling to show the selected item
+			await get_tree().process_frame
+			get_parent().get_parent().get_v_scroll_bar().ratio = position.y / get_parent().size.y
 		queue_redraw()
 
 
