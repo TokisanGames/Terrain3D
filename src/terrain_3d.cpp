@@ -129,7 +129,6 @@ void Terrain3D::__physics_process(const double p_delta) {
 		RS->material_set_param(_material->get_buffer_material_rid(), "_target_pos", get_clipmap_target_position());
 		_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 	}
-	
 }
 
 /**
@@ -211,7 +210,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_size(V2I(2));
 	_mouse_vp->set_scaling_3d_mode(Viewport::SCALING_3D_MODE_BILINEAR);
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
-	_mouse_vp->set_handle_input_locally(false);
+	_mouse_vp->set_disable_input(true);
 	_mouse_vp->set_canvas_cull_mask(0);
 	_mouse_vp->set_use_hdr_2d(true);
 	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
@@ -280,7 +279,8 @@ void Terrain3D::_setup_displacement_buffer() {
 	_d_buffer_vp->set_size(Vector2i(2, 2));
 	_d_buffer_vp->set_disable_3d(true);
 	_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
-	
+	_d_buffer_vp->set_disable_input(true);
+
 	_d_buffer_rect = memnew(ColorRect);
 	_d_buffer_rect->set_name("DBufferRect");
 	_d_buffer_vp->add_child(_d_buffer_rect, true);
