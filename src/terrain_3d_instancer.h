@@ -40,8 +40,14 @@ private:
 	// _mmi_containers{region_loc} -> Node3D
 	std::unordered_map<Vector2i, Node3D *, Vector2iHash> _mmi_containers;
 
-	uint32_t _density_counter = 0;
+	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
+	// <V2I_MAX, -2> means destroy first, then update everything
+	// <V2I_MAX, -1> means update everything
+	// <reg_loc, -1> means update all meshes in that region
+	// <V2I_MAX, N> means update mesh ID N in all regions
 	std::unordered_set<std::pair<Vector2i, int>, PairVector2iIntHash> _queued_updates;
+
+	uint32_t _density_counter = 0;
 
 	uint32_t _get_density_count(const real_t p_density);
 	void _process_updates();

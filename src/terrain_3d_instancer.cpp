@@ -14,7 +14,7 @@
 // Private Functions
 ///////////////////////////
 
-// Creates MMIs based on stored Multimesh data
+// Creates MMIs based on Multimesh data stored in Terrain3DRegions
 void Terrain3DInstancer::_process_updates() {
 	if (_queued_updates.empty()) {
 		return;
@@ -23,9 +23,13 @@ void Terrain3DInstancer::_process_updates() {
 	Terrain3DData *data = _terrain->get_data();
 	std::vector<Vector2i> locations;
 	std::vector<int> mesh_ids;
-	locations.reserve(_queued_updates.size());
-	mesh_ids.reserve(_terrain->get_assets()->get_mesh_count());
+	// Allocate absolute maximum sizes for updates
+	const TypedArray<Vector2i> &region_locations = data->get_region_locations();
+	locations.reserve(region_locations.size());
+	int mesh_count = _terrain->get_assets()->get_mesh_count();
+	mesh_ids.reserve(mesh_count);
 
+	// Expand all-region and all mesh_id sentinels into complete lists
 	bool update_all = false;
 	if (_queued_updates.find({ V2I_MAX, -2 }) != _queued_updates.end()) {
 		destroy();
@@ -34,30 +38,31 @@ void Terrain3DInstancer::_process_updates() {
 		update_all = true;
 	}
 	if (update_all) {
-		TypedArray<Vector2i> region_locations = data->get_region_locations();
 		for (int i = 0; i < region_locations.size(); i++) {
 			const Vector2i &region_loc = region_locations[i];
 			locations.emplace_back(region_loc);
 		}
-		for (int i = 0; i < _terrain->get_assets()->get_mesh_count(); i++) {
+		for (int i = 0; i < mesh_count; i++) {
 			mesh_ids.push_back(i);
 		}
 	} else {
-		// Collect specific location-mesh pairs
+		// Queue specific location-mesh pairs
 		for (const auto &[loc, mesh_id] : _queued_updates) {
-			if (loc == V2I_MAX && mesh_id >= 0) {
-				TypedArray<Vector2i> region_locations = data->get_region_locations();
+			// Queue all regions for mesh_id N
+			if (loc == V2I_MAX && mesh_id >= 0 && mesh_id < mesh_count) {
 				for (int i = 0; i < region_locations.size(); i++) {
 					const Vector2i &region_loc = region_locations[i];
 					locations.emplace_back(region_loc);
 				}
 				mesh_ids.push_back(mesh_id);
+				// Queue region V for all mesh_ids
 			} else if (loc != V2I_MAX && mesh_id == -1) {
 				locations.emplace_back(loc);
-				for (int i = 0; i < _terrain->get_assets()->get_mesh_count(); i++) {
+				for (int i = 0; i < mesh_count; i++) {
 					mesh_ids.push_back(i);
 				}
-			} else if (loc != V2I_MAX && mesh_id >= 0) {
+				// Queue region V for mesh_id N
+			} else if (loc != V2I_MAX && mesh_id >= 0 && mesh_id < mesh_count) {
 				locations.emplace_back(loc);
 				mesh_ids.push_back(mesh_id);
 			}
@@ -69,18 +74,19 @@ void Terrain3DInstancer::_process_updates() {
 		mesh_ids.erase(std::unique(mesh_ids.begin(), mesh_ids.end()), mesh_ids.end());
 	}
 
-	// Process queue
+	// Iterate over both lists to match requested pairs
 	for (const auto &region_loc : locations) {
+		Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+		if (!region) {
+			LOG(WARN, "Errant null region found at: ", region_loc);
+			continue;
+		}
 		for (int mesh_id : mesh_ids) {
 			// If region location / mesh_id pair is specifically listed, or all_regions + mesh_id, region + all_meshes
-			if (_queued_updates.find({ region_loc, mesh_id }) != _queued_updates.end() ||
+			if (update_all ||
+					_queued_updates.find({ region_loc, mesh_id }) != _queued_updates.end() ||
 					_queued_updates.find({ V2I_MAX, mesh_id }) != _queued_updates.end() ||
 					_queued_updates.find({ region_loc, -1 }) != _queued_updates.end()) {
-				Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
-				if (!region) {
-					LOG(WARN, "Errant null region found at: ", region_loc);
-					continue;
-				}
 				if (!region->get_instances().has(mesh_id)) {
 					continue;
 				}
