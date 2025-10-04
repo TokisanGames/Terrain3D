@@ -116,6 +116,14 @@ struct Vector2iHash {
 	}
 };
 
+struct PairVector2iIntHash {
+	std::size_t operator()(const std::pair<Vector2i, int> &p) const {
+		std::size_t h1 = Vector2iHash{}(p.first);
+		std::size_t h2 = std::hash<int>{}(p.second);
+		return h1 ^ (h2 << 1);
+	}
+};
+
 struct Vector3Hash {
 	std::size_t operator()(const Vector3 &v) const {
 		std::size_t h1 = std::hash<float>()(v.x);
