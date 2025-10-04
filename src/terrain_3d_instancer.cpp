@@ -21,15 +21,10 @@ void Terrain3DInstancer::_process_updates() {
 	}
 	IS_DATA_INIT(VOID);
 	Terrain3DData *data = _terrain->get_data();
-	std::vector<Vector2i> locations;
-	std::vector<int> mesh_ids;
-	// Allocate absolute maximum sizes for updates
 	const TypedArray<Vector2i> &region_locations = data->get_region_locations();
-	locations.reserve(region_locations.size());
 	int mesh_count = _terrain->get_assets()->get_mesh_count();
-	mesh_ids.reserve(mesh_count);
 
-	// Expand all-region and all mesh_id sentinels into complete lists
+	// Process all regions/mesh_ids sentinel and exit
 	bool update_all = false;
 	if (_queued_updates.find({ V2I_MAX, -2 }) != _queued_updates.end()) {
 		destroy();
@@ -40,59 +35,63 @@ void Terrain3DInstancer::_process_updates() {
 	if (update_all) {
 		for (int i = 0; i < region_locations.size(); i++) {
 			const Vector2i &region_loc = region_locations[i];
-			locations.emplace_back(region_loc);
-		}
-		for (int i = 0; i < mesh_count; i++) {
-			mesh_ids.push_back(i);
-		}
-	} else {
-		// Queue specific location-mesh pairs
-		for (const auto &[loc, mesh_id] : _queued_updates) {
-			// Queue all regions for mesh_id N
-			if (loc == V2I_MAX && mesh_id >= 0 && mesh_id < mesh_count) {
-				for (int i = 0; i < region_locations.size(); i++) {
-					const Vector2i &region_loc = region_locations[i];
-					locations.emplace_back(region_loc);
+			Terrain3DRegion *region = data->get_region_ptr(region_loc);
+			if (!region) {
+				LOG(WARN, "Errant null region found at: ", region_loc);
+				continue;
+			}
+			for (int mesh_id = 0; mesh_id < mesh_count; mesh_id++) {
+				auto pair = std::make_pair(region_loc, mesh_id);
+				if (region->get_instances().has(mesh_id)) {
+					_update_mmi_by_region(region, mesh_id);
 				}
-				mesh_ids.push_back(mesh_id);
-				// Queue region V for all mesh_ids
-			} else if (loc != V2I_MAX && mesh_id == -1) {
-				locations.emplace_back(loc);
-				for (int i = 0; i < mesh_count; i++) {
-					mesh_ids.push_back(i);
-				}
-				// Queue region V for mesh_id N
-			} else if (loc != V2I_MAX && mesh_id >= 0 && mesh_id < mesh_count) {
-				locations.emplace_back(loc);
-				mesh_ids.push_back(mesh_id);
 			}
 		}
-		// Remove duplicates
-		std::sort(locations.begin(), locations.end());
-		locations.erase(std::unique(locations.begin(), locations.end()), locations.end());
-		std::sort(mesh_ids.begin(), mesh_ids.end());
-		mesh_ids.erase(std::unique(mesh_ids.begin(), mesh_ids.end()), mesh_ids.end());
+		_queued_updates.clear();
+		return;
 	}
 
-	// Iterate over both lists to match requested pairs
-	for (const auto &region_loc : locations) {
-		Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+	// Identify pairs to process in a de-duplicating Set
+	std::unordered_set<std::pair<Vector2i, int>, PairVector2iIntHash> to_process;
+
+	// Process queued pairs with at least one specific element
+	for (const auto &[queued_loc, queued_mesh] : _queued_updates) {
+		if (queued_loc == V2I_MAX && queued_mesh < 0 || queued_mesh >= mesh_count) {
+			continue; // Skip sentinels handled above
+		}
+		// If all regions for specific mesh_id
+		if (queued_loc == V2I_MAX && queued_mesh >= 0) {
+			for (int i = 0; i < region_locations.size(); i++) {
+				const Vector2i &region_loc = region_locations[i];
+				auto pair = std::make_pair(region_loc, queued_mesh);
+				to_process.emplace(pair);
+			}
+		} else {
+			// Else one specific region
+			if (queued_mesh == -1) {
+				// All mesh_ids for this region
+				for (int mesh_id = 0; mesh_id < mesh_count; mesh_id++) {
+					auto pair = std::make_pair(queued_loc, mesh_id);
+					to_process.emplace(pair);
+				}
+			} else {
+				// Specific region + mesh - most common case
+				auto pair = std::make_pair(queued_loc, queued_mesh);
+				to_process.emplace(pair);
+			}
+		}
+	}
+	// Process all identified pairs
+	for (const auto &[region_loc, mesh_id] : to_process) {
+		Terrain3DRegion *region = data->get_region_ptr(region_loc);
 		if (!region) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
 			continue;
 		}
-		for (int mesh_id : mesh_ids) {
-			// If region location / mesh_id pair is specifically listed, or all_regions + mesh_id, region + all_meshes
-			if (update_all ||
-					_queued_updates.find({ region_loc, mesh_id }) != _queued_updates.end() ||
-					_queued_updates.find({ V2I_MAX, mesh_id }) != _queued_updates.end() ||
-					_queued_updates.find({ region_loc, -1 }) != _queued_updates.end()) {
-				if (!region->get_instances().has(mesh_id)) {
-					continue;
-				}
-				_update_mmi_by_region(region, mesh_id);
-			}
+		if (!region->get_instances().has(mesh_id)) {
+			continue;
 		}
+		_update_mmi_by_region(region, mesh_id);
 	}
 	_queued_updates.clear();
 }

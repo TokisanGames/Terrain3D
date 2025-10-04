@@ -177,8 +177,8 @@ void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
 		mat->set_albedo(color);
 		_highlight_mat = mat;
 	}
-	LOG(DEBUG, "Emitting instancer_setting_changed");
-	emit_signal("instancer_setting_changed");
+	LOG(DEBUG, "Emitting instancer_setting_changed, id: ", _id);
+	emit_signal("instancer_setting_changed", _id);
 }
 
 Color Terrain3DMeshAsset::get_highlight_color() const {
