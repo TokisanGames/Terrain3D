@@ -539,11 +539,11 @@ void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsse
 		return;
 	}
 	LOG(INFO, "Setting mesh id: ", p_id, ", ", p_mesh_asset);
-	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	if (p_mesh_asset.is_null()) {
 		IS_INSTANCER_INIT(VOID);
 		_terrain->get_instancer()->clear_by_mesh(p_id);
 	}
+	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	update_mesh_list();
 }
 
@@ -570,6 +570,9 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 	int max = get_mesh_count();
 	if (p_id < -1 || p_id >= max) {
 		return;
+	}
+	if (!_mesh_instance.is_valid()) {
+		_setup_thumbnail_creation();
 	}
 	int start, end;
 	if (p_id < 0) {

@@ -28,15 +28,12 @@ private:
 	// MM Resources stored in Terrain3DRegion::_instances as
 	// Region::_instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, modified:bool ]
 
-	// MMI Objects attached to tree, freed in destructor, stored as
-	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-	using CellMMIDict = std::unordered_map<Vector2i, MultiMeshInstance3D *, Vector2iHash>;
-	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
-	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_nodes;
+	// A pair of MMI and MM RIDs, freed in destructor, stored as
+	// _mmi_rids{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> std::pair<mmi_RID, mm_RID>
 
-	// Region MMI containers named Terrain3D/MMI/Region* are stored here as
-	// _mmi_containers{region_loc} -> Node3D
-	std::unordered_map<Vector2i, Node3D *, Vector2iHash> _mmi_containers;
+	using CellMMIDict = std::unordered_map<Vector2i, std::pair<RID, RID>, Vector2iHash>;
+	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
+	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_rids;
 
 	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
 	// <V2I_MAX, -2> means destroy first, then update everything
@@ -47,17 +44,19 @@ private:
 	V2IIntPair _queued_updates;
 
 	uint32_t _density_counter = 0;
+	bool _show_instances = true;
 
 	uint32_t _get_density_count(const real_t p_density);
 	void _process_updates();
 	void _update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id);
-	void _set_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
+	void _rebuild_ma_meshes();
+	void _set_mmi_lod_ranges(RID p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
 	void _destroy_mmi_by_mesh(const int p_mesh_id);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod = INT32_MAX);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
-	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
+	RID _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
 	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size) const;
 	Array _get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_on_collision, const real_t p_raycast_start) const;
 
@@ -88,7 +87,8 @@ public:
 	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
-	void dump_mmis();
+	void set_show_instances(const bool p_visible);
+	bool get_show_instances() const { return _show_instances; }
 
 protected:
 	static void _bind_methods();

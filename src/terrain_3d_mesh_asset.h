@@ -4,7 +4,6 @@
 #define TERRAIN3D_MESH_ASSET_CLASS_H
 
 #include <godot_cpp/classes/array_mesh.hpp>
-#include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
@@ -13,10 +12,10 @@
 #include "constants.h"
 #include "terrain_3d_asset_resource.h"
 
-using ShadowCasting = GeometryInstance3D::ShadowCastingSetting;
-constexpr ShadowCasting SHADOWS_ON = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
-constexpr ShadowCasting SHADOWS_OFF = GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
-constexpr ShadowCasting SHADOWS_ONLY = GeometryInstance3D::SHADOW_CASTING_SETTING_SHADOWS_ONLY;
+using ShadowCasting = RenderingServer::ShadowCastingSetting;
+constexpr ShadowCasting SHADOWS_ON = RenderingServer::SHADOW_CASTING_SETTING_ON;
+constexpr ShadowCasting SHADOWS_OFF = RenderingServer::SHADOW_CASTING_SETTING_OFF;
+constexpr ShadowCasting SHADOWS_ONLY = RenderingServer::SHADOW_CASTING_SETTING_SHADOWS_ONLY;
 
 class Terrain3DMeshAsset : public Terrain3DAssetResource {
 	GDCLASS(Terrain3DMeshAsset, Terrain3DAssetResource);
@@ -42,6 +41,7 @@ private:
 	real_t _height_offset = 0.f;
 	real_t _density = 10.f;
 	ShadowCasting _cast_shadows = SHADOWS_ON;
+	uint32_t _visibility_layers = 1;
 	Ref<Material> _material_override;
 	Ref<Material> _material_overlay;
 	int _last_lod = MAX_LOD_COUNT - 1;
@@ -59,6 +59,7 @@ private:
 	static bool _sort_lod_nodes(const Node *a, const Node *b);
 	Ref<ArrayMesh> _create_generated_mesh(const GenType p_type = TYPE_TEXTURE_CARD) const;
 	Ref<Material> _get_material();
+	bool scene_file_changed = false;
 
 public:
 	Terrain3DMeshAsset() { clear(); }
@@ -83,6 +84,7 @@ public:
 	uint32_t get_instance_count() const { return _instance_count; }
 
 	void set_scene_file(const Ref<PackedScene> &p_scene_file);
+	void parse_scene_meshes();
 	Ref<PackedScene> get_scene_file() const { return _packed_scene; }
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
@@ -96,6 +98,8 @@ public:
 	void set_cast_shadows(const ShadowCasting p_cast_shadows);
 	ShadowCasting get_cast_shadows() const { return _cast_shadows; };
 	ShadowCasting get_lod_cast_shadows(const int p_lod_id) const;
+	void set_visibility_layers(const uint32_t p_layers);
+	uint32_t get_visibility_layers() const { return _visibility_layers; }
 	void set_material_override(const Ref<Material> &p_material);
 	Ref<Material> get_material_override() const { return _material_override; }
 	void set_material_overlay(const Ref<Material> &p_material);
@@ -140,6 +144,8 @@ public:
 	real_t get_lod9_range() const { return _lod_ranges[9]; }
 	void set_fade_margin(const real_t p_fade_margin);
 	real_t get_fade_margin() const { return _fade_margin; };
+	bool get_scene_file_changed() const { return scene_file_changed; }
+	void set_scene_file_changed(const bool p_changed);
 
 protected:
 	void _validate_property(PropertyInfo &p_property) const;

@@ -141,14 +141,10 @@ void Terrain3D::_build_containers() {
 	_label_parent = memnew(Node3D);
 	_label_parent->set_name("Labels");
 	add_child(_label_parent, true);
-	_mmi_parent = memnew(Node3D);
-	_mmi_parent->set_name("MMI");
-	add_child(_mmi_parent, true);
 }
 
 void Terrain3D::_destroy_containers() {
 	memdelete_safely(_label_parent);
-	memdelete_safely(_mmi_parent);
 }
 
 void Terrain3D::_destroy_labels() {
@@ -617,9 +613,9 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 	SET_IF_DIFF(_vertex_spacing, CLAMP(p_spacing, 0.25f, 100.0f));
 	LOG(INFO, "Setting vertex spacing: ", _vertex_spacing);
 	if (_collision && _data && _instancer && _material.is_valid()) {
+		_instancer->_update_vertex_spacing(_vertex_spacing);
 		_data->_vertex_spacing = _vertex_spacing;
 		update_region_labels();
-		_instancer->_update_vertex_spacing(_vertex_spacing);
 		_mesher->reset_target_position();
 		_material->_update_maps();
 		_collision->destroy();
