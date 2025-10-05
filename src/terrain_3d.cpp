@@ -141,14 +141,10 @@ void Terrain3D::_build_containers() {
 	_label_parent = memnew(Node3D);
 	_label_parent->set_name("Labels");
 	add_child(_label_parent, true);
-	_mmi_parent = memnew(Node3D);
-	_mmi_parent->set_name("MMI");
-	add_child(_mmi_parent, true);
 }
 
 void Terrain3D::_destroy_containers() {
 	memdelete_safely(_label_parent);
-	memdelete_safely(_mmi_parent);
 }
 
 void Terrain3D::_destroy_labels() {
