@@ -93,7 +93,7 @@ protected:
 	static void _bind_methods();
 };
 
-typedef Terrain3DCollision::CollisionMode CollisionMode;
+using CollisionMode = Terrain3DCollision::CollisionMode;
 VARIANT_ENUM_CAST(Terrain3DCollision::CollisionMode);
 
 inline Vector2i Terrain3DCollision::_snap_to_grid(const Vector2i &p_pos) const {

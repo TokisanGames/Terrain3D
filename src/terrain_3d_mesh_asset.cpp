@@ -477,7 +477,7 @@ real_t Terrain3DMeshAsset::get_lod_range_end(const int p_lod) const {
 void Terrain3DMeshAsset::set_fade_margin(const real_t p_fade_margin) {
 	int max_range = CLAMP(_lod_ranges[1] - _lod_ranges[0], 0.f, 64.f);
 	_fade_margin = CLAMP(p_fade_margin, 0.f, max_range);
-	LOG(INFO, "Setting visbility margin: ", _fade_margin);
+	LOG(INFO, "Setting visibility margin: ", _fade_margin);
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }

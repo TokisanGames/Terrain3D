@@ -21,7 +21,7 @@
 // Calculates shape data from top left position. Assumes descaled and snapped.
 Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const int p_size) {
 	IS_DATA_INIT_MESG("Terrain not initialized", Dictionary());
-	Terrain3DData *data = _terrain->get_data();
+	const Terrain3DData *data = _terrain->get_data();
 	int region_size = _terrain->get_region_size();
 
 	int hshape_size = p_size + 1; // Calculate last vertex at end
@@ -35,8 +35,8 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 
 	// Get region_loc of top left corner of descaled and grid snapped collision shape position
 	Vector2i region_loc = V2I_DIVIDE_FLOOR(p_position, region_size);
-	Ref<Terrain3DRegion> region = data->get_region(region_loc);
-	if (region.is_null() || (region.is_valid() && region->is_deleted())) {
+	const Terrain3DRegion *region = data->get_region_ptr(region_loc);
+	if (!region || region->is_deleted()) {
 		LOG(EXTREME, "Region not found at: ", region_loc, ". Returning blank");
 		return Dictionary();
 	}
@@ -44,18 +44,18 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 	cmap = region->get_map(TYPE_CONTROL);
 
 	// Get +X, +Z adjacent regions in case we run over
-	region = data->get_region(region_loc + Vector2i(1, 0));
-	if (region.is_valid() && !region->is_deleted()) {
+	region = data->get_region_ptr(region_loc + Vector2i(1, 0));
+	if (region && !region->is_deleted()) {
 		map_x = region->get_map(TYPE_HEIGHT);
 		cmap_x = region->get_map(TYPE_CONTROL);
 	}
-	region = data->get_region(region_loc + Vector2i(0, 1));
-	if (region.is_valid() && !region->is_deleted()) {
+	region = data->get_region_ptr(region_loc + Vector2i(0, 1));
+	if (region && !region->is_deleted()) {
 		map_z = region->get_map(TYPE_HEIGHT);
 		cmap_z = region->get_map(TYPE_CONTROL);
 	}
-	region = data->get_region(region_loc + Vector2i(1, 1));
-	if (region.is_valid() && !region->is_deleted()) {
+	region = data->get_region_ptr(region_loc + Vector2i(1, 1));
+	if (region && !region->is_deleted()) {
 		map_xz = region->get_map(TYPE_HEIGHT);
 		cmap_xz = region->get_map(TYPE_CONTROL);
 	}

@@ -196,7 +196,7 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_name"), &Terrain3DTextureAsset::get_name);
 	ClassDB::bind_method(D_METHOD("set_id", "id"), &Terrain3DTextureAsset::set_id);
 	ClassDB::bind_method(D_METHOD("get_id"), &Terrain3DTextureAsset::get_id);
-	ClassDB::bind_method(D_METHOD("set_highlighted", "highlight_state"), &Terrain3DTextureAsset::set_highlighted);
+	ClassDB::bind_method(D_METHOD("set_highlighted", "enabled"), &Terrain3DTextureAsset::set_highlighted);
 	ClassDB::bind_method(D_METHOD("is_highlighted"), &Terrain3DTextureAsset::is_highlighted);
 	ClassDB::bind_method(D_METHOD("get_highlight_color"), &Terrain3DTextureAsset::get_highlight_color);
 	ClassDB::bind_method(D_METHOD("set_albedo_color", "color"), &Terrain3DTextureAsset::set_albedo_color);

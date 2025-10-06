@@ -59,7 +59,7 @@ protected:
 	static void _bind_methods();
 };
 
-typedef Terrain3DUtil Util;
+using Util = Terrain3DUtil;
 
 // Inline Functions
 

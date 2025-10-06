@@ -5,7 +5,7 @@
 
 using namespace godot;
 
-// Macros
+// Engine Shortcuts
 #define RS RenderingServer::get_singleton()
 #define PS PhysicsServer3D::get_singleton()
 #define IS_EDITOR Engine::get_singleton()->is_editor_hint()
@@ -27,6 +27,14 @@ using namespace godot;
 #define FLT_MIN __FLT_MIN__
 #endif
 
+// Terrain3D::_warnings is uint8_t
+#define WARN_MISMATCHED_SIZE 0x01
+#define WARN_MISMATCHED_FORMAT 0x02
+#define WARN_MISMATCHED_MIPMAPS 0x04
+#define WARN_ALL 0xFF
+
+// Global Types
+
 #define V2(x) Vector2(x, x)
 #define V2I(x) Vector2i(x, x)
 #define V3(x) Vector3(x, x, x)
@@ -39,11 +47,30 @@ static const Vector3 V3_MAX{ FLT_MAX, FLT_MAX, FLT_MAX };
 static const Vector3 V3_NAN{ NAN, NAN, NAN };
 static const Vector3 V3_UP{ 0.f, 1.f, 0.f };
 
-// Terrain3D::_warnings is uint8_t
-#define WARN_MISMATCHED_SIZE 0x01
-#define WARN_MISMATCHED_FORMAT 0x02
-#define WARN_MISMATCHED_MIPMAPS 0x04
-#define WARN_ALL 0xFF
+struct Vector2iHash {
+	std::size_t operator()(const Vector2i &v) const {
+		std::size_t h1 = std::hash<int>()(v.x);
+		std::size_t h2 = std::hash<int>()(v.y);
+		return h1 ^ (h2 << 1);
+	}
+};
+
+struct PairVector2iIntHash {
+	std::size_t operator()(const std::pair<Vector2i, int> &p) const {
+		std::size_t h1 = Vector2iHash{}(p.first);
+		std::size_t h2 = std::hash<int>{}(p.second);
+		return h1 ^ (h2 << 1);
+	}
+};
+
+struct Vector3Hash {
+	std::size_t operator()(const Vector3 &v) const {
+		std::size_t h1 = std::hash<float>()(v.x);
+		std::size_t h2 = std::hash<float>()(v.y);
+		std::size_t h3 = std::hash<float>()(v.z);
+		return h1 ^ (h2 << 1) ^ (h3 << 2);
+	}
+};
 
 // Set class name for logger.h
 
@@ -105,32 +132,5 @@ static const Vector3 V3_UP{ 0.f, 1.f, 0.f };
 		LOG(ERROR, mesg);                     \
 		return ret;                           \
 	}
-
-// Global Types
-
-struct Vector2iHash {
-	std::size_t operator()(const Vector2i &v) const {
-		std::size_t h1 = std::hash<int>()(v.x);
-		std::size_t h2 = std::hash<int>()(v.y);
-		return h1 ^ (h2 << 1);
-	}
-};
-
-struct PairVector2iIntHash {
-	std::size_t operator()(const std::pair<Vector2i, int> &p) const {
-		std::size_t h1 = Vector2iHash{}(p.first);
-		std::size_t h2 = std::hash<int>{}(p.second);
-		return h1 ^ (h2 << 1);
-	}
-};
-
-struct Vector3Hash {
-	std::size_t operator()(const Vector3 &v) const {
-		std::size_t h1 = std::hash<float>()(v.x);
-		std::size_t h2 = std::hash<float>()(v.y);
-		std::size_t h3 = std::hash<float>()(v.z);
-		return h1 ^ (h2 << 1) ^ (h3 << 2);
-	}
-};
 
 #endif // CONSTANTS_CLASS_H

@@ -265,7 +265,7 @@ void fragment() {
 				- auto_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);
 			// Enable Autoshader if outside regions or painted in regions, otherwise manual painted
 			uvec4 is_auto = (control & uvec4(0x1u)) | uvec4(uint(region_uv.z < 0.0));
-			uint u_auto = 
+			uint u_auto =
 				((uint(auto_base_texture) & 0x1Fu) << 27u) |
 				((uint(auto_overlay_texture) & 0x1Fu) << 22u) |
 				((uint(fma(auto_blend, 255.0 , 0.5)) & 0xFFu) << 14u);
@@ -354,7 +354,7 @@ void fragment() {
 		macrov = mix(vec3(1.0), macrov, clamp(v_normal.y + macro_variation_slope, 0., 1.));
 	}
 
-	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
+	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values
 	float roughness = clamp(fma(color_map.a - 0.5, 2.0, normal_rough.a), 0., 1.);
 
 	// Apply PBR

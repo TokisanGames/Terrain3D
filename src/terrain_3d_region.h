@@ -120,7 +120,7 @@ protected:
 	static void _bind_methods();
 };
 
-typedef Terrain3DRegion::MapType MapType;
+using MapType = Terrain3DRegion::MapType;
 VARIANT_ENUM_CAST(Terrain3DRegion::MapType);
 constexpr Terrain3DRegion::MapType TYPE_HEIGHT = Terrain3DRegion::MapType::TYPE_HEIGHT;
 constexpr Terrain3DRegion::MapType TYPE_CONTROL = Terrain3DRegion::MapType::TYPE_CONTROL;
