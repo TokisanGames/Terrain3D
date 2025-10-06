@@ -23,15 +23,13 @@ func create_terrain() -> Terrain3D:
 	green_gr.set_color(0, Color.from_hsv(100./360., .35, .3))
 	green_gr.set_color(1, Color.from_hsv(120./360., .4, .37))
 	var green_ta: Terrain3DTextureAsset = await create_texture_asset("Grass", green_gr, 1024)
-	green_ta.uv_scale = 0.1
-	green_ta.detiling_rotation = 0.1
+	green_ta.uv_scale = 0.02
 
 	var brown_gr := Gradient.new()
 	brown_gr.set_color(0, Color.from_hsv(30./360., .4, .3))
 	brown_gr.set_color(1, Color.from_hsv(30./360., .4, .4))
 	var brown_ta: Terrain3DTextureAsset = await create_texture_asset("Dirt", brown_gr, 1024)
 	brown_ta.uv_scale = 0.03
-	green_ta.detiling_rotation = 0.1
 	
 	var grass_ma: Terrain3DMeshAsset = create_mesh_asset("Grass", Color.from_hsv(120./360., .4, .37)) 
 
@@ -42,7 +40,7 @@ func create_terrain() -> Terrain3D:
 
 	# Set material and assets
 	terrain.material.world_background = Terrain3DMaterial.NONE
-	terrain.material.auto_shader = true
+	terrain.material.auto_shader_enabled = true
 	terrain.material.set_shader_param("auto_slope", 10)
 	terrain.material.set_shader_param("blend_sharpness", .975)
 	terrain.assets = Terrain3DAssets.new()
