@@ -1124,7 +1124,7 @@ int Terrain3DInstancer::get_closest_mesh_id(const Vector3 &p_global_position) co
 	Array mesh_instance_keys = mesh_inst_dict.keys();
 	for (int i = 0; i < mesh_instance_keys.size(); i++) {
 		int mesh_id = mesh_instance_keys[i];
-		const Dictionary &cell_inst_dict = mesh_inst_dict[mesh_id];
+		Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
 		if (!cell_inst_dict.has(cell)) {
 			continue; // No instances in this cell
 		}
@@ -1337,7 +1337,7 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_region", "region", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_region, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_transforms", "aabb"), &Terrain3DInstancer::update_transforms);
 	ClassDB::bind_method(D_METHOD("get_closest_mesh_id", "global_position"), &Terrain3DInstancer::get_closest_mesh_id);
-	ClassDB::bind_method(D_METHOD("update_mmis", "mesh_id", "region_location", "rebuild"), &Terrain3DInstancer::update_mmis, DEFVAL(-1), DEFVAL(V2I_MAX), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update_mmis", "mesh_id", "region_location", "rebuild_all"), &Terrain3DInstancer::update_mmis, DEFVAL(-1), DEFVAL(V2I_MAX), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
 }

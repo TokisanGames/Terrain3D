@@ -474,7 +474,7 @@ void Terrain3DUtil::benchmark(Terrain3D *p_terrain) {
 	if (!p_terrain) {
 		return;
 	}
-	Terrain3DData *data = p_terrain->get_data();
+	const Terrain3DData *data = p_terrain->get_data();
 	if (!data) {
 		return;
 	}

@@ -574,7 +574,7 @@ void Terrain3D::set_label_size(const int p_size) {
 void Terrain3D::update_region_labels() {
 	_destroy_labels();
 	if (_label_distance > 0.f && _data) {
-		Array region_locations = _data->get_region_locations();
+		TypedArray<Vector2i> region_locations = _data->get_region_locations();
 		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
 		for (int i = 0; i < region_locations.size(); i++) {
 			Label3D *label = memnew(Label3D);
