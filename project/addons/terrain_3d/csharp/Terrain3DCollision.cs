@@ -1,167 +1,157 @@
+#pragma warning disable CS0109
 using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Godot;
+using Godot.Collections;
 
 namespace TokisanGames;
 
 public partial class Terrain3DCollision : GodotObject
 {
-    public static readonly StringName GDExtensionName = "Terrain3DCollision";
 
-    [Obsolete("Wrapper classes cannot be constructed with Ctor (it only instantiate the underlying GodotObject), please use the Instantiate() method instead.")]
-    protected Terrain3DCollision() { }
+	private new static readonly StringName NativeName = new StringName("Terrain3DCollision");
 
-    /// <summary>
-    /// Creates an instance of the GDExtension <see cref="Terrain3DCollision"/> type, and attaches the wrapper script to it.
-    /// </summary>
-    /// <returns>The wrapper instance linked to the underlying GDExtension type.</returns>
-    public static Terrain3DCollision Instantiate()
-    {
-        return GDExtensionHelper.Instantiate<Terrain3DCollision>(GDExtensionName);
-    }
+	[Obsolete("Wrapper types cannot be constructed with constructors (it only instantiate the underlying Terrain3DCollision object), please use the Instantiate() method instead.")]
+	protected Terrain3DCollision() { }
 
-    /// <summary>
-    /// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DCollision"/> wrapper type,
-    /// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DCollision"/> wrapper type,
-    /// a new instance of the <see cref="Terrain3DCollision"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
-    /// </summary>
-    /// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
-    /// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
-    /// <returns>The existing or a new instance of the <see cref="Terrain3DCollision"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
-    public static Terrain3DCollision Bind(GodotObject godotObject)
-    {
-        return GDExtensionHelper.Bind<Terrain3DCollision>(godotObject);
-    }
-#region Enums
+	private static CSharpScript _wrapperScriptAsset;
 
-    public enum CollisionMode : long
-    {
-        Disabled = 0,
-        DynamicGame = 1,
-        DynamicEditor = 2,
-        FullGame = 3,
-        FullEditor = 4,
-    }
+	/// <summary>
+	/// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DCollision"/> wrapper type,
+	/// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DCollision"/> wrapper type,
+	/// a new instance of the <see cref="Terrain3DCollision"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
+	/// </summary>
+	/// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
+	/// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
+	/// <returns>The existing or a new instance of the <see cref="Terrain3DCollision"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
+	public new static Terrain3DCollision Bind(GodotObject godotObject)
+	{
+#if DEBUG
+		if (!IsInstanceValid(godotObject))
+			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
+#endif
+		if (godotObject is Terrain3DCollision wrapperScriptInstance)
+			return wrapperScriptInstance;
 
-#endregion
+#if DEBUG
+		var expectedType = typeof(Terrain3DCollision);
+		var currentObjectClassName = godotObject.GetClass();
+		if (!ClassDB.IsParentClass(expectedType.Name, currentObjectClassName))
+			throw new InvalidOperationException($"The supplied GodotObject ({currentObjectClassName}) is not the {expectedType.Name} type.");
+#endif
 
-#region Properties
+		if (_wrapperScriptAsset is null)
+		{
+			var scriptPathAttribute = typeof(Terrain3DCollision).GetCustomAttributes<ScriptPathAttribute>().FirstOrDefault();
+			if (scriptPathAttribute is null) throw new UnreachableException();
+			_wrapperScriptAsset = ResourceLoader.Load<CSharpScript>(scriptPathAttribute.Path);
+		}
 
-    public long /*Disabled,Dynamic/Game,Dynamic/Editor,Full/Game,Full/Editor*/ Mode
-    {
-        get => (long /*Disabled,Dynamic/Game,Dynamic/Editor,Full/Game,Full/Editor*/)Get(_cached_mode).As<Int64>();
-        set => Set(_cached_mode, Variant.From(value));
-    }
+		var instanceId = godotObject.GetInstanceId();
+		godotObject.SetScript(_wrapperScriptAsset);
+		return (Terrain3DCollision)InstanceFromId(instanceId);
+	}
 
-    public int ShapeSize
-    {
-        get => (int)Get(_cached_shape_size);
-        set => Set(_cached_shape_size, Variant.From(value));
-    }
+	/// <summary>
+	/// Creates an instance of the GDExtension <see cref="Terrain3DCollision"/> type, and attaches a wrapper script instance to it.
+	/// </summary>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DCollision" type.</returns>
+	public new static Terrain3DCollision Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
-    public int Radius
-    {
-        get => (int)Get(_cached_radius);
-        set => Set(_cached_radius, Variant.From(value));
-    }
+	public enum CollisionMode
+	{
+		Disabled = 0,
+		DynamicGame = 1,
+		DynamicEditor = 2,
+		FullGame = 3,
+		FullEditor = 4,
+	}
 
-    public int Layer
-    {
-        get => (int)Get(_cached_layer);
-        set => Set(_cached_layer, Variant.From(value));
-    }
+	public new static class GDExtensionPropertyName
+	{
+		public new static readonly StringName Mode = "mode";
+		public new static readonly StringName ShapeSize = "shape_size";
+		public new static readonly StringName Radius = "radius";
+		public new static readonly StringName Layer = "layer";
+		public new static readonly StringName Mask = "mask";
+		public new static readonly StringName Priority = "priority";
+		public new static readonly StringName PhysicsMaterial = "physics_material";
+	}
 
-    public int Mask
-    {
-        get => (int)Get(_cached_mask);
-        set => Set(_cached_mask, Variant.From(value));
-    }
+	public new Variant Mode
+	{
+		get => Get(GDExtensionPropertyName.Mode).As<Variant>();
+		set => Set(GDExtensionPropertyName.Mode, value);
+	}
 
-    public float Priority
-    {
-        get => (float)Get(_cached_priority);
-        set => Set(_cached_priority, Variant.From(value));
-    }
+	public new long ShapeSize
+	{
+		get => Get(GDExtensionPropertyName.ShapeSize).As<long>();
+		set => Set(GDExtensionPropertyName.ShapeSize, value);
+	}
 
-    public PhysicsMaterial PhysicsMaterial
-    {
-        get => (PhysicsMaterial)Get(_cached_physics_material);
-        set => Set(_cached_physics_material, Variant.From(value));
-    }
+	public new long Radius
+	{
+		get => Get(GDExtensionPropertyName.Radius).As<long>();
+		set => Set(GDExtensionPropertyName.Radius, value);
+	}
 
-#endregion
+	public new long Layer
+	{
+		get => Get(GDExtensionPropertyName.Layer).As<long>();
+		set => Set(GDExtensionPropertyName.Layer, value);
+	}
 
-#region Methods
+	public new long Mask
+	{
+		get => Get(GDExtensionPropertyName.Mask).As<long>();
+		set => Set(GDExtensionPropertyName.Mask, value);
+	}
 
-    public void Build() => Call(_cached_build);
+	public new double Priority
+	{
+		get => Get(GDExtensionPropertyName.Priority).As<double>();
+		set => Set(GDExtensionPropertyName.Priority, value);
+	}
 
-    public void Update(bool rebuild) => Call(_cached_update, rebuild);
+	public new PhysicsMaterial PhysicsMaterial
+	{
+		get => Get(GDExtensionPropertyName.PhysicsMaterial).As<PhysicsMaterial>();
+		set => Set(GDExtensionPropertyName.PhysicsMaterial, value);
+	}
 
-    public void Destroy() => Call(_cached_destroy);
+	public new static class GDExtensionMethodName
+	{
+		public new static readonly StringName Build = "build";
+		public new static readonly StringName Update = "update";
+		public new static readonly StringName Destroy = "destroy";
+		public new static readonly StringName IsEnabled = "is_enabled";
+		public new static readonly StringName IsEditorMode = "is_editor_mode";
+		public new static readonly StringName IsDynamicMode = "is_dynamic_mode";
+		public new static readonly StringName GetRid = "get_rid";
+	}
 
-    public void SetMode(int mode) => Call(_cached_set_mode, mode);
+	public new void Build() => 
+		Call(GDExtensionMethodName.Build, []);
 
-    public int GetMode() => Call(_cached_get_mode).As<int>();
+	public new void Update(bool rebuild = false) => 
+		Call(GDExtensionMethodName.Update, [rebuild]);
 
-    public bool IsEnabled() => Call(_cached_is_enabled).As<bool>();
+	public new void Destroy() => 
+		Call(GDExtensionMethodName.Destroy, []);
 
-    public bool IsEditorMode() => Call(_cached_is_editor_mode).As<bool>();
+	public new bool IsEnabled() => 
+		Call(GDExtensionMethodName.IsEnabled, []).As<bool>();
 
-    public bool IsDynamicMode() => Call(_cached_is_dynamic_mode).As<bool>();
+	public new bool IsEditorMode() => 
+		Call(GDExtensionMethodName.IsEditorMode, []).As<bool>();
 
-    public void SetShapeSize(int size) => Call(_cached_set_shape_size, size);
+	public new bool IsDynamicMode() => 
+		Call(GDExtensionMethodName.IsDynamicMode, []).As<bool>();
 
-    public int GetShapeSize() => Call(_cached_get_shape_size).As<int>();
+	public new Rid GetRid() => 
+		Call(GDExtensionMethodName.GetRid, []).As<Rid>();
 
-    public void SetRadius(int radius) => Call(_cached_set_radius, radius);
-
-    public int GetRadius() => Call(_cached_get_radius).As<int>();
-
-    public void SetLayer(int layers) => Call(_cached_set_layer, layers);
-
-    public int GetLayer() => Call(_cached_get_layer).As<int>();
-
-    public void SetMask(int mask) => Call(_cached_set_mask, mask);
-
-    public int GetMask() => Call(_cached_get_mask).As<int>();
-
-    public void SetPriority(float priority) => Call(_cached_set_priority, priority);
-
-    public float GetPriority() => Call(_cached_get_priority).As<float>();
-
-    public void SetPhysicsMaterial(PhysicsMaterial material) => Call(_cached_set_physics_material, (PhysicsMaterial)material);
-
-    public PhysicsMaterial GetPhysicsMaterial() => GDExtensionHelper.Bind<PhysicsMaterial>(Call(_cached_get_physics_material).As<GodotObject>());
-
-    public Rid GetRid() => Call(_cached_get_rid).As<Rid>();
-
-#endregion
-
-    private static readonly StringName _cached_mode = "mode";
-    private static readonly StringName _cached_shape_size = "shape_size";
-    private static readonly StringName _cached_radius = "radius";
-    private static readonly StringName _cached_layer = "layer";
-    private static readonly StringName _cached_mask = "mask";
-    private static readonly StringName _cached_priority = "priority";
-    private static readonly StringName _cached_physics_material = "physics_material";
-    private static readonly StringName _cached_build = "build";
-    private static readonly StringName _cached_update = "update";
-    private static readonly StringName _cached_destroy = "destroy";
-    private static readonly StringName _cached_set_mode = "set_mode";
-    private static readonly StringName _cached_get_mode = "get_mode";
-    private static readonly StringName _cached_is_enabled = "is_enabled";
-    private static readonly StringName _cached_is_editor_mode = "is_editor_mode";
-    private static readonly StringName _cached_is_dynamic_mode = "is_dynamic_mode";
-    private static readonly StringName _cached_set_shape_size = "set_shape_size";
-    private static readonly StringName _cached_get_shape_size = "get_shape_size";
-    private static readonly StringName _cached_set_radius = "set_radius";
-    private static readonly StringName _cached_get_radius = "get_radius";
-    private static readonly StringName _cached_set_layer = "set_layer";
-    private static readonly StringName _cached_get_layer = "get_layer";
-    private static readonly StringName _cached_set_mask = "set_mask";
-    private static readonly StringName _cached_get_mask = "get_mask";
-    private static readonly StringName _cached_set_priority = "set_priority";
-    private static readonly StringName _cached_get_priority = "get_priority";
-    private static readonly StringName _cached_set_physics_material = "set_physics_material";
-    private static readonly StringName _cached_get_physics_material = "get_physics_material";
-    private static readonly StringName _cached_get_rid = "get_rid";
 }
