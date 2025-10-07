@@ -58,6 +58,8 @@ Methods
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`do_for_regions<class_Terrain3DData_method_do_for_regions>`\ (\ area\: ``Rect2i``, callback\: ``Callable``\ )                                                                                                         |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                                     | :ref:`dump<class_Terrain3DData_method_dump>`\ (\ verbose\: ``bool`` = false\ ) |const|                                                                                                                                     |
+   +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | Error                                                                      | :ref:`export_image<class_Terrain3DData_method_export_image>`\ (\ file_name\: ``String``, map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`\ ) |const|                                                                |
    +----------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Color``                                                                  | :ref:`get_color<class_Terrain3DData_method_get_color>`\ (\ global_position\: ``Vector3``\ ) |const|                                                                                                                        |
@@ -474,6 +476,18 @@ Calls the callback function for every region within the given area. If using ver
 The callable receives: source Terrain3DRegion, source Rect2i, dest Rect2i, (bindings)
 
 You may wish to append .bind() to the callback to pass along variables. For instance internally this function is called when changing region size. We bind the destination Terrain3DRegion, then use do_for_regions to copy segments of source regions to segments of destination regions. See the code for change_region_size() for more.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_dump:
+
+.. rst-class:: classref-method
+
+|void| **dump**\ (\ verbose\: ``bool`` = false\ ) |const| :ref:`🔗<class_Terrain3DData_method_dump>`
+
+Calls :ref:`Terrain3DRegion.dump()<class_Terrain3DRegion_method_dump>` for all regions loaded, active and inactive.
 
 .. rst-class:: classref-item-separator
 

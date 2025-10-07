@@ -64,6 +64,8 @@ Methods
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`calc_height_range<class_Terrain3DRegion_method_calc_height_range>`\ (\ )                                                                         |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`dump<class_Terrain3DRegion_method_dump>`\ (\ verbose\: ``bool`` = false\ ) |const|                                                               |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Terrain3DRegion<class_Terrain3DRegion>` | :ref:`duplicate<class_Terrain3DRegion_method_duplicate>`\ (\ deep\: ``bool`` = false\ )                                                                |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Dictionary``                                | :ref:`get_data<class_Terrain3DRegion_method_get_data>`\ (\ ) |const|                                                                                   |
@@ -395,6 +397,18 @@ Method Descriptions
 |void| **calc_height_range**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_calc_height_range>`
 
 Recalculates the height range for this region by looking at every pixel in the heightmap.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_dump:
+
+.. rst-class:: classref-method
+
+|void| **dump**\ (\ verbose\: ``bool`` = false\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_dump>`
+
+Dumps information about the data in the region, including instance IDs, counts, and data pointers.
 
 .. rst-class:: classref-item-separator
 
