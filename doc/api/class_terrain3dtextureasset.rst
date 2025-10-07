@@ -61,9 +61,15 @@ Methods
 .. table::
    :widths: auto
 
-   +--------+--------------------------------------------------------------+
-   | |void| | :ref:`clear<class_Terrain3DTextureAsset_method_clear>`\ (\ ) |
-   +--------+--------------------------------------------------------------+
+   +-----------+------------------------------------------------------------------------------------------------------+
+   | |void|    | :ref:`clear<class_Terrain3DTextureAsset_method_clear>`\ (\ )                                         |
+   +-----------+------------------------------------------------------------------------------------------------------+
+   | ``Color`` | :ref:`get_highlight_color<class_Terrain3DTextureAsset_method_get_highlight_color>`\ (\ ) |const|     |
+   +-----------+------------------------------------------------------------------------------------------------------+
+   | ``bool``  | :ref:`is_highlighted<class_Terrain3DTextureAsset_method_is_highlighted>`\ (\ ) |const|               |
+   +-----------+------------------------------------------------------------------------------------------------------+
+   | |void|    | :ref:`set_highlighted<class_Terrain3DTextureAsset_method_set_highlighted>`\ (\ enabled\: ``bool``\ ) |
+   +-----------+------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -331,6 +337,42 @@ Method Descriptions
 |void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DTextureAsset_method_clear>`
 
 Clears the texture files and settings.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_method_get_highlight_color:
+
+.. rst-class:: classref-method
+
+``Color`` **get_highlight_color**\ (\ ) |const| :ref:`🔗<class_Terrain3DTextureAsset_method_get_highlight_color>`
+
+Returns the color of the current highlight, if any.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_method_is_highlighted:
+
+.. rst-class:: classref-method
+
+``bool`` **is_highlighted**\ (\ ) |const| :ref:`🔗<class_Terrain3DTextureAsset_method_is_highlighted>`
+
+Returns true if this texture is currently highlighted on the ground. For editor use.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_method_set_highlighted:
+
+.. rst-class:: classref-method
+
+|void| **set_highlighted**\ (\ enabled\: ``bool``\ ) :ref:`🔗<class_Terrain3DTextureAsset_method_set_highlighted>`
+
+Enables or disables adding a random highlight color to this texture wherever placed on the ground.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

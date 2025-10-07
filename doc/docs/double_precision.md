@@ -19,8 +19,6 @@ For a more detailed explanation, see [Large World Coordinates](https://docs.godo
 
 ## Setup
 
-One user reported success using Godot 4.2.1 and Terrain3D 0.9.1.
-
 To get Terrain3D and Godot working with double precision floats, you must:
 
 1. [Build Godot from source](https://docs.godotengine.org/en/latest/contributing/development/compiling/index.html) with `scons precision=double` along with your other parameters like target, platform, etc.

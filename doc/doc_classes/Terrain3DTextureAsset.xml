@@ -14,6 +14,25 @@
 				Clears the texture files and settings.
 			</description>
 		</method>
+		<method name="get_highlight_color" qualifiers="const">
+			<return type="Color" />
+			<description>
+				Returns the color of the current highlight, if any.
+			</description>
+		</method>
+		<method name="is_highlighted" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns true if this texture is currently highlighted on the ground. For editor use.
+			</description>
+		</method>
+		<method name="set_highlighted">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				Enables or disables adding a random highlight color to this texture wherever placed on the ground.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="albedo_color" type="Color" setter="set_albedo_color" getter="get_albedo_color" default="Color(1, 1, 1, 1)">

@@ -100,16 +100,17 @@
 				Removes all instancer data and MultiMeshInstance nodes attached to the tree for the specified region and mesh id.
 			</description>
 		</method>
-		<method name="dump_data">
-			<return type="void" />
-			<description>
-				Dumps the instancer data arrays and dictionaries for all regions.
-			</description>
-		</method>
 		<method name="dump_mmis">
 			<return type="void" />
 			<description>
 				Dumps the MultiMeshInstance3Ds attached to the tree and information about the nodes for all regions.
+			</description>
+		</method>
+		<method name="get_closest_mesh_id" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="global_position" type="Vector3" />
+			<description>
+				Returns the mesh instance ID closest to the specified global position on the ground.
 			</description>
 		</method>
 		<method name="remove_instances">
@@ -130,10 +131,14 @@
 		</method>
 		<method name="update_mmis">
 			<return type="void" />
-			<param index="0" name="rebuild" type="bool" default="false" />
+			<param index="0" name="mesh_id" type="int" default="-1" />
+			<param index="1" name="region_location" type="Vector2i" default="Vector2i(2147483647, 2147483647)" />
+			<param index="2" name="rebuild_all" type="bool" default="false" />
 			<description>
-				Rebuilds the MMIs in cells that have been modified or are missing. See [member Terrain3DRegion.instances].
-				- rebuild - Destroys all MMIs first then rebuilds all of them from scratch.
+				Queues a request to rebuild the MMIs for the specified IDs and regions on the next RenderingServer.frame_pre_draw signal. This is safe to call multiple times per frame and it will de-duplicate and do the most general requests. So if you first call it for region (0,0), mesh 52, then later in the frame ask for all regions, mesh 52, it will do only the latter.
+				- mesh_id - rebuild MMIs for this mesh id. Use `-1` for all IDs.
+				- region_location - rebuild MMIs for this region. Use `Vector2i.MAX` for all regions.
+				- rebuild_all - destroy all MMIs first before rebuilding.
 			</description>
 		</method>
 		<method name="update_transforms">

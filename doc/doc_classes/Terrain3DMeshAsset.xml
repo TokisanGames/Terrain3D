@@ -54,7 +54,7 @@
 		<method name="is_highlighted" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns true if this mesh asset is currently highlighted. For editor use.
+				Returns true if the instances for this mesh asset are currently highlighted on the ground. For editor use.
 			</description>
 		</method>
 		<method name="set_highlighted">

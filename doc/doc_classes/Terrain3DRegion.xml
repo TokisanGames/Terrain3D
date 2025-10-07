@@ -14,6 +14,13 @@
 				Recalculates the height range for this region by looking at every pixel in the heightmap.
 			</description>
 		</method>
+		<method name="dump" qualifiers="const">
+			<return type="void" />
+			<param index="0" name="verbose" type="bool" default="false" />
+			<description>
+				Dumps information about the data in the region, including instance IDs, counts, and data pointers.
+			</description>
+		</method>
 		<method name="duplicate">
 			<return type="Terrain3DRegion" />
 			<param index="0" name="deep" type="bool" default="false" />

@@ -60,6 +60,13 @@
 				You may wish to append .bind() to the callback to pass along variables. For instance internally this function is called when changing region size. We bind the destination Terrain3DRegion, then use do_for_regions to copy segments of source regions to segments of destination regions. See the code for change_region_size() for more.
 			</description>
 		</method>
+		<method name="dump" qualifiers="const">
+			<return type="void" />
+			<param index="0" name="verbose" type="bool" default="false" />
+			<description>
+				Calls [method Terrain3DRegion.dump] for all regions loaded, active and inactive.
+			</description>
+		</method>
 		<method name="export_image" qualifiers="const">
 			<return type="int" enum="Error" />
 			<param index="0" name="file_name" type="String" />
