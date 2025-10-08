@@ -43,6 +43,7 @@ private:
 	real_t _height_offset = 0.f;
 	real_t _density = 10.f;
 	ShadowCasting _cast_shadows = SHADOWS_ON;
+	int _visibility_layers = 1;
 	Ref<Material> _material_override;
 	Ref<Material> _material_overlay;
 	int _generated_faces = 2;
@@ -98,6 +99,8 @@ public:
 	void set_cast_shadows(const ShadowCasting p_cast_shadows);
 	ShadowCasting get_cast_shadows() const { return _cast_shadows; };
 	ShadowCasting get_lod_cast_shadows(const int p_lod_id) const;
+	void set_visibility_layers(const int p_layers);
+	int get_visibility_layers() const { return _visibility_layers; }
 	void set_material_override(const Ref<Material> &p_material);
 	Ref<Material> get_material_override() const { return _material_override; }
 	void set_material_overlay(const Ref<Material> &p_material);

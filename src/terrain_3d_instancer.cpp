@@ -189,6 +189,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				RS->instance_geometry_set_material_overlay(mmi, ma->get_material_overlay().is_valid() ? ma->get_material_overlay()->get_rid() : RID());
 			}
 			RS->instance_geometry_set_cast_shadows_setting(mmi, ma->get_lod_cast_shadows(lod));
+			RS->instance_set_layer_mask(mmi, ma->get_visibility_layers());
 			_setup_mmi_lod_ranges(mmi, ma, lod);
 
 			// Reposition MMI to region location
