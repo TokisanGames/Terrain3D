@@ -60,7 +60,7 @@ void Terrain3DTextureAsset::set_name(const String &p_name) {
 
 void Terrain3DTextureAsset::set_id(const int p_new_id) {
 	int old_id = _id;
-	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_TEXTURES);
+	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_TEXTURES - 1);
 	LOG(INFO, "Setting texture id: ", _id);
 	LOG(DEBUG, "Emitting id_changed, TYPE_TEXTURE, ", old_id, ", ", _id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_TEXTURE, old_id, _id);

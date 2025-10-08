@@ -126,7 +126,6 @@ void Terrain3DMeshAsset::clear() {
 	_highlight_mat = Ref<Material>();
 	_enabled = true;
 	_packed_scene.unref();
-	_generated_type = TYPE_NONE;
 	_meshes.clear();
 	_thumbnail.unref();
 	_height_offset = 0.f;
@@ -139,8 +138,9 @@ void Terrain3DMeshAsset::clear() {
 	_last_lod = MAX_LOD_COUNT - 1;
 	_last_shadow_lod = MAX_LOD_COUNT - 1;
 	_shadow_impostor = 0;
-	_clear_lod_ranges();
 	_fade_margin = 0.f;
+	_clear_lod_ranges();
+	_generated_type = TYPE_NONE;
 }
 
 void Terrain3DMeshAsset::set_name(const String &p_name) {
@@ -149,13 +149,13 @@ void Terrain3DMeshAsset::set_name(const String &p_name) {
 	}
 	LOG(INFO, "Setting name: ", p_name.left(96));
 	_name = p_name.left(96);
-	LOG(DEBUG, "Emitting setting_changed");
-	emit_signal("setting_changed");
+	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
+	emit_signal("setting_changed, ", _id);
 }
 
 void Terrain3DMeshAsset::set_id(const int p_new_id) {
 	int old_id = _id;
-	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES);
+	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES - 1);
 	LOG(INFO, "Setting mesh ID: ", _id);
 	LOG(DEBUG, "Emitting id_changed, TYPE_MESH, ", old_id, ", ", p_new_id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, p_new_id);
@@ -325,13 +325,15 @@ Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
 void Terrain3DMeshAsset::set_height_offset(const real_t p_offset) {
 	_height_offset = CLAMP(p_offset, -50.f, 50.f);
 	LOG(INFO, "Setting height offset: ", _height_offset);
-	LOG(DEBUG, "Emitting setting_changed");
-	emit_signal("setting_changed");
+	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
+	emit_signal("setting_changed", _id);
 }
 
 void Terrain3DMeshAsset::set_density(const real_t p_density) {
 	LOG(INFO, "Setting mesh density: ", p_density);
 	_density = CLAMP(p_density, 0.01f, 10.f);
+	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
+	emit_signal("setting_changed", _id);
 }
 
 void Terrain3DMeshAsset::set_cast_shadows(const ShadowCasting p_cast_shadows) {
@@ -510,7 +512,6 @@ void Terrain3DMeshAsset::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
 	ADD_SIGNAL(MethodInfo("id_changed"));
-	ADD_SIGNAL(MethodInfo("file_changed"));
 	ADD_SIGNAL(MethodInfo("setting_changed"));
 	ADD_SIGNAL(MethodInfo("instancer_setting_changed"));
 	ADD_SIGNAL(MethodInfo("instance_count_changed"));

@@ -688,10 +688,10 @@ class ListContainer extends Container:
 				plugin.terrain.get_assets().set_texture(p_id, p_resource)
 			else:
 				plugin.terrain.get_assets().set_mesh_asset(p_id, p_resource)
-				await get_tree().create_timer(.01).timeout
-				plugin.terrain.assets.create_mesh_thumbnails(p_id)
-				if selected_id < entries.size():
-					entries[selected_id].queue_redraw()
+				#await get_tree().create_timer(.01).timeout
+				#plugin.terrain.assets.create_mesh_thumbnails(p_id)
+				#if selected_id < entries.size():
+					#entries[selected_id].queue_redraw()
 
 			# If removing an entry, clear inspector
 			if not p_resource:
@@ -1026,8 +1026,9 @@ class ListEntry extends MarginContainer:
 		resource = p_res
 		if resource:
 			resource.setting_changed.connect(_on_resource_changed)
-			resource.file_changed.connect(_on_resource_changed)
-			if resource is Terrain3DMeshAsset:
+			if resource is Terrain3DTextureAsset:
+				resource.file_changed.connect(_on_resource_changed)
+			elif resource is Terrain3DMeshAsset:
 				resource.instancer_setting_changed.connect(_on_resource_changed)
 		
 		if button_clear:
@@ -1047,7 +1048,13 @@ class ListEntry extends MarginContainer:
 		is_selected = value
 		if is_selected:
 			# Handle scrolling to show the selected item
-			await get_tree().process_frame
+			#await get_tree().process_frame
+			await RenderingServer.frame_pre_draw
+			#if is_inside_tree():
+			#print("is in tree? ", is_inside_tree())
+			#print("Parent: ", get_parent())
+			#print("Grand Parent: ", get_parent().get_parent())
+			#print_tree()
 			get_parent().get_parent().get_v_scroll_bar().ratio = position.y / get_parent().size.y
 		queue_redraw()
 
