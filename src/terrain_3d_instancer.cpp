@@ -255,7 +255,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				}
 				triple[2] = false; // Modified cleared after successful rebuild
 			} else {
-				LOG(MESG, "Skipping because not modified or MM is null");
+				//LOG(MESG, "Skipping because not modified or MM is null");
 				mmi->get_multimesh()->set_mesh(ma->get_mesh(lod));
 			}
 		} // End for LOD loop

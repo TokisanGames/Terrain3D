@@ -22,7 +22,6 @@ constexpr ShadowCasting SHADOWS_ONLY = GeometryInstance3D::SHADOW_CASTING_SETTIN
 class Terrain3DMeshAsset : public Terrain3DAssetResource {
 	GDCLASS(Terrain3DMeshAsset, Terrain3DAssetResource);
 	CLASS_NAME();
-	friend class Terrain3DAssets;
 
 public:
 	enum GenType {
@@ -90,6 +89,7 @@ public:
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
+	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
 	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
