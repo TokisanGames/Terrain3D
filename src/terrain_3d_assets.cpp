@@ -128,6 +128,7 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 }
 
 void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const Ref<Terrain3DAssetResource> &p_asset) {
+	LOG(INFO, "Setting asset type: ", p_type, ", ID: ", p_id, ", asset: ", p_asset);
 	Array list;
 	int max_size;
 	switch (p_type) {
@@ -372,6 +373,22 @@ void Terrain3DAssets::_update_texture_settings() {
 	emit_signal("textures_changed");
 }
 
+void Terrain3DAssets::_update_mesh(const int p_id) {
+	if (p_id < 0 || p_id >= _mesh_list.size()) {
+		LOG(ERROR, "Invalid mesh ID: ", p_id);
+		return;
+	}
+	IS_INSTANCER_INIT(VOID);
+
+	Ref<Terrain3DMeshAsset> ma = _mesh_list[p_id];
+	create_mesh_thumbnails(p_id, V2I(128), true);
+	//ma->clear_mesh_dirty();
+
+	Terrain3DInstancer *instancer = _terrain->get_instancer();
+	//instancer->_destroy_mmi_by_mesh(p_id);
+	instancer->update_mmis(p_id, V2I_MAX, false);
+}
+
 void Terrain3DAssets::_setup_thumbnail_creation() {
 	IS_INIT(VOID);
 	if (_scenario.is_valid()) {
@@ -405,12 +422,6 @@ void Terrain3DAssets::_setup_thumbnail_creation() {
 
 	_mesh_instance = RS->instance_create();
 	RS->instance_set_scenario(_mesh_instance, _scenario);
-}
-
-void Terrain3DAssets::_update_thumbnail(const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
-	if (p_mesh_asset.is_valid()) {
-		create_mesh_thumbnails(p_mesh_asset->get_id());
-	}
 }
 
 ///////////////////////////
@@ -512,14 +523,16 @@ void Terrain3DAssets::update_texture_list() {
 			texture_set->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_texture_settings));
 		}
 	}
-	_generated_albedo_textures.clear();
-	_generated_normal_textures.clear();
 	_update_texture_files();
 	_update_texture_settings();
 }
 
 void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
 	LOG(INFO, "Setting mesh id: ", p_id, ", ", p_mesh_asset);
+	if (p_id > 0 && p_id < _mesh_list.size() && _mesh_list[p_id] == p_mesh_asset) {
+		LOG(MESG, "Setting same mesh asset, returning");
+		return;
+	}
 	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	if (p_mesh_asset.is_null()) {
 		IS_INSTANCER_INIT(VOID);
@@ -543,10 +556,13 @@ void Terrain3DAssets::set_mesh_list(const TypedArray<Terrain3DMeshAsset> &p_mesh
 
 // p_id = -1 for all meshes
 // Adapted from godot\editor\plugins\editor_preview_plugins.cpp:EditorMeshPreviewPlugin
-void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_size) {
-	LOG(INFO, "Creating mesh thumbnails");
-	int start, end;
+void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_size, const bool p_force) {
+	LOG(MESG, "Creating mesh thumbnails for ID: ", p_id, ", size: ", p_size);
 	int max = get_mesh_count();
+	if (p_id < -1 || p_id >= max) {
+		return;
+	}
+	int start, end;
 	if (p_id < 0) {
 		start = 0;
 		end = max;
@@ -554,19 +570,23 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 		start = CLAMP(p_id, 0, max - 1);
 		end = CLAMP(p_id + 1, 0, max);
 	}
-	Vector2i size = CLAMP(p_size, V2I(1), V2I(4096));
+	Vector2i size = CLAMP(p_size, V2I(2), V2I(4096));
 
-	LOG(INFO, "Creating thumbnails for ids: ", start, " through ", end - 1);
+	LOG(MESG, "Creating thumbnails for ids: ", start, " through ", end - 1);
 	for (int i = start; i < end; i++) {
 		Ref<Terrain3DMeshAsset> ma = get_mesh_asset(i);
 		if (ma.is_null()) {
-			LOG(WARN, i, ": Terrain3DMeshAsset is null");
+			LOG(WARN, i, ": Terrain3DMeshAsset is null, but shouldn't be");
+			continue;
+		}
+		if (!p_force && ma->get_thumbnail().is_valid()) {
+			LOG(MESG, "Thumbnail already clean, skipping");
 			continue;
 		}
 		// Setup mesh
-		LOG(DEBUG, i, ": Getting Terrain3DMeshAsset: ", String::num_uint64(ma->get_instance_id()));
+		LOG(MESG, i, ": Getting Terrain3DMeshAsset: ", String::num_uint64(ma->get_instance_id()));
 		Ref<Mesh> mesh = ma->get_mesh(0);
-		LOG(DEBUG, i, ": Getting Mesh 0: ", mesh);
+		LOG(MESG, i, ": Getting Mesh 0: ", mesh);
 		if (mesh.is_null()) {
 			LOG(WARN, i, ": Mesh is null");
 			continue;
@@ -607,13 +627,13 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 		RS->instance_set_base(_mesh_instance, RID());
 
 		if (img.is_valid()) {
-			LOG(DEBUG, i, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
+			LOG(MESG, i, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
 		} else {
-			LOG(WARN, "_viewport_texture is null");
+			LOG(MESG, "_viewport_texture is null");
 			continue;
 		}
 
-		ma->_thumbnail = ImageTexture::create_from_image(img);
+		ma->set_thumbnail(ImageTexture::create_from_image(img));
 	}
 	return;
 }
@@ -621,14 +641,14 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 void Terrain3DAssets::update_mesh_list() {
 	IS_INSTANCER_INIT(VOID);
 	LOG(INFO, "Updating mesh list");
-	if (_mesh_list.size() == 0) {
-		LOG(DEBUG, "Mesh list empty, clearing instancer and adding a default mesh");
-		_terrain->get_instancer()->destroy();
-		Ref<Terrain3DMeshAsset> new_mesh;
-		new_mesh.instantiate();
-		new_mesh->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
-		set_mesh_asset(0, new_mesh);
-	}
+	//if (_mesh_list.size() == 0) {
+	//	LOG(DEBUG, "Mesh list empty, clearing instancer and adding a default mesh");
+	//	_terrain->get_instancer()->destroy();
+	//	Ref<Terrain3DMeshAsset> new_mesh;
+	//	new_mesh.instantiate();
+	//	new_mesh->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
+	//	set_mesh_asset(0, new_mesh);
+	//}
 	LOG(DEBUG, "Reconnecting mesh instance signals");
 	for (int i = 0; i < _mesh_list.size(); i++) {
 		Ref<Terrain3DMeshAsset> mesh_asset = _mesh_list[i];
@@ -637,30 +657,23 @@ void Terrain3DAssets::update_mesh_list() {
 			continue;
 		}
 		if (mesh_asset->get_mesh().is_null()) {
-			LOG(DEBUG, "Terrain3DMeshAsset has no mesh, adding a default");
+			LOG(DEBUG, "Terrain3DMeshAsset has no mesh, adding a default mesh");
 			mesh_asset->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
 		}
-		if (!mesh_asset->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list))) {
-			LOG(DEBUG, "Connecting file_changed signal to self");
-			mesh_asset->connect("file_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list));
+		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh))) {
+			LOG(DEBUG, "Connecting instancer_setting_changed signal to _update_mesh");
+			mesh_asset->connect("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh));
 		}
-		if (!mesh_asset->is_connected("setting_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list))) {
-			LOG(DEBUG, "Connecting setting_changed signal to self");
-			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list));
-		}
-		if (!mesh_asset->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset))) {
-			LOG(DEBUG, "Connecting file_changed signal to _update_thumbnail");
-			mesh_asset->connect("file_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset));
-		}
-		if (!mesh_asset->is_connected("setting_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset))) {
-			LOG(DEBUG, "Connecting setting_changed signal to _update_thumbnail");
-			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset));
-		}
-		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(V2I_MAX, false))) {
-			LOG(DEBUG, "Connecting instancer_setting_changed signal to update_mmis");
-			mesh_asset->connect("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(V2I_MAX, false));
-		}
+		//if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::create_mesh_thumbnails).bind(V2I(128)))) {
+		//	LOG(DEBUG, "Connecting instancer_setting_changed signal to create_mesh_thumbnails");
+		//	mesh_asset->connect("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::create_mesh_thumbnails).bind(V2I(128)));
+		//}
+		//if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(V2I_MAX, false))) {
+		//	LOG(DEBUG, "Connecting instancer_setting_changed signal to update_mmis");
+		//	mesh_asset->connect("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(V2I_MAX, false));
+		//}
 	}
+	create_mesh_thumbnails();
 	LOG(DEBUG, "Emitting meshes_changed");
 	emit_signal("meshes_changed");
 }
@@ -720,7 +733,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_mesh_list", "mesh_list"), &Terrain3DAssets::set_mesh_list);
 	ClassDB::bind_method(D_METHOD("get_mesh_list"), &Terrain3DAssets::get_mesh_list);
 	ClassDB::bind_method(D_METHOD("get_mesh_count"), &Terrain3DAssets::get_mesh_count);
-	ClassDB::bind_method(D_METHOD("create_mesh_thumbnails", "id", "size"), &Terrain3DAssets::create_mesh_thumbnails, DEFVAL(-1), DEFVAL(V2I(128)));
+	ClassDB::bind_method(D_METHOD("create_mesh_thumbnails", "id", "size", "force"), &Terrain3DAssets::create_mesh_thumbnails, DEFVAL(-1), DEFVAL(V2I(128)), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("update_mesh_list"), &Terrain3DAssets::update_mesh_list);
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DAssets::save, DEFVAL(""));

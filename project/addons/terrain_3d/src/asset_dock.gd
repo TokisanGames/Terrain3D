@@ -136,7 +136,7 @@ func _ready() -> void:
 	search_box.text_changed.connect(_on_search_text_changed)
 	search_button.pressed.connect(_on_search_button_pressed)
 	
-	update_thumbnails()
+	#update_thumbnails()
 	
 	confirm_dialog = ConfirmationDialog.new()
 	add_child(confirm_dialog, true)
@@ -256,20 +256,21 @@ func update_layout() -> void:
 	save_editor_settings()
 
 
-func update_thumbnails() -> void:
-	if plugin.debug:
-		print("Terrain3DAssetDock: update_thumbnails")
-	if not is_instance_valid(plugin.terrain):
-		return
-
-	if current_list.type == Terrain3DAssets.TYPE_MESH and \
-			Time.get_ticks_msec() - _last_thumb_update_time > MAX_UPDATE_TIME:
-		if plugin.debug:
-			print("Terrain3DAssetDock: update_thumbnails: create_mesh_thumbnails()")
-		plugin.terrain.assets.create_mesh_thumbnails()
-		_last_thumb_update_time = Time.get_ticks_msec()
-		for mesh_asset in mesh_list.entries:
-			mesh_asset.queue_redraw()
+#func update_thumbnails() -> void:
+	#if plugin.debug:
+		#print("Terrain3DAssetDock: update_thumbnails")
+	#return
+	#if not is_instance_valid(plugin.terrain):
+		#return
+#
+	#if current_list.type == Terrain3DAssets.TYPE_MESH and \
+			#Time.get_ticks_msec() - _last_thumb_update_time > MAX_UPDATE_TIME:
+		#if plugin.debug:
+			#print("Terrain3DAssetDock: update_thumbnails: create_mesh_thumbnails()")
+		#plugin.terrain.assets.create_mesh_thumbnails()
+		#_last_thumb_update_time = Time.get_ticks_msec()
+		#for mesh_asset in mesh_list.entries:
+			#mesh_asset.queue_redraw()
 
 
 func set_selected_by_asset_id(p_id: int) -> void:
@@ -354,7 +355,7 @@ func _on_meshes_pressed() -> void:
 	meshes_btn.set_pressed_no_signal(true)
 	textures_btn.set_pressed_no_signal(false)
 	mesh_list.update_asset_list()
-	update_thumbnails()
+	#update_thumbnails()
 	if plugin.is_terrain_valid():
 		EditorInterface.edit_node(plugin.terrain)
 	save_editor_settings()
@@ -609,7 +610,7 @@ class ListContainer extends Container:
 	func _on_resource_hovered(p_id: int):
 		if type == Terrain3DAssets.TYPE_MESH:
 			if plugin.terrain:
-				plugin.terrain.assets.create_mesh_thumbnails(p_id)
+				plugin.terrain.assets.create_mesh_thumbnails(p_id, Vector2i(128, 128), true)
 
 	
 	func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
@@ -688,10 +689,10 @@ class ListContainer extends Container:
 				plugin.terrain.get_assets().set_texture(p_id, p_resource)
 			else:
 				plugin.terrain.get_assets().set_mesh_asset(p_id, p_resource)
-				await get_tree().create_timer(.01).timeout
-				plugin.terrain.assets.create_mesh_thumbnails(p_id)
-				if selected_id < entries.size():
-					entries[selected_id].queue_redraw()
+				#await get_tree().create_timer(.01).timeout
+				#plugin.terrain.assets.create_mesh_thumbnails(p_id)
+				#if selected_id < entries.size():
+					#entries[selected_id].queue_redraw()
 
 			# If removing an entry, clear inspector
 			if not p_resource:
@@ -1026,8 +1027,9 @@ class ListEntry extends MarginContainer:
 		resource = p_res
 		if resource:
 			resource.setting_changed.connect(_on_resource_changed)
-			resource.file_changed.connect(_on_resource_changed)
-			if resource is Terrain3DMeshAsset:
+			if resource is Terrain3DTextureAsset:
+				resource.file_changed.connect(_on_resource_changed)
+			elif resource is Terrain3DMeshAsset:
 				resource.instancer_setting_changed.connect(_on_resource_changed)
 		
 		if button_clear:
@@ -1047,7 +1049,13 @@ class ListEntry extends MarginContainer:
 		is_selected = value
 		if is_selected:
 			# Handle scrolling to show the selected item
-			await get_tree().process_frame
+			#await get_tree().process_frame
+			await RenderingServer.frame_pre_draw
+			#if is_inside_tree():
+			#print("is in tree? ", is_inside_tree())
+			#print("Parent: ", get_parent())
+			#print("Grand Parent: ", get_parent().get_parent())
+			#print_tree()
 			get_parent().get_parent().get_v_scroll_bar().ratio = position.y / get_parent().size.y
 		queue_redraw()
 

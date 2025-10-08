@@ -104,7 +104,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		LOG(ERROR, "p_region is null");
 		return;
 	}
-	if (p_mesh_id < 0 || p_mesh_id > Terrain3DAssets::MAX_MESHES) {
+	if (p_mesh_id < 0 || p_mesh_id >= Terrain3DAssets::MAX_MESHES) {
 		LOG(ERROR, "p_mesh_id is out of bounds");
 		return;
 	}
@@ -226,7 +226,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			mmi->set_global_transform(t);
 
 			// Only recreate MultiMesh if modified or no existing
-			if (modified || !mmi->get_multimesh().is_valid()) {
+			if (modified || mmi->get_multimesh().is_null()) {
 				// Subtract previous instance count for this cell
 				if (mmi->get_multimesh().is_valid() && lod == ma->get_last_lod()) {
 					ma->update_instance_count(-mmi->get_multimesh()->get_instance_count());
@@ -254,6 +254,9 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 					ma->update_instance_count(mm->get_instance_count());
 				}
 				triple[2] = false; // Modified cleared after successful rebuild
+			} else {
+				//LOG(MESG, "Skipping because not modified or MM is null");
+				mmi->get_multimesh()->set_mesh(ma->get_mesh(lod));
 			}
 		} // End for LOD loop
 
@@ -353,6 +356,39 @@ void Terrain3DInstancer::_update_vertex_spacing(const real_t p_vertex_spacing) {
 	update_mmis(-1, V2I_MAX, true);
 }
 
+void Terrain3DInstancer::_destroy_mmi_by_mesh(const int p_mesh_id) {
+	LOG(DEBUG, "Deleting all MMIs in all regions with mesh_id: ", p_mesh_id);
+	TypedArray<Vector2i> region_locations = _terrain->get_data()->get_region_locations();
+	for (int i = 0; i < region_locations.size(); i++) {
+		_destroy_mmi_by_location(region_locations[i], p_mesh_id);
+	}
+}
+
+void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
+	LOG(DEBUG, "Deleting all MMIs in region: ", p_region_loc, " for mesh_id: ", p_mesh_id);
+	if (_mmi_nodes.count(p_region_loc) == 0) {
+		return;
+	}
+	MeshMMIDict &mesh_mmi_dict = _mmi_nodes[p_region_loc];
+
+	for (int lod = Terrain3DMeshAsset::SHADOW_LOD_ID; lod < Terrain3DMeshAsset::MAX_LOD_COUNT; lod++) {
+		Vector2i mesh_key(p_mesh_id, lod);
+		CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
+
+		// Iterate over keys as functions will invalidate standard iterator
+		std::vector<Vector2i> keys;
+		keys.reserve(cell_mmi_dict.size());
+		int i = 0;
+		for (auto &it : cell_mmi_dict) {
+			keys.push_back(it.first);
+			i++;
+		}
+		for (auto &cell : keys) {
+			_destroy_mmi_by_cell(p_region_loc, p_mesh_id, cell);
+		}
+	}
+}
+
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell) {
 	if (_mmi_nodes.count(p_region_loc) == 0) {
 		return;
@@ -402,31 +438,6 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		}
 		_mmi_nodes.erase(p_region_loc); // invalidates mesh_mmi_dict
 		return;
-	}
-}
-
-void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
-	LOG(DEBUG, "Deleting all MMIs in region: ", p_region_loc, " for mesh_id: ", p_mesh_id);
-	if (_mmi_nodes.count(p_region_loc) == 0) {
-		return;
-	}
-	MeshMMIDict &mesh_mmi_dict = _mmi_nodes[p_region_loc];
-
-	for (int lod = Terrain3DMeshAsset::SHADOW_LOD_ID; lod < Terrain3DMeshAsset::MAX_LOD_COUNT; lod++) {
-		Vector2i mesh_key(p_mesh_id, lod);
-		CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-
-		// Iterate over keys as functions will invalidate standard iterator
-		std::vector<Vector2i> keys;
-		keys.reserve(cell_mmi_dict.size());
-		int i = 0;
-		for (auto &it : cell_mmi_dict) {
-			keys.push_back(it.first);
-			i++;
-		}
-		for (auto &cell : keys) {
-			_destroy_mmi_by_cell(p_region_loc, p_mesh_id, cell);
-		}
 	}
 }
 
@@ -1289,7 +1300,7 @@ void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_regi
 		return;
 	}
 	// If all regions for mesh_id are queued, quit
-	int mesh_id = CLAMP(p_mesh_id, -1, Terrain3DAssets::MAX_MESHES);
+	int mesh_id = CLAMP(p_mesh_id, -1, Terrain3DAssets::MAX_MESHES - 1);
 	if (_queued_updates.find({ V2I_MAX, mesh_id }) != _queued_updates.end()) {
 		return;
 	}
