@@ -208,6 +208,9 @@ public partial class Terrain3D : Node3D
 	{
 		set => Set(GDExtensionPropertyName.Data, value);
 	}
+	
+	// This works for binding to terrain.Data
+	// public Terrain3DData? Data => Terrain3DData.Bind(Call("get_data").AsGodotObject());
 
 	public new Terrain3DMaterial Material
 	{

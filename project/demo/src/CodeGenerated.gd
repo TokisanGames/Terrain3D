@@ -43,7 +43,6 @@ func create_terrain() -> Terrain3D:
 	terrain.material.auto_shader_enabled = true
 	terrain.material.set_shader_param("auto_slope", 10)
 	terrain.material.set_shader_param("blend_sharpness", .975)
-	terrain.assets = Terrain3DAssets.new()
 	terrain.assets.set_texture(0, green_ta)
 	terrain.assets.set_texture(1, brown_ta)
 	terrain.assets.set_mesh_asset(0, grass_ma)

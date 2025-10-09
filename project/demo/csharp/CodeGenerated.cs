@@ -24,21 +24,14 @@ namespace TokisanGames
 
 		private async Task CreateTerrainAsync()
 		{
-			terrain = await CreateAndConfigureTerrain();
+			terrain = await CreateTerrain();
 			
 			var baker = GetNode<Node>("RuntimeNavigationBaker");
-			if (baker != null)
-			{
-				baker.Set("terrain", terrain);
-				baker.Set("enabled", true);
-			}
-			else
-			{
-				GD.Print("ERROR: RuntimeNavigationBaker node not found!");
-			}
+			baker.Set("terrain", terrain);
+			baker.Set("enabled", true);
 		}
 
-		private async Task<Terrain3D> CreateAndConfigureTerrain()
+		private async Task<Terrain3D> CreateTerrain()
 		{
 			var greenGr = new Gradient();
 			greenGr.SetColor(0, Color.FromHsv(100f / 360f, 0.35f, 0.3f));
@@ -56,21 +49,34 @@ namespace TokisanGames
 			
 			var terrain = Terrain3D.Instantiate();
 			terrain.Name = "Terrain3D";
-			AddChild(terrain);
+			AddChild(terrain, true);
 			
-			var assets = Terrain3DAssets.Instantiate();
-			terrain.Assets = assets;
-			assets.SetTexture(0, greenTa);
-			assets.SetTexture(1, brownTa);
-			assets.SetMeshAsset(0, grassMa);
-			
+			GD.Print("Setting up Material");
+			// A material was already created by C++ and is accessible in GDScript
+			// This line stops the script from executing without any errors
+			//var material = terrain.Material;
+			//GD.Print("Material: ", material);
+			// Creating a new material works, but produces errors because of Godot
 			var material = Terrain3DMaterial.Instantiate();
 			terrain.Material = material;
 			material.WorldBackground = Terrain3DMaterial.WorldBackgroundEnum.None;
 			material.AutoShaderEnabled = true;
 			material.SetShaderParam("auto_slope", 10f);
 			material.SetShaderParam("blend_sharpness", 0.975f);
+			GD.Print("Finished setting up Material");
+
+			GD.Print("Setting up Assets");
+			// An asset was already created by C++ and is accessible in GDScript
+			// This stops the script from executing without any errors
+			//var assets = terrain.Assets;
+			// Creating a new asset works
+			var assets = Terrain3DAssets.Instantiate();
+			terrain.Assets = assets;
+			assets.SetTexture(0, greenTa);
+			assets.SetTexture(1, brownTa);
+			assets.SetMeshAsset(0, grassMa);
 			
+			GD.Print("Setting up Heightmap");
 			var noise = new FastNoiseLite { Frequency = 0.0005f };
 			var img = Image.CreateEmpty(2048, 2048, false, Image.Format.Rf);
 			for (int x = 0; x < img.GetWidth(); x++)
@@ -81,10 +87,15 @@ namespace TokisanGames
 				}
 			}
 			terrain.RegionSize = 1024;
-			
 			var data = terrain.Get("data").As<GodotObject>();
+			//var data = terrain.Data;
 			var images = new Godot.Collections.Array { img, new Variant(), new Variant() };
+			GD.Print("Calling ImportImages");
 			data.Call("import_images", images, new Vector3(-1024, 0, -1024), 0.0, 150.0);
+			//data.ImportImages(images, new Vector3(-1024, 0, -1024), 0.0, 150.0);
+			GD.Print("Done calling ImportImages");
+				
+			// Setup Instancer
 			var instancer = terrain.Get("instancer").As<GodotObject>();
 			var xforms = new Godot.Collections.Array();
 			int width = 100;
