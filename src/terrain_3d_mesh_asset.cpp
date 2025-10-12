@@ -132,6 +132,7 @@ void Terrain3DMeshAsset::clear() {
 	_height_offset = 0.f;
 	_density = 10.f;
 	_cast_shadows = SHADOWS_ON;
+	_visibility_layers = 1;
 	_material_override.unref();
 	_material_overlay.unref();
 	_generated_faces = 2.f;
@@ -366,6 +367,13 @@ ShadowCasting Terrain3DMeshAsset::get_lod_cast_shadows(const int p_lod_id) const
 	return _cast_shadows;
 }
 
+inline void Terrain3DMeshAsset::set_visibility_layers(const int p_layers) {
+	LOG(INFO, _name, ": Setting visibility layers: ", p_layers);
+	_visibility_layers = p_layers;
+	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
+	emit_signal("instancer_setting_changed", _id);
+}
+
 void Terrain3DMeshAsset::set_material_override(const Ref<Material> &p_material) {
 	LOG(INFO, _name, ": Setting material override: ", p_material);
 	_material_override = p_material;
@@ -539,6 +547,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_density"), &Terrain3DMeshAsset::get_density);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mode"), &Terrain3DMeshAsset::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3DMeshAsset::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_visibility_layers", "layers"), &Terrain3DMeshAsset::set_visibility_layers);
+	ClassDB::bind_method(D_METHOD("get_visibility_layers"), &Terrain3DMeshAsset::get_visibility_layers);
 	ClassDB::bind_method(D_METHOD("set_material_override", "material"), &Terrain3DMeshAsset::set_material_override);
 	ClassDB::bind_method(D_METHOD("get_material_override"), &Terrain3DMeshAsset::get_material_override);
 	ClassDB::bind_method(D_METHOD("set_material_overlay", "material"), &Terrain3DMeshAsset::set_material_overlay);
@@ -592,6 +602,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, ".01,10.0,.005"), "set_density", "get_density");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "visibility_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_visibility_layers", "get_visibility_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_override", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_override", "get_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_overlay", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_overlay", "get_material_overlay");
 
