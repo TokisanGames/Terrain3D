@@ -19,8 +19,6 @@ var texture_list: ListContainer
 var mesh_list: ListContainer
 var current_list: ListContainer
 var _updating_list: bool
-var _last_thumb_update_time: int = 0
-const MAX_UPDATE_TIME: int = 1000
 
 var placement_opt: OptionButton
 var floating_btn: Button
@@ -135,8 +133,6 @@ func _ready() -> void:
 	
 	search_box.text_changed.connect(_on_search_text_changed)
 	search_button.pressed.connect(_on_search_button_pressed)
-	
-	update_thumbnails()
 	
 	confirm_dialog = ConfirmationDialog.new()
 	add_child(confirm_dialog, true)
@@ -256,22 +252,6 @@ func update_layout() -> void:
 	save_editor_settings()
 
 
-func update_thumbnails() -> void:
-	if plugin.debug:
-		print("Terrain3DAssetDock: update_thumbnails")
-	if not is_instance_valid(plugin.terrain):
-		return
-
-	if current_list.type == Terrain3DAssets.TYPE_MESH and \
-			Time.get_ticks_msec() - _last_thumb_update_time > MAX_UPDATE_TIME:
-		if plugin.debug:
-			print("Terrain3DAssetDock: update_thumbnails: create_mesh_thumbnails()")
-		plugin.terrain.assets.create_mesh_thumbnails()
-		_last_thumb_update_time = Time.get_ticks_msec()
-		for mesh_asset in mesh_list.entries:
-			mesh_asset.queue_redraw()
-
-
 func set_selected_by_asset_id(p_id: int) -> void:
 	search_box.text = ""
 	_on_search_text_changed()
@@ -354,7 +334,6 @@ func _on_meshes_pressed() -> void:
 	meshes_btn.set_pressed_no_signal(true)
 	textures_btn.set_pressed_no_signal(false)
 	mesh_list.update_asset_list()
-	update_thumbnails()
 	if plugin.is_terrain_valid():
 		EditorInterface.edit_node(plugin.terrain)
 	save_editor_settings()
@@ -376,7 +355,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 
 func update_assets() -> void:
 	if plugin.debug:
-		print("Terrain3DAssetDock: update_assets")
+		print("Terrain3DAssetDock: update_assets: ", plugin.terrain.assets if plugin.terrain else "")
 	if not _initialized:
 		return
 	
@@ -541,7 +520,6 @@ class ListContainer extends Container:
 
 	
 	func _ready() -> void:
-		name = "ListContainer"
 		set_v_size_flags(SIZE_EXPAND_FILL)
 		set_h_size_flags(SIZE_EXPAND_FILL)
 		add_theme_color_override("font_color", Color.WHITE)
@@ -559,7 +537,7 @@ class ListContainer extends Container:
 
 	func update_asset_list() -> void:
 		if plugin.debug:
-			print("Terrain3DListContainer: update_asset_list")
+			print("Terrain3DListContainer: ", name, " update_asset_list")
 		clear()
 		
 		# Grab terrain
@@ -575,6 +553,8 @@ class ListContainer extends Container:
 			if texture_count < Terrain3DAssets.MAX_TEXTURES:
 				add_item()
 		else:
+			if plugin.terrain:
+				plugin.terrain.assets.create_mesh_thumbnails()
 			var mesh_count: int = t.assets.get_mesh_count()
 			for i in mesh_count:
 				var mesh: Terrain3DMeshAsset = t.assets.get_mesh_asset(i)
@@ -609,7 +589,7 @@ class ListContainer extends Container:
 	func _on_resource_hovered(p_id: int):
 		if type == Terrain3DAssets.TYPE_MESH:
 			if plugin.terrain:
-				plugin.terrain.assets.create_mesh_thumbnails(p_id)
+				plugin.terrain.assets.create_mesh_thumbnails(p_id, Vector2i(128, 128), true)
 
 	
 	func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
@@ -686,13 +666,9 @@ class ListContainer extends Container:
 
 		if plugin.is_terrain_valid():
 			if type == Terrain3DAssets.TYPE_TEXTURE:
-				plugin.terrain.get_assets().set_texture(p_id, p_resource)
+				plugin.terrain.assets.set_texture(p_id, p_resource)
 			else:
-				plugin.terrain.get_assets().set_mesh_asset(p_id, p_resource)
-				await get_tree().create_timer(.01).timeout
-				plugin.terrain.assets.create_mesh_thumbnails(p_id)
-				if selected_id < entries.size():
-					entries[selected_id].queue_redraw()
+				plugin.terrain.assets.set_mesh_asset(p_id, p_resource)
 
 			# If removing an entry, clear inspector
 			if not p_resource:
@@ -791,7 +767,6 @@ class ListEntry extends MarginContainer:
 		setup_buttons()
 		setup_label()
 		setup_count_label()
-		tooltip_text = get_resource_name()
 		focus_style.set_border_width_all(2)
 		focus_style.set_border_color(Color(1, 1, 1, .67))
 
@@ -878,7 +853,6 @@ class ListEntry extends MarginContainer:
 		name_label.visible = false
 		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS	
-		name_label.text = get_resource_name()
 		add_child(name_label, true)
 
 
@@ -954,6 +928,8 @@ class ListEntry extends MarginContainer:
 				else:
 					name_label.visible = true
 				is_hovered = true
+				name_label.text = get_resource_name()
+				tooltip_text = get_resource_name()
 				emit_signal("hovered")
 				queue_redraw()
 			NOTIFICATION_MOUSE_EXIT:
@@ -1049,8 +1025,9 @@ class ListEntry extends MarginContainer:
 		is_selected = value
 		if is_selected:
 			# Handle scrolling to show the selected item
-			await get_tree().process_frame
-			get_parent().get_parent().get_v_scroll_bar().ratio = position.y / get_parent().size.y
+			await RenderingServer.frame_pre_draw
+			if is_inside_tree():
+				get_parent().get_parent().get_v_scroll_bar().ratio = position.y / get_parent().size.y
 		queue_redraw()
 
 
