@@ -41,7 +41,7 @@ Restart Godot twice before using it. Review the [installation instructions](inst
 
 ### Start up is very slow
 
-You probably have a large terrain and are generating collision for all of it. Disable collision to test. In the future you'll be able to dynamically create only a small collision area around the camera (see [PR #278](https://github.com/TokisanGames/Terrain3D/pull/278)).
+You probably have a large terrain and are generating collision for all of it. Set your Collision Mode to `Disabled` to test. You can dynamically create only a small collision area around the camera by setting your Collision Mode to `Dynamic / Game` (default) or `Dynamic / Editor`. Read more about [collision modes here](collision.md#physics-based-collision-raycasting).
 
 Or you've added a bunch of the generated textures, which are binary data saved as text in the scene. Or you've disconnected your textures from the files on disk, which has done the same thing. If your .tscn scene file (or .tres asset list if you've saved it off) is very large, and has lots of binary data as text, this is the case. Review your textures and ensure each is linked to a file saved on disk.
 
