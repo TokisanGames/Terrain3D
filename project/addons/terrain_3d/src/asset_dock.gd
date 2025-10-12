@@ -613,6 +613,7 @@ class ListContainer extends Container:
 
 	
 	func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
+		EditorInterface.mark_scene_as_unsaved()
 		set_selected_id(clamp(p_new_id, 0, entries.size() - 2))
 
 
@@ -1026,8 +1027,9 @@ class ListEntry extends MarginContainer:
 		resource = p_res
 		if resource:
 			resource.setting_changed.connect(_on_resource_changed)
-			resource.file_changed.connect(_on_resource_changed)
-			if resource is Terrain3DMeshAsset:
+			if resource is Terrain3DTextureAsset:
+				resource.file_changed.connect(_on_resource_changed)
+			elif resource is Terrain3DMeshAsset:
 				resource.instancer_setting_changed.connect(_on_resource_changed)
 		
 		if button_clear:

@@ -126,7 +126,6 @@ void Terrain3DMeshAsset::clear() {
 	_highlight_mat = Ref<Material>();
 	_enabled = true;
 	_packed_scene.unref();
-	_generated_type = TYPE_NONE;
 	_meshes.clear();
 	_thumbnail.unref();
 	_height_offset = 0.f;
@@ -134,13 +133,14 @@ void Terrain3DMeshAsset::clear() {
 	_cast_shadows = SHADOWS_ON;
 	_material_override.unref();
 	_material_overlay.unref();
+	_generated_type = TYPE_TEXTURE_CARD;
 	_generated_faces = 2.f;
 	_generated_size = V2(1.f);
 	_last_lod = MAX_LOD_COUNT - 1;
 	_last_shadow_lod = MAX_LOD_COUNT - 1;
 	_shadow_impostor = 0;
-	_clear_lod_ranges();
 	_fade_margin = 0.f;
+	_clear_lod_ranges();
 }
 
 void Terrain3DMeshAsset::set_name(const String &p_name) {
@@ -149,13 +149,13 @@ void Terrain3DMeshAsset::set_name(const String &p_name) {
 	}
 	LOG(INFO, "Setting name: ", p_name.left(96));
 	_name = p_name.left(96);
-	LOG(DEBUG, "Emitting setting_changed");
-	emit_signal("setting_changed");
+	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
+	emit_signal("setting_changed", _id);
 }
 
 void Terrain3DMeshAsset::set_id(const int p_new_id) {
 	int old_id = _id;
-	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES);
+	_id = CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES - 1);
 	LOG(INFO, "Setting mesh ID: ", _id);
 	LOG(DEBUG, "Emitting id_changed, TYPE_MESH, ", old_id, ", ", p_new_id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, p_new_id);
@@ -196,8 +196,8 @@ void Terrain3DMeshAsset::set_enabled(const bool p_enabled) {
 	emit_signal("instancer_setting_changed", _id);
 }
 
-void Terrain3DMeshAsset::update_instance_count(const uint32_t p_amount) {
-	uint64_t new_count = _instance_count + p_amount;
+void Terrain3DMeshAsset::update_instance_count(const int p_amount) {
+	int new_count = _instance_count + p_amount;
 	_instance_count = CLAMP(new_count, 0, UINT32_MAX);
 	LOG(EXTREME, "Emitting instance_count_changed, ID: ", _id, ", count: ", _instance_count);
 	emit_signal("instance_count_changed");
@@ -325,13 +325,15 @@ Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
 void Terrain3DMeshAsset::set_height_offset(const real_t p_offset) {
 	_height_offset = CLAMP(p_offset, -50.f, 50.f);
 	LOG(INFO, "Setting height offset: ", _height_offset);
-	LOG(DEBUG, "Emitting setting_changed");
-	emit_signal("setting_changed");
+	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
+	emit_signal("setting_changed", _id);
 }
 
 void Terrain3DMeshAsset::set_density(const real_t p_density) {
 	LOG(INFO, "Setting mesh density: ", p_density);
 	_density = CLAMP(p_density, 0.01f, 10.f);
+	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
+	emit_signal("setting_changed", _id);
 }
 
 void Terrain3DMeshAsset::set_cast_shadows(const ShadowCasting p_cast_shadows) {
@@ -411,7 +413,7 @@ void Terrain3DMeshAsset::set_generated_size(const Vector2 &p_size) {
 }
 
 void Terrain3DMeshAsset::set_last_lod(const int p_lod) {
-	int max_lod = _generated_type != TYPE_NONE ? 0 : CLAMP(_meshes.size(), 2, MAX_LOD_COUNT) - 1;
+	int max_lod = _generated_type != TYPE_NONE ? 0 : CLAMP(_meshes.size(), 1, MAX_LOD_COUNT) - 1;
 	_last_lod = CLAMP(p_lod, 0, max_lod);
 	if (_last_shadow_lod > _last_lod) {
 		_last_shadow_lod = _last_lod;
@@ -422,6 +424,7 @@ void Terrain3DMeshAsset::set_last_lod(const int p_lod) {
 	LOG(INFO, "Setting last LOD: ", _last_lod);
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
+	notify_property_list_changed();
 }
 
 void Terrain3DMeshAsset::set_last_shadow_lod(const int p_lod) {
@@ -504,13 +507,27 @@ void Terrain3DMeshAsset::_validate_property(PropertyInfo &p_property) const {
 	}
 }
 
+bool Terrain3DMeshAsset::_property_can_revert(const StringName &p_name) const {
+	return (p_name.match("last_lod") || p_name.match("last_shadow_lod"));
+}
+
+bool Terrain3DMeshAsset::_property_get_revert(const StringName &p_name, Variant &r_property) const {
+	if (p_name.match("last_lod")) {
+		r_property = get_lod_count() - 1;
+		return true;
+	} else if (p_name.match("last_shadow_lod")) {
+		r_property = get_lod_count() - 1;
+		return true;
+	}
+	return false;
+}
+
 void Terrain3DMeshAsset::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_NONE);
 	BIND_ENUM_CONSTANT(TYPE_TEXTURE_CARD);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
 	ADD_SIGNAL(MethodInfo("id_changed"));
-	ADD_SIGNAL(MethodInfo("file_changed"));
 	ADD_SIGNAL(MethodInfo("setting_changed"));
 	ADD_SIGNAL(MethodInfo("instancer_setting_changed"));
 	ADD_SIGNAL(MethodInfo("instance_count_changed"));
@@ -529,8 +546,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_scene_file", "scene_file"), &Terrain3DMeshAsset::set_scene_file);
 	ClassDB::bind_method(D_METHOD("get_scene_file"), &Terrain3DMeshAsset::get_scene_file);
-	ClassDB::bind_method(D_METHOD("set_generated_type", "type"), &Terrain3DMeshAsset::set_generated_type);
-	ClassDB::bind_method(D_METHOD("get_generated_type"), &Terrain3DMeshAsset::get_generated_type);
+	//ClassDB::bind_method(D_METHOD("set_generated_type", "type"), &Terrain3DMeshAsset::set_generated_type);
+	//ClassDB::bind_method(D_METHOD("get_generated_type"), &Terrain3DMeshAsset::get_generated_type);
 	ClassDB::bind_method(D_METHOD("get_mesh", "lod"), &Terrain3DMeshAsset::get_mesh, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("get_thumbnail"), &Terrain3DMeshAsset::get_thumbnail);
 	ClassDB::bind_method(D_METHOD("set_height_offset", "offset"), &Terrain3DMeshAsset::set_height_offset);
@@ -588,7 +605,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled", PROPERTY_HINT_NONE), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");
+	//ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, ".01,10.0,.005"), "set_density", "get_density");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");

@@ -85,12 +85,6 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
 		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
-	// MeshAssets changed, update instancer
-	if (!_assets->is_connected("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::update_mmis).bind(-1, V2I_MAX, false))) {
-		LOG(DEBUG, "Connecting _assets.meshes_changed to _instancer->update_mmis()");
-		_assets->connect("meshes_changed", callable_mp(_instancer, &Terrain3DInstancer::update_mmis).bind(-1, V2I_MAX, false));
-	}
-
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		LOG(INFO, "Initializing main subsystems");

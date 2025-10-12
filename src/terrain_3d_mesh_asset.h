@@ -38,7 +38,7 @@ private:
 	// Saved data
 	bool _enabled = true;
 	Ref<PackedScene> _packed_scene;
-	GenType _generated_type = TYPE_NONE;
+	GenType _generated_type = TYPE_TEXTURE_CARD;
 
 	real_t _height_offset = 0.f;
 	real_t _density = 10.f;
@@ -81,7 +81,7 @@ public:
 	void set_enabled(const bool p_enabled);
 	bool is_enabled() const { return _enabled; }
 
-	void update_instance_count(const uint32_t p_amount);
+	void update_instance_count(const int p_amount);
 	void set_instance_count(const uint32_t p_amount);
 	uint32_t get_instance_count() const { return _instance_count; }
 
@@ -145,6 +145,8 @@ public:
 
 protected:
 	void _validate_property(PropertyInfo &p_property) const;
+	bool _property_can_revert(const StringName &p_name) const;
+	bool _property_get_revert(const StringName &p_name, Variant &r_property) const;
 	static void _bind_methods();
 };
 

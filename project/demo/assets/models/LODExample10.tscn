@@ -26,7 +26,7 @@ albedo_color = Color(0.48, 1, 0.497333, 1)
 
 [sub_resource type="PrismMesh" id="PrismMesh_xnm4h"]
 material = SubResource("StandardMaterial3D_p0ha4")
-size = Vector3(1, 1, 0.855)
+size = Vector3(0.89, 0.82, 0.835)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jv6fb"]
 albedo_color = Color(0.3384, 0.538933, 0.94, 1)
@@ -35,7 +35,7 @@ albedo_color = Color(0.3384, 0.538933, 0.94, 1)
 material = SubResource("StandardMaterial3D_jv6fb")
 top_radius = 0.0
 bottom_radius = 0.59
-height = 1.08
+height = 1.015
 radial_segments = 4
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0qk4s"]
@@ -43,18 +43,18 @@ albedo_color = Color(0.62325, 0.495, 0.9, 1)
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_bvmel"]
 material = SubResource("StandardMaterial3D_0qk4s")
-top_radius = 0.765
-bottom_radius = 0.34
-height = 1.54
+top_radius = 0.58
+bottom_radius = 0.25
+height = 0.895
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_438mn"]
 albedo_color = Color(0.933333, 0.2, 1, 1)
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_x8oip"]
 material = SubResource("StandardMaterial3D_438mn")
-top_radius = 0.33
-bottom_radius = 0.34
-height = 1.0
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.96
 radial_segments = 7
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hqr78"]
@@ -74,7 +74,7 @@ albedo_color = Color(0.1512, 0.36, 0.17208, 1)
 material = SubResource("StandardMaterial3D_aba40")
 top_radius = 0.45
 bottom_radius = 0.495
-height = 1.54
+height = 0.89
 radial_segments = 4
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tl8dq"]
@@ -83,8 +83,8 @@ albedo_color = Color(0.2279, 0.36888, 0.53, 1)
 [sub_resource type="CylinderMesh" id="CylinderMesh_w2aj8"]
 material = SubResource("StandardMaterial3D_tl8dq")
 top_radius = 0.0
-bottom_radius = 0.77
-height = 1.54
+bottom_radius = 0.575
+height = 1.185
 radial_segments = 4
 
 [node name="TestMultimesh" type="Node3D"]
@@ -114,12 +114,10 @@ mesh = SubResource("CylinderMesh_i1yhp")
 skeleton = NodePath("../..")
 
 [node name="MeshInstance3D5" type="MeshInstance3D" parent="Node3D"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
 mesh = SubResource("CylinderMesh_bvmel")
 skeleton = NodePath("../..")
 
 [node name="MeshInstance3D6" type="MeshInstance3D" parent="Node3D"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
 mesh = SubResource("CylinderMesh_x8oip")
 skeleton = NodePath("../..")
 
@@ -129,11 +127,10 @@ mesh = SubResource("CylinderMesh_dp7xj")
 skeleton = NodePath("../..")
 
 [node name="MeshInstance3D8" type="MeshInstance3D" parent="Node3D"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
 mesh = SubResource("CylinderMesh_8ctts")
 skeleton = NodePath("../..")
 
 [node name="MeshInstance3D9" type="MeshInstance3D" parent="Node3D"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.126, 0)
 mesh = SubResource("CylinderMesh_w2aj8")
 skeleton = NodePath("../..")

@@ -128,6 +128,7 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 }
 
 void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const Ref<Terrain3DAssetResource> &p_asset) {
+	LOG(INFO, "Setting asset type: ", p_type, ", ID: ", p_id, ", asset: ", p_asset);
 	Array list;
 	int max_size;
 	switch (p_type) {
@@ -372,6 +373,16 @@ void Terrain3DAssets::_update_texture_settings() {
 	emit_signal("textures_changed");
 }
 
+void Terrain3DAssets::_update_mesh(const int p_id) {
+	if (p_id < 0 || p_id >= _mesh_list.size()) {
+		LOG(ERROR, "Invalid mesh ID: ", p_id);
+		return;
+	}
+	IS_INSTANCER_INIT(VOID);
+	Terrain3DInstancer *instancer = _terrain->get_instancer();
+	instancer->update_mmis(p_id, V2I_MAX, false);
+}
+
 void Terrain3DAssets::_setup_thumbnail_creation() {
 	IS_INIT(VOID);
 	if (_scenario.is_valid()) {
@@ -512,14 +523,16 @@ void Terrain3DAssets::update_texture_list() {
 			texture_set->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_texture_settings));
 		}
 	}
-	_generated_albedo_textures.clear();
-	_generated_normal_textures.clear();
 	_update_texture_files();
 	_update_texture_settings();
 }
 
 void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
 	LOG(INFO, "Setting mesh id: ", p_id, ", ", p_mesh_asset);
+	if (p_id >= 0 && p_id < _mesh_list.size() && _mesh_list[p_id] == p_mesh_asset) {
+		LOG(DEBUG, "Setting same mesh asset, returning");
+		return;
+	}
 	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	if (p_mesh_asset.is_null()) {
 		IS_INSTANCER_INIT(VOID);
@@ -640,25 +653,9 @@ void Terrain3DAssets::update_mesh_list() {
 			LOG(DEBUG, "Terrain3DMeshAsset has no mesh, adding a default");
 			mesh_asset->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
 		}
-		if (!mesh_asset->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list))) {
-			LOG(DEBUG, "Connecting file_changed signal to self");
-			mesh_asset->connect("file_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list));
-		}
-		if (!mesh_asset->is_connected("setting_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list))) {
-			LOG(DEBUG, "Connecting setting_changed signal to self");
-			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::update_mesh_list));
-		}
-		if (!mesh_asset->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset))) {
-			LOG(DEBUG, "Connecting file_changed signal to _update_thumbnail");
-			mesh_asset->connect("file_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset));
-		}
-		if (!mesh_asset->is_connected("setting_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset))) {
-			LOG(DEBUG, "Connecting setting_changed signal to _update_thumbnail");
-			mesh_asset->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_thumbnail).bind(mesh_asset));
-		}
-		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(V2I_MAX, false))) {
-			LOG(DEBUG, "Connecting instancer_setting_changed signal to update_mmis");
-			mesh_asset->connect("instancer_setting_changed", callable_mp(_terrain->get_instancer(), &Terrain3DInstancer::update_mmis).bind(V2I_MAX, false));
+		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh))) {
+			LOG(DEBUG, "Connecting instancer_setting_changed signal to _update_mesh");
+			mesh_asset->connect("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh));
 		}
 	}
 	LOG(DEBUG, "Emitting meshes_changed");
