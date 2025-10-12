@@ -53,10 +53,11 @@ private:
 	uint32_t _get_density_count(const real_t p_density);
 	void _process_updates();
 	void _update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id);
-	void _setup_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
+	void _set_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
-	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell);
+	void _destroy_mmi_by_mesh(const int p_mesh_id);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
+	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod = INT32_MAX);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
 	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
 	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size) const;
