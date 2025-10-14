@@ -57,7 +57,7 @@ We use Godot's clang-format hooks that will format your code upon making a commi
  
 ## PR Workflow
 
-We use the standard [Godot PR workflow](https://docs.godotengine.org/en/stable/contributing/workflow/pr_workflow.html). Please submit PRs according to the same process Godot uses.
+We use the standard [Godot PR workflow](https://contributing.godotengine.org/en/latest/organization/pull_requests/creating_pull_requests.html). Please submit PRs according to the same process Godot uses.
 
 This includes: 
 * Creating a new branch (not main) before submitting the PR.
@@ -86,7 +86,7 @@ In addition:
 
 ### C++
 
-In general, follow the [Godot C++ style guidelines](https://docs.godotengine.org/en/stable/contributing/development/code_style_guidelines.html).
+In general, follow the [Godot C++ style guidelines](https://contributing.godotengine.org/en/latest/engine/guidelines/code_style.html).
 In addition:
 
 Use const correctness:
@@ -131,7 +131,7 @@ Pages also need to be included in the table of contents `doc/index.rst`. Readthe
 
 The class reference documentation that contributors edit is stored in [XML files](https://github.com/TokisanGames/Terrain3D/tree/main/doc/classes). These files are used as the source for generated documentation.
 
-Edit the class reference according to the [Godot class reference primer](https://docs.godotengine.org/en/stable/contributing/documentation/class_reference_primer.html#doc-class-reference-primer).
+Edit the class reference according to the [Godot class reference primer](https://docs.godotengine.org/en/stable/engine_details/class_reference/index.html).
 
 Godot's doc-tool is used to extract or update the class structure from the compiled addon. See below for instructions.
 
