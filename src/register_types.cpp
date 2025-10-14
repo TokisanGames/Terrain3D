@@ -1,13 +1,14 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#ifdef GDEXTENSION
 #include <gdextension_interface.h>
+#endif
+
 #include <godot_cpp/core/class_db.hpp>
 
 #include "register_types.h"
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
-
-using namespace godot;
 
 void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {

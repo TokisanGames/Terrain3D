@@ -8,8 +8,6 @@
 #include "constants.h"
 #include "terrain_3d_asset_resource.h"
 
-using namespace godot;
-
 class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	GDCLASS(Terrain3DTextureAsset, Terrain3DAssetResource);
 	CLASS_NAME();

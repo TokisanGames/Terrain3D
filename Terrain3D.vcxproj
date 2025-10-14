@@ -78,6 +78,7 @@
     <AdditionalOptions>/std:c++17</AdditionalOptions>
     <OutDir>.vs</OutDir>
     <IntDir>.vs</IntDir>
+    <NMakePreprocessorDefinitions>GDEXTENSION</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

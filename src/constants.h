@@ -3,7 +3,10 @@
 #ifndef CONSTANTS_CLASS_H
 #define CONSTANTS_CLASS_H
 
+// GDExtension uses the godot namespace, custom modules do not.
+#if defined(GDEXTENSION) && !defined(GODOT_MODULE)
 using namespace godot;
+#endif
 
 // Engine Shortcuts
 #define RS RenderingServer::get_singleton()

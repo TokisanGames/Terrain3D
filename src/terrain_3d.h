@@ -22,8 +22,6 @@
 #include "terrain_3d_material.h"
 #include "terrain_3d_mesher.h"
 
-using namespace godot;
-
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
 	CLASS_NAME();
