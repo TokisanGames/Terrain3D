@@ -13,7 +13,6 @@
 #include "constants.h"
 #include "terrain_3d_asset_resource.h"
 
-using namespace godot;
 using ShadowCasting = GeometryInstance3D::ShadowCastingSetting;
 constexpr ShadowCasting SHADOWS_ON = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 constexpr ShadowCasting SHADOWS_OFF = GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;

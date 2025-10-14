@@ -5,8 +5,6 @@
 
 #include "constants.h"
 
-using namespace godot;
-
 class Terrain3D;
 
 class Terrain3DMesher {

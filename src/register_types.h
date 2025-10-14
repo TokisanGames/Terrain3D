@@ -3,9 +3,12 @@
 #ifndef TERRAIN3D_REGISTER_TYPES_H
 #define TERRAIN3D_REGISTER_TYPES_H
 
+#ifdef GDEXTENSION
 #include <godot_cpp/godot.hpp>
-
 using namespace godot;
+#else
+#include "modules/register_module_types.h"
+#endif
 
 void initialize_terrain_3d(ModuleInitializationLevel p_level);
 void uninitialize_terrain_3d(ModuleInitializationLevel p_level);
