@@ -10,7 +10,7 @@
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
 
-void initialize_terrain_3d(ModuleInitializationLevel p_level) {
+void initialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
@@ -27,11 +27,13 @@ void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DUtil>();
 }
 
-void uninitialize_terrain_3d(ModuleInitializationLevel p_level) {
+void uninitialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
 }
+
+#ifdef GDEXTENSION
 
 extern "C" {
 // Initialization.
@@ -41,10 +43,12 @@ GDExtensionBool GDE_EXPORT terrain_3d_init(
 		GDExtensionInitialization *r_initialization) {
 	GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 
-	init_obj.register_initializer(initialize_terrain_3d);
-	init_obj.register_terminator(uninitialize_terrain_3d);
+	init_obj.register_initializer(initialize_terrain_3d_module);
+	init_obj.register_terminator(uninitialize_terrain_3d_module);
 	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SERVERS);
 
 	return init_obj.init();
 }
 }
+
+#endif /* GDEXTENSION */

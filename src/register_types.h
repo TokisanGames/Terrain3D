@@ -10,7 +10,8 @@ using namespace godot;
 #include "modules/register_module_types.h"
 #endif
 
-void initialize_terrain_3d(ModuleInitializationLevel p_level);
-void uninitialize_terrain_3d(ModuleInitializationLevel p_level);
+// NOTE: These have module ending for custom module build compatibility.
+void initialize_terrain_3d_module(ModuleInitializationLevel p_level);
+void uninitialize_terrain_3d_module(ModuleInitializationLevel p_level);
 
 #endif // TERRAIN3D_REGISTER_TYPES_H
