@@ -4,7 +4,7 @@
 // multiple raw strings that are concatenated by the compiler.
 
 R"(shader_type spatial;
-render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
 
 /* The terrain depends on this shader to function. Don't change most things in vertex() or 
  * terrain normal calculations in fragment(). You probably only want to customize the 
@@ -29,10 +29,10 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #define TAU_16TH -0.392699081698724 // -TAU / 16.
 
 // Inline Functions
-#define DECODE_BLEND(control) float(control >> 14u & 0xFFu) * DIV_255
+#define DECODE_BLEND(control) float(control >>14u & 0xFFu) * DIV_255
 #define DECODE_AUTO(control) bool(control & 0x1u)
-#define DECODE_BASE(control) int(control >> 27u & 0x1Fu)
-#define DECODE_OVER(control) int(control >> 22u & 0x1Fu)
+#define DECODE_BASE(control) int(control >>27u & 0x1Fu)
+#define DECODE_OVER(control) int(control >>22u & 0x1Fu)
 #define DECODE_ANGLE(control) float(control >>10u & 0xFu) * TAU_16TH
 // This math recreates the scale value directly rather than using an 8 float const array.
 #define DECODE_SCALE(control) (0.9 - float(((control >>7u & 0x7u) + 3u) % 8u + 1u) * 0.1)
@@ -80,9 +80,10 @@ uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 group_uniforms;
 
 //INSERT: AUTO_SHADER_UNIFORMS
+//INSERT: DISPLACEMENT_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
 group_uniforms macro_variation;
-uniform bool enable_macro_variation = true;
+uniform bool macro_variation_enabled = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
 uniform float macro_variation_slope : hint_range(0., 1.)  = 0.333;
@@ -128,7 +129,7 @@ varying vec3 v_camera_pos;
 // Z: layer index used for texturearrays, -1 if not in a region
 ivec3 get_index_coord(const vec2 uv, const int search) {
 	vec2 r_uv = round(uv);
-	vec2 o_uv = mod(r_uv,_region_size);
+	vec2 o_uv = mod(r_uv, _region_size);
 	ivec2 pos;
 	int bounds, layer_index = -1;
 	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
@@ -139,7 +140,7 @@ ivec3 get_index_coord(const vec2 uv, const int search) {
 			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
 		}
 	}
-	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
@@ -227,7 +228,7 @@ void vertex() {
 		} else {
 			ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
 			ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
-			h = mix(texelFetch(_height_maps, coord_a, 0).r,texelFetch(_height_maps, coord_b, 0).r,vertex_lerp);
+			h = mix(texelFetch(_height_maps, coord_a, 0).r, texelFetch(_height_maps, coord_b, 0).r, vertex_lerp);
 		}
 //INSERT: WORLD_NOISE_VERTEX
 //INSERT: DISPLACEMENT_VERTEX
@@ -448,9 +449,9 @@ void fragment() {
 	
 //INSERT: WORLD_NOISE_FRAGMENT
 	// Re-use index[] for the first lookups, skipping some math. 3 lookups
-	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0,0)
-	h[2] = texelFetch(_height_maps, index[2], 0).r; // 1 (1,0)
-	h[0] = texelFetch(_height_maps, index[0], 0).r; // 2 (0,1)
+	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0, 0)
+	h[2] = texelFetch(_height_maps, index[2], 0).r; // 1 (1, 0)
+	h[0] = texelFetch(_height_maps, index[0], 0).r; // 2 (0, 1)
 	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// Set flat world normal - overwritten if bilerp is true
@@ -487,11 +488,11 @@ void fragment() {
 
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
-		h[1] = texelFetch(_height_maps, index[1], 0).r; // 3 (1,1)
-		float h_4 = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
-		float h_5 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
-		float h_6 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
-		float h_7 = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
+		h[1] = texelFetch(_height_maps, index[1], 0).r; // 3 (1, 1)
+		float h_4 = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1, 2)
+		float h_5 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2, 1)
+		float h_6 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2, 0)
+		float h_7 = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0, 2)
 
 		// Calculate the normal for the remaining index ids.
 		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h_7 + v));
@@ -512,7 +513,7 @@ void fragment() {
 
 	// Apply terrain normals
 	if (flat_terrain_normals) {
-		NORMAL = normalize(cross(dFdyCoarse(VERTEX),dFdxCoarse(VERTEX)));
+		NORMAL = normalize(cross(dFdyCoarse(VERTEX), dFdxCoarse(VERTEX)));
 		TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
 		BINORMAL = normalize(cross(NORMAL, TANGENT));
 	} else {
@@ -598,7 +599,7 @@ void fragment() {
 
 	// Macro variation. 2 lookups
 	vec3 macrov = vec3(1.);
-	if (enable_macro_variation) {
+	if (macro_variation_enabled) {
 		float noise1 = texture(noise_texture, rotate_vec2(fma(uv, vec2(noise1_scale * .1), noise1_offset) , vec2(cos(noise1_angle), sin(noise1_angle)))).r;
 		float noise2 = texture(noise_texture, uv * noise2_scale * .1).r;
 		macrov = mix(macro_variation1, vec3(1.), noise1);

@@ -1,22 +1,16 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
-#include <godot_cpp/classes/color_rect.hpp>
 #include <godot_cpp/classes/compositor.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/environment.hpp>
-#include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/label3d.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/physics_direct_space_state3d.hpp>
 #include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
-#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/quad_mesh.hpp>
-#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
-#include <godot_cpp/classes/time.hpp>
-#include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 
@@ -71,9 +65,9 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::region_map_changed signal to build()");
 		_data->connect("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build));
 	}
-	// Any map was regenerated or regions changed, update material
+	// Any map was regenerated or regions changed, update material uniforms without rebuilding shaders
 	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
-		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update_maps()");
+		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update()");
 		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
 	}
 	// Height map was regenerated, update aabbs
@@ -81,10 +75,10 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
-	// Texture assets changed, update material
-	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
-		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
-		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
+	// Texture assets changed, update material uniforms without rebuilding shaders
+	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
+		LOG(DEBUG, "Connecting _assets.textures_changed to _material->update()");
+		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
 	}
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
@@ -651,16 +645,6 @@ void Terrain3D::update_region_labels() {
 	}
 }
 
-void Terrain3D::set_mesh_lods(const int p_count) {
-	if (_mesh_lods != p_count) {
-		LOG(INFO, "Setting mesh levels: ", p_count);
-		_mesh_lods = p_count;
-		if (_mesher) {
-			_mesher->initialize(this);
-		}
-	}
-}
-
 void Terrain3D::set_mesh_size(const int p_size) {
 	if (_mesh_size != p_size) {
 		LOG(INFO, "Setting mesh size: ", p_size);
@@ -669,6 +653,16 @@ void Terrain3D::set_mesh_size(const int p_size) {
 			_material->update();
 			_mesher->initialize(this);
 			_update_displacement_buffer();
+		}
+	}
+}
+
+void Terrain3D::set_mesh_lods(const int p_count) {
+	if (_mesh_lods != p_count) {
+		LOG(INFO, "Setting mesh levels: ", p_count);
+		_mesh_lods = p_count;
+		if (_mesher) {
+			_mesher->initialize(this);
 		}
 	}
 }
@@ -1174,10 +1168,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_physics_material"), &Terrain3D::get_physics_material);
 
 	// Meshes
-	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
-	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
+	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_tessellation_level", "size"), &Terrain3D::set_tessellation_level);
 	ClassDB::bind_method(D_METHOD("get_tessellation_level"), &Terrain3D::get_tessellation_level);
 	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
@@ -1279,8 +1273,8 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
 
 	ADD_GROUP("Mesh", "");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_tessellation_level", "get_tessellation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_clipmap_target", "get_clipmap_target");

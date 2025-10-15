@@ -126,9 +126,9 @@ group_uniforms;
 		__t_colors[31] = vec3(0.0125);
 		ivec3 __uv = get_index_coord(floor(uv), SKIP_PASS);
 		uint __control = floatBitsToUint(texelFetch(_control_maps, __uv, 0).r);
-		vec3 __ctrl_base = __t_colors[int(__control >> 27u & 0x1Fu)];
-		vec3 __ctrl_over = __t_colors[int(__control >> 22u & 0x1Fu)];
-		float __blend = float(__control >> 14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
+		vec3 __ctrl_base = __t_colors[int(__control >>27u & 0x1Fu)];
+		vec3 __ctrl_over = __t_colors[int(__control >>22u & 0x1Fu)];
+		float __blend = float(__control >>14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
 		float base_over = (length(fract(uv) - 0.5) < fma(__blend, 0.45, 0.1) ? 1.0 : 0.0);
 		ALBEDO = mix(__ctrl_base, __ctrl_over, base_over);	
 		ROUGHNESS = 1.0;
@@ -142,10 +142,10 @@ group_uniforms;
 	{
 		ivec3 __uv = get_index_coord(floor(uv), SKIP_PASS);
         uint __control = floatBitsToUint(texelFetch(_control_maps, __uv, 0).r);
-        float __ctrl_blend = float(__control >> 14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
+        float __ctrl_blend = float(__control >>14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
 		float __is_auto = 0.;
 		#ifdef AUTO_SHADER
-			__is_auto = float( bool(__control & 0x1u) || __uv.z<0 );
+			__is_auto = float( bool(__control & 0x1u) || __uv.z < 0 );
 		#endif
 		ALBEDO = vec3(__ctrl_blend) * (1.0 - __is_auto) + vec3(0.2, 0.0, 0.0) * __is_auto;
 		ROUGHNESS = 1.;

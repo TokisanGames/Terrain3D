@@ -156,6 +156,7 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("TRI_SCALING");
 	}
 	if (_terrain->get_tessellation_level() == 0) {
+		excludes.push_back("DISPLACEMENT_UNIFORMS");
 		excludes.push_back("DISPLACEMENT_FUNCTIONS");
 		excludes.push_back("DISPLACEMENT_VERTEX");
 	}
@@ -445,21 +446,26 @@ void Terrain3DMaterial::_update_shader() {
 	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", get_shader_rid());
 
 	// Displacement Buffer
-	if (_buffer_shader_override_enabled && _buffer_shader_override.is_valid()) {
-		if (_buffer_shader_override->get_code().is_empty()) {
-			_buffer_shader_override->set_code(_generate_buffer_shader_code());
+	if (_terrain->get_tessellation_level() > 0) {
+		if (_buffer_shader_override_enabled && _buffer_shader_override.is_valid()) {
+			if (_buffer_shader_override->get_code().is_empty()) {
+				_buffer_shader_override->set_code(_generate_buffer_shader_code());
+			}
+			code = _buffer_shader_override->get_code();
+			if (!_buffer_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
+				LOG(DEBUG, "Connecting changed signal to _update_shader()");
+				_buffer_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
+			}
+		} else {
+			code = _generate_buffer_shader_code();
 		}
-		code = _buffer_shader_override->get_code();
-		if (!_buffer_shader_override->is_connected("changed", callable_mp(this, &Terrain3DMaterial::_update_shader))) {
-			LOG(DEBUG, "Connecting changed signal to _update_shader()");
-			_buffer_shader_override->connect("changed", callable_mp(this, &Terrain3DMaterial::_update_shader));
-		}
+		_buffer_shader->set_code(code);
+		RS->material_set_shader(_buffer_material, get_buffer_shader_rid());
+		LOG(DEBUG, "Buffer Material rid: ", _buffer_material, ", buffer shader rid: ", get_buffer_shader_rid());
 	} else {
-		code = _generate_buffer_shader_code();
+		_buffer_shader->set_code(String("shader_type spatial;"));
+		RS->material_set_shader(_buffer_material, RID());
 	}
-	_buffer_shader->set_code(code);
-	RS->material_set_shader(_buffer_material, get_buffer_shader_rid());
-	LOG(DEBUG, "Buffer Material rid: ", _buffer_material, ", buffer shader rid: ", get_buffer_shader_rid());
 
 	// Update custom shader params in RenderingServer
 	{
@@ -531,9 +537,9 @@ void Terrain3DMaterial::_update_shader() {
 	notify_property_list_changed();
 }
 
-void Terrain3DMaterial::_update_maps(const RID &p_material) {
+void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
 	IS_DATA_INIT(VOID);
-	LOG(EXTREME, "Updating maps in shader");
+	LOG(EXTREME, "Updating uniforms in shader");
 
 	Terrain3DData *data = _terrain->get_data();
 	PackedInt32Array region_map = data->get_region_map();
@@ -581,34 +587,24 @@ void Terrain3DMaterial::_update_maps(const RID &p_material) {
 	real_t subdiv = pow(2.f, tessellation_level);
 	RS->material_set_param(p_material, "_subdiv", subdiv);
 	RS->material_set_param(p_material, "_tessellation_level", tessellation_level);
-}
 
-// Called from signal connected in Terrain3D, emitted by texture_list
-void Terrain3DMaterial::_update_texture_arrays() {
-	IS_DATA_INIT(VOID);
 	Ref<Terrain3DAssets> asset_list = _terrain->get_assets();
 	LOG(INFO, "Updating texture arrays in shader");
 	if (asset_list.is_null() || !asset_list->is_initialized()) {
-		LOG(ERROR, "Asset list is not initialized");
+		LOG(INFO, "Asset list is not initialized");
 		return;
 	}
 
-	RS->material_set_param(_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
-	RS->material_set_param(_material, "_texture_array_normal", asset_list->get_normal_array_rid());
-	RS->material_set_param(_material, "_texture_color_array", asset_list->get_texture_colors());
-	RS->material_set_param(_material, "_texture_normal_depth_array", asset_list->get_texture_normal_depths());
-	RS->material_set_param(_material, "_texture_ao_strength_array", asset_list->get_texture_ao_strengths());
-	RS->material_set_param(_material, "_texture_roughness_mod_array", asset_list->get_texture_roughness_mods());
-	RS->material_set_param(_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
-	RS->material_set_param(_material, "_texture_vertical_projections", asset_list->get_texture_vertical_projections());
-	RS->material_set_param(_material, "_texture_detile_array", asset_list->get_texture_detiles());
-
-	RS->material_set_param(_buffer_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
-	RS->material_set_param(_buffer_material, "_texture_array_normal", asset_list->get_normal_array_rid());
-	RS->material_set_param(_buffer_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
-	RS->material_set_param(_buffer_material, "_texture_vertical_projections", asset_list->get_texture_vertical_projections());
-	RS->material_set_param(_buffer_material, "_texture_detile_array", asset_list->get_texture_detiles());
-	RS->material_set_param(_buffer_material, "_texture_displacement_array", asset_list->get_texture_displacements());
+	RS->material_set_param(p_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
+	RS->material_set_param(p_material, "_texture_array_normal", asset_list->get_normal_array_rid());
+	RS->material_set_param(p_material, "_texture_color_array", asset_list->get_texture_colors());
+	RS->material_set_param(p_material, "_texture_normal_depth_array", asset_list->get_texture_normal_depths());
+	RS->material_set_param(p_material, "_texture_ao_strength_array", asset_list->get_texture_ao_strengths());
+	RS->material_set_param(p_material, "_texture_roughness_mod_array", asset_list->get_texture_roughness_mods());
+	RS->material_set_param(p_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
+	RS->material_set_param(p_material, "_texture_vertical_projections", asset_list->get_texture_vertical_projections());
+	RS->material_set_param(p_material, "_texture_detile_array", asset_list->get_texture_detiles());
+	RS->material_set_param(p_material, "_texture_displacement_array", asset_list->get_texture_displacements());
 
 	// Enable checkered view if texture_count is 0, disable if not
 	if (asset_list->get_texture_count() == 0) {
@@ -651,9 +647,7 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	}
 	_shader.instantiate();
 	_buffer_shader.instantiate();
-	_update_shader();
-	_update_maps(_material);
-	_update_maps(_buffer_material);
+	update(true);
 }
 
 void Terrain3DMaterial::uninitialize() {
@@ -683,8 +677,11 @@ void Terrain3DMaterial::update(bool p_full) {
 	if (p_full) {
 		_update_shader();
 	}
-	_update_maps(_material);
-	_update_maps(_buffer_material);
+	_update_uniforms(_material);
+	IS_INIT(VOID);
+	if (_terrain->get_tessellation_level() > 0) {
+		_update_uniforms(_buffer_material);
+	}
 }
 
 void Terrain3DMaterial::set_world_background(const WorldBackground p_background) {
@@ -1112,7 +1109,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_shader_parameters", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_shader_parameters", "_get_shader_parameters");
 
 	// Public
-	ClassDB::bind_method(D_METHOD("update"), &Terrain3DMaterial::update);
+	ClassDB::bind_method(D_METHOD("update", "full"), &Terrain3DMaterial::update, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
 	ClassDB::bind_method(D_METHOD("get_buffer_material_rid"), &Terrain3DMaterial::get_buffer_material_rid);

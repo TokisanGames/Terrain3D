@@ -1,15 +1,11 @@
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+
 R"(shader_type canvas_item;
 
 // Displacement buffer shader, mimics the main shader in 2d and outputs
 // xyz offset stored in RGB channels. A is unusuable when passing
 // the buffer directly via RID (avoids GPU > CPU > GPU copies) as alpha
 // is premultiplied by the renderer.
-
-// All uniforms should be inside this group.
-// Subgroups should work as expected.
-// Uniforms that are shared with the main shader, are automatically synchronised.
-// Only uniquely named uniforms will be added as new entries to the inspector.
-group_uniforms displacement_buffer;
 
 // Defined Constants
 #define SKIP_PASS 0
@@ -21,10 +17,10 @@ group_uniforms displacement_buffer;
 #define TAU_16TH -0.392699081698724 // -TAU / 16.
 
 // Inline Functions
-#define DECODE_BLEND(control) float(control >> 14u & 0xFFu) * DIV_255
+#define DECODE_BLEND(control) float(control >>14u & 0xFFu) * DIV_255
 #define DECODE_AUTO(control) bool(control & 0x1u)
-#define DECODE_BASE(control) int(control >> 27u & 0x1Fu)
-#define DECODE_OVER(control) int(control >> 22u & 0x1Fu)
+#define DECODE_BASE(control) int(control >>27u & 0x1Fu)
+#define DECODE_OVER(control) int(control >>22u & 0x1Fu)
 #define DECODE_ANGLE(control) float(control >>10u & 0xFu) * TAU_16TH
 // This math recreates the scale value directly rather than using an 8 float const array.
 #define DECODE_SCALE(control) (0.9 - float(((control >>7u & 0x7u) + 3u) % 8u + 1u) * 0.1)
@@ -59,12 +55,19 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
 
-
 // Public uniforms
-//INSERT: AUTO_SHADER_UNIFORMS
-uniform float displacement_sharpness : hint_range(0.0, 1.0, 0.01) = 0.5;
+group_uniforms general;
 uniform bool vertical_projection = true;
 uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
+group_uniforms;
+//INSERT: AUTO_SHADER_UNIFORMS
+
+// Uniquely named displacement uniforms should be in this group.
+// Uniforms that are shared with the main shader are automatically synchronised.
+// Subgroups should work as expected.
+group_uniforms displacement;
+uniform float displacement_sharpness : hint_range(0.0, 1.0, 0.01) = 0.5;
+group_uniforms;
 
 // Varyings & Types
 
