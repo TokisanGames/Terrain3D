@@ -1063,8 +1063,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_instancer"), &Terrain3D::get_instancer);
 	ClassDB::bind_method(D_METHOD("set_editor", "editor"), &Terrain3D::set_editor);
 	ClassDB::bind_method(D_METHOD("get_editor"), &Terrain3D::get_editor);
-	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
-	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
+	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::_set_plugin_ex);
 
 	// Target Tracking
 	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);

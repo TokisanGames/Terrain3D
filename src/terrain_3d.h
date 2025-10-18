@@ -263,6 +263,9 @@ public:
 	bool get_show_texture_rough() const { return _material.is_valid() ? _material->get_show_texture_rough() : false; }
 
 protected:
+	void _set_plugin_ex(Object *p_plugin) {
+		set_plugin(cast_to<EditorPlugin>(p_plugin));
+	}
 	void _notification(const int p_what);
 	static void _bind_methods();
 };
