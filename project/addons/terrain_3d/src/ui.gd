@@ -128,7 +128,6 @@ func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 		visible = p_visible
 		toolbar.set_visible(p_visible)
 		tool_settings.set_visible(p_visible)
-		update_decal()
 
 	if plugin.editor:
 		if p_visible:
@@ -339,12 +338,11 @@ func set_active_operation() -> void:
 
 
 func update_decal() -> void:
-	if not plugin.terrain or brush_data.size() <= 3:
+	if not plugin.terrain or not plugin.viewport or brush_data.size() <= 3:
 		return
-	mat_rid = plugin.terrain.material.get_material_rid()
-	editor_decal_timer.start()
 	
 	# If not a state that should show the decal, hide everything and return
+	mat_rid = plugin.terrain.material.get_material_rid() # Used in hide_decal() and below
 	if not visible or \
 		plugin._input_mode == -1 or \
 		# After moving camera, wait for mouse cursor to update before revealing
@@ -353,10 +351,18 @@ func update_decal() -> void:
 			hide_decal()
 			return
 	
+	# Only show decal if in viewport or toolbars
+	var main: Control = EditorInterface.get_editor_main_screen()
+	var main_rect := Rect2(main.position, main.size)
+	main_rect.size.y += tool_settings.size.y
+	if not ( main_rect.has_point(plugin.viewport.get_mouse_position()) && plugin.mouse_in_main ):
+		return
+	
 	reset_decal_arrays()
 	editor_decal_position[0] = Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z)
 	editor_decal_visible = [true, false, false] # Show cursor by default
 	editor_decal_part = [true, true] # Show brush and reticle by default
+	editor_decal_timer.start()
 	
 	## Region Operations
 	var r_map: PackedInt32Array = plugin.terrain.data.get_region_map()
@@ -574,7 +580,6 @@ func set_decal_rotation(p_rot: float) -> void:
 func _on_picking(p_type: Terrain3DEditor.Tool, p_callback: Callable) -> void:
 	picking = p_type
 	picking_callback = p_callback
-	update_decal()
 
 
 func clear_picking() -> void:

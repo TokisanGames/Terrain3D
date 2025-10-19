@@ -410,6 +410,7 @@ func add_setting(p_args: Dictionary) -> void:
 		return
 
 	var container: HBoxContainer = HBoxContainer.new()
+	container.custom_minimum_size.y = 36
 	container.set_v_size_flags(SIZE_EXPAND_FILL)
 	var control: Control	# Houses the setting to be saved
 	var pending_children: Array[Control]
