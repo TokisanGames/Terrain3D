@@ -10,7 +10,7 @@ const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
 # Editor Plugin
-var debug: int = 0 # Set 1 normal, 2 verbose, or = terrain.debug in _edit()
+var debug: int = 0 # Set in _edit()
 var editor: Terrain3DEditor
 var editor_settings: EditorSettings
 var ui: Node # Terrain3DUI see Godot #75388
@@ -38,6 +38,8 @@ var _use_meta: bool = false
 
 
 func _init() -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _init")
 	if OS.get_name() == "macOS":
 		_use_meta = true
 	
@@ -48,6 +50,8 @@ func _init() -> void:
 
 
 func _enter_tree() -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _enter_tree")
 	editor = Terrain3DEditor.new()
 	setup_editor_settings()
 	ui = Terrain3DUI.new()
@@ -63,6 +67,8 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _exit_tree")
 	asset_dock.remove_dock(true)
 	asset_dock.queue_free()
 	ui.queue_free()
@@ -103,6 +109,8 @@ func _handles(p_object: Object) -> bool:
 
 
 func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _make_visible(%s, %s)" % [ p_visible, p_redraw ])
 	if p_visible and is_selected():
 		ui.set_visible(true)
 		asset_dock.update_dock()
@@ -121,6 +129,7 @@ func _edit(p_object: Object) -> void:
 		_last_terrain = terrain
 		terrain.set_plugin(self)
 		terrain.set_editor(editor)
+		debug = terrain.debug_level
 		editor.set_terrain(terrain)
 		region_gizmo.set_node_3d(terrain)
 		terrain.add_gizmo(region_gizmo)
