@@ -51,10 +51,10 @@ var picking: int = Terrain3DEditor.TOOL_MAX
 var picking_callback: Callable
 var brush_data: Dictionary
 var operation_builder: OperationBuilder
-var active_tool: Terrain3DEditor.Tool
-var _selected_tool: Terrain3DEditor.Tool
-var active_operation: Terrain3DEditor.Operation
-var _selected_operation: Terrain3DEditor.Operation
+var active_tool: Terrain3DEditor.Tool = Terrain3DEditor.TOOL_MAX
+var _selected_tool: Terrain3DEditor.Tool = Terrain3DEditor.TOOL_MAX
+var active_operation: Terrain3DEditor.Operation = Terrain3DEditor.OP_MAX
+var _selected_operation: Terrain3DEditor.Operation = Terrain3DEditor.OP_MAX
 var inverted_input: bool = false
 
 # 3 Editor decals: 0 = cursor, 1 = slope point1, 2 = slope point2
@@ -80,6 +80,9 @@ var editor_decal_fade: float :
 
 
 func _enter_tree() -> void:
+	if plugin.debug:
+		print("Terrain3DUI: _enter_tree()")
+
 	toolbar = TerrainToolbar.new()
 	toolbar.plugin = plugin
 	toolbar.hide()
@@ -110,6 +113,8 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	if plugin.debug:
+		print("Terrain3DUI: _exit_tree()")
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, tool_settings)
 	toolbar.queue_free()
@@ -119,6 +124,9 @@ func _exit_tree() -> void:
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
+	if plugin.debug:
+		print("Terrain3DUI: set_visible(%s, %s)" % [ p_visible, p_menu_only ])
+
 	terrain_menu.set_visible(p_visible)
 
 	if p_menu_only:
@@ -131,7 +139,9 @@ func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 
 	if plugin.editor:
 		if p_visible:
-			await get_tree().create_timer(.01).timeout # Won't work, otherwise
+			await get_tree().process_frame # Won't work, otherwise
+			if plugin.debug:
+				print("Terrain3DUI: set_visible: calling _on_tool_changed()")
 			_on_tool_changed(_selected_tool, _selected_operation)
 		else:
 			plugin.editor.set_tool(Terrain3DEditor.TOOL_MAX)
@@ -146,6 +156,8 @@ func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
 func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor.Operation) -> void:
 	if plugin.debug:
 		print("Terrain3DUI: _on_tool_changed: ", p_tool, ", ", p_operation)
+	if active_tool == p_tool and active_operation == p_operation:
+		return
 	_selected_tool = p_tool
 	_selected_operation = p_operation
 	clear_picking()
@@ -264,6 +276,8 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	to_show.push_back("brush_spin_speed")
 	tool_settings.show_settings(to_show)
 
+	if plugin.debug:
+		print("Terrain3DUI: _on_tool_changed: calling _on_setting_changed()")
 	_on_setting_changed()
 	plugin.update_region_grid()
 
