@@ -351,6 +351,8 @@ func _on_brush_hover(p_hovering: bool, p_button: Button) -> void:
 
 
 func _on_pick(p_type: Terrain3DEditor.Tool) -> void:
+	if plugin.debug:
+		print("Terrain3DToolSettings: _on_pick: emitting picking: ", p_type, ", ", _on_picked)
 	emit_signal("picking", p_type, _on_picked)
 
 
@@ -381,6 +383,8 @@ func _on_picked(p_type: Terrain3DEditor.Tool, p_color: Color, p_global_position:
 
 func _on_point_pick(p_type: Terrain3DEditor.Tool, p_name: String) -> void:
 	assert(p_type == Terrain3DEditor.SCULPT)
+	if plugin.debug:
+		print("Terrain3DToolSettings: _on_pick: emitting picking: ", p_type, ", ", _on_point_picked)
 	emit_signal("picking", p_type, _on_point_picked.bind(p_name))
 
 
@@ -655,6 +659,8 @@ func _on_setting_changed(p_setting: Variant = null) -> void:
 		# Hide label
 		if p_setting.get_child_count() > 0:
 			p_setting.get_child(0).visible = false
+	if plugin.debug:
+		print("Terrain3DToolSettings: _on_setting_changed: emitting setting_changed: ", p_setting)			
 	emit_signal("setting_changed", p_setting)
 
 
