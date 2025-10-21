@@ -42,7 +42,7 @@ func create_terrain() -> Terrain3D:
 
 	# Set material and assets
 	terrain.material.world_background = Terrain3DMaterial.NONE
-	terrain.material.auto_shader = true
+	terrain.material.auto_shader_enabled = true
 	terrain.material.set_shader_param("auto_slope", 10)
 	terrain.material.set_shader_param("blend_sharpness", .975)
 	terrain.assets = Terrain3DAssets.new()

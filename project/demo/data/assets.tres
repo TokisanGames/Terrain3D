@@ -28,6 +28,7 @@ lod0_range = 128.0
 name = "LODExample"
 id = 1
 scene_file = ExtResource("1_4jrdu")
+generated_type = 0
 height_offset = 0.5
 last_lod = 4
 last_shadow_lod = 4
