@@ -7,8 +7,6 @@
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
 
-using namespace godot;
-
 void initialize_terrain_3d(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;

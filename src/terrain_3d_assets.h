@@ -9,7 +9,6 @@
 #include "terrain_3d_mesh_asset.h"
 #include "terrain_3d_texture_asset.h"
 
-using namespace godot;
 class Terrain3D;
 class Terrain3DInstancer;
 

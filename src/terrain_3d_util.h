@@ -11,8 +11,6 @@
 #include "generated_texture.h"
 #include "terrain_3d.h"
 
-using namespace godot;
-
 // This file holds stateless utility functions for both C++ and GDScript
 // The class exposes static member and inline functions to GDscript
 // The inline functions below are not part of the class but are in the namespace, eg bilerp
@@ -274,5 +272,46 @@ _FORCE_INLINE_ bool remove_from_tree(Node *p_node) {
 _FORCE_INLINE_ String ptr_to_str(const void *p_ptr) {
 	return "0x" + String::num_uint64(uint64_t(p_ptr), 16, true);
 }
+
+// Trait to detect types with _native_ptr(): Dictionary, Array, String, etc
+template <typename T, typename = void>
+struct has_native_ptr : std::false_type {};
+
+template <typename T>
+struct has_native_ptr<T, std::void_t<decltype(std::declval<T>()._native_ptr())>>
+		: std::true_type {};
+
+// Returns true if Variants share an internal pointer
+template <typename T>
+_FORCE_INLINE_ bool shares_ptr(const T &a, const T &b) {
+	static_assert(has_native_ptr<T>::value); // Enforce type check via trait
+	static_assert(sizeof(godot::Variant) == 24);
+	auto pa = static_cast<const uint8_t *>(a._native_ptr());
+	auto pb = static_cast<const uint8_t *>(b._native_ptr());
+	return *reinterpret_cast<const void *const *>(pa + 8) ==
+			*reinterpret_cast<const void *const *>(pb + 8);
+}
+
+// Returns if A is different from B
+// O(1) pointer compare for Array/TypedArray/Dictionary
+// Operator==() otherwise
+// Could be extended for PackedArray and other special types
+template <typename T>
+_FORCE_INLINE_ bool differs(T &a, const T &b) {
+	if constexpr (std::is_base_of_v<godot::Array, T> ||
+			std::is_base_of_v<godot::Dictionary, T>) {
+		return !shares_ptr(a, b);
+	} else {
+		return !(a == b);
+	}
+}
+
+// Sets A if different from B, otherwise returns
+#define SET_IF_DIFF(a, b) \
+	if (differs(a, b)) {  \
+		a = b;            \
+	} else {              \
+		return;           \
+	}
 
 #endif // TERRAIN3D_UTIL_CLASS_H

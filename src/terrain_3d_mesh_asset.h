@@ -13,7 +13,6 @@
 #include "constants.h"
 #include "terrain_3d_asset_resource.h"
 
-using namespace godot;
 using ShadowCasting = GeometryInstance3D::ShadowCastingSetting;
 constexpr ShadowCasting SHADOWS_ON = GeometryInstance3D::SHADOW_CASTING_SETTING_ON;
 constexpr ShadowCasting SHADOWS_OFF = GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
@@ -37,7 +36,7 @@ private:
 	// Saved data
 	bool _enabled = true;
 	Ref<PackedScene> _packed_scene;
-	GenType _generated_type = TYPE_TEXTURE_CARD;
+	GenType _generated_type = TYPE_NONE;
 
 	real_t _height_offset = 0.f;
 	real_t _density = 10.f;

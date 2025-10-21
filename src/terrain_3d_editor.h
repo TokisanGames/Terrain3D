@@ -9,8 +9,6 @@
 #include "terrain_3d.h"
 #include "terrain_3d_region.h"
 
-using namespace godot;
-
 class Terrain3DEditor : public Object {
 	GDCLASS(Terrain3DEditor, Object);
 	CLASS_NAME();
@@ -114,7 +112,7 @@ public:
 	Dictionary get_brush_data() const { return _brush_data; };
 	void set_tool(const Tool p_tool);
 	Tool get_tool() const { return _tool; }
-	void set_operation(const Operation p_operation) { _operation = CLAMP(p_operation, Operation(0), OP_MAX); }
+	void set_operation(const Operation p_operation);
 	Operation get_operation() const { return _operation; }
 
 	void start_operation(const Vector3 &p_global_position);

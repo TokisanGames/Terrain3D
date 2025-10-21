@@ -619,8 +619,8 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
 }
 
 void Terrain3DMaterial::_set_shader_parameters(const Dictionary &p_dict) {
+	SET_IF_DIFF(_shader_params, p_dict);
 	LOG(INFO, "Setting shader params dictionary: ", p_dict.size());
-	_shader_params = p_dict;
 }
 
 ///////////////////////////
@@ -685,32 +685,32 @@ void Terrain3DMaterial::update(bool p_full) {
 }
 
 void Terrain3DMaterial::set_world_background(const WorldBackground p_background) {
+	SET_IF_DIFF(_world_background, p_background);
 	LOG(INFO, "Enable world background: ", p_background);
-	_world_background = p_background;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_texture_filtering(const TextureFiltering p_filtering) {
+	SET_IF_DIFF(_texture_filtering, p_filtering);
 	LOG(INFO, "Setting texture filtering: ", p_filtering);
-	_texture_filtering = p_filtering;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_auto_shader(const bool p_enabled) {
+	SET_IF_DIFF(_auto_shader, p_enabled);
 	LOG(INFO, "Enable auto shader: ", p_enabled);
-	_auto_shader = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_dual_scaling(const bool p_enabled) {
+	SET_IF_DIFF(_dual_scaling, p_enabled);
 	LOG(INFO, "Enable dual scaling: ", p_enabled);
-	_dual_scaling = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::enable_shader_override(const bool p_enabled) {
+	SET_IF_DIFF(_shader_override_enabled, p_enabled);
 	LOG(INFO, "Enable shader override: ", p_enabled);
-	_shader_override_enabled = p_enabled;
 	if (_shader_override_enabled && _shader_override.is_null()) {
 		LOG(DEBUG, "Instantiating new _shader_override");
 		_shader_override.instantiate();
@@ -720,13 +720,13 @@ void Terrain3DMaterial::enable_shader_override(const bool p_enabled) {
 
 void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 	LOG(INFO, "Setting override shader");
-	_shader_override = p_shader;
+	SET_IF_DIFF(_shader_override, p_shader);
 	_update_shader();
 }
 
 void Terrain3DMaterial::enable_buffer_shader_override(const bool p_enabled) {
+	SET_IF_DIFF(_buffer_shader_override_enabled, p_enabled);
 	LOG(INFO, "Enable shader override: ", p_enabled);
-	_buffer_shader_override_enabled = p_enabled;
 	if (_buffer_shader_override_enabled && _buffer_shader_override.is_null()) {
 		LOG(DEBUG, "Instantiating new _shader_override");
 		_buffer_shader_override.instantiate();
@@ -735,8 +735,8 @@ void Terrain3DMaterial::enable_buffer_shader_override(const bool p_enabled) {
 }
 
 void Terrain3DMaterial::set_buffer_shader_override(const Ref<Shader> &p_shader) {
+	SET_IF_DIFF(_buffer_shader_override, p_shader);
 	LOG(INFO, "Setting override shader");
-	_buffer_shader_override = p_shader;
 	_update_shader();
 }
 
@@ -753,121 +753,121 @@ Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 }
 
 void Terrain3DMaterial::set_show_region_grid(const bool p_enabled) {
+	SET_IF_DIFF(_show_region_grid, p_enabled);
 	LOG(INFO, "Enable show_region_grid: ", p_enabled);
-	_show_region_grid = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_instancer_grid(const bool p_enabled) {
+	SET_IF_DIFF(_show_instancer_grid, p_enabled);
 	LOG(INFO, "Enable show_instancer_grid: ", p_enabled);
-	_show_instancer_grid = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_vertex_grid(const bool p_enabled) {
+	SET_IF_DIFF(_show_vertex_grid, p_enabled);
 	LOG(INFO, "Enable show_vertex_grid: ", p_enabled);
-	_show_vertex_grid = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_contours(const bool p_enabled) {
+	SET_IF_DIFF(_show_contours, p_enabled);
 	LOG(INFO, "Enable show_contours: ", p_enabled);
-	_show_contours = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_navigation(const bool p_enabled) {
+	SET_IF_DIFF(_show_navigation, p_enabled);
 	LOG(INFO, "Enable show_navigation: ", p_enabled);
-	_show_navigation = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_checkered(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_checkered, p_enabled);
 	LOG(INFO, "Enable set_show_checkered: ", p_enabled);
-	_debug_view_checkered = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_grey(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_grey, p_enabled);
 	LOG(INFO, "Enable show_grey: ", p_enabled);
-	_debug_view_grey = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_heightmap(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_heightmap, p_enabled);
 	LOG(INFO, "Enable show_heightmap: ", p_enabled);
-	_debug_view_heightmap = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_jaggedness(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_jaggedness, p_enabled);
 	LOG(INFO, "Enable show_jaggedness: ", p_enabled);
-	_debug_view_jaggedness = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_autoshader(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_autoshader, p_enabled);
 	LOG(INFO, "Enable show_autoshader: ", p_enabled);
-	_debug_view_autoshader = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_texture(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_control_texture, p_enabled);
 	LOG(INFO, "Enable show_control_texture: ", p_enabled);
-	_debug_view_control_texture = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_blend(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_control_blend, p_enabled);
 	LOG(INFO, "Enable show_control_blend: ", p_enabled);
-	_debug_view_control_blend = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_angle(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_control_angle, p_enabled);
 	LOG(INFO, "Enable show_control_angle: ", p_enabled);
-	_debug_view_control_angle = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_scale(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_control_scale, p_enabled);
 	LOG(INFO, "Enable show_control_scale: ", p_enabled);
-	_debug_view_control_scale = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_colormap(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_colormap, p_enabled);
 	LOG(INFO, "Enable show_colormap: ", p_enabled);
-	_debug_view_colormap = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_roughmap(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_roughmap, p_enabled);
 	LOG(INFO, "Enable show_roughmap: ", p_enabled);
-	_debug_view_roughmap = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_height(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_tex_height, p_enabled);
 	LOG(INFO, "Enable show_texture_height: ", p_enabled);
-	_debug_view_tex_height = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_normal(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_tex_normal, p_enabled);
 	LOG(INFO, "Enable show_texture_normal: ", p_enabled);
-	_debug_view_tex_normal = p_enabled;
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_rough(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_tex_rough, p_enabled);
 	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
-	_debug_view_tex_rough = p_enabled;
 	_update_shader();
 }
 void Terrain3DMaterial::set_show_displacement_buffer(const bool p_enabled) {
+	SET_IF_DIFF(_debug_view_displacement_buffer, p_enabled);
 	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
-	_debug_view_displacement_buffer = p_enabled;
 	_update_shader();
 }
 

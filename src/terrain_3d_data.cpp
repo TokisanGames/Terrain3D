@@ -65,8 +65,8 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 }
 
 void Terrain3DData::set_region_locations(const TypedArray<Vector2i> &p_locations) {
+	SET_IF_DIFF(_region_locations, p_locations);
 	LOG(INFO, "Setting _region_locations with array sized: ", p_locations.size());
-	_region_locations = p_locations;
 	_region_map_dirty = true;
 	update_maps(TYPE_MAX, false, false); // only rebuild region map
 }
