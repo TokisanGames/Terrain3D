@@ -201,6 +201,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_handle_input_locally(false);
 	_mouse_vp->set_canvas_cull_mask(0);
 	_mouse_vp->set_use_hdr_2d(true);
+	_mouse_vp->set_anisotropic_filtering_level(Viewport::ANISOTROPY_DISABLED);
 	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
 	_mouse_vp->set_positional_shadow_atlas_size(0);
 	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(0, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
@@ -242,7 +243,9 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_quad->set_position(Vector3(0.f, 0.f, -0.5f));
 
 	// Set terrain, terrain shader, mouse camera, and screen quad to mouse layer
-	set_mouse_layer(_mouse_layer);
+	uint32_t force_update_layer = _mouse_layer;
+	_mouse_layer = 0u;
+	set_mouse_layer(force_update_layer);
 }
 
 void Terrain3D::_destroy_mouse_picking() {
@@ -741,7 +744,6 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		return V3_MAX;
 
 	} else {
-		// Else use GPU mode, which requires multiple calls
 		// Get depth from perspective camera snapshot
 		if (!_mouse_cam) {
 			LOG(ERROR, "Invalid mouse camera");

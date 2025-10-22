@@ -50,7 +50,7 @@ private:
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
-	uint8_t _warnings = 0;
+	uint8_t _warnings = 0u;
 
 	// Object references
 	Terrain3DData *_data = nullptr;
@@ -79,7 +79,7 @@ private:
 	real_t _vertex_spacing = 1.0f;
 
 	// Rendering
-	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
+	uint32_t _render_layers = 1u | (1u << 31u); // Bit 1 and 32 for the cursor
 	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
@@ -89,7 +89,7 @@ private:
 	SubViewport *_mouse_vp = nullptr;
 	Camera3D *_mouse_cam = nullptr;
 	MeshInstance3D *_mouse_quad = nullptr;
-	uint32_t _mouse_layer = 32;
+	uint32_t _mouse_layer = 32u;
 
 	// Parent containers for child nodes
 	Node3D *_label_parent;
