@@ -37,14 +37,13 @@ private:
 	bool _enabled = true;
 	Ref<PackedScene> _packed_scene;
 	GenType _generated_type = TYPE_TEXTURE_CARD;
-
+	int _generated_faces = 2;
+	Vector2 _generated_size = V2(1.f);
 	real_t _height_offset = 0.f;
 	real_t _density = 10.f;
 	ShadowCasting _cast_shadows = SHADOWS_ON;
 	Ref<Material> _material_override;
 	Ref<Material> _material_overlay;
-	int _generated_faces = 2;
-	Vector2 _generated_size = V2(1.f);
 	int _last_lod = MAX_LOD_COUNT - 1;
 	int _last_shadow_lod = MAX_LOD_COUNT - 1;
 	int _shadow_impostor = 0;

@@ -126,21 +126,21 @@ void Terrain3DMeshAsset::clear() {
 	_highlight_mat = Ref<Material>();
 	_enabled = true;
 	_packed_scene.unref();
-	_meshes.clear();
-	_thumbnail.unref();
+	_generated_type = TYPE_TEXTURE_CARD;
+	_generated_faces = 2.f;
+	_generated_size = V2(1.f);
 	_height_offset = 0.f;
 	_density = 10.f;
 	_cast_shadows = SHADOWS_ON;
 	_material_override.unref();
 	_material_overlay.unref();
-	_generated_type = TYPE_TEXTURE_CARD;
-	_generated_faces = 2.f;
-	_generated_size = V2(1.f);
 	_last_lod = MAX_LOD_COUNT - 1;
 	_last_shadow_lod = MAX_LOD_COUNT - 1;
 	_shadow_impostor = 0;
-	_fade_margin = 0.f;
 	_clear_lod_ranges();
+	_fade_margin = 0.f;
+	_meshes.clear();
+	_thumbnail.unref();
 }
 
 void Terrain3DMeshAsset::set_name(const String &p_name) {
@@ -210,6 +210,10 @@ void Terrain3DMeshAsset::set_instance_count(const uint32_t p_amount) {
 }
 
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
+	if (p_scene_file.is_valid() && _packed_scene == p_scene_file) {
+		return;
+	}
+	_packed_scene = p_scene_file;
 	LOG(INFO, "Setting scene file and instantiating node: ", p_scene_file);
 	_packed_scene = p_scene_file;
 	_meshes.clear();
@@ -290,15 +294,21 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 }
 
 void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
-	_generated_type = p_type;
-	LOG(INFO, "Setting is_generated: ", p_type);
-	if (p_type == TYPE_NONE && _packed_scene.is_null()) {
-		_generated_type = TYPE_TEXTURE_CARD;
+	if (p_type < TYPE_NONE || p_type >= TYPE_MAX) {
+		LOG(ERROR, "Invalid generated type: ", p_type);
+		return;
 	}
-	if (p_type > TYPE_NONE && p_type < TYPE_MAX) {
+	bool changed = _generated_type != p_type;
+	_generated_type = p_type; // Always do this setup
+	if (_generated_type == TYPE_NONE && _packed_scene.is_null()) {
+		_generated_type = TYPE_TEXTURE_CARD;
+		changed = true;
+	}
+	LOG(INFO, "Setting generated type: ", _generated_type);
+	if (_generated_type > TYPE_NONE) {
 		_packed_scene.unref();
 		_meshes.clear();
-		LOG(DEBUG, "Generating card mesh");
+		LOG(DEBUG, "Generating texture card mesh");
 		_meshes.push_back(_get_generated_mesh());
 		if (_material_override.is_null()) {
 			_material_override = _get_material();
@@ -309,10 +319,13 @@ void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
 		_last_shadow_lod = 0;
 		_shadow_impostor = 0;
 		_clear_lod_ranges();
+		changed = true;
 	}
 	notify_property_list_changed(); // Call _validate_property to update inspector
-	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
-	emit_signal("instancer_setting_changed", _id);
+	if (changed) {
+		LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
+		emit_signal("instancer_setting_changed", _id);
+	}
 }
 
 Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
