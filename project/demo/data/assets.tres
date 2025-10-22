@@ -18,7 +18,6 @@ distance_fade_max_distance = 96.0
 
 [sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_2qf8x"]
 name = "TextureCard"
-generated_type = 1
 height_offset = 0.5
 material_override = SubResource("StandardMaterial3D_b2vqk")
 last_lod = 0
