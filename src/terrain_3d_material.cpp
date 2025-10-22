@@ -888,6 +888,16 @@ Error Terrain3DMaterial::save(const String &p_path) {
 	if (_shader_override.is_valid()) {
 		param_list.append_array(_shader_override->get_shader_uniform_list(true));
 	}
+	if (_buffer_shader_override.is_valid()) {
+		// Get shader parameters from custom buffer shader
+		param_list.append_array(_buffer_shader_override->get_shader_uniform_list(true));
+	} else {
+		if (_terrain->get_tessellation_level() > 0) {
+			// Get shader parameters from default buffer shader
+			param_list.append_array(RS->get_shader_parameter_list(get_buffer_shader_rid()));
+		}
+	}
+
 
 	// Remove saved shader params that don't exist in either shader
 	Array keys = _shader_params.keys();
