@@ -626,13 +626,13 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		LOG(ERROR, "Mesh ID out of range: ", mesh_id, ", valid: 0 to ", _terrain->get_assets()->get_mesh_count() - 1);
 		return;
 	}
-	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), 0.1f, 4096.f); // Meters
 	real_t radius = brush_size * .5f;
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
+	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
 					MAX(0.01f, fixed_scale + .5f * random_scale),
 			.001f, 1000.f);
@@ -900,13 +900,14 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 	Dictionary xforms_dict;
 	Dictionary colors_dict;
 	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
+	real_t height_offset = mesh_asset->get_height_offset();
 
 	// Separate incoming transforms/colors by region Dict{ region_loc => Array() }
 	LOG(INFO, "Separating ", p_xforms.size(), " transforms and ", p_colors.size(), " colors into regions");
 	for (int i = 0; i < p_xforms.size(); i++) {
 		// Get adjusted xform/color
 		Transform3D trns = p_xforms[i];
-		trns.origin += trns.basis.get_column(1) * mesh_asset->get_height_offset(); // Offset along UP axis
+		trns.origin += trns.basis.get_column(1) * height_offset; // Offset along UP axis
 		Color col = COLOR_WHITE;
 		if (p_colors.size() > i) {
 			col = p_colors[i];

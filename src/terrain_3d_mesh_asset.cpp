@@ -40,7 +40,7 @@ Ref<ArrayMesh> Terrain3DMeshAsset::_get_generated_mesh() const {
 	PackedVector2Array uvs;
 	PackedInt32Array indices;
 
-	int i, j, prevrow, thisrow, point = 0;
+	int prevrow, thisrow, point = 0;
 	float x, z;
 	Size2 start_pos = Vector2(_generated_size.x * -0.5f, -0.5f);
 	Vector3 normal = Vector3(0.f, 0.f, 1.f);
