@@ -15,17 +15,19 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	CLASS_NAME();
 	friend class Terrain3DAssets;
 
+	Color _highlight_color = Color();
 	Color _albedo_color = Color(1.f, 1.f, 1.f, 1.f);
 	Ref<Texture2D> _albedo_texture;
 	Ref<Texture2D> _normal_texture;
 	real_t _normal_depth = 0.5f;
-	real_t _ao_strength = 0.5f;
 	real_t _roughness = 0.f;
+	real_t _ao_strength = 0.5f;
+	real_t _displacement_offset = 0.45f;
+	real_t _displacement_scale = .1f;
 	real_t _uv_scale = 0.1f;
 	bool _vertical_projection = false;
 	real_t _detiling_rotation = 0.0f;
 	real_t _detiling_shift = 0.0f;
-	Color _highlight_color = Color();
 
 	bool _is_valid_format(const Ref<Texture2D> &p_texture) const;
 
@@ -57,11 +59,17 @@ public:
 	void set_normal_depth(const real_t p_normal_depth);
 	real_t get_normal_depth() const { return _normal_depth; }
 
+	void set_roughness(const real_t p_roughness);
+	real_t get_roughness() const { return _roughness; }
+
 	void set_ao_strength(const real_t p_ao_strength);
 	real_t get_ao_strength() const { return _ao_strength; }
 
-	void set_roughness(const real_t p_roughness);
-	real_t get_roughness() const { return _roughness; }
+	void set_displacement_offset(const real_t p_displacement_offset);
+	real_t get_displacement_offset() const { return _displacement_offset; }
+
+	void set_displacement_scale(const real_t p_displacement_scale);
+	real_t get_displacement_scale() const { return _displacement_scale; }
 
 	void set_uv_scale(const real_t p_scale);
 	real_t get_uv_scale() const { return _uv_scale; }
