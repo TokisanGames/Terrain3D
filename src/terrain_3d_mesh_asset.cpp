@@ -126,21 +126,21 @@ void Terrain3DMeshAsset::clear() {
 	_highlight_mat = Ref<Material>();
 	_enabled = true;
 	_packed_scene.unref();
-	_meshes.clear();
-	_thumbnail.unref();
+	_generated_type = TYPE_TEXTURE_CARD;
+	_generated_faces = 2.f;
+	_generated_size = V2(1.f);
 	_height_offset = 0.f;
 	_density = 10.f;
 	_cast_shadows = SHADOWS_ON;
 	_material_override.unref();
 	_material_overlay.unref();
-	_generated_type = TYPE_NONE;
-	_generated_faces = 2.f;
-	_generated_size = V2(1.f);
 	_last_lod = MAX_LOD_COUNT - 1;
 	_last_shadow_lod = MAX_LOD_COUNT - 1;
 	_shadow_impostor = 0;
-	_fade_margin = 0.f;
 	_clear_lod_ranges();
+	_fade_margin = 0.f;
+	_meshes.clear();
+	_thumbnail.unref();
 }
 
 void Terrain3DMeshAsset::set_name(const String &p_name) {
@@ -210,7 +210,10 @@ void Terrain3DMeshAsset::set_instance_count(const uint32_t p_amount) {
 }
 
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
-	SET_IF_DIFF(_packed_scene, p_scene_file);
+	if (p_scene_file.is_valid() && _packed_scene == p_scene_file) {
+		return;
+	}
+	_packed_scene = p_scene_file;
 	LOG(INFO, "Setting scene file and instantiating node: ", p_scene_file);
 	_meshes.clear();
 	if (_packed_scene.is_valid()) {
@@ -290,8 +293,8 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 }
 
 void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
-	SET_IF_DIFF(_generated_type, p_type);
-	LOG(INFO, "Setting is_generated: ", p_type);
+	_generated_type = p_type; // Always do this setup
+	LOG(INFO, "Setting generated type: ", p_type);
 	if (p_type == TYPE_NONE && _packed_scene.is_null()) {
 		_generated_type = TYPE_TEXTURE_CARD;
 	}
