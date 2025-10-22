@@ -337,7 +337,7 @@ void fragment() {
 			}
 		}
 		// normalize accumulated values back to 0.0 - 1.0 range.
-		float weight_inv = 1.0 / total_weight;
+		float weight_inv = 1.0 / max(total_weight, 1e-8);
 		albedo_height *= weight_inv;
 		normal_rough *= weight_inv;
 		normal_map_depth *= weight_inv;
