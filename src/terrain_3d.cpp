@@ -201,6 +201,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_disable_input(true);
 	_mouse_vp->set_canvas_cull_mask(0);
 	_mouse_vp->set_use_hdr_2d(true);
+	_mouse_vp->set_anisotropic_filtering_level(Viewport::ANISOTROPY_DISABLED);
 	_mouse_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
 	_mouse_vp->set_positional_shadow_atlas_size(0);
 	_mouse_vp->set_positional_shadow_atlas_quadrant_subdiv(0, Viewport::SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED);
@@ -242,7 +243,9 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_quad->set_position(Vector3(0.f, 0.f, -0.5f));
 
 	// Set terrain, terrain shader, mouse camera, and screen quad to mouse layer
-	set_mouse_layer(_mouse_layer);
+	uint32_t force_update_layer = _mouse_layer;
+	_mouse_layer = 0u;
+	set_mouse_layer(force_update_layer);
 }
 
 void Terrain3D::_destroy_mouse_picking() {
@@ -747,19 +750,11 @@ void Terrain3D::set_cull_margin(const real_t p_margin) {
  * Returns Vec3(NAN) on error or vec3(3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode) {
-	if (!_mouse_cam) {
-		LOG(ERROR, "Invalid mouse camera");
-		return V3_NAN;
-	}
 	Vector3 direction = p_direction.normalized();
 	Vector3 point;
 
-	// Position mouse cam one unit behind the requested position
-	_mouse_cam->set_global_position(p_src_pos - direction);
-
 	// If looking straight down (eg orthogonal camera), just return height. look_at won't work
 	if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
-		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
 		point = p_src_pos;
 		point.y = _data->get_height(p_src_pos);
 		if (std::isnan(point.y)) {
@@ -779,7 +774,13 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		return V3_MAX;
 
 	} else {
-		// Else use GPU mode, which requires multiple calls
+		// Else use GPU mode, which requires two+ calls for accuracy
+		if (!_mouse_cam) {
+			LOG(ERROR, "Invalid mouse camera");
+			return V3_NAN;
+		}
+		// Position mouse cam one unit behind the requested position
+		_mouse_cam->set_global_position(p_src_pos - direction);
 		// Get depth from perspective camera snapshot
 		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, V3_UP);
 		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
