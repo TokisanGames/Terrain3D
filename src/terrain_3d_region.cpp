@@ -16,7 +16,7 @@ void Terrain3DRegion::set_version(const real_t p_version) {
 	if (_version > 0.8f && _version != p_version) {
 		_modified = true;
 	}
-	SET_IF_DIFF(_version, p_version);
+	SET_IF_DIFF(_version, CLAMP(p_version, 0.8f, 100.f));
 	LOG(INFO, vformat("%.3f", p_version));
 	if (_version < Terrain3DData::CURRENT_VERSION) {
 		LOG(WARN, "Region ", get_path(), " version ", vformat("%.3f", _version),

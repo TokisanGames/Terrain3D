@@ -221,7 +221,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_cam->set_compositor(comp);
 	_mouse_cam->set_projection(Camera3D::PROJECTION_ORTHOGONAL);
 	_mouse_cam->set_size(0.1f);
-	_mouse_cam->set_far(100000.f);
+	_mouse_cam->set_far(MAX_DIST);
 
 	_mouse_quad = memnew(MeshInstance3D);
 	_mouse_quad->set_name("MouseQuad");
@@ -601,7 +601,7 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 }
 
 void Terrain3D::set_label_distance(const real_t p_distance) {
-	SET_IF_DIFF(_label_distance, CLAMP(p_distance, 0.f, 100000.f));
+	SET_IF_DIFF(_label_distance, CLAMP(p_distance, 0.f, MAX_DIST));
 	LOG(INFO, "Setting region label distance: ", _label_distance);
 	update_region_labels();
 }
@@ -645,8 +645,9 @@ void Terrain3D::update_region_labels() {
 }
 
 void Terrain3D::set_mesh_size(const int p_size) {
-	SET_IF_DIFF(_mesh_size, p_size);
-	LOG(INFO, "Setting mesh size: ", p_size);
+	int size = CLAMP(p_size & ~1U, 8, 256); // Ensure even
+	SET_IF_DIFF(_mesh_size, size);
+	LOG(INFO, "Setting mesh size: ", _mesh_size);
 	if (_mesher && _material.is_valid()) {
 		_material->update();
 		_mesher->initialize(this);
@@ -655,8 +656,8 @@ void Terrain3D::set_mesh_size(const int p_size) {
 }
 
 void Terrain3D::set_mesh_lods(const int p_count) {
-	SET_IF_DIFF(_mesh_lods, p_count);
-	LOG(INFO, "Setting mesh levels: ", p_count);
+	SET_IF_DIFF(_mesh_lods, CLAMP(p_count, 1, 10));
+	LOG(INFO, "Setting mesh levels: ", _mesh_lods);
 	if (_mesher) {
 		_mesher->initialize(this);
 	}
@@ -736,8 +737,8 @@ void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
 }
 
 void Terrain3D::set_cull_margin(const real_t p_margin) {
-	SET_IF_DIFF(_cull_margin, p_margin);
-	LOG(INFO, "Setting extra cull margin: ", p_margin);
+	SET_IF_DIFF(_cull_margin, CLAMP(p_margin, 0.f, MAX_DIST));
+	LOG(INFO, "Setting extra cull margin: ", _cull_margin);
 	if (_mesher) {
 		_mesher->update_aabbs();
 	}
@@ -1261,7 +1262,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
 
 	ADD_GROUP("Mesh", "");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_mesh_size", "get_mesh_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_tessellation_level", "get_tessellation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");

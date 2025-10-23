@@ -19,6 +19,12 @@ using namespace godot;
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 #define COLOR_CONTROL Color(as_float(enc_auto(true)), 0.f, 0.f, 1.0f)
 
+// Terrain3D::_warnings is uint8_t
+#define WARN_MISMATCHED_SIZE 0x01
+#define WARN_MISMATCHED_FORMAT 0x02
+#define WARN_MISMATCHED_MIPMAPS 0x04
+#define WARN_ALL 0xFF
+
 // For consistency between MSVC, gcc, clang
 #ifndef FLT_MAX
 #define FLT_MAX __FLT_MAX__
@@ -27,13 +33,9 @@ using namespace godot;
 #define FLT_MIN __FLT_MIN__
 #endif
 
-// Terrain3D::_warnings is uint8_t
-#define WARN_MISMATCHED_SIZE 0x01
-#define WARN_MISMATCHED_FORMAT 0x02
-#define WARN_MISMATCHED_MIPMAPS 0x04
-#define WARN_ALL 0xFF
+// Globals
 
-// Global Types
+static const real_t MAX_DIST = 100000.f;
 
 #define V2(x) Vector2(x, x)
 #define V2I(x) Vector2i(x, x)

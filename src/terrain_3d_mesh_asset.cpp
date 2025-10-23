@@ -399,7 +399,7 @@ void Terrain3DMeshAsset::set_generated_faces(const int p_count) {
 }
 
 void Terrain3DMeshAsset::set_generated_size(const Vector2 &p_size) {
-	SET_IF_DIFF(_generated_size, p_size);
+	SET_IF_DIFF(_generated_size, CLAMP(p_size, V2_ZERO, Vector2(1000.f, 1000.f)));
 	LOG(INFO, "Setting generated size: ", _generated_faces);
 	if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _meshes.size() == 1) {
 		_meshes[0] = _get_generated_mesh();
@@ -447,7 +447,7 @@ void Terrain3DMeshAsset::set_lod_range(const int p_lod, const real_t p_distance)
 	if (p_lod < 0 || p_lod >= _lod_ranges.size()) {
 		return;
 	}
-	SET_IF_DIFF(_lod_ranges[p_lod], CLAMP(p_distance, 0.f, 100000.f));
+	SET_IF_DIFF(_lod_ranges[p_lod], CLAMP(p_distance, 0.f, MAX_DIST));
 	LOG(INFO, "Setting LOD ", p_lod, " visibility range: ", _lod_ranges[p_lod]);
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);

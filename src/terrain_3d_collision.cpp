@@ -515,7 +515,7 @@ void Terrain3DCollision::set_mask(const uint32_t p_mask) {
 }
 
 void Terrain3DCollision::set_priority(const real_t p_priority) {
-	SET_IF_DIFF(_priority, p_priority);
+	SET_IF_DIFF(_priority, CLAMP(p_priority, 0.f, 10000.f));
 	LOG(INFO, "Setting collision priority: ", p_priority);
 	if (is_editor_mode()) {
 		if (_static_body) {
