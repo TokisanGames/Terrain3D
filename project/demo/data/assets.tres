@@ -18,7 +18,6 @@ distance_fade_max_distance = 96.0
 
 [sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_2qf8x"]
 name = "TextureCard"
-generated_type = 1
 height_offset = 0.5
 material_override = SubResource("StandardMaterial3D_b2vqk")
 last_lod = 0
@@ -29,6 +28,7 @@ lod0_range = 128.0
 name = "LODExample"
 id = 1
 scene_file = ExtResource("1_4jrdu")
+generated_type = 0
 height_offset = 0.5
 last_lod = 4
 last_shadow_lod = 4
@@ -38,9 +38,10 @@ lod4_range = 256.0
 name = "Cliff"
 albedo_texture = ExtResource("2_pog6b")
 normal_texture = ExtResource("3_wncaf")
-normal_depth = 1.0
-ao_strength = 2.0
+normal_depth = 1.5
 roughness = -0.05
+ao_strength = 2.0
+displacement_scale = 0.65
 vertical_projection = true
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_od0q7"]
@@ -49,7 +50,7 @@ id = 1
 albedo_color = Color(0.67451, 0.74902, 0.686275, 1)
 albedo_texture = ExtResource("3_g8f2m")
 normal_texture = ExtResource("4_aw5y1")
-normal_depth = 1.0
+normal_depth = 1.4
 ao_strength = 2.0
 detiling_rotation = 0.161
 

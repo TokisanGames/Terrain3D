@@ -7,7 +7,6 @@
 
 #include "constants.h"
 
-using namespace godot;
 class Terrain3DAssets;
 
 // Parent class of Terrain3DMeshAsset and Terrain3DTextureAsset

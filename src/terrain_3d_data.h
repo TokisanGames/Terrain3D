@@ -10,8 +10,6 @@
 
 class Terrain3D;
 
-using namespace godot;
-
 class Terrain3DData : public Object {
 	GDCLASS(Terrain3DData, Object);
 	CLASS_NAME();

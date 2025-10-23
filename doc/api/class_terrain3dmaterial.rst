@@ -33,59 +33,65 @@ Properties
 .. table::
    :widths: auto
 
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``Dictionary``                                                   | :ref:`_shader_parameters<class_Terrain3DMaterial_property__shader_parameters>`           | ``{}``    |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`auto_shader_enabled<class_Terrain3DMaterial_property_auto_shader_enabled>`         | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`dual_scaling_enabled<class_Terrain3DMaterial_property_dual_scaling_enabled>`       | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``Shader``                                                       | :ref:`shader_override<class_Terrain3DMaterial_property_shader_override>`                 |           |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`shader_override_enabled<class_Terrain3DMaterial_property_shader_override_enabled>` | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_autoshader<class_Terrain3DMaterial_property_show_autoshader>`                 | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_checkered<class_Terrain3DMaterial_property_show_checkered>`                   | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_colormap<class_Terrain3DMaterial_property_show_colormap>`                     | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_contours<class_Terrain3DMaterial_property_show_contours>`                     | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_control_angle<class_Terrain3DMaterial_property_show_control_angle>`           | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_control_blend<class_Terrain3DMaterial_property_show_control_blend>`           | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_control_scale<class_Terrain3DMaterial_property_show_control_scale>`           | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_control_texture<class_Terrain3DMaterial_property_show_control_texture>`       | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_grey<class_Terrain3DMaterial_property_show_grey>`                             | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_heightmap<class_Terrain3DMaterial_property_show_heightmap>`                   | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`         | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_jaggedness<class_Terrain3DMaterial_property_show_jaggedness>`                 | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_navigation<class_Terrain3DMaterial_property_show_navigation>`                 | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`               | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`                     | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_texture_height<class_Terrain3DMaterial_property_show_texture_height>`         | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_texture_normal<class_Terrain3DMaterial_property_show_texture_normal>`         | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_texture_rough<class_Terrain3DMaterial_property_show_texture_rough>`           | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | ``bool``                                                         | :ref:`show_vertex_grid<class_Terrain3DMaterial_property_show_vertex_grid>`               | ``false`` |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | :ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` | :ref:`texture_filtering<class_Terrain3DMaterial_property_texture_filtering>`             | ``0``     |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
-   | :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>`   | :ref:`world_background<class_Terrain3DMaterial_property_world_background>`               | ``1``     |
-   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``Dictionary``                                                   | :ref:`_shader_parameters<class_Terrain3DMaterial_property__shader_parameters>`                         | ``{}``    |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`auto_shader_enabled<class_Terrain3DMaterial_property_auto_shader_enabled>`                       | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``Shader``                                                       | :ref:`buffer_shader_override<class_Terrain3DMaterial_property_buffer_shader_override>`                 |           |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`buffer_shader_override_enabled<class_Terrain3DMaterial_property_buffer_shader_override_enabled>` | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`dual_scaling_enabled<class_Terrain3DMaterial_property_dual_scaling_enabled>`                     | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``Shader``                                                       | :ref:`shader_override<class_Terrain3DMaterial_property_shader_override>`                               |           |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`shader_override_enabled<class_Terrain3DMaterial_property_shader_override_enabled>`               | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_autoshader<class_Terrain3DMaterial_property_show_autoshader>`                               | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_checkered<class_Terrain3DMaterial_property_show_checkered>`                                 | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_colormap<class_Terrain3DMaterial_property_show_colormap>`                                   | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_contours<class_Terrain3DMaterial_property_show_contours>`                                   | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_control_angle<class_Terrain3DMaterial_property_show_control_angle>`                         | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_control_blend<class_Terrain3DMaterial_property_show_control_blend>`                         | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_control_scale<class_Terrain3DMaterial_property_show_control_scale>`                         | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_control_texture<class_Terrain3DMaterial_property_show_control_texture>`                     | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_displacement_buffer<class_Terrain3DMaterial_property_show_displacement_buffer>`             | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_grey<class_Terrain3DMaterial_property_show_grey>`                                           | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_heightmap<class_Terrain3DMaterial_property_show_heightmap>`                                 | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`                       | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_jaggedness<class_Terrain3DMaterial_property_show_jaggedness>`                               | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_navigation<class_Terrain3DMaterial_property_show_navigation>`                               | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`                             | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`                                   | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_texture_height<class_Terrain3DMaterial_property_show_texture_height>`                       | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_texture_normal<class_Terrain3DMaterial_property_show_texture_normal>`                       | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_texture_rough<class_Terrain3DMaterial_property_show_texture_rough>`                         | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_vertex_grid<class_Terrain3DMaterial_property_show_vertex_grid>`                             | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | :ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` | :ref:`texture_filtering<class_Terrain3DMaterial_property_texture_filtering>`                           | ``0``     |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>`   | :ref:`world_background<class_Terrain3DMaterial_property_world_background>`                             | ``1``     |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
 
 .. rst-class:: classref-reftable-group
 
@@ -95,6 +101,10 @@ Methods
 .. table::
    :widths: auto
 
+   +-------------+----------------------------------------------------------------------------------------------------------------------------+
+   | ``RID``     | :ref:`get_buffer_material_rid<class_Terrain3DMaterial_method_get_buffer_material_rid>`\ (\ ) |const|                       |
+   +-------------+----------------------------------------------------------------------------------------------------------------------------+
+   | ``RID``     | :ref:`get_buffer_shader_rid<class_Terrain3DMaterial_method_get_buffer_shader_rid>`\ (\ ) |const|                           |
    +-------------+----------------------------------------------------------------------------------------------------------------------------+
    | ``RID``     | :ref:`get_material_rid<class_Terrain3DMaterial_method_get_material_rid>`\ (\ ) |const|                                     |
    +-------------+----------------------------------------------------------------------------------------------------------------------------+
@@ -106,7 +116,7 @@ Methods
    +-------------+----------------------------------------------------------------------------------------------------------------------------+
    | |void|      | :ref:`set_shader_param<class_Terrain3DMaterial_method_set_shader_param>`\ (\ name\: ``StringName``, value\: ``Variant``\ ) |
    +-------------+----------------------------------------------------------------------------------------------------------------------------+
-   | |void|      | :ref:`update<class_Terrain3DMaterial_method_update>`\ (\ )                                                                 |
+   | |void|      | :ref:`update<class_Terrain3DMaterial_method_update>`\ (\ full\: ``bool`` = false\ )                                        |
    +-------------+----------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
@@ -207,6 +217,40 @@ This private dictionary stores all of the shader parameters in the resource. It 
 - ``bool`` **get_auto_shader**\ (\ )
 
 Enables selecting two texture IDs that will automatically be applied to the terrain based upon slope.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_buffer_shader_override:
+
+.. rst-class:: classref-property
+
+``Shader`` **buffer_shader_override** :ref:`🔗<class_Terrain3DMaterial_property_buffer_shader_override>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_buffer_shader_override**\ (\ value\: ``Shader``\ )
+- ``Shader`` **get_buffer_shader_override**\ (\ )
+
+If buffer_shader_override_enabled is true and this Shader is valid, the displacement buffer material will use this custom shader code. If this is blank when you enable the override, the system will generate a shader with the current settings. A visual shader will also work here. However we only generate a text based shader so currently a visual shader needs to be constructed with the base code before it can work.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_buffer_shader_override_enabled:
+
+.. rst-class:: classref-property
+
+``bool`` **buffer_shader_override_enabled** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_buffer_shader_override_enabled>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **enable_buffer_shader_override**\ (\ value\: ``bool``\ )
+- ``bool`` **is_buffer_shader_override_enabled**\ (\ )
+
+Enables use of the :ref:`buffer_shader_override<class_Terrain3DMaterial_property_buffer_shader_override>` shader code. Generates default code if shader_override is blank.
 
 .. rst-class:: classref-item-separator
 
@@ -396,6 +440,23 @@ Albedo shows the painted scale. Larger scales are more red, smaller scales are m
 - ``bool`` **get_show_control_texture**\ (\ )
 
 Albedo shows the base and overlay texture indices defined by the control map. Red pixels indicate the base texture, with brightness showing texture ids 0 to 31. Green pixels indicate the overlay texture. Yellow indicates both.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_show_displacement_buffer:
+
+.. rst-class:: classref-property
+
+``bool`` **show_displacement_buffer** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_displacement_buffer>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_displacement_buffer**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_displacement_buffer**\ (\ )
+
+Shows the displacement buffer differential from 0. Green shows extrusions, Red for depressions into the terrain.
 
 .. rst-class:: classref-item-separator
 
@@ -627,6 +688,30 @@ Sets how the mesh outside of defined regions behave. See :ref:`WorldBackground<e
 Method Descriptions
 -------------------
 
+.. _class_Terrain3DMaterial_method_get_buffer_material_rid:
+
+.. rst-class:: classref-method
+
+``RID`` **get_buffer_material_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_buffer_material_rid>`
+
+Returns the RID of the displacement buffer material used with the Rendering Server. This is set per instance of this class.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_method_get_buffer_shader_rid:
+
+.. rst-class:: classref-method
+
+``RID`` **get_buffer_shader_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DMaterial_method_get_buffer_shader_rid>`
+
+Returns the RID of the displacement buffer shader used with the Rendering Server.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DMaterial_method_get_material_rid:
 
 .. rst-class:: classref-method
@@ -693,9 +778,11 @@ Set a parameter in the active shader (built-in or override shader).
 
 .. rst-class:: classref-method
 
-|void| **update**\ (\ ) :ref:`🔗<class_Terrain3DMaterial_method_update>`
+|void| **update**\ (\ full\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DMaterial_method_update>`
 
-Recompiles the current shader and sends all uniform values to it again.
+Sends all uniform values to the shader again.
+
+full - recompiles the shader first.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`

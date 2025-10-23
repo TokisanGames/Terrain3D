@@ -11,8 +11,6 @@
 #include "constants.h"
 #include "terrain_3d_region.h"
 
-using namespace godot;
-
 class Terrain3D;
 class Terrain3DAssets;
 

@@ -7,8 +7,6 @@
 
 #include "constants.h"
 
-using namespace godot;
-
 class GeneratedTexture {
 	CLASS_NAME_STATIC("Terrain3DGenTex");
 

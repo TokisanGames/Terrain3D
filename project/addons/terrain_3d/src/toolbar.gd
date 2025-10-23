@@ -166,6 +166,5 @@ func change_tool(p_name: String) -> void:
 	if plugin.debug:
 		print("Terrain3DToolbar: change_tool: ", p_name, ", pressed: ", btn and btn.button_pressed)
 	if btn and not btn.button_pressed:
-		if plugin.debug:
-			print("Terrain3DToolbar: change_tool: pressing button")
+		await get_tree().process_frame
 		btn.set_pressed(true)
