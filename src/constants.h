@@ -49,6 +49,7 @@ static const Vector3 V3_ZERO{ 0.f, 0.f, 0.f };
 static const Vector3 V3_MAX{ FLT_MAX, FLT_MAX, FLT_MAX };
 static const Vector3 V3_NAN{ NAN, NAN, NAN };
 static const Vector3 V3_UP{ 0.f, 1.f, 0.f };
+static const Vector3 V3_DOWN{ 0.f, -1.f, 0.f };
 
 struct Vector2iHash {
 	std::size_t operator()(const Vector2i &v) const {
