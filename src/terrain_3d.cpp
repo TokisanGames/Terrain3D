@@ -698,27 +698,30 @@ void Terrain3D::set_cull_margin(const real_t p_margin) {
  * Returns Vec3(NAN) on error or vec3(3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode) {
-	if (!_mouse_cam) {
-		LOG(ERROR, "Invalid mouse camera");
-		return V3_NAN;
-	}
 	Vector3 direction = p_direction.normalized();
 	Vector3 point;
 
-	// Position mouse cam one unit behind the requested position
-	_mouse_cam->set_global_position(p_src_pos - direction);
+	if (direction == Vector3(0.0f, 0.0f, 0.0f)) {
+		LOG(ERROR, "Invalid direction vector: ", direction);
+		return Vector3(NAN, NAN, NAN);
+	}
 
-	// If looking straight down (eg orthogonal camera), just return height. look_at won't work
-	if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
-		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
-		point = p_src_pos;
-		point.y = _data->get_height(p_src_pos);
-		if (std::isnan(point.y)) {
-			point.y = 0;
+	if ((direction - Vector3(0.f, 1.f, 0.f)).length_squared() < 0.00001f) {
+		// Cannot look upwards at the terrain since backfaces are culled, so just return NaN
+		return Vector3(NAN, NAN, NAN);
+	}
+
+	if (!p_gpu_mode) {
+		// Use raymarching mode
+
+		// If looking straight down and the source is above the terrain use get_height, otherwise return NaN
+		if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
+			float height = _data->get_height(p_src_pos);
+			if (height < p_src_pos.y) {
+				return Vector3(p_src_pos.x, height, p_src_pos.z);
+			}
+			return Vector3(NAN, NAN, NAN);
 		}
-
-	} else if (!p_gpu_mode) {
-		// Else if not gpu mode, use raymarching mode
 
 		int time = Time::get_singleton()->get_ticks_usec();
 
@@ -801,7 +804,22 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	} else {
 		// Else use GPU mode, which requires multiple calls
 		// Get depth from perspective camera snapshot
-		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, V3_UP);
+
+		if (!_mouse_cam) {
+			LOG(ERROR, "Invalid mouse camera");
+			return Vector3(NAN, NAN, NAN);
+		}
+
+		// Position mouse cam one unit behind the requested position
+		_mouse_cam->set_global_position(p_src_pos - direction);
+
+		// If looking straight down look_at won't work, just set rotation instead
+		if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
+			_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
+		} else {
+			_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, Vector3(0.f, 1.f, 0.f));
+		}
+
 		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 		Ref<ViewportTexture> vp_tex = _mouse_vp->get_texture();
 		Ref<Image> vp_img = vp_tex->get_image();
