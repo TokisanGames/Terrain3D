@@ -275,7 +275,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		LOG(DEBUG, "No void vertex(); cannot inject editor code");
 		return shader;
 	}
-	if (IS_EDITOR && _terrain && _terrain->get_editor()) {
+	if (_terrain && _terrain->get_editor()) {
 		insert_names.push_back("EDITOR_DECAL_SETUP");
 	}
 	if (_debug_view_heightmap) {
@@ -374,10 +374,10 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		insert_names.push_back("OVERLAY_VERTEX_GRID");
 	}
 	// Editor Functions
-	if (_show_navigation || (IS_EDITOR && _terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
+	if (_show_navigation || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
 		insert_names.push_back("EDITOR_NAVIGATION");
 	}
-	if (IS_EDITOR && _terrain && _terrain->get_editor()) {
+	if (_terrain && _terrain->get_editor()) {
 		insert_names.push_back("EDITOR_DECAL_RENDER");
 	}
 	// Apply pending inserts

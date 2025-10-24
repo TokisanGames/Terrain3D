@@ -4,10 +4,10 @@
 #define TERRAIN3D_CLASS_H
 
 #include <godot_cpp/classes/camera3d.hpp>
-#include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
+#include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
@@ -62,7 +62,7 @@ private:
 	Terrain3DCollision *_collision = nullptr;
 	Terrain3DMesher *_mesher = nullptr;
 	Terrain3DEditor *_editor = nullptr;
-	EditorPlugin *_plugin = nullptr;
+	Object *_editor_plugin = nullptr;
 
 	// Tracked Targets
 	TargetNode3D _clipmap_target;
@@ -143,8 +143,8 @@ public:
 	Node *get_mmi_parent() const { return _mmi_parent; }
 	void set_editor(Terrain3DEditor *p_editor);
 	Terrain3DEditor *get_editor() const { return _editor; }
-	void set_plugin(EditorPlugin *p_plugin);
-	EditorPlugin *get_plugin() const { return _plugin; }
+	void set_plugin(Object *p_plugin);
+	Object *get_plugin() const { return _editor_plugin; }
 
 	// Target Tracking
 	void set_camera(Camera3D *p_camera);

@@ -1,8 +1,8 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
-#include <godot_cpp/classes/editor_undo_redo_manager.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/variant/callable.hpp>
 
 #include "constants.h"
 #include "logger.h"
@@ -158,8 +158,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		rot += p_camera_direction;
 	}
 	// Rotate the decal to align with the brush
-	if (IS_EDITOR && _terrain->get_plugin()) {
-		cast_to<Node>(_terrain->get_plugin()->get("ui"))->call("set_decal_rotation", rot);
+	if (_terrain->get_plugin()) {
+		Node *node = cast_to<Node>(_terrain->get_plugin()->get("ui"));
+		if (node->has_method("set_decal_rotation")) {
+			node->call("set_decal_rotation", rot);
+		}
 	}
 	AABB edited_area;
 	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) * .5f;
@@ -629,23 +632,24 @@ void Terrain3DEditor::_store_undo() {
 		LOG(DEBUG, "Adding edited area to snapshots: ", _undo_data["edited_area"]);
 	}
 
-	// Store data in Godot's Undo/Redo Manager
-	EditorUndoRedoManager *undo_redo = _terrain->get_plugin()->get_undo_redo();
-	LOG(INFO, "Storing undo snapshot");
-	String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
-	LOG(DEBUG, "Creating undo action: '", action_name, "'");
-	undo_redo->create_action(action_name, UndoRedo::MERGE_DISABLE, _terrain);
+	// Request the plugin store the undo/redo data.
+	if (_terrain->get_plugin()->has_method("create_undo_action")) {
+		LOG(INFO, "Storing undo snapshot");
+		String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
+		LOG(DEBUG, "Creating undo action: '", action_name, "'");
+		_terrain->get_plugin()->call("create_undo_action", action_name);
 
-	LOG(DEBUG, "Storing undo snapshot: ");
-	Util::print_dict("_undo_data snapshot", _undo_data, DEBUG);
-	undo_redo->add_undo_method(this, "apply_undo", _undo_data.duplicate());
+		LOG(DEBUG, "Storing undo snapshot: ");
+		Util::print_dict("_undo_data snapshot", _undo_data, DEBUG);
+		_terrain->get_plugin()->call("add_undo_method", Callable(this, "apply_undo").bind(_undo_data.duplicate()));
 
-	LOG(DEBUG, "Storing redo snapshot: ");
-	Util::print_dict("redo_data snapshot", redo_data, DEBUG);
-	undo_redo->add_do_method(this, "apply_undo", redo_data);
+		LOG(DEBUG, "Storing redo snapshot: ");
+		Util::print_dict("redo_data snapshot", redo_data, DEBUG);
+		_terrain->get_plugin()->call("add_do_method", Callable(this, "apply_undo").bind(redo_data));
 
-	LOG(DEBUG, "Committing undo action");
-	undo_redo->commit_action(false);
+		LOG(DEBUG, "Committing undo action");
+		_terrain->get_plugin()->call("commit_action", false);
+	}
 }
 
 void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
@@ -732,9 +736,9 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		}
 	}
 	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
-	if (_terrain->get_plugin()->has_method("update_grid")) {
-		LOG(DEBUG, "Calling GDScript update_grid()");
-		_terrain->get_plugin()->call("update_grid");
+	if (_terrain->get_plugin()->has_method("update_region_grid")) {
+		LOG(DEBUG, "Calling GDScript update_region_grid()");
+		_terrain->get_plugin()->call("update_region_grid");
 	}
 }
 

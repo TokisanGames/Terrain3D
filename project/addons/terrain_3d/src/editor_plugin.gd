@@ -477,3 +477,26 @@ func has_setting(p_str: String) -> bool:
 
 func erase_setting(p_str: String) -> void:
 	editor_settings.erase(p_str)
+
+
+## Undo / Redo Functions
+
+
+func create_undo_action(p_action_name: String) -> void:
+	get_undo_redo().create_action(p_action_name, UndoRedo.MERGE_DISABLE, terrain)
+
+
+func add_undo_method(p_method: Callable) -> void:
+	var args := [ p_method.get_object(), p_method.get_method() ]
+	args.append_array(p_method.get_bound_arguments())
+	get_undo_redo().add_undo_method.callv(args)
+
+
+func add_do_method(p_method: Callable) -> void:
+	var args := [ p_method.get_object(), p_method.get_method() ]
+	args.append_array(p_method.get_bound_arguments())
+	get_undo_redo().add_do_method.callv(args)
+
+
+func commit_action(p_execute: bool) -> void:
+	get_undo_redo().commit_action(p_execute)
