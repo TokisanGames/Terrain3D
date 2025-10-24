@@ -189,7 +189,7 @@ public partial class Terrain3D : Node3D
 
 	public new string Version
 	{
-		set => Set(GDExtensionPropertyName.Version, value);
+		get => Get(GDExtensionPropertyName.Version).As<string>();
 	}
 
 	public new Variant DebugLevel
@@ -206,11 +206,8 @@ public partial class Terrain3D : Node3D
 
 	public new Variant Data
 	{
-		set => Set(GDExtensionPropertyName.Data, value);
+		get => Get(GDExtensionPropertyName.Data).As<Variant>();
 	}
-	
-	// This works for binding to terrain.Data
-	// public Terrain3DData? Data => Terrain3DData.Bind(Call("get_data").AsGodotObject());
 
 	public new Terrain3DMaterial Material
 	{
@@ -226,12 +223,12 @@ public partial class Terrain3D : Node3D
 
 	public new Variant Collision
 	{
-		set => Set(GDExtensionPropertyName.Collision, value);
+		get => Get(GDExtensionPropertyName.Collision).As<Variant>();
 	}
 
 	public new Variant Instancer
 	{
-		set => Set(GDExtensionPropertyName.Instancer, value);
+		get => Get(GDExtensionPropertyName.Instancer).As<Variant>();
 	}
 
 	public new Variant RegionSize

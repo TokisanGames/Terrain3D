@@ -301,7 +301,7 @@ public partial class Terrain3DMeshAsset : Resource
 
 	public new long LodCount
 	{
-		set => Set(GDExtensionPropertyName.LodCount, value);
+		get => Get(GDExtensionPropertyName.LodCount).As<long>();
 	}
 
 	public new long LastLod

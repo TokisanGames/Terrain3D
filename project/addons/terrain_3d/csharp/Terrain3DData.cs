@@ -236,17 +236,17 @@ public partial class Terrain3DData : GodotObject
 
 	public new Godot.Collections.Array HeightMaps
 	{
-		set => Set(GDExtensionPropertyName.HeightMaps, value);
+		get => Get(GDExtensionPropertyName.HeightMaps).As<Godot.Collections.Array>();
 	}
 
 	public new Godot.Collections.Array ControlMaps
 	{
-		set => Set(GDExtensionPropertyName.ControlMaps, value);
+		get => Get(GDExtensionPropertyName.ControlMaps).As<Godot.Collections.Array>();
 	}
 
 	public new Godot.Collections.Array ColorMaps
 	{
-		set => Set(GDExtensionPropertyName.ColorMaps, value);
+		get => Get(GDExtensionPropertyName.ColorMaps).As<Godot.Collections.Array>();
 	}
 
 	public new static class GDExtensionMethodName
