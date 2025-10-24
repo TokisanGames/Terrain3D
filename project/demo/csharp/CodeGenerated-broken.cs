@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace TokisanGames
 {
-	public partial class CodeGenerated : Node
+	public partial class CodeGeneratedBroken : Node
 	{
 		private Terrain3D terrain;
 
@@ -53,8 +53,8 @@ namespace TokisanGames
 			
 			GD.Print("Setting up Material");
 			// A material was already created by C++ and is accessible in GDScript
-			// Creating a new material works for C#, but produces errors because of a Godot bug
-			var material = Terrain3DMaterial.Instantiate();
+			// This line stops the script from executing without any errors
+			var material = terrain.Material;
 			terrain.Material = material;
 			material.WorldBackground = Terrain3DMaterial.WorldBackgroundEnum.None;
 			material.AutoShaderEnabled = true;
@@ -64,8 +64,8 @@ namespace TokisanGames
 
 			GD.Print("Setting up Assets");
 			// An asset was already created by C++ and is accessible in GDScript
-			// Creating a new asset works for C#, though should be unnecessary
-			var assets = Terrain3DAssets.Instantiate();
+			// This stops the script from executing without any errors
+			var assets = terrain.Assets;
 			terrain.Assets = assets;
 			assets.SetTexture(0, greenTa);
 			assets.SetTexture(1, brownTa);
@@ -82,10 +82,10 @@ namespace TokisanGames
 				}
 			}
 			terrain.RegionSize = 1024;
-			var data = terrain.Get("data").As<GodotObject>();
+			var data = terrain.Data;
 			var images = new Godot.Collections.Array { img, new Variant(), new Variant() };
 			GD.Print("Calling ImportImages");
-			data.Call("import_images", images, new Vector3(-1024, 0, -1024), 0.0, 150.0);
+			data.ImportImages(images, new Vector3(-1024, 0, -1024), 0.0, 150.0);
 			GD.Print("Done calling ImportImages");
 				
 			// Setup Instancer
