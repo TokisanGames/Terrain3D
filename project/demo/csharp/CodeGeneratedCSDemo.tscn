@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3 uid="uid://csrrontd2cr8v"]
+
+[ext_resource type="PackedScene" uid="uid://cofnhdcclon1w" path="res://demo/CodeGeneratedDemo.tscn" id="1_oes16"]
+[ext_resource type="Script" uid="uid://b2amqaeyg0ssy" path="res://demo/csharp/CodeGenerated.cs" id="2_wp08d"]
+
+[node name="CodeGenerated" instance=ExtResource("1_oes16")]
+script = ExtResource("2_wp08d")
