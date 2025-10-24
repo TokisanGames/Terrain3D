@@ -452,20 +452,20 @@ void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
 		LOG(ERROR, "Attempted to set a node queued for deletion");
 		return;
 	}
-	LOG(INFO, "Set Terrain3DEditor: ", p_editor);
+	LOG(INFO, "Setting Terrain3DEditor: ", p_editor);
 	_editor = p_editor;
 	if (_material.is_valid()) {
 		_material->update();
 	}
 }
 
-void Terrain3D::set_plugin(EditorPlugin *p_plugin) {
+void Terrain3D::set_plugin(Object *p_plugin) {
 	if (p_plugin && p_plugin->is_queued_for_deletion()) {
 		LOG(ERROR, "Attempted to set a node queued for deletion");
 		return;
 	}
-	LOG(INFO, "Set EditorPlugin: ", p_plugin);
-	_plugin = p_plugin;
+	LOG(INFO, "Setting Editor Plugin: ", p_plugin);
+	_editor_plugin = p_plugin;
 }
 
 void Terrain3D::set_camera(Camera3D *p_camera) {
@@ -633,8 +633,8 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 			_collision->build();
 		}
 	}
-	if (IS_EDITOR && _plugin) {
-		_plugin->call("update_region_grid");
+	if (IS_EDITOR && _editor_plugin) {
+		_editor_plugin->call("update_region_grid");
 	}
 }
 
