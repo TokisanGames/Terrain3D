@@ -698,41 +698,128 @@ void Terrain3D::set_cull_margin(const real_t p_margin) {
  * Returns Vec3(NAN) on error or vec3(3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode) {
-	if (!_mouse_cam) {
-		LOG(ERROR, "Invalid mouse camera");
-		return V3_NAN;
-	}
 	Vector3 direction = p_direction.normalized();
 	Vector3 point;
 
-	// Position mouse cam one unit behind the requested position
-	_mouse_cam->set_global_position(p_src_pos - direction);
+	if (direction == Vector3(0.0f, 0.0f, 0.0f)) {
+		LOG(ERROR, "Invalid direction vector: ", direction);
+		return Vector3(NAN, NAN, NAN);
+	}
 
-	// If looking straight down (eg orthogonal camera), just return height. look_at won't work
-	if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
-		_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
-		point = p_src_pos;
-		point.y = _data->get_height(p_src_pos);
-		if (std::isnan(point.y)) {
-			point.y = 0;
-		}
+	if ((direction - Vector3(0.f, 1.f, 0.f)).length_squared() < 0.00001f) {
+		// Cannot look upwards at the terrain since backfaces are culled, so just return NaN
+		return Vector3(NAN, NAN, NAN);
+	}
 
-	} else if (!p_gpu_mode) {
-		// Else if not gpu mode, use raymarching mode
-		point = p_src_pos;
-		for (int i = 0; i < 4000; i++) {
-			real_t height = _data->get_height(point);
-			if (point.y - height <= 0) {
-				return point;
+	if (!p_gpu_mode) {
+		// Use raymarching mode
+
+		// If looking straight down and the source is above the terrain use get_height, otherwise return NaN
+		if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
+			float height = _data->get_height(p_src_pos);
+			if (height < p_src_pos.y) {
+				return Vector3(p_src_pos.x, height, p_src_pos.z);
 			}
-			point += direction;
+			return Vector3(NAN, NAN, NAN);
 		}
-		return V3_MAX;
+
+		int time = Time::get_singleton()->get_ticks_usec();
+
+		const int PRIMARY_STEP_SIZE = 5;
+		const int MAX_SECONDARY_STEPS = 5;
+		const real_t TOLERANCE = 0.001f;
+
+		direction *= _vertex_spacing;
+		real_t height = FLT_MAX;
+		Vector3 snapped_point = V3_MAX;
+
+		// Points defining the ray segment
+		Vector3 upper_ray_bound = V3_MAX;
+		Vector3 lower_ray_bound = V3_MAX;
+
+		// First find the boundaries using broad steps
+		//
+		// Get the first pair of points where one is above Terrain3D (lower bound) and one is below (upper bound)
+		for (int i = 0; i < 4000; i += PRIMARY_STEP_SIZE) {
+			upper_ray_bound = p_src_pos + (direction * i);
+
+			// Snap the point to avoid expensive interpolation in get_height()
+			snapped_point = upper_ray_bound.snapped(Vector3(_vertex_spacing, upper_ray_bound.y, _vertex_spacing));
+			height = _data->get_height(snapped_point);
+
+			if (snapped_point.y - height <= 0.0f) {
+				// Point is below Terrain3D, we found the boundaries
+				break;
+			}
+			lower_ray_bound = upper_ray_bound;
+		}
+
+		if (lower_ray_bound == upper_ray_bound) {
+			// There were no points below Terrain3D
+			LOG(EXTREME, "Determined no intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
+			return V3_MAX;
+		}
+
+		// Now we know the boundaries we refine them until we are within tolerance or exceed MAX_SECONDARY_STEPS
+		//
+		// Boundary points with y snapped to Terrain3D height. This is used to define a triangle, which is used to define a plane, which we will test for intersection.
+		Vector3 upper_triangle_point = Vector3(upper_ray_bound.x, _data->get_height(upper_ray_bound), upper_ray_bound.z);
+		Vector3 lower_triangle_point = Vector3(lower_ray_bound.x, _data->get_height(lower_ray_bound), lower_ray_bound.z);
+
+		// To define the triangle we need at least three vertices. We so we will calculate a third using cross product
+		Vector3 third_triangle_point = lower_triangle_point + lower_triangle_point.direction_to(p_src_pos).cross(lower_triangle_point.direction_to(upper_triangle_point));
+
+		Vector3 estimated_intersection = V3_MAX;
+
+		for (int j = 0; j < MAX_SECONDARY_STEPS; j++) {
+			Plane plane(lower_triangle_point, upper_triangle_point, third_triangle_point);
+
+			// Compute ray-plane intersection
+			plane.intersects_ray(p_src_pos, p_direction, &estimated_intersection);
+
+			height = _data->get_height(estimated_intersection);
+			real_t height_difference = estimated_intersection.y - height;
+
+			if (abs(height_difference) <= TOLERANCE) {
+				// We found an acceptable intersection estimate, no need to continue refinement
+				break;
+			}
+
+			if (height_difference <= 0.0f) {
+				// Ray below Terrain3D, move upper boundary and update the triangle points
+				upper_ray_bound = estimated_intersection;
+				upper_triangle_point = Vector3(upper_ray_bound.x, height, upper_ray_bound.z);
+			} else {
+				// Ray above Terrain3D, move lower boundary and update the triangle points
+				lower_ray_bound = estimated_intersection;
+				lower_triangle_point = Vector3(lower_ray_bound.x, height, lower_ray_bound.z);
+			}
+			// Recalculate third vertex based on new triangle points
+			third_triangle_point = lower_triangle_point + lower_triangle_point.direction_to(p_src_pos).cross(lower_triangle_point.direction_to(upper_triangle_point));
+		}
+
+		LOG(EXTREME, "Determined intersection in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
+		return estimated_intersection;
 
 	} else {
 		// Else use GPU mode, which requires multiple calls
 		// Get depth from perspective camera snapshot
-		_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, V3_UP);
+
+		if (!_mouse_cam) {
+			LOG(ERROR, "Invalid mouse camera");
+			return Vector3(NAN, NAN, NAN);
+		}
+
+		// Position mouse cam one unit behind the requested position
+		_mouse_cam->set_global_position(p_src_pos - direction);
+
+		// If looking straight down look_at won't work, just set rotation instead
+		if ((direction - Vector3(0.f, -1.f, 0.f)).length_squared() < 0.00001f) {
+			_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
+		} else {
+			_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, Vector3(0.f, 1.f, 0.f));
+		}
+
 		_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
 		Ref<ViewportTexture> vp_tex = _mouse_vp->get_texture();
 		Ref<Image> vp_img = vp_tex->get_image();
