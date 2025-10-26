@@ -202,8 +202,8 @@ public:
 	real_t get_cull_margin() const { return _cull_margin; };
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; };
-	void set_color_maps_enabled(const bool p_enabled) { _data ? _data->set_color_maps_enabled(p_enabled) : void(); }
-	bool get_color_maps_enabled() const { return _data ? _data->get_color_maps_enabled() : true; }
+	void set_color_map_enabled(const bool p_enabled) { _data ? _data->set_color_map_enabled(p_enabled) : void(); }
+	bool get_color_map_enabled() const { return _data ? _data->get_color_map_enabled() : true; }
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
