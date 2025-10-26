@@ -175,6 +175,12 @@ public:
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
+	// Instancer
+	void set_instancer_mode(const InstancerMode p_mode) { _instancer ? _instancer->set_mode(p_mode) : void(); }
+	InstancerMode get_instancer_mode() const { return _instancer ? _instancer->get_mode() : InstancerMode::NORMAL; }
+	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
+	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
+
 	// Rendering
 	void set_render_layers(const uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; };
@@ -188,8 +194,6 @@ public:
 	real_t get_cull_margin() const { return _cull_margin; };
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; };
-	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
-	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);

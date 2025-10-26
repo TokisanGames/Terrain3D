@@ -619,6 +619,18 @@ void Terrain3DInstancer::clear_by_region(const Ref<Terrain3DRegion> &p_region, c
 	_destroy_mmi_by_location(region_loc, p_mesh_id);
 }
 
+void Terrain3DInstancer::set_mode(const InstancerMode p_mode) {
+	LOG(INFO, "Setting instancer mode: ", p_mode);
+	if (p_mode != _mode) {
+		_mode = p_mode;
+		if (is_enabled()) {
+			update_mmis(-1, V2I_MAX, true);
+		} else {
+			destroy();
+		}
+	}
+}
+
 void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 	int mesh_id = p_params.get("asset_id", 0);
@@ -1298,6 +1310,10 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 // If mesh_id < 0, will do all meshes in the specified region
 // You safely can call multiple times per frame, and select any combo of options without fillling up the queue.
 void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_region_loc, const bool p_rebuild) {
+	if (_mode == DISABLED) {
+		LOG(INFO, "Instancer is disabled");
+		return;
+	}
 	LOG(INFO, "Queueing MMI update for mesh id: ", p_mesh_id < 0 ? "all" : String::num_int64(p_mesh_id),
 			", region: ", p_region_loc == V2I_MAX ? "all" : String(p_region_loc),
 			p_rebuild ? ", destroying first" : "");
@@ -1361,9 +1377,15 @@ void Terrain3DInstancer::dump_mmis() {
 ///////////////////////////
 
 void Terrain3DInstancer::_bind_methods() {
+	BIND_ENUM_CONSTANT(DISABLED);
+	BIND_ENUM_CONSTANT(NORMAL);
+
 	ClassDB::bind_method(D_METHOD("clear_by_mesh", "mesh_id"), &Terrain3DInstancer::clear_by_mesh);
 	ClassDB::bind_method(D_METHOD("clear_by_location", "region_location", "mesh_id"), &Terrain3DInstancer::clear_by_location);
 	ClassDB::bind_method(D_METHOD("clear_by_region", "region", "mesh_id"), &Terrain3DInstancer::clear_by_region);
+	ClassDB::bind_method(D_METHOD("set_mode", "mode"), &Terrain3DInstancer::set_mode);
+	ClassDB::bind_method(D_METHOD("get_mode"), &Terrain3DInstancer::get_mode);
+	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DInstancer::is_enabled);
 	ClassDB::bind_method(D_METHOD("add_instances", "global_position", "params"), &Terrain3DInstancer::add_instances);
 	ClassDB::bind_method(D_METHOD("remove_instances", "global_position", "params"), &Terrain3DInstancer::remove_instances);
 	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform", "update"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()), DEFVAL(true));
@@ -1375,4 +1397,6 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_mmis", "mesh_id", "region_location", "rebuild_all"), &Terrain3DInstancer::update_mmis, DEFVAL(-1), DEFVAL(V2I_MAX), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
 	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
+
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disabled,Normal"), "set_mode", "get_mode");
 }
