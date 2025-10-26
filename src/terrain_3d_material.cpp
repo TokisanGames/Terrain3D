@@ -586,6 +586,7 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
 	RS->material_set_param(p_material, "_height_maps", data->get_height_maps_rid());
 	RS->material_set_param(p_material, "_control_maps", data->get_control_maps_rid());
 	RS->material_set_param(p_material, "_color_maps", data->get_color_maps_rid());
+	RS->material_set_param(p_material, "_color_map_enabled", data->get_color_map_enabled());
 	LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
 	LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
 	LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
