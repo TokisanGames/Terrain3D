@@ -763,6 +763,15 @@ void Terrain3D::set_cull_margin(const real_t p_margin) {
 	}
 }
 
+void Terrain3D::set_color_map_enabled(const bool p_enabled) {
+	if (_material.is_valid()) {
+		_material->set_color_map_enabled(p_enabled);
+	}
+	if (_data) {
+		_data->set_color_map_enabled(p_enabled);
+	}
+}
+
 /* Returns the point a ray intersects the ground using either raymarching or the GPU depth texture
  *	p_src_pos (camera position)
  *	p_direction (camera direction looking at the terrain)
@@ -1258,10 +1267,12 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
 	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
 	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
-	ClassDB::bind_method(D_METHOD("set_free_editor_textures"), &Terrain3D::set_free_editor_textures);
+	ClassDB::bind_method(D_METHOD("set_free_editor_textures", "enabled"), &Terrain3D::set_free_editor_textures);
 	ClassDB::bind_method(D_METHOD("get_free_editor_textures"), &Terrain3D::get_free_editor_textures);
 	ClassDB::bind_method(D_METHOD("set_instancer_mode", "mode"), &Terrain3D::set_instancer_mode);
 	ClassDB::bind_method(D_METHOD("get_instancer_mode"), &Terrain3D::get_instancer_mode);
+	ClassDB::bind_method(D_METHOD("set_color_map_enabled", "enabled"), &Terrain3D::set_color_map_enabled);
+	ClassDB::bind_method(D_METHOD("get_color_map_enabled"), &Terrain3D::get_color_map_enabled);
 
 	// Overlays
 	ClassDB::bind_method(D_METHOD("set_show_region_grid", "enabled"), &Terrain3D::set_show_region_grid);
@@ -1371,6 +1382,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_editor_textures"), "set_free_editor_textures", "get_free_editor_textures");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "instancer_mode", PROPERTY_HINT_ENUM, "Disabled,Normal"), "set_instancer_mode", "get_instancer_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "color_map_enabled"), "set_color_map_enabled", "get_color_map_enabled");
 
 	ADD_GROUP("Overlays", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_region_grid"), "set_show_region_grid", "get_show_region_grid");

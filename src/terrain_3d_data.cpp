@@ -473,9 +473,18 @@ TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 	return TypedArray<Image>();
 }
 
+void Terrain3DData::set_color_map_enabled(const bool p_enabled) {
+	LOG(INFO, "Setting color maps enabled: ", p_enabled);
+	if (_color_map_enabled != p_enabled) {
+		_color_map_enabled = p_enabled;
+		update_maps(TYPE_COLOR);
+	}
+}
+
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
 	// Generate region color mipmaps
-	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
+	if (_color_map_enabled && p_generate_mipmaps &&
+			(p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
 		LOG(EXTREME, "Regenerating color mipmaps");
 		for (const Vector2i &region_loc : _region_locations) {
 			Terrain3DRegion *region = get_region_ptr(region_loc);
@@ -576,13 +585,15 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (_generated_color_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating color texture array from regions");
 		_color_maps.clear();
-		for (const Vector2i &region_loc : _region_locations) {
-			const Terrain3DRegion *region = get_region_ptr(region_loc);
-			if (region) {
-				_color_maps.push_back(region->get_active_color_map());
+		if (_color_map_enabled) {
+			for (const Vector2i &region_loc : _region_locations) {
+				const Terrain3DRegion *region = get_region_ptr(region_loc);
+				if (region) {
+					_color_maps.push_back(region->get_active_color_map());
+				}
 			}
+			_generated_color_maps.create(_color_maps);
 		}
-		_generated_color_maps.create(_color_maps);
 		any_changed = true;
 		LOG(DEBUG, "Emitting color_maps_changed");
 		emit_signal("color_maps_changed");
@@ -607,14 +618,18 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						emit_signal("control_maps_changed");
 						break;
 					case TYPE_COLOR:
-						_generated_color_maps.update(region->get_active_color_map(), region_id);
+						if (_color_map_enabled) {
+							_generated_color_maps.update(region->get_active_color_map(), region_id);
+						}
 						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
 						break;
 					default:
 						_generated_height_maps.update(region->get_height_map(), region_id);
 						_generated_control_maps.update(region->get_control_map(), region_id);
-						_generated_color_maps.update(region->get_active_color_map(), region_id);
+						if (_color_map_enabled) {
+							_generated_color_maps.update(region->get_active_color_map(), region_id);
+						}
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						LOG(DEBUG, "Emitting control_maps_changed");
@@ -629,7 +644,9 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (any_changed) {
 		LOG(DEBUG, "Emitting maps_changed");
 		emit_signal("maps_changed");
-		_terrain->snap();
+		if (_terrain) {
+			_terrain->snap();
+		}
 	}
 }
 
@@ -786,7 +803,7 @@ Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
 	// If material available, autoshader enabled, and pixel set to auto
 	if (_terrain) {
 		Ref<Terrain3DMaterial> t_material = _terrain->get_material();
-		bool auto_enabled = t_material->get_auto_shader();
+		bool auto_enabled = t_material->get_auto_shader_enabled();
 		bool control_auto = is_auto(src);
 		if (auto_enabled && control_auto) {
 			real_t auto_slope = real_t(t_material->get_shader_param("auto_slope"));
@@ -1218,6 +1235,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
 	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
+	ClassDB::bind_method(D_METHOD("set_color_map_enabled", "enabled"), &Terrain3DData::set_color_map_enabled);
+	ClassDB::bind_method(D_METHOD("get_color_map_enabled"), &Terrain3DData::get_color_map_enabled);
 	ClassDB::bind_method(D_METHOD("update_maps", "map_type", "all_regions", "generate_mipmaps"), &Terrain3DData::update_maps, DEFVAL(TYPE_MAX), DEFVAL(true), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DData::get_height_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DData::get_control_maps_rid);
@@ -1269,6 +1288,8 @@ void Terrain3DData::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_maps", PROPERTY_HINT_ARRAY_TYPE, "Image", ro_flags), "", "get_height_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_maps", PROPERTY_HINT_ARRAY_TYPE, "Image", ro_flags), "", "get_control_maps");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_maps", PROPERTY_HINT_ARRAY_TYPE, "Image", ro_flags), "", "get_color_maps");
+
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "color_map_enabled"), "set_color_map_enabled", "get_color_map_enabled");
 
 	ADD_SIGNAL(MethodInfo("maps_changed"));
 	ADD_SIGNAL(MethodInfo("region_map_changed"));
