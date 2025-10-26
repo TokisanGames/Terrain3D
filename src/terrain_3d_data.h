@@ -61,6 +61,7 @@ private:
 	TypedArray<Image> _height_maps;
 	TypedArray<Image> _control_maps;
 	TypedArray<Image> _color_maps;
+	bool _color_maps_enabled = true;
 
 	// Editing occurs on the Image arrays above, which are converted to Texture arrays
 	// below for the shader.
@@ -131,6 +132,8 @@ public:
 	TypedArray<Image> get_control_maps() const { return _control_maps; }
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
+	void set_color_maps_enabled(const bool p_enabled);
+	bool get_color_maps_enabled() const { return _color_maps_enabled; }
 	void update_maps(const MapType p_map_type = TYPE_MAX, const bool p_all_regions = true, const bool p_generate_mipmaps = false);
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
 	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
