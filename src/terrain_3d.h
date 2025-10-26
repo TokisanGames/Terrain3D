@@ -36,6 +36,11 @@ public: // Constants
 		EXTREME = 3, // Continuous operations like snapping
 	};
 
+	enum DevMode {
+		NORMAL,
+		READ_ONLY,
+	};
+
 	enum RegionSize {
 		SIZE_64 = 64,
 		SIZE_128 = 128,
@@ -47,6 +52,7 @@ public: // Constants
 
 private:
 	String _version = "1.1.0-dev";
+	DevMode _dev_mode = NORMAL;
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
@@ -127,6 +133,8 @@ public:
 	String get_version() const { return _version; }
 	void set_debug_level(const DebugLevel p_level);
 	DebugLevel get_debug_level() const { return debug_level; }
+	void set_dev_mode(const DevMode p_mode);
+	DevMode get_dev_mode() const { return _dev_mode; }
 	void set_data_directory(String p_dir);
 	String get_data_directory() const { return _data ? _data_directory : ""; }
 
@@ -269,8 +277,9 @@ protected:
 	static void _bind_methods();
 };
 
-VARIANT_ENUM_CAST(Terrain3D::RegionSize);
+VARIANT_ENUM_CAST(Terrain3D::DevMode);
 VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
+VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 
 constexpr Terrain3D::DebugLevel MESG = Terrain3D::DebugLevel::MESG;
 constexpr Terrain3D::DebugLevel WARN = Terrain3D::DebugLevel::WARN;

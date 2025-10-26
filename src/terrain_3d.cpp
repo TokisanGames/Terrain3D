@@ -407,6 +407,13 @@ void Terrain3D::set_debug_level(const DebugLevel p_level) {
 	LOG(INFO, "Setting debug level: ", debug_level);
 }
 
+void Terrain3D::set_dev_mode(const DevMode p_mode) {
+	LOG(INFO, "Setting development mode: ", p_mode);
+	if (p_mode != _dev_mode) {
+		_dev_mode = p_mode;
+	}
+}
+
 void Terrain3D::set_data_directory(String p_dir) {
 	String old_dir = _data_directory;
 	SET_IF_DIFF(_data_directory, p_dir);
@@ -1051,6 +1058,9 @@ void Terrain3D::_notification(const int p_what) {
 }
 
 void Terrain3D::_bind_methods() {
+	BIND_ENUM_CONSTANT(NORMAL);
+	BIND_ENUM_CONSTANT(READ_ONLY);
+
 	BIND_ENUM_CONSTANT(ERROR);
 	BIND_ENUM_CONSTANT(INFO);
 	BIND_ENUM_CONSTANT(DEBUG);
@@ -1066,6 +1076,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
+	ClassDB::bind_method(D_METHOD("set_dev_mode", "mode"), &Terrain3D::set_dev_mode);
+	ClassDB::bind_method(D_METHOD("get_dev_mode"), &Terrain3D::get_dev_mode);
 	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
 	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
 
@@ -1198,6 +1210,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "dev_mode", PROPERTY_HINT_ENUM, "Normal,Read Only"), "set_dev_mode", "get_dev_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "data_directory", PROPERTY_HINT_DIR), "set_data_directory", "get_data_directory");
 
 	// Object references

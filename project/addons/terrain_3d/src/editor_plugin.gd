@@ -177,6 +177,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	var continue_input: AfterGUIInput = _read_input(p_event)
 	if continue_input != AFTER_GUI_INPUT_CUSTOM:
 		return continue_input
+	if terrain.dev_mode == Terrain3D.READ_ONLY:
+		return AFTER_GUI_INPUT_CUSTOM
 	
 	## Setup active camera & viewport
 	# Always update this for all inputs, as the mouse position can move without
