@@ -306,7 +306,7 @@ void Terrain3DData::save_directory(const String &p_dir) {
 	LOG(INFO, "Saving data files to ", p_dir);
 	Array locations = _regions.keys();
 	for (int i = 0; i < locations.size(); i++) {
-		save_region(locations[i], p_dir, _terrain->get_save_16_bit());
+		save_region(locations[i], p_dir, _terrain->get_save_16_bit(), _terrain->get_use_compressed_color_map());
 	}
 	if (IS_EDITOR && !EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
 		EditorInterface::get_singleton()->get_resource_filesystem()->scan();
@@ -314,7 +314,7 @@ void Terrain3DData::save_directory(const String &p_dir) {
 }
 
 // You may need to do a file system scan to update FileSystem panel
-void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
+void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit, const bool p_compressed_color_map) {
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "No region found at: ", p_region_loc);
@@ -343,7 +343,7 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 		LOG(INFO, "File ", path, " deleted");
 		return;
 	}
-	Error err = region->save(path, p_16_bit);
+	Error err = region->save(path, p_16_bit, p_compressed_color_map);
 	if (!(err == OK || err == ERR_SKIP)) {
 		LOG(ERROR, "Could not save file: ", path, ", error: ", UtilityFunctions::error_string(err), " (", err, ")");
 	}
@@ -530,7 +530,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		emit_signal("height_maps_changed");
 	}
 
-	// Rebulid control maps if dirty
+	// Rebuild control maps if dirty
 	if (_generated_control_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating control texture array from regions");
 		_control_maps.clear();
@@ -547,7 +547,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		emit_signal("control_maps_changed");
 	}
 
-	// Rebulid color maps if dirty
+	// Rebuild color maps if dirty
 	if (_generated_color_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating color texture array from regions");
 		_color_maps.clear();
@@ -1195,7 +1195,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_region", "region", "update"), &Terrain3DData::remove_region, DEFVAL(true));
 
 	ClassDB::bind_method(D_METHOD("save_directory", "directory"), &Terrain3DData::save_directory);
-	ClassDB::bind_method(D_METHOD("save_region", "region_location", "directory", "save_16_bit"), &Terrain3DData::save_region, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("save_region", "region_location", "directory", "save_16_bit", "use_compressed_color_map"), &Terrain3DData::save_region, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("load_directory", "directory"), &Terrain3DData::load_directory);
 	ClassDB::bind_method(D_METHOD("load_region", "region_location", "directory", "update"), &Terrain3DData::load_region, DEFVAL(true));
 

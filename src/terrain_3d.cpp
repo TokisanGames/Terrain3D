@@ -547,6 +547,18 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	_save_16_bit = p_enabled;
 }
 
+void Terrain3D::set_use_compressed_color_map(const bool p_enabled) {
+	LOG(INFO, p_enabled);
+	_use_compressed_color_map = p_enabled;
+
+	Dictionary regions = _data->get_regions_all();
+	Array locs = regions.keys();
+	for (int i = 0; i < locs.size(); i++) {
+		const Terrain3DRegion *region = _data->get_region_ptr((Vector2i)locs[i]);
+		_data->set_region_modified(region->get_location(), true);
+	}
+}
+
 void Terrain3D::set_label_distance(const real_t p_distance) {
 	real_t distance = CLAMP(p_distance, 0.f, 100000.f);
 	LOG(INFO, "Setting region label distance: ", distance);
@@ -1082,6 +1094,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
+	ClassDB::bind_method(D_METHOD("set_use_compressed_color_map", "enabled"), &Terrain3D::set_use_compressed_color_map);
+	ClassDB::bind_method(D_METHOD("get_use_compressed_color_map"), &Terrain3D::get_use_compressed_color_map);
 	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
 	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
 	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
@@ -1190,6 +1204,7 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_compressed_color_map"), "set_use_compressed_color_map", "get_use_compressed_color_map");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "label_distance", PROPERTY_HINT_RANGE, "0.0,10000.0,0.5,or_greater"), "set_label_distance", "get_label_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "label_size", PROPERTY_HINT_RANGE, "24,128,1"), "set_label_size", "get_label_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid"), "set_show_region_grid", "get_show_region_grid");

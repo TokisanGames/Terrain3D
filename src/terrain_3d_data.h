@@ -124,7 +124,7 @@ public:
 
 	// File I/O
 	void save_directory(const String &p_dir);
-	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false);
+	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false, const bool p_compressed_color_map = false);
 	void load_directory(const String &p_dir);
 	void load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update = true);
 
