@@ -1017,7 +1017,7 @@ void Terrain3D::_notification(const int p_what) {
 
 		case NOTIFICATION_PHYSICS_PROCESS: {
 			// Node is processing one physics frame
-			__physics_process(get_process_delta_time());
+			__physics_process(get_physics_process_delta_time());
 			break;
 		}
 
