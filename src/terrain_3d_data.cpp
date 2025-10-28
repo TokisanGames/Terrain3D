@@ -568,19 +568,16 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						_generated_height_maps.update(region->get_height_map(), region_id);
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
-						any_changed = true;
 						break;
 					case TYPE_CONTROL:
 						_generated_control_maps.update(region->get_control_map(), region_id);
 						LOG(DEBUG, "Emitting control_maps_changed");
 						emit_signal("control_maps_changed");
-						any_changed = true;
 						break;
 					case TYPE_COLOR:
 						_generated_color_maps.update(region->get_color_map(), region_id);
 						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
-						any_changed = true;
 						break;
 					default:
 						_generated_height_maps.update(region->get_height_map(), region_id);
@@ -592,7 +589,6 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						emit_signal("control_maps_changed");
 						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
-						any_changed = true;
 						break;
 				}
 			}
