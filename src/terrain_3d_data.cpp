@@ -48,7 +48,7 @@ void Terrain3DData::_copy_paste_dfr(const Terrain3DRegion *p_src_region, const R
 ///////////////////////////
 
 void Terrain3DData::initialize(Terrain3D *p_terrain) {
-	if (!p_terrain) {
+ 	if (!p_terrain) {
 		LOG(ERROR, "Initialization failed, p_terrain is null");
 		return;
 	}

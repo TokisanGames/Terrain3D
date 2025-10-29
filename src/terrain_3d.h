@@ -72,7 +72,7 @@ private:
 	// Regions
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
-	bool _use_compressed_color_map = true;
+	bool _use_compressed_color_map = false;
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 

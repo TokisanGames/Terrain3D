@@ -86,6 +86,8 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
+	void set_compressed_color_map(const Ref<Image> &p_map);
+	Ref<Image> get_compressed_color_map() const { return _compressed_color_map; }
 	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 	bool validate_map_size(const Ref<Image> &p_map) const;
