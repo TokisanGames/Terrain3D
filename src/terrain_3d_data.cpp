@@ -453,7 +453,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 			Terrain3DRegion *region = get_region_ptr(region_loc);
 			// Generate all or only those marked edited
 			if (region && (p_all_regions || region->is_edited())) {
-				region->get_color_map()->generate_mipmaps();
+				region->get_map(TYPE_COLOR)->generate_mipmaps();
 			}
 		}
 	}
@@ -555,7 +555,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 			Vector2i region_loc = _region_locations[i];
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
-				_color_maps.push_back(region->get_color_map());
+				_color_maps.push_back(region->get_map(TYPE_COLOR));
 			}
 		}
 		_generated_color_maps.create(_color_maps);
@@ -586,7 +586,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						any_changed = true;
 						break;
 					case TYPE_COLOR:
-						_generated_color_maps.update(region->get_color_map(), region_id);
+						_generated_color_maps.update(region->get_map(TYPE_COLOR), region_id);
 						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
 						any_changed = true;
@@ -594,7 +594,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 					default:
 						_generated_height_maps.update(region->get_height_map(), region_id);
 						_generated_control_maps.update(region->get_control_map(), region_id);
-						_generated_color_maps.update(region->get_color_map(), region_id);
+						_generated_color_maps.update(region->get_map(TYPE_COLOR), region_id);
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						LOG(DEBUG, "Emitting control_maps_changed");

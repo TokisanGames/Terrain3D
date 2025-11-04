@@ -1,7 +1,7 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/resource_saver.hpp>
-
+#include <godot_cpp/classes/engine.hpp>
 #include "logger.h"
 #include "terrain_3d_data.h"
 #include "terrain_3d_region.h"
@@ -60,7 +60,8 @@ Ref<Image> Terrain3DRegion::get_map(const MapType p_map_type) const {
 		case TYPE_CONTROL:
 			return get_control_map();
 		case TYPE_COLOR:
-			if (_compressed_color_map.is_valid()) {
+			if (_compressed_color_map.is_valid() && !IS_EDITOR) {
+				const_cast<Ref<Image> &>(_color_map).unref();
 				return get_compressed_color_map();
 			}
 			return get_color_map();
@@ -150,6 +151,11 @@ void Terrain3DRegion::set_compressed_color_map(const Ref<Image> &p_map) {
 		set_region_size(p_map->get_width());
 	}
 	Ref<Image> map = p_map;
+
+	if (map.is_valid() && !map->has_mipmaps()) {
+		map->generate_mipmaps();
+	}
+
 	// If already initialized and receiving a new map, or the map was sanitized
 	if (_compressed_color_map.is_valid() && _compressed_color_map != p_map || map != p_map) {
 		_modified = true;
@@ -298,20 +304,13 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const boo
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 		_height_map = original_map;
 	} else if (p_compressed_color_map) {
-		if (!_compressed_color_map.is_valid()) {
-			_compressed_color_map = Image::create_empty(_color_map->get_width(), _color_map->get_height(), _color_map->has_mipmaps(), _color_map->get_format());	
-		}
+		_compressed_color_map.unref();
+		_compressed_color_map = Image::create_empty(_color_map->get_width(), _color_map->get_height(), _color_map->has_mipmaps(), _color_map->get_format());	
 		_compressed_color_map->copy_from(_color_map);
 		_compressed_color_map->compress(Image::COMPRESS_BPTC, Image::COMPRESS_SOURCE_SRGB);
-		_color_map.unref();
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 	} else if (!p_compressed_color_map) {
-		if (_compressed_color_map.is_valid()) {
-			_color_map->copy_from(_compressed_color_map);
-			_color_map->decompress();
-			_compressed_color_map.unref();
-		}
-		
+		_compressed_color_map.unref();	
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 	} else {
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
