@@ -89,7 +89,7 @@
 		<method name="get_color_maps_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
-				Returns the resource ID of the generated height map Texture Array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See [url=https://terrain3d.readthedocs.io/en/stable/docs/tips.html#using-the-generated-height-map-in-other-shaders]Tips[/url] for an example.
+				Returns the resource ID of the generated color map Texture Array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader.
 			</description>
 		</method>
 		<method name="get_control" qualifiers="const">
@@ -431,10 +431,12 @@
 			<param index="0" name="region_location" type="Vector2i" />
 			<param index="1" name="directory" type="String" />
 			<param index="2" name="save_16_bit" type="bool" default="false" />
+			<param index="3" name="use_compressed_color_map" type="bool" default="false" />
 			<description>
 				Saves the specified active region to the directory. See [method Terrain3DRegion.save].
 				- region_location - the region to save.
 				- 16_bit - converts the edited 32-bit heightmap to 16-bit. This is a lossy operation.
+				- compressed_color_map - compresses the edited RGBA8 color map to BPTC.
 			</description>
 		</method>
 		<method name="set_color">

@@ -226,6 +226,9 @@
 			If enabled, heightmaps are saved as 16-bit half-precision to reduce file size. Files are always loaded in 32-bit for editing. Upon save, a copy of the heightmap is converted to 16-bit for writing. It does not change what is currently in memory.
 			This process is lossy. 16-bit precision gets increasingly worse with every power of 2. At a height of 256m, the precision interval is .25m. At 512m it is .5m. At 1024m it is 1m. Saving a height of 1024.4m will be rounded down to 1024m.
 		</member>
+		<member name="use_compressed_color_map" type="bool" setter="set_use_compressed_color_map" getter="get_use_compressed_color_map" default="false">
+			If enabled, compressed color maps will be used during runtime. RGBA8 will be used during editing. Upon save, a copy of the color map is compressed to BPTC. During runtime, the compressed color map will be used instead of the uncompressed color map.
+		</member>
 		<member name="show_autoshader" type="bool" setter="set_show_autoshader" getter="get_show_autoshader" default="false">
 			Alias for [member Terrain3DMaterial.show_autoshader].
 		</member>

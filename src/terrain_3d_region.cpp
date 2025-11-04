@@ -305,7 +305,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const boo
 		_height_map = original_map;
 	} else if (p_compressed_color_map) {
 		_compressed_color_map.unref();
-		_compressed_color_map = Image::create_empty(_color_map->get_width(), _color_map->get_height(), _color_map->has_mipmaps(), _color_map->get_format());	
+		_compressed_color_map = Image::create_empty(_color_map->get_width(), _color_map->get_height(), _color_map->has_mipmaps(), _color_map->get_format());
 		_compressed_color_map->copy_from(_color_map);
 		_compressed_color_map->compress(Image::COMPRESS_BPTC, Image::COMPRESS_SOURCE_SRGB);
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
@@ -315,6 +315,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const boo
 	} else {
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 	}
+	notify_property_list_changed();
 	if (err == OK) {
 		_modified = false;
 		LOG(INFO, "File saved successfully");

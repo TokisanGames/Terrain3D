@@ -372,7 +372,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 			LOG(ERROR, "Cannot get region location from file name: ", fname);
 			continue;
 		}
-		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_REPLACE);
 		if (region.is_null()) {
 			LOG(ERROR, "Cannot load region at ", path);
 			continue;
@@ -403,7 +403,7 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 		LOG(ERROR, "File ", path, " doesn't exist");
 		return;
 	}
-	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_REPLACE);
 	if (region.is_null()) {
 		LOG(ERROR, "Cannot load region at ", path);
 		return;

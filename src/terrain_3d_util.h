@@ -44,7 +44,7 @@ public:
 			const Color &p_color = COLOR_BLACK,
 			const bool p_create_mipmaps = true,
 			const Image::Format p_format = Image::FORMAT_MAX);
-	static Ref<Image> load_image(const String &p_file_name, const int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
+	static Ref<Image> load_image(const String &p_file_name, const int p_cache_mode = ResourceLoader::CACHE_MODE_REPLACE,
 			const Vector2 &p_r16_height_range = Vector2(0.f, 255.f), const Vector2i &p_r16_size = V2I_ZERO);
 	static Ref<Image> pack_image(const Ref<Image> &p_src_rgb,
 			const Ref<Image> &p_src_a,

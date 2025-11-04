@@ -913,7 +913,7 @@ void Terrain3D::_notification(const int p_what) {
 			_setup_mouse_picking();
 			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid() && !_assets->get_path().contains("Terrain3DAssets")) {
 				LOG(INFO, "free_editor_textures enabled, reloading Assets path: ", _assets->get_path());
-				_assets = ResourceLoader::get_singleton()->load(_assets->get_path(), "", ResourceLoader::CACHE_MODE_IGNORE);
+				_assets = ResourceLoader::get_singleton()->load(_assets->get_path(), "", ResourceLoader::CACHE_MODE_REPLACE);
 			}
 			_initialize(); // Rebuild anything freed: meshes, collision, instancer
 			set_physics_process(true);
