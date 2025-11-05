@@ -169,7 +169,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		// Setup MMIs for each LOD + shadows
 
 		// Get or create mesh dict (defined here as cleanup above might invalidate it)
-		MeshMMIDict &mesh_mmi_dict = _mmi_nodes[region_loc];
+		MeshMMIDict &mesh_mmi_dict = _region_mmis[region_loc];
 		RID shadow_impostor_source_mm;
 
 		for (int lod = ma->get_last_lod(); lod >= Terrain3DMeshAsset::SHADOW_LOD_ID; lod--) {
@@ -372,8 +372,8 @@ void Terrain3DInstancer::_destroy_mmi_by_mesh(const int p_mesh_id) {
 void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
 	LOG(DEBUG, "Deleting all MMIs in region: ", p_region_loc, " for mesh_id: ", p_mesh_id);
 	std::unordered_set<Vector2i, Vector2iHash> cells;
-	if (_mmi_nodes.count(p_region_loc) > 0) {
-		MeshMMIDict &mesh_mmi_dict = _mmi_nodes[p_region_loc];
+	if (_region_mmis.count(p_region_loc) > 0) {
+		MeshMMIDict &mesh_mmi_dict = _region_mmis[p_region_loc];
 		for (const auto &mesh_entry : mesh_mmi_dict) {
 			const Vector2i &mesh_key = mesh_entry.first;
 			if (mesh_key.x != p_mesh_id) {
@@ -392,10 +392,10 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod) {
-	if (_mmi_nodes.count(p_region_loc) == 0) {
+	if (_region_mmis.count(p_region_loc) == 0) {
 		return;
 	}
-	MeshMMIDict &mesh_mmi_dict = _mmi_nodes[p_region_loc];
+	MeshMMIDict &mesh_mmi_dict = _region_mmis[p_region_loc];
 	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 
 	for (int lod = Terrain3DMeshAsset::SHADOW_LOD_ID; lod < Terrain3DMeshAsset::MAX_LOD_COUNT; lod++) {
@@ -428,6 +428,9 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 			LOG(EXTREME, "Removing mesh ", mesh_key, " from cell MMI dictionary");
 			mesh_mmi_dict.erase(mesh_key); // invalidates cell_mmi_dict
 		}
+
+		// This invalidates mesh_mmi_dict here and for calling functions
+		_region_mmis.erase(p_region_loc);
 	}
 }
 
@@ -1294,7 +1297,7 @@ void Terrain3DInstancer::dump_mmis() {
 	LOG(MESG, "_mmi tree: ");
 	_terrain->get_mmi_parent()->print_tree();
 	LOG(MESG, "_mmi_nodes size: ", int(_mmi_nodes.size()));
-	for (auto &i : _mmi_nodes) {
+	for (auto &i : _region_mmis) {
 		//LOG(MESG, "_mmi_nodes region: ", i.first, ", dict ptr: ", ptr_to_str(&i.second));
 		for (auto &j : i.second) {
 			//LOG(MESG, "mesh_mmi_dict mesh: ", j.first, ", dict ptr: ", &j.second.first);

@@ -32,7 +32,7 @@ private:
 	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> RID
 	using CellMMIDict = std::unordered_map<Vector2i, std::pair<RID, RID>, Vector2iHash>;
 	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
-	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_nodes;
+	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _region_mmis;
 
 	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
 	// <V2I_MAX, -2> means destroy first, then update everything
