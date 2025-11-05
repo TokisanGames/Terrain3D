@@ -266,6 +266,10 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 			}
 			// Duplicate the mesh to make each Terrain3DMeshAsset unique
 			Ref<Mesh> mesh = mi->get_mesh()->duplicate();
+			if (mesh.is_null()) {
+				LOG(WARN, "MeshInstance3D ", mi->get_name(), " has no mesh, skipping");
+				continue;
+			}
 			// Apply the active material from the scene to the mesh, including MI or Geom overrides
 			for (int j = 0; j < mi->get_surface_override_material_count(); j++) {
 				Ref<Material> mat = mi->get_active_material(j);
@@ -277,6 +281,10 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	}
 	if (_meshes.size() > 0) {
 		Ref<Mesh> mesh = _meshes[0];
+		if (mesh.is_null()) {
+			LOG(ERROR, "First mesh is null after loading scene");
+			return;
+		}
 		_density = CLAMP(10.f / mesh->get_aabb().get_volume(), 0.01f, 10.0f);
 	} else {
 		set_generated_type(TYPE_TEXTURE_CARD);

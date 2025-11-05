@@ -251,7 +251,12 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				}
 			} else {
 				// Needed to update generated mesh changes
-				RS->multimesh_set_mesh(mm, ma->get_mesh(lod)->get_rid());
+				Ref<Mesh> mesh = ma->get_mesh(lod);
+				if (!mesh.is_valid()) {
+					LOG(ERROR, "Mesh is null for LOD ", lod);
+					continue;
+				}
+				RS->multimesh_set_mesh(mm, mesh->get_rid());
 			}
 			// Capture source MM from shadow impostor LOD
 			if (lod == ma->get_shadow_impostor()) {
