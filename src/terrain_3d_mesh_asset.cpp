@@ -378,7 +378,10 @@ ShadowCasting Terrain3DMeshAsset::get_lod_cast_shadows(const int p_lod_id) const
 	return _cast_shadows;
 }
 
-inline void Terrain3DMeshAsset::set_visibility_layers(const int p_layers) {
+inline void Terrain3DMeshAsset::set_visibility_layers(const uint32_t p_layers) {
+	if (_visibility_layers == p_layers) {
+		return;
+	}
 	LOG(INFO, _name, ": Setting visibility layers: ", p_layers);
 	_visibility_layers = p_layers;
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
