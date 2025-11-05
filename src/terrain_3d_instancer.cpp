@@ -423,7 +423,6 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		LOG(EXTREME, "Freeing ", mmi, " and erasing mmi cell ", p_cell);
 		RS->free_rid(mmi);
 		RS->free_rid(mm);
-
 		cell_mmi_dict.erase(p_cell);
 		if (cell_mmi_dict.empty()) {
 			LOG(EXTREME, "Removing mesh ", mesh_key, " from cell MMI dictionary");
