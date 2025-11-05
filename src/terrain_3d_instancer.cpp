@@ -112,9 +112,6 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 	Vector2i region_loc = p_region->get_location();
 	Dictionary mesh_inst_dict = p_region->get_instances();
 
-	// Get or create mesh dict
-	MeshMMIDict &mesh_mmi_dict = _mmi_nodes[region_loc];
-
 	// Verify mesh id is valid, enabled, and has MeshInstance3Ds
 	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 	if (!ma.is_valid()) {
