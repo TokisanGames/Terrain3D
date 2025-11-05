@@ -296,6 +296,16 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const boo
 	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
 	set_version(Terrain3DData::CURRENT_VERSION);
 	Error err = OK;
+
+	if (p_compressed_color_map) {
+		_compressed_color_map.unref();
+		_compressed_color_map = Image::create_empty(_color_map->get_width(), _color_map->get_height(), _color_map->has_mipmaps(), _color_map->get_format());
+		_compressed_color_map->copy_from(_color_map);
+		_compressed_color_map->compress(Image::COMPRESS_BPTC, Image::COMPRESS_SOURCE_SRGB);
+	} else {
+		_compressed_color_map.unref();
+	}
+
 	if (p_16_bit) {
 		Ref<Image> original_map;
 		original_map.instantiate();
@@ -303,18 +313,10 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const boo
 		_height_map->convert(Image::FORMAT_RH);
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 		_height_map = original_map;
-	} else if (p_compressed_color_map) {
-		_compressed_color_map.unref();
-		_compressed_color_map = Image::create_empty(_color_map->get_width(), _color_map->get_height(), _color_map->has_mipmaps(), _color_map->get_format());
-		_compressed_color_map->copy_from(_color_map);
-		_compressed_color_map->compress(Image::COMPRESS_BPTC, Image::COMPRESS_SOURCE_SRGB);
-		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
-	} else if (!p_compressed_color_map) {
-		_compressed_color_map.unref();	
-		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 	} else {
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 	}
+
 	notify_property_list_changed();
 	if (err == OK) {
 		_modified = false;

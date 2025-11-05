@@ -51,7 +51,7 @@ private:
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
 
-	Ref<Image> _compressed_height_map;
+	Ref<Image> _16_bit_height_map;
 	Ref<Image> _compressed_control_map;
 	Ref<Image> _compressed_color_map;
 
