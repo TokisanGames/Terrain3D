@@ -4,7 +4,6 @@
 #define TERRAIN3D_MESH_ASSET_CLASS_H
 
 #include <godot_cpp/classes/array_mesh.hpp>
-//#include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
