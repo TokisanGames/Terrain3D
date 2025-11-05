@@ -545,6 +545,11 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	LOG(INFO, p_enabled);
 	_save_16_bit = p_enabled;
+	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
+	for (int i = 0; i < regions.size(); i++) {
+		Ref<Terrain3DRegion> region = regions[i];
+		region->set_modified(true);
+	}
 }
 
 void Terrain3D::set_label_distance(const real_t p_distance) {
