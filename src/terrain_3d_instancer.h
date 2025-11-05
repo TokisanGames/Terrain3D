@@ -28,8 +28,9 @@ private:
 	// MM Resources stored in Terrain3DRegion::_instances as
 	// Region::_instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, modified:bool ]
 
-	// MMI Objects, freed in destructor, stored as
-	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> RID
+	// A pair of MMI and MM RIDs, freed in destructor, stored as
+	// _region_mmis{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> std::pair<mmi.RID, mm.RID>
+
 	using CellMMIDict = std::unordered_map<Vector2i, std::pair<RID, RID>, Vector2iHash>;
 	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
 	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _region_mmis;
