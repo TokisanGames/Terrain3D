@@ -546,11 +546,10 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	LOG(INFO, p_enabled);
 	_save_16_bit = p_enabled;
 
-	Dictionary regions = _data->get_regions_all();
-	Array locs = regions.keys();
-	for (int i = 0; i < locs.size(); i++) {
-		const Terrain3DRegion *region = _data->get_region_ptr((Vector2i)locs[i]);
-		_data->set_region_modified(region->get_location(), true);
+	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
+	for (int i = 0; i < regions.size(); i++) {
+		Ref<Terrain3DRegion> region = regions[i];
+		region->set_modified(true);
 	}
 }
 
@@ -558,11 +557,10 @@ void Terrain3D::set_use_compressed_color_map(const bool p_enabled) {
 	LOG(INFO, p_enabled);
 	_use_compressed_color_map = p_enabled;
 
-	Dictionary regions = _data->get_regions_all();
-	Array locs = regions.keys();
-	for (int i = 0; i < locs.size(); i++) {
-		const Terrain3DRegion *region = _data->get_region_ptr((Vector2i)locs[i]);
-		_data->set_region_modified(region->get_location(), true);
+	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
+	for (int i = 0; i < regions.size(); i++) {
+		Ref<Terrain3DRegion> region = regions[i];
+		region->set_modified(true);
 	}
 }
 
