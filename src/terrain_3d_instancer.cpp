@@ -265,7 +265,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
 			RID &mmi = cell_mmi_dict[cell].first;
 			RID &mm = cell_mmi_dict[cell].second;
-			if (mm.is_valid()) {
+			if (mm.is_valid() && mmi.is_valid()) {
 				if (lod == 0) {
 					mm_custom_aabb = RS->multimesh_get_aabb(mm);
 				} else {
@@ -277,10 +277,9 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		if (ma->get_shadow_impostor() > 0) {
 			Vector2i mesh_key(p_mesh_id, Terrain3DMeshAsset::SHADOW_LOD_ID);
 			CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-			//RID &mmi = cell_mmi_dict[cell].first;
-			RID &mm = cell_mmi_dict[cell].second;
-			if (mm.is_valid()) {
-				RS->multimesh_set_custom_aabb(mm, mm_custom_aabb);
+			RID &mmi = cell_mmi_dict[cell].first;
+			if (mmi.is_valid()) {
+				RS->instance_set_custom_aabb(mmi, mm_custom_aabb);
 			}
 		}
 	}
