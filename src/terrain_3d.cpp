@@ -544,7 +544,7 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	LOG(INFO, p_enabled);
-	_save_16_bit = p_enabled;
+	_save_16_bit = p_enabled;	
 }
 
 void Terrain3D::set_use_compressed_color_map(const bool p_enabled) {
