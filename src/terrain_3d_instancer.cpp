@@ -170,7 +170,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		// Setup MMIs for each LOD + shadows
 
 		// Get or create mesh dict (defined here as cleanup above might invalidate it)
-		MeshMMIDict &mesh_mmi_dict = _region_mmis[region_loc];
+		MeshMMIDict &mesh_mmi_dict = _mmi_rids[region_loc];
 		RID shadow_impostor_source_mm;
 
 		for (int lod = ma->get_last_lod(); lod >= Terrain3DMeshAsset::SHADOW_LOD_ID; lod--) {
@@ -373,8 +373,8 @@ void Terrain3DInstancer::_destroy_mmi_by_mesh(const int p_mesh_id) {
 void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
 	LOG(DEBUG, "Deleting all MMIs in region: ", p_region_loc, " for mesh_id: ", p_mesh_id);
 	std::unordered_set<Vector2i, Vector2iHash> cells;
-	if (_region_mmis.count(p_region_loc) > 0) {
-		MeshMMIDict &mesh_mmi_dict = _region_mmis[p_region_loc];
+	if (_mmi_rids.count(p_region_loc) > 0) {
+		MeshMMIDict &mesh_mmi_dict = _mmi_rids[p_region_loc];
 		for (const auto &mesh_entry : mesh_mmi_dict) {
 			const Vector2i &mesh_key = mesh_entry.first;
 			if (mesh_key.x != p_mesh_id) {
@@ -393,10 +393,10 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod) {
-	if (_region_mmis.count(p_region_loc) == 0) {
+	if (_mmi_rids.count(p_region_loc) == 0) {
 		return;
 	}
-	MeshMMIDict &mesh_mmi_dict = _region_mmis[p_region_loc];
+	MeshMMIDict &mesh_mmi_dict = _mmi_rids[p_region_loc];
 	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(p_mesh_id);
 
 	for (int lod = Terrain3DMeshAsset::SHADOW_LOD_ID; lod < Terrain3DMeshAsset::MAX_LOD_COUNT; lod++) {
@@ -431,7 +431,7 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		}
 
 		// This invalidates mesh_mmi_dict here and for calling functions
-		_region_mmis.erase(p_region_loc);
+		_mmi_rids.erase(p_region_loc);
 	}
 }
 
