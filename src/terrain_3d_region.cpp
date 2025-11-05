@@ -317,7 +317,6 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const boo
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 	}
 
-	notify_property_list_changed();
 	if (err == OK) {
 		_modified = false;
 		LOG(INFO, "File saved successfully");
