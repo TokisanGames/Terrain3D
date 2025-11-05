@@ -390,6 +390,11 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 	for (const auto &cell : cells) {
 		_destroy_mmi_by_cell(p_region_loc, p_mesh_id, cell);
 	}
+
+	// After all cells are destroyed, if the region is now empty, erase it
+	if (_mmi_rids.count(p_region_loc) > 0 && _mmi_rids[p_region_loc].empty()) {
+		_mmi_rids.erase(p_region_loc);
+	}
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod) {
@@ -429,9 +434,6 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 			LOG(EXTREME, "Removing mesh ", mesh_key, " from cell MMI dictionary");
 			mesh_mmi_dict.erase(mesh_key); // invalidates cell_mmi_dict
 		}
-
-		// This invalidates mesh_mmi_dict here and for calling functions
-		_mmi_rids.erase(p_region_loc);
 	}
 }
 
