@@ -133,7 +133,6 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 	// Process cells
 	Dictionary cell_inst_dict = mesh_inst_dict[p_mesh_id];
 	Array cell_locations = cell_inst_dict.keys();
-	RID shadow_impostor_source_mm;
 
 	for (int c = 0; c < cell_locations.size(); c++) {
 		Vector2i cell = cell_locations[c];
@@ -171,6 +170,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 
 		// Get or create mesh dict (defined here as cleanup above might invalidate it)
 		MeshMMIDict &mesh_mmi_dict = _mmi_nodes[region_loc];
+		RID shadow_impostor_source_mm;
 
 		for (int lod = ma->get_last_lod(); lod >= Terrain3DMeshAsset::SHADOW_LOD_ID; lod--) {
 			// Don't create shadow MMI if not needed
