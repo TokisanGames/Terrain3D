@@ -220,7 +220,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			if (modified || !mm.is_valid() ||
 					lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
 				// Subtract previous instance count for this cell
-				if (mm.is_valid() && lod == ma->get_last_lod()) {
+				if (mm.is_valid() && lod == 0) {
 					ma->update_instance_count(-RS->multimesh_get_instance_count(mm));
 				}
 				if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
@@ -416,7 +416,7 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		RID &mmi = cell_mmi_dict[p_cell].first;
 		RID &mm = cell_mmi_dict[p_cell].second;
 		if (ma.is_valid() && mm.is_valid()) {
-			if (lod == ma->get_last_lod()) {
+			if (lod == 0) {
 				ma->update_instance_count(-RS->multimesh_get_instance_count(mm));
 			}
 		}
