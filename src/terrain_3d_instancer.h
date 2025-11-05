@@ -43,6 +43,7 @@ private:
 	V2IIntPair _queued_updates;
 
 	uint32_t _density_counter = 0;
+	bool _show_instances = true;
 
 	uint32_t _get_density_count(const real_t p_density);
 	void _process_updates();
@@ -84,7 +85,8 @@ public:
 	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
-	void dump_mmis();
+	void set_show_instances(const bool p_visible);
+	bool get_show_instances() const { return _show_instances; }
 
 protected:
 	static void _bind_methods();

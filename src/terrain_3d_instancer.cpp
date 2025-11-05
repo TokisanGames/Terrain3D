@@ -31,10 +31,11 @@ void Terrain3DInstancer::_process_updates() {
 	bool update_all = false;
 	if (_queued_updates.find({ V2I_MAX, -2 }) != _queued_updates.end()) {
 		destroy();
-		update_all = true;
+		update_all = _show_instances;
 	} else if (_queued_updates.find({ V2I_MAX, -1 }) != _queued_updates.end()) {
-		update_all = true;
+		update_all = _show_instances;
 	}
+
 	if (update_all) {
 		LOG(DEBUG, "Updating all regions, all mesh_ids");
 		for (int i = 0; i < region_locations.size(); i++) {
@@ -1292,20 +1293,13 @@ void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_regi
 	}
 }
 
-void Terrain3DInstancer::dump_mmis() {
-	LOG(WARN, "Dumping MMI tree");
-	LOG(MESG, "_mmi tree: ");
-	_terrain->get_mmi_parent()->print_tree();
-	LOG(MESG, "_mmi_nodes size: ", int(_mmi_nodes.size()));
-	for (auto &i : _region_mmis) {
-		//LOG(MESG, "_mmi_nodes region: ", i.first, ", dict ptr: ", ptr_to_str(&i.second));
-		for (auto &j : i.second) {
-			//LOG(MESG, "mesh_mmi_dict mesh: ", j.first, ", dict ptr: ", &j.second.first);
-			for (auto &k : j.second) {
-				//LOG(MESG, "cell_mmi_dict cell: ", k.first, ", mmi ptr: ", (k.second));
-			}
-		}
+void Terrain3DInstancer::set_show_instances(const bool p_visible) {
+	if (_show_instances == p_visible) {
+		return;
 	}
+	LOG(INFO, "Setting instancer visibility to: ", p_visible);
+	_show_instances = p_visible;
+	update_mmis(-1, V2I_MAX, true);
 }
 
 ///////////////////////////
@@ -1326,5 +1320,6 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_closest_mesh_id", "global_position"), &Terrain3DInstancer::get_closest_mesh_id);
 	ClassDB::bind_method(D_METHOD("update_mmis", "mesh_id", "region_location", "rebuild_all"), &Terrain3DInstancer::update_mmis, DEFVAL(-1), DEFVAL(V2I_MAX), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
-	ClassDB::bind_method(D_METHOD("dump_mmis"), &Terrain3DInstancer::dump_mmis);
+	ClassDB::bind_method(D_METHOD("set_show_instances", "p_visible"), &Terrain3DInstancer::set_show_instances);
+	ClassDB::bind_method(D_METHOD("get_show_instances"), &Terrain3DInstancer::get_show_instances);
 }
