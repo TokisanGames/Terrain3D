@@ -735,16 +735,17 @@ class ListEntry extends MarginContainer:
 	var is_selected: bool = false
 	var is_highlighted: bool = false
 	
-	@onready var focus_style: StyleBox = get_theme_stylebox("focus", "Button").duplicate()
-	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
 	var name_label: Label
 	var count_label: Label
-	@onready var button_row := FlowContainer.new()
-	@onready var button_clear := TextureButton.new()
-	@onready var button_edit := TextureButton.new()
-	@onready var spacer := Control.new()
-	@onready var button_enabled := TextureButton.new()
-	@onready var button_highlight := TextureButton.new()
+	var button_row: FlowContainer
+	var button_enabled: TextureButton
+	var button_highlight: TextureButton
+	var button_edit: TextureButton
+	var spacer: Control 
+	var button_clear: TextureButton
+
+	@onready var focus_style: StyleBox = get_theme_stylebox("focus", "Button").duplicate()
+	@onready var background: StyleBox = get_theme_stylebox("pressed", "Button")
 	@onready var clear_icon: Texture2D = get_theme_icon("Close", "EditorIcons")
 	@onready var edit_icon: Texture2D = get_theme_icon("Edit", "EditorIcons")
 	@onready var enabled_icon: Texture2D = get_theme_icon("GuiVisibilityVisible", "EditorIcons")
@@ -764,7 +765,6 @@ class ListEntry extends MarginContainer:
 		if resource:
 			is_highlighted = resource.is_highlighted()
 
-		setup_buttons()
 		setup_label()
 		setup_count_label()
 		focus_style.set_border_width_all(2)
@@ -772,6 +772,15 @@ class ListEntry extends MarginContainer:
 
 
 	func setup_buttons() -> void:
+		destroy_buttons()
+		
+		button_row = FlowContainer.new()
+		button_enabled = TextureButton.new() 
+		button_highlight = TextureButton.new() 
+		button_edit = TextureButton.new() 
+		spacer = Control.new()
+		button_clear = TextureButton.new()
+		
 		var icon_size: Vector2 = Vector2(12, 12)
 		
 		button_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -827,6 +836,27 @@ class ListEntry extends MarginContainer:
 		button_clear.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button_clear.pressed.connect(_on_clear)
 		button_row.add_child(button_clear, true)
+		
+
+	func destroy_buttons() -> void:
+		if button_row:
+			button_row.free()
+			button_row = null
+		if button_enabled:
+			button_enabled.free()
+			button_enabled = null
+		if button_highlight:
+			button_highlight.free()
+			button_highlight = null
+		if button_edit:
+			button_edit.free()
+			button_edit = null
+		if spacer:
+			spacer.free()
+			spacer = null
+		if button_clear:
+			button_clear.free()
+			button_clear = null
 
 
 	func get_resource_name() -> StringName:
@@ -891,6 +921,10 @@ class ListEntry extends MarginContainer:
 
 	func _notification(p_what) -> void:
 		match p_what:
+			NOTIFICATION_ENTER_TREE:
+				setup_buttons()
+			NOTIFICATION_EXIT_TREE:
+				destroy_buttons()
 			NOTIFICATION_DRAW:
 				# Hide spacer if icons are crowding small textures
 				spacer.visible = size.x > 94. or type == Terrain3DAssets.TYPE_TEXTURE
@@ -938,7 +972,7 @@ class ListEntry extends MarginContainer:
 				drop_data = false
 				queue_redraw()
 
-	
+
 	func _gui_input(p_event: InputEvent) -> void:
 		if p_event is InputEventMouseButton:
 			if p_event.is_pressed():
