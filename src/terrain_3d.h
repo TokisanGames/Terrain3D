@@ -72,7 +72,7 @@ private:
 	// Regions
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
-	bool _use_compressed_color_map = false;
+	Image::CompressMode _compression_mode = Image::COMPRESS_MAX;
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
@@ -164,8 +164,9 @@ public:
 	void change_region_size(const RegionSize p_size) { _data ? _data->change_region_size(p_size) : void(); }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
-	void set_use_compressed_color_map(const bool p_enabled);
-	bool get_use_compressed_color_map() const { return _use_compressed_color_map; }
+
+	void set_compression_mode(const Image::CompressMode p_compression_mode);
+	Image::CompressMode get_compression_mode() const { return _compression_mode; }
 	void set_label_distance(const real_t p_distance);
 	real_t get_label_distance() const { return _label_distance; }
 	void set_label_size(const int p_size);

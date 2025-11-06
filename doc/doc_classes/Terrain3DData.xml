@@ -431,12 +431,12 @@
 			<param index="0" name="region_location" type="Vector2i" />
 			<param index="1" name="directory" type="String" />
 			<param index="2" name="save_16_bit" type="bool" default="false" />
-			<param index="3" name="use_compressed_color_map" type="bool" default="false" />
+			<param index="3" name="compression_mode" type="Image::CompressMode" default="Image::COMPRESS_MAX" />
 			<description>
 				Saves the specified active region to the directory. See [method Terrain3DRegion.save].
 				- region_location - the region to save.
 				- 16_bit - converts the edited 32-bit heightmap to 16-bit. This is a lossy operation.
-				- compressed_color_map - compresses the edited RGBA8 color map to BPTC.
+				- compression_mode - compresses the edited RGBA8 color map to selected compression mode.
 			</description>
 		</method>
 		<method name="set_color">
