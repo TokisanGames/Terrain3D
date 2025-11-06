@@ -544,11 +544,11 @@ void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsse
 		return;
 	}
 	LOG(INFO, "Setting mesh id: ", p_id, ", ", p_mesh_asset);
-	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	if (p_mesh_asset.is_null()) {
 		IS_INSTANCER_INIT(VOID);
 		_terrain->get_instancer()->clear_by_mesh(p_id);
 	}
+	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	update_mesh_list();
 }
 
