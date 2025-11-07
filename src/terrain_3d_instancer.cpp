@@ -260,7 +260,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			}
 			// Capture source MM from shadow impostor LOD
 			if (lod == ma->get_shadow_impostor()) {
-				shadow_impostor_source_mm = RS->multimesh_get_mesh(mm);
+				shadow_impostor_source_mm = mm;
 			}
 		} // End for LOD loop
 
@@ -433,7 +433,10 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 
 		LOG(EXTREME, "Freeing ", mmi, " and erasing mmi cell ", p_cell);
 		RS->free_rid(mmi);
-		RS->free_rid(mm);
+		if (lod != Terrain3DMeshAsset::SHADOW_LOD_ID) {
+			RS->free_rid(mm);
+		}
+
 		cell_mmi_dict.erase(p_cell);
 		if (cell_mmi_dict.empty()) {
 			LOG(EXTREME, "Removing mesh ", mesh_key, " from cell MMI dictionary");
