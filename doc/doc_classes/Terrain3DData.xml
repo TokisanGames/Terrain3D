@@ -436,7 +436,7 @@
 				Saves the specified active region to the directory. See [method Terrain3DRegion.save].
 				- region_location - the region to save.
 				- 16_bit - converts the edited 32-bit heightmap to 16-bit. This is a lossy operation.
-				- compression_mode - compresses the edited RGBA8 color map to selected compression mode.
+				- compression_mode - compresses the color map to selected compression mode.
 			</description>
 		</method>
 		<method name="set_color">

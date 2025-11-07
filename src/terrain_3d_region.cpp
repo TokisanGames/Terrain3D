@@ -149,17 +149,7 @@ void Terrain3DRegion::set_compressed_color_map(const Ref<Image> &p_map) {
 	if (_region_size == 0 && p_map.is_valid()) {
 		set_region_size(p_map->get_width());
 	}
-	Ref<Image> map = p_map;
-
-	if (map.is_valid() && !map->has_mipmaps()) {
-		map->generate_mipmaps();
-	}
-
-	// If already initialized and receiving a new map, or the map was sanitized
-	if (_compressed_color_map.is_valid() && _compressed_color_map != p_map || map != p_map) {
-		_modified = true;
-	}
-	_compressed_color_map = map;
+	_compressed_color_map = p_map;
 }
 
 void Terrain3DRegion::sanitize_maps() {
@@ -303,7 +293,6 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const Ima
 		//_compressed_color_map->compress(Image::COMPRESS_BPTC, Image::COMPRESS_SOURCE_SRGB);
 		_compressed_color_map->compress_from_channels(p_compression_mode, Image::USED_CHANNELS_RGBA);
 	}
-
 	if (p_16_bit) {
 		Ref<Image> original_map;
 		original_map.instantiate();
@@ -314,7 +303,6 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const Ima
 	} else {
 		err = ResourceSaver::get_singleton()->save(this, get_path(), ResourceSaver::FLAG_COMPRESS);
 	}
-
 	if (err == OK) {
 		_modified = false;
 		LOG(INFO, "File saved successfully");

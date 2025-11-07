@@ -39,7 +39,7 @@
 			<return type="Image" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DRegion.MapType" />
 			<description>
-				Returns the specified image map. Returns the compressed color map if selected and not in editor.
+				Returns the specified image map. Returns the compressed color map if a compression mode is selected and the application is not running in the editor.
 			</description>
 		</method>
 		<method name="get_maps" qualifiers="const">
@@ -71,7 +71,7 @@
 				Saves this region to the current file name.
 				- path - specifies a directory and file name to use from now on.
 				- 16-bit - saves this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
-				- compressed_color_map - saves this region with compressed color map instead of RGBA8.
+				- compression_mode - saves a compressed color map for this region if a compression mode is set. 
 			</description>
 		</method>
 		<method name="set_data">
@@ -126,8 +126,7 @@
 			[b]A[/b] is used for a roughness modifier. A value of 0.5 means no change to the existing texture roughness. Higher than this value increases roughness, lower decreases it.
 		</member>
 		<member name="compressed_color_map" type="Image" setter="set_compressed_color_map" getter="get_compressed_color_map">
-			A compressed color map. 
-			Image format: BPTC.
+			A compressed color map.
 		</member>
 		<member name="control_map" type="Image" setter="set_control_map" getter="get_control_map">
 			This map tells the shader which textures to use where, how to blend, where to place holes, etc.
