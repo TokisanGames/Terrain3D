@@ -23,6 +23,9 @@ void Terrain3DInstancer::_process_updates() {
 		return;
 	}
 	IS_DATA_INIT(VOID);
+	if (!_terrain->is_inside_tree()) {
+		return;
+	}
 	const Terrain3DData *data = _terrain->get_data();
 	TypedArray<Vector2i> region_locations = data->get_region_locations();
 	int mesh_count = _terrain->get_assets()->get_mesh_count();
