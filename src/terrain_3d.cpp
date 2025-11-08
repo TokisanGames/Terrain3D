@@ -703,32 +703,33 @@ void Terrain3D::set_cull_margin(const real_t p_margin) {
  * Returns Vec3(NAN) on error or vec3(3.402823466e+38F) on no intersection. Test w/ if (var.x < 3.4e38)
  */
 Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode) {
-	if (p_direction == V3_ZERO || !p_direction.is_finite()) {
+	if (p_direction.is_zero_approx() || !p_direction.is_finite()) {
 		LOG(ERROR, "Invalid direction vector: ", p_direction);
+		return V3_NAN;
+	}
+	if (!p_src_pos.is_finite()) {
+		LOG(ERROR, "Invalid source vector: ", p_src_pos);
 		return V3_NAN;
 	}
 	Vector3 direction = p_direction.normalized();
 	Vector3 point;
 
+	// Raymarching mode
 	if (!p_gpu_mode) {
-		// Use raymarching mode
-
-		// If looking straight down and the source is above the terrain use get_height, otherwise return NaN
-		// If looking straight up and the source is below the terrain use get_height, otherwise return NaN
-		if (abs(direction.y) > 0.00001f) {
-			float height = _data->get_height(p_src_pos);
-			bool is_down = direction.y < 0.f;
-			if ((is_down && height < p_src_pos.y) || (!is_down && height > p_src_pos.y)) {
-				return Vector3(p_src_pos.x, height, p_src_pos.z);
-			}
-			return V3_NAN;
+		// Must start above terrain if in a region
+		real_t height = _data->get_height(p_src_pos);
+		if (height > p_src_pos.y) { // False if Nan
+			return V3_MAX;
 		}
-
+		// If looking straight down use get_height
+		if (direction.y < -.99999f) {
+			return Vector3(p_src_pos.x, height, p_src_pos.z);
+		}
 		// Raymarch down the ray in small increments until we find the terrain height
 		point = p_src_pos;
 		for (int i = 0; i < 4000; i++) {
-			real_t height = _data->get_height(point);
-			if (point.y - height <= 0) {
+			height = _data->get_height(point);
+			if (point.y - height <= 0.f) { // Nan comparison is false
 				return point;
 			}
 			point += direction;
@@ -738,18 +739,16 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	} else {
 		// Else use GPU mode, which requires multiple calls
 		// Get depth from perspective camera snapshot
-
 		if (!_mouse_cam) {
 			LOG(ERROR, "Invalid mouse camera");
 			return V3_NAN;
 		}
-
 		// Position mouse cam one unit behind the requested position
 		_mouse_cam->set_global_position(p_src_pos - direction);
 
 		// If looking straight down or up, look_at() won't work, so set the rotation directly
-		if (abs(direction.y) > 1.f - 0.00001f) {
-			_mouse_cam->set_rotation_degrees(Vector3(90.f * (direction.y > 0.f ? 1.f : -1.f), 0.f, 0.f));
+		if (direction.y < -.99999f) {
+			_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
 		} else {
 			_mouse_cam->look_at(_mouse_cam->get_global_position() + direction, V3_UP);
 		}
@@ -765,19 +764,20 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		// Forward+ is 16bit, mobile and compatibility is 10bit.
 		// Compatibility also has precision loss for values below 0.5, so
 		// we use only the top half of the range, for 21bit depth encoded.
-		real_t r = floor((screen_depth.r * 256.0) - 128.0);
-		real_t g = floor((screen_depth.g * 256.0) - 128.0);
-		real_t b = floor((screen_depth.b * 256.0) - 128.0);
+		real_t r = floor((screen_depth.r * 256.f) - 128.f);
+		real_t g = floor((screen_depth.g * 256.f) - 128.f);
+		real_t b = floor((screen_depth.b * 256.f) - 128.f);
 
 		// Decode the full depth value
-		real_t decoded_depth = (r + g / 127.0 + b / (127.0 * 127.0)) / 127.0;
+		real_t decoded_depth = (r + g / 127.f + b / (127.f * 127.f)) / 127.f;
 
-		if (decoded_depth < 0.00001f) {
+		// Near-plane noise filter, or no hit
+		if (decoded_depth < 0.00001f || decoded_depth > 1.f) {
 			return V3_MAX;
 		}
-		// Necessary for a correct value depth = 1
+		// Necessary for a near-far precision on hits
 		if (decoded_depth > 0.99999f) {
-			decoded_depth = 1.0f;
+			decoded_depth = 1.f;
 		}
 
 		// Denormalize distance to get real depth and terrain position.
