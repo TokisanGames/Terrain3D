@@ -103,7 +103,7 @@ public:
 	void set_dual_scaling(const bool p_enabled);
 	bool get_dual_scaling() const { return _dual_scaling; }
 
-	void enable_shader_override(const bool p_enabled);
+	void set_shader_override_enabled(const bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
 	void set_shader_override(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader_override() const { return _shader_override; }
