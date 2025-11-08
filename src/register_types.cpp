@@ -34,7 +34,6 @@ void uninitialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 }
 
 #ifdef GDEXTENSION
-
 extern "C" {
 // Initialization.
 GDExtensionBool GDE_EXPORT terrain_3d_init(
@@ -50,5 +49,4 @@ GDExtensionBool GDE_EXPORT terrain_3d_init(
 	return init_obj.init();
 }
 }
-
 #endif /* GDEXTENSION */
