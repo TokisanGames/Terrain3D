@@ -105,7 +105,9 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 			// Else texture ID is invalid or slot is already taken, insert in first available
 			for (int j = filled_id + 1; j < array_size; j++) {
 				if (!list[j]) {
-					LOG(ERROR, res->get_class(), " ID ", id, " already exists. Setting '", res->get_name(), "' to ID ", j, ". Textures/Meshes on the ground may be wrong. Review Asset list to ensure each have unique IDs.");
+					LOG(ERROR, res->get_class(), " ID ", id, " already exists. Setting '",
+							res->get_name(), "' to ID ", j,
+							". Textures/Meshes on the ground may be wrong. Review Asset list to ensure each have unique IDs.");
 					res->set_id(j);
 					list[j] = res;
 					filled_id = j;
@@ -122,7 +124,8 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 		for (int i = 0; i < list.size(); i++) {
 			Ref<Terrain3DAssetResource> res = list[i];
 			int id = res.is_valid() ? res->get_id() : -1;
-			LOG(DEBUG, "Asset ", i, ": ", res, ", stored ID: ", id);
+			String name = res.is_valid() ? res->get_name() : "";
+			LOG(DEBUG, "Asset ", i, ": ", name, ", ", res, ", stored ID: ", id);
 		}
 	}
 }
@@ -148,22 +151,23 @@ void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const R
 		LOG(ERROR, "Invalid asset id: ", p_id, " range is 0-", max_size);
 		return;
 	}
+	int id = CLAMP(p_id, 0, list.size());
 	// Delete asset if null
 	if (p_asset.is_null()) {
 		// If final asset, remove it
-		if (p_id == list.size() - 1) {
-			LOG(DEBUG, "Deleting asset id: ", p_id);
+		if (id == list.size() - 1) {
+			LOG(DEBUG, "Deleting asset id: ", id);
 			list.pop_back();
-		} else if (p_id < list.size()) {
+		} else {
 			// Else just clear it
-			Ref<Terrain3DAssetResource> res = list[p_id];
+			Ref<Terrain3DAssetResource> res = list[id];
 			res->clear();
-			res->_id = p_id;
+			res->_id = id;
 		}
 	} else {
 		// Else Insert/Add Asset at end if a high number
-		if (p_id >= list.size()) {
-			p_asset->_id = list.size();
+		if (id == list.size()) {
+			p_asset->_id = id;
 			list.push_back(p_asset);
 			if (!p_asset->is_connected("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids))) {
 				LOG(DEBUG, "Connecting to id_changed");
@@ -171,7 +175,7 @@ void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const R
 			}
 		} else {
 			// Else overwrite an existing slot
-			list[p_id] = p_asset;
+			list[id] = p_asset;
 		}
 	}
 }
@@ -293,7 +297,7 @@ void Terrain3DAssets::_update_texture_files() {
 				texture_set->_albedo_texture = ImageTexture::create_from_image(img);
 			} else {
 				img = tex->get_image();
-				LOG(DEBUG, "Texture ID ", i, " albedo is valid. Format: ", img->get_format());
+				LOG(EXTREME, "Texture ID ", i, " albedo is valid. Format: ", img->get_format());
 				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
 					LOG(WARN, "Texture ID ", i, " albedo is saved in the scene. Save it as a file and link it.");
 				}
@@ -324,7 +328,7 @@ void Terrain3DAssets::_update_texture_files() {
 				texture_set->_normal_texture = ImageTexture::create_from_image(img);
 			} else {
 				img = tex->get_image();
-				LOG(DEBUG, "Texture ID ", i, " normal is valid. Format: ", img->get_format());
+				LOG(EXTREME, "Texture ID ", i, " normal is valid. Format: ", img->get_format());
 				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
 					LOG(WARN, "Texture ID ", i, " normal is saved in the scene. Save it as a file and link it.");
 				}
@@ -481,15 +485,23 @@ void Terrain3DAssets::destroy() {
 }
 
 void Terrain3DAssets::set_texture(const int p_id, const Ref<Terrain3DTextureAsset> &p_texture) {
-	if (_texture_list.size() <= p_id || p_texture != _texture_list[p_id]) {
-		LOG(INFO, "Setting texture id: ", p_id);
-		_set_asset(TYPE_TEXTURE, p_id, p_texture);
-		update_texture_list();
+	if (p_id < 0 || p_id >= MAX_TEXTURES) {
+		LOG(ERROR, "Invalid texture id: ", p_id, " range is 0-", MAX_TEXTURES - 1);
+		return;
 	}
+	if (p_id < _texture_list.size() && _texture_list[p_id] == p_texture) {
+		return;
+	}
+	LOG(INFO, "Setting texture id: ", p_id);
+	_set_asset(TYPE_TEXTURE, p_id, p_texture);
+	update_texture_list();
 }
 
 void Terrain3DAssets::set_texture_list(const TypedArray<Terrain3DTextureAsset> &p_texture_list) {
 	LOG(INFO, "Setting texture list with ", p_texture_list.size(), " entries");
+	if (!differs(_texture_list, p_texture_list)) {
+		return;
+	}
 	_set_asset_list(TYPE_TEXTURE, p_texture_list);
 	update_texture_list();
 }
@@ -524,11 +536,14 @@ void Terrain3DAssets::update_texture_list() {
 }
 
 void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
-	LOG(INFO, "Setting mesh id: ", p_id, ", ", p_mesh_asset);
-	if (p_id >= 0 && p_id < _mesh_list.size() && _mesh_list[p_id] == p_mesh_asset) {
-		LOG(DEBUG, "Setting same mesh asset, returning");
+	if (p_id < 0 || p_id >= MAX_MESHES) {
+		LOG(ERROR, "Invalid mesh id: ", p_id, " range is 0-", MAX_MESHES - 1);
 		return;
 	}
+	if (p_id < _mesh_list.size() && _mesh_list[p_id] == p_mesh_asset) {
+		return;
+	}
+	LOG(INFO, "Setting mesh id: ", p_id, ", ", p_mesh_asset);
 	_set_asset(TYPE_MESH, p_id, p_mesh_asset);
 	if (p_mesh_asset.is_null()) {
 		IS_INSTANCER_INIT(VOID);
@@ -546,6 +561,9 @@ Ref<Terrain3DMeshAsset> Terrain3DAssets::get_mesh_asset(const int p_id) const {
 
 void Terrain3DAssets::set_mesh_list(const TypedArray<Terrain3DMeshAsset> &p_mesh_list) {
 	LOG(INFO, "Setting mesh list with ", p_mesh_list.size(), " entries");
+	if (!differs(_mesh_list, p_mesh_list)) {
+		return;
+	}
 	_set_asset_list(TYPE_MESH, p_mesh_list);
 	update_mesh_list();
 }
@@ -571,18 +589,18 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 	LOG(DEBUG, "Creating thumbnails for ids: ", start, " through ", end - 1);
 	for (int i = start; i < end; i++) {
 		Ref<Terrain3DMeshAsset> ma = get_mesh_asset(i);
-		LOG(DEBUG, i, ": Getting Terrain3DMeshAsset: ", ptr_to_str(*ma));
+		LOG(EXTREME, i, ": Getting Terrain3DMeshAsset: ", ptr_to_str(*ma));
 		if (ma.is_null()) {
 			LOG(ERROR, i, ": Terrain3DMeshAsset is null, skipping");
 			continue;
 		}
 		if (!p_force && ma->get_thumbnail().is_valid()) {
-			LOG(DEBUG, "Thumbnail already generated, skipping");
+			LOG(EXTREME, "Thumbnail already generated, skipping");
 			continue;
 		}
 		// Setup mesh
 		Ref<Mesh> mesh = ma->get_mesh(0);
-		LOG(DEBUG, i, ": Getting Mesh 0: ", mesh);
+		LOG(EXTREME, i, ": Getting Mesh 0: ", mesh);
 		if (mesh.is_null()) {
 			LOG(ERROR, i, ": Mesh is null, skipping");
 			continue;
@@ -623,10 +641,10 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 		Ref<Image> img = RS->texture_2d_get(_viewport_texture);
 		RS->instance_set_base(_mesh_instance, RID()); // Clear mesh
 		if (img.is_valid()) {
-			LOG(DEBUG, i, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
+			LOG(EXTREME, i, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
 			ma->set_thumbnail(ImageTexture::create_from_image(img));
 		} else {
-			LOG(DEBUG, "_viewport_texture is null");
+			LOG(ERROR, "_viewport_texture is null. Couldn't create thumbnail picture");
 		}
 	}
 	return;

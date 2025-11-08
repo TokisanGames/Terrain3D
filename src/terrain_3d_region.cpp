@@ -12,11 +12,16 @@
 /////////////////////
 
 void Terrain3DRegion::set_version(const real_t p_version) {
-	LOG(INFO, vformat("%.3f", p_version));
-	if (_version > 0.8f && _version != p_version) {
+	real_t version = CLAMP(p_version, 0.8f, 100.f);
+	if (_version == version) {
+		return;
+	}
+	// Mark modified if already initialized and we get a new value
+	if (_version > 0.8f) {
 		_modified = true;
 	}
-	_version = p_version;
+	_version = version;
+	LOG(INFO, vformat("%.3f", _version));
 	if (_version < Terrain3DData::CURRENT_VERSION) {
 		LOG(WARN, "Region ", get_path(), " version ", vformat("%.3f", _version),
 				" will be updated to ", vformat("%.3f", Terrain3DData::CURRENT_VERSION), " upon save");
@@ -24,16 +29,16 @@ void Terrain3DRegion::set_version(const real_t p_version) {
 }
 
 void Terrain3DRegion::set_region_size(const int p_region_size) {
-	LOG(INFO, "Setting region ", _location, " size: ", p_region_size);
 	if (!is_valid_region_size(p_region_size)) {
 		LOG(ERROR, "Invalid region size: ", p_region_size, ". Must be power of 2, 64-2048");
 		return;
 	}
-	// If already initialized and we get a new value
+	// Mark modified if already initialized and we get a new value
 	if (_region_size > 0 && _region_size != p_region_size) {
 		_modified = true;
 	}
-	_region_size = p_region_size;
+	SET_IF_DIFF(_region_size, p_region_size);
+	LOG(INFO, "Setting region ", _location, " size: ", p_region_size);
 }
 
 void Terrain3DRegion::set_map(const MapType p_map_type, const Ref<Image> &p_image) {
@@ -102,6 +107,7 @@ TypedArray<Image> Terrain3DRegion::get_maps() const {
 }
 
 void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
+	SET_IF_DIFF(_height_map, p_map);
 	LOG(INFO, "Setting height map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
 	if (_region_size == 0 && p_map.is_valid()) {
 		set_region_size(p_map->get_width());
@@ -116,6 +122,7 @@ void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 }
 
 void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
+	SET_IF_DIFF(_control_map, p_map);
 	LOG(INFO, "Setting control map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
 	if (_region_size == 0 && p_map.is_valid()) {
 		set_region_size(p_map->get_width());
@@ -129,6 +136,7 @@ void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
 }
 
 void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
+	SET_IF_DIFF(_color_map, p_map);
 	LOG(INFO, "Setting color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
 	if (_region_size == 0 && p_map.is_valid()) {
 		set_region_size(p_map->get_width());
@@ -225,14 +233,16 @@ bool Terrain3DRegion::validate_map_size(const Ref<Image> &p_map) const {
 }
 
 void Terrain3DRegion::set_height_range(const Vector2 &p_range) {
-	LOG(INFO, vformat("%.2v", p_range));
-	if (_height_range != p_range) {
-		// If initial value, we're loading it from disk, else mark modified
-		if (_height_range != V2_ZERO) {
+	if (differs(_height_range, p_range)) {
+		// Mark modified if setting after initialization
+		if (!_height_range.is_zero_approx()) {
 			_modified = true;
 		}
 		_height_range = p_range;
-	}
+		LOG(INFO, vformat("%.2v", p_range));
+	} else {
+		return;
+	};
 }
 
 void Terrain3DRegion::calc_height_range() {
@@ -245,11 +255,27 @@ void Terrain3DRegion::calc_height_range() {
 }
 
 void Terrain3DRegion::set_instances(const Dictionary &p_instances) {
-	LOG(INFO, "Region ", _location, " setting instances ptr: ", ptr_to_str(p_instances._native_ptr()));
-	if (!_instances.is_empty() && _instances._native_ptr() != p_instances._native_ptr()) {
+	if (!_instances.is_empty() && !shares_ptr(_instances, p_instances)) {
 		_modified = true;
 	}
-	_instances = p_instances;
+	SET_IF_DIFF(_instances, p_instances);
+	LOG(INFO, "Region ", _location, " setting instances ptr: ", ptr_to_str(p_instances._native_ptr()));
+}
+
+void Terrain3DRegion::set_location(const Vector2i &p_location) {
+	// In the future anywhere they want to put the location might be fine, but because of region_map
+	// We have a limitation of 32x32.
+	if (Terrain3DData::get_region_map_index(p_location) < 0) {
+		LOG(ERROR, "Location ", p_location, " out of bounds. Max: ",
+				-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);
+		return;
+	}
+	// Marked modified if setting after initialized
+	if (_location < V2I_MAX && _location != p_location) {
+		_modified = true;
+	}
+	SET_IF_DIFF(_location, p_location);
+	LOG(INFO, "Set location: ", p_location);
 }
 
 Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
@@ -291,21 +317,6 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		LOG(ERROR, "Cannot save region file: ", get_path(), ". Error code: ", ERROR, ". Look up @GlobalScope Error enum in the Godot docs");
 	}
 	return err;
-}
-
-void Terrain3DRegion::set_location(const Vector2i &p_location) {
-	// In the future anywhere they want to put the location might be fine, but because of region_map
-	// We have a limitation of 16x16 and eventually 45x45.
-	if (Terrain3DData::get_region_map_index(p_location) < 0) {
-		LOG(ERROR, "Location ", p_location, " out of bounds. Max: ",
-				-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);
-		return;
-	}
-	LOG(INFO, "Set location: ", p_location);
-	if (_location < V2I_MAX && _location != p_location) {
-		_modified = true;
-	}
-	_location = p_location;
 }
 
 void Terrain3DRegion::set_data(const Dictionary &p_data) {

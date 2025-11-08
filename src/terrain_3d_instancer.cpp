@@ -129,7 +129,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		return;
 	}
 	if (!ma->is_enabled()) {
-		LOG(INFO, "Disabling mesh ", p_mesh_id, " in region ", region_loc, ": destroying MMIs");
+		LOG(DEBUG, "Disabling mesh ", p_mesh_id, " in region ", region_loc, ": destroying MMIs");
 		_destroy_mmi_by_location(region_loc, p_mesh_id);
 		return;
 	}
@@ -156,7 +156,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 
 		// Clean MMIs if xforms have been removed
 		if (xforms.size() == 0) {
-			LOG(DEBUG, "Empty cell in region ", region_loc, " cell ", cell, ": destroying MMIs");
+			LOG(EXTREME, "Empty cell in region ", region_loc, " mesh ", p_mesh_id, " cell ", cell, ": destroying MMIs");
 			_destroy_mmi_by_cell(region_loc, p_mesh_id, cell);
 			continue;
 		}
@@ -164,7 +164,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		for (int lod = 0; lod < Terrain3DMeshAsset::MAX_LOD_COUNT; lod++) {
 			if (lod > ma->get_last_lod() || (ma->get_cast_shadows() == SHADOWS_ONLY && (lod > ma->get_last_shadow_lod() || lod < ma->get_shadow_impostor()))) {
 				_destroy_mmi_by_cell(region_loc, p_mesh_id, cell, lod);
-				LOG(DEBUG, "Destroyed old MMIs, LOD ", lod, " in cell ", cell);
+				LOG(EXTREME, "Destroyed old MMIs mesh ", p_mesh_id, " cell ", cell, ", LOD ", lod);
 			}
 		}
 		// Clean Shadow MMIs
@@ -172,7 +172,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				ma->get_cast_shadows() == SHADOWS_OFF);
 		if (shadow_lod_disabled) {
 			_destroy_mmi_by_cell(region_loc, p_mesh_id, cell, Terrain3DMeshAsset::SHADOW_LOD_ID);
-			LOG(DEBUG, "Destroyed stale shadow MMI for disabled impostor in cell ", cell);
+			LOG(EXTREME, "Destroyed stale shadow MMI mesh ", p_mesh_id, " for disabled impostor in cell ", cell);
 		}
 
 		// Setup MMIs for each LOD + shadows
@@ -198,7 +198,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			MultiMeshInstance3D *mmi = cell_mmi_dict[cell]; // null if missing
 			if (!mmi) {
 				mmi = memnew(MultiMeshInstance3D);
-				LOG(DEBUG, "No MMI found, Created new MultiMeshInstance3D for cell ", cell, ": ", ptr_to_str(mmi));
+				LOG(EXTREME, "No MMI found, Created new MultiMeshInstance3D for cell ", cell, ": ", ptr_to_str(mmi));
 				// Node name is MMI3D_Cell##_##_Mesh#_LOD#
 				String cstring = "_C" + Util::location_to_string(cell).trim_prefix("_");
 				String mstring = "_M" + String::num_int64(p_mesh_id);
@@ -1019,7 +1019,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 	Vector2 global_position = rect.get_center();
 	Vector2 size = rect.get_size();
 	Vector2 half_size = size * 0.5f + V2(1.f); // 1m margin
-	if (size == V2_ZERO) {
+	if (size.is_zero_approx()) {
 		return;
 	}
 

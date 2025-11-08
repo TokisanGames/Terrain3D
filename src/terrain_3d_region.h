@@ -95,9 +95,6 @@ public:
 	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 100.f); }
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
-	// File I/O
-	Error save(const String &p_path = "", const bool p_16_bit = false);
-
 	// Working Data
 	void set_deleted(const bool p_deleted) { _deleted = p_deleted; }
 	bool is_deleted() const { return _deleted; }
@@ -107,6 +104,9 @@ public:
 	bool is_modified() const { return _modified; }
 	void set_location(const Vector2i &p_location);
 	Vector2i get_location() const { return _location; }
+
+	// File I/O
+	Error save(const String &p_path = "", const bool p_16_bit = false);
 
 	// Utility
 	void set_data(const Dictionary &p_data);
