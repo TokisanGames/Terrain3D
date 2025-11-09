@@ -19,7 +19,7 @@ void fragment() {
 	view.xyz /= view.w;
 	float depth_linear = -view.z;
 
-	// Normalize depth to the range 0 - 1
+	// Normalize depth to the range 0 - 1. Divided by camera.get_far()
 	highp float scaledDepth = clamp(depth_linear / 100000.0, 0.0, 1.0);
 
 	// Encode using 127 steps, which map to the 128 - 255 range.
