@@ -711,8 +711,15 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		LOG(ERROR, "Invalid source vector: ", p_src_pos);
 		return V3_NAN;
 	}
+
 	Vector3 direction = p_direction.normalized();
-	Vector3 point;
+	// If looking straight down in a region, use get_height
+	if (direction.y < -.99999f) {
+		real_t height = _data->get_height(p_src_pos);
+		if (std ::isfinite(height)) {
+			return Vector3(p_src_pos.x, height, p_src_pos.z);
+		}
+	}
 
 	// Raymarching mode
 	if (!p_gpu_mode) {
@@ -721,15 +728,11 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		if (height > p_src_pos.y) { // False if Nan
 			return V3_MAX;
 		}
-		// If looking straight down use get_height
-		if (direction.y < -.99999f) {
-			return Vector3(p_src_pos.x, height, p_src_pos.z);
-		}
 		// Raymarch down the ray in small increments until we find the terrain height
-		point = p_src_pos;
+		Vector3 point = p_src_pos;
 		for (int i = 0; i < 4000; i++) {
 			height = _data->get_height(point);
-			if (point.y - height <= 0.f) { // Nan comparison is false
+			if (point.y - height <= 0.f) { // Nan comparison is false, which continues loop
 				return point;
 			}
 			point += direction;
@@ -746,7 +749,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		// Position mouse cam one unit behind the requested position
 		_mouse_cam->set_global_position(p_src_pos - direction);
 
-		// If looking straight down or up, look_at() won't work, so set the rotation directly
+		// If looking straight down, then we're not in a region, set rotation directly as look_at() doesn't work
 		if (direction.y < -.99999f) {
 			_mouse_cam->set_rotation_degrees(Vector3(-90.f, 0.f, 0.f));
 		} else {
@@ -771,10 +774,15 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		// Decode the full depth value
 		real_t decoded_depth = (r + g / 127.f + b / (127.f * 127.f)) / 127.f;
 
-		// Near-plane noise filter, or no hit
+		// Near-plane noise filter, or no hit (sky, underside, far clip)
 		if (decoded_depth < 0.00001f || decoded_depth > 1.f) {
+			// Catch editor ortho camera with src_pos.y at 500115.5
+			if (direction.y < -.99999f && p_src_pos.y >= 500000.f) {
+				return Vector3(p_src_pos.x, 0.f, p_src_pos.z);
+			}
 			return V3_MAX;
 		}
+
 		// Necessary for a near-far precision on hits
 		if (decoded_depth > 0.99999f) {
 			decoded_depth = 1.f;
@@ -784,10 +792,8 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 		decoded_depth *= _mouse_cam->get_far();
 
 		// Project the camera position by the depth value to get the intersection point.
-		point = _mouse_cam->get_global_position() + direction * decoded_depth;
+		return _mouse_cam->get_global_position() + direction * decoded_depth;
 	}
-
-	return point;
 }
 
 /* Returns the results of a physics raycast, optionally excluding the terrain
