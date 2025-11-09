@@ -135,6 +135,8 @@ public:
 	void update_maps(const MapType p_map_type = TYPE_MAX, const bool p_all_regions = true, const bool p_generate_mipmaps = false);
 	TypedArray<Terrain3DLayer> get_layers(const Vector2i &p_region_loc, const MapType p_map_type) const;
 	Ref<Terrain3DLayer> add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const bool p_update = true);
+	Ref<Terrain3DStampLayer> add_stamp_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Image> &p_payload, const Rect2i &p_coverage, const Ref<Image> &p_alpha = Ref<Image>(), const real_t p_intensity = 1.0f, const real_t p_feather_radius = 0.0f, const Terrain3DLayer::BlendMode p_blend_mode = Terrain3DLayer::BLEND_ADD, const bool p_update = true);
+	void set_layer_enabled(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_enabled, const bool p_update = true);
 	void remove_layer(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_update = true);
 	Ref<Terrain3DCurveLayer> add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update = true);
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }

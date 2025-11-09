@@ -83,6 +83,7 @@ private:
 	Vector3 _operation_movement = V3_ZERO;
 	Array _operation_movement_history;
 	bool _is_operating = false;
+	bool _stamp_to_layer = false;
 	uint64_t _last_region_bounds_error = 0;
 	TypedArray<Terrain3DRegion> _original_regions; // Queue for undo
 	TypedArray<Terrain3DRegion> _edited_regions; // Queue for redo
@@ -123,6 +124,8 @@ public:
 	void backup_region(const Ref<Terrain3DRegion> &p_region);
 	void stop_operation();
 	Dictionary add_curve_layer(const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove = false, const real_t p_feather_radius = 0.0f, const bool p_update = true);
+	void set_stamp_to_layer(const bool p_enabled) { _stamp_to_layer = p_enabled; }
+	bool is_stamp_to_layer_enabled() const { return _stamp_to_layer; }
 
 protected:
 	static void _bind_methods();
