@@ -776,8 +776,8 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 
 		// Near-plane noise filter, or no hit (sky, underside, far clip)
 		if (decoded_depth < 0.00001f || decoded_depth > 1.f) {
-			// Catch editor ortho camera with src_pos.y at 500115.5
-			if (direction.y < -.99999f && p_src_pos.y >= 500000.f) {
+			// Catch editor ortho camera with src_pos.y at some random value around 500k
+			if (direction.y < -.99999f && p_src_pos.y >= 100000.f) {
 				return Vector3(p_src_pos.x, 0.f, p_src_pos.z);
 			}
 			return V3_MAX;

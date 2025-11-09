@@ -21,7 +21,7 @@ uniform bool _editor_decal_visible[3]; // show decal: brush, slope point1, point
 uniform bool _editor_decal_part[2]; // show decal[0] component: texture, reticle
 
 float get_reticle(vec2 uv, int index) {
-	float cam_dist = length(_camera_pos - v_vertex);
+	float cam_dist = clamp(length(_camera_pos - v_vertex), 0., 4000.);
 	float sq_cam_dist = sqrt(cam_dist);
 	float view_scale = 16.0 / sq_cam_dist;
 	vec2 cross_uv = (uv * _vertex_spacing - _editor_decal_position[index]) * view_scale;
