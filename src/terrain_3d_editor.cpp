@@ -1,6 +1,10 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <climits>
+#include <unordered_map>
+
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/variant/callable.hpp>
 
@@ -94,6 +98,16 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		LOG(ERROR, "Invalid tool selected");
 		return;
 	}
+	bool layer_stamp_mode = _stamp_to_layer && map_type == TYPE_HEIGHT && (_operation == ADD || _operation == SUBTRACT);
+	if (_stamp_to_layer && !layer_stamp_mode) {
+		if (map_type != TYPE_HEIGHT) {
+			LOG(WARN, "Stamp-to-layer currently supports height operations only; falling back to direct painting");
+		}
+		if (_operation != ADD && _operation != SUBTRACT) {
+			LOG(WARN, "Stamp-to-layer currently supports Add/Subtract operations only; falling back to direct painting");
+		}
+		layer_stamp_mode = false;
+	}
 
 	int region_size = _terrain->get_region_size();
 	Vector2i region_vsize = V2I(region_size);
@@ -186,6 +200,17 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	// need to track if _added_removed_locations has changed between now and the end of the loop
 	int regions_added_removed = _added_removed_locations.size();
 
+	struct LayerAccumulator {
+		Ref<Terrain3DRegion> region;
+		Ref<Image> delta;
+		int min_x = INT32_MAX;
+		int min_y = INT32_MAX;
+		int max_x = INT32_MIN;
+		int max_y = INT32_MIN;
+	};
+
+	std::unordered_map<Vector2i, LayerAccumulator, Vector2iHash> stamp_accumulators;
+
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
 			Vector2 brush_offset = Vector2(x, y) - (V2(brush_size) * .5f);
@@ -230,6 +255,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			brush_alpha = std::isnan(brush_alpha) ? 0.f : brush_alpha;
 			Color src = map->get_pixelv(map_pixel_position);
 			Color dest = src;
+			real_t layer_delta = 0.0f;
+			bool has_layer_delta = false;
 
 			if (map_type == TYPE_HEIGHT) {
 				real_t srcf = src.r;
@@ -303,11 +330,18 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						break;
 				}
 				dest = Color(destf, 0.f, 0.f, 1.f);
+				if (layer_stamp_mode) {
+					if (_operation == SUBTRACT) {
+						layer_delta = srcf - destf;
+					} else {
+						layer_delta = destf - srcf;
+					}
+					has_layer_delta = Math::abs(layer_delta) > CMP_EPSILON;
+				}
 				region->update_height(destf);
 				data->update_master_height(destf);
 				edited_position.y = destf;
 				edited_area = edited_area.expand(edited_position);
-
 			} else if (map_type == TYPE_CONTROL) {
 				// Get current bit field from pixel
 				uint32_t base_id = get_base(src.r);
@@ -554,8 +588,64 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				}
 			}
 			backup_region(region);
-			map->set_pixelv(map_pixel_position, dest);
+			if (layer_stamp_mode) {
+				if (has_layer_delta) {
+					LayerAccumulator &acc = stamp_accumulators[region_loc];
+					if (acc.region.is_null()) {
+						acc.region = region;
+						acc.delta.instantiate();
+						acc.delta->create(region_size, region_size, false, Image::FORMAT_RF);
+						acc.delta->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+					}
+					Color prev_delta = acc.delta->get_pixelv(map_pixel_position);
+					prev_delta.r += layer_delta;
+					acc.delta->set_pixelv(map_pixel_position, prev_delta);
+					acc.min_x = MIN(acc.min_x, map_pixel_position.x);
+					acc.min_y = MIN(acc.min_y, map_pixel_position.y);
+					acc.max_x = MAX(acc.max_x, map_pixel_position.x);
+					acc.max_y = MAX(acc.max_y, map_pixel_position.y);
+				}
+			} else {
+				map->set_pixelv(map_pixel_position, dest);
+			}
 		}
+	}
+	if (layer_stamp_mode) {
+		bool created_layers = false;
+		Terrain3DLayer::BlendMode blend_mode = (_operation == SUBTRACT) ? Terrain3DLayer::BLEND_SUBTRACT : Terrain3DLayer::BLEND_ADD;
+		Image::Format payload_format = map_type_get_format(map_type);
+		for (auto &entry : stamp_accumulators) {
+			LayerAccumulator &acc = entry.second;
+			if (acc.region.is_null()) {
+				continue;
+			}
+			if (acc.min_x > acc.max_x || acc.min_y > acc.max_y) {
+				continue;
+			}
+			Vector2i coverage_pos(acc.min_x, acc.min_y);
+			Vector2i coverage_size(acc.max_x - acc.min_x + 1, acc.max_y - acc.min_y + 1);
+			Rect2i coverage(coverage_pos, coverage_size);
+			Ref<Image> payload;
+			payload.instantiate();
+			payload->create(coverage_size.x, coverage_size.y, false, payload_format);
+			payload->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+			payload->blit_rect(acc.delta, Rect2i(coverage_pos, coverage_size), Vector2i());
+			Ref<Terrain3DStampLayer> stamp_layer = data->add_stamp_layer(entry.first, map_type, payload, coverage, Ref<Image>(), 1.0f, 0.0f, blend_mode, false);
+			if (stamp_layer.is_valid()) {
+				created_layers = true;
+			}
+		}
+		if (created_layers) {
+			data->update_maps(map_type, false, false);
+			data->add_edited_area(edited_area);
+			if (_tool == HOLES || _tool == HEIGHT || _tool == SCULPT) {
+				_terrain->get_instancer()->update_transforms(edited_area);
+			}
+			if (_terrain->get_collision_mode() == Terrain3DCollision::DYNAMIC_EDITOR) {
+				_terrain->get_collision()->update(true);
+			}
+		}
+		return;
 	}
 	// Regenerate color mipmaps for edited regions
 	if (map_type == TYPE_COLOR) {
@@ -1097,6 +1187,8 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tool"), &Terrain3DEditor::get_tool);
 	ClassDB::bind_method(D_METHOD("set_operation", "operation"), &Terrain3DEditor::set_operation);
 	ClassDB::bind_method(D_METHOD("get_operation"), &Terrain3DEditor::get_operation);
+	ClassDB::bind_method(D_METHOD("set_stamp_to_layer", "enabled"), &Terrain3DEditor::set_stamp_to_layer);
+	ClassDB::bind_method(D_METHOD("is_stamp_to_layer_enabled"), &Terrain3DEditor::is_stamp_to_layer_enabled);
 	ClassDB::bind_method(D_METHOD("start_operation", "position"), &Terrain3DEditor::start_operation);
 	ClassDB::bind_method(D_METHOD("is_operating"), &Terrain3DEditor::is_operating);
 	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction"), &Terrain3DEditor::operate);
@@ -1105,4 +1197,5 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_curve_layer", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DEditor::add_curve_layer, DEFVAL(false), DEFVAL(0.0f), DEFVAL(true));
 
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "stamp_to_layer"), "set_stamp_to_layer", "is_stamp_to_layer_enabled");
 }

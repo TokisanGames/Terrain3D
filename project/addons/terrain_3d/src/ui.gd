@@ -136,6 +136,10 @@ func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 		visible = p_visible
 		toolbar.set_visible(p_visible)
 		tool_settings.set_visible(p_visible)
+		if p_visible:
+			update_layer_panel()
+		else:
+			tool_settings.clear_layer_stack()
 
 	if plugin.editor:
 		if p_visible:
@@ -182,7 +186,8 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("size")
 			to_show.push_back("strength")
 			if _selected_operation in [Terrain3DEditor.ADD, Terrain3DEditor.SUBTRACT]:
-					to_show.push_back("invert")
+				to_show.push_back("invert")
+				to_show.push_back("stamp_to_layer")
 			elif _selected_operation == Terrain3DEditor.GRADIENT:
 				to_show.push_back("gradient_points")
 				to_show.push_back("drawable")
@@ -194,6 +199,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("height")
 			to_show.push_back("height_picker")
 			to_show.push_back("invert")
+			to_show.push_back("stamp_to_layer")
 
 		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")
@@ -280,6 +286,27 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 		print("Terrain3DUI: _on_tool_changed: calling _on_setting_changed()")
 	_on_setting_changed()
 	plugin.update_region_grid()
+	update_layer_panel()
+
+
+func update_layer_panel() -> void:
+	if not plugin or not plugin.terrain or not tool_settings:
+		return
+	if not plugin.terrain.data:
+		tool_settings.clear_layer_stack()
+		return
+	var map_type: int = Terrain3DRegion.TYPE_MAX
+	if plugin.editor:
+		map_type = _map_type_for_tool(plugin.editor.get_tool())
+	if map_type == Terrain3DRegion.TYPE_MAX:
+		tool_settings.clear_layer_stack()
+		return
+	var region_loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
+	if not plugin.terrain.data.has_region(region_loc):
+		tool_settings.clear_layer_stack()
+		return
+	var layers: Array = plugin.terrain.data.get_layers(region_loc, map_type)
+	tool_settings.update_layer_stack(region_loc, map_type, layers)
 
 
 func _on_setting_changed(p_setting: Variant = null) -> void:
@@ -292,6 +319,7 @@ func _on_setting_changed(p_setting: Variant = null) -> void:
 	if plugin.debug:
 		print("Terrain3DUI: _on_setting_changed: selected resource ID: ", brush_data["asset_id"])
 	if plugin.editor:
+		plugin.editor.set_stamp_to_layer(brush_data.get("stamp_to_layer", false))
 		plugin.editor.set_brush_data(brush_data)
 	inverted_input = brush_data.get("invert", false)
 	if p_setting is CheckBox and p_setting.name == &"Invert":
@@ -649,3 +677,15 @@ func pick(p_global_position: Vector3) -> void:
 
 func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 	p_button.icon = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
+
+
+func _map_type_for_tool(p_tool: int) -> int:
+	match p_tool:
+		Terrain3DEditor.SCULPT, Terrain3DEditor.HEIGHT, Terrain3DEditor.INSTANCER:
+			return Terrain3DRegion.TYPE_HEIGHT
+		Terrain3DEditor.TEXTURE, Terrain3DEditor.AUTOSHADER, Terrain3DEditor.HOLES, Terrain3DEditor.NAVIGATION, Terrain3DEditor.ANGLE, Terrain3DEditor.SCALE:
+			return Terrain3DRegion.TYPE_CONTROL
+		Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS:
+			return Terrain3DRegion.TYPE_COLOR
+		_:
+			return Terrain3DRegion.TYPE_MAX

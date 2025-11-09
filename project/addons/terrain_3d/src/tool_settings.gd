@@ -27,6 +27,12 @@ const MultiPicker: Script = preload("res://addons/terrain_3d/src/multi_picker.gd
 const DEFAULT_BRUSH: String = "circle0.exr"
 const BRUSH_PATH: String = "res://addons/terrain_3d/brushes"
 const ES_TOOL_SETTINGS: String = "terrain3d/tool_settings/"
+const LAYER_BLEND_LABELS := ["Add", "Subtract", "Replace"]
+const MAP_TYPE_LABELS := {
+	Terrain3DRegion.TYPE_HEIGHT: "Height",
+	Terrain3DRegion.TYPE_CONTROL: "Control",
+	Terrain3DRegion.TYPE_COLOR: "Color"
+}
 
 # Add settings flags
 const NONE: int = 0x0
@@ -50,6 +56,12 @@ var rotation_list: VBoxContainer
 var color_list: VBoxContainer
 var collision_list: VBoxContainer
 var settings: Dictionary = {}
+var layer_section: VBoxContainer
+var layers_list: VBoxContainer
+var layer_header_label: Label
+var layer_refresh_button: Button
+var current_layer_region: Vector2i = Vector2i.ZERO
+var current_layer_map_type: int = Terrain3DRegion.TYPE_MAX
 
 
 func _ready() -> void:
@@ -179,6 +191,8 @@ func _ready() -> void:
 	advanced_list = create_submenu(main_list, "", Layout.VERTICAL, false)
 	add_setting({ "name":"auto_regions", "label":"Add regions while sculpting", "type":SettingType.CHECKBOX, 
 							"list":advanced_list, "default":true })
+	add_setting({ "name":"stamp_to_layer", "label":"Stamp to layer", "type":SettingType.CHECKBOX,
+				"list":advanced_list, "default":false, "tooltip":"When enabled, height Add/Subtract strokes create a new layer instead of baking directly into the heightmap." })
 	advanced_list.add_child(HSeparator.new(), true)
 	add_setting({ "name":"show_brush_texture", "type":SettingType.CHECKBOX, "list":advanced_list, "default":true })
 	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, "default":true })
@@ -186,6 +200,30 @@ func _ready() -> void:
 							"unit":"%", "range":Vector3(0, 100, 1) })
 	add_setting({ "name":"gamma", "type":SettingType.SLIDER, "list":advanced_list, "default":1.0, 
 							"unit":"γ", "range":Vector3(0.1, 2.0, 0.01) })
+
+	advanced_list.add_child(HSeparator.new(), true)
+	layer_section = VBoxContainer.new()
+	layer_section.visible = false
+	advanced_list.add_child(layer_section, true)
+
+	var header := HBoxContainer.new()
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layer_section.add_child(header, true)
+
+	layer_header_label = Label.new()
+	layer_header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layer_header_label.text = "Layers"
+	header.add_child(layer_header_label, true)
+
+	layer_refresh_button = Button.new()
+	layer_refresh_button.icon = get_theme_icon("Reload", "EditorIcons")
+	layer_refresh_button.tooltip_text = "Refresh the layer list using the current brush position"
+	layer_refresh_button.pressed.connect(_on_refresh_layers)
+	header.add_child(layer_refresh_button, true)
+
+	layers_list = VBoxContainer.new()
+	layers_list.add_theme_constant_override("separation", 4)
+	layer_section.add_child(layers_list, true)
 
 
 func create_submenu(p_parent: Control, p_button_name: String, p_layout: Layout, p_hover_pop: bool = true) -> Container:
@@ -610,6 +648,92 @@ func get_setting(p_setting: String) -> Variant:
 		value = 0
 	return value
 
+func update_layer_stack(region_loc: Vector2i, map_type: int, layers: Array) -> void:
+	if not layer_section or not layers_list or not layer_header_label:
+		return
+	current_layer_region = region_loc
+	current_layer_map_type = map_type
+	for child in layers_list.get_children():
+		child.queue_free()
+	if not _has_layer_context() or map_type == Terrain3DRegion.TYPE_MAX:
+		layer_section.visible = false
+		layer_header_label.text = "Layers"
+		return
+	layer_section.visible = true
+	var label_prefix: String = MAP_TYPE_LABELS.get(map_type, "Map")
+	layer_header_label.text = "%s Layers (%d, %d)" % [label_prefix, region_loc.x, region_loc.y]
+	if layers.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "No layers yet"
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		empty_label.modulate = Color(0.75, 0.75, 0.75)
+		layers_list.add_child(empty_label, true)
+		return
+	for index in range(layers.size()):
+		var layer: Terrain3DLayer = layers[index]
+		if not layer:
+			continue
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var toggle := CheckBox.new()
+		toggle.focus_mode = Control.FOCUS_NONE
+		toggle.button_pressed = layer.is_enabled()
+		toggle.tooltip_text = "Enable or disable this layer"
+		toggle.toggled.connect(_on_layer_toggle.bind(index))
+		row.add_child(toggle)
+		var summary := Label.new()
+		summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		summary.autowrap_mode = TextServer.AUTOWRAP_WORD
+		summary.text = _describe_layer(layer, index)
+		row.add_child(summary)
+		var remove_button := Button.new()
+		remove_button.focus_mode = Control.FOCUS_NONE
+		remove_button.icon = get_theme_icon("Remove", "EditorIcons")
+		remove_button.tooltip_text = "Remove this layer"
+		remove_button.pressed.connect(_on_layer_remove.bind(index))
+		row.add_child(remove_button)
+		layers_list.add_child(row, true)
+
+func clear_layer_stack() -> void:
+	update_layer_stack(Vector2i.ZERO, Terrain3DRegion.TYPE_MAX, [])
+
+func _describe_layer(layer: Terrain3DLayer, index: int) -> String:
+	var parts: Array[String] = []
+	parts.append("#%d" % (index + 1))
+	parts.append(layer.get_class().replace("Terrain3D", ""))
+	var blend := layer.get_blend_mode()
+	if blend >= 0 and blend < LAYER_BLEND_LABELS.size():
+		parts.append(LAYER_BLEND_LABELS[blend])
+	var intensity := layer.get_intensity()
+	if not is_equal_approx(intensity, 1.0):
+		parts.append("x%.2f" % intensity)
+	var coverage: Rect2i = layer.get_coverage()
+	if coverage.size.x > 0 and coverage.size.y > 0:
+		parts.append("%dx%d @ %d,%d" % [coverage.size.x, coverage.size.y, coverage.position.x, coverage.position.y])
+	return " • ".join(parts)
+
+func _has_layer_context() -> bool:
+	if not plugin or not plugin.terrain or not plugin.terrain.data:
+		return false
+	return plugin.terrain.data.has_region(current_layer_region)
+
+func _on_layer_toggle(pressed: bool, index: int) -> void:
+	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
+		return
+	plugin.terrain.data.set_layer_enabled(current_layer_region, current_layer_map_type, index, pressed, true)
+	_on_refresh_layers()
+
+func _on_layer_remove(index: int) -> void:
+	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
+		return
+	plugin.terrain.data.remove_layer(current_layer_region, current_layer_map_type, index, true)
+	_on_refresh_layers()
+
+func _on_refresh_layers() -> void:
+	if plugin and plugin.ui and plugin.ui.has_method("update_layer_panel"):
+		plugin.ui.update_layer_panel()
+	else:
+		clear_layer_stack()
 
 func set_setting(p_setting: String, p_value: Variant) -> void:
 	var object: Object = settings.get(p_setting)

@@ -221,6 +221,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			if current_region_position != region_position:
 				current_region_position = region_position
 				update_region_grid()
+				ui.update_layer_panel()
 
 			if _input_mode > 0 and editor.is_operating():
 				# Inject pressure - Relies on C++ set_brush_data() using same dictionary instance
@@ -266,6 +267,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 		# _input_apply released, save undo data
 		elif editor.is_operating():
 			editor.stop_operation()
+			ui.update_layer_panel()
 			return AFTER_GUI_INPUT_STOP
 
 	return AFTER_GUI_INPUT_PASS
@@ -398,6 +400,7 @@ func update_region_grid() -> void:
 		region_gizmo.grid = terrain.get_data().get_region_locations()
 		
 		terrain.update_gizmos()
+		ui.update_layer_panel()
 		return
 		
 	region_gizmo.show_rect = false
