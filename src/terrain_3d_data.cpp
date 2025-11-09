@@ -441,6 +441,88 @@ TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 	return TypedArray<Image>();
 }
 
+TypedArray<Terrain3DLayer> Terrain3DData::get_layers(const Vector2i &p_region_loc, const MapType p_map_type) const {
+	TypedArray<Terrain3DLayer> layers;
+	const Terrain3DRegion *region = get_region_ptr(p_region_loc);
+	if (!region) {
+		LOG(ERROR, "Cannot retrieve layers. Region not found at ", p_region_loc);
+		return layers;
+	}
+	layers = region->get_layers(p_map_type);
+	return layers;
+}
+
+Ref<Terrain3DLayer> Terrain3DData::add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const bool p_update) {
+	Terrain3DRegion *region = get_region_ptr(p_region_loc);
+	if (!region) {
+		LOG(ERROR, "Cannot add layer. Region not found at ", p_region_loc);
+		return Ref<Terrain3DLayer>();
+	}
+	Ref<Terrain3DLayer> layer = region->add_layer(p_map_type, p_layer);
+	if (layer.is_valid()) {
+		region->set_modified(true);
+		region->set_edited(true);
+		if (p_update) {
+			update_maps(p_map_type, false, false);
+		}
+	}
+	return layer;
+}
+
+void Terrain3DData::remove_layer(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_update) {
+	Terrain3DRegion *region = get_region_ptr(p_region_loc);
+	if (!region) {
+		LOG(ERROR, "Cannot remove layer. Region not found at ", p_region_loc);
+		return;
+	}
+	region->remove_layer(p_map_type, p_index);
+	region->set_modified(true);
+	region->set_edited(true);
+	if (p_update) {
+		update_maps(p_map_type, false, false);
+	}
+}
+
+Ref<Terrain3DCurveLayer> Terrain3DData::add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update) {
+	Terrain3DRegion *region = get_region_ptr(p_region_loc);
+	if (!region) {
+		LOG(ERROR, "Cannot add curve layer. Region not found at ", p_region_loc);
+		return Ref<Terrain3DCurveLayer>();
+	}
+	if (p_points.size() < 2) {
+		LOG(ERROR, "Curve layer requires at least two points");
+		return Ref<Terrain3DCurveLayer>();
+	}
+	Ref<Terrain3DCurveLayer> curve_layer;
+	curve_layer.instantiate();
+	Vector3 region_origin = Vector3(p_region_loc.x, 0.0f, p_region_loc.y) * real_t(_region_size) * _vertex_spacing;
+	PackedVector3Array local_points;
+	local_points.resize(p_points.size());
+	for (int i = 0; i < p_points.size(); i++) {
+		Vector3 local = p_points[i];
+		local.x -= region_origin.x;
+		local.z -= region_origin.z;
+		local_points.set(i, local);
+	}
+	curve_layer->set_map_type(TYPE_HEIGHT);
+	curve_layer->set_points(local_points);
+	curve_layer->set_width(p_width);
+	curve_layer->set_depth(p_depth);
+	curve_layer->set_dual_groove(p_dual_groove);
+	curve_layer->set_feather_radius(p_feather_radius);
+	Ref<Terrain3DLayer> added = region->add_layer(TYPE_HEIGHT, curve_layer);
+	Ref<Terrain3DCurveLayer> result = added;
+	if (result.is_null()) {
+		result = curve_layer;
+	}
+	region->set_modified(true);
+	region->set_edited(true);
+	if (p_update) {
+		update_maps(TYPE_HEIGHT, false, false);
+	}
+	return result;
+}
+
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
 	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
@@ -510,7 +592,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
-				_height_maps.push_back(region->get_height_map());
+				_height_maps.push_back(region->get_composited_map(TYPE_HEIGHT));
 			} else {
 				LOG(ERROR, "Can't find region ", region_loc, ", _regions: ", _regions,
 						", locations: ", _region_locations, ". Please report this error.");
@@ -531,7 +613,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
-				_control_maps.push_back(region->get_control_map());
+				_control_maps.push_back(region->get_composited_map(TYPE_CONTROL));
 			}
 		}
 		_generated_control_maps.create(_control_maps);
@@ -547,7 +629,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
-				_color_maps.push_back(region->get_color_map());
+				_color_maps.push_back(region->get_composited_map(TYPE_COLOR));
 			}
 		}
 		_generated_color_maps.create(_color_maps);
@@ -565,24 +647,24 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 				int region_id = get_region_id(region_loc);
 				switch (p_map_type) {
 					case TYPE_HEIGHT:
-						_generated_height_maps.update(region->get_height_map(), region_id);
+						_generated_height_maps.update(region->get_composited_map(TYPE_HEIGHT), region_id);
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						break;
 					case TYPE_CONTROL:
-						_generated_control_maps.update(region->get_control_map(), region_id);
+						_generated_control_maps.update(region->get_composited_map(TYPE_CONTROL), region_id);
 						LOG(DEBUG, "Emitting control_maps_changed");
 						emit_signal("control_maps_changed");
 						break;
 					case TYPE_COLOR:
-						_generated_color_maps.update(region->get_color_map(), region_id);
+						_generated_color_maps.update(region->get_composited_map(TYPE_COLOR), region_id);
 						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
 						break;
 					default:
-						_generated_height_maps.update(region->get_height_map(), region_id);
-						_generated_control_maps.update(region->get_control_map(), region_id);
-						_generated_color_maps.update(region->get_color_map(), region_id);
+						_generated_height_maps.update(region->get_composited_map(TYPE_HEIGHT), region_id);
+						_generated_control_maps.update(region->get_composited_map(TYPE_CONTROL), region_id);
+						_generated_color_maps.update(region->get_composited_map(TYPE_COLOR), region_id);
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						LOG(DEBUG, "Emitting control_maps_changed");
@@ -1186,6 +1268,10 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
 	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
+	ClassDB::bind_method(D_METHOD("get_layers", "region_location", "map_type"), &Terrain3DData::get_layers);
+	ClassDB::bind_method(D_METHOD("add_layer", "region_location", "map_type", "layer", "update"), &Terrain3DData::add_layer, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("remove_layer", "region_location", "map_type", "index", "update"), &Terrain3DData::remove_layer, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_curve_layer", "region_location", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DData::add_curve_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_maps", "map_type", "all_regions", "generate_mipmaps"), &Terrain3DData::update_maps, DEFVAL(TYPE_MAX), DEFVAL(true), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DData::get_height_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DData::get_control_maps_rid);

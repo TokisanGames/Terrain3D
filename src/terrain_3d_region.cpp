@@ -1,15 +1,155 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
 #include "terrain_3d_data.h"
+#include "terrain_3d_layer.h"
 #include "terrain_3d_region.h"
 #include "terrain_3d_util.h"
 
 /////////////////////
 // Public Functions
 /////////////////////
+
+TypedArray<Terrain3DLayer> &Terrain3DRegion::_get_layers_ref(const MapType p_map_type) {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return _height_layers;
+		case TYPE_CONTROL:
+			return _control_layers;
+		case TYPE_COLOR:
+			return _color_layers;
+		default:
+			return _height_layers;
+	}
+}
+
+const TypedArray<Terrain3DLayer> &Terrain3DRegion::_get_layers_ref(const MapType p_map_type) const {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return _height_layers;
+		case TYPE_CONTROL:
+			return _control_layers;
+		case TYPE_COLOR:
+			return _color_layers;
+		default:
+			return _height_layers;
+	}
+}
+
+bool &Terrain3DRegion::_get_layers_dirty(const MapType p_map_type) const {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return const_cast<bool &>(_height_layers_dirty);
+		case TYPE_CONTROL:
+			return const_cast<bool &>(_control_layers_dirty);
+		case TYPE_COLOR:
+			return const_cast<bool &>(_color_layers_dirty);
+		default:
+			return const_cast<bool &>(_height_layers_dirty);
+	}
+}
+
+Ref<Image> &Terrain3DRegion::_get_baked_map(const MapType p_map_type) const {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return const_cast<Ref<Image> &>(_baked_height_map);
+		case TYPE_CONTROL:
+			return const_cast<Ref<Image> &>(_baked_control_map);
+		case TYPE_COLOR:
+			return const_cast<Ref<Image> &>(_baked_color_map);
+		default:
+			return const_cast<Ref<Image> &>(_baked_height_map);
+	}
+}
+
+void Terrain3DRegion::mark_layers_dirty(const MapType p_map_type, const bool p_mark_modified) const {
+	bool &dirty = _get_layers_dirty(p_map_type);
+	dirty = true;
+	Ref<Image> &cache = _get_baked_map(p_map_type);
+	if (cache.is_valid()) {
+		cache.unref();
+	}
+	if (p_mark_modified) {
+		const_cast<Terrain3DRegion *>(this)->set_edited(true);
+		const_cast<Terrain3DRegion *>(this)->set_modified(true);
+	}
+}
+
+TypedArray<Terrain3DLayer> Terrain3DRegion::get_layers(const MapType p_map_type) const {
+	return _get_layers_ref(p_map_type);
+}
+
+void Terrain3DRegion::set_layers(const MapType p_map_type, const TypedArray<Terrain3DLayer> &p_layers) {
+	TypedArray<Terrain3DLayer> &layers = _get_layers_ref(p_map_type);
+	layers = p_layers;
+	for (int i = 0; i < layers.size(); i++) {
+		Ref<Terrain3DLayer> layer = layers[i];
+		if (layer.is_valid()) {
+			layer->set_map_type(p_map_type);
+		}
+	}
+	mark_layers_dirty(p_map_type);
+}
+
+Ref<Terrain3DLayer> Terrain3DRegion::add_layer(const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const int p_index) {
+	TypedArray<Terrain3DLayer> &layers = _get_layers_ref(p_map_type);
+	Ref<Terrain3DLayer> layer = p_layer;
+	if (layer.is_null()) {
+		layer.instantiate();
+		layer->set_map_type(p_map_type);
+	}
+	if (p_index >= 0 && p_index < layers.size()) {
+		layers.insert(p_index, layer);
+	} else {
+		layers.push_back(layer);
+	}
+	mark_layers_dirty(p_map_type);
+	return layer;
+}
+
+void Terrain3DRegion::remove_layer(const MapType p_map_type, const int p_index) {
+	TypedArray<Terrain3DLayer> &layers = _get_layers_ref(p_map_type);
+	if (p_index < 0 || p_index >= layers.size()) {
+		return;
+	}
+	layers.remove_at(p_index);
+	mark_layers_dirty(p_map_type);
+}
+
+void Terrain3DRegion::clear_layers(const MapType p_map_type) {
+	TypedArray<Terrain3DLayer> &layers = _get_layers_ref(p_map_type);
+	layers.clear();
+	mark_layers_dirty(p_map_type);
+}
+
+Ref<Image> Terrain3DRegion::get_composited_map(const MapType p_map_type) const {
+	const TypedArray<Terrain3DLayer> &layers = _get_layers_ref(p_map_type);
+	Ref<Image> base = get_map(p_map_type);
+	if (layers.is_empty() || base.is_null()) {
+		return base;
+	}
+	Ref<Image> &cache = _get_baked_map(p_map_type);
+	bool &dirty = _get_layers_dirty(p_map_type);
+	if (dirty || cache.is_null()) {
+		cache = base->duplicate();
+		if (cache.is_null()) {
+			return base;
+		}
+		for (int i = 0; i < layers.size(); i++) {
+			Ref<Terrain3DLayer> layer = layers[i];
+			if (layer.is_null()) {
+				continue;
+			}
+			layer->set_map_type(p_map_type);
+			layer->apply(*cache.ptr(), _region_size, _vertex_spacing);
+		}
+		dirty = false;
+	}
+	return cache;
+}
 
 void Terrain3DRegion::set_version(const real_t p_version) {
 	real_t version = CLAMP(p_version, 0.8f, 100.f);
@@ -39,6 +179,9 @@ void Terrain3DRegion::set_region_size(const int p_region_size) {
 	}
 	SET_IF_DIFF(_region_size, p_region_size);
 	LOG(INFO, "Setting region ", _location, " size: ", p_region_size);
+	mark_layers_dirty(TYPE_HEIGHT, false);
+	mark_layers_dirty(TYPE_CONTROL, false);
+	mark_layers_dirty(TYPE_COLOR, false);
 }
 
 void Terrain3DRegion::set_map(const MapType p_map_type, const Ref<Image> &p_image) {
@@ -119,6 +262,7 @@ void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 	}
 	_height_map = map;
 	calc_height_range();
+	mark_layers_dirty(TYPE_HEIGHT);
 }
 
 void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
@@ -133,6 +277,7 @@ void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
 		_modified = true;
 	}
 	_control_map = map;
+	mark_layers_dirty(TYPE_CONTROL);
 }
 
 void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
@@ -147,6 +292,7 @@ void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
 		_modified = true;
 	}
 	_color_map = map;
+	mark_layers_dirty(TYPE_COLOR);
 }
 
 void Terrain3DRegion::sanitize_maps() {
@@ -159,16 +305,19 @@ void Terrain3DRegion::sanitize_maps() {
 		_modified = true;
 	}
 	_height_map = map;
+	mark_layers_dirty(TYPE_HEIGHT);
 	map = sanitize_map(TYPE_CONTROL, _control_map);
 	if (_control_map != map) {
 		_modified = true;
 	}
 	_control_map = map;
+	mark_layers_dirty(TYPE_CONTROL);
 	map = sanitize_map(TYPE_COLOR, _color_map);
 	if (_color_map != map) {
 		_modified = true;
 	}
 	_color_map = map;
+	mark_layers_dirty(TYPE_COLOR);
 }
 
 Ref<Image> Terrain3DRegion::sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const {
@@ -336,6 +485,40 @@ void Terrain3DRegion::set_data(const Dictionary &p_data) {
 	SET_IF_HAS(_control_map, "control_map");
 	SET_IF_HAS(_color_map, "color_map");
 	SET_IF_HAS(_instances, "instances");
+#undef SET_IF_HAS
+	if (p_data.has("height_layers")) {
+		Array height_layers = p_data["height_layers"];
+		_height_layers = height_layers;
+	}
+	if (p_data.has("control_layers")) {
+		Array control_layers = p_data["control_layers"];
+		_control_layers = control_layers;
+	}
+	if (p_data.has("color_layers")) {
+		Array color_layers = p_data["color_layers"];
+		_color_layers = color_layers;
+	}
+	for (int i = 0; i < _height_layers.size(); i++) {
+		Ref<Terrain3DLayer> layer = _height_layers[i];
+		if (layer.is_valid()) {
+			layer->set_map_type(TYPE_HEIGHT);
+		}
+	}
+	for (int i = 0; i < _control_layers.size(); i++) {
+		Ref<Terrain3DLayer> layer = _control_layers[i];
+		if (layer.is_valid()) {
+			layer->set_map_type(TYPE_CONTROL);
+		}
+	}
+	for (int i = 0; i < _color_layers.size(); i++) {
+		Ref<Terrain3DLayer> layer = _color_layers[i];
+		if (layer.is_valid()) {
+			layer->set_map_type(TYPE_COLOR);
+		}
+	}
+	mark_layers_dirty(TYPE_HEIGHT);
+	mark_layers_dirty(TYPE_CONTROL);
+	mark_layers_dirty(TYPE_COLOR);
 }
 
 Dictionary Terrain3DRegion::get_data() const {
@@ -352,6 +535,9 @@ Dictionary Terrain3DRegion::get_data() const {
 	dict["control_map"] = _control_map;
 	dict["color_map"] = _color_map;
 	dict["instances"] = _instances;
+	dict["height_layers"] = _height_layers;
+	dict["control_layers"] = _control_layers;
+	dict["color_layers"] = _color_layers;
 	return dict;
 }
 
@@ -375,6 +561,54 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		dict["control_map"] = _control_map->duplicate();
 		dict["color_map"] = _color_map->duplicate();
 		dict["instances"] = _instances.duplicate(true);
+		{
+			TypedArray<Terrain3DLayer> layers;
+			for (int i = 0; i < _height_layers.size(); i++) {
+				Ref<Terrain3DLayer> layer = _height_layers[i];
+				Ref<Terrain3DLayer> copy = layer;
+				if (layer.is_valid()) {
+					Ref<Resource> dup_res = layer->duplicate();
+					Ref<Terrain3DLayer> dup_layer = dup_res;
+					if (dup_layer.is_valid()) {
+						copy = dup_layer;
+					}
+				}
+				layers.push_back(copy);
+			}
+			dict["height_layers"] = layers;
+		}
+		{
+			TypedArray<Terrain3DLayer> layers;
+			for (int i = 0; i < _control_layers.size(); i++) {
+				Ref<Terrain3DLayer> layer = _control_layers[i];
+				Ref<Terrain3DLayer> copy = layer;
+				if (layer.is_valid()) {
+					Ref<Resource> dup_res = layer->duplicate();
+					Ref<Terrain3DLayer> dup_layer = dup_res;
+					if (dup_layer.is_valid()) {
+						copy = dup_layer;
+					}
+				}
+				layers.push_back(copy);
+			}
+			dict["control_layers"] = layers;
+		}
+		{
+			TypedArray<Terrain3DLayer> layers;
+			for (int i = 0; i < _color_layers.size(); i++) {
+				Ref<Terrain3DLayer> layer = _color_layers[i];
+				Ref<Terrain3DLayer> copy = layer;
+				if (layer.is_valid()) {
+					Ref<Resource> dup_res = layer->duplicate();
+					Ref<Terrain3DLayer> dup_layer = dup_res;
+					if (dup_layer.is_valid()) {
+						copy = dup_layer;
+					}
+				}
+				layers.push_back(copy);
+			}
+			dict["color_layers"] = layers;
+		}
 		region->set_data(dict);
 	}
 	return region;
@@ -434,6 +668,12 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_map", "map_type"), &Terrain3DRegion::get_map);
 	ClassDB::bind_method(D_METHOD("set_maps", "maps"), &Terrain3DRegion::set_maps);
 	ClassDB::bind_method(D_METHOD("get_maps"), &Terrain3DRegion::get_maps);
+	ClassDB::bind_method(D_METHOD("get_layers", "map_type"), &Terrain3DRegion::get_layers);
+	ClassDB::bind_method(D_METHOD("set_layers", "map_type", "layers"), &Terrain3DRegion::set_layers);
+	ClassDB::bind_method(D_METHOD("add_layer", "map_type", "layer", "index"), &Terrain3DRegion::add_layer, DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("remove_layer", "map_type", "index"), &Terrain3DRegion::remove_layer);
+	ClassDB::bind_method(D_METHOD("clear_layers", "map_type"), &Terrain3DRegion::clear_layers);
+	ClassDB::bind_method(D_METHOD("get_composited_map", "map_type"), &Terrain3DRegion::get_composited_map);
 	ClassDB::bind_method(D_METHOD("set_height_map", "map"), &Terrain3DRegion::set_height_map);
 	ClassDB::bind_method(D_METHOD("get_height_map"), &Terrain3DRegion::get_height_map);
 	ClassDB::bind_method(D_METHOD("set_control_map", "map"), &Terrain3DRegion::set_control_map);

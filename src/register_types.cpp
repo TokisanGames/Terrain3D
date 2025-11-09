@@ -9,6 +9,7 @@
 #include "register_types.h"
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_layer.h"
 
 void initialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -25,6 +26,10 @@ void initialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DRegion>();
 	ClassDB::register_class<Terrain3DTextureAsset>();
 	ClassDB::register_class<Terrain3DUtil>();
+	ClassDB::register_class<Terrain3DLayer>();
+	ClassDB::register_class<Terrain3DStampLayer>();
+	ClassDB::register_class<Terrain3DCurveLayer>();
+	ClassDB::register_class<Terrain3DLocalNodeLayer>();
 }
 
 void uninitialize_terrain_3d_module(ModuleInitializationLevel p_level) {

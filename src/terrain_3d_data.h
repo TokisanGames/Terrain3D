@@ -6,6 +6,7 @@
 #include "constants.h"
 #include "generated_texture.h"
 #include "terrain_3d.h"
+#include "terrain_3d_layer.h"
 #include "terrain_3d_region.h"
 
 class Terrain3D;
@@ -132,6 +133,10 @@ public:
 	TypedArray<Image> get_color_maps() const { return _color_maps; }
 	TypedArray<Image> get_maps(const MapType p_map_type) const;
 	void update_maps(const MapType p_map_type = TYPE_MAX, const bool p_all_regions = true, const bool p_generate_mipmaps = false);
+	TypedArray<Terrain3DLayer> get_layers(const Vector2i &p_region_loc, const MapType p_map_type) const;
+	Ref<Terrain3DLayer> add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const bool p_update = true);
+	void remove_layer(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_update = true);
+	Ref<Terrain3DCurveLayer> add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update = true);
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
 	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
 	RID get_color_maps_rid() const { return _generated_color_maps.get_rid(); }

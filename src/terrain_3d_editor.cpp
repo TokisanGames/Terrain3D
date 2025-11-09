@@ -9,6 +9,7 @@
 #include "terrain_3d.h"
 #include "terrain_3d_data.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_layer.h"
 #include "terrain_3d_util.h"
 
 ///////////////////////////
@@ -1001,6 +1002,67 @@ void Terrain3DEditor::stop_operation() {
 	_is_operating = false;
 }
 
+Dictionary Terrain3DEditor::add_curve_layer(const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update) {
+	Dictionary result;
+	if (!_terrain) {
+		LOG(ERROR, "Terrain not set on editor");
+		return result;
+	}
+	Terrain3DData *data = _terrain->get_data();
+	if (!data) {
+		LOG(ERROR, "Terrain data not available");
+		return result;
+	}
+	if (p_points.size() < 2) {
+		LOG(ERROR, "Curve layer requires at least two points");
+		return result;
+	}
+
+	int region_size = _terrain->get_region_size();
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
+	real_t region_world_extent = region_size * vertex_spacing;
+
+	Vector2 min_pt(Math_INF, Math_INF);
+	Vector2 max_pt(-Math_INF, -Math_INF);
+	for (int i = 0; i < p_points.size(); i++) {
+		const Vector3 &pt = p_points[i];
+		min_pt.x = MIN(min_pt.x, pt.x);
+		min_pt.y = MIN(min_pt.y, pt.z);
+		max_pt.x = MAX(max_pt.x, pt.x);
+		max_pt.y = MAX(max_pt.y, pt.z);
+	}
+	real_t padding = (p_width * 0.5f) + p_feather_radius + vertex_spacing;
+	min_pt -= Vector2(padding, padding);
+	max_pt += Vector2(padding, padding);
+
+	int min_region_x = Math::floor(min_pt.x / region_world_extent);
+	int min_region_y = Math::floor(min_pt.y / region_world_extent);
+	int max_region_x = Math::floor(max_pt.x / region_world_extent);
+	int max_region_y = Math::floor(max_pt.y / region_world_extent);
+
+	for (int rx = min_region_x; rx <= max_region_x; rx++) {
+		for (int ry = min_region_y; ry <= max_region_y; ry++) {
+			Vector2 region_min_world(rx * region_world_extent, ry * region_world_extent);
+			Vector2 region_max_world = region_min_world + Vector2(region_world_extent, region_world_extent);
+			bool intersects = !(region_max_world.x < min_pt.x || region_max_world.y < min_pt.y || region_min_world.x > max_pt.x || region_min_world.y > max_pt.y);
+			if (!intersects) {
+				continue;
+			}
+			Vector2i region_loc(rx, ry);
+			Ref<Terrain3DCurveLayer> layer = data->add_curve_layer(region_loc, p_points, p_width, p_depth, p_dual_groove, p_feather_radius, false);
+			if (layer.is_valid()) {
+				result[region_loc] = layer;
+			}
+		}
+	}
+
+	if (p_update) {
+		data->update_maps(TYPE_HEIGHT, false, false);
+	}
+
+	return result;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1040,6 +1102,7 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("operate", "position", "camera_direction"), &Terrain3DEditor::operate);
 	ClassDB::bind_method(D_METHOD("backup_region", "region"), &Terrain3DEditor::backup_region);
 	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
+	ClassDB::bind_method(D_METHOD("add_curve_layer", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DEditor::add_curve_layer, DEFVAL(false), DEFVAL(0.0f), DEFVAL(true));
 
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
 }
