@@ -781,6 +781,8 @@ func _on_layer_remove(index: int) -> void:
 	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
 		return
 	plugin.terrain.data.remove_layer(current_layer_region, current_layer_map_type, index, true)
+	if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_index"):
+		plugin.editor.set_active_layer_index(0)
 	_on_refresh_layers()
 
 func _on_refresh_layers() -> void:

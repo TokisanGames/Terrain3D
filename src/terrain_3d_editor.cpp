@@ -201,17 +201,21 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	// need to track if _added_removed_locations has changed between now and the end of the loop
 	int regions_added_removed = _added_removed_locations.size();
 
-	struct LayerContext {
-		Ref<Terrain3DRegion> region;
-		Ref<Terrain3DLayer> layer;
-		Ref<Image> payload;
-		Ref<Image> composite;
-		Image *payload_ptr = nullptr;
-		Image *composite_ptr = nullptr;
-		bool initialized = false;
-		bool valid = false;
-		bool marked_dirty = false;
-	};
+		struct LayerContext {
+			Ref<Terrain3DRegion> region;
+			Ref<Terrain3DLayer> layer;
+			Ref<Image> payload;
+			Ref<Image> composite;
+			Image *payload_ptr = nullptr;
+			Image *composite_ptr = nullptr;
+			Image::Format expected_format = Image::FORMAT_MAX;
+			int expected_width = 0;
+			int expected_height = 0;
+			bool initialized = false;
+			bool valid = false;
+			bool marked_dirty = false;
+			bool payload_rebuilt = false;
+		};
 	std::unordered_map<Vector2i, LayerContext, Vector2iHash> layer_contexts;
 
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
@@ -241,6 +245,21 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					LayerContext ctx;
 					ctx.region = region;
 					ctx.initialized = true;
+					ctx.expected_format = map->get_format();
+					int map_width = map->get_width();
+					int map_height = map->get_height();
+					if (map_width <= 0) {
+						map_width = region_size;
+					}
+					if (map_height <= 0) {
+						map_height = region_size;
+					}
+					ctx.expected_width = map_width;
+					ctx.expected_height = map_height;
+					if (ctx.expected_format == Image::FORMAT_MAX) {
+						ctx.expected_format = map_type_get_format(map_type);
+					}
+					ctx.payload_rebuilt = false;
 
 					TypedArray<Terrain3DLayer> target_layers = region->get_layers(map_type);
 					int layer_array_index = _active_layer_index - 1;
@@ -260,28 +279,65 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 									") in region ", region_loc, " is null; skipping layer painting");
 								null_layer_log_count++;
 							}
+						} else if (!candidate_layer->is_enabled()) {
+							ctx.layer = candidate_layer;
 						} else {
 							int expected_width = map->get_width();
 							int expected_height = map->get_height();
-							Ref<Image> payload = candidate_layer->get_payload();
-							bool payload_ready = payload.is_valid() && payload->get_width() == expected_width && payload->get_height() == expected_height;
-							if (!payload_ready) {
-								Ref<Image> new_payload;
-								new_payload.instantiate();
-								new_payload->create(expected_width, expected_height, false, map_type_get_format(map_type));
-								new_payload->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
-								candidate_layer->set_payload(new_payload);
-								candidate_layer->set_coverage(Rect2i(Vector2i(), Vector2i(expected_width, expected_height)));
-								payload = candidate_layer->get_payload();
+							if (expected_width <= 0) {
+								expected_width = region_size;
 							}
-							if (payload.is_valid()) {
-								ctx.layer = candidate_layer;
-								ctx.payload = payload;
-								ctx.payload_ptr = payload.ptr();
-								ctx.composite = region->get_composited_map(map_type);
-								if (ctx.composite.is_valid()) {
-									ctx.composite_ptr = ctx.composite.ptr();
-									ctx.valid = true;
+							if (expected_height <= 0) {
+								expected_height = region_size;
+							}
+							if (expected_width <= 0 || expected_height <= 0) {
+								static int empty_map_log_count = 0;
+								if (empty_map_log_count < 5) {
+									LOG(WARN, "Region ", region_loc, " map dimensions invalid when preparing layer payload: ", expected_width, "x", expected_height);
+									empty_map_log_count++;
+								}
+							} else {
+								Ref<Image> payload = candidate_layer->get_payload();
+								if (ctx.expected_width <= 0) {
+									ctx.expected_width = expected_width;
+								}
+								if (ctx.expected_height <= 0) {
+									ctx.expected_height = expected_height;
+								}
+								if (ctx.expected_format == Image::FORMAT_MAX) {
+									ctx.expected_format = map_type_get_format(map_type);
+								}
+								bool payload_ready = payload.is_valid() && payload->get_width() == ctx.expected_width && payload->get_height() == ctx.expected_height;
+								if (!payload_ready) {
+									Ref<Image> new_payload;
+									new_payload.instantiate();
+									new_payload->create(ctx.expected_width, ctx.expected_height, false, ctx.expected_format);
+									new_payload->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+									candidate_layer->set_payload(new_payload);
+									candidate_layer->set_coverage(Rect2i(Vector2i(), Vector2i(ctx.expected_width, ctx.expected_height)));
+									payload = candidate_layer->get_payload();
+								}
+								if (payload.is_valid()) {
+									ctx.layer = candidate_layer;
+									ctx.payload = payload;
+									ctx.payload_ptr = payload.ptr();
+									ctx.payload_rebuilt = false;
+									ctx.composite = region->get_composited_map(map_type);
+									if (ctx.composite.is_valid() && ctx.composite->get_width() == ctx.expected_width && ctx.composite->get_height() == ctx.expected_height) {
+										ctx.composite_ptr = ctx.composite.ptr();
+										ctx.valid = true;
+									} else {
+										if (ctx.composite.is_valid()) {
+											static int mismatched_composite_log_count = 0;
+											if (mismatched_composite_log_count < 5) {
+												LOG(WARN, "Composited map dimensions ", ctx.composite->get_width(), "x", ctx.composite->get_height(),
+													" did not match expected ", ctx.expected_width, "x", ctx.expected_height, " for region ", region_loc);
+												mismatched_composite_log_count++;
+											}
+										}
+										ctx.composite_ptr = map;
+										ctx.valid = true;
+									}
 								}
 							}
 						}
@@ -293,19 +349,74 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					if (!ctx_ptr->region.is_valid()) {
 						ctx_ptr->region = region;
 					}
-					if (ctx_ptr->valid) {
-						if (ctx_ptr->payload_ptr == nullptr && ctx_ptr->payload.is_valid()) {
-							ctx_ptr->payload_ptr = ctx_ptr->payload.ptr();
+					if (ctx_ptr->expected_format == Image::FORMAT_MAX) {
+						ctx_ptr->expected_format = map_type_get_format(map_type);
+					}
+					if (ctx_ptr->expected_format == Image::FORMAT_MAX) {
+						Image::Format map_format = map->get_format();
+						ctx_ptr->expected_format = map_format != Image::FORMAT_MAX ? map_format : map_type_get_format(map_type);
+					}
+					if (ctx_ptr->expected_width <= 0) {
+						int current_width = map->get_width();
+						ctx_ptr->expected_width = current_width > 0 ? current_width : region_size;
+					}
+					if (ctx_ptr->expected_height <= 0) {
+						int current_height = map->get_height();
+						ctx_ptr->expected_height = current_height > 0 ? current_height : region_size;
+					}
+					if (ctx_ptr->layer.is_valid()) {
+						Ref<Image> refreshed_payload = ctx_ptr->layer->get_payload();
+						if (refreshed_payload.is_valid()) {
+							ctx_ptr->payload = refreshed_payload;
+							ctx_ptr->payload_ptr = refreshed_payload.ptr();
 						}
-						if (ctx_ptr->composite_ptr == nullptr && ctx_ptr->composite.is_valid()) {
-							ctx_ptr->composite_ptr = ctx_ptr->composite.ptr();
+					}
+					if (ctx_ptr->region.is_valid()) {
+						Ref<Image> refreshed_composite = ctx_ptr->region->get_composited_map(map_type);
+						if (refreshed_composite.is_valid()) {
+							ctx_ptr->composite = refreshed_composite;
+							ctx_ptr->composite_ptr = refreshed_composite.ptr();
 						}
 					}
 				}
 			}
 			bool using_layer = paint_to_layer && ctx_ptr && ctx_ptr->valid && ctx_ptr->payload_ptr && ctx_ptr->composite_ptr;
-			Image *layer_payload_ptr = using_layer ? ctx_ptr->payload_ptr : nullptr;
-			Image *composited_map_ptr = using_layer ? ctx_ptr->composite_ptr : nullptr;
+			Image *layer_payload_ptr = nullptr;
+			Image *composited_map_ptr = nullptr;
+			if (using_layer) {
+				int payload_width = ctx_ptr->payload_ptr->get_width();
+				int payload_height = ctx_ptr->payload_ptr->get_height();
+				if ((payload_width <= 0 || payload_height <= 0) && !ctx_ptr->payload_rebuilt && ctx_ptr->expected_width > 0 && ctx_ptr->expected_height > 0) {
+					Image::Format fmt = ctx_ptr->expected_format == Image::FORMAT_MAX ? map_type_get_format(map_type) : ctx_ptr->expected_format;
+					ctx_ptr->payload_ptr->create(ctx_ptr->expected_width, ctx_ptr->expected_height, false, fmt);
+					ctx_ptr->payload_ptr->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+					ctx_ptr->payload_rebuilt = true;
+					ctx_ptr->payload = ctx_ptr->layer.is_valid() ? ctx_ptr->layer->get_payload() : ctx_ptr->payload;
+					if (ctx_ptr->payload.is_valid()) {
+						ctx_ptr->payload_ptr = ctx_ptr->payload.ptr();
+					}
+					payload_width = ctx_ptr->payload_ptr->get_width();
+					payload_height = ctx_ptr->payload_ptr->get_height();
+					if (ctx_ptr->layer.is_valid()) {
+						Rect2i coverage = ctx_ptr->layer->get_coverage();
+						if (coverage.size.x <= 0 || coverage.size.y <= 0 || coverage.position != Vector2i()) {
+							ctx_ptr->layer->set_coverage(Rect2i(Vector2i(), Vector2i(ctx_ptr->expected_width, ctx_ptr->expected_height)));
+						}
+					}
+				}
+				if (payload_width <= 0 || payload_height <= 0) {
+					static int empty_payload_log_count = 0;
+					if (empty_payload_log_count < 5) {
+						LOG(WARN, "Layer payload dimensions invalid (", payload_width, "x", payload_height,
+							") in region ", region_loc, ". Falling back to base layer");
+						empty_payload_log_count++;
+					}
+					using_layer = false;
+				} else {
+					layer_payload_ptr = ctx_ptr->payload_ptr;
+					composited_map_ptr = ctx_ptr->composite_ptr;
+				}
+			}
 
 			// Identify position on map image
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size, vertex_spacing);
@@ -695,6 +806,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					ctx.layer->mark_dirty();
 				}
 				if (ctx.region.is_valid()) {
+					ctx.region->mark_layers_dirty(map_type);
 					ctx.region->set_modified(true);
 					ctx.region->set_edited(true);
 				}

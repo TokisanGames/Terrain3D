@@ -107,6 +107,34 @@ Ref<Terrain3DLayer> Terrain3DRegion::add_layer(const MapType p_map_type, const R
 		layers.push_back(layer);
 	}
 	mark_layers_dirty(p_map_type);
+	if (layer.is_valid()) {
+		int expected_size = _region_size;
+		if (!is_valid_region_size(expected_size)) {
+			Ref<Image> base_map = get_map(p_map_type);
+			if (base_map.is_valid()) {
+				expected_size = MAX(base_map->get_width(), base_map->get_height());
+			}
+		}
+		if (expected_size > 0) {
+			Vector2i expected_dims(expected_size, expected_size);
+			Rect2i coverage = layer->get_coverage();
+			if (!coverage.has_area()) {
+				layer->set_coverage(Rect2i(Vector2i(), expected_dims));
+			}
+			Ref<Image> payload = layer->get_payload();
+			bool payload_invalid = payload.is_null() || payload->get_width() <= 0 || payload->get_height() <= 0;
+			if (payload_invalid) {
+				Ref<Image> init_payload = Util::get_filled_image(expected_dims, COLOR_BLACK, false, map_type_get_format(p_map_type));
+				layer->set_payload(init_payload);
+			}
+		} else {
+			static int invalid_layer_dims_log_count = 0;
+			if (invalid_layer_dims_log_count < 5) {
+				LOG(WARN, "Unable to initialize layer payload; expected size unresolved for map type ", p_map_type, " in region ", _location);
+				invalid_layer_dims_log_count++;
+			}
+		}
+	}
 	return layer;
 }
 
