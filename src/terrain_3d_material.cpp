@@ -625,14 +625,14 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
 	RS->material_set_param(p_material, "_texture_displacement_array", asset_list->get_texture_displacements());
 
 	// Enable checkered view if texture_count is 0, disable if not
-	if (asset_list->get_texture_count() == 0) {
+	if (asset_list->get_generated_array_size() == 0) {
 		if (_debug_view_checkered == false) {
 			set_show_checkered(true);
 			LOG(DEBUG, "No textures, enabling checkered view");
 		}
 	} else {
 		set_show_checkered(false);
-		LOG(DEBUG, "Texture count >0: ", asset_list->get_texture_count(), ", disabling checkered view");
+		LOG(DEBUG, "Texture count >0: ", asset_list->get_generated_array_size(), ", disabling checkered view");
 	}
 }
 

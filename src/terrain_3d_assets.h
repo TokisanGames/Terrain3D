@@ -76,6 +76,7 @@ public:
 	void set_texture_list(const TypedArray<Terrain3DTextureAsset> &p_texture_list);
 	TypedArray<Terrain3DTextureAsset> get_texture_list() const { return _texture_list; }
 	int get_texture_count() const { return _texture_list.size(); }
+	int get_generated_array_size() const { return _generated_albedo_textures.size(); }
 	RID get_albedo_array_rid() const { return _generated_albedo_textures.get_rid(); }
 	RID get_normal_array_rid() const { return _generated_normal_textures.get_rid(); }
 	PackedColorArray get_texture_colors() const { return _texture_colors; }
