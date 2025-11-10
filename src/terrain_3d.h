@@ -36,6 +36,11 @@ public: // Constants
 		EXTREME = 3, // Continuous operations like snapping
 	};
 
+	enum DevMode {
+		NORMAL,
+		READ_ONLY,
+	};
+
 	enum RegionSize {
 		SIZE_64 = 64,
 		SIZE_128 = 128,
@@ -47,10 +52,11 @@ public: // Constants
 
 private:
 	String _version = "1.1.0-dev";
+	DevMode _dev_mode = NORMAL;
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
-	uint8_t _warnings = 0;
+	uint8_t _warnings = 0u;
 
 	// Object references
 	Terrain3DData *_data = nullptr;
@@ -79,7 +85,7 @@ private:
 	real_t _vertex_spacing = 1.0f;
 
 	// Rendering
-	uint32_t _render_layers = 1 | (1 << 31); // Bit 1 and 32 for the cursor
+	uint32_t _render_layers = 1u | (1u << 31u); // Bit 1 and 32 for the cursor
 	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
@@ -89,7 +95,7 @@ private:
 	SubViewport *_mouse_vp = nullptr;
 	Camera3D *_mouse_cam = nullptr;
 	MeshInstance3D *_mouse_quad = nullptr;
-	uint32_t _mouse_layer = 32;
+	uint32_t _mouse_layer = 32u;
 
 	// Parent containers for child nodes
 	Node3D *_label_parent;
@@ -127,6 +133,8 @@ public:
 	String get_version() const { return _version; }
 	void set_debug_level(const DebugLevel p_level);
 	DebugLevel get_debug_level() const { return debug_level; }
+	void set_dev_mode(const DevMode p_mode);
+	DevMode get_dev_mode() const { return _dev_mode; }
 	void set_data_directory(String p_dir);
 	String get_data_directory() const { return _data ? _data_directory : ""; }
 
@@ -175,6 +183,12 @@ public:
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
+	// Instancer
+	void set_instancer_mode(const InstancerMode p_mode) { _instancer ? _instancer->set_mode(p_mode) : void(); }
+	InstancerMode get_instancer_mode() const { return _instancer ? _instancer->get_mode() : InstancerMode::NORMAL; }
+	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
+	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
+
 	// Rendering
 	void set_render_layers(const uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; };
@@ -188,8 +202,8 @@ public:
 	real_t get_cull_margin() const { return _cull_margin; };
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; };
-	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
-	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
+	void set_color_map_enabled(const bool p_enabled) { _data ? _data->set_color_map_enabled(p_enabled) : void(); }
+	bool get_color_map_enabled() const { return _data ? _data->get_color_map_enabled() : true; }
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
@@ -265,8 +279,9 @@ protected:
 	static void _bind_methods();
 };
 
-VARIANT_ENUM_CAST(Terrain3D::RegionSize);
+VARIANT_ENUM_CAST(Terrain3D::DevMode);
 VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
+VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 
 constexpr Terrain3D::DebugLevel MESG = Terrain3D::DebugLevel::MESG;
 constexpr Terrain3D::DebugLevel WARN = Terrain3D::DebugLevel::WARN;

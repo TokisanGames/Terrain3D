@@ -69,6 +69,7 @@ uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
+uniform bool _color_map_enabled = true;
 // Public uniforms
 
 group_uniforms general;
@@ -428,17 +429,17 @@ void fragment() {
 	base_ddy *= bias;
 
 	// Color map
-	vec4 color_map = region_uv.z > -1.0 ? textureLod(_color_maps, region_uv, region_mip) : COLOR_MAP_DEF;
+	vec4 color_map = _color_map_enabled && region_uv.z > -1.0 ? textureLod(_color_maps, region_uv, region_mip) : COLOR_MAP_DEF;
 
 	// Branching smooth normals and manually interpolated color map - fixes cross region artifacts
 	if (bilerp) {
 		// 4 lookups if linear filtering, else 1 lookup.
 		vec4 col_map[4];
-		col_map[3] = index[3].z > -1 ? texelFetch(_color_maps, index[3], 0) : COLOR_MAP_DEF;
+		col_map[3] = _color_map_enabled && index[3].z > -1 ? texelFetch(_color_maps, index[3], 0) : COLOR_MAP_DEF;
 		#ifdef FILTER_LINEAR
-		col_map[0] = index[0].z > -1 ? texelFetch(_color_maps, index[0], 0) : COLOR_MAP_DEF;
-		col_map[1] = index[1].z > -1 ? texelFetch(_color_maps, index[1], 0) : COLOR_MAP_DEF;
-		col_map[2] = index[2].z > -1 ? texelFetch(_color_maps, index[2], 0) : COLOR_MAP_DEF;
+		col_map[0] = _color_map_enabled && index[0].z > -1 ? texelFetch(_color_maps, index[0], 0) : COLOR_MAP_DEF;
+		col_map[1] = _color_map_enabled && index[1].z > -1 ? texelFetch(_color_maps, index[1], 0) : COLOR_MAP_DEF;
+		col_map[2] = _color_map_enabled && index[2].z > -1 ? texelFetch(_color_maps, index[2], 0) : COLOR_MAP_DEF;
 
 		color_map =
 			col_map[0] * weights[0] +

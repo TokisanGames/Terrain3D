@@ -449,22 +449,20 @@ void Terrain3DCollision::destroy() {
 }
 
 void Terrain3DCollision::set_mode(const CollisionMode p_mode) {
+	SET_IF_DIFF(_mode, p_mode);
 	LOG(INFO, "Setting collision mode: ", p_mode);
-	if (p_mode != _mode) {
-		_mode = p_mode;
-		if (is_enabled()) {
-			build();
-		} else {
-			destroy();
-		}
+	if (is_enabled()) {
+		build();
+	} else {
+		destroy();
 	}
 }
 
 void Terrain3DCollision::set_shape_size(const uint16_t p_size) {
-	int size = CLAMP(p_size, 8, 64);
-	size = int_round_mult(size, 8);
-	LOG(INFO, "Setting collision dynamic shape size: ", size);
-	_shape_size = size;
+	uint16_t size = CLAMP(p_size, 8, 64);
+	size = int_round_mult(size, uint16_t(8));
+	SET_IF_DIFF(_shape_size, size);
+	LOG(INFO, "Setting collision dynamic shape size: ", _shape_size);
 	// Ensure size:radius always results in at least one valid shape
 	if (_shape_size > _radius - 8) {
 		set_radius(_shape_size + 16);
@@ -474,10 +472,10 @@ void Terrain3DCollision::set_shape_size(const uint16_t p_size) {
 }
 
 void Terrain3DCollision::set_radius(const uint16_t p_radius) {
-	int radius = CLAMP(p_radius, 16, 256);
-	radius = int_ceil_pow2(radius, 16);
-	LOG(INFO, "Setting collision dynamic radius: ", radius);
-	_radius = radius;
+	uint16_t radius = CLAMP(p_radius, 16, 256);
+	radius = int_ceil_pow2(radius, uint16_t(16));
+	SET_IF_DIFF(_radius, radius);
+	LOG(INFO, "Setting collision dynamic radius: ", _radius);
 	// Ensure size:radius always results in at least one valid shape
 	if (_radius < _shape_size + 8) {
 		set_shape_size(_radius - 8);
@@ -489,8 +487,8 @@ void Terrain3DCollision::set_radius(const uint16_t p_radius) {
 }
 
 void Terrain3DCollision::set_layer(const uint32_t p_layers) {
+	SET_IF_DIFF(_layer, p_layers);
 	LOG(INFO, "Setting collision layers: ", p_layers);
-	_layer = p_layers;
 	if (is_editor_mode()) {
 		if (_static_body) {
 			_static_body->set_collision_layer(_layer);
@@ -503,8 +501,8 @@ void Terrain3DCollision::set_layer(const uint32_t p_layers) {
 }
 
 void Terrain3DCollision::set_mask(const uint32_t p_mask) {
+	SET_IF_DIFF(_mask, p_mask);
 	LOG(INFO, "Setting collision mask: ", p_mask);
-	_mask = p_mask;
 	if (is_editor_mode()) {
 		if (_static_body) {
 			_static_body->set_collision_mask(_mask);
@@ -517,8 +515,8 @@ void Terrain3DCollision::set_mask(const uint32_t p_mask) {
 }
 
 void Terrain3DCollision::set_priority(const real_t p_priority) {
+	SET_IF_DIFF(_priority, p_priority);
 	LOG(INFO, "Setting collision priority: ", p_priority);
-	_priority = p_priority;
 	if (is_editor_mode()) {
 		if (_static_body) {
 			_static_body->set_collision_priority(_priority);
@@ -531,7 +529,9 @@ void Terrain3DCollision::set_priority(const real_t p_priority) {
 }
 
 void Terrain3DCollision::set_physics_material(const Ref<PhysicsMaterial> &p_mat) {
-	LOG(INFO, "Setting physics material: ", p_mat);
+	if (_physics_material == p_mat) {
+		return;
+	}
 	if (_physics_material.is_valid()) {
 		if (_physics_material->is_connected("changed", callable_mp(this, &Terrain3DCollision::_reload_physics_material))) {
 			LOG(DEBUG, "Disconnecting _physics_material::changed signal to _reload_physics_material()");
@@ -539,6 +539,7 @@ void Terrain3DCollision::set_physics_material(const Ref<PhysicsMaterial> &p_mat)
 		}
 	}
 	_physics_material = p_mat;
+	LOG(INFO, "Setting physics material: ", p_mat);
 	if (_physics_material.is_valid()) {
 		LOG(DEBUG, "Connecting _physics_material::changed signal to _reload_physics_material()");
 		_physics_material->connect("changed", callable_mp(this, &Terrain3DCollision::_reload_physics_material));

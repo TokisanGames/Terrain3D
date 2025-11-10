@@ -10,7 +10,7 @@ const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
 # Editor Plugin
-var debug: int = 0 # Set 1 normal, 2 verbose, or = terrain.debug in _edit()
+var debug: int = 0 # Set in _edit()
 var editor: Terrain3DEditor
 var editor_settings: EditorSettings
 var ui: Node # Terrain3DUI see Godot #75388
@@ -19,6 +19,8 @@ var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
+var viewport: SubViewport # Viewport the mouse was last in
+var mouse_in_main: bool = false # Helper to track when mouse is in the editor vp
 
 # Terrain
 var terrain: Terrain3D
@@ -36,15 +38,20 @@ var _use_meta: bool = false
 
 
 func _init() -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _init")
 	if OS.get_name() == "macOS":
 		_use_meta = true
 	
 	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
 	godot_editor_window = EditorInterface.get_base_control().get_parent().get_parent()
 	godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
+	EditorInterface.get_inspector().mouse_entered.connect(func(): mouse_in_main = false)
 
-	
+
 func _enter_tree() -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _enter_tree")
 	editor = Terrain3DEditor.new()
 	setup_editor_settings()
 	ui = Terrain3DUI.new()
@@ -60,6 +67,8 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _exit_tree")
 	asset_dock.remove_dock(true)
 	asset_dock.queue_free()
 	ui.queue_free()
@@ -73,7 +82,6 @@ func _on_godot_focus_entered() -> void:
 	if debug > 1:
 		print("Terrain3DEditorPlugin: _on_godot_focus_entered")
 	_read_input()
-	ui.update_decal()
 
 
 ## EditorPlugin selection function call chain isn't consistent. Here's the map of calls:
@@ -101,6 +109,8 @@ func _handles(p_object: Object) -> bool:
 
 
 func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _make_visible(%s, %s)" % [ p_visible, p_redraw ])
 	if p_visible and is_selected():
 		ui.set_visible(true)
 		asset_dock.update_dock()
@@ -119,6 +129,7 @@ func _edit(p_object: Object) -> void:
 		_last_terrain = terrain
 		terrain.set_plugin(self)
 		terrain.set_editor(editor)
+		debug = terrain.debug_level
 		editor.set_terrain(terrain)
 		region_gizmo.set_node_3d(terrain)
 		terrain.add_gizmo(region_gizmo)
@@ -159,13 +170,15 @@ func _clear() -> void:
 
 
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> AfterGUIInput:
+	mouse_in_main = true
 	if not is_terrain_valid():
 		return AFTER_GUI_INPUT_PASS
 
 	var continue_input: AfterGUIInput = _read_input(p_event)
 	if continue_input != AFTER_GUI_INPUT_CUSTOM:
 		return continue_input
-	ui.update_decal()
+	if terrain.dev_mode == Terrain3D.READ_ONLY:
+		return AFTER_GUI_INPUT_CUSTOM
 	
 	## Setup active camera & viewport
 	# Always update this for all inputs, as the mouse position can move without
@@ -177,15 +190,17 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 	# Detect if viewport is set to half_resolution
 	# Structure is: Node3DEditorViewportContainer/Node3DEditorViewport(4)/SubViewportContainer/SubViewport/Camera3D
-	var editor_vpc: SubViewportContainer = p_viewport_camera.get_parent().get_parent()
-	var full_resolution: bool = false if editor_vpc.stretch_shrink == 2 else true
+	viewport = p_viewport_camera.get_parent()
+	var full_resolution: bool = false if viewport.get_parent().stretch_shrink == 2 else true
 
 	## Get mouse location on terrain
 	# Project 2D mouse position to 3D position and direction
-	var vp_mouse_pos: Vector2 = editor_vpc.get_local_mouse_position()
+	var vp_mouse_pos: Vector2 = viewport.get_mouse_position()
 	var mouse_pos: Vector2 = vp_mouse_pos if full_resolution else vp_mouse_pos / 2
 	var camera_pos: Vector3 = p_viewport_camera.project_ray_origin(mouse_pos)
 	var camera_dir: Vector3 = p_viewport_camera.project_ray_normal(mouse_pos)
+
+	ui.update_decal()
 
 	# If region tool, grab mouse position without considering height
 	if editor.get_tool() == Terrain3DEditor.REGION:
