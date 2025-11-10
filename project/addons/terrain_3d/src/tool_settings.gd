@@ -60,8 +60,10 @@ var layer_section: VBoxContainer
 var layers_list: VBoxContainer
 var layer_header_label: Label
 var layer_refresh_button: Button
+var layer_add_button: Button
 var current_layer_region: Vector2i = Vector2i.ZERO
 var current_layer_map_type: int = Terrain3DRegion.TYPE_MAX
+var layer_selection_group: ButtonGroup
 
 
 func _ready() -> void:
@@ -220,6 +222,13 @@ func _ready() -> void:
 	layer_refresh_button.tooltip_text = "Refresh the layer list using the current brush position"
 	layer_refresh_button.pressed.connect(_on_refresh_layers)
 	header.add_child(layer_refresh_button, true)
+
+	layer_add_button = Button.new()
+	layer_add_button.icon = get_theme_icon("Add", "EditorIcons")
+	layer_add_button.tooltip_text = "Create a new layer at the current brush position"
+	layer_add_button.focus_mode = Control.FOCUS_NONE
+	layer_add_button.pressed.connect(_on_add_layer)
+	header.add_child(layer_add_button, true)
 
 	layers_list = VBoxContainer.new()
 	layers_list.add_theme_constant_override("separation", 4)
@@ -662,9 +671,14 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layers: Array) -> v
 	layer_section.visible = true
 	var label_prefix: String = MAP_TYPE_LABELS.get(map_type, "Map")
 	layer_header_label.text = "%s Layers (%d, %d)" % [label_prefix, region_loc.x, region_loc.y]
+	layer_selection_group = ButtonGroup.new()
+	var active_index: int = -1
+	if plugin and plugin.editor and plugin.editor.has_method("get_active_layer_index"):
+		active_index = plugin.editor.get_active_layer_index()
+	_add_base_layer_entry(active_index)
 	if layers.is_empty():
 		var empty_label := Label.new()
-		empty_label.text = "No layers yet"
+		empty_label.text = "No additional layers yet"
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		empty_label.modulate = Color(0.75, 0.75, 0.75)
 		layers_list.add_child(empty_label, true)
@@ -675,17 +689,14 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layers: Array) -> v
 			continue
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var select_button := _create_layer_select_button(index, _describe_layer(layer, index), active_index)
+		row.add_child(select_button)
 		var toggle := CheckBox.new()
 		toggle.focus_mode = Control.FOCUS_NONE
 		toggle.button_pressed = layer.is_enabled()
 		toggle.tooltip_text = "Enable or disable this layer"
 		toggle.toggled.connect(_on_layer_toggle.bind(index))
 		row.add_child(toggle)
-		var summary := Label.new()
-		summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		summary.autowrap_mode = TextServer.AUTOWRAP_WORD
-		summary.text = _describe_layer(layer, index)
-		row.add_child(summary)
 		var remove_button := Button.new()
 		remove_button.focus_mode = Control.FOCUS_NONE
 		remove_button.icon = get_theme_icon("Remove", "EditorIcons")
@@ -712,6 +723,51 @@ func _describe_layer(layer: Terrain3DLayer, index: int) -> String:
 		parts.append("%dx%d @ %d,%d" % [coverage.size.x, coverage.size.y, coverage.position.x, coverage.position.y])
 	return " • ".join(parts)
 
+func _describe_base_layer(map_type: int) -> String:
+	match map_type:
+		Terrain3DRegion.TYPE_HEIGHT:
+			return "Base Heightmap"
+		Terrain3DRegion.TYPE_CONTROL:
+			return "Base Control Map"
+		Terrain3DRegion.TYPE_COLOR:
+			return "Base Color Map"
+		_:
+			return "Base Layer"
+
+func _create_layer_select_button(index: int, label: String, active_index: int) -> Button:
+	var button := Button.new()
+	button.toggle_mode = true
+	button.focus_mode = Control.FOCUS_NONE
+	button.button_group = layer_selection_group
+	button.text = label
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.tooltip_text = "Make this the active layer for stamping"
+	if index == active_index:
+		button.set_pressed_no_signal(true)
+	button.toggled.connect(_on_layer_selected.bind(index))
+	return button
+
+func _add_base_layer_entry(active_index: int) -> void:
+	var base_row := HBoxContainer.new()
+	base_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var select := _create_layer_select_button(-1, _describe_base_layer(current_layer_map_type), active_index)
+	base_row.add_child(select)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	base_row.add_child(spacer)
+	layers_list.add_child(base_row, true)
+
+func _on_layer_selected(index: int, pressed: bool) -> void:
+	if not pressed:
+		return
+	if not plugin or not plugin.editor:
+		return
+	if not plugin.editor.has_method("set_active_layer_index"):
+		return
+	plugin.editor.set_active_layer_index(index)
+	# Ensure the editor picks up the change for pending stamp data
+	_on_refresh_layers()
+
 func _has_layer_context() -> bool:
 	if not plugin or not plugin.terrain or not plugin.terrain.data:
 		return false
@@ -734,6 +790,18 @@ func _on_refresh_layers() -> void:
 		plugin.ui.update_layer_panel()
 	else:
 		clear_layer_stack()
+
+func _on_add_layer() -> void:
+	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
+		return
+	if not plugin or not plugin.editor:
+		return
+	if not plugin.editor.has_method("create_layer"):
+		return
+	var new_index: int = plugin.editor.create_layer(current_layer_region, current_layer_map_type, true)
+	if new_index >= 0:
+		plugin.editor.set_active_layer_index(new_index)
+	_on_refresh_layers()
 
 func set_setting(p_setting: String, p_value: Variant) -> void:
 	var object: Object = settings.get(p_setting)

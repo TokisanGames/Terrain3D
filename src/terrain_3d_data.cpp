@@ -452,13 +452,13 @@ TypedArray<Terrain3DLayer> Terrain3DData::get_layers(const Vector2i &p_region_lo
 	return layers;
 }
 
-Ref<Terrain3DLayer> Terrain3DData::add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const bool p_update) {
+Ref<Terrain3DLayer> Terrain3DData::add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const int p_index, const bool p_update) {
 	Terrain3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region) {
 		LOG(ERROR, "Cannot add layer. Region not found at ", p_region_loc);
 		return Ref<Terrain3DLayer>();
 	}
-	Ref<Terrain3DLayer> layer = region->add_layer(p_map_type, p_layer);
+	Ref<Terrain3DLayer> layer = region->add_layer(p_map_type, p_layer, p_index);
 	if (layer.is_valid()) {
 		region->set_modified(true);
 		region->set_edited(true);
@@ -469,7 +469,7 @@ Ref<Terrain3DLayer> Terrain3DData::add_layer(const Vector2i &p_region_loc, const
 	return layer;
 }
 
-Ref<Terrain3DStampLayer> Terrain3DData::add_stamp_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Image> &p_payload, const Rect2i &p_coverage, const Ref<Image> &p_alpha, const real_t p_intensity, const real_t p_feather_radius, const Terrain3DLayer::BlendMode p_blend_mode, const bool p_update) {
+Ref<Terrain3DStampLayer> Terrain3DData::add_stamp_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Image> &p_payload, const Rect2i &p_coverage, const Ref<Image> &p_alpha, const real_t p_intensity, const real_t p_feather_radius, const Terrain3DLayer::BlendMode p_blend_mode, const int p_index, const bool p_update) {
 	Ref<Terrain3DStampLayer> result;
 	Terrain3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region) {
@@ -517,7 +517,7 @@ Ref<Terrain3DStampLayer> Terrain3DData::add_stamp_layer(const Vector2i &p_region
 	layer->set_feather_radius(p_feather_radius);
 	layer->set_blend_mode(p_blend_mode);
 	layer->set_enabled(true);
-	Ref<Terrain3DLayer> stored = region->add_layer(p_map_type, layer);
+	Ref<Terrain3DLayer> stored = region->add_layer(p_map_type, layer, p_index);
 	result = stored;
 	if (result.is_null()) {
 		result = layer;
@@ -1358,8 +1358,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
 	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
 	ClassDB::bind_method(D_METHOD("get_layers", "region_location", "map_type"), &Terrain3DData::get_layers);
-	ClassDB::bind_method(D_METHOD("add_layer", "region_location", "map_type", "layer", "update"), &Terrain3DData::add_layer, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_stamp_layer", "region_location", "map_type", "payload", "coverage", "alpha", "intensity", "feather_radius", "blend_mode", "update"), &Terrain3DData::add_stamp_layer, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_layer", "region_location", "map_type", "layer", "index", "update"), &Terrain3DData::add_layer, DEFVAL(-1), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_stamp_layer", "region_location", "map_type", "payload", "coverage", "alpha", "intensity", "feather_radius", "blend_mode", "index", "update"), &Terrain3DData::add_stamp_layer, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(-1), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("set_layer_enabled", "region_location", "map_type", "index", "enabled", "update"), &Terrain3DData::set_layer_enabled, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_layer", "region_location", "map_type", "index", "update"), &Terrain3DData::remove_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_curve_layer", "region_location", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DData::add_curve_layer, DEFVAL(true));
