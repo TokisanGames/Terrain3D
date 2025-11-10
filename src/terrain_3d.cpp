@@ -613,9 +613,10 @@ void Terrain3D::set_mesh_lods(const int p_count) {
 }
 
 void Terrain3D::set_mesh_size(const int p_size) {
-	if (_mesh_size != p_size) {
-		LOG(INFO, "Setting mesh size: ", p_size);
-		_mesh_size = p_size;
+	int size = CLAMP(p_size & ~1U, 8, 256); // Ensure even
+	if (_mesh_size != size) {
+		_mesh_size = size;
+		LOG(INFO, "Setting mesh size: ", _mesh_size);
 		if (_mesher && _material.is_valid()) {
 			_material->_update_maps();
 			_mesher->initialize(this);
@@ -1233,7 +1234,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_mesh_size", "get_mesh_size");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_clipmap_target", "get_clipmap_target");
 
