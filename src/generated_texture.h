@@ -14,6 +14,7 @@ private:
 	RID _rid = RID();
 	Ref<Image> _image;
 	bool _dirty = false;
+	int _size = 0;
 
 public:
 	void clear();
@@ -23,6 +24,7 @@ public:
 	RID create(const Ref<Image> &p_image);
 	Ref<Image> get_image() const { return _image; }
 	RID get_rid() const { return _rid; }
+	int size() const { return _size; }
 };
 
 #endif // GENERATEDTEXTURE_CLASS_H
