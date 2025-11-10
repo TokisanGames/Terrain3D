@@ -177,7 +177,7 @@ void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_
 						dst.r = Math::lerp(dst.r, src.r, scaled_weight);
 					} else {
 						real_t sign = (_blend_mode == BLEND_SUBTRACT) ? -1.0f : 1.0f;
-						dst.r = CLAMP(dst.r + delta * sign, 0.0f, 1.0f);
+						dst.r = dst.r + delta * sign;
 					}
 					dst.a = 1.0f;
 				} break;

@@ -215,8 +215,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			bool valid = false;
 			bool marked_dirty = false;
 			bool payload_rebuilt = false;
+			bool composite_is_cache = false;
 		};
 	std::unordered_map<Vector2i, LayerContext, Vector2iHash> layer_contexts;
+		std::unordered_map<Vector2i, Ref<Terrain3DRegion>, Vector2iHash> base_dirty_regions;
 
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
@@ -260,6 +262,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						ctx.expected_format = map_type_get_format(map_type);
 					}
 					ctx.payload_rebuilt = false;
+					ctx.composite_is_cache = false;
 
 					TypedArray<Terrain3DLayer> target_layers = region->get_layers(map_type);
 					int layer_array_index = _active_layer_index - 1;
@@ -326,6 +329,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 									if (ctx.composite.is_valid() && ctx.composite->get_width() == ctx.expected_width && ctx.composite->get_height() == ctx.expected_height) {
 										ctx.composite_ptr = ctx.composite.ptr();
 										ctx.valid = true;
+										ctx.composite_is_cache = true;
 									} else {
 										if (ctx.composite.is_valid()) {
 											static int mismatched_composite_log_count = 0;
@@ -337,6 +341,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 										}
 										ctx.composite_ptr = map;
 										ctx.valid = true;
+										ctx.composite_is_cache = false;
 									}
 								}
 							}
@@ -376,6 +381,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (refreshed_composite.is_valid()) {
 							ctx_ptr->composite = refreshed_composite;
 							ctx_ptr->composite_ptr = refreshed_composite.ptr();
+							ctx_ptr->composite_is_cache = true;
 						}
 					}
 				}
@@ -446,7 +452,22 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			if (paint_to_layer && !using_layer) {
 				continue;
 			}
-			Color working_src = using_layer ? composited_map_ptr->get_pixelv(map_pixel_position) : src;
+			Color composite_src = src;
+			Color payload_src;
+			real_t layer_value = 0.0f;
+			if (using_layer) {
+				if (layer_payload_ptr) {
+					payload_src = layer_payload_ptr->get_pixelv(map_pixel_position);
+					layer_value = payload_src.r;
+				}
+				if (composited_map_ptr) {
+					composite_src = composited_map_ptr->get_pixelv(map_pixel_position);
+				} else {
+					composite_src = src;
+					composite_src.r += layer_value;
+				}
+			}
+			Color working_src = using_layer ? composite_src : src;
 			dest = working_src;
 
 			if (map_type == TYPE_HEIGHT) {
@@ -522,12 +543,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				}
 				dest = Color(destf, 0.f, 0.f, 1.f);
 				if (using_layer && layer_payload_ptr) {
-					real_t delta_total = destf - srcf;
-					Color payload_pixel = layer_payload_ptr->get_pixelv(map_pixel_position);
-					real_t updated_value = payload_pixel.r + delta_total;
+					real_t composite_value = composite_src.r;
+					real_t delta_total = destf - composite_value;
+					real_t updated_value = layer_value + delta_total;
 					layer_payload_ptr->set_pixelv(map_pixel_position, Color(updated_value, 0.0f, 0.0f, 1.0f));
-					if (composited_map_ptr) {
-						composited_map_ptr->set_pixelv(map_pixel_position, dest);
+					if (composited_map_ptr && ctx_ptr->composite_is_cache) {
+						composited_map_ptr->set_pixelv(map_pixel_position, Color(destf, 0.0f, 0.0f, 1.0f));
 					}
 					layer_pixel_applied = true;
 					if (ctx_ptr) {
@@ -793,8 +814,23 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				map->set_pixelv(map_pixel_position, dest);
 				wrote_to_base_map = true;
 			}
+			if (wrote_to_base_map) {
+				auto dirty_it = base_dirty_regions.find(region_loc);
+				if (dirty_it == base_dirty_regions.end()) {
+					base_dirty_regions.emplace(region_loc, region);
+				}
+			}
 		}
 	}
+
+		if (!paint_to_layer) {
+			for (auto &entry : base_dirty_regions) {
+				const Ref<Terrain3DRegion> &dirty_region = entry.second;
+				if (dirty_region.is_valid()) {
+					dirty_region->mark_layers_dirty(map_type);
+				}
+			}
+		}
 
 		if (paint_to_layer) {
 			for (auto &entry : layer_contexts) {
