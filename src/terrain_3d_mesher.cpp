@@ -298,6 +298,7 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
 	_generate_clipmap(size, lods, _terrain->get_world_3d()->get_scenario());
 	update();
 	update_aabbs();
+	reset_target_position();
 	snap();
 }
 
