@@ -187,7 +187,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("strength")
 			if _selected_operation in [Terrain3DEditor.ADD, Terrain3DEditor.SUBTRACT]:
 				to_show.push_back("invert")
-				to_show.push_back("stamp_to_layer")
 			elif _selected_operation == Terrain3DEditor.GRADIENT:
 				to_show.push_back("gradient_points")
 				to_show.push_back("drawable")
@@ -199,7 +198,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("height")
 			to_show.push_back("height_picker")
 			to_show.push_back("invert")
-			to_show.push_back("stamp_to_layer")
 
 		Terrain3DEditor.TEXTURE:
 			to_show.push_back("brush")
@@ -319,7 +317,6 @@ func _on_setting_changed(p_setting: Variant = null) -> void:
 	if plugin.debug:
 		print("Terrain3DUI: _on_setting_changed: selected resource ID: ", brush_data["asset_id"])
 	if plugin.editor:
-		plugin.editor.set_stamp_to_layer(brush_data.get("stamp_to_layer", false))
 		plugin.editor.set_brush_data(brush_data)
 	inverted_input = brush_data.get("invert", false)
 	if p_setting is CheckBox and p_setting.name == &"Invert":

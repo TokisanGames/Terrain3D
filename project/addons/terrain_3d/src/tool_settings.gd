@@ -193,8 +193,6 @@ func _ready() -> void:
 	advanced_list = create_submenu(main_list, "", Layout.VERTICAL, false)
 	add_setting({ "name":"auto_regions", "label":"Add regions while sculpting", "type":SettingType.CHECKBOX, 
 							"list":advanced_list, "default":true })
-	add_setting({ "name":"stamp_to_layer", "label":"Stamp to layer", "type":SettingType.CHECKBOX,
-				"list":advanced_list, "default":false, "tooltip":"When enabled, height Add/Subtract strokes create a new layer instead of baking directly into the heightmap." })
 	advanced_list.add_child(HSeparator.new(), true)
 	add_setting({ "name":"show_brush_texture", "type":SettingType.CHECKBOX, "list":advanced_list, "default":true })
 	add_setting({ "name":"align_to_view", "type":SettingType.CHECKBOX, "list":advanced_list, "default":true })
@@ -672,7 +670,7 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layers: Array) -> v
 	var label_prefix: String = MAP_TYPE_LABELS.get(map_type, "Map")
 	layer_header_label.text = "%s Layers (%d, %d)" % [label_prefix, region_loc.x, region_loc.y]
 	layer_selection_group = ButtonGroup.new()
-	var active_index: int = -1
+	var active_index: int = 0
 	if plugin and plugin.editor and plugin.editor.has_method("get_active_layer_index"):
 		active_index = plugin.editor.get_active_layer_index()
 	_add_base_layer_entry(active_index)
@@ -689,7 +687,7 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layers: Array) -> v
 			continue
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var select_button := _create_layer_select_button(index, _describe_layer(layer, index), active_index)
+		var select_button := _create_layer_select_button(index + 1, _describe_layer(layer, index), active_index)
 		row.add_child(select_button)
 		var toggle := CheckBox.new()
 		toggle.focus_mode = Control.FOCUS_NONE
@@ -741,7 +739,7 @@ func _create_layer_select_button(index: int, label: String, active_index: int) -
 	button.button_group = layer_selection_group
 	button.text = label
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.tooltip_text = "Make this the active layer for stamping"
+	button.tooltip_text = "Make this the active layer for painting"
 	if index == active_index:
 		button.set_pressed_no_signal(true)
 	button.toggled.connect(_on_layer_selected.bind(index))
@@ -750,7 +748,7 @@ func _create_layer_select_button(index: int, label: String, active_index: int) -
 func _add_base_layer_entry(active_index: int) -> void:
 	var base_row := HBoxContainer.new()
 	base_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var select := _create_layer_select_button(-1, _describe_base_layer(current_layer_map_type), active_index)
+	var select := _create_layer_select_button(0, _describe_base_layer(current_layer_map_type), active_index)
 	base_row.add_child(select)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL

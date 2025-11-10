@@ -7,7 +7,16 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/classes/ref.hpp>
+#include <godot_cpp/variant/aabb.hpp>
 #include <godot_cpp/variant/callable.hpp>
+#include <godot_cpp/variant/color.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/typed_array.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/variant/vector2.hpp>
+#include <godot_cpp/variant/vector2i.hpp>
+#include <godot_cpp/variant/vector3.hpp>
 
 #include "constants.h"
 #include "logger.h"
@@ -99,22 +108,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		LOG(ERROR, "Invalid tool selected");
 		return;
 	}
-	bool accumulate_layers = _stamp_to_layer && map_type == TYPE_HEIGHT && (_operation == ADD || _operation == SUBTRACT);
-	if (_stamp_to_layer && !accumulate_layers) {
-		if (map_type != TYPE_HEIGHT) {
-			LOG(WARN, "Stamp-to-layer currently supports height operations only; falling back to direct painting");
-		}
-		if (_operation != ADD && _operation != SUBTRACT) {
-			LOG(WARN, "Stamp-to-layer currently supports Add/Subtract operations only; falling back to direct painting");
-		}
-		accumulate_layers = false;
-	}
-	if (_active_layer_index < 0) {
-		accumulate_layers = false;
-	}
-	if (accumulate_layers && _layer_stamp_map_type == TYPE_MAX) {
-		_layer_stamp_map_type = map_type;
-	}
+	bool paint_to_layer = (map_type == TYPE_HEIGHT && _active_layer_index > 0);
 
 	int region_size = _terrain->get_region_size();
 	Vector2i region_vsize = V2I(region_size);
@@ -207,6 +201,19 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	// need to track if _added_removed_locations has changed between now and the end of the loop
 	int regions_added_removed = _added_removed_locations.size();
 
+	struct LayerContext {
+		Ref<Terrain3DRegion> region;
+		Ref<Terrain3DLayer> layer;
+		Ref<Image> payload;
+		Ref<Image> composite;
+		Image *payload_ptr = nullptr;
+		Image *composite_ptr = nullptr;
+		bool initialized = false;
+		bool valid = false;
+		bool marked_dirty = false;
+	};
+	std::unordered_map<Vector2i, LayerContext, Vector2iHash> layer_contexts;
+
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
 			Vector2 brush_offset = Vector2(x, y) - (V2(brush_size) * .5f);
@@ -227,6 +234,78 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			if (!map) {
 				continue;
 			}
+			LayerContext *ctx_ptr = nullptr;
+			if (paint_to_layer) {
+				auto ctx_it = layer_contexts.find(region_loc);
+				if (ctx_it == layer_contexts.end()) {
+					LayerContext ctx;
+					ctx.region = region;
+					ctx.initialized = true;
+
+					TypedArray<Terrain3DLayer> target_layers = region->get_layers(map_type);
+					int layer_array_index = _active_layer_index - 1;
+					if (layer_array_index < 0 || layer_array_index >= target_layers.size()) {
+						static int missing_layer_log_count = 0;
+						if (missing_layer_log_count < 5) {
+							LOG(WARN, "Cannot edit layer index ", _active_layer_index, " (array index ", layer_array_index,
+								") in region ", region_loc, ": available layers=", target_layers.size());
+							missing_layer_log_count++;
+						}
+					} else {
+						Ref<Terrain3DLayer> candidate_layer = target_layers[layer_array_index];
+						if (candidate_layer.is_null()) {
+							static int null_layer_log_count = 0;
+							if (null_layer_log_count < 5) {
+								LOG(WARN, "Active layer ", _active_layer_index, " (array index ", layer_array_index,
+									") in region ", region_loc, " is null; skipping layer painting");
+								null_layer_log_count++;
+							}
+						} else {
+							int expected_width = map->get_width();
+							int expected_height = map->get_height();
+							Ref<Image> payload = candidate_layer->get_payload();
+							bool payload_ready = payload.is_valid() && payload->get_width() == expected_width && payload->get_height() == expected_height;
+							if (!payload_ready) {
+								Ref<Image> new_payload;
+								new_payload.instantiate();
+								new_payload->create(expected_width, expected_height, false, map_type_get_format(map_type));
+								new_payload->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+								candidate_layer->set_payload(new_payload);
+								candidate_layer->set_coverage(Rect2i(Vector2i(), Vector2i(expected_width, expected_height)));
+								payload = candidate_layer->get_payload();
+							}
+							if (payload.is_valid()) {
+								ctx.layer = candidate_layer;
+								ctx.payload = payload;
+								ctx.payload_ptr = payload.ptr();
+								ctx.composite = region->get_composited_map(map_type);
+								if (ctx.composite.is_valid()) {
+									ctx.composite_ptr = ctx.composite.ptr();
+									ctx.valid = true;
+								}
+							}
+						}
+					}
+					auto insert_result = layer_contexts.emplace(region_loc, ctx);
+					ctx_ptr = &insert_result.first->second;
+				} else {
+					ctx_ptr = &ctx_it->second;
+					if (!ctx_ptr->region.is_valid()) {
+						ctx_ptr->region = region;
+					}
+					if (ctx_ptr->valid) {
+						if (ctx_ptr->payload_ptr == nullptr && ctx_ptr->payload.is_valid()) {
+							ctx_ptr->payload_ptr = ctx_ptr->payload.ptr();
+						}
+						if (ctx_ptr->composite_ptr == nullptr && ctx_ptr->composite.is_valid()) {
+							ctx_ptr->composite_ptr = ctx_ptr->composite.ptr();
+						}
+					}
+				}
+			}
+			bool using_layer = paint_to_layer && ctx_ptr && ctx_ptr->valid && ctx_ptr->payload_ptr && ctx_ptr->composite_ptr;
+			Image *layer_payload_ptr = using_layer ? ctx_ptr->payload_ptr : nullptr;
+			Image *composited_map_ptr = using_layer ? ctx_ptr->composite_ptr : nullptr;
 
 			// Identify position on map image
 			Vector2 uv_position = _get_uv_position(brush_global_position, region_size, vertex_spacing);
@@ -251,103 +330,53 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			brush_alpha = std::isnan(brush_alpha) ? 0.f : brush_alpha;
 			Color src = map->get_pixelv(map_pixel_position);
 			Color dest = src;
-			real_t layer_delta = 0.0f;
-			bool has_layer_delta = false;
-			real_t stamp_virtual_src_height = 0.0f;
-			bool stamp_virtual_src_valid = false;
-			LayerAccumulator *stamp_accumulator = nullptr;
-			real_t accumulated_delta = 0.0f;
-			uint64_t stamp_sample_key = 0;
-			bool skip_layer_pixel = false;
-			if (accumulate_layers) {
-				TypedArray<Terrain3DLayer> target_layers = region->get_layers(map_type);
-				if (_active_layer_index < 0 || _active_layer_index >= target_layers.size()) {
-					static int missing_layer_log_count = 0;
-					if (missing_layer_log_count < 5) {
-						LOG(WARN, "Cannot edit layer index ", _active_layer_index, " in region ", region_loc,
-								": available layers=", target_layers.size());
-						missing_layer_log_count++;
-					}
-					skip_layer_pixel = true;
-				} else {
-					Ref<Terrain3DLayer> target_layer = target_layers[_active_layer_index];
-					if (target_layer.is_null()) {
-						static int null_layer_log_count = 0;
-						if (null_layer_log_count < 5) {
-							LOG(WARN, "Active layer ", _active_layer_index, " in region ", region_loc, " is null; skipping pixel");
-							null_layer_log_count++;
-						}
-						skip_layer_pixel = true;
-						continue;
-					}
-					std::pair<Vector2i, int> accumulator_key(region_loc, _active_layer_index);
-					LayerAccumulator &acc = _pending_stamp_layers[accumulator_key];
-					stamp_accumulator = &acc;
-					acc.layer_index = _active_layer_index;
-					if (acc.region.is_null()) {
-						acc.region = region;
-					}
-					if (acc.map_width <= 0 || acc.map_height <= 0) {
-						acc.map_width = map->get_width();
-						acc.map_height = map->get_height();
-					}
-					if (acc.map_width <= 0 || acc.map_height <= 0) {
-						stamp_accumulator = nullptr;
-					} else {
-						stamp_sample_key = (uint64_t(map_pixel_position.y) << 32) | uint32_t(map_pixel_position.x);
-						auto sample_it = acc.delta_samples.find(stamp_sample_key);
-						if (sample_it != acc.delta_samples.end()) {
-							accumulated_delta = sample_it->second;
-						}
-					}
-				}
-			}
-			if (skip_layer_pixel) {
+			bool layer_pixel_applied = false;
+			bool wrote_to_base_map = false;
+			if (paint_to_layer && !using_layer) {
 				continue;
 			}
+			Color working_src = using_layer ? composited_map_ptr->get_pixelv(map_pixel_position) : src;
+			dest = working_src;
 
 			if (map_type == TYPE_HEIGHT) {
-				real_t srcf = src.r;
+				real_t srcf = working_src.r;
 				// In case data in existing map has nan or inf saved, check, and reset to real number if required.
 				srcf = std::isnan(srcf) ? 0.f : srcf;
-				real_t effective_srcf = srcf + accumulated_delta;
-				real_t destf = effective_srcf;
-				stamp_virtual_src_height = effective_srcf;
-				stamp_virtual_src_valid = true;
+				real_t destf = srcf;
 
 				switch (_operation) {
 					case ADD: {
-						if (_tool == HEIGHT && !accumulate_layers) {
+						if (_tool == HEIGHT && !using_layer) {
 							// Height
-							destf = Math::lerp(effective_srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
+							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						} else if (modifier_alt && !std::isnan(p_global_position.y)) {
 							// Lift troughs
 							real_t brush_center_y = p_global_position.y + brush_alpha * strength;
-							destf = Math::clamp(brush_center_y, effective_srcf, effective_srcf + brush_alpha * strength);
+							destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
 						} else {
 							// Raise
-							destf = effective_srcf + (brush_alpha * strength);
+							destf = srcf + (brush_alpha * strength);
 						}
 						break;
 					}
 					case SUBTRACT: {
-						if (_tool == HEIGHT && !accumulate_layers) {
+						if (_tool == HEIGHT && !using_layer) {
 							// Height, but GDScript has already picked height at cursor
-							destf = Math::lerp(effective_srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
+							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						} else if (modifier_alt && !std::isnan(p_global_position.y)) {
 							// Flatten peaks
 							real_t brush_center_y = p_global_position.y - brush_alpha * strength;
-							destf = Math::clamp(brush_center_y, effective_srcf - brush_alpha * strength, effective_srcf);
+							destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
 						} else {
 							// Lower
-							destf = effective_srcf - (brush_alpha * strength);
+							destf = srcf - (brush_alpha * strength);
 						}
 						break;
 					}
 					case AVERAGE: {
-						real_t avg_default = _terrain->get_material()->get_world_background() == 0u ? effective_srcf : 0.f;
-						real_t avg = _average(AVG_HEIGHT, brush_global_position, effective_srcf, avg_default);
-						destf = Math::lerp(effective_srcf, avg, CLAMP(brush_alpha * strength * 2.f, .02f, 1.f));
+						real_t avg_default = _terrain->get_material()->get_world_background() == 0u ? srcf : 0.f;
+						real_t avg = _average(AVG_HEIGHT, brush_global_position, srcf, avg_default);
+						destf = Math::lerp(srcf, avg, CLAMP(brush_alpha * strength * 2.f, .02f, 1.f));
 						break;
 					}
 					case GRADIENT: {
@@ -373,7 +402,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							real_t weight = dir.normalized().dot(brush_xz - point_1_xz) / dir.length();
 							weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
 							real_t height = Math::lerp(point_1.y, point_2.y, weight);
-							destf = Math::lerp(effective_srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
+							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						}
 						break;
 					}
@@ -381,14 +410,21 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						break;
 				}
 				dest = Color(destf, 0.f, 0.f, 1.f);
-				if (accumulate_layers) {
-					layer_delta = destf - effective_srcf;
-					has_layer_delta = Math::abs(layer_delta) > CMP_EPSILON;
-					static int stamp_delta_log_count = 0;
-					if (stamp_delta_log_count < 20) {
-						LOG(WARN, "Stamp delta sample region ", region_loc, ": src ", effective_srcf, ", dest ", destf, ", delta ", layer_delta, ", strength ", strength, ", alpha ", brush_alpha);
-						stamp_delta_log_count++;
+				if (using_layer && layer_payload_ptr) {
+					real_t delta_total = destf - srcf;
+					Color payload_pixel = layer_payload_ptr->get_pixelv(map_pixel_position);
+					real_t updated_value = payload_pixel.r + delta_total;
+					layer_payload_ptr->set_pixelv(map_pixel_position, Color(updated_value, 0.0f, 0.0f, 1.0f));
+					if (composited_map_ptr) {
+						composited_map_ptr->set_pixelv(map_pixel_position, dest);
 					}
+					layer_pixel_applied = true;
+					if (ctx_ptr) {
+						ctx_ptr->marked_dirty = true;
+					}
+				} else {
+					map->set_pixelv(map_pixel_position, dest);
+					wrote_to_base_map = true;
 				}
 				region->update_height(destf);
 				data->update_master_height(destf);
@@ -638,61 +674,33 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					default:
 						break;
 				}
+				map->set_pixelv(map_pixel_position, dest);
+				wrote_to_base_map = true;
 			}
 			backup_region(region);
-			if (accumulate_layers) {
-				if (has_layer_delta && stamp_accumulator != nullptr) {
-					LayerAccumulator &acc = *stamp_accumulator;
-					float previous_value = accumulated_delta;
-					float updated_value = previous_value + layer_delta;
-
-					bool previous_non_zero = Math::abs(previous_value) > CMP_EPSILON;
-					bool updated_non_zero = Math::abs(updated_value) > CMP_EPSILON;
-
-					static int stamp_delta_write_log_count = 0;
-					if (stamp_delta_write_log_count < 20) {
-						real_t log_src_height = stamp_virtual_src_valid ? stamp_virtual_src_height : (src.r + previous_value);
-						LOG(WARN, "Accumulating stamp delta at ", region_loc, " pixel ", map_pixel_position,
-							": virtual src height ", log_src_height, " dest height ", dest.r,
-								" layer_delta ", layer_delta, " prev total delta ", previous_value,
-								" updated total delta ", updated_value);
-						stamp_delta_write_log_count++;
-					}
-
-					if (updated_non_zero) {
-						acc.delta_samples[stamp_sample_key] = updated_value;
-						if (!previous_non_zero) {
-							acc.written_pixel_count++;
-						}
-						acc.min_x = MIN(acc.min_x, map_pixel_position.x);
-						acc.min_y = MIN(acc.min_y, map_pixel_position.y);
-						acc.max_x = MAX(acc.max_x, map_pixel_position.x);
-						acc.max_y = MAX(acc.max_y, map_pixel_position.y);
-					} else if (previous_non_zero) {
-						acc.delta_samples.erase(stamp_sample_key);
-						if (acc.written_pixel_count > 0) {
-							acc.written_pixel_count--;
-						}
-						acc.bounds_dirty = true;
-					}
-				}
-			} else {
+			if (!wrote_to_base_map && !layer_pixel_applied) {
 				map->set_pixelv(map_pixel_position, dest);
+				wrote_to_base_map = true;
 			}
 		}
 	}
 
-	if (accumulate_layers) {
-		if (_added_removed_locations.size() != regions_added_removed) {
-			_layer_stamp_regions_changed = true;
+		if (paint_to_layer) {
+			for (auto &entry : layer_contexts) {
+				LayerContext &ctx = entry.second;
+				if (!ctx.valid || !ctx.marked_dirty) {
+					continue;
+				}
+				if (ctx.layer.is_valid()) {
+					ctx.layer->mark_dirty();
+				}
+				if (ctx.region.is_valid()) {
+					ctx.region->set_modified(true);
+					ctx.region->set_edited(true);
+				}
+			}
 		}
-		if (!_layer_stamp_edited_area.has_volume()) {
-			_layer_stamp_edited_area = edited_area;
-		} else {
-			_layer_stamp_edited_area = _layer_stamp_edited_area.merge(edited_area);
-		}
-		return;
-	}
+
 	// Regenerate color mipmaps for edited regions
 	if (map_type == TYPE_COLOR) {
 		for (Ref<Terrain3DRegion> region : _edited_regions) {
@@ -720,203 +728,6 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	if (_tool == HEIGHT || _tool == SCULPT || _tool == TEXTURE || _tool == AUTOSHADER) {
 		_terrain->snap();
 	}
-}
-
-void Terrain3DEditor::_finalize_stamp_layers() {
-	if (_pending_stamp_layers.empty() || _layer_stamp_map_type == TYPE_MAX) {
-		_clear_stamp_layers_state();
-		return;
-	}
-	Terrain3DData *data = _terrain->get_data();
-	if (!data) {
-		_clear_stamp_layers_state();
-		return;
-	}
-	LOG(WARN, "Finalizing stamp-to-layer with ", (int)_pending_stamp_layers.size(), " pending entries");
-	bool mutated_layers = false;
-	Image::Format payload_format = map_type_get_format(_layer_stamp_map_type);
-	auto recompute_accumulator_stats = [](LayerAccumulator &p_acc) -> bool {
-		if (p_acc.delta_samples.empty()) {
-			p_acc.min_x = INT32_MAX;
-			p_acc.min_y = INT32_MAX;
-			p_acc.max_x = INT32_MIN;
-			p_acc.max_y = INT32_MIN;
-			p_acc.written_pixel_count = 0;
-			p_acc.bounds_dirty = false;
-			return false;
-		}
-		int min_x = INT32_MAX;
-		int min_y = INT32_MAX;
-		int max_x = INT32_MIN;
-		int max_y = INT32_MIN;
-		int pixel_count = 0;
-		for (const auto &entry : p_acc.delta_samples) {
-			float value = entry.second;
-			if (Math::abs(value) <= CMP_EPSILON) {
-				continue;
-			}
-			uint64_t key = entry.first;
-			int x = static_cast<int>(key & 0xFFFFFFFFu);
-			int y = static_cast<int>((key >> 32) & 0xFFFFFFFFu);
-			pixel_count++;
-			min_x = MIN(min_x, x);
-			min_y = MIN(min_y, y);
-			max_x = MAX(max_x, x);
-			max_y = MAX(max_y, y);
-		}
-		if (pixel_count <= 0 || min_x > max_x || min_y > max_y) {
-			p_acc.min_x = INT32_MAX;
-			p_acc.min_y = INT32_MAX;
-			p_acc.max_x = INT32_MIN;
-			p_acc.max_y = INT32_MIN;
-			p_acc.written_pixel_count = 0;
-			p_acc.bounds_dirty = false;
-			return false;
-		}
-		p_acc.min_x = min_x;
-		p_acc.min_y = min_y;
-		p_acc.max_x = max_x;
-		p_acc.max_y = max_y;
-		p_acc.written_pixel_count = pixel_count;
-		p_acc.bounds_dirty = false;
-		return true;
-	};
-	for (auto &entry : _pending_stamp_layers) {
-		const Vector2i &region_loc = entry.first.first;
-		const int layer_index = entry.first.second;
-		LayerAccumulator &acc = entry.second;
-		LOG(WARN, "Accumulator for region ", region_loc, " layer ", layer_index, " has pixel_count=", acc.written_pixel_count,
-				" bounds [", acc.min_x, ",", acc.min_y, "] → [", acc.max_x, ",", acc.max_y, "]",
-				" samples ", acc.delta_samples.size());
-		if (acc.region.is_null()) {
-			LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": accumulator missing region reference");
-			continue;
-		}
-		bool needs_recompute = acc.bounds_dirty || acc.written_pixel_count <= 0 || acc.min_x > acc.max_x || acc.min_y > acc.max_y;
-		if (needs_recompute && !recompute_accumulator_stats(acc)) {
-			LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": no delta pixels recorded");
-			continue;
-		}
-		if (acc.map_width <= 0 || acc.map_height <= 0) {
-			LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": missing map dimensions");
-			continue;
-		}
-		int start_x = CLAMP(acc.min_x, 0, acc.map_width - 1);
-		int start_y = CLAMP(acc.min_y, 0, acc.map_height - 1);
-		int end_x = CLAMP(acc.max_x, start_x, acc.map_width - 1);
-		int end_y = CLAMP(acc.max_y, start_y, acc.map_height - 1);
-		int copy_width = end_x - start_x + 1;
-		int copy_height = end_y - start_y + 1;
-		if (copy_width <= 0 || copy_height <= 0) {
-			LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": computed copy size invalid (", copy_width, "x", copy_height, ")");
-			continue;
-		}
-		Vector2i coverage_pos(start_x, start_y);
-		Vector2i coverage_size(copy_width, copy_height);
-		Rect2i coverage(coverage_pos, coverage_size);
-		if (acc.delta_samples.empty()) {
-			LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": delta samples missing");
-			continue;
-		}
-			int64_t total_bytes = int64_t(copy_width) * int64_t(copy_height) * int64_t(sizeof(float));
-			if (total_bytes <= 0) {
-				LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": invalid payload size request");
-				continue;
-			}
-			PackedByteArray payload_bytes;
-			payload_bytes.resize(total_bytes);
-			uint8_t *payload_raw = payload_bytes.ptrw();
-			if (!payload_raw) {
-				LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": unable to allocate payload buffer");
-				continue;
-			}
-			memset(payload_raw, 0, payload_bytes.size());
-			float *payload_data = reinterpret_cast<float *>(payload_raw);
-			int pixels_capacity = copy_width * copy_height;
-			for (const auto &sample : acc.delta_samples) {
-				float value = sample.second;
-				if (Math::abs(value) <= CMP_EPSILON) {
-					continue;
-				}
-				uint64_t key = sample.first;
-				int x = static_cast<int>(key & 0xFFFFFFFFu);
-				int y = static_cast<int>((key >> 32) & 0xFFFFFFFFu);
-				if (x < start_x || x > end_x || y < start_y || y > end_y) {
-					continue;
-				}
-				int local_x = x - start_x;
-				int local_y = y - start_y;
-				int pixel_idx = local_y * copy_width + local_x;
-				if (pixel_idx < 0 || pixel_idx >= pixels_capacity) {
-					continue;
-				}
-				payload_data[pixel_idx] = value;
-			}
-			Ref<Image> payload = Image::create_from_data(copy_width, copy_height, false, Image::FORMAT_RF, payload_bytes);
-			if (payload.is_null()) {
-				LOG(WARN, "Skipping stamp layer for region ", region_loc, " layer ", layer_index, ": failed to build payload image");
-				continue;
-			}
-			if (payload->get_format() != payload_format) {
-				payload->convert(payload_format);
-			}
-		Ref<Terrain3DStampLayer> stamp_layer;
-		TypedArray<Terrain3DLayer> region_layers = acc.region->get_layers(_layer_stamp_map_type);
-		if (layer_index >= 0 && layer_index < region_layers.size()) {
-			Ref<Terrain3DLayer> existing_layer = region_layers[layer_index];
-			stamp_layer = existing_layer;
-			if (stamp_layer.is_null()) {
-				LOG(WARN, "Layer index ", layer_index, " in region ", region_loc, " is not a stamp layer; overwriting with new stamp layer");
-			}
-		}
-
-		if (stamp_layer.is_null()) {
-			LOG(DEBUG, "Creating stamp layer for region ", region_loc, " layer ", layer_index, " coverage ", coverage, " payload size ", payload->get_size());
-			stamp_layer = data->add_stamp_layer(region_loc, _layer_stamp_map_type, payload, coverage, Ref<Image>(), 1.0f, 0.0f, Terrain3DLayer::BLEND_ADD, layer_index, false);
-			if (stamp_layer.is_valid()) {
-				mutated_layers = true;
-				LOG(WARN, "Added stamp layer for region ", region_loc, " layer ", layer_index, " covering ", coverage);
-			} else {
-				LOG(WARN, "Failed to add stamp layer for region ", region_loc, " layer ", layer_index, " covering ", coverage);
-			}
-		} else {
-			LOG(DEBUG, "Updating existing stamp layer for region ", region_loc, " layer ", layer_index, " coverage ", coverage, " payload size ", payload->get_size());
-			stamp_layer->set_coverage(coverage);
-			stamp_layer->set_payload(payload);
-			stamp_layer->set_alpha(Ref<Image>());
-			stamp_layer->set_intensity(1.0f);
-			stamp_layer->set_feather_radius(0.0f);
-			stamp_layer->set_blend_mode(Terrain3DLayer::BLEND_ADD);
-			stamp_layer->set_enabled(true);
-			stamp_layer->mark_dirty();
-			acc.region->mark_layers_dirty(_layer_stamp_map_type);
-			acc.region->set_modified(true);
-			acc.region->set_edited(true);
-			mutated_layers = true;
-		}
-	}
-	if (mutated_layers) {
-		bool full_rebuild = _layer_stamp_regions_changed;
-		bool generate_mipmaps = (_layer_stamp_map_type == TYPE_COLOR);
-		data->update_maps(_layer_stamp_map_type, full_rebuild, generate_mipmaps);
-		if (_layer_stamp_edited_area.has_volume()) {
-			data->add_edited_area(_layer_stamp_edited_area);
-			if (_tool == HOLES || _tool == HEIGHT || _tool == SCULPT) {
-				_terrain->get_instancer()->update_transforms(_layer_stamp_edited_area);
-			}
-			if (_terrain->get_collision_mode() == Terrain3DCollision::DYNAMIC_EDITOR) {
-				_terrain->get_collision()->update(true);
-			}
-		}
-	}
-	_clear_stamp_layers_state();
-}
-
-void Terrain3DEditor::_clear_stamp_layers_state() {
-	_pending_stamp_layers.clear();
-	_layer_stamp_map_type = TYPE_MAX;
-	_layer_stamp_edited_area = AABB();
-	_layer_stamp_regions_changed = false;
 }
 
 void Terrain3DEditor::_store_undo() {
@@ -1254,7 +1065,6 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	// Reset counter at start to ensure first click places an instance
 	_terrain->get_instancer()->reset_density_counter();
 	_terrain->get_data()->clear_edited_area();
-	_clear_stamp_layers_state();
 	_operation_position = p_global_position;
 	_operation_movement = V3_ZERO;
 }
@@ -1312,9 +1122,6 @@ void Terrain3DEditor::stop_operation() {
 	// If undo was created and terrain actually modified, store it
 	LOG(DEBUG, "Backed up regions: ", _original_regions.size(), ", Edited regions: ", _edited_regions.size(),
 			", Added/Removed regions: ", _added_removed_locations.size());
-	if (_is_operating) {
-		_finalize_stamp_layers();
-	}
 	if (_is_operating && (!_added_removed_locations.is_empty() || !_edited_regions.is_empty())) {
 		for (int i = 0; i < _edited_regions.size(); i++) {
 			Ref<Terrain3DRegion> region = _edited_regions[i];
@@ -1400,24 +1207,22 @@ Dictionary Terrain3DEditor::add_curve_layer(const PackedVector3Array &p_points, 
 	return result;
 }
 
-void Terrain3DEditor::set_stamp_to_layer(const bool p_enabled) {
-	if (_stamp_to_layer == p_enabled) {
-		return;
-	}
-	_stamp_to_layer = p_enabled;
-	_clear_stamp_layers_state();
-}
-
 void Terrain3DEditor::set_active_layer_index(const int p_index) {
-	if (p_index < -1) {
-		LOG(WARN, "Ignoring request to set negative active layer index ", p_index);
+	int sanitized_index = p_index;
+	if (sanitized_index < 0) {
+		if (sanitized_index < -1) {
+			static int negative_index_log_count = 0;
+			if (negative_index_log_count < 5) {
+				LOG(WARN, "Received invalid active layer index ", sanitized_index, "; falling back to base layer (0)");
+				negative_index_log_count++;
+			}
+		}
+		sanitized_index = 0;
+	}
+	if (_active_layer_index == sanitized_index) {
 		return;
 	}
-	if (_active_layer_index == p_index) {
-		return;
-	}
-	_active_layer_index = p_index;
-	_clear_stamp_layers_state();
+	_active_layer_index = sanitized_index;
 }
 
 int Terrain3DEditor::create_layer(const Vector2i &p_region_loc, const MapType p_map_type, const bool p_select) {
@@ -1466,10 +1271,11 @@ int Terrain3DEditor::create_layer(const Vector2i &p_region_loc, const MapType p_
 	if (result_index < 0) {
 		result_index = MAX(0, updated_layers.size() - 1);
 	}
-	if (p_select) {
-		set_active_layer_index(result_index);
+	int ui_index = result_index + 1;
+	if (p_select && ui_index > 0) {
+		set_active_layer_index(ui_index);
 	}
-	return result_index;
+	return ui_index;
 }
 
 ///////////////////////////
@@ -1506,8 +1312,6 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tool"), &Terrain3DEditor::get_tool);
 	ClassDB::bind_method(D_METHOD("set_operation", "operation"), &Terrain3DEditor::set_operation);
 	ClassDB::bind_method(D_METHOD("get_operation"), &Terrain3DEditor::get_operation);
-	ClassDB::bind_method(D_METHOD("set_stamp_to_layer", "enabled"), &Terrain3DEditor::set_stamp_to_layer);
-	ClassDB::bind_method(D_METHOD("is_stamp_to_layer_enabled"), &Terrain3DEditor::is_stamp_to_layer_enabled);
 	ClassDB::bind_method(D_METHOD("set_active_layer_index", "index"), &Terrain3DEditor::set_active_layer_index);
 	ClassDB::bind_method(D_METHOD("get_active_layer_index"), &Terrain3DEditor::get_active_layer_index);
 	ClassDB::bind_method(D_METHOD("start_operation", "position"), &Terrain3DEditor::start_operation);
@@ -1519,6 +1323,5 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("create_layer", "region_location", "map_type", "select"), &Terrain3DEditor::create_layer, DEFVAL(true));
 
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "stamp_to_layer"), "set_stamp_to_layer", "is_stamp_to_layer_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "active_layer_index"), "set_active_layer_index", "get_active_layer_index");
 }

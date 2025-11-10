@@ -3,13 +3,20 @@
 #ifndef TERRAIN3D_EDITOR_CLASS_H
 #define TERRAIN3D_EDITOR_CLASS_H
 
-#include <climits>
 #include <cstdint>
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/object.hpp>
+#include <godot_cpp/classes/ref.hpp>
+#include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/color.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/typed_array.hpp>
+#include <godot_cpp/variant/vector2.hpp>
+#include <godot_cpp/variant/vector2i.hpp>
+#include <godot_cpp/variant/vector3.hpp>
 
-#include <unordered_map>
 #include <utility>
 
 #include "constants.h"
@@ -90,7 +97,6 @@ private:
 	Vector3 _operation_movement = V3_ZERO;
 	Array _operation_movement_history;
 	bool _is_operating = false;
-	bool _stamp_to_layer = false;
 	uint64_t _last_region_bounds_error = 0;
 	TypedArray<Terrain3DRegion> _original_regions; // Queue for undo
 	TypedArray<Terrain3DRegion> _edited_regions; // Queue for redo
@@ -98,25 +104,7 @@ private:
 	AABB _modified_area;
 	Dictionary _undo_data; // See _get_undo_data for definition
 	uint64_t _last_pen_tick = 0;
-
-	struct LayerAccumulator {
-		Ref<Terrain3DRegion> region;
-		std::unordered_map<uint64_t, float> delta_samples;
-		int layer_index = -1;
-		int map_width = 0;
-		int map_height = 0;
-		int min_x = INT32_MAX;
-		int min_y = INT32_MAX;
-		int max_x = INT32_MIN;
-		int max_y = INT32_MIN;
-		int written_pixel_count = 0;
-		bool bounds_dirty = false;
-	};
-	std::unordered_map<std::pair<Vector2i, int>, LayerAccumulator, PairVector2iIntHash> _pending_stamp_layers;
-	MapType _layer_stamp_map_type = TYPE_MAX;
-	AABB _layer_stamp_edited_area;
-	bool _layer_stamp_regions_changed = false;
-	int _active_layer_index = -1;
+	int _active_layer_index = 0;
 
 	void _send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range = V2_ZERO);
 	Ref<Terrain3DRegion> _operate_region(const Vector2i &p_region_loc);
@@ -129,8 +117,6 @@ private:
 	void _apply_undo(const Dictionary &p_data);
 	real_t _average(const AverageMode p_mode, const Vector3 &p_global_position, const real_t p_base, const real_t p_nan_val = 0.f, bool p_alt = false) const;
 	Color _average(const Vector3 &p_global_position, const Color &p_base) const;
-	void _finalize_stamp_layers();
-	void _clear_stamp_layers_state();
 
 public:
 	Terrain3DEditor() {}
@@ -152,8 +138,6 @@ public:
 	void backup_region(const Ref<Terrain3DRegion> &p_region);
 	void stop_operation();
 	Dictionary add_curve_layer(const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove = false, const real_t p_feather_radius = 0.0f, const bool p_update = true);
-	void set_stamp_to_layer(const bool p_enabled);
-	bool is_stamp_to_layer_enabled() const { return _stamp_to_layer; }
 	void set_active_layer_index(const int p_index);
 	int get_active_layer_index() const { return _active_layer_index; }
 	int create_layer(const Vector2i &p_region_loc, const MapType p_map_type, const bool p_select = true);
