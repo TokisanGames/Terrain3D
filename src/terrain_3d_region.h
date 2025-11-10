@@ -75,6 +75,12 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
+	void set_height_layers(const TypedArray<Terrain3DLayer> &p_layers) { set_layers(TYPE_HEIGHT, p_layers); }
+	TypedArray<Terrain3DLayer> get_height_layers() const { return _height_layers; }
+	void set_control_layers(const TypedArray<Terrain3DLayer> &p_layers) { set_layers(TYPE_CONTROL, p_layers); }
+	TypedArray<Terrain3DLayer> get_control_layers() const { return _control_layers; }
+	void set_color_layers(const TypedArray<Terrain3DLayer> &p_layers) { set_layers(TYPE_COLOR, p_layers); }
+	TypedArray<Terrain3DLayer> get_color_layers() const { return _color_layers; }
 	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 	bool validate_map_size(const Ref<Image> &p_map) const;
