@@ -698,6 +698,12 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_maps"), &Terrain3DRegion::get_maps);
 	ClassDB::bind_method(D_METHOD("get_layers", "map_type"), &Terrain3DRegion::get_layers);
 	ClassDB::bind_method(D_METHOD("set_layers", "map_type", "layers"), &Terrain3DRegion::set_layers);
+	ClassDB::bind_method(D_METHOD("set_height_layers", "layers"), &Terrain3DRegion::set_height_layers);
+	ClassDB::bind_method(D_METHOD("get_height_layers"), &Terrain3DRegion::get_height_layers);
+	ClassDB::bind_method(D_METHOD("set_control_layers", "layers"), &Terrain3DRegion::set_control_layers);
+	ClassDB::bind_method(D_METHOD("get_control_layers"), &Terrain3DRegion::get_control_layers);
+	ClassDB::bind_method(D_METHOD("set_color_layers", "layers"), &Terrain3DRegion::set_color_layers);
+	ClassDB::bind_method(D_METHOD("get_color_layers"), &Terrain3DRegion::get_color_layers);
 	ClassDB::bind_method(D_METHOD("add_layer", "map_type", "layer", "index"), &Terrain3DRegion::add_layer, DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("remove_layer", "map_type", "index"), &Terrain3DRegion::remove_layer);
 	ClassDB::bind_method(D_METHOD("clear_layers", "map_type"), &Terrain3DRegion::clear_layers);
@@ -745,6 +751,10 @@ void Terrain3DRegion::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "height_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "control_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "color_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_color_map", "get_color_map");
+	int layer_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_INTERNAL;
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "height_layers", PROPERTY_HINT_ARRAY_TYPE, "Terrain3DLayer", layer_flags), "set_height_layers", "get_height_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "control_layers", PROPERTY_HINT_ARRAY_TYPE, "Terrain3DLayer", layer_flags), "set_control_layers", "get_control_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "color_layers", PROPERTY_HINT_ARRAY_TYPE, "Terrain3DLayer", layer_flags), "set_color_layers", "get_color_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "instances", PROPERTY_HINT_NONE, "", ro_flags), "set_instances", "get_instances");
 
 	// Double-clicking a region .res file shows what's on disk, the defaults, not in memory. So these are hidden
