@@ -3,8 +3,13 @@
 #ifndef TERRAIN3D_EDITOR_CLASS_H
 #define TERRAIN3D_EDITOR_CLASS_H
 
+#include <climits>
+#include <cstdint>
+
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
+
+#include <unordered_map>
 
 #include "terrain_3d.h"
 #include "terrain_3d_region.h"
@@ -92,6 +97,23 @@ private:
 	Dictionary _undo_data; // See _get_undo_data for definition
 	uint64_t _last_pen_tick = 0;
 
+	struct LayerAccumulator {
+		Ref<Terrain3DRegion> region;
+		std::unordered_map<uint64_t, float> delta_samples;
+		int map_width = 0;
+		int map_height = 0;
+		int min_x = INT32_MAX;
+		int min_y = INT32_MAX;
+		int max_x = INT32_MIN;
+		int max_y = INT32_MIN;
+		int written_pixel_count = 0;
+		bool bounds_dirty = false;
+	};
+	std::unordered_map<Vector2i, LayerAccumulator, Vector2iHash> _pending_stamp_layers;
+	MapType _layer_stamp_map_type = TYPE_MAX;
+	AABB _layer_stamp_edited_area;
+	bool _layer_stamp_regions_changed = false;
+
 	void _send_region_aabb(const Vector2i &p_region_loc, const Vector2 &p_height_range = V2_ZERO);
 	Ref<Terrain3DRegion> _operate_region(const Vector2i &p_region_loc);
 	void _operate_map(const Vector3 &p_global_position, const real_t p_camera_direction);
@@ -103,6 +125,8 @@ private:
 	void _apply_undo(const Dictionary &p_data);
 	real_t _average(const AverageMode p_mode, const Vector3 &p_global_position, const real_t p_base, const real_t p_nan_val = 0.f, bool p_alt = false) const;
 	Color _average(const Vector3 &p_global_position, const Color &p_base) const;
+	void _finalize_stamp_layers();
+	void _clear_stamp_layers_state();
 
 public:
 	Terrain3DEditor() {}
@@ -124,7 +148,7 @@ public:
 	void backup_region(const Ref<Terrain3DRegion> &p_region);
 	void stop_operation();
 	Dictionary add_curve_layer(const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove = false, const real_t p_feather_radius = 0.0f, const bool p_update = true);
-	void set_stamp_to_layer(const bool p_enabled) { _stamp_to_layer = p_enabled; }
+	void set_stamp_to_layer(const bool p_enabled);
 	bool is_stamp_to_layer_enabled() const { return _stamp_to_layer; }
 
 protected:
