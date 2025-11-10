@@ -66,12 +66,12 @@
 			<return type="int" enum="Error" />
 			<param index="0" name="path" type="String" default="&quot;&quot;" />
 			<param index="1" name="save_16_bit" type="bool" default="false" />
-			<param index="2" name="compression_mode" type="Image::CompressMode" default="Image::COMPRESS_MAX" />
+			<param index="2" name="color_compression_mode" type="Image::CompressMode" default="Image::COMPRESS_MAX" />
 			<description>
 				Saves this region to the current file name.
 				- path - specifies a directory and file name to use from now on.
 				- 16-bit - saves this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
-				- compression_mode - saves a compressed color map for this region if a compression mode is set. 
+				- color_compression_mode - saves a compressed color map for this region if a compression mode is set. 
 			</description>
 		</method>
 		<method name="set_data">
