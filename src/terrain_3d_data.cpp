@@ -815,12 +815,12 @@ Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global
 	Vector3 descaled_pos = p_global_position / _vertex_spacing;
 	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
 	img_pos = img_pos.clamp(V2I_ZERO, V2I(_region_size - 1));
-	Image *map = region->get_map_ptr(p_map_type);
-	if (map) {
-		return map->get_pixelv(img_pos);
-	} else {
-		return COLOR_NAN;
+	Ref<Image> composite = region->get_composited_map(p_map_type);
+	if (composite.is_valid()) {
+		return composite->get_pixelv(img_pos);
 	}
+	Image *map = region->get_map_ptr(p_map_type);
+	return map ? map->get_pixelv(img_pos) : COLOR_NAN;
 }
 
 real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
@@ -1272,9 +1272,18 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 		Vector2i img_location = (region_loc - top_left) * _region_size;
 		LOG(DEBUG, "Region to blit: ", region_loc, " Export image coords: ", img_location);
 		const Terrain3DRegion *region = get_region_ptr(region_loc);
-		if (region) {
-			img->blit_rect(region->get_map(map_type), Rect2i(V2I_ZERO, _region_sizev), img_location);
+		if (!region) {
+			continue;
 		}
+		Ref<Image> source = region->get_composited_map(map_type);
+		if (source.is_null()) {
+			source = region->get_map(map_type);
+		}
+		if (source.is_null()) {
+			continue;
+		}
+		Rect2i src_rect = Rect2i(V2I_ZERO, source->get_size());
+		img->blit_rect(source, src_rect, img_location);
 	}
 	return img;
 }
