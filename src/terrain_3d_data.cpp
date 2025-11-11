@@ -373,13 +373,14 @@ void Terrain3DData::load_directory(const String &p_dir) {
 			continue;
 		}
 		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_REPLACE);
-		if (region->get_compressed_color_map().is_valid() && !IS_EDITOR) {
-			region->get_color_map().unref();
-		}
-
 		if (region.is_null()) {
 			LOG(ERROR, "Cannot load region at ", path);
 			continue;
+		}
+		if (region->get_compressed_color_map().is_valid() && !IS_EDITOR) {
+			Ref<Image> color_map = region->get_color_map();
+			RS->free_rid(color_map->get_rid());
+			color_map.unref();
 		}
 		LOG(INFO, "Loaded region: ", loc, " size: ", region->get_region_size());
 		if (_regions.is_empty()) {
