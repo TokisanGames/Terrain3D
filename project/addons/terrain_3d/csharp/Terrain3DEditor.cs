@@ -1,23 +1,22 @@
+#pragma warning disable CS0109
 using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Godot;
+using Godot.Collections;
 
 namespace TokisanGames;
 
 public partial class Terrain3DEditor : GodotObject
 {
-    public static readonly StringName GDExtensionName = "Terrain3DEditor";
 
-    [Obsolete("Wrapper classes cannot be constructed with Ctor (it only instantiate the underlying GodotObject), please use the Instantiate() method instead.")]
+    private new static readonly StringName NativeName = new StringName("Terrain3DEditor");
+
+    [Obsolete("Wrapper types cannot be constructed with constructors (it only instantiate the underlying Terrain3DEditor object), please use the Instantiate() method instead.")]
     protected Terrain3DEditor() { }
 
-    /// <summary>
-    /// Creates an instance of the GDExtension <see cref="Terrain3DEditor"/> type, and attaches the wrapper script to it.
-    /// </summary>
-    /// <returns>The wrapper instance linked to the underlying GDExtension type.</returns>
-    public static Terrain3DEditor Instantiate()
-    {
-        return GDExtensionHelper.Instantiate<Terrain3DEditor>(GDExtensionName);
-    }
+    private static CSharpScript _wrapperScriptAsset;
 
     /// <summary>
     /// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DEditor"/> wrapper type,
@@ -27,13 +26,41 @@ public partial class Terrain3DEditor : GodotObject
     /// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
     /// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
     /// <returns>The existing or a new instance of the <see cref="Terrain3DEditor"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
-    public static Terrain3DEditor Bind(GodotObject godotObject)
+    public new static Terrain3DEditor Bind(GodotObject godotObject)
     {
-        return GDExtensionHelper.Bind<Terrain3DEditor>(godotObject);
-    }
-#region Enums
+#if DEBUG
+        if (!IsInstanceValid(godotObject))
+            throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
+#endif
+        if (godotObject is Terrain3DEditor wrapperScriptInstance)
+            return wrapperScriptInstance;
 
-    public enum Operation : long
+#if DEBUG
+        var expectedType = typeof(Terrain3DEditor);
+        var currentObjectClassName = godotObject.GetClass();
+        if (!ClassDB.IsParentClass(expectedType.Name, currentObjectClassName))
+            throw new InvalidOperationException($"The supplied GodotObject ({currentObjectClassName}) is not the {expectedType.Name} type.");
+#endif
+
+        if (_wrapperScriptAsset is null)
+        {
+            var scriptPathAttribute = typeof(Terrain3DEditor).GetCustomAttributes<ScriptPathAttribute>().FirstOrDefault();
+            if (scriptPathAttribute is null) throw new UnreachableException();
+            _wrapperScriptAsset = ResourceLoader.Load<CSharpScript>(scriptPathAttribute.Path);
+        }
+
+        var instanceId = godotObject.GetInstanceId();
+        godotObject.SetScript(_wrapperScriptAsset);
+        return (Terrain3DEditor)InstanceFromId(instanceId);
+    }
+
+    /// <summary>
+    /// Creates an instance of the GDExtension <see cref="Terrain3DEditor"/> type, and attaches a wrapper script instance to it.
+    /// </summary>
+    /// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DEditor" type.</returns>
+    public new static Terrain3DEditor Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
+
+    public enum Operation
     {
         Add = 0,
         Subtract = 1,
@@ -43,7 +70,7 @@ public partial class Terrain3DEditor : GodotObject
         OpMax = 5,
     }
 
-    public enum Tool : long
+    public enum Tool
     {
         Sculpt = 1,
         Height = 2,
@@ -60,49 +87,60 @@ public partial class Terrain3DEditor : GodotObject
         Max = 12,
     }
 
-#endregion
+    public new static class GDExtensionMethodName
+    {
+        public new static readonly StringName SetTerrain = "set_terrain";
+        public new static readonly StringName GetTerrain = "get_terrain";
+        public new static readonly StringName SetBrushData = "set_brush_data";
+        public new static readonly StringName SetTool = "set_tool";
+        public new static readonly StringName GetTool = "get_tool";
+        public new static readonly StringName SetOperation = "set_operation";
+        public new static readonly StringName GetOperation = "get_operation";
+        public new static readonly StringName StartOperation = "start_operation";
+        public new static readonly StringName IsOperating = "is_operating";
+        public new static readonly StringName Operate = "operate";
+        public new static readonly StringName BackupRegion = "backup_region";
+        public new static readonly StringName StopOperation = "stop_operation";
+        public new static readonly StringName ApplyUndo = "apply_undo";
+    }
 
-#region Methods
+    public new void SetTerrain(Terrain3D terrain) => 
+        Call(GDExtensionMethodName.SetTerrain, [terrain]);
 
-    public void SetTerrain(Terrain3D terrain) => Call(_cached_set_terrain, (Node3D)terrain);
+    public new Terrain3D GetTerrain() => 
+        Terrain3D.Bind(Call(GDExtensionMethodName.GetTerrain, []).As<Node3D>());
 
-    public Terrain3D GetTerrain() => GDExtensionHelper.Bind<Terrain3D>(Call(_cached_get_terrain).As<GodotObject>());
+    public new void SetBrushData(Godot.Collections.Dictionary data) => 
+        Call(GDExtensionMethodName.SetBrushData, [data]);
 
-    public void SetBrushData(Godot.Collections.Dictionary data) => Call(_cached_set_brush_data, data);
+    public new void SetTool(Terrain3DEditor.Tool tool) => 
+        Call(GDExtensionMethodName.SetTool, [Variant.From(tool)]);
 
-    public void SetTool(int tool) => Call(_cached_set_tool, tool);
+    public new Terrain3DEditor.Tool GetTool() => 
+        Call(GDExtensionMethodName.GetTool, []).As<Terrain3DEditor.Tool>();
 
-    public int GetTool() => Call(_cached_get_tool).As<int>();
+    public new void SetOperation(Terrain3DEditor.Operation operation) => 
+        Call(GDExtensionMethodName.SetOperation, [Variant.From(operation)]);
 
-    public void SetOperation(int operation) => Call(_cached_set_operation, operation);
+    public new Terrain3DEditor.Operation GetOperation() => 
+        Call(GDExtensionMethodName.GetOperation, []).As<Terrain3DEditor.Operation>();
 
-    public int GetOperation() => Call(_cached_get_operation).As<int>();
+    public new void StartOperation(Vector3 position) => 
+        Call(GDExtensionMethodName.StartOperation, [position]);
 
-    public void StartOperation(Vector3 position) => Call(_cached_start_operation, position);
+    public new bool IsOperating() => 
+        Call(GDExtensionMethodName.IsOperating, []).As<bool>();
 
-    public bool IsOperating() => Call(_cached_is_operating).As<bool>();
+    public new void Operate(Vector3 position, double cameraDirection) => 
+        Call(GDExtensionMethodName.Operate, [position, cameraDirection]);
 
-    public void Operate(Vector3 position, float cameraDirection) => Call(_cached_operate, position, cameraDirection);
+    public new void BackupRegion(Terrain3DRegion region) => 
+        Call(GDExtensionMethodName.BackupRegion, [region]);
 
-    public void BackupRegion(Terrain3DRegion region) => Call(_cached_backup_region, (Resource)region);
+    public new void StopOperation() => 
+        Call(GDExtensionMethodName.StopOperation, []);
 
-    public void StopOperation() => Call(_cached_stop_operation);
+    public new void ApplyUndo(Godot.Collections.Dictionary data) => 
+        Call(GDExtensionMethodName.ApplyUndo, [data]);
 
-    public void ApplyUndo(Godot.Collections.Dictionary data) => Call(_cached_apply_undo, data);
-
-#endregion
-
-    private static readonly StringName _cached_set_terrain = "set_terrain";
-    private static readonly StringName _cached_get_terrain = "get_terrain";
-    private static readonly StringName _cached_set_brush_data = "set_brush_data";
-    private static readonly StringName _cached_set_tool = "set_tool";
-    private static readonly StringName _cached_get_tool = "get_tool";
-    private static readonly StringName _cached_set_operation = "set_operation";
-    private static readonly StringName _cached_get_operation = "get_operation";
-    private static readonly StringName _cached_start_operation = "start_operation";
-    private static readonly StringName _cached_is_operating = "is_operating";
-    private static readonly StringName _cached_operate = "operate";
-    private static readonly StringName _cached_backup_region = "backup_region";
-    private static readonly StringName _cached_stop_operation = "stop_operation";
-    private static readonly StringName _cached_apply_undo = "apply_undo";
 }
