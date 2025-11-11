@@ -628,10 +628,12 @@ bool Terrain3DData::move_stamp_layer(const Ref<Terrain3DStampLayer> &p_layer, co
 		LOG(WARN, "Cannot move stamp layer: owning region not located");
 		return false;
 	}
+	LOG(DEBUG, "move_stamp_layer: request from region ", current_loc, " index ", current_index,
+			" map_type ", map_type, " world ", p_world_position);
 	Vector2i target_loc = get_region_location(p_world_position);
 	Terrain3DRegion *target_region = get_region_ptr(target_loc);
 	if (!target_region) {
-		LOG(WARN, "Cannot move stamp layer: target region ", target_loc, " not available");
+		LOG(WARN, "Cannot move stamp layer: target region ", target_loc, " not available for world position ", p_world_position);
 		return false;
 	}
 	Rect2i coverage = p_layer->get_coverage();
@@ -661,8 +663,11 @@ bool Terrain3DData::move_stamp_layer(const Ref<Terrain3DStampLayer> &p_layer, co
 	target_pos.x = CLAMP(target_pos.x, 0, max_x);
 	target_pos.y = CLAMP(target_pos.y, 0, max_y);
 	Rect2i target_coverage(target_pos, coverage_size);
+	LOG(DEBUG, "move_stamp_layer: target region ", target_loc, " coverage size ", coverage_size,
+			" target_pos ", target_pos, " region_origin ", region_origin);
 	Ref<Terrain3DStampLayer> stamp_layer = p_layer;
 	if (current_region != target_region) {
+		LOG(DEBUG, "move_stamp_layer: transferring layer from region ", current_loc, " to ", target_loc);
 		current_region->remove_layer(map_type, current_index);
 		current_region->mark_layers_dirty(map_type);
 		current_region->set_modified(true);
@@ -678,6 +683,7 @@ bool Terrain3DData::move_stamp_layer(const Ref<Terrain3DStampLayer> &p_layer, co
 	target_region->mark_layers_dirty(map_type);
 	target_region->set_modified(true);
 	target_region->set_edited(true);
+	LOG(DEBUG, "move_stamp_layer: coverage updated to ", target_coverage, " (map_type ", map_type, ")");
 	if (p_update) {
 		update_maps(map_type, false, false);
 	}
