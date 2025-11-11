@@ -187,7 +187,7 @@ public:
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; };
 	void set_show_instances(const bool p_visible) { _instancer ? _instancer->set_show_instances(p_visible) : void(); }
-	bool get_show_instances() const { return _instancer ? _instancer->get_show_instances() : true; }
+	bool get_show_instances() const { return _instancer ? _instancer->get_show_instances() : false; }
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
