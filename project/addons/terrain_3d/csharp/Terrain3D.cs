@@ -1,770 +1,548 @@
+#pragma warning disable CS0109
 using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Godot;
+using Godot.Collections;
 
 namespace TokisanGames;
 
 public partial class Terrain3D : Node3D
 {
-    public static readonly StringName GDExtensionName = "Terrain3D";
-
-    [Obsolete("Wrapper classes cannot be constructed with Ctor (it only instantiate the underlying Node3D), please use the Instantiate() method instead.")]
-    protected Terrain3D() { }
-
-    /// <summary>
-    /// Creates an instance of the GDExtension <see cref="Terrain3D"/> type, and attaches the wrapper script to it.
-    /// </summary>
-    /// <returns>The wrapper instance linked to the underlying GDExtension type.</returns>
-    public static Terrain3D Instantiate()
-    {
-        return GDExtensionHelper.Instantiate<Terrain3D>(GDExtensionName);
-    }
-
-    /// <summary>
-    /// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3D"/> wrapper type,
-    /// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3D"/> wrapper type,
-    /// a new instance of the <see cref="Terrain3D"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
-    /// </summary>
-    /// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
-    /// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
-    /// <returns>The existing or a new instance of the <see cref="Terrain3D"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
-    public static Terrain3D Bind(GodotObject godotObject)
-    {
-        return GDExtensionHelper.Bind<Terrain3D>(godotObject);
-    }
-#region Enums
-
-    public enum DebugLevelEnum : long
-    {
-        Error = 0,
-        Info = 1,
-        Debug = 2,
-        Extreme = 3,
-    }
-
-    public enum RegionSizeEnum : long
-    {
-        Size64 = 64,
-        Size128 = 128,
-        Size256 = 256,
-        Size512 = 512,
-        Size1024 = 1024,
-        Size2048 = 2048,
-    }
-
-#endregion
-
-#region Properties
-
-    public string Version
-    {
-        get => (string)Get(_cached_version);
-        set => Set(_cached_version, Variant.From(value));
-    }
-
-    public DebugLevelEnum DebugLevel
-    {
-        get => (DebugLevelEnum)Get(_cached_debug_level).As<Int64>();
-        set => Set(_cached_debug_level, Variant.From(value));
-    }
-
-    public string DataDirectory
-    {
-        get => (string)Get(_cached_data_directory);
-        set => Set(_cached_data_directory, Variant.From(value));
-    }
-
-    public Terrain3DData Data
-    {
-        get => (Terrain3DData)Get(_cached_data);
-        set => Set(_cached_data, Variant.From(value));
-    }
-
-    public Terrain3DMaterial Material
-    {
-        get => (Terrain3DMaterial)Get(_cached_material);
-        set => Set(_cached_material, Variant.From(value));
-    }
-
-    public Terrain3DAssets Assets
-    {
-        get => (Terrain3DAssets)Get(_cached_assets);
-        set => Set(_cached_assets, Variant.From(value));
-    }
-
-    public Terrain3DCollision Collision
-    {
-        get => (Terrain3DCollision)Get(_cached_collision);
-        set => Set(_cached_collision, Variant.From(value));
-    }
-
-    public Terrain3DInstancer Instancer
-    {
-        get => (Terrain3DInstancer)Get(_cached_instancer);
-        set => Set(_cached_instancer, Variant.From(value));
-    }
-
-    public long /*64:64,128:128,256:256,512:512,1024:1024,2048:2048*/ RegionSize
-    {
-        get => (long /*64:64,128:128,256:256,512:512,1024:1024,2048:2048*/)Get(_cached_region_size).As<Int64>();
-        set => Set(_cached_region_size, Variant.From(value));
-    }
-
-    public bool Save16Bit
-    {
-        get => (bool)Get(_cached_save_16_bit);
-        set => Set(_cached_save_16_bit, Variant.From(value));
-    }
-
-    public float LabelDistance
-    {
-        get => (float)Get(_cached_label_distance);
-        set => Set(_cached_label_distance, Variant.From(value));
-    }
-
-    public int LabelSize
-    {
-        get => (int)Get(_cached_label_size);
-        set => Set(_cached_label_size, Variant.From(value));
-    }
-
-    public bool ShowGrid
-    {
-        get => (bool)Get(_cached_show_grid);
-        set => Set(_cached_show_grid, Variant.From(value));
-    }
-
-    public long /*Disabled,Dynamic/Game,Dynamic/Editor,Full/Game,Full/Editor*/ CollisionMode
-    {
-        get => (long /*Disabled,Dynamic/Game,Dynamic/Editor,Full/Game,Full/Editor*/)Get(_cached_collision_mode).As<Int64>();
-        set => Set(_cached_collision_mode, Variant.From(value));
-    }
-
-    public int CollisionShapeSize
-    {
-        get => (int)Get(_cached_collision_shape_size);
-        set => Set(_cached_collision_shape_size, Variant.From(value));
-    }
-
-    public int CollisionRadius
-    {
-        get => (int)Get(_cached_collision_radius);
-        set => Set(_cached_collision_radius, Variant.From(value));
-    }
-
-    public int CollisionLayer
-    {
-        get => (int)Get(_cached_collision_layer);
-        set => Set(_cached_collision_layer, Variant.From(value));
-    }
-
-    public int CollisionMask
-    {
-        get => (int)Get(_cached_collision_mask);
-        set => Set(_cached_collision_mask, Variant.From(value));
-    }
-
-    public float CollisionPriority
-    {
-        get => (float)Get(_cached_collision_priority);
-        set => Set(_cached_collision_priority, Variant.From(value));
-    }
-
-    public PhysicsMaterial PhysicsMaterial
-    {
-        get => (PhysicsMaterial)Get(_cached_physics_material);
-        set => Set(_cached_physics_material, Variant.From(value));
-    }
-
-    public int MeshLods
-    {
-        get => (int)Get(_cached_mesh_lods);
-        set => Set(_cached_mesh_lods, Variant.From(value));
-    }
-
-    public int MeshSize
-    {
-        get => (int)Get(_cached_mesh_size);
-        set => Set(_cached_mesh_size, Variant.From(value));
-    }
-
-    public float VertexSpacing
-    {
-        get => (float)Get(_cached_vertex_spacing);
-        set => Set(_cached_vertex_spacing, Variant.From(value));
-    }
-
-    public int RenderLayers
-    {
-        get => (int)Get(_cached_render_layers);
-        set => Set(_cached_render_layers, Variant.From(value));
-    }
-
-    public int MouseLayer
-    {
-        get => (int)Get(_cached_mouse_layer);
-        set => Set(_cached_mouse_layer, Variant.From(value));
-    }
-
-    public long /*Off,On,Double-Sided,ShadowsOnly*/ CastShadows
-    {
-        get => (long /*Off,On,Double-Sided,ShadowsOnly*/)Get(_cached_cast_shadows).As<Int64>();
-        set => Set(_cached_cast_shadows, Variant.From(value));
-    }
-
-    public long /*Disabled,Static,Dynamic*/ GiMode
-    {
-        get => (long /*Disabled,Static,Dynamic*/)Get(_cached_gi_mode).As<Int64>();
-        set => Set(_cached_gi_mode, Variant.From(value));
-    }
-
-    public float CullMargin
-    {
-        get => (float)Get(_cached_cull_margin);
-        set => Set(_cached_cull_margin, Variant.From(value));
-    }
-
-    public bool FreeEditorTextures
-    {
-        get => (bool)Get(_cached_free_editor_textures);
-        set => Set(_cached_free_editor_textures, Variant.From(value));
-    }
-
-    public bool ShowInstances
-    {
-        get => (bool)Get(_cached_show_instances);
-        set => Set(_cached_show_instances, Variant.From(value));
-    }
-
-    public bool ShowRegionGrid
-    {
-        get => (bool)Get(_cached_show_region_grid);
-        set => Set(_cached_show_region_grid, Variant.From(value));
-    }
-
-    public bool ShowInstancerGrid
-    {
-        get => (bool)Get(_cached_show_instancer_grid);
-        set => Set(_cached_show_instancer_grid, Variant.From(value));
-    }
-
-    public bool ShowVertexGrid
-    {
-        get => (bool)Get(_cached_show_vertex_grid);
-        set => Set(_cached_show_vertex_grid, Variant.From(value));
-    }
-
-    public bool ShowContours
-    {
-        get => (bool)Get(_cached_show_contours);
-        set => Set(_cached_show_contours, Variant.From(value));
-    }
-
-    public bool ShowNavigation
-    {
-        get => (bool)Get(_cached_show_navigation);
-        set => Set(_cached_show_navigation, Variant.From(value));
-    }
-
-    public bool ShowCheckered
-    {
-        get => (bool)Get(_cached_show_checkered);
-        set => Set(_cached_show_checkered, Variant.From(value));
-    }
-
-    public bool ShowGrey
-    {
-        get => (bool)Get(_cached_show_grey);
-        set => Set(_cached_show_grey, Variant.From(value));
-    }
-
-    public bool ShowHeightmap
-    {
-        get => (bool)Get(_cached_show_heightmap);
-        set => Set(_cached_show_heightmap, Variant.From(value));
-    }
-
-    public bool ShowColormap
-    {
-        get => (bool)Get(_cached_show_colormap);
-        set => Set(_cached_show_colormap, Variant.From(value));
-    }
-
-    public bool ShowRoughmap
-    {
-        get => (bool)Get(_cached_show_roughmap);
-        set => Set(_cached_show_roughmap, Variant.From(value));
-    }
-
-    public bool ShowControlTexture
-    {
-        get => (bool)Get(_cached_show_control_texture);
-        set => Set(_cached_show_control_texture, Variant.From(value));
-    }
-
-    public bool ShowControlAngle
-    {
-        get => (bool)Get(_cached_show_control_angle);
-        set => Set(_cached_show_control_angle, Variant.From(value));
-    }
-
-    public bool ShowControlScale
-    {
-        get => (bool)Get(_cached_show_control_scale);
-        set => Set(_cached_show_control_scale, Variant.From(value));
-    }
-
-    public bool ShowControlBlend
-    {
-        get => (bool)Get(_cached_show_control_blend);
-        set => Set(_cached_show_control_blend, Variant.From(value));
-    }
-
-    public bool ShowAutoshader
-    {
-        get => (bool)Get(_cached_show_autoshader);
-        set => Set(_cached_show_autoshader, Variant.From(value));
-    }
-
-    public bool ShowTextureHeight
-    {
-        get => (bool)Get(_cached_show_texture_height);
-        set => Set(_cached_show_texture_height, Variant.From(value));
-    }
-
-    public bool ShowTextureNormal
-    {
-        get => (bool)Get(_cached_show_texture_normal);
-        set => Set(_cached_show_texture_normal, Variant.From(value));
-    }
-
-    public bool ShowTextureRough
-    {
-        get => (bool)Get(_cached_show_texture_rough);
-        set => Set(_cached_show_texture_rough, Variant.From(value));
-    }
-
-#endregion
-
-#region Signals
-
-    public delegate void MaterialChangedHandler();
-
-    private MaterialChangedHandler _materialChanged_backing;
-    private Callable _materialChanged_backing_callable;
-    public event MaterialChangedHandler MaterialChanged
-    {
-        add
-        {
-            if(_materialChanged_backing == null)
-            {
-                _materialChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _materialChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_material_changed, _materialChanged_backing_callable);
-            }
-            _materialChanged_backing += value;
-        }
-        remove
-        {
-            _materialChanged_backing -= value;
-            
-            if(_materialChanged_backing == null)
-            {
-                Disconnect(_cached_material_changed, _materialChanged_backing_callable);
-                _materialChanged_backing_callable = default;
-            }
-        }
-    }
-
-    public delegate void AssetsChangedHandler();
-
-    private AssetsChangedHandler _assetsChanged_backing;
-    private Callable _assetsChanged_backing_callable;
-    public event AssetsChangedHandler AssetsChanged
-    {
-        add
-        {
-            if(_assetsChanged_backing == null)
-            {
-                _assetsChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _assetsChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_assets_changed, _assetsChanged_backing_callable);
-            }
-            _assetsChanged_backing += value;
-        }
-        remove
-        {
-            _assetsChanged_backing -= value;
-            
-            if(_assetsChanged_backing == null)
-            {
-                Disconnect(_cached_assets_changed, _assetsChanged_backing_callable);
-                _assetsChanged_backing_callable = default;
-            }
-        }
-    }
-
-#endregion
-
-#region Methods
-
-    public string GetVersion() => Call(_cached_get_version).As<string>();
-
-    public void SetDebugLevel(int level) => Call(_cached_set_debug_level, level);
-
-    public int GetDebugLevel() => Call(_cached_get_debug_level).As<int>();
-
-    public void SetDataDirectory(string directory) => Call(_cached_set_data_directory, directory);
-
-    public string GetDataDirectory() => Call(_cached_get_data_directory).As<string>();
-
-    public Terrain3DData GetData() => GDExtensionHelper.Bind<Terrain3DData>(Call(_cached_get_data).As<GodotObject>());
-
-    public void SetMaterial(Terrain3DMaterial material) => Call(_cached_set_material, (Resource)material);
-
-    public Terrain3DMaterial GetMaterial() => GDExtensionHelper.Bind<Terrain3DMaterial>(Call(_cached_get_material).As<GodotObject>());
-
-    public void SetAssets(Terrain3DAssets assets) => Call(_cached_set_assets, (Resource)assets);
-
-    public Terrain3DAssets GetAssets() => GDExtensionHelper.Bind<Terrain3DAssets>(Call(_cached_get_assets).As<GodotObject>());
-
-    public Terrain3DCollision GetCollision() => GDExtensionHelper.Bind<Terrain3DCollision>(Call(_cached_get_collision).As<GodotObject>());
 
-    public Terrain3DInstancer GetInstancer() => GDExtensionHelper.Bind<Terrain3DInstancer>(Call(_cached_get_instancer).As<GodotObject>());
+	private new static readonly StringName NativeName = new StringName("Terrain3D");
+
+	[Obsolete("Wrapper types cannot be constructed with constructors (it only instantiate the underlying Terrain3D object), please use the Instantiate() method instead.")]
+	protected Terrain3D() { }
+
+	private static CSharpScript _wrapperScriptAsset;
+
+	/// <summary>
+	/// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3D"/> wrapper type,
+	/// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3D"/> wrapper type,
+	/// a new instance of the <see cref="Terrain3D"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
+	/// </summary>
+	/// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
+	/// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
+	/// <returns>The existing or a new instance of the <see cref="Terrain3D"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
+	public new static Terrain3D Bind(GodotObject godotObject)
+	{
+#if DEBUG
+		if (!IsInstanceValid(godotObject))
+			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
+#endif
+		if (godotObject is Terrain3D wrapperScriptInstance)
+			return wrapperScriptInstance;
+
+#if DEBUG
+		var expectedType = typeof(Terrain3D);
+		var currentObjectClassName = godotObject.GetClass();
+		if (!ClassDB.IsParentClass(expectedType.Name, currentObjectClassName))
+			throw new InvalidOperationException($"The supplied GodotObject ({currentObjectClassName}) is not the {expectedType.Name} type.");
+#endif
+
+		if (_wrapperScriptAsset is null)
+		{
+			var scriptPathAttribute = typeof(Terrain3D).GetCustomAttributes<ScriptPathAttribute>().FirstOrDefault();
+			if (scriptPathAttribute is null) throw new UnreachableException();
+			_wrapperScriptAsset = ResourceLoader.Load<CSharpScript>(scriptPathAttribute.Path);
+		}
+
+		var instanceId = godotObject.GetInstanceId();
+		godotObject.SetScript(_wrapperScriptAsset);
+		return (Terrain3D)InstanceFromId(instanceId);
+	}
+
+	/// <summary>
+	/// Creates an instance of the GDExtension <see cref="Terrain3D"/> type, and attaches a wrapper script instance to it.
+	/// </summary>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3D" type.</returns>
+	public new static Terrain3D Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
+
+	public enum DebugLevelEnum
+	{
+		Error = 0,
+		Info = 1,
+		Debug = 2,
+		Extreme = 3,
+	}
+
+	public enum RegionSizeEnum
+	{
+		Size64 = 64,
+		Size128 = 128,
+		Size256 = 256,
+		Size512 = 512,
+		Size1024 = 1024,
+		Size2048 = 2048,
+	}
+
+	public new static class GDExtensionSignalName
+	{
+		public new static readonly StringName MaterialChanged = "material_changed";
+		public new static readonly StringName AssetsChanged = "assets_changed";
+	}
+
+	public new delegate void MaterialChangedSignalHandler();
+	private MaterialChangedSignalHandler _materialChangedSignal;
+	private Callable _materialChangedSignalCallable;
+	public event MaterialChangedSignalHandler MaterialChangedSignal
+	{
+		add
+		{
+			if (_materialChangedSignal is null)
+			{
+				_materialChangedSignalCallable = Callable.From(() => 
+					_materialChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.MaterialChanged, _materialChangedSignalCallable);
+			}
+			_materialChangedSignal += value;
+		}
+		remove
+		{
+			_materialChangedSignal -= value;
+			if (_materialChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.MaterialChanged, _materialChangedSignalCallable);
+			_materialChangedSignalCallable = default;
+		}
+	}
+
+	public new delegate void AssetsChangedSignalHandler();
+	private AssetsChangedSignalHandler _assetsChangedSignal;
+	private Callable _assetsChangedSignalCallable;
+	public event AssetsChangedSignalHandler AssetsChangedSignal
+	{
+		add
+		{
+			if (_assetsChangedSignal is null)
+			{
+				_assetsChangedSignalCallable = Callable.From(() => 
+					_assetsChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.AssetsChanged, _assetsChangedSignalCallable);
+			}
+			_assetsChangedSignal += value;
+		}
+		remove
+		{
+			_assetsChangedSignal -= value;
+			if (_assetsChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.AssetsChanged, _assetsChangedSignalCallable);
+			_assetsChangedSignalCallable = default;
+		}
+	}
+
+	public new static class GDExtensionPropertyName
+	{
+		public new static readonly StringName Version = "version";
+		public new static readonly StringName DebugLevel = "debug_level";
+		public new static readonly StringName DataDirectory = "data_directory";
+		public new static readonly StringName Material = "material";
+		public new static readonly StringName Assets = "assets";
+		public new static readonly StringName Data = "data";
+		public new static readonly StringName Collision = "collision";
+		public new static readonly StringName Instancer = "instancer";
+		public new static readonly StringName RegionSize = "region_size";
+		public new static readonly StringName Save16Bit = "save_16_bit";
+		public new static readonly StringName LabelDistance = "label_distance";
+		public new static readonly StringName LabelSize = "label_size";
+		public new static readonly StringName ShowGrid = "show_grid";
+		public new static readonly StringName CollisionMode = "collision_mode";
+		public new static readonly StringName CollisionShapeSize = "collision_shape_size";
+		public new static readonly StringName CollisionRadius = "collision_radius";
+		public new static readonly StringName CollisionLayer = "collision_layer";
+		public new static readonly StringName CollisionMask = "collision_mask";
+		public new static readonly StringName CollisionPriority = "collision_priority";
+		public new static readonly StringName PhysicsMaterial = "physics_material";
+		public new static readonly StringName CollisionTarget = "collision_target";
+		public new static readonly StringName MeshLods = "mesh_lods";
+		public new static readonly StringName MeshSize = "mesh_size";
+		public new static readonly StringName VertexSpacing = "vertex_spacing";
+		public new static readonly StringName ClipmapTarget = "clipmap_target";
+		public new static readonly StringName RenderLayers = "render_layers";
+		public new static readonly StringName MouseLayer = "mouse_layer";
+		public new static readonly StringName CastShadows = "cast_shadows";
+		public new static readonly StringName GiMode = "gi_mode";
+		public new static readonly StringName CullMargin = "cull_margin";
+		public new static readonly StringName FreeEditorTextures = "free_editor_textures";
+		public new static readonly StringName ShowInstances = "show_instances";
+		public new static readonly StringName ShowRegionGrid = "show_region_grid";
+		public new static readonly StringName ShowInstancerGrid = "show_instancer_grid";
+		public new static readonly StringName ShowVertexGrid = "show_vertex_grid";
+		public new static readonly StringName ShowContours = "show_contours";
+		public new static readonly StringName ShowNavigation = "show_navigation";
+		public new static readonly StringName ShowCheckered = "show_checkered";
+		public new static readonly StringName ShowGrey = "show_grey";
+		public new static readonly StringName ShowHeightmap = "show_heightmap";
+		public new static readonly StringName ShowJaggedness = "show_jaggedness";
+		public new static readonly StringName ShowAutoshader = "show_autoshader";
+		public new static readonly StringName ShowControlTexture = "show_control_texture";
+		public new static readonly StringName ShowControlBlend = "show_control_blend";
+		public new static readonly StringName ShowControlAngle = "show_control_angle";
+		public new static readonly StringName ShowControlScale = "show_control_scale";
+		public new static readonly StringName ShowColormap = "show_colormap";
+		public new static readonly StringName ShowRoughmap = "show_roughmap";
+		public new static readonly StringName ShowTextureHeight = "show_texture_height";
+		public new static readonly StringName ShowTextureNormal = "show_texture_normal";
+		public new static readonly StringName ShowTextureRough = "show_texture_rough";
+	}
+
+	public new string Version
+	{
+		get => Get(GDExtensionPropertyName.Version).As<string>();
+	}
+
+	public new Variant DebugLevel
+	{
+		get => Get(GDExtensionPropertyName.DebugLevel).As<Variant>();
+		set => Set(GDExtensionPropertyName.DebugLevel, value);
+	}
+
+	public new string DataDirectory
+	{
+		get => Get(GDExtensionPropertyName.DataDirectory).As<string>();
+		set => Set(GDExtensionPropertyName.DataDirectory, value);
+	}
+
+	public new Terrain3DMaterial Material
+	{
+		get => Terrain3DMaterial.Bind(Get(GDExtensionPropertyName.Material).As<Resource>());
+		set => Set(GDExtensionPropertyName.Material, value);
+	}
+
+	public new Terrain3DAssets Assets
+	{
+		get => Terrain3DAssets.Bind(Get(GDExtensionPropertyName.Assets).As<Resource>());
+		set => Set(GDExtensionPropertyName.Assets, value);
+	}
+
+	public new Terrain3DData Data
+	{
+		get => Terrain3DData.Bind(Get(GDExtensionPropertyName.Data).As<GodotObject>());
+	}
+
+	public new Terrain3DCollision Collision
+	{
+		get => Terrain3DCollision.Bind(Get(GDExtensionPropertyName.Collision).As<GodotObject>());
+	}
+
+	public new Terrain3DInstancer Instancer
+	{
+		get => Terrain3DInstancer.Bind(Get(GDExtensionPropertyName.Instancer).As<GodotObject>());
+	}
+
+	public new Variant RegionSize
+	{
+		get => Get(GDExtensionPropertyName.RegionSize).As<Variant>();
+		set => Set(GDExtensionPropertyName.RegionSize, value);
+	}
+
+	public new bool Save16Bit
+	{
+		get => Get(GDExtensionPropertyName.Save16Bit).As<bool>();
+		set => Set(GDExtensionPropertyName.Save16Bit, value);
+	}
+
+	public new double LabelDistance
+	{
+		get => Get(GDExtensionPropertyName.LabelDistance).As<double>();
+		set => Set(GDExtensionPropertyName.LabelDistance, value);
+	}
+
+	public new long LabelSize
+	{
+		get => Get(GDExtensionPropertyName.LabelSize).As<long>();
+		set => Set(GDExtensionPropertyName.LabelSize, value);
+	}
+
+	public new bool ShowGrid
+	{
+		get => Get(GDExtensionPropertyName.ShowGrid).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowGrid, value);
+	}
+
+	public new Variant CollisionMode
+	{
+		get => Get(GDExtensionPropertyName.CollisionMode).As<Variant>();
+		set => Set(GDExtensionPropertyName.CollisionMode, value);
+	}
+
+	public new long CollisionShapeSize
+	{
+		get => Get(GDExtensionPropertyName.CollisionShapeSize).As<long>();
+		set => Set(GDExtensionPropertyName.CollisionShapeSize, value);
+	}
+
+	public new long CollisionRadius
+	{
+		get => Get(GDExtensionPropertyName.CollisionRadius).As<long>();
+		set => Set(GDExtensionPropertyName.CollisionRadius, value);
+	}
+
+	public new long CollisionLayer
+	{
+		get => Get(GDExtensionPropertyName.CollisionLayer).As<long>();
+		set => Set(GDExtensionPropertyName.CollisionLayer, value);
+	}
+
+	public new long CollisionMask
+	{
+		get => Get(GDExtensionPropertyName.CollisionMask).As<long>();
+		set => Set(GDExtensionPropertyName.CollisionMask, value);
+	}
+
+	public new double CollisionPriority
+	{
+		get => Get(GDExtensionPropertyName.CollisionPriority).As<double>();
+		set => Set(GDExtensionPropertyName.CollisionPriority, value);
+	}
+
+	public new PhysicsMaterial PhysicsMaterial
+	{
+		get => Get(GDExtensionPropertyName.PhysicsMaterial).As<PhysicsMaterial>();
+		set => Set(GDExtensionPropertyName.PhysicsMaterial, value);
+	}
+
+	public new Node3D CollisionTarget
+	{
+		get => Get(GDExtensionPropertyName.CollisionTarget).As<Node3D>();
+		set => Set(GDExtensionPropertyName.CollisionTarget, value);
+	}
+
+	public new long MeshLods
+	{
+		get => Get(GDExtensionPropertyName.MeshLods).As<long>();
+		set => Set(GDExtensionPropertyName.MeshLods, value);
+	}
+
+	public new long MeshSize
+	{
+		get => Get(GDExtensionPropertyName.MeshSize).As<long>();
+		set => Set(GDExtensionPropertyName.MeshSize, value);
+	}
+
+	public new double VertexSpacing
+	{
+		get => Get(GDExtensionPropertyName.VertexSpacing).As<double>();
+		set => Set(GDExtensionPropertyName.VertexSpacing, value);
+	}
+
+	public new Node3D ClipmapTarget
+	{
+		get => Get(GDExtensionPropertyName.ClipmapTarget).As<Node3D>();
+		set => Set(GDExtensionPropertyName.ClipmapTarget, value);
+	}
+
+	public new long RenderLayers
+	{
+		get => Get(GDExtensionPropertyName.RenderLayers).As<long>();
+		set => Set(GDExtensionPropertyName.RenderLayers, value);
+	}
+
+	public new long MouseLayer
+	{
+		get => Get(GDExtensionPropertyName.MouseLayer).As<long>();
+		set => Set(GDExtensionPropertyName.MouseLayer, value);
+	}
+
+	public new Variant CastShadows
+	{
+		get => Get(GDExtensionPropertyName.CastShadows).As<Variant>();
+		set => Set(GDExtensionPropertyName.CastShadows, value);
+	}
+
+	public new long GiMode
+	{
+		get => Get(GDExtensionPropertyName.GiMode).As<long>();
+		set => Set(GDExtensionPropertyName.GiMode, value);
+	}
+
+	public new double CullMargin
+	{
+		get => Get(GDExtensionPropertyName.CullMargin).As<double>();
+		set => Set(GDExtensionPropertyName.CullMargin, value);
+	}
+
+	public new bool FreeEditorTextures
+	{
+		get => Get(GDExtensionPropertyName.FreeEditorTextures).As<bool>();
+		set => Set(GDExtensionPropertyName.FreeEditorTextures, value);
+	}
+
+	public new bool ShowInstances
+	{
+		get => Get(GDExtensionPropertyName.ShowInstances).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowInstances, value);
+	}
+
+	public new bool ShowRegionGrid
+	{
+		get => Get(GDExtensionPropertyName.ShowRegionGrid).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowRegionGrid, value);
+	}
+
+	public new bool ShowInstancerGrid
+	{
+		get => Get(GDExtensionPropertyName.ShowInstancerGrid).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowInstancerGrid, value);
+	}
+
+	public new bool ShowVertexGrid
+	{
+		get => Get(GDExtensionPropertyName.ShowVertexGrid).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowVertexGrid, value);
+	}
+
+	public new bool ShowContours
+	{
+		get => Get(GDExtensionPropertyName.ShowContours).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowContours, value);
+	}
+
+	public new bool ShowNavigation
+	{
+		get => Get(GDExtensionPropertyName.ShowNavigation).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowNavigation, value);
+	}
+
+	public new bool ShowCheckered
+	{
+		get => Get(GDExtensionPropertyName.ShowCheckered).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowCheckered, value);
+	}
+
+	public new bool ShowGrey
+	{
+		get => Get(GDExtensionPropertyName.ShowGrey).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowGrey, value);
+	}
+
+	public new bool ShowHeightmap
+	{
+		get => Get(GDExtensionPropertyName.ShowHeightmap).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowHeightmap, value);
+	}
+
+	public new bool ShowJaggedness
+	{
+		get => Get(GDExtensionPropertyName.ShowJaggedness).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowJaggedness, value);
+	}
+
+	public new bool ShowAutoshader
+	{
+		get => Get(GDExtensionPropertyName.ShowAutoshader).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowAutoshader, value);
+	}
+
+	public new bool ShowControlTexture
+	{
+		get => Get(GDExtensionPropertyName.ShowControlTexture).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowControlTexture, value);
+	}
+
+	public new bool ShowControlBlend
+	{
+		get => Get(GDExtensionPropertyName.ShowControlBlend).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowControlBlend, value);
+	}
+
+	public new bool ShowControlAngle
+	{
+		get => Get(GDExtensionPropertyName.ShowControlAngle).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowControlAngle, value);
+	}
+
+	public new bool ShowControlScale
+	{
+		get => Get(GDExtensionPropertyName.ShowControlScale).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowControlScale, value);
+	}
+
+	public new bool ShowColormap
+	{
+		get => Get(GDExtensionPropertyName.ShowColormap).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowColormap, value);
+	}
+
+	public new bool ShowRoughmap
+	{
+		get => Get(GDExtensionPropertyName.ShowRoughmap).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowRoughmap, value);
+	}
+
+	public new bool ShowTextureHeight
+	{
+		get => Get(GDExtensionPropertyName.ShowTextureHeight).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureHeight, value);
+	}
+
+	public new bool ShowTextureNormal
+	{
+		get => Get(GDExtensionPropertyName.ShowTextureNormal).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureNormal, value);
+	}
+
+	public new bool ShowTextureRough
+	{
+		get => Get(GDExtensionPropertyName.ShowTextureRough).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureRough, value);
+	}
+
+	public new static class GDExtensionMethodName
+	{
+		public new static readonly StringName SetEditor = "set_editor";
+		public new static readonly StringName GetEditor = "get_editor";
+		public new static readonly StringName SetPlugin = "set_plugin";
+		public new static readonly StringName GetPlugin = "get_plugin";
+		public new static readonly StringName SetCamera = "set_camera";
+		public new static readonly StringName GetCamera = "get_camera";
+		public new static readonly StringName GetClipmapTargetPosition = "get_clipmap_target_position";
+		public new static readonly StringName GetCollisionTargetPosition = "get_collision_target_position";
+		public new static readonly StringName Snap = "snap";
+		public new static readonly StringName GetIntersection = "get_intersection";
+		public new static readonly StringName GetRaycastResult = "get_raycast_result";
+		public new static readonly StringName BakeMesh = "bake_mesh";
+		public new static readonly StringName GenerateNavMeshSourceGeometry = "generate_nav_mesh_source_geometry";
+	}
+
+	public new void SetEditor(Terrain3DEditor editor) => 
+		Call(GDExtensionMethodName.SetEditor, [editor]);
+
+	public new Terrain3DEditor GetEditor() => 
+		Terrain3DEditor.Bind(Call(GDExtensionMethodName.GetEditor, []).As<GodotObject>());
+
+	public new void SetPlugin(GodotObject plugin) => 
+		Call(GDExtensionMethodName.SetPlugin, [plugin]);
+
+	public new GodotObject GetPlugin() => 
+		Call(GDExtensionMethodName.GetPlugin, []).As<GodotObject>();
+
+	public new void SetCamera(Camera3D camera) => 
+		Call(GDExtensionMethodName.SetCamera, [camera]);
+
+	public new Camera3D GetCamera() => 
+		Call(GDExtensionMethodName.GetCamera, []).As<Camera3D>();
+
+	public new Vector3 GetClipmapTargetPosition() => 
+		Call(GDExtensionMethodName.GetClipmapTargetPosition, []).As<Vector3>();
+
+	public new Vector3 GetCollisionTargetPosition() => 
+		Call(GDExtensionMethodName.GetCollisionTargetPosition, []).As<Vector3>();
+
+	public new void Snap() => 
+		Call(GDExtensionMethodName.Snap, []);
+
+	public new Vector3 GetIntersection(Vector3 srcPos, Vector3 direction, bool gpuMode = false) => 
+		Call(GDExtensionMethodName.GetIntersection, [srcPos, direction, gpuMode]).As<Vector3>();
+
+	public new Godot.Collections.Dictionary GetRaycastResult(Vector3 srcPos, Vector3 direction, long collisionMask = 4294967295, bool excludeTerrain = false) => 
+		Call(GDExtensionMethodName.GetRaycastResult, [srcPos, direction, collisionMask, excludeTerrain]).As<Godot.Collections.Dictionary>();
+
+	public new Mesh BakeMesh(long lod, Terrain3DData.HeightFilter filter = Terrain3DData.HeightFilter.Nearest) => 
+		Call(GDExtensionMethodName.BakeMesh, [lod, Variant.From(filter)]).As<Mesh>();
+
+	public new Vector3[] GenerateNavMeshSourceGeometry(Aabb globalAabb, bool requireNav = true) => 
+		Call(GDExtensionMethodName.GenerateNavMeshSourceGeometry, [globalAabb, requireNav]).As<Vector3[]>();
 
-    public void SetEditor(Terrain3DEditor editor) => Call(_cached_set_editor, (GodotObject)editor);
-
-    public Terrain3DEditor GetEditor() => GDExtensionHelper.Bind<Terrain3DEditor>(Call(_cached_get_editor).As<GodotObject>());
-
-    public void SetPlugin(EditorPlugin plugin) => Call(_cached_set_plugin, (EditorPlugin)plugin);
-
-    public EditorPlugin GetPlugin() => GDExtensionHelper.Bind<EditorPlugin>(Call(_cached_get_plugin).As<GodotObject>());
-
-    public void SetCamera(Camera3D camera) => Call(_cached_set_camera, (Camera3D)camera);
-
-    public Camera3D GetCamera() => GDExtensionHelper.Bind<Camera3D>(Call(_cached_get_camera).As<GodotObject>());
-
-    public void ChangeRegionSize(int size) => Call(_cached_change_region_size, size);
-
-    public int GetRegionSize() => Call(_cached_get_region_size).As<int>();
-
-    public void SetSave16Bit(bool enabled) => Call(_cached_set_save_16_bit, enabled);
-
-    public bool GetSave16Bit() => Call(_cached_get_save_16_bit).As<bool>();
-
-    public void SetLabelDistance(float distance) => Call(_cached_set_label_distance, distance);
-
-    public float GetLabelDistance() => Call(_cached_get_label_distance).As<float>();
-
-    public void SetLabelSize(int size) => Call(_cached_set_label_size, size);
-
-    public int GetLabelSize() => Call(_cached_get_label_size).As<int>();
-
-    public void SetCollisionMode(int mode) => Call(_cached_set_collision_mode, mode);
-
-    public int GetCollisionMode() => Call(_cached_get_collision_mode).As<int>();
-
-    public void SetCollisionShapeSize(int size) => Call(_cached_set_collision_shape_size, size);
-
-    public int GetCollisionShapeSize() => Call(_cached_get_collision_shape_size).As<int>();
-
-    public void SetCollisionRadius(int radius) => Call(_cached_set_collision_radius, radius);
-
-    public int GetCollisionRadius() => Call(_cached_get_collision_radius).As<int>();
-
-    public void SetCollisionLayer(int layers) => Call(_cached_set_collision_layer, layers);
-
-    public int GetCollisionLayer() => Call(_cached_get_collision_layer).As<int>();
-
-    public void SetCollisionMask(int mask) => Call(_cached_set_collision_mask, mask);
-
-    public int GetCollisionMask() => Call(_cached_get_collision_mask).As<int>();
-
-    public void SetCollisionPriority(float priority) => Call(_cached_set_collision_priority, priority);
-
-    public float GetCollisionPriority() => Call(_cached_get_collision_priority).As<float>();
-
-    public void SetPhysicsMaterial(PhysicsMaterial material) => Call(_cached_set_physics_material, (PhysicsMaterial)material);
-
-    public PhysicsMaterial GetPhysicsMaterial() => GDExtensionHelper.Bind<PhysicsMaterial>(Call(_cached_get_physics_material).As<GodotObject>());
-
-    public void SetMeshLods(int count) => Call(_cached_set_mesh_lods, count);
-
-    public int GetMeshLods() => Call(_cached_get_mesh_lods).As<int>();
-
-    public void SetMeshSize(int size) => Call(_cached_set_mesh_size, size);
-
-    public int GetMeshSize() => Call(_cached_get_mesh_size).As<int>();
-
-    public void SetVertexSpacing(float scale) => Call(_cached_set_vertex_spacing, scale);
-
-    public float GetVertexSpacing() => Call(_cached_get_vertex_spacing).As<float>();
-
-    public Vector3 GetSnappedPosition() => Call(_cached_get_snapped_position).As<Vector3>();
-
-    public void SetRenderLayers(int layers) => Call(_cached_set_render_layers, layers);
-
-    public int GetRenderLayers() => Call(_cached_get_render_layers).As<int>();
-
-    public void SetMouseLayer(int layer) => Call(_cached_set_mouse_layer, layer);
-
-    public int GetMouseLayer() => Call(_cached_get_mouse_layer).As<int>();
-
-    public void SetCastShadows(int shadowCastingSetting) => Call(_cached_set_cast_shadows, shadowCastingSetting);
-
-    public int GetCastShadows() => Call(_cached_get_cast_shadows).As<int>();
-
-    public void SetGiMode(int giMode) => Call(_cached_set_gi_mode, giMode);
-
-    public int GetGiMode() => Call(_cached_get_gi_mode).As<int>();
-
-    public void SetCullMargin(float margin) => Call(_cached_set_cull_margin, margin);
-
-    public float GetCullMargin() => Call(_cached_get_cull_margin).As<float>();
-
-    public void SetFreeEditorTextures(bool unnamedArg0) => Call(_cached_set_free_editor_textures, unnamedArg0);
-
-    public bool GetFreeEditorTextures() => Call(_cached_get_free_editor_textures).As<bool>();
-
-    public void SetShowInstances(bool visible) => Call(_cached_set_show_instances, visible);
-
-    public bool GetShowInstances() => Call(_cached_get_show_instances).As<bool>();
-
-    public void SetShowRegionGrid(bool enabled) => Call(_cached_set_show_region_grid, enabled);
-
-    public bool GetShowRegionGrid() => Call(_cached_get_show_region_grid).As<bool>();
-
-    public void SetShowInstancerGrid(bool enabled) => Call(_cached_set_show_instancer_grid, enabled);
-
-    public bool GetShowInstancerGrid() => Call(_cached_get_show_instancer_grid).As<bool>();
-
-    public void SetShowVertexGrid(bool enabled) => Call(_cached_set_show_vertex_grid, enabled);
-
-    public bool GetShowVertexGrid() => Call(_cached_get_show_vertex_grid).As<bool>();
-
-    public void SetShowContours(bool enabled) => Call(_cached_set_show_contours, enabled);
-
-    public bool GetShowContours() => Call(_cached_get_show_contours).As<bool>();
-
-    public void SetShowNavigation(bool enabled) => Call(_cached_set_show_navigation, enabled);
-
-    public bool GetShowNavigation() => Call(_cached_get_show_navigation).As<bool>();
-
-    public void SetShowCheckered(bool enabled) => Call(_cached_set_show_checkered, enabled);
-
-    public bool GetShowCheckered() => Call(_cached_get_show_checkered).As<bool>();
-
-    public void SetShowGrey(bool enabled) => Call(_cached_set_show_grey, enabled);
-
-    public bool GetShowGrey() => Call(_cached_get_show_grey).As<bool>();
-
-    public void SetShowHeightmap(bool enabled) => Call(_cached_set_show_heightmap, enabled);
-
-    public bool GetShowHeightmap() => Call(_cached_get_show_heightmap).As<bool>();
-
-    public void SetShowColormap(bool enabled) => Call(_cached_set_show_colormap, enabled);
-
-    public bool GetShowColormap() => Call(_cached_get_show_colormap).As<bool>();
-
-    public void SetShowRoughmap(bool enabled) => Call(_cached_set_show_roughmap, enabled);
-
-    public bool GetShowRoughmap() => Call(_cached_get_show_roughmap).As<bool>();
-
-    public void SetShowControlTexture(bool enabled) => Call(_cached_set_show_control_texture, enabled);
-
-    public bool GetShowControlTexture() => Call(_cached_get_show_control_texture).As<bool>();
-
-    public void SetShowControlAngle(bool enabled) => Call(_cached_set_show_control_angle, enabled);
-
-    public bool GetShowControlAngle() => Call(_cached_get_show_control_angle).As<bool>();
-
-    public void SetShowControlScale(bool enabled) => Call(_cached_set_show_control_scale, enabled);
-
-    public bool GetShowControlScale() => Call(_cached_get_show_control_scale).As<bool>();
-
-    public void SetShowControlBlend(bool enabled) => Call(_cached_set_show_control_blend, enabled);
-
-    public bool GetShowControlBlend() => Call(_cached_get_show_control_blend).As<bool>();
-
-    public void SetShowAutoshader(bool enabled) => Call(_cached_set_show_autoshader, enabled);
-
-    public bool GetShowAutoshader() => Call(_cached_get_show_autoshader).As<bool>();
-
-    public void SetShowTextureHeight(bool enabled) => Call(_cached_set_show_texture_height, enabled);
-
-    public bool GetShowTextureHeight() => Call(_cached_get_show_texture_height).As<bool>();
-
-    public void SetShowTextureNormal(bool enabled) => Call(_cached_set_show_texture_normal, enabled);
-
-    public bool GetShowTextureNormal() => Call(_cached_get_show_texture_normal).As<bool>();
-
-    public void SetShowTextureRough(bool enabled) => Call(_cached_set_show_texture_rough, enabled);
-
-    public bool GetShowTextureRough() => Call(_cached_get_show_texture_rough).As<bool>();
-
-    public Vector3 GetIntersection(Vector3 srcPos, Vector3 direction, bool gpuMode) => Call(_cached_get_intersection, srcPos, direction, gpuMode).As<Vector3>();
-
-    public Mesh BakeMesh(int lod, int filter) => GDExtensionHelper.Bind<Mesh>(Call(_cached_bake_mesh, lod, filter).As<GodotObject>());
-
-    public Vector3[] GenerateNavMeshSourceGeometry(Aabb globalAabb, bool requireNav) => Call(_cached_generate_nav_mesh_source_geometry, globalAabb, requireNav).As<Vector3[]>();
-
-#endregion
-
-    private static readonly StringName _cached_version = "version";
-    private static readonly StringName _cached_debug_level = "debug_level";
-    private static readonly StringName _cached_data_directory = "data_directory";
-    private static readonly StringName _cached_data = "data";
-    private static readonly StringName _cached_material = "material";
-    private static readonly StringName _cached_assets = "assets";
-    private static readonly StringName _cached_collision = "collision";
-    private static readonly StringName _cached_instancer = "instancer";
-    private static readonly StringName _cached_region_size = "region_size";
-    private static readonly StringName _cached_save_16_bit = "save_16_bit";
-    private static readonly StringName _cached_label_distance = "label_distance";
-    private static readonly StringName _cached_label_size = "label_size";
-    private static readonly StringName _cached_show_grid = "show_grid";
-    private static readonly StringName _cached_collision_mode = "collision_mode";
-    private static readonly StringName _cached_collision_shape_size = "collision_shape_size";
-    private static readonly StringName _cached_collision_radius = "collision_radius";
-    private static readonly StringName _cached_collision_layer = "collision_layer";
-    private static readonly StringName _cached_collision_mask = "collision_mask";
-    private static readonly StringName _cached_collision_priority = "collision_priority";
-    private static readonly StringName _cached_physics_material = "physics_material";
-    private static readonly StringName _cached_mesh_lods = "mesh_lods";
-    private static readonly StringName _cached_mesh_size = "mesh_size";
-    private static readonly StringName _cached_vertex_spacing = "vertex_spacing";
-    private static readonly StringName _cached_render_layers = "render_layers";
-    private static readonly StringName _cached_mouse_layer = "mouse_layer";
-    private static readonly StringName _cached_cast_shadows = "cast_shadows";
-    private static readonly StringName _cached_gi_mode = "gi_mode";
-    private static readonly StringName _cached_cull_margin = "cull_margin";
-    private static readonly StringName _cached_free_editor_textures = "free_editor_textures";
-    private static readonly StringName _cached_show_instances = "show_instances";
-    private static readonly StringName _cached_show_region_grid = "show_region_grid";
-    private static readonly StringName _cached_show_instancer_grid = "show_instancer_grid";
-    private static readonly StringName _cached_show_vertex_grid = "show_vertex_grid";
-    private static readonly StringName _cached_show_contours = "show_contours";
-    private static readonly StringName _cached_show_navigation = "show_navigation";
-    private static readonly StringName _cached_show_checkered = "show_checkered";
-    private static readonly StringName _cached_show_grey = "show_grey";
-    private static readonly StringName _cached_show_heightmap = "show_heightmap";
-    private static readonly StringName _cached_show_colormap = "show_colormap";
-    private static readonly StringName _cached_show_roughmap = "show_roughmap";
-    private static readonly StringName _cached_show_control_texture = "show_control_texture";
-    private static readonly StringName _cached_show_control_angle = "show_control_angle";
-    private static readonly StringName _cached_show_control_scale = "show_control_scale";
-    private static readonly StringName _cached_show_control_blend = "show_control_blend";
-    private static readonly StringName _cached_show_autoshader = "show_autoshader";
-    private static readonly StringName _cached_show_texture_height = "show_texture_height";
-    private static readonly StringName _cached_show_texture_normal = "show_texture_normal";
-    private static readonly StringName _cached_show_texture_rough = "show_texture_rough";
-    private static readonly StringName _cached_get_version = "get_version";
-    private static readonly StringName _cached_set_debug_level = "set_debug_level";
-    private static readonly StringName _cached_get_debug_level = "get_debug_level";
-    private static readonly StringName _cached_set_data_directory = "set_data_directory";
-    private static readonly StringName _cached_get_data_directory = "get_data_directory";
-    private static readonly StringName _cached_get_data = "get_data";
-    private static readonly StringName _cached_set_material = "set_material";
-    private static readonly StringName _cached_get_material = "get_material";
-    private static readonly StringName _cached_set_assets = "set_assets";
-    private static readonly StringName _cached_get_assets = "get_assets";
-    private static readonly StringName _cached_get_collision = "get_collision";
-    private static readonly StringName _cached_get_instancer = "get_instancer";
-    private static readonly StringName _cached_set_editor = "set_editor";
-    private static readonly StringName _cached_get_editor = "get_editor";
-    private static readonly StringName _cached_set_plugin = "set_plugin";
-    private static readonly StringName _cached_get_plugin = "get_plugin";
-    private static readonly StringName _cached_set_camera = "set_camera";
-    private static readonly StringName _cached_get_camera = "get_camera";
-    private static readonly StringName _cached_change_region_size = "change_region_size";
-    private static readonly StringName _cached_get_region_size = "get_region_size";
-    private static readonly StringName _cached_set_save_16_bit = "set_save_16_bit";
-    private static readonly StringName _cached_get_save_16_bit = "get_save_16_bit";
-    private static readonly StringName _cached_set_label_distance = "set_label_distance";
-    private static readonly StringName _cached_get_label_distance = "get_label_distance";
-    private static readonly StringName _cached_set_label_size = "set_label_size";
-    private static readonly StringName _cached_get_label_size = "get_label_size";
-    private static readonly StringName _cached_set_collision_mode = "set_collision_mode";
-    private static readonly StringName _cached_get_collision_mode = "get_collision_mode";
-    private static readonly StringName _cached_set_collision_shape_size = "set_collision_shape_size";
-    private static readonly StringName _cached_get_collision_shape_size = "get_collision_shape_size";
-    private static readonly StringName _cached_set_collision_radius = "set_collision_radius";
-    private static readonly StringName _cached_get_collision_radius = "get_collision_radius";
-    private static readonly StringName _cached_set_collision_layer = "set_collision_layer";
-    private static readonly StringName _cached_get_collision_layer = "get_collision_layer";
-    private static readonly StringName _cached_set_collision_mask = "set_collision_mask";
-    private static readonly StringName _cached_get_collision_mask = "get_collision_mask";
-    private static readonly StringName _cached_set_collision_priority = "set_collision_priority";
-    private static readonly StringName _cached_get_collision_priority = "get_collision_priority";
-    private static readonly StringName _cached_set_physics_material = "set_physics_material";
-    private static readonly StringName _cached_get_physics_material = "get_physics_material";
-    private static readonly StringName _cached_set_mesh_lods = "set_mesh_lods";
-    private static readonly StringName _cached_get_mesh_lods = "get_mesh_lods";
-    private static readonly StringName _cached_set_mesh_size = "set_mesh_size";
-    private static readonly StringName _cached_get_mesh_size = "get_mesh_size";
-    private static readonly StringName _cached_set_vertex_spacing = "set_vertex_spacing";
-    private static readonly StringName _cached_get_vertex_spacing = "get_vertex_spacing";
-    private static readonly StringName _cached_get_snapped_position = "get_snapped_position";
-    private static readonly StringName _cached_set_render_layers = "set_render_layers";
-    private static readonly StringName _cached_get_render_layers = "get_render_layers";
-    private static readonly StringName _cached_set_mouse_layer = "set_mouse_layer";
-    private static readonly StringName _cached_get_mouse_layer = "get_mouse_layer";
-    private static readonly StringName _cached_set_cast_shadows = "set_cast_shadows";
-    private static readonly StringName _cached_get_cast_shadows = "get_cast_shadows";
-    private static readonly StringName _cached_set_gi_mode = "set_gi_mode";
-    private static readonly StringName _cached_get_gi_mode = "get_gi_mode";
-    private static readonly StringName _cached_set_cull_margin = "set_cull_margin";
-    private static readonly StringName _cached_get_cull_margin = "get_cull_margin";
-    private static readonly StringName _cached_set_free_editor_textures = "set_free_editor_textures";
-    private static readonly StringName _cached_get_free_editor_textures = "get_free_editor_textures";
-    private static readonly StringName _cached_set_show_instances = "set_show_instances";
-    private static readonly StringName _cached_get_show_instances = "get_show_instances";
-    private static readonly StringName _cached_set_show_region_grid = "set_show_region_grid";
-    private static readonly StringName _cached_get_show_region_grid = "get_show_region_grid";
-    private static readonly StringName _cached_set_show_instancer_grid = "set_show_instancer_grid";
-    private static readonly StringName _cached_get_show_instancer_grid = "get_show_instancer_grid";
-    private static readonly StringName _cached_set_show_vertex_grid = "set_show_vertex_grid";
-    private static readonly StringName _cached_get_show_vertex_grid = "get_show_vertex_grid";
-    private static readonly StringName _cached_set_show_contours = "set_show_contours";
-    private static readonly StringName _cached_get_show_contours = "get_show_contours";
-    private static readonly StringName _cached_set_show_navigation = "set_show_navigation";
-    private static readonly StringName _cached_get_show_navigation = "get_show_navigation";
-    private static readonly StringName _cached_set_show_checkered = "set_show_checkered";
-    private static readonly StringName _cached_get_show_checkered = "get_show_checkered";
-    private static readonly StringName _cached_set_show_grey = "set_show_grey";
-    private static readonly StringName _cached_get_show_grey = "get_show_grey";
-    private static readonly StringName _cached_set_show_heightmap = "set_show_heightmap";
-    private static readonly StringName _cached_get_show_heightmap = "get_show_heightmap";
-    private static readonly StringName _cached_set_show_colormap = "set_show_colormap";
-    private static readonly StringName _cached_get_show_colormap = "get_show_colormap";
-    private static readonly StringName _cached_set_show_roughmap = "set_show_roughmap";
-    private static readonly StringName _cached_get_show_roughmap = "get_show_roughmap";
-    private static readonly StringName _cached_set_show_control_texture = "set_show_control_texture";
-    private static readonly StringName _cached_get_show_control_texture = "get_show_control_texture";
-    private static readonly StringName _cached_set_show_control_angle = "set_show_control_angle";
-    private static readonly StringName _cached_get_show_control_angle = "get_show_control_angle";
-    private static readonly StringName _cached_set_show_control_scale = "set_show_control_scale";
-    private static readonly StringName _cached_get_show_control_scale = "get_show_control_scale";
-    private static readonly StringName _cached_set_show_control_blend = "set_show_control_blend";
-    private static readonly StringName _cached_get_show_control_blend = "get_show_control_blend";
-    private static readonly StringName _cached_set_show_autoshader = "set_show_autoshader";
-    private static readonly StringName _cached_get_show_autoshader = "get_show_autoshader";
-    private static readonly StringName _cached_set_show_texture_height = "set_show_texture_height";
-    private static readonly StringName _cached_get_show_texture_height = "get_show_texture_height";
-    private static readonly StringName _cached_set_show_texture_normal = "set_show_texture_normal";
-    private static readonly StringName _cached_get_show_texture_normal = "get_show_texture_normal";
-    private static readonly StringName _cached_set_show_texture_rough = "set_show_texture_rough";
-    private static readonly StringName _cached_get_show_texture_rough = "get_show_texture_rough";
-    private static readonly StringName _cached_get_intersection = "get_intersection";
-    private static readonly StringName _cached_bake_mesh = "bake_mesh";
-    private static readonly StringName _cached_generate_nav_mesh_source_geometry = "generate_nav_mesh_source_geometry";
-    private static readonly StringName _cached_material_changed = "material_changed";
-    private static readonly StringName _cached_assets_changed = "assets_changed";
 }

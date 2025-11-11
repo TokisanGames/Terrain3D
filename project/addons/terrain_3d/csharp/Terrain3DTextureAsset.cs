@@ -1,291 +1,254 @@
+#pragma warning disable CS0109
 using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Godot;
+using Godot.Collections;
 
 namespace TokisanGames;
 
 public partial class Terrain3DTextureAsset : Resource
 {
-    public static readonly StringName GDExtensionName = "Terrain3DTextureAsset";
 
-    [Obsolete("Wrapper classes cannot be constructed with Ctor (it only instantiate the underlying Resource), please use the Instantiate() method instead.")]
-    protected Terrain3DTextureAsset() { }
+	private new static readonly StringName NativeName = new StringName("Terrain3DTextureAsset");
 
-    /// <summary>
-    /// Creates an instance of the GDExtension <see cref="Terrain3DTextureAsset"/> type, and attaches the wrapper script to it.
-    /// </summary>
-    /// <returns>The wrapper instance linked to the underlying GDExtension type.</returns>
-    public static Terrain3DTextureAsset Instantiate()
-    {
-        return GDExtensionHelper.Instantiate<Terrain3DTextureAsset>(GDExtensionName);
-    }
+	[Obsolete("Wrapper types cannot be constructed with constructors (it only instantiate the underlying Terrain3DTextureAsset object), please use the Instantiate() method instead.")]
+	protected Terrain3DTextureAsset() { }
 
-    /// <summary>
-    /// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DTextureAsset"/> wrapper type,
-    /// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DTextureAsset"/> wrapper type,
-    /// a new instance of the <see cref="Terrain3DTextureAsset"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
-    /// </summary>
-    /// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
-    /// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
-    /// <returns>The existing or a new instance of the <see cref="Terrain3DTextureAsset"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
-    public static Terrain3DTextureAsset Bind(GodotObject godotObject)
-    {
-        return GDExtensionHelper.Bind<Terrain3DTextureAsset>(godotObject);
-    }
-#region Properties
+	private static CSharpScript _wrapperScriptAsset;
 
-    public string Name
-    {
-        get => (string)Get(_cached_name);
-        set => Set(_cached_name, Variant.From(value));
-    }
+	/// <summary>
+	/// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DTextureAsset"/> wrapper type,
+	/// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DTextureAsset"/> wrapper type,
+	/// a new instance of the <see cref="Terrain3DTextureAsset"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
+	/// </summary>
+	/// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
+	/// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
+	/// <returns>The existing or a new instance of the <see cref="Terrain3DTextureAsset"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
+	public new static Terrain3DTextureAsset Bind(GodotObject godotObject)
+	{
+#if DEBUG
+		if (!IsInstanceValid(godotObject))
+			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
+#endif
+		if (godotObject is Terrain3DTextureAsset wrapperScriptInstance)
+			return wrapperScriptInstance;
 
-    public int Id
-    {
-        get => (int)Get(_cached_id);
-        set => Set(_cached_id, Variant.From(value));
-    }
+#if DEBUG
+		var expectedType = typeof(Terrain3DTextureAsset);
+		var currentObjectClassName = godotObject.GetClass();
+		if (!ClassDB.IsParentClass(expectedType.Name, currentObjectClassName))
+			throw new InvalidOperationException($"The supplied GodotObject ({currentObjectClassName}) is not the {expectedType.Name} type.");
+#endif
 
-    public Color AlbedoColor
-    {
-        get => (Color)Get(_cached_albedo_color);
-        set => Set(_cached_albedo_color, Variant.From(value));
-    }
+		if (_wrapperScriptAsset is null)
+		{
+			var scriptPathAttribute = typeof(Terrain3DTextureAsset).GetCustomAttributes<ScriptPathAttribute>().FirstOrDefault();
+			if (scriptPathAttribute is null) throw new UnreachableException();
+			_wrapperScriptAsset = ResourceLoader.Load<CSharpScript>(scriptPathAttribute.Path);
+		}
 
-    public Texture2D /*ImageTexture,CompressedTexture2D*/ AlbedoTexture
-    {
-        get => (Texture2D /*ImageTexture,CompressedTexture2D*/)Get(_cached_albedo_texture);
-        set => Set(_cached_albedo_texture, Variant.From(value));
-    }
+		var instanceId = godotObject.GetInstanceId();
+		godotObject.SetScript(_wrapperScriptAsset);
+		return (Terrain3DTextureAsset)InstanceFromId(instanceId);
+	}
 
-    public Texture2D /*ImageTexture,CompressedTexture2D*/ NormalTexture
-    {
-        get => (Texture2D /*ImageTexture,CompressedTexture2D*/)Get(_cached_normal_texture);
-        set => Set(_cached_normal_texture, Variant.From(value));
-    }
+	/// <summary>
+	/// Creates an instance of the GDExtension <see cref="Terrain3DTextureAsset"/> type, and attaches a wrapper script instance to it.
+	/// </summary>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DTextureAsset" type.</returns>
+	public new static Terrain3DTextureAsset Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
-    public float NormalDepth
-    {
-        get => (float)Get(_cached_normal_depth);
-        set => Set(_cached_normal_depth, Variant.From(value));
-    }
+	public new static class GDExtensionSignalName
+	{
+		public new static readonly StringName IdChanged = "id_changed";
+		public new static readonly StringName FileChanged = "file_changed";
+		public new static readonly StringName SettingChanged = "setting_changed";
+	}
 
-    public float AoStrength
-    {
-        get => (float)Get(_cached_ao_strength);
-        set => Set(_cached_ao_strength, Variant.From(value));
-    }
+	public new delegate void IdChangedSignalHandler();
+	private IdChangedSignalHandler _idChangedSignal;
+	private Callable _idChangedSignalCallable;
+	public event IdChangedSignalHandler IdChangedSignal
+	{
+		add
+		{
+			if (_idChangedSignal is null)
+			{
+				_idChangedSignalCallable = Callable.From(() => 
+					_idChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.IdChanged, _idChangedSignalCallable);
+			}
+			_idChangedSignal += value;
+		}
+		remove
+		{
+			_idChangedSignal -= value;
+			if (_idChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.IdChanged, _idChangedSignalCallable);
+			_idChangedSignalCallable = default;
+		}
+	}
 
-    public float Roughness
-    {
-        get => (float)Get(_cached_roughness);
-        set => Set(_cached_roughness, Variant.From(value));
-    }
+	public new delegate void FileChangedSignalHandler();
+	private FileChangedSignalHandler _fileChangedSignal;
+	private Callable _fileChangedSignalCallable;
+	public event FileChangedSignalHandler FileChangedSignal
+	{
+		add
+		{
+			if (_fileChangedSignal is null)
+			{
+				_fileChangedSignalCallable = Callable.From(() => 
+					_fileChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.FileChanged, _fileChangedSignalCallable);
+			}
+			_fileChangedSignal += value;
+		}
+		remove
+		{
+			_fileChangedSignal -= value;
+			if (_fileChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.FileChanged, _fileChangedSignalCallable);
+			_fileChangedSignalCallable = default;
+		}
+	}
 
-    public float UvScale
-    {
-        get => (float)Get(_cached_uv_scale);
-        set => Set(_cached_uv_scale, Variant.From(value));
-    }
+	public new delegate void SettingChangedSignalHandler();
+	private SettingChangedSignalHandler _settingChangedSignal;
+	private Callable _settingChangedSignalCallable;
+	public event SettingChangedSignalHandler SettingChangedSignal
+	{
+		add
+		{
+			if (_settingChangedSignal is null)
+			{
+				_settingChangedSignalCallable = Callable.From(() => 
+					_settingChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.SettingChanged, _settingChangedSignalCallable);
+			}
+			_settingChangedSignal += value;
+		}
+		remove
+		{
+			_settingChangedSignal -= value;
+			if (_settingChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.SettingChanged, _settingChangedSignalCallable);
+			_settingChangedSignalCallable = default;
+		}
+	}
 
-    public float DetilingRotation
-    {
-        get => (float)Get(_cached_detiling_rotation);
-        set => Set(_cached_detiling_rotation, Variant.From(value));
-    }
+	public new static class GDExtensionPropertyName
+	{
+		public new static readonly StringName Name = "name";
+		public new static readonly StringName Id = "id";
+		public new static readonly StringName AlbedoColor = "albedo_color";
+		public new static readonly StringName AlbedoTexture = "albedo_texture";
+		public new static readonly StringName NormalTexture = "normal_texture";
+		public new static readonly StringName NormalDepth = "normal_depth";
+		public new static readonly StringName AoStrength = "ao_strength";
+		public new static readonly StringName Roughness = "roughness";
+		public new static readonly StringName UvScale = "uv_scale";
+		public new static readonly StringName VerticalProjection = "vertical_projection";
+		public new static readonly StringName DetilingRotation = "detiling_rotation";
+		public new static readonly StringName DetilingShift = "detiling_shift";
+	}
 
-    public float DetilingShift
-    {
-        get => (float)Get(_cached_detiling_shift);
-        set => Set(_cached_detiling_shift, Variant.From(value));
-    }
+	public new string Name
+	{
+		get => Get(GDExtensionPropertyName.Name).As<string>();
+		set => Set(GDExtensionPropertyName.Name, value);
+	}
 
-#endregion
+	public new long Id
+	{
+		get => Get(GDExtensionPropertyName.Id).As<long>();
+		set => Set(GDExtensionPropertyName.Id, value);
+	}
 
-#region Signals
+	public new Color AlbedoColor
+	{
+		get => Get(GDExtensionPropertyName.AlbedoColor).As<Color>();
+		set => Set(GDExtensionPropertyName.AlbedoColor, value);
+	}
 
-    public delegate void IdChangedHandler();
+	public new Texture2D AlbedoTexture
+	{
+		get => Get(GDExtensionPropertyName.AlbedoTexture).As<Texture2D>();
+		set => Set(GDExtensionPropertyName.AlbedoTexture, value);
+	}
 
-    private IdChangedHandler _idChanged_backing;
-    private Callable _idChanged_backing_callable;
-    public event IdChangedHandler IdChanged
-    {
-        add
-        {
-            if(_idChanged_backing == null)
-            {
-                _idChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _idChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_id_changed, _idChanged_backing_callable);
-            }
-            _idChanged_backing += value;
-        }
-        remove
-        {
-            _idChanged_backing -= value;
-            
-            if(_idChanged_backing == null)
-            {
-                Disconnect(_cached_id_changed, _idChanged_backing_callable);
-                _idChanged_backing_callable = default;
-            }
-        }
-    }
+	public new Texture2D NormalTexture
+	{
+		get => Get(GDExtensionPropertyName.NormalTexture).As<Texture2D>();
+		set => Set(GDExtensionPropertyName.NormalTexture, value);
+	}
 
-    public delegate void FileChangedHandler();
+	public new double NormalDepth
+	{
+		get => Get(GDExtensionPropertyName.NormalDepth).As<double>();
+		set => Set(GDExtensionPropertyName.NormalDepth, value);
+	}
 
-    private FileChangedHandler _fileChanged_backing;
-    private Callable _fileChanged_backing_callable;
-    public event FileChangedHandler FileChanged
-    {
-        add
-        {
-            if(_fileChanged_backing == null)
-            {
-                _fileChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _fileChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_file_changed, _fileChanged_backing_callable);
-            }
-            _fileChanged_backing += value;
-        }
-        remove
-        {
-            _fileChanged_backing -= value;
-            
-            if(_fileChanged_backing == null)
-            {
-                Disconnect(_cached_file_changed, _fileChanged_backing_callable);
-                _fileChanged_backing_callable = default;
-            }
-        }
-    }
+	public new double AoStrength
+	{
+		get => Get(GDExtensionPropertyName.AoStrength).As<double>();
+		set => Set(GDExtensionPropertyName.AoStrength, value);
+	}
 
-    public delegate void SettingChangedHandler();
+	public new double Roughness
+	{
+		get => Get(GDExtensionPropertyName.Roughness).As<double>();
+		set => Set(GDExtensionPropertyName.Roughness, value);
+	}
 
-    private SettingChangedHandler _settingChanged_backing;
-    private Callable _settingChanged_backing_callable;
-    public event SettingChangedHandler SettingChanged
-    {
-        add
-        {
-            if(_settingChanged_backing == null)
-            {
-                _settingChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _settingChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_setting_changed, _settingChanged_backing_callable);
-            }
-            _settingChanged_backing += value;
-        }
-        remove
-        {
-            _settingChanged_backing -= value;
-            
-            if(_settingChanged_backing == null)
-            {
-                Disconnect(_cached_setting_changed, _settingChanged_backing_callable);
-                _settingChanged_backing_callable = default;
-            }
-        }
-    }
+	public new double UvScale
+	{
+		get => Get(GDExtensionPropertyName.UvScale).As<double>();
+		set => Set(GDExtensionPropertyName.UvScale, value);
+	}
 
-#endregion
+	public new bool VerticalProjection
+	{
+		get => Get(GDExtensionPropertyName.VerticalProjection).As<bool>();
+		set => Set(GDExtensionPropertyName.VerticalProjection, value);
+	}
 
-#region Methods
+	public new double DetilingRotation
+	{
+		get => Get(GDExtensionPropertyName.DetilingRotation).As<double>();
+		set => Set(GDExtensionPropertyName.DetilingRotation, value);
+	}
 
-    public void Clear() => Call(_cached_clear);
+	public new double DetilingShift
+	{
+		get => Get(GDExtensionPropertyName.DetilingShift).As<double>();
+		set => Set(GDExtensionPropertyName.DetilingShift, value);
+	}
 
-    public void SetName(string name) => Call(_cached_set_name, name);
+	public new static class GDExtensionMethodName
+	{
+		public new static readonly StringName Clear = "clear";
+		public new static readonly StringName SetHighlighted = "set_highlighted";
+		public new static readonly StringName IsHighlighted = "is_highlighted";
+		public new static readonly StringName GetHighlightColor = "get_highlight_color";
+		public new static readonly StringName GetThumbnail = "get_thumbnail";
+	}
 
-    public string GetName() => Call(_cached_get_name).As<string>();
+	public new void Clear() => 
+		Call(GDExtensionMethodName.Clear, []);
 
-    public void SetId(int id) => Call(_cached_set_id, id);
+	public new void SetHighlighted(bool enabled) => 
+		Call(GDExtensionMethodName.SetHighlighted, [enabled]);
 
-    public int GetId() => Call(_cached_get_id).As<int>();
+	public new bool IsHighlighted() => 
+		Call(GDExtensionMethodName.IsHighlighted, []).As<bool>();
 
-    public void SetAlbedoColor(Color color) => Call(_cached_set_albedo_color, color);
+	public new Color GetHighlightColor() => 
+		Call(GDExtensionMethodName.GetHighlightColor, []).As<Color>();
 
-    public Color GetAlbedoColor() => Call(_cached_get_albedo_color).As<Color>();
+	public new Texture2D GetThumbnail() => 
+		Call(GDExtensionMethodName.GetThumbnail, []).As<Texture2D>();
 
-    public void SetAlbedoTexture(Texture2D texture) => Call(_cached_set_albedo_texture, (Texture2D)texture);
-
-    public Texture2D GetAlbedoTexture() => GDExtensionHelper.Bind<Texture2D>(Call(_cached_get_albedo_texture).As<GodotObject>());
-
-    public void SetNormalTexture(Texture2D texture) => Call(_cached_set_normal_texture, (Texture2D)texture);
-
-    public Texture2D GetNormalTexture() => GDExtensionHelper.Bind<Texture2D>(Call(_cached_get_normal_texture).As<GodotObject>());
-
-    public void SetNormalDepth(float normalDepth) => Call(_cached_set_normal_depth, normalDepth);
-
-    public float GetNormalDepth() => Call(_cached_get_normal_depth).As<float>();
-
-    public void SetAoStrength(float aoStrength) => Call(_cached_set_ao_strength, aoStrength);
-
-    public float GetAoStrength() => Call(_cached_get_ao_strength).As<float>();
-
-    public void SetRoughness(float roughness) => Call(_cached_set_roughness, roughness);
-
-    public float GetRoughness() => Call(_cached_get_roughness).As<float>();
-
-    public void SetUvScale(float scale) => Call(_cached_set_uv_scale, scale);
-
-    public float GetUvScale() => Call(_cached_get_uv_scale).As<float>();
-
-    public void SetDetilingRotation(float detilingRotation) => Call(_cached_set_detiling_rotation, detilingRotation);
-
-    public float GetDetilingRotation() => Call(_cached_get_detiling_rotation).As<float>();
-
-    public void SetDetilingShift(float detilingShift) => Call(_cached_set_detiling_shift, detilingShift);
-
-    public float GetDetilingShift() => Call(_cached_get_detiling_shift).As<float>();
-
-#endregion
-
-    private static readonly StringName _cached_name = "name";
-    private static readonly StringName _cached_id = "id";
-    private static readonly StringName _cached_albedo_color = "albedo_color";
-    private static readonly StringName _cached_albedo_texture = "albedo_texture";
-    private static readonly StringName _cached_normal_texture = "normal_texture";
-    private static readonly StringName _cached_normal_depth = "normal_depth";
-    private static readonly StringName _cached_ao_strength = "ao_strength";
-    private static readonly StringName _cached_roughness = "roughness";
-    private static readonly StringName _cached_uv_scale = "uv_scale";
-    private static readonly StringName _cached_detiling_rotation = "detiling_rotation";
-    private static readonly StringName _cached_detiling_shift = "detiling_shift";
-    private static readonly StringName _cached_clear = "clear";
-    private static readonly StringName _cached_set_name = "set_name";
-    private static readonly StringName _cached_get_name = "get_name";
-    private static readonly StringName _cached_set_id = "set_id";
-    private static readonly StringName _cached_get_id = "get_id";
-    private static readonly StringName _cached_set_albedo_color = "set_albedo_color";
-    private static readonly StringName _cached_get_albedo_color = "get_albedo_color";
-    private static readonly StringName _cached_set_albedo_texture = "set_albedo_texture";
-    private static readonly StringName _cached_get_albedo_texture = "get_albedo_texture";
-    private static readonly StringName _cached_set_normal_texture = "set_normal_texture";
-    private static readonly StringName _cached_get_normal_texture = "get_normal_texture";
-    private static readonly StringName _cached_set_normal_depth = "set_normal_depth";
-    private static readonly StringName _cached_get_normal_depth = "get_normal_depth";
-    private static readonly StringName _cached_set_ao_strength = "set_ao_strength";
-    private static readonly StringName _cached_get_ao_strength = "get_ao_strength";
-    private static readonly StringName _cached_set_roughness = "set_roughness";
-    private static readonly StringName _cached_get_roughness = "get_roughness";
-    private static readonly StringName _cached_set_uv_scale = "set_uv_scale";
-    private static readonly StringName _cached_get_uv_scale = "get_uv_scale";
-    private static readonly StringName _cached_set_detiling_rotation = "set_detiling_rotation";
-    private static readonly StringName _cached_get_detiling_rotation = "get_detiling_rotation";
-    private static readonly StringName _cached_set_detiling_shift = "set_detiling_shift";
-    private static readonly StringName _cached_get_detiling_shift = "get_detiling_shift";
-    private static readonly StringName _cached_id_changed = "id_changed";
-    private static readonly StringName _cached_file_changed = "file_changed";
-    private static readonly StringName _cached_setting_changed = "setting_changed";
 }

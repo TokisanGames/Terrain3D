@@ -1,502 +1,532 @@
+#pragma warning disable CS0109
 using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Godot;
+using Godot.Collections;
 
 namespace TokisanGames;
 
 public partial class Terrain3DData : GodotObject
 {
-    public static readonly StringName GDExtensionName = "Terrain3DData";
-
-    [Obsolete("Wrapper classes cannot be constructed with Ctor (it only instantiate the underlying GodotObject), please use the Instantiate() method instead.")]
-    protected Terrain3DData() { }
-
-    /// <summary>
-    /// Creates an instance of the GDExtension <see cref="Terrain3DData"/> type, and attaches the wrapper script to it.
-    /// </summary>
-    /// <returns>The wrapper instance linked to the underlying GDExtension type.</returns>
-    public static Terrain3DData Instantiate()
-    {
-        return GDExtensionHelper.Instantiate<Terrain3DData>(GDExtensionName);
-    }
-
-    /// <summary>
-    /// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DData"/> wrapper type,
-    /// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DData"/> wrapper type,
-    /// a new instance of the <see cref="Terrain3DData"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
-    /// </summary>
-    /// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
-    /// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
-    /// <returns>The existing or a new instance of the <see cref="Terrain3DData"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
-    public static Terrain3DData Bind(GodotObject godotObject)
-    {
-        return GDExtensionHelper.Bind<Terrain3DData>(godotObject);
-    }
-#region Enums
-
-    public enum HeightFilter : long
-    {
-        Nearest = 0,
-        Minimum = 1,
-    }
-
-#endregion
-
-#region Properties
-
-    public Godot.Collections.Array<Vector2I> RegionLocations
-    {
-        get => (Godot.Collections.Array<Vector2I>)Get(_cached_region_locations);
-        set => Set(_cached_region_locations, Variant.From(value));
-    }
-
-    public Godot.Collections.Array<Image> HeightMaps
-    {
-        get => GDExtensionHelper.Cast<Image>((Godot.Collections.Array<Godot.GodotObject>)Get(_cached_height_maps));
-        set => Set(_cached_height_maps, Variant.From(value));
-    }
-
-    public Godot.Collections.Array<Image> ControlMaps
-    {
-        get => GDExtensionHelper.Cast<Image>((Godot.Collections.Array<Godot.GodotObject>)Get(_cached_control_maps));
-        set => Set(_cached_control_maps, Variant.From(value));
-    }
-
-    public Godot.Collections.Array<Image> ColorMaps
-    {
-        get => GDExtensionHelper.Cast<Image>((Godot.Collections.Array<Godot.GodotObject>)Get(_cached_color_maps));
-        set => Set(_cached_color_maps, Variant.From(value));
-    }
-
-#endregion
-
-#region Signals
-
-    public delegate void MapsChangedHandler();
-
-    private MapsChangedHandler _mapsChanged_backing;
-    private Callable _mapsChanged_backing_callable;
-    public event MapsChangedHandler MapsChanged
-    {
-        add
-        {
-            if(_mapsChanged_backing == null)
-            {
-                _mapsChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _mapsChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_maps_changed, _mapsChanged_backing_callable);
-            }
-            _mapsChanged_backing += value;
-        }
-        remove
-        {
-            _mapsChanged_backing -= value;
-            
-            if(_mapsChanged_backing == null)
-            {
-                Disconnect(_cached_maps_changed, _mapsChanged_backing_callable);
-                _mapsChanged_backing_callable = default;
-            }
-        }
-    }
-
-    public delegate void RegionMapChangedHandler();
-
-    private RegionMapChangedHandler _regionMapChanged_backing;
-    private Callable _regionMapChanged_backing_callable;
-    public event RegionMapChangedHandler RegionMapChanged
-    {
-        add
-        {
-            if(_regionMapChanged_backing == null)
-            {
-                _regionMapChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _regionMapChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_region_map_changed, _regionMapChanged_backing_callable);
-            }
-            _regionMapChanged_backing += value;
-        }
-        remove
-        {
-            _regionMapChanged_backing -= value;
-            
-            if(_regionMapChanged_backing == null)
-            {
-                Disconnect(_cached_region_map_changed, _regionMapChanged_backing_callable);
-                _regionMapChanged_backing_callable = default;
-            }
-        }
-    }
-
-    public delegate void HeightMapsChangedHandler();
-
-    private HeightMapsChangedHandler _heightMapsChanged_backing;
-    private Callable _heightMapsChanged_backing_callable;
-    public event HeightMapsChangedHandler HeightMapsChanged
-    {
-        add
-        {
-            if(_heightMapsChanged_backing == null)
-            {
-                _heightMapsChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _heightMapsChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_height_maps_changed, _heightMapsChanged_backing_callable);
-            }
-            _heightMapsChanged_backing += value;
-        }
-        remove
-        {
-            _heightMapsChanged_backing -= value;
-            
-            if(_heightMapsChanged_backing == null)
-            {
-                Disconnect(_cached_height_maps_changed, _heightMapsChanged_backing_callable);
-                _heightMapsChanged_backing_callable = default;
-            }
-        }
-    }
-
-    public delegate void ControlMapsChangedHandler();
-
-    private ControlMapsChangedHandler _controlMapsChanged_backing;
-    private Callable _controlMapsChanged_backing_callable;
-    public event ControlMapsChangedHandler ControlMapsChanged
-    {
-        add
-        {
-            if(_controlMapsChanged_backing == null)
-            {
-                _controlMapsChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _controlMapsChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_control_maps_changed, _controlMapsChanged_backing_callable);
-            }
-            _controlMapsChanged_backing += value;
-        }
-        remove
-        {
-            _controlMapsChanged_backing -= value;
-            
-            if(_controlMapsChanged_backing == null)
-            {
-                Disconnect(_cached_control_maps_changed, _controlMapsChanged_backing_callable);
-                _controlMapsChanged_backing_callable = default;
-            }
-        }
-    }
-
-    public delegate void ColorMapsChangedHandler();
-
-    private ColorMapsChangedHandler _colorMapsChanged_backing;
-    private Callable _colorMapsChanged_backing_callable;
-    public event ColorMapsChangedHandler ColorMapsChanged
-    {
-        add
-        {
-            if(_colorMapsChanged_backing == null)
-            {
-                _colorMapsChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _colorMapsChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_color_maps_changed, _colorMapsChanged_backing_callable);
-            }
-            _colorMapsChanged_backing += value;
-        }
-        remove
-        {
-            _colorMapsChanged_backing -= value;
-            
-            if(_colorMapsChanged_backing == null)
-            {
-                Disconnect(_cached_color_maps_changed, _colorMapsChanged_backing_callable);
-                _colorMapsChanged_backing_callable = default;
-            }
-        }
-    }
-
-    public delegate void MapsEditedHandler(Aabb editedArea);
-
-    private MapsEditedHandler _mapsEdited_backing;
-    private Callable _mapsEdited_backing_callable;
-    public event MapsEditedHandler MapsEdited
-    {
-        add
-        {
-            if(_mapsEdited_backing == null)
-            {
-                _mapsEdited_backing_callable = Callable.From<Variant>(
-                    (arg0_variant) =>
-                    {
-                        var arg0 = arg0_variant.As<Aabb>();
-                        _mapsEdited_backing?.Invoke(arg0);
-                    }
-                );
-                Connect(_cached_maps_edited, _mapsEdited_backing_callable);
-            }
-            _mapsEdited_backing += value;
-        }
-        remove
-        {
-            _mapsEdited_backing -= value;
-            
-            if(_mapsEdited_backing == null)
-            {
-                Disconnect(_cached_maps_edited, _mapsEdited_backing_callable);
-                _mapsEdited_backing_callable = default;
-            }
-        }
-    }
-
-#endregion
-
-#region Methods
-
-    public int GetRegionCount() => Call(_cached_get_region_count).As<int>();
-
-    public void SetRegionLocations(Godot.Collections.Array<Vector2I> regionLocations) => Call(_cached_set_region_locations, regionLocations);
-
-    public Godot.Collections.Array<Vector2I> GetRegionLocations() => Call(_cached_get_region_locations).As<Godot.Collections.Array<Vector2I>>();
-
-    public Godot.Collections.Array<Terrain3DRegion> GetRegionsActive(bool copy, bool deep) => GDExtensionHelper.Cast<Terrain3DRegion>(Call(_cached_get_regions_active, copy, deep).As<Godot.Collections.Array<Godot.GodotObject>>());
-
-    public Godot.Collections.Dictionary GetRegionsAll() => Call(_cached_get_regions_all).As<Godot.Collections.Dictionary>();
-
-    public int[] GetRegionMap() => Call(_cached_get_region_map).As<int[]>();
-
-    public static int GetRegionMapIndex(Vector2I regionLocation) => GDExtensionHelper.Call(GDExtensionName, _cached_get_region_map_index, regionLocation).As<int>();
-
-    public void DoForRegions(Rect2I area, Callable callback) => Call(_cached_do_for_regions, area, callback);
-
-    public void ChangeRegionSize(int regionSize) => Call(_cached_change_region_size, regionSize);
-
-    public Vector2I GetRegionLocation(Vector3 globalPosition) => Call(_cached_get_region_location, globalPosition).As<Vector2I>();
-
-    public int GetRegionId(Vector2I regionLocation) => Call(_cached_get_region_id, regionLocation).As<int>();
 
-    public int GetRegionIdp(Vector3 globalPosition) => Call(_cached_get_region_idp, globalPosition).As<int>();
+	private new static readonly StringName NativeName = new StringName("Terrain3DData");
+
+	[Obsolete("Wrapper types cannot be constructed with constructors (it only instantiate the underlying Terrain3DData object), please use the Instantiate() method instead.")]
+	protected Terrain3DData() { }
+
+	private static CSharpScript _wrapperScriptAsset;
+
+	/// <summary>
+	/// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DData"/> wrapper type,
+	/// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DData"/> wrapper type,
+	/// a new instance of the <see cref="Terrain3DData"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
+	/// </summary>
+	/// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
+	/// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
+	/// <returns>The existing or a new instance of the <see cref="Terrain3DData"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
+	public new static Terrain3DData Bind(GodotObject godotObject)
+	{
+#if DEBUG
+		if (!IsInstanceValid(godotObject))
+			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
+#endif
+		if (godotObject is Terrain3DData wrapperScriptInstance)
+			return wrapperScriptInstance;
+
+#if DEBUG
+		var expectedType = typeof(Terrain3DData);
+		var currentObjectClassName = godotObject.GetClass();
+		if (!ClassDB.IsParentClass(expectedType.Name, currentObjectClassName))
+			throw new InvalidOperationException($"The supplied GodotObject ({currentObjectClassName}) is not the {expectedType.Name} type.");
+#endif
+
+		if (_wrapperScriptAsset is null)
+		{
+			var scriptPathAttribute = typeof(Terrain3DData).GetCustomAttributes<ScriptPathAttribute>().FirstOrDefault();
+			if (scriptPathAttribute is null) throw new UnreachableException();
+			_wrapperScriptAsset = ResourceLoader.Load<CSharpScript>(scriptPathAttribute.Path);
+		}
+
+		var instanceId = godotObject.GetInstanceId();
+		godotObject.SetScript(_wrapperScriptAsset);
+		return (Terrain3DData)InstanceFromId(instanceId);
+	}
+
+	/// <summary>
+	/// Creates an instance of the GDExtension <see cref="Terrain3DData"/> type, and attaches a wrapper script instance to it.
+	/// </summary>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DData" type.</returns>
+	public new static Terrain3DData Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
+
+	public enum HeightFilter
+	{
+		Nearest = 0,
+		Minimum = 1,
+	}
+
+	public new static class GDExtensionSignalName
+	{
+		public new static readonly StringName MapsChanged = "maps_changed";
+		public new static readonly StringName RegionMapChanged = "region_map_changed";
+		public new static readonly StringName HeightMapsChanged = "height_maps_changed";
+		public new static readonly StringName ControlMapsChanged = "control_maps_changed";
+		public new static readonly StringName ColorMapsChanged = "color_maps_changed";
+		public new static readonly StringName MapsEdited = "maps_edited";
+	}
+
+	public new delegate void MapsChangedSignalHandler();
+	private MapsChangedSignalHandler _mapsChangedSignal;
+	private Callable _mapsChangedSignalCallable;
+	public event MapsChangedSignalHandler MapsChangedSignal
+	{
+		add
+		{
+			if (_mapsChangedSignal is null)
+			{
+				_mapsChangedSignalCallable = Callable.From(() => 
+					_mapsChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.MapsChanged, _mapsChangedSignalCallable);
+			}
+			_mapsChangedSignal += value;
+		}
+		remove
+		{
+			_mapsChangedSignal -= value;
+			if (_mapsChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.MapsChanged, _mapsChangedSignalCallable);
+			_mapsChangedSignalCallable = default;
+		}
+	}
+
+	public new delegate void RegionMapChangedSignalHandler();
+	private RegionMapChangedSignalHandler _regionMapChangedSignal;
+	private Callable _regionMapChangedSignalCallable;
+	public event RegionMapChangedSignalHandler RegionMapChangedSignal
+	{
+		add
+		{
+			if (_regionMapChangedSignal is null)
+			{
+				_regionMapChangedSignalCallable = Callable.From(() => 
+					_regionMapChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.RegionMapChanged, _regionMapChangedSignalCallable);
+			}
+			_regionMapChangedSignal += value;
+		}
+		remove
+		{
+			_regionMapChangedSignal -= value;
+			if (_regionMapChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.RegionMapChanged, _regionMapChangedSignalCallable);
+			_regionMapChangedSignalCallable = default;
+		}
+	}
+
+	public new delegate void HeightMapsChangedSignalHandler();
+	private HeightMapsChangedSignalHandler _heightMapsChangedSignal;
+	private Callable _heightMapsChangedSignalCallable;
+	public event HeightMapsChangedSignalHandler HeightMapsChangedSignal
+	{
+		add
+		{
+			if (_heightMapsChangedSignal is null)
+			{
+				_heightMapsChangedSignalCallable = Callable.From(() => 
+					_heightMapsChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.HeightMapsChanged, _heightMapsChangedSignalCallable);
+			}
+			_heightMapsChangedSignal += value;
+		}
+		remove
+		{
+			_heightMapsChangedSignal -= value;
+			if (_heightMapsChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.HeightMapsChanged, _heightMapsChangedSignalCallable);
+			_heightMapsChangedSignalCallable = default;
+		}
+	}
+
+	public new delegate void ControlMapsChangedSignalHandler();
+	private ControlMapsChangedSignalHandler _controlMapsChangedSignal;
+	private Callable _controlMapsChangedSignalCallable;
+	public event ControlMapsChangedSignalHandler ControlMapsChangedSignal
+	{
+		add
+		{
+			if (_controlMapsChangedSignal is null)
+			{
+				_controlMapsChangedSignalCallable = Callable.From(() => 
+					_controlMapsChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.ControlMapsChanged, _controlMapsChangedSignalCallable);
+			}
+			_controlMapsChangedSignal += value;
+		}
+		remove
+		{
+			_controlMapsChangedSignal -= value;
+			if (_controlMapsChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.ControlMapsChanged, _controlMapsChangedSignalCallable);
+			_controlMapsChangedSignalCallable = default;
+		}
+	}
+
+	public new delegate void ColorMapsChangedSignalHandler();
+	private ColorMapsChangedSignalHandler _colorMapsChangedSignal;
+	private Callable _colorMapsChangedSignalCallable;
+	public event ColorMapsChangedSignalHandler ColorMapsChangedSignal
+	{
+		add
+		{
+			if (_colorMapsChangedSignal is null)
+			{
+				_colorMapsChangedSignalCallable = Callable.From(() => 
+					_colorMapsChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.ColorMapsChanged, _colorMapsChangedSignalCallable);
+			}
+			_colorMapsChangedSignal += value;
+		}
+		remove
+		{
+			_colorMapsChangedSignal -= value;
+			if (_colorMapsChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.ColorMapsChanged, _colorMapsChangedSignalCallable);
+			_colorMapsChangedSignalCallable = default;
+		}
+	}
+
+	public new delegate void MapsEditedSignalHandler(Aabb editedArea);
+	private MapsEditedSignalHandler _mapsEditedSignal;
+	private Callable _mapsEditedSignalCallable;
+	public event MapsEditedSignalHandler MapsEditedSignal
+	{
+		add
+		{
+			if (_mapsEditedSignal is null)
+			{
+				_mapsEditedSignalCallable = Callable.From((Variant editedArea) => 
+					_mapsEditedSignal?.Invoke(editedArea.As<Aabb>()));
+				Connect(GDExtensionSignalName.MapsEdited, _mapsEditedSignalCallable);
+			}
+			_mapsEditedSignal += value;
+		}
+		remove
+		{
+			_mapsEditedSignal -= value;
+			if (_mapsEditedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.MapsEdited, _mapsEditedSignalCallable);
+			_mapsEditedSignalCallable = default;
+		}
+	}
+
+	public new static class GDExtensionPropertyName
+	{
+		public new static readonly StringName RegionLocations = "region_locations";
+		public new static readonly StringName HeightMaps = "height_maps";
+		public new static readonly StringName ControlMaps = "control_maps";
+		public new static readonly StringName ColorMaps = "color_maps";
+	}
+
+	public new Godot.Collections.Array RegionLocations
+	{
+		get => Get(GDExtensionPropertyName.RegionLocations).As<Godot.Collections.Array>();
+		set => Set(GDExtensionPropertyName.RegionLocations, value);
+	}
+
+	public new Godot.Collections.Array HeightMaps
+	{
+		get => Get(GDExtensionPropertyName.HeightMaps).As<Godot.Collections.Array>();
+	}
+
+	public new Godot.Collections.Array ControlMaps
+	{
+		get => Get(GDExtensionPropertyName.ControlMaps).As<Godot.Collections.Array>();
+	}
+
+	public new Godot.Collections.Array ColorMaps
+	{
+		get => Get(GDExtensionPropertyName.ColorMaps).As<Godot.Collections.Array>();
+	}
+
+	public new static class GDExtensionMethodName
+	{
+		public new static readonly StringName GetRegionCount = "get_region_count";
+		public new static readonly StringName GetRegionsActive = "get_regions_active";
+		public new static readonly StringName GetRegionsAll = "get_regions_all";
+		public new static readonly StringName GetRegionMap = "get_region_map";
+		public new static readonly StringName GetRegionMapIndex = "get_region_map_index";
+		public new static readonly StringName DoForRegions = "do_for_regions";
+		public new static readonly StringName ChangeRegionSize = "change_region_size";
+		public new static readonly StringName GetRegionLocation = "get_region_location";
+		public new static readonly StringName GetRegionId = "get_region_id";
+		public new static readonly StringName GetRegionIdp = "get_region_idp";
+		public new static readonly StringName HasRegion = "has_region";
+		public new static readonly StringName HasRegionp = "has_regionp";
+		public new static readonly StringName GetRegion = "get_region";
+		public new static readonly StringName GetRegionp = "get_regionp";
+		public new static readonly StringName SetRegionModified = "set_region_modified";
+		public new static readonly StringName IsRegionModified = "is_region_modified";
+		public new static readonly StringName SetRegionDeleted = "set_region_deleted";
+		public new static readonly StringName IsRegionDeleted = "is_region_deleted";
+		public new static readonly StringName AddRegionBlankp = "add_region_blankp";
+		public new static readonly StringName AddRegionBlank = "add_region_blank";
+		public new static readonly StringName AddRegion = "add_region";
+		public new static readonly StringName RemoveRegionp = "remove_regionp";
+		public new static readonly StringName RemoveRegionl = "remove_regionl";
+		public new static readonly StringName RemoveRegion = "remove_region";
+		public new static readonly StringName SaveDirectory = "save_directory";
+		public new static readonly StringName SaveRegion = "save_region";
+		public new static readonly StringName LoadDirectory = "load_directory";
+		public new static readonly StringName LoadRegion = "load_region";
+		public new static readonly StringName GetMaps = "get_maps";
+		public new static readonly StringName UpdateMaps = "update_maps";
+		public new static readonly StringName GetHeightMapsRid = "get_height_maps_rid";
+		public new static readonly StringName GetControlMapsRid = "get_control_maps_rid";
+		public new static readonly StringName GetColorMapsRid = "get_color_maps_rid";
+		public new static readonly StringName SetPixel = "set_pixel";
+		public new static readonly StringName GetPixel = "get_pixel";
+		public new static readonly StringName SetHeight = "set_height";
+		public new static readonly StringName GetHeight = "get_height";
+		public new static readonly StringName SetColor = "set_color";
+		public new static readonly StringName GetColor = "get_color";
+		public new static readonly StringName SetControl = "set_control";
+		public new static readonly StringName GetControl = "get_control";
+		public new static readonly StringName SetRoughness = "set_roughness";
+		public new static readonly StringName GetRoughness = "get_roughness";
+		public new static readonly StringName SetControlBaseId = "set_control_base_id";
+		public new static readonly StringName GetControlBaseId = "get_control_base_id";
+		public new static readonly StringName SetControlOverlayId = "set_control_overlay_id";
+		public new static readonly StringName GetControlOverlayId = "get_control_overlay_id";
+		public new static readonly StringName SetControlBlend = "set_control_blend";
+		public new static readonly StringName GetControlBlend = "get_control_blend";
+		public new static readonly StringName SetControlAngle = "set_control_angle";
+		public new static readonly StringName GetControlAngle = "get_control_angle";
+		public new static readonly StringName SetControlScale = "set_control_scale";
+		public new static readonly StringName GetControlScale = "get_control_scale";
+		public new static readonly StringName SetControlHole = "set_control_hole";
+		public new static readonly StringName GetControlHole = "get_control_hole";
+		public new static readonly StringName SetControlNavigation = "set_control_navigation";
+		public new static readonly StringName GetControlNavigation = "get_control_navigation";
+		public new static readonly StringName SetControlAuto = "set_control_auto";
+		public new static readonly StringName GetControlAuto = "get_control_auto";
+		public new static readonly StringName GetNormal = "get_normal";
+		public new static readonly StringName IsInSlope = "is_in_slope";
+		public new static readonly StringName GetTextureId = "get_texture_id";
+		public new static readonly StringName GetMeshVertex = "get_mesh_vertex";
+		public new static readonly StringName GetHeightRange = "get_height_range";
+		public new static readonly StringName CalcHeightRange = "calc_height_range";
+		public new static readonly StringName ImportImages = "import_images";
+		public new static readonly StringName ExportImage = "export_image";
+		public new static readonly StringName LayeredToImage = "layered_to_image";
+		public new static readonly StringName Dump = "dump";
+	}
+
+	public new long GetRegionCount() => 
+		Call(GDExtensionMethodName.GetRegionCount, []).As<long>();
+
+	public new Godot.Collections.Array GetRegionsActive(bool copy = false, bool deep = false) => 
+		Call(GDExtensionMethodName.GetRegionsActive, [copy, deep]).As<Godot.Collections.Array>();
+
+	public new Godot.Collections.Dictionary GetRegionsAll() => 
+		Call(GDExtensionMethodName.GetRegionsAll, []).As<Godot.Collections.Dictionary>();
+
+	public new int[] GetRegionMap() => 
+		Call(GDExtensionMethodName.GetRegionMap, []).As<int[]>();
+
+	public new static long GetRegionMapIndex(Vector2I regionLocation) => 
+		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.GetRegionMapIndex, [regionLocation]).As<long>();
+
+	public new void DoForRegions(Rect2I area, Callable callback) => 
+		Call(GDExtensionMethodName.DoForRegions, [area, callback]);
+
+	public new void ChangeRegionSize(long regionSize) => 
+		Call(GDExtensionMethodName.ChangeRegionSize, [regionSize]);
+
+	public new Vector2I GetRegionLocation(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetRegionLocation, [globalPosition]).As<Vector2I>();
+
+	public new long GetRegionId(Vector2I regionLocation) => 
+		Call(GDExtensionMethodName.GetRegionId, [regionLocation]).As<long>();
+
+	public new long GetRegionIdp(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetRegionIdp, [globalPosition]).As<long>();
+
+	public new bool HasRegion(Vector2I regionLocation) => 
+		Call(GDExtensionMethodName.HasRegion, [regionLocation]).As<bool>();
+
+	public new bool HasRegionp(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.HasRegionp, [globalPosition]).As<bool>();
+
+	public new Terrain3DRegion GetRegion(Vector2I regionLocation) => 
+		Terrain3DRegion.Bind(Call(GDExtensionMethodName.GetRegion, [regionLocation]).As<Resource>());
+
+	public new Terrain3DRegion GetRegionp(Vector3 globalPosition) => 
+		Terrain3DRegion.Bind(Call(GDExtensionMethodName.GetRegionp, [globalPosition]).As<Resource>());
+
+	public new void SetRegionModified(Vector2I regionLocation, bool modified) => 
+		Call(GDExtensionMethodName.SetRegionModified, [regionLocation, modified]);
+
+	public new bool IsRegionModified(Vector2I regionLocation) => 
+		Call(GDExtensionMethodName.IsRegionModified, [regionLocation]).As<bool>();
+
+	public new void SetRegionDeleted(Vector2I regionLocation, bool deleted) => 
+		Call(GDExtensionMethodName.SetRegionDeleted, [regionLocation, deleted]);
+
+	public new bool IsRegionDeleted(Vector2I regionLocation) => 
+		Call(GDExtensionMethodName.IsRegionDeleted, [regionLocation]).As<bool>();
+
+	public new Terrain3DRegion AddRegionBlankp(Vector3 globalPosition, bool update = true) => 
+		Terrain3DRegion.Bind(Call(GDExtensionMethodName.AddRegionBlankp, [globalPosition, update]).As<Resource>());
+
+	public new Terrain3DRegion AddRegionBlank(Vector2I regionLocation, bool update = true) => 
+		Terrain3DRegion.Bind(Call(GDExtensionMethodName.AddRegionBlank, [regionLocation, update]).As<Resource>());
+
+	public new Error AddRegion(Terrain3DRegion region, bool update = true) => 
+		Call(GDExtensionMethodName.AddRegion, [region, update]).As<Error>();
+
+	public new void RemoveRegionp(Vector3 globalPosition, bool update = true) => 
+		Call(GDExtensionMethodName.RemoveRegionp, [globalPosition, update]);
+
+	public new void RemoveRegionl(Vector2I regionLocation, bool update = true) => 
+		Call(GDExtensionMethodName.RemoveRegionl, [regionLocation, update]);
+
+	public new void RemoveRegion(Terrain3DRegion region, bool update = true) => 
+		Call(GDExtensionMethodName.RemoveRegion, [region, update]);
+
+	public new void SaveDirectory(string directory) => 
+		Call(GDExtensionMethodName.SaveDirectory, [directory]);
+
+	public new void SaveRegion(Vector2I regionLocation, string directory, bool save16Bit = false) => 
+		Call(GDExtensionMethodName.SaveRegion, [regionLocation, directory, save16Bit]);
+
+	public new void LoadDirectory(string directory) => 
+		Call(GDExtensionMethodName.LoadDirectory, [directory]);
+
+	public new void LoadRegion(Vector2I regionLocation, string directory, bool update = true) => 
+		Call(GDExtensionMethodName.LoadRegion, [regionLocation, directory, update]);
+
+	public new Godot.Collections.Array GetMaps(Terrain3DRegion.MapType mapType) => 
+		Call(GDExtensionMethodName.GetMaps, [Variant.From(mapType)]).As<Godot.Collections.Array>();
+
+	public new void UpdateMaps(Terrain3DRegion.MapType mapType = Terrain3DRegion.MapType.Max, bool allRegions = true, bool generateMipmaps = false) => 
+		Call(GDExtensionMethodName.UpdateMaps, [Variant.From(mapType), allRegions, generateMipmaps]);
+
+	public new Rid GetHeightMapsRid() => 
+		Call(GDExtensionMethodName.GetHeightMapsRid, []).As<Rid>();
+
+	public new Rid GetControlMapsRid() => 
+		Call(GDExtensionMethodName.GetControlMapsRid, []).As<Rid>();
+
+	public new Rid GetColorMapsRid() => 
+		Call(GDExtensionMethodName.GetColorMapsRid, []).As<Rid>();
+
+	public new void SetPixel(Terrain3DRegion.MapType mapType, Vector3 globalPosition, Color pixel) => 
+		Call(GDExtensionMethodName.SetPixel, [Variant.From(mapType), globalPosition, pixel]);
+
+	public new Color GetPixel(Terrain3DRegion.MapType mapType, Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetPixel, [Variant.From(mapType), globalPosition]).As<Color>();
+
+	public new void SetHeight(Vector3 globalPosition, double height) => 
+		Call(GDExtensionMethodName.SetHeight, [globalPosition, height]);
+
+	public new double GetHeight(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetHeight, [globalPosition]).As<double>();
+
+	public new void SetColor(Vector3 globalPosition, Color color) => 
+		Call(GDExtensionMethodName.SetColor, [globalPosition, color]);
+
+	public new Color GetColor(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetColor, [globalPosition]).As<Color>();
+
+	public new void SetControl(Vector3 globalPosition, long control) => 
+		Call(GDExtensionMethodName.SetControl, [globalPosition, control]);
+
+	public new long GetControl(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControl, [globalPosition]).As<long>();
+
+	public new void SetRoughness(Vector3 globalPosition, double roughness) => 
+		Call(GDExtensionMethodName.SetRoughness, [globalPosition, roughness]);
+
+	public new double GetRoughness(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetRoughness, [globalPosition]).As<double>();
+
+	public new void SetControlBaseId(Vector3 globalPosition, long textureId) => 
+		Call(GDExtensionMethodName.SetControlBaseId, [globalPosition, textureId]);
+
+	public new long GetControlBaseId(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlBaseId, [globalPosition]).As<long>();
+
+	public new void SetControlOverlayId(Vector3 globalPosition, long textureId) => 
+		Call(GDExtensionMethodName.SetControlOverlayId, [globalPosition, textureId]);
+
+	public new long GetControlOverlayId(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlOverlayId, [globalPosition]).As<long>();
+
+	public new void SetControlBlend(Vector3 globalPosition, double blendValue) => 
+		Call(GDExtensionMethodName.SetControlBlend, [globalPosition, blendValue]);
+
+	public new double GetControlBlend(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlBlend, [globalPosition]).As<double>();
+
+	public new void SetControlAngle(Vector3 globalPosition, double degrees) => 
+		Call(GDExtensionMethodName.SetControlAngle, [globalPosition, degrees]);
+
+	public new double GetControlAngle(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlAngle, [globalPosition]).As<double>();
+
+	public new void SetControlScale(Vector3 globalPosition, double percentageModifier) => 
+		Call(GDExtensionMethodName.SetControlScale, [globalPosition, percentageModifier]);
+
+	public new double GetControlScale(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlScale, [globalPosition]).As<double>();
+
+	public new void SetControlHole(Vector3 globalPosition, bool enable) => 
+		Call(GDExtensionMethodName.SetControlHole, [globalPosition, enable]);
+
+	public new bool GetControlHole(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlHole, [globalPosition]).As<bool>();
+
+	public new void SetControlNavigation(Vector3 globalPosition, bool enable) => 
+		Call(GDExtensionMethodName.SetControlNavigation, [globalPosition, enable]);
+
+	public new bool GetControlNavigation(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlNavigation, [globalPosition]).As<bool>();
+
+	public new void SetControlAuto(Vector3 globalPosition, bool enable) => 
+		Call(GDExtensionMethodName.SetControlAuto, [globalPosition, enable]);
+
+	public new bool GetControlAuto(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetControlAuto, [globalPosition]).As<bool>();
+
+	public new Vector3 GetNormal(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetNormal, [globalPosition]).As<Vector3>();
+
+	public new bool IsInSlope(Vector3 globalPosition, Vector2 slopeRange, Vector3 normal = default) => 
+		Call(GDExtensionMethodName.IsInSlope, [globalPosition, slopeRange, normal]).As<bool>();
+
+	public new Vector3 GetTextureId(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetTextureId, [globalPosition]).As<Vector3>();
+
+	public new Vector3 GetMeshVertex(long lod, Terrain3DData.HeightFilter filter, Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetMeshVertex, [lod, Variant.From(filter), globalPosition]).As<Vector3>();
+
+	public new Vector2 GetHeightRange() => 
+		Call(GDExtensionMethodName.GetHeightRange, []).As<Vector2>();
+
+	public new void CalcHeightRange(bool recursive = false) => 
+		Call(GDExtensionMethodName.CalcHeightRange, [recursive]);
+
+	public new void ImportImages(Godot.Collections.Array images, Vector3 globalPosition = default, double offset = 0, double scale = 1) => 
+		Call(GDExtensionMethodName.ImportImages, [images, globalPosition, offset, scale]);
+
+	public new Error ExportImage(string fileName, Terrain3DRegion.MapType mapType) => 
+		Call(GDExtensionMethodName.ExportImage, [fileName, Variant.From(mapType)]).As<Error>();
+
+	public new Image LayeredToImage(Terrain3DRegion.MapType mapType) => 
+		Call(GDExtensionMethodName.LayeredToImage, [Variant.From(mapType)]).As<Image>();
+
+	public new void Dump(bool verbose = false) => 
+		Call(GDExtensionMethodName.Dump, [verbose]);
 
-    public bool HasRegion(Vector2I regionLocation) => Call(_cached_has_region, regionLocation).As<bool>();
-
-    public bool HasRegionp(Vector3 globalPosition) => Call(_cached_has_regionp, globalPosition).As<bool>();
-
-    public Terrain3DRegion GetRegion(Vector2I regionLocation) => GDExtensionHelper.Bind<Terrain3DRegion>(Call(_cached_get_region, regionLocation).As<GodotObject>());
-
-    public Terrain3DRegion GetRegionp(Vector3 globalPosition) => GDExtensionHelper.Bind<Terrain3DRegion>(Call(_cached_get_regionp, globalPosition).As<GodotObject>());
-
-    public void SetRegionModified(Vector2I regionLocation, bool modified) => Call(_cached_set_region_modified, regionLocation, modified);
-
-    public bool IsRegionModified(Vector2I regionLocation) => Call(_cached_is_region_modified, regionLocation).As<bool>();
-
-    public void SetRegionDeleted(Vector2I regionLocation, bool deleted) => Call(_cached_set_region_deleted, regionLocation, deleted);
-
-    public bool IsRegionDeleted(Vector2I regionLocation) => Call(_cached_is_region_deleted, regionLocation).As<bool>();
-
-    public Terrain3DRegion AddRegionBlankp(Vector3 globalPosition, bool update) => GDExtensionHelper.Bind<Terrain3DRegion>(Call(_cached_add_region_blankp, globalPosition, update).As<GodotObject>());
-
-    public Terrain3DRegion AddRegionBlank(Vector2I regionLocation, bool update) => GDExtensionHelper.Bind<Terrain3DRegion>(Call(_cached_add_region_blank, regionLocation, update).As<GodotObject>());
-
-    public int AddRegion(Terrain3DRegion region, bool update) => Call(_cached_add_region, (Resource)region, update).As<int>();
-
-    public void RemoveRegionp(Vector3 globalPosition, bool update) => Call(_cached_remove_regionp, globalPosition, update);
-
-    public void RemoveRegionl(Vector2I regionLocation, bool update) => Call(_cached_remove_regionl, regionLocation, update);
-
-    public void RemoveRegion(Terrain3DRegion region, bool update) => Call(_cached_remove_region, (Resource)region, update);
-
-    public void SaveDirectory(string directory) => Call(_cached_save_directory, directory);
-
-    public void SaveRegion(Vector2I regionLocation, string directory, bool _16Bit) => Call(_cached_save_region, regionLocation, directory, _16Bit);
-
-    public void LoadDirectory(string directory) => Call(_cached_load_directory, directory);
-
-    public void LoadRegion(Vector2I regionLocation, string directory, bool update) => Call(_cached_load_region, regionLocation, directory, update);
-
-    public Godot.Collections.Array<Image> GetHeightMaps() => GDExtensionHelper.Cast<Image>(Call(_cached_get_height_maps).As<Godot.Collections.Array<Godot.GodotObject>>());
-
-    public Godot.Collections.Array<Image> GetControlMaps() => GDExtensionHelper.Cast<Image>(Call(_cached_get_control_maps).As<Godot.Collections.Array<Godot.GodotObject>>());
-
-    public Godot.Collections.Array<Image> GetColorMaps() => GDExtensionHelper.Cast<Image>(Call(_cached_get_color_maps).As<Godot.Collections.Array<Godot.GodotObject>>());
-
-    public Godot.Collections.Array<Image> GetMaps(int mapType) => GDExtensionHelper.Cast<Image>(Call(_cached_get_maps, mapType).As<Godot.Collections.Array<Godot.GodotObject>>());
-
-    public void UpdateMaps(int mapType, bool allMaps, bool generateMipmaps) => Call(_cached_update_maps, mapType, allMaps, generateMipmaps);
-
-    public Rid GetHeightMapsRid() => Call(_cached_get_height_maps_rid).As<Rid>();
-
-    public Rid GetControlMapsRid() => Call(_cached_get_control_maps_rid).As<Rid>();
-
-    public Rid GetColorMapsRid() => Call(_cached_get_color_maps_rid).As<Rid>();
-
-    public void SetPixel(int mapType, Vector3 globalPosition, Color pixel) => Call(_cached_set_pixel, mapType, globalPosition, pixel);
-
-    public Color GetPixel(int mapType, Vector3 globalPosition) => Call(_cached_get_pixel, mapType, globalPosition).As<Color>();
-
-    public void SetHeight(Vector3 globalPosition, float height) => Call(_cached_set_height, globalPosition, height);
-
-    public float GetHeight(Vector3 globalPosition) => Call(_cached_get_height, globalPosition).As<float>();
-
-    public void SetColor(Vector3 globalPosition, Color color) => Call(_cached_set_color, globalPosition, color);
-
-    public Color GetColor(Vector3 globalPosition) => Call(_cached_get_color, globalPosition).As<Color>();
-
-    public void SetControl(Vector3 globalPosition, int control) => Call(_cached_set_control, globalPosition, control);
-
-    public int GetControl(Vector3 globalPosition) => Call(_cached_get_control, globalPosition).As<int>();
-
-    public void SetRoughness(Vector3 globalPosition, float roughness) => Call(_cached_set_roughness, globalPosition, roughness);
-
-    public float GetRoughness(Vector3 globalPosition) => Call(_cached_get_roughness, globalPosition).As<float>();
-
-    public void SetControlBaseId(Vector3 globalPosition, int textureId) => Call(_cached_set_control_base_id, globalPosition, textureId);
-
-    public int GetControlBaseId(Vector3 globalPosition) => Call(_cached_get_control_base_id, globalPosition).As<int>();
-
-    public void SetControlOverlayId(Vector3 globalPosition, int textureId) => Call(_cached_set_control_overlay_id, globalPosition, textureId);
-
-    public int GetControlOverlayId(Vector3 globalPosition) => Call(_cached_get_control_overlay_id, globalPosition).As<int>();
-
-    public void SetControlBlend(Vector3 globalPosition, float blendValue) => Call(_cached_set_control_blend, globalPosition, blendValue);
-
-    public float GetControlBlend(Vector3 globalPosition) => Call(_cached_get_control_blend, globalPosition).As<float>();
-
-    public void SetControlAngle(Vector3 globalPosition, float degrees) => Call(_cached_set_control_angle, globalPosition, degrees);
-
-    public float GetControlAngle(Vector3 globalPosition) => Call(_cached_get_control_angle, globalPosition).As<float>();
-
-    public void SetControlScale(Vector3 globalPosition, float percentageModifier) => Call(_cached_set_control_scale, globalPosition, percentageModifier);
-
-    public float GetControlScale(Vector3 globalPosition) => Call(_cached_get_control_scale, globalPosition).As<float>();
-
-    public void SetControlHole(Vector3 globalPosition, bool enable) => Call(_cached_set_control_hole, globalPosition, enable);
-
-    public bool GetControlHole(Vector3 globalPosition) => Call(_cached_get_control_hole, globalPosition).As<bool>();
-
-    public void SetControlNavigation(Vector3 globalPosition, bool enable) => Call(_cached_set_control_navigation, globalPosition, enable);
-
-    public bool GetControlNavigation(Vector3 globalPosition) => Call(_cached_get_control_navigation, globalPosition).As<bool>();
-
-    public void SetControlAuto(Vector3 globalPosition, bool enable) => Call(_cached_set_control_auto, globalPosition, enable);
-
-    public bool GetControlAuto(Vector3 globalPosition) => Call(_cached_get_control_auto, globalPosition).As<bool>();
-
-    public Vector3 GetNormal(Vector3 globalPosition) => Call(_cached_get_normal, globalPosition).As<Vector3>();
-
-    public bool IsInSlope(Vector3 globalPosition, Vector2 slopeRange, bool invert) => Call(_cached_is_in_slope, globalPosition, slopeRange, invert).As<bool>();
-
-    public Vector3 GetTextureId(Vector3 globalPosition) => Call(_cached_get_texture_id, globalPosition).As<Vector3>();
-
-    public Vector3 GetMeshVertex(int lod, int filter, Vector3 globalPosition) => Call(_cached_get_mesh_vertex, lod, filter, globalPosition).As<Vector3>();
-
-    public Vector2 GetHeightRange() => Call(_cached_get_height_range).As<Vector2>();
-
-    public void CalcHeightRange(bool recursive) => Call(_cached_calc_height_range, recursive);
-
-    public void ImportImages(Godot.Collections.Array<Image> images, Vector3 globalPosition, float offset, float scale) => Call(_cached_import_images, images, globalPosition, offset, scale);
-
-    public int ExportImage(string fileName, int mapType) => Call(_cached_export_image, fileName, mapType).As<int>();
-
-    public Image LayeredToImage(int mapType) => GDExtensionHelper.Bind<Image>(Call(_cached_layered_to_image, mapType).As<GodotObject>());
-
-#endregion
-
-    private static readonly StringName _cached_region_locations = "region_locations";
-    private static readonly StringName _cached_height_maps = "height_maps";
-    private static readonly StringName _cached_control_maps = "control_maps";
-    private static readonly StringName _cached_color_maps = "color_maps";
-    private static readonly StringName _cached_get_region_count = "get_region_count";
-    private static readonly StringName _cached_set_region_locations = "set_region_locations";
-    private static readonly StringName _cached_get_region_locations = "get_region_locations";
-    private static readonly StringName _cached_get_regions_active = "get_regions_active";
-    private static readonly StringName _cached_get_regions_all = "get_regions_all";
-    private static readonly StringName _cached_get_region_map = "get_region_map";
-    private static readonly StringName _cached_get_region_map_index = "get_region_map_index";
-    private static readonly StringName _cached_do_for_regions = "do_for_regions";
-    private static readonly StringName _cached_change_region_size = "change_region_size";
-    private static readonly StringName _cached_get_region_location = "get_region_location";
-    private static readonly StringName _cached_get_region_id = "get_region_id";
-    private static readonly StringName _cached_get_region_idp = "get_region_idp";
-    private static readonly StringName _cached_has_region = "has_region";
-    private static readonly StringName _cached_has_regionp = "has_regionp";
-    private static readonly StringName _cached_get_region = "get_region";
-    private static readonly StringName _cached_get_regionp = "get_regionp";
-    private static readonly StringName _cached_set_region_modified = "set_region_modified";
-    private static readonly StringName _cached_is_region_modified = "is_region_modified";
-    private static readonly StringName _cached_set_region_deleted = "set_region_deleted";
-    private static readonly StringName _cached_is_region_deleted = "is_region_deleted";
-    private static readonly StringName _cached_add_region_blankp = "add_region_blankp";
-    private static readonly StringName _cached_add_region_blank = "add_region_blank";
-    private static readonly StringName _cached_add_region = "add_region";
-    private static readonly StringName _cached_remove_regionp = "remove_regionp";
-    private static readonly StringName _cached_remove_regionl = "remove_regionl";
-    private static readonly StringName _cached_remove_region = "remove_region";
-    private static readonly StringName _cached_save_directory = "save_directory";
-    private static readonly StringName _cached_save_region = "save_region";
-    private static readonly StringName _cached_load_directory = "load_directory";
-    private static readonly StringName _cached_load_region = "load_region";
-    private static readonly StringName _cached_get_height_maps = "get_height_maps";
-    private static readonly StringName _cached_get_control_maps = "get_control_maps";
-    private static readonly StringName _cached_get_color_maps = "get_color_maps";
-    private static readonly StringName _cached_get_maps = "get_maps";
-    private static readonly StringName _cached_update_maps = "update_maps";
-    private static readonly StringName _cached_get_height_maps_rid = "get_height_maps_rid";
-    private static readonly StringName _cached_get_control_maps_rid = "get_control_maps_rid";
-    private static readonly StringName _cached_get_color_maps_rid = "get_color_maps_rid";
-    private static readonly StringName _cached_set_pixel = "set_pixel";
-    private static readonly StringName _cached_get_pixel = "get_pixel";
-    private static readonly StringName _cached_set_height = "set_height";
-    private static readonly StringName _cached_get_height = "get_height";
-    private static readonly StringName _cached_set_color = "set_color";
-    private static readonly StringName _cached_get_color = "get_color";
-    private static readonly StringName _cached_set_control = "set_control";
-    private static readonly StringName _cached_get_control = "get_control";
-    private static readonly StringName _cached_set_roughness = "set_roughness";
-    private static readonly StringName _cached_get_roughness = "get_roughness";
-    private static readonly StringName _cached_set_control_base_id = "set_control_base_id";
-    private static readonly StringName _cached_get_control_base_id = "get_control_base_id";
-    private static readonly StringName _cached_set_control_overlay_id = "set_control_overlay_id";
-    private static readonly StringName _cached_get_control_overlay_id = "get_control_overlay_id";
-    private static readonly StringName _cached_set_control_blend = "set_control_blend";
-    private static readonly StringName _cached_get_control_blend = "get_control_blend";
-    private static readonly StringName _cached_set_control_angle = "set_control_angle";
-    private static readonly StringName _cached_get_control_angle = "get_control_angle";
-    private static readonly StringName _cached_set_control_scale = "set_control_scale";
-    private static readonly StringName _cached_get_control_scale = "get_control_scale";
-    private static readonly StringName _cached_set_control_hole = "set_control_hole";
-    private static readonly StringName _cached_get_control_hole = "get_control_hole";
-    private static readonly StringName _cached_set_control_navigation = "set_control_navigation";
-    private static readonly StringName _cached_get_control_navigation = "get_control_navigation";
-    private static readonly StringName _cached_set_control_auto = "set_control_auto";
-    private static readonly StringName _cached_get_control_auto = "get_control_auto";
-    private static readonly StringName _cached_get_normal = "get_normal";
-    private static readonly StringName _cached_is_in_slope = "is_in_slope";
-    private static readonly StringName _cached_get_texture_id = "get_texture_id";
-    private static readonly StringName _cached_get_mesh_vertex = "get_mesh_vertex";
-    private static readonly StringName _cached_get_height_range = "get_height_range";
-    private static readonly StringName _cached_calc_height_range = "calc_height_range";
-    private static readonly StringName _cached_import_images = "import_images";
-    private static readonly StringName _cached_export_image = "export_image";
-    private static readonly StringName _cached_layered_to_image = "layered_to_image";
-    private static readonly StringName _cached_maps_changed = "maps_changed";
-    private static readonly StringName _cached_region_map_changed = "region_map_changed";
-    private static readonly StringName _cached_height_maps_changed = "height_maps_changed";
-    private static readonly StringName _cached_control_maps_changed = "control_maps_changed";
-    private static readonly StringName _cached_color_maps_changed = "color_maps_changed";
-    private static readonly StringName _cached_maps_edited = "maps_edited";
 }

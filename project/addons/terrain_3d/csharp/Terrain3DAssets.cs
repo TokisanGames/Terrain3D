@@ -1,205 +1,225 @@
+#pragma warning disable CS0109
 using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Godot;
+using Godot.Collections;
 
 namespace TokisanGames;
 
 public partial class Terrain3DAssets : Resource
 {
-    public static readonly StringName GDExtensionName = "Terrain3DAssets";
 
-    [Obsolete("Wrapper classes cannot be constructed with Ctor (it only instantiate the underlying Resource), please use the Instantiate() method instead.")]
-    protected Terrain3DAssets() { }
+	private new static readonly StringName NativeName = new StringName("Terrain3DAssets");
 
-    /// <summary>
-    /// Creates an instance of the GDExtension <see cref="Terrain3DAssets"/> type, and attaches the wrapper script to it.
-    /// </summary>
-    /// <returns>The wrapper instance linked to the underlying GDExtension type.</returns>
-    public static Terrain3DAssets Instantiate()
-    {
-        return GDExtensionHelper.Instantiate<Terrain3DAssets>(GDExtensionName);
-    }
+	[Obsolete("Wrapper types cannot be constructed with constructors (it only instantiate the underlying Terrain3DAssets object), please use the Instantiate() method instead.")]
+	protected Terrain3DAssets() { }
 
-    /// <summary>
-    /// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DAssets"/> wrapper type,
-    /// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DAssets"/> wrapper type,
-    /// a new instance of the <see cref="Terrain3DAssets"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
-    /// </summary>
-    /// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
-    /// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
-    /// <returns>The existing or a new instance of the <see cref="Terrain3DAssets"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
-    public static Terrain3DAssets Bind(GodotObject godotObject)
-    {
-        return GDExtensionHelper.Bind<Terrain3DAssets>(godotObject);
-    }
-#region Enums
+	private static CSharpScript _wrapperScriptAsset;
 
-    public enum AssetType : long
-    {
-        TypeTexture = 0,
-        TypeMesh = 1,
-    }
+	/// <summary>
+	/// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DAssets"/> wrapper type,
+	/// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DAssets"/> wrapper type,
+	/// a new instance of the <see cref="Terrain3DAssets"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
+	/// </summary>
+	/// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
+	/// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
+	/// <returns>The existing or a new instance of the <see cref="Terrain3DAssets"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
+	public new static Terrain3DAssets Bind(GodotObject godotObject)
+	{
+#if DEBUG
+		if (!IsInstanceValid(godotObject))
+			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
+#endif
+		if (godotObject is Terrain3DAssets wrapperScriptInstance)
+			return wrapperScriptInstance;
 
-#endregion
+#if DEBUG
+		var expectedType = typeof(Terrain3DAssets);
+		var currentObjectClassName = godotObject.GetClass();
+		if (!ClassDB.IsParentClass(expectedType.Name, currentObjectClassName))
+			throw new InvalidOperationException($"The supplied GodotObject ({currentObjectClassName}) is not the {expectedType.Name} type.");
+#endif
 
-#region Properties
+		if (_wrapperScriptAsset is null)
+		{
+			var scriptPathAttribute = typeof(Terrain3DAssets).GetCustomAttributes<ScriptPathAttribute>().FirstOrDefault();
+			if (scriptPathAttribute is null) throw new UnreachableException();
+			_wrapperScriptAsset = ResourceLoader.Load<CSharpScript>(scriptPathAttribute.Path);
+		}
 
-    public Godot.Collections.Array<Terrain3DMeshAsset> MeshList
-    {
-        get => GDExtensionHelper.Cast<Terrain3DMeshAsset>((Godot.Collections.Array<Godot.GodotObject>)Get(_cached_mesh_list));
-        set => Set(_cached_mesh_list, Variant.From(value));
-    }
+		var instanceId = godotObject.GetInstanceId();
+		godotObject.SetScript(_wrapperScriptAsset);
+		return (Terrain3DAssets)InstanceFromId(instanceId);
+	}
 
-    public Godot.Collections.Array<Terrain3DTextureAsset> TextureList
-    {
-        get => GDExtensionHelper.Cast<Terrain3DTextureAsset>((Godot.Collections.Array<Godot.GodotObject>)Get(_cached_texture_list));
-        set => Set(_cached_texture_list, Variant.From(value));
-    }
+	/// <summary>
+	/// Creates an instance of the GDExtension <see cref="Terrain3DAssets"/> type, and attaches a wrapper script instance to it.
+	/// </summary>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DAssets" type.</returns>
+	public new static Terrain3DAssets Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
-#endregion
+	public enum AssetType
+	{
+		Texture = 0,
+		Mesh = 1,
+	}
 
-#region Signals
+	public new static class GDExtensionSignalName
+	{
+		public new static readonly StringName MeshesChanged = "meshes_changed";
+		public new static readonly StringName TexturesChanged = "textures_changed";
+	}
 
-    public delegate void MeshesChangedHandler();
+	public new delegate void MeshesChangedSignalHandler();
+	private MeshesChangedSignalHandler _meshesChangedSignal;
+	private Callable _meshesChangedSignalCallable;
+	public event MeshesChangedSignalHandler MeshesChangedSignal
+	{
+		add
+		{
+			if (_meshesChangedSignal is null)
+			{
+				_meshesChangedSignalCallable = Callable.From(() => 
+					_meshesChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.MeshesChanged, _meshesChangedSignalCallable);
+			}
+			_meshesChangedSignal += value;
+		}
+		remove
+		{
+			_meshesChangedSignal -= value;
+			if (_meshesChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.MeshesChanged, _meshesChangedSignalCallable);
+			_meshesChangedSignalCallable = default;
+		}
+	}
 
-    private MeshesChangedHandler _meshesChanged_backing;
-    private Callable _meshesChanged_backing_callable;
-    public event MeshesChangedHandler MeshesChanged
-    {
-        add
-        {
-            if(_meshesChanged_backing == null)
-            {
-                _meshesChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _meshesChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_meshes_changed, _meshesChanged_backing_callable);
-            }
-            _meshesChanged_backing += value;
-        }
-        remove
-        {
-            _meshesChanged_backing -= value;
-            
-            if(_meshesChanged_backing == null)
-            {
-                Disconnect(_cached_meshes_changed, _meshesChanged_backing_callable);
-                _meshesChanged_backing_callable = default;
-            }
-        }
-    }
+	public new delegate void TexturesChangedSignalHandler();
+	private TexturesChangedSignalHandler _texturesChangedSignal;
+	private Callable _texturesChangedSignalCallable;
+	public event TexturesChangedSignalHandler TexturesChangedSignal
+	{
+		add
+		{
+			if (_texturesChangedSignal is null)
+			{
+				_texturesChangedSignalCallable = Callable.From(() => 
+					_texturesChangedSignal?.Invoke());
+				Connect(GDExtensionSignalName.TexturesChanged, _texturesChangedSignalCallable);
+			}
+			_texturesChangedSignal += value;
+		}
+		remove
+		{
+			_texturesChangedSignal -= value;
+			if (_texturesChangedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.TexturesChanged, _texturesChangedSignalCallable);
+			_texturesChangedSignalCallable = default;
+		}
+	}
 
-    public delegate void TexturesChangedHandler();
+	public new static class GDExtensionPropertyName
+	{
+		public new static readonly StringName MeshList = "mesh_list";
+		public new static readonly StringName TextureList = "texture_list";
+	}
 
-    private TexturesChangedHandler _texturesChanged_backing;
-    private Callable _texturesChanged_backing_callable;
-    public event TexturesChangedHandler TexturesChanged
-    {
-        add
-        {
-            if(_texturesChanged_backing == null)
-            {
-                _texturesChanged_backing_callable = Callable.From(
-                    () =>
-                    {
-                        _texturesChanged_backing?.Invoke();
-                    }
-                );
-                Connect(_cached_textures_changed, _texturesChanged_backing_callable);
-            }
-            _texturesChanged_backing += value;
-        }
-        remove
-        {
-            _texturesChanged_backing -= value;
-            
-            if(_texturesChanged_backing == null)
-            {
-                Disconnect(_cached_textures_changed, _texturesChanged_backing_callable);
-                _texturesChanged_backing_callable = default;
-            }
-        }
-    }
+	public new Godot.Collections.Array MeshList
+	{
+		get => Get(GDExtensionPropertyName.MeshList).As<Godot.Collections.Array>();
+		set => Set(GDExtensionPropertyName.MeshList, value);
+	}
 
-#endregion
+	public new Godot.Collections.Array TextureList
+	{
+		get => Get(GDExtensionPropertyName.TextureList).As<Godot.Collections.Array>();
+		set => Set(GDExtensionPropertyName.TextureList, value);
+	}
 
-#region Methods
+	public new static class GDExtensionMethodName
+	{
+		public new static readonly StringName SetTexture = "set_texture";
+		public new static readonly StringName GetTexture = "get_texture";
+		public new static readonly StringName GetTextureCount = "get_texture_count";
+		public new static readonly StringName GetAlbedoArrayRid = "get_albedo_array_rid";
+		public new static readonly StringName GetNormalArrayRid = "get_normal_array_rid";
+		public new static readonly StringName GetTextureColors = "get_texture_colors";
+		public new static readonly StringName GetTextureNormalDepths = "get_texture_normal_depths";
+		public new static readonly StringName GetTextureAoStrengths = "get_texture_ao_strengths";
+		public new static readonly StringName GetTextureRoughnessMods = "get_texture_roughness_mods";
+		public new static readonly StringName GetTextureUvScales = "get_texture_uv_scales";
+		public new static readonly StringName GetTextureVerticalProjections = "get_texture_vertical_projections";
+		public new static readonly StringName GetTextureDetiles = "get_texture_detiles";
+		public new static readonly StringName ClearTextures = "clear_textures";
+		public new static readonly StringName UpdateTextureList = "update_texture_list";
+		public new static readonly StringName SetMeshAsset = "set_mesh_asset";
+		public new static readonly StringName GetMeshAsset = "get_mesh_asset";
+		public new static readonly StringName GetMeshCount = "get_mesh_count";
+		public new static readonly StringName CreateMeshThumbnails = "create_mesh_thumbnails";
+		public new static readonly StringName UpdateMeshList = "update_mesh_list";
+		public new static readonly StringName Save = "save";
+	}
 
-    public void SetTexture(int id, Terrain3DTextureAsset texture) => Call(_cached_set_texture, id, (Resource)texture);
+	public new void SetTexture(long id, Terrain3DTextureAsset texture) => 
+		Call(GDExtensionMethodName.SetTexture, [id, texture]);
 
-    public Terrain3DTextureAsset GetTexture(int id) => GDExtensionHelper.Bind<Terrain3DTextureAsset>(Call(_cached_get_texture, id).As<GodotObject>());
+	public new Terrain3DTextureAsset GetTexture(long id) => 
+		Terrain3DTextureAsset.Bind(Call(GDExtensionMethodName.GetTexture, [id]).As<Resource>());
 
-    public void SetTextureList(Godot.Collections.Array<Terrain3DTextureAsset> textureList) => Call(_cached_set_texture_list, textureList);
+	public new long GetTextureCount() => 
+		Call(GDExtensionMethodName.GetTextureCount, []).As<long>();
 
-    public Godot.Collections.Array<Terrain3DTextureAsset> GetTextureList() => GDExtensionHelper.Cast<Terrain3DTextureAsset>(Call(_cached_get_texture_list).As<Godot.Collections.Array<Godot.GodotObject>>());
+	public new Rid GetAlbedoArrayRid() => 
+		Call(GDExtensionMethodName.GetAlbedoArrayRid, []).As<Rid>();
 
-    public int GetTextureCount() => Call(_cached_get_texture_count).As<int>();
+	public new Rid GetNormalArrayRid() => 
+		Call(GDExtensionMethodName.GetNormalArrayRid, []).As<Rid>();
 
-    public Rid GetAlbedoArrayRid() => Call(_cached_get_albedo_array_rid).As<Rid>();
+	public new Color[] GetTextureColors() => 
+		Call(GDExtensionMethodName.GetTextureColors, []).As<Color[]>();
 
-    public Rid GetNormalArrayRid() => Call(_cached_get_normal_array_rid).As<Rid>();
+	public new float[] GetTextureNormalDepths() => 
+		Call(GDExtensionMethodName.GetTextureNormalDepths, []).As<float[]>();
 
-    public Color[] GetTextureColors() => Call(_cached_get_texture_colors).As<Color[]>();
+	public new float[] GetTextureAoStrengths() => 
+		Call(GDExtensionMethodName.GetTextureAoStrengths, []).As<float[]>();
 
-    public float[] GetTextureNormalDepths() => Call(_cached_get_texture_normal_depths).As<float[]>();
+	public new float[] GetTextureRoughnessMods() => 
+		Call(GDExtensionMethodName.GetTextureRoughnessMods, []).As<float[]>();
 
-    public float[] GetTextureAoStrengths() => Call(_cached_get_texture_ao_strengths).As<float[]>();
+	public new float[] GetTextureUvScales() => 
+		Call(GDExtensionMethodName.GetTextureUvScales, []).As<float[]>();
 
-    public float[] GetTextureRoughnessMods() => Call(_cached_get_texture_roughness_mods).As<float[]>();
+	public new long GetTextureVerticalProjections() => 
+		Call(GDExtensionMethodName.GetTextureVerticalProjections, []).As<long>();
 
-    public float[] GetTextureUvScales() => Call(_cached_get_texture_uv_scales).As<float[]>();
+	public new Vector2[] GetTextureDetiles() => 
+		Call(GDExtensionMethodName.GetTextureDetiles, []).As<Vector2[]>();
 
-    public Vector2[] GetTextureDetiles() => Call(_cached_get_texture_detiles).As<Vector2[]>();
+	public new void ClearTextures(bool update = false) => 
+		Call(GDExtensionMethodName.ClearTextures, [update]);
 
-    public void ClearTextures(bool update) => Call(_cached_clear_textures, update);
+	public new void UpdateTextureList() => 
+		Call(GDExtensionMethodName.UpdateTextureList, []);
 
-    public void UpdateTextureList() => Call(_cached_update_texture_list);
+	public new void SetMeshAsset(long id, Terrain3DMeshAsset mesh) => 
+		Call(GDExtensionMethodName.SetMeshAsset, [id, mesh]);
 
-    public void SetMeshAsset(int id, Terrain3DMeshAsset mesh) => Call(_cached_set_mesh_asset, id, (Resource)mesh);
+	public new Terrain3DMeshAsset GetMeshAsset(long id) => 
+		Terrain3DMeshAsset.Bind(Call(GDExtensionMethodName.GetMeshAsset, [id]).As<Resource>());
 
-    public Terrain3DMeshAsset GetMeshAsset(int id) => GDExtensionHelper.Bind<Terrain3DMeshAsset>(Call(_cached_get_mesh_asset, id).As<GodotObject>());
+	public new long GetMeshCount() => 
+		Call(GDExtensionMethodName.GetMeshCount, []).As<long>();
 
-    public void SetMeshList(Godot.Collections.Array<Terrain3DMeshAsset> meshList) => Call(_cached_set_mesh_list, meshList);
+	public new void CreateMeshThumbnails(long id = -1, Vector2I size = default, bool force = false) => 
+		Call(GDExtensionMethodName.CreateMeshThumbnails, [id, size, force]);
 
-    public Godot.Collections.Array<Terrain3DMeshAsset> GetMeshList() => GDExtensionHelper.Cast<Terrain3DMeshAsset>(Call(_cached_get_mesh_list).As<Godot.Collections.Array<Godot.GodotObject>>());
+	public new void UpdateMeshList() => 
+		Call(GDExtensionMethodName.UpdateMeshList, []);
 
-    public int GetMeshCount() => Call(_cached_get_mesh_count).As<int>();
+	public new Error Save(string path = "") => 
+		Call(GDExtensionMethodName.Save, [path]).As<Error>();
 
-    public void CreateMeshThumbnails(int id, Vector2I size) => Call(_cached_create_mesh_thumbnails, id, size);
-
-    public void UpdateMeshList() => Call(_cached_update_mesh_list);
-
-    public int Save(string path) => Call(_cached_save, path).As<int>();
-
-#endregion
-
-    private static readonly StringName _cached_mesh_list = "mesh_list";
-    private static readonly StringName _cached_texture_list = "texture_list";
-    private static readonly StringName _cached_set_texture = "set_texture";
-    private static readonly StringName _cached_get_texture = "get_texture";
-    private static readonly StringName _cached_set_texture_list = "set_texture_list";
-    private static readonly StringName _cached_get_texture_list = "get_texture_list";
-    private static readonly StringName _cached_get_texture_count = "get_texture_count";
-    private static readonly StringName _cached_get_albedo_array_rid = "get_albedo_array_rid";
-    private static readonly StringName _cached_get_normal_array_rid = "get_normal_array_rid";
-    private static readonly StringName _cached_get_texture_colors = "get_texture_colors";
-    private static readonly StringName _cached_get_texture_normal_depths = "get_texture_normal_depths";
-    private static readonly StringName _cached_get_texture_ao_strengths = "get_texture_ao_strengths";
-    private static readonly StringName _cached_get_texture_roughness_mods = "get_texture_roughness_mods";
-    private static readonly StringName _cached_get_texture_uv_scales = "get_texture_uv_scales";
-    private static readonly StringName _cached_get_texture_detiles = "get_texture_detiles";
-    private static readonly StringName _cached_clear_textures = "clear_textures";
-    private static readonly StringName _cached_update_texture_list = "update_texture_list";
-    private static readonly StringName _cached_set_mesh_asset = "set_mesh_asset";
-    private static readonly StringName _cached_get_mesh_asset = "get_mesh_asset";
-    private static readonly StringName _cached_set_mesh_list = "set_mesh_list";
-    private static readonly StringName _cached_get_mesh_list = "get_mesh_list";
-    private static readonly StringName _cached_get_mesh_count = "get_mesh_count";
-    private static readonly StringName _cached_create_mesh_thumbnails = "create_mesh_thumbnails";
-    private static readonly StringName _cached_update_mesh_list = "update_mesh_list";
-    private static readonly StringName _cached_save = "save";
-    private static readonly StringName _cached_meshes_changed = "meshes_changed";
-    private static readonly StringName _cached_textures_changed = "textures_changed";
 }

@@ -1,80 +1,123 @@
+#pragma warning disable CS0109
 using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Godot;
+using Godot.Collections;
 
 namespace TokisanGames;
 
 public partial class Terrain3DInstancer : GodotObject
 {
-    public static readonly StringName GDExtensionName = "Terrain3DInstancer";
 
-    [Obsolete("Wrapper classes cannot be constructed with Ctor (it only instantiate the underlying GodotObject), please use the Instantiate() method instead.")]
-    protected Terrain3DInstancer() { }
+	private new static readonly StringName NativeName = new StringName("Terrain3DInstancer");
 
-    /// <summary>
-    /// Creates an instance of the GDExtension <see cref="Terrain3DInstancer"/> type, and attaches the wrapper script to it.
-    /// </summary>
-    /// <returns>The wrapper instance linked to the underlying GDExtension type.</returns>
-    public static Terrain3DInstancer Instantiate()
-    {
-        return GDExtensionHelper.Instantiate<Terrain3DInstancer>(GDExtensionName);
-    }
+	[Obsolete("Wrapper types cannot be constructed with constructors (it only instantiate the underlying Terrain3DInstancer object), please use the Instantiate() method instead.")]
+	protected Terrain3DInstancer() { }
 
-    /// <summary>
-    /// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DInstancer"/> wrapper type,
-    /// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DInstancer"/> wrapper type,
-    /// a new instance of the <see cref="Terrain3DInstancer"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
-    /// </summary>
-    /// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
-    /// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
-    /// <returns>The existing or a new instance of the <see cref="Terrain3DInstancer"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
-    public static Terrain3DInstancer Bind(GodotObject godotObject)
-    {
-        return GDExtensionHelper.Bind<Terrain3DInstancer>(godotObject);
-    }
-#region Methods
+	private static CSharpScript _wrapperScriptAsset;
 
-    public void ClearByMesh(int meshId) => Call(_cached_clear_by_mesh, meshId);
+	/// <summary>
+	/// Try to cast the script on the supplied <paramref name="godotObject"/> to the <see cref="Terrain3DInstancer"/> wrapper type,
+	/// if no script has attached to the type, or the script attached to the type does not inherit the <see cref="Terrain3DInstancer"/> wrapper type,
+	/// a new instance of the <see cref="Terrain3DInstancer"/> wrapper script will get attaches to the <paramref name="godotObject"/>.
+	/// </summary>
+	/// <remarks>The developer should only supply the <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</remarks>
+	/// <param name="godotObject">The <paramref name="godotObject"/> that represents the correct underlying GDExtension type.</param>
+	/// <returns>The existing or a new instance of the <see cref="Terrain3DInstancer"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
+	public new static Terrain3DInstancer Bind(GodotObject godotObject)
+	{
+#if DEBUG
+		if (!IsInstanceValid(godotObject))
+			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
+#endif
+		if (godotObject is Terrain3DInstancer wrapperScriptInstance)
+			return wrapperScriptInstance;
 
-    public void ClearByLocation(Vector2I regionLocation, int meshId) => Call(_cached_clear_by_location, regionLocation, meshId);
+#if DEBUG
+		var expectedType = typeof(Terrain3DInstancer);
+		var currentObjectClassName = godotObject.GetClass();
+		if (!ClassDB.IsParentClass(expectedType.Name, currentObjectClassName))
+			throw new InvalidOperationException($"The supplied GodotObject ({currentObjectClassName}) is not the {expectedType.Name} type.");
+#endif
 
-    public void ClearByRegion(Terrain3DRegion region, int meshId) => Call(_cached_clear_by_region, (Resource)region, meshId);
+		if (_wrapperScriptAsset is null)
+		{
+			var scriptPathAttribute = typeof(Terrain3DInstancer).GetCustomAttributes<ScriptPathAttribute>().FirstOrDefault();
+			if (scriptPathAttribute is null) throw new UnreachableException();
+			_wrapperScriptAsset = ResourceLoader.Load<CSharpScript>(scriptPathAttribute.Path);
+		}
 
-    public void AddInstances(Vector3 globalPosition, Godot.Collections.Dictionary @params) => Call(_cached_add_instances, globalPosition, @params);
+		var instanceId = godotObject.GetInstanceId();
+		godotObject.SetScript(_wrapperScriptAsset);
+		return (Terrain3DInstancer)InstanceFromId(instanceId);
+	}
 
-    public void RemoveInstances(Vector3 globalPosition, Godot.Collections.Dictionary @params) => Call(_cached_remove_instances, globalPosition, @params);
+	/// <summary>
+	/// Creates an instance of the GDExtension <see cref="Terrain3DInstancer"/> type, and attaches a wrapper script instance to it.
+	/// </summary>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DInstancer" type.</returns>
+	public new static Terrain3DInstancer Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
-    public void AddMultimesh(int meshId, MultiMesh multimesh, Transform3D transform, bool update) => Call(_cached_add_multimesh, meshId, (MultiMesh)multimesh, transform, update);
+	public new static class GDExtensionMethodName
+	{
+		public new static readonly StringName ClearByMesh = "clear_by_mesh";
+		public new static readonly StringName ClearByLocation = "clear_by_location";
+		public new static readonly StringName ClearByRegion = "clear_by_region";
+		public new static readonly StringName AddInstances = "add_instances";
+		public new static readonly StringName RemoveInstances = "remove_instances";
+		public new static readonly StringName AddMultimesh = "add_multimesh";
+		public new static readonly StringName AddTransforms = "add_transforms";
+		public new static readonly StringName AppendLocation = "append_location";
+		public new static readonly StringName AppendRegion = "append_region";
+		public new static readonly StringName UpdateTransforms = "update_transforms";
+		public new static readonly StringName GetClosestMeshId = "get_closest_mesh_id";
+		public new static readonly StringName UpdateMmis = "update_mmis";
+		public new static readonly StringName SwapIds = "swap_ids";
+		public new static readonly StringName DumpMmis = "dump_mmis";
+	}
 
-    public void AddTransforms(int meshId, Godot.Collections.Array<Transform3D> transforms, Color[] colors, bool update) => Call(_cached_add_transforms, meshId, transforms, colors, update);
+	public new void ClearByMesh(long meshId) => 
+		Call(GDExtensionMethodName.ClearByMesh, [meshId]);
 
-    public void AppendLocation(Vector2I regionLocation, int meshId, Godot.Collections.Array<Transform3D> transforms, Color[] colors, bool update) => Call(_cached_append_location, regionLocation, meshId, transforms, colors, update);
+	public new void ClearByLocation(Vector2I regionLocation, long meshId) => 
+		Call(GDExtensionMethodName.ClearByLocation, [regionLocation, meshId]);
 
-    public void AppendRegion(Terrain3DRegion region, int meshId, Godot.Collections.Array<Transform3D> transforms, Color[] colors, bool update) => Call(_cached_append_region, (Resource)region, meshId, transforms, colors, update);
+	public new void ClearByRegion(Terrain3DRegion region, long meshId) => 
+		Call(GDExtensionMethodName.ClearByRegion, [region, meshId]);
 
-    public void UpdateTransforms(Aabb aabb) => Call(_cached_update_transforms, aabb);
+	public new void AddInstances(Vector3 globalPosition, Godot.Collections.Dictionary @params) => 
+		Call(GDExtensionMethodName.AddInstances, [globalPosition, @params]);
 
-    public void UpdateMmis(bool rebuild) => Call(_cached_update_mmis, rebuild);
+	public new void RemoveInstances(Vector3 globalPosition, Godot.Collections.Dictionary @params) => 
+		Call(GDExtensionMethodName.RemoveInstances, [globalPosition, @params]);
 
-    public void SwapIds(int srcId, int destId) => Call(_cached_swap_ids, srcId, destId);
+	public new void AddMultimesh(long meshId, MultiMesh multimesh, Transform3D transform = default, bool update = true) => 
+		Call(GDExtensionMethodName.AddMultimesh, [meshId, multimesh, transform, update]);
 
-    public void DumpData() => Call(_cached_dump_data);
+	public new void AddTransforms(long meshId, Godot.Collections.Array transforms, Color[] colors = default, bool update = true) => 
+		Call(GDExtensionMethodName.AddTransforms, [meshId, transforms, colors, update]);
 
-    public void DumpMmis() => Call(_cached_dump_mmis);
+	public new void AppendLocation(Vector2I regionLocation, long meshId, Godot.Collections.Array transforms, Color[] colors, bool update = true) => 
+		Call(GDExtensionMethodName.AppendLocation, [regionLocation, meshId, transforms, colors, update]);
 
-#endregion
+	public new void AppendRegion(Terrain3DRegion region, long meshId, Godot.Collections.Array transforms, Color[] colors, bool update = true) => 
+		Call(GDExtensionMethodName.AppendRegion, [region, meshId, transforms, colors, update]);
 
-    private static readonly StringName _cached_clear_by_mesh = "clear_by_mesh";
-    private static readonly StringName _cached_clear_by_location = "clear_by_location";
-    private static readonly StringName _cached_clear_by_region = "clear_by_region";
-    private static readonly StringName _cached_add_instances = "add_instances";
-    private static readonly StringName _cached_remove_instances = "remove_instances";
-    private static readonly StringName _cached_add_multimesh = "add_multimesh";
-    private static readonly StringName _cached_add_transforms = "add_transforms";
-    private static readonly StringName _cached_append_location = "append_location";
-    private static readonly StringName _cached_append_region = "append_region";
-    private static readonly StringName _cached_update_transforms = "update_transforms";
-    private static readonly StringName _cached_update_mmis = "update_mmis";
-    private static readonly StringName _cached_swap_ids = "swap_ids";
-    private static readonly StringName _cached_dump_data = "dump_data";
-    private static readonly StringName _cached_dump_mmis = "dump_mmis";
+	public new void UpdateTransforms(Aabb aabb) => 
+		Call(GDExtensionMethodName.UpdateTransforms, [aabb]);
+
+	public new long GetClosestMeshId(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetClosestMeshId, [globalPosition]).As<long>();
+
+	public new void UpdateMmis(long meshId = -1, Vector2I regionLocation = default, bool rebuildAll = false) => 
+		Call(GDExtensionMethodName.UpdateMmis, [meshId, regionLocation, rebuildAll]);
+
+	public new void SwapIds(long srcId, long destId) => 
+		Call(GDExtensionMethodName.SwapIds, [srcId, destId]);
+
+	public new void DumpMmis() => 
+		Call(GDExtensionMethodName.DumpMmis, []);
+
 }
