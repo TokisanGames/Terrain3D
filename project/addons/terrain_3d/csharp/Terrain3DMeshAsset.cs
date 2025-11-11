@@ -177,6 +177,7 @@ public partial class Terrain3DMeshAsset : Resource
         public new static readonly StringName Id = "id";
         public new static readonly StringName Enabled = "enabled";
         public new static readonly StringName SceneFile = "scene_file";
+        public new static readonly StringName GeneratedType = "generated_type";
         public new static readonly StringName HeightOffset = "height_offset";
         public new static readonly StringName Density = "density";
         public new static readonly StringName CastShadows = "cast_shadows";
@@ -223,6 +224,12 @@ public partial class Terrain3DMeshAsset : Resource
     {
         get => Get(GDExtensionPropertyName.SceneFile).As<PackedScene>();
         set => Set(GDExtensionPropertyName.SceneFile, value);
+    }
+
+    public new Variant GeneratedType
+    {
+        get => Get(GDExtensionPropertyName.GeneratedType).As<Variant>();
+        set => Set(GDExtensionPropertyName.GeneratedType, value);
     }
 
     public new double HeightOffset
