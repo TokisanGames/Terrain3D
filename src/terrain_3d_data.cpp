@@ -6,6 +6,13 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
+#include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/core/math.hpp>
+#include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/rect2i.hpp>
+#include <godot_cpp/variant/typed_array.hpp>
+#include <godot_cpp/variant/vector2i.hpp>
 
 #include "logger.h"
 #include "terrain_3d_data.h"
@@ -41,6 +48,37 @@ void Terrain3DData::_copy_paste_dfr(const Terrain3DRegion *p_src_region, const R
 		}
 	}
 	_terrain->get_instancer()->copy_paste_dfr(p_src_region, p_src_rect, p_dst_region);
+}
+
+bool Terrain3DData::_find_layer_owner(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type, Terrain3DRegion **r_region, Vector2i *r_region_loc, int *r_index) const {
+	if (p_layer.is_null()) {
+		return false;
+	}
+	Array keys = _regions.keys();
+	for (int i = 0; i < keys.size(); i++) {
+		Vector2i region_loc = keys[i];
+		Terrain3DRegion *region = get_region_ptr(region_loc);
+		if (!region) {
+			continue;
+		}
+		TypedArray<Terrain3DLayer> layers = region->get_layers(p_map_type);
+		for (int j = 0; j < layers.size(); j++) {
+			Ref<Terrain3DLayer> candidate = layers[j];
+			if (candidate == p_layer) {
+				if (r_region) {
+					*r_region = region;
+				}
+				if (r_region_loc) {
+					*r_region_loc = region_loc;
+				}
+				if (r_index) {
+					*r_index = j;
+				}
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 ///////////////////////////
@@ -528,6 +566,122 @@ Ref<Terrain3DStampLayer> Terrain3DData::add_stamp_layer(const Vector2i &p_region
 		update_maps(p_map_type, false, false);
 	}
 	return result;
+}
+
+bool Terrain3DData::set_layer_coverage(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const Rect2i &p_coverage, const bool p_update) {
+	Terrain3DRegion *region = get_region_ptr(p_region_loc);
+	if (!region) {
+		LOG(WARN, "Cannot set layer coverage. Region not found at ", p_region_loc);
+		return false;
+	}
+	TypedArray<Terrain3DLayer> layers = region->get_layers(p_map_type);
+	if (p_index < 0 || p_index >= layers.size()) {
+		LOG(WARN, "Layer index ", p_index, " out of bounds for region ", p_region_loc);
+		return false;
+	}
+	Ref<Terrain3DLayer> layer = layers[p_index];
+	if (layer.is_null()) {
+		LOG(WARN, "Layer at index ", p_index, " is null in region ", p_region_loc);
+		return false;
+	}
+	Rect2i coverage = p_coverage;
+	Vector2i coverage_size = coverage.size;
+	if (coverage_size.x <= 0 || coverage_size.y <= 0) {
+		Ref<Image> payload = layer->get_payload();
+		if (payload.is_valid()) {
+			coverage_size = payload->get_size();
+		} else {
+			coverage_size = Vector2i(_region_size, _region_size);
+		}
+		coverage.size = coverage_size;
+	}
+	coverage_size.x = CLAMP(coverage_size.x, 1, _region_size);
+	coverage_size.y = CLAMP(coverage_size.y, 1, _region_size);
+	int max_x = MAX(0, _region_size - coverage_size.x);
+	int max_y = MAX(0, _region_size - coverage_size.y);
+	Vector2i clamped_pos(
+		CLAMP(coverage.position.x, 0, max_x),
+		CLAMP(coverage.position.y, 0, max_y));
+	coverage.position = clamped_pos;
+	coverage.size = coverage_size;
+	layer->set_coverage(coverage);
+	layer->mark_dirty();
+	region->mark_layers_dirty(p_map_type);
+	region->set_modified(true);
+	region->set_edited(true);
+	if (p_update) {
+		update_maps(p_map_type, false, false);
+	}
+	return true;
+}
+
+bool Terrain3DData::move_stamp_layer(const Ref<Terrain3DStampLayer> &p_layer, const Vector3 &p_world_position, const bool p_update) {
+	if (p_layer.is_null()) {
+		LOG(WARN, "Cannot move stamp layer: layer reference is null");
+		return false;
+	}
+	MapType map_type = p_layer->get_map_type();
+	Terrain3DRegion *current_region = nullptr;
+	Vector2i current_loc;
+	int current_index = -1;
+	if (!_find_layer_owner(p_layer, map_type, &current_region, &current_loc, &current_index)) {
+		LOG(WARN, "Cannot move stamp layer: owning region not located");
+		return false;
+	}
+	Vector2i target_loc = get_region_location(p_world_position);
+	Terrain3DRegion *target_region = get_region_ptr(target_loc);
+	if (!target_region) {
+		LOG(WARN, "Cannot move stamp layer: target region ", target_loc, " not available");
+		return false;
+	}
+	Rect2i coverage = p_layer->get_coverage();
+	Vector2i coverage_size = coverage.size;
+	if (coverage_size.x <= 0 || coverage_size.y <= 0) {
+		Ref<Image> payload = p_layer->get_payload();
+		if (payload.is_valid()) {
+			coverage_size = payload->get_size();
+		} else {
+			coverage_size = Vector2i(_region_size, _region_size);
+		}
+	}
+	if (coverage_size.x <= 0 || coverage_size.y <= 0) {
+		LOG(WARN, "Cannot move stamp layer: invalid coverage dimensions");
+		return false;
+	}
+	coverage.size = coverage_size;
+	Vector2 region_origin = Vector2(target_loc) * real_t(_region_size) * _vertex_spacing;
+	Vector2 local = (Vector2(p_world_position.x, p_world_position.z) - region_origin) / _vertex_spacing;
+	Vector2 offset = Vector2(coverage_size) * 0.5f;
+	Vector2 target_pos_f = local - offset;
+	Vector2i target_pos(
+		int(Math::round(target_pos_f.x)),
+		int(Math::round(target_pos_f.y)));
+	int max_x = MAX(0, _region_size - coverage_size.x);
+	int max_y = MAX(0, _region_size - coverage_size.y);
+	target_pos.x = CLAMP(target_pos.x, 0, max_x);
+	target_pos.y = CLAMP(target_pos.y, 0, max_y);
+	Rect2i target_coverage(target_pos, coverage_size);
+	Ref<Terrain3DStampLayer> stamp_layer = p_layer;
+	if (current_region != target_region) {
+		current_region->remove_layer(map_type, current_index);
+		current_region->mark_layers_dirty(map_type);
+		current_region->set_modified(true);
+		current_region->set_edited(true);
+		Ref<Terrain3DLayer> stored = target_region->add_layer(map_type, stamp_layer);
+		Ref<Terrain3DStampLayer> stored_stamp = stored;
+		if (stored_stamp.is_valid()) {
+			stamp_layer = stored_stamp;
+		}
+	}
+	stamp_layer->set_coverage(target_coverage);
+	stamp_layer->mark_dirty();
+	target_region->mark_layers_dirty(map_type);
+	target_region->set_modified(true);
+	target_region->set_edited(true);
+	if (p_update) {
+		update_maps(map_type, false, false);
+	}
+	return true;
 }
 
 void Terrain3DData::set_layer_enabled(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_enabled, const bool p_update) {
@@ -1369,6 +1523,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_layers", "region_location", "map_type"), &Terrain3DData::get_layers);
 	ClassDB::bind_method(D_METHOD("add_layer", "region_location", "map_type", "layer", "index", "update"), &Terrain3DData::add_layer, DEFVAL(-1), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_stamp_layer", "region_location", "map_type", "payload", "coverage", "alpha", "intensity", "feather_radius", "blend_mode", "index", "update"), &Terrain3DData::add_stamp_layer, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(-1), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("set_layer_coverage", "region_location", "map_type", "index", "coverage", "update"), &Terrain3DData::set_layer_coverage, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("move_stamp_layer", "layer", "world_position", "update"), &Terrain3DData::move_stamp_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("set_layer_enabled", "region_location", "map_type", "index", "enabled", "update"), &Terrain3DData::set_layer_enabled, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_layer", "region_location", "map_type", "index", "update"), &Terrain3DData::remove_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_curve_layer", "region_location", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DData::add_curve_layer, DEFVAL(true));
