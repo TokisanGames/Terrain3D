@@ -1307,11 +1307,8 @@ void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_regi
 }
 
 void Terrain3DInstancer::set_show_instances(const bool p_visible) {
-	if (_show_instances == p_visible) {
-		return;
-	}
+	SET_IF_DIFF(_show_instances, p_visible);
 	LOG(INFO, "Setting instancer visibility to: ", p_visible);
-	_show_instances = p_visible;
 	update_mmis(-1, V2I_MAX, true);
 }
 
