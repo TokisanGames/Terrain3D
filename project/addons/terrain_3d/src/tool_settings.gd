@@ -755,7 +755,7 @@ func _add_base_layer_entry(active_index: int) -> void:
 	base_row.add_child(spacer)
 	layers_list.add_child(base_row, true)
 
-func _on_layer_selected(index: int, pressed: bool) -> void:
+func _on_layer_selected(pressed: bool, index: int) -> void:
 	if not pressed:
 		return
 	if not plugin or not plugin.editor:
