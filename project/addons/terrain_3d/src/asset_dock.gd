@@ -765,6 +765,7 @@ class ListEntry extends MarginContainer:
 		if resource:
 			is_highlighted = resource.is_highlighted()
 
+		setup_buttons()
 		setup_label()
 		setup_count_label()
 		focus_style.set_border_width_all(2)
