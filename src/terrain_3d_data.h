@@ -78,6 +78,7 @@ private:
 	// Functions
 	void _clear();
 	void _copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
+	bool _find_layer_owner(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type, Terrain3DRegion **r_region = nullptr, Vector2i *r_region_loc = nullptr, int *r_index = nullptr) const;
 
 public:
 	Terrain3DData() {}
@@ -136,6 +137,8 @@ public:
 	TypedArray<Terrain3DLayer> get_layers(const Vector2i &p_region_loc, const MapType p_map_type) const;
 	Ref<Terrain3DLayer> add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const int p_index = -1, const bool p_update = true);
 	Ref<Terrain3DStampLayer> add_stamp_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Image> &p_payload, const Rect2i &p_coverage, const Ref<Image> &p_alpha = Ref<Image>(), const real_t p_intensity = 1.0f, const real_t p_feather_radius = 0.0f, const Terrain3DLayer::BlendMode p_blend_mode = Terrain3DLayer::BLEND_ADD, const int p_index = -1, const bool p_update = true);
+	bool set_layer_coverage(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const Rect2i &p_coverage, const bool p_update = true);
+	bool move_stamp_layer(const Ref<Terrain3DStampLayer> &p_layer, const Vector3 &p_world_position, const bool p_update = true);
 	void set_layer_enabled(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_enabled, const bool p_update = true);
 	void remove_layer(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_update = true);
 	Ref<Terrain3DCurveLayer> add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update = true);
