@@ -668,10 +668,7 @@ void Terrain3DAssets::update_mesh_list() {
 			LOG(ERROR, "Terrain3DMeshAsset ID ", i, " is null, but shouldn't be");
 			continue;
 		}
-		if (mesh_asset->get_mesh().is_null()) {
-			LOG(DEBUG, "Terrain3DMeshAsset has no mesh, adding a default mesh");
-			mesh_asset->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
-		}
+		mesh_asset->check_mesh(true);
 		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh))) {
 			LOG(DEBUG, "Connecting instancer_setting_changed signal to _update_mesh");
 			mesh_asset->connect("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh));
