@@ -42,7 +42,7 @@ func create_terrain() -> Terrain3D:
 
 	# Set material and assets
 	terrain.material.world_background = Terrain3DMaterial.NONE
-	terrain.material.auto_shader = true
+	terrain.material.auto_shader_enabled = true
 	terrain.material.set_shader_param("auto_slope", 10)
 	terrain.material.set_shader_param("blend_sharpness", .975)
 	terrain.assets = Terrain3DAssets.new()
@@ -128,6 +128,6 @@ func create_texture_asset(asset_name: String, gradient: Gradient, texture_size: 
 func create_mesh_asset(asset_name: String, color: Color) -> Terrain3DMeshAsset:
 	var ma := Terrain3DMeshAsset.new()
 	ma.name = asset_name
-	ma.generated_type = Terrain3DMeshAsset.TYPE_TEXTURE_CARD
+	ma.lod0_range = 128.0
 	ma.material_override.albedo_color = color
 	return ma

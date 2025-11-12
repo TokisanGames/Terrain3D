@@ -58,11 +58,11 @@ private:
 
 	void _clear_lod_ranges();
 	static bool _sort_lod_nodes(const Node *a, const Node *b);
-	Ref<ArrayMesh> _get_generated_mesh() const;
+	Ref<ArrayMesh> _create_generated_mesh(const GenType p_type = TYPE_TEXTURE_CARD) const;
 	Ref<Material> _get_material();
 
 public:
-	Terrain3DMeshAsset();
+	Terrain3DMeshAsset() { clear(); }
 	~Terrain3DMeshAsset() {}
 
 	void clear() override;
@@ -86,6 +86,7 @@ public:
 	Ref<PackedScene> get_scene_file() const { return _packed_scene; }
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
+	void check_mesh(const bool p_new_mesh = false);
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
 	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
 	Ref<Texture2D> get_thumbnail() const { return _thumbnail; }
