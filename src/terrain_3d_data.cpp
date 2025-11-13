@@ -7,6 +7,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
@@ -574,6 +575,20 @@ bool Terrain3DData::set_layer_coverage(const Vector2i &p_region_loc, const MapTy
 		LOG(WARN, "Cannot set layer coverage. Region not found at ", p_region_loc);
 		return false;
 	}
+	int region_size = region->get_region_size();
+	if (!is_valid_region_size(region_size)) {
+		Ref<Image> map = region->get_map(p_map_type);
+		if (map.is_valid()) {
+			region_size = MAX(map->get_width(), map->get_height());
+		}
+	}
+	if (!is_valid_region_size(region_size)) {
+		region_size = _region_size;
+	}
+	if (!is_valid_region_size(region_size)) {
+		LOG(ERROR, "Cannot set layer coverage. Region size unresolved for ", p_region_loc);
+		return false;
+	}
 	TypedArray<Terrain3DLayer> layers = region->get_layers(p_map_type);
 	if (p_index < 0 || p_index >= layers.size()) {
 		LOG(WARN, "Layer index ", p_index, " out of bounds for region ", p_region_loc);
@@ -595,10 +610,10 @@ bool Terrain3DData::set_layer_coverage(const Vector2i &p_region_loc, const MapTy
 		}
 		coverage.size = coverage_size;
 	}
-	coverage_size.x = CLAMP(coverage_size.x, 1, _region_size);
-	coverage_size.y = CLAMP(coverage_size.y, 1, _region_size);
-	int max_x = MAX(0, _region_size - coverage_size.x);
-	int max_y = MAX(0, _region_size - coverage_size.y);
+	coverage_size.x = CLAMP(coverage_size.x, 1, region_size);
+	coverage_size.y = CLAMP(coverage_size.y, 1, region_size);
+	int max_x = MAX(0, region_size - coverage_size.x);
+	int max_y = MAX(0, region_size - coverage_size.y);
 	Vector2i clamped_pos(
 		CLAMP(coverage.position.x, 0, max_x),
 		CLAMP(coverage.position.y, 0, max_y));
@@ -742,6 +757,30 @@ Ref<Terrain3DCurveLayer> Terrain3DData::add_curve_layer(const Vector2i &p_region
 		LOG(ERROR, "Curve layer requires at least two points");
 		return Ref<Terrain3DCurveLayer>();
 	}
+	Ref<Image> height_map = region->get_height_map();
+	bool height_map_invalid = height_map.is_null() || height_map->get_width() <= 0 || height_map->get_height() <= 0;
+	if (height_map_invalid) {
+		region->sanitize_maps();
+		height_map = region->get_height_map();
+		height_map_invalid = height_map.is_null() || height_map->get_width() <= 0 || height_map->get_height() <= 0;
+	}
+	if (height_map_invalid) {
+		int region_size = region->get_region_size();
+		if (!is_valid_region_size(region_size)) {
+			region_size = _region_size;
+		}
+		if (is_valid_region_size(region_size)) {
+			Ref<Image> new_height;
+			new_height.instantiate();
+			new_height->create(region_size, region_size, false, Image::FORMAT_RF);
+			new_height->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+			region->set_height_map(new_height);
+			LOG(WARN, "Region ", p_region_loc, " had invalid height map when adding curve layer. Created blank height map.");
+		} else {
+			LOG(ERROR, "Region ", p_region_loc, " has invalid region size when adding curve layer. Aborting layer creation.");
+			return Ref<Terrain3DCurveLayer>();
+		}
+	}
 	Ref<Terrain3DCurveLayer> curve_layer;
 	curve_layer.instantiate();
 	Vector3 region_origin = Vector3(p_region_loc.x, 0.0f, p_region_loc.y) * real_t(_region_size) * _vertex_spacing;
@@ -759,6 +798,8 @@ Ref<Terrain3DCurveLayer> Terrain3DData::add_curve_layer(const Vector2i &p_region
 	curve_layer->set_depth(p_depth);
 	curve_layer->set_dual_groove(p_dual_groove);
 	curve_layer->set_feather_radius(p_feather_radius);
+	real_t default_intensity = p_depth >= 0.0f ? 1.0f : -1.0f;
+	curve_layer->set_intensity(default_intensity);
 	Ref<Terrain3DLayer> added = region->add_layer(TYPE_HEIGHT, curve_layer);
 	Ref<Terrain3DCurveLayer> result = added;
 	if (result.is_null()) {

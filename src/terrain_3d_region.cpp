@@ -704,6 +704,7 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_layers"), &Terrain3DRegion::get_control_layers);
 	ClassDB::bind_method(D_METHOD("set_color_layers", "layers"), &Terrain3DRegion::set_color_layers);
 	ClassDB::bind_method(D_METHOD("get_color_layers"), &Terrain3DRegion::get_color_layers);
+	ClassDB::bind_method(D_METHOD("mark_layers_dirty", "map_type", "mark_modified"), &Terrain3DRegion::mark_layers_dirty, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_layer", "map_type", "layer", "index"), &Terrain3DRegion::add_layer, DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("remove_layer", "map_type", "index"), &Terrain3DRegion::remove_layer);
 	ClassDB::bind_method(D_METHOD("clear_layers", "map_type"), &Terrain3DRegion::clear_layers);
