@@ -373,8 +373,8 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
  * If p_invert_green is true, the destination green channel will be 1.0 - input green channel.
  * If p_invert_alpha is true, the destination alpha channel will be 1.0 - input source channel.
  */
-Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Image> &p_src_a,
-		const bool p_invert_green, const bool p_invert_alpha, const bool p_normalize_alpha, const int p_alpha_channel) {
+Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Image> &p_src_a, const Ref<Image> &p_src_ao,
+		const bool p_invert_green, const bool p_invert_alpha, const bool p_normalize_alpha, const int p_alpha_channel, const int p_occlusion_channel) {
 	if (!p_src_rgb.is_valid() || !p_src_a.is_valid()) {
 		LOG(ERROR, "Provided images are not valid. Cannot pack");
 		return Ref<Image>();
@@ -390,6 +390,14 @@ Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Imag
 	if (p_alpha_channel < 0 || p_alpha_channel > 3) {
 		LOG(ERROR, "Source Channel of Height/Roughness invalid. Cannot Pack");
 		return Ref<Image>();
+	}
+
+	bool pack_ao = p_src_ao.is_valid();
+	if (pack_ao) {
+		if (p_src_rgb->get_size() != p_src_ao->get_size()) {
+			LOG(ERROR, "Provided AO and normal images are not the same size. Cannot pack");
+			return Ref<Image>();
+		}
 	}
 
 	real_t a_max = 0.0f;
@@ -422,6 +430,13 @@ Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Imag
 			}
 			if (p_invert_alpha) {
 				col.a = 1.0f - col.a;
+			}
+			if (pack_ao) {
+				// Compress range to avoid low AO values completely destroying normal vector precision - recovered in shader.
+				real_t ao = sqrt(p_src_ao->get_pixel(x, y)[p_occlusion_channel]) * 0.5 + 0.5;
+				col.r = col.r * ao + (1.0f - ao) * 0.5f;
+				col.g = col.g * ao + (1.0f - ao) * 0.5f;
+				col.b = col.b * ao + (1.0f - ao) * 0.5f;
 			}
 			dst->set_pixel(x, y, col);
 		}
