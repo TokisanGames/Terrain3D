@@ -250,6 +250,9 @@
 		<member name="show_control_texture" type="bool" setter="set_show_control_texture" getter="get_show_control_texture" default="false">
 			Alias for [member Terrain3DMaterial.show_control_texture].
 		</member>
+		<member name="show_displacement_buffer" type="bool" setter="set_show_displacement_buffer" getter="get_show_displacement_buffer" default="false">
+			Alias for [member Terrain3DMaterial.show_displacement_buffer].
+		</member>
 		<member name="show_grey" type="bool" setter="set_show_grey" getter="get_show_grey" default="false">
 			Alias for [member Terrain3DMaterial.show_grey].
 		</member>
@@ -288,6 +291,9 @@
 		</member>
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
 			Alias for [member Terrain3DMaterial.show_vertex_grid]. Press `3` with the mouse in the viewport to toggle.
+		</member>
+		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="0">
+			Enables displacement using texture heights for additional mesh detail when set above 0. This creates up to 6 additional subdivisions of the terrain mesh below LOD0, and adds a displacement buffer configurable in the material. You can see this in wireframe mode. Set to 0 to disable displacement. See [member Terrain3DMaterial.show_displacement_buffer] and look at the Displacement Buffer debug view.
 		</member>
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.1.0-dev&quot;">
 			The current version of Terrain3D.

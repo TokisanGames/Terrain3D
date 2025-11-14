@@ -1,11 +1,11 @@
 [gd_scene load_steps=8 format=3 uid="uid://cofnhdcclon1w"]
 
-[ext_resource type="Script" path="res://demo/src/CodeGenerated.gd" id="1_h7vyv"]
+[ext_resource type="Script" uid="uid://dakis6gu8b7nm" path="res://demo/src/CodeGenerated.gd" id="1_h7vyv"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="2_3v2uf"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="3_71ikj"]
 [ext_resource type="PackedScene" uid="uid://di5fovhcyd7re" path="res://demo/components/Enemy.tscn" id="4_p8qry"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="4_x5ge4"]
-[ext_resource type="Script" path="res://demo/src/RuntimeNavigationBaker.gd" id="5_445ur"]
+[ext_resource type="Script" uid="uid://brh8x1wnycrl5" path="res://demo/src/RuntimeNavigationBaker.gd" id="5_445ur"]
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_vs6am"]
 geometry_parsed_geometry_type = 1

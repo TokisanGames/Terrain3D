@@ -13,12 +13,15 @@ group_uniforms;
 
 //INSERT: DUAL_SCALING
 	// dual scaling
-	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - _camera_pos)), 0.0, 1.0);
+	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - v_camera_pos)), 0.0, 1.0);
 	vec4 far_alb = vec4(0.);
 	vec4 far_nrm = vec4(0.);
 	if (far_factor > 0. && any(equal(texture_id, ivec2(dual_scale_texture)))) {
 		bool projected = TEXTURE_ID_PROJECTED(dual_scale_texture);
 		float far_scale = _texture_uv_scale_array[dual_scale_texture] * dual_scale_reduction;
+		if (index.z < 0) {
+			far_scale *= tri_scale_reduction;
+		}
 		vec4 far_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * far_scale;
 
 		// Detiling and Control map rotation
@@ -70,9 +73,4 @@ group_uniforms;
 			alb = mix(alb, far_alb, far_factor);
 			nrm = mix(nrm, far_nrm, far_factor);
 		}
-//INSERT: TRI_SCALING
-	// tri scaling
-	if (index.z < 0) {
-		control_scale *= tri_scale_reduction;
-	}
 )"
