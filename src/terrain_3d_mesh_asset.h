@@ -60,6 +60,7 @@ private:
 	static bool _sort_lod_nodes(const Node *a, const Node *b);
 	Ref<ArrayMesh> _get_generated_mesh() const;
 	Ref<Material> _get_material();
+	bool scene_file_changed = false;
 
 public:
 	Terrain3DMeshAsset();
@@ -83,6 +84,7 @@ public:
 	uint32_t get_instance_count() const { return _instance_count; }
 
 	void set_scene_file(const Ref<PackedScene> &p_scene_file);
+	void parse_scene_meshes();
 	Ref<PackedScene> get_scene_file() const { return _packed_scene; }
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
@@ -142,6 +144,8 @@ public:
 	real_t get_lod9_range() const { return _lod_ranges[9]; }
 	void set_fade_margin(const real_t p_fade_margin);
 	real_t get_fade_margin() const { return _fade_margin; };
+	bool get_scene_file_changed() const { return scene_file_changed; }
+	void set_scene_file_changed(const bool p_changed);
 
 protected:
 	void _validate_property(PropertyInfo &p_property) const;

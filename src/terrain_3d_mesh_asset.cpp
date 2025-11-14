@@ -10,7 +10,6 @@
 #include <godot_cpp/classes/standard_material3d.hpp>
 
 #include "logger.h"
-#include "terrain_3d_instancer.h"
 #include "terrain_3d_mesh_asset.h"
 
 ///////////////////////////
@@ -212,7 +211,14 @@ void Terrain3DMeshAsset::set_instance_count(const uint32_t p_amount) {
 
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	SET_IF_DIFF(_packed_scene, p_scene_file);
-	LOG(INFO, "Setting scene file and instantiating node: ", p_scene_file);
+	scene_file_changed = true;
+	LOG(INFO, "Setting scene file: ", p_scene_file);
+	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
+	emit_signal("instancer_setting_changed", _id);
+}
+
+void Terrain3DMeshAsset::parse_scene_meshes() {
+	LOG(INFO, " parsing scene file and storing meshes");
 	_meshes.clear();
 	if (_packed_scene.is_valid()) {
 		Node *node = _packed_scene->instantiate();
@@ -505,6 +511,10 @@ void Terrain3DMeshAsset::set_fade_margin(const real_t p_fade_margin) {
 	LOG(INFO, "Setting visibility margin: ", _fade_margin);
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
+}
+
+void Terrain3DMeshAsset::set_scene_file_changed(const bool p_changed) {
+	SET_IF_DIFF(scene_file_changed, p_changed);
 }
 
 ///////////////////////////

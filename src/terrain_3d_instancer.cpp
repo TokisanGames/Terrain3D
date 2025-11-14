@@ -56,6 +56,7 @@ void Terrain3DInstancer::_process_updates() {
 			}
 		}
 		_queued_updates.clear();
+		_rebuild_ma_meshes();
 		return;
 	}
 
@@ -102,6 +103,7 @@ void Terrain3DInstancer::_process_updates() {
 		_update_mmi_by_region(region, mesh_id);
 	}
 	_queued_updates.clear();
+	_rebuild_ma_meshes();
 }
 
 void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id) {
@@ -134,6 +136,12 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		return;
 	}
 
+	if (ma->get_scene_file_changed()) {
+		LOG(EXTREME, "MeshAsset ", p_mesh_id, " has no scene file, destroying MMIs in region ", region_loc);
+		_destroy_mmi_by_location(region_loc, p_mesh_id);
+		return;
+	}
+
 	// Process cells
 	Dictionary cell_inst_dict = mesh_inst_dict[p_mesh_id];
 	Array cell_locations = cell_inst_dict.keys();
@@ -162,6 +170,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				LOG(EXTREME, "Destroyed old MMIs mesh ", p_mesh_id, " cell ", cell, ", LOD ", lod);
 			}
 		}
+
 		// Clean Shadow MMIs
 		bool shadow_lod_disabled = (ma->get_shadow_impostor() == 0 ||
 				ma->get_cast_shadows() == SHADOWS_OFF);
@@ -257,6 +266,8 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				Ref<Mesh> mesh = ma->get_mesh(lod);
 				if (!mesh.is_valid()) {
 					LOG(ERROR, "Mesh is null for LOD ", lod);
+					RS->free_rid(mmi);
+					RS->free_rid(mm);
 					continue;
 				}
 				RS->multimesh_set_mesh(mm, mesh->get_rid());
@@ -290,6 +301,23 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			if (mmi.is_valid()) {
 				RS->instance_set_custom_aabb(mmi, mm_custom_aabb);
 			}
+		}
+	}
+}
+
+void Terrain3DInstancer::_rebuild_ma_meshes() {
+	// Rebuild all meshes for all mesh assets that have changed
+	int mesh_count = _terrain->get_assets()->get_mesh_count();
+	for (int mesh_id = 0; mesh_id < mesh_count; mesh_id++) {
+		Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
+		if (ma.is_valid() && ma->get_scene_file_changed()) {
+			LOG(DEBUG, "Rebuilding meshes for MeshAsset ID: ", mesh_id);
+			if (ma->get_scene_file().is_valid()) {
+				ma->parse_scene_meshes();
+			} else {
+				ma->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
+			}
+			ma->set_scene_file_changed(false);
 		}
 	}
 }
