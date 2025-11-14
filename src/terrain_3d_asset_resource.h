@@ -26,11 +26,13 @@ public:
 	virtual void set_highlighted(const bool p_highlighted) = 0;
 	virtual bool is_highlighted() const = 0;
 	virtual Color get_highlight_color() const = 0;
+	virtual Ref<Texture2D> get_thumbnail() const = 0;
 
 protected:
 	String _name;
 	int _id = 0;
 	bool _highlighted = false;
+	Ref<Texture2D> _thumbnail;
 };
 
 #endif // TERRAIN3D_ASSET_RESOURCE_CLASS_H

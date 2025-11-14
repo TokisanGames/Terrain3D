@@ -294,7 +294,7 @@ void Terrain3DAssets::_update_texture_files() {
 			if (tex.is_null()) {
 				img = Util::get_filled_image(albedo_size, COLOR_CHECKED, albedo_mipmaps, albedo_format);
 				LOG(DEBUG, "Texture ID ", i, " albedo is null. Creating a new one. Format: ", img->get_format());
-				texture_set->_albedo_texture = ImageTexture::create_from_image(img);
+				texture_set->set_albedo_texture(ImageTexture::create_from_image(img));
 			} else {
 				img = tex->get_image();
 				LOG(EXTREME, "Texture ID ", i, " albedo is valid. Format: ", img->get_format());
@@ -383,7 +383,7 @@ void Terrain3DAssets::_update_mesh(const int p_id) {
 		return;
 	}
 	Ref<Terrain3DMeshAsset> ma = _mesh_list[p_id];
-	create_mesh_thumbnails(p_id, V2I(128), true);
+	create_mesh_thumbnails(p_id, V2I(512), true);
 	IS_INSTANCER_INIT(VOID);
 	Terrain3DInstancer *instancer = _terrain->get_instancer();
 	instancer->update_mmis(p_id, V2I_MAX, false);
@@ -733,7 +733,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_mesh_list", "mesh_list"), &Terrain3DAssets::set_mesh_list);
 	ClassDB::bind_method(D_METHOD("get_mesh_list"), &Terrain3DAssets::get_mesh_list);
 	ClassDB::bind_method(D_METHOD("get_mesh_count"), &Terrain3DAssets::get_mesh_count);
-	ClassDB::bind_method(D_METHOD("create_mesh_thumbnails", "id", "size", "force"), &Terrain3DAssets::create_mesh_thumbnails, DEFVAL(-1), DEFVAL(V2I(128)), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("create_mesh_thumbnails", "id", "size", "force"), &Terrain3DAssets::create_mesh_thumbnails, DEFVAL(-1), DEFVAL(V2I(512)), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("update_mesh_list"), &Terrain3DAssets::update_mesh_list);
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DAssets::save, DEFVAL(""));

@@ -13,6 +13,7 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	CLASS_NAME();
 	friend class Terrain3DAssets;
 
+	// Saved Data
 	Color _albedo_color = Color(1.f, 1.f, 1.f, 1.f);
 	Ref<Texture2D> _albedo_texture;
 	Ref<Texture2D> _normal_texture;
@@ -23,6 +24,8 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	bool _vertical_projection = false;
 	real_t _detiling_rotation = 0.0f;
 	real_t _detiling_shift = 0.0f;
+
+	// Working Data
 	Color _highlight_color = Color();
 
 	bool _is_valid_format(const Ref<Texture2D> &p_texture) const;
@@ -42,6 +45,8 @@ public:
 	void set_highlighted(const bool p_highlighted) override;
 	bool is_highlighted() const override { return _highlighted; }
 	Color get_highlight_color() const override { return _highlighted ? _highlight_color : COLOR_WHITE; }
+
+	Ref<Texture2D> get_thumbnail() const override { return _thumbnail; }
 
 	void set_albedo_color(const Color &p_color);
 	Color get_albedo_color() const { return _albedo_color; }
