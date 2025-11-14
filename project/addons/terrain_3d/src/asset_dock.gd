@@ -297,11 +297,15 @@ func _on_pin_changed(toggled: bool) -> void:
 
 
 func _on_slider_changed(value: float) -> void:
+	# Set both lists so they match
 	if texture_list:
 		texture_list.set_entry_width(value)
 	if mesh_list:
 		mesh_list.set_entry_width(value)
 	save_editor_settings()
+	# Hack to trigger ScrollContainer::_reposition_children() to update size of scroll bar handle
+	asset_container.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	asset_container.layout_direction = Control.LAYOUT_DIRECTION_INHERITED
 
 
 func _on_textures_pressed() -> void:
@@ -588,7 +592,7 @@ class ListContainer extends Container:
 	func _on_resource_hovered(p_id: int):
 		if type == Terrain3DAssets.TYPE_MESH:
 			if plugin.terrain:
-				plugin.terrain.assets.create_mesh_thumbnails(p_id, Vector2i(128, 128), true)
+				plugin.terrain.assets.create_mesh_thumbnails(p_id, Vector2i(512, 512), true)
 
 	
 	func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
@@ -932,20 +936,15 @@ class ListEntry extends MarginContainer:
 					draw_style_box(background, rect)
 					draw_texture(add_icon, (get_size() / 2) - (add_icon.get_size() / 2))
 				else:
+					_thumbnail = resource.get_thumbnail()
+					if _thumbnail:
+						draw_texture_rect(_thumbnail, rect, false)
+						texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+					else:
+						draw_rect(rect, Color(.15, .15, .15, 1.))
 					if type == Terrain3DAssets.TYPE_TEXTURE:
 						self_modulate = resource.get_highlight_color() if is_highlighted else resource.get_albedo_color()
-						_thumbnail = resource.get_albedo_texture()
-						if _thumbnail:
-							draw_texture_rect(_thumbnail, rect, false)
-							texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 					else:
-						var id: int = (resource as Terrain3DMeshAsset).get_id()
-						_thumbnail = resource.get_thumbnail()
-						if _thumbnail:
-							draw_texture_rect(_thumbnail, rect, false)
-							texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-						else:
-							draw_rect(rect, Color(.15, .15, .15, 1.))
 						button_enabled.set_pressed_no_signal(!resource.is_enabled())
 						self_modulate = resource.get_highlight_color()
 					button_highlight.self_modulate = Color("FC7F7F") if is_highlighted else Color.WHITE

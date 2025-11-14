@@ -1,5 +1,6 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
 
 #include "logger.h"
@@ -43,6 +44,7 @@ void Terrain3DTextureAsset::clear() {
 	_albedo_color = Color(1.0f, 1.0f, 1.0f, 1.0f);
 	_albedo_texture.unref();
 	_normal_texture.unref();
+	_thumbnail.unref();
 	_uv_scale = 0.1f;
 	_vertical_projection = false;
 	_detiling_rotation = 0.0f;
@@ -89,7 +91,7 @@ void Terrain3DTextureAsset::set_albedo_texture(const Ref<Texture2D> &p_texture) 
 		LOG(INFO, "Setting albedo texture: ", p_texture);
 		if (p_texture.is_valid()) {
 			String filename = p_texture->get_path().get_file().get_basename();
-			if (_name == "New Texture" && !p_texture->get_path().contains("::")) {
+			if (_name == "New Texture" && !p_texture->get_path().contains("::") && !filename.is_empty()) {
 				_name = filename;
 				LOG(INFO, "Setting name based on filename: ", _name);
 			}
@@ -103,6 +105,15 @@ void Terrain3DTextureAsset::set_albedo_texture(const Ref<Texture2D> &p_texture) 
 			if (!is_power_of_2(img->get_width()) || !is_power_of_2(img->get_height())) {
 				LOG(WARN, "Albedo texture '", filename, "' size is not power of 2. This is sub-optimal.");
 			}
+			if (IS_EDITOR) {
+				img = img->duplicate();
+				img->decompress();
+				img->resize(512, 512, Image::INTERPOLATE_LANCZOS);
+				img->convert(Image::FORMAT_RGB8);
+				_thumbnail = ImageTexture::create_from_image(img);
+			}
+		} else {
+			_thumbnail.unref();
 		}
 		LOG(DEBUG, "Emitting file_changed");
 		emit_signal("file_changed");
@@ -197,6 +208,7 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_highlighted", "enabled"), &Terrain3DTextureAsset::set_highlighted);
 	ClassDB::bind_method(D_METHOD("is_highlighted"), &Terrain3DTextureAsset::is_highlighted);
 	ClassDB::bind_method(D_METHOD("get_highlight_color"), &Terrain3DTextureAsset::get_highlight_color);
+	ClassDB::bind_method(D_METHOD("get_thumbnail"), &Terrain3DTextureAsset::get_thumbnail);
 	ClassDB::bind_method(D_METHOD("set_albedo_color", "color"), &Terrain3DTextureAsset::set_albedo_color);
 	ClassDB::bind_method(D_METHOD("get_albedo_color"), &Terrain3DTextureAsset::get_albedo_color);
 	ClassDB::bind_method(D_METHOD("set_albedo_texture", "texture"), &Terrain3DTextureAsset::set_albedo_texture);

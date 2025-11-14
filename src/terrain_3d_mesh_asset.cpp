@@ -576,6 +576,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_highlighted", "enabled"), &Terrain3DMeshAsset::set_highlighted);
 	ClassDB::bind_method(D_METHOD("is_highlighted"), &Terrain3DMeshAsset::is_highlighted);
 	ClassDB::bind_method(D_METHOD("get_highlight_color"), &Terrain3DMeshAsset::get_highlight_color);
+	ClassDB::bind_method(D_METHOD("get_thumbnail"), &Terrain3DMeshAsset::get_thumbnail);
 
 	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Terrain3DMeshAsset::set_enabled);
 	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DMeshAsset::is_enabled);
@@ -585,7 +586,6 @@ void Terrain3DMeshAsset::_bind_methods() {
 	//ClassDB::bind_method(D_METHOD("set_generated_type", "type"), &Terrain3DMeshAsset::set_generated_type);
 	//ClassDB::bind_method(D_METHOD("get_generated_type"), &Terrain3DMeshAsset::get_generated_type);
 	ClassDB::bind_method(D_METHOD("get_mesh", "lod"), &Terrain3DMeshAsset::get_mesh, DEFVAL(0));
-	ClassDB::bind_method(D_METHOD("get_thumbnail"), &Terrain3DMeshAsset::get_thumbnail);
 	ClassDB::bind_method(D_METHOD("set_height_offset", "offset"), &Terrain3DMeshAsset::set_height_offset);
 	ClassDB::bind_method(D_METHOD("get_height_offset"), &Terrain3DMeshAsset::get_height_offset);
 	ClassDB::bind_method(D_METHOD("set_density", "density"), &Terrain3DMeshAsset::set_density);
