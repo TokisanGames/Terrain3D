@@ -29,8 +29,10 @@ private:
 	Vector2 _last_target_position = V2_MAX;
 
 	Array _mesh_rids;
+	Array _shadow_mesh_rids;
 	// LODs -> MeshTypes -> Instances
 	Array _clipmap_rids;
+	Array _clipmap_shadow_rids;
 
 	// Mesh offset data
 	// LOD0 only
@@ -47,14 +49,15 @@ private:
 	real_t _offset_c = 0.f;
 	PackedVector3Array _edge_pos;
 
-	void _generate_mesh_types(const int p_mesh_size);
-	RID _generate_mesh(const Vector2i &p_size, const bool p_standard_grid = false);
+	void _generate_mesh_types(const int p_mesh_size, int p_shadow_scale = 1);
+	RID _generate_mesh(const Vector2i &p_size, const bool p_standard_grid = false, int p_scale = 1);
 	RID _instantiate_mesh(const PackedVector3Array &p_vertices, const PackedInt32Array &p_indices, const AABB &p_aabb);
 	void _generate_clipmap(const int p_size, const int p_lods, const RID &scenario);
 	void _generate_offset_data(const int p_mesh_size);
 
 	void _clear_clipmap();
 	void _clear_mesh_types();
+	void _update_maps();
 
 public:
 	Terrain3DMesher() {}
