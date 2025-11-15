@@ -298,8 +298,8 @@ _FORCE_INLINE_ bool shares_ptr(const T &a, const T &b) {
 // Could be extended for PackedArray and other special types
 template <typename T>
 _FORCE_INLINE_ bool differs(T &a, const T &b) {
-	if constexpr (std::is_base_of_v<godot::Array, T> ||
-			std::is_base_of_v<godot::Dictionary, T>) {
+	if constexpr (std::is_base_of_v<Array, T> ||
+			std::is_base_of_v<Dictionary, T>) {
 		return !shares_ptr(a, b);
 	} else {
 		return !(a == b);
