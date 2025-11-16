@@ -6,7 +6,7 @@ class_name Terrain3DCurveLayerPath
 
 @export_node_path("Terrain3D") var terrain_path: NodePath
 @export_range(0.1, 256.0, 0.01) var width := 8.0
-@export_range(0.0, 256.0, 0.01) var depth := 2.0
+@export_range(-256.0, 256.0, 0.01) var depth := 2.0
 @export var dual_groove := false
 @export_range(0.0, 64.0, 0.01) var feather_radius := 1.0
 @export_range(0.1, 32.0, 0.01) var bake_interval := 1.0
@@ -283,8 +283,6 @@ func _ensure_region_layer(region_loc: Vector2i, region_world_points: PackedVecto
 	layer.mark_dirty()
 	if region:
 		region.mark_layers_dirty(Terrain3DRegion.TYPE_HEIGHT, true)
-		region.set_modified(true)
-		region.set_edited(true)
 	var index := _find_layer_index(region_loc, layer)
 	if index >= 0:
 		info["index"] = index
@@ -320,8 +318,6 @@ func _create_region_layer(region_loc: Vector2i, region_world_points: PackedVecto
 	_log("added curve layer in region %s (index=%d)" % [str(region_loc), index])
 	if region:
 		region.mark_layers_dirty(Terrain3DRegion.TYPE_HEIGHT, true)
-		region.set_modified(true)
-		region.set_edited(true)
 	if debug_logging:
 		var payload := layer.get_payload()
 		var payload_size := payload.get_size() if payload else Vector2i.ZERO
