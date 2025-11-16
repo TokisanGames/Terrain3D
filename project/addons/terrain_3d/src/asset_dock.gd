@@ -922,9 +922,7 @@ class ListEntry extends MarginContainer:
 
 	func _notification(p_what) -> void:
 		match p_what:
-			NOTIFICATION_ENTER_TREE:
-				setup_buttons()
-			NOTIFICATION_EXIT_TREE:
+			NOTIFICATION_PREDELETE:
 				destroy_buttons()
 			NOTIFICATION_DRAW:
 				# Hide spacer if icons are crowding small textures
