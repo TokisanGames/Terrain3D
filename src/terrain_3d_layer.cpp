@@ -119,7 +119,6 @@ void Terrain3DLayer::set_enabled(const bool p_enabled) {
 void Terrain3DLayer::set_intensity(const real_t p_intensity) {
 	if (!Math::is_equal_approx(_intensity, p_intensity)) {
 		_intensity = p_intensity;
-		mark_dirty();
 	}
 }
 
@@ -204,14 +203,16 @@ void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_
 				}
 			}
 			real_t feather_weight = _compute_feather_weight(Vector2i(src_x, src_y));
-			real_t weight = CLAMP(alpha_weight * feather_weight, 0.0f, 1.0f);
-			real_t scaled_weight = MIN(weight * _intensity, 1.0f);
+			real_t mask_weight = CLAMP(alpha_weight * feather_weight, 0.0f, 1.0f);
+			real_t intensity = MAX(_intensity, 0.0f);
+			real_t scaled_weight = MIN(mask_weight * intensity, 1.0f);
 
 			switch (_map_type) {
 				case TYPE_HEIGHT: {
-					real_t delta = src.r * scaled_weight;
+					real_t payload = src.r * intensity;
+					real_t delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
-						dst.r = Math::lerp(dst.r, src.r, scaled_weight);
+						dst.r = Math::lerp(dst.r, payload, scaled_weight);
 					} else {
 						real_t sign = (_blend_mode == BLEND_SUBTRACT) ? -1.0f : 1.0f;
 						dst.r = dst.r + delta * sign;
@@ -219,9 +220,10 @@ void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_
 					dst.a = 1.0f;
 				} break;
 				case TYPE_CONTROL: {
-					real_t delta = src.r * scaled_weight;
+					real_t payload = src.r * intensity;
+					real_t delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
-						dst.r = Math::lerp(dst.r, src.r, scaled_weight);
+						dst.r = Math::lerp(dst.r, payload, scaled_weight);
 					} else {
 						real_t sign = (_blend_mode == BLEND_SUBTRACT) ? -1.0f : 1.0f;
 						dst.r = dst.r + delta * sign;
@@ -229,9 +231,10 @@ void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_
 					dst.a = 1.0f;
 				} break;
 				case TYPE_COLOR: {
-					Color delta = src * scaled_weight;
+					Color payload = src * intensity;
+					Color delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
-						dst = dst.lerp(src, scaled_weight);
+						dst = dst.lerp(payload, scaled_weight);
 					} else {
 						real_t sign = (_blend_mode == BLEND_SUBTRACT) ? -1.0f : 1.0f;
 						dst.r = CLAMP(dst.r + delta.r * sign, 0.0f, 1.0f);
@@ -279,7 +282,7 @@ void Terrain3DCurveLayer::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "points", PROPERTY_HINT_ARRAY_TYPE, "Vector3"), "set_points", "get_points");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "width", PROPERTY_HINT_RANGE, "0.1,256.0,0.1"), "set_width", "get_width");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "depth", PROPERTY_HINT_RANGE, "0.0,5.0,0.01"), "set_depth", "get_depth");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "depth", PROPERTY_HINT_RANGE, "-5.0,5.0,0.01"), "set_depth", "get_depth");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_groove"), "set_dual_groove", "get_dual_groove");
 }
 
@@ -384,7 +387,7 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 				continue;
 			}
 
-			real_t depth = -_depth * influence * _intensity;
+			real_t depth = -_depth * influence;
 			Color c(depth, 0.0f, 0.0f, 1.0f);
 			_payload->set_pixel(x, y, c);
 		}
@@ -456,9 +459,8 @@ void Terrain3DCurveLayer::set_width(const real_t p_width) {
 }
 
 void Terrain3DCurveLayer::set_depth(const real_t p_depth) {
-	real_t depth = MAX(0.0f, p_depth);
-	if (!Math::is_equal_approx(_depth, depth)) {
-		_depth = depth;
+	if (!Math::is_equal_approx(_depth, p_depth)) {
+		_depth = p_depth;
 		mark_dirty();
 	}
 }
