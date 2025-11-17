@@ -1,5 +1,7 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <vector>
+
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/time.hpp>
@@ -16,6 +18,15 @@ static inline real_t smooth_step(real_t edge0, real_t edge1, real_t x) {
 	x = CLAMP((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
 	return x * x * (3.0f - 2.0f * x);
 }
+
+struct CurveSegmentCache {
+	Vector2 a;
+	Vector2 b;
+	Vector2 ab;
+	real_t length_sq = 0.0f;
+	real_t height_a = 0.0f;
+	real_t height_b = 0.0f;
+};
 }
 
 ///////////////////////////
@@ -369,6 +380,146 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 	}
 
 	real_t half_width = _width * 0.5f;
+	const int segment_count = MAX(0, _points.size() - 1);
+	std::vector<CurveSegmentCache> segment_cache;
+	segment_cache.resize(segment_count);
+	for (int i = 0; i < segment_count; i++) {
+		const Vector3 &p0 = _points[i];
+		const Vector3 &p1 = _points[i + 1];
+		CurveSegmentCache segment;
+		segment.a = Vector2(p0.x, p0.z);
+		segment.b = Vector2(p1.x, p1.z);
+		segment.ab = segment.b - segment.a;
+		segment.length_sq = segment.ab.length_squared();
+		segment.height_a = p0.y;
+		segment.height_b = p1.y;
+		segment_cache[i] = segment;
+	}
+
+	const int GRID_AXIS_LIMIT = 64;
+	real_t bounds_width = MAX(max_pt.x - min_pt.x, 0.001f);
+	real_t bounds_depth = MAX(max_pt.y - min_pt.y, 0.001f);
+	real_t target_cell_extent = MAX((_width * 0.5f) + _feather_radius, 2.0f);
+	int grid_cols = CLAMP(int(Math::ceil(bounds_width / target_cell_extent)), 1, GRID_AXIS_LIMIT);
+	int grid_rows = CLAMP(int(Math::ceil(bounds_depth / target_cell_extent)), 1, GRID_AXIS_LIMIT);
+	real_t cell_size_x = bounds_width / real_t(grid_cols);
+	real_t cell_size_y = bounds_depth / real_t(grid_rows);
+	real_t inv_cell_size_x = (cell_size_x > CMP_EPSILON) ? (1.0f / cell_size_x) : 0.0f;
+	real_t inv_cell_size_y = (cell_size_y > CMP_EPSILON) ? (1.0f / cell_size_y) : 0.0f;
+	auto world_to_cell_x = [&](real_t value) -> int {
+		if (grid_cols <= 1 || inv_cell_size_x <= 0.0f) {
+			return 0;
+		}
+		real_t normalized = (value - min_pt.x) * inv_cell_size_x;
+		int idx = int(Math::floor(normalized));
+		return CLAMP(idx, 0, grid_cols - 1);
+	};
+	auto world_to_cell_y = [&](real_t value) -> int {
+		if (grid_rows <= 1 || inv_cell_size_y <= 0.0f) {
+			return 0;
+		}
+		real_t normalized = (value - min_pt.y) * inv_cell_size_y;
+		int idx = int(Math::floor(normalized));
+		return CLAMP(idx, 0, grid_rows - 1);
+	};
+	std::vector<std::vector<int>> cell_segments(grid_cols * grid_rows);
+	real_t influence_margin = (_width * 0.5f) + _feather_radius + MAX(p_vertex_spacing, 0.01f);
+	for (int i = 0; i < segment_count; i++) {
+		const CurveSegmentCache &segment = segment_cache[i];
+		Vector2 seg_min(MIN(segment.a.x, segment.b.x), MIN(segment.a.y, segment.b.y));
+		Vector2 seg_max(MAX(segment.a.x, segment.b.x), MAX(segment.a.y, segment.b.y));
+		seg_min.x -= influence_margin;
+		seg_min.y -= influence_margin;
+		seg_max.x += influence_margin;
+		seg_max.y += influence_margin;
+		int min_cell_x = world_to_cell_x(seg_min.x);
+		int max_cell_x = world_to_cell_x(seg_max.x);
+		int min_cell_y = world_to_cell_y(seg_min.y);
+		int max_cell_y = world_to_cell_y(seg_max.y);
+		for (int cy = min_cell_y; cy <= max_cell_y; cy++) {
+			for (int cx = min_cell_x; cx <= max_cell_x; cx++) {
+				int cell_index = cy * grid_cols + cx;
+				if (cell_index < 0 || cell_index >= int(cell_segments.size())) {
+					continue;
+				}
+				cell_segments[cell_index].push_back(i);
+			}
+		}
+	}
+	auto sample_curve = [&](const Vector2 &sample, real_t &out_distance, real_t &out_height) -> bool {
+		if (segment_cache.empty()) {
+			return _closest_point_on_polyline(sample, out_distance, out_height);
+		}
+		int cell_x = world_to_cell_x(sample.x);
+		int cell_y = world_to_cell_y(sample.y);
+		real_t best_distance = Math_INF;
+		real_t best_height = 0.0f;
+		auto evaluate_cell = [&](int cx, int cy, bool &has_candidates) {
+			if (cx < 0 || cy < 0 || cx >= grid_cols || cy >= grid_rows) {
+				return;
+			}
+			const std::vector<int> &candidates = cell_segments[cy * grid_cols + cx];
+			if (candidates.empty()) {
+				return;
+			}
+			has_candidates = true;
+			for (int seg_idx : candidates) {
+				if (seg_idx < 0 || seg_idx >= segment_count) {
+					continue;
+				}
+				const CurveSegmentCache &segment = segment_cache[seg_idx];
+				if (segment.length_sq < CMP_EPSILON) {
+					real_t dist = (sample - segment.a).length();
+					if (dist < best_distance) {
+						best_distance = dist;
+						best_height = segment.height_a;
+					}
+					continue;
+				}
+				Vector2 rel = sample - segment.a;
+				real_t t = rel.dot(segment.ab) / segment.length_sq;
+				t = CLAMP(t, 0.0f, 1.0f);
+				Vector2 projection = segment.a + segment.ab * t;
+				real_t dist = (sample - projection).length();
+				if (dist < best_distance) {
+					best_distance = dist;
+					best_height = Math::lerp(segment.height_a, segment.height_b, t);
+					if (best_distance <= CMP_EPSILON) {
+						return;
+					}
+				}
+			}
+		};
+		bool has_candidates = false;
+		evaluate_cell(cell_x, cell_y, has_candidates);
+		if (!has_candidates) {
+			for (int radius = 1; radius <= 1 && !has_candidates; radius++) {
+				for (int dz = -radius; dz <= radius; dz++) {
+					for (int dx = -radius; dx <= radius; dx++) {
+						if (dx == 0 && dz == 0) {
+							continue;
+						}
+						evaluate_cell(cell_x + dx, cell_y + dz, has_candidates);
+						if (has_candidates && best_distance <= CMP_EPSILON) {
+							break;
+						}
+					}
+					if (has_candidates && best_distance <= CMP_EPSILON) {
+						break;
+					}
+				}
+			}
+		}
+		if (!has_candidates) {
+			return _closest_point_on_polyline(sample, out_distance, out_height);
+		}
+		if (best_distance == Math_INF) {
+			return false;
+		}
+		out_distance = best_distance;
+		out_height = best_height;
+		return true;
+	};
 
 	for (int y = 0; y < rect_size.y; y++) {
 		for (int x = 0; x < rect_size.x; x++) {
@@ -377,7 +528,7 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 			Vector2 sample(world_x, world_z);
 			real_t dist = -1.0f;
 			real_t path_height = 0.0f;
-			if (!_closest_point_on_polyline(sample, dist, path_height)) {
+			if (!sample_curve(sample, dist, path_height)) {
 				continue;
 			}
 			real_t influence = 0.0f;
