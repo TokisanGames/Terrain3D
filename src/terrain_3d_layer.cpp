@@ -279,11 +279,14 @@ void Terrain3DCurveLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_depth"), &Terrain3DCurveLayer::get_depth);
 	ClassDB::bind_method(D_METHOD("set_dual_groove", "dual"), &Terrain3DCurveLayer::set_dual_groove);
 	ClassDB::bind_method(D_METHOD("get_dual_groove"), &Terrain3DCurveLayer::get_dual_groove);
+	ClassDB::bind_method(D_METHOD("set_falloff_curve", "curve"), &Terrain3DCurveLayer::set_falloff_curve);
+	ClassDB::bind_method(D_METHOD("get_falloff_curve"), &Terrain3DCurveLayer::get_falloff_curve);
 
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "points", PROPERTY_HINT_ARRAY_TYPE, "Vector3"), "set_points", "get_points");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "width", PROPERTY_HINT_RANGE, "0.1,256.0,0.1"), "set_width", "get_width");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "depth", PROPERTY_HINT_RANGE, "-5.0,5.0,0.01"), "set_depth", "get_depth");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_groove"), "set_dual_groove", "get_dual_groove");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "falloff_curve", PROPERTY_HINT_RESOURCE_TYPE, "Curve"), "set_falloff_curve", "get_falloff_curve");
 }
 
 void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_t p_vertex_spacing) {
@@ -390,7 +393,12 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 
 			if (dist <= groove_limit + _feather_radius) {
 				real_t normalized = CLAMP(dist / MAX(CMP_EPSILON, groove_limit), 0.0f, 1.0f);
-				real_t core = 1.0f - smooth_step(0.0f, 1.0f, normalized);
+				real_t core = 0.0f;
+				if (_falloff_curve.is_valid()) {
+					core = CLAMP(_falloff_curve->sample_baked(normalized), 0.0f, 1.0f);
+				} else {
+					core = 1.0f - smooth_step(0.0f, 1.0f, normalized);
+				}
 				real_t feather = 1.0f;
 				if (dist > groove_limit && _feather_radius > CMP_EPSILON) {
 					real_t feather_t = (dist - groove_limit) / _feather_radius;
@@ -509,6 +517,14 @@ void Terrain3DCurveLayer::set_dual_groove(const bool p_dual) {
 		_dual_groove = p_dual;
 		mark_dirty();
 	}
+}
+
+void Terrain3DCurveLayer::set_falloff_curve(const Ref<Curve> &p_curve) {
+	if (_falloff_curve == p_curve) {
+		return;
+	}
+	_falloff_curve = p_curve;
+	mark_dirty();
 }
 
 ///////////////////////////

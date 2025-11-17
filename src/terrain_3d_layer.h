@@ -3,6 +3,7 @@
 #ifndef TERRAIN3D_LAYER_CLASS_H
 #define TERRAIN3D_LAYER_CLASS_H
 
+#include <godot_cpp/classes/curve.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/variant/node_path.hpp>
@@ -101,6 +102,7 @@ private:
 	real_t _width = 5.0f;
 	real_t _depth = 0.0f;
 	bool _dual_groove = false;
+	Ref<Curve> _falloff_curve;
 
 protected:
 	static void _bind_methods();
@@ -123,6 +125,9 @@ public:
 
 	void set_dual_groove(const bool p_dual);
 	bool get_dual_groove() const { return _dual_groove; }
+
+	void set_falloff_curve(const Ref<Curve> &p_curve);
+	Ref<Curve> get_falloff_curve() const { return _falloff_curve; }
 };
 
 class Terrain3DLocalNodeLayer : public Terrain3DLayer {
