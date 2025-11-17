@@ -112,6 +112,7 @@ private:
 	void _destroy_collision(const bool p_final = false);
 	void _destroy_mesher(const bool p_final = false);
 	void _update_mesher_aabbs() { _mesher ? _mesher->update_aabbs() : void(); }
+	void _refresh_collision_on_height_change();
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();

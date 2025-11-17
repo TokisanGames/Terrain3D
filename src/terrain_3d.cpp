@@ -75,10 +75,14 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
-	// Texture assets changed, update material uniforms without rebuilding shaders
-	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
-		LOG(DEBUG, "Connecting _assets.textures_changed to _material->update()");
-		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
+	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_refresh_collision_on_height_change))) {
+		LOG(DEBUG, "Connecting _data::height_maps_changed signal to collision refresh");
+		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_refresh_collision_on_height_change));
+	}
+	// Texture assets changed, update material
+	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
+		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
+		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
 	}
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
@@ -94,6 +98,13 @@ void Terrain3D::_initialize() {
 		snap();
 	}
 	update_configuration_warnings();
+}
+
+void Terrain3D::_refresh_collision_on_height_change() {
+	if (_collision && _collision->is_enabled()) {
+		LOG(DEBUG, "Height maps changed; refreshing collision");
+		_collision->update(true);
+	}
 }
 
 /**
