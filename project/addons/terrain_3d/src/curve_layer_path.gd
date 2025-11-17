@@ -3,6 +3,7 @@ extends Path3D
 
 ## Maintains one or more Terrain3D curve layers that follow this path.
 ## The path's Y coordinates define the target terrain height, optionally offset by `depth`.
+## Assign `falloff_curve` to sculpt the cross-section profile (Curve X = distance 0-1, Y = weight 0-1).
 class_name Terrain3DCurveLayerPath
 
 @export_node_path("Terrain3D") var terrain_path: NodePath
@@ -11,6 +12,7 @@ class_name Terrain3DCurveLayerPath
 @export_range(-256.0, 256.0, 0.01) var depth := 0.0
 @export var dual_groove := false
 @export_range(0.0, 64.0, 0.01) var feather_radius := 1.0
+@export var falloff_curve: Curve
 @export_range(0.1, 32.0, 0.01) var bake_interval := 1.0
 @export var auto_create_regions := true
 @export var update_maps_on_change := true
@@ -281,6 +283,7 @@ func _ensure_region_layer(region_loc: Vector2i, region_world_points: PackedVecto
 	layer.set_width(width)
 	layer.set_depth(depth)
 	layer.set_dual_groove(dual_groove)
+	layer.set_falloff_curve(falloff_curve)
 	layer.set_feather_radius(feather_radius)
 	layer.mark_dirty()
 	if region:
@@ -315,6 +318,7 @@ func _create_region_layer(region_loc: Vector2i, region_world_points: PackedVecto
 	if layer == null:
 		_log("failed to add curve layer in region %s" % str(region_loc))
 		return false
+	layer.set_falloff_curve(falloff_curve)
 	var index := _find_layer_index(region_loc, layer)
 	_region_layers[region_loc] = {"layer": layer, "index": index}
 	_log("added curve layer in region %s (index=%d)" % [str(region_loc), index])
