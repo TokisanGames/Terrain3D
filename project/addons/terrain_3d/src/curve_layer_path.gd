@@ -177,45 +177,31 @@ func _build_region_point_map(world_points: PackedVector3Array) -> Dictionary:
 	var map := {}
 	if world_points.is_empty() or _terrain == null:
 		return map
-	var candidates := _collect_candidate_regions(world_points)
-	for region_loc in candidates:
-		var subset := _filter_points_for_region(region_loc, world_points)
+	var spacing := _terrain.get_vertex_spacing()
+	var region_extent := float(_terrain.get_region_size()) * spacing
+	if region_extent <= 0.0:
+		return map
+	var margin := (width * 0.5) + feather_radius + spacing
+	var expand := int(ceil(margin / max(region_extent, 0.0001)))
+	var candidate_indices := {}
+	for i in range(world_points.size()):
+		var point := world_points[i]
+		var base_loc := Vector2i(int(floor(point.x / region_extent)), int(floor(point.z / region_extent)))
+		for dz in range(-expand, expand + 1):
+			for dx in range(-expand, expand + 1):
+				var region_loc := base_loc + Vector2i(dx, dz)
+				var indices = candidate_indices.get(region_loc)
+				if indices == null:
+					indices = []
+					candidate_indices[region_loc] = indices
+				indices.append(i)
+	for region_loc in candidate_indices.keys():
+		var subset := _filter_points_for_region(region_loc, world_points, candidate_indices[region_loc])
 		if subset.size() >= 2:
 			map[region_loc] = subset
 	return map
 
-func _collect_candidate_regions(world_points: PackedVector3Array) -> Array:
-	var regions: Array = []
-	if world_points.is_empty() or _terrain == null:
-		return regions
-	var spacing := _terrain.get_vertex_spacing()
-	var region_extent := float(_terrain.get_region_size()) * spacing
-	if region_extent <= 0.0:
-		return regions
-	var pad := (width * 0.5) + feather_radius + spacing
-	var min_x := INF
-	var min_z := INF
-	var max_x := -INF
-	var max_z := -INF
-	for point in world_points:
-		min_x = min(min_x, point.x)
-		min_z = min(min_z, point.z)
-		max_x = max(max_x, point.x)
-		max_z = max(max_z, point.z)
-	min_x -= pad
-	min_z -= pad
-	max_x += pad
-	max_z += pad
-	var min_rx := int(floor(min_x / region_extent))
-	var min_rz := int(floor(min_z / region_extent))
-	var max_rx := int(floor(max_x / region_extent))
-	var max_rz := int(floor(max_z / region_extent))
-	for rx in range(min_rx, max_rx + 1):
-		for rz in range(min_rz, max_rz + 1):
-			regions.append(Vector2i(rx, rz))
-	return regions
-
-func _filter_points_for_region(region_loc: Vector2i, world_points: PackedVector3Array) -> PackedVector3Array:
+func _filter_points_for_region(region_loc: Vector2i, world_points: PackedVector3Array, candidate_indices: Array = []) -> PackedVector3Array:
 	var filtered := PackedVector3Array()
 	if _terrain == null:
 		return filtered
@@ -227,13 +213,16 @@ func _filter_points_for_region(region_loc: Vector2i, world_points: PackedVector3
 	var max_x := origin.x + region_extent + margin
 	var min_z := origin.z - margin
 	var max_z := origin.z + region_extent + margin
+	var search_indices = candidate_indices
+	if search_indices.is_empty():
+		search_indices = range(world_points.size())
 	var captured_indices: PackedInt32Array = PackedInt32Array()
-	for i in range(world_points.size()):
-		var point := world_points[i]
+	for idx in search_indices:
+		var point := world_points[idx]
 		if point.x < min_x or point.x > max_x or point.z < min_z or point.z > max_z:
 			continue
 		filtered.append(point)
-		captured_indices.append(i)
+		captured_indices.append(int(idx))
 	if filtered.size() == 1:
 		var idx := captured_indices[0]
 		if idx > 0:
