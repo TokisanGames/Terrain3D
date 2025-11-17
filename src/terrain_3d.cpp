@@ -80,6 +80,10 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
+	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_refresh_collision_on_height_change))) {
+		LOG(DEBUG, "Connecting _data::height_maps_changed signal to collision refresh");
+		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_refresh_collision_on_height_change));
+	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
@@ -98,6 +102,13 @@ void Terrain3D::_initialize() {
 		snap();
 	}
 	update_configuration_warnings();
+}
+
+void Terrain3D::_refresh_collision_on_height_change() {
+	if (_collision && _collision->is_enabled()) {
+		LOG(DEBUG, "Height maps changed; refreshing collision");
+		_collision->update(true);
+	}
 }
 
 /**

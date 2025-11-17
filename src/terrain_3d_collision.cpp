@@ -40,24 +40,24 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 		LOG(EXTREME, "Region not found at: ", region_loc, ". Returning blank");
 		return Dictionary();
 	}
-	map = region->get_map(TYPE_HEIGHT);
-	cmap = region->get_map(TYPE_CONTROL);
+	map = region->get_composited_map(TYPE_HEIGHT);
+	cmap = region->get_composited_map(TYPE_CONTROL);
 
 	// Get +X, +Z adjacent regions in case we run over
 	region = data->get_region_ptr(region_loc + Vector2i(1, 0));
 	if (region && !region->is_deleted()) {
-		map_x = region->get_map(TYPE_HEIGHT);
-		cmap_x = region->get_map(TYPE_CONTROL);
+		map_x = region->get_composited_map(TYPE_HEIGHT);
+		cmap_x = region->get_composited_map(TYPE_CONTROL);
 	}
 	region = data->get_region_ptr(region_loc + Vector2i(0, 1));
 	if (region && !region->is_deleted()) {
-		map_z = region->get_map(TYPE_HEIGHT);
-		cmap_z = region->get_map(TYPE_CONTROL);
+		map_z = region->get_composited_map(TYPE_HEIGHT);
+		cmap_z = region->get_composited_map(TYPE_CONTROL);
 	}
 	region = data->get_region_ptr(region_loc + Vector2i(1, 1));
 	if (region && !region->is_deleted()) {
-		map_xz = region->get_map(TYPE_HEIGHT);
-		cmap_xz = region->get_map(TYPE_CONTROL);
+		map_xz = region->get_composited_map(TYPE_HEIGHT);
+		cmap_xz = region->get_composited_map(TYPE_CONTROL);
 	}
 
 	for (int z = 0; z < hshape_size; z++) {
