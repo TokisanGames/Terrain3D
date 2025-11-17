@@ -11,7 +11,7 @@ This list are for items that don't already have dedicated pages in the documenta
 | GPU Sculpting| [Pending](https://github.com/TokisanGames/Terrain3D/issues/174). Currently painting occurs on the CPU in C++. It's reasonably fast, but we have a soft limit of 200 on the brush size, as larger sizes lag.
 | Holes | Holes work for both visual and collision.
 | Jolt | [Godot-Jolt](https://github.com/godot-jolt/godot-jolt) was merged into Godot. Terrain3D works with both Godot and Jolt physics. Collision is generated where regions are defined.
-| Non-destructive layers | Used for things like river beds, roads or paths that follow a curve and tweak the terrain. It's [possible](https://github.com/TokisanGames/Terrain3D/issues/129) in the future.
+| Non-destructive layers | Supported via `Terrain3DCurveLayerPath`, which bakes absolute heights from a Curve3D (optionally offset via `depth`) so you can stamp rivers, roads, or rails without destructive sculpting.
 | Object placement | The [instancer](instancer.md) supports placing foliage. Placing objects that shouldn't be in a MultiMeshInstance node is [out of scope](https://github.com/TokisanGames/Terrain3D/issues/47). See 3rd party tools below.
 | Streaming | There is no streaming built in to Godot. Region Streaming is [in progress](https://github.com/TokisanGames/Terrain3D/pull/675).
 | Roads | Look at [Godot Road Generator](https://github.com/TheDuckCow/godot-road-generator/).

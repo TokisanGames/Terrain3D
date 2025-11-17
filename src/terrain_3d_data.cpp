@@ -798,8 +798,8 @@ Ref<Terrain3DCurveLayer> Terrain3DData::add_curve_layer(const Vector2i &p_region
 	curve_layer->set_depth(p_depth);
 	curve_layer->set_dual_groove(p_dual_groove);
 	curve_layer->set_feather_radius(p_feather_radius);
-	real_t default_intensity = p_depth >= 0.0f ? 1.0f : -1.0f;
-	curve_layer->set_intensity(default_intensity);
+	curve_layer->set_blend_mode(Terrain3DLayer::BLEND_REPLACE);
+	curve_layer->set_intensity(1.0f);
 	Ref<Terrain3DLayer> added = region->add_layer(TYPE_HEIGHT, curve_layer);
 	Ref<Terrain3DCurveLayer> result = added;
 	if (result.is_null()) {

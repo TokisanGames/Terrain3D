@@ -2,11 +2,13 @@
 extends Path3D
 
 ## Maintains one or more Terrain3D curve layers that follow this path.
+## The path's Y coordinates define the target terrain height, optionally offset by `depth`.
 class_name Terrain3DCurveLayerPath
 
 @export_node_path("Terrain3D") var terrain_path: NodePath
 @export_range(0.1, 256.0, 0.01) var width := 8.0
-@export_range(-256.0, 256.0, 0.01) var depth := 2.0
+## Additional offset applied to the path-defined height (in meters).
+@export_range(-256.0, 256.0, 0.01) var depth := 0.0
 @export var dual_groove := false
 @export_range(0.0, 64.0, 0.01) var feather_radius := 1.0
 @export_range(0.1, 32.0, 0.01) var bake_interval := 1.0

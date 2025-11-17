@@ -209,7 +209,7 @@ void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_
 
 			switch (_map_type) {
 				case TYPE_HEIGHT: {
-					real_t payload = src.r * intensity;
+					real_t payload = src.r;
 					real_t delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
 						dst.r = Math::lerp(dst.r, payload, scaled_weight);
@@ -220,7 +220,7 @@ void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_
 					dst.a = 1.0f;
 				} break;
 				case TYPE_CONTROL: {
-					real_t payload = src.r * intensity;
+					real_t payload = src.r;
 					real_t delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
 						dst.r = Math::lerp(dst.r, payload, scaled_weight);
@@ -231,7 +231,7 @@ void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_
 					dst.a = 1.0f;
 				} break;
 				case TYPE_COLOR: {
-					Color payload = src * intensity;
+					Color payload = src;
 					Color delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
 						dst = dst.lerp(payload, scaled_weight);
@@ -290,6 +290,7 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 	if (_points.is_empty()) {
 		LOG(DEBUG, "Curve layer payload generation skipped: no points");
 		_payload.unref();
+		_alpha.unref();
 		_cached_region_size = p_region_size;
 		_cached_vertex_spacing = p_vertex_spacing;
 		_dirty = false;
@@ -326,6 +327,7 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 		LOG(ERROR, "Curve payload create returned null. size=", Vector2i(rect_size.x, rect_size.y));
 		set_coverage(Rect2i());
 		_payload.unref();
+		_alpha.unref();
 		_cached_region_size = p_region_size;
 		_cached_vertex_spacing = p_vertex_spacing;
 		_dirty = false;
@@ -333,6 +335,19 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 	}
 	new_payload->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
 	_payload = new_payload;
+	Ref<Image> new_alpha = Image::create(rect_size.x, rect_size.y, false, Image::FORMAT_RF);
+	if (new_alpha.is_null()) {
+		LOG(ERROR, "Curve alpha create returned null. size=", Vector2i(rect_size.x, rect_size.y));
+		set_coverage(Rect2i());
+		_payload.unref();
+		_alpha.unref();
+		_cached_region_size = p_region_size;
+		_cached_vertex_spacing = p_vertex_spacing;
+		_dirty = false;
+		return;
+	}
+	new_alpha->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+	_alpha = new_alpha;
 	LOG(DEBUG, "Curve payload image created size=", Vector2i(_payload->get_width(), _payload->get_height()));
 
 	// Reset the cached coverage before writing into the image so incremental re-use does not leak past writes.
@@ -357,8 +372,9 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 			real_t world_x = (rect_pos.x + x + 0.5f) / pixels_per_meter;
 			real_t world_z = (rect_pos.y + y + 0.5f) / pixels_per_meter;
 			Vector2 sample(world_x, world_z);
-			real_t dist = _distance_to_polyline(sample);
-			if (dist < 0.0f) {
+			real_t dist = -1.0f;
+			real_t path_height = 0.0f;
+			if (!_closest_point_on_polyline(sample, dist, path_height)) {
 				continue;
 			}
 			real_t influence = 0.0f;
@@ -387,9 +403,9 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 				continue;
 			}
 
-			real_t depth = -_depth * influence;
-			Color c(depth, 0.0f, 0.0f, 1.0f);
-			_payload->set_pixel(x, y, c);
+			real_t target_height = path_height + _depth;
+			_payload->set_pixel(x, y, Color(target_height, 0.0f, 0.0f, 1.0f));
+			_alpha->set_pixel(x, y, Color(influence, 0.0f, 0.0f, 1.0f));
 		}
 	}
 
@@ -399,6 +415,7 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 	if (!coverage_clamped.has_area()) {
 		LOG(WARN, "Curve layer coverage outside region bounds after generation. coverage=", current_coverage, " region_bounds=", region_bounds);
 		_payload.unref();
+		_alpha.unref();
 		set_coverage(Rect2i());
 		_cached_region_size = p_region_size;
 		_cached_vertex_spacing = p_vertex_spacing;
@@ -413,6 +430,13 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 		Rect2i copy_rect(coverage_clamped.position - current_coverage.position, coverage_clamped.size);
 		trimmed->blit_rect(_payload, copy_rect, Vector2i());
 		_payload = trimmed;
+		if (_alpha.is_valid()) {
+			Ref<Image> trimmed_alpha;
+			trimmed_alpha.instantiate();
+			trimmed_alpha->create(coverage_clamped.size.x, coverage_clamped.size.y, false, _alpha->get_format());
+			trimmed_alpha->blit_rect(_alpha, copy_rect, Vector2i());
+			_alpha = trimmed_alpha;
+		}
 		set_coverage(coverage_clamped);
 		current_coverage = coverage_clamped;
 	}
@@ -423,26 +447,41 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 	_dirty = false;
 }
 
-real_t Terrain3DCurveLayer::_distance_to_polyline(const Vector2 &p_point) const {
+bool Terrain3DCurveLayer::_closest_point_on_polyline(const Vector2 &p_point, real_t &r_distance, real_t &r_height) const {
 	if (_points.size() < 2) {
-		return -1.0f;
+		r_distance = -1.0f;
+		r_height = 0.0f;
+		return false;
 	}
 	real_t best = Math_INF;
+	real_t best_height = 0.0f;
 	for (int i = 0; i < _points.size() - 1; i++) {
-		Vector2 a(_points[i].x, _points[i].z);
-		Vector2 b(_points[i + 1].x, _points[i + 1].z);
+		const Vector3 &p0 = _points[i];
+		const Vector3 &p1 = _points[i + 1];
+		Vector2 a(p0.x, p0.z);
+		Vector2 b(p1.x, p1.z);
 		Vector2 ab = b - a;
-	real_t len_sq = ab.length_squared();
-	if (len_sq < CMP_EPSILON) {
-		continue;
-	}
+		real_t len_sq = ab.length_squared();
+		if (len_sq < CMP_EPSILON) {
+			continue;
+		}
 		real_t t = ((p_point - a).dot(ab)) / len_sq;
 		t = CLAMP(t, 0.0f, 1.0f);
 		Vector2 projection = a + ab * t;
 		real_t dist = (p_point - projection).length();
-		best = MIN(best, dist);
+		if (dist < best) {
+			best = dist;
+			best_height = Math::lerp(p0.y, p1.y, t);
+		}
 	}
-	return (best == Math_INF) ? -1.0f : best;
+	if (best == Math_INF) {
+		r_distance = -1.0f;
+		r_height = 0.0f;
+		return false;
+	}
+	r_distance = best;
+	r_height = best_height;
+	return true;
 }
 
 void Terrain3DCurveLayer::set_points(const PackedVector3Array &p_points) {
