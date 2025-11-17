@@ -99,14 +99,14 @@ class Terrain3DCurveLayer : public Terrain3DLayer {
 private:
 	PackedVector3Array _points;
 	real_t _width = 5.0f;
-	real_t _depth = 0.5f;
+	real_t _depth = 0.0f;
 	bool _dual_groove = false;
 
 protected:
 	static void _bind_methods();
 	virtual void _generate_payload(const int p_region_size, const real_t p_vertex_spacing) override;
 
-	real_t _distance_to_polyline(const Vector2 &p_point) const;
+	bool _closest_point_on_polyline(const Vector2 &p_point, real_t &r_distance, real_t &r_height) const;
 
 public:
 	Terrain3DCurveLayer() {}
