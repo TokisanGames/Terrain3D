@@ -45,4 +45,3 @@ func _customize_resource(resource: Resource, path: String) -> Resource:
 	
 func _get_customization_configuration_hash() -> int:
 	return hash(_hash)
-	
