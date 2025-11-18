@@ -5,7 +5,6 @@ extends EditorExportPlugin
 
 
 var _hash: String
-var _terrain: Terrain3D
 var _free_uncompressed_color_maps: bool
 var _color_compression_mode: Image.CompressMode
 
@@ -19,7 +18,7 @@ func _begin_customize_scenes(platform: EditorExportPlatform, features: PackedStr
 	
 	
 func _customize_scene(scene: Node, path: String) -> Node:
-	_terrain = scene.find_child("Terrain3D", true)
+	var _terrain: Terrain3D = scene.find_child("Terrain3D", true)
 	if (_terrain != null):
 		_free_uncompressed_color_maps = _terrain.free_uncompressed_color_maps
 		_color_compression_mode = _terrain.color_compression_mode
