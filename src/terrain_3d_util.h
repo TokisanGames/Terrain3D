@@ -119,7 +119,13 @@ template <typename T>
 inline T int_round_mult(const T numToRound, const T multiple) {
 	static_assert(std::numeric_limits<T>::is_integer, "Only integer types are allowed");
 	ASSERT(multiple != 0, 0);
-	T result = abs(numToRound) + multiple / 2;
+	T abs_num;
+	if constexpr (std::is_signed_v<T>) {
+		abs_num = std::abs(numToRound);
+	} else {
+		abs_num = numToRound;
+	}
+	T result = abs_num + multiple / 2;
 	result -= result % multiple;
 	result *= numToRound > 0 ? 1 : -1;
 	return result;
@@ -285,7 +291,7 @@ struct has_native_ptr<T, std::void_t<decltype(std::declval<T>()._native_ptr())>>
 template <typename T>
 _FORCE_INLINE_ bool shares_ptr(const T &a, const T &b) {
 	static_assert(has_native_ptr<T>::value); // Enforce type check via trait
-	static_assert(sizeof(godot::Variant) == 24);
+	static_assert(sizeof(Variant) == 24);
 	auto pa = static_cast<const uint8_t *>(a._native_ptr());
 	auto pb = static_cast<const uint8_t *>(b._native_ptr());
 	return *reinterpret_cast<const void *const *>(pa + 8) ==
