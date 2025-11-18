@@ -185,6 +185,9 @@
 		<member name="free_editor_textures" type="bool" setter="set_free_editor_textures" getter="get_free_editor_textures" default="true">
 			Frees ground textures used for editing in _ready(). These textures are used to generate the TextureArrays, so if you don't change any [Terrain3DTextureAsset] settings in game, this can be enabled. Also reloads the texture asset list in _enter_tree() in case you load scenes via code and need the textures again. Calls [method Terrain3DAssets.clear_textures].
 		</member>
+		<member name="free_uncompressed_color_maps" type="bool" setter="set_free_uncompressed_color_maps" getter="get_free_uncompressed_color_maps" default="true">
+			Frees the uncompressed color maps for the regions, if the application is not running in the editor, and [member color_compression_mode] is set to something other than NONE. The uncompressed color maps are also freed upon exporting the game.
+		</member>
 		<member name="gi_mode" type="int" setter="set_gi_mode" getter="get_gi_mode" enum="GeometryInstance3D.GIMode" default="1">
 			Tells the renderer which global illumination mode to use for Terrain3D. This sets [code skip-lint]GeometryInstance3D.gi_mode[/code] in the engine.
 		</member>
