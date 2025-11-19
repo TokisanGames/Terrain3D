@@ -557,8 +557,7 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 
 void Terrain3D::set_color_compression_mode(const Image::CompressMode p_color_compression_mode) {
 	SET_IF_DIFF(_color_compression_mode, p_color_compression_mode);
-	LOG(INFO, p_color_compression_mode);
-	_color_compression_mode = p_color_compression_mode;
+	LOG(INFO, "Setting compression mode for color maps: ", _color_compression_mode);
 	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
 	for (int i = 0; i < regions.size(); i++) {
 		Ref<Terrain3DRegion> region = regions[i];
@@ -1109,8 +1108,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
-	ClassDB::bind_method(D_METHOD("get_color_compression_mode"), &Terrain3D::get_color_compression_mode);
 	ClassDB::bind_method(D_METHOD("set_color_compression_mode", "color_compression_mode"), &Terrain3D::set_color_compression_mode);
+	ClassDB::bind_method(D_METHOD("get_color_compression_mode"), &Terrain3D::get_color_compression_mode);
 	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
 	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
 	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
