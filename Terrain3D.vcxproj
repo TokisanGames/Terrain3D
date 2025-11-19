@@ -158,6 +158,7 @@
     <ClInclude Include="src\terrain_3d_util.h" />
     <ClInclude Include="src\terrain_3d_material.h" />
     <ClInclude Include="src\terrain_3d_assets.h" />
+    <ClInclude Include="src\unit_testing.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\generated_texture.cpp" />
@@ -174,6 +175,7 @@
     <ClCompile Include="src\terrain_3d_texture_asset.cpp" />
     <ClCompile Include="src\terrain_3d_assets.cpp" />
     <ClCompile Include="src\terrain_3d_util.cpp" />
+    <ClCompile Include="src\unit_testing.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".github\actions\base-deps\action.yml" />

@@ -4,12 +4,14 @@
 #define TERRAIN3D_UTIL_CLASS_H
 
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include "constants.h"
 #include "generated_texture.h"
-#include "terrain_3d.h"
+
+class Terrain3D;
 
 // This file holds stateless utility functions for both C++ and GDScript
 // The class exposes static member and inline functions to GDscript
@@ -287,26 +289,36 @@ template <typename T>
 struct has_native_ptr<T, std::void_t<decltype(std::declval<T>()._native_ptr())>>
 		: std::true_type {};
 
-// Returns true if Variants share an internal pointer
+using GDPtr = void **;
+
 template <typename T>
-_FORCE_INLINE_ bool shares_ptr(const T &a, const T &b) {
-	static_assert(has_native_ptr<T>::value); // Enforce type check via trait
-	static_assert(sizeof(Variant) == 24);
-	auto pa = static_cast<const uint8_t *>(a._native_ptr());
-	auto pb = static_cast<const uint8_t *>(b._native_ptr());
-	return *reinterpret_cast<const void *const *>(pa + 8) ==
-			*reinterpret_cast<const void *const *>(pb + 8);
+_FORCE_INLINE_ constexpr const void *get_gd_ptr(const T &obj) {
+	static_assert(has_native_ptr<T>::value, "Type must have _native_ptr()");
+	return *(GDPtr)obj._native_ptr();
 }
 
-// Returns if A is different from B
-// O(1) pointer compare for Array/TypedArray/Dictionary
+// Returns if A is shallow different from B
+// O(1) size and pointer compare for Array/Dictionary/String
 // Operator==() otherwise
+// Two arrays/dicts with different pointers could have the same value, this will return true
+// Two strings or ints with different pointers but the same value will return false
 // Could be extended for PackedArray and other special types
 template <typename T>
-_FORCE_INLINE_ bool differs(T &a, const T &b) {
-	if constexpr (std::is_base_of_v<Array, T> ||
-			std::is_base_of_v<Dictionary, T>) {
-		return !shares_ptr(a, b);
+_FORCE_INLINE_ bool differs(const T &a, const T &b) {
+	if constexpr (std::is_base_of_v<String, T>) {
+		if (a.length() != b.length()) { // Common path predictable early exit
+			return true;
+		}
+		const void *ptr_a = get_gd_ptr(a);
+		const void *ptr_b = get_gd_ptr(b);
+		bool ptr_diff = (*(GDPtr)(static_cast<const uint8_t *>(ptr_a) + 8) !=
+				*(GDPtr)(static_cast<const uint8_t *>(ptr_b) + 8));
+		return ptr_diff ? !(a == b) : false;
+	} else if constexpr (std::is_base_of_v<Array, T> || std::is_base_of_v<Dictionary, T>) {
+		if (a.size() != b.size()) { // Redundant but common path predictable
+			return true;
+		}
+		return get_gd_ptr(a) != get_gd_ptr(b);
 	} else {
 		return !(a == b);
 	}
