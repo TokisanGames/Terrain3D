@@ -326,7 +326,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const Ima
 	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
 	set_version(Terrain3DData::CURRENT_VERSION);
 	Error err = OK;
-
+	_compressed_color_map.unref();
 	if (IS_EDITOR && p_color_compression_mode != Image::COMPRESS_MAX) {
 		_compressed_color_map = Image::create_from_data(_color_map->get_width(), _color_map->get_height(), _color_map->has_mipmaps(), _color_map->get_format(), _color_map->get_data());
 		_compressed_color_map->copy_from(_color_map);
