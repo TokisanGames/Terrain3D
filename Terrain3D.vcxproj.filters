@@ -265,6 +265,12 @@
     <None Include="project\addons\terrain_3d\extras\shaders\lightweight.gdshader">
       <Filter>4. Shaders</Filter>
     </None>
+    <None Include="doc\docs\generating_csharp_bindings.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\programming_languages.rst">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -277,9 +283,6 @@
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\import_export.md">
-      <Filter>2. Docs</Filter>
-    </Text>
-    <Text Include="doc\docs\programming_languages.md">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\occlusion_culling.md">

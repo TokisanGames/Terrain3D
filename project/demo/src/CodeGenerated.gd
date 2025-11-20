@@ -23,21 +23,20 @@ func create_terrain() -> Terrain3D:
 	green_gr.set_color(0, Color.from_hsv(100./360., .35, .3))
 	green_gr.set_color(1, Color.from_hsv(120./360., .4, .37))
 	var green_ta: Terrain3DTextureAsset = await create_texture_asset("Grass", green_gr, 1024)
-	green_ta.uv_scale = 0.1
-	green_ta.detiling_rotation = 0.1
+	green_ta.uv_scale = 0.02
 
 	var brown_gr := Gradient.new()
 	brown_gr.set_color(0, Color.from_hsv(30./360., .4, .3))
 	brown_gr.set_color(1, Color.from_hsv(30./360., .4, .4))
 	var brown_ta: Terrain3DTextureAsset = await create_texture_asset("Dirt", brown_gr, 1024)
 	brown_ta.uv_scale = 0.03
-	green_ta.detiling_rotation = 0.1
 	
 	var grass_ma: Terrain3DMeshAsset = create_mesh_asset("Grass", Color.from_hsv(120./360., .4, .37)) 
 
 	# Create a terrain
-	var terrain := Terrain3D.new()
+	terrain = Terrain3D.new()
 	terrain.name = "Terrain3D"
+	terrain.owner = get_tree().get_current_scene()
 	add_child(terrain, true)
 
 	# Set material and assets
@@ -45,7 +44,6 @@ func create_terrain() -> Terrain3D:
 	terrain.material.auto_shader_enabled = true
 	terrain.material.set_shader_param("auto_slope", 10)
 	terrain.material.set_shader_param("blend_sharpness", .975)
-	terrain.assets = Terrain3DAssets.new()
 	terrain.assets.set_texture(0, green_ta)
 	terrain.assets.set_texture(1, brown_ta)
 	terrain.assets.set_mesh_asset(0, grass_ma)
@@ -57,7 +55,7 @@ func create_terrain() -> Terrain3D:
 	for x in img.get_width():
 		for y in img.get_height():
 			img.set_pixel(x, y, Color(noise.get_noise_2d(x, y), 0., 0., 1.))
-	terrain.region_size = 1024
+	terrain.region_size = Terrain3D.SIZE_1024
 	terrain.data.import_images([img, null, null], Vector3(-1024, 0, -1024), 0.0, 150.0)
 
 	# Instance foliage
@@ -128,6 +126,7 @@ func create_texture_asset(asset_name: String, gradient: Gradient, texture_size: 
 func create_mesh_asset(asset_name: String, color: Color) -> Terrain3DMeshAsset:
 	var ma := Terrain3DMeshAsset.new()
 	ma.name = asset_name
+	ma.height_offset = 0.5	
 	ma.lod0_range = 128.0
 	ma.material_override.albedo_color = color
 	return ma
