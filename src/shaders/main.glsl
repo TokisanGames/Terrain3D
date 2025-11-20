@@ -74,6 +74,7 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 group_uniforms general;
 uniform bool flat_terrain_normals = false;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
+uniform float max_distance_effect_multiplier : hint_range(1.0, 5.0) = 1.5;
 uniform bool vertical_projection = true;
 uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 group_uniforms;
@@ -570,6 +571,11 @@ void fragment() {
 	
 	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
 	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
+
+	// UV in dFdx/dFdy space to compare distance
+	float dFuv = length(vec2(dFdx(UV.x), dFdy(UV.y)));
+	// clamp it to stop from removing base intensity when closer
+	dFuv = clamp(dFuv, 1.0, max_distance_effect_multiplier);
 	
 	// Apply PBR
 	ALBEDO = mat.albedo_height.rgb * color_map.rgb * macrov;
@@ -577,10 +583,10 @@ void fragment() {
 	SPECULAR = 1. - mat.normal_rough.a;
 	// Repack final normal map value.
 	NORMAL_MAP = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
-	NORMAL_MAP_DEPTH = mat.normal_map_depth;
+	NORMAL_MAP_DEPTH = mat.normal_map_depth * dFuv;
 
 	// Higher and/or facing up, less occluded.
-	float ao = (1. - (mat.albedo_height.a * log(2.1 - mat.ao_strength))) * (1. - mat.normal_rough.y);
+	float ao = (1. - (mat.albedo_height.a * log(2.1 - mat.ao_strength))) * (1. - mat.normal_rough.y) * dFuv;
 	AO = clamp(1. - ao * mat.ao_strength, mat.albedo_height.a, 1.0);
 	AO_LIGHT_AFFECT = (1.0 - mat.albedo_height.a) * clamp(mat.normal_rough.y, 0., 1.);
 
