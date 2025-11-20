@@ -78,6 +78,9 @@
     <ClInclude Include="src\target_node_3d.h">
       <Filter>5. Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\unit_testing.h">
+      <Filter>5. Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\terrain_3d_mesher.cpp">
@@ -120,6 +123,9 @@
       <Filter>6. C++</Filter>
     </ClCompile>
     <ClCompile Include="src\terrain_3d_collision.cpp">
+      <Filter>6. C++</Filter>
+    </ClCompile>
+    <ClCompile Include="src\unit_testing.cpp">
       <Filter>6. C++</Filter>
     </ClCompile>
   </ItemGroup>
