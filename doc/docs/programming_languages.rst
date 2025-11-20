@@ -16,61 +16,49 @@ Detecting If Terrain3D Is Installed
 -----------------------------------
 
 To determine if Terrain3D is installed and active, `ask
-Godot <https://docs.godotengine.org/en/stable/classes/class_editorinterface.html#class-editorinterface-method-is-plugin-enabled>`__.
+Godot <https://docs.godotengine.org/en/stable/classes/class_editorinterface.html#class-editorinterface-method-is-plugin-enabled>`__. This works only in the editor for tool scripts and editor plugins.
 
-Using C# might be different depending if you generated Bindings :doc:`Generating C# Bindings <generating_csharp_bindings>`. So the Third tab is for if you have C# Bindings available
+C# might be different depending if you're using the generated bindings :doc:`Generating C# Bindings <generating_csharp_bindings>`.
 
 .. tabs::
-
    .. tab:: GDScript
-
         .. code:: gdscript
 
-            print("Terrain3D installed: ", EditorInterface.is_plugin_enabled("terrain_3d"))
+            print("Terrain3D enabled: ", EditorInterface.is_plugin_enabled("terrain_3d"))
 
    .. tab:: C#
-
         .. code:: c#
 
-            GetEditorInterface().IsPluginEnabled("terrain_3d")
+            GD.Print("Terrain3D enabled: ", EditorInterface.Singleton.IsPluginEnabled("Terrain3D"));
 
-   .. tab:: C# (Generated Bindings)
-
+   .. tab:: C# (Bindings)
         .. code:: c#
 
             using TokisanGames;
-
             ...
-
-            GetEditorInterface().IsPluginEnabled(nameof(Terrain3D))
+            GD.Print("Terrain3D enabled: ", EditorInterface.Singleton.IsPluginEnabled(nameof(Terrain3D)));
 
 
 You can also ask ClassDB if the class exists:
 
 .. tabs::
-
    .. tab:: GDScript
-
         .. code:: gdscript
 
             ClassDB.class_exists("Terrain3D")
             ClassDB.can_instantiate("Terrain3D")
 
    .. tab:: C#
-
         .. code:: c#
 
             ClassDB.ClassExists("Terrain3D");
             ClassDB.CanInstantiate("Terrain3D");
 
-   .. tab:: C# (Generated Bindings)
-
+   .. tab:: C# (Bindings)
         .. code:: c#
 
             using TokisanGames;
-
             ...
-
             ClassDB.ClassExists(nameof(Terrain3D));
             ClassDB.CanInstantiate(nameof(Terrain3D));
 
@@ -80,79 +68,53 @@ Instantiating & Calling Terrain3D
 
 Terrain3D is instantiated and referenced like any other object.
 
-See the ``CodeGenerated.tscn`` demo for an example of initiating
+See the ``CodeGeneratedDemo.tscn`` or `CodeGeneratedCSDemo.tscn` demos for examples of initiating
 Terrain3D from script.
 
 .. tabs::
-
    .. tab:: GDScript
-
         .. code:: gdscript
 
             var terrain: Terrain3D = Terrain3D.new()
-            terrain.assets = Terrain3DAssets.new()
             print(terrain.get_version())
+            terrain.assets = Terrain3DAssets.new()
 
    .. tab:: C#
-        You can instantiate through ClassDB, set variables and call it.
-
         .. code:: c#
 
             var terrain = ClassDB.Instantiate("Terrain3D");
+            GD.Print("Terrain3D version: ", terrain.AsGodotObject().Call("get_version"));
             terrain.AsGodotObject().Set("assets", ClassDB.Instantiate("Terrain3DAssets"));
-            terrain.AsGodotObject().Call("set_show_region_grid", true);
 
-   .. tab:: C# (Generated Bindings)
-
+   .. tab:: C# (Bindings)
         .. code:: c#
 
             using TokisanGames;
-
             ...
-
-            var terrain = Terrain3D.Instantiate();
-            terrain.SetAssets(Terrain3DAssets.Instantiate());
-            // or: terrain.Assets = Terrain3DAssets.Instantiate();
-            terrain.SetShowRegionGrid(true);
+            Terrain3D terrain = Terrain3D.Instantiate();
+            GD.Print("Terrain3D version: ", terrain.Version);
+            terrain.Assets = Terrain3DAssets.Instantiate();
 
 You can also check if a node is a Terrain3D object:
 
 .. tabs::
-
    .. tab:: GDScript
-
         .. code:: gdscript
 
             if node is Terrain3D:
 
    .. tab:: C#
-
         .. code:: c#
 
-            private bool CheckTerrain3D(Node myNode) {
-                if (myNode.IsClass("Terrain3D")) {
-                    var collisionMode = myNode.Call("get_collision_mode").AsInt32();
-                }
-                ...
-            }
+            if (myNode.IsClass("Terrain3D")) {
 
-   .. tab:: C# (Generated Bindings)
-
+   .. tab:: C# (Bindings)
         .. code:: c#
 
             using TokisanGames;
-
             ...
+            if (myNode.IsClass(nameof(Terrain3D))) {
 
-            private bool CheckTerrain3D(Node myNode)
-            {
-                if (myNode.IsClass(nameof(Terrain3D)))
-                {
-                    var terrain = Terrain3D.Bind(myNode);
-                    var collisionMode = terrain.GetCollisionMode();
-                }
-                ...
-            }
 
 For more information on C# and other languages, read `Cross-language
 scripting <https://docs.godotengine.org/en/stable/tutorials/scripting/cross_language_scripting.html>`__
@@ -178,9 +140,7 @@ intented to provide your code with the Terrain3D instance.
    “Terrain3D”.
 
 .. tabs::
-
    .. tab:: GDScript
-
         .. code:: gdscript
 
             var terrain: Terrain3D # or Node if you aren't sure if it's installed
@@ -188,29 +148,25 @@ intented to provide your code with the Terrain3D instance.
                 terrain = get_tree().get_edited_scene_root().find_children("*", "Terrain3D").front()
             else: # In game
                 terrain = get_tree().get_current_scene().find_children("*", "Terrain3D").front()
-
             if terrain:
                 print("Found terrain")
 
-   .. tab:: C# (Generated Bindings)
-
+   .. tab:: C# (Bindings)
         .. code:: c#
 
+            using System.Linq;
             using TokisanGames;
-
             ...
-
+            Terrain3D terrain;
             Node terrainNode;
-
             if (Engine.IsEditorHint())
                 terrainNode = GetTree().GetEditedSceneRoot().FindChildren("*", nameof(Terrain3D)).FirstOrDefault();
             else
                 terrainNode = GetTree().GetCurrentScene().FindChildren("*", nameof(Terrain3D)).FirstOrDefault();
-
             if (terrainNode != null)
             {
-                GD.Print("Found terrain");
-                var terrain = Terrain3D.Bind(terrainNode);
+                terrain = Terrain3D.Bind(terrainNode);
+                GD.Print("Found terrain: ", terrain);
             }
 
 Detecting Terrain Height

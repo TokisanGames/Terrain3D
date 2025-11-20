@@ -195,6 +195,7 @@
     <None Include="CONTRIBUTING.md" />
     <None Include="doc\conf.py" />
     <None Include="doc\docs\collision.md" />
+    <None Include="doc\docs\generating_csharp_bindings.md" />
     <None Include="doc\docs\introduction.md" />
     <None Include="doc\docs\double_precision.md" />
     <None Include="doc\docs\games.md" />
@@ -205,6 +206,7 @@
     <None Include="doc\docs\press.md" />
     <None Include="doc\docs\data_format.md" />
     <None Include="doc\docs\heightmaps.md" />
+    <None Include="doc\docs\programming_languages.rst" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\docs\user_interface.md" />
     <None Include="doc\index.rst" />
@@ -230,7 +232,6 @@
   <ItemGroup>
     <Text Include=".readthedocs.yaml" />
     <Text Include="doc\docs\import_export.md" />
-    <Text Include="doc\docs\programming_languages.md" />
     <Text Include="doc\docs\occlusion_culling.md" />
     <Text Include="doc\docs\shader_design.md" />
     <Text Include="doc\docs\system_architecture.md" />
