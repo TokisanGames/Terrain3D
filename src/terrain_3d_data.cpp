@@ -569,6 +569,138 @@ Ref<Terrain3DStampLayer> Terrain3DData::add_stamp_layer(const Vector2i &p_region
 	return result;
 }
 
+TypedArray<Terrain3DStampLayer> Terrain3DData::add_stamp_layer_global(const Rect2i &p_global_coverage, const MapType p_map_type, const Ref<Image> &p_payload, const Ref<Image> &p_alpha, const real_t p_intensity, const real_t p_feather_radius, const Terrain3DLayer::BlendMode p_blend_mode, const bool p_auto_create_regions, const bool p_update) {
+	TypedArray<Terrain3DStampLayer> created_layers;
+	if (!p_global_coverage.has_area()) {
+		LOG(WARN, "add_stamp_layer_global: coverage has no area");
+		return created_layers;
+	}
+	LayerSplitResults splits = split_layer_payload_global(p_global_coverage, p_payload, p_alpha);
+	if (splits.empty()) {
+		return created_layers;
+	}
+	bool any_added = false;
+	for (const LayerSplitResult &slice : splits) {
+		Terrain3DRegion *region = get_region_ptr(slice.region_location);
+		if (!region && p_auto_create_regions) {
+			Ref<Terrain3DRegion> new_region = add_region_blank(slice.region_location, false);
+			region = new_region.is_valid() ? new_region.ptr() : nullptr;
+		}
+		if (!region) {
+			LOG(WARN, "add_stamp_layer_global: region ", slice.region_location, " unavailable; skipping slice");
+			continue;
+		}
+		Ref<Terrain3DStampLayer> added = add_stamp_layer(slice.region_location, p_map_type, slice.payload, slice.coverage, slice.alpha, p_intensity, p_feather_radius, p_blend_mode, -1, false);
+		if (added.is_valid()) {
+			created_layers.push_back(added);
+			any_added = true;
+		}
+	}
+	if (any_added && p_update) {
+		update_maps(p_map_type, false, false);
+	}
+	return created_layers;
+}
+
+Terrain3DData::LayerSplitResults Terrain3DData::split_layer_payload_global(const Rect2i &p_global_coverage, const Ref<Image> &p_payload, const Ref<Image> &p_alpha) const {
+	LayerSplitResults slices;
+	if (!p_global_coverage.has_area()) {
+		LOG(DEBUG, "split_layer_payload_global: requested coverage has no area");
+		return slices;
+	}
+	if (p_payload.is_null()) {
+		LOG(WARN, "split_layer_payload_global: payload image is null");
+		return slices;
+	}
+	if (_region_size <= 0) {
+		LOG(ERROR, "split_layer_payload_global: invalid region size ", _region_size);
+		return slices;
+	}
+	Vector2i payload_size(p_payload->get_width(), p_payload->get_height());
+	if (payload_size.x <= 0 || payload_size.y <= 0) {
+		LOG(ERROR, "split_layer_payload_global: payload has invalid dimensions ", payload_size);
+		return slices;
+	}
+	if (payload_size != p_global_coverage.size) {
+		LOG(ERROR, "split_layer_payload_global: payload size ", payload_size, " does not match coverage size ", p_global_coverage.size);
+		return slices;
+	}
+	if (p_alpha.is_valid()) {
+		Vector2i alpha_size(p_alpha->get_width(), p_alpha->get_height());
+		if (alpha_size != payload_size) {
+			LOG(WARN, "split_layer_payload_global: alpha size ", alpha_size, " does not match payload size ", payload_size, ". Alpha will be ignored");
+		}
+	}
+	auto floor_div = [](int value, int divisor) -> int {
+		if (divisor == 0) {
+			return 0;
+		}
+		int result = value / divisor;
+		int remainder = value % divisor;
+		if (remainder != 0 && ((remainder < 0) != (divisor < 0))) {
+			result -= 1;
+		}
+		return result;
+	};
+	Vector2i coverage_end = p_global_coverage.get_end();
+	coverage_end -= Vector2i(1, 1); // Make inclusive for region range calculation
+	int min_region_x = floor_div(p_global_coverage.position.x, _region_size);
+	int min_region_y = floor_div(p_global_coverage.position.y, _region_size);
+	int max_region_x = floor_div(coverage_end.x, _region_size);
+	int max_region_y = floor_div(coverage_end.y, _region_size);
+	for (int region_y = min_region_y; region_y <= max_region_y; region_y++) {
+		for (int region_x = min_region_x; region_x <= max_region_x; region_x++) {
+			Vector2i region_loc(region_x, region_y);
+			Rect2i region_bounds(region_loc * _region_size, Vector2i(_region_size, _region_size));
+			Rect2i slice_global = region_bounds.intersection(p_global_coverage);
+			if (!slice_global.has_area()) {
+				continue;
+			}
+			Rect2i payload_rect(slice_global.position - p_global_coverage.position, slice_global.size);
+			if (payload_rect.position.x < 0 || payload_rect.position.y < 0 ||
+				payload_rect.get_end().x > payload_size.x || payload_rect.get_end().y > payload_size.y) {
+				LOG(ERROR, "split_layer_payload_global: computed payload rect ", payload_rect,
+					" falls outside payload bounds ", Rect2i(Vector2i(), payload_size));
+				return slices;
+			}
+			Ref<Image> region_payload;
+			region_payload.instantiate();
+			region_payload->create(slice_global.size.x, slice_global.size.y, false, p_payload->get_format());
+			region_payload->blit_rect(p_payload, payload_rect, Vector2i());
+			Ref<Image> region_alpha;
+			if (p_alpha.is_valid() && p_alpha->get_width() == payload_size.x && p_alpha->get_height() == payload_size.y) {
+				region_alpha.instantiate();
+				region_alpha->create(slice_global.size.x, slice_global.size.y, false, p_alpha->get_format());
+				region_alpha->blit_rect(p_alpha, payload_rect, Vector2i());
+			}
+			LayerSplitResult slice;
+			slice.region_location = region_loc;
+			slice.coverage = Rect2i(slice_global.position - region_bounds.position, slice_global.size);
+			slice.payload = region_payload;
+			slice.alpha = region_alpha;
+			slices.push_back(slice);
+		}
+	}
+	return slices;
+}
+
+Dictionary Terrain3DData::get_layer_owner_info(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type) const {
+	Dictionary result;
+	if (p_layer.is_null()) {
+		return result;
+	}
+	Terrain3DRegion *region = nullptr;
+	Vector2i region_loc;
+	int index = -1;
+	if (!_find_layer_owner(p_layer, p_map_type, &region, &region_loc, &index)) {
+		return result;
+	}
+	result["region_location"] = region_loc;
+	result["index"] = index;
+	result["map_type"] = p_map_type;
+	return result;
+}
+
 bool Terrain3DData::set_layer_coverage(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const Rect2i &p_coverage, const bool p_update) {
 	Terrain3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region) {
@@ -1570,6 +1702,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_layers", "region_location", "map_type"), &Terrain3DData::get_layers);
 	ClassDB::bind_method(D_METHOD("add_layer", "region_location", "map_type", "layer", "index", "update"), &Terrain3DData::add_layer, DEFVAL(-1), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_stamp_layer", "region_location", "map_type", "payload", "coverage", "alpha", "intensity", "feather_radius", "blend_mode", "index", "update"), &Terrain3DData::add_stamp_layer, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(-1), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("add_stamp_layer_global", "global_coverage", "map_type", "payload", "alpha", "intensity", "feather_radius", "blend_mode", "auto_create_regions", "update"), &Terrain3DData::add_stamp_layer_global, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(true), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("get_layer_owner_info", "layer", "map_type"), &Terrain3DData::get_layer_owner_info);
 	ClassDB::bind_method(D_METHOD("set_layer_coverage", "region_location", "map_type", "index", "coverage", "update"), &Terrain3DData::set_layer_coverage, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("move_stamp_layer", "layer", "world_position", "update"), &Terrain3DData::move_stamp_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("set_layer_enabled", "region_location", "map_type", "index", "enabled", "update"), &Terrain3DData::set_layer_enabled, DEFVAL(true));

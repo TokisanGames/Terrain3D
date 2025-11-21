@@ -172,7 +172,7 @@ Ref<Image> Terrain3DRegion::get_composited_map(const MapType p_map_type) const {
 				continue;
 			}
 			layer->set_map_type(p_map_type);
-			layer->apply(*cache.ptr(), _region_size, _vertex_spacing);
+			layer->apply(*cache.ptr(), _vertex_spacing);
 		}
 		dirty = false;
 	}
