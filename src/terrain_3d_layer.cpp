@@ -66,39 +66,17 @@ void Terrain3DLayer::_bind_methods() {
 	BIND_ENUM_CONSTANT(BLEND_REPLACE);
 }
 
-void Terrain3DLayer::_generate_payload(const int p_region_size, const real_t p_vertex_spacing) {
-	// Base layer does not procedurally generate payload by default.
+void Terrain3DLayer::_generate_payload(const real_t p_vertex_spacing) {
 	if (_payload.is_null() && _coverage.size != Vector2i()) {
 		_payload = Util::get_filled_image(_coverage.size, COLOR_BLACK, false, map_type_get_format(_map_type));
 	}
-	_cached_region_size = p_region_size;
 	_cached_vertex_spacing = p_vertex_spacing;
-
-	Rect2i region_bounds(Vector2i(), Vector2i(p_region_size, p_region_size));
-	Rect2i coverage = get_coverage();
-	Rect2i clamped = coverage.intersection(region_bounds);
-	if (!clamped.has_area()) {
-		_payload.unref();
-		set_coverage(Rect2i());
-		_dirty = false;
-		return;
-	}
-	if (clamped != coverage) {
-		Ref<Image> trimmed;
-		trimmed.instantiate();
-		trimmed->create(clamped.size.x, clamped.size.y, false, _payload->get_format());
-		Rect2i copy_rect(clamped.position - coverage.position, clamped.size);
-		trimmed->blit_rect(_payload, copy_rect, Vector2i());
-		_payload = trimmed;
-		set_coverage(clamped);
-	}
-
 	_dirty = false;
 }
 
-void Terrain3DLayer::_ensure_payload(const int p_region_size, const real_t p_vertex_spacing) {
-	if (_dirty || _payload.is_null() || needs_rebuild(p_region_size, p_vertex_spacing)) {
-		_generate_payload(p_region_size, p_vertex_spacing);
+void Terrain3DLayer::_ensure_payload(const real_t p_vertex_spacing) {
+	if (_dirty || _payload.is_null() || needs_rebuild(p_vertex_spacing)) {
+		_generate_payload(p_vertex_spacing);
 	}
 }
 
@@ -161,15 +139,15 @@ void Terrain3DLayer::set_alpha(const Ref<Image> &p_alpha) {
 	_alpha = p_alpha;
 }
 
-bool Terrain3DLayer::needs_rebuild(const int p_region_size, const real_t p_vertex_spacing) const {
-	return _cached_region_size != p_region_size || !Math::is_equal_approx(_cached_vertex_spacing, p_vertex_spacing);
+bool Terrain3DLayer::needs_rebuild(const real_t p_vertex_spacing) const {
+	return !Math::is_equal_approx(_cached_vertex_spacing, p_vertex_spacing);
 }
 
-void Terrain3DLayer::apply(Image &p_target, const int p_region_size, const real_t p_vertex_spacing) {
+void Terrain3DLayer::apply(Image &p_target, const real_t p_vertex_spacing) {
 	if (!_enabled) {
 		return;
 	}
-	_ensure_payload(p_region_size, p_vertex_spacing);
+	_ensure_payload(p_vertex_spacing);
 	if (_payload.is_null()) {
 		LOG(DEBUG, "Layer payload missing for map type ", _map_type, ", coverage ", _coverage);
 		return;
@@ -300,17 +278,16 @@ void Terrain3DCurveLayer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "falloff_curve", PROPERTY_HINT_RESOURCE_TYPE, "Curve"), "set_falloff_curve", "get_falloff_curve");
 }
 
-void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_t p_vertex_spacing) {
+void Terrain3DCurveLayer::_generate_payload(const real_t p_vertex_spacing) {
 	if (_points.is_empty()) {
 		LOG(DEBUG, "Curve layer payload generation skipped: no points");
 		_payload.unref();
 		_alpha.unref();
-		_cached_region_size = p_region_size;
 		_cached_vertex_spacing = p_vertex_spacing;
 		_dirty = false;
 		return;
 	}
-	LOG(DEBUG, "Generating curve payload: points=", _points.size(), " region_size=", p_region_size, " vertex_spacing=", p_vertex_spacing, " width=", _width, " depth=", _depth, " intensity=", _intensity);
+	LOG(DEBUG, "Generating curve payload: points=", _points.size(), " vertex_spacing=", p_vertex_spacing, " width=", _width, " depth=", _depth, " intensity=", _intensity);
 
 	Vector2 min_pt = Vector2(Math_INF, Math_INF);
 	Vector2 max_pt = Vector2(-Math_INF, -Math_INF);
@@ -331,7 +308,6 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 	Vector2i rect_pos = Vector2i(Math::floor(min_pt.x * pixels_per_meter), Math::floor(min_pt.y * pixels_per_meter));
 	Vector2i rect_end = Vector2i(Math::ceil(max_pt.x * pixels_per_meter), Math::ceil(max_pt.y * pixels_per_meter));
 	Vector2i rect_size = rect_end - rect_pos;
-	rect_pos = rect_pos.clamp(Vector2i(-p_region_size, -p_region_size), Vector2i(p_region_size * 2, p_region_size * 2));
 	rect_size.x = MAX(rect_size.x, 1);
 	rect_size.y = MAX(rect_size.y, 1);
 	LOG(DEBUG, "Curve payload bounds candidate: rect_pos=", rect_pos, " rect_end=", rect_end, " rect_size=", rect_size);
@@ -342,7 +318,6 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 		set_coverage(Rect2i());
 		_payload.unref();
 		_alpha.unref();
-		_cached_region_size = p_region_size;
 		_cached_vertex_spacing = p_vertex_spacing;
 		_dirty = false;
 		return;
@@ -355,7 +330,6 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 		set_coverage(Rect2i());
 		_payload.unref();
 		_alpha.unref();
-		_cached_region_size = p_region_size;
 		_cached_vertex_spacing = p_vertex_spacing;
 		_dirty = false;
 		return;
@@ -373,7 +347,6 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 		LOG(ERROR, "Curve payload allocation failed: requested=", Vector2i(rect_size.x, rect_size.y));
 		set_coverage(Rect2i());
 		_payload.unref();
-		_cached_region_size = p_region_size;
 		_cached_vertex_spacing = p_vertex_spacing;
 		_dirty = false;
 		return;
@@ -568,40 +541,10 @@ void Terrain3DCurveLayer::_generate_payload(const int p_region_size, const real_
 		}
 	}
 
-	Rect2i region_bounds(Vector2i(), Vector2i(p_region_size, p_region_size));
 	Rect2i current_coverage = Rect2i(rect_pos, rect_size);
-	Rect2i coverage_clamped = current_coverage.intersection(region_bounds);
-	if (!coverage_clamped.has_area()) {
-		LOG(WARN, "Curve layer coverage outside region bounds after generation. coverage=", current_coverage, " region_bounds=", region_bounds);
-		_payload.unref();
-		_alpha.unref();
-		set_coverage(Rect2i());
-		_cached_region_size = p_region_size;
-		_cached_vertex_spacing = p_vertex_spacing;
-		_dirty = false;
-		return;
-	}
-	if (coverage_clamped != current_coverage) {
-		LOG(DEBUG, "Curve layer clamping coverage from ", current_coverage, " to ", coverage_clamped);
-		Ref<Image> trimmed;
-		trimmed.instantiate();
-		trimmed->create(coverage_clamped.size.x, coverage_clamped.size.y, false, _payload->get_format());
-		Rect2i copy_rect(coverage_clamped.position - current_coverage.position, coverage_clamped.size);
-		trimmed->blit_rect(_payload, copy_rect, Vector2i());
-		_payload = trimmed;
-		if (_alpha.is_valid()) {
-			Ref<Image> trimmed_alpha;
-			trimmed_alpha.instantiate();
-			trimmed_alpha->create(coverage_clamped.size.x, coverage_clamped.size.y, false, _alpha->get_format());
-			trimmed_alpha->blit_rect(_alpha, copy_rect, Vector2i());
-			_alpha = trimmed_alpha;
-		}
-		set_coverage(coverage_clamped);
-		current_coverage = coverage_clamped;
-	}
+	set_coverage(current_coverage);
 	LOG(DEBUG, "Curve layer final coverage=", current_coverage, " payload_size=", Vector2i(_payload->get_width(), _payload->get_height()));
 
-	_cached_region_size = p_region_size;
 	_cached_vertex_spacing = p_vertex_spacing;
 	_dirty = false;
 }
@@ -692,6 +635,6 @@ void Terrain3DLocalNodeLayer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM3D, "local_transform"), "set_local_transform", "get_local_transform");
 }
 
-void Terrain3DLocalNodeLayer::_generate_payload(const int p_region_size, const real_t p_vertex_spacing) {
-	Terrain3DLayer::_generate_payload(p_region_size, p_vertex_spacing);
+void Terrain3DLocalNodeLayer::_generate_payload(const real_t p_vertex_spacing) {
+	Terrain3DLayer::_generate_payload(p_vertex_spacing);
 }

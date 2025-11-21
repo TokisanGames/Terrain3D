@@ -34,14 +34,13 @@ protected:
 	bool _dirty = true;
 	BlendMode _blend_mode = BLEND_ADD;
 
-	int _cached_region_size = 0;
 	real_t _cached_vertex_spacing = 0.0f;
 
 protected:
 	static void _bind_methods();
 
-	virtual void _generate_payload(const int p_region_size, const real_t p_vertex_spacing);
-	void _ensure_payload(const int p_region_size, const real_t p_vertex_spacing);
+	virtual void _generate_payload(const real_t p_vertex_spacing);
+	void _ensure_payload(const real_t p_vertex_spacing);
 	real_t _compute_feather_weight(const Vector2i &p_pixel) const;
 
 public:
@@ -72,9 +71,9 @@ public:
 	void set_alpha(const Ref<Image> &p_alpha);
 	Ref<Image> get_alpha() const { return _alpha; }
 
-	bool needs_rebuild(const int p_region_size, const real_t p_vertex_spacing) const;
+	bool needs_rebuild(const real_t p_vertex_spacing) const;
 
-	void apply(Image &p_target, const int p_region_size, const real_t p_vertex_spacing);
+	void apply(Image &p_target, const real_t p_vertex_spacing);
 
 	void mark_dirty();
 };
@@ -106,7 +105,7 @@ private:
 
 protected:
 	static void _bind_methods();
-	virtual void _generate_payload(const int p_region_size, const real_t p_vertex_spacing) override;
+	virtual void _generate_payload(const real_t p_vertex_spacing) override;
 
 	bool _closest_point_on_polyline(const Vector2 &p_point, real_t &r_distance, real_t &r_height) const;
 
@@ -140,7 +139,7 @@ private:
 
 protected:
 	static void _bind_methods();
-	virtual void _generate_payload(const int p_region_size, const real_t p_vertex_spacing) override;
+	virtual void _generate_payload(const real_t p_vertex_spacing) override;
 
 public:
 	Terrain3DLocalNodeLayer() {}

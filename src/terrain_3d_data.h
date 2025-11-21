@@ -9,6 +9,8 @@
 #include "terrain_3d_layer.h"
 #include "terrain_3d_region.h"
 
+#include <vector>
+
 class Terrain3D;
 
 class Terrain3DData : public Object {
@@ -81,6 +83,14 @@ private:
 	bool _find_layer_owner(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type, Terrain3DRegion **r_region = nullptr, Vector2i *r_region_loc = nullptr, int *r_index = nullptr) const;
 
 public:
+	struct LayerSplitResult {
+		Vector2i region_location;
+		Rect2i coverage;
+		Ref<Image> payload;
+		Ref<Image> alpha;
+	};
+	typedef std::vector<LayerSplitResult> LayerSplitResults;
+
 	Terrain3DData() {}
 	void initialize(Terrain3D *p_terrain);
 	~Terrain3DData() { _clear(); }
@@ -137,6 +147,9 @@ public:
 	TypedArray<Terrain3DLayer> get_layers(const Vector2i &p_region_loc, const MapType p_map_type) const;
 	Ref<Terrain3DLayer> add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const int p_index = -1, const bool p_update = true);
 	Ref<Terrain3DStampLayer> add_stamp_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Image> &p_payload, const Rect2i &p_coverage, const Ref<Image> &p_alpha = Ref<Image>(), const real_t p_intensity = 1.0f, const real_t p_feather_radius = 0.0f, const Terrain3DLayer::BlendMode p_blend_mode = Terrain3DLayer::BLEND_ADD, const int p_index = -1, const bool p_update = true);
+	TypedArray<Terrain3DStampLayer> add_stamp_layer_global(const Rect2i &p_global_coverage, const MapType p_map_type, const Ref<Image> &p_payload, const Ref<Image> &p_alpha = Ref<Image>(), const real_t p_intensity = 1.0f, const real_t p_feather_radius = 0.0f, const Terrain3DLayer::BlendMode p_blend_mode = Terrain3DLayer::BLEND_ADD, const bool p_auto_create_regions = true, const bool p_update = true);
+	LayerSplitResults split_layer_payload_global(const Rect2i &p_global_coverage, const Ref<Image> &p_payload, const Ref<Image> &p_alpha = Ref<Image>()) const;
+	Dictionary get_layer_owner_info(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type) const;
 	bool set_layer_coverage(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const Rect2i &p_coverage, const bool p_update = true);
 	bool move_stamp_layer(const Ref<Terrain3DStampLayer> &p_layer, const Vector3 &p_world_position, const bool p_update = true);
 	void set_layer_enabled(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_enabled, const bool p_update = true);
