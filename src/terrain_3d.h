@@ -70,6 +70,7 @@ private:
 	// Regions
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
+	Image::CompressMode _color_compression_mode = Image::COMPRESS_MAX;
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
@@ -84,6 +85,7 @@ private:
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
 	bool _free_editor_textures = true;
+	bool _free_uncompressed_color_maps = true;
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -161,6 +163,8 @@ public:
 	void change_region_size(const RegionSize p_size) { _data ? _data->change_region_size(p_size) : void(); }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
+	void set_color_compression_mode(const Image::CompressMode p_color_compression_mode);
+	Image::CompressMode get_color_compression_mode() const { return _color_compression_mode; }
 	void set_label_distance(const real_t p_distance);
 	real_t get_label_distance() const { return _label_distance; }
 	void set_label_size(const int p_size);
@@ -188,6 +192,8 @@ public:
 	real_t get_cull_margin() const { return _cull_margin; };
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; };
+	void set_free_uncompressed_color_maps(const bool p_free_uncompressed_color_maps) { _free_uncompressed_color_maps = p_free_uncompressed_color_maps; }
+	bool get_free_uncompressed_color_maps() const { return _free_uncompressed_color_maps; };
 	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
 	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
 

@@ -48,6 +48,8 @@ private:
 	Ref<Image> _height_map;
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
+	Ref<Image> _compressed_color_map;
+
 	// Instancer
 	Dictionary _instances; // Meshes{int} -> Cells{v2i} -> [ Transform3D, Color, Modified ]
 	real_t _vertex_spacing = 1.f; // Spacing that instancer transforms are currently scaled by.
@@ -79,7 +81,10 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
-	void sanitize_maps();
+	void set_compressed_color_map(const Ref<Image> &p_map);
+	Ref<Image> get_compressed_color_map() const { return _compressed_color_map; }
+	void free_uncompressed_color_map();
+	void sanitize_maps(const bool p_free_uncompressed_color_maps);
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 	bool validate_map_size(const Ref<Image> &p_map) const;
 
@@ -95,6 +100,9 @@ public:
 	void set_vertex_spacing(const real_t p_vertex_spacing) { _vertex_spacing = CLAMP(p_vertex_spacing, 0.25f, 100.f); }
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 
+	// File I/O
+	Error save(const String &p_path = "", const bool p_16_bit = false, const Image::CompressMode p_color_compression_mode = Image::COMPRESS_MAX);
+
 	// Working Data
 	void set_deleted(const bool p_deleted) { _deleted = p_deleted; }
 	bool is_deleted() const { return _deleted; }
@@ -104,9 +112,6 @@ public:
 	bool is_modified() const { return _modified; }
 	void set_location(const Vector2i &p_location);
 	Vector2i get_location() const { return _location; }
-
-	// File I/O
-	Error save(const String &p_path = "", const bool p_16_bit = false);
 
 	// Utility
 	void set_data(const Dictionary &p_data);
