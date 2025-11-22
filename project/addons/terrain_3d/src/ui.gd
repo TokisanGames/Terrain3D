@@ -290,7 +290,8 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 func update_layer_panel() -> void:
 	if not plugin or not plugin.terrain or not tool_settings:
 		return
-	if not plugin.terrain.data:
+	var data: Terrain3DData = plugin.terrain.data
+	if data == null:
 		tool_settings.clear_layer_stack()
 		return
 	var map_type: int = Terrain3DRegion.TYPE_MAX
@@ -299,12 +300,32 @@ func update_layer_panel() -> void:
 	if map_type == Terrain3DRegion.TYPE_MAX:
 		tool_settings.clear_layer_stack()
 		return
-	var region_loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
-	if not plugin.terrain.data.has_region(region_loc):
-		tool_settings.clear_layer_stack()
-		return
-	var layers: Array = plugin.terrain.data.get_layers(region_loc, map_type)
-	tool_settings.update_layer_stack(region_loc, map_type, layers)
+	var default_region := data.get_region_location(plugin.mouse_global_position)
+	var layer_entries := _collect_global_layers(data, map_type)
+	tool_settings.update_layer_stack(default_region, map_type, layer_entries)
+
+func _collect_global_layers(data: Terrain3DData, map_type: int) -> Array:
+	var entries: Array = []
+	if data == null:
+		return entries
+	var region_locations := data.get_region_locations()
+	for i in range(region_locations.size()):
+		var region_loc: Vector2i = region_locations[i]
+		if not data.has_region(region_loc):
+			continue
+		var layers: Array = data.get_layers(region_loc, map_type)
+		if layers.is_empty():
+			continue
+		for layer_index in range(layers.size()):
+			var layer: Terrain3DLayer = layers[layer_index]
+			if layer == null:
+				continue
+			entries.append({
+				"region_location": region_loc,
+				"layer_index": layer_index,
+				"layer": layer
+			})
+	return entries
 
 
 func _on_setting_changed(p_setting: Variant = null) -> void:

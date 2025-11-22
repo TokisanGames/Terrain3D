@@ -64,6 +64,7 @@ var layer_add_button: Button
 var current_layer_region: Vector2i = Vector2i.ZERO
 var current_layer_map_type: int = Terrain3DRegion.TYPE_MAX
 var layer_selection_group: ButtonGroup
+var _layer_entries: Array = [] ## Array[Dictionary] storing region_location, layer_index, layer
 
 
 func _ready() -> void:
@@ -655,70 +656,89 @@ func get_setting(p_setting: String) -> Variant:
 		value = 0
 	return value
 
-func update_layer_stack(region_loc: Vector2i, map_type: int, layers: Array) -> void:
-	if not layer_section or not layers_list or not layer_header_label:
+func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Array) -> void:
+	if not layer_section or not layers_list or not layer_header_label or not layer_add_button:
 		return
 	current_layer_region = region_loc
 	current_layer_map_type = map_type
+	_layer_entries = layer_entries.duplicate(true)
 	for child in layers_list.get_children():
 		child.queue_free()
-	if not _has_layer_context() or map_type == Terrain3DRegion.TYPE_MAX:
+	if map_type == Terrain3DRegion.TYPE_MAX:
 		layer_section.visible = false
 		layer_header_label.text = "Layers"
+		layer_add_button.disabled = true
 		return
 	layer_section.visible = true
-	var label_prefix: String = MAP_TYPE_LABELS.get(map_type, "Map")
-	layer_header_label.text = "%s Layers (%d, %d)" % [label_prefix, region_loc.x, region_loc.y]
 	layer_selection_group = ButtonGroup.new()
 	var active_index: int = 0
 	if plugin and plugin.editor and plugin.editor.has_method("get_active_layer_index"):
 		active_index = plugin.editor.get_active_layer_index()
+	var region_count := _count_unique_regions()
+	var label_prefix: String = MAP_TYPE_LABELS.get(map_type, "Map")
+	var layer_count := _layer_entries.size()
+	var region_suffix := "" if region_count == 1 else "s"
+	var layer_suffix := "" if layer_count == 1 else "s"
+	layer_header_label.text = "%s Layers (%d region%s, %d layer%s)" % [label_prefix, region_count, region_suffix, layer_count, layer_suffix]
 	_add_base_layer_entry(active_index)
-	if layers.is_empty():
+	if layer_count == 0:
 		var empty_label := Label.new()
 		empty_label.text = "No additional layers yet"
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		empty_label.modulate = Color(0.75, 0.75, 0.75)
 		layers_list.add_child(empty_label, true)
+		_update_layer_action_state()
 		return
-	for index in range(layers.size()):
-		var layer: Terrain3DLayer = layers[index]
-		if not layer:
+	for entry_id in range(_layer_entries.size()):
+		var entry: Dictionary = _layer_entries[entry_id]
+		var layer: Terrain3DLayer = entry.get("layer")
+		if layer == null:
 			continue
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var select_button := _create_layer_select_button(index + 1, _describe_layer(layer, index), active_index)
+		var ui_index := int(entry.get("layer_index", -1)) + 1
+		var label_text := _describe_layer(entry)
+		var tooltip := "Region %s" % [str(entry.get("region_location", Vector2i.ZERO))]
+		var select_button := _create_layer_select_button(ui_index, label_text, active_index, entry_id, tooltip)
 		row.add_child(select_button)
 		var toggle := CheckBox.new()
 		toggle.focus_mode = Control.FOCUS_NONE
 		toggle.button_pressed = layer.is_enabled()
 		toggle.tooltip_text = "Enable or disable this layer"
-		toggle.toggled.connect(_on_layer_toggle.bind(index))
+		toggle.toggled.connect(_on_layer_toggle.bind(entry_id))
 		row.add_child(toggle)
 		var remove_button := Button.new()
 		remove_button.focus_mode = Control.FOCUS_NONE
 		remove_button.icon = get_theme_icon("Remove", "EditorIcons")
 		remove_button.tooltip_text = "Remove this layer"
-		remove_button.pressed.connect(_on_layer_remove.bind(index))
+		remove_button.pressed.connect(_on_layer_remove.bind(entry_id))
 		row.add_child(remove_button)
 		layers_list.add_child(row, true)
+	_update_layer_action_state()
 
 func clear_layer_stack() -> void:
+	_layer_entries.clear()
 	update_layer_stack(Vector2i.ZERO, Terrain3DRegion.TYPE_MAX, [])
 
-func _describe_layer(layer: Terrain3DLayer, index: int) -> String:
+func _describe_layer(entry: Dictionary) -> String:
 	var parts: Array[String] = []
-	parts.append("#%d" % (index + 1))
-	parts.append(layer.get_class().replace("Terrain3D", ""))
-	var blend := layer.get_blend_mode()
-	if blend >= 0 and blend < LAYER_BLEND_LABELS.size():
-		parts.append(LAYER_BLEND_LABELS[blend])
-	var intensity := layer.get_intensity()
-	if not is_equal_approx(intensity, 1.0):
-		parts.append("x%.2f" % intensity)
-	var coverage: Rect2i = layer.get_coverage()
-	if coverage.size.x > 0 and coverage.size.y > 0:
-		parts.append("%dx%d @ %d,%d" % [coverage.size.x, coverage.size.y, coverage.position.x, coverage.position.y])
+	var layer: Terrain3DLayer = entry.get("layer")
+	var index := int(entry.get("layer_index", -1))
+	if index >= 0:
+		parts.append("#%d" % (index + 1))
+	if layer:
+		parts.append(layer.get_class().replace("Terrain3D", ""))
+		var blend := layer.get_blend_mode()
+		if blend >= 0 and blend < LAYER_BLEND_LABELS.size():
+			parts.append(LAYER_BLEND_LABELS[blend])
+		var intensity := layer.get_intensity()
+		if not is_equal_approx(intensity, 1.0):
+			parts.append("x%.2f" % intensity)
+		var coverage: Rect2i = layer.get_coverage()
+		if coverage.size.x > 0 and coverage.size.y > 0:
+			parts.append("%dx%d @ %d,%d" % [coverage.size.x, coverage.size.y, coverage.position.x, coverage.position.y])
+	var region_loc: Vector2i = entry.get("region_location", Vector2i.ZERO)
+	parts.append("@%d,%d" % [region_loc.x, region_loc.y])
 	return " • ".join(parts)
 
 func _describe_base_layer(map_type: int) -> String:
@@ -732,17 +752,17 @@ func _describe_base_layer(map_type: int) -> String:
 		_:
 			return "Base Layer"
 
-func _create_layer_select_button(index: int, label: String, active_index: int) -> Button:
+func _create_layer_select_button(index: int, label: String, active_index: int, entry_id: int = -1, tooltip: String = "") -> Button:
 	var button := Button.new()
 	button.toggle_mode = true
 	button.focus_mode = Control.FOCUS_NONE
 	button.button_group = layer_selection_group
 	button.text = label
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.tooltip_text = "Make this the active layer for painting"
+	button.tooltip_text = tooltip if not tooltip.is_empty() else "Make this the active layer for painting"
 	if index == active_index:
 		button.set_pressed_no_signal(true)
-	button.toggled.connect(_on_layer_selected.bind(index))
+	button.toggled.connect(_on_layer_selected.bind(index, entry_id))
 	return button
 
 func _add_base_layer_entry(active_index: int) -> void:
@@ -755,32 +775,74 @@ func _add_base_layer_entry(active_index: int) -> void:
 	base_row.add_child(spacer)
 	layers_list.add_child(base_row, true)
 
-func _on_layer_selected(pressed: bool, index: int) -> void:
+func _get_layer_entry(entry_id: int) -> Dictionary:
+	if entry_id < 0 or entry_id >= _layer_entries.size():
+		return {}
+	return _layer_entries[entry_id]
+
+func _count_unique_regions() -> int:
+	var unique := {}
+	for entry in _layer_entries:
+		var region_loc: Vector2i = entry.get("region_location", Vector2i.ZERO)
+		unique[str(region_loc)] = true
+	return unique.size()
+
+func _region_exists(region_loc: Vector2i) -> bool:
+	if not plugin or not plugin.terrain:
+		return false
+	var data: Terrain3DData = plugin.terrain.data
+	if data == null:
+		return false
+	return data.has_region(region_loc)
+
+func _update_layer_action_state() -> void:
+	if not layer_add_button:
+		return
+	layer_add_button.disabled = not _region_exists(current_layer_region)
+
+func _on_layer_selected(pressed: bool, ui_index: int, entry_id: int = -1) -> void:
 	if not pressed:
 		return
+	if entry_id >= 0:
+		var entry := _get_layer_entry(entry_id)
+		if not entry.is_empty():
+			current_layer_region = entry.get("region_location", current_layer_region)
+			_update_layer_action_state()
 	if not plugin or not plugin.editor:
 		return
 	if not plugin.editor.has_method("set_active_layer_index"):
 		return
-	plugin.editor.set_active_layer_index(index)
+	plugin.editor.set_active_layer_index(ui_index)
 	# Ensure the editor picks up the change for pending stamp data
 	_on_refresh_layers()
 
 func _has_layer_context() -> bool:
-	if not plugin or not plugin.terrain or not plugin.terrain.data:
-		return false
-	return plugin.terrain.data.has_region(current_layer_region)
+	return plugin and plugin.terrain and plugin.terrain.data
 
-func _on_layer_toggle(pressed: bool, index: int) -> void:
+func _on_layer_toggle(pressed: bool, entry_id: int) -> void:
 	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
 		return
-	plugin.terrain.data.set_layer_enabled(current_layer_region, current_layer_map_type, index, pressed, true)
+	var entry := _get_layer_entry(entry_id)
+	if entry.is_empty():
+		return
+	var region_loc: Vector2i = entry.get("region_location", current_layer_region)
+	var layer_index := int(entry.get("layer_index", -1))
+	if layer_index < 0:
+		return
+	plugin.terrain.data.set_layer_enabled(region_loc, current_layer_map_type, layer_index, pressed, true)
 	_on_refresh_layers()
 
-func _on_layer_remove(index: int) -> void:
+func _on_layer_remove(entry_id: int) -> void:
 	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
 		return
-	plugin.terrain.data.remove_layer(current_layer_region, current_layer_map_type, index, true)
+	var entry := _get_layer_entry(entry_id)
+	if entry.is_empty():
+		return
+	var region_loc: Vector2i = entry.get("region_location", current_layer_region)
+	var layer_index := int(entry.get("layer_index", -1))
+	if layer_index < 0:
+		return
+	plugin.terrain.data.remove_layer(region_loc, current_layer_map_type, layer_index, true)
 	if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_index"):
 		plugin.editor.set_active_layer_index(0)
 	_on_refresh_layers()
@@ -793,6 +855,8 @@ func _on_refresh_layers() -> void:
 
 func _on_add_layer() -> void:
 	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
+		return
+	if not _region_exists(current_layer_region):
 		return
 	if not plugin or not plugin.editor:
 		return
