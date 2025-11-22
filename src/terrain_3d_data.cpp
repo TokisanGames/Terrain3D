@@ -684,6 +684,24 @@ Terrain3DData::LayerSplitResults Terrain3DData::split_layer_payload_global(const
 	return slices;
 }
 
+TypedArray<Dictionary> Terrain3DData::split_layer_payload_global_data(const Rect2i &p_global_coverage, const Ref<Image> &p_payload, const Ref<Image> &p_alpha) const {
+	TypedArray<Dictionary> result;
+	LayerSplitResults slices = split_layer_payload_global(p_global_coverage, p_payload, p_alpha);
+	for (const LayerSplitResult &slice : slices) {
+		Dictionary entry;
+		entry["region_location"] = slice.region_location;
+		entry["coverage"] = slice.coverage;
+		if (slice.payload.is_valid()) {
+			entry["payload"] = slice.payload;
+		}
+		if (slice.alpha.is_valid()) {
+			entry["alpha"] = slice.alpha;
+		}
+		result.push_back(entry);
+	}
+	return result;
+}
+
 Dictionary Terrain3DData::get_layer_owner_info(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type) const {
 	Dictionary result;
 	if (p_layer.is_null()) {
@@ -1703,6 +1721,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_layer", "region_location", "map_type", "layer", "index", "update"), &Terrain3DData::add_layer, DEFVAL(-1), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_stamp_layer", "region_location", "map_type", "payload", "coverage", "alpha", "intensity", "feather_radius", "blend_mode", "index", "update"), &Terrain3DData::add_stamp_layer, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(-1), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_stamp_layer_global", "global_coverage", "map_type", "payload", "alpha", "intensity", "feather_radius", "blend_mode", "auto_create_regions", "update"), &Terrain3DData::add_stamp_layer_global, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(true), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("split_layer_payload_global_data", "global_coverage", "payload", "alpha"), &Terrain3DData::split_layer_payload_global_data, DEFVAL(Ref<Image>()));
 	ClassDB::bind_method(D_METHOD("get_layer_owner_info", "layer", "map_type"), &Terrain3DData::get_layer_owner_info);
 	ClassDB::bind_method(D_METHOD("set_layer_coverage", "region_location", "map_type", "index", "coverage", "update"), &Terrain3DData::set_layer_coverage, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("move_stamp_layer", "layer", "world_position", "update"), &Terrain3DData::move_stamp_layer, DEFVAL(true));
