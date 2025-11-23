@@ -239,4 +239,14 @@ group_uniforms;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 		AO = 1.0;
 	}
+
+//INSERT: DEBUG_TEXTURE_AO
+	// Show normal map decoded AO value
+	{
+		ALBEDO = vec3(mat.ao);
+		ROUGHNESS = 0.7;
+		SPECULAR = 0.;
+		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
+		AO = 1.0;
+	}
 )"
