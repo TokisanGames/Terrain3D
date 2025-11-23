@@ -1,16 +1,56 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 R"(
+//INSERT: FLAT_UNIFORMS
+uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
+uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
+varying vec2 bg_ddxy;
+
+//INSERT: FLAT_FUNCTIONS
+// Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
+float check_region(const vec2 uv2) {
+	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
+	int layer_index = 0;
+	if (uint(pos.x | pos.y) < uint(_region_map_size)) {
+		layer_index = clamp(_region_map[ pos.y * _region_map_size + pos.x ] - 1, -1, 0) + 1;
+	}
+	return float(layer_index);
+}
+
+// Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
+float get_region_blend(vec2 uv2) {
+	uv2 -= 0.5;
+	const vec2 offset = vec2(0.0, 1.0);
+	float a = check_region(uv2 + offset.xy);
+	float b = check_region(uv2 + offset.yy);
+	float c = check_region(uv2 + offset.yx);
+	float d = check_region(uv2 + offset.xx);
+	vec2 w = smoothstep(vec2(0.0), vec2(1.0), fract(uv2));
+	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
+    return 1.0 - blend;
+}
+
+//INSERT: FLAT_VERTEX
+		// Apply background ground level and region blend
+		float ground_h = ground_level *  smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2));
+		h += ground_h;
+		bg_ddxy.x = ground_h - ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(_region_texel_size, 0.)));
+		bg_ddxy.y = ground_h - ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(0., _region_texel_size)));
+
+//INSERT: FLAT_FRAGMENT
+	// Apply background normal
+	u += bg_ddxy.x;
+	v += bg_ddxy.y;
 
 //INSERT: WORLD_NOISE_UNIFORMS
 group_uniforms world_background_noise;
+uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 uniform bool world_noise_fragment_normals = false;
-uniform float world_noise_region_blend : hint_range(0.05, 0.95, 0.01) = 0.33;
 uniform int world_noise_max_octaves : hint_range(0, 15) = 4;
 uniform int world_noise_min_octaves : hint_range(0, 15) = 2;
-uniform float world_noise_lod_distance : hint_range(0, 40000, 1) = 7500.;
+uniform float world_noise_lod_distance : hint_range(0., 40000., 1.) = 7500.;
 uniform float world_noise_scale : hint_range(0.25, 20, 0.01) = 5.0;
-uniform float world_noise_height : hint_range(0, 1000, 0.1) = 64.0;
+uniform float world_noise_height : hint_range(-1000., 1000., 0.1) = 32.0;
 uniform vec3 world_noise_offset = vec3(0.0);
 group_uniforms;
 varying vec2 world_noise_ddxy;
@@ -29,9 +69,9 @@ float check_region(const vec2 uv2) {
 }
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
-float region_blend(vec2 uv2) {
+float get_region_blend(vec2 uv2) {
 	uv2 -= 0.5;
-	const vec2 offset = vec2(0.0,1.0);
+	const vec2 offset = vec2(0.0, 1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
 	float c = check_region(uv2 + offset.yx);
@@ -95,16 +135,16 @@ float world_noise(vec2 p) {
 }
 
 float get_noise_height(const vec2 uv) {
-	float weight = region_blend(uv);
-	// only calculate world noise when it could be visibile.
-	if (weight <= 1.0 - world_noise_region_blend) {
+	float weight = get_region_blend(uv);
+	// Only calculate world noise when it would be visible.
+    if (weight <= 1.0 - region_blend) {
 		return 0.0;
 	}
 	//TODO: Offset/scale UVs are semi-dependent upon region size 1024. Base on v_vertex.xz instead
 	float noise = world_noise((uv + world_noise_offset.xz * 1024. / _region_size) * world_noise_scale * _region_size / 1024. * .1) *
             world_noise_height * 10. + world_noise_offset.y * 100.;
-	weight = smoothstep(1.0 - world_noise_region_blend, 1.0, weight);
-	return mix(0.0, noise, weight);
+    weight = smoothstep(1.0 - region_blend, 1.0, weight);
+    return mix(0.0, noise, weight);
 }
 
 // World Noise Functions End
@@ -114,11 +154,11 @@ float get_noise_height(const vec2 uv) {
 		if (_background_mode == 2u) {
 			vec2 nuv_a = fma(start_pos, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 			vec2 nuv_b = fma(end_pos, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
-			float nh = mix(get_noise_height(nuv_a),get_noise_height(nuv_b),vertex_lerp);
+			float nh = mix(get_noise_height(nuv_a), get_noise_height(nuv_b), vertex_lerp);
 			float nu = mix(get_noise_height(nuv_a + vec2(_region_texel_size, 0.0)),
-				get_noise_height(nuv_b + vec2(_region_texel_size, 0.0)),vertex_lerp);
+				get_noise_height(nuv_b + vec2(_region_texel_size, 0.0)), vertex_lerp);
 			float nv = mix(get_noise_height(nuv_a + vec2(0.0, _region_texel_size)),
-				get_noise_height(nuv_b + vec2(0.0, _region_texel_size)),vertex_lerp);
+				get_noise_height(nuv_b + vec2(0.0, _region_texel_size)), vertex_lerp);
 			world_noise_ddxy = vec2(nh - nu, nh - nv);
 			h += nh;
 		}

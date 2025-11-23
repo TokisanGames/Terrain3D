@@ -26,7 +26,7 @@ uniform float wind_strength : hint_range(0.0, 1.0, 0.01) = 1.0;
 uniform float wind_dithering = 4.0;
 uniform vec2 wind_direction = vec2(1.0,1.0);
 
-group_uniforms shapeing;
+group_uniforms shaping;
 uniform float clod_scale_boost = 3.0;
 uniform float clod_min_threshold : hint_range(0.0, 1.0, 0.001) = 0.2;
 uniform float clod_max_threshold : hint_range(0.0, 1.0, 0.001) = 0.5;

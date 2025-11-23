@@ -56,6 +56,8 @@ uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_
 
 // Public uniforms
 group_uniforms general;
+uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
+uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 uniform bool flat_terrain_normals = false;
 uniform bool enable_textures = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
@@ -84,6 +86,7 @@ group_uniforms;
 varying vec3 v_normal;
 varying vec3 v_vertex;
 varying mat3 TBN;
+varying vec2 bg_ddxy;
 
 ////////////////////////
 // Vertex
@@ -117,6 +120,29 @@ vec3 get_index_uv(const vec2 uv2) {
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
+}
+
+// Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
+float check_region(const vec2 uv2) {
+	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
+	int layer_index = 0;
+	if (uint(pos.x | pos.y) < uint(_region_map_size)) {
+		layer_index = clamp(_region_map[ pos.y * _region_map_size + pos.x ] - 1, -1, 0) + 1;
+	}
+	return float(layer_index);
+}
+
+// Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
+float get_region_blend(vec2 uv2) {
+	uv2 -= 0.5;
+	const vec2 offset = vec2(0.0, 1.0);
+	float a = check_region(uv2 + offset.xy);
+	float b = check_region(uv2 + offset.yy);
+	float c = check_region(uv2 + offset.yx);
+	float d = check_region(uv2 + offset.xx);
+	vec2 w = smoothstep(vec2(0.0), vec2(1.0), fract(uv2));
+	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
+    return 1.0 - blend;
 }
 
 void vertex() {
@@ -162,15 +188,21 @@ void vertex() {
 		// Set final vertex height & calculate vertex normals. 3 lookups
 		ivec3 uv_a = get_index_coord(start_pos, VERTEX_PASS);
 		ivec3 uv_b = get_index_coord(end_pos, VERTEX_PASS);
-		float h = mix(texelFetch(_height_maps, uv_a, 0).r,texelFetch(_height_maps, uv_b, 0).r,vertex_lerp);
-		v_vertex.y = h;
+		float h = mix(texelFetch(_height_maps, uv_a, 0).r, texelFetch(_height_maps, uv_b, 0).r, vertex_lerp);
 
-		// Vertex normals
+		// Apply background ground level and region blend
+		float ground_h = ground_level *  smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2));
+		v_vertex.y = h + ground_h;
+		bg_ddxy.x = ground_h - ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(_region_texel_size, 0.)));
+		bg_ddxy.y = ground_h - ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(0., _region_texel_size)));
+
+		// Vertex normals adding background normals
 		float u = mix(texelFetch(_height_maps, get_index_coord(start_pos + vec2(1,0), VERTEX_PASS), 0).r,
 			texelFetch(_height_maps, get_index_coord(end_pos + vec2(1,0), VERTEX_PASS), 0).r, vertex_lerp);
 		float v = mix(texelFetch(_height_maps, get_index_coord(start_pos + vec2(0,1), VERTEX_PASS), 0).r,
 			texelFetch(_height_maps, get_index_coord(end_pos + vec2(0,1), VERTEX_PASS), 0).r, vertex_lerp);
-
+		u += bg_ddxy.x;
+		v += bg_ddxy.y;
 		v_normal = normalize(vec3(h - u, _vertex_spacing, h - v));
 	}
 

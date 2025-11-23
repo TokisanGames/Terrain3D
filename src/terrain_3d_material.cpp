@@ -24,8 +24,8 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/samplers.glsl"
 			, "samplers");
 	_parse_shader(
-#include "shaders/world_noise.glsl"
-			, "world_noise");
+#include "shaders/backgrounds.glsl"
+			, "backgrounds");
 	_parse_shader(
 #include "shaders/auto_shader.glsl"
 			, "auto_shader");
@@ -124,6 +124,12 @@ String Terrain3DMaterial::_apply_inserts(const String &p_shader, const Array &p_
 String Terrain3DMaterial::_generate_shader_code() const {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
+	if (_world_background != FLAT) {
+		excludes.push_back("FLAT_UNIFORMS");
+		excludes.push_back("FLAT_FUNCTIONS");
+		excludes.push_back("FLAT_VERTEX");
+		excludes.push_back("FLAT_FRAGMENT");
+	}
 	if (_world_background != NOISE) {
 		excludes.push_back("WORLD_NOISE_UNIFORMS");
 		excludes.push_back("WORLD_NOISE_FUNCTIONS");
