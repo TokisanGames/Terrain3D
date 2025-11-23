@@ -29,6 +29,8 @@ var _template_feather_radius := 0.0
 var _template_blend_mode := Terrain3DLayer.BLEND_ADD
 var _active_layers := {} ## Dict[Vector2i] = Ref<Terrain3DStampLayer>
 var _last_position := Vector3.INF
+var _preferred_layer: Terrain3DStampLayer
+var _template_group_id := 0
 
 func _log(message: String) -> void:
 	if not debug_logging:
@@ -86,6 +88,7 @@ func set_target_layer(region_loc: Vector2i, map_type_in: int, index: int, layer_
 	map_type = resolved_map_type
 	layer_index = resolved_index
 	_reset_template()
+	_preferred_layer = layer_ref if (layer_ref is Terrain3DStampLayer) else null
 	_log("set_target_layer: region=%s map_type=%d index=%d layer_ref=%s" % [str(target_region), map_type, layer_index, str(layer_ref)])
 
 func force_update() -> void:
@@ -130,20 +133,41 @@ func _ensure_template(force_region: bool) -> bool:
 		return true
 	var source := _resolve_source_layer(force_region)
 	if source == null:
+		_log("ensure_template: unable to resolve source layer")
+		return false
+	var captured := false
+	if _data:
+		var group_id := _data.ensure_layer_group_id(source)
+		if group_id != 0:
+			captured = _capture_group_template(source, group_id)
+	if not captured:
+		captured = _capture_single_layer_template(source)
+	if captured:
+		_preferred_layer = null
+		_clear_active_layers(true)
+		_log("ensure_template: captured payload %s (map_type=%d)" % [str(_template_size), map_type])
+	else:
+		_log("ensure_template: failed to capture payload for layer %s" % [str(source)])
+	return captured
+
+func _capture_single_layer_template(source: Terrain3DStampLayer) -> bool:
+	if source == null:
 		return false
 	var payload := source.get_payload()
-	if payload == null:
-		_log("ensure_template: source payload missing")
+	if payload == null or payload.is_empty():
+		_log("capture_single_layer_template: source payload missing")
 		return false
-	_template_payload = payload.duplicate()
-	if _template_payload == null:
-		_log("ensure_template: failed to duplicate payload image")
+	var duplicate := payload.duplicate()
+	if duplicate == null or duplicate.is_empty():
+		_log("capture_single_layer_template: failed to duplicate payload image")
 		return false
 	var alpha := source.get_alpha()
-	_template_alpha = alpha.duplicate() if alpha else null
+	var alpha_copy := alpha.duplicate() if alpha else null
+	_template_payload = duplicate
+	_template_alpha = alpha_copy
 	_template_size = _template_payload.get_size()
 	if _template_size.x <= 0 or _template_size.y <= 0:
-		_log("ensure_template: payload has invalid dimensions %s" % [str(_template_size)])
+		_log("capture_single_layer_template: payload has invalid dimensions %s" % [str(_template_size)])
 		_template_payload = null
 		_template_alpha = null
 		return false
@@ -153,16 +177,175 @@ func _ensure_template(force_region: bool) -> bool:
 	map_type = source.get_map_type()
 	_template_ready = true
 	if _data:
+		_template_group_id = _data.ensure_layer_group_id(source)
+	else:
+		_template_group_id = source.get_group_id()
+	if _data and layer_index >= 0:
 		_data.remove_layer(target_region, map_type, layer_index, true)
-	_clear_active_layers(true)
-	_log("ensure_template: captured payload %s (map_type=%d)" % [str(_template_size), map_type])
 	return true
+
+func _capture_group_template(source: Terrain3DStampLayer, group_id: int) -> bool:
+	if source == null or group_id == 0:
+		return false
+	if _terrain == null or _data == null:
+		return false
+	var map_type_local := source.get_map_type()
+	var slices := _get_group_slices(map_type_local, group_id)
+	if slices.is_empty():
+		return false
+	if not _bake_group_template_images(slices, source):
+		return false
+	_remove_group_layers(slices, map_type_local)
+	_template_group_id = group_id
+	return true
+
+func _get_group_slices(map_type_in: int, group_id: int) -> Array:
+	if _data == null or group_id == 0:
+		return []
+	var groups: Array = _data.get_layer_groups(map_type_in) if _data.has_method("get_layer_groups") else []
+	for group_dict in groups:
+		if int(group_dict.get("group_id", 0)) == group_id:
+			return group_dict.get("layers", [])
+	return []
+
+func _bake_group_template_images(slices: Array, source: Terrain3DStampLayer) -> bool:
+	var region_size := int(_terrain.get_region_size()) if _terrain else 0
+	if region_size <= 0:
+		_log("capture_group_template: invalid region size")
+		return false
+	var prepared: Array = []
+	var min_point := Vector2i(1_000_000_000, 1_000_000_000)
+	var max_point := Vector2i(-1_000_000_000, -1_000_000_000)
+	for slice in slices:
+		var layer: Terrain3DLayer = slice.get("layer")
+		if layer == null or not (layer is Terrain3DStampLayer):
+			continue
+		var payload: Image = layer.get_payload()
+		if payload == null or payload.is_empty():
+			continue
+		var region_loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
+		if payload.get_format() == Image.FORMAT_MAX:
+			_log("capture_group_template: skipping slice with unresolved payload format @ %s" % [str(region_loc)])
+			continue
+		var coverage: Rect2i = layer.get_coverage()
+		if not coverage.has_area():
+			continue
+		var region_origin := region_loc * region_size
+		var slice_global := Rect2i(region_origin + coverage.position, coverage.size)
+		min_point.x = min(min_point.x, slice_global.position.x)
+		min_point.y = min(min_point.y, slice_global.position.y)
+		var slice_end := slice_global.position + slice_global.size
+		max_point.x = max(max_point.x, slice_end.x)
+		max_point.y = max(max_point.y, slice_end.y)
+		prepared.append({
+			"payload": payload,
+			"alpha": layer.get_alpha(),
+			"global_rect": slice_global
+		})
+	if prepared.is_empty():
+		_log("capture_group_template: no valid payload slices found")
+		return false
+	var bounds_size := max_point - min_point
+	if bounds_size.x <= 0 or bounds_size.y <= 0:
+		_log("capture_group_template: combined bounds invalid %s" % [str(bounds_size)])
+		return false
+	var payload_format: Image.Format = prepared[0]["payload"].get_format()
+	if payload_format == Image.FORMAT_MAX:
+		var fallback_payload: Image = source.get_payload()
+		if fallback_payload:
+			payload_format = fallback_payload.get_format()
+	if payload_format == Image.FORMAT_MAX:
+		_log("capture_group_template: unresolved payload format")
+		return false
+	var combined := Image.create(bounds_size.x, bounds_size.y, false, payload_format)
+	combined.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var combined_alpha: Image
+	var alpha_format := Image.FORMAT_MAX
+	for prepared_slice in prepared:
+		var slice_payload: Image = prepared_slice["payload"]
+		if slice_payload.get_format() != payload_format and slice_payload.get_format() != Image.FORMAT_MAX:
+			var converted := slice_payload.duplicate()
+			if converted:
+				converted.convert(payload_format)
+				slice_payload = converted
+			else:
+				continue
+		var slice_rect: Rect2i = prepared_slice["global_rect"]
+		var copy_size := slice_rect.size
+		var payload_size := slice_payload.get_size()
+		copy_size.x = min(copy_size.x, payload_size.x)
+		copy_size.y = min(copy_size.y, payload_size.y)
+		if copy_size.x <= 0 or copy_size.y <= 0:
+			continue
+		var src_rect := Rect2i(Vector2i.ZERO, copy_size)
+		combined.blit_rect(slice_payload, src_rect, slice_rect.position - min_point)
+		var slice_alpha: Image = prepared_slice["alpha"]
+		if slice_alpha:
+			if slice_alpha.get_format() == Image.FORMAT_MAX:
+				continue
+			if combined_alpha == null:
+				alpha_format = slice_alpha.get_format()
+				if alpha_format == Image.FORMAT_MAX:
+					alpha_format = Image.FORMAT_R8
+				combined_alpha = Image.create(bounds_size.x, bounds_size.y, false, alpha_format)
+				combined_alpha.fill(Color(0.0, 0.0, 0.0, 0.0))
+			elif slice_alpha.get_format() != alpha_format and slice_alpha.get_format() != Image.FORMAT_MAX:
+				var converted_alpha := slice_alpha.duplicate()
+				if converted_alpha:
+					converted_alpha.convert(alpha_format)
+					slice_alpha = converted_alpha
+				else:
+					continue
+			var alpha_size := Vector2i(min(copy_size.x, slice_alpha.get_width()), min(copy_size.y, slice_alpha.get_height()))
+			if alpha_size.x <= 0 or alpha_size.y <= 0:
+				continue
+			var alpha_src_rect := Rect2i(Vector2i.ZERO, alpha_size)
+			combined_alpha.blit_rect(slice_alpha, alpha_src_rect, slice_rect.position - min_point)
+	_template_payload = combined
+	_template_alpha = combined_alpha
+	_template_size = bounds_size
+	_template_intensity = source.get_intensity()
+	_template_feather_radius = source.get_feather_radius()
+	_template_blend_mode = source.get_blend_mode()
+	map_type = source.get_map_type()
+	_template_ready = true
+	return true
+
+func _remove_group_layers(slices: Array, map_type_in: int) -> void:
+	if _data == null:
+		return
+	var removal := {}
+	for slice in slices:
+		var region_loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
+		var layer_index_value := int(slice.get("layer_index", -1))
+		if layer_index_value < 0:
+			continue
+		var key := "%d,%d" % [region_loc.x, region_loc.y]
+		if not removal.has(key):
+			removal[key] = {
+				"region": region_loc,
+				"indices": []
+			}
+		removal[key]["indices"].append(layer_index_value)
+	var removed := false
+	for key in removal.keys():
+		var entry: Dictionary = removal[key]
+		var indices: Array = entry["indices"]
+		indices.sort()
+		indices.reverse()
+		for idx in indices:
+			_data.remove_layer(entry["region"], map_type_in, idx, false)
+			removed = true
+	if removed:
+		_data.update_maps(map_type_in, false, false)
 
 func _resolve_source_layer(force_region: bool) -> Terrain3DStampLayer:
 	if _terrain == null:
 		_resolve_terrain()
 	if _data == null:
 		return null
+	if _preferred_layer and is_instance_valid(_preferred_layer):
+		return _preferred_layer
 	if auto_region or force_region:
 		target_region = _data.get_region_location(global_transform.origin)
 		_log("resolve_source_layer: auto target region=%s" % [str(target_region)])
@@ -271,6 +454,8 @@ func _reset_template() -> void:
 	_template_alpha = null
 	_template_size = Vector2i.ZERO
 	_active_layers.clear()
+	_preferred_layer = null
+	_template_group_id = 0
 
 func _build_slice_payload(payload_rect: Rect2i, coverage: Rect2i) -> Dictionary:
 	var result := {}
@@ -344,6 +529,9 @@ func _create_slice_layer(region_loc: Vector2i, payload: Image, alpha: Image, cov
 	if payload == null or not coverage.has_area():
 		return null
 	var layer := _data.add_stamp_layer(region_loc, map_type, payload, coverage, alpha, _template_intensity, _template_feather_radius, _template_blend_mode, -1, false)
+	if layer and _template_group_id != 0:
+		layer.set_group_id(_template_group_id)
+		_data.ensure_layer_group_id(layer)
 	return layer if layer is Terrain3DStampLayer else null
 
 func _update_slice_layer(layer: Terrain3DStampLayer, payload: Image, alpha: Image, coverage: Rect2i) -> void:
@@ -356,6 +544,10 @@ func _update_slice_layer(layer: Terrain3DStampLayer, payload: Image, alpha: Imag
 	layer.set_blend_mode(_template_blend_mode)
 	layer.set_coverage(coverage)
 	layer.mark_dirty()
+	if _template_group_id != 0:
+		layer.set_group_id(_template_group_id)
+		if _data:
+			_data.ensure_layer_group_id(layer)
 	var info := _data.get_layer_owner_info(layer, map_type)
 	var region_loc: Vector2i = info.get("region_location", Vector2i.ZERO)
 	var index := int(info.get("index", -1))

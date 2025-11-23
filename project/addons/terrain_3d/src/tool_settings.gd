@@ -674,7 +674,6 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Arra
 	var active_index: int = 0
 	if plugin and plugin.editor and plugin.editor.has_method("get_active_layer_index"):
 		active_index = plugin.editor.get_active_layer_index()
-	var has_anchor_selection := _has_stamp_anchor_selection()
 	var group_count := _layer_entries.size()
 	var region_count := _count_unique_regions()
 	var slice_count := _count_total_slices()
@@ -711,13 +710,6 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Arra
 		toggle.tooltip_text = "Enable or disable this layer"
 		toggle.toggled.connect(_on_layer_toggle.bind(entry_id))
 		row.add_child(toggle)
-		var anchor_button := Button.new()
-		anchor_button.focus_mode = Control.FOCUS_NONE
-		anchor_button.icon = get_theme_icon("PinJoint3D", "EditorIcons")
-		anchor_button.tooltip_text = "Assign this layer to selected stamp anchor nodes"
-		anchor_button.disabled = not has_anchor_selection
-		anchor_button.pressed.connect(_on_layer_assign_to_anchor.bind(entry_id))
-		row.add_child(anchor_button)
 		var remove_button := Button.new()
 		remove_button.focus_mode = Control.FOCUS_NONE
 		remove_button.icon = get_theme_icon("Remove", "EditorIcons")
@@ -811,32 +803,6 @@ func _get_layer_entry(entry_id: int) -> Dictionary:
 	if entry_id < 0 or entry_id >= _layer_entries.size():
 		return {}
 	return _layer_entries[entry_id]
-
-func _has_stamp_anchor_selection() -> bool:
-	if not Engine.is_editor_hint():
-		return false
-	var selection := EditorInterface.get_selection()
-	if selection == null:
-		return false
-	for node in selection.get_selected_nodes():
-		if _is_stamp_anchor(node):
-			return true
-	return false
-
-func _get_selected_stamp_anchors() -> Array:
-	var anchors: Array = []
-	if not Engine.is_editor_hint():
-		return anchors
-	var selection := EditorInterface.get_selection()
-	if selection == null:
-		return anchors
-	for node in selection.get_selected_nodes():
-		if _is_stamp_anchor(node):
-			anchors.append(node)
-	return anchors
-
-func _is_stamp_anchor(node: Node) -> bool:
-	return is_instance_valid(node) and node.get_class() == "Terrain3DStampAnchor"
 
 func _count_unique_regions() -> int:
 	var unique := {}
@@ -946,26 +912,6 @@ func _on_layer_remove(entry_id: int) -> void:
 		plugin.editor.set_active_layer_reference(null, Terrain3DRegion.TYPE_MAX)
 	_on_refresh_layers()
 
-func _on_layer_assign_to_anchor(entry_id: int) -> void:
-	if not Engine.is_editor_hint():
-		return
-	if current_layer_map_type == Terrain3DRegion.TYPE_MAX:
-		return
-	var entry := _get_layer_entry(entry_id)
-	if entry.is_empty():
-		return
-	var layer: Terrain3DLayer = entry.get("layer")
-	if layer == null or not (layer is Terrain3DStampLayer):
-		return
-	var anchors := _get_selected_stamp_anchors()
-	if anchors.is_empty():
-		return
-	var region_loc: Vector2i = entry.get("region_location", current_layer_region)
-	var layer_index := int(entry.get("layer_index", -1))
-	for anchor in anchors:
-		if not is_instance_valid(anchor) or not anchor.has_method("set_target_layer"):
-			continue
-		anchor.set_target_layer(region_loc, current_layer_map_type, layer_index, layer)
 
 func _on_refresh_layers() -> void:
 	if plugin and plugin.ui and plugin.ui.has_method("update_layer_panel"):
