@@ -3,6 +3,8 @@
 #ifndef TERRAIN3D_LAYER_CLASS_H
 #define TERRAIN3D_LAYER_CLASS_H
 
+#include <cstdint>
+
 #include <godot_cpp/classes/curve.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/resource.hpp>
@@ -35,6 +37,7 @@ protected:
 	BlendMode _blend_mode = BLEND_ADD;
 
 	real_t _cached_vertex_spacing = 0.0f;
+	uint64_t _group_id = 0;
 
 protected:
 	static void _bind_methods();
@@ -70,6 +73,9 @@ public:
 
 	void set_alpha(const Ref<Image> &p_alpha);
 	Ref<Image> get_alpha() const { return _alpha; }
+
+	void set_group_id(const uint64_t p_group_id);
+	uint64_t get_group_id() const { return _group_id; }
 
 	bool needs_rebuild(const real_t p_vertex_spacing) const;
 
