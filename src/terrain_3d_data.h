@@ -9,6 +9,9 @@
 #include "terrain_3d_layer.h"
 #include "terrain_3d_region.h"
 
+#include <godot_cpp/classes/object.hpp>
+
+#include <cstdint>
 #include <vector>
 
 class Terrain3D;
@@ -77,12 +80,21 @@ private:
 	GeneratedTexture _generated_control_maps;
 	GeneratedTexture _generated_color_maps;
 
+	uint64_t _next_layer_group_id = 1;
+
 	// Functions
 	void _clear();
 	void _copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
 	bool _find_layer_owner(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type, Terrain3DRegion **r_region = nullptr, Vector2i *r_region_loc = nullptr, int *r_index = nullptr) const;
+	uint64_t _allocate_layer_group_id();
+	uint64_t _ensure_layer_group_id_internal(const Ref<Terrain3DLayer> &p_layer);
+	void _ensure_region_layer_groups(const Ref<Terrain3DRegion> &p_region);
+	Ref<Terrain3DLayer> _duplicate_layer_template(const Ref<Terrain3DLayer> &p_template) const;
 
 public:
+	uint64_t ensure_layer_group_id(const Ref<Terrain3DLayer> &p_layer);
+	TypedArray<Dictionary> get_layer_groups(const MapType p_map_type);
+
 	struct LayerSplitResult {
 		Vector2i region_location;
 		Rect2i coverage;
@@ -156,6 +168,8 @@ public:
 	void set_layer_enabled(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_enabled, const bool p_update = true);
 	void remove_layer(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_update = true);
 	Ref<Terrain3DCurveLayer> add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update = true);
+	Ref<Terrain3DLayer> get_layer_in_group(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, int *r_index = nullptr);
+	Ref<Terrain3DLayer> create_layer_group_slice(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, const Ref<Terrain3DLayer> &p_template_layer, const bool p_update = true);
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
 	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
 	RID get_color_maps_rid() const { return _generated_color_maps.get_rid(); }

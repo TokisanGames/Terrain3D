@@ -108,7 +108,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		LOG(ERROR, "Invalid tool selected");
 		return;
 	}
-	bool paint_to_layer = (map_type == TYPE_HEIGHT && _active_layer_index > 0);
+	bool has_group_handle = (_active_layer_group_id != 0 && _active_layer_map_type == map_type);
+	bool paint_to_layer = has_group_handle || (map_type == TYPE_HEIGHT && _active_layer_index > 0);
 
 	int region_size = _terrain->get_region_size();
 	Vector2i region_vsize = V2I(region_size);
@@ -266,83 +267,100 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 					TypedArray<Terrain3DLayer> target_layers = region->get_layers(map_type);
 					int layer_array_index = _active_layer_index - 1;
-					if (layer_array_index < 0 || layer_array_index >= target_layers.size()) {
-						static int missing_layer_log_count = 0;
-						if (missing_layer_log_count < 5) {
-							LOG(WARN, "Cannot edit layer index ", _active_layer_index, " (array index ", layer_array_index,
-								") in region ", region_loc, ": available layers=", target_layers.size());
-							missing_layer_log_count++;
+					Ref<Terrain3DLayer> candidate_layer;
+					if (has_group_handle) {
+						int group_layer_index = -1;
+						candidate_layer = data->get_layer_in_group(region_loc, map_type, _active_layer_group_id, &group_layer_index);
+						if (candidate_layer.is_null() && _active_layer_template.is_valid()) {
+							candidate_layer = data->create_layer_group_slice(region_loc, map_type, _active_layer_group_id, _active_layer_template, false);
+							if (candidate_layer.is_valid()) {
+								target_layers = region->get_layers(map_type);
+								layer_array_index = target_layers.size() - 1;
+							}
+						} else {
+							layer_array_index = group_layer_index;
+						}
+						if (candidate_layer.is_null()) {
+							static int missing_group_slice_log_count = 0;
+							if (missing_group_slice_log_count < 5) {
+								LOG(WARN, "Active layer group ", _active_layer_group_id, " unavailable in region ", region_loc, "; skipping slice");
+								missing_group_slice_log_count++;
+							}
 						}
 					} else {
-						Ref<Terrain3DLayer> candidate_layer = target_layers[layer_array_index];
-						if (candidate_layer.is_null()) {
-							static int null_layer_log_count = 0;
-							if (null_layer_log_count < 5) {
-								LOG(WARN, "Active layer ", _active_layer_index, " (array index ", layer_array_index,
-									") in region ", region_loc, " is null; skipping layer painting");
-								null_layer_log_count++;
+						if (layer_array_index < 0 || layer_array_index >= target_layers.size()) {
+							static int missing_layer_log_count = 0;
+							if (missing_layer_log_count < 5) {
+								LOG(WARN, "Cannot edit layer index ", _active_layer_index, " (array index ", layer_array_index,
+									") in region ", region_loc, ": available layers=", target_layers.size());
+								missing_layer_log_count++;
 							}
-						} else if (!candidate_layer->is_enabled()) {
-							ctx.layer = candidate_layer;
 						} else {
-							int expected_width = map->get_width();
-							int expected_height = map->get_height();
-							if (expected_width <= 0) {
-								expected_width = region_size;
+							candidate_layer = target_layers[layer_array_index];
+						}
+					}
+					if (candidate_layer.is_null()) {
+						// Already logged above.
+					} else if (!candidate_layer->is_enabled()) {
+						ctx.layer = candidate_layer;
+					} else {
+						int expected_width = map->get_width();
+						int expected_height = map->get_height();
+						if (expected_width <= 0) {
+							expected_width = region_size;
+						}
+						if (expected_height <= 0) {
+							expected_height = region_size;
+						}
+						if (expected_width <= 0 || expected_height <= 0) {
+							static int empty_map_log_count = 0;
+							if (empty_map_log_count < 5) {
+								LOG(WARN, "Region ", region_loc, " map dimensions invalid when preparing layer payload: ", expected_width, "x", expected_height);
+								empty_map_log_count++;
 							}
-							if (expected_height <= 0) {
-								expected_height = region_size;
+						} else {
+							Ref<Image> payload = candidate_layer->get_payload();
+							if (ctx.expected_width <= 0) {
+								ctx.expected_width = expected_width;
 							}
-							if (expected_width <= 0 || expected_height <= 0) {
-								static int empty_map_log_count = 0;
-								if (empty_map_log_count < 5) {
-									LOG(WARN, "Region ", region_loc, " map dimensions invalid when preparing layer payload: ", expected_width, "x", expected_height);
-									empty_map_log_count++;
-								}
-							} else {
-								Ref<Image> payload = candidate_layer->get_payload();
-								if (ctx.expected_width <= 0) {
-									ctx.expected_width = expected_width;
-								}
-								if (ctx.expected_height <= 0) {
-									ctx.expected_height = expected_height;
-								}
-								if (ctx.expected_format == Image::FORMAT_MAX) {
-									ctx.expected_format = map_type_get_format(map_type);
-								}
-								bool payload_ready = payload.is_valid() && payload->get_width() == ctx.expected_width && payload->get_height() == ctx.expected_height;
-								if (!payload_ready) {
-									Ref<Image> new_payload;
-									new_payload.instantiate();
-									new_payload->create(ctx.expected_width, ctx.expected_height, false, ctx.expected_format);
-									new_payload->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
-									candidate_layer->set_payload(new_payload);
-									candidate_layer->set_coverage(Rect2i(Vector2i(), Vector2i(ctx.expected_width, ctx.expected_height)));
-									payload = candidate_layer->get_payload();
-								}
-								if (payload.is_valid()) {
-									ctx.layer = candidate_layer;
-									ctx.payload = payload;
-									ctx.payload_ptr = payload.ptr();
-									ctx.payload_rebuilt = false;
-									ctx.composite = region->get_composited_map(map_type);
-									if (ctx.composite.is_valid() && ctx.composite->get_width() == ctx.expected_width && ctx.composite->get_height() == ctx.expected_height) {
-										ctx.composite_ptr = ctx.composite.ptr();
-										ctx.valid = true;
-										ctx.composite_is_cache = true;
-									} else {
-										if (ctx.composite.is_valid()) {
-											static int mismatched_composite_log_count = 0;
-											if (mismatched_composite_log_count < 5) {
-												LOG(WARN, "Composited map dimensions ", ctx.composite->get_width(), "x", ctx.composite->get_height(),
-													" did not match expected ", ctx.expected_width, "x", ctx.expected_height, " for region ", region_loc);
-												mismatched_composite_log_count++;
-											}
+							if (ctx.expected_height <= 0) {
+								ctx.expected_height = expected_height;
+							}
+							if (ctx.expected_format == Image::FORMAT_MAX) {
+								ctx.expected_format = map_type_get_format(map_type);
+							}
+							bool payload_ready = payload.is_valid() && payload->get_width() == ctx.expected_width && payload->get_height() == ctx.expected_height;
+							if (!payload_ready) {
+								Ref<Image> new_payload;
+								new_payload.instantiate();
+								new_payload->create(ctx.expected_width, ctx.expected_height, false, ctx.expected_format);
+								new_payload->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
+								candidate_layer->set_payload(new_payload);
+								candidate_layer->set_coverage(Rect2i(Vector2i(), Vector2i(ctx.expected_width, ctx.expected_height)));
+								payload = candidate_layer->get_payload();
+							}
+							if (payload.is_valid()) {
+								ctx.layer = candidate_layer;
+								ctx.payload = payload;
+								ctx.payload_ptr = payload.ptr();
+								ctx.payload_rebuilt = false;
+								ctx.composite = region->get_composited_map(map_type);
+								if (ctx.composite.is_valid() && ctx.composite->get_width() == ctx.expected_width && ctx.composite->get_height() == ctx.expected_height) {
+									ctx.composite_ptr = ctx.composite.ptr();
+									ctx.valid = true;
+									ctx.composite_is_cache = true;
+								} else {
+									if (ctx.composite.is_valid()) {
+										static int mismatched_composite_log_count = 0;
+										if (mismatched_composite_log_count < 5) {
+											LOG(WARN, "Composited map dimensions ", ctx.composite->get_width(), "x", ctx.composite->get_height(),
+												" did not match expected ", ctx.expected_width, "x", ctx.expected_height, " for region ", region_loc);
+											mismatched_composite_log_count++;
 										}
-										ctx.composite_ptr = map;
-										ctx.valid = true;
-										ctx.composite_is_cache = false;
 									}
+									ctx.composite_ptr = map;
+									ctx.valid = true;
+									ctx.composite_is_cache = false;
 								}
 							}
 						}
@@ -1371,6 +1389,27 @@ void Terrain3DEditor::set_active_layer_index(const int p_index) {
 		return;
 	}
 	_active_layer_index = sanitized_index;
+	if (_active_layer_index == 0) {
+		_active_layer_group_id = 0;
+		_active_layer_map_type = TYPE_MAX;
+		_active_layer_template = Ref<Terrain3DLayer>();
+	}
+}
+
+void Terrain3DEditor::set_active_layer_reference(const Ref<Terrain3DLayer> &p_layer, const MapType p_map_type) {
+	if (p_layer.is_null() || !_terrain) {
+		_active_layer_group_id = 0;
+		_active_layer_map_type = TYPE_MAX;
+		_active_layer_template = Ref<Terrain3DLayer>();
+		return;
+	}
+	Terrain3DData *data = _terrain->get_data();
+	if (!data) {
+		return;
+	}
+	_active_layer_group_id = data->ensure_layer_group_id(p_layer);
+	_active_layer_template = p_layer;
+	_active_layer_map_type = p_map_type;
 }
 
 int Terrain3DEditor::create_layer(const Vector2i &p_region_loc, const MapType p_map_type, const bool p_select) {
@@ -1408,6 +1447,7 @@ int Terrain3DEditor::create_layer(const Vector2i &p_region_loc, const MapType p_
 		LOG(ERROR, "Failed to add layer to region ", p_region_loc);
 		return -1;
 	}
+	set_active_layer_reference(added_layer, p_map_type);
 	TypedArray<Terrain3DLayer> updated_layers = region->get_layers(p_map_type);
 	int result_index = -1;
 	for (int i = 0; i < updated_layers.size(); i++) {
@@ -1469,6 +1509,8 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 	ClassDB::bind_method(D_METHOD("add_curve_layer", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DEditor::add_curve_layer, DEFVAL(false), DEFVAL(0.0f), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("create_layer", "region_location", "map_type", "select"), &Terrain3DEditor::create_layer, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("set_active_layer_reference", "layer", "map_type"), &Terrain3DEditor::set_active_layer_reference);
+	ClassDB::bind_method(D_METHOD("get_active_layer_group_id"), &Terrain3DEditor::get_active_layer_group_id);
 
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "active_layer_index"), "set_active_layer_index", "get_active_layer_index");

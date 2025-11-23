@@ -50,6 +50,8 @@ void Terrain3DLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_payload"), &Terrain3DLayer::get_payload);
 	ClassDB::bind_method(D_METHOD("set_alpha", "image"), &Terrain3DLayer::set_alpha);
 	ClassDB::bind_method(D_METHOD("get_alpha"), &Terrain3DLayer::get_alpha);
+	ClassDB::bind_method(D_METHOD("set_group_id", "group_id"), &Terrain3DLayer::set_group_id);
+	ClassDB::bind_method(D_METHOD("get_group_id"), &Terrain3DLayer::get_group_id);
 	ClassDB::bind_method(D_METHOD("mark_dirty"), &Terrain3DLayer::mark_dirty);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "map_type", PROPERTY_HINT_ENUM, "HEIGHT,CONTROL,COLOR"), "set_map_type", "get_map_type");
@@ -60,6 +62,7 @@ void Terrain3DLayer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::RECT2I, "coverage"), "set_coverage", "get_coverage");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "payload", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "set_payload", "get_payload");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "alpha", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "set_alpha", "get_alpha");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "group_id", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_INTERNAL), "set_group_id", "get_group_id");
 
 	BIND_ENUM_CONSTANT(BLEND_ADD);
 	BIND_ENUM_CONSTANT(BLEND_SUBTRACT);
@@ -137,6 +140,10 @@ void Terrain3DLayer::set_payload(const Ref<Image> &p_image) {
 
 void Terrain3DLayer::set_alpha(const Ref<Image> &p_alpha) {
 	_alpha = p_alpha;
+}
+
+void Terrain3DLayer::set_group_id(const uint64_t p_group_id) {
+	_group_id = p_group_id;
 }
 
 bool Terrain3DLayer::needs_rebuild(const real_t p_vertex_spacing) const {

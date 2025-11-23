@@ -33,6 +33,7 @@ void Terrain3DData::_clear() {
 	_generated_height_maps.clear();
 	_generated_control_maps.clear();
 	_generated_color_maps.clear();
+	_next_layer_group_id = 1;
 }
 
 // Structured to work with do_for_regions. Should be renamed when copy_paste is expanded
@@ -80,6 +81,61 @@ bool Terrain3DData::_find_layer_owner(const Ref<Terrain3DLayer> &p_layer, const 
 		}
 	}
 	return false;
+}
+
+uint64_t Terrain3DData::_allocate_layer_group_id() {
+	return _next_layer_group_id++;
+}
+
+uint64_t Terrain3DData::_ensure_layer_group_id_internal(const Ref<Terrain3DLayer> &p_layer) {
+	if (p_layer.is_null()) {
+		return 0;
+	}
+	uint64_t group_id = p_layer->get_group_id();
+	if (group_id == 0) {
+		group_id = _allocate_layer_group_id();
+		p_layer->set_group_id(group_id);
+	} else if (group_id >= _next_layer_group_id) {
+		_next_layer_group_id = group_id + 1;
+	}
+	return group_id;
+}
+
+void Terrain3DData::_ensure_region_layer_groups(const Ref<Terrain3DRegion> &p_region) {
+	if (p_region.is_null()) {
+		return;
+	}
+	for (int map_type = TYPE_HEIGHT; map_type < TYPE_MAX; map_type++) {
+		TypedArray<Terrain3DLayer> layers = p_region->get_layers(MapType(map_type));
+		for (int i = 0; i < layers.size(); i++) {
+			_ensure_layer_group_id_internal(layers[i]);
+		}
+	}
+}
+
+uint64_t Terrain3DData::ensure_layer_group_id(const Ref<Terrain3DLayer> &p_layer) {
+	return _ensure_layer_group_id_internal(p_layer);
+}
+
+Ref<Terrain3DLayer> Terrain3DData::_duplicate_layer_template(const Ref<Terrain3DLayer> &p_template) const {
+	if (p_template.is_null()) {
+		return Ref<Terrain3DLayer>();
+	}
+	Ref<Terrain3DLayer> clone = p_template->duplicate(true);
+	if (clone.is_null()) {
+		return Ref<Terrain3DLayer>();
+	}
+	clone->set_payload(Ref<Image>());
+	clone->set_alpha(Ref<Image>());
+	clone->set_coverage(Rect2i());
+	clone->mark_dirty();
+	clone->set_map_type(p_template->get_map_type());
+	clone->set_group_id(p_template->get_group_id());
+	clone->set_enabled(p_template->is_enabled());
+	clone->set_intensity(p_template->get_intensity());
+	clone->set_feather_radius(p_template->get_feather_radius());
+	clone->set_blend_mode(p_template->get_blend_mode());
+	return clone;
 }
 
 ///////////////////////////
@@ -287,6 +343,7 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 		return FAILED;
 	}
 	p_region->sanitize_maps();
+	_ensure_region_layer_groups(p_region);
 	p_region->set_deleted(false);
 	if (!_region_locations.has(region_loc)) {
 		_region_locations.push_back(region_loc);
@@ -491,12 +548,67 @@ TypedArray<Terrain3DLayer> Terrain3DData::get_layers(const Vector2i &p_region_lo
 	return layers;
 }
 
+TypedArray<Dictionary> Terrain3DData::get_layer_groups(const MapType p_map_type) {
+	TypedArray<Dictionary> result;
+	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
+		return result;
+	}
+	Dictionary grouped;
+	Array region_keys = _regions.keys();
+	for (int i = 0; i < region_keys.size(); i++) {
+		Vector2i region_loc = region_keys[i];
+		const Terrain3DRegion *region = get_region_ptr(region_loc);
+		if (!region || region->is_deleted()) {
+			continue;
+		}
+		TypedArray<Terrain3DLayer> layers = region->get_layers(p_map_type);
+		for (int layer_index = 0; layer_index < layers.size(); layer_index++) {
+			Ref<Terrain3DLayer> layer = layers[layer_index];
+			if (layer.is_null()) {
+				continue;
+			}
+			uint64_t group_id = _ensure_layer_group_id_internal(layer);
+			if (group_id == 0) {
+				continue;
+			}
+			if (!grouped.has(group_id)) {
+				Dictionary group_info;
+				group_info["group_id"] = group_id;
+				group_info["map_type"] = p_map_type;
+				group_info["layers"] = Array();
+				grouped[group_id] = group_info;
+			}
+			Dictionary group_info = grouped[group_id];
+			Array slices = group_info["layers"];
+			Dictionary slice_info;
+			slice_info["region_location"] = region_loc;
+			slice_info["layer_index"] = layer_index;
+			slice_info["layer"] = layer;
+			slices.push_back(slice_info);
+			group_info["layers"] = slices;
+			grouped[group_id] = group_info;
+		}
+	}
+	Array grouped_keys = grouped.keys();
+	grouped_keys.sort();
+	for (int i = 0; i < grouped_keys.size(); i++) {
+		Variant key = grouped_keys[i];
+		result.push_back(grouped[key]);
+	}
+	return result;
+}
+
 Ref<Terrain3DLayer> Terrain3DData::add_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Terrain3DLayer> &p_layer, const int p_index, const bool p_update) {
 	Terrain3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region) {
 		LOG(ERROR, "Cannot add layer. Region not found at ", p_region_loc);
 		return Ref<Terrain3DLayer>();
 	}
+	if (p_layer.is_null()) {
+		LOG(ERROR, "Cannot add layer. Provided layer is null");
+		return Ref<Terrain3DLayer>();
+	}
+	_ensure_layer_group_id_internal(p_layer);
 	Ref<Terrain3DLayer> layer = region->add_layer(p_map_type, p_layer, p_index);
 	if (layer.is_valid()) {
 		region->set_modified(true);
@@ -556,6 +668,7 @@ Ref<Terrain3DStampLayer> Terrain3DData::add_stamp_layer(const Vector2i &p_region
 	layer->set_feather_radius(p_feather_radius);
 	layer->set_blend_mode(p_blend_mode);
 	layer->set_enabled(true);
+	_ensure_layer_group_id_internal(layer);
 	Ref<Terrain3DLayer> stored = region->add_layer(p_map_type, layer, p_index);
 	result = stored;
 	if (result.is_null()) {
@@ -569,6 +682,44 @@ Ref<Terrain3DStampLayer> Terrain3DData::add_stamp_layer(const Vector2i &p_region
 	return result;
 }
 
+Ref<Terrain3DLayer> Terrain3DData::get_layer_in_group(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, int *r_index) {
+	if (p_group_id == 0) {
+		return Ref<Terrain3DLayer>();
+	}
+	const Terrain3DRegion *region = get_region_ptr(p_region_loc);
+	if (!region) {
+		return Ref<Terrain3DLayer>();
+	}
+	TypedArray<Terrain3DLayer> layers = region->get_layers(p_map_type);
+	for (int i = 0; i < layers.size(); i++) {
+		Ref<Terrain3DLayer> layer = layers[i];
+		if (layer.is_null()) {
+			continue;
+		}
+		uint64_t group_id = _ensure_layer_group_id_internal(layer);
+		if (group_id == p_group_id) {
+			if (r_index) {
+				*r_index = i;
+			}
+			return layer;
+		}
+	}
+	return Ref<Terrain3DLayer>();
+}
+
+Ref<Terrain3DLayer> Terrain3DData::create_layer_group_slice(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, const Ref<Terrain3DLayer> &p_template_layer, const bool p_update) {
+	if (p_group_id == 0 || p_template_layer.is_null()) {
+		return Ref<Terrain3DLayer>();
+	}
+	Ref<Terrain3DLayer> clone = _duplicate_layer_template(p_template_layer);
+	if (clone.is_null()) {
+		return Ref<Terrain3DLayer>();
+	}
+	clone->set_group_id(p_group_id);
+	clone->set_map_type(p_map_type);
+	return add_layer(p_region_loc, p_map_type, clone, -1, p_update);
+}
+
 TypedArray<Terrain3DStampLayer> Terrain3DData::add_stamp_layer_global(const Rect2i &p_global_coverage, const MapType p_map_type, const Ref<Image> &p_payload, const Ref<Image> &p_alpha, const real_t p_intensity, const real_t p_feather_radius, const Terrain3DLayer::BlendMode p_blend_mode, const bool p_auto_create_regions, const bool p_update) {
 	TypedArray<Terrain3DStampLayer> created_layers;
 	if (!p_global_coverage.has_area()) {
@@ -580,6 +731,7 @@ TypedArray<Terrain3DStampLayer> Terrain3DData::add_stamp_layer_global(const Rect
 		return created_layers;
 	}
 	bool any_added = false;
+	uint64_t shared_group_id = 0;
 	for (const LayerSplitResult &slice : splits) {
 		Terrain3DRegion *region = get_region_ptr(slice.region_location);
 		if (!region && p_auto_create_regions) {
@@ -592,6 +744,11 @@ TypedArray<Terrain3DStampLayer> Terrain3DData::add_stamp_layer_global(const Rect
 		}
 		Ref<Terrain3DStampLayer> added = add_stamp_layer(slice.region_location, p_map_type, slice.payload, slice.coverage, slice.alpha, p_intensity, p_feather_radius, p_blend_mode, -1, false);
 		if (added.is_valid()) {
+			if (shared_group_id == 0) {
+				shared_group_id = ensure_layer_group_id(added);
+			} else {
+				added->set_group_id(shared_group_id);
+			}
 			created_layers.push_back(added);
 			any_added = true;
 		}
@@ -950,6 +1107,7 @@ Ref<Terrain3DCurveLayer> Terrain3DData::add_curve_layer(const Vector2i &p_region
 	curve_layer->set_feather_radius(p_feather_radius);
 	curve_layer->set_blend_mode(Terrain3DLayer::BLEND_REPLACE);
 	curve_layer->set_intensity(1.0f);
+	_ensure_layer_group_id_internal(curve_layer);
 	Ref<Terrain3DLayer> added = region->add_layer(TYPE_HEIGHT, curve_layer);
 	Ref<Terrain3DCurveLayer> result = added;
 	if (result.is_null()) {
@@ -1718,6 +1876,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_color_maps"), &Terrain3DData::get_color_maps);
 	ClassDB::bind_method(D_METHOD("get_maps", "map_type"), &Terrain3DData::get_maps);
 	ClassDB::bind_method(D_METHOD("get_layers", "region_location", "map_type"), &Terrain3DData::get_layers);
+	ClassDB::bind_method(D_METHOD("get_layer_groups", "map_type"), &Terrain3DData::get_layer_groups);
+	ClassDB::bind_method(D_METHOD("ensure_layer_group_id", "layer"), &Terrain3DData::ensure_layer_group_id);
 	ClassDB::bind_method(D_METHOD("add_layer", "region_location", "map_type", "layer", "index", "update"), &Terrain3DData::add_layer, DEFVAL(-1), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_stamp_layer", "region_location", "map_type", "payload", "coverage", "alpha", "intensity", "feather_radius", "blend_mode", "index", "update"), &Terrain3DData::add_stamp_layer, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(-1), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_stamp_layer_global", "global_coverage", "map_type", "payload", "alpha", "intensity", "feather_radius", "blend_mode", "auto_create_regions", "update"), &Terrain3DData::add_stamp_layer_global, DEFVAL(Ref<Image>()), DEFVAL(1.0f), DEFVAL(0.0f), DEFVAL(Terrain3DLayer::BLEND_ADD), DEFVAL(true), DEFVAL(true));
