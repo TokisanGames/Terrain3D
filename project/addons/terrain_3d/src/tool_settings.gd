@@ -64,7 +64,7 @@ var layer_add_button: Button
 var current_layer_region: Vector2i = Vector2i.ZERO
 var current_layer_map_type: int = Terrain3DRegion.TYPE_MAX
 var layer_selection_group: ButtonGroup
-var _layer_entries: Array = [] ## Array[Dictionary] storing region_location, layer_index, layer
+var _layer_entries: Array = [] ## Array[Dictionary] storing group_id, representative layer, and slice metadata
 
 
 func _ready() -> void:
@@ -674,14 +674,17 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Arra
 	var active_index: int = 0
 	if plugin and plugin.editor and plugin.editor.has_method("get_active_layer_index"):
 		active_index = plugin.editor.get_active_layer_index()
+	var has_anchor_selection := _has_stamp_anchor_selection()
+	var group_count := _layer_entries.size()
 	var region_count := _count_unique_regions()
+	var slice_count := _count_total_slices()
 	var label_prefix: String = MAP_TYPE_LABELS.get(map_type, "Map")
-	var layer_count := _layer_entries.size()
+	var group_suffix := "" if group_count == 1 else "s"
 	var region_suffix := "" if region_count == 1 else "s"
-	var layer_suffix := "" if layer_count == 1 else "s"
-	layer_header_label.text = "%s Layers (%d region%s, %d layer%s)" % [label_prefix, region_count, region_suffix, layer_count, layer_suffix]
+	var slice_suffix := "" if slice_count == 1 else "s"
+	layer_header_label.text = "%s Layers (%d group%s, %d region%s, %d slice%s)" % [label_prefix, group_count, group_suffix, region_count, region_suffix, slice_count, slice_suffix]
 	_add_base_layer_entry(active_index)
-	if layer_count == 0:
+	if group_count == 0:
 		var empty_label := Label.new()
 		empty_label.text = "No additional layers yet"
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -696,9 +699,10 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Arra
 			continue
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var ui_index := int(entry.get("layer_index", -1)) + 1
+		var ui_index := entry_id + 1
+		entry["ui_index"] = ui_index
 		var label_text := _describe_layer(entry)
-		var tooltip := "Region %s" % [str(entry.get("region_location", Vector2i.ZERO))]
+		var tooltip := _describe_layer_regions(entry)
 		var select_button := _create_layer_select_button(ui_index, label_text, active_index, entry_id, tooltip)
 		row.add_child(select_button)
 		var toggle := CheckBox.new()
@@ -707,6 +711,13 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Arra
 		toggle.tooltip_text = "Enable or disable this layer"
 		toggle.toggled.connect(_on_layer_toggle.bind(entry_id))
 		row.add_child(toggle)
+		var anchor_button := Button.new()
+		anchor_button.focus_mode = Control.FOCUS_NONE
+		anchor_button.icon = get_theme_icon("PinJoint3D", "EditorIcons")
+		anchor_button.tooltip_text = "Assign this layer to selected stamp anchor nodes"
+		anchor_button.disabled = not has_anchor_selection
+		anchor_button.pressed.connect(_on_layer_assign_to_anchor.bind(entry_id))
+		row.add_child(anchor_button)
 		var remove_button := Button.new()
 		remove_button.focus_mode = Control.FOCUS_NONE
 		remove_button.icon = get_theme_icon("Remove", "EditorIcons")
@@ -715,6 +726,7 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Arra
 		row.add_child(remove_button)
 		layers_list.add_child(row, true)
 	_update_layer_action_state()
+	_sync_active_layer_row()
 
 func clear_layer_stack() -> void:
 	_layer_entries.clear()
@@ -723,9 +735,9 @@ func clear_layer_stack() -> void:
 func _describe_layer(entry: Dictionary) -> String:
 	var parts: Array[String] = []
 	var layer: Terrain3DLayer = entry.get("layer")
-	var index := int(entry.get("layer_index", -1))
-	if index >= 0:
-		parts.append("#%d" % (index + 1))
+	var ui_index := int(entry.get("ui_index", -1))
+	if ui_index >= 0:
+		parts.append("#%d" % (ui_index))
 	if layer:
 		parts.append(layer.get_class().replace("Terrain3D", ""))
 		var blend := layer.get_blend_mode()
@@ -737,9 +749,29 @@ func _describe_layer(entry: Dictionary) -> String:
 		var coverage: Rect2i = layer.get_coverage()
 		if coverage.size.x > 0 and coverage.size.y > 0:
 			parts.append("%dx%d @ %d,%d" % [coverage.size.x, coverage.size.y, coverage.position.x, coverage.position.y])
+	var slice_count := _slice_count(entry)
+	var slice_suffix := "" if slice_count == 1 else "s"
+	parts.append("%d slice%s" % [slice_count, slice_suffix])
+	var region_count := int(entry.get("region_count", slice_count))
+	var region_suffix := "" if region_count == 1 else "s"
+	parts.append("%d region%s" % [region_count, region_suffix])
 	var region_loc: Vector2i = entry.get("region_location", Vector2i.ZERO)
-	parts.append("@%d,%d" % [region_loc.x, region_loc.y])
+	parts.append("primary @%d,%d" % [region_loc.x, region_loc.y])
 	return " • ".join(parts)
+
+func _describe_layer_regions(entry: Dictionary) -> String:
+	var slices: Array = entry.get("layers", [])
+	if slices.is_empty():
+		return "No regions"
+	var labels: PackedStringArray = []
+	for slice in slices:
+		var loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
+		labels.append("%d,%d" % [loc.x, loc.y])
+	return "Regions: %s" % ", ".join(labels)
+
+func _slice_count(entry: Dictionary) -> int:
+	var slices: Array = entry.get("layers", [])
+	return slices.size()
 
 func _describe_base_layer(map_type: int) -> String:
 	match map_type:
@@ -780,12 +812,46 @@ func _get_layer_entry(entry_id: int) -> Dictionary:
 		return {}
 	return _layer_entries[entry_id]
 
+func _has_stamp_anchor_selection() -> bool:
+	if not Engine.is_editor_hint():
+		return false
+	var selection := EditorInterface.get_selection()
+	if selection == null:
+		return false
+	for node in selection.get_selected_nodes():
+		if _is_stamp_anchor(node):
+			return true
+	return false
+
+func _get_selected_stamp_anchors() -> Array:
+	var anchors: Array = []
+	if not Engine.is_editor_hint():
+		return anchors
+	var selection := EditorInterface.get_selection()
+	if selection == null:
+		return anchors
+	for node in selection.get_selected_nodes():
+		if _is_stamp_anchor(node):
+			anchors.append(node)
+	return anchors
+
+func _is_stamp_anchor(node: Node) -> bool:
+	return is_instance_valid(node) and node.get_class() == "Terrain3DStampAnchor"
+
 func _count_unique_regions() -> int:
 	var unique := {}
 	for entry in _layer_entries:
-		var region_loc: Vector2i = entry.get("region_location", Vector2i.ZERO)
-		unique[str(region_loc)] = true
+		var slices: Array = entry.get("layers", [])
+		for slice in slices:
+			var region_loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
+			unique[str(region_loc)] = true
 	return unique.size()
+
+func _count_total_slices() -> int:
+	var total := 0
+	for entry in _layer_entries:
+		total += _slice_count(entry)
+	return total
 
 func _region_exists(region_loc: Vector2i) -> bool:
 	if not plugin or not plugin.terrain:
@@ -800,6 +866,21 @@ func _update_layer_action_state() -> void:
 		return
 	layer_add_button.disabled = not _region_exists(current_layer_region)
 
+func _sync_active_layer_row() -> void:
+	if not plugin or not plugin.editor:
+		return
+	if not plugin.editor.has_method("get_active_layer_group_id"):
+		return
+	var group_id: int = plugin.editor.get_active_layer_group_id()
+	if group_id == 0:
+		return
+	for entry_id in range(_layer_entries.size()):
+		var entry: Dictionary = _layer_entries[entry_id]
+		if int(entry.get("group_id", 0)) == group_id:
+			if plugin.editor.has_method("set_active_layer_index"):
+				plugin.editor.set_active_layer_index(entry_id + 1)
+			return
+
 func _on_layer_selected(pressed: bool, ui_index: int, entry_id: int = -1) -> void:
 	if not pressed:
 		return
@@ -813,6 +894,10 @@ func _on_layer_selected(pressed: bool, ui_index: int, entry_id: int = -1) -> voi
 	if not plugin.editor.has_method("set_active_layer_index"):
 		return
 	plugin.editor.set_active_layer_index(ui_index)
+	if entry_id >= 0 and plugin.editor.has_method("set_active_layer_reference"):
+		var entry := _get_layer_entry(entry_id)
+		if not entry.is_empty():
+			plugin.editor.set_active_layer_reference(entry.get("layer"), current_layer_map_type)
 	# Ensure the editor picks up the change for pending stamp data
 	_on_refresh_layers()
 
@@ -825,11 +910,17 @@ func _on_layer_toggle(pressed: bool, entry_id: int) -> void:
 	var entry := _get_layer_entry(entry_id)
 	if entry.is_empty():
 		return
-	var region_loc: Vector2i = entry.get("region_location", current_layer_region)
-	var layer_index := int(entry.get("layer_index", -1))
-	if layer_index < 0:
+	var slices: Array = entry.get("layers", [])
+	if slices.is_empty():
 		return
-	plugin.terrain.data.set_layer_enabled(region_loc, current_layer_map_type, layer_index, pressed, true)
+	for i in range(slices.size()):
+		var slice: Dictionary = slices[i]
+		var region_loc: Vector2i = slice.get("region_location", current_layer_region)
+		var layer_index := int(slice.get("layer_index", -1))
+		if layer_index < 0:
+			continue
+		var update := (i == slices.size() - 1)
+		plugin.terrain.data.set_layer_enabled(region_loc, current_layer_map_type, layer_index, pressed, update)
 	_on_refresh_layers()
 
 func _on_layer_remove(entry_id: int) -> void:
@@ -838,14 +929,43 @@ func _on_layer_remove(entry_id: int) -> void:
 	var entry := _get_layer_entry(entry_id)
 	if entry.is_empty():
 		return
-	var region_loc: Vector2i = entry.get("region_location", current_layer_region)
-	var layer_index := int(entry.get("layer_index", -1))
-	if layer_index < 0:
+	var slices: Array = entry.get("layers", [])
+	if slices.is_empty():
 		return
-	plugin.terrain.data.remove_layer(region_loc, current_layer_map_type, layer_index, true)
+	for i in range(slices.size()):
+		var slice: Dictionary = slices[i]
+		var region_loc: Vector2i = slice.get("region_location", current_layer_region)
+		var layer_index := int(slice.get("layer_index", -1))
+		if layer_index < 0:
+			continue
+		var update := (i == slices.size() - 1)
+		plugin.terrain.data.remove_layer(region_loc, current_layer_map_type, layer_index, update)
 	if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_index"):
 		plugin.editor.set_active_layer_index(0)
+	if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_reference"):
+		plugin.editor.set_active_layer_reference(null, Terrain3DRegion.TYPE_MAX)
 	_on_refresh_layers()
+
+func _on_layer_assign_to_anchor(entry_id: int) -> void:
+	if not Engine.is_editor_hint():
+		return
+	if current_layer_map_type == Terrain3DRegion.TYPE_MAX:
+		return
+	var entry := _get_layer_entry(entry_id)
+	if entry.is_empty():
+		return
+	var layer: Terrain3DLayer = entry.get("layer")
+	if layer == null or not (layer is Terrain3DStampLayer):
+		return
+	var anchors := _get_selected_stamp_anchors()
+	if anchors.is_empty():
+		return
+	var region_loc: Vector2i = entry.get("region_location", current_layer_region)
+	var layer_index := int(entry.get("layer_index", -1))
+	for anchor in anchors:
+		if not is_instance_valid(anchor) or not anchor.has_method("set_target_layer"):
+			continue
+		anchor.set_target_layer(region_loc, current_layer_map_type, layer_index, layer)
 
 func _on_refresh_layers() -> void:
 	if plugin and plugin.ui and plugin.ui.has_method("update_layer_panel"):

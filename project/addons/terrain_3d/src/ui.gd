@@ -301,30 +301,39 @@ func update_layer_panel() -> void:
 		tool_settings.clear_layer_stack()
 		return
 	var default_region := data.get_region_location(plugin.mouse_global_position)
-	var layer_entries := _collect_global_layers(data, map_type)
+	var layer_entries := _collect_global_layers(data, map_type, default_region)
 	tool_settings.update_layer_stack(default_region, map_type, layer_entries)
 
-func _collect_global_layers(data: Terrain3DData, map_type: int) -> Array:
+func _collect_global_layers(data: Terrain3DData, map_type: int, default_region: Vector2i) -> Array:
 	var entries: Array = []
 	if data == null:
 		return entries
-	var region_locations := data.get_region_locations()
-	for i in range(region_locations.size()):
-		var region_loc: Vector2i = region_locations[i]
-		if not data.has_region(region_loc):
+	var groups: Array = data.get_layer_groups(map_type) if data.has_method("get_layer_groups") else []
+	if groups.is_empty():
+		return entries
+	for group_dict in groups:
+		var slices: Array = group_dict.get("layers", [])
+		if slices.is_empty():
 			continue
-		var layers: Array = data.get_layers(region_loc, map_type)
-		if layers.is_empty():
-			continue
-		for layer_index in range(layers.size()):
-			var layer: Terrain3DLayer = layers[layer_index]
-			if layer == null:
-				continue
-			entries.append({
-				"region_location": region_loc,
-				"layer_index": layer_index,
-				"layer": layer
-			})
+		var primary_slice: Dictionary = slices[0]
+		for slice in slices:
+			if slice.get("region_location", Vector2i.ZERO) == default_region:
+				primary_slice = slice
+				break
+		var unique_regions := {}
+		for slice in slices:
+			var loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
+			unique_regions[str(loc)] = loc
+		var entry := {
+			"group_id": group_dict.get("group_id", 0),
+			"map_type": map_type,
+			"layer": primary_slice.get("layer"),
+			"layers": slices,
+			"region_location": primary_slice.get("region_location", Vector2i.ZERO),
+			"layer_index": primary_slice.get("layer_index", -1),
+			"region_count": unique_regions.size()
+		}
+		entries.append(entry)
 	return entries
 
 

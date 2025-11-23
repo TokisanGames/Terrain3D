@@ -64,12 +64,29 @@ func set_terrain_node(terrain: Terrain3D) -> void:
 	_reset_template()
 	_log("set_terrain_node: terrain=%s" % [(_terrain and _terrain.get_path()) if _terrain else "<none>"])
 
-func set_target_layer(region_loc: Vector2i, map_type_in: int, index: int, _layer: Terrain3DStampLayer = null) -> void:
-	target_region = region_loc
-	map_type = map_type_in
-	layer_index = index
+func set_target_layer(region_loc: Vector2i, map_type_in: int, index: int, layer_ref: Terrain3DLayer = null) -> void:
+	_resolve_terrain()
+	var resolved_region := region_loc
+	var resolved_map_type := map_type_in
+	var resolved_index := index
+	if layer_ref and layer_ref is Terrain3DStampLayer:
+		resolved_map_type = layer_ref.get_map_type()
+		if _data:
+			var owner_info := _data.get_layer_owner_info(layer_ref, resolved_map_type)
+			if owner_info.has("region_location"):
+				resolved_region = owner_info.get("region_location", resolved_region)
+			if owner_info.has("index"):
+				resolved_index = int(owner_info.get("index", resolved_index))
+		else:
+			_log("set_target_layer: data unavailable when assigning from layer ref")
+	elif layer_ref:
+		_log("set_target_layer: provided layer is not a Terrain3DStampLayer")
+	resolved_index = max(resolved_index, -1)
+	target_region = resolved_region
+	map_type = resolved_map_type
+	layer_index = resolved_index
 	_reset_template()
-	_log("set_target_layer: region=%s map_type=%d index=%d" % [str(target_region), map_type, layer_index])
+	_log("set_target_layer: region=%s map_type=%d index=%d layer_ref=%s" % [str(target_region), map_type, layer_index, str(layer_ref)])
 
 func force_update() -> void:
 	_last_position = Vector3.INF
