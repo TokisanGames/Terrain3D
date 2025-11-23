@@ -573,7 +573,7 @@ void fragment() {
 	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
 
 	// Make up for mipmaps losing detail by amplifying normals by distance
-	float distant_normal_boost = clamp(max(dFdx(base_ddx.xz), dFdy(base_ddy.xz), 1., distant_normal_amplifier));
+	float distant_normal_boost = clamp(max(length(dFdx(base_ddx.xz)), length(dFdy(base_ddy.xz))), 1.0, distant_normal_amplifier);
 	
 	// Apply PBR
 	ALBEDO = mat.albedo_height.rgb * color_map.rgb * macrov;
