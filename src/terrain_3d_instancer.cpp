@@ -1090,7 +1090,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 			if (cell_queue.size() == 0) {
 				continue;
 			}
-			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_types[m]);
+			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(region_mesh_id);
 			real_t mesh_height_offset = mesh_asset->get_height_offset();
 			for (int c = 0; c < cell_queue.size(); c++) {
 				Vector2i cell = cell_queue[c];
@@ -1123,13 +1123,13 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 				} else {
 					// Removed if a hole erased everything
 					cell_inst_dict.erase(cell);
-					_destroy_mmi_by_cell(region_loc, m, cell);
+					_destroy_mmi_by_cell(region_loc, region_mesh_id, cell);
 				}
 				if (cell_inst_dict.is_empty()) {
 					mesh_inst_dict.erase(region_mesh_id);
 				}
 			}
-			update_mmis(m, region_loc);
+			update_mmis(region_mesh_id, region_loc);
 		}
 	}
 }
