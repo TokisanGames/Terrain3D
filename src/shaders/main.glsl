@@ -383,7 +383,9 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 		mat.total_weight += id_weight;
 	}
 }
+)"
 
+		R"(
 void fragment() {
 	// Recover UVs
 	vec2 uv = UV;

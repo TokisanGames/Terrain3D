@@ -374,7 +374,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
  * If p_invert_alpha is true, the destination alpha channel will be 1.0 - input source channel.
  */
 Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Image> &p_src_a, const Ref<Image> &p_src_ao,
-		const bool p_invert_green, const bool p_invert_alpha, const bool p_normalize_alpha, const int p_alpha_channel, const int p_occlusion_channel) {
+		const bool p_invert_green, const bool p_invert_alpha, const bool p_normalize_alpha, const int p_alpha_channel, const int p_ao_channel) {
 	if (!p_src_rgb.is_valid() || !p_src_a.is_valid()) {
 		LOG(ERROR, "Provided images are not valid. Cannot pack");
 		return Ref<Image>();
@@ -433,7 +433,7 @@ Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Imag
 			}
 			if (pack_ao) {
 				// Compress range to avoid low AO values completely destroying normal vector precision - recovered in shader.
-				real_t ao = sqrt(p_src_ao->get_pixel(x, y)[p_occlusion_channel]) * 0.5 + 0.5;
+				real_t ao = sqrt(p_src_ao->get_pixel(x, y)[p_ao_channel]) * 0.5 + 0.5;
 				col.r = col.r * ao + (1.0f - ao) * 0.5f;
 				col.g = col.g * ao + (1.0f - ao) * 0.5f;
 				col.b = col.b * ao + (1.0f - ao) * 0.5f;
@@ -554,6 +554,6 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(V2I(256)));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0.f, 255.f)), DEFVAL(V2I_ZERO));
-	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "invert_green", "invert_alpha", "normalize_alpha", "alpha_channel"), &Terrain3DUtil::pack_image, DEFVAL(false), DEFVAL(false), DEFVAL(false), DEFVAL(0));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "src_ao", "invert_green", "invert_alpha", "normalize_alpha", "alpha_channel", "ao_channel"), &Terrain3DUtil::pack_image, DEFVAL(false), DEFVAL(false), DEFVAL(false), DEFVAL(0), DEFVAL(0));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("luminance_to_height", "src_rgb"), &Terrain3DUtil::luminance_to_height);
 }
