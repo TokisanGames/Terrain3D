@@ -101,10 +101,38 @@ void Terrain3D::_initialize() {
 }
 
 void Terrain3D::_refresh_collision_on_height_change() {
-	if (_collision && _collision->is_enabled()) {
-		LOG(DEBUG, "Height maps changed; refreshing collision");
-		_collision->update(true);
+	if (!_collision || !_collision->is_enabled()) {
+		_collision_refresh_pending = false;
+		return;
 	}
+	if (Engine::get_singleton()->is_editor_hint() && !_collision->is_editor_mode()) {
+		_collision_refresh_pending = false;
+		return;
+	}
+	_collision_refresh_pending = true;
+	_process_collision_refresh_queue();
+}
+
+void Terrain3D::_process_collision_refresh_queue() {
+	if (!_collision_refresh_pending) {
+		return;
+	}
+	if (!_collision || !_collision->is_enabled()) {
+		_collision_refresh_pending = false;
+		return;
+	}
+	if (Engine::get_singleton()->is_editor_hint() && !_collision->is_editor_mode()) {
+		_collision_refresh_pending = false;
+		return;
+	}
+	const uint64_t now = Time::get_singleton()->get_ticks_usec();
+	if (now < _next_collision_refresh_usec) {
+		return;
+	}
+	LOG(DEBUG, "Flushing pending collision refresh");
+	_collision_refresh_pending = false;
+	_collision->update(true);
+	_next_collision_refresh_usec = now + COLLISION_REFRESH_THROTTLE_USEC;
 }
 
 /**
@@ -138,6 +166,7 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
+	_process_collision_refresh_queue();
 }
 
 /**

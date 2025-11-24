@@ -9,6 +9,21 @@
 #include "terrain_3d_region.h"
 #include "terrain_3d_util.h"
 
+namespace {
+static inline Rect2i merge_rects(const Rect2i &a, const Rect2i &b) {
+	if (!a.has_area()) {
+		return b;
+	}
+	if (!b.has_area()) {
+		return a;
+	}
+	Vector2i min_pt(MIN(a.position.x, b.position.x), MIN(a.position.y, b.position.y));
+	Vector2i max_pt(MAX(a.position.x + a.size.x, b.position.x + b.size.x),
+			MAX(a.position.y + a.size.y, b.position.y + b.size.y));
+	return Rect2i(min_pt, max_pt - min_pt);
+}
+}
+
 /////////////////////
 // Public Functions
 /////////////////////
@@ -52,6 +67,58 @@ bool &Terrain3DRegion::_get_layers_dirty(const MapType p_map_type) const {
 	}
 }
 
+bool &Terrain3DRegion::_get_dirty_rect_valid(const MapType p_map_type) const {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return const_cast<bool &>(_height_dirty_rect_valid);
+		case TYPE_CONTROL:
+			return const_cast<bool &>(_control_dirty_rect_valid);
+		case TYPE_COLOR:
+			return const_cast<bool &>(_color_dirty_rect_valid);
+		default:
+			return const_cast<bool &>(_height_dirty_rect_valid);
+	}
+}
+
+Rect2i &Terrain3DRegion::_get_dirty_rect(const MapType p_map_type) const {
+	switch (p_map_type) {
+		case TYPE_HEIGHT:
+			return const_cast<Rect2i &>(_height_dirty_rect);
+		case TYPE_CONTROL:
+			return const_cast<Rect2i &>(_control_dirty_rect);
+		case TYPE_COLOR:
+			return const_cast<Rect2i &>(_color_dirty_rect);
+		default:
+			return const_cast<Rect2i &>(_height_dirty_rect);
+	}
+}
+
+Rect2i Terrain3DRegion::_clamp_rect_to_map(const MapType p_map_type, const Rect2i &p_rect) const {
+	if (!p_rect.has_area()) {
+		return Rect2i();
+	}
+	Vector2i max_size(_region_size, _region_size);
+	Ref<Image> base = get_map(p_map_type);
+	if (base.is_valid()) {
+		max_size = Vector2i(base->get_width(), base->get_height());
+	}
+	if (max_size.x <= 0 || max_size.y <= 0) {
+		return Rect2i();
+	}
+	Vector2i pos = p_rect.position;
+	Vector2i size = p_rect.size;
+	Vector2i end = pos + size;
+	pos.x = CLAMP(pos.x, 0, max_size.x);
+	pos.y = CLAMP(pos.y, 0, max_size.y);
+	end.x = CLAMP(end.x, 0, max_size.x);
+	end.y = CLAMP(end.y, 0, max_size.y);
+	Vector2i clamped_size = end - pos;
+	if (clamped_size.x <= 0 || clamped_size.y <= 0) {
+		return Rect2i();
+	}
+	return Rect2i(pos, clamped_size);
+}
+
 Ref<Image> &Terrain3DRegion::_get_baked_map(const MapType p_map_type) const {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
@@ -66,11 +133,29 @@ Ref<Image> &Terrain3DRegion::_get_baked_map(const MapType p_map_type) const {
 }
 
 void Terrain3DRegion::mark_layers_dirty(const MapType p_map_type, const bool p_mark_modified) const {
+	mark_layers_dirty_rect(p_map_type, Rect2i(), p_mark_modified);
+}
+
+void Terrain3DRegion::mark_layers_dirty_rect(const MapType p_map_type, const Rect2i &p_rect, const bool p_mark_modified) const {
 	bool &dirty = _get_layers_dirty(p_map_type);
-	dirty = true;
+	bool &rect_valid = _get_dirty_rect_valid(p_map_type);
+	Rect2i &dirty_rect = _get_dirty_rect(p_map_type);
 	Ref<Image> &cache = _get_baked_map(p_map_type);
-	if (cache.is_valid()) {
-		cache.unref();
+	if (!p_rect.has_area() || cache.is_null()) {
+		dirty = true;
+		rect_valid = false;
+		dirty_rect = Rect2i();
+		if (cache.is_valid()) {
+			cache.unref();
+		}
+	} else {
+		Rect2i clamped = _clamp_rect_to_map(p_map_type, p_rect);
+		if (!clamped.has_area()) {
+			return;
+		}
+		dirty = true;
+		dirty_rect = rect_valid ? merge_rects(dirty_rect, clamped) : clamped;
+		rect_valid = true;
 	}
 	if (p_mark_modified) {
 		const_cast<Terrain3DRegion *>(this)->set_edited(true);
@@ -161,7 +246,9 @@ Ref<Image> Terrain3DRegion::get_composited_map(const MapType p_map_type) const {
 	}
 	Ref<Image> &cache = _get_baked_map(p_map_type);
 	bool &dirty = _get_layers_dirty(p_map_type);
-	if (dirty || cache.is_null()) {
+	bool &rect_valid = _get_dirty_rect_valid(p_map_type);
+	Rect2i &dirty_rect = _get_dirty_rect(p_map_type);
+	if (cache.is_null()) {
 		cache = base->duplicate();
 		if (cache.is_null()) {
 			return base;
@@ -175,8 +262,57 @@ Ref<Image> Terrain3DRegion::get_composited_map(const MapType p_map_type) const {
 			layer->apply(*cache.ptr(), _vertex_spacing);
 		}
 		dirty = false;
+		rect_valid = false;
+		dirty_rect = Rect2i();
+		return cache;
 	}
+	if (!dirty) {
+		return cache;
+	}
+	if (!rect_valid || !dirty_rect.has_area()) {
+		cache->copy_from(base);
+		for (int i = 0; i < layers.size(); i++) {
+			Ref<Terrain3DLayer> layer = layers[i];
+			if (layer.is_null()) {
+				continue;
+			}
+			layer->set_map_type(p_map_type);
+			layer->apply(*cache.ptr(), _vertex_spacing);
+		}
+		dirty = false;
+		rect_valid = false;
+		dirty_rect = Rect2i();
+		return cache;
+	}
+	Rect2i clamped = _clamp_rect_to_map(p_map_type, dirty_rect);
+	if (!clamped.has_area()) {
+		dirty = false;
+		rect_valid = false;
+		dirty_rect = Rect2i();
+		return cache;
+	}
+	cache->blit_rect(base, clamped, clamped.position);
+	_apply_layers_to_rect(p_map_type, *cache.ptr(), clamped);
+	dirty = false;
+	rect_valid = false;
+	dirty_rect = Rect2i();
 	return cache;
+}
+
+void Terrain3DRegion::_apply_layers_to_rect(const MapType p_map_type, Image &p_target, const Rect2i &p_rect) const {
+	const TypedArray<Terrain3DLayer> &layers = _get_layers_ref(p_map_type);
+	for (int i = 0; i < layers.size(); i++) {
+		Ref<Terrain3DLayer> layer = layers[i];
+		if (layer.is_null()) {
+			continue;
+		}
+		layer->set_map_type(p_map_type);
+		Rect2i overlap = p_rect.intersection(layer->get_coverage());
+		if (!overlap.has_area()) {
+			continue;
+		}
+		layer->apply_rect(p_target, _vertex_spacing, overlap);
+	}
 }
 
 void Terrain3DRegion::set_version(const real_t p_version) {

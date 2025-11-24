@@ -150,7 +150,23 @@ bool Terrain3DLayer::needs_rebuild(const real_t p_vertex_spacing) const {
 	return !Math::is_equal_approx(_cached_vertex_spacing, p_vertex_spacing);
 }
 
+namespace {
+static inline Rect2i clamp_rect_to_size(const Rect2i &p_rect, const Vector2i &p_max_size) {
+	Rect2i clamped = p_rect;
+	Vector2i pos_clamped = p_rect.position.clamp(Vector2i(), p_max_size);
+	Vector2i coverage_end = p_rect.position + p_rect.size;
+	Vector2i end_clamped = Vector2i(MIN(coverage_end.x, p_max_size.x), MIN(coverage_end.y, p_max_size.y));
+	clamped.position = pos_clamped;
+	clamped.size = end_clamped - clamped.position;
+	return clamped;
+}
+}
+
 void Terrain3DLayer::apply(Image &p_target, const real_t p_vertex_spacing) {
+	apply_rect(p_target, p_vertex_spacing, Rect2i());
+}
+
+void Terrain3DLayer::apply_rect(Image &p_target, const real_t p_vertex_spacing, const Rect2i &p_rect) {
 	if (!_enabled) {
 		return;
 	}
@@ -164,31 +180,34 @@ void Terrain3DLayer::apply(Image &p_target, const real_t p_vertex_spacing) {
 		return;
 	}
 	Vector2i target_size = Vector2i(p_target.get_width(), p_target.get_height());
+	if (target_size.x <= 0 || target_size.y <= 0) {
+		return;
+	}
 	Rect2i coverage = _coverage.has_area() ? _coverage : Rect2i(Vector2i(), Vector2i(_payload->get_width(), _payload->get_height()));
-
-    Rect2i coverage_clamped = coverage;
-    Vector2i pos_clamped = coverage.position.clamp(Vector2i(), target_size);
-    Vector2i coverage_end = coverage.position + coverage.size;
-    Vector2i end_clamped = Vector2i(
-	    MIN(coverage_end.x, target_size.x),
-	    MIN(coverage_end.y, target_size.y));
-    coverage_clamped.position = pos_clamped;
-    coverage_clamped.size = end_clamped - coverage_clamped.position;
+	Rect2i coverage_clamped = clamp_rect_to_size(coverage, target_size);
 	if (coverage_clamped.size.x <= 0 || coverage_clamped.size.y <= 0) {
 		return;
 	}
-
+	Rect2i effective = coverage_clamped;
+	if (p_rect.has_area()) {
+		Rect2i limit = clamp_rect_to_size(p_rect, target_size);
+		effective = effective.intersection(limit);
+		if (!effective.has_area()) {
+			return;
+		}
+	}
 	int skipped_samples = 0;
-	for (int y = 0; y < coverage_clamped.size.y; y++) {
-		for (int x = 0; x < coverage_clamped.size.x; x++) {
-			int src_x = x + (coverage_clamped.position.x - coverage.position.x);
-			int src_y = y + (coverage_clamped.position.y - coverage.position.y);
+	Vector2i loop_end = effective.position + effective.size;
+	for (int dst_y = effective.position.y; dst_y < loop_end.y; dst_y++) {
+		for (int dst_x = effective.position.x; dst_x < loop_end.x; dst_x++) {
+			int src_x = dst_x - coverage.position.x;
+			int src_y = dst_y - coverage.position.y;
 			if (src_x < 0 || src_y < 0 || src_x >= _payload->get_width() || src_y >= _payload->get_height()) {
 				skipped_samples++;
 				continue;
 			}
 			Color src = _payload->get_pixel(src_x, src_y);
-			Color dst = p_target.get_pixel(coverage_clamped.position.x + x, coverage_clamped.position.y + y);
+			Color dst = p_target.get_pixel(dst_x, dst_y);
 
 			real_t alpha_weight = 1.0f;
 			if (_alpha.is_valid()) {
@@ -243,11 +262,11 @@ void Terrain3DLayer::apply(Image &p_target, const real_t p_vertex_spacing) {
 					break;
 			}
 
-			p_target.set_pixel(coverage_clamped.position.x + x, coverage_clamped.position.y + y, dst);
+			p_target.set_pixel(dst_x, dst_y, dst);
 		}
 	}
 	if (skipped_samples > 0) {
-		LOG(WARN, "Layer skipped ", skipped_samples, " samples due to payload bounds. coverage=", coverage, " clamped=", coverage_clamped, " payload_size=", Vector2i(_payload->get_width(), _payload->get_height()));
+		LOG(WARN, "Layer skipped ", skipped_samples, " samples due to payload bounds. coverage=", coverage, " clamped=", effective, " payload_size=", Vector2i(_payload->get_width(), _payload->get_height()));
 	}
 }
 
