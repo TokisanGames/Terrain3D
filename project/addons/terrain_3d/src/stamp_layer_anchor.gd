@@ -17,6 +17,14 @@ class_name Terrain3DStampAnchor
 @export var update_in_game := true
 @export_range(0.0, 5.0, 0.01) var min_move_distance := 0.05
 @export var debug_logging := false
+@export var allow_claimed_sources := false ## When true this anchor may retarget layers already controlled by another anchor.
+@export var anchor_id: String = "" : set = _set_anchor_id
+@export var claimed_group_id: int = 0 : set = _set_claimed_group_id
+@export_multiline var source_summary: String = "" : set = _set_source_summary
+
+const MAP_UPDATE_THROTTLE_MS := 33
+const META_ANCHOR_ID := &"terrain3d_stamp_anchor_id"
+static var _group_claims := {}
 
 var _terrain: Terrain3D
 var _data: Terrain3DData
@@ -31,6 +39,113 @@ var _active_layers := {} ## Dict[Vector2i] = Ref<Terrain3DStampLayer>
 var _last_position := Vector3.INF
 var _preferred_layer: Terrain3DStampLayer
 var _template_group_id := 0
+var _map_update_dirty := false
+var _pending_full_map_rebuild := false
+var _next_map_update_msec := 0
+var _map_update_timer: SceneTreeTimer
+var _claimed_group_ref: int = 0
+
+func _set_anchor_id(value: String) -> void:
+	anchor_id = value
+	_retag_active_layers()
+
+func _set_claimed_group_id(value: int) -> void:
+	claimed_group_id = value
+
+func _set_source_summary(value: String) -> void:
+	source_summary = value
+
+func _ensure_anchor_id() -> void:
+	if anchor_id.strip_edges() == "":
+		anchor_id = _generate_anchor_id()
+
+func _generate_anchor_id() -> String:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	return "stamp-%08x%08x" % [rng.randi(), rng.randi()]
+
+static func _prune_group_claims() -> void:
+	var stale := []
+	for group_id in _group_claims.keys():
+		var ref: WeakRef = _group_claims[group_id]
+		if ref.get_ref() == null:
+			stale.append(group_id)
+	for group_id in stale:
+		_group_claims.erase(group_id)
+
+func _claim_group_id(group_id: int) -> void:
+	if group_id == 0:
+		return
+	_prune_group_claims()
+	_group_claims[group_id] = weakref(self)
+	_claimed_group_ref = group_id
+	_set_claimed_group_id(group_id)
+
+func _release_group_claim(group_id: int = -1) -> void:
+	var target_id := group_id if group_id > 0 else _claimed_group_ref
+	if target_id == 0:
+		return
+	if _group_claims.has(target_id):
+		var owner: WeakRef = _group_claims[target_id]
+		if owner.get_ref() == self or owner.get_ref() == null:
+			_group_claims.erase(target_id)
+	if target_id == _claimed_group_ref or group_id <= 0:
+		_claimed_group_ref = 0
+	_set_claimed_group_id(_claimed_group_ref)
+
+func _is_group_claimed_by_other(group_id: int) -> bool:
+	if group_id == 0:
+		return false
+	_prune_group_claims()
+	if not _group_claims.has(group_id):
+		return false
+	var owner: Object = _group_claims[group_id].get_ref()
+	return owner != null and owner != self
+
+func _tag_layer_anchor(layer: Terrain3DLayer) -> void:
+	if layer == null:
+		return
+	if anchor_id.strip_edges() == "":
+		return
+	layer.set_meta(META_ANCHOR_ID, anchor_id)
+
+func _retag_active_layers() -> void:
+	for region_loc in _active_layers.keys():
+		var layer: Terrain3DStampLayer = _active_layers[region_loc]
+		if layer and is_instance_valid(layer):
+			_tag_layer_anchor(layer)
+
+func _is_layer_claimed_by_other(layer: Terrain3DLayer) -> bool:
+	if layer == null:
+		return false
+	if allow_claimed_sources:
+		return false
+	var stored_id := ""
+	if layer.has_meta(META_ANCHOR_ID):
+		stored_id = str(layer.get_meta(META_ANCHOR_ID, ""))
+	if stored_id != "" and stored_id != anchor_id:
+		return true
+	return _is_group_claimed_by_other(int(layer.get_group_id()))
+
+func _get_map_type_name(type_value: int) -> String:
+	match type_value:
+		Terrain3DRegion.TYPE_HEIGHT:
+			return "Height"
+		Terrain3DRegion.TYPE_CONTROL:
+			return "Control"
+		Terrain3DRegion.TYPE_COLOR:
+			return "Color"
+		_:
+			return "Unknown"
+
+func _describe_layer_source(layer: Terrain3DLayer) -> String:
+	if layer == null or _data == null:
+		return "Unassigned"
+	var info := _data.get_layer_owner_info(layer, layer.get_map_type())
+	var region_loc: Vector2i = info.get("region_location", target_region)
+	var idx := int(info.get("index", layer_index))
+	var group_id := int(layer.get_group_id())
+	return "%s layer #%d (group %d) in region %s" % [_get_map_type_name(layer.get_map_type()), idx, group_id, str(region_loc)]
 
 func _log(message: String) -> void:
 	if not debug_logging:
@@ -38,6 +153,7 @@ func _log(message: String) -> void:
 	print("[Terrain3DStampAnchor:%s] %s" % [str(get_instance_id()), message])
 
 func _ready() -> void:
+	_ensure_anchor_id()
 	_resolve_terrain()
 	_last_position = Vector3.INF
 	set_process(true)
@@ -58,7 +174,9 @@ func _notification(what: int) -> void:
 		if Engine.is_editor_hint() and update_in_editor:
 			force_update()
 	elif what == NOTIFICATION_EXIT_TREE:
+		_release_group_claim()
 		_clear_active_layers(true)
+		_flush_map_update()
 
 func set_terrain_node(terrain: Terrain3D) -> void:
 	_terrain = terrain
@@ -145,6 +263,8 @@ func _ensure_template(force_region: bool) -> bool:
 	if captured:
 		_preferred_layer = null
 		_clear_active_layers(true)
+		_claim_group_id(_template_group_id)
+		_set_source_summary(_describe_layer_source(source))
 		_log("ensure_template: captured payload %s (map_type=%d)" % [str(_template_size), map_type])
 	else:
 		_log("ensure_template: failed to capture payload for layer %s" % [str(source)])
@@ -316,6 +436,9 @@ func _remove_group_layers(slices: Array, map_type_in: int) -> void:
 		return
 	var removal := {}
 	for slice in slices:
+		var layer: Terrain3DLayer = slice.get("layer")
+		if _is_layer_claimed_by_other(layer):
+			continue
 		var region_loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
 		var layer_index_value := int(slice.get("layer_index", -1))
 		if layer_index_value < 0:
@@ -337,7 +460,7 @@ func _remove_group_layers(slices: Array, map_type_in: int) -> void:
 			_data.remove_layer(entry["region"], map_type_in, idx, false)
 			removed = true
 	if removed:
-		_data.update_maps(map_type_in, false, false)
+		_queue_map_update()
 
 func _resolve_source_layer(force_region: bool) -> Terrain3DStampLayer:
 	if _terrain == null:
@@ -345,7 +468,12 @@ func _resolve_source_layer(force_region: bool) -> Terrain3DStampLayer:
 	if _data == null:
 		return null
 	if _preferred_layer and is_instance_valid(_preferred_layer):
-		return _preferred_layer
+		if not _is_layer_claimed_by_other(_preferred_layer):
+			return _preferred_layer
+		elif allow_claimed_sources:
+			return _preferred_layer
+		else:
+			_log("resolve_source_layer: preferred layer is owned by another anchor")
 	if auto_region or force_region:
 		target_region = _data.get_region_location(global_transform.origin)
 		_log("resolve_source_layer: auto target region=%s" % [str(target_region)])
@@ -354,20 +482,26 @@ func _resolve_source_layer(force_region: bool) -> Terrain3DStampLayer:
 		_log("resolve_source_layer: region %s missing" % [str(target_region)])
 		return null
 	var layers: Array = region.get_layers(map_type)
-	if layer_index >= 0 and layer_index < layers.size():
+	var manual_index := layer_index >= 0 and layer_index < layers.size()
+	if manual_index:
 		var candidate: Terrain3DLayer = layers[layer_index]
 		if candidate is Terrain3DStampLayer:
-			_log("resolve_source_layer: using indexed layer %d" % layer_index)
-			return candidate
+			if not _is_layer_claimed_by_other(candidate) or allow_claimed_sources:
+				_log("resolve_source_layer: using indexed layer %d" % layer_index)
+				return candidate as Terrain3DStampLayer
+			else:
+				_log("resolve_source_layer: indexed layer %d is owned by another anchor" % layer_index)
 	if not auto_layer_search:
 		_log("resolve_source_layer: indexed layer not stamp and search disabled")
 		return null
 	for i in range(layers.size()):
 		var fallback: Terrain3DLayer = layers[i]
 		if fallback is Terrain3DStampLayer:
+			if _is_layer_claimed_by_other(fallback) and not allow_claimed_sources:
+				continue
 			layer_index = i
 			_log("resolve_source_layer: switched to fallback layer %d" % layer_index)
-			return fallback
+			return fallback as Terrain3DStampLayer
 	_log("resolve_source_layer: no stamp layers available in %s" % [str(target_region)])
 	return null
 
@@ -431,7 +565,7 @@ func _deploy_stamp(global_rect: Rect2i) -> bool:
 			changed = true
 	var removed := _prune_inactive_layers(touched)
 	if changed or removed:
-		_data.update_maps(map_type, false, false)
+		_queue_map_update()
 	return not _active_layers.is_empty()
 
 func _clear_active_layers(update_maps: bool) -> void:
@@ -444,7 +578,7 @@ func _clear_active_layers(update_maps: bool) -> void:
 		if _remove_region_entry(region_loc, false):
 			removed = true
 	if removed and update_maps:
-		_data.update_maps(map_type, false, false)
+		_queue_map_update()
 	_active_layers.clear()
 
 func _reset_template() -> void:
@@ -455,7 +589,10 @@ func _reset_template() -> void:
 	_template_size = Vector2i.ZERO
 	_active_layers.clear()
 	_preferred_layer = null
+	_release_group_claim(_template_group_id)
 	_template_group_id = 0
+	_set_claimed_group_id(0)
+	_set_source_summary("")
 
 func _build_slice_payload(payload_rect: Rect2i, coverage: Rect2i) -> Dictionary:
 	var result := {}
@@ -523,6 +660,8 @@ func _ensure_region_available(region_loc: Vector2i) -> bool:
 	if not auto_create_regions:
 		return false
 	var added: Terrain3DRegion = _data.add_region_blank(region_loc, false)
+	if added:
+		_pending_full_map_rebuild = true
 	return added != null
 
 func _create_slice_layer(region_loc: Vector2i, payload: Image, alpha: Image, coverage: Rect2i) -> Terrain3DStampLayer:
@@ -532,6 +671,7 @@ func _create_slice_layer(region_loc: Vector2i, payload: Image, alpha: Image, cov
 	if layer and _template_group_id != 0:
 		layer.set_group_id(_template_group_id)
 		_data.ensure_layer_group_id(layer)
+	_tag_layer_anchor(layer)
 	return layer if layer is Terrain3DStampLayer else null
 
 func _update_slice_layer(layer: Terrain3DStampLayer, payload: Image, alpha: Image, coverage: Rect2i) -> void:
@@ -548,6 +688,7 @@ func _update_slice_layer(layer: Terrain3DStampLayer, payload: Image, alpha: Imag
 		layer.set_group_id(_template_group_id)
 		if _data:
 			_data.ensure_layer_group_id(layer)
+	_tag_layer_anchor(layer)
 	var info := _data.get_layer_owner_info(layer, map_type)
 	var region_loc: Vector2i = info.get("region_location", Vector2i.ZERO)
 	var index := int(info.get("index", -1))
@@ -577,4 +718,60 @@ func _remove_region_entry(region_loc: Vector2i, update_maps: bool) -> bool:
 		return false
 	_data.remove_layer(region_loc, map_type, index, update_maps)
 	_active_layers.erase(region_loc)
+	if update_maps:
+		_queue_map_update()
 	return true
+
+func _queue_map_update(force_full_rebuild: bool = false, immediate: bool = false) -> void:
+	if _data == null:
+		return
+	_map_update_dirty = true
+	if force_full_rebuild:
+		_pending_full_map_rebuild = true
+	if immediate:
+		_apply_map_update()
+		return
+	var now := Time.get_ticks_msec()
+	if now >= _next_map_update_msec:
+		_apply_map_update()
+		return
+	if _map_update_timer:
+		return
+	var wait_ms := max(0, _next_map_update_msec - now)
+	if wait_ms <= 0:
+		call_deferred("_apply_map_update")
+		return
+	var tree := get_tree()
+	if tree == null:
+		_apply_map_update()
+		return
+	_map_update_timer = tree.create_timer(float(wait_ms) / 1000.0)
+	_map_update_timer.timeout.connect(Callable(self, "_on_map_update_timeout"), Object.CONNECT_ONE_SHOT)
+
+func _on_map_update_timeout() -> void:
+	_map_update_timer = null
+	_apply_map_update()
+
+func _apply_map_update() -> void:
+	if _data == null:
+		_map_update_dirty = false
+		_pending_full_map_rebuild = false
+		_map_update_timer = null
+		return
+	if not _map_update_dirty and not _pending_full_map_rebuild:
+		return
+	_map_update_dirty = false
+	var force_full := _pending_full_map_rebuild
+	_pending_full_map_rebuild = false
+	_map_update_timer = null
+	_data.update_maps(map_type, force_full, false)
+	_next_map_update_msec = Time.get_ticks_msec() + MAP_UPDATE_THROTTLE_MS
+
+func _flush_map_update() -> void:
+	if _data == null:
+		return
+	if _map_update_timer:
+		_map_update_timer = null
+	if _map_update_dirty or _pending_full_map_rebuild:
+		_map_update_dirty = true
+		_apply_map_update()
