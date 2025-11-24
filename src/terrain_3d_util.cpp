@@ -42,25 +42,25 @@ void Terrain3DUtil::print_arr(const String &p_name, const Array &p_arr, const in
 void Terrain3DUtil::print_dict(const String &p_name, const Dictionary &p_dict, const int p_level) {
 	LOG(p_level, "Dictionary: ", p_name);
 	Array keys = p_dict.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		Variant var = p_dict[keys[i]];
+	for (const StringName &key : keys) {
+		Variant var = p_dict[key];
 		switch (var.get_type()) {
 			case Variant::ARRAY: {
-				print_arr(String(keys[i]), var, p_level);
+				print_arr(String(key), var, p_level);
 				break;
 			}
 			case Variant::DICTIONARY: {
-				print_dict(String(keys[i]), var, p_level);
+				print_dict(String(key), var, p_level);
 				break;
 			}
 			case Variant::OBJECT: {
 				Object *obj = cast_to<Object>(var);
 				String str = "Object#" + String::num_uint64(obj->get_instance_id()) + ", " + ptr_to_str(obj);
-				LOG(p_level, "\"", keys[i], "\": ", str);
+				LOG(p_level, "\"", key, "\": ", str);
 				break;
 			}
 			default: {
-				LOG(p_level, "\"", keys[i], "\": Value: ", var);
+				LOG(p_level, "\"", key, "\": Value: ", var);
 				break;
 			}
 		}
@@ -74,9 +74,8 @@ void Terrain3DUtil::dump_gentex(const GeneratedTexture &p_gen, const String &p_n
 
 void Terrain3DUtil::dump_maps(const TypedArray<Image> &p_maps, const String &p_name) {
 	LOG(MESG, "Dumping ", p_name, " array. Size: ", p_maps.size());
-	for (int i = 0; i < p_maps.size(); i++) {
-		Ref<Image> img = p_maps[i];
-		LOG(MESG, "[", i, "]: Map size: ", img->get_size(), ", format: ", img->get_format(),
+	for (const Ref<Image> &img : p_maps) {
+		LOG(MESG, "Map size: ", img->get_size(), ", format: ", img->get_format(),
 				", ", ptr_to_str(*img));
 	}
 }
@@ -121,8 +120,8 @@ PackedStringArray Terrain3DUtil::get_files(const String &p_dir, const String &p_
 		return files;
 	}
 	PackedStringArray dir_files = da->get_files();
-	for (int i = 0; i < dir_files.size(); i++) {
-		String fname = dir_files[i].trim_suffix(".remap");
+	for (const String &file_name : dir_files) {
+		String fname = file_name.trim_suffix(".remap");
 		if (!fname.matchn(p_glob)) {
 			continue;
 		}

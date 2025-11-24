@@ -154,8 +154,8 @@ void Terrain3D::_destroy_containers() {
 void Terrain3D::_destroy_labels() {
 	Array labels = _label_parent->get_children();
 	LOG(DEBUG, "Destroying ", labels.size(), " region labels");
-	for (int i = 0; i < labels.size(); i++) {
-		Node *label = cast_to<Node>(labels[i]);
+	for (const Variant &var : labels) {
+		Node *label = cast_to<Node>(var);
 		memdelete_safely(label);
 	}
 }
@@ -267,11 +267,10 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 		int32_t region_size = (int32_t)_region_size;
 
 		TypedArray<Vector2i> region_locations = _data->get_region_locations();
-		for (int r = 0; r < region_locations.size(); ++r) {
-			Vector2i region_loc = (Vector2i)region_locations[r] * region_size;
-
-			for (int32_t z = region_loc.y; z < region_loc.y + region_size; z += step) {
-				for (int32_t x = region_loc.x; x < region_loc.x + region_size; x += step) {
+		for (const Vector2i &region_loc : region_locations) {
+			Vector2i region_pos = region_loc * region_size;
+			for (int32_t z = region_pos.y; z < region_pos.y + region_size; z += step) {
+				for (int32_t x = region_pos.x; x < region_pos.x + region_size; x += step) {
 					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
 				}
 			}
@@ -549,8 +548,7 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	SET_IF_DIFF(_save_16_bit, p_enabled);
 	LOG(INFO, "Save heightmaps as 16-bit: ", _save_16_bit);
 	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
-	for (int i = 0; i < regions.size(); i++) {
-		Ref<Terrain3DRegion> region = regions[i];
+	for (Ref<Terrain3DRegion> region : regions) {
 		region->set_modified(true);
 	}
 }
@@ -572,9 +570,9 @@ void Terrain3D::update_region_labels() {
 	if (_label_distance > 0.f && _data) {
 		TypedArray<Vector2i> region_locations = _data->get_region_locations();
 		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
-		for (int i = 0; i < region_locations.size(); i++) {
+		for (const Vector2i &region_loc : region_locations) {
 			Label3D *label = memnew(Label3D);
-			String text = region_locations[i];
+			String text = region_loc;
 			label->set_name("Label3D" + text.replace(" ", ""));
 			label->set_pixel_size(.001f);
 			label->set_billboard_mode(BaseMaterial3D::BILLBOARD_ENABLED);
@@ -590,8 +588,7 @@ void Terrain3D::update_region_labels() {
 			label->set_visibility_range_end_margin(_label_distance / 10.f);
 			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 			_label_parent->add_child(label, true);
-			Vector2i loc = region_locations[i];
-			Vector3 pos = Vector3(real_t(loc.x) + .5f, 0.f, real_t(loc.y) + .5f) * _region_size * _vertex_spacing;
+			Vector3 pos = Vector3(real_t(region_loc.x) + .5f, 0.f, real_t(region_loc.y) + .5f) * _region_size * _vertex_spacing;
 			real_t height = _data->get_height(pos);
 			pos.y = (std::isnan(height)) ? 0 : height;
 			label->set_position(pos);

@@ -74,8 +74,7 @@ void Terrain3DData::set_region_locations(const TypedArray<Vector2i> &p_locations
 // Returns an array of active regions, optionally a shallow or deep copy
 TypedArray<Terrain3DRegion> Terrain3DData::get_regions_active(const bool p_copy, const bool p_deep) const {
 	TypedArray<Terrain3DRegion> region_arr;
-	for (int i = 0; i < _region_locations.size(); i++) {
-		Vector2i region_loc = _region_locations[i];
+	for (const Vector2i &region_loc : _region_locations) {
 		Ref<Terrain3DRegion> region = get_region(region_loc);
 		if (region.is_valid()) {
 			region_arr.push_back(p_copy ? region->duplicate(p_deep) : region);
@@ -122,16 +121,16 @@ void Terrain3DData::change_region_size(int p_new_size) {
 	}
 
 	// Get current region corners expressed in new region_size coordinates
-	Dictionary new_region_points;
-	Array locs = _regions.keys();
-	for (int i = 0; i < locs.size(); i++) {
-		const Terrain3DRegion *region = get_region_ptr((Vector2i)locs[i]);
+	Dictionary new_region_locations;
+	Array region_locations = _regions.keys();
+	for (const Vector2i &region_loc : region_locations) {
+		const Terrain3DRegion *region = get_region_ptr(region_loc);
 		if (region && !region->is_deleted()) {
-			Point2i region_position = region->get_location() * _region_size;
+			Vector2i region_position = region->get_location() * _region_size;
 			Rect2i location_bounds(V2I_DIVIDE_FLOOR(region_position, p_new_size), V2I_DIVIDE_CEIL(_region_sizev, p_new_size));
 			for (int y = location_bounds.position.y; y < location_bounds.get_end().y; y++) {
 				for (int x = location_bounds.position.x; x < location_bounds.get_end().x; x++) {
-					new_region_points[Point2i(x, y)] = 1;
+					new_region_locations[Vector2i(x, y)] = 1;
 				}
 			}
 		}
@@ -139,12 +138,11 @@ void Terrain3DData::change_region_size(int p_new_size) {
 
 	// Make new regions to receive copied data
 	TypedArray<Terrain3DRegion> new_regions;
-	Array keys = new_region_points.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		Point2i loc = keys[i];
+	Array new_locations = new_region_locations.keys();
+	for (const Vector2i &region_loc : new_locations) {
 		Ref<Terrain3DRegion> new_region;
 		new_region.instantiate();
-		new_region->set_location(loc);
+		new_region->set_location(region_loc);
 		new_region->set_region_size(p_new_size);
 		new_region->set_vertex_spacing(_vertex_spacing);
 		new_region->set_modified(true);
@@ -152,7 +150,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 
 		// Copy current data from current into new region, up to new region size
 		Rect2i area;
-		area.position = loc * p_new_size;
+		area.position = region_loc * p_new_size;
 		area.size = V2I(p_new_size);
 		do_for_regions(area, callable_mp(this, &Terrain3DData::_copy_paste_dfr).bind(new_region.ptr()));
 		new_regions.push_back(new_region);
@@ -161,16 +159,16 @@ void Terrain3DData::change_region_size(int p_new_size) {
 	// Remove old data
 	_terrain->get_instancer()->destroy();
 	TypedArray<Terrain3DRegion> old_regions = get_regions_active();
-	for (int i = 0; i < old_regions.size(); i++) {
-		remove_region(old_regions[i], false);
+	for (const Ref<Terrain3DRegion> &region : old_regions) {
+		remove_region(region, false);
 	}
 
 	// Change region size
 	_terrain->set_region_size((Terrain3D::RegionSize)p_new_size);
 
 	// Add new regions and rebuild
-	for (int i = 0; i < new_regions.size(); i++) {
-		add_region(new_regions[i], false);
+	for (const Ref<Terrain3DRegion> &region : new_regions) {
+		add_region(region, false);
 	}
 
 	calc_height_range(true);
@@ -305,8 +303,8 @@ void Terrain3DData::remove_region(const Ref<Terrain3DRegion> &p_region, const bo
 void Terrain3DData::save_directory(const String &p_dir) {
 	LOG(INFO, "Saving data files to ", p_dir);
 	Array locations = _regions.keys();
-	for (int i = 0; i < locations.size(); i++) {
-		save_region(locations[i], p_dir, _terrain->get_save_16_bit());
+	for (const Vector2i &region_loc : locations) {
+		save_region(region_loc, p_dir, _terrain->get_save_16_bit());
 	}
 	if (IS_EDITOR && !EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
 		EditorInterface::get_singleton()->get_resource_filesystem()->scan();
@@ -363,8 +361,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 	}
 
 	_clear();
-	for (int i = 0; i < files.size(); i++) {
-		String fname = files[i];
+	for (const String &fname : files) {
 		String path = p_dir + String("/") + fname;
 		LOG(DEBUG, "Loading region from ", path);
 		Vector2i loc = Util::filename_to_location(fname);
@@ -448,8 +445,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
 		LOG(EXTREME, "Regenerating color mipmaps");
-		for (int i = 0; i < _region_locations.size(); i++) {
-			Vector2i region_loc = _region_locations[i];
+		for (const Vector2i &region_loc : _region_locations) {
 			Terrain3DRegion *region = get_region_ptr(region_loc);
 			// Generate all or only those marked edited
 			if (region && (p_all_regions || region->is_edited())) {
@@ -491,8 +487,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		_region_locations = TypedArray<Vector2i>(); // enforce new pointer
 		Array locs = _regions.keys();
 		int region_id = 0;
-		for (int i = 0; i < locs.size(); i++) {
-			Vector2i region_loc = locs[i];
+		for (const Vector2i &region_loc : locs) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region && !region->is_deleted()) {
 				region_id += 1; // Begin at 1 since 0 = no region
@@ -512,8 +507,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (_generated_height_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating height texture array from regions");
 		_height_maps.clear();
-		for (int i = 0; i < _region_locations.size(); i++) {
-			Vector2i region_loc = _region_locations[i];
+		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
 				_height_maps.push_back(region->get_height_map());
@@ -534,8 +528,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (_generated_control_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating control texture array from regions");
 		_control_maps.clear();
-		for (int i = 0; i < _region_locations.size(); i++) {
-			Vector2i region_loc = _region_locations[i];
+		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
 				_control_maps.push_back(region->get_control_map());
@@ -551,8 +544,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (_generated_color_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating color texture array from regions");
 		_color_maps.clear();
-		for (int i = 0; i < _region_locations.size(); i++) {
-			Vector2i region_loc = _region_locations[i];
+		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
 				_color_maps.push_back(region->get_color_map());
@@ -567,8 +559,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	// If no maps have been rebuilt, update only individual regions in the array.
 	// Regions marked Edited have been changed by Terrain3DEditor::_operate_map or undo / redo processing.
 	if (!any_changed) {
-		for (int i = 0; i < _region_locations.size(); i++) {
-			Vector2i region_loc = _region_locations[i];
+		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region && region->is_edited()) {
 				int region_id = get_region_id(region_loc);
@@ -844,8 +835,7 @@ void Terrain3DData::add_edited_area(const AABB &p_area) {
 // Recursive mode has all regions to recalculate from each heightmap pixel
 void Terrain3DData::calc_height_range(const bool p_recursive) {
 	_master_height_range = V2_ZERO;
-	for (int i = 0; i < _region_locations.size(); i++) {
-		Vector2i region_loc = _region_locations[i];
+	for (const Vector2i &region_loc : _region_locations) {
 		Terrain3DRegion *region = get_region_ptr(region_loc);
 		if (!region) {
 			continue;
@@ -1092,9 +1082,8 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 	}
 	Vector2i top_left = V2I_ZERO;
 	Vector2i bottom_right = V2I_ZERO;
-	for (int i = 0; i < _region_locations.size(); i++) {
-		LOG(DEBUG, "Region locations[", i, "]: ", _region_locations[i]);
-		Vector2i region_loc = _region_locations[i];
+	for (const Vector2i &region_loc : _region_locations) {
+		LOG(DEBUG, "Region location: ", region_loc);
 		if (region_loc.x < top_left.x) {
 			top_left.x = region_loc.x;
 		} else if (region_loc.x > bottom_right.x) {
@@ -1112,8 +1101,7 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 	LOG(DEBUG, "Image size: ", img_size);
 	Ref<Image> img = Util::get_filled_image(img_size, COLOR[map_type], false, FORMAT[map_type]);
 
-	for (int i = 0; i < _region_locations.size(); i++) {
-		Vector2i region_loc = _region_locations[i];
+	for (const Vector2i &region_loc : _region_locations) {
 		Vector2i img_location = (region_loc - top_left) * _region_size;
 		LOG(DEBUG, "Region to blit: ", region_loc, " Export image coords: ", img_location);
 		const Terrain3DRegion *region = get_region_ptr(region_loc);
@@ -1128,8 +1116,7 @@ void Terrain3DData::dump(const bool verbose) const {
 	LOG(MESG, "_region_locations (", _region_locations.size(), "): ", _region_locations);
 	Array keys = _regions.keys();
 	LOG(MESG, "_regions (", keys.size(), "):");
-	for (int i = 0; i < keys.size(); i++) {
-		Vector2i region_loc = keys[i];
+	for (const Vector2i &region_loc : keys) {
 		const Terrain3DRegion *region = get_region_ptr(region_loc);
 		if (!region) {
 			LOG(WARN, "No region found at: ", region_loc);

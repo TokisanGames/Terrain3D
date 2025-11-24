@@ -253,12 +253,10 @@ void Terrain3DMesher::_generate_offset_data(const int p_size) {
 // Frees all clipmap instance RIDs. Mesh rids must be freed seperatley.
 void Terrain3DMesher::_clear_clipmap() {
 	LOG(INFO, "Freeing all clipmap instances");
-	for (int lod = 0; lod < _clipmap_rids.size(); lod++) {
-		Array lod_array = _clipmap_rids[lod];
-		for (int mesh = 0; mesh < lod_array.size(); mesh++) {
-			Array mesh_array = lod_array[mesh];
-			for (int instance = 0; instance < mesh_array.size(); instance++) {
-				RS->free_rid(mesh_array[instance]);
+	for (Array lod_array : _clipmap_rids) {
+		for (Array mesh_array : lod_array) {
+			for (const RID &rid : mesh_array) {
+				RS->free_rid(rid);
 			}
 			mesh_array.clear();
 		}
@@ -271,8 +269,8 @@ void Terrain3DMesher::_clear_clipmap() {
 // Frees all Mesh RIDs use for clipmap instances.
 void Terrain3DMesher::_clear_mesh_types() {
 	LOG(INFO, "Freeing all clipmap meshes");
-	for (int m = 0; m < _mesh_rids.size(); m++) {
-		RS->free_rid(_mesh_rids[m]);
+	for (const RID &rid : _mesh_rids) {
+		RS->free_rid(rid);
 	}
 	_mesh_rids.clear();
 	return;
@@ -432,17 +430,15 @@ void Terrain3DMesher::update() {
 	bool visible = _terrain->is_visible_in_tree();
 
 	LOG(INFO, "Updating all mesh instances for ", _clipmap_rids.size(), " LODs");
-	for (int lod = 0; lod < _clipmap_rids.size(); ++lod) {
-		Array lod_array = _clipmap_rids[lod];
-		for (int mesh = 0; mesh < lod_array.size(); ++mesh) {
-			Array mesh_array = lod_array[mesh];
-			for (int instance = 0; instance < mesh_array.size(); ++instance) {
-				RS->instance_set_visible(mesh_array[instance], visible);
-				RS->instance_set_scenario(mesh_array[instance], scenario);
-				RS->instance_set_layer_mask(mesh_array[instance], render_layers);
-				RS->instance_geometry_set_cast_shadows_setting(mesh_array[instance], cast_shadows);
-				RS->instance_geometry_set_flag(mesh_array[instance], RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
-				RS->instance_geometry_set_flag(mesh_array[instance], RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
+	for (Array lod_array : _clipmap_rids) {
+		for (Array mesh_array : lod_array) {
+			for (const RID &rid : mesh_array) {
+				RS->instance_set_visible(rid, visible);
+				RS->instance_set_scenario(rid, scenario);
+				RS->instance_set_layer_mask(rid, render_layers);
+				RS->instance_geometry_set_cast_shadows_setting(rid, cast_shadows);
+				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
+				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
 			}
 		}
 	}
@@ -458,12 +454,11 @@ void Terrain3DMesher::update_aabbs() {
 	height_range.y += abs(height_range.x);
 
 	LOG(INFO, "Updating ", _mesh_rids.size(), " meshes AABBs")
-	for (int m = 0; m < _mesh_rids.size(); m++) {
-		RID mesh = _mesh_rids[m];
-		AABB aabb = RS->mesh_get_custom_aabb(mesh);
+	for (const RID &rid : _mesh_rids) {
+		AABB aabb = RS->mesh_get_custom_aabb(rid);
 		aabb.position.y = height_range.x - cull_margin;
 		aabb.size.y = height_range.y + cull_margin * 2.f;
-		RS->mesh_set_custom_aabb(mesh, aabb);
+		RS->mesh_set_custom_aabb(rid, aabb);
 	}
 	return;
 }

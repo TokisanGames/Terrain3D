@@ -389,13 +389,11 @@ void Terrain3DRegion::dump(const bool verbose) const {
 			", Color map: ", ptr_to_str(*_color_map));
 	LOG(MESG, "Instances: Mesh IDs: ", _instances.size(), ", ", ptr_to_str(_instances._native_ptr()));
 	Array mesh_ids = _instances.keys();
-	for (int m = 0; m < mesh_ids.size(); m++) {
-		int mesh_id = mesh_ids[m];
+	for (const int &mesh_id : mesh_ids) {
 		int counter = 0;
 		Dictionary cell_inst_dict = _instances[mesh_id];
 		Array cells = cell_inst_dict.keys();
-		for (int c = 0; c < cells.size(); c++) {
-			Vector2i cell = cells[c];
+		for (const Vector2i &cell : cells) {
 			Array triple = cell_inst_dict[cell];
 			if (triple.size() == 3) {
 				counter += Array(triple[0]).size();

@@ -201,13 +201,12 @@ void Terrain3DAssets::_update_texture_files() {
 	bool normal_mipmaps = true;
 	_terrain->set_warning(WARN_ALL, false);
 
-	for (int i = 0; i < _texture_list.size(); i++) {
-		Ref<Terrain3DTextureAsset> texture_set = _texture_list[i];
-		if (texture_set.is_null()) {
+	for (const Ref<Terrain3DTextureAsset> &ta : _texture_list) {
+		if (ta.is_null()) {
 			continue;
 		}
 
-		Ref<Texture2D> albedo_tex = texture_set->_albedo_texture;
+		Ref<Texture2D> albedo_tex = ta->_albedo_texture;
 		if (albedo_tex.is_valid()) {
 			Vector2i tex_size = albedo_tex->get_size();
 			Ref<Image> img = albedo_tex->get_image();
@@ -222,20 +221,20 @@ void Terrain3DAssets::_update_texture_files() {
 			} else { // else validate against first texture
 				if (tex_size != albedo_size) {
 					_terrain->set_warning(WARN_MISMATCHED_SIZE, true);
-					LOG(ERROR, "Texture ID ", i, " albedo size: ", tex_size, " doesn't match size of first texture: ", albedo_size, ". They must be identical. Read Texture Prep in docs.");
+					LOG(ERROR, "Texture ID ", ta->get_id(), " albedo size: ", tex_size, " doesn't match size of first texture: ", albedo_size, ". They must be identical. Read Texture Prep in docs.");
 				}
 				if (format != albedo_format) {
 					_terrain->set_warning(WARN_MISMATCHED_FORMAT, true);
-					LOG(ERROR, "Texture ID ", i, " albedo format: ", format, " doesn't match format of first texture: ", albedo_format, ". They must be identical. Read Texture Prep in docs.");
+					LOG(ERROR, "Texture ID ", ta->get_id(), " albedo format: ", format, " doesn't match format of first texture: ", albedo_format, ". They must be identical. Read Texture Prep in docs.");
 				}
 				if (mipmaps != albedo_mipmaps) {
 					_terrain->set_warning(WARN_MISMATCHED_MIPMAPS, true);
-					LOG(ERROR, "Texture ID ", i, " albedo mipmap setting (", mipmaps, ") doesn't match first texture (", albedo_mipmaps, "). They must be identical. Read Texture Prep in docs.");
+					LOG(ERROR, "Texture ID ", ta->get_id(), " albedo mipmap setting (", mipmaps, ") doesn't match first texture (", albedo_mipmaps, "). They must be identical. Read Texture Prep in docs.");
 				}
 			}
 		}
 
-		Ref<Texture2D> normal_tex = texture_set->_normal_texture;
+		Ref<Texture2D> normal_tex = ta->_normal_texture;
 		if (normal_tex.is_valid()) {
 			Vector2i tex_size = normal_tex->get_size();
 			Ref<Image> img = normal_tex->get_image();
@@ -250,15 +249,15 @@ void Terrain3DAssets::_update_texture_files() {
 			} else { // else validate against first texture
 				if (tex_size != normal_size) {
 					_terrain->set_warning(WARN_MISMATCHED_SIZE, true);
-					LOG(ERROR, "Texture ID ", i, " normal size: ", tex_size, " doesn't match size of first texture: ", normal_size, ". They must be identical. Read Texture Prep in docs.");
+					LOG(ERROR, "Texture ID ", ta->get_id(), " normal size: ", tex_size, " doesn't match size of first texture: ", normal_size, ". They must be identical. Read Texture Prep in docs.");
 				}
 				if (format != normal_format) {
 					_terrain->set_warning(WARN_MISMATCHED_FORMAT, true);
-					LOG(ERROR, "Texture ID ", i, " normal format: ", format, " doesn't match format of first texture: ", normal_format, ". They must be identical. Read Texture Prep in docs.");
+					LOG(ERROR, "Texture ID ", ta->get_id(), " normal format: ", format, " doesn't match format of first texture: ", normal_format, ". They must be identical. Read Texture Prep in docs.");
 				}
 				if (mipmaps != normal_mipmaps) {
 					_terrain->set_warning(WARN_MISMATCHED_MIPMAPS, true);
-					LOG(ERROR, "Texture ID ", i, " normal mipmap setting (", mipmaps, ") doesn't match first texture (", albedo_mipmaps, "). They must be identical. Read Texture Prep in docs.");
+					LOG(ERROR, "Texture ID ", ta->get_id(), " normal mipmap setting (", mipmaps, ") doesn't match first texture (", albedo_mipmaps, "). They must be identical. Read Texture Prep in docs.");
 				}
 			}
 		}
@@ -283,23 +282,22 @@ void Terrain3DAssets::_update_texture_files() {
 	if (_generated_albedo_textures.is_dirty() && albedo_size != V2I_ZERO) {
 		LOG(INFO, "Regenerating albedo texture array");
 		Array albedo_texture_array;
-		for (int i = 0; i < _texture_list.size(); i++) {
-			Ref<Terrain3DTextureAsset> texture_set = _texture_list[i];
-			if (texture_set.is_null()) {
+		for (const Ref<Terrain3DTextureAsset> &ta : _texture_list) {
+			if (ta.is_null()) {
 				continue;
 			}
-			Ref<Texture2D> tex = texture_set->_albedo_texture;
+			Ref<Texture2D> tex = ta->_albedo_texture;
 			Ref<Image> img;
 
 			if (tex.is_null()) {
 				img = Util::get_filled_image(albedo_size, COLOR_CHECKED, albedo_mipmaps, albedo_format);
-				LOG(DEBUG, "Texture ID ", i, " albedo is null. Creating a new one. Format: ", img->get_format());
-				texture_set->set_albedo_texture(ImageTexture::create_from_image(img));
+				LOG(DEBUG, "Texture ID ", ta->get_id(), " albedo is null. Creating a new one. Format: ", img->get_format());
+				ta->set_albedo_texture(ImageTexture::create_from_image(img));
 			} else {
 				img = tex->get_image();
-				LOG(EXTREME, "Texture ID ", i, " albedo is valid. Format: ", img->get_format());
+				LOG(EXTREME, "Texture ID ", ta->get_id(), " albedo is valid. Format: ", img->get_format());
 				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
-					LOG(WARN, "Texture ID ", i, " albedo is saved in the scene. Save it as a file and link it.");
+					LOG(WARN, "Texture ID ", ta->get_id(), " albedo is saved in the scene. Save it as a file and link it.");
 				}
 			}
 			albedo_texture_array.push_back(img);
@@ -314,23 +312,22 @@ void Terrain3DAssets::_update_texture_files() {
 
 		Array normal_texture_array;
 
-		for (int i = 0; i < _texture_list.size(); i++) {
-			Ref<Terrain3DTextureAsset> texture_set = _texture_list[i];
-			if (texture_set.is_null()) {
+		for (const Ref<Terrain3DTextureAsset> &ta : _texture_list) {
+			if (ta.is_null()) {
 				continue;
 			}
-			Ref<Texture2D> tex = texture_set->_normal_texture;
+			Ref<Texture2D> tex = ta->_normal_texture;
 			Ref<Image> img;
 
 			if (tex.is_null()) {
 				img = Util::get_filled_image(normal_size, COLOR_NORMAL, normal_mipmaps, normal_format);
-				LOG(DEBUG, "Texture ID ", i, " normal is null. Creating a new one. Format: ", img->get_format());
-				texture_set->_normal_texture = ImageTexture::create_from_image(img);
+				LOG(DEBUG, "Texture ID ", ta->get_id(), " normal is null. Creating a new one. Format: ", img->get_format());
+				ta->_normal_texture = ImageTexture::create_from_image(img);
 			} else {
 				img = tex->get_image();
-				LOG(EXTREME, "Texture ID ", i, " normal is valid. Format: ", img->get_format());
+				LOG(EXTREME, "Texture ID ", ta->get_id(), " normal is valid. Format: ", img->get_format());
 				if (!IS_EDITOR && tex->get_path().contains("ImageTexture")) {
-					LOG(WARN, "Texture ID ", i, " normal is saved in the scene. Save it as a file and link it.");
+					LOG(WARN, "Texture ID ", ta->get_id(), " normal is saved in the scene. Save it as a file and link it.");
 				}
 			}
 			normal_texture_array.push_back(img);
@@ -355,22 +352,21 @@ void Terrain3DAssets::_update_texture_settings() {
 		_texture_vertical_projections = 0u;
 		_texture_detiles.clear();
 
-		for (int i = 0; i < _texture_list.size(); i++) {
-			Ref<Terrain3DTextureAsset> texture_set = _texture_list[i];
-			if (texture_set.is_null()) {
+		for (const Ref<Terrain3DTextureAsset> &ta : _texture_list) {
+			if (ta.is_null()) {
 				continue;
 			}
-			if (texture_set->is_highlighted()) {
-				_texture_colors.push_back(texture_set->get_highlight_color());
+			if (ta->is_highlighted()) {
+				_texture_colors.push_back(ta->get_highlight_color());
 			} else {
-				_texture_colors.push_back(texture_set->get_albedo_color());
+				_texture_colors.push_back(ta->get_albedo_color());
 			}
-			_texture_normal_depths.push_back(texture_set->get_normal_depth());
-			_texture_ao_strengths.push_back(texture_set->get_ao_strength());
-			_texture_roughness_mods.push_back(texture_set->get_roughness());
-			_texture_uv_scales.push_back(texture_set->get_uv_scale());
-			_texture_vertical_projections |= (texture_set->get_vertical_projection() ? (uint32_t(1u) << uint32_t(i)) : uint32_t(0u));
-			_texture_detiles.push_back(Vector2(texture_set->get_detiling_rotation(), texture_set->get_detiling_shift()));
+			_texture_normal_depths.push_back(ta->get_normal_depth());
+			_texture_ao_strengths.push_back(ta->get_ao_strength());
+			_texture_roughness_mods.push_back(ta->get_roughness());
+			_texture_uv_scales.push_back(ta->get_uv_scale());
+			_texture_vertical_projections |= (ta->get_vertical_projection() ? (uint32_t(1u) << uint32_t(ta->get_id())) : uint32_t(0u));
+			_texture_detiles.push_back(Vector2(ta->get_detiling_rotation(), ta->get_detiling_shift()));
 		}
 	}
 	LOG(DEBUG, "Emitting textures_changed");
@@ -516,19 +512,18 @@ void Terrain3DAssets::clear_textures(const bool p_update) {
 
 void Terrain3DAssets::update_texture_list() {
 	LOG(INFO, "Reconnecting texture signals");
-	for (int i = 0; i < _texture_list.size(); i++) {
-		Ref<Terrain3DTextureAsset> texture_set = _texture_list[i];
-		if (texture_set.is_null()) {
-			LOG(ERROR, "TextureAsset ID ", i, " is null, but shouldn't be.");
+	for (const Ref<Terrain3DTextureAsset> &ta : _texture_list) {
+		if (ta.is_null()) {
+			LOG(ERROR, "Null TextureAsset found at index: ", _texture_list.find(ta));
 			continue;
 		}
-		if (!texture_set->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::_update_texture_files))) {
+		if (!ta->is_connected("file_changed", callable_mp(this, &Terrain3DAssets::_update_texture_files))) {
 			LOG(DEBUG, "Connecting file_changed signal");
-			texture_set->connect("file_changed", callable_mp(this, &Terrain3DAssets::_update_texture_files));
+			ta->connect("file_changed", callable_mp(this, &Terrain3DAssets::_update_texture_files));
 		}
-		if (!texture_set->is_connected("setting_changed", callable_mp(this, &Terrain3DAssets::_update_texture_settings))) {
+		if (!ta->is_connected("setting_changed", callable_mp(this, &Terrain3DAssets::_update_texture_settings))) {
 			LOG(DEBUG, "Connecting setting_changed signal");
-			texture_set->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_texture_settings));
+			ta->connect("setting_changed", callable_mp(this, &Terrain3DAssets::_update_texture_settings));
 		}
 	}
 	_update_texture_files();
@@ -662,16 +657,15 @@ void Terrain3DAssets::update_mesh_list() {
 		set_mesh_asset(0, new_mesh);
 	}
 	LOG(DEBUG, "Reconnecting mesh instance signals");
-	for (int i = 0; i < _mesh_list.size(); i++) {
-		Ref<Terrain3DMeshAsset> mesh_asset = _mesh_list[i];
-		if (mesh_asset.is_null()) {
-			LOG(ERROR, "Terrain3DMeshAsset ID ", i, " is null, but shouldn't be");
+	for (Ref<Terrain3DMeshAsset> ma : _mesh_list) {
+		if (ma.is_null()) {
+			LOG(ERROR, "Null Terrain3DMeshAsset found at index ", _mesh_list.find(ma));
 			continue;
 		}
-		mesh_asset->check_mesh(true);
-		if (!mesh_asset->is_connected("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh))) {
+		ma->check_mesh(true);
+		if (!ma->is_connected("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh))) {
 			LOG(DEBUG, "Connecting instancer_setting_changed signal to _update_mesh");
-			mesh_asset->connect("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh));
+			ma->connect("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh));
 		}
 	}
 	LOG(DEBUG, "Emitting meshes_changed");
