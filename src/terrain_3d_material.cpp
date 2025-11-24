@@ -49,8 +49,8 @@ void Terrain3DMaterial::_preload_shaders() {
 
 	if (Terrain3D::debug_level >= DEBUG) {
 		Array keys = _shader_code.keys();
-		for (int i = 0; i < keys.size(); i++) {
-			LOG(DEBUG, "Loaded shader insert: ", keys[i]);
+		for (const StringName &key : keys) {
+			LOG(DEBUG, "Loaded shader insert: ", key);
 		}
 	}
 }
@@ -285,8 +285,8 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		insert_names.push_back("OVERLAY_CONTOURS_SETUP");
 	}
 	// Apply pending inserts
-	for (int i = 0; i < insert_names.size(); i++) {
-		String insert = _shader_code[insert_names[i]];
+	for (const String &name : insert_names) {
+		String insert = _shader_code[name];
 		shader = shader.insert(idx, "\n" + insert);
 		idx += insert.length();
 	}
@@ -381,8 +381,8 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 		insert_names.push_back("EDITOR_DECAL_RENDER");
 	}
 	// Apply pending inserts
-	for (int i = 0; i < insert_names.size(); i++) {
-		String insert = _shader_code[insert_names[i]];
+	for (const String &name : insert_names) {
+		String insert = _shader_code[name];
 		shader = shader.insert(idx, "\n" + insert);
 		idx += insert.length();
 	}
@@ -422,8 +422,7 @@ void Terrain3DMaterial::_update_shader() {
 	}
 
 	// Fetch saved shader parameters, converting textures to RIDs
-	for (int i = 0; i < _active_params.size(); i++) {
-		StringName param = _active_params[i];
+	for (const StringName &param : _active_params) {
 		Variant value = _shader_params[param];
 		if (value.get_type() == Variant::OBJECT) {
 			Ref<Texture> tex = value;
@@ -796,19 +795,13 @@ Error Terrain3DMaterial::save(const String &p_path) {
 
 	// Remove saved shader params that don't exist in either shader
 	Array keys = _shader_params.keys();
-	for (int i = 0; i < keys.size(); i++) {
+	for (const StringName &name : keys) {
 		bool has = false;
-		StringName name = keys[i];
-		for (int j = 0; j < param_list.size(); j++) {
-			Dictionary dict;
-			StringName dname;
-			if (j < param_list.size()) {
-				dict = param_list[j];
-				dname = dict["name"];
-				if (name == dname) {
-					has = true;
-					break;
-				}
+		for (const Dictionary &dict : param_list) {
+			StringName dname = dict["name"];
+			if (name == dname) {
+				has = true;
+				break;
 			}
 		}
 		if (!has) {
@@ -850,8 +843,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	}
 
 	_active_params.clear();
-	for (int i = 0; i < param_list.size(); i++) {
-		Dictionary dict = param_list[i];
+	for (const Dictionary &dict : param_list) {
 		StringName name = dict["name"];
 
 		// Filter out private uniforms that start with _

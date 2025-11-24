@@ -558,8 +558,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 	// Regenerate color mipmaps for edited regions
 	if (map_type == TYPE_COLOR) {
-		for (int i = 0; i < _edited_regions.size(); i++) {
-			Ref<Terrain3DRegion> region = _edited_regions[i];
+		for (Ref<Terrain3DRegion> region : _edited_regions) {
 			if (region.is_valid()) {
 				region->get_map(map_type)->generate_mipmaps();
 			}
@@ -598,15 +597,13 @@ void Terrain3DEditor::_store_undo() {
 
 	if (Terrain3D::debug_level >= DEBUG) {
 		LOG(DEBUG, "Storing Original Regions:");
-		for (int i = 0; i < _original_regions.size(); i++) {
-			Ref<Terrain3DRegion> region = _original_regions[i];
+		for (const Ref<Terrain3DRegion> &region : _original_regions) {
 			if (region.is_valid()) {
 				region->dump();
 			}
 		}
 		LOG(DEBUG, "Storing Edited Regions:");
-		for (int i = 0; i < _edited_regions.size(); i++) {
-			Ref<Terrain3DRegion> region = _edited_regions[i];
+		for (const Ref<Terrain3DRegion> &region : _edited_regions) {
 			if (region.is_valid()) {
 				region->dump();
 			}
@@ -662,8 +659,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		Util::print_arr("Edited regions", p_data["edited_regions"]);
 		TypedArray<Terrain3DRegion> undo_regions = p_data["edited_regions"];
 		LOG(DEBUG, "Backup has ", undo_regions.size(), " edited regions");
-		for (int i = 0; i < undo_regions.size(); i++) {
-			Ref<Terrain3DRegion> region = undo_regions[i];
+		for (Ref<Terrain3DRegion> region : undo_regions) {
 			if (region.is_null()) {
 				LOG(ERROR, "Null region saved in undo data. Please report this error.");
 				continue;
@@ -689,10 +685,10 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	if (p_data.has("added_regions")) {
 		LOG(DEBUG, "Added regions: ", p_data["added_regions"]);
 		TypedArray<Vector2i> region_locs = p_data["added_regions"];
-		for (int i = 0; i < region_locs.size(); i++) {
-			Ref<Terrain3DRegion> region = data->get_region(region_locs[i]);
+		for (const Vector2i region_loc : region_locs) {
+			Ref<Terrain3DRegion> region = data->get_region(region_loc);
 			if (region.is_valid()) {
-				LOG(DEBUG, "Marking region: ", region_locs[i], " +deleted, +modified, ", ptr_to_str(*region));
+				LOG(DEBUG, "Marking region: ", region_loc, " +deleted, +modified, ", ptr_to_str(*region));
 				region->set_deleted(true);
 				region->set_modified(true);
 			}
@@ -701,13 +697,13 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	if (p_data.has("removed_regions")) {
 		LOG(DEBUG, "Removed regions: ", p_data["removed_regions"]);
 		TypedArray<Vector2i> region_locs = p_data["removed_regions"];
-		for (int i = 0; i < region_locs.size(); i++) {
-			Ref<Terrain3DRegion> region = data->get_region(region_locs[i]);
+		for (const Vector2i region_loc : region_locs) {
+			Ref<Terrain3DRegion> region = data->get_region(region_loc);
 			if (region.is_valid()) {
-				LOG(DEBUG, "Marking region: ", region_locs[i], " -deleted, +modified, ", ptr_to_str(*region));
+				LOG(DEBUG, "Marking region: ", region_loc, " -deleted, +modified, ", ptr_to_str(*region));
 				region->set_deleted(false);
 				region->set_modified(true);
-				_send_region_aabb(region_locs[i], region->get_height_range());
+				_send_region_aabb(region_loc, region->get_height_range());
 			}
 		}
 	}
@@ -728,8 +724,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	// After TextureArray updates clear edited regions flag.
 	if (p_data.has("edited_regions")) {
 		TypedArray<Terrain3DRegion> undo_regions = p_data["edited_regions"];
-		for (int i = 0; i < undo_regions.size(); i++) {
-			Ref<Terrain3DRegion> region = undo_regions[i];
+		for (Ref<Terrain3DRegion> region : undo_regions) {
 			if (region.is_valid()) {
 				region->set_edited(false);
 			}
