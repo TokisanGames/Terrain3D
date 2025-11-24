@@ -19,7 +19,11 @@ private:
 	TypedArray<Terrain3DLayer> &_get_layers_ref(const MapType p_map_type);
 	const TypedArray<Terrain3DLayer> &_get_layers_ref(const MapType p_map_type) const;
 	bool &_get_layers_dirty(const MapType p_map_type) const;
+	bool &_get_dirty_rect_valid(const MapType p_map_type) const;
+	Rect2i &_get_dirty_rect(const MapType p_map_type) const;
 	Ref<Image> &_get_baked_map(const MapType p_map_type) const;
+	Rect2i _clamp_rect_to_map(const MapType p_map_type, const Rect2i &p_rect) const;
+	void _apply_layers_to_rect(const MapType p_map_type, Image &p_target, const Rect2i &p_rect) const;
 	// Saved data
 	real_t _version = 0.8f; // Set to first version to ensure we always upgrades this
 	int _region_size = 0;
@@ -37,6 +41,12 @@ private:
 	mutable bool _height_layers_dirty = true;
 	mutable bool _control_layers_dirty = true;
 	mutable bool _color_layers_dirty = true;
+	mutable Rect2i _height_dirty_rect;
+	mutable Rect2i _control_dirty_rect;
+	mutable Rect2i _color_dirty_rect;
+	mutable bool _height_dirty_rect_valid = false;
+	mutable bool _control_dirty_rect_valid = false;
+	mutable bool _color_dirty_rect_valid = false;
 	// Instancer
 	Dictionary _instances; // Meshes{int} -> Cells{v2i} -> [ Transform3D, Color, Modified ]
 	real_t _vertex_spacing = 1.f; // Spacing that instancer transforms are currently scaled by.
@@ -69,6 +79,7 @@ public:
 	void clear_layers(const MapType p_map_type);
 	Ref<Image> get_composited_map(const MapType p_map_type) const;
 	void mark_layers_dirty(const MapType p_map_type, const bool p_mark_modified = true) const;
+	void mark_layers_dirty_rect(const MapType p_map_type, const Rect2i &p_rect, const bool p_mark_modified = true) const;
 	void set_height_map(const Ref<Image> &p_map);
 	Ref<Image> get_height_map() const { return _height_map; }
 	void set_control_map(const Ref<Image> &p_map);

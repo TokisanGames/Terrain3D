@@ -80,6 +80,7 @@ public:
 	bool needs_rebuild(const real_t p_vertex_spacing) const;
 
 	void apply(Image &p_target, const real_t p_vertex_spacing);
+	void apply_rect(Image &p_target, const real_t p_vertex_spacing, const Rect2i &p_rect);
 
 	void mark_dirty();
 };

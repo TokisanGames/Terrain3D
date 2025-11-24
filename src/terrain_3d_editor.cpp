@@ -219,7 +219,15 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			bool composite_is_cache = false;
 		};
 	std::unordered_map<Vector2i, LayerContext, Vector2iHash> layer_contexts;
-		std::unordered_map<Vector2i, Ref<Terrain3DRegion>, Vector2iHash> base_dirty_regions;
+	struct DirtyRegionInfo {
+		Ref<Terrain3DRegion> region;
+		int min_x = INT_MAX;
+		int min_y = INT_MAX;
+		int max_x = INT_MIN;
+		int max_y = INT_MIN;
+		bool has_writes = false;
+	};
+	std::unordered_map<Vector2i, DirtyRegionInfo, Vector2iHash> base_dirty_regions;
 
 	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
 		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
@@ -833,21 +841,33 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				wrote_to_base_map = true;
 			}
 			if (wrote_to_base_map) {
-				auto dirty_it = base_dirty_regions.find(region_loc);
-				if (dirty_it == base_dirty_regions.end()) {
-					base_dirty_regions.emplace(region_loc, region);
+				DirtyRegionInfo &dirty_info = base_dirty_regions[region_loc];
+				if (!dirty_info.region.is_valid()) {
+					dirty_info.region = region;
 				}
+				dirty_info.has_writes = true;
+				dirty_info.min_x = MIN(dirty_info.min_x, map_pixel_position.x);
+				dirty_info.min_y = MIN(dirty_info.min_y, map_pixel_position.y);
+				dirty_info.max_x = MAX(dirty_info.max_x, map_pixel_position.x);
+				dirty_info.max_y = MAX(dirty_info.max_y, map_pixel_position.y);
 			}
 		}
 	}
 
 		if (!paint_to_layer) {
-			for (auto &entry : base_dirty_regions) {
-				const Ref<Terrain3DRegion> &dirty_region = entry.second;
-				if (dirty_region.is_valid()) {
-					dirty_region->mark_layers_dirty(map_type);
+				for (auto &entry : base_dirty_regions) {
+					const DirtyRegionInfo &dirty = entry.second;
+					if (!dirty.region.is_valid() || !dirty.has_writes) {
+						continue;
+					}
+					int width = dirty.max_x - dirty.min_x + 1;
+					int height = dirty.max_y - dirty.min_y + 1;
+					if (width <= 0 || height <= 0) {
+						continue;
+					}
+					Rect2i dirty_rect(Vector2i(dirty.min_x, dirty.min_y), Vector2i(width, height));
+					dirty.region->mark_layers_dirty_rect(map_type, dirty_rect);
 				}
-			}
 		}
 
 		if (paint_to_layer) {
