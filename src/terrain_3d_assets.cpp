@@ -675,6 +675,15 @@ void Terrain3DAssets::update_mesh_list() {
 	emit_signal("meshes_changed");
 }
 
+void Terrain3DAssets::load_pending_meshes() {
+	// Reload meshes for all mesh assets that have changed. Used by the instancer after clearing
+	for (const Ref<Terrain3DMeshAsset> &ma : _mesh_list) {
+		if (ma.is_valid() && ma->is_scene_file_pending()) {
+			ma->commit_meshes();
+		}
+	}
+}
+
 Error Terrain3DAssets::save(const String &p_path) {
 	if (p_path.is_empty() && get_path().is_empty()) {
 		return ERR_FILE_NOT_FOUND;

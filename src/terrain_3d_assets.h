@@ -93,6 +93,7 @@ public:
 	int get_mesh_count() const { return _mesh_list.size(); }
 	void create_mesh_thumbnails(const int p_id = -1, const Vector2i &p_size = V2I(512), const bool p_force = false);
 	void update_mesh_list();
+	void load_pending_meshes();
 
 	Error save(const String &p_path = "");
 

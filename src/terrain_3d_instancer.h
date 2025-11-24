@@ -47,9 +47,9 @@ private:
 	bool _show_instances = true;
 
 	uint32_t _get_density_count(const real_t p_density);
+	int _get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma);
 	void _process_updates();
 	void _update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id);
-	void _rebuild_ma_meshes();
 	void _set_mmi_lod_ranges(RID p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
 	void _destroy_mmi_by_mesh(const int p_mesh_id);
@@ -104,6 +104,14 @@ inline uint32_t Terrain3DInstancer::_get_density_count(const real_t p_density) {
 		count = uint32_t(p_density);
 	}
 	return count;
+}
+
+// Use lod0 to track instance counter and set AABB, but in shadows_only lod0 doesn't exist
+inline int Terrain3DInstancer::_get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma) {
+	if (p_ma.is_valid() && p_ma->get_cast_shadows() == SHADOWS_ONLY) {
+		return p_ma->get_shadow_impostor();
+	}
+	return 0;
 }
 
 #endif // TERRAIN3D_INSTANCER_CLASS_H

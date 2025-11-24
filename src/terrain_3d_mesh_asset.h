@@ -53,13 +53,14 @@ private:
 	// Working data
 	Ref<Material> _highlight_mat;
 	TypedArray<Mesh> _meshes;
+	TypedArray<Mesh> _pending_meshes; // Queue to avoid warnings from RS on mesh swap
 	uint32_t _instance_count = 0;
 
 	void _clear_lod_ranges();
 	static bool _sort_lod_nodes(const Node *a, const Node *b);
 	Ref<ArrayMesh> _create_generated_mesh(const GenType p_type = TYPE_TEXTURE_CARD) const;
 	Ref<Material> _get_material();
-	bool scene_file_changed = false;
+	TypedArray<Mesh> _get_meshes() const;
 
 public:
 	Terrain3DMeshAsset() { clear(); }
@@ -84,11 +85,12 @@ public:
 	uint32_t get_instance_count() const { return _instance_count; }
 
 	void set_scene_file(const Ref<PackedScene> &p_scene_file);
-	void parse_scene_meshes();
 	Ref<PackedScene> get_scene_file() const { return _packed_scene; }
+	bool is_scene_file_pending() const { return _pending_meshes.size() > 0; }
+	void commit_meshes();
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
-	void check_mesh(const bool p_new_mesh = false);
+	void check_mesh(const bool p_new_asset = false);
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
 	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
 	void set_height_offset(const real_t p_offset);
@@ -110,7 +112,7 @@ public:
 	void set_generated_size(const Vector2 &p_size);
 	Vector2 get_generated_size() const { return _generated_size; }
 
-	int get_lod_count() const { return _meshes.size(); }
+	int get_lod_count() const { return _get_meshes().size(); }
 	void set_last_lod(const int p_lod);
 	int get_last_lod() const { return _last_lod; }
 	void set_last_shadow_lod(const int p_lod);
@@ -144,8 +146,6 @@ public:
 	real_t get_lod9_range() const { return _lod_ranges[9]; }
 	void set_fade_margin(const real_t p_fade_margin);
 	real_t get_fade_margin() const { return _fade_margin; };
-	bool get_scene_file_changed() const { return scene_file_changed; }
-	void set_scene_file_changed(const bool p_changed);
 
 protected:
 	void _validate_property(PropertyInfo &p_property) const;
@@ -155,5 +155,12 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Terrain3DMeshAsset::GenType);
+
+inline TypedArray<Mesh> Terrain3DMeshAsset::_get_meshes() const {
+	if (!_pending_meshes.is_empty()) {
+		return _pending_meshes;
+	}
+	return _meshes;
+}
 
 #endif // TERRAIN3D_MESH_ASSET_CLASS_H
