@@ -22,6 +22,12 @@ class Terrain3DInstancer : public Object {
 public: // Constants
 	static inline const int CELL_SIZE = 32;
 
+	enum InstancerMode {
+		DISABLED,
+		//PLACEHOLDER,
+		NORMAL,
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
@@ -43,8 +49,8 @@ private:
 	using V2IIntPair = std::unordered_set<std::pair<Vector2i, int>, PairVector2iIntHash>;
 	V2IIntPair _queued_updates;
 
+	InstancerMode _mode = NORMAL;
 	uint32_t _density_counter = 0;
-	bool _show_instances = true;
 
 	uint32_t _get_density_count(const real_t p_density);
 	int _get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma);
@@ -71,6 +77,10 @@ public:
 	void clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void clear_by_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id);
 
+	void set_mode(const InstancerMode p_mode);
+	InstancerMode get_mode() const { return _mode; }
+	bool is_enabled() const { return _mode != DISABLED; }
+
 	void add_instances(const Vector3 &p_global_position, const Dictionary &p_params);
 	void remove_instances(const Vector3 &p_global_position, const Dictionary &p_params);
 	void add_multimesh(const int p_mesh_id, const Ref<MultiMesh> &p_multimesh, const Transform3D &p_xform = Transform3D(), const bool p_update = true);
@@ -87,12 +97,13 @@ public:
 	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
-	void set_show_instances(const bool p_visible);
-	bool get_show_instances() const { return _show_instances; }
 
 protected:
 	static void _bind_methods();
 };
+
+using InstancerMode = Terrain3DInstancer::InstancerMode;
+VARIANT_ENUM_CAST(Terrain3DInstancer::InstancerMode);
 
 // Allows us to instance every X function calls for sparse placement
 // Modifies _density_counter, not const!
