@@ -552,7 +552,7 @@ class ListContainer extends Container:
 		if type == Terrain3DAssets.TYPE_TEXTURE:
 			var texture_count: int = t.assets.get_texture_count()
 			for i in texture_count:
-				var texture: Terrain3DTextureAsset = t.assets.get_texture(i)
+				var texture: Terrain3DTextureAsset = t.assets.get_texture_asset(i)
 				add_item(texture)
 			if texture_count < Terrain3DAssets.MAX_TEXTURES:
 				add_item()

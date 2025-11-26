@@ -17,6 +17,24 @@ constexpr ShadowCasting SHADOWS_ON = RenderingServer::SHADOW_CASTING_SETTING_ON;
 constexpr ShadowCasting SHADOWS_OFF = RenderingServer::SHADOW_CASTING_SETTING_OFF;
 constexpr ShadowCasting SHADOWS_ONLY = RenderingServer::SHADOW_CASTING_SETTING_SHADOWS_ONLY;
 
+/* This class requires a bit of special care because:
+ * - We want custom defaults depending on if it's a new texture card or a scene file
+ * - Any settings saved in the assets resource file need to override the defaults
+ * - generated_type = TEXTURE_CARD is the default and isn't saved in the scene file
+ *
+ * The caveat of this is a texture card MeshAsset needs to determine if it is
+ * new, and should apply defaults, or loaded, and should retain settings.
+ * The specific defaults of concern are height_offset, density, lod0_range.
+ *
+ * The current solution to make the distinction is,
+ * Loaded Assets go through Terrain3DAssets::set_mesh_list(), _set_asset_list()
+ * New Assets go through Terrain3DAssets::set_mesh_asset(), _set_asset()
+ * Both call initialize() with a new/loaded flag.
+ *
+ * New assets might be loaded from the API, AssetDock, or Terrain3DAssets::update_mesh_list()
+ * when the mesh list is empty.
+ */
+
 class Terrain3DMeshAsset : public Terrain3DAssetResource {
 	GDCLASS(Terrain3DMeshAsset, Terrain3DAssetResource);
 	CLASS_NAME();
@@ -59,12 +77,14 @@ private:
 	void _clear_lod_ranges();
 	static bool _sort_lod_nodes(const Node *a, const Node *b);
 	Ref<ArrayMesh> _create_generated_mesh(const GenType p_type = TYPE_TEXTURE_CARD) const;
+	void _assign_generated_mesh();
 	Ref<Material> _get_material();
 	TypedArray<Mesh> _get_meshes() const;
 
 public:
 	Terrain3DMeshAsset() { clear(); }
 	~Terrain3DMeshAsset() {}
+	void initialize(const bool p_new = true) override;
 
 	void clear() override;
 	void set_name(const String &p_name) override;
@@ -90,7 +110,6 @@ public:
 	void commit_meshes();
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
-	void check_mesh(const bool p_new_asset = false);
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
 	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
 	void set_height_offset(const real_t p_offset);

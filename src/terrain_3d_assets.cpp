@@ -116,9 +116,10 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 			}
 		}
 		if (!res->is_connected("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids))) {
-			LOG(DEBUG, "Connecting to id_changed");
+			LOG(DEBUG, "Connecting to id_changed, ID: ", id);
 			res->connect("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids));
 		}
+		res->initialize(false); // This asset is loaded, not new
 	}
 	if (Terrain3D::debug_level >= DEBUG) {
 		for (int i = 0; i < list.size(); i++) {
@@ -169,14 +170,16 @@ void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const R
 		if (id == list.size()) {
 			p_asset->_id = id;
 			list.push_back(p_asset);
-			if (!p_asset->is_connected("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids))) {
-				LOG(DEBUG, "Connecting to id_changed");
-				p_asset->connect("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids));
-			}
 		} else {
 			// Else overwrite an existing slot
+			p_asset->_id = id;
 			list[id] = p_asset;
 		}
+		if (!p_asset->is_connected("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids))) {
+			LOG(DEBUG, "Connecting to id_changed");
+			p_asset->connect("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids));
+		}
+		p_asset->initialize();
 	}
 }
 
@@ -480,7 +483,8 @@ void Terrain3DAssets::destroy() {
 	}
 }
 
-void Terrain3DAssets::set_texture(const int p_id, const Ref<Terrain3DTextureAsset> &p_texture) {
+// Called when creating a new asset
+void Terrain3DAssets::set_texture_asset(const int p_id, const Ref<Terrain3DTextureAsset> &p_texture) {
 	if (p_id < 0 || p_id >= MAX_TEXTURES) {
 		LOG(ERROR, "Invalid texture id: ", p_id, " range is 0-", MAX_TEXTURES - 1);
 		return;
@@ -493,6 +497,7 @@ void Terrain3DAssets::set_texture(const int p_id, const Ref<Terrain3DTextureAsse
 	update_texture_list();
 }
 
+// Called when loading a list of assets from an assets resource file on disk
 void Terrain3DAssets::set_texture_list(const TypedArray<Terrain3DTextureAsset> &p_texture_list) {
 	LOG(INFO, "Setting texture list with ", p_texture_list.size(), " entries");
 	if (!differs(_texture_list, p_texture_list)) {
@@ -530,6 +535,7 @@ void Terrain3DAssets::update_texture_list() {
 	_update_texture_settings();
 }
 
+// Called when creating a new asset
 void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsset> &p_mesh_asset) {
 	if (p_id < 0 || p_id >= MAX_MESHES) {
 		LOG(ERROR, "Invalid mesh id: ", p_id, " range is 0-", MAX_MESHES - 1);
@@ -547,13 +553,7 @@ void Terrain3DAssets::set_mesh_asset(const int p_id, const Ref<Terrain3DMeshAsse
 	update_mesh_list();
 }
 
-Ref<Terrain3DMeshAsset> Terrain3DAssets::get_mesh_asset(const int p_id) const {
-	if (p_id >= 0 && p_id < _mesh_list.size()) {
-		return _mesh_list[p_id];
-	}
-	return Ref<Terrain3DMeshAsset>();
-}
-
+// Called when loading a list of assets from an assets resource file on disk
 void Terrain3DAssets::set_mesh_list(const TypedArray<Terrain3DMeshAsset> &p_mesh_list) {
 	LOG(INFO, "Setting mesh list with ", p_mesh_list.size(), " entries");
 	if (!differs(_mesh_list, p_mesh_list)) {
@@ -654,10 +654,9 @@ void Terrain3DAssets::update_mesh_list() {
 	if (_mesh_list.size() == 0) {
 		LOG(DEBUG, "Mesh list empty, clearing instancer and adding a default mesh");
 		_terrain->get_instancer()->destroy();
-		Ref<Terrain3DMeshAsset> new_mesh;
-		new_mesh.instantiate();
-		new_mesh->set_generated_type(Terrain3DMeshAsset::TYPE_TEXTURE_CARD);
-		set_mesh_asset(0, new_mesh);
+		Ref<Terrain3DMeshAsset> new_ma;
+		new_ma.instantiate();
+		set_mesh_asset(0, new_ma);
 	}
 	LOG(DEBUG, "Reconnecting mesh instance signals");
 	for (Ref<Terrain3DMeshAsset> ma : _mesh_list) {
@@ -665,7 +664,10 @@ void Terrain3DAssets::update_mesh_list() {
 			LOG(ERROR, "Null Terrain3DMeshAsset found at index ", _mesh_list.find(ma));
 			continue;
 		}
-		ma->check_mesh(true);
+		if (ma->get_mesh().is_null()) {
+			LOG(ERROR, "Terrain3DMeshAsset has null mesh at index ", _mesh_list.find(ma));
+			continue;
+		}
 		if (!ma->is_connected("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh))) {
 			LOG(DEBUG, "Connecting instancer_setting_changed signal to _update_mesh");
 			ma->connect("instancer_setting_changed", callable_mp(this, &Terrain3DAssets::_update_mesh));
@@ -717,8 +719,8 @@ void Terrain3DAssets::_bind_methods() {
 	BIND_CONSTANT(MAX_TEXTURES);
 	BIND_CONSTANT(MAX_MESHES);
 
-	ClassDB::bind_method(D_METHOD("set_texture", "id", "texture"), &Terrain3DAssets::set_texture);
-	ClassDB::bind_method(D_METHOD("get_texture", "id"), &Terrain3DAssets::get_texture);
+	ClassDB::bind_method(D_METHOD("set_texture_asset", "id", "texture"), &Terrain3DAssets::set_texture_asset);
+	ClassDB::bind_method(D_METHOD("get_texture_asset", "id"), &Terrain3DAssets::get_texture_asset);
 	ClassDB::bind_method(D_METHOD("set_texture_list", "texture_list"), &Terrain3DAssets::set_texture_list);
 	ClassDB::bind_method(D_METHOD("get_texture_list"), &Terrain3DAssets::get_texture_list);
 	ClassDB::bind_method(D_METHOD("get_texture_count"), &Terrain3DAssets::get_texture_count);
