@@ -87,50 +87,50 @@ bottom_radius = 0.575
 height = 1.185
 radial_segments = 4
 
-[node name="TestMultimesh" type="Node3D"]
+[node name="Lod10Example" type="Node3D"]
 
 [node name="Node3D" type="Node3D" parent="."]
 
-[node name="MeshInstance3D0" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD0" type="MeshInstance3D" parent="Node3D"]
 mesh = SubResource("SphereMesh_u4ac2")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D1" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD1" type="MeshInstance3D" parent="Node3D"]
 mesh = SubResource("TorusMesh_tjrnq")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D2" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD2" type="MeshInstance3D" parent="Node3D"]
 mesh = SubResource("BoxMesh_xyuxq")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D3" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD3" type="MeshInstance3D" parent="Node3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.118133, 0)
 mesh = SubResource("PrismMesh_xnm4h")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D4" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD4" type="MeshInstance3D" parent="Node3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
 mesh = SubResource("CylinderMesh_i1yhp")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D5" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD5" type="MeshInstance3D" parent="Node3D"]
 mesh = SubResource("CylinderMesh_bvmel")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D6" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD6" type="MeshInstance3D" parent="Node3D"]
 mesh = SubResource("CylinderMesh_x8oip")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D7" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD7" type="MeshInstance3D" parent="Node3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
 mesh = SubResource("CylinderMesh_dp7xj")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D8" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD8" type="MeshInstance3D" parent="Node3D"]
 mesh = SubResource("CylinderMesh_8ctts")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D9" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD9" type="MeshInstance3D" parent="Node3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.126, 0)
 mesh = SubResource("CylinderMesh_w2aj8")
 skeleton = NodePath("../..")

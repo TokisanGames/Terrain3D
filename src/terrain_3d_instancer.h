@@ -22,21 +22,24 @@ class Terrain3DInstancer : public Object {
 public: // Constants
 	static inline const int CELL_SIZE = 32;
 
+	enum InstancerMode {
+		DISABLED,
+		//PLACEHOLDER,
+		NORMAL,
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
 	// MM Resources stored in Terrain3DRegion::_instances as
 	// Region::_instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, modified:bool ]
 
-	// MMI Objects attached to tree, freed in destructor, stored as
-	// _mmi_nodes{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> MultiMeshInstance3D
-	using CellMMIDict = std::unordered_map<Vector2i, MultiMeshInstance3D *, Vector2iHash>;
-	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
-	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_nodes;
+	// A pair of MMI and MM RIDs, freed in destructor, stored as
+	// _mmi_rids{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> std::pair<mmi_RID, mm_RID>
 
-	// Region MMI containers named Terrain3D/MMI/Region* are stored here as
-	// _mmi_containers{region_loc} -> Node3D
-	std::unordered_map<Vector2i, Node3D *, Vector2iHash> _mmi_containers;
+	using CellMMIDict = std::unordered_map<Vector2i, std::pair<RID, RID>, Vector2iHash>;
+	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
+	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_rids;
 
 	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
 	// <V2I_MAX, -2> means destroy first, then update everything
@@ -46,18 +49,20 @@ private:
 	using V2IIntPair = std::unordered_set<std::pair<Vector2i, int>, PairVector2iIntHash>;
 	V2IIntPair _queued_updates;
 
+	InstancerMode _mode = NORMAL;
 	uint32_t _density_counter = 0;
 
 	uint32_t _get_density_count(const real_t p_density);
+	int _get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma);
 	void _process_updates();
 	void _update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id);
-	void _set_mmi_lod_ranges(MultiMeshInstance3D *p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
+	void _set_mmi_lod_ranges(RID p_mmi, const Ref<Terrain3DMeshAsset> &p_ma, const int p_lod);
 	void _update_vertex_spacing(const real_t p_vertex_spacing);
 	void _destroy_mmi_by_mesh(const int p_mesh_id);
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod = INT32_MAX);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
-	Ref<MultiMesh> _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
+	RID _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
 	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size) const;
 	Array _get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_on_collision, const real_t p_raycast_start) const;
 
@@ -71,6 +76,10 @@ public:
 	void clear_by_mesh(const int p_mesh_id);
 	void clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void clear_by_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id);
+
+	void set_mode(const InstancerMode p_mode);
+	InstancerMode get_mode() const { return _mode; }
+	bool is_enabled() const { return _mode != DISABLED; }
 
 	void add_instances(const Vector3 &p_global_position, const Dictionary &p_params);
 	void remove_instances(const Vector3 &p_global_position, const Dictionary &p_params);
@@ -88,11 +97,13 @@ public:
 	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
-	void dump_mmis();
 
 protected:
 	static void _bind_methods();
 };
+
+using InstancerMode = Terrain3DInstancer::InstancerMode;
+VARIANT_ENUM_CAST(Terrain3DInstancer::InstancerMode);
 
 // Allows us to instance every X function calls for sparse placement
 // Modifies _density_counter, not const!
@@ -104,6 +115,14 @@ inline uint32_t Terrain3DInstancer::_get_density_count(const real_t p_density) {
 		count = uint32_t(p_density);
 	}
 	return count;
+}
+
+// Use lod0 to track instance counter and set AABB, but in shadows_only lod0 doesn't exist
+inline int Terrain3DInstancer::_get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma) {
+	if (p_ma.is_valid() && p_ma->get_cast_shadows() == SHADOWS_ONLY) {
+		return p_ma->get_shadow_impostor();
+	}
+	return 0;
 }
 
 #endif // TERRAIN3D_INSTANCER_CLASS_H

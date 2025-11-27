@@ -35,6 +35,10 @@ bool Terrain3DTextureAsset::_is_valid_format(const Ref<Texture2D> &p_texture) co
 // Public Functions
 ///////////////////////////
 
+void Terrain3DTextureAsset::initialize(const bool p_new) {
+	LOG(INFO, _id, ": ", _name, ": initializing asset");
+}
+
 void Terrain3DTextureAsset::clear() {
 	LOG(INFO, "Clearing TextureAsset");
 	_name = "New Texture";

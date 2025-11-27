@@ -10,7 +10,6 @@
 #include <godot_cpp/classes/standard_material3d.hpp>
 
 #include "logger.h"
-#include "terrain_3d_instancer.h"
 #include "terrain_3d_mesh_asset.h"
 
 ///////////////////////////
@@ -18,7 +17,7 @@
 ///////////////////////////
 
 void Terrain3DMeshAsset::_clear_lod_ranges() {
-	LOG(INFO, "ID ", _id, ", ", _name, ": Clearing LOD Ranges");
+	LOG(INFO, "ID ", _id, ", ", _name, ": Clearing LOD Ranges, setting last_lod to 128");
 	_lod_ranges.resize(MAX_LOD_COUNT);
 	for (int i = 0; i < MAX_LOD_COUNT; i++) {
 		_lod_ranges[i] = (i + 1) * Terrain3DInstancer::CELL_SIZE;
@@ -97,6 +96,23 @@ Ref<ArrayMesh> Terrain3DMeshAsset::_create_generated_mesh(const GenType p_type) 
 	return array_mesh;
 }
 
+void Terrain3DMeshAsset::_assign_generated_mesh() {
+	LOG(DEBUG, "Assiging generated mesh & lod settings");
+	_packed_scene.unref();
+	_pending_meshes.clear();
+	_pending_meshes.push_back(_create_generated_mesh());
+	_last_lod = 0;
+	_last_shadow_lod = 0;
+	_shadow_impostor = 0;
+	if (_material_override.is_null()) {
+		_material_override = _get_material();
+	}
+	// If no existing meshes, commit immediately. Otherwise, will trigger on an instancer update
+	if (_meshes.is_empty()) {
+		commit_meshes();
+	}
+}
+
 Ref<Material> Terrain3DMeshAsset::_get_material() {
 	if (_material_override.is_null()) {
 		Ref<StandardMaterial3D> mat;
@@ -109,6 +125,7 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 		mat->set_distance_fade(BaseMaterial3D::DISTANCE_FADE_PIXEL_ALPHA);
 		mat->set_distance_fade_min_distance(128.f);
 		mat->set_distance_fade_max_distance(96.f);
+		mat->set_meta("terrain3d_generated_material", true);
 		return mat;
 	} else {
 		return _material_override;
@@ -119,6 +136,18 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 // Public Functions
 ///////////////////////////
 
+// Called by Terrain3DAssets::set_mesh_asset()
+void Terrain3DMeshAsset::initialize(const bool p_new) {
+	LOG(INFO, _id, ": ", _name, ": initializing asset");
+	if (_generated_type > TYPE_NONE) {
+		if (p_new) {
+			set_generated_type(TYPE_MAX);
+		} else {
+			_assign_generated_mesh();
+		}
+	}
+}
+
 void Terrain3DMeshAsset::clear() {
 	LOG(INFO, "Clearing MeshAsset");
 	_name = "New Mesh";
@@ -128,12 +157,14 @@ void Terrain3DMeshAsset::clear() {
 	_highlight_mat = Ref<Material>();
 	_packed_scene.unref();
 	_meshes.clear();
+	_pending_meshes.clear();
 	_generated_type = TYPE_TEXTURE_CARD;
 	_generated_faces = 2;
 	_generated_size = V2(1.f);
 	_height_offset = 0.f;
 	_density = 10.f;
 	_cast_shadows = SHADOWS_ON;
+	_visibility_layers = 1;
 	_material_override.unref();
 	_material_overlay.unref();
 	_last_lod = MAX_LOD_COUNT - 1;
@@ -150,7 +181,6 @@ void Terrain3DMeshAsset::set_name(const String &p_name) {
 	}
 	SET_IF_DIFF(_name, p_name.left(96));
 	LOG(INFO, "ID ", _id, ": Setting name: ", _name);
-	check_mesh();
 	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
 	emit_signal("setting_changed", _id);
 }
@@ -159,7 +189,6 @@ void Terrain3DMeshAsset::set_id(const int p_new_id) {
 	int old_id = _id;
 	SET_IF_DIFF(_id, CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES - 1));
 	LOG(INFO, _name, ": Setting mesh ID: ", _id);
-	check_mesh();
 	LOG(DEBUG, "Emitting id_changed, TYPE_MESH, ", old_id, ", ", p_new_id);
 	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, p_new_id);
 }
@@ -192,7 +221,6 @@ Color Terrain3DMeshAsset::get_highlight_color() const {
 void Terrain3DMeshAsset::set_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_enabled, p_enabled);
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting enabled: ", _enabled);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -210,14 +238,13 @@ void Terrain3DMeshAsset::update_instance_count(const int p_amount) {
 void Terrain3DMeshAsset::set_instance_count(const uint32_t p_amount) {
 	SET_IF_DIFF(_instance_count, CLAMP(p_amount, 0, UINT32_MAX));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting instance_count: ", _instance_count);
-	check_mesh();
 	LOG(DEBUG, "Emitting instance_count_changed");
 	emit_signal("instance_count_changed");
 }
 
 void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 	SET_IF_DIFF(_packed_scene, p_scene_file);
-	_meshes.clear();
+	_pending_meshes.clear();
 	if (_packed_scene.is_valid()) {
 		Node *node = _packed_scene->instantiate();
 		if (!node) {
@@ -225,10 +252,12 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 			_packed_scene.unref();
 			return;
 		}
-		LOG(INFO, "ID ", _id, ", ", _name, ": Setting scene file and instantiating node: ", p_scene_file);
-		_generated_type = TYPE_NONE;
+		LOG(INFO, "ID ", _id, ", ", _name, ": Instantiating scene root node: ", _packed_scene->get_path());
 		_height_offset = 0.0f;
-		_material_override.unref();
+		_generated_type = TYPE_NONE;
+		if (_material_override.is_valid() && _material_override->has_meta("terrain3d_generated_material")) {
+			_material_override.unref();
+		}
 
 		// Look for MeshInstance3D nodes
 		LOG(DEBUG, "Loaded scene with parent node: ", node);
@@ -269,34 +298,54 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 				_name = filename;
 				LOG(INFO, "Setting name based on filename: ", _name);
 			}
+			Ref<Mesh> mesh = mi->get_mesh();
+			if (mesh.is_null()) {
+				LOG(WARN, "MeshInstance3D ", mi->get_name(), " has no mesh, skipping");
+				continue;
+			}
 			// Duplicate the mesh to make each Terrain3DMeshAsset unique
-			Ref<Mesh> mesh = mi->get_mesh()->duplicate();
+			mesh = mesh->duplicate();
 			// Apply the active material from the scene to the mesh, including MI or Geom overrides
 			for (int j = 0; j < mi->get_surface_override_material_count(); j++) {
 				Ref<Material> mat = mi->get_active_material(j);
 				mesh->surface_set_material(j, mat);
 			}
-			_meshes.push_back(mesh);
+			_pending_meshes.push_back(mesh);
 		}
 		node->queue_free();
 	}
-	if (_meshes.size() > 0) {
-		Ref<Mesh> mesh = _meshes[0];
+	if (_pending_meshes.size() > 0) {
+		Ref<Mesh> mesh = _pending_meshes[0];
+		if (mesh.is_null()) {
+			LOG(ERROR, "First mesh is null after loading scene");
+			return;
+		}
 		_density = CLAMP(10.f / mesh->get_aabb().get_volume(), 0.01f, 10.0f);
+		_last_lod = _pending_meshes.size() - 1;
+		_last_shadow_lod = _last_lod;
+		_shadow_impostor = 0;
+		_clear_lod_ranges();
 	} else {
 		set_generated_type(TYPE_TEXTURE_CARD);
 	}
-	_last_lod = _meshes.size() - 1;
-	_last_shadow_lod = _last_lod;
-	_shadow_impostor = 0;
-	_clear_lod_ranges();
+	// If no existing meshes, commit immediately. Otherwise, will trigger on an instancer update
+	if (_meshes.is_empty()) {
+		commit_meshes();
+	}
 	notify_property_list_changed(); // Call _validate_property to update inspector
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
 
+void Terrain3DMeshAsset::commit_meshes() {
+	LOG(INFO, _name, ": Committing ", _pending_meshes.size(), " pending meshes");
+	_meshes.clear();
+	_meshes = _pending_meshes;
+	_pending_meshes = TypedArray<Mesh>();
+}
+
 void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
-	if (p_type < TYPE_NONE || p_type >= TYPE_MAX) {
+	if (p_type < TYPE_NONE || p_type > TYPE_MAX) {
 		LOG(ERROR, _name, ": Invalid generated type: ", p_type);
 		return;
 	}
@@ -304,53 +353,23 @@ void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
 		return;
 	}
 	_generated_type = p_type;
-	if (_generated_type == TYPE_NONE && _packed_scene.is_null()) {
+	if (_generated_type == TYPE_NONE || _generated_type == TYPE_MAX) {
 		_generated_type = TYPE_TEXTURE_CARD;
 	}
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting generated type: ", _generated_type);
 	if (_generated_type > TYPE_NONE) {
-		_packed_scene.unref();
-		_meshes.clear();
-		_meshes.push_back(_create_generated_mesh());
-		if (_material_override.is_null()) {
-			_material_override = _get_material();
-		}
+		_assign_generated_mesh();
 		_density = 10.f;
 		_height_offset = 0.5f;
-		_last_lod = 0;
-		_last_shadow_lod = 0;
-		_shadow_impostor = 0;
 		_clear_lod_ranges();
 		LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 		emit_signal("instancer_setting_changed", _id);
 	}
-	notify_property_list_changed(); // Call _validate_property to update inspector
-}
-
-// If no mesh, likely due to being instantiated, setup default mesh and material w/o overwriting loaded settings
-void Terrain3DMeshAsset::check_mesh(const bool p_new_mesh) {
-	if (_meshes.is_empty()) {
-		if (p_new_mesh) {
-			LOG(INFO, "ID ", _id, ", ", _name, ": Newly created, adding a texture card mesh");
-			_generated_type = TYPE_NONE;
-			set_generated_type(TYPE_TEXTURE_CARD);
-			return;
-		}
-		LOG(INFO, "ID ", _id, ", ", _name, ": Loaded MeshAsset, adding a texture card mesh");
-		_meshes.push_back(_create_generated_mesh());
-		_last_lod = 0;
-		_last_shadow_lod = 0;
-		_shadow_impostor = 0;
-		// May load other settings like density, height offset, lod ranges
-		if (_material_override.is_null()) {
-			_material_override = _get_material();
-		}
-	}
 }
 
 Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
-	if (p_lod >= 0 && p_lod < _meshes.size()) {
-		return _meshes[p_lod];
+	if (p_lod >= 0 && p_lod < _get_meshes().size()) {
+		return _get_meshes()[p_lod];
 	}
 	return Ref<Mesh>();
 }
@@ -358,7 +377,6 @@ Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
 void Terrain3DMeshAsset::set_height_offset(const real_t p_offset) {
 	SET_IF_DIFF(_height_offset, CLAMP(p_offset, -50.f, 50.f));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting height offset: ", _height_offset);
-	check_mesh();
 	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
 	emit_signal("setting_changed", _id);
 }
@@ -366,7 +384,6 @@ void Terrain3DMeshAsset::set_height_offset(const real_t p_offset) {
 void Terrain3DMeshAsset::set_density(const real_t p_density) {
 	SET_IF_DIFF(_density, CLAMP(p_density, 0.01f, 10.f));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting mesh density: ", p_density);
-	check_mesh();
 	LOG(DEBUG, "Emitting setting_changed, ID: ", _id);
 	emit_signal("setting_changed", _id);
 }
@@ -374,7 +391,6 @@ void Terrain3DMeshAsset::set_density(const real_t p_density) {
 void Terrain3DMeshAsset::set_cast_shadows(const ShadowCasting p_cast_shadows) {
 	SET_IF_DIFF(_cast_shadows, p_cast_shadows);
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting shadow casting mode: ", _cast_shadows);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -404,10 +420,16 @@ ShadowCasting Terrain3DMeshAsset::get_lod_cast_shadows(const int p_lod_id) const
 	return _cast_shadows;
 }
 
+inline void Terrain3DMeshAsset::set_visibility_layers(const uint32_t p_layers) {
+	SET_IF_DIFF(_visibility_layers, p_layers);
+	LOG(INFO, _name, ": Setting visibility layers: ", p_layers);
+	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
+	emit_signal("instancer_setting_changed", _id);
+}
+
 void Terrain3DMeshAsset::set_material_override(const Ref<Material> &p_material) {
 	SET_IF_DIFF(_material_override, p_material);
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting material override: ", p_material);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -415,7 +437,6 @@ void Terrain3DMeshAsset::set_material_override(const Ref<Material> &p_material) 
 void Terrain3DMeshAsset::set_material_overlay(const Ref<Material> &p_material) {
 	SET_IF_DIFF(_material_overlay, p_material);
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting material overlay: ", p_material);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -423,10 +444,10 @@ void Terrain3DMeshAsset::set_material_overlay(const Ref<Material> &p_material) {
 void Terrain3DMeshAsset::set_generated_faces(const int p_count) {
 	SET_IF_DIFF(_generated_faces, CLAMP(p_count, 1, 3));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting generated face count: ", _generated_faces);
-	if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _meshes.size() == 1) {
-		_meshes.clear();
+	// If already a texture card, just recreate the mesh w/o other settings
+	if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _get_meshes().size() == 1) {
+		_assign_generated_mesh();
 	}
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -434,16 +455,16 @@ void Terrain3DMeshAsset::set_generated_faces(const int p_count) {
 void Terrain3DMeshAsset::set_generated_size(const Vector2 &p_size) {
 	SET_IF_DIFF(_generated_size, p_size);
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting generated size: ", _generated_size);
-	if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _meshes.size() == 1) {
-		_meshes.clear();
+	// If already a texture card, just recreate the mesh w/o other settings
+	if (_generated_type > TYPE_NONE && _generated_type < TYPE_MAX && _get_meshes().size() == 1) {
+		_assign_generated_mesh();
 	}
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
 
 void Terrain3DMeshAsset::set_last_lod(const int p_lod) {
-	int max_lod = _generated_type != TYPE_NONE ? 0 : CLAMP(_meshes.size(), 1, MAX_LOD_COUNT) - 1;
+	int max_lod = _generated_type != TYPE_NONE ? 0 : CLAMP(_get_meshes().size(), 1, MAX_LOD_COUNT) - 1;
 	SET_IF_DIFF(_last_lod, CLAMP(p_lod, 0, max_lod));
 	if (_last_shadow_lod > _last_lod) {
 		_last_shadow_lod = _last_lod;
@@ -452,7 +473,6 @@ void Terrain3DMeshAsset::set_last_lod(const int p_lod) {
 		_shadow_impostor = _last_lod;
 	}
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting last LOD: ", _last_lod);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 	notify_property_list_changed();
@@ -464,7 +484,6 @@ void Terrain3DMeshAsset::set_last_shadow_lod(const int p_lod) {
 	if (_shadow_impostor > _last_shadow_lod) {
 		_shadow_impostor = _last_shadow_lod;
 	}
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -472,7 +491,6 @@ void Terrain3DMeshAsset::set_last_shadow_lod(const int p_lod) {
 void Terrain3DMeshAsset::set_shadow_impostor(const int p_lod) {
 	SET_IF_DIFF(_shadow_impostor, CLAMP(p_lod, 0, MIN(_last_lod, _last_shadow_lod)));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting shadow imposter LOD: ", _shadow_impostor);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -484,7 +502,6 @@ void Terrain3DMeshAsset::set_lod_range(const int p_lod, const real_t p_distance)
 	}
 	SET_IF_DIFF(_lod_ranges[p_lod], CLAMP(p_distance, 0.f, 100000.f));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting LOD ", p_lod, " visibility range: ", _lod_ranges[p_lod]);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -516,7 +533,6 @@ void Terrain3DMeshAsset::set_fade_margin(const real_t p_fade_margin) {
 	int max_range = CLAMP(_lod_ranges[1] - _lod_ranges[0], 0.f, 64.f);
 	SET_IF_DIFF(_fade_margin, CLAMP(p_fade_margin, 0.f, max_range));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting visibility margin: ", _fade_margin);
-	check_mesh();
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
 }
@@ -592,6 +608,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_density"), &Terrain3DMeshAsset::get_density);
 	ClassDB::bind_method(D_METHOD("set_cast_shadows", "mode"), &Terrain3DMeshAsset::set_cast_shadows);
 	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3DMeshAsset::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_visibility_layers", "layers"), &Terrain3DMeshAsset::set_visibility_layers);
+	ClassDB::bind_method(D_METHOD("get_visibility_layers"), &Terrain3DMeshAsset::get_visibility_layers);
 	ClassDB::bind_method(D_METHOD("set_material_override", "material"), &Terrain3DMeshAsset::set_material_override);
 	ClassDB::bind_method(D_METHOD("get_material_override"), &Terrain3DMeshAsset::get_material_override);
 	ClassDB::bind_method(D_METHOD("set_material_overlay", "material"), &Terrain3DMeshAsset::set_material_overlay);
@@ -645,6 +663,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, ".01,10.0,.005"), "set_density", "get_density");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "visibility_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_visibility_layers", "get_visibility_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_override", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_override", "get_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material_overlay", PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial"), "set_material_overlay", "get_material_overlay");
 

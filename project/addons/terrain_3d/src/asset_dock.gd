@@ -552,7 +552,7 @@ class ListContainer extends Container:
 		if type == Terrain3DAssets.TYPE_TEXTURE:
 			var texture_count: int = t.assets.get_texture_count()
 			for i in texture_count:
-				var texture: Terrain3DTextureAsset = t.assets.get_texture(i)
+				var texture: Terrain3DTextureAsset = t.assets.get_texture_asset(i)
 				add_item(texture)
 			if texture_count < Terrain3DAssets.MAX_TEXTURES:
 				add_item()
@@ -1017,12 +1017,10 @@ class ListEntry extends MarginContainer:
 					res.id = resource.id
 				set_edited_resource(res, false)
 			elif res is PackedScene and type == Terrain3DAssets.TYPE_MESH:
-				var ma := Terrain3DMeshAsset.new()
-				if resource is Terrain3DMeshAsset:
-					ma.id = resource.id
-				set_edited_resource(ma, false)
-				ma.set_scene_file(res)
-				resource = ma
+				if not resource:
+					resource = Terrain3DMeshAsset.new()		
+				set_edited_resource(resource, false)
+				resource.set_scene_file(res)
 			elif res is Terrain3DMeshAsset and type == Terrain3DAssets.TYPE_MESH:
 				if resource is Terrain3DMeshAsset:
 					res.id = resource.id
@@ -1034,11 +1032,14 @@ class ListEntry extends MarginContainer:
 	func set_edited_resource(p_res: Resource, p_no_signal: bool = true) -> void:
 		resource = p_res
 		if resource:
-			resource.setting_changed.connect(_on_resource_changed)
+			if not resource.setting_changed.is_connected(_on_resource_changed):
+				resource.setting_changed.connect(_on_resource_changed)
 			if resource is Terrain3DTextureAsset:
-				resource.file_changed.connect(_on_resource_changed)
+				if not resource.file_changed.is_connected(_on_resource_changed):
+					resource.file_changed.connect(_on_resource_changed)
 			elif resource is Terrain3DMeshAsset:
-				resource.instancer_setting_changed.connect(_on_resource_changed)
+				if not resource.instancer_setting_changed.is_connected(_on_resource_changed):
+					resource.instancer_setting_changed.connect(_on_resource_changed)
 		
 		if button_clear:
 			button_clear.set_visible(resource != null)

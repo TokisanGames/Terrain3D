@@ -242,7 +242,7 @@ void start() {
 	int base = int(control[3] >>27u & 0x1Fu);
 	int over = int(control[3] >> 22u & 0x1Fu);
 	float blend = float(control[3] >> 14u & 0xFFu) * 0.003921568627450; // 1. / 255.
-	
+
 	// Filter out holes
 	if (hole) {
 		pos.y = 0. / 0.;

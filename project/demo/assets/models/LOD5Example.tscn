@@ -36,32 +36,32 @@ radial_segments = 4
 cull_mode = 2
 albedo_color = Color(0.6205, 0.31, 1, 1)
 
-[node name="TestMultimesh" type="Node3D"]
+[node name="Lod5Example" type="Node3D"]
 
 [node name="Node3D" type="Node3D" parent="."]
 
-[node name="MeshInstance3D1" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD0" type="MeshInstance3D" parent="Node3D"]
 mesh = SubResource("SphereMesh_u4ac2")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D2" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD1" type="MeshInstance3D" parent="Node3D"]
 visible = false
 mesh = SubResource("BoxMesh_xyuxq")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D3" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD2" type="MeshInstance3D" parent="Node3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.118133, 0)
 visible = false
 mesh = SubResource("PrismMesh_xnm4h")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D4" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD3" type="MeshInstance3D" parent="Node3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
 visible = false
 mesh = SubResource("CylinderMesh_dp7xj")
 skeleton = NodePath("../..")
 
-[node name="MeshInstance3D5" type="MeshInstance3D" parent="Node3D"]
+[node name="MeshInstance3D_LOD4" type="MeshInstance3D" parent="Node3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.246009, 0)
 visible = false
 mesh = SubResource("QuadMesh_264m5")

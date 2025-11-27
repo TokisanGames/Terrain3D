@@ -93,7 +93,6 @@ private:
 
 	// Parent containers for child nodes
 	Node3D *_label_parent;
-	Node3D *_mmi_parent;
 
 	void _initialize();
 	void __physics_process(const double p_delta);
@@ -138,7 +137,6 @@ public:
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DCollision *get_collision() const { return _collision; }
 	Terrain3DInstancer *get_instancer() const { return _instancer; }
-	Node *get_mmi_parent() const { return _mmi_parent; }
 	void set_editor(Terrain3DEditor *p_editor);
 	Terrain3DEditor *get_editor() const { return _editor; }
 	void set_plugin(Object *p_plugin);
@@ -167,7 +165,7 @@ public:
 	int get_label_size() const { return _label_size; }
 	void update_region_labels();
 
-	// Meshes
+	// Mesh
 	void set_mesh_lods(const int p_count);
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(const int p_size);
@@ -188,8 +186,6 @@ public:
 	real_t get_cull_margin() const { return _cull_margin; };
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; };
-	void set_show_instances(const bool p_visible) { _mmi_parent ? _mmi_parent->set_visible(p_visible) : void(); }
-	bool get_show_instances() const { return _mmi_parent ? _mmi_parent->is_visible() : false; }
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
@@ -217,6 +213,10 @@ public:
 	real_t get_collision_priority() const { return _collision ? _collision->get_priority() : 1.f; }
 	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { _collision ? _collision->set_physics_material(p_mat) : void(); }
 	Ref<PhysicsMaterial> get_physics_material() const { return _collision ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
+
+	// Instancer Aliases
+	void set_instancer_mode(const InstancerMode p_mode) { _instancer ? _instancer->set_mode(p_mode) : void(); }
+	InstancerMode get_instancer_mode() const { return _instancer ? _instancer->get_mode() : InstancerMode::NORMAL; }
 
 	// Overlay Aliases
 	void set_show_region_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_region_grid(p_enabled) : void(); }
