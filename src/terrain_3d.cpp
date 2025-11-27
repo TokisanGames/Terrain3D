@@ -1158,6 +1158,18 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_show_navigation", "enabled"), &Terrain3D::set_show_navigation);
 	ClassDB::bind_method(D_METHOD("get_show_navigation"), &Terrain3D::get_show_navigation);
 
+	// PBR Views
+	ClassDB::bind_method(D_METHOD("set_show_texture_albedo", "enabled"), &Terrain3D::set_show_texture_albedo);
+	ClassDB::bind_method(D_METHOD("get_show_texture_albedo"), &Terrain3D::get_show_texture_albedo);
+	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3D::set_show_texture_height);
+	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3D::get_show_texture_height);
+	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3D::set_show_texture_normal);
+	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3D::get_show_texture_normal);
+	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3D::set_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3D::get_show_texture_rough);
+	ClassDB::bind_method(D_METHOD("set_show_texture_ao", "enabled"), &Terrain3D::set_show_texture_ao);
+	ClassDB::bind_method(D_METHOD("get_show_texture_ao"), &Terrain3D::get_show_texture_ao);
+
 	// Debug Views
 	ClassDB::bind_method(D_METHOD("set_show_checkered", "enabled"), &Terrain3D::set_show_checkered);
 	ClassDB::bind_method(D_METHOD("get_show_checkered"), &Terrain3D::get_show_checkered);
@@ -1181,14 +1193,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_colormap"), &Terrain3D::get_show_colormap);
 	ClassDB::bind_method(D_METHOD("set_show_roughmap", "enabled"), &Terrain3D::set_show_roughmap);
 	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3D::get_show_roughmap);
-	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3D::set_show_texture_height);
-	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3D::get_show_texture_height);
-	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3D::set_show_texture_normal);
-	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3D::get_show_texture_normal);
-	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3D::set_show_texture_rough);
-	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3D::get_show_texture_rough);
-	ClassDB::bind_method(D_METHOD("set_show_texture_ao", "enabled"), &Terrain3D::set_show_texture_ao);
-	ClassDB::bind_method(D_METHOD("get_show_texture_ao"), &Terrain3D::get_show_texture_ao);
 
 	// Utility
 	ClassDB::bind_method(D_METHOD("get_intersection", "src_pos", "direction", "gpu_mode"), &Terrain3D::get_intersection, DEFVAL(false));
@@ -1247,6 +1251,13 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_contours"), "set_show_contours", "get_show_contours");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation"), "set_show_navigation", "get_show_navigation");
 
+	ADD_GROUP("PBR Views", "show_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_albedo"), "set_show_texture_albedo", "get_show_texture_albedo");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_ao"), "set_show_texture_ao", "get_show_texture_ao");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");
+
 	ADD_GROUP("Debug Views", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_checkered"), "set_show_checkered", "get_show_checkered");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grey"), "set_show_grey", "get_show_grey");
@@ -1259,10 +1270,6 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_scale"), "set_show_control_scale", "get_show_control_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap"), "set_show_colormap", "get_show_colormap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap"), "set_show_roughmap", "get_show_roughmap");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough"), "set_show_texture_rough", "get_show_texture_rough");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_ao"), "set_show_texture_ao", "get_show_texture_ao");
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
