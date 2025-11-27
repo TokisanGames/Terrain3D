@@ -707,9 +707,6 @@ void Terrain3DCollision::_destroy_instance_collision() {
 		_instance_static_body_rid = RID();
 	}
 	_active_instance_cells.clear();
-	_inactive_mesh_asset_instances.clear();
-	_unused_instance_shapes.clear();
-
 	LOG(EXTREME, "Destroy instance collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }
 
