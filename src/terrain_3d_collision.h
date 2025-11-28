@@ -54,6 +54,17 @@ private:
 	Dictionary _active_instance_cells = {};
 	Dictionary _RID_index_map = {};
 
+	// Debug visualisation queue
+
+	struct DebugVisualInstance {
+		RID shape_rid;
+		bool create = false;
+		Transform3D xform;
+		Ref<ArrayMesh> debug_mesh;
+	};
+
+	std::vector<DebugVisualInstance> _debug_visual_instance_queue;
+
 	Vector2i _snap_to_grid(const Vector2i &p_pos) const;
 	Vector2i _snap_to_grid(const Vector3 &p_pos) const;
 	Dictionary _get_shape_data(const Vector2i &p_position, const int p_size);
@@ -78,6 +89,8 @@ private:
 	void _update_visual_instance(const RID &p_shape_rid, const Transform3D &p_xform, Ref<ArrayMesh> p_debug_mesh = NULL);
 	void _destroy_visual_instance(const RID &p_shape_rid);
 	void _destroy_visual_instances();
+	void _queue_visual_instance_update(const RID &p_shape_rid, const Transform3D &p_xform, Ref<ArrayMesh> p_debug_mesh, const bool p_create);
+	void _process_visual_updates();
 
 public:
 	Terrain3DCollision() {}
