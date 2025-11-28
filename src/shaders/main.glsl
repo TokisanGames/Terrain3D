@@ -72,6 +72,7 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 // Public uniforms
 
 group_uniforms general;
+//INSERT: FLAT_UNIFORMS
 uniform bool flat_terrain_normals = false;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 uniform bool vertical_projection = true;
@@ -150,6 +151,7 @@ vec3 get_index_uv(const vec2 uv2) {
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
 }
 
+//INSERT: FLAT_FUNCTIONS
 //INSERT: WORLD_NOISE_FUNCTIONS
 void vertex() {
 	// Get vertex of flat plane in world coordinates and set world UV
@@ -194,7 +196,8 @@ void vertex() {
 		// Set final vertex height & calculate vertex normals. 3 lookups
 		ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
 		ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
-		float h = mix(texelFetch(_height_maps, coord_a, 0).r,texelFetch(_height_maps, coord_b, 0).r,vertex_lerp);
+		float h = mix(texelFetch(_height_maps, coord_a, 0).r, texelFetch(_height_maps, coord_b, 0).r, vertex_lerp);
+//INSERT: FLAT_VERTEX
 //INSERT: WORLD_NOISE_VERTEX
 		v_vertex.y = h;
 	}
@@ -406,10 +409,11 @@ void fragment() {
 	// Terrain normals
 	vec3 index_normal[4];
 	float h[4];
-	// allows additional derivatives, eg world noise, brush previews etc
+	// Allows for additional derivatives, eg world background, brush previews etc
 	float u = 0.0;
 	float v = 0.0;
-	
+
+//INSERT: FLAT_FRAGMENT
 //INSERT: WORLD_NOISE_FRAGMENT
 	// Re-use index[] for the first lookups, skipping some math. 3 lookups
 	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0,0)

@@ -163,7 +163,7 @@
     <None Include="src\shaders\main.glsl">
       <Filter>4. Shaders</Filter>
     </None>
-    <None Include="src\shaders\world_noise.glsl">
+    <None Include="src\shaders\backgrounds.glsl">
       <Filter>4. Shaders</Filter>
     </None>
     <None Include=".gitignore">
