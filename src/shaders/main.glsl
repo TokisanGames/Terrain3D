@@ -97,6 +97,7 @@ group_uniforms;
 group_uniforms mipmaps;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
+uniform float distant_normal_amplifier : hint_range(1.0, 5.0) = 1.5;
 uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
 group_uniforms;
 
@@ -574,6 +575,9 @@ void fragment() {
 	
 	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
 	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
+
+	// Make up for mipmaps losing detail by amplifying normals by distance
+	float distant_normal_boost = clamp(max(length(dFdx(base_ddx.xz)), length(dFdy(base_ddy.xz))), 1.0, distant_normal_amplifier);
 	
 	// Apply PBR
 	ALBEDO = mat.albedo_height.rgb * color_map.rgb * macrov;
@@ -581,7 +585,7 @@ void fragment() {
 	SPECULAR = 1. - mat.normal_rough.a;
 	// Repack final normal map value.
 	NORMAL_MAP = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
-	NORMAL_MAP_DEPTH = mat.normal_map_depth;
+	NORMAL_MAP_DEPTH = mat.normal_map_depth * distant_normal_boost;
 
 	// Higher and/or facing up, less occluded.
 	float ao = (1. - (mat.albedo_height.a * log(2.1 - mat.ao_strength))) * (1. - mat.normal_rough.y);
