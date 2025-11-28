@@ -482,7 +482,7 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 		const TypedArray<Transform3D> xforms = TypedArray<Transform3D>(instance_data[0]);
 		const TypedArray<Vector3> cell_positions = TypedArray<Vector3>(instance_data[1]);
 
-		if (xforms.size() == 0 || cell_positions.size() == 0) {
+		if (xforms.is_empty() || cell_positions.is_empty()) {
 			LOG(ERROR, "No instances of type ", mesh_id, " to create. This shouldn't happen.");
 			continue;
 		}
