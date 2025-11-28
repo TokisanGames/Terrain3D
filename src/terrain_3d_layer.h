@@ -38,6 +38,7 @@ protected:
 
 	real_t _cached_vertex_spacing = 0.0f;
 	uint64_t _group_id = 0;
+	bool _user_editable = true;
 
 protected:
 	static void _bind_methods();
@@ -76,6 +77,9 @@ public:
 
 	void set_group_id(const uint64_t p_group_id);
 	uint64_t get_group_id() const { return _group_id; }
+
+	void set_user_editable(bool p_editable);
+	bool is_user_editable() const { return _user_editable; }
 
 	bool needs_rebuild(const real_t p_vertex_spacing) const;
 

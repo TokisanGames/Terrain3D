@@ -100,6 +100,7 @@ public:
 	Vector2 get_height_range() const { return _height_range; }
 	void update_height(const real_t p_height);
 	void update_heights(const Vector2 &p_low_high);
+	void update_height_range_from_image(const Ref<Image> &p_image);
 	void calc_height_range();
 
 	// Instancer
