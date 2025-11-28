@@ -94,6 +94,7 @@ And the contribution team in :doc:`docs/authors` and displayed on `github contri
    docs/texture_painting
    docs/heightmaps
    docs/import_export
+   docs/texture_displacement
    docs/instancer
    docs/tips_technical
    docs/tips_environment
