@@ -201,7 +201,7 @@ TypedArray<Vector3> Terrain3DCollision::_get_instance_cells_to_build(const Vecto
 				if (!_active_instance_cells.has(cell_loc)) {
 					Vector3 cell_centre = cell_loc + Vector3(p_vertex_spacing * p_cell_size * 0.5f, 0.0f, p_vertex_spacing * p_cell_size * 0.5f);
 					// Check if the cell is within the radius
-					if (cell_centre.distance_to(cell_centre) < real_t(_radius)) {
+					if (v2v3(p_snapped_pos).distance_to(cell_centre) < real_t(_radius)) {
 						if (!_terrain->get_data()->get_regionp(cell_centre).is_valid()) {
 							continue;
 						}
