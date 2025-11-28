@@ -49,8 +49,10 @@ public partial class CodeGenerated : Node
 		
 		terrain = Terrain3D.Instantiate();
 		terrain.Name = "Terrain3D";
-		terrain.Owner = GetTree().GetCurrentScene();
+		// Optionally log to the console. Use the console version of Godot. See Troubleshooting doc.
+		//terrain.DebugLevel = Variant.From(Terrain3D.DebugLevelEnum.Debug);
 		AddChild(terrain, true);
+		terrain.Owner = GetTree().GetCurrentScene();
 		
 		var material = terrain.Material;
 		material.WorldBackground = Terrain3DMaterial.WorldBackgroundEnum.None;
@@ -59,8 +61,8 @@ public partial class CodeGenerated : Node
 		material.SetShaderParam("blend_sharpness", 0.975f);
 
 		var assets = terrain.Assets;
-		assets.SetTexture(0, greenTa);
-		assets.SetTexture(1, brownTa);
+		assets.SetTextureAsset(0, greenTa);
+		assets.SetTextureAsset(1, brownTa);
 		assets.SetMeshAsset(0, grassMa);
 		
 		var noise = new FastNoiseLite { Frequency = 0.0005f };
@@ -154,12 +156,10 @@ public partial class CodeGenerated : Node
 	{
 		var ma = Terrain3DMeshAsset.Instantiate();
 		ma.Name = assetName;
+		ma.GeneratedType = Variant.From(Terrain3DMeshAsset.GenType.TextureCard);
 		ma.HeightOffset = 0.5f;
 		ma.Lod0Range = 128.0f;
-		if (ma.MaterialOverride is StandardMaterial3D material)
-		{
-			material.AlbedoColor = color;
-		}
+		(ma.MaterialOverride as StandardMaterial3D).AlbedoColor = color;
 		return ma;
 	}
 }

@@ -670,7 +670,7 @@ class ListContainer extends Container:
 
 		if plugin.is_terrain_valid():
 			if type == Terrain3DAssets.TYPE_TEXTURE:
-				plugin.terrain.assets.set_texture(p_id, p_resource)
+				plugin.terrain.assets.set_texture_asset(p_id, p_resource)
 			else:
 				plugin.terrain.assets.set_mesh_asset(p_id, p_resource)
 
