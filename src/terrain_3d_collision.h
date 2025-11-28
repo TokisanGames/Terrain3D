@@ -67,7 +67,7 @@ private:
 
 	TypedArray<Vector3> _get_instance_cells_to_build(const Vector2i &p_snapped_pos, const int &p_region_size, const int &p_cell_size, const real_t &p_vertex_spacing);
 	Dictionary _get_recyclable_instances(const Vector2i &p_snapped_pos, const real_t &p_radius);
-	Dictionary _get_instance_build_data(const TypedArray<Vector3> &p_instance_p_instance_cells_to_buildcells_to_build, const int &p_region_size, const real_t &p_vertex_spacing);
+	Dictionary _get_instance_build_data(const TypedArray<Vector3> &p_instance_cells_to_build, const int &p_region_size, const real_t &p_vertex_spacing);
 	Dictionary _get_unused_instance_shapes(const Dictionary &p_mesh_instance_build_data, Dictionary &p_recyclable_mesh_instance_shapes);
 
 	void _destroy_remaining_instance_shapes(Dictionary &p_unused_instance_shapes);

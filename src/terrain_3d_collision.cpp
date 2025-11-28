@@ -232,8 +232,7 @@ Dictionary Terrain3DCollision::_get_recyclable_instances(const Vector2i &p_snapp
 		LOG(INFO, "Decomposing cells beyond ", p_radius, " of ", p_snapped_pos);
 
 		const TypedArray<Vector3> instance_cells = _active_instance_cells.keys();
-		for (int i = 0; i < instance_cells.size(); i++) {
-			const Vector3 cell_origin = instance_cells[i];
+		for (const Vector3 cell_origin : instance_cells) {
 			const Vector3 cell_centre = cell_origin + Vector3(16.0f, 0.0f, 16.0f);
 			if (v2v3(p_snapped_pos).distance_to(cell_centre) > p_radius) {
 				LOG(EXTREME, "Decomposing at ", cell_origin);
@@ -241,8 +240,7 @@ Dictionary Terrain3DCollision::_get_recyclable_instances(const Vector2i &p_snapp
 				Dictionary active_instances_dict = _active_instance_cells[cell_origin];
 				const TypedArray<int> mesh_asset_keys = active_instances_dict.keys();
 
-				for (int i = 0; i < mesh_asset_keys.size(); i++) {
-					const int mesh_asset_id = mesh_asset_keys[i];
+				for (const int mesh_asset_id : mesh_asset_keys) {
 					const Array active_instances_arr = active_instances_dict[mesh_asset_id];
 					Array unused_assets = recyclable_mesh_instance_shapes[mesh_asset_id];
 
@@ -264,8 +262,7 @@ Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector3
 	Dictionary mesh_instance_build_data;
 	LOG(INFO, "Building instance data");
 
-	for (int i = 0; i < p_instance_cells_to_build.size(); i++) {
-		const Vector3 cell_position = p_instance_cells_to_build[i];
+	for (const Vector3 cell_position : p_instance_cells_to_build) {
 		Vector2i region_loc = _terrain->get_data()->get_region_location(cell_position);
 		Vector2i cell_loc = Util::get_cell(cell_position, p_region_size, p_vertex_spacing, _terrain->get_instancer()->CELL_SIZE);
 
@@ -278,8 +275,7 @@ Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector3
 		const Dictionary mesh_inst_dict = region->get_instances();
 		const Array mesh_types = mesh_inst_dict.keys();
 
-		for (int m = 0; m < mesh_types.size(); m++) {
-			const int mesh_id = mesh_types[m];
+		for (const int mesh_id : mesh_types) {
 			LOG(EXTREME, "Checking mesh id ", mesh_id, " in region ", region_loc, " cell: ", cell_loc);
 
 			// Verify mesh id is valid and has some meshes
@@ -313,7 +309,7 @@ Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector3
 
 			TypedArray<Transform3D> xforms = triple[0];
 
-			if (xforms.size() == 0) {
+			if (xforms.is_empty()) {
 				// no instances to add
 				continue;
 			}
@@ -332,7 +328,7 @@ Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector3
 
 			// 0 = xforms, 1 = cell_positions
 			Array instance_data = mesh_instance_build_data[mesh_id];
-			if (instance_data.size() == 0) {
+			if (instance_data.is_empty()) {
 				instance_data.resize(2);
 			}
 
@@ -362,14 +358,13 @@ Dictionary Terrain3DCollision::_get_unused_instance_shapes(const Dictionary &p_i
 
 		LOG(DEBUG, spare_instance_keys.size(), " types of instance to decompose");
 
-		for (int i = 0; i < spare_instance_keys.size(); i++) {
-			const int mesh_id = spare_instance_keys[i];
+		for (const int mesh_id : spare_instance_keys) {
 			LOG(EXTREME, "Decomposing  spare mesh id ", mesh_id);
 
 			TypedArray<Transform3D> mesh_instance_transforms;
 			Array instance_data = p_instance_build_data[mesh_id];
 			if (instance_data.size() > 0) {
-				mesh_instance_transforms = instance_data[0];
+				mesh_instance_transforms = TypedArray<Transform3D>(instance_data[0]);
 			}
 
 			LOG(DEBUG, "Decomposing all but ", mesh_instance_transforms.size(), " assets of type ", mesh_id);
@@ -380,18 +375,18 @@ Dictionary Terrain3DCollision::_get_unused_instance_shapes(const Dictionary &p_i
 				continue;
 			}
 
-			TypedArray<Array> ma_arr = p_recyclable_instance_shapes[mesh_id];
+			Array ma_arr = p_recyclable_instance_shapes[mesh_id];
 
-			if (ma_arr.size() == 0) {
+			if (ma_arr.is_empty()) {
 				LOG(ERROR, "Unexpectedly found no more assets to decompose");
 				continue;
 			}
 
 			const int nb_instances_to_decompose = MAX(0, ma_arr.size() - mesh_instance_transforms.size());
 
-			for (int instance = 0; instance < nb_instances_to_decompose; instance++) {
+			for (int i = 0; i < nb_instances_to_decompose; i++) {
 				TypedArray<RID> ma_instance = ma_arr.pop_back();
-				if (ma_arr.size() == 0) {
+				if (ma_arr.is_empty()) {
 					p_recyclable_instance_shapes.erase(mesh_id);
 				} else {
 					p_recyclable_instance_shapes[mesh_id] = ma_arr;
@@ -428,14 +423,11 @@ void Terrain3DCollision::_destroy_remaining_instance_shapes(Dictionary &p_unused
 
 		TypedArray<int> shape_types = p_unused_instance_shapes.keys();
 
-		for (int i = 0; i < shape_types.size(); i++) {
-			int mesh_id = shape_types[i];
-			TypedArray<RID> inactive_shapes = p_unused_instance_shapes[mesh_id];
+		for (const int shape_type : shape_types) {
+			TypedArray<RID> inactive_shapes = p_unused_instance_shapes[shape_type];
 
-			LOG(DEBUG, "    Shape type: ", shape_types[i], " Found ", inactive_shapes.size(), " shapes");
-			for (int s = 0; s < inactive_shapes.size(); s++) {
-				const RID shape_rid = inactive_shapes[s];
-
+			LOG(DEBUG, "    Shape type: ", shape_type, " Found ", inactive_shapes.size(), " shapes");
+			for (const RID shape_rid : inactive_shapes) {
 				if (!shape_rid.is_valid()) {
 					LOG(WARN, "Attempted to destroy an invalid shape");
 					continue;
@@ -445,7 +437,7 @@ void Terrain3DCollision::_destroy_remaining_instance_shapes(Dictionary &p_unused
 				is_dirty = true;
 				LOG(EXTREME, "Destroyed ", shape_rid);
 			}
-			p_unused_instance_shapes.erase(mesh_id);
+			p_unused_instance_shapes.erase(shape_type);
 		}
 
 		// If we destroyed shapes the body_shape indices will need to update the RID/index map.
@@ -461,12 +453,10 @@ void Terrain3DCollision::_destroy_remaining_instance_shapes(Dictionary &p_unused
 }
 
 void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_data, Dictionary &p_recyclable_instances, Dictionary &p_unused_instance_shapes) {
-	LOG(INFO, "Creating or recyling instances");
+	LOG(INFO, "Generating instances");
 	TypedArray<int> mesh_instance_keys = p_instance_build_data.keys();
 
-	for (int i = 0; i < mesh_instance_keys.size(); i++) {
-		const int mesh_id = mesh_instance_keys[i];
-
+	for (const int mesh_id : mesh_instance_keys) {
 		// Verify mesh id is valid and has some meshes
 		const Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
 		if (ma.is_valid()) {
@@ -474,7 +464,7 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 				LOG(ERROR, mesh_id, " is not enabled. This shouldn't happen.");
 				continue;
 			}
-			if (ma->get_shape_count() == 0) {
+			if (ma->get_shapes().is_empty()) {
 				LOG(ERROR, "MeshAsset ", mesh_id, " valid but has no collision shapes, skipping. This shouldn't happen.");
 				continue;
 			}
@@ -484,13 +474,13 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 		}
 
 		const Array instance_data = p_instance_build_data[mesh_id];
-		if (instance_data.size() == 0) {
+		if (instance_data.is_empty()) {
 			// No new instances of this type are needed
 			continue;
 		}
 
-		const TypedArray<Transform3D> xforms = instance_data[0];
-		const TypedArray<Vector3> cell_positions = instance_data[1];
+		const TypedArray<Transform3D> xforms = TypedArray<Transform3D>(instance_data[0]);
+		const TypedArray<Vector3> cell_positions = TypedArray<Vector3>(instance_data[1]);
 
 		if (xforms.size() == 0 || cell_positions.size() == 0) {
 			LOG(ERROR, "No instances of type ", mesh_id, " to create. This shouldn't happen.");
@@ -503,17 +493,17 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 			Transform3D xform = xforms[x];
 			const Vector3 cell_pos = cell_positions[x];
 			Dictionary active_instances_dict = _active_instance_cells[cell_pos];
-			TypedArray<Array> active_instances_arr = active_instances_dict[mesh_id];
+			Array active_instances_arr = active_instances_dict[mesh_id];
 
 			// Reuse mesh asset instance if possible
-			TypedArray<Array> reusable_assets;
+			Array reusable_assets;
 			if (p_recyclable_instances.has(mesh_id)) {
-				reusable_assets = p_recyclable_instances[mesh_id];
+				reusable_assets = Array(p_recyclable_instances[mesh_id]);
 			}
 
-			if (reusable_assets.size() > 0) {
-				const TypedArray<RID> reusable_shapes = reusable_assets.pop_back();
-				if (reusable_assets.size() == 0) {
+			if (!reusable_assets.is_empty()) {
+				const TypedArray<RID> reusable_shapes = TypedArray<RID>(reusable_assets.pop_back());
+				if (reusable_assets.is_empty()) {
 					p_recyclable_instances.erase(mesh_id);
 				} else {
 					p_recyclable_instances[mesh_id] = reusable_assets;
@@ -560,10 +550,10 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 					if (p_unused_instance_shapes.has(shape_type)) {
 						// Reuse a shape from the unused shapes pool
 						TypedArray<RID> unused_shapes = p_unused_instance_shapes[shape_type];
-						if (unused_shapes.size() > 0) {
+						if (!unused_shapes.is_empty()) {
 							shape_rid = unused_shapes.pop_back();
 
-							if (unused_shapes.size() == 0) {
+							if (unused_shapes.is_empty()) {
 								p_unused_instance_shapes.erase(shape_type);
 							} else {
 								p_unused_instance_shapes[shape_type] = unused_shapes;
