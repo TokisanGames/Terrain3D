@@ -35,7 +35,7 @@ bool Terrain3DTextureAsset::_is_valid_format(const Ref<Texture2D> &p_texture) co
 // Public Functions
 ///////////////////////////
 
-void Terrain3DTextureAsset::initialize(const bool p_new) {
+void Terrain3DTextureAsset::initialize() {
 	LOG(INFO, _id, ": ", _name, ": initializing asset");
 }
 
