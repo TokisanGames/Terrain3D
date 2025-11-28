@@ -175,7 +175,7 @@ Vector2 Terrain3DUtil::get_min_max(const Ref<Image> &p_image) {
 		}
 	}
 
-	LOG(INFO, "Calculating minimum and maximum values of the image: ", min_max);
+	LOG(DEBUG, "Calculated height min/max: ", min_max);
 	return min_max;
 }
 

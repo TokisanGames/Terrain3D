@@ -52,6 +52,8 @@ void Terrain3DLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_alpha"), &Terrain3DLayer::get_alpha);
 	ClassDB::bind_method(D_METHOD("set_group_id", "group_id"), &Terrain3DLayer::set_group_id);
 	ClassDB::bind_method(D_METHOD("get_group_id"), &Terrain3DLayer::get_group_id);
+	ClassDB::bind_method(D_METHOD("set_user_editable", "editable"), &Terrain3DLayer::set_user_editable);
+	ClassDB::bind_method(D_METHOD("is_user_editable"), &Terrain3DLayer::is_user_editable);
 	ClassDB::bind_method(D_METHOD("mark_dirty"), &Terrain3DLayer::mark_dirty);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "map_type", PROPERTY_HINT_ENUM, "HEIGHT,CONTROL,COLOR"), "set_map_type", "get_map_type");
@@ -63,6 +65,7 @@ void Terrain3DLayer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "payload", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "set_payload", "get_payload");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "alpha", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "set_alpha", "get_alpha");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "group_id", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_INTERNAL), "set_group_id", "get_group_id");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "user_editable", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_INTERNAL), "set_user_editable", "is_user_editable");
 
 	BIND_ENUM_CONSTANT(BLEND_ADD);
 	BIND_ENUM_CONSTANT(BLEND_SUBTRACT);
@@ -146,6 +149,10 @@ void Terrain3DLayer::set_group_id(const uint64_t p_group_id) {
 	_group_id = p_group_id;
 }
 
+void Terrain3DLayer::set_user_editable(bool p_editable) {
+	_user_editable = p_editable;
+}
+
 bool Terrain3DLayer::needs_rebuild(const real_t p_vertex_spacing) const {
 	return !Math::is_equal_approx(_cached_vertex_spacing, p_vertex_spacing);
 }
@@ -217,41 +224,42 @@ void Terrain3DLayer::apply_rect(Image &p_target, const real_t p_vertex_spacing, 
 					alpha_weight = _alpha->get_pixel(src_x, src_y).r;
 				}
 			}
-			real_t feather_weight = _compute_feather_weight(Vector2i(src_x, src_y));
+			real_t feather_weight = _compute_feather_weight(Vector2i(src_x, src_y));z
 			real_t mask_weight = CLAMP(alpha_weight * feather_weight, 0.0f, 1.0f);
 			real_t intensity = MAX(_intensity, 0.0f);
-			real_t scaled_weight = MIN(mask_weight * intensity, 1.0f);
+			real_t replace_weight = MIN(mask_weight * intensity, 1.0f);
+			real_t additive_weight = mask_weight * intensity;
 
 			switch (_map_type) {
 				case TYPE_HEIGHT: {
 					real_t payload = src.r;
-					real_t delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
-						dst.r = Math::lerp(dst.r, payload, scaled_weight);
+						dst.r = Math::lerp(dst.r, payload, replace_weight);
 					} else {
 						real_t sign = (_blend_mode == BLEND_SUBTRACT) ? -1.0f : 1.0f;
-						dst.r = dst.r + delta * sign;
+						real_t delta = payload * additive_weight;
+						dst.r += delta * sign;
 					}
 					dst.a = 1.0f;
 				} break;
 				case TYPE_CONTROL: {
 					real_t payload = src.r;
-					real_t delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
-						dst.r = Math::lerp(dst.r, payload, scaled_weight);
+						dst.r = Math::lerp(dst.r, payload, replace_weight);
 					} else {
 						real_t sign = (_blend_mode == BLEND_SUBTRACT) ? -1.0f : 1.0f;
-						dst.r = dst.r + delta * sign;
+						real_t delta = payload * additive_weight;
+						dst.r += delta * sign;
 					}
 					dst.a = 1.0f;
 				} break;
 				case TYPE_COLOR: {
 					Color payload = src;
-					Color delta = payload * scaled_weight;
 					if (_blend_mode == BLEND_REPLACE) {
-						dst = dst.lerp(payload, scaled_weight);
+						dst = dst.lerp(payload, replace_weight);
 					} else {
 						real_t sign = (_blend_mode == BLEND_SUBTRACT) ? -1.0f : 1.0f;
+						Color delta = payload * additive_weight;
 						dst.r = CLAMP(dst.r + delta.r * sign, 0.0f, 1.0f);
 						dst.g = CLAMP(dst.g + delta.g * sign, 0.0f, 1.0f);
 						dst.b = CLAMP(dst.b + delta.b * sign, 0.0f, 1.0f);

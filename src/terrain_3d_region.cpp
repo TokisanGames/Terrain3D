@@ -558,12 +558,26 @@ void Terrain3DRegion::set_height_range(const Vector2 &p_range) {
 	};
 }
 
-void Terrain3DRegion::calc_height_range() {
-	Vector2 range = Util::get_min_max(_height_map);
+void Terrain3DRegion::update_height_range_from_image(const Ref<Image> &p_image) {
+	if (p_image.is_null() || p_image->is_empty()) {
+		return;
+	}
+	Vector2 range = Util::get_min_max(p_image);
 	if (_height_range != range) {
 		_height_range = range;
 		_modified = true;
-		LOG(DEBUG, "Recalculated new height range: ", _height_range, " for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)", ". Marking modified");
+		LOG(DEBUG, "Updated height range from composited image: ", _height_range,
+				" for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
+	}
+}
+
+void Terrain3DRegion::calc_height_range() {
+	Ref<Image> source = get_composited_map(TYPE_HEIGHT);
+	if (source.is_null()) {
+		source = _height_map;
+	}
+	if (source.is_valid()) {
+		update_height_range_from_image(source);
 	}
 }
 

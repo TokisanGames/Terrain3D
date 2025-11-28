@@ -135,6 +135,7 @@ Ref<Terrain3DLayer> Terrain3DData::_duplicate_layer_template(const Ref<Terrain3D
 	clone->set_intensity(p_template->get_intensity());
 	clone->set_feather_radius(p_template->get_feather_radius());
 	clone->set_blend_mode(p_template->get_blend_mode());
+	clone->set_user_editable(p_template->is_user_editable());
 	return clone;
 }
 
@@ -1167,8 +1168,9 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		_region_locations = TypedArray<Vector2i>(); // enforce new pointer
 		Array locs = _regions.keys();
 		int region_id = 0;
-		for (const Vector2i &region_loc : locs) {
-			const Terrain3DRegion *region = get_region_ptr(region_loc);
+		for (int i = 0; i < locs.size(); i++) {
+			Vector2i region_loc = locs[i];
+			Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region && !region->is_deleted()) {
 				region_id += 1; // Begin at 1 since 0 = no region
 				int map_index = get_region_map_index(region_loc);
@@ -1187,8 +1189,9 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (_generated_height_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating height texture array from regions");
 		_height_maps.clear();
-		for (const Vector2i &region_loc : _region_locations) {
-			const Terrain3DRegion *region = get_region_ptr(region_loc);
+		for (int i = 0; i < _region_locations.size(); i++) {
+			Vector2i region_loc = _region_locations[i];
+			Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
 				_height_maps.push_back(region->get_composited_map(TYPE_HEIGHT));
 			} else {
@@ -1208,8 +1211,9 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (_generated_control_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating control texture array from regions");
 		_control_maps.clear();
-		for (const Vector2i &region_loc : _region_locations) {
-			const Terrain3DRegion *region = get_region_ptr(region_loc);
+		for (int i = 0; i < _region_locations.size(); i++) {
+			Vector2i region_loc = _region_locations[i];
+			Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
 				_control_maps.push_back(region->get_composited_map(TYPE_CONTROL));
 			}
@@ -1224,8 +1228,9 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (_generated_color_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating color texture array from regions");
 		_color_maps.clear();
-		for (const Vector2i &region_loc : _region_locations) {
-			const Terrain3DRegion *region = get_region_ptr(region_loc);
+		for (int i = 0; i < _region_locations.size(); i++) {
+			Vector2i region_loc = _region_locations[i];
+			Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
 				_color_maps.push_back(region->get_composited_map(TYPE_COLOR));
 			}
@@ -1239,13 +1244,19 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	// If no maps have been rebuilt, update only individual regions in the array.
 	// Regions marked Edited have been changed by Terrain3DEditor::_operate_map or undo / redo processing.
 	if (!any_changed) {
-		for (const Vector2i &region_loc : _region_locations) {
-			const Terrain3DRegion *region = get_region_ptr(region_loc);
+		for (int i = 0; i < _region_locations.size(); i++) {
+			Vector2i region_loc = _region_locations[i];
+			Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region && region->is_edited()) {
 				int region_id = get_region_id(region_loc);
 				switch (p_map_type) {
 					case TYPE_HEIGHT:
-						_generated_height_maps.update(region->get_composited_map(TYPE_HEIGHT), region_id);
+						{
+							Ref<Image> height_map = region->get_composited_map(TYPE_HEIGHT);
+							_generated_height_maps.update(height_map, region_id);
+							region->update_height_range_from_image(height_map);
+							update_master_heights(region->get_height_range());
+						}
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						break;
@@ -1260,7 +1271,12 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						emit_signal("color_maps_changed");
 						break;
 					default:
-						_generated_height_maps.update(region->get_composited_map(TYPE_HEIGHT), region_id);
+						{
+							Ref<Image> height_map = region->get_composited_map(TYPE_HEIGHT);
+							_generated_height_maps.update(height_map, region_id);
+							region->update_height_range_from_image(height_map);
+							update_master_heights(region->get_height_range());
+						}
 						_generated_control_maps.update(region->get_composited_map(TYPE_CONTROL), region_id);
 						_generated_color_maps.update(region->get_composited_map(TYPE_COLOR), region_id);
 						LOG(DEBUG, "Emitting height_maps_changed");

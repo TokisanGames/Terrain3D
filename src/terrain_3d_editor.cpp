@@ -1,6 +1,7 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <climits>
+#include <cstdint>
 #include <cstring>
 #include <unordered_map>
 
@@ -168,6 +169,15 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 	real_t gamma = _brush_data["gamma"];
 	PackedVector3Array gradient_points = _brush_data["gradient_points"];
+	bool brush_auto_alpha_enabled = _brush_data.get("brush_auto_alpha_enabled", true);
+	bool brush_auto_alpha_from_border = _brush_data.get("brush_auto_alpha_from_border", true);
+	real_t brush_manual_neutral = real_t(_brush_data.get("brush_manual_neutral_value", 0.f));
+	real_t brush_alpha_gain = CLAMP(real_t(_brush_data.get("brush_alpha_gain", 1.f)), 0.f, 10.f);
+	real_t brush_alpha_min_threshold = CLAMP(real_t(_brush_data.get("brush_alpha_min_threshold", 0.001f)), 0.f, 1.f);
+	real_t brush_alpha_neutral = brush_manual_neutral;
+	if (brush_auto_alpha_from_border) {
+		brush_alpha_neutral = real_t(_brush_data.get("brush_alpha_neutral_value", brush_manual_neutral));
+	}
 
 	real_t randf = UtilityFunctions::randf();
 	real_t rot = randf * Math_PI * real_t(_brush_data["brush_spin_speed"]);
@@ -309,6 +319,13 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					}
 					if (candidate_layer.is_null()) {
 						// Already logged above.
+					} else if (!candidate_layer->is_user_editable()) {
+						static int locked_layer_log_count = 0;
+						if (locked_layer_log_count < 5) {
+							LOG(WARN, "Layer ", _active_layer_index, " in region ", region_loc, " is locked for editing; falling back to base map");
+							locked_layer_log_count++;
+						}
+						candidate_layer.unref();
 					} else if (!candidate_layer->is_enabled()) {
 						ctx.layer = candidate_layer;
 					} else {
@@ -468,7 +485,18 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			edited_area = edited_area.expand(edited_position);
 
 			// Start brushing on the map
-			real_t brush_alpha = brush_image->get_pixelv(brush_pixel_position).r;
+			real_t brush_value = brush_image->get_pixelv(brush_pixel_position).r;
+			brush_value = std::isnan(brush_value) ? 0.f : brush_value;
+			real_t brush_alpha = brush_value;
+			if (brush_auto_alpha_enabled) {
+				brush_alpha = Math::abs(brush_value - brush_alpha_neutral);
+				brush_alpha *= brush_alpha_gain;
+				if (brush_alpha < brush_alpha_min_threshold) {
+					brush_alpha = 0.f;
+				} else {
+					brush_alpha = MIN(brush_alpha, 1.f);
+				}
+			}
 			brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
 			brush_alpha = std::isnan(brush_alpha) ? 0.f : brush_alpha;
 			Color src = map->get_pixelv(map_pixel_position);
@@ -1174,6 +1202,36 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 		if (img.is_valid() && !img->is_empty()) {
 			_brush_data["brush_image"] = img;
 			_brush_data["brush_image_size"] = img->get_size();
+			real_t neutral_value = 0.0f;
+			Image *img_ptr = img.ptr();
+			if (img_ptr) {
+				int width = img_ptr->get_width();
+				int height = img_ptr->get_height();
+				if (width > 0 && height > 0) {
+					double total = 0.0;
+					int64_t count = 0;
+					for (int x = 0; x < width; x++) {
+						total += img_ptr->get_pixel(x, 0).r;
+						count++;
+						if (height > 1) {
+							total += img_ptr->get_pixel(x, height - 1).r;
+							count++;
+						}
+					}
+					for (int y = 1; y < height - 1; y++) {
+						total += img_ptr->get_pixel(0, y).r;
+						count++;
+						if (width > 1) {
+							total += img_ptr->get_pixel(width - 1, y).r;
+							count++;
+						}
+					}
+					if (count > 0) {
+						neutral_value = real_t(total / double(count));
+					}
+				}
+			}
+			_brush_data["brush_alpha_neutral_value"] = neutral_value;
 		} else {
 			LOG(ERROR, "Brush data doesn't contain a valid image");
 		}
@@ -1185,6 +1243,9 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 		}
 	} else {
 		LOG(ERROR, "Brush data doesn't contain an image and texture");
+	}
+	if (!_brush_data.has("brush_alpha_neutral_value")) {
+		_brush_data["brush_alpha_neutral_value"] = 0.0f;
 	}
 
 	// Santize settings
@@ -1222,6 +1283,11 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["gamma"] = CLAMP(real_t(p_data.get("gamma", 1.f)), 0.1f, 2.f);
 	_brush_data["brush_spin_speed"] = CLAMP(real_t(p_data.get("brush_spin_speed", 0.f)), 0.f, 1.f);
 	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
+	_brush_data["brush_auto_alpha_enabled"] = bool(p_data.get("brush_auto_alpha_enabled", true));
+	_brush_data["brush_auto_alpha_from_border"] = bool(p_data.get("brush_auto_alpha_from_border", true));
+	_brush_data["brush_manual_neutral_value"] = real_t(p_data.get("brush_manual_neutral_value", 0.f));
+	_brush_data["brush_alpha_gain"] = CLAMP(real_t(p_data.get("brush_alpha_gain", 1.f)), 0.f, 10.f);
+	_brush_data["brush_alpha_min_threshold"] = CLAMP(real_t(p_data.get("brush_alpha_min_threshold", 0.001f)), 0.f, 1.f);
 
 	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, EXTREME);
 }
