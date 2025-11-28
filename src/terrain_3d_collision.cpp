@@ -432,7 +432,7 @@ void Terrain3DCollision::_destroy_remaining_instance_shapes(Dictionary &p_unused
 					LOG(WARN, "Attempted to destroy an invalid shape");
 					continue;
 				}
-				_destroy_visual_instance(shape_rid);
+				_queue_visual_instance_update(shape_rid, Transform3D(), Ref<ArrayMesh>(), false);
 				PS->free_rid(shape_rid);
 				is_dirty = true;
 				LOG(EXTREME, "Destroyed ", shape_rid);
@@ -616,7 +616,7 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 						shapes.push_back(shape_rid);
 
 						if (is_editor_mode()) {
-							_create_visual_instance(shape_rid, this_transform, ma_shape->get_debug_mesh());
+							_queue_visual_instance_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), true);
 						}
 					}
 					// next shape++
@@ -775,11 +775,46 @@ void Terrain3DCollision::_destroy_visual_instances() {
 
 	for (int i = 0; i < keys.size(); i++) {
 		RID shape_rid = RID(keys[i]);
-		_destroy_visual_instance(shape_rid);
+		_queue_visual_instance_update(shape_rid, Transform3D(), Ref<ArrayMesh>(), false);
 	}
 	_instance_shape_visual_pairs.clear();
 
 	LOG(EXTREME, "Destroyed all visual instances in : ", Time::get_singleton()->get_ticks_usec() - time, " us");
+}
+
+void Terrain3DCollision::_queue_visual_instance_update(const RID &p_shape_rid, const Transform3D &p_xform, Ref<ArrayMesh> p_debug_mesh, const bool p_create) {
+	DebugVisualInstance vi;
+	vi.shape_rid = p_shape_rid;
+	vi.xform = p_xform;
+	vi.debug_mesh = p_debug_mesh;
+	vi.create = p_create;
+	_debug_visual_instance_queue.push_back(vi);
+	if (!RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DCollision::_process_visual_updates))) {
+		LOG(DEBUG, "Connect to RS::frame_pre_draw signal");
+		RS->connect("frame_pre_draw", callable_mp(this, &Terrain3DCollision::_process_visual_updates));
+	}
+}
+
+void Terrain3DCollision::_process_visual_updates() {
+	if (_debug_visual_instance_queue.empty()) {
+		if (RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DCollision::_process_visual_updates))) {
+			LOG(DEBUG, "Disconnect from RS::frame_pre_draw signal");
+			RS->disconnect("frame_pre_draw", callable_mp(this, &Terrain3DCollision::_process_visual_updates));
+		}
+		return;
+	}
+	if (!_terrain->is_inside_tree()) {
+		return;
+	}
+	for (int i = 0; i < _debug_visual_instance_queue.size(); i++) {
+		DebugVisualInstance vi = _debug_visual_instance_queue[i];
+		if (vi.create) {
+			_create_visual_instance(vi.shape_rid, vi.xform, vi.debug_mesh);
+		} else {
+			_destroy_visual_instance(vi.shape_rid);
+		}
+	}
+	_debug_visual_instance_queue.clear();
 }
 
 ///////////////////////////
