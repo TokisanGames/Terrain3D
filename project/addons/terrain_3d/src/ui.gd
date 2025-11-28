@@ -315,11 +315,16 @@ func _collect_global_layers(data: Terrain3DData, map_type: int, default_region: 
 		var slices: Array = group_dict.get("layers", [])
 		if slices.is_empty():
 			continue
-		var primary_slice: Dictionary = slices[0]
+		var primary_slice: Dictionary = {}
 		for slice in slices:
+			var layer_candidate: Terrain3DLayer = slice.get("layer")
+			if layer_candidate and layer_candidate.has_method("is_user_editable") and not layer_candidate.is_user_editable():
+				continue
+			primary_slice = slice
 			if slice.get("region_location", Vector2i.ZERO) == default_region:
-				primary_slice = slice
 				break
+		if primary_slice.is_empty():
+			continue
 		var unique_regions := {}
 		for slice in slices:
 			var loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
