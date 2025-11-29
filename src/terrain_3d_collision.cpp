@@ -385,24 +385,18 @@ Dictionary Terrain3DCollision::_get_unused_instance_shapes(const Dictionary &p_i
 			const int nb_instances_to_decompose = MAX(0, ma_arr.size() - mesh_instance_transforms.size());
 
 			for (int i = 0; i < nb_instances_to_decompose; i++) {
-				TypedArray<RID> ma_instance = ma_arr.pop_back();
+				const TypedArray<RID> ma_instance = ma_arr.pop_back();
 				if (ma_arr.is_empty()) {
 					p_recyclable_instance_shapes.erase(mesh_id);
 				} else {
 					p_recyclable_instance_shapes[mesh_id] = ma_arr;
 				}
-
-				const Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
-
-				for (int s = 0; s < ma->get_shape_count(); s++) {
-					RID rid = ma_instance[s];
-					int shape_type = PS->shape_get_type(rid);
-
+				for (const RID rid : ma_instance) {
+					const int shape_type = PS->shape_get_type(rid);
 					if (!rid.is_valid()) {
 						LOG(WARN, "Tried to decompose shape with invalid RID");
 						continue;
 					}
-
 					TypedArray<RID> unused_shapes = unused_instance_shapes[shape_type];
 					unused_shapes.push_back(rid);
 					unused_instance_shapes[shape_type] = unused_shapes;
@@ -421,10 +415,10 @@ void Terrain3DCollision::_destroy_remaining_instance_shapes(Dictionary &p_unused
 		// This tracks whether we destroyed any shapes, if so we will update our RID/index map
 		bool is_dirty = false;
 
-		TypedArray<int> shape_types = p_unused_instance_shapes.keys();
+		const TypedArray<int> shape_types = p_unused_instance_shapes.keys();
 
 		for (const int shape_type : shape_types) {
-			TypedArray<RID> inactive_shapes = p_unused_instance_shapes[shape_type];
+			const TypedArray<RID> inactive_shapes = p_unused_instance_shapes[shape_type];
 
 			LOG(DEBUG, "    Shape type: ", shape_type, " Found ", inactive_shapes.size(), " shapes");
 			for (const RID shape_rid : inactive_shapes) {

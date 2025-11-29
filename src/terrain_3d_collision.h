@@ -48,10 +48,14 @@ private:
 
 	// Instance collision data
 	RID _instance_static_body_rid;
+
 	// Stored as {PS_rid:RID} -> RS_rid:RID
 	Dictionary _instance_shape_visual_pairs = {};
+
 	// Stored as {cell_loc:v3} -> {mesh_asset_id:int} -> [instances [shapes [RID]]]
 	Dictionary _active_instance_cells = {};
+
+	// Stored as {rid:RID} -> {PS_body_to_shape_index:int}
 	Dictionary _RID_index_map = {};
 
 	// Debug visualisation queue
