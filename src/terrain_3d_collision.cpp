@@ -646,6 +646,9 @@ void Terrain3DCollision::_update_visual_instance(const RID &p_shape_rid, const T
 		LOG(WARN, "xform: ", p_xform);
 		return;
 	}
+	if (!_instance_shape_visual_pairs.has(p_shape_rid)) {
+		return;
+	}
 	const RID visual_rid = _instance_shape_visual_pairs[p_shape_rid];
 	if (!visual_rid.is_valid()) {
 		LOG(WARN, "Visual instance RID for shape ", p_shape_rid, " was invalid, skipping");
