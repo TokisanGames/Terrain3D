@@ -113,6 +113,8 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		LOG(ERROR, "p_mesh_id is out of bounds");
 		return;
 	}
+	_terrain->get_collision() ? _terrain->get_collision()->build() : void();
+
 	Vector2i region_loc = p_region->get_location();
 	Dictionary mesh_inst_dict = p_region->get_instances();
 
