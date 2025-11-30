@@ -56,47 +56,58 @@ func pack_textures_popup() -> void:
 		window.grab_focus()
 		window.move_to_center()
 		return
+	
+	# Set background color to match theme
 	window = (load(WINDOW_SCENE) as PackedScene).instantiate()
 	var base_color: Color = plugin.editor_settings.get_setting("interface/theme/base_color")
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = base_color
 	window.get_node("PanelContainer").set("theme_override_styles/panel", panel_style)
+
+	# Connect button signals
+	lumin_height_button = window.get_node("%LuminanceAsHeightButton") as Button
+	
+	invert_height_checkbox = window.get_node("%ConvertDepthToHeight") as CheckBox
+	normalize_height_checkbox = window.get_node("%NormalizeHeight") as CheckBox
+
+	invert_green_checkbox = window.get_node("%InvertGreenChannelCheckBox") as CheckBox
+	align_normals_checkbox = window.get_node("%AlignNormalsCheckBox") as CheckBox
+
+	invert_smooth_checkbox = window.get_node("%InvertSmoothCheckBox") as CheckBox
+
+	resize_toggle_checkbox = window.get_node("%ResizeToggle") as CheckBox
+	resize_option_box = window.get_node("%ResizeOptionBox") as SpinBox
+	resize_toggle_checkbox.toggled.connect(func(val:bool) -> void: resize_option_box.set_visible(val))
+	generate_mipmaps_checkbox = window.get_node("%GenerateMipmapsCheckBox") as CheckBox
+	high_quality_checkbox = window.get_node("%HighQualityCheckBox") as CheckBox
+
+	window.get_node("%PackButton").pressed.connect(_on_pack_button_pressed)
+	status_label = window.get_node("%StatusLabel") as Label
+	window.get_node("%CloseButton").pressed.connect(_on_close_requested)
 	window.close_requested.connect(_on_close_requested)
 	window.window_input.connect(func(event:InputEvent):
 		if event is InputEventKey:
 			if event.pressed and event.keycode == KEY_ESCAPE:
 				_on_close_requested()
 		)
-	window.find_child("CloseButton").pressed.connect(_on_close_requested)
-	
-	status_label = window.find_child("StatusLabel") as Label
-	invert_green_checkbox = window.find_child("InvertGreenChannelCheckBox") as CheckBox
-	invert_smooth_checkbox = window.find_child("InvertSmoothCheckBox") as CheckBox
-	invert_height_checkbox = window.find_child("ConvertDepthToHeight") as CheckBox
-	normalize_height_checkbox = window.find_child("NormalizeHeight") as CheckBox
-	lumin_height_button = window.find_child("LuminanceAsHeightButton") as Button
-	generate_mipmaps_checkbox = window.find_child("GenerateMipmapsCheckBox") as CheckBox
-	high_quality_checkbox = window.find_child("HighQualityCheckBox") as CheckBox
-	align_normals_checkbox = window.find_child("AlignNormalsCheckBox") as CheckBox
-	resize_toggle_checkbox = window.find_child("ResizeToggle") as CheckBox
-	resize_option_box = window.find_child("ResizeOptionButton") as SpinBox
+		
 	height_channel = [
-		window.find_child("HeightChannelR") as Button,
-		window.find_child("HeightChannelG") as Button,
-		window.find_child("HeightChannelB") as Button,
-		window.find_child("HeightChannelA") as Button
+		window.get_node("%HeightChannelR") as Button,
+		window.get_node("%HeightChannelG") as Button,
+		window.get_node("%HeightChannelB") as Button,
+		window.get_node("%HeightChannelA") as Button
 	]
 	roughness_channel = [
-		window.find_child("RoughnessChannelR") as Button,
-		window.find_child("RoughnessChannelG") as Button,
-		window.find_child("RoughnessChannelB") as Button,
-		window.find_child("RoughnessChannelA") as Button
+		window.get_node("%RoughnessChannelR") as Button,
+		window.get_node("%RoughnessChannelG") as Button,
+		window.get_node("%RoughnessChannelB") as Button,
+		window.get_node("%RoughnessChannelA") as Button
 	]
 	occlusion_channel = [
-		window.find_child("RoughnessChannelR") as Button,
-		window.find_child("RoughnessChannelG") as Button,
-		window.find_child("RoughnessChannelB") as Button,
-		window.find_child("RoughnessChannelA") as Button
+		window.get_node("%AOChannelR") as Button,
+		window.get_node("%AOChannelG") as Button,
+		window.get_node("%AOChannelB") as Button,
+		window.get_node("%AOChannelA") as Button
 	]
 	
 	height_channel[0].pressed.connect(func() -> void: height_channel_selected = 0)
@@ -126,13 +137,11 @@ func pack_textures_popup() -> void:
 	open_file_dialog.file_selected.connect(set_on_top_fn)
 	open_file_dialog.canceled.connect(set_on_top_fn)
 	
-	_init_texture_picker(window.find_child("AlbedoVBox"), IMAGE_ALBEDO)
-	_init_texture_picker(window.find_child("HeightVBox"), IMAGE_HEIGHT)
-	_init_texture_picker(window.find_child("NormalVBox"), IMAGE_NORMAL)
-	_init_texture_picker(window.find_child("RoughnessVBox"), IMAGE_ROUGHNESS)
-	_init_texture_picker(window.find_child("AmbientOcclusionVBox"), IMAGE_AO)
-
-	(window.find_child("PackButton") as Button).pressed.connect(_on_pack_button_pressed)
+	_init_texture_picker(window.get_node("%AlbedoVBox"), IMAGE_ALBEDO)
+	_init_texture_picker(window.get_node("%HeightVBox"), IMAGE_HEIGHT)
+	_init_texture_picker(window.get_node("%NormalVBox"), IMAGE_NORMAL)
+	_init_texture_picker(window.get_node("%RoughnessVBox"), IMAGE_ROUGHNESS)
+	_init_texture_picker(window.get_node("%AOVBox"), IMAGE_AO)
 
 
 func _on_close_requested() -> void:
@@ -227,7 +236,7 @@ func _init_texture_picker(p_parent: Node, p_image_index: int) -> void:
 			_set_wh_labels(p_image_index, image.get_width(), image.get_height())
 			if p_image_index == IMAGE_NORMAL:
 				_set_normal_vector(image)
-			if p_image_index == IMAGE_HEIGHT or p_image_index == IMAGE_ROUGHNESS or p_image_index == IMAGE_AO:
+			if p_image_index in [ IMAGE_HEIGHT, IMAGE_ROUGHNESS, IMAGE_AO ]:
 				set_channel_fn.call(image.detect_used_channels())
 	
 	var os_drop_fn: Callable = func(files: PackedStringArray) -> void:
@@ -300,27 +309,17 @@ func _init_texture_picker(p_parent: Node, p_image_index: int) -> void:
 
 
 func _set_wh_labels(p_image_index: int, width: int, height: int) -> void:
-	var w: String = ""
-	var h: String = ""
-	if width > 0 and height > 0:
-		w = "w: " + str(width)
-		h = "h: " + str(height)
 	match p_image_index:
 		0:
-			window.find_child("AlbedoW").text = w
-			window.find_child("AlbedoH").text = h
+			window.get_node("%AlbedoSize").text = "(%d, %d)" % [ width, height ]
 		1:
-			window.find_child("HeightW").text = w
-			window.find_child("HeightH").text = h
+			window.get_node("%HeightSize").text = "(%d, %d)" % [ width, height ]
 		2:
-			window.find_child("NormalW").text = w
-			window.find_child("NormalH").text = h
+			window.get_node("%NormalSize").text = "(%d, %d)" % [ width, height ]
 		3:
-			window.find_child("RoughnessW").text = w
-			window.find_child("RoughnessH").text = h
+			window.get_node("%RoughnessSize").text = "(%d, %d)" % [ width, height ]
 		4:
-			window.find_child("AmbientOcclusionW").text = w
-			window.find_child("AmbientOcclusionH").text = h
+			window.get_node("%AOSize").text = "(%d, %d)" % [ width, height ]
 
 
 func _show_message(p_level: int, p_text: String) -> void:
