@@ -33,7 +33,7 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 public:
 	Terrain3DTextureAsset() { clear(); }
 	~Terrain3DTextureAsset() {}
-	void initialize(const bool p_new = true) override;
+	void initialize() override;
 	void clear() override;
 
 	void set_name(const String &p_name) override;

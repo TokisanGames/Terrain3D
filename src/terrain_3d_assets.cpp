@@ -119,7 +119,7 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 			LOG(DEBUG, "Connecting to id_changed, ID: ", id);
 			res->connect("id_changed", callable_mp(this, &Terrain3DAssets::_swap_ids));
 		}
-		res->initialize(false); // This asset is loaded, not new
+		res->initialize();
 	}
 	if (Terrain3D::debug_level >= DEBUG) {
 		for (int i = 0; i < list.size(); i++) {

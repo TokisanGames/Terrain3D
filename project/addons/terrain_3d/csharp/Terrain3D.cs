@@ -165,7 +165,7 @@ public partial class Terrain3D : Node3D
 		public new static readonly StringName GiMode = "gi_mode";
 		public new static readonly StringName CullMargin = "cull_margin";
 		public new static readonly StringName FreeEditorTextures = "free_editor_textures";
-		public new static readonly StringName ShowInstances = "show_instances";
+		public new static readonly StringName InstancerMode = "instancer_mode";
 		public new static readonly StringName ShowRegionGrid = "show_region_grid";
 		public new static readonly StringName ShowInstancerGrid = "show_instancer_grid";
 		public new static readonly StringName ShowVertexGrid = "show_vertex_grid";
@@ -369,10 +369,10 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.FreeEditorTextures, value);
 	}
 
-	public new bool ShowInstances
+	public new Terrain3DInstancer.InstancerMode InstancerMode
 	{
-		get => Get(GDExtensionPropertyName.ShowInstances).As<bool>();
-		set => Set(GDExtensionPropertyName.ShowInstances, value);
+		get => Get(GDExtensionPropertyName.InstancerMode).As<Terrain3DInstancer.InstancerMode>();
+		set => Set(GDExtensionPropertyName.InstancerMode, Variant.From(value));
 	}
 
 	public new bool ShowRegionGrid

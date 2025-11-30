@@ -60,6 +60,7 @@ _shader_parameters = {
 "noise2_scale": 0.076,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
 "projection_threshold": 0.87,
+&"region_blend": 0.25,
 "tri_scale_reduction": 0.3,
 &"vertical_projection": true,
 &"world_background_noise": null,
@@ -69,7 +70,6 @@ _shader_parameters = {
 "world_noise_max_octaves": 4,
 "world_noise_min_octaves": 2,
 "world_noise_offset": Vector3(2.17, -1.225, 1.9),
-"world_noise_region_blend": 0.33,
 "world_noise_scale": 9.85
 }
 world_background = 2

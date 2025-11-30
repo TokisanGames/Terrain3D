@@ -60,11 +60,29 @@ public partial class Terrain3DInstancer : GodotObject
 	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DInstancer" type.</returns>
 	public new static Terrain3DInstancer Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
+	public enum InstancerMode
+	{
+		Normal = 1,
+		Disabled = 0,
+	}
+
+	public new static class GDExtensionPropertyName
+	{
+		public new static readonly StringName Mode = "mode";
+	}
+
+	public new Terrain3DInstancer.InstancerMode Mode
+	{
+		get => Get(GDExtensionPropertyName.Mode).As<Terrain3DInstancer.InstancerMode>();
+		set => Set(GDExtensionPropertyName.Mode, Variant.From(value));
+	}
+
 	public new static class GDExtensionMethodName
 	{
 		public new static readonly StringName ClearByMesh = "clear_by_mesh";
 		public new static readonly StringName ClearByLocation = "clear_by_location";
 		public new static readonly StringName ClearByRegion = "clear_by_region";
+		public new static readonly StringName IsEnabled = "is_enabled";
 		public new static readonly StringName AddInstances = "add_instances";
 		public new static readonly StringName RemoveInstances = "remove_instances";
 		public new static readonly StringName AddMultimesh = "add_multimesh";
@@ -75,7 +93,6 @@ public partial class Terrain3DInstancer : GodotObject
 		public new static readonly StringName GetClosestMeshId = "get_closest_mesh_id";
 		public new static readonly StringName UpdateMmis = "update_mmis";
 		public new static readonly StringName SwapIds = "swap_ids";
-		public new static readonly StringName DumpMmis = "dump_mmis";
 	}
 
 	public new void ClearByMesh(long meshId) => 
@@ -86,6 +103,9 @@ public partial class Terrain3DInstancer : GodotObject
 
 	public new void ClearByRegion(Terrain3DRegion region, long meshId) => 
 		Call(GDExtensionMethodName.ClearByRegion, [region, meshId]);
+
+	public new bool IsEnabled() => 
+		Call(GDExtensionMethodName.IsEnabled, []).As<bool>();
 
 	public new void AddInstances(Vector3 globalPosition, Godot.Collections.Dictionary @params) => 
 		Call(GDExtensionMethodName.AddInstances, [globalPosition, @params]);
@@ -116,8 +136,5 @@ public partial class Terrain3DInstancer : GodotObject
 
 	public new void SwapIds(long srcId, long destId) => 
 		Call(GDExtensionMethodName.SwapIds, [srcId, destId]);
-
-	public new void DumpMmis() => 
-		Call(GDExtensionMethodName.DumpMmis, []);
 
 }

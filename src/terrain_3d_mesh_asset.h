@@ -18,7 +18,7 @@ constexpr ShadowCasting SHADOWS_OFF = RenderingServer::SHADOW_CASTING_SETTING_OF
 constexpr ShadowCasting SHADOWS_ONLY = RenderingServer::SHADOW_CASTING_SETTING_SHADOWS_ONLY;
 
 /* This class requires a bit of special care because:
- * - We want custom defaults depending on if it's a new texture card or a scene file
+ * - We want custom defaults depending on if it's a texture card or a scene file
  * - Any settings saved in the assets resource file need to override the defaults
  * - generated_type = TEXTURE_CARD is the default and isn't saved in the scene file
  *
@@ -53,11 +53,11 @@ private:
 	// Saved data
 	bool _enabled = true;
 	Ref<PackedScene> _packed_scene;
-	GenType _generated_type = TYPE_TEXTURE_CARD;
+	GenType _generated_type = TYPE_NONE;
 	int _generated_faces = 2;
 	Vector2 _generated_size = V2(1.f);
 	real_t _height_offset = 0.f;
-	real_t _density = 10.f;
+	real_t _density = 0.f;
 	ShadowCasting _cast_shadows = SHADOWS_ON;
 	uint32_t _visibility_layers = 1;
 	Ref<Material> _material_override;
@@ -84,9 +84,9 @@ private:
 public:
 	Terrain3DMeshAsset() { clear(); }
 	~Terrain3DMeshAsset() {}
-	void initialize(const bool p_new = true) override;
-
+	void initialize() override;
 	void clear() override;
+
 	void set_name(const String &p_name) override;
 	String get_name() const override { return _name; }
 	void set_id(const int p_new_id) override;

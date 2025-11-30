@@ -17,7 +17,7 @@ public:
 	Terrain3DAssetResource() {}
 	~Terrain3DAssetResource() {}
 
-	virtual void initialize(const bool p_new = true) = 0;
+	virtual void initialize() = 0;
 	virtual void clear() = 0;
 	virtual void set_name(const String &p_name) = 0;
 	virtual String get_name() const = 0;

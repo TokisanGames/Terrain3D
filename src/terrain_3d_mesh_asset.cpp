@@ -136,15 +136,14 @@ Ref<Material> Terrain3DMeshAsset::_get_material() {
 // Public Functions
 ///////////////////////////
 
-// Called by Terrain3DAssets::set_mesh_asset()
-void Terrain3DMeshAsset::initialize(const bool p_new) {
+// Called by Terrain3DAssets::_set_asset_list() and _set_asset()
+void Terrain3DMeshAsset::initialize() {
 	LOG(INFO, _id, ": ", _name, ": initializing asset");
-	if (_generated_type > TYPE_NONE) {
-		if (p_new) {
-			set_generated_type(TYPE_MAX);
-		} else {
-			_assign_generated_mesh();
-		}
+	if (_packed_scene.is_null() && _generated_type == TYPE_NONE) {
+		LOG(DEBUG, "Blank mesh, setting up default texture card");
+		set_generated_type(TYPE_TEXTURE_CARD);
+		_height_offset = 0.5f;
+		_clear_lod_ranges();
 	}
 }
 
@@ -158,11 +157,11 @@ void Terrain3DMeshAsset::clear() {
 	_packed_scene.unref();
 	_meshes.clear();
 	_pending_meshes.clear();
-	_generated_type = TYPE_TEXTURE_CARD;
+	_generated_type = TYPE_NONE;
 	_generated_faces = 2;
 	_generated_size = V2(1.f);
 	_height_offset = 0.f;
-	_density = 10.f;
+	_density = 0.f;
 	_cast_shadows = SHADOWS_ON;
 	_visibility_layers = 1;
 	_material_override.unref();
@@ -320,13 +319,16 @@ void Terrain3DMeshAsset::set_scene_file(const Ref<PackedScene> &p_scene_file) {
 			LOG(ERROR, "First mesh is null after loading scene");
 			return;
 		}
-		_density = CLAMP(10.f / mesh->get_aabb().get_volume(), 0.01f, 10.0f);
+		AABB aabb = mesh->get_aabb();
+		_density = CLAMP(10.f / (aabb.has_volume() ? aabb.get_volume() : 1.f), 0.01f, 10.0f);
 		_last_lod = _pending_meshes.size() - 1;
 		_last_shadow_lod = _last_lod;
 		_shadow_impostor = 0;
 		_clear_lod_ranges();
 	} else {
 		set_generated_type(TYPE_TEXTURE_CARD);
+		_height_offset = 0.5f;
+		_clear_lod_ranges();
 	}
 	// If no existing meshes, commit immediately. Otherwise, will trigger on an instancer update
 	if (_meshes.is_empty()) {
@@ -345,26 +347,13 @@ void Terrain3DMeshAsset::commit_meshes() {
 }
 
 void Terrain3DMeshAsset::set_generated_type(const GenType p_type) {
-	if (p_type < TYPE_NONE || p_type > TYPE_MAX) {
-		LOG(ERROR, _name, ": Invalid generated type: ", p_type);
-		return;
-	}
-	if (_generated_type == p_type) {
-		return;
-	}
-	_generated_type = p_type;
-	if (_generated_type == TYPE_NONE || _generated_type == TYPE_MAX) {
-		_generated_type = TYPE_TEXTURE_CARD;
-	}
+	SET_IF_DIFF(_generated_type, CLAMP(p_type, GenType(TYPE_NONE + 1), GenType(TYPE_MAX - 1)));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting generated type: ", _generated_type);
-	if (_generated_type > TYPE_NONE) {
-		_assign_generated_mesh();
-		_density = 10.f;
-		_height_offset = 0.5f;
-		_clear_lod_ranges();
-		LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
-		emit_signal("instancer_setting_changed", _id);
-	}
+	_assign_generated_mesh();
+	_density = 10.f;
+	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
+	emit_signal("instancer_setting_changed", _id);
+	notify_property_list_changed();
 }
 
 Ref<Mesh> Terrain3DMeshAsset::get_mesh(const int p_lod) const {
@@ -560,7 +549,12 @@ void Terrain3DMeshAsset::_validate_property(PropertyInfo &p_property) const {
 }
 
 bool Terrain3DMeshAsset::_property_can_revert(const StringName &p_name) const {
-	return (p_name.match("last_lod") || p_name.match("last_shadow_lod"));
+	return (
+			p_name.match("last_lod") ||
+			p_name.match("last_shadow_lod") ||
+			p_name.match("density") ||
+			p_name.match("generated_type") ||
+			(_generated_type > TYPE_NONE && (p_name.match("height_offset") || p_name.match("lod0_range"))));
 }
 
 bool Terrain3DMeshAsset::_property_get_revert(const StringName &p_name, Variant &r_property) const {
@@ -570,6 +564,20 @@ bool Terrain3DMeshAsset::_property_get_revert(const StringName &p_name, Variant 
 	} else if (p_name.match("last_shadow_lod")) {
 		r_property = get_lod_count() - 1;
 		return true;
+	} else if (p_name.match("density")) {
+		r_property = 10.f;
+		return true;
+	} else if (p_name.match("generated_type")) {
+		r_property = TYPE_TEXTURE_CARD;
+		return true;
+	} else if (_generated_type > TYPE_NONE) {
+		if (p_name.match("height_offset")) {
+			r_property = 0.5f;
+			return true;
+		} else if (p_name.match("lod0_range")) {
+			r_property = 128.f;
+			return true;
+		}
 	}
 	return false;
 }
@@ -599,8 +607,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_scene_file", "scene_file"), &Terrain3DMeshAsset::set_scene_file);
 	ClassDB::bind_method(D_METHOD("get_scene_file"), &Terrain3DMeshAsset::get_scene_file);
-	//ClassDB::bind_method(D_METHOD("set_generated_type", "type"), &Terrain3DMeshAsset::set_generated_type);
-	//ClassDB::bind_method(D_METHOD("get_generated_type"), &Terrain3DMeshAsset::get_generated_type);
+	ClassDB::bind_method(D_METHOD("set_generated_type", "type"), &Terrain3DMeshAsset::set_generated_type);
+	ClassDB::bind_method(D_METHOD("get_generated_type"), &Terrain3DMeshAsset::get_generated_type);
 	ClassDB::bind_method(D_METHOD("get_mesh", "lod"), &Terrain3DMeshAsset::get_mesh, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("set_height_offset", "offset"), &Terrain3DMeshAsset::set_height_offset);
 	ClassDB::bind_method(D_METHOD("get_height_offset"), &Terrain3DMeshAsset::get_height_offset);
@@ -659,7 +667,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled", PROPERTY_HINT_NONE), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
-	//ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card"), "set_generated_type", "get_generated_type");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "generated_type", PROPERTY_HINT_ENUM, "None,Texture Card", PROPERTY_USAGE_STORAGE), "set_generated_type", "get_generated_type");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "height_offset", PROPERTY_HINT_RANGE, "-20.0,20.0,.005"), "set_height_offset", "get_height_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "density", PROPERTY_HINT_RANGE, ".01,10.0,.005"), "set_density", "get_density");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
