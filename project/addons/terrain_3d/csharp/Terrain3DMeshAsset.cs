@@ -177,9 +177,11 @@ public partial class Terrain3DMeshAsset : Resource
 		public new static readonly StringName Id = "id";
 		public new static readonly StringName Enabled = "enabled";
 		public new static readonly StringName SceneFile = "scene_file";
+		public new static readonly StringName GeneratedType = "generated_type";
 		public new static readonly StringName HeightOffset = "height_offset";
 		public new static readonly StringName Density = "density";
 		public new static readonly StringName CastShadows = "cast_shadows";
+		public new static readonly StringName VisibilityLayers = "visibility_layers";
 		public new static readonly StringName MaterialOverride = "material_override";
 		public new static readonly StringName MaterialOverlay = "material_overlay";
 		public new static readonly StringName GeneratedFaces = "generated_faces";
@@ -225,6 +227,12 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.SceneFile, value);
 	}
 
+	public new Variant GeneratedType
+	{
+		get => Get(GDExtensionPropertyName.GeneratedType).As<Variant>();
+		set => Set(GDExtensionPropertyName.GeneratedType, value);
+	}
+
 	public new double HeightOffset
 	{
 		get => Get(GDExtensionPropertyName.HeightOffset).As<double>();
@@ -241,6 +249,12 @@ public partial class Terrain3DMeshAsset : Resource
 	{
 		get => Get(GDExtensionPropertyName.CastShadows).As<Variant>();
 		set => Set(GDExtensionPropertyName.CastShadows, value);
+	}
+
+	public new long VisibilityLayers
+	{
+		get => Get(GDExtensionPropertyName.VisibilityLayers).As<long>();
+		set => Set(GDExtensionPropertyName.VisibilityLayers, value);
 	}
 
 	public new Material MaterialOverride

@@ -140,8 +140,8 @@ public partial class Terrain3DAssets : Resource
 
 	public new static class GDExtensionMethodName
 	{
-		public new static readonly StringName SetTexture = "set_texture";
-		public new static readonly StringName GetTexture = "get_texture";
+		public new static readonly StringName SetTextureAsset = "set_texture_asset";
+		public new static readonly StringName GetTextureAsset = "get_texture_asset";
 		public new static readonly StringName GetTextureCount = "get_texture_count";
 		public new static readonly StringName GetAlbedoArrayRid = "get_albedo_array_rid";
 		public new static readonly StringName GetNormalArrayRid = "get_normal_array_rid";
@@ -162,11 +162,11 @@ public partial class Terrain3DAssets : Resource
 		public new static readonly StringName Save = "save";
 	}
 
-	public new void SetTexture(long id, Terrain3DTextureAsset texture) => 
-		Call(GDExtensionMethodName.SetTexture, [id, texture]);
+	public new void SetTextureAsset(long id, Terrain3DTextureAsset texture) => 
+		Call(GDExtensionMethodName.SetTextureAsset, [id, texture]);
 
-	public new Terrain3DTextureAsset GetTexture(long id) => 
-		Terrain3DTextureAsset.Bind(Call(GDExtensionMethodName.GetTexture, [id]).As<Resource>());
+	public new Terrain3DTextureAsset GetTextureAsset(long id) => 
+		Terrain3DTextureAsset.Bind(Call(GDExtensionMethodName.GetTextureAsset, [id]).As<Resource>());
 
 	public new long GetTextureCount() => 
 		Call(GDExtensionMethodName.GetTextureCount, []).As<long>();
