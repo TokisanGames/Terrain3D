@@ -13,6 +13,7 @@
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/core/math.hpp>
 
 #include "logger.h"
 #include "terrain_3d.h"
@@ -75,10 +76,6 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
-	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_refresh_collision_on_height_change))) {
-		LOG(DEBUG, "Connecting _data::height_maps_changed signal to collision refresh");
-		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_refresh_collision_on_height_change));
-	}
 	// Texture assets changed, update material
 	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
@@ -100,41 +97,6 @@ void Terrain3D::_initialize() {
 	update_configuration_warnings();
 }
 
-void Terrain3D::_refresh_collision_on_height_change() {
-	if (!_collision || !_collision->is_enabled()) {
-		_collision_refresh_pending = false;
-		return;
-	}
-	if (Engine::get_singleton()->is_editor_hint() && !_collision->is_editor_mode()) {
-		_collision_refresh_pending = false;
-		return;
-	}
-	_collision_refresh_pending = true;
-	_process_collision_refresh_queue();
-}
-
-void Terrain3D::_process_collision_refresh_queue() {
-	if (!_collision_refresh_pending) {
-		return;
-	}
-	if (!_collision || !_collision->is_enabled()) {
-		_collision_refresh_pending = false;
-		return;
-	}
-	if (Engine::get_singleton()->is_editor_hint() && !_collision->is_editor_mode()) {
-		_collision_refresh_pending = false;
-		return;
-	}
-	const uint64_t now = Time::get_singleton()->get_ticks_usec();
-	if (now < _next_collision_refresh_usec) {
-		return;
-	}
-	LOG(DEBUG, "Flushing pending collision refresh");
-	_collision_refresh_pending = false;
-	_collision->update(true);
-	_next_collision_refresh_usec = now + COLLISION_REFRESH_THROTTLE_USEC;
-}
-
 /**
  * This is a proxy for _process(delta) called by _notification() due to
  * https://github.com/godotengine/godot-cpp/issues/1022
@@ -146,6 +108,7 @@ void Terrain3D::__physics_process(const double p_delta) {
 		LOG(DEBUG, "Camera is null, getting the current one");
 		_grab_camera();
 	}
+	_process_mesh_snap_request();
 	if (_tessellation_level > 0) {
 		if (_mesher && _d_buffer_vp && _material.is_valid()) {
 			// If clipmap target has moved enough, re-center buffer on the target.
@@ -166,7 +129,29 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
-	_process_collision_refresh_queue();
+}
+
+void Terrain3D::_process_mesh_snap_request() {
+	if (!_mesh_snap_requested) {
+		return;
+	}
+	_mesh_snap_requested = false;
+	snap_mesh();
+}
+
+void Terrain3D::_update_mesher_aabbs() {
+	if (!_mesher || !_data) {
+		return;
+	}
+	Vector2 height_range = _data->get_height_range();
+	bool has_cached = !Math::is_nan(_last_height_range.x) && !Math::is_nan(_last_height_range.y);
+	if (has_cached &&
+			Math::is_equal_approx(height_range.x, _last_height_range.x) &&
+			Math::is_equal_approx(height_range.y, _last_height_range.y)) {
+		return;
+	}
+	_last_height_range = height_range;
+	_mesher->update_aabbs();
 }
 
 /**
@@ -613,6 +598,14 @@ Vector3 Terrain3D::get_collision_target_position() const {
 }
 
 void Terrain3D::snap() {
+	snap_mesh();
+	if (_collision) {
+		LOG(DEBUG, "Terrain3D::snap resetting collision target");
+		_collision->reset_target_position();
+	}
+}
+
+void Terrain3D::snap_mesh() {
 	if (_mesher) {
 		_mesher->reset_target_position();
 	}
@@ -622,6 +615,10 @@ void Terrain3D::snap() {
 	if (_tessellation_level > 0) {
 		_last_buffer_position = V2_MAX;
 	}
+}
+
+void Terrain3D::request_mesh_snap() {
+	_mesh_snap_requested = true;
 }
 
 void Terrain3D::set_region_size(const RegionSize p_size) {

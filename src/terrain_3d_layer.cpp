@@ -224,7 +224,7 @@ void Terrain3DLayer::apply_rect(Image &p_target, const real_t p_vertex_spacing, 
 					alpha_weight = _alpha->get_pixel(src_x, src_y).r;
 				}
 			}
-			real_t feather_weight = _compute_feather_weight(Vector2i(src_x, src_y));z
+			real_t feather_weight = _compute_feather_weight(Vector2i(src_x, src_y));
 			real_t mask_weight = CLAMP(alpha_weight * feather_weight, 0.0f, 1.0f);
 			real_t intensity = MAX(_intensity, 0.0f);
 			real_t replace_weight = MIN(mask_weight * intensity, 1.0f);

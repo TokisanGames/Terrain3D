@@ -5,12 +5,16 @@
 
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/color_rect.hpp>
+#include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
+#include <godot_cpp/classes/physics_material.hpp>
+#include <godot_cpp/variant/vector2.hpp>
 
 #include "constants.h"
 #include "target_node_3d.h"
@@ -50,8 +54,6 @@ private:
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
-	bool _collision_refresh_pending = false;
-	uint64_t _next_collision_refresh_usec = 0;
 	uint8_t _warnings = 0;
 
 	// Object references
@@ -87,6 +89,8 @@ private:
 	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 	real_t _cull_margin = 0.0f;
 	bool _free_editor_textures = true;
+	bool _mesh_snap_requested = false;
+	Vector2 _last_height_range = Vector2(NAN, NAN);
 
 	// Mouse cursor
 	SubViewport *_mouse_vp = nullptr;
@@ -113,9 +117,8 @@ private:
 	void _destroy_instancer();
 	void _destroy_collision(const bool p_final = false);
 	void _destroy_mesher(const bool p_final = false);
-	void _update_mesher_aabbs() { _mesher ? _mesher->update_aabbs() : void(); }
-	void _refresh_collision_on_height_change();
-	void _process_collision_refresh_queue();
+	void _update_mesher_aabbs();
+	void _process_mesh_snap_request();
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
@@ -131,7 +134,6 @@ private:
 
 public:
 	static DebugLevel debug_level; // Initialized in terrain_3d.cpp
-	static constexpr uint64_t COLLISION_REFRESH_THROTTLE_USEC = 100000; // ~0.1s between forced collision rebuilds
 
 	Terrain3D();
 	~Terrain3D() {}
@@ -167,6 +169,8 @@ public:
 	void set_collision_target(Node3D *p_node);
 	Vector3 get_collision_target_position() const;
 	void snap();
+	void snap_mesh();
+	void request_mesh_snap();
 
 	// Regions
 	void set_region_size(const RegionSize p_size);
