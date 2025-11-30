@@ -63,7 +63,6 @@ private:
 	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod = INT32_MAX);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
 	RID _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
-	Vector2i _get_cell(const Vector3 &p_global_position, const int p_region_size) const;
 	Array _get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_on_collision, const real_t p_raycast_start) const;
 
 public:

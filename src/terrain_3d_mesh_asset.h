@@ -7,6 +7,7 @@
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/classes/shape3d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 
 #include "constants.h"
@@ -72,6 +73,9 @@ private:
 	Ref<Material> _highlight_mat;
 	TypedArray<Mesh> _meshes;
 	TypedArray<Mesh> _pending_meshes; // Queue to avoid warnings from RS on mesh swap
+	TypedArray<Shape3D> _shapes;
+	TypedArray<Transform3D> _shape_transforms;
+	Ref<Texture2D> _thumbnail;
 	uint32_t _instance_count = 0;
 
 	void _clear_lod_ranges();
@@ -95,8 +99,8 @@ public:
 	bool is_highlighted() const override { return _highlighted; }
 	Ref<Material> get_highlight_material() const { return _highlighted ? _highlight_mat : Ref<Material>(); }
 	Color get_highlight_color() const override;
+	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
 	Ref<Texture2D> get_thumbnail() const override { return _thumbnail; }
-
 	void set_enabled(const bool p_enabled);
 	bool is_enabled() const { return _enabled; }
 
@@ -111,7 +115,9 @@ public:
 	void set_generated_type(const GenType p_type);
 	GenType get_generated_type() const { return _generated_type; }
 	Ref<Mesh> get_mesh(const int p_lod = 0) const;
-	void set_thumbnail(Ref<Texture2D> p_tex) { _thumbnail = p_tex; }
+	TypedArray<Shape3D> get_shapes() const;
+	int get_shape_count() const;
+	TypedArray<Transform3D> get_shape_transforms() const;
 	void set_height_offset(const real_t p_offset);
 	real_t get_height_offset() const { return _height_offset; }
 	void set_density(const real_t p_density);
