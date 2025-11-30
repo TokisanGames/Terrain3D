@@ -28,8 +28,12 @@ uniform float _region_texel_size = 0.0009765625; // = 1/1024
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 //uniform vec2 _region_locations[1024];
+//uniform float _texture_normal_depth_array[32];
+//uniform float _texture_ao_strength_array[32];
+//uniform float _texture_ao_affect_array[32];
+//uniform float _texture_roughness_mod_array[32];
 //uniform float _texture_uv_scale_array[32];
-//uniform float _texture_detile_array[32];
+//uniform vec2 _texture_detile_array[32];
 //uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;

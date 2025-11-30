@@ -48,10 +48,12 @@ public:
 			const Vector2 &p_r16_height_range = Vector2(0.f, 255.f), const Vector2i &p_r16_size = V2I_ZERO);
 	static Ref<Image> pack_image(const Ref<Image> &p_src_rgb,
 			const Ref<Image> &p_src_a,
+			const Ref<Image> &p_src_ao,
 			const bool p_invert_green = false,
 			const bool p_invert_alpha = false,
 			const bool p_normalize_alpha = false,
-			const int p_alpha_channel = 0);
+			const int p_alpha_channel = 0,
+			const int p_occlusion_channel = 0);
 	static Ref<Image> luminance_to_height(const Ref<Image> &p_src_rgb);
 	static void benchmark(Terrain3D *p_terrain);
 

@@ -104,7 +104,13 @@ Natural textures like rock or grass can be very difficult to tell. However if yo
 
 Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting the image.
 
-You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values are near 0 and should appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite. 
+You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values are near 0 and should appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite.
+
+## Ambient Occlusion
+
+A way to include real AO values packed into the normal map is achieved by encoding the values in the normal map vector scalars. These vectors are expected to have a unit length of 1.0 and by scaling the vector length, it is then possible to extract the AO value from the normal map RGB channels.
+
+The shader will always decode the normal map as if it has AO data included in this way, as the result will be mostly 1.0 (No Ambient Occlusion) when no packing has occured.
 
 
 ## Channel Pack Textures in Terrain3D
@@ -117,7 +123,7 @@ You can use our built in tool to pack textures for you.
 
 1. At the top of your viewport, click the `Terrain3D` menu, then `Pack Textures`.
 2. Select your textures for albedo and height.
-3. Optionally, select textures for normal and roughness.
+3. Optionally, select textures for normal and roughness, and if desired ambient occlusion
 4. Optionally, convert a DirectX normal map to OpenGL, or smoothness to roughness map.
 5. Optionally, enable Orthogonalise normals if you see a reflective checkerboard pattern appear when using detiling.
 6. Click `Pack Textures As...` and save the resulting PNG files to disk.
@@ -131,6 +137,8 @@ Make sure to reimport both files. Double click each file in the filesystem and e
 
 
 ## Channel Pack Textures with Gimp
+
+> Note: AO packing normals manually is complex and not reccomended. The formula used is: `unpacked_normal_vector * (sqrt(ao) * 0.5 + 0.5)`
 
 1. Open your RGB Albedo and greyscale Height files (or Normal and Roughness).
 
@@ -202,13 +210,11 @@ We want high performance games, so we need to optimize our systems for the graph
 
 We could have the system channel pack for you at startup, however that would mean processing up to 128 images every time any scene with Terrain3D loads, both in the editor and running games. Exported games may not even work since Godot's image compression libraries only exist in the editor. The most reasonable path is for gamedevs to learn a simple process that they'll use for their entire career and use it to set up terrain textures one time.
 
-### What about AO, Emissive, Metal, and other texture maps?
+### What about Emissive, Metal, and other texture maps?
 
 Most terrain textures like grass, rock, and dirt do not need these. 
 
-The only one that might be useful generally is AO, however that is debatable. We do have height, which can double for AO in a custom shader. Or, if you have no height texture, you can substitute an AO texture. These two are similar depending on the specific texture, and it's not worth allocating another texture array just for AO.
-
-Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both height and AO. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. You can add a [custom shader](tips_technical.md#add-a-custom-texture-map) to add the individual texture map.
+Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. You can add a [custom shader](tips_technical.md#add-a-custom-texture-map) to add the individual texture map.
 
 ### Why not use Standard Godot materials?
 

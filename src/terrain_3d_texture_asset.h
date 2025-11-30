@@ -17,8 +17,9 @@ class Terrain3DTextureAsset : public Terrain3DAssetResource {
 	Color _albedo_color = Color(1.f, 1.f, 1.f, 1.f);
 	Ref<Texture2D> _albedo_texture;
 	Ref<Texture2D> _normal_texture;
-	real_t _normal_depth = 0.5f;
+	real_t _normal_depth = 1.0f;
 	real_t _ao_strength = 0.5f;
+	real_t _ao_light_affect = 0.0f;
 	real_t _roughness = 0.f;
 	real_t _uv_scale = 0.1f;
 	bool _vertical_projection = false;
@@ -62,6 +63,9 @@ public:
 
 	void set_ao_strength(const real_t p_ao_strength);
 	real_t get_ao_strength() const { return _ao_strength; }
+
+	void set_ao_light_affect(const real_t p_ao_light_affect);
+	real_t get_ao_light_affect() const { return _ao_light_affect; }
 
 	void set_roughness(const real_t p_roughness);
 	real_t get_roughness() const { return _roughness; }

@@ -230,6 +230,18 @@ public:
 	void set_show_navigation(const bool p_enabled) { _material.is_valid() ? _material->set_show_navigation(p_enabled) : void(); }
 	bool get_show_navigation() const { return _material.is_valid() ? _material->get_show_navigation() : false; }
 
+	// PBR View Aliases
+	void set_show_texture_albedo(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_albedo(p_enabled) : void(); }
+	bool get_show_texture_albedo() const { return _material.is_valid() ? _material->get_show_texture_albedo() : false; }
+	void set_show_texture_height(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_height(p_enabled) : void(); }
+	bool get_show_texture_height() const { return _material.is_valid() ? _material->get_show_texture_height() : false; }
+	void set_show_texture_normal(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_normal(p_enabled) : void(); }
+	bool get_show_texture_normal() const { return _material.is_valid() ? _material->get_show_texture_normal() : false; }
+	void set_show_texture_ao(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_ao(p_enabled) : void(); }
+	bool get_show_texture_ao() const { return _material.is_valid() ? _material->get_show_texture_ao() : false; }
+	void set_show_texture_rough(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_rough(p_enabled) : void(); }
+	bool get_show_texture_rough() const { return _material.is_valid() ? _material->get_show_texture_rough() : false; }
+
 	// Debug View Aliases
 	void set_show_checkered(const bool p_enabled) { _material.is_valid() ? _material->set_show_checkered(p_enabled) : void(); }
 	bool get_show_checkered() const { return _material.is_valid() ? _material->get_show_checkered() : false; }
@@ -253,12 +265,6 @@ public:
 	bool get_show_colormap() const { return _material.is_valid() ? _material->get_show_colormap() : false; }
 	void set_show_roughmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_roughmap(p_enabled) : void(); }
 	bool get_show_roughmap() const { return _material.is_valid() ? _material->get_show_roughmap() : false; }
-	void set_show_texture_height(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_height(p_enabled) : void(); }
-	bool get_show_texture_height() const { return _material.is_valid() ? _material->get_show_texture_height() : false; }
-	void set_show_texture_normal(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_normal(p_enabled) : void(); }
-	bool get_show_texture_normal() const { return _material.is_valid() ? _material->get_show_texture_normal() : false; }
-	void set_show_texture_rough(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_rough(p_enabled) : void(); }
-	bool get_show_texture_rough() const { return _material.is_valid() ? _material->get_show_texture_rough() : false; }
 
 protected:
 	void _notification(const int p_what);

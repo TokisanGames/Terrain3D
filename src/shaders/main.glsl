@@ -60,6 +60,7 @@ uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
+uniform float _texture_ao_affect_array[32];
 uniform float _texture_roughness_mod_array[32];
 uniform float _texture_uv_scale_array[32];
 uniform uint _texture_vertical_projections;
@@ -108,7 +109,8 @@ struct material {
 	vec4 albedo_height;
 	vec4 normal_rough;
 	float normal_map_depth;
-	float ao_strength;
+	float ao;
+	float ao_affect;
 	float total_weight;
 };
 
@@ -314,6 +316,9 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 		nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
 		// Unpack and rotate normal map.
 		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
+		float ao = length(nrm.xyz) * 2.0 - 1.0;
+		ao = mix(ao * ao * _texture_ao_strength_array[id] + 1.0 - _texture_ao_strength_array[id], 1.0, alb.a * alb.a);
+		nrm.xyz = normalize(nrm.xyz);
 		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
 		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
 
@@ -324,7 +329,8 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 		mat.albedo_height = fma(alb, vec4(id_weight), mat.albedo_height);
 		mat.normal_rough = fma(nrm, vec4(id_weight), mat.normal_rough);
 		mat.normal_map_depth = fma(_texture_normal_depth_array[id], id_weight, mat.normal_map_depth);
-		mat.ao_strength = fma(_texture_ao_strength_array[id], id_weight, mat.ao_strength);
+		mat.ao = fma(ao, id_weight, mat.ao);
+		mat.ao_affect = fma(_texture_ao_affect_array[id], id_weight, mat.ao_affect);
 		mat.total_weight += id_weight;
 	}
 
@@ -361,6 +367,9 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 		nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
 		// Unpack and rotate normal map.
 		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
+		float ao = length(nrm.xyz) * 2.0 - 1.0;
+		ao = mix(ao * ao * _texture_ao_strength_array[id] + 1.0 - _texture_ao_strength_array[id], 1.0, alb.a * alb.a);
+		nrm.xyz = normalize(nrm.xyz);
 		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
 		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
 
@@ -369,7 +378,8 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const float weight, const
 		mat.albedo_height = fma(alb, vec4(id_weight), mat.albedo_height);
 		mat.normal_rough = fma(nrm, vec4(id_weight), mat.normal_rough);
 		mat.normal_map_depth = fma(_texture_normal_depth_array[id], id_weight, mat.normal_map_depth);
-		mat.ao_strength = fma(_texture_ao_strength_array[id], id_weight, mat.ao_strength);
+		mat.ao = fma(ao, id_weight, mat.ao);
+		mat.ao_affect = fma(_texture_ao_affect_array[id], id_weight, mat.ao_affect);
 		mat.total_weight += id_weight;
 	}
 }
@@ -539,7 +549,7 @@ void fragment() {
 	#endif
 
 	// Struct to accumulate all texture data.
-	material mat = material(vec4(0.0), vec4(0.0), 0., 0., 0.);
+	material mat = material(vec4(0.0), vec4(0.0), 0., 0., 0., 0.);
 
 	// 2 - 4 lookups, 2 - 6 if dual scale texture
 	accumulate_material(base_ddx, base_ddy, weights[3], index[3], control[3], t_weights[3],
@@ -560,7 +570,8 @@ void fragment() {
 	mat.albedo_height *= weight_inv;
 	mat.normal_rough *= weight_inv;
 	mat.normal_map_depth *= weight_inv;
-	mat.ao_strength *= weight_inv;
+	mat.ao *= weight_inv;
+	mat.ao_affect *= weight_inv;
 
 	// Macro variation. 2 lookups
 	vec3 macrov = vec3(1.);
@@ -582,11 +593,8 @@ void fragment() {
 	// Repack final normal map value.
 	NORMAL_MAP = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
 	NORMAL_MAP_DEPTH = mat.normal_map_depth;
-
-	// Higher and/or facing up, less occluded.
-	float ao = (1. - (mat.albedo_height.a * log(2.1 - mat.ao_strength))) * (1. - mat.normal_rough.y);
-	AO = clamp(1. - ao * mat.ao_strength, mat.albedo_height.a, 1.0);
-	AO_LIGHT_AFFECT = (1.0 - mat.albedo_height.a) * clamp(mat.normal_rough.y, 0., 1.);
+	AO = clamp(mat.ao, 0., 1.);
+	AO_LIGHT_AFFECT = mat.ao_affect;
 
 }
 

@@ -210,33 +210,4 @@ group_uniforms;
 		AO = 1.0;
 	}
 
-//INSERT: DEBUG_TEXTURE_HEIGHT
-	// Show height textures
-	{
-		ALBEDO = vec3(mat.albedo_height.a);
-		ROUGHNESS = 0.7;
-		SPECULAR = 0.;
-		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
-		AO = 1.0;
-	}
-
-//INSERT: DEBUG_TEXTURE_NORMAL
-	// Show normal map textures
-	{
-		ALBEDO = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
-		ROUGHNESS = 0.7;
-		SPECULAR = 0.;
-		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
-		AO = 1.0;
-	}
-
-//INSERT: DEBUG_TEXTURE_ROUGHNESS
-	// Show roughness textures
-	{
-		ALBEDO = vec3(mat.normal_rough.a);
-		ROUGHNESS = 0.7;
-		SPECULAR = 0.;
-		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
-		AO = 1.0;
-	}
 )"

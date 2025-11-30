@@ -45,6 +45,7 @@ uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
+uniform float _texture_ao_affect_array[32];
 uniform float _texture_roughness_mod_array[32];
 uniform float _texture_uv_scale_array[32];
 uniform vec4 _texture_color_array[32];
@@ -272,14 +273,15 @@ void fragment() {
 	vec4 normal_rough = vec4(0., 1., 0., 0.7);
 	vec4 albedo_height = vec4(1.);
 	float normal_map_depth = 1.;
-	float ao_strength = 0.;
+	float ao = 1.0;
+	float ao_affect = 0.;
 
 	if (enable_textures) {
 		// set to zero before accumulation
 		albedo_height = vec4(0.);
 		normal_rough = vec4(0.);
 		normal_map_depth = 0.;
-		ao_strength = 0.;
+		ao = 0.;
 		float total_weight = 0.;
 		float sharpness = fma(56., blend_sharpness, 8.);
 
@@ -358,12 +360,15 @@ void fragment() {
 					nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0., 1.);
 					// Unpack normal map for blending.
 					nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
+					float id_ao = length(nrm.xyz) * 2.0 - 1.0;
+					id_ao = mix(id_ao * id_ao * _texture_ao_strength_array[id] + 1.0 - _texture_ao_strength_array[id], 1.0, alb.a * alb.a);
 					// height weight modifier.
 					float id_weight = exp2(sharpness * log2(id_w + alb.a * world_normal));
 					albedo_height += alb * id_weight;
 					normal_rough += nrm * id_weight;
 					normal_map_depth += _texture_normal_depth_array[id] * id_weight;
-					ao_strength += _texture_ao_strength_array[id] * id_weight;
+					ao_affect += _texture_ao_affect_array[id] * id_weight;
+					ao += id_ao * id_weight;
 					total_weight += id_weight;
 				}
 			}
@@ -373,7 +378,8 @@ void fragment() {
 		albedo_height *= weight_inv;
 		normal_rough *= weight_inv;
 		normal_map_depth *= weight_inv;
-		ao_strength *= weight_inv;
+		ao_affect *= weight_inv;
+		ao *= weight_inv;
 	}
 
 	// Macro variation. 2 lookups
@@ -397,9 +403,7 @@ void fragment() {
 	NORMAL_MAP = fma(normalize(normal_rough.xzy), vec3(0.5), vec3(0.5));
 	NORMAL_MAP_DEPTH = normal_map_depth;
 
-	// Higher and/or facing up, less occluded.
-	float ao = (1. - (albedo_height.a * log(2.1 - ao_strength))) * (1. - normal_rough.y);
-	AO = clamp(1. - ao * ao_strength, albedo_height.a, 1.0);
-	AO_LIGHT_AFFECT = (1.0 - albedo_height.a) * clamp(normal_rough.y, 0., 1.);
+	AO = clamp(ao, 0., 1.);
+	AO_LIGHT_AFFECT = ao_affect;
 
 }

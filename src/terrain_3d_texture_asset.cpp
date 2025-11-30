@@ -49,6 +49,10 @@ void Terrain3DTextureAsset::clear() {
 	_albedo_texture.unref();
 	_normal_texture.unref();
 	_thumbnail.unref();
+	_normal_depth = 1.0f;
+	_ao_strength = 0.5f;
+	_ao_light_affect = 0.0f;
+	_roughness = 0.f;
 	_uv_scale = 0.1f;
 	_vertical_projection = false;
 	_detiling_rotation = 0.0f;
@@ -161,8 +165,15 @@ void Terrain3DTextureAsset::set_roughness(const real_t p_roughness) {
 }
 
 void Terrain3DTextureAsset::set_ao_strength(const real_t p_ao_strength) {
-	SET_IF_DIFF(_ao_strength, CLAMP(p_ao_strength, 0.0f, 2.0f));
+	SET_IF_DIFF(_ao_strength, CLAMP(p_ao_strength, 0.0f, 1.0f));
 	LOG(INFO, "Setting ao_strength: ", _ao_strength);
+	LOG(DEBUG, "Emitting setting_changed");
+	emit_signal("setting_changed");
+}
+
+void Terrain3DTextureAsset::set_ao_light_affect(const real_t p_ao_light_affect) {
+	SET_IF_DIFF(_ao_light_affect, CLAMP(p_ao_light_affect, 0.0f, 1.0f));
+	LOG(INFO, "Setting ao_light_affect: ", _ao_light_affect);
 	LOG(DEBUG, "Emitting setting_changed");
 	emit_signal("setting_changed");
 }
@@ -223,6 +234,8 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_normal_depth"), &Terrain3DTextureAsset::get_normal_depth);
 	ClassDB::bind_method(D_METHOD("set_ao_strength", "ao_strength"), &Terrain3DTextureAsset::set_ao_strength);
 	ClassDB::bind_method(D_METHOD("get_ao_strength"), &Terrain3DTextureAsset::get_ao_strength);
+	ClassDB::bind_method(D_METHOD("set_ao_light_affect", "ao_light_affect"), &Terrain3DTextureAsset::set_ao_light_affect);
+	ClassDB::bind_method(D_METHOD("get_ao_light_affect"), &Terrain3DTextureAsset::get_ao_light_affect);
 	ClassDB::bind_method(D_METHOD("set_roughness", "roughness"), &Terrain3DTextureAsset::set_roughness);
 	ClassDB::bind_method(D_METHOD("get_roughness"), &Terrain3DTextureAsset::get_roughness);
 	ClassDB::bind_method(D_METHOD("set_uv_scale", "scale"), &Terrain3DTextureAsset::set_uv_scale);
@@ -240,7 +253,8 @@ void Terrain3DTextureAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "albedo_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_albedo_texture", "get_albedo_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "ImageTexture,CompressedTexture2D"), "set_normal_texture", "get_normal_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "normal_depth", PROPERTY_HINT_RANGE, "0.0, 2.0"), "set_normal_depth", "get_normal_depth");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_strength", PROPERTY_HINT_RANGE, "0.0, 2.0"), "set_ao_strength", "get_ao_strength");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_strength", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_ao_strength", "get_ao_strength");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_light_affect", PROPERTY_HINT_RANGE, "0.0, 1.0"), "set_ao_light_affect", "get_ao_light_affect");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "roughness", PROPERTY_HINT_RANGE, "-1.0, 1.0"), "set_roughness", "get_roughness");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "uv_scale", PROPERTY_HINT_RANGE, "0.001, 2.0, or_greater"), "set_uv_scale", "get_uv_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "vertical_projection", PROPERTY_HINT_NONE), "set_vertical_projection", "get_vertical_projection");

@@ -16,6 +16,7 @@ group_uniforms;
 	float far_factor = clamp(smoothstep(dual_scale_near, dual_scale_far, length(v_vertex - _camera_pos)), 0.0, 1.0);
 	vec4 far_alb = vec4(0.);
 	vec4 far_nrm = vec4(0.);
+	float far_ao = 1.0;
 	if (far_factor > 0. && any(equal(texture_id, ivec2(dual_scale_texture)))) {
 		bool projected = TEXTURE_ID_PROJECTED(dual_scale_texture);
 		float far_scale = _texture_uv_scale_array[dual_scale_texture] * dual_scale_reduction;
@@ -44,6 +45,9 @@ group_uniforms;
 		far_nrm.a = clamp(far_nrm.a + _texture_roughness_mod_array[dual_scale_texture], 0., 1.);
 		// Unpack and rotate normal map.
 		far_nrm.xyz = fma(far_nrm.xzy, vec3(2.0), vec3(-1.0));
+		far_ao = length(far_nrm.xyz) * 2.0 - 1.0;
+		far_ao = mix(far_ao * far_ao * _texture_ao_strength_array[dual_scale_texture] + 1.0 - _texture_ao_strength_array[dual_scale_texture], 1.0, far_alb.a * far_alb.a);
+		far_nrm.xyz = normalize(far_nrm.xyz);
 		far_nrm.xz = rotate_vec2(far_nrm.xz, far_cs_angle);
 		far_nrm.xz = fma((far_nrm.xz * p_align), vec2(float(projected)), far_nrm.xz * vec2(float(!projected)));
 		
@@ -55,7 +59,8 @@ group_uniforms;
 			mat.albedo_height = fma(far_alb, vec4(id_weight), mat.albedo_height);
 			mat.normal_rough = fma(far_nrm, vec4(id_weight), mat.normal_rough);
 			mat.normal_map_depth = fma(_texture_normal_depth_array[dual_scale_texture], id_weight, mat.normal_map_depth);
-			mat.ao_strength = fma(_texture_ao_strength_array[dual_scale_texture], id_weight, mat.ao_strength);
+			mat.ao = fma(far_ao, id_weight, mat.ao);
+			mat.ao_affect = fma(_texture_ao_affect_array[dual_scale_texture], id_weight, mat.ao_affect);
 			mat.total_weight += id_weight;
 		}
 	}
@@ -69,6 +74,7 @@ group_uniforms;
 		if (id == dual_scale_texture && far_factor > 0.) {
 			alb = mix(alb, far_alb, far_factor);
 			nrm = mix(nrm, far_nrm, far_factor);
+			ao = mix(ao, far_ao, far_factor);
 		}
 //INSERT: TRI_SCALING
 	// tri scaling
