@@ -100,17 +100,17 @@
 				Removes all instancer data and MultiMeshInstance nodes attached to the tree for the specified region and mesh id.
 			</description>
 		</method>
-		<method name="dump_mmis">
-			<return type="void" />
-			<description>
-				Dumps the MultiMeshInstance3Ds attached to the tree and information about the nodes for all regions.
-			</description>
-		</method>
 		<method name="get_closest_mesh_id" qualifiers="const">
 			<return type="int" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the mesh instance ID closest to the specified global position on the ground.
+			</description>
+		</method>
+		<method name="is_enabled" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns true if [member mode] is not disabled.
 			</description>
 		</method>
 		<method name="remove_instances">
@@ -149,4 +149,18 @@
 			</description>
 		</method>
 	</methods>
+	<members>
+		<member name="mode" type="int" setter="set_mode" getter="get_mode" enum="Terrain3DInstancer.InstancerMode" default="1">
+			Normal - Generates MMIs and renders  all instances as normal.
+			Disabled - prevents the instancer from creating any MultiMeshInstance3Ds.
+		</member>
+	</members>
+	<constants>
+		<constant name="NORMAL" value="1" enum="InstancerMode">
+			Create MultiMeshInstance3Ds and render instances as normal.
+		</constant>
+		<constant name="DISABLED" value="0" enum="InstancerMode">
+			Disables creation of MultiMeshInstance3Ds and instances.
+		</constant>
+	</constants>
 </class>

@@ -41,47 +41,49 @@ Methods
 .. table::
    :widths: auto
 
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                    | :ref:`clear_textures<class_Terrain3DAssets_method_clear_textures>`\ (\ update\: ``bool`` = false\ )                                                   |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                    | :ref:`create_mesh_thumbnails<class_Terrain3DAssets_method_create_mesh_thumbnails>`\ (\ id\: ``int`` = -1, size\: ``Vector2i`` = Vector2i(128, 128)\ ) |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``RID``                                                   | :ref:`get_albedo_array_rid<class_Terrain3DAssets_method_get_albedo_array_rid>`\ (\ ) |const|                                                          |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`       | :ref:`get_mesh_asset<class_Terrain3DAssets_method_get_mesh_asset>`\ (\ id\: ``int``\ ) |const|                                                        |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``int``                                                   | :ref:`get_mesh_count<class_Terrain3DAssets_method_get_mesh_count>`\ (\ ) |const|                                                                      |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``RID``                                                   | :ref:`get_normal_array_rid<class_Terrain3DAssets_method_get_normal_array_rid>`\ (\ ) |const|                                                          |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` | :ref:`get_texture<class_Terrain3DAssets_method_get_texture>`\ (\ id\: ``int``\ ) |const|                                                              |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``PackedFloat32Array``                                    | :ref:`get_texture_ao_strengths<class_Terrain3DAssets_method_get_texture_ao_strengths>`\ (\ ) |const|                                                  |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``PackedColorArray``                                      | :ref:`get_texture_colors<class_Terrain3DAssets_method_get_texture_colors>`\ (\ ) |const|                                                              |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``int``                                                   | :ref:`get_texture_count<class_Terrain3DAssets_method_get_texture_count>`\ (\ ) |const|                                                                |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``PackedVector2Array``                                    | :ref:`get_texture_detiles<class_Terrain3DAssets_method_get_texture_detiles>`\ (\ ) |const|                                                            |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``PackedFloat32Array``                                    | :ref:`get_texture_normal_depths<class_Terrain3DAssets_method_get_texture_normal_depths>`\ (\ ) |const|                                                |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``PackedFloat32Array``                                    | :ref:`get_texture_roughness_mods<class_Terrain3DAssets_method_get_texture_roughness_mods>`\ (\ ) |const|                                              |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``PackedFloat32Array``                                    | :ref:`get_texture_uv_scales<class_Terrain3DAssets_method_get_texture_uv_scales>`\ (\ ) |const|                                                        |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``int``                                                   | :ref:`get_texture_vertical_projections<class_Terrain3DAssets_method_get_texture_vertical_projections>`\ (\ ) |const|                                  |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | Error                                                     | :ref:`save<class_Terrain3DAssets_method_save>`\ (\ path\: ``String`` = ""\ )                                                                          |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                    | :ref:`set_mesh_asset<class_Terrain3DAssets_method_set_mesh_asset>`\ (\ id\: ``int``, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ )    |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                    | :ref:`set_texture<class_Terrain3DAssets_method_set_texture>`\ (\ id\: ``int``, texture\: :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\ ) |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                    | :ref:`update_mesh_list<class_Terrain3DAssets_method_update_mesh_list>`\ (\ )                                                                          |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                    | :ref:`update_texture_list<class_Terrain3DAssets_method_update_texture_list>`\ (\ )                                                                    |
-   +-----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                    | :ref:`clear_textures<class_Terrain3DAssets_method_clear_textures>`\ (\ update\: ``bool`` = false\ )                                                                             |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                    | :ref:`create_mesh_thumbnails<class_Terrain3DAssets_method_create_mesh_thumbnails>`\ (\ id\: ``int`` = -1, size\: ``Vector2i`` = Vector2i(512, 512), force\: ``bool`` = false\ ) |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``RID``                                                   | :ref:`get_albedo_array_rid<class_Terrain3DAssets_method_get_albedo_array_rid>`\ (\ ) |const|                                                                                    |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`       | :ref:`get_mesh_asset<class_Terrain3DAssets_method_get_mesh_asset>`\ (\ id\: ``int``\ ) |const|                                                                                  |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``int``                                                   | :ref:`get_mesh_count<class_Terrain3DAssets_method_get_mesh_count>`\ (\ ) |const|                                                                                                |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``RID``                                                   | :ref:`get_normal_array_rid<class_Terrain3DAssets_method_get_normal_array_rid>`\ (\ ) |const|                                                                                    |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_ao_light_affects<class_Terrain3DAssets_method_get_texture_ao_light_affects>`\ (\ ) |const|                                                                    |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_ao_strengths<class_Terrain3DAssets_method_get_texture_ao_strengths>`\ (\ ) |const|                                                                            |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` | :ref:`get_texture_asset<class_Terrain3DAssets_method_get_texture_asset>`\ (\ id\: ``int``\ ) |const|                                                                            |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedColorArray``                                      | :ref:`get_texture_colors<class_Terrain3DAssets_method_get_texture_colors>`\ (\ ) |const|                                                                                        |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``int``                                                   | :ref:`get_texture_count<class_Terrain3DAssets_method_get_texture_count>`\ (\ ) |const|                                                                                          |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedVector2Array``                                    | :ref:`get_texture_detiles<class_Terrain3DAssets_method_get_texture_detiles>`\ (\ ) |const|                                                                                      |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_normal_depths<class_Terrain3DAssets_method_get_texture_normal_depths>`\ (\ ) |const|                                                                          |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_roughness_mods<class_Terrain3DAssets_method_get_texture_roughness_mods>`\ (\ ) |const|                                                                        |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``PackedFloat32Array``                                    | :ref:`get_texture_uv_scales<class_Terrain3DAssets_method_get_texture_uv_scales>`\ (\ ) |const|                                                                                  |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``int``                                                   | :ref:`get_texture_vertical_projections<class_Terrain3DAssets_method_get_texture_vertical_projections>`\ (\ ) |const|                                                            |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | Error                                                     | :ref:`save<class_Terrain3DAssets_method_save>`\ (\ path\: ``String`` = ""\ )                                                                                                    |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                    | :ref:`set_mesh_asset<class_Terrain3DAssets_method_set_mesh_asset>`\ (\ id\: ``int``, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ )                              |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                    | :ref:`set_texture_asset<class_Terrain3DAssets_method_set_texture_asset>`\ (\ id\: ``int``, texture\: :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\ )               |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                    | :ref:`update_mesh_list<class_Terrain3DAssets_method_update_mesh_list>`\ (\ )                                                                                                    |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                                    | :ref:`update_texture_list<class_Terrain3DAssets_method_update_texture_list>`\ (\ )                                                                                              |
+   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -236,9 +238,9 @@ A similar ``clear_meshes`` is less useful so hasn't been included. However you c
 
 .. rst-class:: classref-method
 
-|void| **create_mesh_thumbnails**\ (\ id\: ``int`` = -1, size\: ``Vector2i`` = Vector2i(128, 128)\ ) :ref:`🔗<class_Terrain3DAssets_method_create_mesh_thumbnails>`
+|void| **create_mesh_thumbnails**\ (\ id\: ``int`` = -1, size\: ``Vector2i`` = Vector2i(512, 512), force\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DAssets_method_create_mesh_thumbnails>`
 
-Generates mesh asset preview thumbnails for the asset dock, stored within each mesh asset. Specify id -1 to generate all.
+Generates mesh asset preview thumbnails for the asset dock, stored within each mesh asset. Specify id -1 to generate all. By default, mesh thumbnails are not recreated if they already exist. Specify ``force`` to regenerate existing thumbnails.
 
 .. rst-class:: classref-item-separator
 
@@ -292,13 +294,13 @@ Returns the resource ID of the TextureArray generated from combining all normal 
 
 ----
 
-.. _class_Terrain3DAssets_method_get_texture:
+.. _class_Terrain3DAssets_method_get_texture_ao_light_affects:
 
 .. rst-class:: classref-method
 
-:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` **get_texture**\ (\ id\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture>`
+``PackedFloat32Array`` **get_texture_ao_light_affects**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_ao_light_affects>`
 
-Returns the Terrain3DTextureAsset with the requested ID.
+Returns the array of ao light affects values each texture asset, indexed by asset id.
 
 .. rst-class:: classref-item-separator
 
@@ -311,6 +313,18 @@ Returns the Terrain3DTextureAsset with the requested ID.
 ``PackedFloat32Array`` **get_texture_ao_strengths**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_ao_strengths>`
 
 Returns the array of AO strengths for each texture asset, indexed by asset id.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DAssets_method_get_texture_asset:
+
+.. rst-class:: classref-method
+
+:ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>` **get_texture_asset**\ (\ id\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_asset>`
+
+Returns the Terrain3DTextureAsset with the specified ID.
 
 .. rst-class:: classref-item-separator
 
@@ -420,17 +434,17 @@ path - specifies a directory and file name to use from now on.
 
 |void| **set_mesh_asset**\ (\ id\: ``int``, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ ) :ref:`🔗<class_Terrain3DAssets_method_set_mesh_asset>`
 
-Assigns the Terrain3DMeshAsset to the specified ID slot. It can be null to clear the slot. See :ref:`set_texture()<class_Terrain3DAssets_method_set_texture>`.
+Assigns the Terrain3DMeshAsset to the specified ID slot. It can be null to clear the slot. See :ref:`set_texture_asset()<class_Terrain3DAssets_method_set_texture_asset>`.
 
 .. rst-class:: classref-item-separator
 
 ----
 
-.. _class_Terrain3DAssets_method_set_texture:
+.. _class_Terrain3DAssets_method_set_texture_asset:
 
 .. rst-class:: classref-method
 
-|void| **set_texture**\ (\ id\: ``int``, texture\: :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\ ) :ref:`🔗<class_Terrain3DAssets_method_set_texture>`
+|void| **set_texture_asset**\ (\ id\: ``int``, texture\: :ref:`Terrain3DTextureAsset<class_Terrain3DTextureAsset>`\ ) :ref:`🔗<class_Terrain3DAssets_method_set_texture_asset>`
 
 Adds a Terrain3DTextureAsset at the specified ID slot. The texture can be null to clear the slot, or remove it if its the last in the list. If the specified slot is full, it will be swapped with the source texture ID, or will find the next available ID.
 

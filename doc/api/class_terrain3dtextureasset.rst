@@ -32,6 +32,8 @@ Properties
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``Texture2D`` | :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_texture>`           |                       |
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
+   | ``float``     | :ref:`ao_light_affect<class_Terrain3DTextureAsset_property_ao_light_affect>`         | ``0.0``               |
+   +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``float``     | :ref:`ao_strength<class_Terrain3DTextureAsset_property_ao_strength>`                 | ``0.5``               |
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``float``     | :ref:`detiling_rotation<class_Terrain3DTextureAsset_property_detiling_rotation>`     | ``0.0``               |
@@ -42,7 +44,7 @@ Properties
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``String``    | :ref:`name<class_Terrain3DTextureAsset_property_name>`                               | ``"New Texture"``     |
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
-   | ``float``     | :ref:`normal_depth<class_Terrain3DTextureAsset_property_normal_depth>`               | ``0.5``               |
+   | ``float``     | :ref:`normal_depth<class_Terrain3DTextureAsset_property_normal_depth>`               | ``1.0``               |
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
    | ``Texture2D`` | :ref:`normal_texture<class_Terrain3DTextureAsset_property_normal_texture>`           |                       |
    +---------------+--------------------------------------------------------------------------------------+-----------------------+
@@ -61,15 +63,17 @@ Methods
 .. table::
    :widths: auto
 
-   +-----------+------------------------------------------------------------------------------------------------------+
-   | |void|    | :ref:`clear<class_Terrain3DTextureAsset_method_clear>`\ (\ )                                         |
-   +-----------+------------------------------------------------------------------------------------------------------+
-   | ``Color`` | :ref:`get_highlight_color<class_Terrain3DTextureAsset_method_get_highlight_color>`\ (\ ) |const|     |
-   +-----------+------------------------------------------------------------------------------------------------------+
-   | ``bool``  | :ref:`is_highlighted<class_Terrain3DTextureAsset_method_is_highlighted>`\ (\ ) |const|               |
-   +-----------+------------------------------------------------------------------------------------------------------+
-   | |void|    | :ref:`set_highlighted<class_Terrain3DTextureAsset_method_set_highlighted>`\ (\ enabled\: ``bool``\ ) |
-   +-----------+------------------------------------------------------------------------------------------------------+
+   +---------------+------------------------------------------------------------------------------------------------------+
+   | |void|        | :ref:`clear<class_Terrain3DTextureAsset_method_clear>`\ (\ )                                         |
+   +---------------+------------------------------------------------------------------------------------------------------+
+   | ``Color``     | :ref:`get_highlight_color<class_Terrain3DTextureAsset_method_get_highlight_color>`\ (\ ) |const|     |
+   +---------------+------------------------------------------------------------------------------------------------------+
+   | ``Texture2D`` | :ref:`get_thumbnail<class_Terrain3DTextureAsset_method_get_thumbnail>`\ (\ ) |const|                 |
+   +---------------+------------------------------------------------------------------------------------------------------+
+   | ``bool``      | :ref:`is_highlighted<class_Terrain3DTextureAsset_method_is_highlighted>`\ (\ ) |const|               |
+   +---------------+------------------------------------------------------------------------------------------------------+
+   | |void|        | :ref:`set_highlighted<class_Terrain3DTextureAsset_method_set_highlighted>`\ (\ enabled\: ``bool``\ ) |
+   +---------------+------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -155,6 +159,23 @@ The texture file with albedo on RGB and height on A.
 
 ----
 
+.. _class_Terrain3DTextureAsset_property_ao_light_affect:
+
+.. rst-class:: classref-property
+
+``float`` **ao_light_affect** = ``0.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_ao_light_affect>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_ao_light_affect**\ (\ value\: ``float``\ )
+- ``float`` **get_ao_light_affect**\ (\ )
+
+This value is applied directly to the AO_LIGHT_AFFECT in the shader, which dictates how much ambient occlusion affects light from Light3Ds. 0 means AO only affects ambient light. 1 means it also affects lights.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DTextureAsset_property_ao_strength:
 
 .. rst-class:: classref-property
@@ -166,7 +187,7 @@ The texture file with albedo on RGB and height on A.
 - |void| **set_ao_strength**\ (\ value\: ``float``\ )
 - ``float`` **get_ao_strength**\ (\ )
 
-The shader generates AO based on the height texture, based on this strength value.
+The strength of ambient occlusion, which darkens areas of this texture dictated by the ambient occlusion map. If you have not provided an AO texture, an AO value is approximated by the normal map automatically.
 
 .. rst-class:: classref-item-separator
 
@@ -244,7 +265,7 @@ A user specified name for this texture set.
 
 .. rst-class:: classref-property
 
-``float`` **normal_depth** = ``0.5`` :ref:`🔗<class_Terrain3DTextureAsset_property_normal_depth>`
+``float`` **normal_depth** = ``1.0`` :ref:`🔗<class_Terrain3DTextureAsset_property_normal_depth>`
 
 .. rst-class:: classref-property-setget
 
@@ -349,6 +370,18 @@ Clears the texture files and settings.
 ``Color`` **get_highlight_color**\ (\ ) |const| :ref:`🔗<class_Terrain3DTextureAsset_method_get_highlight_color>`
 
 Returns the color of the current highlight, if any.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DTextureAsset_method_get_thumbnail:
+
+.. rst-class:: classref-method
+
+``Texture2D`` **get_thumbnail**\ (\ ) |const| :ref:`🔗<class_Terrain3DTextureAsset_method_get_thumbnail>`
+
+Returns the generated thumbnail.
 
 .. rst-class:: classref-item-separator
 

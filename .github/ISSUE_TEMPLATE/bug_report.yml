@@ -5,14 +5,14 @@ body:
 - type: markdown
   attributes:
     value: |
-      Has your issue already been addressed in [Installation](https://terrain3d.readthedocs.io/en/latest/docs/installation.html), [Preparing textures](https://terrain3d.readthedocs.io/en/latest/docs/texture_prep.html), [Troubleshooting](https://terrain3d.readthedocs.io/en/latest/docs/troubleshooting.html), or [Tips](https://terrain3d.readthedocs.io/en/latest/docs/tips.html)?
+      Has your issue already been addressed in [Installation](https://terrain3d.readthedocs.io/en/latest/docs/installation.html), [Preparing textures](https://terrain3d.readthedocs.io/en/latest/docs/texture_prep.html), [Troubleshooting](https://terrain3d.readthedocs.io/en/latest/docs/troubleshooting.html), or [Tips](https://terrain3d.readthedocs.io/en/latest/docs/tips_technical.html)?
 
 - type: input
   attributes:
     label: Terrain3D version
     description: >
       Release version or the commit string of a development build. No -dev versions, provide the commit shown in `git log`.
-    placeholder: v0.9.0
+    placeholder: v1.0.0
   validations:
     required: true
 
@@ -21,7 +21,7 @@ body:
     label: System information
     description: |
       - Specify the version of Godot and your OS, GPU and rendering backend (Vulkan Forward+, Mobile, Compatibility/WebGL).
-      - Starting with Godot 4.1, you can copy this information to your clipboard by using *Help > Copy System Info* at the top of the editor window.
+      - You can copy this information to your clipboard by using *Help > Copy System Info* at the top of the editor window.
     placeholder: Godot v4.1.3.stable - Windows 10/64 - Vulkan (Forward+) - dedicated NVIDIA GeForce RTX 3070 Laptop GPU (NVIDIA; 31.0.15.4633)
   validations:
     required: true

@@ -15,14 +15,14 @@ This list are for items that don't already have dedicated pages in the documenta
 | Object placement | The [instancer](instancer.md) supports placing foliage. Placing objects that shouldn't be in a MultiMeshInstance node is [out of scope](https://github.com/TokisanGames/Terrain3D/issues/47). See 3rd party tools below.
 | Streaming | There is no streaming built in to Godot. Region Streaming is [in progress](https://github.com/TokisanGames/Terrain3D/pull/675).
 | Roads | Look at [Godot Road Generator](https://github.com/TheDuckCow/godot-road-generator/).
-| Water | Use [WaterWays](https://github.com/Arnklit/Waterways) for rivers, or [Realistic Water Shader](https://github.com/godot-extended-libraries/godot-realistic-water/) or [Infinite Ocean](https://stayathomedev.com/tutorials/general-tutorials/infinite-ocean) for lakes or oceans.
+| Water | Use [WaterWays](https://github.com/Arnklit/Waterways) for rivers, or [Realistic Water Shader](https://github.com/godot-extended-libraries/godot-realistic-water/) or a variety of other water shaders available online for lakes or oceans.
 |**Rendering**|
 | Frustum Culling | The terrain is made up of several meshes, so half can be culled if the camera is near the ground.
 | SDFGI | Works fine.
 | VoxelGI | Works fine.
 | Lightmaps | Not possible. There is no static mesh, nor UV2 channel to bake lightmaps on to.
 | **3rd Party Tools** |
-| [Scatter](https://github.com/HungryProton/scatter) | For placing MeshInstance3D objects algorithmically, with or without collision. We provide [a script](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/extras/3rd_party/project_on_terrain3d.gd) that allows Scatter to detect our terrain. Or you can change collision mode to `Full / Editor` and use the default `Project on Colliders`. Don't use for MultiMeshInstances, use our built in system.
+| [Scatter](https://github.com/HungryProton/scatter) | For placing MeshInstance3D objects algorithmically, with or without collision. We provide [a script](https://github.com/TokisanGames/Terrain3D/blob/main/project/addons/terrain_3d/extras/3rd_party/project_on_terrain3d.gd) that allows Scatter to detect our terrain. Or you can change collision mode to `Full / Editor` and use the default `Project on Colliders`. Don't use it for MultiMeshInstances, use our built-in instancer.
 | [AssetPlacer](https://cookiebadger.itch.io/assetplacer) | A level design tool for placing MeshInstance3D assets manually. Works on Terrain3D with placement mode set to Terrain3D or using the default mode and collision mode set to `Full / Editor`.
 
 
@@ -83,9 +83,12 @@ Older style asthetics has a few different looks:
 
 
 ### Day/Night cycles & light under the terrain
-The terrain shader is set to `cull_back`, meaning back faces are neither rendered, nor do they block light. If you have a day/night cycle and the sun sets below the horizon, it will shine through the terrain. Enable the shader override and change the second line to `cull_disabled` and the horizon will block sunlight. This does cost performance. 
 
-Alternatively, turn off your light when it syncs below. This will likely cause a shader recompile in the engine as it's a different lighting configuration. Instead you can change light energy to 0, or in the same frame, simultaneously turn off the sun light and turn on a moon light.
+If you have a day/night cycle and the sun sets below the horizon, it might shine through the terrain. There are a few options you can try:
+
+* Check `Material / Shader Override Enabled` and change the second line of the generated shader to `cull_disabled`. The terrain shader is set to `cull_back` by default, meaning back faces are neither rendered, nor do they block light. This will change that, though it does cost some performance. 
+* You can also try changing `Rendering / cast_shadows` to double sided.
+* Turn off your light when it sinks below the horizon. Changing the number of visible DirectionalLight3Ds will likely cause a shader recompile in the engine as it's a different lighting configuration. Instead you can tween light energy to 0, or you could turn off the sun light and turn on a moon light as long as it is done simultaneously in the same frame.
 
 
 ### Accessing private shader variables

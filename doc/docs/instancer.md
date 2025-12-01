@@ -105,7 +105,7 @@ We mitigate this by generating multiple MultiMeshes. Each region is divided into
 
 Multimeshes are generated and rendered on the GPU. The physics engine is on the CPU, and doesn't know anything about the placed instances. For now use this only for instances where collision is unnecessary like grass.
 
-In the future, we will likely generate collision using the collision shapes stored in your scene file.
+In the future, instance collision will be generated using the collision shapes stored in your scene file. See [PR 699](https://github.com/TokisanGames/Terrain3D/pull/699).
 
 
 ### No Scene Transforms

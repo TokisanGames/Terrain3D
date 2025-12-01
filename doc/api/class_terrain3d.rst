@@ -66,6 +66,8 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DInstancer<class_Terrain3DInstancer>`         | :ref:`instancer<class_Terrain3D_property_instancer>`                       |                 |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | :ref:`InstancerMode<enum_Terrain3DInstancer_InstancerMode>` | :ref:`instancer_mode<class_Terrain3D_property_instancer_mode>`             | ``1``           |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``float``                                                   | :ref:`label_distance<class_Terrain3D_property_label_distance>`             | ``0.0``         |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`label_size<class_Terrain3D_property_label_size>`                     | ``48``          |
@@ -110,8 +112,6 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_instancer_grid<class_Terrain3D_property_show_instancer_grid>`   | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
-   | ``bool``                                                    | :ref:`show_instances<class_Terrain3D_property_show_instances>`             | ``true``        |
-   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_jaggedness<class_Terrain3D_property_show_jaggedness>`           | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_navigation<class_Terrain3D_property_show_navigation>`           | ``false``       |
@@ -119,6 +119,10 @@ Properties
    | ``bool``                                                    | :ref:`show_region_grid<class_Terrain3D_property_show_region_grid>`         | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_roughmap<class_Terrain3D_property_show_roughmap>`               | ``false``       |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``bool``                                                    | :ref:`show_texture_albedo<class_Terrain3D_property_show_texture_albedo>`   | ``false``       |
+   +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
+   | ``bool``                                                    | :ref:`show_texture_ao<class_Terrain3D_property_show_texture_ao>`           | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_texture_height<class_Terrain3D_property_show_texture_height>`   | ``false``       |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+-----------------+
@@ -156,7 +160,7 @@ Methods
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Vector3``                                   | :ref:`get_intersection<class_Terrain3D_method_get_intersection>`\ (\ src_pos\: ``Vector3``, direction\: ``Vector3``, gpu_mode\: ``bool`` = false\ )                                                           |
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``EditorPlugin``                              | :ref:`get_plugin<class_Terrain3D_method_get_plugin>`\ (\ ) |const|                                                                                                                                            |
+   | ``Object``                                    | :ref:`get_plugin<class_Terrain3D_method_get_plugin>`\ (\ ) |const|                                                                                                                                            |
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Dictionary``                                | :ref:`get_raycast_result<class_Terrain3D_method_get_raycast_result>`\ (\ src_pos\: ``Vector3``, direction\: ``Vector3``, collision_mask\: ``int`` = 4294967295, exclude_terrain\: ``bool`` = false\ ) |const| |
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -164,7 +168,7 @@ Methods
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_editor<class_Terrain3D_method_set_editor>`\ (\ editor\: :ref:`Terrain3DEditor<class_Terrain3DEditor>`\ )                                                                                            |
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                        | :ref:`set_plugin<class_Terrain3D_method_set_plugin>`\ (\ plugin\: ``EditorPlugin``\ )                                                                                                                         |
+   | |void|                                        | :ref:`set_plugin<class_Terrain3D_method_set_plugin>`\ (\ plugin\: ``Object``\ )                                                                                                                               |
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`snap<class_Terrain3D_method_snap>`\ (\ )                                                                                                                                                                |
    +-----------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -390,7 +394,11 @@ The active :ref:`Terrain3DCollision<class_Terrain3DCollision>` object.
 - |void| **set_collision_layer**\ (\ value\: ``int``\ )
 - ``int`` **get_collision_layer**\ (\ )
 
+The physics layers the terrain lives on. Sets ``CollisionObject3D.collision_layer``.
+
 Alias for :ref:`Terrain3DCollision.layer<class_Terrain3DCollision_property_layer>`.
+
+Also see :ref:`collision_mask<class_Terrain3D_property_collision_mask>`.
 
 .. rst-class:: classref-item-separator
 
@@ -407,7 +415,11 @@ Alias for :ref:`Terrain3DCollision.layer<class_Terrain3DCollision_property_layer
 - |void| **set_collision_mask**\ (\ value\: ``int``\ )
 - ``int`` **get_collision_mask**\ (\ )
 
+The physics layers the physics body scans for colliding objects. Sets ``CollisionObject3D.collision_mask``.
+
 Alias for :ref:`Terrain3DCollision.mask<class_Terrain3DCollision_property_mask>`.
+
+Also see :ref:`collision_layer<class_Terrain3D_property_collision_layer>`.
 
 .. rst-class:: classref-item-separator
 
@@ -423,6 +435,8 @@ Alias for :ref:`Terrain3DCollision.mask<class_Terrain3DCollision_property_mask>`
 
 - |void| **set_collision_mode**\ (\ value\: :ref:`CollisionMode<enum_Terrain3DCollision_CollisionMode>`\ )
 - :ref:`CollisionMode<enum_Terrain3DCollision_CollisionMode>` **get_collision_mode**\ (\ )
+
+The selected mode determines if collision is generated and how. See :ref:`CollisionMode<enum_Terrain3DCollision_CollisionMode>` for details.
 
 Alias for :ref:`Terrain3DCollision.mode<class_Terrain3DCollision_property_mode>`.
 
@@ -441,6 +455,8 @@ Alias for :ref:`Terrain3DCollision.mode<class_Terrain3DCollision_property_mode>`
 - |void| **set_collision_priority**\ (\ value\: ``float``\ )
 - ``float`` **get_collision_priority**\ (\ )
 
+The priority with which the physics server uses to solve collisions. The higher the priority, the lower the penetration of a colliding object. Sets ``CollisionObject3D.collision_priority``.
+
 Alias for :ref:`Terrain3DCollision.priority<class_Terrain3DCollision_property_priority>`.
 
 .. rst-class:: classref-item-separator
@@ -458,6 +474,8 @@ Alias for :ref:`Terrain3DCollision.priority<class_Terrain3DCollision_property_pr
 - |void| **set_collision_radius**\ (\ value\: ``int``\ )
 - ``int`` **get_collision_radius**\ (\ )
 
+If :ref:`collision_mode<class_Terrain3D_property_collision_mode>` is Dynamic, this is the distance range within which collision shapes will be generated.
+
 Alias for :ref:`Terrain3DCollision.radius<class_Terrain3DCollision_property_radius>`.
 
 .. rst-class:: classref-item-separator
@@ -474,6 +492,8 @@ Alias for :ref:`Terrain3DCollision.radius<class_Terrain3DCollision_property_radi
 
 - |void| **set_collision_shape_size**\ (\ value\: ``int``\ )
 - ``int`` **get_collision_shape_size**\ (\ )
+
+If :ref:`collision_mode<class_Terrain3D_property_collision_mode>` is Dynamic, this is the size of each collision shape.
 
 Alias for :ref:`Terrain3DCollision.shape_size<class_Terrain3DCollision_property_shape_size>`.
 
@@ -615,6 +635,27 @@ The active :ref:`Terrain3DInstancer<class_Terrain3DInstancer>` object.
 
 ----
 
+.. _class_Terrain3D_property_instancer_mode:
+
+.. rst-class:: classref-property
+
+:ref:`InstancerMode<enum_Terrain3DInstancer_InstancerMode>` **instancer_mode** = ``1`` :ref:`🔗<class_Terrain3D_property_instancer_mode>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_instancer_mode**\ (\ value\: :ref:`InstancerMode<enum_Terrain3DInstancer_InstancerMode>`\ )
+- :ref:`InstancerMode<enum_Terrain3DInstancer_InstancerMode>` **get_instancer_mode**\ (\ )
+
+Normal - Generates MultiMeshInstance3Ds and renders all instances as normal.
+
+Disabled - prevents the instancer from creating any MultiMeshInstance3Ds.
+
+Alias for :ref:`Terrain3DInstancer.mode<class_Terrain3DInstancer_property_mode>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3D_property_label_distance:
 
 .. rst-class:: classref-property
@@ -734,7 +775,9 @@ See :ref:`get_intersection()<class_Terrain3D_method_get_intersection>`.
 - |void| **set_physics_material**\ (\ value\: ``PhysicsMaterial``\ )
 - ``PhysicsMaterial`` **get_physics_material**\ (\ )
 
-Alias for :ref:`Terrain3DCollision.physics_material<class_Terrain3DCollision_property_physics_material>`.
+Applies a ``PhysicsMaterial`` override to the entire terrain StaticBody.
+
+Alias for :ref:`Terrain3DCollision.physics_material<class_Terrain3DCollision_property_physics_material>` See that entry for details.
 
 .. rst-class:: classref-item-separator
 
@@ -806,6 +849,8 @@ This process is lossy. 16-bit precision gets increasingly worse with every power
 - |void| **set_show_autoshader**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_autoshader**\ (\ )
 
+Displays the area designated for use by the autoshader, which shows materials based upon slope.
+
 Alias for :ref:`Terrain3DMaterial.show_autoshader<class_Terrain3DMaterial_property_show_autoshader>`.
 
 .. rst-class:: classref-item-separator
@@ -822,6 +867,10 @@ Alias for :ref:`Terrain3DMaterial.show_autoshader<class_Terrain3DMaterial_proper
 
 - |void| **set_show_checkered**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_checkered**\ (\ )
+
+Shows a checkerboard display using a shader rendered pattern. This is turned on if the Texture List is empty.
+
+Note that when a blank texture slot is created, a 1k checkerboard texture is generated and stored in the texture slot. That takes VRAM. The two patterns have a slightly different scale.
 
 Alias for :ref:`Terrain3DMaterial.show_checkered<class_Terrain3DMaterial_property_show_checkered>`.
 
@@ -840,6 +889,8 @@ Alias for :ref:`Terrain3DMaterial.show_checkered<class_Terrain3DMaterial_propert
 - |void| **set_show_colormap**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_colormap**\ (\ )
 
+Shows the color map in the albedo channel.
+
 Alias for :ref:`Terrain3DMaterial.show_colormap<class_Terrain3DMaterial_property_show_colormap>`.
 
 .. rst-class:: classref-item-separator
@@ -857,7 +908,9 @@ Alias for :ref:`Terrain3DMaterial.show_colormap<class_Terrain3DMaterial_property
 - |void| **set_show_contours**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_contours**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_contours<class_Terrain3DMaterial_property_show_contours>`. Press `4` with the mouse in the viewport to toggle. Customize in the material.
+Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
+
+Alias for :ref:`Terrain3DMaterial.show_contours<class_Terrain3DMaterial_property_show_contours>`.
 
 .. rst-class:: classref-item-separator
 
@@ -873,6 +926,8 @@ Alias for :ref:`Terrain3DMaterial.show_contours<class_Terrain3DMaterial_property
 
 - |void| **set_show_control_angle**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_control_angle**\ (\ )
+
+Albedo shows the painted angle. Orange means 0°, Yellow 270°, Cyan 180°, Violet 90°. Or warm colors towards -Z, cool colors +Z, greens/yellows +X, reds/blues -X. Draw all angles coming from the center of a circle for a better understanding.
 
 Alias for :ref:`Terrain3DMaterial.show_control_angle<class_Terrain3DMaterial_property_show_control_angle>`.
 
@@ -891,6 +946,8 @@ Alias for :ref:`Terrain3DMaterial.show_control_angle<class_Terrain3DMaterial_pro
 - |void| **set_show_control_blend**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_control_blend**\ (\ )
 
+Displays the values used to blend the textures. Blue shows the autoshader blending, red shows manually painted blending.
+
 Alias for :ref:`Terrain3DMaterial.show_control_blend<class_Terrain3DMaterial_property_show_control_blend>`.
 
 .. rst-class:: classref-item-separator
@@ -907,6 +964,8 @@ Alias for :ref:`Terrain3DMaterial.show_control_blend<class_Terrain3DMaterial_pro
 
 - |void| **set_show_control_scale**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_control_scale**\ (\ )
+
+Albedo shows the painted scale. Larger scales are more red, smaller scales are more blue. 0.5 middle grey is the default 100% scale.
 
 Alias for :ref:`Terrain3DMaterial.show_control_scale<class_Terrain3DMaterial_property_show_control_scale>`.
 
@@ -925,6 +984,8 @@ Alias for :ref:`Terrain3DMaterial.show_control_scale<class_Terrain3DMaterial_pro
 - |void| **set_show_control_texture**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_control_texture**\ (\ )
 
+Albedo shows the base and overlay texture indices defined by the control map. Red pixels indicate the base texture, with brightness showing texture ids 0 to 31. Green pixels indicate the overlay texture. Yellow indicates both.
+
 Alias for :ref:`Terrain3DMaterial.show_control_texture<class_Terrain3DMaterial_property_show_control_texture>`.
 
 .. rst-class:: classref-item-separator
@@ -941,6 +1002,8 @@ Alias for :ref:`Terrain3DMaterial.show_control_texture<class_Terrain3DMaterial_p
 
 - |void| **set_show_grey**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_grey**\ (\ )
+
+Albedo is set to 0.2 grey.
 
 Alias for :ref:`Terrain3DMaterial.show_grey<class_Terrain3DMaterial_property_show_grey>`.
 
@@ -976,6 +1039,8 @@ Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_prope
 - |void| **set_show_heightmap**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_heightmap**\ (\ )
 
+Albedo is a white to black gradient depending on height. The gradient is scaled to a height of 300, so above that or far below 0 will be all white or black.
+
 Alias for :ref:`Terrain3DMaterial.show_heightmap<class_Terrain3DMaterial_property_show_heightmap>`.
 
 .. rst-class:: classref-item-separator
@@ -993,24 +1058,9 @@ Alias for :ref:`Terrain3DMaterial.show_heightmap<class_Terrain3DMaterial_propert
 - |void| **set_show_instancer_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`. Press `2` with the mouse in the viewport to toggle.
+Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
 
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_show_instances:
-
-.. rst-class:: classref-property
-
-``bool`` **show_instances** = ``true`` :ref:`🔗<class_Terrain3D_property_show_instances>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_show_instances**\ (\ value\: ``bool``\ )
-- ``bool`` **get_show_instances**\ (\ )
-
-Shows or hides all instancer meshes.
+Alias for :ref:`Terrain3DMaterial.show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1026,6 +1076,8 @@ Shows or hides all instancer meshes.
 
 - |void| **set_show_jaggedness**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_jaggedness**\ (\ )
+
+Highlights non-smooth areas of the terrain. Jagged peaks, troughs, or edges that are a bit rough with sharp angles between vertices.
 
 Alias for :ref:`Terrain3DMaterial.show_jaggedness<class_Terrain3DMaterial_property_show_jaggedness>`.
 
@@ -1044,6 +1096,8 @@ Alias for :ref:`Terrain3DMaterial.show_jaggedness<class_Terrain3DMaterial_proper
 - |void| **set_show_navigation**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_navigation**\ (\ )
 
+Displays the area designated for generating the navigation mesh.
+
 Alias for :ref:`Terrain3DMaterial.show_navigation<class_Terrain3DMaterial_property_show_navigation>`.
 
 .. rst-class:: classref-item-separator
@@ -1061,7 +1115,9 @@ Alias for :ref:`Terrain3DMaterial.show_navigation<class_Terrain3DMaterial_proper
 - |void| **set_show_region_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_region_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`. Press `1` with the mouse in the viewport to toggle.
+Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. Press `1` with the mouse in the viewport to toggle.
+
+Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1078,7 +1134,47 @@ Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_prope
 - |void| **set_show_roughmap**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_roughmap**\ (\ )
 
+Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
+
 Alias for :ref:`Terrain3DMaterial.show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_show_texture_albedo:
+
+.. rst-class:: classref-property
+
+``bool`` **show_texture_albedo** = ``false`` :ref:`🔗<class_Terrain3D_property_show_texture_albedo>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_texture_albedo**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_texture_albedo**\ (\ )
+
+Albedo textures are shown only. Other channels are excluded.
+
+Alias for :ref:`Terrain3DMaterial.show_texture_albedo<class_Terrain3DMaterial_property_show_texture_albedo>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_show_texture_ao:
+
+.. rst-class:: classref-property
+
+``bool`` **show_texture_ao** = ``false`` :ref:`🔗<class_Terrain3D_property_show_texture_ao>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_texture_ao**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_texture_ao**\ (\ )
+
+Albedo is set to the painted Ambient Occlusion textures.
+
+Alias for :ref:`Terrain3DMaterial.show_texture_ao<class_Terrain3DMaterial_property_show_texture_ao>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1094,6 +1190,8 @@ Alias for :ref:`Terrain3DMaterial.show_roughmap<class_Terrain3DMaterial_property
 
 - |void| **set_show_texture_height**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_texture_height**\ (\ )
+
+Albedo is set to the painted Height textures.
 
 Alias for :ref:`Terrain3DMaterial.show_texture_height<class_Terrain3DMaterial_property_show_texture_height>`.
 
@@ -1112,6 +1210,8 @@ Alias for :ref:`Terrain3DMaterial.show_texture_height<class_Terrain3DMaterial_pr
 - |void| **set_show_texture_normal**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_texture_normal**\ (\ )
 
+Albedo is set to the painted Normal textures.
+
 Alias for :ref:`Terrain3DMaterial.show_texture_normal<class_Terrain3DMaterial_property_show_texture_normal>`.
 
 .. rst-class:: classref-item-separator
@@ -1128,6 +1228,8 @@ Alias for :ref:`Terrain3DMaterial.show_texture_normal<class_Terrain3DMaterial_pr
 
 - |void| **set_show_texture_rough**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_texture_rough**\ (\ )
+
+Albedo is set to the painted Roughness textures. This is different from the roughness modification map above.
 
 Alias for :ref:`Terrain3DMaterial.show_texture_rough<class_Terrain3DMaterial_property_show_texture_rough>`.
 
@@ -1146,7 +1248,9 @@ Alias for :ref:`Terrain3DMaterial.show_texture_rough<class_Terrain3DMaterial_pro
 - |void| **set_show_vertex_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_vertex_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_vertex_grid<class_Terrain3DMaterial_property_show_vertex_grid>`. Press `3` with the mouse in the viewport to toggle.
+Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
+
+Alias for :ref:`Terrain3DMaterial.show_vertex_grid<class_Terrain3DMaterial_property_show_vertex_grid>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1282,13 +1386,13 @@ Returns the current Terrain3DEditor instance, if it has been set.
 
 ``Vector3`` **get_intersection**\ (\ src_pos\: ``Vector3``, direction\: ``Vector3``, gpu_mode\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3D_method_get_intersection>`
 
-Casts a ray from ``src_pos`` pointing towards ``direction``, attempting to intersect the terrain. This operation is does not use physics and is not a typical raycast, so enabling collision is unnecessary.
+Casts a ray from ``src_pos`` pointing towards ``direction``, attempting to intersect the terrain. This operation is does not use physics and is not a typical raycast, so enabling collision is unnecessary. This function likely won't work if src_pos is below the terrain.
 
 
 
-This function can operate in one of two modes defined by ``gpu_mode``:
+This function can operate in one of two modes selected by ``gpu_mode``:
 
-- If gpu_mode is disabled (default), it raymarches from the camera until the terrain is intersected, up to 4000m away. This works with one function call, but only where regions exist. It is slower than gpu_mode and gets increasingly slower the farther away the terrain is, though you may not notice.
+- If gpu_mode is disabled (default), it raymarches from src_pos until the terrain is intersected, up to 4000m away. This works with one function call, and can only intersect the terrain where regions exist. It is slower than gpu_mode and gets increasingly slower the farther away the terrain is, though you may not notice.
 
 
 
@@ -1334,9 +1438,9 @@ Also see :ref:`get_raycast_result()<class_Terrain3D_method_get_raycast_result>` 
 
 .. rst-class:: classref-method
 
-``EditorPlugin`` **get_plugin**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_plugin>`
+``Object`` **get_plugin**\ (\ ) |const| :ref:`🔗<class_Terrain3D_method_get_plugin>`
 
-Returns the EditorPlugin connected to Terrain3D.
+Returns the EditorPlugin Object connected to Terrain3D.
 
 .. rst-class:: classref-item-separator
 
@@ -1396,9 +1500,9 @@ Sets the current Terrain3DEditor instance.
 
 .. rst-class:: classref-method
 
-|void| **set_plugin**\ (\ plugin\: ``EditorPlugin``\ ) :ref:`🔗<class_Terrain3D_method_set_plugin>`
+|void| **set_plugin**\ (\ plugin\: ``Object``\ ) :ref:`🔗<class_Terrain3D_method_set_plugin>`
 
-Sets the EditorPlugin connected to Terrain3D.
+Sets the EditorPlugin Object connected to Terrain3D.
 
 .. rst-class:: classref-item-separator
 

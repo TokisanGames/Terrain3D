@@ -80,16 +80,18 @@ Further reading:
 
 ## Android
 
-As of Terrain3D 0.9.1 and Godot 4.2, Android is reported to work. 
+As of Terrain3D 0.9.1 and Godot 4.2, Android is reported to work. It is still a bit experimental.
 
 * Use textures that Godot imports (converts) such as PNG or TGA, not DDS.
 * Enable `Project Settings/Rendering/Textures/VRAM Compression/Import ETC2 ASTC`.
 
 The release builds include binaries for arm32 and arm64.
 
-There is a [texture artifact](https://github.com/TokisanGames/Terrain3D/issues/137) affecting some systems using the demo DDS textures. This may be alleviated by using PNGs as noted above, but isn't confirmed.
+Some mobile devices appear to not fully support texture arrays. Or perhaps they need more testing of different texture formats. 
 
 Further reading:
+* [Issue 668](https://github.com/TokisanGames/Terrain3D/issues/668)
+* [Issue 137](https://github.com/TokisanGames/Terrain3D/issues/137)
 * [Issue 197](https://github.com/TokisanGames/Terrain3D/issues/197)
 
 
@@ -126,13 +128,11 @@ The Forward+ Vulkan renderer is fully supported.
 
 ## D3D12
 
-The Forward+ Direct3D 12 renderer was merged into Godot 4.3. TextureArrays are not fully supported yet (no mipmaps). Follow [Issue 529](https://github.com/TokisanGames/Terrain3D/issues/529) for progress.
-
+The Forward+ Direct3D 12 support should be fully supported as of Godot 4.6.
 
 ## Metal
 
-Support for Apple's Metal for iOS and macOS was merged into Godot 4.4-dev1. It is not yet supported by Terrain3D. No testing has been done.
-
+Support for Apple's Metal for iOS and macOS was merged into Godot 4.4-dev1. No testing has been done, and Terrain3D support is unknown.
 
 ## Mobile
 
@@ -141,4 +141,4 @@ The Forward Vulkan Mobile renderer is fully supported.
 
 ## Compatibility
 
-The OpenGLES 3.0 Compatibility renderer is fully supported in Terrain3D 1.0 and Godot 4.4. A small set of shader pre-processor statements are used to override fma() and dFdxCoarse(). This allows the shader to work with the compatibility renderer without intrusive changes.
+The OpenGLES 3.0 Compatibility renderer is fully supported since Terrain3D 1.0 and Godot 4.4. A small set of shader pre-processor statements are used to override fma() and dFdxCoarse(). This allows the shader to work with the compatibility renderer without intrusive changes.

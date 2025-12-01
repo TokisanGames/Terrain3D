@@ -15,18 +15,22 @@ Terrain3D supports up to 32 texture sets using albedo, height, normal, and rough
 ## Texture Requirements
 
 ### Texture Files
-You need two files per texture set. Terrain3D is designed for textures that are channel packed as follows:
+
+Typically "a texture" say rock comes as a pack of individual texture files: albedo/diffuse/base color, height, normal, smoothness/roughness, ambient occlusion (AO). For maximum efficiency we provide the option of packing these 5 separate files into 2.
+
+Terrain3D is designed for texture sets that are channel packed as follows:
 
 | Name | Format |
 | - | - |
-| albedo_texture | RGB: Albedo texture, A: Height texture
-| normal_texture| RGB: Normal map texture ([OpenGL +Y](#normal-map-format)), A: Roughness texture
+| albedo_texture | RGB: Albedo, A: Height
+| normal_texture| RGB: Normal map ([OpenGL](#normal-map-format)), RGB: AO, A: Roughness
 
-The terrain can work without the alpha channels, however it won't have height blending or roughness. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
+The terrain can work without the height, normal, ao, or roughness maps. But then you won't have height blending, roughness, or the other features. That may be fine for a low-poly or stylized terrain, but not for a realistic one.
 
-Textures can be channel packed using the Pack Textures option in the Terrain3D menu at the top of the viewport, or in tools like [Gimp](https://www.gimp.org/). Photoshop or [Krita](https://krita.org/) are possible, but working with alpha channels can be a bit challenging.
+Textures can be channel packed using the `Pack Textures...` option in the Terrain3D menu at the top of the viewport (recommended), or in [Gimp](https://www.gimp.org/). Photoshop or [Krita](https://krita.org/) are possible, but working with alpha channels can be a bit challenging.
 
 ### Texture Sizes
+
 All albedo textures must be the same size, and all normal textures must be the same size. Each type gets combined into separate Texture2DArrays, so their sizes of the two arrays can differ.
 
 Double click any texture file and the inspector will show you the size. The demo textures are 1024x1024.
@@ -35,22 +39,20 @@ For GPU efficiency, it is recommended that all of your textures have dimensions 
 
 ### Compression Format
 
-All albedo textures must be the same format, and all normal textures must be the same format. They are combined into separate Texture2DArrays, so the two can have different formats.
+All albedo textures must be the same format, and all normal textures must be the same format. Albedo and Normals are combined into separate Texture2DArrays, so the two can have different formats.
 
-Double click any texture file and the inspector will show you the format, which likely can be modified on the Godot Import tab.
+Double-clicking a texture in the FileSystem panel will display it in the Inspector with the current converted format of the file, size, and mipmaps. Settings may be adjustable on the Godot Import tab.
 
 | Type | Supports | Format |
 | - | - | - |
-| **DDS** | Desktop | BC3 / DXT5, linear (intel plugin), Color + alpha, mipmaps generated. These files are used directly by Godot and are not converted, so there are no import settings. **Recommended for desktop only.** |
-| **PNG** | Desktop, Mobile | Standard RGBA. In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, optionally check `High Quality`, then reimport each file. 
+| **PNG** | Desktop, Mobile | RGBA, converts to DXT5 or BPTC (HQ). In Godot you must go to the Import tab and select: `Mode: VRAM Compressed`, `Normal Map: Disabled`, `Mipmaps Generate: On`, optionally check `High Quality`, then reimport each file. 
+| **DDS** | Desktop | BC3 / DXT5, linear (intel plugin), Color + alpha, mipmaps generated. These files are used directly by Godot and are not converted, so there are no import settings.|
 | **Others** | | Other [Godot supported formats](https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_images.html#supported-image-formats) like KTX, TGA, JPG, WEBP should work as long as you match similar settings to PNG.
-| **EXR** | | While EXRs can work, they store color data as 16/32-bit float, not 8-bit integer. Don't use them unless you know what you're doing.
+| **EXR** | | While EXRs can work, they store color data as 16/32-bit float, not 8-bit integer. Don't use them for terrain textures unless you know what you're doing.
 
-For mobile/web platforms, see [Supported Platforms](platforms.md).
-
-Godot converts some texture files on import, so it is entirely possible that DDS, PNG, and TGA textures will all end up converted to DXT5 RGBA8. In this case, different file types can all be used in the same albedo or normal texture array because the compression format is the same. Double-clicking a texture in the FileSystem panel will display it in the Inspector with the current format of the file. They also need to match whether they have mipmaps or not.
-
-DDS (BC3/DXT5) is recommended for desktop platforms as it tends to be higher quality than the default PNG to BC3/DXT5 conversion in Godot. When creating DDS files in Gimp you have a lot more conversion options, such as different mipmaps filter algorithms which can be helpful to remove artifacts in reflections (eg try Mitchell). Alternatively, you can mark PNGs as high quality which will convert them to BC6/BPTC and makes them on par with Gimp BC3/DXT5. Godot does not currently support anything higher than BC3/DXT5 in DDS files.
+To get the highest quality compression on desktop, use either:
+* Use PNG with the high quality option in Godot (BC6/BPTC). Pack with our channnel packer and mark HQ. Godot does not currently support importing anything higher than BC3/DXT5 in DDS files.
+* DDS (BC3/DXT5) made in Gimp are recommended over using the default PNG settings, which produces poor quality BC3/DXT5 files. When creating DDS files in Gimp you have a lot more conversion options, such as different mipmaps filtering algorithms which can be helpful to remove artifacts in reflections (eg try Mitchell). 
 
 The demo textures are PNG imported as HQ which are converted to BPTC.
 
@@ -73,7 +75,7 @@ If creating your own height textures, aim for a central point of grey (0.5) with
 
 ### Normal Map Format
 
-Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. 
+Normal maps come in two formats: DirectX with -Y, and OpenGL with +Y. Both formats should be normalized.
 
 DirectX can be converted to OpenGL and vice versa by inverting the green channel in a photo editing app.
 
@@ -104,12 +106,21 @@ Natural textures like rock or grass can be very difficult to tell. However if yo
 
 Some "roughness" textures are actually smoothness or gloss textures. You can convert between them by inverting the image.
 
-You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values are near 0 and should appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite. 
+You can tell which is which just by looking at distinctive textures and thinking about the material. If it's glass it should be glossy, so on a roughness texture values are near 0 and should appear mostly black. If it's dry rock or dirt, it should be mostly white, which is near 1 roughness. A smoothness texture would show the opposite.
+
+
+### Ambient Occlusion
+
+AO maps can be packed into the normal texture set by encoding AO values in the normal map vector scalars. Normal vectors are expected to have a unit length of 1.0 and by scaling the vector length, it is then possible to pack and later extract the AO value from the normal map RGB channels.
+
+The shader will always decode the normal map as if it has AO data included in this way, as the result will be mostly 1.0 (No Ambient Occlusion) when no packing has occured.
+
+Our built in channel packer will easily pack an AO map into the normal set. If you wish to do it manually, ensure your normal map is normalized. Then pack in AO with: `unpacked_normal_vector * (sqrt(ao) * 0.5 + 0.5)`.
 
 
 ## Channel Pack Textures in Terrain3D
 
-You can use our built in tool to pack textures for you.
+We recommend you use our built in tool to pack textures.
 
 ```{image} images/terrain3d_menu.png
 :target: ../_images/terrain3d_menu.png
@@ -117,7 +128,7 @@ You can use our built in tool to pack textures for you.
 
 1. At the top of your viewport, click the `Terrain3D` menu, then `Pack Textures`.
 2. Select your textures for albedo and height.
-3. Optionally, select textures for normal and roughness.
+3. Optionally, select textures for normal, roughness, and if desired ambient occlusion
 4. Optionally, convert a DirectX normal map to OpenGL, or smoothness to roughness map.
 5. Optionally, enable Orthogonalise normals if you see a reflective checkerboard pattern appear when using detiling.
 6. Click `Pack Textures As...` and save the resulting PNG files to disk.
@@ -131,6 +142,8 @@ Make sure to reimport both files. Double click each file in the filesystem and e
 
 
 ## Channel Pack Textures with Gimp
+
+> Note: AO packing normals manually is complex and not reccomended. The formula used is: `unpacked_normal_vector * (sqrt(ao) * 0.5 + 0.5)`
 
 1. Open your RGB Albedo and greyscale Height files (or Normal and Roughness).
 
@@ -166,7 +179,7 @@ Also recommended is to export directly into your Godot project folder. Then drag
 
 ## Where to Get Textures
 
-### Texture Software
+### Texture Creation Software
 
 You can make textures in dedicated texture software, such as those below. There are many other tools and ai texture generators to be found online. You can also paint textures in applications like krita/gimp/photoshop.
  
@@ -176,7 +189,7 @@ You can make textures in dedicated texture software, such as those below. There 
 * Substance Designer - Commercial, "industry standard" texture maker
 
 
-### Download Sites
+### Download Textures
 
 There are numerous websites where you can download high quality, royalty free textures for free or pay. These textures come as individual maps, with the expectation that you will download only the maps you need and then channel pack them. Here are just a few:
 
@@ -190,29 +203,27 @@ There are numerous websites where you can download high quality, royalty free te
 
 ### Why do we have to channel pack textures? Why is this so difficult?
 
-Regular textures are now supported from v0.9.1. However if you want a realistic terrain with height blending and roughness, you need to channel pack textures.
+You don't have to. You can use just the albedo map, or also the normal map, without the others. However if you want a realistic terrain with height blending and roughness, you need all of the maps. You could have 5 different texture maps in memory, or pack that down to 2 maps and save precious VRAM.
 
 Channel packing is a very common task done by professional game developers. Every pro asset pack you've used has channel packed textures. When you download texture packs from websites, they provide individual textures so you can pack them how you want. They are not intended to be used individually!
 
-We offer a built in `Pack Textures` tool, found in the Terrain3D menu at the top of the viewport that facilitates the texture creation process within Godot.
+We offer a built in `Pack Textures` tool, found in the Terrain3D menu at the top of the viewport that facilitates the texture creation process within Godot. Packing can be done in 30 seconds.
 
 Finally, we provide easy, 5-step instructions for packing textures with Gimp, which takes less than 2 minutes once you're familiar with the process. 
 
-We want high performance games, so we need to optimize our systems for the graphics hardware. A shader can retrieve four channels RGBA from a texture at once. Albedo and normal textures only have RGB. Thus, reading Alpha is free, and a waste if not used. So, we put height / roughness in the Alpha channel.
+If we want high performance games, we need to optimize our games for graphics hardware. A shader can retrieve four channels RGBA from a texture at once. Albedo and normal textures only have RGB. Thus, reading Alpha is free, and a waste if not used. So, we put height / roughness in the Alpha channel.
 
-We could have the system channel pack for you at startup, however that would mean processing up to 128 images every time any scene with Terrain3D loads, both in the editor and running games. Exported games may not even work since Godot's image compression libraries only exist in the editor. The most reasonable path is for gamedevs to learn a simple process that they'll use for their entire career and use it to set up terrain textures one time.
+We could have the software let you specify individual maps and we pack textures for you at startup, however that would mean processing up to 160 images every time any scene with Terrain3D loads, both in the editor and running games. Exported games may not even work since Godot's image compression libraries only exist in the editor. The most reasonable path is for gamedevs to learn a simple process that they'll use for their entire career and use it to set up terrain textures one time.
 
-### What about AO, Emissive, Metal, and other texture maps?
+### What about Emissive, Metal, and other texture maps?
 
 Most terrain textures like grass, rock, and dirt do not need these. 
 
-The only one that might be useful generally is AO, however that is debatable. We do have height, which can double for AO in a custom shader. Or, if you have no height texture, you can substitute an AO texture. These two are similar depending on the specific texture, and it's not worth allocating another texture array just for AO.
-
-Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both height and AO. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. You can add a [custom shader](tips_technical.md#add-a-custom-texture-map) to add the individual texture map.
+Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. You can add a [custom shader](tips_technical.md#add-a-custom-texture-map) to add the individual texture map.
 
 ### Why not use Standard Godot materials?
 
-All materials in Godot are just shaders. The standard shader is both overly complex, yet inadequate for our needs. Dirt does not need SSS, refraction, or backlighting for instance. See [a more thorough explanation](https://github.com/TokisanGames/Terrain3D/issues/199).
+All materials in Godot are just shaders. The standard shader is both overly complex, and inadequate for our needs. Dirt does not need SSS, refraction, or backlighting for instance. See [a more thorough explanation](https://github.com/TokisanGames/Terrain3D/issues/199).
 
 ### What about displacement?
 
