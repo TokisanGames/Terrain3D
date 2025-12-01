@@ -20,9 +20,10 @@
 		<method name="create_mesh_thumbnails">
 			<return type="void" />
 			<param index="0" name="id" type="int" default="-1" />
-			<param index="1" name="size" type="Vector2i" default="Vector2i(128, 128)" />
+			<param index="1" name="size" type="Vector2i" default="Vector2i(512, 512)" />
+			<param index="2" name="force" type="bool" default="false" />
 			<description>
-				Generates mesh asset preview thumbnails for the asset dock, stored within each mesh asset. Specify id -1 to generate all.
+				Generates mesh asset preview thumbnails for the asset dock, stored within each mesh asset. Specify id -1 to generate all. By default, mesh thumbnails are not recreated if they already exist. Specify [code skip-lint]force[/code] to regenerate existing thumbnails.
 			</description>
 		</method>
 		<method name="get_albedo_array_rid" qualifiers="const">
@@ -50,17 +51,23 @@
 				Returns the resource ID of the TextureArray generated from combining all normal and roughness textures.
 			</description>
 		</method>
-		<method name="get_texture" qualifiers="const">
-			<return type="Terrain3DTextureAsset" />
-			<param index="0" name="id" type="int" />
+		<method name="get_texture_ao_light_affects" qualifiers="const">
+			<return type="PackedFloat32Array" />
 			<description>
-				Returns the Terrain3DTextureAsset with the requested ID.
+				Returns the array of ao light affects values each texture asset, indexed by asset id.
 			</description>
 		</method>
 		<method name="get_texture_ao_strengths" qualifiers="const">
 			<return type="PackedFloat32Array" />
 			<description>
 				Returns the array of AO strengths for each texture asset, indexed by asset id.
+			</description>
+		</method>
+		<method name="get_texture_asset" qualifiers="const">
+			<return type="Terrain3DTextureAsset" />
+			<param index="0" name="id" type="int" />
+			<description>
+				Returns the Terrain3DTextureAsset with the specified ID.
 			</description>
 		</method>
 		<method name="get_texture_colors" qualifiers="const">
@@ -118,10 +125,10 @@
 			<param index="0" name="id" type="int" />
 			<param index="1" name="mesh" type="Terrain3DMeshAsset" />
 			<description>
-				Assigns the Terrain3DMeshAsset to the specified ID slot. It can be null to clear the slot. See [method set_texture].
+				Assigns the Terrain3DMeshAsset to the specified ID slot. It can be null to clear the slot. See [method set_texture_asset].
 			</description>
 		</method>
-		<method name="set_texture">
+		<method name="set_texture_asset">
 			<return type="void" />
 			<param index="0" name="id" type="int" />
 			<param index="1" name="texture" type="Terrain3DTextureAsset" />

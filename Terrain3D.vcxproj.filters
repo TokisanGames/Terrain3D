@@ -271,6 +271,9 @@
     <None Include="doc\docs\programming_languages.rst">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="src\shaders\pbr_views.glsl">
+      <Filter>4. Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">

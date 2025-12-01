@@ -231,10 +231,12 @@
 			<return type="Image" />
 			<param index="0" name="src_rgb" type="Image" />
 			<param index="1" name="src_a" type="Image" />
-			<param index="2" name="invert_green" type="bool" default="false" />
-			<param index="3" name="invert_alpha" type="bool" default="false" />
-			<param index="4" name="normalize_alpha" type="bool" default="false" />
-			<param index="5" name="alpha_channel" type="int" default="0" />
+			<param index="2" name="src_ao" type="Image" />
+			<param index="3" name="invert_green" type="bool" default="false" />
+			<param index="4" name="invert_alpha" type="bool" default="false" />
+			<param index="5" name="normalize_alpha" type="bool" default="false" />
+			<param index="6" name="alpha_channel" type="int" default="0" />
+			<param index="7" name="ao_channel" type="int" default="0" />
 			<description>
 				Returns an RGBA Image packed for terrain usage.
 				- [code skip-lint]src_rgb[/code] - The source Image for the RGB channels.
@@ -243,6 +245,7 @@
 				- [code skip-lint]invert_alpha[/code] - Inverts the alpha channel to convert between Roughness and Smoothness maps.
 				- [code skip-lint]normalize_alpha[/code] - Normalizes the alpha channel to use full range for height map.
 				- [code skip-lint]alpha_channel[/code] - The channel index (0-3: R,G,B,A) to use from src_a for the alpha channel.
+				- [code skip-lint]ao_channel[/code] - The channel index (0-3: R,G,B,A) to use from src_ao for the ambient occlusion channel.
 			</description>
 		</method>
 	</methods>

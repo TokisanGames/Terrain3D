@@ -64,9 +64,13 @@ private:
 	bool _debug_view_holes = false;
 	bool _debug_view_colormap = false;
 	bool _debug_view_roughmap = false;
-	bool _debug_view_tex_height = false;
-	bool _debug_view_tex_normal = false;
-	bool _debug_view_tex_rough = false;
+
+	// PBR Views
+	bool _pbr_view_tex_albedo = false;
+	bool _pbr_view_tex_height = false;
+	bool _pbr_view_tex_normal = false;
+	bool _pbr_view_tex_ao = false;
+	bool _pbr_view_tex_rough = false;
 
 	// Functions
 	void _preload_shaders();
@@ -146,12 +150,18 @@ public:
 	bool get_show_colormap() const { return _debug_view_colormap; }
 	void set_show_roughmap(const bool p_enabled);
 	bool get_show_roughmap() const { return _debug_view_roughmap; }
+
+	// PBR Views
+	void set_show_texture_albedo(const bool p_enabled);
+	bool get_show_texture_albedo() const { return _pbr_view_tex_albedo; }
 	void set_show_texture_height(const bool p_enabled);
-	bool get_show_texture_height() const { return _debug_view_tex_height; }
+	bool get_show_texture_height() const { return _pbr_view_tex_height; }
 	void set_show_texture_normal(const bool p_enabled);
-	bool get_show_texture_normal() const { return _debug_view_tex_normal; }
+	bool get_show_texture_normal() const { return _pbr_view_tex_normal; }
 	void set_show_texture_rough(const bool p_enabled);
-	bool get_show_texture_rough() const { return _debug_view_tex_rough; }
+	bool get_show_texture_rough() const { return _pbr_view_tex_rough; }
+	void set_show_texture_ao(const bool p_enabled);
+	bool get_show_texture_ao() const { return _pbr_view_tex_ao; }
 
 	Error save(const String &p_path = "");
 

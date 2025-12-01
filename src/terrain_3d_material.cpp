@@ -33,11 +33,14 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/dual_scaling.glsl"
 			, "dual_scaling");
 	_parse_shader(
+#include "shaders/overlays.glsl"
+			, "overlays");
+	_parse_shader(
 #include "shaders/debug_views.glsl"
 			, "debug_views");
 	_parse_shader(
-#include "shaders/overlays.glsl"
-			, "overlays");
+#include "shaders/pbr_views.glsl"
+			, "pbr_views");
 	_parse_shader(
 #include "shaders/editor_functions.glsl"
 			, "editor_functions");
@@ -357,14 +360,21 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_debug_view_roughmap) {
 		insert_names.push_back("DEBUG_ROUGHMAP");
 	}
-	if (_debug_view_tex_height) {
-		insert_names.push_back("DEBUG_TEXTURE_HEIGHT");
+	// PBR views
+	if (_pbr_view_tex_albedo) {
+		insert_names.push_back("PBR_TEXTURE_ALBEDO");
 	}
-	if (_debug_view_tex_normal) {
-		insert_names.push_back("DEBUG_TEXTURE_NORMAL");
+	if (_pbr_view_tex_height) {
+		insert_names.push_back("PBR_TEXTURE_HEIGHT");
 	}
-	if (_debug_view_tex_rough) {
-		insert_names.push_back("DEBUG_TEXTURE_ROUGHNESS");
+	if (_pbr_view_tex_normal) {
+		insert_names.push_back("PBR_TEXTURE_NORMAL");
+	}
+	if (_pbr_view_tex_ao) {
+		insert_names.push_back("PBR_TEXTURE_AO");
+	}
+	if (_pbr_view_tex_rough) {
+		insert_names.push_back("PBR_TEXTURE_ROUGHNESS");
 	}
 	// Overlays
 	if (_show_contours) {
@@ -546,6 +556,7 @@ void Terrain3DMaterial::_update_texture_arrays() {
 	RS->material_set_param(_material, "_texture_color_array", asset_list->get_texture_colors());
 	RS->material_set_param(_material, "_texture_normal_depth_array", asset_list->get_texture_normal_depths());
 	RS->material_set_param(_material, "_texture_ao_strength_array", asset_list->get_texture_ao_strengths());
+	RS->material_set_param(_material, "_texture_ao_affect_array", asset_list->get_texture_ao_light_affects());
 	RS->material_set_param(_material, "_texture_roughness_mod_array", asset_list->get_texture_roughness_mods());
 	RS->material_set_param(_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
 	RS->material_set_param(_material, "_texture_vertical_projections", asset_list->get_texture_vertical_projections());
@@ -763,21 +774,33 @@ void Terrain3DMaterial::set_show_roughmap(const bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_show_texture_albedo(const bool p_enabled) {
+	SET_IF_DIFF(_pbr_view_tex_albedo, p_enabled);
+	LOG(INFO, "Enable show_texture_albedo: ", p_enabled);
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_show_texture_height(const bool p_enabled) {
-	SET_IF_DIFF(_debug_view_tex_height, p_enabled);
+	SET_IF_DIFF(_pbr_view_tex_height, p_enabled);
 	LOG(INFO, "Enable show_texture_height: ", p_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_normal(const bool p_enabled) {
-	SET_IF_DIFF(_debug_view_tex_normal, p_enabled);
+	SET_IF_DIFF(_pbr_view_tex_normal, p_enabled);
 	LOG(INFO, "Enable show_texture_normal: ", p_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_rough(const bool p_enabled) {
-	SET_IF_DIFF(_debug_view_tex_rough, p_enabled);
+	SET_IF_DIFF(_pbr_view_tex_rough, p_enabled);
 	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_show_texture_ao(const bool p_enabled) {
+	SET_IF_DIFF(_pbr_view_tex_ao, p_enabled);
+	LOG(INFO, "Enable show_texture_ao: ", p_enabled);
 	_update_shader();
 }
 
@@ -1011,10 +1034,16 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_colormap"), &Terrain3DMaterial::get_show_colormap);
 	ClassDB::bind_method(D_METHOD("set_show_roughmap", "enabled"), &Terrain3DMaterial::set_show_roughmap);
 	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3DMaterial::get_show_roughmap);
+
+	// PBR Views
+	ClassDB::bind_method(D_METHOD("set_show_texture_albedo", "enabled"), &Terrain3DMaterial::set_show_texture_albedo);
+	ClassDB::bind_method(D_METHOD("get_show_texture_albedo"), &Terrain3DMaterial::get_show_texture_albedo);
 	ClassDB::bind_method(D_METHOD("set_show_texture_height", "enabled"), &Terrain3DMaterial::set_show_texture_height);
 	ClassDB::bind_method(D_METHOD("get_show_texture_height"), &Terrain3DMaterial::get_show_texture_height);
 	ClassDB::bind_method(D_METHOD("set_show_texture_normal", "enabled"), &Terrain3DMaterial::set_show_texture_normal);
 	ClassDB::bind_method(D_METHOD("get_show_texture_normal"), &Terrain3DMaterial::get_show_texture_normal);
+	ClassDB::bind_method(D_METHOD("set_show_texture_ao", "enabled"), &Terrain3DMaterial::set_show_texture_ao);
+	ClassDB::bind_method(D_METHOD("get_show_texture_ao"), &Terrain3DMaterial::get_show_texture_ao);
 	ClassDB::bind_method(D_METHOD("set_show_texture_rough", "enabled"), &Terrain3DMaterial::set_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Terrain3DMaterial::get_show_texture_rough);
 
@@ -1049,7 +1078,12 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_scale", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_control_scale", "get_show_control_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_colormap", "get_show_colormap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_roughmap", "get_show_roughmap");
+
+	// Hidden in Material, aliased in Terrain3D
+	//ADD_SUBGROUP("PBR Views", "show_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_albedo", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_albedo", "get_show_texture_albedo");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_normal", "get_show_texture_normal");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_ao", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_ao", "get_show_texture_ao");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_rough", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_texture_rough", "get_show_texture_rough");
 }

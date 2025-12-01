@@ -20,6 +20,12 @@
 				Returns the color of the current highlight, if any.
 			</description>
 		</method>
+		<method name="get_thumbnail" qualifiers="const">
+			<return type="Texture2D" />
+			<description>
+				Returns the generated thumbnail.
+			</description>
+		</method>
 		<method name="is_highlighted" qualifiers="const">
 			<return type="bool" />
 			<description>
@@ -41,8 +47,11 @@
 		<member name="albedo_texture" type="Texture2D" setter="set_albedo_texture" getter="get_albedo_texture">
 			The texture file with albedo on RGB and height on A.
 		</member>
+		<member name="ao_light_affect" type="float" setter="set_ao_light_affect" getter="get_ao_light_affect" default="0.0">
+			This value is applied directly to the AO_LIGHT_AFFECT in the shader, which dictates how much ambient occlusion affects light from Light3Ds. 0 means AO only affects ambient light. 1 means it also affects lights.
+		</member>
 		<member name="ao_strength" type="float" setter="set_ao_strength" getter="get_ao_strength" default="0.5">
-			The shader generates AO based on the height texture, based on this strength value.
+			The strength of ambient occlusion, which darkens areas of this texture dictated by the ambient occlusion map. If you have not provided an AO texture, an AO value is approximated by the normal map automatically.
 		</member>
 		<member name="detiling_rotation" type="float" setter="set_detiling_rotation" getter="get_detiling_rotation" default="0.0">
 			The shader rotates UV lookups in a detiling pattern based on this value.
@@ -56,7 +65,7 @@
 		<member name="name" type="String" setter="set_name" getter="get_name" default="&quot;New Texture&quot;">
 			A user specified name for this texture set.
 		</member>
-		<member name="normal_depth" type="float" setter="set_normal_depth" getter="get_normal_depth" default="0.5">
+		<member name="normal_depth" type="float" setter="set_normal_depth" getter="get_normal_depth" default="1.0">
 			Increases or decreases the strength of the normal texture.
 		</member>
 		<member name="normal_texture" type="Texture2D" setter="set_normal_texture" getter="get_normal_texture">

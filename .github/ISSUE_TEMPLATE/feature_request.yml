@@ -5,7 +5,7 @@ body:
 - type: markdown
   attributes:
     value: |
-      Have you reviewed the [status of current and pending features](https://terrain3d.readthedocs.io/en/latest/docs/tips.html#are-certain-features-supported)?
+      Have you reviewed the [status of current and pending features](https://terrain3d.readthedocs.io/en/latest/docs/tips_technical.html#are-certain-features-supported)?
 - type: textarea
   attributes:
     label: Description

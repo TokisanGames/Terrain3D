@@ -59,10 +59,10 @@
 			<param index="1" name="direction" type="Vector3" />
 			<param index="2" name="gpu_mode" type="bool" default="false" />
 			<description>
-				Casts a ray from [code skip-lint]src_pos[/code] pointing towards [code skip-lint]direction[/code], attempting to intersect the terrain. This operation is does not use physics and is not a typical raycast, so enabling collision is unnecessary.
+				Casts a ray from [code skip-lint]src_pos[/code] pointing towards [code skip-lint]direction[/code], attempting to intersect the terrain. This operation is does not use physics and is not a typical raycast, so enabling collision is unnecessary. This function likely won't work if src_pos is below the terrain.
 
-				This function can operate in one of two modes defined by [code skip-lint]gpu_mode[/code]:
-				- If gpu_mode is disabled (default), it raymarches from the camera until the terrain is intersected, up to 4000m away. This works with one function call, but only where regions exist. It is slower than gpu_mode and gets increasingly slower the farther away the terrain is, though you may not notice.
+				This function can operate in one of two modes selected by [code skip-lint]gpu_mode[/code]:
+				- If gpu_mode is disabled (default), it raymarches from src_pos until the terrain is intersected, up to 4000m away. This works with one function call, and can only intersect the terrain where regions exist. It is slower than gpu_mode and gets increasingly slower the farther away the terrain is, though you may not notice.
 
 				- If gpu_mode is enabled, it uses the GPU to detect the mouse. This works wherever the terrain is visible, even outside of regions, but may need to be called twice.
 
@@ -86,9 +86,9 @@
 			</description>
 		</method>
 		<method name="get_plugin" qualifiers="const">
-			<return type="EditorPlugin" />
+			<return type="Object" />
 			<description>
-				Returns the EditorPlugin connected to Terrain3D.
+				Returns the EditorPlugin Object connected to Terrain3D.
 			</description>
 		</method>
 		<method name="get_raycast_result" qualifiers="const">
@@ -124,9 +124,9 @@
 		</method>
 		<method name="set_plugin">
 			<return type="void" />
-			<param index="0" name="plugin" type="EditorPlugin" />
+			<param index="0" name="plugin" type="Object" />
 			<description>
-				Sets the EditorPlugin connected to Terrain3D.
+				Sets the EditorPlugin Object connected to Terrain3D.
 			</description>
 		</method>
 		<method name="snap">
@@ -150,21 +150,29 @@
 			The active [Terrain3DCollision] object.
 		</member>
 		<member name="collision_layer" type="int" setter="set_collision_layer" getter="get_collision_layer" default="1">
+			The physics layers the terrain lives on. Sets [code skip-lint]CollisionObject3D.collision_layer[/code].
 			Alias for [member Terrain3DCollision.layer].
+			Also see [member collision_mask].
 		</member>
 		<member name="collision_mask" type="int" setter="set_collision_mask" getter="get_collision_mask" default="1">
+			The physics layers the physics body scans for colliding objects. Sets [code skip-lint]CollisionObject3D.collision_mask[/code].
 			Alias for [member Terrain3DCollision.mask].
+			Also see [member collision_layer].
 		</member>
 		<member name="collision_mode" type="int" setter="set_collision_mode" getter="get_collision_mode" enum="Terrain3DCollision.CollisionMode" default="1">
+			The selected mode determines if collision is generated and how. See [enum Terrain3DCollision.CollisionMode] for details.
 			Alias for [member Terrain3DCollision.mode].
 		</member>
 		<member name="collision_priority" type="float" setter="set_collision_priority" getter="get_collision_priority" default="1.0">
+			The priority with which the physics server uses to solve collisions. The higher the priority, the lower the penetration of a colliding object. Sets [code skip-lint]CollisionObject3D.collision_priority[/code].
 			Alias for [member Terrain3DCollision.priority].
 		</member>
 		<member name="collision_radius" type="int" setter="set_collision_radius" getter="get_collision_radius" default="64">
+			If [member collision_mode] is Dynamic, this is the distance range within which collision shapes will be generated.
 			Alias for [member Terrain3DCollision.radius].
 		</member>
 		<member name="collision_shape_size" type="int" setter="set_collision_shape_size" getter="get_collision_shape_size" default="16">
+			If [member collision_mode] is Dynamic, this is the size of each collision shape.
 			Alias for [member Terrain3DCollision.shape_size].
 		</member>
 		<member name="collision_target" type="Node3D" setter="set_collision_target" getter="get_collision_target">
@@ -191,6 +199,11 @@
 		<member name="instancer" type="Terrain3DInstancer" setter="" getter="get_instancer">
 			The active [Terrain3DInstancer] object.
 		</member>
+		<member name="instancer_mode" type="int" setter="set_instancer_mode" getter="get_instancer_mode" enum="Terrain3DInstancer.InstancerMode" default="1">
+			Normal - Generates MultiMeshInstance3Ds and renders all instances as normal.
+			Disabled - prevents the instancer from creating any MultiMeshInstance3Ds.
+			Alias for [member Terrain3DInstancer.mode].
+		</member>
 		<member name="label_distance" type="float" setter="set_label_distance" getter="get_label_distance" default="0.0">
 			If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels.
 		</member>
@@ -213,7 +226,8 @@
 			See [method get_intersection].
 		</member>
 		<member name="physics_material" type="PhysicsMaterial" setter="set_physics_material" getter="get_physics_material">
-			Alias for [member Terrain3DCollision.physics_material].
+			Applies a [code skip-lint]PhysicsMaterial[/code] override to the entire terrain StaticBody.
+			Alias for [member Terrain3DCollision.physics_material] See that entry for details.
 		</member>
 		<member name="region_size" type="int" setter="change_region_size" getter="get_region_size" enum="Terrain3D.RegionSize" default="256">
 			The number of vertices in each region, and the number of pixels for each map in [Terrain3DRegion]. 1 pixel always corresponds to 1 vertex. [member Terrain3D.vertex_spacing] laterally scales regions, but does not change the number of vertices or pixels in each.
@@ -227,67 +241,92 @@
 			This process is lossy. 16-bit precision gets increasingly worse with every power of 2. At a height of 256m, the precision interval is .25m. At 512m it is .5m. At 1024m it is 1m. Saving a height of 1024.4m will be rounded down to 1024m.
 		</member>
 		<member name="show_autoshader" type="bool" setter="set_show_autoshader" getter="get_show_autoshader" default="false">
+			Displays the area designated for use by the autoshader, which shows materials based upon slope.
 			Alias for [member Terrain3DMaterial.show_autoshader].
 		</member>
 		<member name="show_checkered" type="bool" setter="set_show_checkered" getter="get_show_checkered" default="false">
+			Shows a checkerboard display using a shader rendered pattern. This is turned on if the Texture List is empty.
+			Note that when a blank texture slot is created, a 1k checkerboard texture is generated and stored in the texture slot. That takes VRAM. The two patterns have a slightly different scale.
 			Alias for [member Terrain3DMaterial.show_checkered].
 		</member>
 		<member name="show_colormap" type="bool" setter="set_show_colormap" getter="get_show_colormap" default="false">
+			Shows the color map in the albedo channel.
 			Alias for [member Terrain3DMaterial.show_colormap].
 		</member>
 		<member name="show_contours" type="bool" setter="set_show_contours" getter="get_show_contours" default="false">
-			Alias for [member Terrain3DMaterial.show_contours]. Press `4` with the mouse in the viewport to toggle. Customize in the material.
+			Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
+			Alias for [member Terrain3DMaterial.show_contours].
 		</member>
 		<member name="show_control_angle" type="bool" setter="set_show_control_angle" getter="get_show_control_angle" default="false">
+			Albedo shows the painted angle. Orange means 0°, Yellow 270°, Cyan 180°, Violet 90°. Or warm colors towards -Z, cool colors +Z, greens/yellows +X, reds/blues -X. Draw all angles coming from the center of a circle for a better understanding.
 			Alias for [member Terrain3DMaterial.show_control_angle].
 		</member>
 		<member name="show_control_blend" type="bool" setter="set_show_control_blend" getter="get_show_control_blend" default="false">
+			Displays the values used to blend the textures. Blue shows the autoshader blending, red shows manually painted blending.
 			Alias for [member Terrain3DMaterial.show_control_blend].
 		</member>
 		<member name="show_control_scale" type="bool" setter="set_show_control_scale" getter="get_show_control_scale" default="false">
+			Albedo shows the painted scale. Larger scales are more red, smaller scales are more blue. 0.5 middle grey is the default 100% scale.
 			Alias for [member Terrain3DMaterial.show_control_scale].
 		</member>
 		<member name="show_control_texture" type="bool" setter="set_show_control_texture" getter="get_show_control_texture" default="false">
+			Albedo shows the base and overlay texture indices defined by the control map. Red pixels indicate the base texture, with brightness showing texture ids 0 to 31. Green pixels indicate the overlay texture. Yellow indicates both.
 			Alias for [member Terrain3DMaterial.show_control_texture].
 		</member>
 		<member name="show_grey" type="bool" setter="set_show_grey" getter="get_show_grey" default="false">
+			Albedo is set to 0.2 grey.
 			Alias for [member Terrain3DMaterial.show_grey].
 		</member>
 		<member name="show_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
 			Alias for [member Terrain3DMaterial.show_region_grid]. Press `1` with the mouse in the viewport to toggle.
 		</member>
 		<member name="show_heightmap" type="bool" setter="set_show_heightmap" getter="get_show_heightmap" default="false">
+			Albedo is a white to black gradient depending on height. The gradient is scaled to a height of 300, so above that or far below 0 will be all white or black.
 			Alias for [member Terrain3DMaterial.show_heightmap].
 		</member>
 		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_instancer_grid]. Press `2` with the mouse in the viewport to toggle.
-		</member>
-		<member name="show_instances" type="bool" setter="set_show_instances" getter="get_show_instances" default="true">
-			Shows or hides all instancer meshes.
+			Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
+			Alias for [member Terrain3DMaterial.show_instancer_grid].
 		</member>
 		<member name="show_jaggedness" type="bool" setter="set_show_jaggedness" getter="get_show_jaggedness" default="false">
+			Highlights non-smooth areas of the terrain. Jagged peaks, troughs, or edges that are a bit rough with sharp angles between vertices.
 			Alias for [member Terrain3DMaterial.show_jaggedness].
 		</member>
 		<member name="show_navigation" type="bool" setter="set_show_navigation" getter="get_show_navigation" default="false">
+			Displays the area designated for generating the navigation mesh.
 			Alias for [member Terrain3DMaterial.show_navigation].
 		</member>
 		<member name="show_region_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_region_grid]. Press `1` with the mouse in the viewport to toggle.
+			Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. Press `1` with the mouse in the viewport to toggle.
+			Alias for [member Terrain3DMaterial.show_region_grid].
 		</member>
 		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
+			Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
 			Alias for [member Terrain3DMaterial.show_roughmap].
 		</member>
+		<member name="show_texture_albedo" type="bool" setter="set_show_texture_albedo" getter="get_show_texture_albedo" default="false">
+			Albedo textures are shown only. Other channels are excluded.
+			Alias for [member Terrain3DMaterial.show_texture_albedo].
+		</member>
+		<member name="show_texture_ao" type="bool" setter="set_show_texture_ao" getter="get_show_texture_ao" default="false">
+			Albedo is set to the painted Ambient Occlusion textures.
+			Alias for [member Terrain3DMaterial.show_texture_ao].
+		</member>
 		<member name="show_texture_height" type="bool" setter="set_show_texture_height" getter="get_show_texture_height" default="false">
+			Albedo is set to the painted Height textures.
 			Alias for [member Terrain3DMaterial.show_texture_height].
 		</member>
 		<member name="show_texture_normal" type="bool" setter="set_show_texture_normal" getter="get_show_texture_normal" default="false">
+			Albedo is set to the painted Normal textures.
 			Alias for [member Terrain3DMaterial.show_texture_normal].
 		</member>
 		<member name="show_texture_rough" type="bool" setter="set_show_texture_rough" getter="get_show_texture_rough" default="false">
+			Albedo is set to the painted Roughness textures. This is different from the roughness modification map above.
 			Alias for [member Terrain3DMaterial.show_texture_rough].
 		</member>
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_vertex_grid]. Press `3` with the mouse in the viewport to toggle.
+			Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
+			Alias for [member Terrain3DMaterial.show_vertex_grid].
 		</member>
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.1.0-dev&quot;">
 			The current version of Terrain3D.

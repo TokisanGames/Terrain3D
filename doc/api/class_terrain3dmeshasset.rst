@@ -38,9 +38,9 @@ Properties
    :widths: auto
 
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | GeometryInstance3D.ShadowCastingSetting         | :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>`           | ``1``             |
+   | RenderingServer.ShadowCastingSetting            | :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>`           | ``1``             |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
-   | ``float``                                       | :ref:`density<class_Terrain3DMeshAsset_property_density>`                     | ``10.0``          |
+   | ``float``                                       | :ref:`density<class_Terrain3DMeshAsset_property_density>`                     | ``0.0``           |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``bool``                                        | :ref:`enabled<class_Terrain3DMeshAsset_property_enabled>`                     | ``true``          |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
@@ -92,6 +92,8 @@ Properties
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
    | ``int``                                         | :ref:`shadow_impostor<class_Terrain3DMeshAsset_property_shadow_impostor>`     | ``0``             |
    +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
+   | ``int``                                         | :ref:`visibility_layers<class_Terrain3DMeshAsset_property_visibility_layers>` | ``1``             |
+   +-------------------------------------------------+-------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -129,18 +131,6 @@ Methods
 
 Signals
 -------
-
-.. _class_Terrain3DMeshAsset_signal_file_changed:
-
-.. rst-class:: classref-signal
-
-**file_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_file_changed>`
-
-Emitted when :ref:`scene_file<class_Terrain3DMeshAsset_property_scene_file>` is changed, or if the generated mesh is toggled.
-
-.. rst-class:: classref-item-separator
-
-----
 
 .. _class_Terrain3DMeshAsset_signal_id_changed:
 
@@ -238,12 +228,12 @@ Property Descriptions
 
 .. rst-class:: classref-property
 
-GeometryInstance3D.ShadowCastingSetting **cast_shadows** = ``1`` :ref:`🔗<class_Terrain3DMeshAsset_property_cast_shadows>`
+RenderingServer.ShadowCastingSetting **cast_shadows** = ``1`` :ref:`🔗<class_Terrain3DMeshAsset_property_cast_shadows>`
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_cast_shadows**\ (\ value\: GeometryInstance3D.ShadowCastingSetting\ )
-- GeometryInstance3D.ShadowCastingSetting **get_cast_shadows**\ (\ )
+- |void| **set_cast_shadows**\ (\ value\: RenderingServer.ShadowCastingSetting\ )
+- RenderingServer.ShadowCastingSetting **get_cast_shadows**\ (\ )
 
 Tells the renderer how to cast shadows from this mesh asset onto the terrain and other objects. This sets ``GeometryInstance3D.cast_shadow`` on all MultiMeshInstances used by this mesh.
 
@@ -255,7 +245,7 @@ Tells the renderer how to cast shadows from this mesh asset onto the terrain and
 
 .. rst-class:: classref-property
 
-``float`` **density** = ``10.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_density>`
+``float`` **density** = ``0.0`` :ref:`🔗<class_Terrain3DMeshAsset_property_density>`
 
 .. rst-class:: classref-property-setget
 
@@ -703,6 +693,23 @@ e.g. Normally each LOD casts its own shadows. Given LOD0-3, if ``shadow_impostor
 Increase to improve performance by lowering shadow quality.
 
 Shadow impostors are disabled if this is set to 0 or if :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>` is set to shadows only.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMeshAsset_property_visibility_layers:
+
+.. rst-class:: classref-property
+
+``int`` **visibility_layers** = ``1`` :ref:`🔗<class_Terrain3DMeshAsset_property_visibility_layers>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_visibility_layers**\ (\ value\: ``int``\ )
+- ``int`` **get_visibility_layers**\ (\ )
+
+Sets :ref:`VisualInstance3D.layers<class_VisualInstance3D_member_layers>`, which defines the rendering layers the MultiMeshInstance3Ds for this mesh asset are drawn on.
 
 .. rst-class:: classref-section-separator
 

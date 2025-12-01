@@ -74,6 +74,10 @@ Properties
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`                     | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_texture_albedo<class_Terrain3DMaterial_property_show_texture_albedo>`         | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_texture_ao<class_Terrain3DMaterial_property_show_texture_ao>`                 | ``false`` |
+   +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_texture_height<class_Terrain3DMaterial_property_show_texture_height>`         | ``false`` |
    +------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_texture_normal<class_Terrain3DMaterial_property_show_texture_normal>`         | ``false`` |
@@ -254,7 +258,7 @@ If shader_override_enabled is true and this Shader is valid, the material will u
 
 .. rst-class:: classref-property-setget
 
-- |void| **enable_shader_override**\ (\ value\: ``bool``\ )
+- |void| **set_shader_override_enabled**\ (\ value\: ``bool``\ )
 - ``bool`` **is_shader_override_enabled**\ (\ )
 
 Enables use of the :ref:`shader_override<class_Terrain3DMaterial_property_shader_override>` shader code. Generates default code if shader_override is blank.
@@ -274,7 +278,7 @@ Enables use of the :ref:`shader_override<class_Terrain3DMaterial_property_shader
 - |void| **set_show_autoshader**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_autoshader**\ (\ )
 
-Display the area designated for use by the autoshader, which shows materials based upon slope.
+Displays the area designated for use by the autoshader, which shows materials based upon slope.
 
 .. rst-class:: classref-item-separator
 
@@ -310,7 +314,7 @@ Note that when a blank texture slot is created, a 1k checkerboard texture is gen
 - |void| **set_show_colormap**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_colormap**\ (\ )
 
-Places the color map in the albedo channel.
+Shows the color map in the albedo channel.
 
 .. rst-class:: classref-item-separator
 
@@ -515,6 +519,40 @@ Overlays the region grid on the terrain. This is more accurate than the region g
 - ``bool`` **get_show_roughmap**\ (\ )
 
 Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_show_texture_albedo:
+
+.. rst-class:: classref-property
+
+``bool`` **show_texture_albedo** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_texture_albedo>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_texture_albedo**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_texture_albedo**\ (\ )
+
+Albedo textures are shown only. Other channels are excluded.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_show_texture_ao:
+
+.. rst-class:: classref-property
+
+``bool`` **show_texture_ao** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_texture_ao>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_texture_ao**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_texture_ao**\ (\ )
+
+Albedo is set to the painted Ambient Occlusion textures.
 
 .. rst-class:: classref-item-separator
 

@@ -66,18 +66,18 @@
 		<member name="shader_override" type="Shader" setter="set_shader_override" getter="get_shader_override">
 			If shader_override_enabled is true and this Shader is valid, the material will use this custom shader code. If this is blank when you enable the override, the system will generate a shader with the current settings. So if you have a debug view enabled, the generated shader will have all of that code. A visual shader will also work here. However we only generate a text based shader so currently a visual shader needs to be constructed with the base code before it can work.
 		</member>
-		<member name="shader_override_enabled" type="bool" setter="enable_shader_override" getter="is_shader_override_enabled" default="false">
+		<member name="shader_override_enabled" type="bool" setter="set_shader_override_enabled" getter="is_shader_override_enabled" default="false">
 			Enables use of the [member shader_override] shader code. Generates default code if shader_override is blank.
 		</member>
 		<member name="show_autoshader" type="bool" setter="set_show_autoshader" getter="get_show_autoshader" default="false">
-			Display the area designated for use by the autoshader, which shows materials based upon slope.
+			Displays the area designated for use by the autoshader, which shows materials based upon slope.
 		</member>
 		<member name="show_checkered" type="bool" setter="set_show_checkered" getter="get_show_checkered" default="false">
 			Shows a checkerboard display using a shader rendered pattern. This is turned on if the Texture List is empty.
 			Note that when a blank texture slot is created, a 1k checkerboard texture is generated and stored in the texture slot. That takes VRAM. The two patterns have a slightly different scale.
 		</member>
 		<member name="show_colormap" type="bool" setter="set_show_colormap" getter="get_show_colormap" default="false">
-			Places the color map in the albedo channel.
+			Shows the color map in the albedo channel.
 		</member>
 		<member name="show_contours" type="bool" setter="set_show_contours" getter="get_show_contours" default="false">
 			Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
@@ -114,6 +114,12 @@
 		</member>
 		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
 			Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
+		</member>
+		<member name="show_texture_albedo" type="bool" setter="set_show_texture_albedo" getter="get_show_texture_albedo" default="false">
+			Albedo textures are shown only. Other channels are excluded.
+		</member>
+		<member name="show_texture_ao" type="bool" setter="set_show_texture_ao" getter="get_show_texture_ao" default="false">
+			Albedo is set to the painted Ambient Occlusion textures.
 		</member>
 		<member name="show_texture_height" type="bool" setter="set_show_texture_height" getter="get_show_texture_height" default="false">
 			Albedo is set to the painted Height textures.

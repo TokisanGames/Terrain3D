@@ -1,9 +1,9 @@
 Troubleshooting
 =================
 
-Make sure to watch the [tutorial videos](tutorial_videos.md) which show proper installation and setup.
+Terrain3D is working for thousands of users. If you're having trouble you've likely missed a step or an important piece of documentation. Ensure you are using the [console version of Godot](#using-the-console), and have reviewed the [installation instructions](installation.md) before continuing.
 
-Also see [Technical Tips](tips_technical.md) which may have other helpful information.
+You can also watch the [tutorial videos](tutorial_videos.md) which show proper installation and setup, and read [Technical Tips](tips_technical.md) which may have other helpful information.
 
 **Table of Contents**
 * [Installation](#installation)
@@ -39,11 +39,12 @@ Then, click the Terrain3D node in the Scene panel to activate the tools and asse
 
 Restart Godot twice before using it. Review the [installation instructions](installation.md).
 
+
 ### Start up is very slow
 
 You probably have a large terrain and are generating collision for all of it. Set your Collision Mode to `Disabled` to test. You can dynamically create only a small collision area around the camera by setting your Collision Mode to `Dynamic / Game` (default) or `Dynamic / Editor`. Read more about [collision modes here](collision.md#physics-based-collision-raycasting).
 
-Or you've added a bunch of the generated textures, which are binary data saved as text in the scene. Or you've disconnected your textures from the files on disk, which has done the same thing. If your .tscn scene file (or .tres asset list if you've saved it off) is very large, and has lots of binary data as text, this is the case. Review your textures and ensure each is linked to a file saved on disk.
+Or you've added a bunch of the generated textures, which are binary data saved as text in the scene. Or you've disconnected your textures from the files on disk, which has done the same thing. If your .tscn scene file (or .tres asset list if you've saved it off) is very large, and has lots of binary data as text, this is the case. Review your textures and ensure each is linked to a file saved on disk. Terrain3D should also report problem textures to your [terminal](#using-the-console).
 
 ---
 
@@ -51,7 +52,7 @@ Or you've added a bunch of the generated textures, which are binary data saved a
 
 ### Added a texture, now the terrain is white
 
-Your console also reports something like:
+Your [console](#using-the-console) also reports something like:
 
 `Texture 1 albedo / normal, size / format... doesn't match size of first texture... They must be identical.`
 
@@ -99,7 +100,7 @@ If you're using multiple cameras, or viewports, you need to tell Terrain3D which
 
 ### Textures flicker
 
-Disable temporal effects: FSR, TAA. The Terrain3D mesh is constantly moving which causes Godot to unnecessarily generate motion vectors for the terrain. A way to fix this is making it's way through Godot and will be included in a later version. Until then, temporal effects are unreliable.
+Disable temporal effects: FSR, TAA, and motion blur. The Terrain3D mesh is constantly moving which causes Godot to unnecessarily generate motion vectors for the terrain. A way to fix this is making it's way through Godot and will be included in a later version. Until then, temporal effects are unreliable.
 
 
 ### Intersecting meshes flicker
@@ -109,7 +110,7 @@ When another mesh intersects with Terrain3D far away from the camera, such as in
 
 ### Segments of the terrain disappear on camera movement
 
-You can increase `Renderer/Cull Margin`. For sculpted regions this should not be necessary as sculpting sets the AABB for the meshes already. However for shader based backgrounds like WorldBackground, it has no AABB and needs an increased cull margin if it is higher than the sculpted areas. This consumes performance so it is ideal if not used.
+You can increase `Renderer/Cull Margin`. For sculpted regions this should not be necessary as sculpting sets the AABB for the meshes already. However for shader based backgrounds like WorldBackground, or Flat with ground level, there is no AABB detection. You need to specify an increased cull margin if the mesh goes higher or lower than the sculpted areas. This consumes some performance so it is ideal if not used.
 
 ---
 
@@ -121,21 +122,21 @@ If this is the first startup after installing the plugin, this is normal due to 
 
 If it still crashes, try the demo scene. 
 
-If that doesn't work, most likely the library version does not match the engine version. If you downloaded a release binary, download the exactly matching engine version. If you built from source review the [instructions](building_from_source.md) to make sure your `godot-cpp` directory exactly matches the engine version you want to use. 
+If that doesn't work, most likely the Terrain3D library version does not match the engine version. If you downloaded a release binary, download the exactly matching engine version. If you built from source review the [instructions](building_from_source.md) to make sure your `godot-cpp` directory exactly matches the engine version you want to use. 
 
 If the demo scene does work, you have an issue in your project. It could be a setting or file given to Terrain3D, or it could be anywhere else in your project. Divide and conquer. Copy your project and start ripping things out until you find the cause.
 
 ### Exported game crashes on startup
 
-First make sure your game works running in the editor. Then ensure it works as a debug export with the console open. If there are challenges, you can enable [Terrain3D debugging](#debug-logs) before exporting with debug so you can see activity. Only then, test in release mode. 
+First make sure your game works running in the editor. Then ensure it works as a debug export with the console open. If there are challenges, you can enable [Terrain3D debugging](#debug-logs) before exporting with debug so you can see activity. Only then, test in release mode.
 
-Make sure you have both the debug and release binaries on your system, or have built Terrain3D in [both debug and release mode](building_from_source.md#5-build-the-extension), and that upon export both libraries are in the export directory (eg. `libterrain.windows.debug.x86_64.dll` and `libterrain.windows.release.x86_64.dll`). If you don't have the necessary libraries, your game will close instantly upon startup.
+Make sure you have both the debug and release binaries on your system, or have built Terrain3D in [both debug and release mode](building_from_source.md#5-build-the-extension), and that upon export both libraries are in the export directory (eg. `libterrain.windows.debug.x86_64.dll` and `libterrain.windows.release.x86_64.dll`). These libraries must be in the same directory as the executable, or somewhere in the library search path. Every OS has this option. If Godot can't open the libraries you linked to, your game will close instantly upon startup.
 
 ---
 
 ## Using the Console
 
-As a gamedev, you should always be running with the console open. This means you ran `Godot_v4.*_console.exe` or ran Godot in a terminal window.
+As a gamedev, you should always be running with the console or terminal window open. This means you ran `Godot_v4.*_console.exe` or ran Godot in a terminal window.
 
 ```{image} images/console_exec.png
 :target: ../_images/console_exec.png

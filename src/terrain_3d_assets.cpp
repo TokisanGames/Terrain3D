@@ -346,10 +346,11 @@ void Terrain3DAssets::_update_texture_files() {
 void Terrain3DAssets::_update_texture_settings() {
 	LOG(DEBUG, "Received setting_changed signal");
 	if (!_texture_list.is_empty()) {
-		LOG(INFO, "Updating terrain color and scale arrays");
+		LOG(INFO, "Updating texture asset settings arrays");
 		_texture_colors.clear();
 		_texture_normal_depths.clear();
 		_texture_ao_strengths.clear();
+		_texture_ao_light_affects.clear();
 		_texture_roughness_mods.clear();
 		_texture_uv_scales.clear();
 		_texture_vertical_projections = 0u;
@@ -366,6 +367,7 @@ void Terrain3DAssets::_update_texture_settings() {
 			}
 			_texture_normal_depths.push_back(ta->get_normal_depth());
 			_texture_ao_strengths.push_back(ta->get_ao_strength());
+			_texture_ao_light_affects.push_back(ta->get_ao_light_affect());
 			_texture_roughness_mods.push_back(ta->get_roughness());
 			_texture_uv_scales.push_back(ta->get_uv_scale());
 			_texture_vertical_projections |= (ta->get_vertical_projection() ? (uint32_t(1u) << uint32_t(ta->get_id())) : uint32_t(0u));
@@ -459,6 +461,7 @@ void Terrain3DAssets::destroy() {
 	_texture_colors.clear();
 	_texture_normal_depths.clear();
 	_texture_ao_strengths.clear();
+	_texture_ao_light_affects.clear();
 	_texture_roughness_mods.clear();
 	_texture_uv_scales.clear();
 	_texture_detiles.clear();
@@ -729,6 +732,7 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_texture_colors"), &Terrain3DAssets::get_texture_colors);
 	ClassDB::bind_method(D_METHOD("get_texture_normal_depths"), &Terrain3DAssets::get_texture_normal_depths);
 	ClassDB::bind_method(D_METHOD("get_texture_ao_strengths"), &Terrain3DAssets::get_texture_ao_strengths);
+	ClassDB::bind_method(D_METHOD("get_texture_ao_light_affects"), &Terrain3DAssets::get_texture_ao_light_affects);
 	ClassDB::bind_method(D_METHOD("get_texture_roughness_mods"), &Terrain3DAssets::get_texture_roughness_mods);
 	ClassDB::bind_method(D_METHOD("get_texture_uv_scales"), &Terrain3DAssets::get_texture_uv_scales);
 	ClassDB::bind_method(D_METHOD("get_texture_vertical_projections"), &Terrain3DAssets::get_texture_vertical_projections);

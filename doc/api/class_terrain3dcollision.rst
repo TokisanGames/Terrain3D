@@ -193,7 +193,7 @@ The selected mode determines if collision is generated and how. See :ref:`Collis
 - |void| **set_physics_material**\ (\ value\: ``PhysicsMaterial``\ )
 - ``PhysicsMaterial`` **get_physics_material**\ (\ )
 
-Applies a ``PhysicsMaterial`` override to the StaticBody.
+Applies a ``PhysicsMaterial`` override to the entire terrain StaticBody.
 
 There's no ability built into Godot to change physics material parameters based on texture or any other factor. However, it might be possible to extend `PhysicsMaterial` in order to inject code into the queries. It would need references to an object position and a terrain, and then it could run :ref:`Terrain3DData.get_texture_id()<class_Terrain3DData_method_get_texture_id>` based on the position and return different physics settings per texture. That would change the settings for the entire terrain for that moment.
 
