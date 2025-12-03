@@ -705,11 +705,11 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 			}
 		}
 		real_t spin = (fixed_spin + random_spin * UtilityFunctions::randf()) * Math_PI / 180.f;
-		if (abs(spin) > 0.001f) {
+		if (std::abs(spin) > 0.001f) {
 			t.basis = t.basis.rotated(normal, spin);
 		}
 		real_t tilt = (fixed_tilt + random_tilt * (2.f * UtilityFunctions::randf() - 1.f)) * Math_PI / 180.f;
-		if (abs(tilt) > 0.001f) {
+		if (std::abs(tilt) > 0.001f) {
 			t.basis = t.basis.rotated(t.basis.get_column(0), tilt); // Rotate pitch, X-axis
 		}
 

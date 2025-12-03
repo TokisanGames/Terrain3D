@@ -113,7 +113,7 @@ void Terrain3D::__physics_process(const double p_delta) {
 			Vector2 target_pos_2d = v3v2(get_clipmap_target_position());
 			real_t tessellation_density = 1.f / pow(2.f, _tessellation_level);
 			real_t vertex_spacing = _vertex_spacing * tessellation_density;
-			if (!(MAX(abs(_last_buffer_position.x - target_pos_2d.x), abs(_last_buffer_position.y - target_pos_2d.y)) < vertex_spacing)) {
+			if (!(MAX(std::abs(_last_buffer_position.x - target_pos_2d.x), std::abs(_last_buffer_position.y - target_pos_2d.y)) < vertex_spacing)) {
 				_last_buffer_position = target_pos_2d;
 				RS->material_set_param(_material->get_buffer_material_rid(), "_target_pos", get_clipmap_target_position());
 				_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
