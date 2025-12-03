@@ -58,7 +58,7 @@ private:
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DCollision *_collision = nullptr;
-	Terrain3DMesher *_mesher = nullptr;
+	Terrain3DMesher *_terrain_mesher = nullptr;
 	Terrain3DEditor *_editor = nullptr;
 	Object *_editor_plugin = nullptr;
 
@@ -78,6 +78,15 @@ private:
 	int _mesh_size = 48;
 	int _tessellation_level = 0;
 	real_t _vertex_spacing = 1.0f;
+
+	// Ocean
+	Terrain3DMesher *_ocean_mesher = nullptr;
+	Ref<Material> _ocean_material;
+	bool _ocean_enabled = false;
+	int _ocean_mesh_lods = 7;
+	int _ocean_mesh_size = 48;
+	int _ocean_tessellation_level = 0;
+	real_t _ocean_vertex_spacing = 1.0f;
 
 	// Rendering
 	uint32_t _render_layers = 1u | (1u << 31u); // Bit 1 and 32 for the cursor
@@ -110,11 +119,12 @@ private:
 
 	void _destroy_instancer();
 	void _destroy_collision(const bool p_final = false);
-	void _destroy_mesher(const bool p_final = false);
-	void _update_mesher_aabbs() { _mesher ? _mesher->update_aabbs() : void(); }
+	void _update_mesher_aabbs() { _terrain_mesher ? _terrain_mesher->update_aabbs() : void(); }
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
+	void _destroy_terrain_mesher(const bool p_final = false);
+	void _destroy_ocean_mesher(const bool p_final = false);
 
 	void _setup_displacement_buffer();
 	void _update_displacement_buffer();
@@ -124,6 +134,8 @@ private:
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
+
+	void _update_ocean_uniforms();
 
 public:
 	static DebugLevel debug_level; // Initialized in terrain_3d.cpp
@@ -141,6 +153,8 @@ public:
 
 	// Object references
 	Terrain3DData *get_data() const { return _data; }
+	Terrain3DMesher *get_mesher() const { return _terrain_mesher; }
+	Terrain3DMesher *get_ocean_mesher() const { return _ocean_mesher; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
@@ -184,6 +198,20 @@ public:
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 	void set_tessellation_level(const int p_level);
 	int get_tessellation_level() const { return _tessellation_level; }
+
+	// Ocean Mesh
+	void set_ocean_enabled(const bool p_enabled);
+	bool is_ocean_enabled() const { return _ocean_enabled; }
+	void set_ocean_mesh_lods(const int p_count);
+	int get_ocean_mesh_lods() const { return _ocean_mesh_lods; }
+	void set_ocean_mesh_size(const int p_size);
+	int get_ocean_mesh_size() const { return _ocean_mesh_size; }
+	void set_ocean_tessellation_level(const int p_level);
+	int get_ocean_tessellation_level() const { return _ocean_tessellation_level; }
+	void set_ocean_vertex_spacing(const real_t p_spacing);
+	real_t get_ocean_vertex_spacing() const { return _ocean_vertex_spacing; }
+	void set_ocean_material(const Ref<Material> &p_material);
+	Ref<Material> get_ocean_material() const { return _ocean_material; }
 
 	// Material Displacement Aliases
 	void set_displacement_scale(const real_t p_displacement_scale) { _material.is_valid() ? _material->set_displacement_scale(p_displacement_scale) : void(); }

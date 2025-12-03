@@ -26,6 +26,7 @@ public: // Constants
 
 private:
 	Terrain3D *_terrain = nullptr;
+	RID _scenario = RID();
 	Vector2 _last_target_position = V2_MAX;
 
 	Array _mesh_rids;
@@ -47,11 +48,17 @@ private:
 	real_t _offset_c = 0.f;
 	PackedVector3Array _edge_pos;
 
-	void _generate_mesh_types(const int p_mesh_size);
+	RID _material;
+	int _tessellation_level = 0;
+	int _mesh_size = 0;
+	int _lods = 0;
+	real_t _vertex_spacing = 1.f;
+
+	void _generate_mesh_types();
 	RID _generate_mesh(const Vector2i &p_size, const bool p_standard_grid = false);
 	RID _instantiate_mesh(const PackedVector3Array &p_vertices, const PackedInt32Array &p_indices, const AABB &p_aabb);
-	void _generate_clipmap(const int p_size, const int p_lods, const RID &scenario);
-	void _generate_offset_data(const int p_mesh_size);
+	void _generate_clipmap();
+	void _generate_offset_data();
 
 	void _clear_clipmap();
 	void _clear_mesh_types();
@@ -60,13 +67,24 @@ public:
 	Terrain3DMesher() {}
 	~Terrain3DMesher() { destroy(); }
 
-	void initialize(Terrain3D *p_terrain);
+	void initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material);
 	void destroy();
 
 	void snap();
 	void reset_target_position() { _last_target_position = V2_MAX; }
 	void update();
 	void update_aabbs();
+
+	void set_material(const RID &p_material) { _material = p_material; }
+	RID get_material() const { return _material; }
+	void set_mesh_size(const int p_size) { _mesh_size = p_size; }
+	int get_mesh_size() const { return _mesh_size; }
+	void set_lods(const int p_lods) { _lods = p_lods; }
+	int get_lods() const { return _lods; }
+	void set_vertex_spacing(const real_t p_spacing) { _vertex_spacing = p_spacing; }
+	real_t get_vertex_spacing() const { return _vertex_spacing; }
+	void set_tessellation_level(const int p_level) { _tessellation_level = p_level; }
+	int get_tessellation_level() const { return _tessellation_level; }
 };
 // Inline Functions
 
