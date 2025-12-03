@@ -78,5 +78,6 @@ group_uniforms;
 			alb = mix(alb, far_alb, far_factor);
 			nrm = mix(nrm, far_nrm, far_factor);
 			ao = mix(ao, far_ao, far_factor);
+			world_normal = mix(world_normal, 1.0, far_factor);
 		}
 )"
