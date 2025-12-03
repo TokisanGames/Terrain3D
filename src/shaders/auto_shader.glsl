@@ -17,7 +17,8 @@ group_uniforms;
 		float auto_blend = clamp(fma(auto_slope * 2.0, (w_normal.y - 1.0), 1.0)
 			- auto_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);
 		// Enable Autoshader if outside regions or painted in regions, otherwise manual painted
-		uvec4 is_auto = (control & uvec4(0x1u)) | uvec4(uint(region_uv.z < 0.0));
+		uvec4 is_auto = (control & uvec4(0x1u)) | 
+			uvec4(lessThanEqual(ivec4(index[0].z, index[1].z, index[2].z, index[3].z), ivec4(0)));
 		uint u_auto = 
 			((uint(auto_base_texture) & 0x1Fu) << 27u) |
 			((uint(auto_overlay_texture) & 0x1Fu) << 22u) |
