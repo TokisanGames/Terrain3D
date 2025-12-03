@@ -140,6 +140,10 @@
 		<member name="assets" type="Terrain3DAssets" setter="set_assets" getter="get_assets">
 			The list of texture and mesh assets used by Terrain3D. You can optionally save this as an external [code skip-lint].tres[/code] text file if you wish to share it with Terrain3D nodes in other scenes.
 		</member>
+		<member name="buffer_shader_override" type="Shader" setter="set_buffer_shader_override" getter="get_buffer_shader_override">
+		</member>
+		<member name="buffer_shader_override_enabled" type="bool" setter="set_buffer_shader_override_enabled" getter="is_buffer_shader_override_enabled" default="false">
+		</member>
 		<member name="cast_shadows" type="int" setter="set_cast_shadows" getter="get_cast_shadows" enum="RenderingServer.ShadowCastingSetting" default="1">
 			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
 		</member>
@@ -189,6 +193,14 @@
 		</member>
 		<member name="debug_level" type="int" setter="set_debug_level" getter="get_debug_level" enum="Terrain3D.DebugLevel" default="0">
 			The verbosity of debug messages printed to the console. Errors and warnings are always printed. This can also be set via command line using [code skip-lint]--terrain3d-debug=LEVEL[/code] where [code skip-lint]LEVEL[/code] is one of [code skip-lint]ERROR, INFO, DEBUG, EXTREME[/code]. The last includes continuously recurring messages like position updates for the mesh as the camera moves around.
+		</member>
+		<member name="displacement_scale" type="float" setter="set_displacement_scale" getter="get_displacement_scale" default="1.0">
+			A global multiplier for all displaced textures. This is the maximum distance that 2 adjacent verticies can be vertically seperated by. Setting this 1.0 would mean a maximum of + 0.5m, and -0.5m deviation from the collision mesh.
+			Alias for [member Terrain3DMaterial.displacement_scale].
+		</member>
+		<member name="displacement_sharpness" type="float" setter="set_displacement_sharpness" getter="get_displacement_sharpness" default="0.25">
+			Adjusts the transition between textures. When set at `1.0`, the blending of displacment between textures will match the aldebo/normal blend sharpness exactly. Lower values will have a softer transition, avoiding harsh shapes, without compromising the abldeo and normal blend sharpness. If set at or very near to `0.0`, it is possible that more displaced textures can affect less displaced textures at low blend values even if not visible.
+			Alias for [member Terrain3DMaterial.displacement_sharpness].
 		</member>
 		<member name="free_editor_textures" type="bool" setter="set_free_editor_textures" getter="get_free_editor_textures" default="true">
 			Frees ground textures used for editing in _ready(). These textures are used to generate the TextureArrays, so if you don't change any [Terrain3DTextureAsset] settings in game, this can be enabled. Also reloads the texture asset list in _enter_tree() in case you load scenes via code and need the textures again. Calls [method Terrain3DAssets.clear_textures].
@@ -273,6 +285,9 @@
 			Albedo shows the base and overlay texture indices defined by the control map. Red pixels indicate the base texture, with brightness showing texture ids 0 to 31. Green pixels indicate the overlay texture. Yellow indicates both.
 			Alias for [member Terrain3DMaterial.show_control_texture].
 		</member>
+		<member name="show_displacement_buffer" type="bool" setter="set_show_displacement_buffer" getter="get_show_displacement_buffer" default="false">
+			Alias for [member Terrain3DMaterial.show_displacement_buffer].
+		</member>
 		<member name="show_grey" type="bool" setter="set_show_grey" getter="get_show_grey" default="false">
 			Albedo is set to 0.2 grey.
 			Alias for [member Terrain3DMaterial.show_grey].
@@ -327,6 +342,9 @@
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
 			Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
 			Alias for [member Terrain3DMaterial.show_vertex_grid].
+		</member>
+		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="0">
+			Enables displacement using texture heights for additional mesh detail when set above 0. This creates up to 6 additional subdivisions of the terrain mesh below LOD0, and adds a displacement buffer configurable in the material. You can see this in wireframe mode. Set to 0 to disable displacement. See [member Terrain3DMaterial.show_displacement_buffer] and look at the Displacement Buffer debug view.
 		</member>
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.1.0-dev&quot;">
 			The current version of Terrain3D.

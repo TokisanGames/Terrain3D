@@ -88,6 +88,12 @@
 				Returns the array of detiling values for each texture asset, indexed by asset id.
 			</description>
 		</method>
+		<method name="get_texture_displacements" qualifiers="const">
+			<return type="PackedVector2Array" />
+			<description>
+				Returns the array of displacement offset and scale values for each texture asset, indexed by asset id.
+			</description>
+		</method>
 		<method name="get_texture_normal_depths" qualifiers="const">
 			<return type="PackedFloat32Array" />
 			<description>

@@ -207,6 +207,7 @@
     <None Include="doc\docs\data_format.md" />
     <None Include="doc\docs\heightmaps.md" />
     <None Include="doc\docs\programming_languages.rst" />
+    <None Include="doc\docs\displacement.md" />
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\docs\user_interface.md" />
     <None Include="doc\index.rst" />
@@ -221,6 +222,8 @@
     <None Include="README.md" />
     <None Include="SConstruct" />
     <None Include="src\shaders\debug_views.glsl" />
+    <None Include="src\shaders\displacement.glsl" />
+    <None Include="src\shaders\displacement_buffer.glsl" />
     <None Include="src\shaders\main.glsl" />
     <None Include="src\shaders\overlays.glsl" />
     <None Include="src\shaders\pbr_views.glsl">

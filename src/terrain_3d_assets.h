@@ -41,6 +41,7 @@ private:
 	PackedFloat32Array _texture_uv_scales;
 	uint32_t _texture_vertical_projections;
 	PackedVector2Array _texture_detiles;
+	PackedVector2Array _texture_displacements;
 
 	// Mesh Thumbnail Generation
 	RID _scenario;
@@ -75,6 +76,7 @@ public:
 	void set_texture_list(const TypedArray<Terrain3DTextureAsset> &p_texture_list);
 	TypedArray<Terrain3DTextureAsset> get_texture_list() const { return _texture_list; }
 	int get_texture_count() const { return _texture_list.size(); }
+	int get_generated_array_size() const { return _generated_albedo_textures.size(); }
 	RID get_albedo_array_rid() const { return _generated_albedo_textures.get_rid(); }
 	RID get_normal_array_rid() const { return _generated_normal_textures.get_rid(); }
 	PackedColorArray get_texture_colors() const { return _texture_colors; }
@@ -85,6 +87,7 @@ public:
 	PackedFloat32Array get_texture_uv_scales() const { return _texture_uv_scales; }
 	uint32_t get_texture_vertical_projections() const { return _texture_vertical_projections; }
 	PackedVector2Array get_texture_detiles() const { return _texture_detiles; }
+	PackedVector2Array get_texture_displacements() const { return _texture_displacements; }
 	void clear_textures(const bool p_update = false);
 	void update_texture_list();
 

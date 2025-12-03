@@ -4,18 +4,13 @@
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/environment.hpp>
-#include <godot_cpp/classes/height_map_shape3d.hpp>
 #include <godot_cpp/classes/label3d.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/physics_direct_space_state3d.hpp>
 #include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
-#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/quad_mesh.hpp>
-#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
-#include <godot_cpp/classes/time.hpp>
-#include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 
@@ -70,20 +65,20 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::region_map_changed signal to build()");
 		_data->connect("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build));
 	}
-	// Any map was regenerated or regions changed, update material
-	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps))) {
-		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update_maps()");
-		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_maps));
+	// Any map was regenerated or regions changed, update material uniforms without rebuilding shaders
+	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
+		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update()");
+		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
 	}
 	// Height map was regenerated, update aabbs
 	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs))) {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
-	// Texture assets changed, update material
-	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
-		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
-		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
+	// Texture assets changed, update material uniforms without rebuilding shaders
+	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
+		LOG(DEBUG, "Connecting _assets.textures_changed to _material->update()");
+		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
 	}
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
@@ -94,6 +89,7 @@ void Terrain3D::_initialize() {
 		_collision->initialize(this);
 		_instancer->initialize(this);
 		_mesher->initialize(this);
+		_update_displacement_buffer();
 		_initialized = true;
 		snap();
 	}
@@ -111,7 +107,21 @@ void Terrain3D::__physics_process(const double p_delta) {
 		LOG(DEBUG, "Camera is null, getting the current one");
 		_grab_camera();
 	}
-	if (_mesher) {
+	if (_tessellation_level > 0) {
+		if (_mesher && _d_buffer_vp && _material.is_valid()) {
+			// If clipmap target has moved enough, re-center buffer on the target.
+			Vector2 target_pos_2d = v3v2(get_clipmap_target_position());
+			real_t tessellation_density = 1.f / pow(2.f, _tessellation_level);
+			real_t vertex_spacing = _vertex_spacing * tessellation_density;
+			if (!(MAX(abs(_last_buffer_position.x - target_pos_2d.x), abs(_last_buffer_position.y - target_pos_2d.y)) < vertex_spacing)) {
+				_last_buffer_position = target_pos_2d;
+				RS->material_set_param(_material->get_buffer_material_rid(), "_target_pos", get_clipmap_target_position());
+				_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+				// Only call snap on _mesher if the buffer has snapped, prevents stuttering.
+				_mesher->snap();
+			}
+		}
+	} else if (_mesher) {
 		_mesher->snap();
 	}
 	if (_collision && _collision->is_dynamic_mode()) {
@@ -194,7 +204,7 @@ void Terrain3D::_setup_mouse_picking() {
 	_mouse_vp->set_size(V2I(2));
 	_mouse_vp->set_scaling_3d_mode(Viewport::SCALING_3D_MODE_BILINEAR);
 	_mouse_vp->set_update_mode(SubViewport::UPDATE_ONCE);
-	_mouse_vp->set_handle_input_locally(false);
+	_mouse_vp->set_disable_input(true);
 	_mouse_vp->set_canvas_cull_mask(0);
 	_mouse_vp->set_use_hdr_2d(true);
 	_mouse_vp->set_anisotropic_filtering_level(Viewport::ANISOTROPY_DISABLED);
@@ -251,6 +261,53 @@ void Terrain3D::_destroy_mouse_picking() {
 	memdelete_safely(_mouse_cam);
 	LOG(DEBUG, "Freeing mouse_vp");
 	memdelete_safely(_mouse_vp);
+}
+
+void Terrain3D::_setup_displacement_buffer() {
+	if (!is_inside_tree()) {
+		LOG(ERROR, "Not inside the tree, skipping displacement buffer setup");
+		return;
+	}
+	_destroy_displacement_buffer();
+	LOG(INFO, "Setting up displacement buffer");
+	_d_buffer_vp = memnew(SubViewport);
+	_d_buffer_vp->set_name("DBufferViewport");
+	add_child(_d_buffer_vp, true);
+	_d_buffer_vp->set_size(Vector2i(2, 2));
+	_d_buffer_vp->set_disable_3d(true);
+	_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	_d_buffer_vp->set_disable_input(true);
+	_d_buffer_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+
+	_d_buffer_rect = memnew(ColorRect);
+	_d_buffer_rect->set_name("DBufferRect");
+	_d_buffer_vp->add_child(_d_buffer_rect, true);
+	_d_buffer_rect->set_anchors_preset(Control::PRESET_FULL_RECT);
+}
+
+void Terrain3D::_update_displacement_buffer() {
+	if (!_d_buffer_vp) {
+		return;
+	}
+	if (_tessellation_level == 0) {
+		_d_buffer_vp->set_size(V2I_ZERO);
+		_d_buffer_rect->set_size(V2I_ZERO);
+	} else {
+		_d_buffer_vp->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
+		_d_buffer_rect->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
+		LOG(INFO, "Updating displacement buffer to Size: ", _d_buffer_vp->get_size());
+		if (_material.is_valid() && _material->get_material_rid().is_valid()) {
+			RS->canvas_item_set_material(_d_buffer_rect->get_canvas_item(), _material->get_buffer_material_rid());
+			RS->material_set_param(_material->get_material_rid(), "_displacement_buffer", _d_buffer_vp->get_texture()->get_rid());
+		}
+	}
+}
+
+void Terrain3D::_destroy_displacement_buffer() {
+	LOG(DEBUG, "Freeing d_buffer_rect");
+	memdelete_safely(_d_buffer_rect);
+	LOG(DEBUG, "Freeing d_buffer_vp");
+	memdelete_safely(_d_buffer_vp);
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
@@ -446,7 +503,7 @@ void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
 	SET_IF_DIFF(_editor, p_editor);
 	LOG(INFO, "Setting Terrain3DEditor: ", _editor);
 	if (_material.is_valid()) {
-		_material->update();
+		_material->update(true);
 	}
 }
 
@@ -522,6 +579,9 @@ void Terrain3D::snap() {
 	if (_collision) {
 		_collision->reset_target_position();
 	}
+	if (_tessellation_level > 0) {
+		_last_buffer_position = V2_MAX;
+	}
 }
 
 void Terrain3D::set_region_size(const RegionSize p_size) {
@@ -536,8 +596,9 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 		_data->_region_sizev = V2I(_region_size);
 	}
 	if (_material.is_valid()) {
-		_material->_update_maps();
+		_material->update();
 	}
+	_update_displacement_buffer();
 }
 
 void Terrain3D::set_save_16_bit(const bool p_enabled) {
@@ -598,13 +659,15 @@ void Terrain3D::set_mesh_size(const int p_size) {
 	if (_mesher && _material.is_valid()) {
 		_material->update();
 		_mesher->initialize(this);
+		_update_displacement_buffer();
 	}
 }
 
 void Terrain3D::set_mesh_lods(const int p_count) {
 	SET_IF_DIFF(_mesh_lods, CLAMP(p_count, 1, 10));
 	LOG(INFO, "Setting mesh levels: ", _mesh_lods);
-	if (_mesher) {
+	if (_mesher && _material.is_valid()) {
+		_material->update();
 		_mesher->initialize(this);
 	}
 }
@@ -617,13 +680,25 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 		_data->_vertex_spacing = _vertex_spacing;
 		update_region_labels();
 		_mesher->reset_target_position();
-		_material->_update_maps();
+		_material->update();
 		_collision->destroy();
 		_collision->build();
+		_update_displacement_buffer();
 	}
 	if (IS_EDITOR && _editor_plugin) {
 		_editor_plugin->call("update_region_grid");
 	}
+}
+
+void Terrain3D::set_tessellation_level(const int p_level) {
+	SET_IF_DIFF(_tessellation_level, CLAMP(p_level, 0, 6));
+	LOG(INFO, "Setting tessellation level: ", p_level);
+	if (_mesher && _material.is_valid()) {
+		_material->update(true);
+		_mesher->initialize(this);
+		_update_displacement_buffer();
+	}
+	notify_property_list_changed();
 }
 
 void Terrain3D::set_render_layers(const uint32_t p_layers) {
@@ -908,6 +983,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_notify_transform(true);
 			set_meta("_edit_lock_", true);
 			_setup_mouse_picking();
+			_setup_displacement_buffer();
 			// Reload editor textures - Also see READY
 			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid() && !_assets->get_path().contains("Terrain3DAssets")) {
 				LOG(INFO, "free_editor_textures enabled, reloading Assets path: ", _assets->get_path());
@@ -941,7 +1017,7 @@ void Terrain3D::_notification(const int p_what) {
 
 		case NOTIFICATION_PHYSICS_PROCESS: {
 			// Node is processing one physics frame
-			__physics_process(get_process_delta_time());
+			__physics_process(get_physics_process_delta_time());
 			break;
 		}
 
@@ -1012,6 +1088,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_physics_process(false);
 			_destroy_mesher();
 			_destroy_mouse_picking();
+			_destroy_displacement_buffer();
 			if (_assets.is_valid()) {
 				_assets->uninitialize();
 			}
@@ -1046,6 +1123,18 @@ void Terrain3D::_notification(const int p_what) {
 
 		default:
 			break;
+	}
+}
+
+void Terrain3D::_validate_property(PropertyInfo &p_property) const {
+	if (_tessellation_level == 0) {
+		// Hide all displacement properties
+		if (p_property.name == StringName("displacement_scale") ||
+				p_property.name == StringName("displacement_sharpness") ||
+				p_property.name == StringName("buffer_shader_override_enabled") ||
+				p_property.name == StringName("buffer_shader_override")) {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+		}
 	}
 }
 
@@ -1118,13 +1207,23 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_physics_material", "material"), &Terrain3D::set_physics_material);
 	ClassDB::bind_method(D_METHOD("get_physics_material"), &Terrain3D::get_physics_material);
 
-	// Mesh
+	// Terrain Mesh
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Terrain3D::set_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Terrain3D::get_mesh_size);
 	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "scale"), &Terrain3D::set_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("set_tessellation_level", "size"), &Terrain3D::set_tessellation_level);
+	ClassDB::bind_method(D_METHOD("get_tessellation_level"), &Terrain3D::get_tessellation_level);
+	ClassDB::bind_method(D_METHOD("set_displacement_scale", "scale"), &Terrain3D::set_displacement_scale);
+	ClassDB::bind_method(D_METHOD("get_displacement_scale"), &Terrain3D::get_displacement_scale);
+	ClassDB::bind_method(D_METHOD("set_displacement_sharpness", "sharpness"), &Terrain3D::set_displacement_sharpness);
+	ClassDB::bind_method(D_METHOD("get_displacement_sharpness"), &Terrain3D::get_displacement_sharpness);
+	ClassDB::bind_method(D_METHOD("set_buffer_shader_override_enabled", "enabled"), &Terrain3D::set_buffer_shader_override_enabled);
+	ClassDB::bind_method(D_METHOD("is_buffer_shader_override_enabled"), &Terrain3D::is_buffer_shader_override_enabled);
+	ClassDB::bind_method(D_METHOD("set_buffer_shader_override", "shader"), &Terrain3D::set_buffer_shader_override);
+	ClassDB::bind_method(D_METHOD("get_buffer_shader_override"), &Terrain3D::get_buffer_shader_override);
 
 	// Rendering
 	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
@@ -1177,6 +1276,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_colormap"), &Terrain3D::get_show_colormap);
 	ClassDB::bind_method(D_METHOD("set_show_roughmap", "enabled"), &Terrain3D::set_show_roughmap);
 	ClassDB::bind_method(D_METHOD("get_show_roughmap"), &Terrain3D::get_show_roughmap);
+	ClassDB::bind_method(D_METHOD("set_show_displacement_buffer", "enabled"), &Terrain3D::set_show_displacement_buffer);
+	ClassDB::bind_method(D_METHOD("get_show_displacement_buffer"), &Terrain3D::get_show_displacement_buffer);
 
 	// PBR Views
 	ClassDB::bind_method(D_METHOD("set_show_texture_albedo", "enabled"), &Terrain3D::set_show_texture_albedo);
@@ -1219,17 +1320,23 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_shape_size", PROPERTY_HINT_RANGE, "8,64,8"), "set_collision_shape_size", "get_collision_shape_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_radius", PROPERTY_HINT_RANGE, "16,256,16"), "set_collision_radius", "get_collision_radius");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_collision_target", "get_collision_target");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority", PROPERTY_HINT_RANGE, "0.1,256,.1"), "set_collision_priority", "get_collision_priority");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_collision_target", "get_collision_target");
 
-	ADD_GROUP("Clipmap Mesh", "");
+	ADD_GROUP("Terrain Mesh", "");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_clipmap_target", "get_clipmap_target");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_mesh_size", "get_mesh_size");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_clipmap_target", "get_clipmap_target");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_tessellation_level", "get_tessellation_level");
+	ADD_SUBGROUP("Displacement", "");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_scale", PROPERTY_HINT_RANGE, "0.0, 2.0, 0.01"), "set_displacement_scale", "get_displacement_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_sharpness", PROPERTY_HINT_RANGE, "0.0, 1.0, 0.01"), "set_displacement_sharpness", "get_displacement_sharpness");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "buffer_shader_override_enabled"), "set_buffer_shader_override_enabled", "is_buffer_shader_override_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "buffer_shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_buffer_shader_override", "get_buffer_shader_override");
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
@@ -1259,6 +1366,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_control_scale"), "set_show_control_scale", "get_show_control_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_colormap"), "set_show_colormap", "get_show_colormap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap"), "set_show_roughmap", "get_show_roughmap");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_displacement_buffer"), "set_show_displacement_buffer", "get_show_displacement_buffer");
 
 	ADD_SUBGROUP("PBR", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_albedo"), "set_show_texture_albedo", "get_show_texture_albedo");

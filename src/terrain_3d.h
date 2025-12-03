@@ -4,12 +4,12 @@
 #define TERRAIN3D_CLASS_H
 
 #include <godot_cpp/classes/camera3d.hpp>
+#include <godot_cpp/classes/color_rect.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
-#include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 
 #include "constants.h"
@@ -76,6 +76,7 @@ private:
 	// Meshes
 	int _mesh_lods = 7;
 	int _mesh_size = 48;
+	int _tessellation_level = 0;
 	real_t _vertex_spacing = 1.0f;
 
 	// Rendering
@@ -90,6 +91,11 @@ private:
 	Camera3D *_mouse_cam = nullptr;
 	MeshInstance3D *_mouse_quad = nullptr;
 	uint32_t _mouse_layer = 32u;
+
+	// Displacement Buffer
+	SubViewport *_d_buffer_vp = nullptr;
+	ColorRect *_d_buffer_rect = nullptr;
+	Vector2 _last_buffer_position = V2_MAX;
 
 	// Parent containers for child nodes
 	Node3D *_label_parent;
@@ -109,6 +115,10 @@ private:
 
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
+
+	void _setup_displacement_buffer();
+	void _update_displacement_buffer();
+	void _destroy_displacement_buffer();
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
@@ -165,13 +175,25 @@ public:
 	int get_label_size() const { return _label_size; }
 	void update_region_labels();
 
-	// Mesh
+	// Terrain Mesh
 	void set_mesh_lods(const int p_count);
 	int get_mesh_lods() const { return _mesh_lods; }
 	void set_mesh_size(const int p_size);
 	int get_mesh_size() const { return _mesh_size; }
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
+	void set_tessellation_level(const int p_level);
+	int get_tessellation_level() const { return _tessellation_level; }
+
+	// Material Displacement Aliases
+	void set_displacement_scale(const real_t p_displacement_scale) { _material.is_valid() ? _material->set_displacement_scale(p_displacement_scale) : void(); }
+	real_t get_displacement_scale() const { return _material.is_valid() ? _material->get_displacement_scale() : 1.f; }
+	void set_displacement_sharpness(const real_t p_displacement_sharpness) { _material.is_valid() ? _material->set_displacement_sharpness(p_displacement_sharpness) : void(); }
+	real_t get_displacement_sharpness() const { return _material.is_valid() ? _material->get_displacement_sharpness() : 0.25f; }
+	void set_buffer_shader_override_enabled(const bool p_enabled) { _material.is_valid() ? _material->set_buffer_shader_override_enabled(p_enabled) : void(); }
+	bool is_buffer_shader_override_enabled() const { return _material.is_valid() ? _material->is_buffer_shader_override_enabled() : false; }
+	void set_buffer_shader_override(const Ref<Shader> &p_shader) { return _material.is_valid() ? _material->set_buffer_shader_override(p_shader) : void(); }
+	Ref<Shader> get_buffer_shader_override() const { return _material.is_valid() ? _material->get_buffer_shader_override() : Ref<Shader>(); }
 
 	// Rendering
 	void set_render_layers(const uint32_t p_layers);
@@ -253,6 +275,8 @@ public:
 	bool get_show_colormap() const { return _material.is_valid() ? _material->get_show_colormap() : false; }
 	void set_show_roughmap(const bool p_enabled) { _material.is_valid() ? _material->set_show_roughmap(p_enabled) : void(); }
 	bool get_show_roughmap() const { return _material.is_valid() ? _material->get_show_roughmap() : false; }
+	void set_show_displacement_buffer(const bool p_enabled) { _material.is_valid() ? _material->set_show_displacement_buffer(p_enabled) : void(); }
+	bool get_show_displacement_buffer() const { return _material.is_valid() ? _material->get_show_displacement_buffer() : false; }
 
 	// PBR View Aliases
 	void set_show_texture_albedo(const bool p_enabled) { _material.is_valid() ? _material->set_show_texture_albedo(p_enabled) : void(); }
@@ -268,6 +292,7 @@ public:
 
 protected:
 	void _notification(const int p_what);
+	void _validate_property(PropertyInfo &p_property) const;
 	static void _bind_methods();
 };
 

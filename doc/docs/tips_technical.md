@@ -54,10 +54,12 @@ To use it:
 	* Disable `Auto Shader`
 	* Disable `Dual Scaling`
 * `WorldBackground` as `Noise` exposes additional shader settings, such as octaves and LOD. You can adjust these settings for performance. However this world generating noise is expensive. Consider not using it at all in a commercial game, and instead obscure your background with meshes, or use an HDR skybox with mountains built in.
-* Reduce the size of the mesh and levels of detail by reducing `Mesh/Size` (`mesh_size`) or `Mesh/Lods` (`mesh_lods`) in the `Terrain3D` node.
+* Reduce the size of the mesh and levels of detail by reducing `Terrain Mesh/Size` or `Terrain Mesh/Lods` in the `Terrain3D` node.
+* Reduce `Terrain Mesh/Tessellation Level` or set to 0 (default) to completely disable texture displacement.
+* Increase `Terrain Mesh/Vertex Spacing`, which increases the lateral scale and gives you a more low-poly terrain. Preferrably do this before you sculpt, but if done after, you can export the heightmap and manipulate it in Photoshop to rescale it.
 * Don't use `Renderer/Cull Margin`. It should only be needed if using the noise background. Otherwise the AABB should be correctly calculated via editing, so there is no need to expand the cull margin. Keeping it enabled can cost more processing time.
 * Experiment with `Renderer/free_editor_textures`, which is enabled by default. It saves VRAM by removing the initial textures used to generate the texture arrays.
-* For cases where performance is paramount, an example `lightweight` shader is provided in `extras/shaders`. This shader is designed to do the minimum possible amount of texture lookups, whilst still providing basic texturing, including height blending. Normals are also fully calculated in `vertex()`. This shader removes advanced features like projection, detiling, and paintable rotation and scale for significant performance gains on low-end hardware, mobile, and VR applications.
+* For cases where performance is paramount, an example `lightweight` shader is provided in `extras/shaders`. This shader is designed to do the minimum possible amount of texture lookups, while still providing basic texturing, including height blending. Normals are also fully calculated in `vertex()`. This shader removes advanced features like projection, detiling, and paintable rotation and scale for significant performance gains on low-end hardware, mobile, and VR applications. Or you can use the `minimum` shader and craft your own texturing and coloring without any extra features.
 
 
 ## Shaders

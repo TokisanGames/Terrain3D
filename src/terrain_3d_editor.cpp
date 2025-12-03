@@ -580,6 +580,9 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	if (_terrain->get_collision_mode() == Terrain3DCollision::DYNAMIC_EDITOR) {
 		_terrain->get_collision()->update(true);
 	}
+	if (_tool == HEIGHT || _tool == SCULPT || _tool == TEXTURE || _tool == AUTOSHADER) {
+		_terrain->snap();
+	}
 }
 
 void Terrain3DEditor::_store_undo() {
@@ -896,7 +899,7 @@ void Terrain3DEditor::set_tool(const Tool p_tool) {
 	Tool old_tool = _tool;
 	SET_IF_DIFF(_tool, CLAMP(p_tool, Tool(0), TOOL_MAX));
 	if (_terrain && (_tool == Tool::NAVIGATION || old_tool == Tool::NAVIGATION)) {
-		_terrain->get_material()->update();
+		_terrain->get_material()->update(true);
 	}
 }
 

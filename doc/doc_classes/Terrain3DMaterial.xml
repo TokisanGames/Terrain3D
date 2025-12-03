@@ -11,6 +11,18 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="get_buffer_material_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Returns the RID of the displacement buffer material used with the Rendering Server. This is set per instance of this class.
+			</description>
+		</method>
+		<method name="get_buffer_shader_rid" qualifiers="const">
+			<return type="RID" />
+			<description>
+				Returns the RID of the displacement buffer shader used with the Rendering Server.
+			</description>
+		</method>
 		<method name="get_material_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
@@ -48,8 +60,10 @@
 		</method>
 		<method name="update">
 			<return type="void" />
+			<param index="0" name="full" type="bool" default="false" />
 			<description>
-				Recompiles the current shader and sends all uniform values to it again.
+				Sends all uniform values to the shader again.
+				full - recompiles the shader first.
 			</description>
 		</method>
 	</methods>
@@ -59,6 +73,18 @@
 		</member>
 		<member name="auto_shader_enabled" type="bool" setter="set_auto_shader" getter="get_auto_shader" default="false">
 			Enables selecting two texture IDs that will automatically be applied to the terrain based upon slope.
+		</member>
+		<member name="buffer_shader_override" type="Shader" setter="set_buffer_shader_override" getter="get_buffer_shader_override">
+			If buffer_shader_override_enabled is true and this Shader is valid, the displacement buffer material will use this custom shader code. If this is blank when you enable the override, the system will generate a shader with the current settings. A visual shader will also work here. However we only generate a text based shader so currently a visual shader needs to be constructed with the base code before it can work.
+		</member>
+		<member name="buffer_shader_override_enabled" type="bool" setter="set_buffer_shader_override_enabled" getter="is_buffer_shader_override_enabled" default="false">
+			Enables use of the [member buffer_shader_override] shader code. Generates default code if shader_override is blank.
+		</member>
+		<member name="displacement_scale" type="float" setter="set_displacement_scale" getter="get_displacement_scale" default="1.0">
+			A global multiplier for all displaced textures. This is the maximum distance that 2 adjacent verticies can be vertically seperated by. Setting this 1.0 would mean a maximum of + 0.5m, and -0.5m deviation from the collision mesh.
+		</member>
+		<member name="displacement_sharpness" type="float" setter="set_displacement_sharpness" getter="get_displacement_sharpness" default="0.5">
+			Adjusts the transition between textures. When set at `1.0`, the blending of displacment between textures will match the aldebo/normal blend sharpness exactly. Lower values will have a softer transition, avoiding harsh shapes, without compromising the abldeo and normal blend sharpness. If set at or very near to `0.0`, it is possible that more displaced textures can affect less displaced textures at low blend values even if not visible.
 		</member>
 		<member name="dual_scaling_enabled" type="bool" setter="set_dual_scaling" getter="get_dual_scaling" default="false">
 			Enables selecting one texture ID that will have multiple scales applied based upon camera distance. Use it for something like a rock texture so up close it will be nicely detailed, and far away mountains can be covered in the same rock texture without looking tiled. The two blend together at a specified distance.
@@ -93,6 +119,9 @@
 		</member>
 		<member name="show_control_texture" type="bool" setter="set_show_control_texture" getter="get_show_control_texture" default="false">
 			Albedo shows the base and overlay texture indices defined by the control map. Red pixels indicate the base texture, with brightness showing texture ids 0 to 31. Green pixels indicate the overlay texture. Yellow indicates both.
+		</member>
+		<member name="show_displacement_buffer" type="bool" setter="set_show_displacement_buffer" getter="get_show_displacement_buffer" default="false">
+			Shows the resulting displacement buffer vertex differential from 0. Black matches collision exactly. Green shows extrusions, Red for depressions into the terrain.
 		</member>
 		<member name="show_grey" type="bool" setter="set_show_grey" getter="get_show_grey" default="false">
 			Albedo is set to 0.2 grey.
