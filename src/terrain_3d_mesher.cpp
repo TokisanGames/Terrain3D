@@ -317,8 +317,9 @@ void Terrain3DMesher::snap() {
 	IS_INIT(VOID);
 	// Always update target position in shader
 	Vector3 target_pos = _terrain->get_clipmap_target_position();
-	RS->material_set_param(_material.is_valid() ? _material : RID(), "_target_pos", target_pos);
-
+	if (_material.is_valid()) {
+		RS->material_set_param(_material, "_target_pos", target_pos);
+	}
 	// If clipmap target hasn't moved enough, skip
 	Vector2 target_pos_2d = v3v2(target_pos);
 	real_t tessellation_density = 1.f / pow(2.f, _tessellation_level);
