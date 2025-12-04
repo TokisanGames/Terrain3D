@@ -392,6 +392,9 @@ void Terrain3DMesher::snap() {
 				t = t.scaled(lod_scale);
 				t.origin += pos;
 				RS->instance_set_transform(mesh_array[instance], t);
+#if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR >= 5
+				RS->instance_teleport(mesh_array[instance]);
+#endif
 // Deprecated Godot 4.5+
 #if GODOT_VERSION_MAJOR == 4 && GODOT_VERSION_MINOR == 4
 				RS->instance_reset_physics_interpolation(mesh_array[instance]);
