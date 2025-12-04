@@ -205,8 +205,8 @@ Ref<Image> Terrain3DUtil::get_thumbnail(const Ref<Image> &p_image, const Vector2
 	real_t hmin = minmax.x;
 	real_t hmax = minmax.y;
 	// Define maximum range
-	hmin = abs(hmin);
-	hmax = abs(hmax) + hmin;
+	hmin = std::abs(hmin);
+	hmax = std::abs(hmax) + hmin;
 	// Avoid divide by zero
 	hmax = (hmax == 0) ? 0.001f : hmax;
 

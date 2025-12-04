@@ -98,8 +98,12 @@ Pass by reference:
 
 * Floats:
 * Use `real_t` instead of `float`
-* Format float literals like `0.0f`
+* Format float literals like `0.0f` or `0.f`
 * Float literals and `real_t` variables can share operations (e.g. `mydouble += 1.0f`) unless the compiler complains. e.g. `Math::lerp(mydouble, real_t(0.0f), real_t(1.0f))`
+
+* Standard Library & Godot Functions:
+* Use `std::abs`, not `Math::abs` (same), and definitely not `abs` (broken on mingw)
+* Use `std::isnan`, not `Math::is_nan` (same)
 
 Braces:
 * Everything braced - no if/for one-liners. Including switch cases

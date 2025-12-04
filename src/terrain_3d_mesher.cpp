@@ -322,7 +322,7 @@ void Terrain3DMesher::snap() {
 	Vector2 target_pos_2d = v3v2(target_pos);
 	real_t tessellation_density = 1.f / pow(2.f, _terrain->get_tessellation_level());
 	real_t vertex_spacing = _terrain->get_vertex_spacing() * tessellation_density;
-	if (MAX(abs(_last_target_position.x - target_pos_2d.x), abs(_last_target_position.y - target_pos_2d.y)) < vertex_spacing) {
+	if (MAX(std::abs(_last_target_position.x - target_pos_2d.x), std::abs(_last_target_position.y - target_pos_2d.y)) < vertex_spacing) {
 		return;
 	}
 
@@ -454,7 +454,7 @@ void Terrain3DMesher::update_aabbs() {
 	IS_DATA_INIT(VOID);
 	real_t cull_margin = _terrain->get_cull_margin();
 	Vector2 height_range = _terrain->get_data()->get_height_range();
-	height_range.y += abs(height_range.x);
+	height_range.y += std::abs(height_range.x);
 
 	LOG(INFO, "Updating ", _mesh_rids.size(), " meshes AABBs")
 	for (const RID &rid : _mesh_rids) {
