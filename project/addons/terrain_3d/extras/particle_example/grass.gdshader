@@ -68,7 +68,6 @@ void fragment() {
 	ROUGHNESS = 1. - spec_rough;
 	SPECULAR = clamp(spec_rough * 0.25, 0., .15);
 
-	BACKLIGHT = vec3(0.33);
 	#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
 	ALBEDO = pow(ALBEDO, vec3(0.4));
 	#endif
