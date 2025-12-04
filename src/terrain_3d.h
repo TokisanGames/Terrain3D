@@ -45,6 +45,15 @@ public: // Constants
 		SIZE_2048 = 2048,
 	};
 
+	enum ColorCompressMode {
+		COMPRESS_NONE,
+		COMPRESS_S3TC,
+		COMPRESS_BPTC,
+		COMPRESS_ETC,
+		COMPRESS_ETC2,
+		COMPRESS_ASTC,
+	};
+
 private:
 	String _version = "1.1.0-dev";
 	String _data_directory;
@@ -70,6 +79,9 @@ private:
 	// Regions
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
+	Image::CompressMode _image_color_compression_mode = Image::COMPRESS_MAX;
+	ColorCompressMode _color_compression_mode = COMPRESS_NONE;
+	bool _free_uncompressed_color_maps = true;
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
@@ -169,6 +181,11 @@ public:
 	void change_region_size(const RegionSize p_size) { _data ? _data->change_region_size(p_size) : void(); }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
+	void set_color_compression_mode(const ColorCompressMode _color_compression_mode = COMPRESS_NONE);
+	ColorCompressMode get_color_compression_mode() { return _color_compression_mode; }
+	Image::CompressMode get_image_color_compression_mode() const { return _image_color_compression_mode; }
+	void set_free_uncompressed_color_maps(const bool p_free_uncompressed_color_maps) { _free_uncompressed_color_maps = p_free_uncompressed_color_maps; }
+	bool get_free_uncompressed_color_maps() const { return _free_uncompressed_color_maps; };
 	void set_label_distance(const real_t p_distance);
 	real_t get_label_distance() const { return _label_distance; }
 	void set_label_size(const int p_size);
@@ -298,6 +315,7 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
+VARIANT_ENUM_CAST(Terrain3D::ColorCompressMode);
 
 constexpr Terrain3D::DebugLevel MESG = Terrain3D::DebugLevel::MESG;
 constexpr Terrain3D::DebugLevel WARN = Terrain3D::DebugLevel::WARN;
