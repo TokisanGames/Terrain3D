@@ -1,8 +1,7 @@
-[gd_scene load_steps=14 format=3 uid="uid://x34e4v60vdmy"]
+[gd_scene load_steps=13 format=3 uid="uid://x34e4v60vdmy"]
 
 [ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_po4vw"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="2_i74wg"]
-[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_3upu0"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="4_fk3ul"]
 [ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="5_2lvlr"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="5_rc7e2"]
@@ -76,9 +75,6 @@ script = ExtResource("1_po4vw")
 
 [node name="Environment" parent="." instance=ExtResource("2_i74wg")]
 
-[node name="Borders" parent="." instance=ExtResource("3_3upu0")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -2.5, 512)
-
 [node name="Tunnel" parent="." instance=ExtResource("5_2lvlr")]
 
 [node name="Player" parent="." instance=ExtResource("4_fk3ul")]
@@ -97,5 +93,6 @@ material = SubResource("Terrain3DMaterial_s5mq5")
 assets = ExtResource("10_qmhh8")
 collision_mask = 3
 mesh_size = 64
+displacement_sharpness = 0.5
 top_level = true
 metadata/_edit_lock_ = true
