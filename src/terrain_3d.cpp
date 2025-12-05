@@ -1087,6 +1087,7 @@ void Terrain3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_physics_process(false);
 			_destroy_mesher();
+			_destroy_instancer();
 			_destroy_mouse_picking();
 			_destroy_displacement_buffer();
 			if (_assets.is_valid()) {
