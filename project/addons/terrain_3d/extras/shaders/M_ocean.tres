@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://b126phjxi3np1"]
+
+[ext_resource type="Shader" uid="uid://collll4o4nr8o" path="res://addons/terrain_3d/extras/shaders/ocean_shader.gdshader" id="1_t7ju5"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_t7ju5")
+shader_parameter/sea_level = 12.8
+shader_parameter/height_scale = 0.5
+shader_parameter/uv_scale = 16.0
+shader_parameter/albedo_color = Color(0.1428, 0.254547, 0.34, 1)
+shader_parameter/fresnel_scale = 0.2
+shader_parameter/fresnel_power = 2.0
+shader_parameter/_cell_amount = 10
+shader_parameter/_period = Vector2(5, 10)
