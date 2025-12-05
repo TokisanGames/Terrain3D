@@ -36,6 +36,13 @@ func _physics_process(p_delta) -> void:
 	if gravity_enabled:
 		velocity.y -= 40 * p_delta
 	move_and_slide()
+	
+	# Ensure player doesn't fall through terrain when collision absent
+	if get_parent().terrain:
+		var height: float = get_parent().terrain.data.get_height(global_position)
+		if is_nan(height):
+			height = 0
+		global_position.y = maxf(global_position.y, height)
 
 
 # Returns the input vector relative to the camera. Forward is always the direction the camera is facing
