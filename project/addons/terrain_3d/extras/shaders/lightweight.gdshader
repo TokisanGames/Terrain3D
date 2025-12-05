@@ -137,7 +137,7 @@ float check_region(const vec2 uv2) {
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
 float get_region_blend(vec2 uv2) {
-	uv2 -= 0.4989; // Offset from - 0.5 to account for FP errors highlighted by Tessellation.
+	uv2 -= 0.5;
 	const vec2 offset = vec2(0.0, 1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
@@ -232,9 +232,10 @@ void vertex() {
 		}
 		
 		// Apply background ground level and region blend
-		h += ground_level *  smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2));
-		u += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(_region_texel_size, 0.)));
-		v += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(0., _region_texel_size)));
+		vec2 ruv = UV * _region_texel_size;
+		h += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv));
+		u += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(_region_texel_size, 0.)));
+		v += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(0., _region_texel_size)));
 		
 		v_vertex.y = h;
 		v_normal = normalize(vec3(h - u, _vertex_spacing, h - v));
@@ -331,8 +332,9 @@ void fragment() {
 			float auto_blend = clamp(fma(auto_slope * 2.0, (v_normal.y - 1.0), 1.0)
 				- auto_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);
 			// Enable Autoshader if outside regions or painted in regions, otherwise manual painted
-			uvec4 is_auto = (control & uvec4(0x1u)) | uvec4(uint(region_uv.z < 0.0));
-			uint u_auto =
+			uvec4 is_auto = (control & uvec4(0x1u)) | 
+				uvec4(lessThan(ivec4(index[0].z, index[1].z, index[2].z, index[3].z), ivec4(0)));
+			uint u_auto = 
 				((uint(auto_base_texture) & 0x1Fu) << 27u) |
 				((uint(auto_overlay_texture) & 0x1Fu) << 22u) |
 				((uint(fma(auto_blend, 255.0 , 0.5)) & 0xFFu) << 14u);

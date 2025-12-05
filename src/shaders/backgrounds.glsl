@@ -4,7 +4,6 @@ R"(
 //INSERT: FLAT_UNIFORMS
 uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
 uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
-varying vec2 bg_ddxy;
 
 //INSERT: FLAT_FUNCTIONS
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
@@ -19,28 +18,28 @@ float check_region(const vec2 uv2) {
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
 float get_region_blend(vec2 uv2) {
-	uv2 -= 0.5;
+	uv2 -= 0.5011; // correct for floating point error
 	const vec2 offset = vec2(0.0, 1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
 	float c = check_region(uv2 + offset.yx);
 	float d = check_region(uv2 + offset.xx);
-	vec2 w = smoothstep(vec2(0.0), vec2(1.0), fract(uv2));
+	vec2 blend_factor = vec2(2.0 + 126.0 * (1.0 - region_blend));
+	vec2 f = fract(uv2);
+	vec2 w = 1.0 / (1.0 + exp(blend_factor * log((1.0 - f) / f)));
 	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
-    return 1.0 - blend;
+	return (1.0 - blend) * 2.0;
 }
 
 //INSERT: FLAT_VERTEX
-		// Apply background ground level and region blend
-		float ground_h = ground_level *  smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2));
-		h += ground_h;
-		bg_ddxy.x = ground_h - ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(_region_texel_size, 0.)));
-		bg_ddxy.y = ground_h - ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(0., _region_texel_size)));
+		// Apply background ground level and region blend, dont include texel offset
+		h = mix(h, ground_level, smoothstep(0.0, 1.0, get_region_blend(UV * _region_texel_size)));
 
 //INSERT: FLAT_FRAGMENT
-	// Apply background normal
-	u += bg_ddxy.x;
-	v += bg_ddxy.y;
+	if (_background_mode == 1u) {
+		float blend = get_region_blend(index_id * _region_texel_size + offset * _region_texel_size);
+		height = mix(height, ground_level, smoothstep(0., 1., blend));
+	}
 
 //INSERT: WORLD_NOISE_UNIFORMS
 group_uniforms world_background_noise;
@@ -70,7 +69,7 @@ float check_region(const vec2 uv2) {
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
 float get_region_blend(vec2 uv2) {
-	uv2 -= 0.4989; // Offset from - 0.5 to account for FP errors highlighted by Tessellation.
+	uv2 -= 0.5011; // correct for floating point error
 	const vec2 offset = vec2(0.0, 1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
@@ -152,8 +151,8 @@ float get_noise_height(const vec2 uv) {
 //INSERT: WORLD_NOISE_VERTEX
 		// World Noise
 		if (_background_mode == 2u) {
-			vec2 nuv_a = fma(start_pos, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
-			vec2 nuv_b = fma(end_pos, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
+			vec2 nuv_a = start_pos * _region_texel_size;
+			vec2 nuv_b = end_pos * _region_texel_size;
 			float nh = mix(get_noise_height(nuv_a), get_noise_height(nuv_b), vertex_lerp);
 			float nu = mix(get_noise_height(nuv_a + vec2(_region_texel_size, 0.0)),
 				get_noise_height(nuv_b + vec2(_region_texel_size, 0.0)), vertex_lerp);
