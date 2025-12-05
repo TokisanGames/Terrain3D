@@ -1035,6 +1035,13 @@ void Terrain3D::_notification(const int p_what) {
 			if (_mesher) {
 				_mesher->update();
 			}
+			if (_instancer) {
+				if (!is_visible_in_tree()) {
+					_instancer->destroy();
+				} else {
+					_instancer->update_mmis(-1, V2I_MAX, true);
+				}
+			}
 			break;
 		}
 
