@@ -16,6 +16,13 @@ uniform int _cell_amount = 10;
 uniform vec2 _period = vec2(5., 10.);
 group_uniforms;
 
+  //UNIFORMS THAT NEED SETTING FROM C++ SIDE
+uniform float _mesh_size = 32.;
+uniform float _subdiv = 1.;
+uniform float _vertex_spacing = 1.;
+uniform float _vertex_density = 1.;
+uniform vec3 _target_pos = vec3(0.,0.,0.); // should be derived from clipmap target position
+
 uniform sampler2D screen_tex : hint_screen_texture;
 
 vec2 modulo(vec2 divident, vec2 divisor) {
@@ -82,12 +89,34 @@ float get_height(vec2 position, float time) {
 }
 
 void vertex() {
+
+
     // Get vertex of flat plane in world coordinates and set world UV
     vec3 vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-    vec2 uv = (vertex.xz / 2.0 + 0.5) / uv_scale;
-    float height = get_height(uv, TIME);
-    VERTEX.y = sea_level + (height  * height_scale);
-    NORMAL = normalize(vec3(height - get_height(uv + vec2(0.1, 0.0), TIME), 0.1, height - get_height(uv + vec2(0.0, 0.1), TIME)));
+
+
+    float scale = MODEL_MATRIX[0][0];
+    float inv_scale = 1.0 / scale;
+    float vertex_distance = max(abs(vertex.x - _target_pos.x), abs(vertex.z - _target_pos.z));
+    float vertex_lerp = smoothstep(0.0, 1.0, (vertex_distance * inv_scale - _mesh_size - 4.0) / (_mesh_size - 4.0));
+    vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
+    // For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
+    vec2 shift = (scale < _vertex_spacing / _subdiv + 1e-6) ? // LOD0 or not
+        // Shift from regular to symmetric
+        mix(v_fract, vec2(v_fract.x, -v_fract.y),
+            round(fract(round(mod(vertex.z * inv_scale, 4.0)) *
+            round(mod(vertex.x * inv_scale, 4.0)) * 0.25))) :
+        // symmetric shift
+        v_fract * round((fract(vertex.xz * 0.25 * inv_scale) - 0.5) * 4.0);
+    vertex.xz -= shift * scale * vertex_lerp;
+
+    UV = (vertex.xz) / uv_scale;
+
+    float h, u, v;
+    h = sea_level;// + get_height(UV, TIME * 0.5) * height_scale;
+    vertex.y = h;
+
+    VERTEX = vertex;
 }
 
 void fragment() {

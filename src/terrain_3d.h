@@ -86,6 +86,7 @@ private:
 	int _ocean_mesh_lods = 7;
 	int _ocean_mesh_size = 48;
 	int _ocean_tessellation_level = 0;
+	real_t _ocean_vertex_spacing = 1.0f;
 
 	// Rendering
 	uint32_t _render_layers = 1u | (1u << 31u); // Bit 1 and 32 for the cursor
@@ -150,6 +151,8 @@ public:
 
 	// Object references
 	Terrain3DData *get_data() const { return _data; }
+	Terrain3DMesher *get_mesher() const { return _terrain_mesher; }
+	Terrain3DMesher *get_ocean_mesher() const { return _ocean_mesher; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
@@ -203,6 +206,8 @@ public:
 	int get_ocean_mesh_size() const { return _ocean_mesh_size; }
 	void set_ocean_tessellation_level(const int p_level);
 	int get_ocean_tessellation_level() const { return _ocean_tessellation_level; }
+	void set_ocean_vertex_spacing(const real_t p_spacing);
+	real_t get_ocean_vertex_spacing() const { return _ocean_vertex_spacing; }
 	void set_ocean_material(const Ref<Material> &p_material);
 	Ref<Material> get_ocean_material() const { return _ocean_material; }
 

@@ -116,7 +116,6 @@ void Terrain3DMesher::_generate_clipmap() {
 	_generate_mesh_types();
 	_generate_offset_data();
 	LOG(DEBUG, "Creating instances for all mesh segments for clipmap of size ", _mesh_size, " for ", _lods, " LODs");
-	const RID scenario = _terrain->get_world_3d()->get_scenario();
 	for (int level = 0; level < _lods + _tessellation_level; level++) {
 		Array lod;
 		// 12 Tiles LOD1+, 16 for LOD0
@@ -124,7 +123,7 @@ void Terrain3DMesher::_generate_clipmap() {
 		int tile_amount = (level == 0) ? 16 : 12;
 
 		for (int i = 0; i < tile_amount; i++) {
-			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], scenario);
+			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], _scenario);
 			tile_rids.append(tile_rid);
 		}
 		lod.append(tile_rids); // index 0 TILE
@@ -132,14 +131,14 @@ void Terrain3DMesher::_generate_clipmap() {
 		// 4 Edges present on all LODs
 		Array edge_a_rids;
 		for (int i = 0; i < 2; i++) {
-			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], scenario);
+			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], _scenario);
 			edge_a_rids.append(edge_a_rid);
 		}
 		lod.append(edge_a_rids); // index 1 EDGE_A
 
 		Array edge_b_rids;
 		for (int i = 0; i < 2; i++) {
-			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], scenario);
+			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], _scenario);
 			edge_b_rids.append(edge_b_rid);
 		}
 		lod.append(edge_b_rids); // index 2 EDGE_B
@@ -148,14 +147,14 @@ void Terrain3DMesher::_generate_clipmap() {
 		if (level > 0) {
 			Array fill_a_rids;
 			for (int i = 0; i < 2; i++) {
-				RID fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], scenario);
+				RID fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], _scenario);
 				fill_a_rids.append(fill_a_rid);
 			}
 			lod.append(fill_a_rids); // index 4 FILL_A
 
 			Array fill_b_rids;
 			for (int i = 0; i < 2; i++) {
-				RID fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], scenario);
+				RID fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], _scenario);
 				fill_b_rids.append(fill_b_rid);
 			}
 			lod.append(fill_b_rids); // index 5 FILL_B
@@ -164,14 +163,14 @@ void Terrain3DMesher::_generate_clipmap() {
 		} else {
 			Array trim_a_rids;
 			for (int i = 0; i < 2; i++) {
-				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], scenario);
+				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], _scenario);
 				trim_a_rids.append(trim_a_rid);
 			}
 			lod.append(trim_a_rids); // index 4 TRIM_A
 
 			Array trim_b_rids;
 			for (int i = 0; i < 2; i++) {
-				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], scenario);
+				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], _scenario);
 				trim_b_rids.append(trim_b_rid);
 			}
 			lod.append(trim_b_rids); // index 5 TRIM_B
@@ -278,7 +277,7 @@ void Terrain3DMesher::_clear_mesh_types() {
 // Public Functions
 ///////////////////////////
 
-void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const RID &p_material) {
+void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	} else {
@@ -290,10 +289,12 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, co
 	}
 
 	LOG(INFO, "Initializing GeoMesh");
+	_scenario = _terrain->get_world_3d()->get_scenario();
 	set_material(p_material);
 	set_lods(p_lods);
 	set_mesh_size(p_mesh_size);
 	set_tessellation_level(p_tessellation_level);
+	set_vertex_spacing(p_vertex_spacing);
 	_generate_clipmap();
 	update();
 	update_aabbs();
@@ -323,7 +324,7 @@ void Terrain3DMesher::snap() {
 	// If clipmap target hasn't moved enough, skip
 	Vector2 target_pos_2d = v3v2(target_pos);
 	real_t tessellation_density = 1.f / pow(2.f, _tessellation_level);
-	real_t vertex_spacing = _terrain->get_vertex_spacing() * tessellation_density;
+	real_t vertex_spacing = _vertex_spacing * tessellation_density;
 	if (MAX(std::abs(_last_target_position.x - target_pos_2d.x), std::abs(_last_target_position.y - target_pos_2d.y)) < vertex_spacing) {
 		return;
 	}
@@ -432,7 +433,6 @@ void Terrain3DMesher::update() {
 		} break;
 	}
 
-	RID scenario = _terrain->get_world_3d()->get_scenario();
 	uint32_t render_layers = _terrain->get_render_layers();
 	RenderingServer::ShadowCastingSetting cast_shadows = _terrain->get_cast_shadows();
 	bool visible = _terrain->is_visible_in_tree();
@@ -442,7 +442,7 @@ void Terrain3DMesher::update() {
 		for (const Array &mesh_array : lod_array) {
 			for (const RID &rid : mesh_array) {
 				RS->instance_set_visible(rid, visible);
-				RS->instance_set_scenario(rid, scenario);
+				RS->instance_set_scenario(rid, _scenario);
 				RS->instance_set_layer_mask(rid, render_layers);
 				RS->instance_geometry_set_cast_shadows_setting(rid, cast_shadows);
 				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
