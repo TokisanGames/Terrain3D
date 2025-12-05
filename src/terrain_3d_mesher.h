@@ -26,6 +26,7 @@ public: // Constants
 
 private:
 	Terrain3D *_terrain = nullptr;
+	RID _scenario = RID();
 	Vector2 _last_target_position = V2_MAX;
 
 	Array _mesh_rids;
@@ -51,6 +52,7 @@ private:
 	int _tessellation_level = 0;
 	int _mesh_size = 0;
 	int _lods = 0;
+	real_t _vertex_spacing = 1.f;
 
 	void _generate_mesh_types();
 	RID _generate_mesh(const Vector2i &p_size, const bool p_standard_grid = false);
@@ -65,7 +67,7 @@ public:
 	Terrain3DMesher() {}
 	~Terrain3DMesher() { destroy(); }
 
-	void initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const RID &p_material);
+	void initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material);
 	void destroy();
 
 	void snap();
@@ -81,6 +83,8 @@ public:
 	int get_mesh_size() const { return _mesh_size; }
 	void set_lods(const int p_lods) { SET_IF_DIFF(_lods, p_lods); }
 	int get_lods() const { return _lods; }
+	void set_vertex_spacing(const real_t p_spacing) { SET_IF_DIFF(_vertex_spacing, p_spacing); }
+	real_t get_vertex_spacing() const { return _vertex_spacing; }
 };
 // Inline Functions
 

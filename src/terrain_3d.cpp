@@ -92,9 +92,9 @@ void Terrain3D::_initialize() {
 		_assets->initialize(this);
 		_collision->initialize(this);
 		_instancer->initialize(this);
-		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _material->get_material_rid());
+		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid());
 		if (_ocean_enabled) {
-			_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
+			_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 		}
 		_update_displacement_buffer();
 		_initialized = true;
@@ -682,7 +682,7 @@ void Terrain3D::set_mesh_size(const int p_size) {
 	LOG(INFO, "Setting mesh size: ", _mesh_size);
 	if (_terrain_mesher && _material.is_valid()) {
 		_material->update();
-		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _material->get_material_rid());
+		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid());
 		_update_displacement_buffer();
 	}
 }
@@ -692,7 +692,7 @@ void Terrain3D::set_mesh_lods(const int p_count) {
 	LOG(INFO, "Setting mesh levels: ", _mesh_lods);
 	if (_terrain_mesher && _material.is_valid()) {
 		_material->update();
-		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _material->get_material_rid());
+		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid());
 	}
 }
 
@@ -719,7 +719,7 @@ void Terrain3D::set_tessellation_level(const int p_level) {
 	LOG(INFO, "Setting tessellation level: ", p_level);
 	if (_terrain_mesher && _material.is_valid()) {
 		_material->update(true);
-		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _material->get_material_rid());
+		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid());
 		_update_displacement_buffer();
 	}
 	notify_property_list_changed();
@@ -729,7 +729,7 @@ void Terrain3D::set_ocean_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_ocean_enabled, p_enabled);
 	LOG(INFO, "Setting ocean enabled: ", _ocean_enabled);
 	if (_ocean_enabled) {
-		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
+		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 	} else {
 		if (_ocean_mesher) {
 			_destroy_ocean_mesher(false);
@@ -742,7 +742,7 @@ void Terrain3D::set_ocean_mesh_lods(const int p_count) {
 	SET_IF_DIFF(_ocean_mesh_lods, CLAMP(p_count, 1, 10));
 	LOG(INFO, "Setting ocean mesh levels: ", _ocean_mesh_lods);
 	if (_ocean_mesher && _ocean_enabled) {
-		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
+		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 	}
 }
 
@@ -750,7 +750,7 @@ void Terrain3D::set_ocean_mesh_size(const int p_size) {
 	SET_IF_DIFF(_ocean_mesh_size, CLAMP(p_size & ~1, 8, 256)); // Ensure even
 	LOG(INFO, "Setting ocean mesh size: ", _ocean_mesh_size);
 	if (_ocean_mesher && _ocean_enabled) {
-		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
+		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 	}
 }
 
@@ -758,7 +758,15 @@ void Terrain3D::set_ocean_tessellation_level(const int p_level) {
 	SET_IF_DIFF(_ocean_tessellation_level, CLAMP(p_level, 0, 6));
 	LOG(INFO, "Setting ocean tessellation level: ", p_level);
 	if (_ocean_mesher && _ocean_enabled) {
-		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
+		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
+	}
+}
+
+void Terrain3D::set_ocean_vertex_spacing(const real_t p_spacing) {
+	SET_IF_DIFF(_ocean_vertex_spacing, CLAMP(p_spacing, 0.25f, 100.0f));
+	LOG(INFO, "Setting ocean vertex spacing: ", _ocean_vertex_spacing);
+	if (_ocean_mesher && _ocean_enabled) {
+		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 	}
 }
 
@@ -766,7 +774,7 @@ void Terrain3D::set_ocean_material(const Ref<Material> &p_material) {
 	SET_IF_DIFF(_ocean_material, p_material);
 	LOG(INFO, "Setting ocean material");
 	if (_ocean_mesher && _ocean_enabled) {
-		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
+		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 	}
 }
 
@@ -1311,6 +1319,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_ocean_mesh_lods"), &Terrain3D::get_ocean_mesh_lods);
 	ClassDB::bind_method(D_METHOD("set_ocean_mesh_size", "size"), &Terrain3D::set_ocean_mesh_size);
 	ClassDB::bind_method(D_METHOD("get_ocean_mesh_size"), &Terrain3D::get_ocean_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_ocean_vertex_spacing", "scale"), &Terrain3D::set_ocean_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("get_ocean_vertex_spacing"), &Terrain3D::get_ocean_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("set_ocean_tessellation_level", "size"), &Terrain3D::set_ocean_tessellation_level);
 	ClassDB::bind_method(D_METHOD("get_ocean_tessellation_level"), &Terrain3D::get_ocean_tessellation_level);
 	ClassDB::bind_method(D_METHOD("set_ocean_material", "material"), &Terrain3D::set_ocean_material);
@@ -1433,6 +1443,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ocean_enabled"), "set_ocean_enabled", "is_ocean_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_ocean_mesh_lods", "get_ocean_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_ocean_mesh_size", "get_ocean_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_ocean_vertex_spacing", "get_ocean_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_ocean_tessellation_level", "get_ocean_tessellation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "Material"), "set_ocean_material", "get_ocean_material");
 
