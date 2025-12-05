@@ -1,21 +1,24 @@
 shader_type spatial;
-render_mode specular_toon;
+render_mode specular_toon, cull_disabled;
 
 // Shader adapted from https://docs.godotengine.org/en/4.4/tutorials/shaders/your_first_shader/your_second_3d_shader.html
-// Also includes snippets from https://godotshaders.com/snippet/useful-code-snippets/ 
+// Also includes snippets from https://godotshaders.com/snippet/useful-code-snippets/
 
 group_uniforms ocean;
 uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 0.0;
 uniform float height_scale : hint_range(0.01, 10.0, 0.01) = 0.5;
-uniform float uv_scale : hint_range(1.0, 50.0, 1.0) = 1.0;
+uniform float uv_scale : hint_range(1.0, 50.0, 1.0) = 8.0;
+uniform vec3 albedo_color : source_color = vec3(.143, .255,  .34);
+uniform float fresnel_scale : hint_range(0., 1.) = .2;
+uniform float fresnel_power = 2.;
+
+uniform int _cell_amount = 10;
+uniform vec2 _period = vec2(5., 10.);
 group_uniforms;
 
 uniform sampler2D screen_tex : hint_screen_texture;
 
-uniform int _cell_amount = 10;
-uniform vec2 _period = vec2(5., 10.);
-
-vec2 modulo(vec2 divident, vec2 divisor){
+vec2 modulo(vec2 divident, vec2 divisor) {
     vec2 positiveDivident = mod(divident, divisor) + divisor;
     return mod(positiveDivident, divisor);
 }
@@ -88,10 +91,10 @@ void vertex() {
 }
 
 void fragment() {
-    float fresnel = sqrt(1.0 - dot(NORMAL, VIEW));
     vec3 screen_clr = texture(screen_tex, SCREEN_UV).rgb;
-    RIM = 0.1;
-    ROUGHNESS = 0.01;
-    METALLIC = 0.0;
-    ALBEDO = screen_clr + (0.1 * fresnel);    
+	ALBEDO = albedo_color * screen_clr;
+
+    float fresnel = clamp(fresnel_scale * pow(1.0 + dot(VIEW, NORMAL), fresnel_power), 0., 1.);
+    ROUGHNESS = fresnel;
+	SPECULAR = 1.;
 }
