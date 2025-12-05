@@ -63,6 +63,9 @@ uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 group_uniforms;
 //INSERT: AUTO_SHADER_UNIFORMS
 
+//INSERT: FLAT_UNIFORMS
+//INSERT: FLAT_FUNCTIONS
+
 // Uniquely named displacement uniforms should be in this group.
 // Uniforms that are shared with the main shader are automatically synchronised.
 // Subgroups should work as expected.
@@ -249,6 +252,13 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 		mat.total_weight += id_weight;
 	}
 }
+
+float get_height(vec2 index_id, vec2 offset) {
+	float height = texelFetch(_height_maps, get_index_coord(index_id + offset, SKIP_PASS), 0).r;
+//INSERT: FLAT_FRAGMENT
+	return height;
+}
+
 )"
 
 		R"(
@@ -288,18 +298,18 @@ void fragment() {
 	float v = 0.0;
 
 	// Re-use index[] for the first lookups, skipping some math. 3 lookups
-	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0,0)
-	h[2] = texelFetch(_height_maps, index[2], 0).r; // 1 (1,0)
-	h[0] = texelFetch(_height_maps, index[0], 0).r; // 2 (0,1)
+	h[3] = get_height(index_id, offsets.xx); // 0 (0, 0)
+	h[2] = get_height(index_id, offsets.yx); // 1 (1, 0)
+	h[0] = get_height(index_id, offsets.xy); // 2 (0, 1)
 	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// 5 lookups
 	// Fetch the additional required height values for smooth normals
-	h[1] = texelFetch(_height_maps, index[1], 0).r; // 3 (1,1)
-	float h_4 = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
-	float h_5 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
-	float h_6 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
-	float h_7 = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
+	h[1] = get_height(index_id, offsets.yy); // 3 (1, 1)
+	float h_4 = get_height(index_id, offsets.yz); // 4 (1, 2)
+	float h_5 = get_height(index_id, offsets.zy); // 5 (2, 1)
+	float h_6 = get_height(index_id, offsets.zx); // 6 (2, 0)
+	float h_7 = get_height(index_id, offsets.xz); // 7 (0, 2)
 
 	// Calculate the normal for the remaining index ids.
 	index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h_7 + v));
