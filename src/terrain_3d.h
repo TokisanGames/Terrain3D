@@ -151,6 +151,8 @@ public:
 
 	// Object references
 	Terrain3DData *get_data() const { return _data; }
+	Terrain3DMesher *get_mesher() const { return _terrain_mesher; }
+	Terrain3DMesher *get_ocean_mesher() const { return _ocean_mesher; }
 	void set_material(const Ref<Terrain3DMaterial> &p_material);
 	Ref<Terrain3DMaterial> get_material() const { return _material; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
