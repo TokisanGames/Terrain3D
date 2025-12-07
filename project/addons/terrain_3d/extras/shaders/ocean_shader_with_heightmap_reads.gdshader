@@ -4,6 +4,11 @@ render_mode specular_toon, cull_disabled, depth_draw_always, skip_vertex_transfo
 // Shader adapted from https://docs.godotengine.org/en/4.4/tutorials/shaders/your_first_shader/your_second_3d_shader.html
 // Also includes snippets from https://godotshaders.com/snippet/useful-code-snippets/
 
+// Defined Constants
+#define SKIP_PASS 0
+#define VERTEX_PASS 1
+#define FRAGMENT_PASS 2
+
 group_uniforms ocean;
 uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 0.0;
 uniform float height_scale : hint_range(0.01, 10.0, 0.01) = 0.5;
@@ -22,6 +27,12 @@ uniform float _subdiv = 1.;
 uniform float _vertex_spacing = 1.;
 uniform float _vertex_density = 1.;
 uniform vec3 _target_pos = vec3(0.,0.,0.); // should be derived from clipmap target position
+uniform highp sampler2DArray _height_maps : repeat_disable;
+uniform float _region_size = 1.;
+uniform float _region_texel_size = 0.0009765625; // = 1./region_size
+uniform int _region_map_size = 32;
+uniform int _region_map[1024];
+uniform float _terrain_vertex_spacing = 1.0f;
 
 uniform sampler2D screen_tex : hint_screen_texture;
 
@@ -88,9 +99,64 @@ float get_height(vec2 position, float time) {
   return d;
 }
 
+// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
+// Returns ivec3 with:
+// XY: (0 to _region_size - 1) coordinates within a region
+// Z: layer index used for texturearrays, -1 if not in a region
+ivec3 get_index_coord(const vec2 uv, const int search) {
+	vec2 r_uv = round(uv);
+	vec2 o_uv = mod(r_uv, _region_size);
+	ivec2 pos;
+	int bounds, layer_index = -1;
+	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
+		if (i < 0) {
+			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
+			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
+			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
+		}
+	}
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+}
+
+float interpolated_height(vec2 pos) {
+	const vec2 offsets = vec2(0, 1);
+	vec2 index_id = floor(pos);
+	ivec3 index[4];
+	index[0] = get_index_coord(index_id + offsets.xy, VERTEX_PASS);
+	index[1] = get_index_coord(index_id + offsets.yy, VERTEX_PASS);
+	index[2] = get_index_coord(index_id + offsets.yx, VERTEX_PASS);
+	index[3] = get_index_coord(index_id + offsets.xx, VERTEX_PASS);
+	float h0 = texelFetch(_height_maps, index[0], 0).r;
+	float h1 = texelFetch(_height_maps, index[1], 0).r;
+	float h2 = texelFetch(_height_maps, index[2], 0).r;
+	float h3 = texelFetch(_height_maps, index[3], 0).r;
+	vec2 f = fract(pos);
+	vec2 i = 1.0 - f;
+	vec4 w = vec4(i.x * f.y, f.x * f.y, f.x * i.y, i.x * i.y);
+	float h = h0 * w[0] + h1 * w[1] + h2 * w[2] + h3 * w[3];
+	return h;
+}
+
+float get_terrain_height(float p_scale, float p_vertex_lerp, vec2 p_start_pos, vec2 p_end_pos, float p_v_vertex_xz_dist){
+	// Set final vertex height.
+		float h;
+		// This branch is static for each of the clipmap segments
+		// Interpolated reads only occur where sub-texel values are required.
+		if (p_scale < _terrain_vertex_spacing) {
+			h = mix(interpolated_height(p_start_pos), interpolated_height(p_end_pos), p_vertex_lerp);
+		} else {
+			ivec3 coord_a = get_index_coord(p_start_pos, VERTEX_PASS);
+			ivec3 coord_b = get_index_coord(p_end_pos, VERTEX_PASS);
+			h = mix(texelFetch(_height_maps, coord_a, 0).r, texelFetch(_height_maps, coord_b, 0).r, p_vertex_lerp);
+		}
+	return h;
+}
+
 void vertex() {
     // Get vertex of flat plane in world coordinates and set world UV
     vec3 vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+
     float scale = MODEL_MATRIX[0][0];
     float inv_scale = 1.0 / scale;
     float vertex_distance = max(abs(vertex.x - _target_pos.x), abs(vertex.z - _target_pos.z));
@@ -104,14 +170,18 @@ void vertex() {
             round(mod(vertex.x * inv_scale, 4.0)) * 0.25))) :
         // symmetric shift
         v_fract * round((fract(vertex.xz * 0.25 * inv_scale) - 0.5) * 4.0);
+	vec2 start_pos = vertex.xz * (1.0f / _terrain_vertex_spacing);
+	vec2 end_pos = (vertex.xz - shift * scale) * (1.0f / _terrain_vertex_spacing);
     vertex.xz -= shift * scale * vertex_lerp;
+
 
     UV = (vertex.xz) / uv_scale;
 
-    float h;
-    h = sea_level + get_height(UV, TIME * 0.5) * height_scale;
-    vertex.y = h;
+    vertex.y = sea_level + get_height(UV, TIME * 0.5) * height_scale;
 
+	if(vertex.y + 5.0 < get_terrain_height(scale, vertex_lerp, start_pos, end_pos, vertex_distance)){
+		vertex.x = 0. / 0.;
+	}
     VERTEX = (VIEW_MATRIX * vec4(vertex, 1.0)).xyz;
 }
 

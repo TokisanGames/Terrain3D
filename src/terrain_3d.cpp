@@ -1233,7 +1233,8 @@ void Terrain3D::_validate_property(PropertyInfo &p_property) const {
 		if (p_property.name == StringName("ocean_mesh_lods") ||
 				p_property.name == StringName("ocean_mesh_size") ||
 				p_property.name == StringName("ocean_tessellation_level") ||
-				p_property.name == StringName("ocean_material")) {
+				p_property.name == StringName("ocean_material") ||
+				p_property.name == StringName("ocean_vertex_spacing")) {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		}
 	}

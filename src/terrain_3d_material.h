@@ -89,7 +89,7 @@ private:
 	String _strip_comments(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
-	void _update_uniforms(const RID &p_material, const Terrain3DMesher &p_mesher);
+	void _update_uniforms(const RID &p_material, const Terrain3DMesher *p_mesher);
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
 
