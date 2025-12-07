@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode specular_toon, cull_disabled;
+render_mode specular_toon, cull_disabled, depth_draw_always, skip_vertex_transform;
 
 // Shader adapted from https://docs.godotengine.org/en/4.4/tutorials/shaders/your_first_shader/your_second_3d_shader.html
 // Also includes snippets from https://godotshaders.com/snippet/useful-code-snippets/
@@ -112,14 +112,23 @@ void vertex() {
 
     UV = (vertex.xz) / uv_scale;
 
-    float h, u, v;
-    h = sea_level;// + get_height(UV, TIME * 0.5) * height_scale;
+    float h;
+    h = sea_level + get_height(UV, TIME * 0.5) * height_scale;
     vertex.y = h;
 
-    VERTEX = vertex;
+    VERTEX = (VIEW_MATRIX * vec4(vertex, 1.0)).xyz;
 }
 
 void fragment() {
+	// not sure about these normals.
+	float h, u, v;
+	h = get_height(UV, TIME * 0.5) * height_scale;
+	u = get_height(UV + vec2(0., .01), TIME * 0.5) * height_scale;
+	v = get_height(UV + vec2(.01, 0.), TIME * 0.5) * height_scale;
+	NORMAL = mat3(VIEW_MATRIX) * normalize(vec3(h - u, 0.1 * height_scale, h - u));
+	TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
+	BINORMAL = normalize(cross(NORMAL, TANGENT));
+	
     vec3 screen_clr = texture(screen_tex, SCREEN_UV).rgb;
 	ALBEDO = albedo_color * screen_clr;
 
