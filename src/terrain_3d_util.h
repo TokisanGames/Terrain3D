@@ -37,6 +37,7 @@ public:
 	static PackedStringArray get_files(const String &p_dir, const String &p_glob = "*");
 
 	// Image operations
+	static CompressMode get_compress_mode(const Image::Format p_format);
 	static Ref<Image> black_to_alpha(const Ref<Image> &p_image);
 	static Vector2 get_min_max(const Ref<Image> &p_image);
 	static Ref<Image> get_thumbnail(const Ref<Image> &p_image, const Vector2i &p_size = V2I(256));

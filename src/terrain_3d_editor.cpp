@@ -560,7 +560,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	if (map_type == TYPE_COLOR) {
 		for (Ref<Terrain3DRegion> region : _edited_regions) {
 			if (region.is_valid()) {
-				region->get_map(map_type)->generate_mipmaps();
+				Ref<Image> map = region->get_color_map();
+				if (map.is_valid()) {
+					map->generate_mipmaps();
+				}
 			}
 		}
 	}
@@ -667,7 +670,7 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 				LOG(ERROR, "Null region saved in undo data. Please report this error.");
 				continue;
 			}
-			region->sanitize_maps(false); // Live data may not have some maps so must be sanitized
+			region->sanitize_maps(); // Live data may not have some maps so must be sanitized
 			Dictionary regions = data->get_regions_all();
 			regions[region->get_location()] = region;
 			region->set_modified(true); // Tell update_maps() this region has layers that can be individually updated
