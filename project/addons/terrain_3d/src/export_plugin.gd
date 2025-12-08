@@ -6,7 +6,7 @@ extends EditorExportPlugin
 
 var _hash: String
 var _free_uncompressed_color_maps: bool
-var _color_compression_mode: Image.CompressMode
+var _color_compress_mode: Image.CompressMode
 
 
 func _get_name() -> String:
@@ -18,10 +18,10 @@ func _begin_customize_scenes(platform: EditorExportPlatform, features: PackedStr
 	
 	
 func _customize_scene(scene: Node, path: String) -> Node:
-	var _terrain: Terrain3D = scene.find_child("Terrain3D", true)
-	if (_terrain != null):
-		_free_uncompressed_color_maps = _terrain.get_free_uncompressed_color_maps()
-		_color_compression_mode = _terrain.get_image_color_compression_mode()
+	var terrain: Terrain3D = scene.find_child("Terrain3D", true)
+	if terrain:
+		_free_uncompressed_color_maps = terrain.get_free_uncompressed_color_maps()
+		_color_compress_mode = terrain.get_color_image_compress_mode()
 	return null
 	
 	
@@ -34,12 +34,11 @@ func _begin_customize_resources(platform: EditorExportPlatform, features: Packed
 	
 	
 func _customize_resource(resource: Resource, path: String) -> Resource:
-	var _region: Terrain3DRegion
 	if resource is Terrain3DRegion:
-		_region = resource
-		if _color_compression_mode != Image.COMPRESS_MAX and _free_uncompressed_color_maps and _region.compressed_color_map != null:
-			_region.free_uncompressed_color_map()
-			return _region
+		var region: Terrain3DRegion = resource
+		if _color_compress_mode != Image.COMPRESS_MAX and _free_uncompressed_color_maps and region.compressed_color_map != null:
+			region.free_uncompressed_color_map()
+			return region
 	return null
 	
 	

@@ -610,31 +610,11 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	}
 }
 
-void Terrain3D::set_color_compression_mode(const ColorCompressMode p_color_compression_mode) {
-	SET_IF_DIFF(_color_compression_mode, p_color_compression_mode);
-	switch (_color_compression_mode) {
-		case COMPRESS_S3TC:
-			_image_color_compression_mode = Image::COMPRESS_S3TC;
-			break;
-		case COMPRESS_BPTC:
-			_image_color_compression_mode = Image::COMPRESS_BPTC;
-			break;
-		case COMPRESS_ETC:
-			_image_color_compression_mode = Image::COMPRESS_ETC;
-			break;
-		case COMPRESS_ETC2:
-			_image_color_compression_mode = Image::COMPRESS_ETC2;
-			break;
-		case COMPRESS_ASTC:
-			_image_color_compression_mode = Image::COMPRESS_ASTC;
-			break;
-		default:
-			_image_color_compression_mode = Image::COMPRESS_MAX;
-	}
-	LOG(INFO, "Setting compression mode for color maps: ", _image_color_compression_mode);
+void Terrain3D::set_color_compress_mode(const CompressMode p_color_compress_mode) {
+	SET_IF_DIFF(_color_compress_mode, p_color_compress_mode);
+	LOG(INFO, "Setting compression mode for color maps: ", _color_compress_mode);
 	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
-	for (int i = 0; i < regions.size(); i++) {
-		Ref<Terrain3DRegion> region = regions[i];
+	for (Ref<Terrain3DRegion> region : regions) {
 		region->set_modified(true);
 	}
 }
@@ -1187,13 +1167,6 @@ void Terrain3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(SIZE_512);
 	BIND_ENUM_CONSTANT(SIZE_1024);
 	BIND_ENUM_CONSTANT(SIZE_2048);
-	
-	BIND_ENUM_CONSTANT(COMPRESS_NONE);
-	BIND_ENUM_CONSTANT(COMPRESS_S3TC);
-	BIND_ENUM_CONSTANT(COMPRESS_BPTC);
-	BIND_ENUM_CONSTANT(COMPRESS_ETC);
-	BIND_ENUM_CONSTANT(COMPRESS_ETC2);
-	BIND_ENUM_CONSTANT(COMPRESS_ASTC);
 
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
@@ -1230,9 +1203,9 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
-	ClassDB::bind_method(D_METHOD("set_color_compression_mode", "color_compression_mode"), &Terrain3D::set_color_compression_mode);
-	ClassDB::bind_method(D_METHOD("get_color_compression_mode"), &Terrain3D::get_color_compression_mode);
-	ClassDB::bind_method(D_METHOD("get_image_color_compression_mode"), &Terrain3D::get_image_color_compression_mode);
+	ClassDB::bind_method(D_METHOD("set_color_compress_mode", "compress_mode"), &Terrain3D::set_color_compress_mode);
+	ClassDB::bind_method(D_METHOD("get_color_compress_mode"), &Terrain3D::get_color_compress_mode);
+	ClassDB::bind_method(D_METHOD("get_color_image_compress_mode"), &Terrain3D::get_color_image_compress_mode);
 	ClassDB::bind_method(D_METHOD("set_free_uncompressed_color_maps"), &Terrain3D::set_free_uncompressed_color_maps);
 	ClassDB::bind_method(D_METHOD("get_free_uncompressed_color_maps"), &Terrain3D::get_free_uncompressed_color_maps);
 	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
@@ -1365,7 +1338,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid"), "set_show_region_grid", "get_show_region_grid");
 	ADD_SUBGROUP("Advanced", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "color_compression_mode", PROPERTY_HINT_ENUM, "None,S3TC (LQ Desktop),BPTC (HQ Desktop),ETC1 (Mobile),ETC2 (Mobile),ASTC (Mobile)"), "set_color_compression_mode", "get_color_compression_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "color_compress_mode", PROPERTY_HINT_ENUM, "None,S3TC (LQ Desktop),BPTC (HQ Desktop),ETC1 (LQ Mobile),ETC2 (Mobile),ASTC (Mobile)"), "set_color_compress_mode", "get_color_compress_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_uncompressed_color_maps"), "set_free_uncompressed_color_maps", "get_free_uncompressed_color_maps");
 
 	ADD_GROUP("Collision", "");

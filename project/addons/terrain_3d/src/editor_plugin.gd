@@ -7,7 +7,7 @@ extends EditorPlugin
 # Includes
 const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
-const ExportPlugin = preload("res://addons/terrain_3d/src/export_plugin.gd")
+const ExportPlugin: Script = preload("res://addons/terrain_3d/src/export_plugin.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
 # Editor Plugin
