@@ -6,6 +6,7 @@ The data format version is found as [Terrain3DData.version](../api/class_terrain
 
 | Version | Description |
 |---------|-------------------|
+| 1.10 | Added a compressed color map [#842](https://github.com/TokisanGames/Terrain3D/pull/842)
 | 0.93 | The monolithic storage file was split into one file per region [#374](https://github.com/TokisanGames/Terrain3D/pull/374), [#476](https://github.com/TokisanGames/Terrain3D/pull/476)
 | 0.92 | Add `Terrain3DInstancer` data [#340](https://github.com/TokisanGames/Terrain3D/pull/340)
 | 0.842 | Control map changed from FORMAT_RGB to 32-bit packed integer (encoded in FORMAT_RF) [#234](https://github.com/TokisanGames/Terrain3D/pull/234/)
