@@ -16,7 +16,7 @@ class Terrain3DData : public Object {
 	friend Terrain3D;
 
 public: // Constants
-	static inline const real_t CURRENT_VERSION = 0.93f;
+	static inline const real_t CURRENT_VERSION = 1.099f; // Current Terrain3DRegion format version
 	static inline const int REGION_MAP_SIZE = 32;
 	static inline const Vector2i REGION_MAP_VSIZE = V2I(REGION_MAP_SIZE);
 

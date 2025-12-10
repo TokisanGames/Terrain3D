@@ -3,6 +3,8 @@
 #ifndef TERRAIN3D_REGION_CLASS_H
 #define TERRAIN3D_REGION_CLASS_H
 
+#include <godot_cpp/classes/engine.hpp>
+
 #include "constants.h"
 #include "terrain_3d_util.h"
 
@@ -99,10 +101,13 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
+	void clear_color_map();
+	Ref<Image> get_active_color_map() const;
 	void set_compressed_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_compressed_color_map() const { return _compressed_color_map; }
-	void free_uncompressed_color_map();
-	void sanitize_maps(const bool p_free_uncompressed_color_maps = false);
+	void compress_color_map(const CompressMode p_compress_mode);
+	void clear_compressed_color_map();
+	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 	bool validate_map_size(const Ref<Image> &p_map) const;
 
@@ -176,6 +181,13 @@ inline void Terrain3DRegion::update_heights(const Vector2 &p_low_high) {
 		_height_range.y = p_low_high.y;
 		_modified = true;
 	}
+}
+
+inline Ref<Image> Terrain3DRegion::get_active_color_map() const {
+	if (!IS_EDITOR && _compressed_color_map.is_valid()) {
+		return _compressed_color_map;
+	}
+	return _color_map;
 }
 
 #endif // TERRAIN3D_REGION_CLASS_H

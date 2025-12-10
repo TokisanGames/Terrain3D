@@ -71,7 +71,7 @@ private:
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
 	CompressMode _color_compress_mode = Terrain3DRegion::COMPRESS_NONE;
-	bool _free_uncompressed_color_maps = true;
+	bool _free_color_map = false;
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
@@ -174,8 +174,8 @@ public:
 	void set_color_compress_mode(const CompressMode p_compress_mode = Terrain3DRegion::COMPRESS_NONE);
 	Terrain3DRegion::CompressMode get_color_compress_mode() const { return _color_compress_mode; }
 	Image::CompressMode get_color_image_compress_mode() const { return Terrain3DRegion::get_image_compress_mode(_color_compress_mode); }
-	void set_free_uncompressed_color_maps(const bool p_free_uncompressed_color_maps) { _free_uncompressed_color_maps = p_free_uncompressed_color_maps; }
-	bool get_free_uncompressed_color_maps() const { return _free_uncompressed_color_maps; };
+	void set_free_color_map(const bool p_free_color_map) { _free_color_map = p_free_color_map; }
+	bool get_free_color_map() const { return _free_color_map; };
 	void set_label_distance(const real_t p_distance);
 	real_t get_label_distance() const { return _label_distance; }
 	void set_label_size(const int p_size);

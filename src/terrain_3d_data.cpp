@@ -36,7 +36,7 @@ void Terrain3DData::_copy_paste_dfr(const Terrain3DRegion *p_src_region, const R
 	TypedArray<Image> dst_maps = p_dst_region->get_maps();
 	for (int i = 0; i < dst_maps.size(); i++) {
 		Image *img = cast_to<Image>(dst_maps[i]);
-		if (img) {
+		if (img && cast_to<Image>(src_maps[i])) {
 			img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
 		}
 	}
@@ -146,7 +146,7 @@ void Terrain3DData::change_region_size(int p_new_size) {
 		new_region->set_region_size(p_new_size);
 		new_region->set_vertex_spacing(_vertex_spacing);
 		new_region->set_modified(true);
-		new_region->sanitize_maps(false);
+		new_region->sanitize_maps();
 
 		// Copy current data from current into new region, up to new region size
 		Rect2i area;
@@ -247,10 +247,14 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 				-REGION_MAP_SIZE / 2, " to ", REGION_MAP_SIZE / 2 - 1);
 		return FAILED;
 	}
-	if (!IS_EDITOR && _terrain->get_color_compress_mode() != Terrain3DRegion::COMPRESS_NONE) {
-		p_region->sanitize_maps(_terrain->get_free_uncompressed_color_maps());
-	} else {
-		p_region->sanitize_maps(false);
+	p_region->sanitize_maps();
+	// Free compressed color map in editor
+	if (IS_EDITOR) {
+		p_region->clear_compressed_color_map();
+	} else if (_terrain && _terrain->get_free_color_map() &&
+			p_region->get_compressed_color_map().is_valid()) {
+		// Free uncompressed color map in game if valid and desired
+		p_region->clear_color_map();
 	}
 	p_region->set_deleted(false);
 	if (!_region_locations.has(region_loc)) {
@@ -393,6 +397,30 @@ void Terrain3DData::load_directory(const String &p_dir) {
 		region->set_version(CURRENT_VERSION); // Sends upgrade warning if old version
 		add_region(region, false);
 	}
+
+	LOG(MESG, "Verifying region color maps:");
+	for (const Vector2i &region_loc : _region_locations) {
+		const Terrain3DRegion *region = get_region_ptr(region_loc);
+		if (region) {
+			Vector2i region_loc = region->get_location();
+			Ref<Image> map = region->get_color_map();
+			if (map.is_valid()) {
+				LOG(MESG, "Region ", region_loc, " color map size: ",
+						map->get_size(), " format: ", map->get_format());
+			} else {
+				LOG(MESG, "Region ", region_loc, " colormap: null");
+			}
+
+			map = region->get_compressed_color_map();
+			if (map.is_valid()) {
+				LOG(MESG, "Region ", region_loc, " compressed color map size: ",
+						map->get_size(), " format: ", map->get_format());
+			} else {
+				LOG(MESG, "Region ", region_loc, " compressed colormap: null");
+			}
+		}
+	}
+
 	update_maps(TYPE_MAX, true, false);
 }
 
@@ -551,7 +579,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
-				_color_maps.push_back(region->get_map(TYPE_COLOR));
+				_color_maps.push_back(region->get_active_color_map());
 			}
 		}
 		_generated_color_maps.create(_color_maps);
@@ -579,14 +607,14 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						emit_signal("control_maps_changed");
 						break;
 					case TYPE_COLOR:
-						_generated_color_maps.update(region->get_map(TYPE_COLOR), region_id);
+						_generated_color_maps.update(region->get_active_color_map(), region_id);
 						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
 						break;
 					default:
 						_generated_height_maps.update(region->get_height_map(), region_id);
 						_generated_control_maps.update(region->get_control_map(), region_id);
-						_generated_color_maps.update(region->get_map(TYPE_COLOR), region_id);
+						_generated_color_maps.update(region->get_active_color_map(), region_id);
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						LOG(DEBUG, "Emitting control_maps_changed");
@@ -971,7 +999,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 					region->set_map(static_cast<MapType>(i), img_slice);
 				}
 			}
-			region->sanitize_maps(false);
+			region->sanitize_maps();
 		} // for x < slices_width
 	} // for y < slices_height
 	update_maps(TYPE_MAX, true, false);

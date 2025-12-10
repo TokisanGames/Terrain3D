@@ -1206,8 +1206,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_color_compress_mode", "compress_mode"), &Terrain3D::set_color_compress_mode);
 	ClassDB::bind_method(D_METHOD("get_color_compress_mode"), &Terrain3D::get_color_compress_mode);
 	ClassDB::bind_method(D_METHOD("get_color_image_compress_mode"), &Terrain3D::get_color_image_compress_mode);
-	ClassDB::bind_method(D_METHOD("set_free_uncompressed_color_maps"), &Terrain3D::set_free_uncompressed_color_maps);
-	ClassDB::bind_method(D_METHOD("get_free_uncompressed_color_maps"), &Terrain3D::get_free_uncompressed_color_maps);
+	ClassDB::bind_method(D_METHOD("set_free_color_map"), &Terrain3D::set_free_color_map);
+	ClassDB::bind_method(D_METHOD("get_free_color_map"), &Terrain3D::get_free_color_map);
 	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
 	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
 	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
@@ -1339,7 +1339,7 @@ void Terrain3D::_bind_methods() {
 	ADD_SUBGROUP("Advanced", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "color_compress_mode", PROPERTY_HINT_ENUM, "None,S3TC (LQ Desktop),BPTC (HQ Desktop),ETC1 (LQ Mobile),ETC2 (Mobile),ASTC (Mobile)"), "set_color_compress_mode", "get_color_compress_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_uncompressed_color_maps"), "set_free_uncompressed_color_maps", "get_free_uncompressed_color_maps");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_color_map"), "set_free_color_map", "get_free_color_map");
 
 	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");
