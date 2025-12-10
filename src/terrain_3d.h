@@ -45,6 +45,13 @@ public: // Constants
 		SIZE_2048 = 2048,
 	};
 
+	enum ColorMapMode {
+		COLOR_DISABLED, // maps freed from memory in editor and game; editing is disabled; saved data is unchanged
+		COLOR_CLEARED, // disabled plus color maps are cleared on save
+		COLOR_EDITABLE, // current - no compressed map saved or used editable in game
+		COLOR_COMPRESSED, // compressed freed in editor, generated on save; 		uncompressed freed in game and stripped on export.
+	};
+
 private:
 	String _version = "1.1.0-dev";
 	String _data_directory;
@@ -70,6 +77,7 @@ private:
 	// Regions
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
+	ColorMapMode _color_map_mode = COLOR_EDITABLE;
 	CompressMode _color_compress_mode = Terrain3DRegion::COMPRESS_NONE;
 	bool _free_color_map = false;
 	real_t _label_distance = 0.f;
@@ -171,11 +179,15 @@ public:
 	void change_region_size(const RegionSize p_size) { _data ? _data->change_region_size(p_size) : void(); }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
-	void set_color_compress_mode(const CompressMode p_compress_mode = Terrain3DRegion::COMPRESS_NONE);
-	Terrain3DRegion::CompressMode get_color_compress_mode() const { return _color_compress_mode; }
-	Image::CompressMode get_color_image_compress_mode() const { return Terrain3DRegion::get_image_compress_mode(_color_compress_mode); }
 	void set_free_color_map(const bool p_free_color_map) { _free_color_map = p_free_color_map; }
 	bool get_free_color_map() const { return _free_color_map; };
+	void set_color_map_enabled(const bool p_enabled);
+	bool get_color_map_enabled() const { return _data ? _data->get_color_map_enabled() : true; }
+	void set_color_map_mode(const ColorMapMode p_mode);
+	ColorMapMode get_color_map_mode() const { return _color_map_mode; }
+	void set_color_compress_mode(const CompressMode p_mode = Terrain3DRegion::COMPRESS_NONE);
+	Terrain3DRegion::CompressMode get_color_compress_mode() const { return _color_compress_mode; }
+	Image::CompressMode get_color_image_compress_mode() const { return Terrain3DRegion::get_image_compress_mode(_color_compress_mode); }
 	void set_label_distance(const real_t p_distance);
 	real_t get_label_distance() const { return _label_distance; }
 	void set_label_size(const int p_size);
@@ -215,8 +227,6 @@ public:
 	real_t get_cull_margin() const { return _cull_margin; };
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; };
-	void set_color_map_enabled(const bool p_enabled);
-	bool get_color_map_enabled() const { return _data ? _data->get_color_map_enabled() : true; }
 
 	// Utility
 	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
@@ -305,8 +315,9 @@ protected:
 	static void _bind_methods();
 };
 
-VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
+VARIANT_ENUM_CAST(Terrain3D::RegionSize);
+VARIANT_ENUM_CAST(Terrain3D::ColorMapMode);
 
 constexpr Terrain3D::DebugLevel MESG = Terrain3D::DebugLevel::MESG;
 constexpr Terrain3D::DebugLevel WARN = Terrain3D::DebugLevel::WARN;
