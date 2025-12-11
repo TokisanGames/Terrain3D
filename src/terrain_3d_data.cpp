@@ -881,7 +881,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		return;
 	}
 
-	Vector3 descaled_position = p_global_position / _vertex_spacing;
+	Vector3 descaled_position = p_global_position;
 	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
 	if ((std::abs(descaled_position.x) > max_dimension) || (std::abs(descaled_position.z) > max_dimension)) {
 		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _vertex_spacing);
@@ -923,54 +923,75 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		}
 	}
 
-	// Slice up incoming image into segments of region_size^2, and pad any remainder
-	int slices_width = ceil(real_t(img_size.x) / real_t(_region_size));
-	int slices_height = ceil(real_t(img_size.y) / real_t(_region_size));
-	slices_width = CLAMP(slices_width, 1, REGION_MAP_SIZE);
-	slices_height = CLAMP(slices_height, 1, REGION_MAP_SIZE);
-	LOG(DEBUG, "Creating ", Vector2i(slices_width, slices_height), " slices for ", img_size, " images.");
+	// Calculate regions this image will span
+	int img_start_x = (int)descaled_position.x;
+	int img_start_z = (int)descaled_position.z;
+	int img_end_x = img_start_x + img_size.x - 1;
+	int img_end_z = img_start_z + img_size.y - 1;
 
-	for (int y = 0; y < slices_height; y++) {
-		for (int x = 0; x < slices_width; x++) {
-			Vector2i start_coords = Vector2i(x * _region_size, y * _region_size);
-			Vector2i end_coords = Vector2i((x + 1) * _region_size - 1, (y + 1) * _region_size - 1);
-			LOG(DEBUG, "Reviewing image section ", start_coords, " to ", end_coords);
+	int start_region_x = (int)Math::floor(real_t(img_start_x) / real_t(_region_size));
+	int start_region_z = (int)Math::floor(real_t(img_start_z) / real_t(_region_size));
+	int end_region_x = (int)Math::floor(real_t(img_end_x) / real_t(_region_size));
+	int end_region_z = (int)Math::floor(real_t(img_end_z) / real_t(_region_size));
 
-			Vector2i size_to_copy;
-			if (end_coords.x <= img_size.x && end_coords.y <= img_size.y) {
-				size_to_copy = _region_sizev;
-			} else {
-				size_to_copy.x = img_size.x - start_coords.x;
-				size_to_copy.y = img_size.y - start_coords.y;
-				LOG(DEBUG, "Uneven end piece. Copying padded slice ", Vector2i(x, y), " size to copy: ", size_to_copy);
+	LOG(DEBUG, "Image spans regions (", start_region_x, ",", start_region_z, ") to (", end_region_x, ",", end_region_z, ")");
+
+	for(int rz = start_region_z; rz <= end_region_z; rz++) {
+		for (int rx = start_region_x; rx <= end_region_x; rx++) {
+			Vector2i region_loc = Vector2i(rx, rz);
+
+			int region_start_x = rx * _region_size;
+			int region_start_z = rz * _region_size;
+			int region_end_x = region_start_x + _region_size - 1;
+			int region_end_z = region_start_z + _region_size - 1;
+
+			int overlap_start_x = MAX(region_start_x, img_start_x);
+			int overlap_start_z = MAX(region_start_z, img_start_z);
+			
+			int overlap_end_x = MAX(region_end_x, img_end_x);
+			int overlap_end_z = MAX(region_end_z, img_end_z);
+
+			int copy_width = overlap_end_x - overlap_start_x + 1;
+			int copy_height = overlap_end_z - overlap_start_z + 1;
+
+			if(copy_width <= 0 || copy_height <= 0) {
+				continue; // suffer >:)
 			}
-			LOG(DEBUG, "Copying ", size_to_copy, " sized segment");
 
-			Vector3 global_position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y) * _vertex_spacing;
-			Vector2i region_loc = get_region_location(global_position);
-			Ref<Terrain3DRegion> region = get_region(region_loc);
-			if (region.is_null()) {
+			int src_x = overlap_start_x - img_start_x;
+			int src_z = overlap_start_z - img_start_z;
+
+			int dst_x = overlap_start_x - region_start_x;
+			int dst_z = overlap_start_z - region_start_z;
+
+			 LOG(DEBUG, "Region ", region_loc, ": copy ", Vector2i(copy_width, copy_height)," from img(", src_x, ",", src_z, ") to region(", dst_x, ",", dst_z, ")");
+
+			 Ref<Terrain3DRegion> region = get_region(region_loc);
+			 if (region.is_null()) {
 				region.instantiate();
 				region->set_location(region_loc);
 				region->set_region_size(_region_size);
 				region->set_vertex_spacing(_vertex_spacing);
 				region->set_modified(true);
 				add_region(region, false);
-			}
-			for (int i = 0; i < TYPE_MAX; i++) {
+			 }
+
+			 for (int i = 0; i < TYPE_MAX; i++) {
 				Ref<Image> img = tmp_images[i];
-				Ref<Image> img_slice;
-				// If incoming map is valid, import it, overwriting
 				if (img.is_valid() && !img->is_empty()) {
-					img_slice = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
-					img_slice->blit_rect(tmp_images[i], Rect2i(start_coords, size_to_copy), V2I_ZERO);
-					region->set_map(static_cast<MapType>(i), img_slice);
+					Ref<Image> region_map = region->get_map(static_cast<MapType>(i));
+					if (region_map.is_null() || region_map->is_empty()) {
+						region_map = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
+					}
+					//Blit overlap
+					region_map->blit_rect(img,Rect2i(src_x,src_z, copy_width, copy_height), Vector2i(dst_x, dst_z));
+					region->set_map(static_cast<MapType>(i),region_map);
 				}
-			}
+			 }
 			region->sanitize_maps();
-		} // for x < slices_width
-	} // for y < slices_height
-	update_maps(TYPE_MAX, true, false);
+		}
+	}
+	update_maps(TYPE_MAX,true,false);
 }
 
 /** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres
