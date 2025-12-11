@@ -882,7 +882,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 	}
 	// Position is in logical/pixel coordinates (not world coordinates)
 	// This allows users to specify positions matching their image dimensions
-	Vector3 descaled_position = p_global_position;
+	Vector3 logical_position = p_global_position;
 	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
 	if ((std::abs(descaled_position.x) > max_dimension) || (std::abs(descaled_position.z) > max_dimension)) {
 		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _vertex_spacing);
@@ -925,15 +925,17 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 	}
 
 	// Calculate regions this image will span
-	int img_start_x = (int)Math::floor(logical_position.x);
-	int img_start_z = (int)Math::floor(logical_position.z);
-	int img_end_x = img_start_x + img_size.x - 1;
-	int img_end_z = img_start_z + img_size.y - 1;
-
 	int start_region_x = (int)Math::floor(real_t(img_start_x) / real_t(_region_size));
 	int start_region_z = (int)Math::floor(real_t(img_start_z) / real_t(_region_size));
 	int end_region_x = (int)Math::floor(real_t(img_end_x) / real_t(_region_size));
 	int end_region_z = (int)Math::floor(real_t(img_end_z) / real_t(_region_size));
+
+	// Clamp region indices to valid range
+	int half_region_map = REGION_MAP_SIZE / 2;
+	start_region_x = CLAMP(start_region_x, -half_region_map, half_region_map - 1);
+	start_region_z = CLAMP(start_region_z, -half_region_map, half_region_map - 1);
+	end_region_x = CLAMP(end_region_x, -half_region_map, half_region_map - 1);
+	end_region_z = CLAMP(end_region_z, -half_region_map, half_region_map - 1);
 
 	LOG(DEBUG, "Image spans regions (", start_region_x, ",", start_region_z, ") to (", end_region_x, ",", end_region_z, ")");
 
@@ -977,22 +979,18 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 				add_region(region, false);
 			 }
 
-			 for (int i = 0; i < TYPE_MAX; i++) {
-				Ref<Image> img = tmp_images[i];
-				if (img.is_valid() && !img->is_empty()) {
-					Ref<Image> region_map = region->get_map(static_cast<MapType>(i));
-					if (region_map.is_null() || region_map->is_empty()) {
-						region_map = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
-					}
-					//Blit overlap
-					region_map->blit_rect(img,Rect2i(src_x,src_z, copy_width, copy_height), Vector2i(dst_x, dst_z));
-					region->set_map(static_cast<MapType>(i),region_map);
-				}
+        	for (int i = 0; i < TYPE_MAX; i++) {
+            	Ref<Image> img = tmp_images[i];
+            	if (img.is_valid() && !img->is_empty()) {
+                	Ref<Image> region_map = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
+                	region_map->blit_rect(img, Rect2i(src_x, src_z, copy_width, copy_height), Vector2i(dst_x, dst_z));
+                	region->set_map(static_cast<MapType>(i), region_map);
+            	}
 			 }
 			region->sanitize_maps();
 		}
 	}
-	update_maps(TYPE_MAX,true,false);
+	update_maps(TYPE_MAX, true, false);
 }
 
 /** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres
