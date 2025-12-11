@@ -880,7 +880,8 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		LOG(ERROR, "All images are empty. Nothing to import");
 		return;
 	}
-
+	// Position is in logical/pixel coordinates (not world coordinates)
+	// This allows users to specify positions matching their image dimensions
 	Vector3 descaled_position = p_global_position;
 	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
 	if ((std::abs(descaled_position.x) > max_dimension) || (std::abs(descaled_position.z) > max_dimension)) {
@@ -924,8 +925,8 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 	}
 
 	// Calculate regions this image will span
-	int img_start_x = (int)descaled_position.x;
-	int img_start_z = (int)descaled_position.z;
+	int img_start_x = (int)Math::floor(logical_position.x);
+	int img_start_z = (int)Math::floor(logical_position.z);
 	int img_end_x = img_start_x + img_size.x - 1;
 	int img_end_z = img_start_z + img_size.y - 1;
 
@@ -954,8 +955,8 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 			int copy_width = overlap_end_x - overlap_start_x + 1;
 			int copy_height = overlap_end_z - overlap_start_z + 1;
 
-			if(copy_width <= 0 || copy_height <= 0) {
-				continue; // suffer >:)
+			if(overlap_end_x < overlap_start_x || overlap_end_z < overlap_start_z) {
+				continue;
 			}
 
 			int src_x = overlap_start_x - img_start_x;
