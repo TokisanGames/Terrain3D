@@ -569,8 +569,8 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 						const int shape_id = PS->body_get_shape_count(_instance_static_body_rid);
 						// Add the index to our map
 						_RID_index_map[shape_rid] = shape_id;
-						PS->body_add_shape(_instance_static_body_rid, shape_rid, this_transform);
 						PS->shape_set_data(shape_rid, PS->shape_get_data(ma_shape->get_rid()));
+						PS->body_add_shape(_instance_static_body_rid, shape_rid, this_transform);
 						shapes.push_back(shape_rid);
 						if (is_editor_mode()) {
 							_queue_debug_mesh_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), DebugMeshInstanceData::Action::CREATE);
