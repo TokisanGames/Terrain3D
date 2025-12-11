@@ -948,8 +948,8 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 			int overlap_start_x = MAX(region_start_x, img_start_x);
 			int overlap_start_z = MAX(region_start_z, img_start_z);
 			
-			int overlap_end_x = MAX(region_end_x, img_end_x);
-			int overlap_end_z = MAX(region_end_z, img_end_z);
+			int overlap_end_x = MIN(region_end_x, img_end_x);
+			int overlap_end_z = MIN(region_end_z, img_end_z);
 
 			int copy_width = overlap_end_x - overlap_start_x + 1;
 			int copy_height = overlap_end_z - overlap_start_z + 1;
