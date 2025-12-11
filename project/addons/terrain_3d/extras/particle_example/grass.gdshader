@@ -6,12 +6,18 @@ render_mode skip_vertex_transform, cull_disabled, blend_mix;
 
 uniform vec2 wind_direction = vec2(1.0, 1.0);
 
+// SSS parameters
+uniform vec3 sss_color : source_color = vec3(0.45, 0.5, 0.15);
+uniform float sss_intensity : hint_range(0.0, 2.0) = 0.7;
+uniform float sss_power : hint_range(1.0, 8.0) = 3.0;
+uniform float sss_wrap_power : hint_range(0.5, 4.0) = 1.5;
+
 varying vec4 data;
 
 // A lot of hard coded things here atm.
 void vertex() {
-	// Wind effect from model data, in this case no vertex colors,
-	// so just use vertex Y component, including mesh offset
+// Wind effect from model data, in this case no vertex colors,
+// so just use vertex Y component, including mesh offset
 	data[2] = (VERTEX.y + 0.55);
 	data[2] *= data[2]; // make non-linear
 
@@ -53,7 +59,7 @@ void vertex() {
 }
 
 void fragment() {
-	// Hard coded color.
+// Hard coded color.
 	ALBEDO = vec3(0.20, 0.22, 0.05) * (data[2] * 0.5 + 0.5);
 	ALBEDO.rg *= (data.rg * 0.3 + 0.9);
 	ALBEDO *= pow(COLOR.rgb, vec3(2.2));
@@ -62,8 +68,32 @@ void fragment() {
 	ROUGHNESS = 1. - spec_rough;
 	SPECULAR = clamp(spec_rough * 0.25, 0., .15);
 
-	BACKLIGHT = vec3(0.33);
 	#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
 	ALBEDO = pow(ALBEDO, vec3(0.4));
 	#endif
+}
+void light() {
+// Realistic SSS
+	float NdotL = max(0.0, dot(NORMAL, LIGHT));
+
+	// Backlit check - looking toward the light through the blade?
+	float VdotL = max(0.0, dot(VIEW, -LIGHT));
+	float backlit = pow(VdotL, sss_power);
+
+	// Half-lambert wrap - surfaces facing away scatter more
+	float wrapped = dot(NORMAL, LIGHT) * 0.5 + 0.5;
+	wrapped = pow(wrapped, sss_wrap_power);
+
+	// Combine backlit and wrap
+	float sss = backlit * wrapped;
+
+	// Thickness: tips are thinner, transmit more light
+	// data[2] is vertex height (0 = base, 1 = tip)
+	float thickness = mix(0.3, 1.0, data[2]);
+	sss *= thickness;
+
+	vec3 diffuse = ALBEDO * LIGHT_COLOR * NdotL * ATTENUATION;
+	vec3 subsurface = sss_color * LIGHT_COLOR * sss * sss_intensity * ATTENUATION;
+
+	DIFFUSE_LIGHT += diffuse + subsurface;
 }
