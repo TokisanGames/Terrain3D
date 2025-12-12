@@ -118,21 +118,8 @@ varying vec3 v_camera_pos;
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_index_coord(const vec2 uv, const int search) {
-	vec2 r_uv = round(uv);
-	vec2 o_uv = mod(r_uv, _region_size);
-	ivec2 pos;
-	int bounds, layer_index = -1;
-	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
-		if ((layer_index == -1 && _background_mode == 0u ) || i < 0) {
-			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
-			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
-			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
-		}
-	}
-	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
-}
+//INSERT: INDEX_COORD_STANDARD
+//INSERT: INDEX_COORD_BG_NONE
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
 // XY: (0. to 1.) coordinates within a region
@@ -223,8 +210,9 @@ void vertex() {
 			ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
 			h = mix(texelFetch(_height_maps, coord_a, 0).r, texelFetch(_height_maps, coord_b, 0).r, vertex_lerp);
 		}
-//INSERT: WORLD_NOISE_VERTEX
+
 //INSERT: FLAT_VERTEX
+//INSERT: WORLD_NOISE_VERTEX
 //INSERT: DISPLACEMENT_VERTEX
 		v_vertex.y = h;
 	}

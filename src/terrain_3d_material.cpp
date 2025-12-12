@@ -139,7 +139,12 @@ String Terrain3DMaterial::_apply_inserts(const String &p_shader, const Array &p_
 String Terrain3DMaterial::_generate_shader_code() const {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
-	if (_world_background != FLAT) {
+	if (_world_background != NONE) {
+		excludes.push_back("INDEX_COORD_BG_NONE");
+	} else {
+		excludes.push_back("INDEX_COORD_STANDARD");
+	}
+	if (_world_background == NONE) {
 		excludes.push_back("FLAT_UNIFORMS");
 		excludes.push_back("FLAT_FUNCTIONS");
 		excludes.push_back("FLAT_VERTEX");
@@ -290,7 +295,12 @@ String Terrain3DMaterial::_strip_comments(const String &p_shader) const {
 String Terrain3DMaterial::_generate_buffer_shader_code() const {
 	LOG(INFO, "Generating default displacement buffer shader code");
 	Array excludes;
-	if (_world_background != FLAT) {
+	if (_world_background != NONE) {
+		excludes.push_back("INDEX_COORD_BG_NONE");
+	} else {
+		excludes.push_back("INDEX_COORD_STANDARD");
+	}
+	if (_world_background == NONE) {
 		excludes.push_back("FLAT_UNIFORMS");
 		excludes.push_back("FLAT_FUNCTIONS");
 		excludes.push_back("FLAT_FRAGMENT");
