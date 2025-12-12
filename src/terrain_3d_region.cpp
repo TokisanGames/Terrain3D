@@ -61,11 +61,11 @@ void Terrain3DRegion::set_map(const MapType p_map_type, const Ref<Image> &p_imag
 Ref<Image> Terrain3DRegion::get_map(const MapType p_map_type) const {
 	switch (p_map_type) {
 		case TYPE_HEIGHT:
-			return get_height_map();
+			return _height_map;
 		case TYPE_CONTROL:
-			return get_control_map();
+			return _control_map;
 		case TYPE_COLOR:
-			return get_color_map();
+			return _color_map;
 		default:
 			LOG(ERROR, "Requested map type ", p_map_type, ", is invalid");
 			return Ref<Image>();
@@ -147,6 +147,47 @@ void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
 		_modified = true;
 	}
 	_color_map = map;
+}
+
+void Terrain3DRegion::clear_color_map() {
+	LOG(WARN, "Freeing color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
+	_color_map.unref();
+}
+
+void Terrain3DRegion::set_compressed_color_map(const Ref<Image> &p_map) {
+	SET_IF_DIFF(_compressed_color_map, p_map);
+	LOG(INFO, "Setting compressed color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
+	if (_region_size == 0 && p_map.is_valid()) {
+		set_region_size(p_map->get_width());
+	}
+	// If already initialized and receiving a new map
+	if (_compressed_color_map.is_valid() && _compressed_color_map != p_map) {
+		_modified = true;
+	}
+	_compressed_color_map = p_map;
+}
+
+void Terrain3DRegion::compress_color_map(const CompressMode p_compress_mode) {
+	if (_color_map.is_null() || _color_map->is_empty()) {
+		LOG(ERROR, "Color map is null or empty");
+	}
+	if (!IS_EDITOR) {
+		LOG(ERROR, "Cannot compress maps in export builds");
+		return;
+	}
+	if (p_compress_mode > COMPRESS_NONE && p_compress_mode <= COMPRESS_ASTC) {
+		LOG(MESG, "Compressing color map with ", COMPRESS_STR[p_compress_mode]);
+		_compressed_color_map = Image::create_from_data(_color_map->get_width(), _color_map->get_height(),
+				_color_map->has_mipmaps(), _color_map->get_format(), _color_map->get_data());
+		_compressed_color_map->copy_from(_color_map);
+		_compressed_color_map->compress_from_channels(get_image_compress_mode(p_compress_mode), Image::USED_CHANNELS_RGBA);
+		_modified = true;
+	}
+}
+
+void Terrain3DRegion::clear_compressed_color_map() {
+	LOG(WARN, "Freeing compressed color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
+	_compressed_color_map.unref();
 }
 
 void Terrain3DRegion::sanitize_maps() {
@@ -250,7 +291,8 @@ void Terrain3DRegion::calc_height_range() {
 	if (_height_range != range) {
 		_height_range = range;
 		_modified = true;
-		LOG(DEBUG, "Recalculated new height range: ", _height_range, " for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)", ". Marking modified");
+		LOG(DEBUG, "Recalculated new height range: ", _height_range, " for region: ",
+				(_location.x != INT32_MAX) ? String(_location) : "(new)", ". Marking modified");
 	}
 }
 
@@ -278,7 +320,7 @@ void Terrain3DRegion::set_location(const Vector2i &p_location) {
 	LOG(INFO, "Set location: ", p_location);
 }
 
-Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
+Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const CompressMode p_color_compress_mode) {
 	// Initiate save to external file. The scene will save itself.
 	if (_location.x == INT32_MAX) {
 		LOG(ERROR, "Region has not been setup. Location is INT32_MAX. Skipping ", p_path);
@@ -300,6 +342,10 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
 	set_version(Terrain3DData::CURRENT_VERSION);
 	Error err = OK;
+	_compressed_color_map.unref();
+	if (IS_EDITOR && p_color_compress_mode != COMPRESS_NONE) {
+		compress_color_map(p_color_compress_mode);
+	}
 	if (p_16_bit) {
 		Ref<Image> original_map;
 		original_map.instantiate();
@@ -335,6 +381,7 @@ void Terrain3DRegion::set_data(const Dictionary &p_data) {
 	SET_IF_HAS(_height_map, "height_map");
 	SET_IF_HAS(_control_map, "control_map");
 	SET_IF_HAS(_color_map, "color_map");
+	SET_IF_HAS(_compressed_color_map, "compressed_color_map");
 	SET_IF_HAS(_instances, "instances");
 }
 
@@ -351,6 +398,7 @@ Dictionary Terrain3DRegion::get_data() const {
 	dict["height_map"] = _height_map;
 	dict["control_map"] = _control_map;
 	dict["color_map"] = _color_map;
+	dict["compressed_color_map"] = _compressed_color_map;
 	dict["instances"] = _instances;
 	return dict;
 }
@@ -378,6 +426,23 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		region->set_data(dict);
 	}
 	return region;
+}
+
+Image::CompressMode Terrain3DRegion::get_image_compress_mode(const CompressMode p_compress_mode) {
+	switch (p_compress_mode) {
+		case COMPRESS_S3TC:
+			return Image::COMPRESS_S3TC;
+		case COMPRESS_BPTC:
+			return Image::COMPRESS_BPTC;
+		case COMPRESS_ETC:
+			return Image::COMPRESS_ETC;
+		case COMPRESS_ETC2:
+			return Image::COMPRESS_ETC2;
+		case COMPRESS_ASTC:
+			return Image::COMPRESS_ASTC;
+		default:
+			return Image::COMPRESS_MAX;
+	}
 }
 
 void Terrain3DRegion::dump(const bool verbose) const {
@@ -423,6 +488,13 @@ void Terrain3DRegion::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_COLOR);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
+	BIND_ENUM_CONSTANT(COMPRESS_NONE);
+	BIND_ENUM_CONSTANT(COMPRESS_S3TC);
+	BIND_ENUM_CONSTANT(COMPRESS_BPTC);
+	BIND_ENUM_CONSTANT(COMPRESS_ETC);
+	BIND_ENUM_CONSTANT(COMPRESS_ETC2);
+	BIND_ENUM_CONSTANT(COMPRESS_ASTC);
+
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DRegion::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DRegion::get_version);
 	ClassDB::bind_method(D_METHOD("set_region_size", "region_size"), &Terrain3DRegion::set_region_size);
@@ -440,6 +512,12 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_control_map"), &Terrain3DRegion::get_control_map);
 	ClassDB::bind_method(D_METHOD("set_color_map", "map"), &Terrain3DRegion::set_color_map);
 	ClassDB::bind_method(D_METHOD("get_color_map"), &Terrain3DRegion::get_color_map);
+	ClassDB::bind_method(D_METHOD("clear_color_map"), &Terrain3DRegion::clear_color_map);
+	ClassDB::bind_method(D_METHOD("get_active_color_map"), &Terrain3DRegion::get_active_color_map);
+	ClassDB::bind_method(D_METHOD("set_compressed_color_map", "map"), &Terrain3DRegion::set_compressed_color_map);
+	ClassDB::bind_method(D_METHOD("get_compressed_color_map"), &Terrain3DRegion::get_compressed_color_map);
+	ClassDB::bind_method(D_METHOD("compress_color_map"), &Terrain3DRegion::compress_color_map);
+	ClassDB::bind_method(D_METHOD("clear_compressed_color_map"), &Terrain3DRegion::clear_compressed_color_map);
 	ClassDB::bind_method(D_METHOD("sanitize_maps"), &Terrain3DRegion::sanitize_maps);
 	ClassDB::bind_method(D_METHOD("sanitize_map", "map_type", "map"), &Terrain3DRegion::sanitize_map);
 	ClassDB::bind_method(D_METHOD("validate_map_size", "map"), &Terrain3DRegion::validate_map_size);
@@ -453,7 +531,7 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_instances", "instances"), &Terrain3DRegion::set_instances);
 	ClassDB::bind_method(D_METHOD("get_instances"), &Terrain3DRegion::get_instances);
 
-	ClassDB::bind_method(D_METHOD("save", "path", "save_16_bit"), &Terrain3DRegion::save, DEFVAL(""), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("save", "path", "save_16_bit", "color_compress_mode"), &Terrain3DRegion::save, DEFVAL(""), DEFVAL(false), DEFVAL(COMPRESS_NONE));
 
 	ClassDB::bind_method(D_METHOD("set_deleted", "deleted"), &Terrain3DRegion::set_deleted);
 	ClassDB::bind_method(D_METHOD("is_deleted"), &Terrain3DRegion::is_deleted);
@@ -467,6 +545,7 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_data", "data"), &Terrain3DRegion::set_data);
 	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3DRegion::get_data);
 	ClassDB::bind_method(D_METHOD("duplicate", "deep"), &Terrain3DRegion::duplicate, DEFVAL(false));
+	ClassDB::bind_static_method("Terrain3DRegion", D_METHOD("get_image_compress_mode", "compress_mode"), &Terrain3DRegion::get_image_compress_mode);
 	ClassDB::bind_method(D_METHOD("dump", "verbose"), &Terrain3DRegion::dump, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
@@ -477,6 +556,7 @@ void Terrain3DRegion::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "height_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_height_map", "get_height_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "control_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_control_map", "get_control_map");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "color_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_color_map", "get_color_map");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "compressed_color_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_compressed_color_map", "get_compressed_color_map");
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "instances", PROPERTY_HINT_NONE, "", ro_flags), "set_instances", "get_instances");
 
 	// Double-clicking a region .res file shows what's on disk, the defaults, not in memory. So these are hidden

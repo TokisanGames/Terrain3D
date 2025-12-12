@@ -33,6 +33,9 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/dual_scaling.glsl"
 			, "dual_scaling");
 	_parse_shader(
+#include "shaders/color_map.glsl"
+			, "color_map");
+	_parse_shader(
 #include "shaders/overlays.glsl"
 			, "overlays");
 	_parse_shader(
@@ -152,11 +155,15 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
 		excludes.push_back("NOISE_SAMPLER_LINEAR");
 	}
-	if (!_auto_shader) {
+	if (!_auto_shader_enabled) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
 		excludes.push_back("AUTO_SHADER");
 	}
-	if (!_dual_scaling) {
+	if (!_color_map_enabled) {
+		excludes.push_back("COLOR_MAP_BASE");
+		excludes.push_back("COLOR_MAP_BILERP");
+	}
+	if (!_dual_scaling_enabled) {
 		excludes.push_back("DUAL_SCALING_UNIFORMS");
 		excludes.push_back("DUAL_SCALING");
 		excludes.push_back("DUAL_SCALING_CONDITION_0");
@@ -273,7 +280,7 @@ String Terrain3DMaterial::_generate_buffer_shader_code() {
 		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
 		excludes.push_back("NOISE_SAMPLER_LINEAR");
 	}
-	if (!_auto_shader) {
+	if (!_auto_shader_enabled) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
 		excludes.push_back("AUTO_SHADER");
 	}
@@ -731,14 +738,20 @@ void Terrain3DMaterial::set_texture_filtering(const TextureFiltering p_filtering
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_auto_shader(const bool p_enabled) {
-	SET_IF_DIFF(_auto_shader, p_enabled);
+void Terrain3DMaterial::set_auto_shader_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_auto_shader_enabled, p_enabled);
 	LOG(INFO, "Enable auto shader: ", p_enabled);
 	_update_shader();
 }
 
-void Terrain3DMaterial::set_dual_scaling(const bool p_enabled) {
-	SET_IF_DIFF(_dual_scaling, p_enabled);
+void Terrain3DMaterial::set_color_map_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_color_map_enabled, p_enabled);
+	LOG(INFO, "Enable color map: ", p_enabled);
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_dual_scaling_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_dual_scaling_enabled, p_enabled);
 	LOG(INFO, "Enable dual scaling: ", p_enabled);
 	_update_shader();
 }
@@ -1169,10 +1182,12 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_world_background"), &Terrain3DMaterial::get_world_background);
 	ClassDB::bind_method(D_METHOD("set_texture_filtering", "filtering"), &Terrain3DMaterial::set_texture_filtering);
 	ClassDB::bind_method(D_METHOD("get_texture_filtering"), &Terrain3DMaterial::get_texture_filtering);
-	ClassDB::bind_method(D_METHOD("set_auto_shader", "enabled"), &Terrain3DMaterial::set_auto_shader);
-	ClassDB::bind_method(D_METHOD("get_auto_shader"), &Terrain3DMaterial::get_auto_shader);
-	ClassDB::bind_method(D_METHOD("set_dual_scaling", "enabled"), &Terrain3DMaterial::set_dual_scaling);
-	ClassDB::bind_method(D_METHOD("get_dual_scaling"), &Terrain3DMaterial::get_dual_scaling);
+	ClassDB::bind_method(D_METHOD("set_auto_shader_enabled", "enabled"), &Terrain3DMaterial::set_auto_shader_enabled);
+	ClassDB::bind_method(D_METHOD("get_auto_shader_enabled"), &Terrain3DMaterial::get_auto_shader_enabled);
+	ClassDB::bind_method(D_METHOD("set_color_map_enabled", "enabled"), &Terrain3DMaterial::set_color_map_enabled);
+	ClassDB::bind_method(D_METHOD("get_color_map_enabled"), &Terrain3DMaterial::get_color_map_enabled);
+	ClassDB::bind_method(D_METHOD("set_dual_scaling_enabled", "enabled"), &Terrain3DMaterial::set_dual_scaling_enabled);
+	ClassDB::bind_method(D_METHOD("get_dual_scaling_enabled"), &Terrain3DMaterial::get_dual_scaling_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_shader_override_enabled", "enabled"), &Terrain3DMaterial::set_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
@@ -1243,11 +1258,13 @@ void Terrain3DMaterial::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Terrain3DMaterial::save, DEFVAL(""));
 
+	ADD_GROUP("Shader Code", "");
 	// These must be different from the names of uniform groups
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader_enabled"), "set_auto_shader", "get_auto_shader");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling", "get_dual_scaling");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader_enabled"), "set_auto_shader_enabled", "get_auto_shader_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "color_map_enabled"), "set_color_map_enabled", "get_color_map_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling_enabled", "get_dual_scaling_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "set_shader_override_enabled", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 

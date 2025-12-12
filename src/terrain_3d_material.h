@@ -47,8 +47,9 @@ private:
 	// Material Features
 	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
-	bool _dual_scaling = false;
-	bool _auto_shader = false;
+	bool _dual_scaling_enabled = false;
+	bool _color_map_enabled = true;
+	bool _auto_shader_enabled = false;
 
 	// Overlays
 	bool _show_region_grid = false;
@@ -116,10 +117,12 @@ public:
 	WorldBackground get_world_background() const { return _world_background; }
 	void set_texture_filtering(const TextureFiltering p_filtering);
 	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
-	void set_auto_shader(const bool p_enabled);
-	bool get_auto_shader() const { return _auto_shader; }
-	void set_dual_scaling(const bool p_enabled);
-	bool get_dual_scaling() const { return _dual_scaling; }
+	void set_auto_shader_enabled(const bool p_enabled);
+	bool get_auto_shader_enabled() const { return _auto_shader_enabled; }
+	void set_color_map_enabled(const bool p_enabled);
+	bool get_color_map_enabled() const { return _color_map_enabled; }
+	void set_dual_scaling_enabled(const bool p_enabled);
+	bool get_dual_scaling_enabled() const { return _dual_scaling_enabled; }
 
 	void set_shader_override_enabled(const bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }

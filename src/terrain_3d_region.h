@@ -3,6 +3,8 @@
 #ifndef TERRAIN3D_REGION_CLASS_H
 #define TERRAIN3D_REGION_CLASS_H
 
+#include <godot_cpp/classes/engine.hpp>
+
 #include "constants.h"
 #include "terrain_3d_util.h"
 
@@ -18,13 +20,6 @@ public: // Constants
 		TYPE_MAX,
 	};
 
-	static inline const Image::Format FORMAT[] = {
-		Image::FORMAT_RF, // TYPE_HEIGHT
-		Image::FORMAT_RF, // TYPE_CONTROL
-		Image::FORMAT_RGBA8, // TYPE_COLOR
-		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
-	};
-
 	static inline const char *TYPESTR[] = {
 		"TYPE_HEIGHT",
 		"TYPE_CONTROL",
@@ -32,11 +27,36 @@ public: // Constants
 		"TYPE_MAX",
 	};
 
+	static inline const Image::Format FORMAT[] = {
+		Image::FORMAT_RF, // TYPE_HEIGHT
+		Image::FORMAT_RF, // TYPE_CONTROL
+		Image::FORMAT_RGBA8, // TYPE_COLOR
+		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
+	};
+
 	static inline const Color COLOR[] = {
 		COLOR_BLACK, // TYPE_HEIGHT
 		COLOR_CONTROL, // TYPE_CONTROL
 		COLOR_ROUGHNESS, // TYPE_COLOR
 		COLOR_NAN, // TYPE_MAX, unused just in case someone indexes the array
+	};
+
+	enum CompressMode {
+		COMPRESS_NONE,
+		COMPRESS_S3TC,
+		COMPRESS_BPTC,
+		COMPRESS_ETC,
+		COMPRESS_ETC2,
+		COMPRESS_ASTC,
+	};
+
+	static inline const char *COMPRESS_STR[] = {
+		"COMPRESS_NONE",
+		"COMPRESS_S3TC",
+		"COMPRESS_BPTC",
+		"COMPRESS_ETC",
+		"COMPRESS_ETC2",
+		"COMPRESS_ASTC",
 	};
 
 private:
@@ -48,6 +68,8 @@ private:
 	Ref<Image> _height_map;
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
+	Ref<Image> _compressed_color_map;
+
 	// Instancer
 	Dictionary _instances; // Meshes{int} -> Cells{v2i} -> [ Transform3D, Color, Modified ]
 	real_t _vertex_spacing = 1.f; // Spacing that instancer transforms are currently scaled by.
@@ -79,6 +101,12 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
+	void clear_color_map();
+	Ref<Image> get_active_color_map() const;
+	void set_compressed_color_map(const Ref<Image> &p_map);
+	Ref<Image> get_compressed_color_map() const { return _compressed_color_map; }
+	void compress_color_map(const CompressMode p_compress_mode);
+	void clear_compressed_color_map();
 	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 	bool validate_map_size(const Ref<Image> &p_map) const;
@@ -106,18 +134,22 @@ public:
 	Vector2i get_location() const { return _location; }
 
 	// File I/O
-	Error save(const String &p_path = "", const bool p_16_bit = false);
+	Error save(const String &p_path = "", const bool p_16_bit = false, const CompressMode p_color_compress_mode = COMPRESS_NONE);
 
 	// Utility
 	void set_data(const Dictionary &p_data);
 	Dictionary get_data() const;
 	Ref<Terrain3DRegion> duplicate(const bool p_deep = false);
+	static Image::CompressMode get_image_compress_mode(const CompressMode p_compress_mode);
+
 	void dump(const bool verbose = false) const;
 
 protected:
 	static void _bind_methods();
 };
 
+using CompressMode = Terrain3DRegion::CompressMode;
+VARIANT_ENUM_CAST(Terrain3DRegion::CompressMode);
 using MapType = Terrain3DRegion::MapType;
 VARIANT_ENUM_CAST(Terrain3DRegion::MapType);
 constexpr Terrain3DRegion::MapType TYPE_HEIGHT = Terrain3DRegion::MapType::TYPE_HEIGHT;
@@ -149,6 +181,13 @@ inline void Terrain3DRegion::update_heights(const Vector2 &p_low_high) {
 		_height_range.y = p_low_high.y;
 		_modified = true;
 	}
+}
+
+inline Ref<Image> Terrain3DRegion::get_active_color_map() const {
+	if (!IS_EDITOR && _compressed_color_map.is_valid()) {
+		return _compressed_color_map;
+	}
+	return _color_map;
 }
 
 #endif // TERRAIN3D_REGION_CLASS_H
