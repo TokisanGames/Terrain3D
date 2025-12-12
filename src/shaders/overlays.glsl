@@ -4,19 +4,6 @@
 // Variables should be prefaced with __ to avoid name conflicts.
 
 R"(
-//INSERT: OVERLAY_REGION_GRID
-	// Show region grid
-	{
-		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
-		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
-		float __region_line = 1.0;		// Region line thickness
-		__region_line *= .1*sqrt(length(__camera_pos - __pixel_pos));
-		if (mod(__pixel_pos.x * _vertex_density + __region_line*.5, _region_size) <= __region_line || 
-			mod(__pixel_pos.z * _vertex_density + __region_line*.5, _region_size) <= __region_line ) {
-			ALBEDO = vec3(1.);
-		}
-	}
-
 //INSERT: OVERLAY_INSTANCER_GRID
 	// Show region grid
 	{

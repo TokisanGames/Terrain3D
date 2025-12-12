@@ -6,7 +6,6 @@ extends EditorPlugin
 
 # Includes
 const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
-const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
 # Editor Plugin
@@ -15,7 +14,6 @@ var editor: Terrain3DEditor
 var editor_settings: EditorSettings
 var ui: Node # Terrain3DUI see Godot #75388
 var asset_dock: PanelContainer
-var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
@@ -57,8 +55,6 @@ func _enter_tree() -> void:
 	ui = Terrain3DUI.new()
 	ui.plugin = self
 	add_child(ui)
-
-	region_gizmo = RegionGizmo.new()
 
 	scene_changed.connect(_on_scene_changed)
 
@@ -131,8 +127,6 @@ func _edit(p_object: Object) -> void:
 		terrain.set_editor(editor)
 		debug = terrain.debug_level
 		editor.set_terrain(terrain)
-		region_gizmo.set_node_3d(terrain)
-		terrain.add_gizmo(region_gizmo)
 		ui.set_visible(true)
 		terrain.set_meta("_edit_lock_", true)
 
@@ -140,10 +134,6 @@ func _edit(p_object: Object) -> void:
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
-		# Get alerted when the region map changes
-		if not terrain.data.region_map_changed.is_connected(update_region_grid):
-			terrain.data.region_map_changed.connect(update_region_grid)
-		update_region_grid()
 	else:
 		_clear()
 
@@ -157,16 +147,10 @@ func _edit(p_object: Object) -> void:
 	
 func _clear() -> void:
 	if is_terrain_valid():
-		if terrain.data.region_map_changed.is_connected(update_region_grid):
-			terrain.data.region_map_changed.disconnect(update_region_grid)
-		
-		terrain.clear_gizmos()
 		terrain = null
 		editor.set_terrain(null)
 		
 		ui.clear_picking()
-		
-	region_gizmo.clear()
 
 
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> AfterGUIInput:
@@ -218,9 +202,6 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			## Update region highlight
 			var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
 				/ (terrain.get_region_size() * terrain.get_vertex_spacing()) ).floor()
-			if current_region_position != region_position:
-				current_region_position = region_position
-				update_region_grid()
 
 			if _input_mode > 0 and editor.is_operating():
 				# Inject pressure - Relies on C++ set_brush_data() using same dictionary instance
@@ -383,26 +364,6 @@ func consume_hotkey(keycode: int) -> bool:
 		_:
 			return false
 	return true
-
-
-func update_region_grid() -> void:
-	if not region_gizmo:
-		return
-	region_gizmo.set_hidden(not ui.visible)
-
-	if is_terrain_valid():
-		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
-		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
-		region_gizmo.region_position = current_region_position
-		region_gizmo.region_size = terrain.get_region_size() * terrain.get_vertex_spacing()
-		region_gizmo.grid = terrain.get_data().get_region_locations()
-		
-		terrain.update_gizmos()
-		return
-		
-	region_gizmo.show_rect = false
-	region_gizmo.region_size = 1024
-	region_gizmo.grid = [Vector2i.ZERO]
 
 
 func _on_scene_changed(scene_root: Node) -> void:

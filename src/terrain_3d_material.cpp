@@ -417,9 +417,6 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_show_contours) {
 		insert_names.push_back("OVERLAY_CONTOURS_RENDER");
 	}
-	if (_show_region_grid) {
-		insert_names.push_back("OVERLAY_REGION_GRID");
-	}
 	if (_show_instancer_grid) {
 		insert_names.push_back("OVERLAY_INSTANCER_GRID");
 	}
@@ -429,6 +426,9 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	// Editor Functions
 	if (_show_navigation || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
 		insert_names.push_back("EDITOR_NAVIGATION");
+	}
+	if (_show_region_grid || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::REGION)) {
+		insert_names.push_back("EDITOR_REGION_GRID");
 	}
 	if (_terrain && _terrain->get_editor()) {
 		insert_names.push_back("EDITOR_DECAL_RENDER");
