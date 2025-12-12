@@ -216,9 +216,9 @@ void vertex() {
 		// This branch is static for each of the clipmap segments
 		// Interpolated reads only occur where sub-texel values are required.
 		if (scale < _vertex_spacing) {
-			h = mix(interpolated_height(start_pos), interpolated_height(end_pos), vertex_lerp);
-			u = mix(interpolated_height(start_pos + vec2(1, 0)), interpolated_height(end_pos + vec2(1, 0)), vertex_lerp);
-			v = mix(interpolated_height(start_pos + vec2(0, 1)), interpolated_height(end_pos + vec2(0, 1)), vertex_lerp);
+			h = interpolated_height(UV);
+			u = interpolated_height(UV + vec2(1, 0));
+			v = interpolated_height(UV + vec2(0, 1));
 		} else {
 			ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
 			ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
