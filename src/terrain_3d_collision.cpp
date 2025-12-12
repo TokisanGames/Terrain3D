@@ -223,13 +223,12 @@ TypedArray<Vector3> Terrain3DCollision::_get_instance_cells_to_build(const Vecto
 	// If we are in dynamic mode, we only build cells within the radius
 	if (is_dynamic_mode()) {
 		const int grid_size = _radius * 2;
-		const int step = 32;
-		for (int x = 0; x < grid_size; x += step) {
-			for (int y = 0; y < grid_size; y += step) {
+		for (int x = 0; x < grid_size; x += p_cell_size) {
+			for (int y = 0; y < grid_size; y += p_cell_size) {
 				const Vector3 grid_offset = Vector3(x - _radius, 0.0, y - _radius) * p_vertex_spacing;
 				const Vector3 grid_pos = v2v3(p_snapped_pos) + grid_offset;
 				const Vector3 region_loc = v2v3(_terrain->get_data()->get_region_location(grid_pos)) * p_region_size * p_vertex_spacing;
-				const Vector3 cell_loc = region_loc + v2v3(Util::get_cell(grid_pos, p_region_size, p_vertex_spacing, _terrain->get_instancer()->CELL_SIZE)) * p_cell_size * p_vertex_spacing;
+				const Vector3 cell_loc = region_loc + v2v3(Util::get_cell(grid_pos, p_region_size, p_vertex_spacing, p_cell_size)) * p_cell_size * p_vertex_spacing;
 				if (!_active_instance_cells.has(cell_loc)) {
 					const Vector3 cell_centre = cell_loc + Vector3(p_vertex_spacing * p_cell_size * 0.5f, 0.0f, p_vertex_spacing * p_cell_size * 0.5f);
 					// Check if the cell is within the radius
@@ -244,11 +243,18 @@ TypedArray<Vector3> Terrain3DCollision::_get_instance_cells_to_build(const Vecto
 		}
 	} else {
 		// Full collision
-		const TypedArray<Vector2i> region_locs = _terrain->get_data()->get_region_locations();
+		const Terrain3DData *data = _terrain->get_data();
+		const TypedArray<Vector2i> region_locs = data->get_region_locations();
 		for (int i = 0; i < region_locs.size(); i++) {
-			const Vector3 region_pos = v2v3(region_locs[i]) * p_region_size * p_vertex_spacing;
-			for (int x = 0; x < p_cell_size; x++) {
-				for (int y = 0; y < p_cell_size; y++) {
+			const Vector2i region_loc = region_locs[i];
+			const Terrain3DRegion *region = data->get_region_ptr(region_loc);
+			if (!region) {
+				continue;
+			}
+			const Vector3 region_pos = v2v3(region_loc) * p_region_size * p_vertex_spacing;
+			const int cells_per_region = p_region_size / p_cell_size;
+			for (int x = 0; x < cells_per_region; x++) {
+				for (int y = 0; y < cells_per_region; y++) {
 					const Vector3 cell_pos = region_pos + Vector3(x * p_cell_size * p_vertex_spacing, 0.0, y * p_cell_size * p_vertex_spacing);
 					instance_cells_to_build.push_back(cell_pos);
 				}
@@ -293,7 +299,7 @@ Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector3
 		const Vector2i cell_loc = Util::get_cell(cell_position, p_region_size, p_vertex_spacing, _terrain->get_instancer()->CELL_SIZE);
 		const Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
 		if (!region) {
-			LOG(WARN, "Could not get region at ", cell_position);
+			LOG(WARN, "Could not get region ", region_loc, " for cell at ", cell_position);
 			continue;
 		}
 		const Dictionary mesh_inst_dict = region->get_instances();
