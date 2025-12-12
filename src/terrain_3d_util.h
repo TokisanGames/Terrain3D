@@ -198,6 +198,47 @@ inline Rect2 aabb2rect(const AABB &p_aabb) {
 	return rect;
 }
 
+// Functions to match GLSL when needing to duplicate shader code CPU side.
+inline real_t smoothstep(const real_t p_low, const real_t p_high, const real_t p_value) {
+	real_t t = CLAMP((p_value - p_low) / (p_high - p_low), 0.f, 1.f);
+	return t * t * (3.f - 2.f * t);
+}
+
+inline Vector2 smoothstep(const real_t p_low, const real_t p_high, const Vector2 &p_value) {
+	Vector2 t = (p_value - Vector2(p_low, p_low)) / (p_high - p_low);
+	t.x = CLAMP(t.x, 0.f, 1.f);
+	t.y = CLAMP(t.y, 0.f, 1.f);
+	return t * t * (Vector2(3.f, 3.f) - 2.f * t);
+}
+
+inline Vector3 smoothstep(const real_t p_low, const real_t p_high, const Vector3 &p_value) {
+	Vector3 t = (p_value - Vector3(p_low, p_low, p_low)) / (p_high - p_low);
+	t.x = CLAMP(t.x, 0.f, 1.f);
+	t.y = CLAMP(t.y, 0.f, 1.f);
+	t.z = CLAMP(t.z, 0.f, 1.f);
+	return t * t * (Vector3(3.f, 3.f, 3.f) - 2.f * t);
+}
+
+inline real_t mix(const real_t p_0, const real_t p_1, const real_t p_w) {
+	return p_0 * (1.f - p_w) + p_1 * p_w;
+}
+
+inline Vector2 mix(const Vector2 &p_0, const Vector2 &p_1, const Vector2 &p_w) {
+	return p_0 * (Vector2(1.f, 1.f) - p_w) + p_1 * p_w;
+}
+
+inline Vector2 mix(const Vector2 &p_0, const Vector2 &p_1, const real_t p_w) {
+	return p_0 * (1.f - p_w) + p_1 * p_w;
+}
+
+inline Vector3 mix(const Vector3 &p_0, const Vector3 &p_1, const Vector3 &p_w) {
+	return p_0 * (Vector3(1.f, 1.f, 1.f) - p_w) + p_1 * p_w;
+}
+
+inline Vector3 mix(const Vector3 &p_0, const Vector3 &p_1, const real_t p_w) {
+	return p_0 * (1.f - p_w) + p_1 * p_w;
+}
+
 ///////////////////////////
 // Controlmap Handling
 ///////////////////////////
