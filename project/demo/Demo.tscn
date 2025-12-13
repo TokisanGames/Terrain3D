@@ -52,7 +52,6 @@ _shader_parameters = {
 &"macro_variation": true,
 "macro_variation1": Color(0.855, 0.8625, 0.9, 1),
 "macro_variation2": Color(0.9, 0.885, 0.81, 1),
-&"macro_variation_enabled": true,
 "macro_variation_slope": 0.333,
 "mipmap_bias": 1.0,
 &"mipmaps": null,
@@ -77,6 +76,7 @@ _shader_parameters = {
 world_background = 2
 auto_shader_enabled = true
 dual_scaling_enabled = true
+macro_variation_enabled = true
 displacement_sharpness = 0.25
 
 [node name="Demo" type="Node"]

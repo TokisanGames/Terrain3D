@@ -71,6 +71,9 @@ uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
+uniform highp sampler2DArray _color_maps : source_color, FILTER_METHOD, repeat_disable;
+uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
+uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
 // Public uniforms
 
 group_uniforms general;
@@ -84,18 +87,7 @@ group_uniforms;
 //INSERT: AUTO_SHADER_UNIFORMS
 //INSERT: DISPLACEMENT_UNIFORMS
 //INSERT: DUAL_SCALING_UNIFORMS
-group_uniforms macro_variation;
-uniform bool macro_variation_enabled = true;
-uniform vec3 macro_variation1 : source_color = vec3(1.);
-uniform vec3 macro_variation2 : source_color = vec3(1.);
-uniform float macro_variation_slope : hint_range(0., 1.)  = 0.333;
-//INSERT: NOISE_SAMPLER_NEAREST
-//INSERT: NOISE_SAMPLER_LINEAR
-uniform float noise1_scale : hint_range(0.001, 1.) = 0.04; // Used for macro variation 1. Scaled up 10x
-uniform float noise1_angle : hint_range(0, 6.283) = 0.;
-uniform vec2 noise1_offset = vec2(0.5);
-uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;	// Used for macro variation 2. Scaled up 10x
-group_uniforms;
+//INSERT: MACRO_VARIATION_UNIFORMS
 
 group_uniforms mipmaps;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
@@ -620,21 +612,13 @@ void fragment() {
 	mat.ao *= weight_inv;
 	mat.ao_affect *= weight_inv;
 
-	// Macro variation. 2 lookups
-	vec3 macrov = vec3(1.);
-	if (macro_variation_enabled) {
-		float noise1 = texture(noise_texture, rotate_vec2(fma(uv, vec2(noise1_scale * .1), noise1_offset) , vec2(cos(noise1_angle), sin(noise1_angle)))).r;
-		float noise2 = texture(noise_texture, uv * noise2_scale * .1).r;
-		macrov = mix(macro_variation1, vec3(1.), noise1);
-		macrov *= mix(macro_variation2, vec3(1.), noise2);
-		macrov = mix(vec3(1.0), macrov, clamp(w_normal.y + macro_variation_slope, 0., 1.));
-	}
+	//INSERT: MACRO_VARIATION
 	
 	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
 	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
 	
 	// Apply PBR
-	ALBEDO = mat.albedo_height.rgb * color_map.rgb * macrov;
+	ALBEDO = mat.albedo_height.rgb * color_map.rgb;
 	ROUGHNESS = roughness;
 	SPECULAR = 1. - mat.normal_rough.a;
 	// Repack final normal map value.
