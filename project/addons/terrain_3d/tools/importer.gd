@@ -38,13 +38,21 @@ func update_heights() -> void:
 
 
 @export_group("Import File")
+## tool tip comment
 @export_global_file var height_file_name: String = ""
+## tool tip comment
 @export_global_file var control_file_name: String = ""
+## tool tip comment
 @export_global_file var color_file_name: String = ""
+## tool tip comment
 @export var import_position: Vector2i = Vector2i(0, 0) : set = set_import_position
+## tool tip comment
 @export var import_scale: float = 1.0
+## tool tip comment
 @export var height_offset: float = 0.0
+## tool tip comment
 @export var r16_range: Vector2 = Vector2(0, 1)
+## tool tip comment
 @export var r16_size: Vector2i = Vector2i(1024, 1024) : set = set_r16_size
 @export_tool_button("Run Import") var run_import = start_import
 
@@ -82,7 +90,7 @@ func start_import() -> void:
 		if assets.get_texture_count() == 0:
 			material.show_checkered = false
 			material.show_colormap = true
-	var pos := Vector3(import_position.x, 0, import_position.y)
+	var pos := Vector3(import_position.x * vertex_spacing, 0, import_position.y * vertex_spacing)
 	data.import_images(imported_images, pos, height_offset, import_scale)
 	print("Terrain3DImporter: Import finished")
 
