@@ -54,6 +54,8 @@ uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
+uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
+uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
 
 // Public uniforms
 group_uniforms general;
