@@ -754,14 +754,14 @@ void Terrain3DMaterial::set_shader_override_enabled(const bool p_enabled) {
 }
 
 void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
-	LOG(INFO, "Setting override shader");
 	SET_IF_DIFF(_shader_override, p_shader);
+	LOG(INFO, "Setting override shader");
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_buffer_shader_override_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_buffer_shader_override_enabled, p_enabled);
 	LOG(INFO, "Enable shader override: ", p_enabled);
-	_buffer_shader_override_enabled = p_enabled;
 	if (_buffer_shader_override_enabled && _buffer_shader_override.is_null()) {
 		LOG(DEBUG, "Instantiating new _shader_override");
 		_buffer_shader_override.instantiate();
@@ -770,8 +770,8 @@ void Terrain3DMaterial::set_buffer_shader_override_enabled(const bool p_enabled)
 }
 
 void Terrain3DMaterial::set_buffer_shader_override(const Ref<Shader> &p_shader) {
+	SET_IF_DIFF(_buffer_shader_override, p_shader);
 	LOG(INFO, "Setting override shader");
-	_buffer_shader_override = p_shader;
 	_update_shader();
 }
 
@@ -939,7 +939,7 @@ Error Terrain3DMaterial::save(const String &p_path) {
 		// Get shader parameters from custom buffer shader
 		param_list.append_array(_buffer_shader_override->get_shader_uniform_list(true));
 	} else {
-		if (_terrain->get_tessellation_level() > 0) {
+		if (_terrain && _terrain->get_tessellation_level() > 0) {
 			// Get shader parameters from default buffer shader
 			param_list.append_array(RS->get_shader_parameter_list(get_buffer_shader_rid()));
 		}

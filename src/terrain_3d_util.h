@@ -283,24 +283,8 @@ _FORCE_INLINE_ String ptr_to_str(const void *p_ptr) {
 	return "0x" + String::num_uint64(uint64_t(p_ptr), 16, true);
 }
 
-// Trait to detect types with _native_ptr(): Dictionary, Array, String, etc
-template <typename T, typename = void>
-struct has_native_ptr : std::false_type {};
-
-template <typename T>
-struct has_native_ptr<T, std::void_t<decltype(std::declval<T>()._native_ptr())>>
-		: std::true_type {};
-
-using GDPtr = void **;
-
-template <typename T>
-_FORCE_INLINE_ constexpr const void *get_gd_ptr(const T &obj) {
-	static_assert(has_native_ptr<T>::value, "Type must have _native_ptr()");
-	return *(GDPtr)obj._native_ptr();
-}
-
 // Returns if A is shallow different from B
-// O(1) size and pointer compare for Array/Dictionary/String
+// O(1) size and pointer compare for Array/Dictionary/String/StringName/NodePath
 // Operator==() otherwise
 // Two arrays/dicts with different pointers could have the same value, this will return true
 // Two strings or ints with different pointers but the same value will return false
@@ -308,21 +292,25 @@ _FORCE_INLINE_ constexpr const void *get_gd_ptr(const T &obj) {
 template <typename T>
 _FORCE_INLINE_ bool differs(const T &a, const T &b) {
 	if constexpr (std::is_base_of_v<String, T>) {
-		if (a.length() != b.length()) { // Common path predictable early exit
+		if (a.length() != b.length()) {
 			return true;
 		}
-		const void *ptr_a = get_gd_ptr(a);
-		const void *ptr_b = get_gd_ptr(b);
-		bool ptr_diff = (*(GDPtr)(static_cast<const uint8_t *>(ptr_a) + 8) !=
-				*(GDPtr)(static_cast<const uint8_t *>(ptr_b) + 8));
-		return ptr_diff ? !(a == b) : false;
+		if (a.is_empty()) { // Both empty
+			return false;
+		}
+		// Both non-empty, but same length
+		if (a.ptr() == b.ptr()) { // Same COW buffer
+			return false;
+		}
+		return a != b; // Full comparison
 	} else if constexpr (std::is_base_of_v<Array, T> || std::is_base_of_v<Dictionary, T>) {
 		if (a.size() != b.size()) { // Redundant but common path predictable
 			return true;
 		}
-		return get_gd_ptr(a) != get_gd_ptr(b);
+		// These store a real GDExtensionTypePtr (void**) at offset 0
+		return *(const void **)a._native_ptr() != *(const void **)b._native_ptr();
 	} else {
-		return !(a == b);
+		return a != b;
 	}
 }
 

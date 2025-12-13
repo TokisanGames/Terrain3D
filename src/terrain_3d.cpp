@@ -1035,6 +1035,13 @@ void Terrain3D::_notification(const int p_what) {
 			if (_mesher) {
 				_mesher->update();
 			}
+			if (_instancer) {
+				if (!is_visible_in_tree()) {
+					_instancer->destroy();
+				} else {
+					_instancer->update_mmis(-1, V2I_MAX, true);
+				}
+			}
 			break;
 		}
 
@@ -1087,6 +1094,7 @@ void Terrain3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_physics_process(false);
 			_destroy_mesher();
+			_destroy_instancer();
 			_destroy_mouse_picking();
 			_destroy_displacement_buffer();
 			if (_assets.is_valid()) {
@@ -1330,7 +1338,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_clipmap_target", "get_clipmap_target");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_mesh_size", "get_mesh_size");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_tessellation_level", "get_tessellation_level");
 	ADD_SUBGROUP("Displacement", "");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement_scale", PROPERTY_HINT_RANGE, "0.0, 2.0, 0.01"), "set_displacement_scale", "get_displacement_scale");

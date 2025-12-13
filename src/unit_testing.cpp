@@ -61,7 +61,9 @@ void test_differs() {
 		String s2 = s1; // Shared (COW)
 		String s3("test"); // Separate alloc, same value
 		String s4 = "diff";
-		log_differs(s1, s2, "String shared", false); // Same ptr
+		log_differs(String(), String(), "String() vs String()", false);
+		log_differs(String(), String("a"), "String() vs String('a')", true);
+		log_differs(s1, s2, "String shared", false);
 		log_differs(s1, s3, "String same value diff ptr", false); // Length match + == true
 		log_differs(s1, s4, "String diff value", true); // Length may match, but == false
 	}
