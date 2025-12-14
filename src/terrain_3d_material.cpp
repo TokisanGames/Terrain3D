@@ -42,6 +42,9 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/macro_variation.glsl"
 			, "macro_variation");
 	_parse_shader(
+#include "shaders/projection.glsl"
+			, "projection");
+	_parse_shader(
 #include "shaders/debug_views.glsl"
 			, "debug_views");
 	_parse_shader(
@@ -168,6 +171,9 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("MACRO_VARIATION_UNIFORMS");
 		excludes.push_back("MACRO_VARIATION");
 	}
+	if (!_projection_enabled) {
+		excludes.push_back("PROJECTION");
+	}
 	if (_terrain->get_tessellation_level() == 0) {
 		excludes.push_back("DISPLACEMENT_UNIFORMS");
 		excludes.push_back("DISPLACEMENT_FUNCTIONS");
@@ -267,7 +273,7 @@ String Terrain3DMaterial::_strip_comments(const String &p_shader) const {
 	return vector_to_string(stripped);
 }
 
-String Terrain3DMaterial::_generate_buffer_shader_code() {
+String Terrain3DMaterial::_generate_buffer_shader_code() const {
 	LOG(INFO, "Generating default displacement buffer shader code");
 	Array excludes;
 	if (_world_background != FLAT) {
@@ -283,6 +289,9 @@ String Terrain3DMaterial::_generate_buffer_shader_code() {
 	if (!_auto_shader_enabled) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
 		excludes.push_back("AUTO_SHADER");
+	}
+	if (!_projection_enabled) {
+		excludes.push_back("PROJECTION");
 	}
 	String shader = _apply_inserts(_shader_code["displacement_buffer"], excludes);
 	return shader;
@@ -756,6 +765,12 @@ void Terrain3DMaterial::set_macro_variation_enabled(const bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_projection_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_projection_enabled, p_enabled);
+	LOG(INFO, "Enable projection: ", p_enabled);
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_shader_override_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_shader_override_enabled, p_enabled);
 	LOG(INFO, "Enable shader override: ", p_enabled);
@@ -1188,6 +1203,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_dual_scaling_enabled"), &Terrain3DMaterial::get_dual_scaling_enabled);
 	ClassDB::bind_method(D_METHOD("set_macro_variation_enabled", "enabled"), &Terrain3DMaterial::set_macro_variation_enabled);
 	ClassDB::bind_method(D_METHOD("get_macro_variation_enabled"), &Terrain3DMaterial::get_macro_variation_enabled);
+	ClassDB::bind_method(D_METHOD("set_projection_enabled", "enabled"), &Terrain3DMaterial::set_projection_enabled);
+	ClassDB::bind_method(D_METHOD("get_projection_enabled"), &Terrain3DMaterial::get_projection_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_shader_override_enabled", "enabled"), &Terrain3DMaterial::set_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
@@ -1264,6 +1281,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader_enabled"), "set_auto_shader_enabled", "get_auto_shader_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling_enabled", "get_dual_scaling_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "macro_variation_enabled"), "set_macro_variation_enabled", "get_macro_variation_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "projection_enabled"), "set_projection_enabled", "get_projection_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "set_shader_override_enabled", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 

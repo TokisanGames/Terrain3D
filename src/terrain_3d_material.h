@@ -50,6 +50,7 @@ private:
 	bool _dual_scaling_enabled = false;
 	bool _auto_shader_enabled = false;
 	bool _macro_variation_enabled = false;
+	bool _projection_enabled = true;
 
 	// Overlays
 	bool _show_region_grid = false;
@@ -85,7 +86,7 @@ private:
 	void _parse_shader(const String &p_shader, const String &p_name);
 	String _apply_inserts(const String &p_shader, const Array &p_excludes = Array()) const;
 	String _generate_shader_code() const;
-	String _generate_buffer_shader_code();
+	String _generate_buffer_shader_code() const;
 	String _strip_comments(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
@@ -123,6 +124,8 @@ public:
 	bool get_dual_scaling_enabled() const { return _dual_scaling_enabled; }
 	void set_macro_variation_enabled(const bool p_enabled);
 	bool get_macro_variation_enabled() const { return _macro_variation_enabled; }
+	void set_projection_enabled(const bool p_enabled);
+	bool get_projection_enabled() const { return _projection_enabled; }
 
 	void set_shader_override_enabled(const bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
