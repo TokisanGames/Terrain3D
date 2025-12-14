@@ -440,7 +440,7 @@ void fragment() {
 	// Calculate the effective mipmap for regionspace, and when less than 0,
 	// skip all extra lookups required for bilinear blend.
 	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
-	bool bilerp = region_mip < 0.0 && any(greaterThan(ivec4(index[0].z, index[1].z, index[2].z, index[3].z), ivec4(-1)));
+	bool bilerp = region_mip < 4.0 && any(greaterThan(ivec4(index[0].z, index[1].z, index[2].z, index[3].z), ivec4(-1)));
 
 	// Terrain normals
 	vec3 index_normal[4];

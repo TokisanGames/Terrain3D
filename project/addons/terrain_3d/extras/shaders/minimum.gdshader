@@ -186,7 +186,7 @@ void fragment() {
 	// Calculate the effective mipmap for regionspace, and if less than 0,
 	// skip all extra lookups required for bilinear blend.
 	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
-	bool bilerp = region_mip < 0.0;
+	bool bilerp = region_mip < 4.0;
 
 	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well
