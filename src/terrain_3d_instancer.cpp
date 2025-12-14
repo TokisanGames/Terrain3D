@@ -56,6 +56,7 @@ void Terrain3DInstancer::_process_updates() {
 		}
 		_queued_updates.clear();
 		_terrain->get_assets()->load_pending_meshes();
+		_terrain->get_collision() ? _terrain->get_collision()->set_instance_collision_dirty(true) : void();
 		return;
 	}
 
@@ -102,6 +103,7 @@ void Terrain3DInstancer::_process_updates() {
 	}
 	_queued_updates.clear();
 	_terrain->get_assets()->load_pending_meshes();
+	_terrain->get_collision() ? _terrain->get_collision()->set_instance_collision_dirty(true) : void();
 }
 
 void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id) {
@@ -113,7 +115,6 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 		LOG(ERROR, "p_mesh_id is out of bounds");
 		return;
 	}
-	_terrain->get_collision() ? _terrain->get_collision()->build() : void();
 
 	Vector2i region_loc = p_region->get_location();
 	Dictionary mesh_inst_dict = p_region->get_instances();
