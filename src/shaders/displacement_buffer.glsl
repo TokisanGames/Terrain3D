@@ -7,6 +7,8 @@ R"(shader_type canvas_item;
 // the buffer directly via RID (avoids GPU > CPU > GPU copies) as alpha
 // is premultiplied by the renderer.
 
+#define IS_DISPLACEMENT_BUFFER
+
 // Defined Constants
 #define SKIP_PASS 0
 #define VERTEX_PASS 1
@@ -60,8 +62,6 @@ uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD,
 // Public uniforms
 group_uniforms general;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
-uniform bool vertical_projection = true;
-uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 group_uniforms;
 //INSERT: AUTO_SHADER_UNIFORMS
 
@@ -151,16 +151,7 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	mat2 p_align = mat2(1.);
 	vec2 p_uv = i_uv;
 	vec2 p_pos = i_pos;
-	if (i_normal.y <= projection_threshold && vertical_projection) {
-		// Projected normal map alignment matrix
-		p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
-		// Fast 45 degree snapping https://iquilezles.org/articles/noatan/
-		vec2 xz = round(normalize(-i_normal.xz) * 1.3065629648763765); // sqrt(1.0 + sqrt(0.5))
-		xz *= abs(xz.x) + abs(xz.y) > 1.5 ? 0.7071067811865475 : 1.0; // sqrt(0.5)
-		xz = vec2(-xz.y, xz.x);
-		p_pos = floor(vec2(dot(i_pos, xz), -h));
-		p_uv = vec2(dot(i_vertex.xz, xz), -i_vertex.y);
-	}
+//INSERT: PROJECTION
 
 	// Control map rotation. Must be applied seperatley from detiling to maintain UV continuity.
 	float c_angle = DECODE_ANGLE(control);

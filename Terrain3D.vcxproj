@@ -230,6 +230,7 @@
     <None Include="src\shaders\pbr_views.glsl">
       <FileType>Document</FileType>
     </None>
+    <None Include="src\shaders\projection.glsl" />
     <None Include="src\shaders\samplers.glsl" />
     <None Include="src\shaders\backgrounds.glsl" />
     <None Include="src\shaders\editor_functions.glsl" />
