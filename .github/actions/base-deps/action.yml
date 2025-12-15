@@ -23,7 +23,7 @@ runs:
       if: inputs.platform == 'android'
       uses: nttld/setup-ndk@v1
       with:
-        ndk-version: r23c
+        ndk-version: r28b
         link-to-sdk: true
 
     - name: Setup Windows Dependencies
