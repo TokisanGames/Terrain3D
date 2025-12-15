@@ -49,6 +49,7 @@ _shader_parameters = {
 &"dual_scaling": null,
 &"flat_terrain_normals": false,
 &"general": null,
+&"ground_level": 0.0,
 &"macro_variation": true,
 "macro_variation1": Color(0.855, 0.8625, 0.9, 1),
 "macro_variation2": Color(0.9, 0.885, 0.81, 1),
@@ -60,10 +61,8 @@ _shader_parameters = {
 "noise1_scale": 0.04,
 "noise2_scale": 0.076,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
-"projection_threshold": 0.87,
 &"region_blend": 0.25,
 "tri_scale_reduction": 0.3,
-&"vertical_projection": true,
 &"world_background_noise": null,
 "world_noise_fragment_normals": false,
 "world_noise_height": 34.0,
@@ -77,6 +76,7 @@ world_background = 2
 auto_shader_enabled = true
 dual_scaling_enabled = true
 macro_variation_enabled = true
+projection_enabled = true
 displacement_sharpness = 0.25
 
 [node name="Demo" type="Node"]

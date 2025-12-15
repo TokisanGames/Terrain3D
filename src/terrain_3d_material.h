@@ -50,7 +50,7 @@ private:
 	bool _dual_scaling_enabled = false;
 	bool _auto_shader_enabled = false;
 	bool _macro_variation_enabled = false;
-	bool _projection_enabled = true;
+	bool _projection_enabled = false;
 
 	// Overlays
 	bool _show_region_grid = false;

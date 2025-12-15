@@ -45,7 +45,6 @@ ao_strength = 1.0
 ao_light_affect = 0.8
 roughness = -0.05
 displacement_scale = 0.65
-vertical_projection = true
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_od0q7"]
 name = "Grass"
