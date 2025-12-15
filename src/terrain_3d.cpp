@@ -76,11 +76,11 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::height_maps_changed signal to update_aabbs()");
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
-	// Texture assets changed, update material
-	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
-		LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
-		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
-	}
+	// // Texture assets changed, update material
+	// if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays))) {
+	// 	LOG(DEBUG, "Connecting _assets.textures_changed to _material->_update_texture_arrays()");
+	// 	_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::_update_texture_arrays));
+	// }
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		LOG(INFO, "Initializing main subsystems");
