@@ -1,6 +1,32 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 R"(
+//INSERT: INDEX_COORD_STANDARD
+ivec3 get_index_coord(const vec2 uv, const int search) {
+	vec2 r_uv = round(uv);
+	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+}
+
+//INSERT: INDEX_COORD_BG_NONE
+ivec3 get_index_coord(const vec2 uv, const int search) {
+	vec2 r_uv = round(uv);
+	vec2 o_uv = mod(r_uv, _region_size);
+	ivec2 pos;
+	int bounds, layer_index = -1;
+	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
+		if ((layer_index == -1 && _background_mode == 0u ) || i < 0) {
+			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
+			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
+			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
+		}
+	}
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+}
+
 //INSERT: FLAT_UNIFORMS
 uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
 uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
