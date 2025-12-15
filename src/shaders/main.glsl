@@ -38,8 +38,6 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 #define DECODE_SCALE(control) (0.9 - float(((control >>7u & 0x7u) + 3u) % 8u + 1u) * 0.1)
 #define DECODE_HOLE(control) bool(control >>2u & 0x1u)
 
-#define TEXTURE_ID_PROJECTED(id) bool((_texture_vertical_projections >> uint(id)) & 0x1u)
-
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
     #define fma(a, b, c) ((a) * (b) + (c))
     #define dFdxCoarse(a) dFdx(a)
@@ -64,7 +62,6 @@ uniform float _texture_ao_strength_array[32];
 uniform float _texture_ao_affect_array[32];
 uniform float _texture_roughness_mod_array[32];
 uniform float _texture_uv_scale_array[32];
-uniform uint _texture_vertical_projections;
 uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
@@ -277,18 +274,13 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const mat3 TNB, const flo
 	vec2 i_uv = i_vertex.xz;
 	vec4 i_dd = vec4(base_ddx.xz, base_ddy.xz);
 	mat2 p_align = mat2(1.);
-	vec2 p_uv = i_uv;
-	vec4 p_dd = i_dd;
-	vec2 p_pos = i_pos;
-	//INSERT: PROJECTION
+//INSERT: PROJECTION
 
 	// Control map rotation. Must be applied seperatley from detiling to maintain UV continuity.
 	float c_angle = DECODE_ANGLE(control);
 	vec2 c_cs_angle = vec2(cos(c_angle), sin(c_angle));
 	i_uv = rotate_vec2(i_uv, c_cs_angle);
 	i_pos = rotate_vec2(i_pos, c_cs_angle);
-	p_uv = rotate_vec2(p_uv, c_cs_angle);
-	p_pos = rotate_vec2(p_pos, c_cs_angle);
 
 	// Blend adjustment of Higher ID from Lower ID normal map in world space.
 	float world_normal = 1.;
@@ -305,19 +297,16 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const mat3 TNB, const flo
 	//INSERT: DUAL_SCALING_CONDITION_0
 		) {
 		int id = texture_id[0];
-		bool projected = TEXTURE_ID_PROJECTED(id);
 		float id_w = texture_weight[0];
 		float id_scale = _texture_uv_scale_array[id];
-		vec4 id_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * id_scale;
+		vec4 id_dd = i_dd * id_scale;
 
 		// Detiling and Control map rotation
-		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
-		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
 		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
-		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
@@ -336,8 +325,7 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const mat3 TNB, const flo
 		float ao = length(nrm.xyz) * 2.0 - 1.0;
 		ao = mix(ao * ao * _texture_ao_strength_array[id] + 1.0 - _texture_ao_strength_array[id], 1.0, alb.a * alb.a);
 		nrm.xyz = normalize(nrm.xyz);
-		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
-		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
 
 //INSERT: DUAL_SCALING_MIX
 		world_normal = FAST_WORLD_NORMAL(nrm).y;
@@ -356,19 +344,16 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const mat3 TNB, const flo
 //INSERT: DUAL_SCALING_CONDITION_1
 		) {
 		int id = texture_id[1];
-		bool projected = TEXTURE_ID_PROJECTED(id);
 		float id_w = texture_weight[1];
 		float id_scale = _texture_uv_scale_array[id];
-		vec4 id_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * id_scale;
+		vec4 id_dd = i_dd * id_scale;
 
 		// Detiling and Control map rotation
-		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
-		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
 		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
-		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
@@ -387,8 +372,7 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const mat3 TNB, const flo
 		float ao = length(nrm.xyz) * 2.0 - 1.0;
 		ao = mix(ao * ao * _texture_ao_strength_array[id] + 1.0 - _texture_ao_strength_array[id], 1.0, alb.a * alb.a);
 		nrm.xyz = normalize(nrm.xyz);
-		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
-		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
 
 //INSERT: DUAL_SCALING_MIX
 		float id_weight = exp2(sharpness * log2(weight + id_w + alb.a * clamp(world_normal, 0., 1.))) * weight;

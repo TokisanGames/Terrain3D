@@ -49,7 +49,6 @@ uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_uv_scale_array[32];
-uniform uint _texture_vertical_projections;
 uniform vec2 _texture_detile_array[32];
 uniform vec2 _texture_displacement_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
@@ -149,8 +148,6 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	// Projection
 	vec2 i_uv = i_vertex.xz;
 	mat2 p_align = mat2(1.);
-	vec2 p_uv = i_uv;
-	vec2 p_pos = i_pos;
 //INSERT: PROJECTION
 
 	// Control map rotation. Must be applied seperatley from detiling to maintain UV continuity.
@@ -158,8 +155,6 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	vec2 c_cs_angle = vec2(cos(c_angle), sin(c_angle));
 	i_uv = rotate_vec2(i_uv, c_cs_angle);
 	i_pos = rotate_vec2(i_pos, c_cs_angle);
-	p_uv = rotate_vec2(p_uv, c_cs_angle);
-	p_pos = rotate_vec2(p_pos, c_cs_angle);
 
 	// Blend adjustment of Higher ID from Lower ID normal map in world space.
 	float world_normal = 1.;
@@ -172,18 +167,15 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	// 1st Texture Asset ID
 	if (blend < 1.0) {
 		int id = texture_id[0];
-		bool projected = TEXTURE_ID_PROJECTED(id);
 		float id_w = texture_weight[0];
 		float id_scale = _texture_uv_scale_array[id];
 
 		// Detiling and Control map rotation
-		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
-		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
 		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
-		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
@@ -194,8 +186,7 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 		vec4 nrm = textureLod(_texture_array_normal, vec3(id_uv, float(id)), 0.);
 		// Unpack and rotate normal map.
 		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
-		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
-		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
 
 		world_normal = FAST_WORLD_NORMAL(nrm).y;
 
@@ -213,18 +204,15 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	// 2nd Texture Asset ID
 	if (blend > 0.0 && texture_id[1] != texture_id[0]) {
 		int id = texture_id[1];
-		bool projected = TEXTURE_ID_PROJECTED(id);
 		float id_w = texture_weight[1];
 		float id_scale = _texture_uv_scale_array[id];
 
 		// Detiling and Control map rotation
-		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
-		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
 		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
-		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
