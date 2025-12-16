@@ -11,6 +11,21 @@
 // Public Functions
 /////////////////////
 
+void Terrain3DRegion::clear() {
+	_version = 0.8f;
+	_region_size = 0;
+	_height_range = V2_ZERO;
+	_height_map.unref();
+	_control_map.unref();
+	_color_map.unref();
+	_instances.clear();
+	_vertex_spacing = 1.f;
+	_deleted = false;
+	_edited = false;
+	_modified = false;
+	_location = V2I_MAX;
+}
+
 void Terrain3DRegion::set_version(const real_t p_version) {
 	real_t version = CLAMP(p_version, 0.8f, 100.f);
 	if (_version == version) {
@@ -423,6 +438,7 @@ void Terrain3DRegion::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_COLOR);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
+	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DRegion::clear);
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DRegion::set_version);
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3DRegion::get_version);
 	ClassDB::bind_method(D_METHOD("set_region_size", "region_size"), &Terrain3DRegion::set_region_size);

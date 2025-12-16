@@ -62,6 +62,7 @@ public:
 	Terrain3DRegion() {}
 	~Terrain3DRegion() {}
 
+	void clear();
 	void set_version(const real_t p_version);
 	real_t get_version() const { return _version; }
 	void set_region_size(const int p_region_size);
