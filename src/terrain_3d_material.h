@@ -26,6 +26,13 @@ public: // Constants
 		NEAREST,
 	};
 
+enum UpdateFlags {
+		UNIFORMS = 0u,
+		TEXTURE_ARRAYS = 1u,
+		REGION_ARRAYS = 2u,
+		FULL_REBUILD = TEXTURE_ARRAYS | REGION_ARRAYS,
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
@@ -90,9 +97,10 @@ private:
 	String _strip_comments(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
-	void _update_uniforms(const RID &p_material);
+	void _update_uniforms(const RID &p_material, const uint32_t p_update = UpdateFlags::UNIFORMS);
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
+	static inline bool _has_update_flag(uint32_t value, UpdateFlags flag) {	return (value & static_cast<uint32_t>(flag)) != 0u; }
 
 public:
 	Terrain3DMaterial() {}
@@ -102,7 +110,7 @@ public:
 	void uninitialize();
 	void destroy();
 
-	void update(bool p_full = false);
+	void update(const uint32_t p_update = UpdateFlags::UNIFORMS);
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader.is_valid() ? _shader->get_rid() : RID(); }
 
@@ -204,5 +212,6 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DMaterial::WorldBackground);
 VARIANT_ENUM_CAST(Terrain3DMaterial::TextureFiltering);
+VARIANT_ENUM_CAST(Terrain3DMaterial::UpdateFlags);
 
 #endif // TERRAIN3D_MATERIAL_CLASS_H
