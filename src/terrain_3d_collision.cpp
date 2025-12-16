@@ -318,7 +318,7 @@ void Terrain3DCollision::build() {
 	update();
 }
 
-void Terrain3DCollision::update(const bool p_rebuild) {
+void Terrain3DCollision::update(const Vector2i &p_region_loc, const bool p_rebuild) {
 	IS_INIT(VOID);
 	if (!_initialized) {
 		return;
@@ -433,6 +433,9 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 		TypedArray<Vector2i> region_locs = _terrain->get_data()->get_region_locations();
 		for (int i = 0; i < region_locs.size(); i++) {
 			Vector2i region_loc = region_locs[i];
+			if (p_region_loc != V2I_MAX && region_loc != p_region_loc) {
+				continue;
+			}
 			Vector2i shape_pos = region_loc * region_size;
 			Dictionary shape_data = _get_shape_data(shape_pos, region_size);
 			if (shape_data.is_empty()) {
@@ -604,7 +607,7 @@ void Terrain3DCollision::_bind_methods() {
 	BIND_ENUM_CONSTANT(FULL_EDITOR);
 
 	ClassDB::bind_method(D_METHOD("build"), &Terrain3DCollision::build);
-	ClassDB::bind_method(D_METHOD("update", "rebuild"), &Terrain3DCollision::update, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update", "region_location", "rebuild"), &Terrain3DCollision::update, DEFVAL(V2I_MAX), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("destroy"), &Terrain3DCollision::destroy);
 	ClassDB::bind_method(D_METHOD("set_mode", "mode"), &Terrain3DCollision::set_mode);
 	ClassDB::bind_method(D_METHOD("get_mode"), &Terrain3DCollision::get_mode);

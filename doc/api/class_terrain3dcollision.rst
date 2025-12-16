@@ -51,21 +51,21 @@ Methods
 .. table::
    :widths: auto
 
-   +----------+-----------------------------------------------------------------------------------------+
-   | |void|   | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                               |
-   +----------+-----------------------------------------------------------------------------------------+
-   | |void|   | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                           |
-   +----------+-----------------------------------------------------------------------------------------+
-   | ``RID``  | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                   |
-   +----------+-----------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const|   |
-   +----------+-----------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|     |
-   +----------+-----------------------------------------------------------------------------------------+
-   | ``bool`` | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|             |
-   +----------+-----------------------------------------------------------------------------------------+
-   | |void|   | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ rebuild\: ``bool`` = false\ ) |
-   +----------+-----------------------------------------------------------------------------------------+
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|   | :ref:`build<class_Terrain3DCollision_method_build>`\ (\ )                                                                                                  |
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|   | :ref:`destroy<class_Terrain3DCollision_method_destroy>`\ (\ )                                                                                              |
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``RID``  | :ref:`get_rid<class_Terrain3DCollision_method_get_rid>`\ (\ ) |const|                                                                                      |
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_dynamic_mode<class_Terrain3DCollision_method_is_dynamic_mode>`\ (\ ) |const|                                                                      |
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_editor_mode<class_Terrain3DCollision_method_is_editor_mode>`\ (\ ) |const|                                                                        |
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``bool`` | :ref:`is_enabled<class_Terrain3DCollision_method_is_enabled>`\ (\ ) |const|                                                                                |
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|   | :ref:`update<class_Terrain3DCollision_method_update>`\ (\ region_location\: ``Vector2i`` = Vector2i(2147483647, 2147483647), rebuild\: ``bool`` = false\ ) |
+   +----------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -112,7 +112,7 @@ Collision shapes are generated around the camera as it moves; in the editor and 
 
 :ref:`CollisionMode<enum_Terrain3DCollision_CollisionMode>` **FULL_GAME** = ``3``
 
-Collision shapes are generated for all regions in game only.
+Collision shapes are generated for all regions in game only. One shape per region.
 
 .. _class_Terrain3DCollision_constant_FULL_EDITOR:
 
@@ -120,7 +120,7 @@ Collision shapes are generated for all regions in game only.
 
 :ref:`CollisionMode<enum_Terrain3DCollision_CollisionMode>` **FULL_EDITOR** = ``4``
 
-Collision shapes are generated for all regions in the editor and in game. This mode is necessary for some 3rd party plugins to detect the terrain using collision. Enable ``View Gizmos`` in the viewport menu to see the collision mesh.
+Collision shapes are generated for all regions in the editor and in game. One shape per region. This mode is necessary for some 3rd party plugins to detect the terrain using collision. Enable ``View Gizmos`` in the viewport menu to see the collision mesh.
 
 .. rst-class:: classref-section-separator
 
@@ -333,11 +333,11 @@ Returns true if :ref:`mode<class_Terrain3DCollision_property_mode>` is not ``Dis
 
 .. rst-class:: classref-method
 
-|void| **update**\ (\ rebuild\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DCollision_method_update>`
+|void| **update**\ (\ region_location\: ``Vector2i`` = Vector2i(2147483647, 2147483647), rebuild\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DCollision_method_update>`
 
-- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Full, recalculates the existing collision shapes. If regions have been added or removed, set ``rebuild`` to true or call :ref:`build()<class_Terrain3DCollision_method_build>` instead. Can be slow.
+- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Full, recalculates the specified or all existing collision shapes. Specify a ``region_location`` to update only that region, or omit it or use `Vector2i.MAX` to update all regions. If regions have been added or removed, set ``rebuild`` to true or call :ref:`build()<class_Terrain3DCollision_method_build>` instead. A full update can be slow.
 
-- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set ``rebuild`` to true to recalculate all shapes within :ref:`radius<class_Terrain3DCollision_property_radius>`. This is very fast, and can be updated at 60fps for little cost.
+- If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set ``rebuild`` to true to recalculate all shapes within :ref:`radius<class_Terrain3DCollision_property_radius>`. ``region_location`` is ignored. This is very fast, and can be updated at 60fps for little cost.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |required| replace:: :abbr:`required (This method is required to be overridden when extending its base class.)`

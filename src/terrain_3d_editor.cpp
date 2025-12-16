@@ -578,7 +578,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 	// Update Dynamic / Editor collision
 	if (_terrain->get_collision_mode() == Terrain3DCollision::DYNAMIC_EDITOR) {
-		_terrain->get_collision()->update(true);
+		_terrain->get_collision()->update(V2I_MAX, true);
 	}
 	if (_tool == HEIGHT || _tool == SCULPT || _tool == TEXTURE || _tool == AUTOSHADER) {
 		_terrain->snap();
