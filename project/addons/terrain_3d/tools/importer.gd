@@ -38,13 +38,21 @@ func update_heights() -> void:
 
 
 @export_group("Import File")
+## EXR or R16 are recommended for heightmaps. 16-bit PNGs are down sampled to 8-bit and not recommended.
 @export_global_file var height_file_name: String = ""
+## Only use EXR files in our proprietary format.
 @export_global_file var control_file_name: String = ""
+## Any RGB or RGBA format is fine; PNG or Webp are recommended.
 @export_global_file var color_file_name: String = ""
+## The top left (-X, -Y) corner position of where to place the imported data. Positions are descaled and ignore the vertex_spacing setting.
 @export var import_position: Vector2i = Vector2i(0, 0) : set = set_import_position
+## This scales the height of imported values.
 @export var import_scale: float = 1.0
+## This vertically offsets the height of imported values.
 @export var height_offset: float = 0.0
+## The lowest and highest height values of the imported image. Only use for r16 files.
 @export var r16_range: Vector2 = Vector2(0, 1)
+## The dimensions of the imported image. Only use for r16 files.
 @export var r16_size: Vector2i = Vector2i(1024, 1024) : set = set_r16_size
 @export_tool_button("Run Import") var run_import = start_import
 
@@ -82,7 +90,7 @@ func start_import() -> void:
 		if assets.get_texture_count() == 0:
 			material.show_checkered = false
 			material.show_colormap = true
-	var pos := Vector3(import_position.x, 0, import_position.y)
+	var pos := Vector3(import_position.x * vertex_spacing, 0, import_position.y * vertex_spacing)
 	data.import_images(imported_images, pos, height_offset, import_scale)
 	print("Terrain3DImporter: Import finished")
 
