@@ -9,8 +9,6 @@
 
 #include "logger.h"
 #include "terrain_3d_data.h"
-#include "terrain_3d_region.h"
-#include "terrain_3d_util.h"
 
 ///////////////////////////
 // Private Functions
@@ -447,10 +445,10 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
 		LOG(EXTREME, "Regenerating color mipmaps");
-		for (const Vector2i &region_loc : _region_locations) {
+		for (const Vector2i &region_loc : _regions.keys()) {
 			Terrain3DRegion *region = get_region_ptr(region_loc);
 			// Generate all or only those marked edited
-			if (region && (p_all_regions || region->is_edited())) {
+			if (region && !region->is_deleted() && (p_all_regions || region->is_edited())) {
 				region->get_color_map()->generate_mipmaps();
 			}
 		}
@@ -487,9 +485,8 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 		_region_map_dirty = false;
 		_region_locations = TypedArray<Vector2i>(); // enforce new pointer
-		Array locs = _regions.keys();
 		int region_id = 0;
-		for (const Vector2i &region_loc : locs) {
+		for (const Vector2i &region_loc : _regions.keys()) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region && !region->is_deleted()) {
 				region_id += 1; // Begin at 1 since 0 = no region
@@ -892,16 +889,16 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 	if ((descaled_position.x + img_size.x > max_dimension) ||
 			(descaled_position.z + img_size.y > max_dimension)) {
 		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -(img_size * _vertex_spacing) / 2.f, " to center");
+				". Try ", -(img_size * _vertex_spacing) / 2.f, " to center, or increase region_size");
 		return;
 	}
 
-	TypedArray<Image> tmp_images;
-	tmp_images.resize(TYPE_MAX);
+	TypedArray<Image> src_images;
+	src_images.resize(TYPE_MAX);
 
 	for (int i = 0; i < TYPE_MAX; i++) {
 		Ref<Image> img = p_images[i];
-		tmp_images[i] = img;
+		src_images[i] = img;
 		if (img.is_null()) {
 			continue;
 		}
@@ -921,7 +918,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 					newimg->set_pixel(x, y, clr);
 				}
 			}
-			tmp_images[i] = newimg;
+			src_images[i] = newimg;
 		}
 	}
 
@@ -945,6 +942,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 
 	LOG(DEBUG, "Image spans regions (", start_region_x, ",", start_region_z, ") to (", end_region_x, ",", end_region_z, ")");
 
+	bool generate_mipmaps = false;
 	for (int rz = start_region_z; rz <= end_region_z; rz++) {
 		for (int rx = start_region_x; rx <= end_region_x; rx++) {
 			Vector2i region_loc = Vector2i(rx, rz);
@@ -981,12 +979,15 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 				region->set_location(region_loc);
 				region->set_region_size(_region_size);
 				region->set_vertex_spacing(_vertex_spacing);
-				region->set_modified(true);
 				add_region(region, false);
+			} else if (region->is_deleted()) {
+				region->clear();
+				region->set_location(region_loc);
+				region->set_region_size(_region_size);
+				region->set_vertex_spacing(_vertex_spacing);
 			}
-
 			for (int i = 0; i < TYPE_MAX; i++) {
-				Ref<Image> img = tmp_images[i];
+				Ref<Image> img = src_images[i];
 				if (img.is_valid() && !img->is_empty()) {
 					Ref<Image> region_map;
 
@@ -994,22 +995,24 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 					if (existing_map.is_valid() && !existing_map->is_empty()) {
 						region_map.instantiate();
 						region_map->copy_from(existing_map);
-
 						if (region_map->get_format() != img->get_format()) {
 							region_map->convert(img->get_format());
 						}
-
 					} else {
 						region_map = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
 					}
 					region_map->blit_rect(img, Rect2i(src_x, src_z, copy_width, copy_height), Vector2i(dst_x, dst_z));
 					region->set_map(static_cast<MapType>(i), region_map);
+					if (i == TYPE_COLOR) {
+						generate_mipmaps = true;
+					}
 				}
 			}
+			region->set_modified(true);
 			region->sanitize_maps();
 		}
 	}
-	update_maps(TYPE_MAX, true, false);
+	update_maps(TYPE_MAX, true, generate_mipmaps);
 }
 
 /** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres
