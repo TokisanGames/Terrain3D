@@ -568,7 +568,7 @@ void Terrain3DMaterial::_update_shader() {
 	notify_property_list_changed();
 }
 
-void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
+void Terrain3DMaterial::_update_uniforms(const RID &p_material, const uint32_t p_update) {
 	IS_DATA_INIT(VOID);
 	LOG(EXTREME, "Updating uniforms in shader");
 
@@ -598,13 +598,14 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
 	LOG(EXTREME, "Setting region size in material: ", region_size);
 	RS->material_set_param(p_material, "_region_size", region_size);
 	RS->material_set_param(p_material, "_region_texel_size", 1.0f / region_size);
-
-	RS->material_set_param(p_material, "_height_maps", data->get_height_maps_rid());
-	RS->material_set_param(p_material, "_control_maps", data->get_control_maps_rid());
-	RS->material_set_param(p_material, "_color_maps", data->get_color_maps_rid());
-	LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
-	LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
-	LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
+	if (_has_update_flag(p_update, UpdateFlags::REGION_ARRAYS)) {
+		RS->material_set_param(p_material, "_height_maps", data->get_height_maps_rid());
+		RS->material_set_param(p_material, "_control_maps", data->get_control_maps_rid());
+		RS->material_set_param(p_material, "_color_maps", data->get_color_maps_rid());
+		LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
+		LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
+		LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
+	}
 
 	real_t spacing = _terrain->get_vertex_spacing();
 	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
@@ -628,8 +629,10 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
 		return;
 	}
 
-	RS->material_set_param(p_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
-	RS->material_set_param(p_material, "_texture_array_normal", asset_list->get_normal_array_rid());
+	if (_has_update_flag(p_update, UpdateFlags::TEXTURE_ARRAYS)) {
+		RS->material_set_param(p_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
+		RS->material_set_param(p_material, "_texture_array_normal", asset_list->get_normal_array_rid());
+	}
 	RS->material_set_param(p_material, "_texture_color_array", asset_list->get_texture_colors());
 	RS->material_set_param(p_material, "_texture_normal_depth_array", asset_list->get_texture_normal_depths());
 	RS->material_set_param(p_material, "_texture_ao_strength_array", asset_list->get_texture_ao_strengths());
@@ -680,7 +683,7 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	}
 	_shader.instantiate();
 	_buffer_shader.instantiate();
-	update(true);
+	update(UpdateFlags::FULL_REBUILD);
 }
 
 void Terrain3DMaterial::uninitialize() {
@@ -706,14 +709,14 @@ void Terrain3DMaterial::destroy() {
 	}
 }
 
-void Terrain3DMaterial::update(bool p_full) {
-	if (p_full) {
+void Terrain3DMaterial::update(uint32_t p_update) {
+	if (_has_update_flag(p_update, UpdateFlags::FULL_REBUILD)) {
 		_update_shader();
 	}
-	_update_uniforms(_material);
+	_update_uniforms(_material, p_update);
 	IS_INIT(VOID);
 	if (_terrain->get_tessellation_level() > 0) {
-		_update_uniforms(_buffer_material);
+		_update_uniforms(_buffer_material, p_update);
 		// Snap to update buffer
 		_terrain->snap();
 	}
@@ -1179,6 +1182,10 @@ void Terrain3DMaterial::_bind_methods() {
 	BIND_ENUM_CONSTANT(NOISE);
 	BIND_ENUM_CONSTANT(LINEAR);
 	BIND_ENUM_CONSTANT(NEAREST);
+	BIND_ENUM_CONSTANT(UNIFORMS);
+	BIND_ENUM_CONSTANT(TEXTURE_ARRAYS);
+	BIND_ENUM_CONSTANT(REGION_ARRAYS);
+	BIND_ENUM_CONSTANT(FULL_REBUILD);
 
 	// Private
 	ClassDB::bind_method(D_METHOD("_set_shader_parameters", "dict"), &Terrain3DMaterial::_set_shader_parameters);
@@ -1186,7 +1193,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_shader_parameters", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_shader_parameters", "_get_shader_parameters");
 
 	// Public
-	ClassDB::bind_method(D_METHOD("update", "full"), &Terrain3DMaterial::update, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update", "what"), &Terrain3DMaterial::update, DEFVAL(Terrain3DMaterial::UNIFORMS));
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Terrain3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Terrain3DMaterial::get_shader_rid);
 	ClassDB::bind_method(D_METHOD("get_buffer_material_rid"), &Terrain3DMaterial::get_buffer_material_rid);
