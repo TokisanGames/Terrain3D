@@ -519,7 +519,7 @@ void Terrain3DUtil::benchmark(Terrain3D *p_terrain) {
 	}
 }
 
-Vector2i Terrain3DUtil::get_cell(const Vector3 &p_global_position, const int &p_region_size, const real_t &p_vertex_spacing, const int &p_cell_size) {
+Vector2i Terrain3DUtil::get_cell(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing, const int p_cell_size) {
 	Vector2i cell;
 	cell.x = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.x / p_vertex_spacing), p_region_size) / p_cell_size;
 	cell.y = UtilityFunctions::posmod(UtilityFunctions::floori(p_global_position.z / p_vertex_spacing), p_region_size) / p_cell_size;
