@@ -135,7 +135,7 @@ public:
 	bool is_instance_collision_dynamic_mode() const { return _instance_collision_mode == InstanceCollisionMode::INSTANCE_COLLISION_DYNAMIC_GAME || _instance_collision_mode == InstanceCollisionMode::INSTANCE_COLLISION_DYNAMIC_EDITOR; }
 	void set_instance_collision_radius(const real_t p_radius);
 	real_t get_instance_collision_radius() const { return _instance_collision_radius; }
-	void set_instance_collision_dirty(const bool p_dirty) { _instance_collision_is_dirty = p_dirty; }
+	void set_instance_collision_dirty(const bool p_dirty = true) { _instance_collision_is_dirty = p_dirty; }
 
 	void set_shape_size(const uint16_t p_size);
 	uint16_t get_shape_size() const { return _shape_size; }

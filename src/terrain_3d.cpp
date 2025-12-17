@@ -178,6 +178,7 @@ void Terrain3D::_destroy_collision(const bool p_final) {
 	LOG(INFO, "Destroying Collision");
 	if (_collision) {
 		_collision->destroy();
+		_collision->destroy_instance_collision();
 	}
 	if (p_final) {
 		memdelete_safely(_collision);
@@ -686,6 +687,7 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 		_material->update();
 		_collision->destroy();
 		_collision->build();
+		_collision->set_instance_collision_dirty(true);
 		_update_displacement_buffer();
 	}
 	if (IS_EDITOR && _editor_plugin) {

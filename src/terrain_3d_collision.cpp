@@ -358,7 +358,7 @@ Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector2
 			transformed_xforms.resize(xforms.size());
 			for (int xi = 0; xi < xforms.size(); xi++) {
 				Transform3D t = Transform3D(xforms[xi]); // region-local
-				t.origin += region_global_offset;        // global transform
+				t.origin += region_global_offset; // global transform
 				transformed_xforms[xi] = t;
 			}
 
@@ -1097,7 +1097,7 @@ void Terrain3DCollision::set_instance_collision_radius(const real_t p_radius) {
 	SET_IF_DIFF(_instance_collision_radius, p_radius);
 	LOG(INFO, "Setting instance collision redius: ", p_radius);
 	if (is_instance_collision_enabled()) {
-		update_instance_collision();
+		set_instance_collision_dirty();
 	}
 }
 
