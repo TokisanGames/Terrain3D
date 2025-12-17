@@ -541,7 +541,6 @@ void fragment() {
 				vec2(weights_id_0[2], weights_id_1[2]),
 				vec2(weights_id_0[3], weights_id_1[3]));
 	// interpolated weights
-	#if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
 	if (bilerp) {
 		t_weights = {vec2(0), vec2(0), vec2(0), vec2(0)};
 		weights_id_0 *= weights;
@@ -557,7 +556,6 @@ void fragment() {
 			t_weights[3] += fma(w_0, vec2(equal(texture_ids[3], id_0)), w_1 * vec2(equal(texture_ids[3], id_1)));
 		}
 	}
-	#endif
 
 	// Struct to accumulate all texture data.
 	material mat = material(vec4(0.0), vec4(0.0), 0., 0., 0., 0.);
