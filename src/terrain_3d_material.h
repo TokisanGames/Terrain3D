@@ -59,6 +59,12 @@ private:
 	bool _macro_variation_enabled = false;
 	bool _projection_enabled = false;
 
+	// PBR Outputs
+	bool _output_albedo_enabled = true;
+	bool _output_roughness_enabled = true;
+	bool _output_normal_map_enabled = true;
+	bool _output_ambient_occlusion_enabled = true;
+
 	// Overlays
 	bool _show_region_grid = false;
 	bool _show_instancer_grid = false;
@@ -147,6 +153,19 @@ public:
 
 	void set_shader_param(const StringName &p_name, const Variant &p_value);
 	Variant get_shader_param(const StringName &p_name) const;
+
+	// PBR outputs
+	void set_output_albedo_enabled(const bool p_enabled);
+	bool get_output_albedo_enabled() const { return _output_albedo_enabled; }
+
+	void set_output_roughness_enabled(const bool p_enabled);
+	bool get_output_roughness_enabled() const { return _output_roughness_enabled; }
+
+	void set_output_normal_map_enabled(const bool p_enabled);
+	bool get_output_normal_map_enabled() const { return _output_normal_map_enabled; }
+
+	void set_output_ambient_occlusion_enabled(const bool p_enabled);
+	bool get_output_ambient_occlusion_enabled() const { return _output_ambient_occlusion_enabled; }
 
 	// Overlays
 	void set_show_region_grid(const bool p_enabled);

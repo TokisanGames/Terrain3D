@@ -179,6 +179,20 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("DISPLACEMENT_FUNCTIONS");
 		excludes.push_back("DISPLACEMENT_VERTEX");
 	}
+	if (!_output_albedo_enabled) {
+		excludes.push_back("OUTPUT_ALBEDO");
+	} else {
+		excludes.push_back("OUTPUT_ALBEDO_GREY");
+	}
+	if (!_output_roughness_enabled) {
+		excludes.push_back("OUTPUT_ROUGHNESS");
+	}
+	if (!_output_normal_map_enabled) {
+		excludes.push_back("OUTPUT_NORMAL_MAP");
+	}
+	if (!_output_ambient_occlusion_enabled) {
+		excludes.push_back("OUTPUT_AMBIENT_OCCLUSION");
+	}
 	String shader = _apply_inserts(_shader_code["main"], excludes);
 	return shader;
 }
@@ -817,6 +831,30 @@ Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 	return value;
 }
 
+void Terrain3DMaterial::set_output_albedo_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_output_albedo_enabled, p_enabled);
+	LOG(INFO, "Enable PBR output albedo: ", p_enabled);
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_output_roughness_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_output_roughness_enabled, p_enabled);
+	LOG(INFO, "Enable PBR output roughness: ", p_enabled);
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_output_normal_map_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_output_normal_map_enabled, p_enabled);
+	LOG(INFO, "Enable PBR output normal map: ", p_enabled);
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_output_ambient_occlusion_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_output_ambient_occlusion_enabled, p_enabled);
+	LOG(INFO, "Enable PBR output ambient occlusion: ", p_enabled);
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_show_region_grid(const bool p_enabled) {
 	SET_IF_DIFF(_show_region_grid, p_enabled);
 	LOG(INFO, "Enable show_region_grid: ", p_enabled);
@@ -1229,6 +1267,16 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader_param", "name", "value"), &Terrain3DMaterial::set_shader_param);
 	ClassDB::bind_method(D_METHOD("get_shader_param", "name"), &Terrain3DMaterial::get_shader_param);
 
+	// PBR output
+	ClassDB::bind_method(D_METHOD("set_output_albedo_enabled", "enabled"), &Terrain3DMaterial::set_output_albedo_enabled);
+	ClassDB::bind_method(D_METHOD("get_output_albedo_enabled"), &Terrain3DMaterial::get_output_albedo_enabled);
+	ClassDB::bind_method(D_METHOD("set_output_roughness_enabled", "enabled"), &Terrain3DMaterial::set_output_roughness_enabled);
+	ClassDB::bind_method(D_METHOD("get_output_roughness_enabled"), &Terrain3DMaterial::get_output_roughness_enabled);
+	ClassDB::bind_method(D_METHOD("set_output_normal_map_enabled", "enabled"), &Terrain3DMaterial::set_output_normal_map_enabled);
+	ClassDB::bind_method(D_METHOD("get_output_normal_map_enabled"), &Terrain3DMaterial::get_output_normal_map_enabled);
+	ClassDB::bind_method(D_METHOD("set_output_ambient_occlusion_enabled", "enabled"), &Terrain3DMaterial::set_output_ambient_occlusion_enabled);
+	ClassDB::bind_method(D_METHOD("get_output_ambient_occlusion_enabled"), &Terrain3DMaterial::get_output_ambient_occlusion_enabled);
+
 	// Overlays
 	ClassDB::bind_method(D_METHOD("set_show_region_grid", "enabled"), &Terrain3DMaterial::set_show_region_grid);
 	ClassDB::bind_method(D_METHOD("get_show_region_grid"), &Terrain3DMaterial::get_show_region_grid);
@@ -1290,6 +1338,12 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "projection_enabled"), "set_projection_enabled", "get_projection_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "set_shader_override_enabled", "is_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
+
+	ADD_GROUP("PBR Channels", "output_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_albedo"), "set_output_albedo_enabled", "get_output_albedo_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_roughness"), "set_output_roughness_enabled", "get_output_roughness_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_normal_map"), "set_output_normal_map_enabled", "get_output_normal_map_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_ambient_occlusion"), "set_output_ambient_occlusion_enabled", "get_output_ambient_occlusion_enabled");
 
 	// Hidden in Material, aliased in Terrain3D
 	//ADD_GROUP("Overlays", "show_");
