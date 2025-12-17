@@ -217,31 +217,39 @@ void Terrain3DCollision::_reload_physics_material() {
 	}
 }
 
-TypedArray<Vector2> Terrain3DCollision::_get_instance_cells_to_build(const Vector2i &p_snapped_pos, const real_t p_radius, const int p_region_size, const int p_cell_size, const real_t p_vertex_spacing) {
+TypedArray<Vector2i> Terrain3DCollision::_get_instance_cells_to_build(const Vector2i &p_snapped_pos, const real_t p_radius, const int p_region_size, const int p_cell_size, const real_t p_vertex_spacing) {
 	LOG(INFO, "Building list of instance cells within the radius");
-	TypedArray<Vector2> instance_cells_to_build;
-	// If we are in dynamic mode, we only build cells within the radius
+	TypedArray<Vector2i> instance_cells_to_build;
+	const int cells_per_region = p_region_size / p_cell_size;
+	const real_t radius_sq = p_radius * p_radius;
 
 	const int grid_size = int(p_radius * 2.);
 	for (int x = 0; x < grid_size; x += p_cell_size) {
 		for (int y = 0; y < grid_size; y += p_cell_size) {
-			const Vector2 grid_offset = Vector2(x - p_radius, y - p_radius) * p_vertex_spacing;
-			const Vector2 grid_pos = p_snapped_pos + grid_offset;
-			const Vector2 region_loc = _terrain->get_data()->get_region_location(v2v3(grid_pos)) * p_region_size * p_vertex_spacing;
-			const Vector2 cell_loc = region_loc + Util::get_cell(v2v3(grid_pos), p_region_size, p_vertex_spacing, p_cell_size) * p_cell_size * p_vertex_spacing;
-			// Only build cells we don't already have active
-			if (!_active_instance_cells.has(cell_loc)) {
-				const Vector2 cell_centre = cell_loc + Vector2(p_vertex_spacing * p_cell_size * 0.5f, p_vertex_spacing * p_cell_size * 0.5f);
-				// Check if the cell is within the radius
-				if (p_snapped_pos.distance_squared_to(cell_centre) < real_t(p_radius * p_radius)) {
-					// If the region for this cell centre is not loaded, we skip it. This
-					// prevents building instances in unloaded terrain.
-					if (!_terrain->get_data()->get_regionp(v2v3(cell_centre)).is_valid()) {
-						continue;
-					}
-					instance_cells_to_build.push_back(cell_loc);
-				}
+			const Vector2i grid_offset = Vector2i(x - p_radius, y - p_radius);
+			const Vector2i grid_pos = p_snapped_pos + grid_offset;
+			const Vector2i region_loc = _terrain->get_data()->get_region_location(v2iv3(grid_pos));
+
+			// If the region for this cell is not loaded, we skip it. This
+			// prevents building instances in unloaded terrain.
+			if (!_terrain->get_data()->get_region(region_loc).is_valid()) {
+				continue;
 			}
+
+			const Vector2i cell_loc = (region_loc * cells_per_region) + Util::get_cell(v2iv3(grid_pos), p_region_size, p_vertex_spacing, p_cell_size);
+			const Vector2 cell_centre = (Vector2(cell_loc) + Vector2(0.5f, 0.5f)) * p_cell_size * p_vertex_spacing;
+
+			// Check if the cell is within the radius
+			if (p_snapped_pos.distance_squared_to(cell_centre) > radius_sq) {
+				continue;
+			}
+
+			// Only build cells we don't already have active
+			if (_active_instance_cells.has(cell_loc)) {
+				continue;
+			}
+
+			instance_cells_to_build.push_back(cell_loc);
 		}
 	}
 
@@ -251,75 +259,95 @@ TypedArray<Vector2> Terrain3DCollision::_get_instance_cells_to_build(const Vecto
 Dictionary Terrain3DCollision::_get_recyclable_instances(const Vector2i &p_snapped_pos, const real_t p_radius, const int p_cell_size, const real_t p_vertex_spacing) {
 	Dictionary recyclable_mesh_instance_shapes;
 	LOG(INFO, "Decomposing cells beyond ", p_radius, " of ", p_snapped_pos);
-	const TypedArray<Vector2> instance_cells = _active_instance_cells.keys();
-	for (const Vector2 cell_origin : instance_cells) {
-		const Vector2 cell_centre = cell_origin + Vector2(p_cell_size * p_vertex_spacing * 0.5f, p_cell_size * p_vertex_spacing * 0.5f);
-		if (p_snapped_pos.distance_squared_to(cell_centre) > p_radius * p_radius) {
-			// This cell is outside the desired radius and should be decomposed.
-			LOG(EXTREME, "Decomposing at ", cell_origin);
-			const Dictionary active_instances_dict = _active_instance_cells[cell_origin];
-			const TypedArray<int> mesh_asset_keys = active_instances_dict.keys();
-			for (const int mesh_asset_id : mesh_asset_keys) {
-				const Array active_instances_arr = active_instances_dict[mesh_asset_id];
-				// Grab existing array of unused assets for this mesh type and append
-				Array unused_assets = recyclable_mesh_instance_shapes[mesh_asset_id];
-				for (int j = 0; j < active_instances_arr.size(); j++) {
-					// Move each stored instance (which is itself an array of RIDs/shape groups)
-					unused_assets.append(active_instances_arr[j]);
-				}
-				recyclable_mesh_instance_shapes[mesh_asset_id] = unused_assets;
-				LOG(EXTREME, "Stashed ", active_instances_arr.size(), " * mesh asset ID ", mesh_asset_id);
-			}
-			_active_instance_cells.erase(cell_origin);
+	const TypedArray<Vector2i> instance_cells = _active_instance_cells.keys();
+	const real_t radius_sq = p_radius * p_radius;
+
+	for (const Vector2i cell_origin : instance_cells) {
+		const Vector2 cell_centre = (Vector2(cell_origin) + Vector2(0.5f, 0.5f)) * p_cell_size * p_vertex_spacing;
+		if (cell_centre.distance_squared_to(p_snapped_pos) <= radius_sq) {
+			continue;
 		}
+
+		// This cell is outside the desired radius and should be decomposed.
+		LOG(EXTREME, "Decomposing at ", cell_origin);
+		const Dictionary active_instances_dict = _active_instance_cells[cell_origin];
+		const TypedArray<int> mesh_asset_keys = active_instances_dict.keys();
+		for (const int mesh_asset_id : mesh_asset_keys) {
+			const Array active_instances_arr = active_instances_dict[mesh_asset_id];
+			// Grab existing array of unused assets for this mesh type and append
+			Array unused_assets = recyclable_mesh_instance_shapes[mesh_asset_id];
+			unused_assets.append_array(active_instances_arr);
+			recyclable_mesh_instance_shapes[mesh_asset_id] = unused_assets;
+			LOG(EXTREME, "Stashed ", active_instances_arr.size(), " * mesh asset ID ", mesh_asset_id);
+		}
+		_active_instance_cells.erase(cell_origin);
 	}
 	return recyclable_mesh_instance_shapes;
 }
 
-Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector2> &p_instance_cells_to_build, const int p_region_size, const int p_cell_size, const real_t p_vertex_spacing) {
+Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector2i> &p_instance_cells_to_build, const int p_region_size, const int p_cell_size, const real_t p_vertex_spacing) {
 	Dictionary mesh_instance_build_data;
+	const int cells_per_region = p_region_size / p_cell_size;
 	LOG(INFO, "Building instance data");
-	for (const Vector2 cell_position : p_instance_cells_to_build) {
-		const Vector2i region_loc = _terrain->get_data()->get_region_location(v2v3(cell_position));
-		const Vector2i cell_loc = Util::get_cell(v2v3(cell_position), p_region_size, p_vertex_spacing, p_cell_size);
-		const Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
-		if (!region) {
-			LOG(WARN, "Could not get region ", region_loc, " for cell at ", cell_position);
+
+	const int mesh_count = _terrain->get_assets()->get_mesh_count();
+	for (int mesh_id = 0; mesh_id < mesh_count; mesh_id++) {
+		// Verify mesh id is valid and has some meshes
+		LOG(EXTREME, "Checking mesh id ", mesh_id);
+		const Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
+
+		if (!ma.is_valid()) {
+			LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
 			continue;
 		}
-		const Dictionary mesh_inst_dict = region->get_instances();
-		const Array mesh_types = mesh_inst_dict.keys();
-		for (const int mesh_id : mesh_types) {
-			LOG(EXTREME, "Checking mesh id ", mesh_id, " in region ", region_loc, " cell: ", cell_loc);
-			// Verify mesh id is valid and has some meshes
-			const Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(mesh_id);
-			if (ma.is_valid()) {
-				if (!ma->is_enabled()) {
-					continue;
-				}
-				if (ma->get_shape_count() == 0) {
-					LOG(EXTREME, "MeshAsset ", mesh_id, " valid but has no collision shapes, skipping");
-					continue;
-				}
-			} else {
-				LOG(WARN, "MeshAsset ", mesh_id, " is null, skipping");
+
+		if (!ma->is_enabled()) {
+			continue;
+		}
+
+		if (ma->get_shape_count() == 0) {
+			LOG(EXTREME, "MeshAsset ", mesh_id, " valid but has no collision shapes, skipping");
+			continue;
+		}
+
+		Dictionary cells;
+
+		for (const Vector2i cell_position : p_instance_cells_to_build) {
+			const Vector2i region_loc = Vector2i((Vector2(cell_position) / real_t(cells_per_region)).floor());
+			const Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+
+			if (!region) {
+				LOG(WARN, "Could not get region ", region_loc, " for cell at ", cell_position);
 				continue;
 			}
+
+			const Vector2i cell_loc = cell_position - (region_loc * cells_per_region);
+			const Dictionary mesh_inst_dict = region->get_instances();
+
+			// This could be checked once per region, if the layout was {region: { cell }} instead
+			// But right now it may be tested many times for the same region
+			if (!mesh_inst_dict.has(mesh_id)) {
+				continue;
+			}
+
 			const Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
 			if (!cell_inst_dict.has(cell_loc)) {
 				// no instances in this cell
 				continue;
 			}
+
 			const Array triple = cell_inst_dict[cell_loc];
-			if (triple.size() < 3) {
+			if (triple.is_empty()) {
 				LOG(WARN, "Triple is empty");
 				continue;
 			}
+
 			TypedArray<Transform3D> xforms = triple[0];
 			if (xforms.is_empty()) {
 				// no instances to add
 				continue;
 			}
+
 			LOG(DEBUG, xforms.size(), " instances of ", mesh_id, " to build in ", cell_position);
 
 			// Compute region global offset once (Vector3) to avoid integer/implicit op errors.
@@ -329,30 +357,21 @@ Dictionary Terrain3DCollision::_get_instance_build_data(const TypedArray<Vector2
 			TypedArray<Transform3D> transformed_xforms;
 			transformed_xforms.resize(xforms.size());
 			for (int xi = 0; xi < xforms.size(); xi++) {
-				Transform3D t = xforms[xi]; // read original transform (may be region-local)
-				t.origin += region_global_offset; // produce global transform without mutating source
+				Transform3D t = Transform3D(xforms[xi]); // region-local
+				t.origin += region_global_offset;        // global transform
 				transformed_xforms[xi] = t;
 			}
 
-			TypedArray<Vector2> cell_positions;
-			cell_positions.resize(transformed_xforms.size());
-			cell_positions.fill(cell_position);
-			// 0 = xforms, 1 = cell_positions
-			Array instance_data = mesh_instance_build_data[mesh_id];
-			if (instance_data.is_empty()) {
-				instance_data.resize(2);
-			}
-			TypedArray<Transform3D> xforms_arr = instance_data[0];
-			TypedArray<Vector2> cell_positions_arr = instance_data[1];
-			xforms_arr.append_array(transformed_xforms);
-			cell_positions_arr.append_array(cell_positions);
-			instance_data[0] = xforms_arr;
-			instance_data[1] = cell_positions_arr;
+			cells[cell_position] = transformed_xforms;
 
-			mesh_instance_build_data[mesh_id] = instance_data;
-			// Next mesh type
+			// Next cell
 		}
-		// Next cell
+
+		if (!cells.is_empty()) {
+			mesh_instance_build_data[mesh_id] = cells;
+		}
+
+		// Next mesh type
 	}
 	return mesh_instance_build_data;
 }
@@ -363,26 +382,29 @@ Dictionary Terrain3DCollision::_get_unused_instance_shapes(const Dictionary &p_i
 	const TypedArray<int> spare_instance_keys = p_recyclable_instance_shapes.keys();
 	LOG(DEBUG, spare_instance_keys.size(), " types of instance to decompose");
 	for (const int mesh_id : spare_instance_keys) {
-		LOG(EXTREME, "Decomposing  spare mesh id ", mesh_id);
-		TypedArray<Transform3D> mesh_instance_transforms;
-		const Array instance_data = p_instance_build_data[mesh_id];
-		if (instance_data.size() > 0) {
-			mesh_instance_transforms = TypedArray<Transform3D>(instance_data[0]);
-		}
-		LOG(DEBUG, "Decomposing all but ", mesh_instance_transforms.size(), " assets of type ", mesh_id);
-		const int time = Time::get_singleton()->get_ticks_usec();
-		if (!p_recyclable_instance_shapes.has(mesh_id)) {
-			LOG(WARN, "Tried to decompose mesh ", mesh_id, " when none exist");
-			continue;
-		}
+		LOG(EXTREME, "Decomposing spare mesh id ", mesh_id);
+
 		Array ma_arr = p_recyclable_instance_shapes[mesh_id];
 		if (ma_arr.is_empty()) {
 			LOG(ERROR, "Unexpectedly found no more assets to decompose");
 			continue;
 		}
+
+		int keep_count = 0;
+		if (p_instance_build_data.has(mesh_id)) {
+			const Dictionary cell_data = p_instance_build_data[mesh_id];
+			const TypedArray<Vector2i> cell_keys = cell_data.keys();
+			for (const Vector2i cell_position : cell_keys) {
+				const TypedArray<Transform3D> cell_xforms = cell_data[cell_position];
+				keep_count += cell_xforms.size();
+			}
+		}
+
+		LOG(DEBUG, "Decomposing all but ", keep_count, " assets of type ", mesh_id);
+
 		// Number of instances we can fully decompose into shapes while leaving
 		// enough instances to match those we will rebuild
-		const int nb_instances_to_decompose = MAX(0, ma_arr.size() - mesh_instance_transforms.size());
+		const int nb_instances_to_decompose = MAX(0, ma_arr.size() - keep_count);
 		for (int i = 0; i < nb_instances_to_decompose; i++) {
 			const TypedArray<RID> ma_instance = ma_arr.pop_back();
 			if (ma_arr.is_empty()) {
@@ -457,133 +479,138 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 			LOG(ERROR, "MeshAsset ", mesh_id, " is null, skipping. This shouldn't happen.");
 			continue;
 		}
-		const Array instance_data = p_instance_build_data[mesh_id];
-		if (instance_data.is_empty()) {
-			// No new instances of this type are needed
+
+		const Dictionary cell_data = p_instance_build_data[mesh_id];
+		if (cell_data.is_empty()) {
+			LOG(ERROR, "MeshAsset ", mesh_id, " is missing cell data, skipping. This shouldn't happen.");
 			continue;
 		}
-		const TypedArray<Transform3D> xforms = TypedArray<Transform3D>(instance_data[0]);
-		const TypedArray<Vector2> cell_positions = TypedArray<Vector2>(instance_data[1]);
-		if (xforms.is_empty() || cell_positions.is_empty()) {
-			LOG(ERROR, "No instances of type ", mesh_id, " to create. This shouldn't happen.");
-			continue;
-		}
-		for (int x = 0; x < xforms.size(); x++) {
-			const Transform3D xform = xforms[x];
-			const Vector2 cell_pos = cell_positions[x];
-			TypedArray<RID> shapes;
-			Dictionary active_instances_dict = _active_instance_cells[cell_pos];
-			Array active_instances_arr = active_instances_dict[mesh_id];
-			Array reusable_assets;
-			if (p_recyclable_instances.has(mesh_id)) {
-				reusable_assets = Array(p_recyclable_instances[mesh_id]);
+
+		const TypedArray<Vector2i> cell_positions = cell_data.keys();
+		for (const Vector2i cell_pos : cell_positions) {
+			const TypedArray<Transform3D> xforms = cell_data[cell_pos];
+
+			if (xforms.is_empty()) {
+				LOG(ERROR, "No instances of type ", mesh_id, " in cell ", cell_pos, " to create. This shouldn't happen.");
+				continue;
 			}
-			if (!reusable_assets.is_empty()) {
-				// If we have a fully formed instance (array of RIDs) available then
-				// pop one and reposition its member shapes rather than creating new shapes.
-				const TypedArray<RID> reusable_shapes = TypedArray<RID>(reusable_assets.pop_back());
-				if (reusable_assets.is_empty()) {
-					p_recyclable_instances.erase(mesh_id);
-				} else {
-					p_recyclable_instances[mesh_id] = reusable_assets;
+
+			for (int x = 0; x < xforms.size(); x++) {
+				const Transform3D xform = xforms[x];
+				TypedArray<RID> shapes;
+				Dictionary active_instances_dict = _active_instance_cells[cell_pos];
+				Array active_instances_arr = active_instances_dict[mesh_id];
+				Array reusable_assets;
+				if (p_recyclable_instances.has(mesh_id)) {
+					reusable_assets = Array(p_recyclable_instances[mesh_id]);
 				}
-				for (int s = 0; s < reusable_shapes.size(); s++) {
-					const Transform3D shape_transform = ma->get_shape_transforms()[s];
-					const Transform3D this_transform = xform * shape_transform;
-					const RID shape_rid = reusable_shapes[s];
-					// Get the shape index from the map
-					if (!_RID_index_map.has(shape_rid)) {
-						// There is a problem with our RID/index map
-						LOG(ERROR, shape_rid, " does not have an entry in RID_index_map. This shouldn't happen.");
-						continue;
+				if (!reusable_assets.is_empty()) {
+					// If we have a fully formed instance (array of RIDs) available then
+					// pop one and reposition its member shapes rather than creating new shapes.
+					const TypedArray<RID> reusable_shapes = TypedArray<RID>(reusable_assets.pop_back());
+					if (reusable_assets.is_empty()) {
+						p_recyclable_instances.erase(mesh_id);
+					} else {
+						p_recyclable_instances[mesh_id] = reusable_assets;
 					}
-					const int shape_id = _RID_index_map[shape_rid];
-					LOG(EXTREME, "Recycling shape_rid : ", shape_rid, " id : ", shape_id);
-					PS->body_set_shape_transform(_instance_static_body_rid, shape_id, this_transform);
-					if (is_instance_collision_editor_mode()) {
-						const Ref<Shape3D> &ma_shape = cast_to<Shape3D>(ma->get_shapes()[s]);
-						_queue_debug_mesh_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), DebugMeshInstanceData::Action::UPDATE);
-					}
-				}
-				active_instances_arr.push_back(reusable_shapes);
-			} else {
-				// No shapes to recycle, create new ones
-				LOG(DEBUG, "No instances of ", mesh_id, " to recycle");
-				for (int i = 0; i < ma->get_shape_count(); i++) {
-					const Ref<Shape3D> ma_shape = cast_to<Shape3D>(ma->get_shapes()[i]);
-					const Transform3D shape_transforms = ma->get_shape_transforms()[i];
-					const int shape_type = PS->shape_get_type(ma_shape->get_rid());
-					const Transform3D this_transform = xform * shape_transforms;
-					RID shape_rid = RID();
-					// Check for a shape in the unused shapes pool
-					if (p_unused_instance_shapes.has(shape_type)) {
-						// Reuse a shape from the unused shapes pool
-						TypedArray<RID> unused_shapes = p_unused_instance_shapes[shape_type];
-						if (!unused_shapes.is_empty()) {
-							shape_rid = unused_shapes.pop_back();
-							if (unused_shapes.is_empty()) {
-								p_unused_instance_shapes.erase(shape_type);
-							} else {
-								p_unused_instance_shapes[shape_type] = unused_shapes;
-							}
-							const int shape_id = _RID_index_map[shape_rid];
-							// Copy the geometry from the mesh asset's shape into the reused RID
-							PS->shape_set_data(shape_rid, PS->shape_get_data(ma_shape->get_rid()));
-							PS->body_set_shape_transform(_instance_static_body_rid, shape_id, this_transform);
-							shapes.push_back(shape_rid);
-							if (is_instance_collision_editor_mode()) {
-								_queue_debug_mesh_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), DebugMeshInstanceData::Action::UPDATE);
-							}
-						}
-					}
-					// If we didn't find a shape to recycle, create a new one
-					if (!shape_rid.is_valid()) {
-						LOG(DEBUG, "No shapes to recycle. Creating new shape for ", ma_shape->get_name(), " type: ", shape_type);
-						// Create shape using PS
-						// Different methods are required to create different shapes
-						switch (shape_type) {
-							case PhysicsServer3D::ShapeType::SHAPE_SPHERE:
-								shape_rid = PS->sphere_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_BOX:
-								shape_rid = PS->box_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CAPSULE:
-								shape_rid = PS->capsule_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CYLINDER:
-								shape_rid = PS->cylinder_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CONVEX_POLYGON:
-								shape_rid = PS->convex_polygon_shape_create();
-								break;
-							case PhysicsServer3D::ShapeType::SHAPE_CONCAVE_POLYGON:
-								shape_rid = PS->concave_polygon_shape_create();
-								break;
-							default:
-								LOG(WARN, "Tried to use unsupported shape type : ", shape_type);
-								break;
-						}
-						if (!shape_rid.is_valid()) {
-							LOG(ERROR, "Failed to create shape type : ", shape_type);
+					for (int s = 0; s < reusable_shapes.size(); s++) {
+						const Transform3D shape_transform = ma->get_shape_transforms()[s];
+						const Transform3D this_transform = xform * shape_transform;
+						const RID shape_rid = reusable_shapes[s];
+						// Get the shape index from the map
+						if (!_RID_index_map.has(shape_rid)) {
+							// There is a problem with our RID/index map
+							LOG(ERROR, shape_rid, " does not have an entry in RID_index_map. This shouldn't happen.");
 							continue;
 						}
-						const int shape_id = PS->body_get_shape_count(_instance_static_body_rid);
-						// Add the index to our map
-						_RID_index_map[shape_rid] = shape_id;
-						PS->shape_set_data(shape_rid, PS->shape_get_data(ma_shape->get_rid()));
-						PS->body_add_shape(_instance_static_body_rid, shape_rid, this_transform);
-						shapes.push_back(shape_rid);
+						const int shape_id = _RID_index_map[shape_rid];
+						LOG(EXTREME, "Recycling shape_rid : ", shape_rid, " id : ", shape_id);
+						PS->body_set_shape_transform(_instance_static_body_rid, shape_id, this_transform);
 						if (is_instance_collision_editor_mode()) {
-							_queue_debug_mesh_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), DebugMeshInstanceData::Action::CREATE);
+							const Ref<Shape3D> &ma_shape = cast_to<Shape3D>(ma->get_shapes()[s]);
+							_queue_debug_mesh_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), DebugMeshInstanceData::Action::UPDATE);
 						}
 					}
-					// next shape++
+					active_instances_arr.push_back(reusable_shapes);
+				} else {
+					// No shapes to recycle, create new ones
+					LOG(DEBUG, "No instances of ", mesh_id, " to recycle");
+					for (int i = 0; i < ma->get_shape_count(); i++) {
+						const Ref<Shape3D> ma_shape = cast_to<Shape3D>(ma->get_shapes()[i]);
+						const Transform3D shape_transforms = ma->get_shape_transforms()[i];
+						const int shape_type = PS->shape_get_type(ma_shape->get_rid());
+						const Transform3D this_transform = xform * shape_transforms;
+						RID shape_rid = RID();
+						// Check for a shape in the unused shapes pool
+						if (p_unused_instance_shapes.has(shape_type)) {
+							// Reuse a shape from the unused shapes pool
+							TypedArray<RID> unused_shapes = p_unused_instance_shapes[shape_type];
+							if (!unused_shapes.is_empty()) {
+								shape_rid = unused_shapes.pop_back();
+								if (unused_shapes.is_empty()) {
+									p_unused_instance_shapes.erase(shape_type);
+								} else {
+									p_unused_instance_shapes[shape_type] = unused_shapes;
+								}
+								const int shape_id = _RID_index_map[shape_rid];
+								// Copy the geometry from the mesh asset's shape into the reused RID
+								PS->shape_set_data(shape_rid, PS->shape_get_data(ma_shape->get_rid()));
+								PS->body_set_shape_transform(_instance_static_body_rid, shape_id, this_transform);
+								shapes.push_back(shape_rid);
+								if (is_instance_collision_editor_mode()) {
+									_queue_debug_mesh_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), DebugMeshInstanceData::Action::UPDATE);
+								}
+							}
+						}
+						// If we didn't find a shape to recycle, create a new one
+						if (!shape_rid.is_valid()) {
+							LOG(DEBUG, "No shapes to recycle. Creating new shape for ", ma_shape->get_name(), " type: ", shape_type);
+							// Create shape using PS
+							// Different methods are required to create different shapes
+							switch (shape_type) {
+								case PhysicsServer3D::ShapeType::SHAPE_SPHERE:
+									shape_rid = PS->sphere_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_BOX:
+									shape_rid = PS->box_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CAPSULE:
+									shape_rid = PS->capsule_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CYLINDER:
+									shape_rid = PS->cylinder_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CONVEX_POLYGON:
+									shape_rid = PS->convex_polygon_shape_create();
+									break;
+								case PhysicsServer3D::ShapeType::SHAPE_CONCAVE_POLYGON:
+									shape_rid = PS->concave_polygon_shape_create();
+									break;
+								default:
+									LOG(WARN, "Tried to use unsupported shape type : ", shape_type);
+									break;
+							}
+							if (!shape_rid.is_valid()) {
+								LOG(ERROR, "Failed to create shape type : ", shape_type);
+								continue;
+							}
+							const int shape_id = PS->body_get_shape_count(_instance_static_body_rid);
+							// Add the index to our map
+							_RID_index_map[shape_rid] = shape_id;
+							PS->shape_set_data(shape_rid, PS->shape_get_data(ma_shape->get_rid()));
+							PS->body_add_shape(_instance_static_body_rid, shape_rid, this_transform);
+							shapes.push_back(shape_rid);
+							if (is_instance_collision_editor_mode()) {
+								_queue_debug_mesh_update(shape_rid, this_transform, ma_shape->get_debug_mesh(), DebugMeshInstanceData::Action::CREATE);
+							}
+						}
+						// next shape++
+					}
+					active_instances_arr.push_back(shapes);
 				}
-				active_instances_arr.push_back(shapes);
+				active_instances_dict[mesh_id] = active_instances_arr;
+				_active_instance_cells[cell_pos] = active_instances_dict;
 			}
-			active_instances_dict[mesh_id] = active_instances_arr;
-			_active_instance_cells[cell_pos] = active_instances_dict;
 		}
 	}
 }
@@ -624,14 +651,14 @@ void Terrain3DCollision::update_instance_collision() {
 	}
 
 	// Determine which cells need to be built
-	const TypedArray<Vector2> instance_cells_to_build = _get_instance_cells_to_build(snapped_pos, radius, region_size, cell_size, vertex_spacing);
+	const TypedArray<Vector2i> instance_cells_to_build = _get_instance_cells_to_build(snapped_pos, radius, region_size, cell_size, vertex_spacing);
 
 	// Decompose cells outside of radius
 	// Stored as {mesh_asset_id:int} -> [shapes [RID, Body_ID]]
 	Dictionary recyclable_instances = _get_recyclable_instances(snapped_pos, radius, cell_size, vertex_spacing);
 
 	// Build a list of instances to create
-	// Stored as {mesh_id: int} [global_xform] [cell_position]
+	// Stored as {mesh_asset_id: int} -> {cell_position: Vector2i} -> [global_xform]
 	Dictionary instance_build_data = _get_instance_build_data(instance_cells_to_build, region_size, cell_size, vertex_spacing);
 
 	// Decompose assets which will not be recycled in full
@@ -878,7 +905,7 @@ void Terrain3DCollision::build() {
 		} else {
 			RID shape_rid = PS->heightmap_shape_create();
 			PS->body_add_shape(_static_body_rid, shape_rid, xform, true);
-			LOG(DEBUG, "Adding shape: ", i, ", rid: ", shape_rid.get_id(), " pos: ", _shape_get_position(i));
+			LOG(EXTREME, "Adding shape: ", i, ", rid: ", shape_rid.get_id(), " pos: ", _shape_get_position(i));
 		}
 	}
 	_initialized = true;
