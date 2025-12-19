@@ -24,7 +24,10 @@ public: // Constants
 		HEIGHT_FILTER_NEAREST,
 		HEIGHT_FILTER_MINIMUM
 	};
-
+	enum ExportMode {
+		EXPORT_SLICED,
+		EXPORT_PER_REGION
+	};
 private:
 	Terrain3D *_terrain = nullptr;
 
@@ -77,6 +80,7 @@ private:
 	// Functions
 	void _clear();
 	void _copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
+	Error _save_export_image(const Ref<Image> &p_img, const String &p_path, const String &p_ext, const MapType p_map_type) const;
 
 public:
 	Terrain3DData() {}
@@ -181,8 +185,8 @@ public:
 
 	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = V3_ZERO,
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
-	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
-	Ref<Image> layered_to_image(const MapType p_map_type) const;
+	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT, const ExportMode p_mode = EXPORT_SLICED) const;
+	Ref<Image> layered_to_image(const MapType p_map_type, const Rect2i &p_bounds = Rect2i()) const;
 
 	// Utility
 	void dump(const bool verbose = false) const;
@@ -192,6 +196,7 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Terrain3DData::HeightFilter);
+VARIANT_ENUM_CAST(Terrain3DData::ExportMode);
 
 // Inline Region Functions
 
