@@ -11,18 +11,20 @@ render_mode specular_toon, cull_disabled, depth_draw_always, skip_vertex_transfo
 
 group_uniforms ocean;
 uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 0.0;
+uniform vec3 albedo_color : source_color = vec3(.143, .255,  .34);
+uniform float visible_depth : hint_range(0., 10000., .1) = 200.; 
 uniform float height_scale : hint_range(0.01, 10.0, 0.01) = 0.5;
 uniform float uv_scale : hint_range(1.0, 50.0, 1.0) = 8.0;
-uniform vec3 albedo_color : source_color = vec3(.143, .255,  .34);
 uniform float fresnel_scale : hint_range(0., 1.) = .2;
 uniform float fresnel_power = 2.;
-
 uniform int _cell_amount = 10;
 uniform vec2 _period = vec2(5., 10.);
 group_uniforms;
 
-  //UNIFORMS THAT NEED SETTING FROM C++ SIDE
-uniform float _mesh_size = 32.;
+uniform sampler2D screen_tex : hint_screen_texture;
+
+// Uniforms set by C++
+uniform float _mesh_size = 48.;
 uniform float _subdiv = 1.;
 uniform float _vertex_spacing = 1.;
 uniform float _vertex_density = 1.;
@@ -34,7 +36,7 @@ uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform float _terrain_vertex_spacing = 1.0f;
 
-uniform sampler2D screen_tex : hint_screen_texture;
+varying float vertex_distance;
 
 vec2 modulo(vec2 divident, vec2 divisor) {
     vec2 positiveDivident = mod(divident, divisor) + divisor;
@@ -159,7 +161,7 @@ void vertex() {
 
     float scale = MODEL_MATRIX[0][0];
     float inv_scale = 1.0 / scale;
-    float vertex_distance = max(abs(vertex.x - _target_pos.x), abs(vertex.z - _target_pos.z));
+    vertex_distance = max(abs(vertex.x - _target_pos.x), abs(vertex.z - _target_pos.z));
     float vertex_lerp = smoothstep(0.0, 1.0, (vertex_distance * inv_scale - _mesh_size - 4.0) / (_mesh_size - 4.0));
     vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
     // For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
@@ -195,8 +197,9 @@ void fragment() {
 	TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
 
-    vec3 screen_clr = texture(screen_tex, SCREEN_UV).rgb;
-	ALBEDO = albedo_color * screen_clr;
+	float opacity = clamp(visible_depth/vertex_distance, .0001, 1.);
+	vec3 screen_clr = texture(screen_tex, SCREEN_UV).rgb;
+	ALBEDO = albedo_color * screen_clr * opacity;
 
     float fresnel = clamp(fresnel_scale * pow(1.0 + dot(VIEW, NORMAL), fresnel_power), 0., 1.);
     ROUGHNESS = fresnel;
