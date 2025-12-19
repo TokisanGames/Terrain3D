@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DMaterial : Resource
 {
 
@@ -87,6 +88,10 @@ public partial class Terrain3DMaterial : Resource
 		public new static readonly StringName ShowVertexGrid = "show_vertex_grid";
 		public new static readonly StringName ShowContours = "show_contours";
 		public new static readonly StringName ShowNavigation = "show_navigation";
+		public new static readonly StringName DisplacementScale = "displacement_scale";
+		public new static readonly StringName DisplacementSharpness = "displacement_sharpness";
+		public new static readonly StringName BufferShaderOverrideEnabled = "buffer_shader_override_enabled";
+		public new static readonly StringName BufferShaderOverride = "buffer_shader_override";
 		public new static readonly StringName ShowCheckered = "show_checkered";
 		public new static readonly StringName ShowGrey = "show_grey";
 		public new static readonly StringName ShowHeightmap = "show_heightmap";
@@ -98,9 +103,12 @@ public partial class Terrain3DMaterial : Resource
 		public new static readonly StringName ShowControlScale = "show_control_scale";
 		public new static readonly StringName ShowColormap = "show_colormap";
 		public new static readonly StringName ShowRoughmap = "show_roughmap";
+		public new static readonly StringName ShowTextureAlbedo = "show_texture_albedo";
 		public new static readonly StringName ShowTextureHeight = "show_texture_height";
 		public new static readonly StringName ShowTextureNormal = "show_texture_normal";
+		public new static readonly StringName ShowTextureAo = "show_texture_ao";
 		public new static readonly StringName ShowTextureRough = "show_texture_rough";
+		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
 	}
 
 	public new Godot.Collections.Dictionary ShaderParameters
@@ -175,6 +183,30 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.ShowNavigation, value);
 	}
 
+	public new double DisplacementScale
+	{
+		get => Get(GDExtensionPropertyName.DisplacementScale).As<double>();
+		set => Set(GDExtensionPropertyName.DisplacementScale, value);
+	}
+
+	public new double DisplacementSharpness
+	{
+		get => Get(GDExtensionPropertyName.DisplacementSharpness).As<double>();
+		set => Set(GDExtensionPropertyName.DisplacementSharpness, value);
+	}
+
+	public new bool BufferShaderOverrideEnabled
+	{
+		get => Get(GDExtensionPropertyName.BufferShaderOverrideEnabled).As<bool>();
+		set => Set(GDExtensionPropertyName.BufferShaderOverrideEnabled, value);
+	}
+
+	public new Variant BufferShaderOverride
+	{
+		get => Get(GDExtensionPropertyName.BufferShaderOverride).As<Variant>();
+		set => Set(GDExtensionPropertyName.BufferShaderOverride, value);
+	}
+
 	public new bool ShowCheckered
 	{
 		get => Get(GDExtensionPropertyName.ShowCheckered).As<bool>();
@@ -241,6 +273,12 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.ShowRoughmap, value);
 	}
 
+	public new bool ShowTextureAlbedo
+	{
+		get => Get(GDExtensionPropertyName.ShowTextureAlbedo).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureAlbedo, value);
+	}
+
 	public new bool ShowTextureHeight
 	{
 		get => Get(GDExtensionPropertyName.ShowTextureHeight).As<bool>();
@@ -253,10 +291,22 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.ShowTextureNormal, value);
 	}
 
+	public new bool ShowTextureAo
+	{
+		get => Get(GDExtensionPropertyName.ShowTextureAo).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureAo, value);
+	}
+
 	public new bool ShowTextureRough
 	{
 		get => Get(GDExtensionPropertyName.ShowTextureRough).As<bool>();
 		set => Set(GDExtensionPropertyName.ShowTextureRough, value);
+	}
+
+	public new bool ShowDisplacementBuffer
+	{
+		get => Get(GDExtensionPropertyName.ShowDisplacementBuffer).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowDisplacementBuffer, value);
 	}
 
 	public new static class GDExtensionMethodName
@@ -264,19 +314,27 @@ public partial class Terrain3DMaterial : Resource
 		public new static readonly StringName Update = "update";
 		public new static readonly StringName GetMaterialRid = "get_material_rid";
 		public new static readonly StringName GetShaderRid = "get_shader_rid";
+		public new static readonly StringName GetBufferMaterialRid = "get_buffer_material_rid";
+		public new static readonly StringName GetBufferShaderRid = "get_buffer_shader_rid";
 		public new static readonly StringName SetShaderParam = "set_shader_param";
 		public new static readonly StringName GetShaderParam = "get_shader_param";
 		public new static readonly StringName Save = "save";
 	}
 
-	public new void Update() => 
-		Call(GDExtensionMethodName.Update, []);
+	public new void Update(bool full = false) => 
+		Call(GDExtensionMethodName.Update, [full]);
 
 	public new Rid GetMaterialRid() => 
 		Call(GDExtensionMethodName.GetMaterialRid, []).As<Rid>();
 
 	public new Rid GetShaderRid() => 
 		Call(GDExtensionMethodName.GetShaderRid, []).As<Rid>();
+
+	public new Rid GetBufferMaterialRid() => 
+		Call(GDExtensionMethodName.GetBufferMaterialRid, []).As<Rid>();
+
+	public new Rid GetBufferShaderRid() => 
+		Call(GDExtensionMethodName.GetBufferShaderRid, []).As<Rid>();
 
 	public new void SetShaderParam(StringName name, Variant value) => 
 		Call(GDExtensionMethodName.SetShaderParam, [name, value]);

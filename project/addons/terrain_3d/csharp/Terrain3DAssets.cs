@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DAssets : Resource
 {
 
@@ -148,10 +149,12 @@ public partial class Terrain3DAssets : Resource
 		public new static readonly StringName GetTextureColors = "get_texture_colors";
 		public new static readonly StringName GetTextureNormalDepths = "get_texture_normal_depths";
 		public new static readonly StringName GetTextureAoStrengths = "get_texture_ao_strengths";
+		public new static readonly StringName GetTextureAoLightAffects = "get_texture_ao_light_affects";
 		public new static readonly StringName GetTextureRoughnessMods = "get_texture_roughness_mods";
 		public new static readonly StringName GetTextureUvScales = "get_texture_uv_scales";
 		public new static readonly StringName GetTextureVerticalProjections = "get_texture_vertical_projections";
 		public new static readonly StringName GetTextureDetiles = "get_texture_detiles";
+		public new static readonly StringName GetTextureDisplacements = "get_texture_displacements";
 		public new static readonly StringName ClearTextures = "clear_textures";
 		public new static readonly StringName UpdateTextureList = "update_texture_list";
 		public new static readonly StringName SetMeshAsset = "set_mesh_asset";
@@ -186,6 +189,9 @@ public partial class Terrain3DAssets : Resource
 	public new float[] GetTextureAoStrengths() => 
 		Call(GDExtensionMethodName.GetTextureAoStrengths, []).As<float[]>();
 
+	public new float[] GetTextureAoLightAffects() => 
+		Call(GDExtensionMethodName.GetTextureAoLightAffects, []).As<float[]>();
+
 	public new float[] GetTextureRoughnessMods() => 
 		Call(GDExtensionMethodName.GetTextureRoughnessMods, []).As<float[]>();
 
@@ -197,6 +203,9 @@ public partial class Terrain3DAssets : Resource
 
 	public new Vector2[] GetTextureDetiles() => 
 		Call(GDExtensionMethodName.GetTextureDetiles, []).As<Vector2[]>();
+
+	public new Vector2[] GetTextureDisplacements() => 
+		Call(GDExtensionMethodName.GetTextureDisplacements, []).As<Vector2[]>();
 
 	public new void ClearTextures(bool update = false) => 
 		Call(GDExtensionMethodName.ClearTextures, [update]);

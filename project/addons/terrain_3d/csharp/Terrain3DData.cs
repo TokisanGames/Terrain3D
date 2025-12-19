@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DData : GodotObject
 {
 

@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DTextureAsset : Resource
 {
 
@@ -148,7 +149,10 @@ public partial class Terrain3DTextureAsset : Resource
 		public new static readonly StringName NormalTexture = "normal_texture";
 		public new static readonly StringName NormalDepth = "normal_depth";
 		public new static readonly StringName AoStrength = "ao_strength";
+		public new static readonly StringName AoLightAffect = "ao_light_affect";
 		public new static readonly StringName Roughness = "roughness";
+		public new static readonly StringName DisplacementScale = "displacement_scale";
+		public new static readonly StringName DisplacementOffset = "displacement_offset";
 		public new static readonly StringName UvScale = "uv_scale";
 		public new static readonly StringName VerticalProjection = "vertical_projection";
 		public new static readonly StringName DetilingRotation = "detiling_rotation";
@@ -197,10 +201,28 @@ public partial class Terrain3DTextureAsset : Resource
 		set => Set(GDExtensionPropertyName.AoStrength, value);
 	}
 
+	public new double AoLightAffect
+	{
+		get => Get(GDExtensionPropertyName.AoLightAffect).As<double>();
+		set => Set(GDExtensionPropertyName.AoLightAffect, value);
+	}
+
 	public new double Roughness
 	{
 		get => Get(GDExtensionPropertyName.Roughness).As<double>();
 		set => Set(GDExtensionPropertyName.Roughness, value);
+	}
+
+	public new double DisplacementScale
+	{
+		get => Get(GDExtensionPropertyName.DisplacementScale).As<double>();
+		set => Set(GDExtensionPropertyName.DisplacementScale, value);
+	}
+
+	public new double DisplacementOffset
+	{
+		get => Get(GDExtensionPropertyName.DisplacementOffset).As<double>();
+		set => Set(GDExtensionPropertyName.DisplacementOffset, value);
 	}
 
 	public new double UvScale

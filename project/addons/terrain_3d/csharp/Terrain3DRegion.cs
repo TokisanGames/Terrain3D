@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DRegion : Resource
 {
 
@@ -158,6 +159,7 @@ public partial class Terrain3DRegion : Resource
 
 	public new static class GDExtensionMethodName
 	{
+		public new static readonly StringName Clear = "clear";
 		public new static readonly StringName SetMap = "set_map";
 		public new static readonly StringName GetMap = "get_map";
 		public new static readonly StringName SetMaps = "set_maps";
@@ -174,6 +176,9 @@ public partial class Terrain3DRegion : Resource
 		public new static readonly StringName Duplicate = "duplicate";
 		public new static readonly StringName Dump = "dump";
 	}
+
+	public new void Clear() => 
+		Call(GDExtensionMethodName.Clear, []);
 
 	public new void SetMap(Terrain3DRegion.MapType mapType, Image map) => 
 		Call(GDExtensionMethodName.SetMap, [Variant.From(mapType), map]);
