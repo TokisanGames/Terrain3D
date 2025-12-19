@@ -410,7 +410,7 @@ Recalculates the height range for this region by looking at every pixel in the h
 
 |void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_clear>`
 
-Unreferences the maps and resets all of the variables to default values.
+Unreferences the maps and resets all member variables to default values.
 
 .. rst-class:: classref-item-separator
 
