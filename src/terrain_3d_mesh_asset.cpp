@@ -174,6 +174,11 @@ void Terrain3DMeshAsset::clear() {
 	_clear_lod_ranges();
 	_fade_margin = 0.f;
 	_thumbnail.unref();
+	// instance collision defaults
+	_instance_collision_layers = 1;
+	_instance_physics_material.unref();
+	_instance_collision_mask = 1;
+	_instance_collision_enabled = true;
 }
 
 void Terrain3DMeshAsset::set_name(const String &p_name) {
@@ -208,6 +213,33 @@ void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
 		_highlight_mat = mat;
 	}
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
+	emit_signal("instancer_setting_changed", _id);
+}
+
+void Terrain3DMeshAsset::set_instance_collision_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_instance_collision_enabled, p_enabled);
+	LOG(INFO, "MeshAsset ", _id, ": Setting instance collision enabled: ", _instance_collision_enabled);
+	emit_signal("instancer_setting_changed", _id);
+}
+
+void Terrain3DMeshAsset::set_instance_collision_layers(const uint32_t p_layers) {
+	SET_IF_DIFF(_instance_collision_layers, p_layers);
+	LOG(INFO, "MeshAsset ", _id, ": Setting instance collision layers: ", _instance_collision_layers);
+	emit_signal("instancer_setting_changed", _id);
+}
+
+void Terrain3DMeshAsset::set_instance_collision_mask(const uint32_t p_mask) {
+	SET_IF_DIFF(_instance_collision_mask, p_mask);
+	LOG(INFO, "MeshAsset ", _id, ": Setting instance collision mask: ", _instance_collision_mask);
+	emit_signal("instancer_setting_changed", _id);
+}
+
+void Terrain3DMeshAsset::set_instance_physics_material(const Ref<PhysicsMaterial> &p_mat) {
+	if (_instance_physics_material == p_mat) {
+		return;
+	}
+	_instance_physics_material = p_mat;
+	LOG(INFO, "MeshAsset ", _id, ": Setting instance physics material");
 	emit_signal("instancer_setting_changed", _id);
 }
 
@@ -689,6 +721,13 @@ void Terrain3DMeshAsset::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_instance_count"), &Terrain3DMeshAsset::get_instance_count);
 
+	ClassDB::bind_method(D_METHOD("set_instance_collision_layers", "layers"), &Terrain3DMeshAsset::set_instance_collision_layers);
+	ClassDB::bind_method(D_METHOD("get_instance_collision_layers"), &Terrain3DMeshAsset::get_instance_collision_layers);
+	ClassDB::bind_method(D_METHOD("set_instance_collision_mask", "mask"), &Terrain3DMeshAsset::set_instance_collision_mask);
+	ClassDB::bind_method(D_METHOD("get_instance_collision_mask"), &Terrain3DMeshAsset::get_instance_collision_mask);
+	ClassDB::bind_method(D_METHOD("set_instance_physics_material", "material"), &Terrain3DMeshAsset::set_instance_physics_material);
+	ClassDB::bind_method(D_METHOD("get_instance_physics_material"), &Terrain3DMeshAsset::get_instance_physics_material);
+
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled", PROPERTY_HINT_NONE), "set_enabled", "is_enabled");
@@ -722,4 +761,9 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod9_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod9_range", "get_lod9_range");
 	// Fade disabled until https://github.com/godotengine/godot/issues/102799 is fixed
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fade_margin", PROPERTY_HINT_RANGE, "0.,64.0,.05,or_greater", PROPERTY_USAGE_NO_EDITOR), "set_fade_margin", "get_fade_margin");
+
+	ADD_GROUP("Instance Collision", "");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layers", PROPERTY_HINT_LAYERS_3D_PHYSICS, "PhysicsLayers"), "set_instance_collision_layers", "get_instance_collision_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS, "PhysicsLayers"), "set_instance_collision_mask", "get_instance_collision_mask");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_instance_physics_material", "get_instance_physics_material");
 }

@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
+#include <godot_cpp/classes/physics_material.hpp>
 #include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/shape3d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
@@ -69,6 +70,12 @@ private:
 	PackedFloat32Array _lod_ranges;
 	real_t _fade_margin = 0.f;
 
+	// Instance collision settings
+	bool _instance_collision_enabled = true;
+	uint32_t _instance_collision_layers = 1;
+	uint32_t _instance_collision_mask = 1;
+	Ref<PhysicsMaterial> _instance_physics_material;
+
 	// Working data
 	Ref<Material> _highlight_mat;
 	TypedArray<Mesh> _meshes;
@@ -131,6 +138,16 @@ public:
 	Ref<Material> get_material_override() const { return _material_override; }
 	void set_material_overlay(const Ref<Material> &p_material);
 	Ref<Material> get_material_overlay() const { return _material_overlay; }
+
+	// Instance collision settings
+	void set_instance_collision_enabled(const bool p_enabled);
+	bool is_instance_collision_enabled() const { return _instance_collision_enabled; }
+	void set_instance_collision_layers(const uint32_t p_layers);
+	uint32_t get_instance_collision_layers() const { return _instance_collision_layers; }
+	void set_instance_collision_mask(const uint32_t p_mask);
+	uint32_t get_instance_collision_mask() const { return _instance_collision_mask; }
+	void set_instance_physics_material(const Ref<PhysicsMaterial> &p_mat);
+	Ref<PhysicsMaterial> get_instance_physics_material() const { return _instance_physics_material; }
 
 	void set_generated_faces(const int p_count);
 	int get_generated_faces() const { return _generated_faces; }
