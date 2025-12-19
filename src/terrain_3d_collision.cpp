@@ -218,29 +218,43 @@ void Terrain3DCollision::_reload_physics_material() {
 }
 
 TypedArray<Vector2i> Terrain3DCollision::_get_instance_cells_to_build(const Vector2i &p_snapped_pos, const real_t p_radius, const int p_region_size, const int p_cell_size, const real_t p_vertex_spacing) {
-	LOG(INFO, "Building list of instance cells within the radius");
+	LOG(INFO, "Building list of instance cells within the radius (descaled units)");
 	TypedArray<Vector2i> instance_cells_to_build;
 	const int cells_per_region = p_region_size / p_cell_size;
+
+	// p_snapped_pos is descaled (vertex units), p_radius_descaled is descaled (vertex units)
 	const real_t radius_sq = p_radius * p_radius;
+	// number of cell steps to cover radius
+	const int cell_radius = int(Math::ceil(p_radius / real_t(p_cell_size)));
 
-	const int grid_size = int(p_radius * 2.);
-	for (int x = 0; x < grid_size; x += p_cell_size) {
-		for (int y = 0; y < grid_size; y += p_cell_size) {
-			const Vector2i grid_offset = Vector2i(x - p_radius, y - p_radius);
-			const Vector2i grid_pos = p_snapped_pos + grid_offset;
-			const Vector2i region_loc = _terrain->get_data()->get_region_location(v2iv3(grid_pos));
+	for (int cx = -cell_radius; cx <= cell_radius; ++cx) {
+		for (int cy = -cell_radius; cy <= cell_radius; ++cy) {
+			const Vector2i grid_pos = p_snapped_pos + Vector2i(cx * p_cell_size, cy * p_cell_size);
+			const Vector2i region_loc = V2I_DIVIDE_FLOOR(grid_pos, p_region_size);
 
-			// If the region for this cell is not loaded, we skip it. This
-			// prevents building instances in unloaded terrain.
-			if (!_terrain->get_data()->get_region(region_loc).is_valid()) {
+			// If the region for this cell is not loaded, skip it.
+			const Terrain3DRegion *region = _terrain->get_data()->get_region_ptr(region_loc);
+			if (!region || region->is_deleted()) {
 				continue;
 			}
 
-			const Vector2i cell_loc = (region_loc * cells_per_region) + Util::get_cell(v2iv3(grid_pos), p_region_size, p_vertex_spacing, p_cell_size);
-			const Vector2 cell_centre = (Vector2(cell_loc) + Vector2(0.5f, 0.5f)) * p_cell_size * p_vertex_spacing;
+			// region-local grid coordinate (vertex/grid units)
+			const Vector2i region_local_coord = grid_pos - region_loc * p_region_size;
+			const Vector2i local_cell = V2I_DIVIDE_FLOOR(region_local_coord, p_cell_size);
+			const Vector2i cell_loc = region_loc * cells_per_region + local_cell; // global cell index
 
-			// Check if the cell is within the radius
-			if (p_snapped_pos.distance_squared_to(cell_centre) > radius_sq) {
+			// Compute cell bounds in descaled (vertex) units
+			const Vector2 cell_min = Vector2(cell_loc) * real_t(p_cell_size);
+			const Vector2 cell_max = cell_min + Vector2(real_t(p_cell_size), real_t(p_cell_size));
+
+			// Closest point on AABB to the p_snapped_pos
+
+			Vector2 closest;
+			closest.x = CLAMP(p_snapped_pos.x, cell_min.x, cell_max.x);
+			closest.y = CLAMP(p_snapped_pos.y, cell_min.y, cell_max.y);
+
+			// Distance compare in descaled space using closest point (AABB-circle test)
+			if ((closest - p_snapped_pos).length_squared() > radius_sq) {
 				continue;
 			}
 
@@ -256,15 +270,24 @@ TypedArray<Vector2i> Terrain3DCollision::_get_instance_cells_to_build(const Vect
 	return instance_cells_to_build;
 }
 
-Dictionary Terrain3DCollision::_get_recyclable_instances(const Vector2i &p_snapped_pos, const real_t p_radius, const int p_cell_size, const real_t p_vertex_spacing) {
+Dictionary Terrain3DCollision::_get_recyclable_instances(const Vector2i &p_snapped_pos, const real_t p_radius_descaled, const int p_cell_size, const real_t p_vertex_spacing) {
 	Dictionary recyclable_mesh_instance_shapes;
-	LOG(INFO, "Decomposing cells beyond ", p_radius, " of ", p_snapped_pos);
+	LOG(INFO, "Decomposing cells beyond (descaled radius): ", p_radius_descaled, " of ", p_snapped_pos);
 	const TypedArray<Vector2i> instance_cells = _active_instance_cells.keys();
-	const real_t radius_sq = p_radius * p_radius;
+	const real_t radius_sq = p_radius_descaled * p_radius_descaled;
 
 	for (const Vector2i cell_origin : instance_cells) {
-		const Vector2 cell_centre = (Vector2(cell_origin) + Vector2(0.5f, 0.5f)) * p_cell_size * p_vertex_spacing;
-		if (cell_centre.distance_squared_to(p_snapped_pos) <= radius_sq) {
+		// cell_origin is global cell index (cell units)
+		const Vector2 cell_min = Vector2(cell_origin) * real_t(p_cell_size);
+		const Vector2 cell_max = cell_min + Vector2(real_t(p_cell_size), real_t(p_cell_size));
+
+		// Closest point on AABB to the brush center
+		Vector2 closest;
+		closest.x = CLAMP(p_snapped_pos.x, cell_min.x, cell_max.x);
+		closest.y = CLAMP(p_snapped_pos.y, cell_min.y, cell_max.y);
+
+		// If closest point is within radius, keep the cell
+		if ((closest - p_snapped_pos).length_squared() <= radius_sq) {
 			continue;
 		}
 
@@ -482,7 +505,7 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 
 		const Dictionary cell_data = p_instance_build_data[mesh_id];
 		if (cell_data.is_empty()) {
-			LOG(ERROR, "MeshAsset ", mesh_id, " is missing cell data, skipping. This shouldn't happen.");
+			// No new instances of this type are needed
 			continue;
 		}
 
@@ -623,9 +646,13 @@ void Terrain3DCollision::update_instance_collision() {
 	const int time = Time::get_singleton()->get_ticks_usec();
 	const int region_size = _terrain->get_region_size();
 	const real_t vertex_spacing = _terrain->get_vertex_spacing();
-	const real_t radius = _instance_collision_radius;
+	const real_t radius_world = _instance_collision_radius;
 	const int cell_size = _terrain->get_instancer()->CELL_SIZE;
+	// snapped_pos is in descaled (vertex) units
 	const Vector2i snapped_pos = _snap_to_grid(_terrain->get_collision_target_position() / vertex_spacing);
+
+	// Convert radius from world units to descaled (vertex) units for cell selection and recycling
+	const real_t radius_descaled = radius_world / vertex_spacing;
 
 	// Skip if location hasn't moved to next step
 	if (!_instance_collision_is_dirty && (_last_snapped_pos_instance_collision - snapped_pos).length_squared() < (_shape_size * _shape_size)) {
@@ -650,28 +677,22 @@ void Terrain3DCollision::update_instance_collision() {
 		PS->body_set_collision_priority(_instance_static_body_rid, _priority);
 	}
 
-	// Determine which cells need to be built
-	const TypedArray<Vector2i> instance_cells_to_build = _get_instance_cells_to_build(snapped_pos, radius, region_size, cell_size, vertex_spacing);
+	// Determine which cells need to be built (snapped_pos and radius_descaled in descaled units)
+	const TypedArray<Vector2i> instance_cells_to_build = _get_instance_cells_to_build(snapped_pos, radius_descaled, region_size, cell_size, vertex_spacing);
 
-	// Decompose cells outside of radius
-	// Stored as {mesh_asset_id:int} -> [shapes [RID, Body_ID]]
-	Dictionary recyclable_instances = _get_recyclable_instances(snapped_pos, radius, cell_size, vertex_spacing);
+	// Decompose cells outside of radius (snapped_pos and radius_descaled in descaled units)
+	Dictionary recyclable_instances = _get_recyclable_instances(snapped_pos, radius_descaled, cell_size, vertex_spacing);
 
 	// Build a list of instances to create
-	// Stored as {mesh_asset_id: int} -> {cell_position: Vector2i} -> [global_xform]
 	Dictionary instance_build_data = _get_instance_build_data(instance_cells_to_build, region_size, cell_size, vertex_spacing);
 
 	// Decompose assets which will not be recycled in full
-	// They are decomposed into their component shapes, which may yet be reused
-	// Stored as {ShapeType:int} -> [shapes [RID, Body_ID]]
 	Dictionary unused_instance_shapes = _get_unused_instance_shapes(instance_build_data, recyclable_instances);
 
 	// Do the instancing
-	//
 	_generate_instances(instance_build_data, recyclable_instances, unused_instance_shapes);
 
 	// Destroy any remaining unused shapes
-	//
 	_destroy_remaining_instance_shapes(unused_instance_shapes);
 
 	_last_snapped_pos_instance_collision = snapped_pos;
