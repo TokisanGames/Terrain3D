@@ -57,15 +57,10 @@ private:
 	real_t _instance_collision_radius = 64.f;
 	bool _instance_collision_is_dirty = false;
 
-	RID _instance_static_body_rid;
+	// Per-mesh instance PhysicsServer bodies: {mesh_id:int -> body_rid:RID}
+	Dictionary _instance_body_rids = {};
 
-	// Stored as {PS_rid:RID} -> RS_rid:RID
-	Dictionary _shape_debug_mesh_pairs = {};
-
-	// Stored as {cell_loc:v2} -> {mesh_asset_id:int} -> [instances [shapes [RID]]]
-	Dictionary _active_instance_cells = {};
-
-	// Stored as {rid:RID} -> {PS_body_to_shape_index:int}
+	// Stored as {rid:RID} -> [body_rid:RID, shape_index:int]
 	Dictionary _RID_index_map = {};
 
 	// Debug visualisation queue
@@ -83,6 +78,12 @@ private:
 	};
 
 	std::vector<DebugMeshInstanceData> _debug_visual_instance_queue;
+
+	// Stored as {PS_rid:RID} -> RS_rid:RID
+	Dictionary _shape_debug_mesh_pairs = {};
+
+	// Stored as {cell_loc:v2} -> {mesh_asset_id:int} -> [instances [shapes [RID]]]
+	Dictionary _active_instance_cells = {};
 
 	Vector2i _snap_to_grid(const Vector2i &p_pos) const;
 	Vector2i _snap_to_grid(const Vector3 &p_pos) const;
