@@ -22,7 +22,43 @@
 Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const int p_size) {
 	IS_DATA_INIT_MESG("Terrain not initialized", Dictionary());
 	const Terrain3DData *data = _terrain->get_data();
+
+	Ref<Terrain3DMaterial> material = _terrain->get_material();
+	bool is_flat_mode = material->get_world_background() == Terrain3DMaterial::WorldBackground::FLAT;
+	const real_t ground_level = material->get("ground_level");
+	const real_t region_blend = material->get("region_blend");
+	const int region_map_size = Terrain3DData::REGION_MAP_SIZE;
+	const PackedInt32Array region_map = data->get_region_map();
 	int region_size = _terrain->get_region_size();
+	const real_t region_texel_size = 1.f / real_t(region_size);
+
+	auto check_region = [&](const Vector2 &uv2) -> float {
+		Vector2i pos = Vector2i(Math::floor(uv2.x), Math::floor(uv2.y)) + Vector2i(region_map_size / 2, region_map_size / 2);
+		int layer_index = 0;
+		if ((uint32_t)(pos.x | pos.y) < (uint32_t)region_map_size) {
+			int v = region_map[pos.y * region_map_size + pos.x];
+			layer_index = Math::clamp(v - 1, -1, 0) + 1;
+		}
+		return real_t(layer_index);
+	};
+
+	auto get_region_blend = [&](Vector2 uv2) -> float {
+		// Floating point bias (must match shader)
+		uv2 -= Vector2(0.5011f, 0.5011f);
+
+		float a = check_region(uv2 + Vector2(0.0f, 1.0f));
+		float b = check_region(uv2 + Vector2(1.0f, 1.0f));
+		float c = check_region(uv2 + Vector2(1.0f, 0.0f));
+		float d = check_region(uv2 + Vector2(0.0f, 0.0f));
+
+		Vector2 blend_factor(2.0f + 126.0f * (1.0f - region_blend),	2.0f + 126.0f * (1.0f - region_blend));
+		Vector2 f(uv2.x - Math::floor(uv2.x), uv2.y - Math::floor(uv2.y));
+		Vector2 w(1.f / (1.f + Math::exp(blend_factor.x * Math::log((1.f - f.x) / f.x))),
+				1.f / (1.f + Math::exp(blend_factor.y * Math::log((1.f - f.y) / f.y))));
+		float blend = mix(mix(d, c, w.x),	mix(a, b, w.x),	w.y);
+
+		return (1.f - blend) * 2.f;
+	};
 
 	int hshape_size = p_size + 1; // Calculate last vertex at end
 	PackedRealArray map_data = PackedRealArray();
@@ -98,6 +134,10 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 				} else {
 					height = (is_hole(cmap->get_pixel(region_size - 1, region_size - 1).r)) ? NAN : map->get_pixel(region_size - 1, region_size - 1).r;
 				}
+			}
+			if (is_flat_mode) {
+				Vector2 uv2 = Vector2(shape_pos) * region_texel_size;
+				height = mix(height, ground_level, smoothstep(0.f, 1.f, get_region_blend(uv2)));
 			}
 			map_data[index] = height;
 			if (!std::isnan(height)) {
