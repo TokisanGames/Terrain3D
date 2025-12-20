@@ -630,29 +630,29 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 						// Check for a shape in the unused shapes pool
 						TypedArray<RID> unused_shapes;
 						if (p_unused_instance_shapes.has(shape_type)) {
-							unused_shapes = p_unused_instance_shapes[shape_type];
+							unused_shapes = TypedArray<RID>(p_unused_instance_shapes[shape_type]);
 						}
 						// If no unused shapes available, attempt to decompose one recyclable full-instance
 						if (unused_shapes.is_empty()) {
 							if (p_recyclable_instances.has(mesh_id)) {
-								Array rec_assets = Array(p_recyclable_instances[mesh_id]);
-								if (!rec_assets.is_empty()) {
+								Array recyclable_instances = Array(p_recyclable_instances[mesh_id]);
+								if (!recyclable_instances.is_empty()) {
 									// Pop one full instance and distribute its member RIDs into the unused pool
-									TypedArray<RID> rec_instance = TypedArray<RID>(rec_assets.pop_back());
-									if (rec_assets.is_empty()) {
+									TypedArray<RID> recyclable_instance = TypedArray<RID>(recyclable_instances.pop_back());
+									if (recyclable_instances.is_empty()) {
 										p_recyclable_instances.erase(mesh_id);
 									} else {
-										p_recyclable_instances[mesh_id] = rec_assets;
+										p_recyclable_instances[mesh_id] = recyclable_instances;
 									}
-									for (const RID &rec_rid : rec_instance) {
-										if (!rec_rid.is_valid()) {
+									for (const RID &recyclable_shape_rid : recyclable_instance) {
+										if (!recyclable_shape_rid.is_valid()) {
 											continue;
 										}
-										int rec_shape_type = PS->shape_get_type(rec_rid);
-										TypedArray<RID> pool = p_unused_instance_shapes[rec_shape_type];
-										pool.push_back(rec_rid);
-										p_unused_instance_shapes[rec_shape_type] = pool;
-										LOG(EXTREME, "Decomposed recyclable instance, stored shape ", rec_rid);
+										const int recyclable_shape_type = PS->shape_get_type(recyclable_shape_rid);
+										TypedArray<RID> pool = p_unused_instance_shapes[recyclable_shape_type];
+										pool.push_back(recyclable_shape_rid);
+										p_unused_instance_shapes[recyclable_shape_type] = pool;
+										LOG(EXTREME, "Decomposed recyclable instance, stored shape ", recyclable_shape_rid);
 									}
 									// refresh local unused_shapes for this type
 									if (p_unused_instance_shapes.has(shape_type)) {
