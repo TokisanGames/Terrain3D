@@ -552,11 +552,8 @@ void Terrain3DMaterial::_update_shader() {
 	notify_property_list_changed();
 }
 
-void Terrain3DMaterial::_update_uniforms(const RID &p_material, const Terrain3DMesher *p_mesher) {
+void Terrain3DMaterial::_update_uniforms(const RID &p_material) {
 	IS_DATA_INIT(VOID);
-	if (!p_material.is_valid()) {
-		return;
-	}
 	LOG(EXTREME, "Updating uniforms in shader");
 
 	Terrain3DData *data = _terrain->get_data();
@@ -593,27 +590,20 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material, const Terrain3DM
 	LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
 	LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
 
-	RS->material_set_param(p_material, "_background_mode", _world_background);
-
-	real_t spacing = p_mesher->get_vertex_spacing();
+	real_t spacing = _terrain->get_vertex_spacing();
 	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
 	RS->material_set_param(p_material, "_vertex_spacing", spacing);
 	RS->material_set_param(p_material, "_vertex_density", 1.0f / spacing);
-	RS->material_set_param(p_material, "_terrain_vertex_spacing", _terrain->get_vertex_spacing());
 
-	real_t mesh_size = real_t(p_mesher->get_mesh_size());
+	real_t mesh_size = real_t(_terrain->get_mesh_size());
 	RS->material_set_param(p_material, "_mesh_size", mesh_size);
 
-	real_t tessellation_level = real_t(p_mesher->get_tessellation_level());
+	real_t tessellation_level = real_t(_terrain->get_tessellation_level());
 	real_t subdiv = pow(2.f, tessellation_level);
 	RS->material_set_param(p_material, "_subdiv", subdiv);
 	RS->material_set_param(p_material, "_tessellation_level", tessellation_level);
 	RS->material_set_param(p_material, "_displacement_scale", _displacement_scale);
 	RS->material_set_param(p_material, "_displacement_sharpness", _displacement_sharpness);
-
-	if (p_material != _material) {
-		return;
-	}
 
 	Ref<Terrain3DAssets> asset_list = _terrain->get_assets();
 	LOG(INFO, "Updating texture arrays in shader");
@@ -705,17 +695,12 @@ void Terrain3DMaterial::update(bool p_full) {
 	if (p_full) {
 		_update_shader();
 	}
+	_update_uniforms(_material);
 	IS_INIT(VOID);
-	if (_terrain->get_mesher()) {
-		_update_uniforms(_material, _terrain->get_mesher());
-		if (_terrain->get_tessellation_level() > 0) {
-			_update_uniforms(_buffer_material, _terrain->get_mesher());
-			// Snap to update buffer
-			_terrain->snap();
-		}
-	}
-	if (_terrain->is_ocean_enabled() && _terrain->get_ocean_mesher() && _terrain->get_ocean_material().is_valid()) {
-		_update_uniforms(_terrain->get_ocean_material()->get_rid(), _terrain->get_ocean_mesher());
+	if (_terrain->get_tessellation_level() > 0) {
+		_update_uniforms(_buffer_material);
+		// Snap to update buffer
+		_terrain->snap();
 	}
 }
 

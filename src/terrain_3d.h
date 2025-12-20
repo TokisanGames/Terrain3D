@@ -135,6 +135,8 @@ private:
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
 
+	void _update_ocean_uniforms();
+
 public:
 	static DebugLevel debug_level; // Initialized in terrain_3d.cpp
 
