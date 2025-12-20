@@ -656,7 +656,7 @@ void Terrain3DCollision::_generate_instances(const Dictionary &p_instance_build_
 									}
 									// refresh local unused_shapes for this type
 									if (p_unused_instance_shapes.has(shape_type)) {
-										unused_shapes = p_unused_instance_shapes[shape_type];
+										unused_shapes = TypedArray<RID>(p_unused_instance_shapes[shape_type]);
 									}
 								}
 							}
