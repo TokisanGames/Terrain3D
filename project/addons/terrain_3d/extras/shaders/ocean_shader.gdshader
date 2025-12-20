@@ -1,29 +1,40 @@
 shader_type spatial;
-render_mode specular_toon, cull_disabled, depth_draw_always, skip_vertex_transform;
+render_mode cull_disabled, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
 
 // Shader adapted from https://docs.godotengine.org/en/4.4/tutorials/shaders/your_first_shader/your_second_3d_shader.html
 // Also includes snippets from https://godotshaders.com/snippet/useful-code-snippets/
 
-group_uniforms ocean;
+group_uniforms water;
 uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 0.0;
-uniform vec3 albedo_color : source_color = vec3(.143, .255,  .34);
-uniform float visible_depth : hint_range(0., 10000., .1) = 200.;
-uniform float height_scale : hint_range(0.01, 10.0, 0.01) = 0.5;
-uniform float uv_scale : hint_range(1.0, 50.0, 1.0) = 8.0;
-uniform float fresnel_scale : hint_range(0., 1.) = .2;
-uniform float fresnel_power = 2.;
-uniform int _cell_amount = 10;
-uniform vec2 _period = vec2(5., 10.);
+uniform vec3 albedo_color : source_color = vec3(.088, .157, .21);
+uniform float visible_depth : hint_range(0., 10000., .1) = 256.;
+uniform float depth_curve : hint_range(0., 1.) = .2;
+uniform float edge_fade_distance : hint_range(0.0, 10.0, 0.01) = 3.;
+uniform float refraction_strength : hint_range(0.0, 0.1, 0.001) = 0.02;
+group_uniforms;
+group_uniforms reflections;
+uniform float fresnel_scale : hint_range(0., 1.) = .065;
+uniform float fresnel_power = 1.;
+uniform float specular : hint_range(0., 1.) = .5;
+group_uniforms;
+group_uniforms waves;
+uniform float height_scale : hint_range(0.01, 128.0, 0.01) = 12;
+uniform float uv_scale : hint_range(1.0, 256.0, 1.0) = 50.0;
+uniform int cell_amount = 10;
+uniform vec2 period = vec2(5., 10.);
 group_uniforms;
 
-uniform sampler2D screen_tex : hint_screen_texture;
-
 // Uniforms set by C++
-uniform float _mesh_size = 48.;
+group_uniforms private_dont_touch;
+uniform float _mesh_size = 32.;
 uniform float _subdiv = 1.;
 uniform float _vertex_spacing = 1.;
 uniform float _vertex_density = 1.;
-uniform vec3 _target_pos = vec3(0.,0.,0.); // should be derived from clipmap target position
+uniform vec3 _target_pos = vec3(0.,0.,0.);
+group_uniforms;
+
+uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
+uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;
 
 varying float vertex_distance;
 
@@ -39,13 +50,13 @@ vec2 random(vec2 value){
 }
 
 float seamless_noise(vec2 uv) {
-    uv = uv * float(_cell_amount);
+    uv = uv * float(cell_amount);
     vec2 cellsMinimum = floor(uv);
     vec2 cellsMaximum = ceil(uv);
     vec2 uv_fract = fract(uv);
 
-    cellsMinimum = modulo(cellsMinimum, _period);
-    cellsMaximum = modulo(cellsMaximum, _period);
+    cellsMinimum = modulo(cellsMinimum, period);
+    cellsMaximum = modulo(cellsMaximum, period);
 
     vec2 blur = smoothstep(0.0, 1.0, uv_fract);
 
@@ -95,8 +106,8 @@ void vertex() {
     vec3 vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
     float scale = MODEL_MATRIX[0][0];
     float inv_scale = 1.0 / scale;
-    vertex_distance = max(abs(vertex.x - _target_pos.x), abs(vertex.z - _target_pos.z));
-    float vertex_lerp = smoothstep(0.0, 1.0, (vertex_distance * inv_scale - _mesh_size - 4.0) / (_mesh_size - 4.0));
+    float vertex_xz_distance = max(abs(vertex.x - _target_pos.x), abs(vertex.z - _target_pos.z));
+    float vertex_lerp = smoothstep(0.0, 1.0, (vertex_xz_distance * inv_scale - _mesh_size - 4.0) / (_mesh_size - 4.0));
     vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
     // For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
     vec2 shift = (scale < _vertex_spacing / _subdiv + 1e-6) ? // LOD0 or not
@@ -115,23 +126,34 @@ void vertex() {
     vertex.y = h;
 
     VERTEX = (VIEW_MATRIX * vec4(vertex, 1.0)).xyz;
+	vertex_distance = length(vertex - _target_pos);
 }
 
 void fragment() {
-	// not sure about these normals.
 	float h, u, v;
 	h = get_height(UV, TIME * 0.5) * height_scale;
-	u = get_height(UV + vec2(0., .01), TIME * 0.5) * height_scale;
-	v = get_height(UV + vec2(.01, 0.), TIME * 0.5) * height_scale;
-	NORMAL = mat3(VIEW_MATRIX) * normalize(vec3(h - u, 0.1 * height_scale, h - u));
+	u = get_height(UV + vec2(.01, 0.), TIME * 0.5) * height_scale;
+	v = get_height(UV + vec2(0., .01), TIME * 0.5) * height_scale;
+	NORMAL = mat3(VIEW_MATRIX) * normalize(vec3(h - u, vertex_distance/1024., h - v));
 	TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
 
-	float opacity = clamp(visible_depth/vertex_distance, .0001, 1.);
-	vec3 screen_clr = texture(screen_tex, SCREEN_UV).rgb;
-	ALBEDO = albedo_color * screen_clr * opacity;
-
     float fresnel = clamp(fresnel_scale * pow(1.0 + dot(VIEW, NORMAL), fresnel_power), 0., 1.);
     ROUGHNESS = fresnel;
-	SPECULAR = 1.;
+	SPECULAR = specular;
+
+	// Refraction: Distort screen UVs using the normal (tangent-space projection)
+    vec2 refract_offset = NORMAL.xz * refraction_strength;
+    vec2 refract_uv = SCREEN_UV + refract_offset;
+    vec3 background = texture(screen_texture, refract_uv).rgb;
+
+	ALPHA = 1. - depth_curve + depth_curve * smoothstep(.0, 1., vertex_distance/visible_depth);
+    ALBEDO = mix(background, albedo_color, ALPHA);
+
+	// Fade Edge
+	float proximity_depth_tex = textureLod(depth_texture, SCREEN_UV, 0.0).r;
+	vec4 proximity_view_pos = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, proximity_depth_tex, 1.0);
+	proximity_view_pos.xyz /= proximity_view_pos.w;
+	float edge_mask = 1.0 - clamp(1.0 - smoothstep(proximity_view_pos.z + 2. * edge_fade_distance, proximity_view_pos.z, VERTEX.z), 0.0, 1.0);
+	ALPHA = clamp(ALPHA - edge_mask, 0., 1.);
 }
