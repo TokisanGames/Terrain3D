@@ -818,7 +818,15 @@ void Terrain3DCollision::destroy_instance_collision() {
 	LOG(INFO, "Destroying instance collision");
 	const int time = Time::get_singleton()->get_ticks_usec();
 	_destroy_debug_mesh_instances();
-
+	for (const RID &body_rid : _instance_body_rids.values()) {
+		while (PS->body_get_shape_count(body_rid) > 0) {
+			const RID shape_rid = PS->body_get_shape(body_rid, 0);
+			PS->body_remove_shape(body_rid, 0);
+			PS->free_rid(shape_rid);
+			LOG(EXTREME, "Destroyed shape ", shape_rid);
+		}
+	}
+	_instance_body_rids.clear();
 	_active_instance_cells.clear();
 	_last_snapped_pos_instance_collision = V2I_MAX;
 	LOG(EXTREME, "Destroy instance collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
