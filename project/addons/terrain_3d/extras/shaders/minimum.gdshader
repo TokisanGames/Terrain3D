@@ -143,7 +143,7 @@ void vertex() {
 		// This branch is static for each of the clipmap segments
 		// Interpolated reads only occur where sub-texel values are required.
 		if (scale < _vertex_spacing) {
-			h = mix(interpolated_height(start_pos), interpolated_height(end_pos), vertex_lerp);
+			h = interpolated_height(UV);
 		} else {
 			ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
 			ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
@@ -186,7 +186,7 @@ void fragment() {
 	// Calculate the effective mipmap for regionspace, and if less than 0,
 	// skip all extra lookups required for bilinear blend.
 	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
-	bool bilerp = region_mip < 0.0;
+	bool bilerp = region_mip < 4.0;
 
 	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well

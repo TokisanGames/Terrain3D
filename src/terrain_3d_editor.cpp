@@ -898,8 +898,8 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 void Terrain3DEditor::set_tool(const Tool p_tool) {
 	Tool old_tool = _tool;
 	SET_IF_DIFF(_tool, CLAMP(p_tool, Tool(0), TOOL_MAX));
-	if (_terrain && (_tool == Tool::NAVIGATION || old_tool == Tool::NAVIGATION)) {
-		_terrain->get_material()->update(true);
+	if (_terrain && (_tool == Tool::NAVIGATION || old_tool == Tool::NAVIGATION || _tool == Tool::REGION || old_tool == Tool::REGION)) {
+		_terrain->get_material()->update(Terrain3DMaterial::FULL_REBUILD);
 	}
 }
 
