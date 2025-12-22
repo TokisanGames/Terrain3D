@@ -1,11 +1,12 @@
 [gd_scene load_steps=5 format=3 uid="uid://bb2lp50sjndus"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_vibap"]
-sky_top_color = Color(0.192157, 0.282353, 0.509804, 1)
+sky_top_color = Color(0.2356, 0.344513, 0.62, 1)
 sky_horizon_color = Color(0.505882, 0.615686, 0.709804, 1)
 ground_bottom_color = Color(0.211765, 0.313726, 0.552941, 1)
 ground_horizon_color = Color(0.505882, 0.615686, 0.709804, 1)
 ground_curve = 0.13
+sun_angle_max = 13.2
 
 [sub_resource type="Sky" id="Sky_srg7c"]
 sky_material = SubResource("ProceduralSkyMaterial_vibap")
@@ -27,7 +28,7 @@ environment = SubResource("Environment_8jcgm")
 camera_attributes = SubResource("CameraAttributesPractical_0gcl0")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(-0.866024, -0.433016, 0.250001, 0, 0.499998, 0.866026, -0.500003, 0.749999, -0.43301, 0, 0, 0)
+transform = Transform3D(-0.866026, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, 0.433013, -0.75, 0, 0, 0)
 shadow_enabled = true
 shadow_blur = 2.0
 directional_shadow_blend_splits = true
