@@ -862,6 +862,10 @@ Dictionary Terrain3D::get_raycast_result(const Vector3 &p_src_pos, const Vector3
 		return Dictionary();
 	}
 	PhysicsDirectSpaceState3D *space_state = get_world_3d()->get_direct_space_state();
+	if (!space_state) {
+		LOG(ERROR, "Invalid PhysicsDirectSpaceState3D");
+		return Dictionary();
+	}
 	Ref<PhysicsRayQueryParameters3D> query = PhysicsRayQueryParameters3D::create(p_src_pos, p_src_pos + p_direction, p_col_mask);
 	if (_collision && p_exclude_self) {
 		query->set_exclude(TypedArray<RID>(_collision->get_rid()));
