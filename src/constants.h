@@ -49,32 +49,6 @@ static const Vector3 V3_ZERO{ 0.f, 0.f, 0.f };
 static const Vector3 V3_MAX{ FLT_MAX, FLT_MAX, FLT_MAX };
 static const Vector3 V3_NAN{ NAN, NAN, NAN };
 static const Vector3 V3_UP{ 0.f, 1.f, 0.f };
-//static const Vector3 V3_DOWN{ 0.f, -1.f, 0.f };
-
-struct Vector2iHash {
-	std::size_t operator()(const Vector2i &v) const {
-		std::size_t h1 = std::hash<int>()(v.x);
-		std::size_t h2 = std::hash<int>()(v.y);
-		return h1 ^ (h2 << 1);
-	}
-};
-
-struct PairVector2iIntHash {
-	std::size_t operator()(const std::pair<Vector2i, int> &p) const {
-		std::size_t h1 = Vector2iHash{}(p.first);
-		std::size_t h2 = std::hash<int>{}(p.second);
-		return h1 ^ (h2 << 1);
-	}
-};
-
-struct Vector3Hash {
-	std::size_t operator()(const Vector3 &v) const {
-		std::size_t h1 = std::hash<float>()(v.x);
-		std::size_t h2 = std::hash<float>()(v.y);
-		std::size_t h3 = std::hash<float>()(v.z);
-		return h1 ^ (h2 << 1) ^ (h3 << 2);
-	}
-};
 
 // Set class name for logger.h
 
