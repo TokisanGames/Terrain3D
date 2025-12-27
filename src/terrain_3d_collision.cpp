@@ -414,7 +414,53 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 	}
 	LOG(EXTREME, "Collision update time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 }
+void Terrain3DCollision::update_region(const Vector2i &p_region_loc) {
+	IS_INIT(VOID);
+	if (!_initialized) {
+		return;
+	}
 
+	if (is_dynamic_mode()) {
+		LOG(WARN, "update_region() not applicable in dynamic mode");
+		return;
+	}
+
+	IS_DATA_INIT(VOID);
+	const Terrain3DData *data = _terrain->get_data();
+
+	// Find shape index for this region
+	TypedArray<Vector2i> region_locs = data->get_region_locations();
+	int shape_index = -1;
+	for (int i = 0; i < region_locs.size(); i++) {
+		if (Vector2i(region_locs[i]) == p_region_loc) {
+			shape_index = i;
+			break;
+		}
+	}
+
+	if (shape_index < 0) {
+		LOG(WARN, "Region not found: ", p_region_loc);
+		return;
+	}
+
+	int region_size = _terrain->get_region_size();
+	real_t spacing = _terrain->get_vertex_spacing();
+
+	Vector2i shape_pos = p_region_loc * region_size;
+	Dictionary shape_data = _get_shape_data(shape_pos, region_size);
+
+	if (shape_data.is_empty()) {
+		LOG(ERROR, "Failed to get shape data for region: ", p_region_loc);
+		return;
+	}
+
+	Transform3D xform = shape_data["xform"];
+	xform.scale(Vector3(spacing, 1.f, spacing));
+	_shape_set_transform(shape_index, xform);
+	_shape_set_data(shape_index, shape_data);
+
+	LOG(DEBUG, "Updated collision for region: ", p_region_loc);
+}
 void Terrain3DCollision::destroy() {
 	_initialized = false;
 	_last_snapped_pos = V2I_MAX;
@@ -571,6 +617,7 @@ void Terrain3DCollision::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("build"), &Terrain3DCollision::build);
 	ClassDB::bind_method(D_METHOD("update", "rebuild"), &Terrain3DCollision::update, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("update_region", "region_loc"), &Terrain3DCollision::update_region);
 	ClassDB::bind_method(D_METHOD("destroy"), &Terrain3DCollision::destroy);
 	ClassDB::bind_method(D_METHOD("set_mode", "mode"), &Terrain3DCollision::set_mode);
 	ClassDB::bind_method(D_METHOD("get_mode"), &Terrain3DCollision::get_mode);
