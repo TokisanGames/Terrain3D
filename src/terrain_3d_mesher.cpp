@@ -277,7 +277,8 @@ void Terrain3DMesher::_clear_mesh_types() {
 // Public Functions
 ///////////////////////////
 
-void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material) {
+void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
+		const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	} else {
@@ -290,11 +291,12 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, co
 
 	LOG(INFO, "Initializing GeoMesh");
 	_scenario = _terrain->get_world_3d()->get_scenario();
-	set_material(p_material);
-	set_lods(p_lods);
-	set_mesh_size(p_mesh_size);
-	set_tessellation_level(p_tessellation_level);
-	set_vertex_spacing(p_vertex_spacing);
+	_material = p_material;
+	_lods = p_lods;
+	_tessellation_level = p_tessellation_level;
+	_mesh_size = p_mesh_size;
+	_vertex_spacing = p_vertex_spacing;
+	_render_layers = p_render_layers;
 	_generate_clipmap();
 	update();
 	update_aabbs();
@@ -427,7 +429,6 @@ void Terrain3DMesher::update() {
 		} break;
 	}
 
-	uint32_t render_layers = _terrain->get_render_layers();
 	RenderingServer::ShadowCastingSetting cast_shadows = _terrain->get_cast_shadows();
 	bool visible = _terrain->is_visible_in_tree();
 
@@ -437,7 +438,7 @@ void Terrain3DMesher::update() {
 			for (const RID &rid : mesh_array) {
 				RS->instance_set_visible(rid, visible);
 				RS->instance_set_scenario(rid, _scenario);
-				RS->instance_set_layer_mask(rid, render_layers);
+				RS->instance_set_layer_mask(rid, _render_layers);
 				RS->instance_geometry_set_cast_shadows_setting(rid, cast_shadows);
 				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
 				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
@@ -449,13 +450,23 @@ void Terrain3DMesher::update() {
 
 // Iterates over all meshes and updates their AABBs
 // All instances of each mesh inherit the updated AABB
-void Terrain3DMesher::update_aabbs() {
+// Defaults to using the terrain parameters
+void Terrain3DMesher::update_aabbs(const real_t p_cull_margin, const Vector2 &p_height_range) {
 	IS_DATA_INIT(VOID);
-	real_t cull_margin = _terrain->get_cull_margin();
-	Vector2 height_range = _terrain->get_data()->get_height_range();
-	height_range.y += std::abs(height_range.x);
-
 	LOG(INFO, "Updating ", _mesh_rids.size(), " meshes AABBs")
+	real_t cull_margin;
+	Vector2 height_range;
+	if (p_cull_margin < 0.f) {
+		cull_margin = _terrain->get_cull_margin();
+	} else {
+		cull_margin = p_cull_margin;
+	}
+	if (p_height_range.x == FLT_MAX) {
+		height_range = _terrain->get_data()->get_height_range();
+	} else {
+		height_range = p_height_range;
+	}
+	height_range.y += std::abs(height_range.x);
 	for (const RID &rid : _mesh_rids) {
 		AABB aabb = RS->mesh_get_custom_aabb(rid);
 		aabb.position.y = height_range.x - cull_margin;
