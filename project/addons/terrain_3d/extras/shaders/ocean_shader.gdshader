@@ -1,27 +1,32 @@
 shader_type spatial;
-render_mode cull_disabled, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
+render_mode cull_back, depth_draw_always, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
 
 // Shader adapted from https://docs.godotengine.org/en/4.4/tutorials/shaders/your_first_shader/your_second_3d_shader.html
-// Also includes snippets from https://godotshaders.com/snippet/useful-code-snippets/
 
+//////////////////////////////
+// Constants
+//////////////////////////////
+const int ITERATIONS_VERTEX = 2;
+const int ITERATIONS_FRAGMENT = 5;
+
+//////////////////////////////
+// Uniforms
+//////////////////////////////
 group_uniforms water;
-uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 0.0;
+uniform float time_scale : hint_range(0.0, 16.0) = 3.0;
+uniform float height_scale : hint_range(0.0, 16.0) = 3.0;
+uniform float ocean_scale : hint_range(0.1, 64.0, 0.1) = 4.0;
+uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 12.0;
 uniform vec3 albedo_color : source_color = vec3(.088, .157, .21);
 uniform float visible_depth : hint_range(0., 10000., .1) = 256.;
 uniform float depth_curve : hint_range(0., 1.) = .2;
-uniform float edge_fade_distance : hint_range(0.0, 10.0, 0.01) = 3.;
-uniform float refraction_strength : hint_range(0.0, 0.1, 0.001) = 0.02;
+uniform float edge_fade_distance : hint_range(0.0, 10.0, 0.01) = 1.;
+uniform float refraction_strength : hint_range(0.0, 0.1, 0.001) = 0.07;
 group_uniforms;
 group_uniforms reflections;
 uniform float fresnel_scale : hint_range(0., 1.) = .065;
 uniform float fresnel_power = 1.;
 uniform float specular : hint_range(0., 1.) = .5;
-group_uniforms;
-group_uniforms waves;
-uniform float height_scale : hint_range(0.01, 128.0, 0.01) = 12;
-uniform float uv_scale : hint_range(1.0, 256.0, 1.0) = 50.0;
-uniform int cell_amount = 10;
-uniform vec2 period = vec2(5., 10.);
 group_uniforms;
 
 // Uniforms set by C++
@@ -38,68 +43,57 @@ uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_n
 
 varying float vertex_distance;
 
-vec2 modulo(vec2 divident, vec2 divisor) {
-    vec2 positiveDivident = mod(divident, divisor) + divisor;
-    return mod(positiveDivident, divisor);
+//////////////////////////////
+// Ocean Noise
+//////////////////////////////
+
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
 
-vec2 random(vec2 value){
-    value = vec2( dot(value, vec2(127.1,311.7) ),
-                  dot(value, vec2(269.5,183.3) ) );
-    return -1.0 + 2.0 * fract(sin(value) * 43758.5453123);
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = smoothstep(0., 1., f);
+    vec2 i1 = i + 1.0;
+
+    float a = hash(i);
+    float b = hash(vec2(i1.x, i.y));
+    float c = hash(vec2(i.x, i1.y));
+    float d = hash(i1);
+
+    return 2.0 * mix(mix(a, b, u.x), mix(c, d, u.x), u.y) - 1.0;
 }
 
-float seamless_noise(vec2 uv) {
-    uv = uv * float(cell_amount);
-    vec2 cellsMinimum = floor(uv);
-    vec2 cellsMaximum = ceil(uv);
-    vec2 uv_fract = fract(uv);
-
-    cellsMinimum = modulo(cellsMinimum, period);
-    cellsMaximum = modulo(cellsMaximum, period);
-
-    vec2 blur = smoothstep(0.0, 1.0, uv_fract);
-
-    vec2 lowerLeftDirection = random(vec2(cellsMinimum.x, cellsMinimum.y));
-    vec2 lowerRightDirection = random(vec2(cellsMaximum.x, cellsMinimum.y));
-    vec2 upperLeftDirection = random(vec2(cellsMinimum.x, cellsMaximum.y));
-    vec2 upperRightDirection = random(vec2(cellsMaximum.x, cellsMaximum.y));
-
-    vec2 fraction = fract(uv);
-
-    return mix( mix( dot( lowerLeftDirection, fraction - vec2(0, 0) ),
-                     dot( lowerRightDirection, fraction - vec2(1, 0) ), blur.x),
-                mix( dot( upperLeftDirection, fraction - vec2(0, 1) ),
-                     dot( upperRightDirection, fraction - vec2(1, 1) ), blur.x), blur.y) * 0.8 + 0.5;
+float octave(vec2 uv) {
+	uv += noise(uv);
+	vec2 wave = 1.0 - abs(sin(uv));
+	// Shapeing
+	float v = wave.x * wave.y + 1e-6;
+	float s = v * inversesqrt(v);
+	return 1.0 - 2.0 * s + v;
 }
 
-float fbm(vec2 uv) {
-    int octaves = 6;
-    float amplitude = 5.0;
-    float frequency = 2.0;
-    float value = 0.0;
+float ocean_height(vec2 pos, int iterations) {
+	float freq = 0.03 * ocean_scale;
+	float amp = 4.0;
+	vec2 uv = pos;
+	uv.x *= 0.7;
+	float h = 0.0;
+	float t = TIME * time_scale;
 
-    for(int i = 0; i < octaves; i++) {
-        value += amplitude * seamless_noise(frequency * uv);
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-    return value;
+	for (int i = 0; i < iterations; i++) {
+	    h += (octave((uv + t) * freq) + octave((uv - t) * freq)) * amp;
+	    uv *= mat2(vec2(1.8, 0.8), vec2(-0.8, 1.8));
+	    freq *= 1.9;
+	    amp *= 0.2;
+	}
+    return h * 0.1 * height_scale;
 }
 
-float wave(vec2 position){
-  position += fbm(position * 0.01) * 2.0 - 1.0;
-  vec2 wv = 1.0 - abs(sin(position));
-  return pow(1.0 - pow(wv.x * wv.y, 0.65), 4.0);
-}
-
-float get_height(vec2 position, float time) {
-  float d = wave((position + time) * 0.4) * 0.3;
-  d += wave((position - time) * 0.3) * 0.3;
-  d += wave((position + time) * 0.5) * 0.2;
-  d += wave((position - time) * 0.6) * 0.2;
-  return d;
-}
+//////////////////////////////
+// Vertex
+//////////////////////////////
 
 void vertex() {
     // Get vertex of flat plane in world coordinates and set world UV
@@ -119,41 +113,59 @@ void vertex() {
         v_fract * round((fract(vertex.xz * 0.25 * inv_scale) - 0.5) * 4.0);
     vertex.xz -= shift * scale * vertex_lerp;
 
-    UV = (vertex.xz) / uv_scale;
+    UV = (vertex.xz);
 
-    float h;
-    h = sea_level + get_height(UV, TIME * 0.5) * height_scale;
-    vertex.y = h;
+    vertex.y = sea_level + ocean_height(UV, ITERATIONS_VERTEX);
 
     VERTEX = (VIEW_MATRIX * vec4(vertex, 1.0)).xyz;
 	vertex_distance = length(vertex - _target_pos);
 }
 
+//////////////////////////////
+// Fragment
+//////////////////////////////
+
 void fragment() {
 	float h, u, v;
-	h = get_height(UV, TIME * 0.5) * height_scale;
-	u = get_height(UV + vec2(.01, 0.), TIME * 0.5) * height_scale;
-	v = get_height(UV + vec2(0., .01), TIME * 0.5) * height_scale;
-	NORMAL = mat3(VIEW_MATRIX) * normalize(vec3(h - u, vertex_distance/1024., h - v));
+	// adjust normal domain as screen space distance increases to reduce high frequency values across pixels
+	float dv = max(0.25, length(fwidth(VERTEX)));
+	h = ocean_height(UV, ITERATIONS_FRAGMENT);
+	u = ocean_height(UV + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
+	v = ocean_height(UV + vec2(0.0, dv), ITERATIONS_FRAGMENT);
+	NORMAL = mat3(VIEW_MATRIX) * normalize(vec3(h - u, dv * _vertex_density, h - v));
 	TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
 
-    float fresnel = clamp(fresnel_scale * pow(1.0 + dot(VIEW, NORMAL), fresnel_power), 0., 1.);
-    ROUGHNESS = fresnel;
+	float fresnel = clamp(fresnel_scale * pow(1.0 + dot(VIEW, NORMAL), fresnel_power), 0., 1.);
+	ROUGHNESS = fresnel;
 	SPECULAR = specular;
 
-	// Refraction: Distort screen UVs using the normal (tangent-space projection)
-    vec2 refract_offset = NORMAL.xz * refraction_strength;
-    vec2 refract_uv = SCREEN_UV + refract_offset;
-    vec3 background = texture(screen_texture, refract_uv).rgb;
+	// Depth fade
+	float alpha = 1. - depth_curve + depth_curve * smoothstep(.0, 1., vertex_distance/visible_depth);
 
-	ALPHA = 1. - depth_curve + depth_curve * smoothstep(.0, 1., vertex_distance/visible_depth);
-    ALBEDO = mix(background, albedo_color, ALPHA);
-
-	// Fade Edge
+	// Edge fade
 	float proximity_depth_tex = textureLod(depth_texture, SCREEN_UV, 0.0).r;
 	vec4 proximity_view_pos = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, proximity_depth_tex, 1.0);
 	proximity_view_pos.xyz /= proximity_view_pos.w;
 	float edge_mask = 1.0 - clamp(1.0 - smoothstep(proximity_view_pos.z + 2. * edge_fade_distance, proximity_view_pos.z, VERTEX.z), 0.0, 1.0);
-	ALPHA = clamp(ALPHA - edge_mask, 0., 1.);
+	alpha = clamp(alpha - edge_mask, 0., 1.);
+
+	// Refraction: Distort screen UVs using the normal (tangent-space projection)
+	vec2 refract_offset = NORMAL.xz * refraction_strength;
+	// limit refraction at the bottom edge of the screen as normals push away in view direction.
+	float y_limit = 1.0 - smoothstep(.0, .25, 1.-SCREEN_UV.y);
+	refract_offset = mix(refract_offset, vec2(0.), max(edge_mask, y_limit));
+	vec2 refract_uv = SCREEN_UV + refract_offset;
+	
+	// Invert refract if target screenspace pixel is above ocean surface, replaces major artifact with minor one.
+	proximity_depth_tex = textureLod(depth_texture, refract_uv, 0.0).r;
+	proximity_view_pos = INV_PROJECTION_MATRIX * vec4(refract_uv * 2.0 - 1.0, proximity_depth_tex, 1.0);
+	proximity_view_pos.xyz /= proximity_view_pos.w;
+	refract_uv = SCREEN_UV + mix(refract_offset * (float(proximity_view_pos.z < VERTEX.z) * 2.0 - 1.0), vec2(0.), max(edge_mask, y_limit));
+	
+	vec3 background = texture(screen_texture, refract_uv).rgb;
+
+	ALBEDO = mix(background, albedo_color * background, alpha * alpha);
+	ALPHA = clamp(1.0 - edge_mask, 0., 1.);
+
 }
