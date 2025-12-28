@@ -36,6 +36,9 @@ func _physics_process(p_delta) -> void:
 	if gravity_enabled:
 		velocity.y -= 40 * p_delta
 	move_and_slide()
+	# Allow player to walk on waves in the ocean
+	if get_parent().terrain.ocean_enabled:
+		position.y = max(4.5, position.y)
 
 
 # Returns the input vector relative to the camera. Forward is always the direction the camera is facing

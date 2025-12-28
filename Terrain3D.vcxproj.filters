@@ -289,6 +289,12 @@
     <None Include="src\shaders\projection.glsl">
       <Filter>4. Shaders</Filter>
     </None>
+    <None Include="doc\build_docs.sh">
+      <Filter>1. Project Files</Filter>
+    </None>
+    <None Include="project\addons\terrain_3d\extras\shaders\ocean_shader.gdshader">
+      <Filter>4. Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -343,6 +349,9 @@
       <Filter>4. Shaders</Filter>
     </Text>
     <Text Include="doc\_new_release_process.txt">
+      <Filter>1. Project Files</Filter>
+    </Text>
+    <Text Include="doc\requirements.txt">
       <Filter>1. Project Files</Filter>
     </Text>
   </ItemGroup>
