@@ -54,18 +54,11 @@ private:
 
 	// Object references
 	Terrain3DData *_data = nullptr;
-	Ref<Terrain3DMaterial> _material;
 	Ref<Terrain3DAssets> _assets;
-	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DCollision *_collision = nullptr;
-	Terrain3DMesher *_terrain_mesher = nullptr;
+	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DEditor *_editor = nullptr;
 	Object *_editor_plugin = nullptr;
-
-	// Tracked Targets
-	TargetNode3D _clipmap_target;
-	TargetNode3D _collision_target;
-	TargetNode3D _camera; // Fallback target for clipmap and collision
 
 	// Regions
 	RegionSize _region_size = SIZE_256;
@@ -73,39 +66,46 @@ private:
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
-	// Meshes
+	// Tracked Targets
+	TargetNode3D _clipmap_target;
+	TargetNode3D _collision_target;
+	TargetNode3D _camera; // Fallback target for clipmap and collision
+
+	// Terrain Mesh
+	Terrain3DMesher *_terrain_mesher = nullptr;
+	Ref<Terrain3DMaterial> _material;
 	int _mesh_lods = 7;
 	int _mesh_size = 48;
-	int _tessellation_level = 0;
 	real_t _vertex_spacing = 1.0f;
-
-	// Ocean
-	Terrain3DMesher *_ocean_mesher = nullptr;
-	Ref<Material> _ocean_material;
-	bool _ocean_enabled = false;
-	int _ocean_mesh_lods = 7;
-	int _ocean_mesh_size = 48;
-	int _ocean_tessellation_level = 0;
-	real_t _ocean_vertex_spacing = 1.0f;
-
-	// Rendering
-	uint32_t _render_layers = 1u | (1u << 31u); // Bit 1 and 32 for the cursor
-	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
-	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
-	real_t _cull_margin = 0.0f;
-	bool _free_editor_textures = true;
-
-	// Mouse cursor
-	SubViewport *_mouse_vp = nullptr;
-	Camera3D *_mouse_cam = nullptr;
-	MeshInstance3D *_mouse_quad = nullptr;
-	uint32_t _mouse_layer = 32u;
+	int _tessellation_level = 0;
 
 	// Displacement Buffer
 	SubViewport *_d_buffer_vp = nullptr;
 	ColorRect *_d_buffer_rect = nullptr;
 	Vector2 _last_buffer_position = V2_MAX;
 
+	// Terrain Rendering
+	uint32_t _render_layers = 1u | (1u << 31u); // Bit 1 and 32 for the cursor
+	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
+	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
+	real_t _cull_margin = 0.0f;
+
+	// Ocean Mesh
+	Terrain3DMesher *_ocean_mesher = nullptr;
+	Ref<Material> _ocean_material;
+	bool _ocean_enabled = false;
+	int _ocean_mesh_lods = 9;
+	int _ocean_mesh_size = 32;
+	real_t _ocean_vertex_spacing = 1.0f;
+	int _ocean_tessellation_level = 0;
+
+	// Rendering
+	bool _free_editor_textures = true;
+	// Mouse cursor
+	SubViewport *_mouse_vp = nullptr;
+	Camera3D *_mouse_cam = nullptr;
+	MeshInstance3D *_mouse_quad = nullptr;
+	uint32_t _mouse_layer = 32u;
 	// Parent containers for child nodes
 	Node3D *_label_parent;
 
@@ -113,29 +113,29 @@ private:
 	void __physics_process(const double p_delta);
 	void _grab_camera();
 
-	void _build_containers();
-	void _destroy_containers();
-	void _destroy_labels();
-
-	void _destroy_instancer();
 	void _destroy_collision(const bool p_final = false);
-	void _update_mesher_aabbs() { _terrain_mesher ? _terrain_mesher->update_aabbs() : void(); }
 
-	void _setup_mouse_picking();
-	void _destroy_mouse_picking();
+	void _update_mesher_aabbs() { _terrain_mesher ? _terrain_mesher->update_aabbs() : void(); }
 	void _destroy_terrain_mesher(const bool p_final = false);
+	void _update_ocean_uniforms();
 	void _destroy_ocean_mesher(const bool p_final = false);
 
 	void _setup_displacement_buffer();
 	void _update_displacement_buffer();
 	void _destroy_displacement_buffer();
 
+	void _build_containers();
+	void _destroy_containers();
+	void _destroy_labels();
+
+	void _setup_mouse_picking();
+	void _destroy_mouse_picking();
+	void _destroy_instancer();
+
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
 			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
-
-	void _update_ocean_uniforms();
 
 public:
 	static DebugLevel debug_level; // Initialized in terrain_3d.cpp
@@ -153,10 +153,6 @@ public:
 
 	// Object references
 	Terrain3DData *get_data() const { return _data; }
-	Terrain3DMesher *get_mesher() const { return _terrain_mesher; }
-	Terrain3DMesher *get_ocean_mesher() const { return _ocean_mesher; }
-	void set_material(const Ref<Terrain3DMaterial> &p_material);
-	Ref<Terrain3DMaterial> get_material() const { return _material; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DCollision *get_collision() const { return _collision; }
@@ -165,17 +161,6 @@ public:
 	Terrain3DEditor *get_editor() const { return _editor; }
 	void set_plugin(Object *p_plugin);
 	Object *get_plugin() const { return _editor_plugin; }
-
-	// Target Tracking
-	void set_camera(Camera3D *p_camera);
-	Camera3D *get_camera() const { return cast_to<Camera3D>(_camera.ptr()); }
-	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
-	void set_clipmap_target(Node3D *p_node);
-	Vector3 get_clipmap_target_position() const;
-	Node3D *get_collision_target() const { return _collision_target.ptr(); }
-	void set_collision_target(Node3D *p_node);
-	Vector3 get_collision_target_position() const;
-	void snap();
 
 	// Regions
 	void set_region_size(const RegionSize p_size);
@@ -189,64 +174,16 @@ public:
 	int get_label_size() const { return _label_size; }
 	void update_region_labels();
 
-	// Terrain Mesh
-	void set_mesh_lods(const int p_count);
-	int get_mesh_lods() const { return _mesh_lods; }
-	void set_mesh_size(const int p_size);
-	int get_mesh_size() const { return _mesh_size; }
-	void set_vertex_spacing(const real_t p_spacing);
-	real_t get_vertex_spacing() const { return _vertex_spacing; }
-	void set_tessellation_level(const int p_level);
-	int get_tessellation_level() const { return _tessellation_level; }
-
-	// Ocean Mesh
-	void set_ocean_enabled(const bool p_enabled);
-	bool is_ocean_enabled() const { return _ocean_enabled; }
-	void set_ocean_mesh_lods(const int p_count);
-	int get_ocean_mesh_lods() const { return _ocean_mesh_lods; }
-	void set_ocean_mesh_size(const int p_size);
-	int get_ocean_mesh_size() const { return _ocean_mesh_size; }
-	void set_ocean_tessellation_level(const int p_level);
-	int get_ocean_tessellation_level() const { return _ocean_tessellation_level; }
-	void set_ocean_vertex_spacing(const real_t p_spacing);
-	real_t get_ocean_vertex_spacing() const { return _ocean_vertex_spacing; }
-	void set_ocean_material(const Ref<Material> &p_material);
-	Ref<Material> get_ocean_material() const { return _ocean_material; }
-
-	// Material Displacement Aliases
-	void set_displacement_scale(const real_t p_displacement_scale) { _material.is_valid() ? _material->set_displacement_scale(p_displacement_scale) : void(); }
-	real_t get_displacement_scale() const { return _material.is_valid() ? _material->get_displacement_scale() : 1.f; }
-	void set_displacement_sharpness(const real_t p_displacement_sharpness) { _material.is_valid() ? _material->set_displacement_sharpness(p_displacement_sharpness) : void(); }
-	real_t get_displacement_sharpness() const { return _material.is_valid() ? _material->get_displacement_sharpness() : 0.25f; }
-	void set_buffer_shader_override_enabled(const bool p_enabled) { _material.is_valid() ? _material->set_buffer_shader_override_enabled(p_enabled) : void(); }
-	bool is_buffer_shader_override_enabled() const { return _material.is_valid() ? _material->is_buffer_shader_override_enabled() : false; }
-	void set_buffer_shader_override(const Ref<Shader> &p_shader) { return _material.is_valid() ? _material->set_buffer_shader_override(p_shader) : void(); }
-	Ref<Shader> get_buffer_shader_override() const { return _material.is_valid() ? _material->get_buffer_shader_override() : Ref<Shader>(); }
-
-	// Rendering
-	void set_render_layers(const uint32_t p_layers);
-	uint32_t get_render_layers() const { return _render_layers; };
-	void set_mouse_layer(const uint32_t p_layer);
-	uint32_t get_mouse_layer() const { return _mouse_layer; };
-	void set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows);
-	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
-	void set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode);
-	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
-	void set_cull_margin(const real_t p_margin);
-	real_t get_cull_margin() const { return _cull_margin; };
-	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
-	bool get_free_editor_textures() const { return _free_editor_textures; };
-
-	// Utility
-	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
-	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const uint32_t p_col_mask = 0xFFFFFFFF, const bool p_exclude_self = false) const;
-	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
-	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
-
-	// Warnings
-	void set_warning(const uint8_t p_warning, const bool p_enabled);
-	uint8_t get_warnings() const { return _warnings; }
-	PackedStringArray _get_configuration_warnings() const override;
+	// Target Tracking
+	void set_camera(Camera3D *p_camera);
+	Camera3D *get_camera() const { return cast_to<Camera3D>(_camera.ptr()); }
+	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
+	void set_clipmap_target(Node3D *p_node);
+	Vector3 get_clipmap_target_position() const;
+	Node3D *get_collision_target() const { return _collision_target.ptr(); }
+	void set_collision_target(Node3D *p_node);
+	Vector3 get_collision_target_position() const;
+	void snap();
 
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }
@@ -264,9 +201,72 @@ public:
 	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { _collision ? _collision->set_physics_material(p_mat) : void(); }
 	Ref<PhysicsMaterial> get_physics_material() const { return _collision ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
 
-	// Instancer Aliases
+	// Terrain Mesh
+	Terrain3DMesher *get_mesher() const { return _terrain_mesher; }
+	void set_material(const Ref<Terrain3DMaterial> &p_material);
+	Ref<Terrain3DMaterial> get_material() const { return _material; }
+	void set_mesh_lods(const int p_count);
+	int get_mesh_lods() const { return _mesh_lods; }
+	void set_mesh_size(const int p_size);
+	int get_mesh_size() const { return _mesh_size; }
+	void set_vertex_spacing(const real_t p_spacing);
+	real_t get_vertex_spacing() const { return _vertex_spacing; }
+	void set_tessellation_level(const int p_level);
+	int get_tessellation_level() const { return _tessellation_level; }
+
+	// Material Displacement Aliases
+	void set_displacement_scale(const real_t p_displacement_scale) { _material.is_valid() ? _material->set_displacement_scale(p_displacement_scale) : void(); }
+	real_t get_displacement_scale() const { return _material.is_valid() ? _material->get_displacement_scale() : 1.f; }
+	void set_displacement_sharpness(const real_t p_displacement_sharpness) { _material.is_valid() ? _material->set_displacement_sharpness(p_displacement_sharpness) : void(); }
+	real_t get_displacement_sharpness() const { return _material.is_valid() ? _material->get_displacement_sharpness() : 0.25f; }
+	void set_buffer_shader_override_enabled(const bool p_enabled) { _material.is_valid() ? _material->set_buffer_shader_override_enabled(p_enabled) : void(); }
+	bool is_buffer_shader_override_enabled() const { return _material.is_valid() ? _material->is_buffer_shader_override_enabled() : false; }
+	void set_buffer_shader_override(const Ref<Shader> &p_shader) { return _material.is_valid() ? _material->set_buffer_shader_override(p_shader) : void(); }
+	Ref<Shader> get_buffer_shader_override() const { return _material.is_valid() ? _material->get_buffer_shader_override() : Ref<Shader>(); }
+
+	// Terrain Rendering
+	void set_render_layers(const uint32_t p_layers);
+	uint32_t get_render_layers() const { return _render_layers; };
+	void set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows);
+	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
+	void set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode);
+	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
+	void set_cull_margin(const real_t p_margin);
+	real_t get_cull_margin() const { return _cull_margin; };
+
+	// Ocean Mesh
+	Terrain3DMesher *get_ocean_mesher() const { return _ocean_mesher; }
+	void set_ocean_enabled(const bool p_enabled);
+	bool is_ocean_enabled() const { return _ocean_enabled; }
+	void set_ocean_material(const Ref<Material> &p_material);
+	Ref<Material> get_ocean_material() const { return _ocean_material; }
+	void set_ocean_mesh_lods(const int p_count);
+	int get_ocean_mesh_lods() const { return _ocean_mesh_lods; }
+	void set_ocean_mesh_size(const int p_size);
+	int get_ocean_mesh_size() const { return _ocean_mesh_size; }
+	void set_ocean_vertex_spacing(const real_t p_spacing);
+	real_t get_ocean_vertex_spacing() const { return _ocean_vertex_spacing; }
+	void set_ocean_tessellation_level(const int p_level);
+	int get_ocean_tessellation_level() const { return _ocean_tessellation_level; }
+
+	// Rendering
+	void set_mouse_layer(const uint32_t p_layer);
+	uint32_t get_mouse_layer() const { return _mouse_layer; };
+	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
+	bool get_free_editor_textures() const { return _free_editor_textures; };
 	void set_instancer_mode(const InstancerMode p_mode) { _instancer ? _instancer->set_mode(p_mode) : void(); }
 	InstancerMode get_instancer_mode() const { return _instancer ? _instancer->get_mode() : InstancerMode::NORMAL; }
+
+	// Utility
+	Vector3 get_intersection(const Vector3 &p_src_pos, const Vector3 &p_direction, const bool p_gpu_mode = false);
+	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const uint32_t p_col_mask = 0xFFFFFFFF, const bool p_exclude_self = false) const;
+	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
+	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
+
+	// Warnings
+	void set_warning(const uint8_t p_warning, const bool p_enabled);
+	uint8_t get_warnings() const { return _warnings; }
+	PackedStringArray _get_configuration_warnings() const override;
 
 	// Overlay Aliases
 	void set_show_region_grid(const bool p_enabled) { _material.is_valid() ? _material->set_show_region_grid(p_enabled) : void(); }

@@ -157,30 +157,6 @@ void Terrain3D::_grab_camera() {
 	}
 }
 
-void Terrain3D::_build_containers() {
-	_label_parent = memnew(Node3D);
-	_label_parent->set_name("Labels");
-	add_child(_label_parent, true);
-}
-
-void Terrain3D::_destroy_containers() {
-	memdelete_safely(_label_parent);
-}
-
-void Terrain3D::_destroy_labels() {
-	Array labels = _label_parent->get_children();
-	LOG(DEBUG, "Destroying ", labels.size(), " region labels");
-	for (const Variant &var : labels) {
-		Node *label = cast_to<Node>(var);
-		memdelete_safely(label);
-	}
-}
-
-void Terrain3D::_destroy_instancer() {
-	LOG(INFO, "Destroying Instancer");
-	memdelete_safely(_instancer);
-}
-
 void Terrain3D::_destroy_collision(const bool p_final) {
 	LOG(INFO, "Destroying Collision");
 	if (_collision) {
@@ -202,6 +178,17 @@ void Terrain3D::_destroy_terrain_mesher(const bool p_final) {
 	}
 }
 
+void Terrain3D::_update_ocean_uniforms() {
+	if (_ocean_material.is_valid()) {
+		RS->material_set_param(_ocean_material->get_rid(), "_mesh_size", _ocean_mesh_size);
+		RS->material_set_param(_ocean_material->get_rid(), "_vertex_spacing", _ocean_vertex_spacing);
+		real_t tessellation_level = real_t(_ocean_tessellation_level);
+		real_t subdiv = pow(2.f, tessellation_level);
+		RS->material_set_param(_ocean_material->get_rid(), "_subdiv", subdiv);
+		RS->material_set_param(_ocean_material->get_rid(), "_tessellation_level", tessellation_level);
+	}
+}
+
 void Terrain3D::_destroy_ocean_mesher(const bool p_final) {
 	LOG(INFO, "Destroying GeoMesh");
 	if (_ocean_mesher) {
@@ -211,6 +198,72 @@ void Terrain3D::_destroy_ocean_mesher(const bool p_final) {
 			_ocean_mesher = nullptr;
 		}
 	}
+}
+
+void Terrain3D::_setup_displacement_buffer() {
+	if (!is_inside_tree()) {
+		LOG(ERROR, "Not inside the tree, skipping displacement buffer setup");
+		return;
+	}
+	_destroy_displacement_buffer();
+	LOG(INFO, "Setting up displacement buffer");
+	_d_buffer_vp = memnew(SubViewport);
+	_d_buffer_vp->set_name("DBufferViewport");
+	add_child(_d_buffer_vp, true);
+	_d_buffer_vp->set_size(Vector2i(2, 2));
+	_d_buffer_vp->set_disable_3d(true);
+	_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
+	_d_buffer_vp->set_disable_input(true);
+	_d_buffer_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+
+	_d_buffer_rect = memnew(ColorRect);
+	_d_buffer_rect->set_name("DBufferRect");
+	_d_buffer_vp->add_child(_d_buffer_rect, true);
+	_d_buffer_rect->set_anchors_preset(Control::PRESET_FULL_RECT);
+}
+
+void Terrain3D::_update_displacement_buffer() {
+	if (!_d_buffer_vp) {
+		return;
+	}
+	if (_tessellation_level == 0) {
+		_d_buffer_vp->set_size(V2I_ZERO);
+		_d_buffer_rect->set_size(V2I_ZERO);
+	} else {
+		_d_buffer_vp->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
+		_d_buffer_rect->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
+		LOG(INFO, "Updating displacement buffer to Size: ", _d_buffer_vp->get_size());
+		if (_material.is_valid() && _material->get_material_rid().is_valid()) {
+			RS->canvas_item_set_material(_d_buffer_rect->get_canvas_item(), _material->get_buffer_material_rid());
+			RS->material_set_param(_material->get_material_rid(), "_displacement_buffer", _d_buffer_vp->get_texture()->get_rid());
+		}
+	}
+}
+
+void Terrain3D::_build_containers() {
+	_label_parent = memnew(Node3D);
+	_label_parent->set_name("Labels");
+	add_child(_label_parent, true);
+}
+
+void Terrain3D::_destroy_containers() {
+	memdelete_safely(_label_parent);
+}
+
+void Terrain3D::_destroy_labels() {
+	Array labels = _label_parent->get_children();
+	LOG(DEBUG, "Destroying ", labels.size(), " region labels");
+	for (const Variant &var : labels) {
+		Node *label = cast_to<Node>(var);
+		memdelete_safely(label);
+	}
+}
+
+void Terrain3D::_destroy_displacement_buffer() {
+	LOG(DEBUG, "Freeing d_buffer_rect");
+	memdelete_safely(_d_buffer_rect);
+	LOG(DEBUG, "Freeing d_buffer_vp");
+	memdelete_safely(_d_buffer_vp);
 }
 
 void Terrain3D::_setup_mouse_picking() {
@@ -284,51 +337,9 @@ void Terrain3D::_destroy_mouse_picking() {
 	memdelete_safely(_mouse_vp);
 }
 
-void Terrain3D::_setup_displacement_buffer() {
-	if (!is_inside_tree()) {
-		LOG(ERROR, "Not inside the tree, skipping displacement buffer setup");
-		return;
-	}
-	_destroy_displacement_buffer();
-	LOG(INFO, "Setting up displacement buffer");
-	_d_buffer_vp = memnew(SubViewport);
-	_d_buffer_vp->set_name("DBufferViewport");
-	add_child(_d_buffer_vp, true);
-	_d_buffer_vp->set_size(Vector2i(2, 2));
-	_d_buffer_vp->set_disable_3d(true);
-	_d_buffer_vp->set_update_mode(SubViewport::UPDATE_ONCE);
-	_d_buffer_vp->set_disable_input(true);
-	_d_buffer_vp->set_default_canvas_item_texture_filter(Viewport::DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
-
-	_d_buffer_rect = memnew(ColorRect);
-	_d_buffer_rect->set_name("DBufferRect");
-	_d_buffer_vp->add_child(_d_buffer_rect, true);
-	_d_buffer_rect->set_anchors_preset(Control::PRESET_FULL_RECT);
-}
-
-void Terrain3D::_update_displacement_buffer() {
-	if (!_d_buffer_vp) {
-		return;
-	}
-	if (_tessellation_level == 0) {
-		_d_buffer_vp->set_size(V2I_ZERO);
-		_d_buffer_rect->set_size(V2I_ZERO);
-	} else {
-		_d_buffer_vp->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
-		_d_buffer_rect->set_size(Vector2i(_mesh_size * 4 * _tessellation_level, _mesh_size * 4));
-		LOG(INFO, "Updating displacement buffer to Size: ", _d_buffer_vp->get_size());
-		if (_material.is_valid() && _material->get_material_rid().is_valid()) {
-			RS->canvas_item_set_material(_d_buffer_rect->get_canvas_item(), _material->get_buffer_material_rid());
-			RS->material_set_param(_material->get_material_rid(), "_displacement_buffer", _d_buffer_vp->get_texture()->get_rid());
-		}
-	}
-}
-
-void Terrain3D::_destroy_displacement_buffer() {
-	LOG(DEBUG, "Freeing d_buffer_rect");
-	memdelete_safely(_d_buffer_rect);
-	LOG(DEBUG, "Freeing d_buffer_vp");
-	memdelete_safely(_d_buffer_vp);
+void Terrain3D::_destroy_instancer() {
+	LOG(INFO, "Destroying Instancer");
+	memdelete_safely(_instancer);
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
@@ -451,17 +462,6 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 	}
 }
 
-void Terrain3D::_update_ocean_uniforms() {
-	if (_ocean_material.is_valid()) {
-		RS->material_set_param(_ocean_material->get_rid(), "_mesh_size", _ocean_mesh_size);
-		RS->material_set_param(_ocean_material->get_rid(), "_vertex_spacing", _ocean_vertex_spacing);
-		real_t tessellation_level = real_t(_ocean_tessellation_level);
-		real_t subdiv = pow(2.f, tessellation_level);
-		RS->material_set_param(_ocean_material->get_rid(), "_subdiv", subdiv);
-		RS->material_set_param(_ocean_material->get_rid(), "_tessellation_level", tessellation_level);
-	}
-}
-
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -509,15 +509,6 @@ void Terrain3D::set_data_directory(String p_dir) {
 	update_configuration_warnings();
 }
 
-void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
-	SET_IF_DIFF(_material, p_material);
-	LOG(INFO, "Setting material");
-	_initialized = false;
-	_initialize();
-	LOG(DEBUG, "Emitting material_changed");
-	emit_signal("material_changed");
-}
-
 void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
 	SET_IF_DIFF(_assets, p_assets);
 	LOG(INFO, "Setting asset list");
@@ -546,6 +537,75 @@ void Terrain3D::set_plugin(Object *p_plugin) {
 	}
 	SET_IF_DIFF(_editor_plugin, p_plugin);
 	LOG(INFO, "Setting Editor Plugin: ", _editor_plugin);
+}
+
+void Terrain3D::set_region_size(const RegionSize p_size) {
+	if (!is_valid_region_size(p_size)) {
+		LOG(ERROR, "Invalid region size: ", p_size, ". Must be power of 2, 64-2048");
+		return;
+	}
+	SET_IF_DIFF(_region_size, p_size);
+	LOG(INFO, "Setting region size: ", _region_size);
+	if (_data) {
+		_data->_region_size = _region_size;
+		_data->_region_sizev = V2I(_region_size);
+	}
+	if (_material.is_valid()) {
+		_material->update();
+	}
+	_update_displacement_buffer();
+}
+
+void Terrain3D::set_save_16_bit(const bool p_enabled) {
+	SET_IF_DIFF(_save_16_bit, p_enabled);
+	LOG(INFO, "Save heightmaps as 16-bit: ", _save_16_bit);
+	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
+	for (Ref<Terrain3DRegion> region : regions) {
+		region->set_modified(true);
+	}
+}
+
+void Terrain3D::set_label_distance(const real_t p_distance) {
+	SET_IF_DIFF(_label_distance, CLAMP(p_distance, 0.f, 100000.f));
+	LOG(INFO, "Setting region label distance: ", _label_distance);
+	update_region_labels();
+}
+
+void Terrain3D::set_label_size(const int p_size) {
+	SET_IF_DIFF(_label_size, CLAMP(p_size, 24, 128));
+	LOG(INFO, "Setting region label size: ", _label_size);
+	update_region_labels();
+}
+
+void Terrain3D::update_region_labels() {
+	_destroy_labels();
+	if (_label_distance > 0.f && _data) {
+		TypedArray<Vector2i> region_locations = _data->get_region_locations();
+		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
+		for (const Vector2i &region_loc : region_locations) {
+			Label3D *label = memnew(Label3D);
+			String text = region_loc;
+			label->set_name("Label3D" + text.replace(" ", ""));
+			label->set_pixel_size(.001f);
+			label->set_billboard_mode(BaseMaterial3D::BILLBOARD_ENABLED);
+			label->set_draw_flag(Label3D::FLAG_DOUBLE_SIDED, true);
+			label->set_draw_flag(Label3D::FLAG_DISABLE_DEPTH_TEST, true);
+			label->set_draw_flag(Label3D::FLAG_FIXED_SIZE, true);
+			label->set_text(text);
+			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
+			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
+			label->set_font_size(_label_size);
+			label->set_outline_size(_label_size / 6);
+			label->set_visibility_range_end(_label_distance);
+			label->set_visibility_range_end_margin(_label_distance / 10.f);
+			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
+			_label_parent->add_child(label, true);
+			Vector3 pos = Vector3(real_t(region_loc.x) + .5f, 0.f, real_t(region_loc.y) + .5f) * _region_size * _vertex_spacing;
+			real_t height = _data->get_height(pos);
+			pos.y = (std::isnan(height)) ? 0 : height;
+			label->set_position(pos);
+		}
+	}
 }
 
 void Terrain3D::set_camera(Camera3D *p_camera) {
@@ -619,72 +679,21 @@ void Terrain3D::snap() {
 	}
 }
 
-void Terrain3D::set_region_size(const RegionSize p_size) {
-	if (!is_valid_region_size(p_size)) {
-		LOG(ERROR, "Invalid region size: ", p_size, ". Must be power of 2, 64-2048");
-		return;
-	}
-	SET_IF_DIFF(_region_size, p_size);
-	LOG(INFO, "Setting region size: ", _region_size);
-	if (_data) {
-		_data->_region_size = _region_size;
-		_data->_region_sizev = V2I(_region_size);
-	}
-	if (_material.is_valid()) {
+void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
+	SET_IF_DIFF(_material, p_material);
+	LOG(INFO, "Setting material");
+	_initialized = false;
+	_initialize();
+	LOG(DEBUG, "Emitting material_changed");
+	emit_signal("material_changed");
+}
+
+void Terrain3D::set_mesh_lods(const int p_count) {
+	SET_IF_DIFF(_mesh_lods, CLAMP(p_count, 1, 10));
+	LOG(INFO, "Setting mesh levels: ", _mesh_lods);
+	if (_terrain_mesher && _material.is_valid()) {
 		_material->update();
-	}
-	_update_displacement_buffer();
-}
-
-void Terrain3D::set_save_16_bit(const bool p_enabled) {
-	SET_IF_DIFF(_save_16_bit, p_enabled);
-	LOG(INFO, "Save heightmaps as 16-bit: ", _save_16_bit);
-	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
-	for (Ref<Terrain3DRegion> region : regions) {
-		region->set_modified(true);
-	}
-}
-
-void Terrain3D::set_label_distance(const real_t p_distance) {
-	SET_IF_DIFF(_label_distance, CLAMP(p_distance, 0.f, 100000.f));
-	LOG(INFO, "Setting region label distance: ", _label_distance);
-	update_region_labels();
-}
-
-void Terrain3D::set_label_size(const int p_size) {
-	SET_IF_DIFF(_label_size, CLAMP(p_size, 24, 128));
-	LOG(INFO, "Setting region label size: ", _label_size);
-	update_region_labels();
-}
-
-void Terrain3D::update_region_labels() {
-	_destroy_labels();
-	if (_label_distance > 0.f && _data) {
-		TypedArray<Vector2i> region_locations = _data->get_region_locations();
-		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
-		for (const Vector2i &region_loc : region_locations) {
-			Label3D *label = memnew(Label3D);
-			String text = region_loc;
-			label->set_name("Label3D" + text.replace(" ", ""));
-			label->set_pixel_size(.001f);
-			label->set_billboard_mode(BaseMaterial3D::BILLBOARD_ENABLED);
-			label->set_draw_flag(Label3D::FLAG_DOUBLE_SIDED, true);
-			label->set_draw_flag(Label3D::FLAG_DISABLE_DEPTH_TEST, true);
-			label->set_draw_flag(Label3D::FLAG_FIXED_SIZE, true);
-			label->set_text(text);
-			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
-			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
-			label->set_font_size(_label_size);
-			label->set_outline_size(_label_size / 6);
-			label->set_visibility_range_end(_label_distance);
-			label->set_visibility_range_end_margin(_label_distance / 10.f);
-			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
-			_label_parent->add_child(label, true);
-			Vector3 pos = Vector3(real_t(region_loc.x) + .5f, 0.f, real_t(region_loc.y) + .5f) * _region_size * _vertex_spacing;
-			real_t height = _data->get_height(pos);
-			pos.y = (std::isnan(height)) ? 0 : height;
-			label->set_position(pos);
-		}
+		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid());
 	}
 }
 
@@ -695,15 +704,6 @@ void Terrain3D::set_mesh_size(const int p_size) {
 		_material->update();
 		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid());
 		_update_displacement_buffer();
-	}
-}
-
-void Terrain3D::set_mesh_lods(const int p_count) {
-	SET_IF_DIFF(_mesh_lods, CLAMP(p_count, 1, 10));
-	LOG(INFO, "Setting mesh levels: ", _mesh_lods);
-	if (_terrain_mesher && _material.is_valid()) {
-		_material->update();
-		_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid());
 	}
 }
 
@@ -734,6 +734,36 @@ void Terrain3D::set_tessellation_level(const int p_level) {
 		_update_displacement_buffer();
 	}
 	notify_property_list_changed();
+}
+
+void Terrain3D::set_render_layers(const uint32_t p_layers) {
+	SET_IF_DIFF(_render_layers, p_layers);
+	LOG(INFO, "Setting terrain render layers to: ", p_layers);
+	if (_terrain_mesher) {
+		_terrain_mesher->update();
+	}
+}
+
+void Terrain3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
+	SET_IF_DIFF(_cast_shadows, p_cast_shadows);
+	if (_terrain_mesher) {
+		_terrain_mesher->update();
+	}
+}
+
+void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
+	SET_IF_DIFF(_gi_mode, p_gi_mode);
+	if (_terrain_mesher) {
+		_terrain_mesher->update();
+	}
+}
+
+void Terrain3D::set_cull_margin(const real_t p_margin) {
+	SET_IF_DIFF(_cull_margin, CLAMP(p_margin, 0.f, 100000.f));
+	LOG(INFO, "Setting extra cull margin: ", _cull_margin);
+	if (_terrain_mesher) {
+		_terrain_mesher->update_aabbs();
+	}
 }
 
 void Terrain3D::set_ocean_enabled(const bool p_enabled) {
@@ -768,18 +798,18 @@ void Terrain3D::set_ocean_mesh_size(const int p_size) {
 	}
 }
 
-void Terrain3D::set_ocean_tessellation_level(const int p_level) {
-	SET_IF_DIFF(_ocean_tessellation_level, CLAMP(p_level, 0, 6));
-	LOG(INFO, "Setting ocean tessellation level: ", p_level);
+void Terrain3D::set_ocean_vertex_spacing(const real_t p_spacing) {
+	SET_IF_DIFF(_ocean_vertex_spacing, CLAMP(p_spacing, 0.25f, 100.0f));
+	LOG(INFO, "Setting ocean vertex spacing: ", _ocean_vertex_spacing);
 	if (_ocean_mesher && _ocean_enabled) {
 		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 		_update_ocean_uniforms();
 	}
 }
 
-void Terrain3D::set_ocean_vertex_spacing(const real_t p_spacing) {
-	SET_IF_DIFF(_ocean_vertex_spacing, CLAMP(p_spacing, 0.25f, 100.0f));
-	LOG(INFO, "Setting ocean vertex spacing: ", _ocean_vertex_spacing);
+void Terrain3D::set_ocean_tessellation_level(const int p_level) {
+	SET_IF_DIFF(_ocean_tessellation_level, CLAMP(p_level, 0, 6));
+	LOG(INFO, "Setting ocean tessellation level: ", p_level);
 	if (_ocean_mesher && _ocean_enabled) {
 		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 		_update_ocean_uniforms();
@@ -792,14 +822,6 @@ void Terrain3D::set_ocean_material(const Ref<Material> &p_material) {
 	if (_ocean_mesher && _ocean_enabled) {
 		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID());
 		_update_ocean_uniforms();
-	}
-}
-
-void Terrain3D::set_render_layers(const uint32_t p_layers) {
-	SET_IF_DIFF(_render_layers, p_layers);
-	LOG(INFO, "Setting terrain render layers to: ", p_layers);
-	if (_terrain_mesher) {
-		_terrain_mesher->update();
 	}
 }
 
@@ -823,28 +845,6 @@ void Terrain3D::set_mouse_layer(const uint32_t p_layer) {
 	// Set screenquad to mouse layer
 	if (_mouse_quad) {
 		_mouse_quad->set_layer_mask(mouse_mask);
-	}
-}
-
-void Terrain3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
-	SET_IF_DIFF(_cast_shadows, p_cast_shadows);
-	if (_terrain_mesher) {
-		_terrain_mesher->update();
-	}
-}
-
-void Terrain3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
-	SET_IF_DIFF(_gi_mode, p_gi_mode);
-	if (_terrain_mesher) {
-		_terrain_mesher->update();
-	}
-}
-
-void Terrain3D::set_cull_margin(const real_t p_margin) {
-	SET_IF_DIFF(_cull_margin, CLAMP(p_margin, 0.f, 100000.f));
-	LOG(INFO, "Setting extra cull margin: ", _cull_margin);
-	if (_terrain_mesher) {
-		_terrain_mesher->update_aabbs();
 	}
 }
 
@@ -1288,6 +1288,16 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_plugin", "plugin"), &Terrain3D::set_plugin);
 	ClassDB::bind_method(D_METHOD("get_plugin"), &Terrain3D::get_plugin);
 
+	// Regions
+	ClassDB::bind_method(D_METHOD("change_region_size", "size"), &Terrain3D::change_region_size);
+	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
+	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
+	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
+	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
+	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
+	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
+	ClassDB::bind_method(D_METHOD("get_label_size"), &Terrain3D::get_label_size);
+
 	// Target Tracking
 	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
 	ClassDB::bind_method(D_METHOD("get_camera"), &Terrain3D::get_camera);
@@ -1298,16 +1308,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_target"), &Terrain3D::get_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target_position"), &Terrain3D::get_collision_target_position);
 	ClassDB::bind_method(D_METHOD("snap"), &Terrain3D::snap);
-
-	// Regions
-	ClassDB::bind_method(D_METHOD("change_region_size", "size"), &Terrain3D::change_region_size);
-	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
-	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
-	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
-	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
-	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
-	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
-	ClassDB::bind_method(D_METHOD("get_label_size"), &Terrain3D::get_label_size);
 
 	// Collision
 	ClassDB::bind_method(D_METHOD("set_collision_mode", "mode"), &Terrain3D::set_collision_mode);
@@ -1334,6 +1334,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Terrain3D::get_vertex_spacing);
 	ClassDB::bind_method(D_METHOD("set_tessellation_level", "size"), &Terrain3D::set_tessellation_level);
 	ClassDB::bind_method(D_METHOD("get_tessellation_level"), &Terrain3D::get_tessellation_level);
+
+	// Terrain Displacement
 	ClassDB::bind_method(D_METHOD("set_displacement_scale", "scale"), &Terrain3D::set_displacement_scale);
 	ClassDB::bind_method(D_METHOD("get_displacement_scale"), &Terrain3D::get_displacement_scale);
 	ClassDB::bind_method(D_METHOD("set_displacement_sharpness", "sharpness"), &Terrain3D::set_displacement_sharpness);
@@ -1342,6 +1344,16 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_buffer_shader_override_enabled"), &Terrain3D::is_buffer_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("set_buffer_shader_override", "shader"), &Terrain3D::set_buffer_shader_override);
 	ClassDB::bind_method(D_METHOD("get_buffer_shader_override"), &Terrain3D::get_buffer_shader_override);
+
+	// Terrain Rendering
+	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
+	ClassDB::bind_method(D_METHOD("get_render_layers"), &Terrain3D::get_render_layers);
+	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
+	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_gi_mode", "gi_mode"), &Terrain3D::set_gi_mode);
+	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
+	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
+	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
 
 	// Ocean Mesh
 	ClassDB::bind_method(D_METHOD("set_ocean_enabled", "enabled"), &Terrain3D::set_ocean_enabled);
@@ -1358,16 +1370,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_ocean_material"), &Terrain3D::get_ocean_material);
 
 	// Rendering
-	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Terrain3D::set_render_layers);
-	ClassDB::bind_method(D_METHOD("get_render_layers"), &Terrain3D::get_render_layers);
 	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Terrain3D::set_mouse_layer);
 	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Terrain3D::get_mouse_layer);
-	ClassDB::bind_method(D_METHOD("set_cast_shadows", "shadow_casting_setting"), &Terrain3D::set_cast_shadows);
-	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Terrain3D::get_cast_shadows);
-	ClassDB::bind_method(D_METHOD("set_gi_mode", "gi_mode"), &Terrain3D::set_gi_mode);
-	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Terrain3D::get_gi_mode);
-	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Terrain3D::set_cull_margin);
-	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Terrain3D::get_cull_margin);
 	ClassDB::bind_method(D_METHOD("set_free_editor_textures"), &Terrain3D::set_free_editor_textures);
 	ClassDB::bind_method(D_METHOD("get_free_editor_textures"), &Terrain3D::get_free_editor_textures);
 	ClassDB::bind_method(D_METHOD("set_instancer_mode", "mode"), &Terrain3D::set_instancer_mode);
@@ -1470,6 +1474,12 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "buffer_shader_override_enabled"), "set_buffer_shader_override_enabled", "is_buffer_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "buffer_shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_buffer_shader_override", "get_buffer_shader_override");
 
+	ADD_SUBGROUP("Terrain Rendering", "");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_gi_mode", "get_gi_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
+
 	ADD_GROUP("Ocean Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ocean_enabled"), "set_ocean_enabled", "is_ocean_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_ocean_mesh_lods", "get_ocean_mesh_lods");
@@ -1479,11 +1489,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_ocean_material", "get_ocean_material");
 
 	ADD_GROUP("Rendering", "");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layers", "get_render_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_cast_shadows", "get_cast_shadows");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_gi_mode", "get_gi_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_cull_margin", "get_cull_margin");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_editor_textures"), "set_free_editor_textures", "get_free_editor_textures");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "instancer_mode", PROPERTY_HINT_ENUM, "Disabled,Normal"), "set_instancer_mode", "get_instancer_mode");
 
