@@ -15,7 +15,7 @@ bool is_none_bg(const vec2 uv) {
 //INSERT: NONE_CHECK
 		|| (_background_mode == 0u && is_none_bg(UV))
 //INSERT: FLAT_UNIFORMS
-uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
+uniform float ground_level : hint_range(-1000., 1000.) = -20.0;
 uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 
 //INSERT: FLAT_FUNCTIONS
