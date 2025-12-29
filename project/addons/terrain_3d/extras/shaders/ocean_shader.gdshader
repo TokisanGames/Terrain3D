@@ -1,13 +1,11 @@
 shader_type spatial;
 render_mode cull_back, depth_draw_always, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
 
-// Shader adapted from https://docs.godotengine.org/en/4.4/tutorials/shaders/your_first_shader/your_second_3d_shader.html
-
 //////////////////////////////
 // Constants
 //////////////////////////////
-const int ITERATIONS_VERTEX = 2;
-const int ITERATIONS_FRAGMENT = 5;
+const int ITERATIONS_VERTEX = 3;
+const int ITERATIONS_FRAGMENT = 4;
 
 //////////////////////////////
 // Uniforms
@@ -17,12 +15,24 @@ uniform float time_scale : hint_range(0.0, 16.0) = 3.0;
 uniform float height_scale : hint_range(0.0, 16.0) = 3.0;
 uniform float ocean_scale : hint_range(0.1, 64.0, 0.1) = 4.0;
 uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 12.0;
-uniform vec3 albedo_color : source_color = vec3(.088, .157, .21);
+uniform vec3 albedo_color : source_color = vec3(.102, .212, .318);
 uniform float visible_depth : hint_range(0., 10000., .1) = 256.;
 uniform float depth_curve : hint_range(0., 1.) = .2;
 uniform float edge_fade_distance : hint_range(0.0, 10.0, 0.01) = 1.;
 uniform float refraction_strength : hint_range(0.0, 0.1, 0.001) = 0.07;
+
+group_uniforms light_scattering;
+uniform bool light_scattering_enabled = true;
+uniform vec3 light_direction = vec3(-0.196, 0.980, 0);
+uniform vec3 light_color : source_color = vec3(1.0, 1.0, .735);
+uniform float height_scattering : hint_range(0.0, 15.0) = 4.0;
+uniform float height_threshold : hint_range(0.0, 1.0) = 0.1;
+uniform float height_angle_threshold : hint_range(0.0, 1.0) = 0.21;
+uniform float fersnel_scattering : hint_range(0.0, 70.0) = 15.0;
+uniform float direct_scattering : hint_range(0.0, 70.0) = 10.0;
+uniform float depth_absorbtion : hint_range(0.0, 10.0) = 1.0;
 group_uniforms;
+
 group_uniforms reflections;
 uniform float fresnel_scale : hint_range(0., 1.) = .065;
 uniform float fresnel_power = 1.;
@@ -132,7 +142,8 @@ void fragment() {
 	h = ocean_height(UV, ITERATIONS_FRAGMENT);
 	u = ocean_height(UV + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
 	v = ocean_height(UV + vec2(0.0, dv), ITERATIONS_FRAGMENT);
-	NORMAL = mat3(VIEW_MATRIX) * normalize(vec3(h - u, dv * _vertex_density, h - v));
+	vec3 world_normal = normalize(vec3(h - u, dv * _vertex_density, h - v));
+	NORMAL = mat3(VIEW_MATRIX) * world_normal;
 	TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
 
@@ -149,7 +160,10 @@ void fragment() {
 	proximity_view_pos.xyz /= proximity_view_pos.w;
 	float edge_mask = 1.0 - clamp(1.0 - smoothstep(proximity_view_pos.z + 2. * edge_fade_distance, proximity_view_pos.z, VERTEX.z), 0.0, 1.0);
 	alpha = clamp(alpha - edge_mask, 0., 1.);
-
+	
+	// increase alpha with depth as more water means more light absorbed
+	alpha = clamp(alpha+ min((VERTEX.z - proximity_view_pos.z) * 0.001 * depth_absorbtion, 1.0), 0.0, 1.0);
+	
 	// Refraction: Distort screen UVs using the normal (tangent-space projection)
 	vec2 refract_offset = NORMAL.xz * refraction_strength;
 	// limit refraction at the bottom edge of the screen as normals push away in view direction.
@@ -160,12 +174,25 @@ void fragment() {
 	// Invert refract if target screenspace pixel is above ocean surface, replaces major artifact with minor one.
 	proximity_depth_tex = textureLod(depth_texture, refract_uv, 0.0).r;
 	proximity_view_pos = INV_PROJECTION_MATRIX * vec4(refract_uv * 2.0 - 1.0, proximity_depth_tex, 1.0);
+	
 	proximity_view_pos.xyz /= proximity_view_pos.w;
+	
 	refract_uv = SCREEN_UV + mix(refract_offset * (float(proximity_view_pos.z < VERTEX.z) * 2.0 - 1.0), vec2(0.), max(edge_mask, y_limit));
 	
 	vec3 background = texture(screen_texture, refract_uv).rgb;
-
-	ALBEDO = mix(background, albedo_color * background, alpha * alpha);
+	ALBEDO = mix(background, albedo_color * light_color, alpha * alpha);
 	ALPHA = clamp(1.0 - edge_mask, 0., 1.);
+	
+	if (light_scattering_enabled) { 
+		// Approximate light scattering 
+		vec3 ray_dir = normalize(mat3(INV_VIEW_MATRIX) * VIEW);
+		// light scattering based on height and sun angle
+		vec3 light_factor = height_scattering * max(h, height_threshold) * max(pow(dot(normalize(light_direction), -ray_dir), 4.0), height_angle_threshold)* light_color * pow(0.5 - 0.5 * dot(normalize(light_direction), world_normal), 3.0);
+		// light scattering based on view angle
+		light_factor += fersnel_scattering *pow(dot(ray_dir, world_normal), 2.0) * light_color * albedo_color;
+		// direct light scattering
+		light_factor += direct_scattering * dot(normalize(light_direction), world_normal) * albedo_color* light_color;
+		BACKLIGHT = light_factor * 4.0 * clamp(alpha, 0.4, 1.0);
+	}
 
 }
