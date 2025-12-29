@@ -22,8 +22,6 @@ uniform float edge_fade_distance : hint_range(0.0, 10.0, 0.01) = 1.;
 uniform float refraction_strength : hint_range(0.0, 0.1, 0.001) = 0.07;
 
 group_uniforms light_scattering;
-uniform bool light_scattering_enabled = true;
-uniform vec3 light_color : source_color = vec3(1.0, 1.0, .735);
 uniform float height_scattering : hint_range(0.0, 15.0) = 4.0;
 uniform float height_threshold : hint_range(0.0, 1.0) = 0.1;
 uniform float height_angle_threshold : hint_range(0.0, 1.0) = 0.21;
@@ -45,7 +43,9 @@ uniform float _subdiv = 1.;
 uniform float _vertex_spacing = 1.;
 uniform float _vertex_density = 1.;
 uniform vec3 _target_pos = vec3(0.,0.,0.);
+uniform bool _light_scattering_enabled = true;
 uniform vec3 _light_direction = vec3(-0.196, 0.980, 0);
+uniform vec3 _light_color : source_color = vec3(1.0, 1.0, .735);
 group_uniforms;
 
 uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
@@ -180,18 +180,18 @@ void fragment() {
 	refract_uv = SCREEN_UV + mix(refract_offset * (float(proximity_view_pos.z < VERTEX.z) * 2.0 - 1.0), vec2(0.), max(edge_mask, y_limit));
 	
 	vec3 background = texture(screen_texture, refract_uv).rgb;
-	ALBEDO = mix(background, albedo_color * light_color, alpha * alpha);
+	ALBEDO = mix(background, albedo_color * _light_color, alpha * alpha);
 	ALPHA = clamp(1.0 - edge_mask, 0., 1.);
-	
-	if (light_scattering_enabled) { 
-		// Approximate light scattering 
+
+	if (_light_scattering_enabled) {
+		// Approximate light scattering
 		vec3 ray_dir = normalize(mat3(INV_VIEW_MATRIX) * VIEW);
 		// light scattering based on height and sun angle
-		vec3 light_factor = height_scattering * max(h, height_threshold) * max(pow(dot(normalize(_light_direction), -ray_dir), 4.0), height_angle_threshold)* light_color * pow(0.5 - 0.5 * dot(normalize(_light_direction), world_normal), 3.0);
+		vec3 light_factor = height_scattering * max(h, height_threshold) * max(pow(dot(normalize(_light_direction), -ray_dir), 4.0), height_angle_threshold) * _light_color * pow(0.5 - 0.5 * dot(normalize(_light_direction), world_normal), 3.0);
 		// light scattering based on view angle
-		light_factor += fersnel_scattering *pow(dot(ray_dir, world_normal), 2.0) * light_color * albedo_color;
+		light_factor += fersnel_scattering *pow(dot(ray_dir, world_normal), 2.0) * _light_color * albedo_color;
 		// direct light scattering
-		light_factor += direct_scattering * dot(normalize(_light_direction), world_normal) * albedo_color* light_color;
+		light_factor += direct_scattering * dot(normalize(_light_direction), world_normal) * albedo_color * _light_color;
 		BACKLIGHT = light_factor * 4.0 * clamp(alpha, 0.4, 1.0);
 	}
 

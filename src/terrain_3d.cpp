@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/environment.hpp>
 #include <godot_cpp/classes/label3d.hpp>
+#include <godot_cpp/classes/light3d.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/physics_direct_space_state3d.hpp>
 #include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
@@ -135,9 +136,12 @@ void Terrain3D::__physics_process(const double p_delta) {
 		_ocean_mesher->snap();
 		if (get_directional_light_target_direction() != V3_NAN) {
 			RS->material_set_param(_ocean_material->get_rid(), "_light_direction", get_directional_light_target_direction());
-			RS->material_set_param(_ocean_material->get_rid(), "light_scattering_enabled", true);
+			RS->material_set_param(_ocean_material->get_rid(), "_light_scattering_enabled", true);
 		} else {
-			RS->material_set_param(_ocean_material->get_rid(), "light_scattering_enabled", false);
+			RS->material_set_param(_ocean_material->get_rid(), "_light_scattering_enabled", false);
+		}
+		if (get_directional_light_target_color() != Color()) {
+			RS->material_set_param(_ocean_material->get_rid(), "_light_color", get_directional_light_target_color());
 		}
 	}
 	if (_collision && _collision->is_dynamic_mode()) {
@@ -687,6 +691,16 @@ Vector3 Terrain3D::get_directional_light_target_direction() const {
 		return _directional_light_target.ptr()->get_global_basis().get_column(2);
 	}
 	return V3_NAN;
+}
+
+Color Terrain3D::get_directional_light_target_color() const {
+	if (_directional_light_target.is_inside_tree()) {
+		Light3D *light = cast_to<Light3D>(_directional_light_target.ptr());
+		if (light) {
+			return light->get_color();
+		}
+	}
+	return Color();
 }
 
 void Terrain3D::snap() {
