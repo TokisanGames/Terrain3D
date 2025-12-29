@@ -188,6 +188,7 @@ public:
 	Node3D *get_directional_light_target() const { return _directional_light_target.ptr(); }
 	void set_directional_light_target(Node3D *p_node);
 	Vector3 get_directional_light_target_direction() const;
+	Color get_directional_light_target_color() const;
 	void snap();
 
 	// Collision Aliases
