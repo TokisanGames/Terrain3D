@@ -91,12 +91,16 @@ script = ExtResource("1_k7qca")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -3, 512)
 collision_mask = 3
 
+[node name="DirectionalLight3D" parent="Environment" index="1"]
+transform = Transform3D(-0.814116, 0.456349, 0.359111, 0, -0.618408, 0.785857, 0.580703, 0.639778, 0.503456, 0, 0, 0)
+
+
 [node name="Tunnel" parent="." instance=ExtResource("3_kdh0b")]
 
 [node name="Player" parent="." instance=ExtResource("3_ht63y")]
 transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
 
-[node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("collision_target", "clipmap_target")]
+[node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("collision_target", "clipmap_target", "directional_light_target")]
 data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_jrc01")
 assets = ExtResource("8_g2of2")
@@ -105,8 +109,14 @@ collision_mask = 3
 clipmap_target = NodePath("../Player")
 mesh_size = 96
 tessellation_level = 3
+cull_margin = 120.0
+ocean_enabled = true
+ocean_material = ExtResource("7_fwrtk")
+directional_light_target = NodePath("../Environment/DirectionalLight3D")
 top_level = true
 metadata/_edit_lock_ = true
 
 [node name="Terrain3DParticles" parent="Terrain3D" node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
 terrain = NodePath("..")
+
+[editable path="Environment"]
