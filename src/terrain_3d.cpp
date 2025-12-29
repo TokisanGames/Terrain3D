@@ -133,6 +133,12 @@ void Terrain3D::__physics_process(const double p_delta) {
 	}
 	if (_ocean_mesher) {
 		_ocean_mesher->snap();
+		if (get_directional_light_target_direction() != V3_NAN) {
+			RS->material_set_param(_ocean_material->get_rid(), "_light_direction", get_directional_light_target_direction());
+			RS->material_set_param(_ocean_material->get_rid(), "light_scattering_enabled", true);
+		} else {
+			RS->material_set_param(_ocean_material->get_rid(), "light_scattering_enabled", false);
+		}
 	}
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
@@ -662,6 +668,25 @@ Vector3 Terrain3D::get_collision_target_position() const {
 		return _collision_target.ptr()->get_global_position();
 	}
 	return get_clipmap_target_position();
+}
+
+void Terrain3D::set_directional_light_target(Node3D *p_node) {
+	if (p_node && p_node->is_queued_for_deletion()) {
+		LOG(ERROR, "Attempted to set a node queued for deletion");
+		_directional_light_target.clear();
+		return;
+	}
+	if (_directional_light_target.ptr() != p_node) {
+		_directional_light_target.set_target(p_node);
+		LOG(INFO, "Setting directional light target: ", p_node);
+	}
+}
+
+Vector3 Terrain3D::get_directional_light_target_direction() const {
+	if (_directional_light_target.is_inside_tree()) {
+		return _directional_light_target.ptr()->get_global_basis().get_column(2);
+	}
+	return V3_NAN;
 }
 
 void Terrain3D::snap() {
@@ -1316,6 +1341,9 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collision_target", "node"), &Terrain3D::set_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target"), &Terrain3D::get_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target_position"), &Terrain3D::get_collision_target_position);
+	ClassDB::bind_method(D_METHOD("set_directional_light_target", "node"), &Terrain3D::set_directional_light_target);
+	ClassDB::bind_method(D_METHOD("get_directional_light_target"), &Terrain3D::get_directional_light_target);
+	ClassDB::bind_method(D_METHOD("get_directional_light_target_direction"), &Terrain3D::get_directional_light_target_direction);
 	ClassDB::bind_method(D_METHOD("snap"), &Terrain3D::snap);
 
 	// Collision
@@ -1499,6 +1527,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_ocean_tessellation_level", "get_ocean_tessellation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_ocean_material", "get_ocean_material");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_ocean_render_layers", "get_ocean_render_layers");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "directional_light_target", PROPERTY_HINT_NODE_TYPE, "DirectionalLight3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_directional_light_target", "get_directional_light_target");
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");
