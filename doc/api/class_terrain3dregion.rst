@@ -64,9 +64,29 @@ Methods
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`calc_height_range<class_Terrain3DRegion_method_calc_height_range>`\ (\ )                                                                         |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`clear<class_Terrain3DRegion_method_clear>`\ (\ )                                                                                                 |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`dump<class_Terrain3DRegion_method_dump>`\ (\ verbose\: ``bool`` = false\ ) |const|                                                               |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Terrain3DRegion<class_Terrain3DRegion>` | :ref:`duplicate<class_Terrain3DRegion_method_duplicate>`\ (\ deep\: ``bool`` = false\ )                                                                |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``int``                                       | :ref:`get_control<class_Terrain3DRegion_method_get_control>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                                                   |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``float``                                     | :ref:`get_control_angle<class_Terrain3DRegion_method_get_control_angle>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                                       |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``bool``                                      | :ref:`get_control_auto<class_Terrain3DRegion_method_get_control_auto>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                                         |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``int``                                       | :ref:`get_control_base_id<class_Terrain3DRegion_method_get_control_base_id>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                                   |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``float``                                     | :ref:`get_control_blend<class_Terrain3DRegion_method_get_control_blend>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                                       |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``bool``                                      | :ref:`get_control_hole<class_Terrain3DRegion_method_get_control_hole>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                                         |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``bool``                                      | :ref:`get_control_navigation<class_Terrain3DRegion_method_get_control_navigation>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                             |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``int``                                       | :ref:`get_control_overlay_id<class_Terrain3DRegion_method_get_control_overlay_id>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                             |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``float``                                     | :ref:`get_control_scale<class_Terrain3DRegion_method_get_control_scale>`\ (\ x\: ``int``, y\: ``int``\ ) |const|                                       |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Dictionary``                                | :ref:`get_data<class_Terrain3DRegion_method_get_data>`\ (\ ) |const|                                                                                   |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -79,6 +99,24 @@ Methods
    | |void|                                        | :ref:`sanitize_maps<class_Terrain3DRegion_method_sanitize_maps>`\ (\ )                                                                                 |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | Error                                         | :ref:`save<class_Terrain3DRegion_method_save>`\ (\ path\: ``String`` = "", save_16_bit\: ``bool`` = false\ )                                           |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control<class_Terrain3DRegion_method_set_control>`\ (\ x\: ``int``, y\: ``int``, control\: ``int``\ )                                        |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_angle<class_Terrain3DRegion_method_set_control_angle>`\ (\ x\: ``int``, y\: ``int``, angle\: ``float``\ )                            |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_auto<class_Terrain3DRegion_method_set_control_auto>`\ (\ x\: ``int``, y\: ``int``, auto\: ``bool``\ )                                |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_base_id<class_Terrain3DRegion_method_set_control_base_id>`\ (\ x\: ``int``, y\: ``int``, base\: ``int``\ )                           |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_blend<class_Terrain3DRegion_method_set_control_blend>`\ (\ x\: ``int``, y\: ``int``, blend\: ``float``\ )                            |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_hole<class_Terrain3DRegion_method_set_control_hole>`\ (\ x\: ``int``, y\: ``int``, hole\: ``bool``\ )                                |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_navigation<class_Terrain3DRegion_method_set_control_navigation>`\ (\ x\: ``int``, y\: ``int``, navigation\: ``bool``\ )              |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_overlay_id<class_Terrain3DRegion_method_set_control_overlay_id>`\ (\ x\: ``int``, y\: ``int``, overlay\: ``int``\ )                  |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`set_control_scale<class_Terrain3DRegion_method_set_control_scale>`\ (\ x\: ``int``, y\: ``int``, scale\: ``float``\ )                            |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_data<class_Terrain3DRegion_method_set_data>`\ (\ data\: ``Dictionary``\ )                                                                    |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -402,6 +440,20 @@ Recalculates the height range for this region by looking at every pixel in the h
 
 ----
 
+.. _class_Terrain3DRegion_method_clear:
+
+.. rst-class:: classref-method
+
+|void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_clear>`
+
+.. container:: contribute
+
+	There is currently no description for this method. Please help us by `contributing one <https://contributing.godotengine.org/en/latest/documentation/class_reference.html>`__!
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DRegion_method_dump:
 
 .. rst-class:: classref-method
@@ -423,6 +475,114 @@ Dumps information about the data in the region, including instance IDs, counts, 
 Returns a duplicate copy of this node, with references to the same image maps and multimeshes.
 
 - deep - Also make complete duplicates of the maps and multimeshes.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control:
+
+.. rst-class:: classref-method
+
+``int`` **get_control**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control>`
+
+Gets the control ID at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_angle:
+
+.. rst-class:: classref-method
+
+``float`` **get_control_angle**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_angle>`
+
+Gets the control angle at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_auto:
+
+.. rst-class:: classref-method
+
+``bool`` **get_control_auto**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_auto>`
+
+Gets if the region uses the auto shader at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_base_id:
+
+.. rst-class:: classref-method
+
+``int`` **get_control_base_id**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_base_id>`
+
+Gets the base texture ID at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_blend:
+
+.. rst-class:: classref-method
+
+``float`` **get_control_blend**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_blend>`
+
+Gets the blend value at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_hole:
+
+.. rst-class:: classref-method
+
+``bool`` **get_control_hole**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_hole>`
+
+Gets if the region has a hole at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_navigation:
+
+.. rst-class:: classref-method
+
+``bool`` **get_control_navigation**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_navigation>`
+
+Gets if the region has navigation at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_overlay_id:
+
+.. rst-class:: classref-method
+
+``int`` **get_control_overlay_id**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_overlay_id>`
+
+Gets the overlay texture ID at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_get_control_scale:
+
+.. rst-class:: classref-method
+
+``float`` **get_control_scale**\ (\ x\: ``int``, y\: ``int``\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_control_scale>`
+
+Gets the scale at the provided pixel position.
 
 .. rst-class:: classref-item-separator
 
@@ -504,6 +664,114 @@ Saves this region to the current file name.
 
 ----
 
+.. _class_Terrain3DRegion_method_set_control:
+
+.. rst-class:: classref-method
+
+|void| **set_control**\ (\ x\: ``int``, y\: ``int``, control\: ``int``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control>`
+
+Sets the regions control value at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_angle:
+
+.. rst-class:: classref-method
+
+|void| **set_control_angle**\ (\ x\: ``int``, y\: ``int``, angle\: ``float``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_angle>`
+
+Sets the regions control angle at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_auto:
+
+.. rst-class:: classref-method
+
+|void| **set_control_auto**\ (\ x\: ``int``, y\: ``int``, auto\: ``bool``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_auto>`
+
+Sets if the region uses the auto shader at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_base_id:
+
+.. rst-class:: classref-method
+
+|void| **set_control_base_id**\ (\ x\: ``int``, y\: ``int``, base\: ``int``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_base_id>`
+
+Sets the regions base texture id at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_blend:
+
+.. rst-class:: classref-method
+
+|void| **set_control_blend**\ (\ x\: ``int``, y\: ``int``, blend\: ``float``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_blend>`
+
+Sets the regions blend value at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_hole:
+
+.. rst-class:: classref-method
+
+|void| **set_control_hole**\ (\ x\: ``int``, y\: ``int``, hole\: ``bool``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_hole>`
+
+Sets if the region has a hole at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_navigation:
+
+.. rst-class:: classref-method
+
+|void| **set_control_navigation**\ (\ x\: ``int``, y\: ``int``, navigation\: ``bool``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_navigation>`
+
+Sets if the region has navigation at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_overlay_id:
+
+.. rst-class:: classref-method
+
+|void| **set_control_overlay_id**\ (\ x\: ``int``, y\: ``int``, overlay\: ``int``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_overlay_id>`
+
+Sets the overlay texture ID at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_set_control_scale:
+
+.. rst-class:: classref-method
+
+|void| **set_control_scale**\ (\ x\: ``int``, y\: ``int``, scale\: ``float``\ ) :ref:`🔗<class_Terrain3DRegion_method_set_control_scale>`
+
+Sets the uv scale at the provided pixel position.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DRegion_method_set_data:
 
 .. rst-class:: classref-method
@@ -573,6 +841,7 @@ When sculpting the terrain, this is called to provide both a low and high height
 This validates the map size according to previously loaded maps.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
+.. |required| replace:: :abbr:`required (This method is required to be overridden when extending its base class.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`
 .. |vararg| replace:: :abbr:`vararg (This method accepts any number of arguments after the ones described here.)`
 .. |constructor| replace:: :abbr:`constructor (This method is used to construct a type.)`

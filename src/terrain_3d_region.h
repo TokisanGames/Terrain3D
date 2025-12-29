@@ -90,6 +90,30 @@ public:
 	void update_heights(const Vector2 &p_low_high);
 	void calc_height_range();
 
+	// In Place Map Modification
+	real_t get_height(const int p_x, const int p_y) const;
+	void set_height(const int p_x, const int p_y, const real_t p_height);
+	Color get_color(const int p_x, const int p_y) const;
+	void set_color(const int p_x, const int p_y, const Color &p_color);
+	uint32_t get_control(const int p_x, const int p_y) const;
+	void set_control(const int p_x, const int p_y, uint32_t p_control);
+	uint8_t get_control_base_id(const int p_x, const int p_y) const;
+	void set_control_base_id(const int p_x, const int p_y, const uint8_t p_base);
+	uint8_t get_control_overlay_id(const int p_x, const int p_y) const;
+	void set_control_overlay_id(const int p_x, const int p_y, const uint8_t p_overlay);
+	real_t get_control_blend(const int p_x, const int p_y) const;
+	void set_control_blend(const int p_x, const int p_y, const real_t p_blend);
+	real_t get_control_angle(const int p_x, const int p_y) const;
+	void set_control_angle(const int p_x, const int p_y, const real_t p_angle);
+	real_t get_control_scale(const int p_x, const int p_y) const;
+	void set_control_scale(const int p_x, const int p_y, const real_t p_scale);
+	bool get_control_hole(const int p_x, const int p_y) const;
+	void set_control_hole(const int p_x, const int p_y, const bool p_hole);
+	bool get_control_navigation(const int p_x, const int p_y) const;
+	void set_control_navigation(const int p_x, const int p_y, const bool p_navigation);
+	bool get_control_auto(const int p_x, const int p_y) const;
+	void set_control_auto(const int p_x, const int p_y, const bool p_auto);
+
 	// Instancer
 	void set_instances(const Dictionary &p_instances);
 	Dictionary get_instances() const { return _instances; }
