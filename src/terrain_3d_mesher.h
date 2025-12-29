@@ -53,6 +53,7 @@ private:
 	int _mesh_size = 0;
 	int _lods = 0;
 	real_t _vertex_spacing = 1.f;
+	uint32_t _render_layers = 1u; // Bit 1 only
 
 	void _generate_mesh_types();
 	RID _generate_mesh(const Vector2i &p_size, const bool p_standard_grid = false);
@@ -67,7 +68,7 @@ public:
 	Terrain3DMesher() {}
 	~Terrain3DMesher() { destroy(); }
 
-	void initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material);
+	void initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers);
 	void destroy();
 
 	void snap();
@@ -85,6 +86,8 @@ public:
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 	void set_tessellation_level(const int p_level) { _tessellation_level = p_level; }
 	int get_tessellation_level() const { return _tessellation_level; }
+	void set_render_layers(const uint32_t p_layers) { _render_layers = p_layers; }
+	uint32_t get_render_layers() const { return _render_layers; }
 };
 // Inline Functions
 

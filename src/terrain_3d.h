@@ -98,6 +98,7 @@ private:
 	int _ocean_mesh_size = 32;
 	real_t _ocean_vertex_spacing = 1.0f;
 	int _ocean_tessellation_level = 0;
+	uint32_t _ocean_render_layers = 1u; // Bit 1 only
 
 	// Rendering
 	bool _free_editor_textures = true;
@@ -248,6 +249,8 @@ public:
 	real_t get_ocean_vertex_spacing() const { return _ocean_vertex_spacing; }
 	void set_ocean_tessellation_level(const int p_level);
 	int get_ocean_tessellation_level() const { return _ocean_tessellation_level; }
+	void set_ocean_render_layers(const uint32_t p_layers);
+	uint32_t get_ocean_render_layers() const { return _ocean_render_layers; };
 
 	// Rendering
 	void set_mouse_layer(const uint32_t p_layer);

@@ -277,7 +277,7 @@ void Terrain3DMesher::_clear_mesh_types() {
 // Public Functions
 ///////////////////////////
 
-void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material) {
+void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	} else {
@@ -294,6 +294,7 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, co
 	set_lods(p_lods);
 	set_mesh_size(p_mesh_size);
 	set_tessellation_level(p_tessellation_level);
+	set_render_layers(p_render_layers);
 	set_vertex_spacing(p_vertex_spacing);
 	_generate_clipmap();
 	update();
@@ -433,7 +434,6 @@ void Terrain3DMesher::update() {
 		} break;
 	}
 
-	uint32_t render_layers = _terrain->get_render_layers();
 	RenderingServer::ShadowCastingSetting cast_shadows = _terrain->get_cast_shadows();
 	bool visible = _terrain->is_visible_in_tree();
 
@@ -443,7 +443,7 @@ void Terrain3DMesher::update() {
 			for (const RID &rid : mesh_array) {
 				RS->instance_set_visible(rid, visible);
 				RS->instance_set_scenario(rid, _scenario);
-				RS->instance_set_layer_mask(rid, render_layers);
+				RS->instance_set_layer_mask(rid, _render_layers);
 				RS->instance_geometry_set_cast_shadows_setting(rid, cast_shadows);
 				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
 				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);
