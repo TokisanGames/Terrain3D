@@ -1,0 +1,33 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://b126phjxi3np1"]
+
+[ext_resource type="Shader" uid="uid://yc0t46qnunvt" path="res://addons/terrain_3d/extras/shaders/ocean_shader.gdshader" id="1_t7ju5"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_t7ju5")
+shader_parameter/time_scale = 3.0
+shader_parameter/height_scale = 3.0
+shader_parameter/ocean_scale = 4.0
+shader_parameter/sea_level = 12.0
+shader_parameter/albedo_color = Color(0.102, 0.212, 0.318, 1)
+shader_parameter/visible_depth = 256.0
+shader_parameter/depth_curve = 0.2
+shader_parameter/edge_fade_distance = 1.0
+shader_parameter/refraction_strength = 0.07
+shader_parameter/height_scattering = 4.0
+shader_parameter/height_threshold = 0.1
+shader_parameter/height_angle_threshold = 0.21
+shader_parameter/fersnel_scattering = 15.0
+shader_parameter/direct_scattering = 10.0
+shader_parameter/depth_absorbtion = 1.0
+shader_parameter/fresnel_scale = 0.065
+shader_parameter/fresnel_power = 1.0
+shader_parameter/specular = 0.5
+shader_parameter/_mesh_size = 32.0
+shader_parameter/_subdiv = 1.0
+shader_parameter/_vertex_spacing = 1.0
+shader_parameter/_vertex_density = 1.0
+shader_parameter/_target_pos = Vector3(0, 0, 0)
+shader_parameter/_light_scattering_enabled = true
+shader_parameter/_light_direction = Vector3(-0.196, 0.98, 0)
+shader_parameter/_light_color = Color(1, 1, 0.735, 1)

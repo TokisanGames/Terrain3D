@@ -12,30 +12,30 @@
 // Private Functions
 ///////////////////////////
 
-void Terrain3DMesher::_generate_mesh_types(const int p_size) {
+void Terrain3DMesher::_generate_mesh_types() {
 	_clear_mesh_types();
-	LOG(INFO, "Generating all Mesh segments for clipmap of size ", p_size);
+	LOG(INFO, "Generating all Mesh segments for clipmap of size ", _mesh_size);
 	// Create initial set of Mesh blocks to build the clipmap
 	// # 0 TILE - mesh_size x mesh_size tiles
-	_mesh_rids.push_back(_generate_mesh(V2I(p_size)));
+	_mesh_rids.push_back(_generate_mesh(V2I(_mesh_size)));
 	// # 1 EDGE_A - 2 by (mesh_size * 4 + 8) strips to bridge LOD transitions along +-Z axis
-	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 8)));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(2, _mesh_size * 4 + 8)));
 	// # 2 EDGE_B - (mesh_size * 4 + 4) by 2 strips to bridge LOD transitions along +-X axis
-	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 4, 2)));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(_mesh_size * 4 + 4, 2)));
 	// # 3 FILL_A - 4 by mesh_size
-	_mesh_rids.push_back(_generate_mesh(Vector2i(4, p_size)));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(4, _mesh_size)));
 	// # 4 FILL_B - mesh_size by 4
-	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, 4)));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(_mesh_size, 4)));
 	// # 5 STANDARD_TRIM_A - 2 by (mesh_size * 4 + 2) strips for LOD0 +-Z axis edge
-	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 2), true));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(2, _mesh_size * 4 + 2), true));
 	// # 6 STANDARD_TRIM_B - (mesh_size * 4 + 2) by 2 strips for LOD0 +-X axis edge
-	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 2, 2), true));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(_mesh_size * 4 + 2, 2), true));
 	// # 7 STANDARD_TILE - mesh_size x mesh_size tiles
-	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size, p_size), true));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(_mesh_size, _mesh_size), true));
 	// # 8 STANDARD_EDGE_A - 2 by (mesh_size * 4 + 8) strips to bridge LOD transitions along +-Z axis
-	_mesh_rids.push_back(_generate_mesh(Vector2i(2, p_size * 4 + 8), true));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(2, _mesh_size * 4 + 8), true));
 	// # 9 STANDARD_EDGE_B - (mesh_size * 4 + 4) by 2 strips to bridge LOD transitions along +-X axis
-	_mesh_rids.push_back(_generate_mesh(Vector2i(p_size * 4 + 4, 2), true));
+	_mesh_rids.push_back(_generate_mesh(Vector2i(_mesh_size * 4 + 4, 2), true));
 	return;
 }
 
@@ -106,25 +106,24 @@ RID Terrain3DMesher::_instantiate_mesh(const PackedVector3Array &p_vertices, con
 
 	LOG(DEBUG, "Setting custom aabb: ", p_aabb.position, ", ", p_aabb.size);
 	RS->mesh_set_custom_aabb(mesh, p_aabb);
-	RS->mesh_surface_set_material(mesh, 0, _terrain->get_material()->get_material_rid());
+	RS->mesh_surface_set_material(mesh, 0, _material.is_valid() ? _material : RID());
 
 	return mesh;
 }
 
-void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, const RID &p_scenario) {
+void Terrain3DMesher::_generate_clipmap() {
 	_clear_clipmap();
-	_generate_mesh_types(p_size);
-	_generate_offset_data(p_size);
-	LOG(DEBUG, "Creating instances for all mesh segments for clipmap of size ", p_size, " for ", p_lods, " LODs");
-
-	for (int level = 0; level < p_lods; level++) {
+	_generate_mesh_types();
+	_generate_offset_data();
+	LOG(DEBUG, "Creating instances for all mesh segments for clipmap of size ", _mesh_size, " for ", _lods, " LODs");
+	for (int level = 0; level < _lods + _tessellation_level; level++) {
 		Array lod;
 		// 12 Tiles LOD1+, 16 for LOD0
 		Array tile_rids;
-		int tile_ammount = (level == 0) ? 16 : 12;
+		int tile_amount = (level == 0) ? 16 : 12;
 
-		for (int i = 0; i < tile_ammount; i++) {
-			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], p_scenario);
+		for (int i = 0; i < tile_amount; i++) {
+			RID tile_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_TILE : TILE], _scenario);
 			tile_rids.append(tile_rid);
 		}
 		lod.append(tile_rids); // index 0 TILE
@@ -132,14 +131,14 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 		// 4 Edges present on all LODs
 		Array edge_a_rids;
 		for (int i = 0; i < 2; i++) {
-			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], p_scenario);
+			RID edge_a_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_A : EDGE_A], _scenario);
 			edge_a_rids.append(edge_a_rid);
 		}
 		lod.append(edge_a_rids); // index 1 EDGE_A
 
 		Array edge_b_rids;
 		for (int i = 0; i < 2; i++) {
-			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], p_scenario);
+			RID edge_b_rid = RS->instance_create2(_mesh_rids[level == 0 ? STANDARD_EDGE_B : EDGE_B], _scenario);
 			edge_b_rids.append(edge_b_rid);
 		}
 		lod.append(edge_b_rids); // index 2 EDGE_B
@@ -148,14 +147,14 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 		if (level > 0) {
 			Array fill_a_rids;
 			for (int i = 0; i < 2; i++) {
-				RID fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], p_scenario);
+				RID fill_a_rid = RS->instance_create2(_mesh_rids[FILL_A], _scenario);
 				fill_a_rids.append(fill_a_rid);
 			}
 			lod.append(fill_a_rids); // index 4 FILL_A
 
 			Array fill_b_rids;
 			for (int i = 0; i < 2; i++) {
-				RID fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], p_scenario);
+				RID fill_b_rid = RS->instance_create2(_mesh_rids[FILL_B], _scenario);
 				fill_b_rids.append(fill_b_rid);
 			}
 			lod.append(fill_b_rids); // index 5 FILL_B
@@ -164,14 +163,14 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 		} else {
 			Array trim_a_rids;
 			for (int i = 0; i < 2; i++) {
-				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], p_scenario);
+				RID trim_a_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_A], _scenario);
 				trim_a_rids.append(trim_a_rid);
 			}
 			lod.append(trim_a_rids); // index 4 TRIM_A
 
 			Array trim_b_rids;
 			for (int i = 0; i < 2; i++) {
-				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], p_scenario);
+				RID trim_b_rid = RS->instance_create2(_mesh_rids[STANDARD_TRIM_B], _scenario);
 				trim_b_rids.append(trim_b_rid);
 			}
 			lod.append(trim_b_rids); // index 5 TRIM_B
@@ -184,7 +183,7 @@ void Terrain3DMesher::_generate_clipmap(const int p_size, const int p_lods, cons
 
 // Precomputes all instance offset data into lookup arrays that match created instances.
 // All meshes are created with 0,0 as their origin and grow along +xz. Offsets account for this.
-void Terrain3DMesher::_generate_offset_data(const int p_size) {
+void Terrain3DMesher::_generate_offset_data() {
 	LOG(INFO, "Computing all clipmap instance positioning offsets");
 	_tile_pos_lod_0.clear();
 	_trim_a_pos.clear();
@@ -195,72 +194,70 @@ void Terrain3DMesher::_generate_offset_data(const int p_size) {
 	_tile_pos.clear();
 
 	// LOD0 Tiles: Full 4x4 Grid of mesh size tiles
-	_tile_pos_lod_0.push_back(Vector3(0, 0, p_size));
-	_tile_pos_lod_0.push_back(Vector3(p_size, 0, p_size));
-	_tile_pos_lod_0.push_back(Vector3(p_size, 0, 0));
-	_tile_pos_lod_0.push_back(Vector3(p_size, 0, -p_size));
-	_tile_pos_lod_0.push_back(Vector3(p_size, 0, -p_size * 2));
-	_tile_pos_lod_0.push_back(Vector3(0, 0, -p_size * 2));
-	_tile_pos_lod_0.push_back(Vector3(-p_size, 0, -p_size * 2));
-	_tile_pos_lod_0.push_back(Vector3(-p_size * 2, 0, -p_size * 2));
-	_tile_pos_lod_0.push_back(Vector3(-p_size * 2, 0, -p_size));
-	_tile_pos_lod_0.push_back(Vector3(-p_size * 2, 0, 0));
-	_tile_pos_lod_0.push_back(Vector3(-p_size * 2, 0, p_size));
-	_tile_pos_lod_0.push_back(Vector3(-p_size, 0, p_size));
+	_tile_pos_lod_0.push_back(Vector3(0, 0, _mesh_size));
+	_tile_pos_lod_0.push_back(Vector3(_mesh_size, 0, _mesh_size));
+	_tile_pos_lod_0.push_back(Vector3(_mesh_size, 0, 0));
+	_tile_pos_lod_0.push_back(Vector3(_mesh_size, 0, -_mesh_size));
+	_tile_pos_lod_0.push_back(Vector3(_mesh_size, 0, -_mesh_size * 2));
+	_tile_pos_lod_0.push_back(Vector3(0, 0, -_mesh_size * 2));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size, 0, -_mesh_size * 2));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size * 2, 0, -_mesh_size * 2));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size * 2, 0, -_mesh_size));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size * 2, 0, 0));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size * 2, 0, _mesh_size));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size, 0, _mesh_size));
 	// Inner tiles
 	_tile_pos_lod_0.push_back(V3_ZERO);
-	_tile_pos_lod_0.push_back(Vector3(-p_size, 0, 0));
-	_tile_pos_lod_0.push_back(Vector3(0, 0, -p_size));
-	_tile_pos_lod_0.push_back(Vector3(-p_size, 0, -p_size));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size, 0, 0));
+	_tile_pos_lod_0.push_back(Vector3(0, 0, -_mesh_size));
+	_tile_pos_lod_0.push_back(Vector3(-_mesh_size, 0, -_mesh_size));
 
 	// LOD0 Trims: Fixed 2 unit wide ring around LOD0 tiles.
-	_trim_a_pos.push_back(Vector3(p_size * 2, 0, -p_size * 2));
-	_trim_a_pos.push_back(Vector3(-p_size * 2 - 2, 0, -p_size * 2 - 2));
-	_trim_b_pos.push_back(Vector3(-p_size * 2, 0, -p_size * 2 - 2));
-	_trim_b_pos.push_back(Vector3(-p_size * 2 - 2, 0, p_size * 2));
+	_trim_a_pos.push_back(Vector3(_mesh_size * 2, 0, -_mesh_size * 2));
+	_trim_a_pos.push_back(Vector3(-_mesh_size * 2 - 2, 0, -_mesh_size * 2 - 2));
+	_trim_b_pos.push_back(Vector3(-_mesh_size * 2, 0, -_mesh_size * 2 - 2));
+	_trim_b_pos.push_back(Vector3(-_mesh_size * 2 - 2, 0, _mesh_size * 2));
 
 	// LOD1+: 4x4 Ring of mesh size tiles, with one 2 unit wide gap on each axis for fill meshes.
-	_tile_pos.push_back(Vector3(2, 0, p_size + 2));
-	_tile_pos.push_back(Vector3(p_size + 2, 0, p_size + 2));
-	_tile_pos.push_back(Vector3(p_size + 2, 0, -2));
-	_tile_pos.push_back(Vector3(p_size + 2, 0, -p_size - 2));
-	_tile_pos.push_back(Vector3(p_size + 2, 0, -p_size * 2 - 2));
-	_tile_pos.push_back(Vector3(-2, 0, -p_size * 2 - 2));
-	_tile_pos.push_back(Vector3(-p_size - 2, 0, -p_size * 2 - 2));
-	_tile_pos.push_back(Vector3(-p_size * 2 - 2, 0, -p_size * 2 - 2));
-	_tile_pos.push_back(Vector3(-p_size * 2 - 2, 0, -p_size + 2));
-	_tile_pos.push_back(Vector3(-p_size * 2 - 2, 0, +2));
-	_tile_pos.push_back(Vector3(-p_size * 2 - 2, 0, p_size + 2));
-	_tile_pos.push_back(Vector3(-p_size + 2, 0, p_size + 2));
+	_tile_pos.push_back(Vector3(2, 0, _mesh_size + 2));
+	_tile_pos.push_back(Vector3(_mesh_size + 2, 0, _mesh_size + 2));
+	_tile_pos.push_back(Vector3(_mesh_size + 2, 0, -2));
+	_tile_pos.push_back(Vector3(_mesh_size + 2, 0, -_mesh_size - 2));
+	_tile_pos.push_back(Vector3(_mesh_size + 2, 0, -_mesh_size * 2 - 2));
+	_tile_pos.push_back(Vector3(-2, 0, -_mesh_size * 2 - 2));
+	_tile_pos.push_back(Vector3(-_mesh_size - 2, 0, -_mesh_size * 2 - 2));
+	_tile_pos.push_back(Vector3(-_mesh_size * 2 - 2, 0, -_mesh_size * 2 - 2));
+	_tile_pos.push_back(Vector3(-_mesh_size * 2 - 2, 0, -_mesh_size + 2));
+	_tile_pos.push_back(Vector3(-_mesh_size * 2 - 2, 0, +2));
+	_tile_pos.push_back(Vector3(-_mesh_size * 2 - 2, 0, _mesh_size + 2));
+	_tile_pos.push_back(Vector3(-_mesh_size + 2, 0, _mesh_size + 2));
 
 	// Edge offsets set edge pair positions to either both before, straddle, or both after
 	// Depending on current LOD position within the next LOD, (via test_x or test_z in snap())
-	_offset_a = real_t(p_size * 2) + 2.f;
-	_offset_b = real_t(p_size * 2) + 4.f;
-	_offset_c = real_t(p_size * 2) + 6.f;
+	_offset_a = real_t(_mesh_size * 2) + 2.f;
+	_offset_b = real_t(_mesh_size * 2) + 4.f;
+	_offset_c = real_t(_mesh_size * 2) + 6.f;
 	_edge_pos.push_back(Vector3(_offset_a, _offset_a, -_offset_b));
 	_edge_pos.push_back(Vector3(_offset_b, -_offset_b, -_offset_c));
 
 	// Fills: Occupies the gaps between tiles for LOD1+ to complete the ring.
-	_fill_a_pos.push_back(Vector3(p_size - 2, 0, -p_size * 2 - 2));
-	_fill_a_pos.push_back(Vector3(-p_size - 2, 0, p_size + 2));
-	_fill_b_pos.push_back(Vector3(p_size + 2, 0, p_size - 2));
-	_fill_b_pos.push_back(Vector3(-p_size * 2 - 2, 0, -p_size - 2));
+	_fill_a_pos.push_back(Vector3(_mesh_size - 2, 0, -_mesh_size * 2 - 2));
+	_fill_a_pos.push_back(Vector3(-_mesh_size - 2, 0, _mesh_size + 2));
+	_fill_b_pos.push_back(Vector3(_mesh_size + 2, 0, _mesh_size - 2));
+	_fill_b_pos.push_back(Vector3(-_mesh_size * 2 - 2, 0, -_mesh_size - 2));
 
 	return;
 }
 
-// Frees all clipmap instance RIDs. Mesh rids must be freed seperatley.
+// Frees all clipmap instance RIDs. Mesh rids must be freed separately.
 void Terrain3DMesher::_clear_clipmap() {
 	LOG(INFO, "Freeing all clipmap instances");
-	for (Array lod_array : _clipmap_rids) {
-		for (Array mesh_array : lod_array) {
+	for (const Array &lod_array : _clipmap_rids) {
+		for (const Array &mesh_array : lod_array) {
 			for (const RID &rid : mesh_array) {
 				RS->free_rid(rid);
 			}
-			mesh_array.clear();
 		}
-		lod_array.clear();
 	}
 	_clipmap_rids.clear();
 	return;
@@ -280,7 +277,7 @@ void Terrain3DMesher::_clear_mesh_types() {
 // Public Functions
 ///////////////////////////
 
-void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
+void Terrain3DMesher::initialize(Terrain3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level, const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	} else {
@@ -290,10 +287,16 @@ void Terrain3DMesher::initialize(Terrain3D *p_terrain) {
 		LOG(DEBUG, "Terrain3D's world3D is null");
 		return;
 	}
+
 	LOG(INFO, "Initializing GeoMesh");
-	int size = _terrain->get_mesh_size();
-	int lods = _terrain->get_mesh_lods() + _terrain->get_tessellation_level();
-	_generate_clipmap(size, lods, _terrain->get_world_3d()->get_scenario());
+	_scenario = _terrain->get_world_3d()->get_scenario();
+	set_material(p_material);
+	set_lods(p_lods);
+	set_mesh_size(p_mesh_size);
+	set_tessellation_level(p_tessellation_level);
+	set_render_layers(p_render_layers);
+	set_vertex_spacing(p_vertex_spacing);
+	_generate_clipmap();
 	update();
 	update_aabbs();
 	reset_target_position();
@@ -316,12 +319,13 @@ void Terrain3DMesher::snap() {
 	IS_INIT(VOID);
 	// Always update target position in shader
 	Vector3 target_pos = _terrain->get_clipmap_target_position();
-	RS->material_set_param(_terrain->get_material()->get_material_rid(), "_target_pos", target_pos);
-
+	if (_material.is_valid()) {
+		RS->material_set_param(_material, "_target_pos", target_pos);
+	}
 	// If clipmap target hasn't moved enough, skip
 	Vector2 target_pos_2d = v3v2(target_pos);
-	real_t tessellation_density = 1.f / pow(2.f, _terrain->get_tessellation_level());
-	real_t vertex_spacing = _terrain->get_vertex_spacing() * tessellation_density;
+	real_t tessellation_density = 1.f / pow(2.f, _tessellation_level);
+	real_t vertex_spacing = _vertex_spacing * tessellation_density;
 	if (MAX(std::abs(_last_target_position.x - target_pos_2d.x), std::abs(_last_target_position.y - target_pos_2d.y)) < vertex_spacing) {
 		return;
 	}
@@ -430,18 +434,16 @@ void Terrain3DMesher::update() {
 		} break;
 	}
 
-	RID scenario = _terrain->get_world_3d()->get_scenario();
-	uint32_t render_layers = _terrain->get_render_layers();
 	RenderingServer::ShadowCastingSetting cast_shadows = _terrain->get_cast_shadows();
 	bool visible = _terrain->is_visible_in_tree();
 
 	LOG(INFO, "Updating all mesh instances for ", _clipmap_rids.size(), " LODs");
-	for (Array lod_array : _clipmap_rids) {
-		for (Array mesh_array : lod_array) {
+	for (const Array &lod_array : _clipmap_rids) {
+		for (const Array &mesh_array : lod_array) {
 			for (const RID &rid : mesh_array) {
 				RS->instance_set_visible(rid, visible);
-				RS->instance_set_scenario(rid, scenario);
-				RS->instance_set_layer_mask(rid, render_layers);
+				RS->instance_set_scenario(rid, _scenario);
+				RS->instance_set_layer_mask(rid, _render_layers);
 				RS->instance_geometry_set_cast_shadows_setting(rid, cast_shadows);
 				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_BAKED_LIGHT, baked_light);
 				RS->instance_geometry_set_flag(rid, RenderingServer::INSTANCE_FLAG_USE_DYNAMIC_GI, dynamic_gi);

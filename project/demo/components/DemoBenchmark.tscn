@@ -1,9 +1,8 @@
-[gd_scene load_steps=11 format=3 uid="uid://dyt8c2xqmddo2"]
+[gd_scene load_steps=10 format=3 uid="uid://dyt8c2xqmddo2"]
 
 [ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_2gjn4"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_3obxr"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="3_b7ioy"]
-[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="4_nn6wp"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="5_bwggt"]
 [ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="6_3r2au"]
 
@@ -33,11 +32,9 @@ _shader_parameters = {
 "bias_distance": 512.0,
 "blend_sharpness": 0.87,
 "depth_blur": 0.0,
-&"displacement": null,
-&"displacement_scale": 1.0,
-&"displacement_sharpness": 0.5,
 &"flat_terrain_normals": false,
 &"general": null,
+&"ground_level": 0.0,
 &"macro_variation": null,
 "macro_variation1": Color(1, 1, 1, 1),
 "macro_variation2": Color(1, 1, 1, 1),
@@ -51,6 +48,7 @@ _shader_parameters = {
 "noise2_scale": 0.076,
 "noise_texture": SubResource("NoiseTexture2D_quxx0"),
 "projection_threshold": 0.8,
+&"region_blend": 0.25,
 &"vertical_projection": true
 }
 
@@ -61,9 +59,6 @@ script = ExtResource("1_2gjn4")
 
 [node name="World" parent="." instance=ExtResource("3_b7ioy")]
 
-[node name="Borders" parent="." instance=ExtResource("4_nn6wp")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 0, 512)
-
 [node name="Player" parent="." instance=ExtResource("5_bwggt")]
 transform = Transform3D(0.134125, 0, -0.990965, 0, 1, 0, 0.990965, 0, 0.134125, 216.455, 103.968, -1835.34)
 
@@ -72,5 +67,6 @@ data_directory = "res://demo/data"
 material = SubResource("Terrain3DMaterial_klrp5")
 assets = ExtResource("6_3r2au")
 collision_mask = 3
+displacement_sharpness = 0.5
 top_level = true
 metadata/_edit_lock_ = true
