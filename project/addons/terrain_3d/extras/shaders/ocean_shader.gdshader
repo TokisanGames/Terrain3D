@@ -30,6 +30,12 @@ uniform float direct_scattering : hint_range(0.0, 70.0) = 10.0;
 uniform float depth_absorbtion : hint_range(0.0, 10.0) = 1.0;
 group_uniforms;
 
+group_uniforms caustics;
+uniform bool caustics_enabled = true;
+uniform float caustic_depth : hint_range(0., 256., .1) = 64.;
+uniform float caustic_intensity : hint_range(0., 32., .1) = 16.;
+group_uniforms;
+
 group_uniforms reflections;
 uniform float fresnel_scale : hint_range(0., 1.) = .065;
 uniform float fresnel_power = 1.;
@@ -76,7 +82,7 @@ float noise(vec2 p) {
 }
 
 float octave(vec2 uv) {
-	uv += noise(uv);
+	uv += noise(uv * 0.5) * 2.;
 	vec2 wave = 1.0 - abs(sin(uv));
 	// Shapeing
 	float v = wave.x * wave.y + 1e-6;
@@ -88,7 +94,6 @@ float ocean_height(vec2 pos, int iterations) {
 	float freq = 0.03 * ocean_scale;
 	float amp = 4.0;
 	vec2 uv = pos;
-	uv.x *= 0.7;
 	float h = 0.0;
 	float t = TIME * time_scale;
 
@@ -160,25 +165,23 @@ void fragment() {
 	proximity_view_pos.xyz /= proximity_view_pos.w;
 	float edge_mask = 1.0 - clamp(1.0 - smoothstep(proximity_view_pos.z + 2. * edge_fade_distance, proximity_view_pos.z, VERTEX.z), 0.0, 1.0);
 	alpha = clamp(alpha - edge_mask, 0., 1.);
-	
-	// increase alpha with depth as more water means more light absorbed
-	alpha = clamp(alpha+ min((VERTEX.z - proximity_view_pos.z) * 0.001 * depth_absorbtion, 1.0), 0.0, 1.0);
-	
+
 	// Refraction: Distort screen UVs using the normal (tangent-space projection)
 	vec2 refract_offset = NORMAL.xz * refraction_strength;
 	// limit refraction at the bottom edge of the screen as normals push away in view direction.
-	float y_limit = 1.0 - smoothstep(.0, .25, 1.-SCREEN_UV.y);
+	float y_limit = 1.0 - smoothstep(.0, length(refract_offset) * 4.0, 1.-SCREEN_UV.y);
 	refract_offset = mix(refract_offset, vec2(0.), max(edge_mask, y_limit));
 	vec2 refract_uv = SCREEN_UV + refract_offset;
-	
+
 	// Invert refract if target screenspace pixel is above ocean surface, replaces major artifact with minor one.
 	proximity_depth_tex = textureLod(depth_texture, refract_uv, 0.0).r;
 	proximity_view_pos = INV_PROJECTION_MATRIX * vec4(refract_uv * 2.0 - 1.0, proximity_depth_tex, 1.0);
-	
 	proximity_view_pos.xyz /= proximity_view_pos.w;
-	
 	refract_uv = SCREEN_UV + mix(refract_offset * (float(proximity_view_pos.z < VERTEX.z) * 2.0 - 1.0), vec2(0.), max(edge_mask, y_limit));
-	
+
+	// increase alpha with depth as more water means more light absorbed
+	alpha = clamp(alpha+ min(abs(VERTEX.z - proximity_view_pos.z) * 0.001 * depth_absorbtion, 1.0), 0.0, 1.0);
+
 	vec3 background = texture(screen_texture, refract_uv).rgb;
 	ALBEDO = mix(background, albedo_color * _light_color, alpha * alpha);
 	ALPHA = clamp(1.0 - edge_mask, 0., 1.);
@@ -195,4 +198,24 @@ void fragment() {
 		BACKLIGHT = light_factor * 4.0 * clamp(alpha, 0.4, 1.0);
 	}
 
+	// Caustics
+	if (caustics_enabled) {
+		float depth = VERTEX.z - proximity_view_pos.z;
+		vec2 uv = (INV_VIEW_MATRIX * vec4(proximity_view_pos.xyz, 1.)).xz + depth * _light_direction.xz;
+		// fade and blur deep caustics
+		float fade = pow(smoothstep(caustic_depth, 0., depth), 4.);
+		dv /= fade * fade;
+		// get projected ocean normal from underwater surface
+		h = ocean_height(uv, ITERATIONS_FRAGMENT);
+		u = ocean_height(uv + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
+		v = ocean_height(uv + vec2(0.0, dv), ITERATIONS_FRAGMENT);
+		// light penetration from surface alignment with light
+		vec3 n = normalize(vec3(h - u, dv * _vertex_density, h - v));
+		float conv = pow(clamp(abs(dot(normalize(n), normalize(_light_direction))), 0., 1.), fade * 256.0);
+
+		float caustics = clamp(conv, 0., 1.) * (1. - edge_mask) * fade;
+		float dist_fade = 1. - smoothstep(0., 1., vertex_distance / visible_depth);
+
+		BACKLIGHT += _light_color * caustics * dist_fade * caustic_intensity;
+	}
 }
