@@ -144,9 +144,10 @@ void fragment() {
 	float h, u, v;
 	// adjust normal domain as screen space distance increases to reduce high frequency values across pixels
 	float dv = max(0.25, length(fwidth(VERTEX)));
-	h = ocean_height(UV, ITERATIONS_FRAGMENT);
-	u = ocean_height(UV + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
-	v = ocean_height(UV + vec2(0.0, dv), ITERATIONS_FRAGMENT);
+	vec2  n_uv = UV + dv * -0.66;
+	h = ocean_height(n_uv, ITERATIONS_FRAGMENT);
+	u = ocean_height(n_uv + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
+	v = ocean_height(n_uv + vec2(0.0, dv), ITERATIONS_FRAGMENT);
 	vec3 world_normal = normalize(vec3(h - u, dv * _vertex_density, h - v));
 	NORMAL = mat3(VIEW_MATRIX) * world_normal;
 	TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
@@ -201,14 +202,15 @@ void fragment() {
 	// Caustics
 	if (caustics_enabled) {
 		float depth = VERTEX.z - proximity_view_pos.z;
-		vec2 uv = (INV_VIEW_MATRIX * vec4(proximity_view_pos.xyz, 1.)).xz + depth * _light_direction.xz;
+		vec2 c_uv = (INV_VIEW_MATRIX * vec4(proximity_view_pos.xyz, 1.)).xz + depth * _light_direction.xz;
 		// fade and blur deep caustics
 		float fade = pow(smoothstep(caustic_depth, 0., depth), 4.);
 		dv /= fade * fade;
 		// get projected ocean normal from underwater surface
-		h = ocean_height(uv, ITERATIONS_FRAGMENT);
-		u = ocean_height(uv + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
-		v = ocean_height(uv + vec2(0.0, dv), ITERATIONS_FRAGMENT);
+		c_uv += dv * -0.66;
+		h = ocean_height(c_uv, ITERATIONS_FRAGMENT);
+		u = ocean_height(c_uv + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
+		v = ocean_height(c_uv + vec2(0.0, dv), ITERATIONS_FRAGMENT);
 		// light penetration from surface alignment with light
 		vec3 n = normalize(vec3(h - u, dv * _vertex_density, h - v));
 		float conv = pow(clamp(abs(dot(normalize(n), normalize(_light_direction))), 0., 1.), fade * 256.0);
