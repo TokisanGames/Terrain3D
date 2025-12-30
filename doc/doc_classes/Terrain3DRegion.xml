@@ -14,6 +14,11 @@
 				Recalculates the height range for this region by looking at every pixel in the heightmap.
 			</description>
 		</method>
+		<method name="clear">
+			<return type="void" />
+			<description>
+			</description>
+		</method>
 		<method name="dump" qualifiers="const">
 			<return type="void" />
 			<param index="0" name="verbose" type="bool" default="false" />
@@ -27,6 +32,78 @@
 			<description>
 				Returns a duplicate copy of this node, with references to the same image maps and multimeshes.
 				- deep - Also make complete duplicates of the maps and multimeshes.
+			</description>
+		</method>
+		<method name="get_control" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets the control ID at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_angle" qualifiers="const">
+			<return type="float" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets the control angle at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_auto" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets if the region uses the auto shader at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_base_id" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets the base texture ID at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_blend" qualifiers="const">
+			<return type="float" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets the blend value at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_hole" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets if the region has a hole at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_navigation" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets if the region has navigation at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_overlay_id" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets the overlay texture ID at the provided pixel position.
+			</description>
+		</method>
+		<method name="get_control_scale" qualifiers="const">
+			<return type="float" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<description>
+				Gets the scale at the provided pixel position.
 			</description>
 		</method>
 		<method name="get_data" qualifiers="const">
@@ -70,6 +147,87 @@
 				Saves this region to the current file name.
 				- path - specifies a directory and file name to use from now on.
 				- 16-bit - save this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
+			</description>
+		</method>
+		<method name="set_control">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="control" type="int" />
+			<description>
+				Sets the regions control value at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_angle">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="angle" type="float" />
+			<description>
+				Sets the regions control angle at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_auto">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="auto" type="bool" />
+			<description>
+				Sets if the region uses the auto shader at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_base_id">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="base" type="int" />
+			<description>
+				Sets the regions base texture id at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_blend">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="blend" type="float" />
+			<description>
+				Sets the regions blend value at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_hole">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="hole" type="bool" />
+			<description>
+				Sets if the region has a hole at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_navigation">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="navigation" type="bool" />
+			<description>
+				Sets if the region has navigation at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_overlay_id">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="overlay" type="int" />
+			<description>
+				Sets the overlay texture ID at the provided pixel position.
+			</description>
+		</method>
+		<method name="set_control_scale">
+			<return type="void" />
+			<param index="0" name="x" type="int" />
+			<param index="1" name="y" type="int" />
+			<param index="2" name="scale" type="float" />
+			<description>
+				Sets the uv scale at the provided pixel position.
 			</description>
 		</method>
 		<method name="set_data">

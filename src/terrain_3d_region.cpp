@@ -428,6 +428,121 @@ void Terrain3DRegion::dump(const bool verbose) const {
 	}
 }
 
+real_t Terrain3DRegion::get_height(const int p_x, const int p_y) const {
+	return _height_map->get_pixel(p_x, p_y).r;
+}
+
+void Terrain3DRegion::set_height(const int p_x, const int p_y, const real_t p_height) {
+	_height_map->set_pixel(p_x, p_y, Color(p_height, 0.f, 0.f, 1.f));
+	update_height(p_height);
+}
+
+Color Terrain3DRegion::get_color(const int p_x, const int p_y) const {
+	return _color_map->get_pixel(p_x, p_y);
+}
+
+void Terrain3DRegion::set_color(const int p_x, const int p_y, const Color &p_color) {
+	_color_map->set_pixel(p_x, p_y, p_color);
+	_modified = true;
+}
+
+uint32_t Terrain3DRegion::get_control(const int p_x, const int p_y) const {
+	return as_uint(_control_map->get_pixel(p_x, p_y).r);
+}
+
+void Terrain3DRegion::set_control(const int p_x, const int p_y, uint32_t p_control) {
+	_control_map->set_pixel(p_x, p_y, Color(as_float(p_control), 0.f, 0.f, 1.f));
+	_modified = true;
+}
+
+uint8_t Terrain3DRegion::get_control_base_id(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	return get_base(control);
+}
+
+void Terrain3DRegion::set_control_base_id(const int p_x, const int p_y, const uint8_t p_base) {
+	uint32_t control = get_control(p_x, p_y);
+	uint8_t base = CLAMP(p_base, uint8_t(0), uint8_t(31));
+	set_control(p_x, p_y, (control & ~(0x1F << 27)) | enc_base(base));
+}
+
+uint8_t Terrain3DRegion::get_control_overlay_id(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	return get_overlay(control);
+}
+
+void Terrain3DRegion::set_control_overlay_id(const int p_x, const int p_y, const uint8_t p_overlay) {
+	uint32_t control = get_control(p_x, p_y);
+	uint8_t overlay = CLAMP(p_overlay, uint8_t(0), uint8_t(31));
+	set_control(p_x, p_y, (control & ~(0x1F << 22)) | enc_overlay(overlay));
+}
+real_t Terrain3DRegion::get_control_blend(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	return control == UINT32_MAX ? NAN : real_t(get_blend(control)) / 255.f;
+}
+
+void Terrain3DRegion::set_control_blend(const int p_x, const int p_y, const real_t p_blend) {
+	uint32_t control = get_control(p_x, p_y);
+	uint8_t blend = uint8_t(CLAMP(Math::round(p_blend * 255.f), 0.f, 255.f));
+	set_control(p_x, p_y, (control & ~(0xFF << 14)) | enc_blend(blend));
+}
+
+real_t Terrain3DRegion::get_control_angle(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	real_t angle = real_t(get_uv_rotation(control)) * 22.5f;
+	return control == UINT32_MAX ? NAN : angle;
+}
+
+void Terrain3DRegion::set_control_angle(const int p_x, const int p_y, const real_t p_angle) {
+	uint32_t control = get_control(p_x, p_y);
+	uint8_t uvrotation = uint8_t(CLAMP(Math::round(p_angle / 22.5f), 0.f, 15.f));
+	set_control(p_x, p_y, (control & ~(0xF << 10)) | enc_uv_rotation(uvrotation));
+}
+
+real_t Terrain3DRegion::get_control_scale(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	std::array<real_t, 8> scale_values = { 0.0f, 20.0f, 40.0f, 60.0f, 80.0f, -60.0f, -40.0f, -20.0f };
+	real_t scale = scale_values[get_uv_scale(control)];
+	return control == UINT32_MAX ? NAN : scale;
+}
+
+void Terrain3DRegion::set_control_scale(const int p_x, const int p_y, const real_t p_scale) {
+	uint32_t control = get_control(p_x, p_y);
+	std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
+	uint8_t uvscale = scale_align[uint8_t(CLAMP(Math::round((p_scale + 60.f) / 20.f), 0.f, 7.f))];
+	set_control(p_x, p_y, (control & ~(0x7 << 7)) | enc_uv_scale(uvscale));
+}
+
+bool Terrain3DRegion::get_control_hole(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	return control == UINT32_MAX ? false : is_hole(control);
+}
+
+void Terrain3DRegion::set_control_hole(const int p_x, const int p_y, const bool p_hole) {
+	uint32_t control = get_control(p_x, p_y);
+	set_control(p_x, p_y, (control & ~(0x1 << 2)) | enc_hole(p_hole));
+}
+
+bool Terrain3DRegion::get_control_navigation(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	return control == UINT32_MAX ? false : is_nav(control);
+}
+
+void Terrain3DRegion::set_control_navigation(const int p_x, const int p_y, const bool p_navigation) {
+	uint32_t control = get_control(p_x, p_y);
+	set_control(p_x, p_y, (control & ~(0x1 << 1)) | enc_nav(p_navigation));
+}
+
+bool Terrain3DRegion::get_control_auto(const int p_x, const int p_y) const {
+	uint32_t control = get_control(p_x, p_y);
+	return control == UINT32_MAX ? false : is_auto(control);
+}
+
+void Terrain3DRegion::set_control_auto(const int p_x, const int p_y, const bool p_auto) {
+	uint32_t control = get_control(p_x, p_y);
+	set_control(p_x, p_y, (control & ~(0x1 << 0)) | enc_auto(p_auto));
+}
+
 /////////////////////
 // Protected Functions
 /////////////////////
@@ -459,6 +574,24 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("sanitize_maps"), &Terrain3DRegion::sanitize_maps);
 	ClassDB::bind_method(D_METHOD("sanitize_map", "map_type", "map"), &Terrain3DRegion::sanitize_map);
 	ClassDB::bind_method(D_METHOD("validate_map_size", "map"), &Terrain3DRegion::validate_map_size);
+	ClassDB::bind_method(D_METHOD("get_control", "x", "y"), &Terrain3DRegion::get_control);
+	ClassDB::bind_method(D_METHOD("set_control", "x", "y", "control"), &Terrain3DRegion::set_control);
+	ClassDB::bind_method(D_METHOD("set_control_base_id", "x", "y", "base"), &Terrain3DRegion::set_control_base_id);
+	ClassDB::bind_method(D_METHOD("get_control_base_id", "x", "y"), &Terrain3DRegion::get_control_base_id);
+	ClassDB::bind_method(D_METHOD("set_control_overlay_id", "x", "y", "overlay"), &Terrain3DRegion::set_control_overlay_id);
+	ClassDB::bind_method(D_METHOD("get_control_overlay_id", "x", "y"), &Terrain3DRegion::get_control_overlay_id);
+	ClassDB::bind_method(D_METHOD("set_control_blend", "x", "y", "blend"), &Terrain3DRegion::set_control_blend);
+	ClassDB::bind_method(D_METHOD("get_control_blend", "x", "y"), &Terrain3DRegion::get_control_blend);
+	ClassDB::bind_method(D_METHOD("set_control_angle", "x", "y", "angle"), &Terrain3DRegion::set_control_angle);
+	ClassDB::bind_method(D_METHOD("get_control_angle", "x", "y"), &Terrain3DRegion::get_control_angle);
+	ClassDB::bind_method(D_METHOD("set_control_scale", "x", "y", "scale"), &Terrain3DRegion::set_control_scale);
+	ClassDB::bind_method(D_METHOD("get_control_scale", "x", "y"), &Terrain3DRegion::get_control_scale);
+	ClassDB::bind_method(D_METHOD("set_control_hole", "x", "y", "hole"), &Terrain3DRegion::set_control_hole);
+	ClassDB::bind_method(D_METHOD("get_control_hole", "x", "y"), &Terrain3DRegion::get_control_hole);
+	ClassDB::bind_method(D_METHOD("set_control_navigation", "x", "y", "navigation"), &Terrain3DRegion::set_control_navigation);
+	ClassDB::bind_method(D_METHOD("get_control_navigation", "x", "y"), &Terrain3DRegion::get_control_navigation);
+	ClassDB::bind_method(D_METHOD("set_control_auto", "x", "y", "auto"), &Terrain3DRegion::set_control_auto);
+	ClassDB::bind_method(D_METHOD("get_control_auto", "x", "y"), &Terrain3DRegion::get_control_auto);
 
 	ClassDB::bind_method(D_METHOD("set_height_range", "range"), &Terrain3DRegion::set_height_range);
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DRegion::get_height_range);
