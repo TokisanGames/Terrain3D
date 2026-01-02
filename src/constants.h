@@ -3,6 +3,8 @@
 #ifndef CONSTANTS_CLASS_H
 #define CONSTANTS_CLASS_H
 
+#include <functional>
+
 // GDExtension uses the godot namespace, custom modules do not.
 #if defined(GDEXTENSION) && !defined(GODOT_MODULE)
 using namespace godot;
