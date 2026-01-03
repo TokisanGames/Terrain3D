@@ -129,6 +129,17 @@ void Terrain3DCollision::_shape_set_disabled(const int p_shape_id, const bool p_
 	} else {
 		PS->body_set_shape_disabled(_static_body_rid, p_shape_id, p_disabled);
 	}
+
+	// update disabled cache
+	if (p_disabled) {
+		_disabled_shapes.insert(p_shape_id);
+	} else {
+		_disabled_shapes.erase(p_shape_id);
+	}
+}
+
+bool Terrain3DCollision::_shape_is_disabled(const int p_shape_id) const {
+	return _disabled_shapes.find(p_shape_id) != _disabled_shapes.end();
 }
 
 void Terrain3DCollision::_shape_set_transform(const int p_shape_id, const Transform3D &p_xform) {
@@ -140,13 +151,17 @@ void Terrain3DCollision::_shape_set_transform(const int p_shape_id, const Transf
 	}
 }
 
-Vector3 Terrain3DCollision::_shape_get_position(const int p_shape_id) const {
+Transform3D Terrain3DCollision::_shape_get_transform(const int p_shape_id) const {
 	if (is_editor_mode()) {
 		CollisionShape3D *shape = _shapes[p_shape_id];
-		return shape->get_global_position();
+		return shape->get_global_transform();
 	} else {
-		return PS->body_get_shape_transform(_static_body_rid, p_shape_id).origin;
+		return PS->body_get_shape_transform(_static_body_rid, p_shape_id);
 	}
+}
+
+Vector3 Terrain3DCollision::_shape_get_position(const int p_shape_id) const {
+	return _shape_get_transform(p_shape_id).origin;
 }
 
 void Terrain3DCollision::_shape_set_data(const int p_shape_id, const Dictionary &p_dict) {
@@ -295,6 +310,9 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 	}
 	int time = Time::get_singleton()->get_ticks_usec();
 	real_t spacing = _terrain->get_vertex_spacing();
+
+	// clear the disabled shapes set
+	_disabled_shapes.clear();
 
 	if (is_dynamic_mode()) {
 		// Snap descaled position to a _shape_size grid (eg. multiples of 16)
@@ -448,6 +466,55 @@ void Terrain3DCollision::destroy() {
 	}
 }
 
+// Check if a point in global cooridinates is over one of our collision shapes.
+// This assumes the terrain is oriented Y-up, and the Y coordinate is ignored.
+bool Terrain3DCollision::is_over_collision_shape(const Vector3 &p_world_pos) const {
+	IS_INIT(false);
+	if (!_initialized) {
+		return false;
+	}
+
+	// assume always over a shape if not dynamic mode
+	if (!is_dynamic_mode()) {
+		return true;
+	}
+
+	int shape_count = is_editor_mode() ? _shapes.size() : PS->body_get_shape_count(_static_body_rid);
+	for (int i = 0; i < shape_count; i++) {
+		Transform3D shape_xform = _shape_get_transform(i);
+		Vector3 shape_pos = shape_xform.origin;
+		Vector3 local_pos = shape_xform.affine_inverse().xform(p_world_pos);
+
+		// Get heightmap shape from static body or server
+		Ref<HeightMapShape3D> hshape;
+		if (is_editor_mode()) {
+			hshape = _shapes[i]->get_shape();
+		} else {
+			RID shape_rid = PS->body_get_shape(_static_body_rid, i);
+			hshape = Ref<HeightMapShape3D>(PS->shape_get_data(shape_rid));
+		}
+
+		// Check XZ bounds
+		real_t half_width = (hshape->get_map_width() - 1) * 0.5f * _terrain->get_vertex_spacing();
+		real_t half_depth = (hshape->get_map_depth() - 1) * 0.5f * _terrain->get_vertex_spacing();
+		if (local_pos.x < -half_width || local_pos.x > half_width || local_pos.z < -half_depth || local_pos.z > half_depth) {
+			continue;
+		}
+
+		// ESTEE: What to do about holes?
+		if (!_shape_is_disabled(i)) {
+			return true;
+			// Check height at XZ, necessary due to holes
+			// real_t height = hshape->get_height_at_point(Vector2(local_pos.x / _terrain->get_vertex_spacing(), local_pos.z / _terrain->get_vertex_spacing()));
+			// if (!std::isnan(height)) {
+			// 	return true;
+			// }
+		}
+	}
+
+	return false;
+}
+
 void Terrain3DCollision::set_mode(const CollisionMode p_mode) {
 	SET_IF_DIFF(_mode, p_mode);
 	LOG(INFO, "Setting collision mode: ", p_mode);
@@ -577,6 +644,8 @@ void Terrain3DCollision::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DCollision::is_enabled);
 	ClassDB::bind_method(D_METHOD("is_editor_mode"), &Terrain3DCollision::is_editor_mode);
 	ClassDB::bind_method(D_METHOD("is_dynamic_mode"), &Terrain3DCollision::is_dynamic_mode);
+
+	ClassDB::bind_method(D_METHOD("is_over_collision_shape"), &Terrain3DCollision::is_over_collision_shape);
 
 	ClassDB::bind_method(D_METHOD("set_shape_size", "size"), &Terrain3DCollision::set_shape_size);
 	ClassDB::bind_method(D_METHOD("get_shape_size"), &Terrain3DCollision::get_shape_size);
