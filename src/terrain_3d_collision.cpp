@@ -467,7 +467,7 @@ void Terrain3DCollision::destroy() {
 }
 
 // Check if a point in global cooridinates is over one of our collision shapes.
-// This assumes the terrain is oriented Y-up, and the Y coordinate is ignored.
+// The Y coordinate is ignored.
 bool Terrain3DCollision::is_over_collision_shape(const Vector3 &p_world_pos) const {
 	IS_INIT(false);
 	if (!_initialized) {
@@ -501,14 +501,9 @@ bool Terrain3DCollision::is_over_collision_shape(const Vector3 &p_world_pos) con
 			continue;
 		}
 
-		// ESTEE: What to do about holes?
+		// return on first enabled shape found
 		if (!_shape_is_disabled(i)) {
 			return true;
-			// Check height at XZ, necessary due to holes
-			// real_t height = hshape->get_height_at_point(Vector2(local_pos.x / _terrain->get_vertex_spacing(), local_pos.z / _terrain->get_vertex_spacing()));
-			// if (!std::isnan(height)) {
-			// 	return true;
-			// }
 		}
 	}
 
