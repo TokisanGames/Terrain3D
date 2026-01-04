@@ -57,7 +57,8 @@ void fragment() {
 	// Hard coded color.
 	ALBEDO = blade_color * (data[2] * 0.5 + 0.5);
 	ALBEDO.rg *= (data.rg * 0.3 + 0.9);
-	ALBEDO *= clamp(pow(COLOR.rgb, vec3(2.2)), 0.0, 6.0);		// ESTEE: clamp out bright flashes at the tips from pow() function above.
+	// Clamp out bright flashes at the tips from pow() function below.
+	ALBEDO *= clamp(pow(COLOR.rgb, vec3(2.2)), 0.0, 6.0);
 	
 	// Modify roughness / specular based on wind force for added detail
 	float spec_rough = clamp(max(data[2], data[3]), 0., 1.);

@@ -9,7 +9,7 @@ shader_type particles;
 render_mode disable_velocity, disable_force;
 
 group_uniforms placement;
-// ESTEE: up to three texture ids that the particles can be placed over. Set to -1 to disable
+// Up to three texture ids that the particles can be placed over. Set to -1 to disable
 uniform int texture_ids[3];
 
 group_uniforms options;
@@ -279,7 +279,7 @@ void start() {
 	TRANSFORM[2] *= scale.z;
 
 	// Apply the position
-	vec3 centered = vec3(-0.5,0,-0.5);		// ESTEE: align the placement over the center of the texture tiles.
+	vec3 centered -= vec3(0.5,0,0.5);		// Align the placement over the center of the texture tiles.
 	TRANSFORM[3].xyz = pos.xyz + offset + centered;
 
 	// Save Fixed 2 Random values for Reg/Green color randomness
