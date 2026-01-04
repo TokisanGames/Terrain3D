@@ -78,9 +78,7 @@ extends Node3D
 @export var texture_array: Array[int] = [0]:
 	set(value):
 		texture_array = value
-		texture_mask = 0
-		for id: int in texture_array:
-			texture_mask |= (1 << id)   # texture ids are 0–31
+		_update_texture_mask()
 
 ## Access to process material parameters
 @export var process_material: ShaderMaterial
@@ -134,6 +132,7 @@ func _ready() -> void:
 		if parent is Terrain3D:
 			terrain = parent
 	_create_grid()
+	_update_texture_mask()
 
 
 func _notification(what: int) -> void:
@@ -224,6 +223,12 @@ func _position_grid(pos: Vector3) -> void:
 		node.global_position = (snap / instance_spacing).round() * instance_spacing
 		node.reset_physics_interpolation()
 		node.restart(true) # keep the same seed.
+
+
+func _update_texture_mask():
+	texture_mask = 0
+	for id: int in texture_array:
+		texture_mask |= (1 << id)   # texture ids are 0–31
 
 
 func _update_process_parameters() -> void:
