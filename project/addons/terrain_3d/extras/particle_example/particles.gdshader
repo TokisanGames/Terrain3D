@@ -9,8 +9,7 @@ shader_type particles;
 render_mode disable_velocity, disable_force;
 
 group_uniforms placement;
-// Up to three texture ids that the particles can be placed over. Set to -1 to disable
-uniform int texture_ids[3];
+uniform bool include_auto_textures = false;
 
 group_uniforms options;
 uniform sampler2D main_noise;
@@ -58,6 +57,7 @@ uniform vec2 _region_locations[1024];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : repeat_disable;
+uniform uint _texture_placement_mask = 0u;
 
 // Defined Constants
 #define SKIP_PASS 0
@@ -117,8 +117,8 @@ mat3 align_to_vector(vec3 normal) {
 }
 
 // Which texture IDs in Terrain3D are considered for populating
-bool is_grass(int n) {
-	return texture_ids[0]==n || texture_ids[1]==n ||  texture_ids[2]==n;
+bool should_place_grass(int id) {
+	return (_texture_placement_mask & (1u << uint(id))) != 0u;
 }
 
 void start() {
@@ -259,7 +259,7 @@ void start() {
 	}
 
 	// Filter out non-grass areas
-	if (((!is_grass(base) && blend < 0.7) || (!is_grass(over) && blend >= 0.3))) {
+	if ((!include_auto_textures && auto) || ((!should_place_grass(base) && blend < 0.7) || (!should_place_grass(over) && blend >= 0.3))) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
 	}
@@ -279,8 +279,8 @@ void start() {
 	TRANSFORM[2] *= scale.z;
 
 	// Apply the position
-	vec3 centered -= vec3(0.5,0,0.5);		// Align the placement over the center of the texture tiles.
-	TRANSFORM[3].xyz = pos.xyz + offset + centered;
+	offset -= vec3(0.5,0,0.5);		// Position the grass between the vertices.
+	TRANSFORM[3].xyz = pos.xyz + offset;
 
 	// Save Fixed 2 Random values for Reg/Green color randomness
 	CUSTOM.rg = r.rg;
