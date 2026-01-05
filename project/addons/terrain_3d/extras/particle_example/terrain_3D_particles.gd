@@ -74,6 +74,12 @@ extends Node3D
 			p.preprocess = 1.0 / float(process_fixed_fps)
 
 
+## List of texture IDs to apply the particles over
+@export var texture_array: Array[int] = [0]:
+	set(value):
+		texture_array = value
+		_update_texture_mask()
+
 ## Access to process material parameters
 @export var process_material: ShaderMaterial
 
@@ -114,6 +120,7 @@ extends Node3D
 #endregion
 
 
+var texture_mask: int = 0
 var offsets: Array[Vector3]
 var last_pos: Vector3 = Vector3.ZERO
 var particle_nodes: Array[GPUParticles3D]
@@ -125,6 +132,7 @@ func _ready() -> void:
 		if parent is Terrain3D:
 			terrain = parent
 	_create_grid()
+	_update_texture_mask()
 
 
 func _notification(what: int) -> void:
@@ -217,6 +225,12 @@ func _position_grid(pos: Vector3) -> void:
 		node.restart(true) # keep the same seed.
 
 
+func _update_texture_mask():
+	texture_mask = 0
+	for id: int in texture_array:
+		texture_mask |= (1 << id)   # texture ids are 0–31
+
+
 func _update_process_parameters() -> void:
 	if process_material:
 		var process_rid: RID = process_material.get_rid()
@@ -235,3 +249,4 @@ func _update_process_parameters() -> void:
 			RenderingServer.material_set_param(process_rid, "instance_spacing", instance_spacing)
 			RenderingServer.material_set_param(process_rid, "instance_rows", rows)
 			RenderingServer.material_set_param(process_rid, "max_dist", min_draw_distance)
+			RenderingServer.material_set_param(process_rid, "_texture_placement_mask", texture_mask)

@@ -8,6 +8,9 @@
 shader_type particles;
 render_mode disable_velocity, disable_force;
 
+group_uniforms placement;
+uniform bool include_auto_textures = false;
+
 group_uniforms options;
 uniform sampler2D main_noise;
 uniform float main_noise_scale = 0.01;
@@ -54,6 +57,7 @@ uniform vec2 _region_locations[1024];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : repeat_disable;
+uniform uint _texture_placement_mask = 0u;
 
 // Defined Constants
 #define SKIP_PASS 0
@@ -110,6 +114,11 @@ mat3 align_to_vector(vec3 normal) {
 	vec3 tangent = normalize(cross(up, normal));
 	vec3 bitangent = normalize(cross(tangent, normal));
 	return mat3(tangent, normal, bitangent);
+}
+
+// Which texture IDs in Terrain3D are considered for populating
+bool should_place_grass(int id) {
+	return (_texture_placement_mask & (1u << uint(id))) != 0u;
 }
 
 void start() {
@@ -231,7 +240,7 @@ void start() {
 
 	COLOR = color_map;
 
-	// Read control maps
+// Read control maps
 	uvec4 control = uvec4(
 		floatBitsToUint(texelFetch(_control_maps, index[0], 0).r),
 		floatBitsToUint(texelFetch(_control_maps, index[1], 0).r),
@@ -249,8 +258,8 @@ void start() {
 		pos.xz = vec2(100000.0);
 	}
 
-	// Hardcoded example, hand painted texture id 0 is filtered out.
-	if (!auto && ((base == 0 && blend < 0.7) || (over == 0 && blend >= 0.3))) {
+	// Filter out non-grass areas
+	if ((!include_auto_textures && auto) || ((!should_place_grass(base) && blend < 0.7) || (!should_place_grass(over) && blend >= 0.3))) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
 	}
@@ -270,6 +279,7 @@ void start() {
 	TRANSFORM[2] *= scale.z;
 
 	// Apply the position
+	offset -= vec3(0.5,0,0.5);		// Position the grass between the vertices.
 	TRANSFORM[3].xyz = pos.xyz + offset;
 
 	// Save Fixed 2 Random values for Reg/Green color randomness

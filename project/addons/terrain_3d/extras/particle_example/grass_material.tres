@@ -5,4 +5,5 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1_nkru0")
+shader_parameter/blade_color = Color(0.3, 0.33, 0.16, 1)
 shader_parameter/wind_direction = Vector2(1, 1)
