@@ -1,7 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<class name="Terrain3DCollision" inherits="Object"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Terrain3DCollision" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
@@ -58,10 +56,10 @@
 			<return type="bool" />
 			<param index="0" name="position" type="Vector3" />
 			<description>
-				Returns true if the given world position is over any of the collision shapes associated with the terrain. Height (Y) is ignored.
+				Returns true if the given world position is coincident with any active terrain collision shapes. Y is ignored, so it checks if X and Z are within the boundaries of enabled collision shapes, regardless of height. You can run a separate check to determine if height or a hole exist at this location. This function is intended to help determine if collision is worth checking in this area.
 			</description>
 		</method>
-	</methods>
+</methods>
 	<members>
 		<member name="layer" type="int" setter="set_layer" getter="get_layer" default="1">
 			The physics layers the terrain lives on. Sets [code skip-lint]CollisionObject3D.collision_layer[/code]. Also see [member mask].
@@ -69,24 +67,20 @@
 		<member name="mask" type="int" setter="set_mask" getter="get_mask" default="1">
 			The physics layers the physics body scans for colliding objects. Sets [code skip-lint]CollisionObject3D.collision_mask[/code]. Also see [member layer].
 		</member>
-		<member name="mode" type="int" setter="set_mode" getter="get_mode"
-			enum="Terrain3DCollision.CollisionMode" default="1">
+		<member name="mode" type="int" setter="set_mode" getter="get_mode" enum="Terrain3DCollision.CollisionMode" default="1">
 			The selected mode determines if collision is generated and how. See [enum CollisionMode] for details.
 		</member>
-		<member name="physics_material" type="PhysicsMaterial" setter="set_physics_material"
-			getter="get_physics_material">
+		<member name="physics_material" type="PhysicsMaterial" setter="set_physics_material" getter="get_physics_material">
 			Applies a [code skip-lint]PhysicsMaterial[/code] override to the entire terrain StaticBody.
 			There's no ability built into Godot to change physics material parameters based on texture or any other factor. However, it might be possible to extend `PhysicsMaterial` in order to inject code into the queries. It would need references to an object position and a terrain, and then it could run [method Terrain3DData.get_texture_id] based on the position and return different physics settings per texture. That would change the settings for the entire terrain for that moment.
 		</member>
-		<member name="priority" type="float" setter="set_priority" getter="get_priority"
-			default="1.0">
+		<member name="priority" type="float" setter="set_priority" getter="get_priority" default="1.0">
 			The priority with which the physics server uses to solve collisions. The higher the priority, the lower the penetration of a colliding object. Sets [code skip-lint]CollisionObject3D.collision_priority[/code].
 		</member>
 		<member name="radius" type="int" setter="set_radius" getter="get_radius" default="64">
 			If [member mode] is Dynamic, this is the distance range within which collision shapes will be generated.
 		</member>
-		<member name="shape_size" type="int" setter="set_shape_size" getter="get_shape_size"
-			default="16">
+		<member name="shape_size" type="int" setter="set_shape_size" getter="get_shape_size" default="16">
 			If [member mode] is Dynamic, this is the size of each collision shape.
 		</member>
 	</members>
