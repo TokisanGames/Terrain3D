@@ -201,7 +201,6 @@ void start() {
 
 	// Apply scale to offset
 	vec3 offset = position_offset * scale;
-	offset -= vec3(0.5,0,0.5);		// Position the grass between the vertices.
 
 	// Apply normal orientation
 	if (align_to_normal) {
@@ -280,6 +279,7 @@ void start() {
 	TRANSFORM[2] *= scale.z;
 
 	// Apply the position
+	offset -= vec3(0.5,0,0.5);		// Position the grass between the vertices.
 	TRANSFORM[3].xyz = pos.xyz + offset;
 
 	// Save Fixed 2 Random values for Reg/Green color randomness
