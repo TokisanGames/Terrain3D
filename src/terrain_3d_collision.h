@@ -57,7 +57,6 @@ private:
 
 	void _shape_set_disabled(const int p_shape_id, const bool p_disabled);
 	void _shape_set_transform(const int p_shape_id, const Transform3D &p_xform);
-	Transform3D _shape_get_transform(const int p_shape_id) const;
 	Vector3 _shape_get_position(const int p_shape_id) const;
 	void _shape_set_data(const int p_shape_id, const Dictionary &p_dict);
 

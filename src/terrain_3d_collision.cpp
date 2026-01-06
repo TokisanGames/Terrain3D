@@ -141,17 +141,13 @@ void Terrain3DCollision::_shape_set_transform(const int p_shape_id, const Transf
 	}
 }
 
-Transform3D Terrain3DCollision::_shape_get_transform(const int p_shape_id) const {
+Vector3 Terrain3DCollision::_shape_get_position(const int p_shape_id) const {
 	if (is_editor_mode()) {
 		CollisionShape3D *shape = _shapes[p_shape_id];
-		return shape->get_global_transform();
+		return shape->get_global_position();
 	} else {
-		return PS->body_get_shape_transform(_static_body_rid, p_shape_id);
+		return PS->body_get_shape_transform(_static_body_rid, p_shape_id).origin;
 	}
-}
-
-Vector3 Terrain3DCollision::_shape_get_position(const int p_shape_id) const {
-	return _shape_get_transform(p_shape_id).origin;
 }
 
 void Terrain3DCollision::_shape_set_data(const int p_shape_id, const Dictionary &p_dict) {
