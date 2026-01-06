@@ -42,6 +42,11 @@ private:
 	RID _static_body_rid; // Physics Server Static Body
 	StaticBody3D *_static_body = nullptr; // Editor mode StaticBody3D
 	std::vector<CollisionShape3D *> _shapes; // All CollisionShape3Ds
+	
+	// std::set<int> _disabled_shapes; // All disabled shape indexes
+	int32_t _last_grid_width = 0;
+	Vector2i _last_grid_offset = Vector2i();  // = -Vector2i(_last_grid_width / 2)
+	PackedInt32Array _grid_shape_indices;     // size = _last_grid_width^2, -1 = inactive
 
 	bool _initialized = false;
 	Vector2i _last_snapped_pos = V2I_MAX;
@@ -66,6 +71,8 @@ public:
 	void reset_target_position() { _last_snapped_pos = V2I_MAX; }
 	void update(const bool p_rebuild = false);
 	void destroy();
+
+	bool is_on_collision(const Vector3 &p_world_position) const;
 
 	void set_mode(const CollisionMode p_mode);
 	CollisionMode get_mode() const { return _mode; }

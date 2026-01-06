@@ -131,6 +131,7 @@ void Terrain3DCollision::_shape_set_disabled(const int p_shape_id, const bool p_
 	}
 }
 
+
 void Terrain3DCollision::_shape_set_transform(const int p_shape_id, const Transform3D &p_xform) {
 	if (is_editor_mode()) {
 		CollisionShape3D *shape = _shapes[p_shape_id];
@@ -291,12 +292,19 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 	}
 	if (p_rebuild && !is_dynamic_mode()) {
 		build();
+
+		// reset collision grid cache for is_on_collision
+		_last_grid_width = 0;
+		_last_grid_offset = Vector2i();
+		_grid_shape_indices.clear();
+
 		return;
 	}
 	int time = Time::get_singleton()->get_ticks_usec();
 	real_t spacing = _terrain->get_vertex_spacing();
 
 	if (is_dynamic_mode()) {
+
 		// Snap descaled position to a _shape_size grid (eg. multiples of 16)
 		Vector2i snapped_pos = _snap_to_grid(_terrain->get_collision_target_position() / spacing);
 		LOG(EXTREME, "Updating collision at ", snapped_pos);
@@ -380,6 +388,8 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 					continue;
 				}
 				int shape_id = inactive_shape_ids.pop_back();
+				grid[i] = shape_id; // keep grid in sync for is_on_collision since we're enabling this shape
+
 				Transform3D xform = shape_data["xform"];
 				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " act ", v3v2i(xform.origin) - shape_offset, " placing shape id ", shape_id);
 				xform.scale(Vector3(spacing, 1.f, spacing));
@@ -388,6 +398,12 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 				_shape_set_data(shape_id, shape_data);
 			}
 		}
+
+		// cache results of update for is_on_collision use later
+		_last_grid_width = grid_width;
+		_last_grid_offset = grid_offset;
+		_grid_shape_indices = grid;
+
 		_last_snapped_pos = snapped_pos;
 		LOG(EXTREME, "Setting _last_snapped_pos: ", _last_snapped_pos);
 		LOG(EXTREME, "inactive_shape_ids size: ", inactive_shape_ids.size());
@@ -446,6 +462,52 @@ void Terrain3DCollision::destroy() {
 		remove_from_tree(_static_body);
 		memdelete_safely(_static_body);
 	}
+}
+
+// Check if a point in global cooridinates is over one of our collision shapes.
+// The Y coordinate is ignored.
+bool Terrain3DCollision::is_on_collision(const Vector3 &p_world_position) const {
+	IS_DATA_INIT(false);
+
+	if (!_initialized || !is_enabled()) {
+        return false;
+    }
+
+	// ...for profiling
+	int time = Time::get_singleton()->get_ticks_usec();
+
+    // Enabled and full mode, collision exists wherever a region exists
+    if (!is_dynamic_mode()) {
+        return _terrain->get_data()->has_regionp(p_world_position);
+    }
+
+    // Dynamic mode
+    if (_last_grid_width <= 0 || _grid_shape_indices.is_empty()) {
+        return false;
+    }
+
+    Vector2 pos_descaled = Vector2(p_world_position.x, p_world_position.z) / _terrain->get_vertex_spacing();
+	// Determine which shape cell the position falls into using the same math as `update()`
+	Vector2i shape_offset = V2I(_shape_size / 2);
+	Vector2i shape_pos = _snap_to_grid(pos_descaled - Vector2(shape_offset));
+	Vector2i grid_pos = _last_snapped_pos + _last_grid_offset * _shape_size;
+	Vector2i grid_loc = (shape_pos - grid_pos) / _shape_size;
+
+    // Early out if clearly outside the grid
+    if (grid_loc.x < 0 || grid_loc.x >= _last_grid_width ||
+        grid_loc.y < 0 || grid_loc.y >= _last_grid_width) {
+
+        return false;
+    }
+
+    // Look up in grid
+    int idx = grid_loc.y * _last_grid_width + grid_loc.x;
+    int32_t shape_idx = _grid_shape_indices[idx];
+
+	LOG(EXTREME, "is_on_collision shap_idx time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+	LOG(EXTREME, "is_on_collision shape at grid_loc ", grid_loc, " idx ", idx, " shape_idx ", shape_idx);
+
+    return shape_idx >= 0;  // -1 means no active shape here
 }
 
 void Terrain3DCollision::set_mode(const CollisionMode p_mode) {
@@ -577,6 +639,8 @@ void Terrain3DCollision::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DCollision::is_enabled);
 	ClassDB::bind_method(D_METHOD("is_editor_mode"), &Terrain3DCollision::is_editor_mode);
 	ClassDB::bind_method(D_METHOD("is_dynamic_mode"), &Terrain3DCollision::is_dynamic_mode);
+
+	ClassDB::bind_method(D_METHOD("is_on_collision"), &Terrain3DCollision::is_on_collision);
 
 	ClassDB::bind_method(D_METHOD("set_shape_size", "size"), &Terrain3DCollision::set_shape_size);
 	ClassDB::bind_method(D_METHOD("get_shape_size"), &Terrain3DCollision::get_shape_size);

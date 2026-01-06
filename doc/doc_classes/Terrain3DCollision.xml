@@ -52,7 +52,14 @@
 				- If [member mode] is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set [code skip-lint]rebuild[/code] to true to recalculate all shapes within [member radius]. This is very fast, and can be updated at 60fps for little cost.
 			</description>
 		</method>
-	</methods>
+		<method name="is_on_collision" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="position" type="Vector3" />
+			<description>
+				Returns true if the given world position is coincident with any active terrain collision shapes. Y is ignored, so it checks if X and Z are within the boundaries of enabled collision shapes, regardless of height. You can run a separate check to determine if height or a hole exist at this location. This function is intended to help determine if collision is worth checking in this area.
+			</description>
+		</method>
+</methods>
 	<members>
 		<member name="layer" type="int" setter="set_layer" getter="get_layer" default="1">
 			The physics layers the terrain lives on. Sets [code skip-lint]CollisionObject3D.collision_layer[/code]. Also see [member mask].
