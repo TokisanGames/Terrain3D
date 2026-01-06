@@ -466,7 +466,7 @@ void Terrain3DCollision::destroy() {
 
 // Check if a point in global cooridinates is over one of our collision shapes.
 // The Y coordinate is ignored.
-bool Terrain3DCollision::is_on_collision(const Vector3 &p_global_position) const {
+bool Terrain3DCollision::is_on_collision(const Vector3 &p_world_position) const {
 	IS_DATA_INIT(false);
 
 	if (!_initialized || !is_enabled()) {
@@ -478,7 +478,7 @@ bool Terrain3DCollision::is_on_collision(const Vector3 &p_global_position) const
 
     // Enabled and full mode, collision exists wherever a region exists
     if (!is_dynamic_mode()) {
-        return _terrain->get_data()->has_regionp(p_global_position);
+        return _terrain->get_data()->has_regionp(p_world_position);
     }
 
     // Dynamic mode
@@ -486,7 +486,7 @@ bool Terrain3DCollision::is_on_collision(const Vector3 &p_global_position) const
         return false;
     }
 
-    Vector2 pos_descaled = Vector2(p_global_position.x, p_global_position.z) / _terrain->get_vertex_spacing();
+    Vector2 pos_descaled = Vector2(p_world_position.x, p_world_position.z) / _terrain->get_vertex_spacing();
 	// Determine which shape cell the position falls into using the same math as `update()`:
 	// shape_offset = _shape_size / 2 (meters), shape_pos = snap(pos - shape_offset)
 	Vector2i shape_offset = V2I(_shape_size / 2);
