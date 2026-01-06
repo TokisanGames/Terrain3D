@@ -487,13 +487,10 @@ bool Terrain3DCollision::is_on_collision(const Vector3 &p_world_position) const 
     }
 
     Vector2 pos_descaled = Vector2(p_world_position.x, p_world_position.z) / _terrain->get_vertex_spacing();
-	// Determine which shape cell the position falls into using the same math as `update()`:
-	// shape_offset = _shape_size / 2 (meters), shape_pos = snap(pos - shape_offset)
+	// Determine which shape cell the position falls into using the same math as `update()`
 	Vector2i shape_offset = V2I(_shape_size / 2);
 	Vector2i shape_pos = _snap_to_grid(pos_descaled - Vector2(shape_offset));
-	// Grid origin (top-left) was stored as: _last_snapped_pos + _last_grid_offset * _shape_size
 	Vector2i grid_pos = _last_snapped_pos + _last_grid_offset * _shape_size;
-	// grid_loc is an index in cells from the top-left of the grid
 	Vector2i grid_loc = (shape_pos - grid_pos) / _shape_size;
 
     // Early out if clearly outside the grid
