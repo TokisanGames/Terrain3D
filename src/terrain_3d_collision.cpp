@@ -129,18 +129,8 @@ void Terrain3DCollision::_shape_set_disabled(const int p_shape_id, const bool p_
 	} else {
 		PS->body_set_shape_disabled(_static_body_rid, p_shape_id, p_disabled);
 	}
-
-	// update disabled cache
-	if (p_disabled) {
-		_disabled_shapes.insert(p_shape_id);
-	} else {
-		_disabled_shapes.erase(p_shape_id);
-	}
 }
 
-bool Terrain3DCollision::_shape_is_disabled(const int p_shape_id) const {
-	return _disabled_shapes.find(p_shape_id) != _disabled_shapes.end();
-}
 
 void Terrain3DCollision::_shape_set_transform(const int p_shape_id, const Transform3D &p_xform) {
 	if (is_editor_mode()) {
@@ -306,15 +296,19 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 	}
 	if (p_rebuild && !is_dynamic_mode()) {
 		build();
+
+		// reset collision grid cache for is_on_collision
+		_last_grid_width = 0;
+		_last_grid_offset = Vector2i();
+		_grid_shape_indices.clear();
+
 		return;
 	}
 	int time = Time::get_singleton()->get_ticks_usec();
 	real_t spacing = _terrain->get_vertex_spacing();
 
-	// clear the disabled shapes set
-	_disabled_shapes.clear();
-
 	if (is_dynamic_mode()) {
+
 		// Snap descaled position to a _shape_size grid (eg. multiples of 16)
 		Vector2i snapped_pos = _snap_to_grid(_terrain->get_collision_target_position() / spacing);
 		LOG(EXTREME, "Updating collision at ", snapped_pos);
@@ -398,6 +392,8 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 					continue;
 				}
 				int shape_id = inactive_shape_ids.pop_back();
+				grid[i] = shape_id; // keep grid in sync for is_on_collision since we're enabling this shape
+
 				Transform3D xform = shape_data["xform"];
 				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " act ", v3v2i(xform.origin) - shape_offset, " placing shape id ", shape_id);
 				xform.scale(Vector3(spacing, 1.f, spacing));
@@ -406,6 +402,12 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 				_shape_set_data(shape_id, shape_data);
 			}
 		}
+
+		// cache results of update for is_on_collision use later
+		_last_grid_width = grid_width;
+		_last_grid_offset = grid_offset;
+		_grid_shape_indices = grid;
+
 		_last_snapped_pos = snapped_pos;
 		LOG(EXTREME, "Setting _last_snapped_pos: ", _last_snapped_pos);
 		LOG(EXTREME, "inactive_shape_ids size: ", inactive_shape_ids.size());
@@ -469,50 +471,50 @@ void Terrain3DCollision::destroy() {
 // Check if a point in global cooridinates is over one of our collision shapes.
 // The Y coordinate is ignored.
 bool Terrain3DCollision::is_on_collision(const Vector3 &p_global_position) const {
-	IS_INIT(false);
+	IS_DATA_INIT(false);
 
 	if (!_initialized || !is_enabled()) {
         return false;
     }
 
-    if (!is_dynamic_mode()) {
-        return true;
-    }
-
 	// ...for profiling
 	int time = Time::get_singleton()->get_ticks_usec();
 
-	int shape_count = is_editor_mode() ? _shapes.size() : PS->body_get_shape_count(_static_body_rid);
-	for (int i = 0; i < shape_count; i++) {
-		Transform3D shape_xform = _shape_get_transform(i);
-		Vector3 shape_pos = shape_xform.origin;
-		Vector3 local_pos = shape_xform.affine_inverse().xform(p_global_position);
+    // Enabled and full mode, collision exists wherever a region exists
+    if (!is_dynamic_mode()) {
+        return _terrain->get_data()->has_regionp(p_global_position);
+    }
 
-		// Get heightmap shape from static body or server
-		Ref<HeightMapShape3D> hshape;
-		if (is_editor_mode()) {
-			hshape = _shapes[i]->get_shape();
-		} else {
-			RID shape_rid = PS->body_get_shape(_static_body_rid, i);
-			hshape = Ref<HeightMapShape3D>(PS->shape_get_data(shape_rid));
-		}
+    // Dynamic mode
+    if (_last_grid_width <= 0 || _grid_shape_indices.is_empty()) {
+        return false;
+    }
 
-		// Check XZ bounds
-		real_t half_width = (hshape->get_map_width() - 1) * 0.5f * _terrain->get_vertex_spacing();
-		real_t half_depth = (hshape->get_map_depth() - 1) * 0.5f * _terrain->get_vertex_spacing();
-		if (local_pos.x < -half_width || local_pos.x > half_width || local_pos.z < -half_depth || local_pos.z > half_depth) {
-			continue;
-		}
+    Vector2 pos_descaled = Vector2(p_global_position.x, p_global_position.z) / _terrain->get_vertex_spacing();
+    Vector2i world_grid = _snap_to_grid(pos_descaled);
 
-		// return on first enabled shape found
-		if (!_shape_is_disabled(i)) {
-			LOG(EXTREME, "is_on_collision enabled time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
-			return true;
-		}
-	}
+    // Compute the cell coordinates first, then subtract the cached cell offset.
+    Vector2i cell_coords = Vector2i(
+        (world_grid.x - _last_snapped_pos.x) / _shape_size,
+        (world_grid.y - _last_snapped_pos.y) / _shape_size
+    );
+    Vector2i grid_loc = cell_coords - _last_grid_offset;
 
-	LOG(EXTREME, "is_on_collision disabled time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
-	return false;
+    // Early out if clearly outside the grid
+    if (grid_loc.x < 0 || grid_loc.x >= _last_grid_width ||
+        grid_loc.y < 0 || grid_loc.y >= _last_grid_width) {
+
+        return false;
+    }
+
+    // Look up in grid
+    int idx = grid_loc.y * _last_grid_width + grid_loc.x;
+    int32_t shape_idx = _grid_shape_indices[idx];
+
+	LOG(EXTREME, "is_on_collision shap_idx time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
+	LOG(EXTREME, "is_on_collision shape at grid_loc ", grid_loc, " idx ", idx, " shape_idx ", shape_idx);
+
+    return shape_idx >= 0;  // -1 means no active shape here
 }
 
 void Terrain3DCollision::set_mode(const CollisionMode p_mode) {

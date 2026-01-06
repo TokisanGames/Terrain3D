@@ -42,7 +42,11 @@ private:
 	RID _static_body_rid; // Physics Server Static Body
 	StaticBody3D *_static_body = nullptr; // Editor mode StaticBody3D
 	std::vector<CollisionShape3D *> _shapes; // All CollisionShape3Ds
-	std::set<int> _disabled_shapes; // All disabled shape indexes
+	
+	// std::set<int> _disabled_shapes; // All disabled shape indexes
+	int32_t _last_grid_width = 0;
+	Vector2i _last_grid_offset = Vector2i();  // = -Vector2i(_last_grid_width / 2)
+	PackedInt32Array _grid_shape_indices;     // size = _last_grid_width^2, -1 = inactive
 
 	bool _initialized = false;
 	Vector2i _last_snapped_pos = V2I_MAX;
@@ -52,7 +56,6 @@ private:
 	Dictionary _get_shape_data(const Vector2i &p_position, const int p_size);
 
 	void _shape_set_disabled(const int p_shape_id, const bool p_disabled);
-	bool _shape_is_disabled(const int p_shape_id) const;
 	void _shape_set_transform(const int p_shape_id, const Transform3D &p_xform);
 	Transform3D _shape_get_transform(const int p_shape_id) const;
 	Vector3 _shape_get_position(const int p_shape_id) const;
