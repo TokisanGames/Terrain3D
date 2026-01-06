@@ -468,22 +468,25 @@ void Terrain3DCollision::destroy() {
 
 // Check if a point in global cooridinates is over one of our collision shapes.
 // The Y coordinate is ignored.
-bool Terrain3DCollision::is_over_collision_shape(const Vector3 &p_world_pos) const {
+bool Terrain3DCollision::is_on_collision(const Vector3 &p_global_position) const {
 	IS_INIT(false);
-	if (!_initialized) {
-		return false;
-	}
 
-	// assume always over a shape if not dynamic mode
-	if (!is_dynamic_mode()) {
-		return true;
-	}
+	if (!_initialized || !is_enabled()) {
+        return false;
+    }
+
+    if (!is_dynamic_mode()) {
+        return true;
+    }
+
+	// ...for profiling
+	int time = Time::get_singleton()->get_ticks_usec();
 
 	int shape_count = is_editor_mode() ? _shapes.size() : PS->body_get_shape_count(_static_body_rid);
 	for (int i = 0; i < shape_count; i++) {
 		Transform3D shape_xform = _shape_get_transform(i);
 		Vector3 shape_pos = shape_xform.origin;
-		Vector3 local_pos = shape_xform.affine_inverse().xform(p_world_pos);
+		Vector3 local_pos = shape_xform.affine_inverse().xform(p_global_position);
 
 		// Get heightmap shape from static body or server
 		Ref<HeightMapShape3D> hshape;
@@ -503,10 +506,12 @@ bool Terrain3DCollision::is_over_collision_shape(const Vector3 &p_world_pos) con
 
 		// return on first enabled shape found
 		if (!_shape_is_disabled(i)) {
+			LOG(EXTREME, "is_on_collision enabled time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 			return true;
 		}
 	}
 
+	LOG(EXTREME, "is_on_collision disabled time: ", Time::get_singleton()->get_ticks_usec() - time, " us");
 	return false;
 }
 
@@ -640,7 +645,7 @@ void Terrain3DCollision::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_editor_mode"), &Terrain3DCollision::is_editor_mode);
 	ClassDB::bind_method(D_METHOD("is_dynamic_mode"), &Terrain3DCollision::is_dynamic_mode);
 
-	ClassDB::bind_method(D_METHOD("is_over_collision_shape"), &Terrain3DCollision::is_over_collision_shape);
+	ClassDB::bind_method(D_METHOD("is_on_collision"), &Terrain3DCollision::is_on_collision);
 
 	ClassDB::bind_method(D_METHOD("set_shape_size", "size"), &Terrain3DCollision::set_shape_size);
 	ClassDB::bind_method(D_METHOD("get_shape_size"), &Terrain3DCollision::get_shape_size);

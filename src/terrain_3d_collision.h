@@ -70,7 +70,7 @@ public:
 	void update(const bool p_rebuild = false);
 	void destroy();
 
-	bool is_over_collision_shape(const Vector3 &p_world_pos) const;
+	bool is_on_collision(const Vector3 &p_global_position) const;
 
 	void set_mode(const CollisionMode p_mode);
 	CollisionMode get_mode() const { return _mode; }
