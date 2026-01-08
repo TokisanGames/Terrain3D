@@ -55,12 +55,12 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 		float c = check_region(uv2 + Vector2(1.0f, 0.0f));
 		float d = check_region(uv2 + Vector2(0.0f, 0.0f));
 
-		Vector2 blend_factor = Vector2(2.0f + 126.0f * (1.0f - region_blend),	2.0f + 126.0f * (1.0f - region_blend));
+		real_t blend_factor = 2.0f + 126.0f * (1.0f - region_blend);
 		Vector2 f = Vector2(uv2.x - Math::floor(uv2.x), uv2.y - Math::floor(uv2.y));
 		f.x = Math::clamp(f.x, 1e-8f, 1.f - 1e-8f);
 		f.y = Math::clamp(f.y, 1e-8f, 1.f - 1e-8f);
-		Vector2 w = Vector2(1.f / (1.f + Math::exp(blend_factor.x * Math::log((1.f - f.x) / f.x))),
-				1.f / (1.f + Math::exp(blend_factor.y * Math::log((1.f - f.y) / f.y))));
+		Vector2 w = Vector2(1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.x) / f.x))),
+				1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.y) / f.y))));
 		float blend = Math::lerp(Math::lerp(d, c, w.x),	Math::lerp(a, b, w.x), w.y);
 
 		return (1.f - blend) * 2.f;
@@ -70,7 +70,7 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 	PackedRealArray map_data = PackedRealArray();
 	map_data.resize(hshape_size * hshape_size);
 	real_t min_height = FLT_MAX;
-	real_t max_height = FLT_MIN;
+	real_t max_height = -FLT_MAX;
 
 	Ref<Image> map, map_x, map_z, map_xz; // height maps
 	Ref<Image> cmap, cmap_x, cmap_z, cmap_xz; // control maps w/ holes
@@ -119,29 +119,17 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 			bool next_z = shape_region_loc.y > region_loc.y;
 
 			// Set heights on local map, or adjacent maps if on the last row/col
-			real_t height = 0.f;
+			real_t height = NAN;
 			if (!next_x && !next_z && map.is_valid()) {
-				height = is_hole(cmap->get_pixel(img_x, img_y).r) ? NAN : map->get_pixel(img_x, img_y).r;
-			} else if (next_x && !next_z) {
-				if (map_x.is_valid()) {
-					height = is_hole(cmap_x->get_pixel(img_x, img_y).r) ? NAN : map_x->get_pixel(img_x, img_y).r;
-				} else {
-					height = is_hole(cmap->get_pixel(region_size - 1, img_y).r) ? NAN : map->get_pixel(region_size - 1, img_y).r;
-				}
-			} else if (!next_x && next_z) {
-				if (map_z.is_valid()) {
-					height = is_hole(cmap_z->get_pixel(img_x, img_y).r) ? NAN : map_z->get_pixel(img_x, img_y).r;
-				} else {
-					height = (is_hole(cmap->get_pixel(img_x, region_size - 1).r)) ? NAN : map->get_pixel(img_x, region_size - 1).r;
-				}
-			} else if (next_x && next_z) {
-				if (map_xz.is_valid()) {
-					height = is_hole(cmap_xz->get_pixel(img_x, img_y).r) ? NAN : map_xz->get_pixel(img_x, img_y).r;
-				} else {
-					height = (is_hole(cmap->get_pixel(region_size - 1, region_size - 1).r)) ? NAN : map->get_pixel(region_size - 1, region_size - 1).r;
-				}
+				height = is_hole(cmap->get_pixel(img_x, img_y).r) ? NAN	: map->get_pixel(img_x, img_y).r;
+			} else if (next_x && !next_z && map_x.is_valid()) {
+				height = is_hole(cmap_x->get_pixel(img_x, img_y).r) ? NAN : map_x->get_pixel(img_x, img_y).r;
+			} else if (!next_x && next_z && map_z.is_valid()) {
+				height = is_hole(cmap_z->get_pixel(img_x, img_y).r) ? NAN : map_z->get_pixel(img_x, img_y).r;
+			} else if (next_x && next_z && map_xz.is_valid()) {
+				height = is_hole(cmap_xz->get_pixel(img_x, img_y).r) ? NAN : map_xz->get_pixel(img_x, img_y).r;
 			}
-			if (is_bg_flat_or_noise) {
+			if (!std::isnan(height) && is_bg_flat_or_noise) {
 				Vector2 uv2 = Vector2(shape_pos) * region_texel_size;
 				height = Math::lerp(height, ground_level, smoothstep(0.f, 1.f, get_region_blend(uv2)));
 			}

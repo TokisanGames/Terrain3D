@@ -140,9 +140,8 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
 	if (_world_background != NONE) {
-		excludes.push_back("INDEX_COORD_BG_NONE");
-	} else {
-		excludes.push_back("INDEX_COORD_STANDARD");
+		excludes.push_back("NONE_FUNCTIONS");
+		excludes.push_back("NONE_CHECK");
 	}
 	if (_world_background == NONE) {
 		excludes.push_back("FLAT_UNIFORMS");
@@ -296,9 +295,8 @@ String Terrain3DMaterial::_generate_buffer_shader_code() const {
 	LOG(INFO, "Generating default displacement buffer shader code");
 	Array excludes;
 	if (_world_background != NONE) {
-		excludes.push_back("INDEX_COORD_BG_NONE");
-	} else {
-		excludes.push_back("INDEX_COORD_STANDARD");
+		excludes.push_back("NONE_FUNCTIONS");
+		excludes.push_back("NONE_CHECK");
 	}
 	if (_world_background == NONE) {
 		excludes.push_back("FLAT_UNIFORMS");

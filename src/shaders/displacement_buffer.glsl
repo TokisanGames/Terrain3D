@@ -86,12 +86,17 @@ struct material {
 // Vertex
 ////////////////////////
 
-// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-//INSERT: INDEX_COORD_STANDARD
-//INSERT: INDEX_COORD_BG_NONE
+ivec3 get_index_coord(const vec2 uv) {
+	vec2 r_uv = round(uv);
+	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+}
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
 // XY: (0. to 1.) coordinates within a region
@@ -222,7 +227,7 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 }
 
 float get_height(vec2 index_id, vec2 offset) {
-	float height = texelFetch(_height_maps, get_index_coord(index_id + offset, SKIP_PASS), 0).r;
+	float height = texelFetch(_height_maps, get_index_coord(index_id + offset), 0).r;
 //INSERT: FLAT_FRAGMENT
 	return height;
 }
@@ -253,10 +258,10 @@ void fragment() {
 
 	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well
-	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 
 	// Terrain normals
 	vec3 index_normal[4];

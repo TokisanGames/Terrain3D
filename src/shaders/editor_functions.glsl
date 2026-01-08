@@ -6,7 +6,7 @@ R"(
 //INSERT: EDITOR_NAVIGATION
 	// Show navigation
 	{
-		if(bool(floatBitsToUint(texelFetch(_control_maps, get_index_coord(floor(uv + 0.5), SKIP_PASS), 0)).r >>1u & 0x1u)) {
+		if(bool(floatBitsToUint(texelFetch(_control_maps, get_index_coord(floor(uv + 0.5)), 0)).r >>1u & 0x1u)) {
 			ALBEDO *= vec3(.5, .0, .85);
 		}
 	}
@@ -29,7 +29,7 @@ R"(
 		// Clip Grid at Boundary
 		float __b_line = __hmap - __line - fwidth(__box_d);
 		__grid_mask *= step(abs(__p.x), __b_line) * step(abs(__p.y), __b_line);
-		vec3 __grid_color = mix(vec3(1.0, 0.1, 0.1), vec3(1.0), float(clamp(get_index_coord(__pixel_pos.xz - 0.5, SKIP_PASS).z + 1, 0, 1)));
+		vec3 __grid_color = mix(vec3(1.0, 0.1, 0.1), vec3(1.0), float(clamp(get_index_coord(__pixel_pos.xz - 0.5).z + 1, 0, 1)));
 		ALBEDO = mix(ALBEDO, __grid_mask * __grid_color + __box_mask * vec3(0.0, 0.0, 1.0), max(__grid_mask, __box_mask));
 	}
 

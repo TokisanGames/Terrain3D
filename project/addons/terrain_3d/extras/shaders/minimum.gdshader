@@ -75,6 +75,16 @@ ivec3 get_index_coord(const vec2 uv, const int search) {
 	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
 }
 
+// Takes in world space XZ (UV) and returns if the coordinate should be part of the NONE background.
+bool is_none_bg(const vec2 uv) {
+	ivec4 regions = ivec4(
+		get_index_coord(uv - vec2(0.5, 0.0)).z,
+		get_index_coord(uv - vec2(0.0, 0.5)).z,
+		get_index_coord(uv + vec2(1.0, 0.0)).z,
+		get_index_coord(uv + vec2(0.0, 1.0)).z);
+	return any(equal(regions, ivec4(-1)));
+}
+
 float interpolated_height(vec2 pos) {
 	const vec2 offsets = vec2(0, 1);
 	vec2 index_id = floor(pos);
@@ -135,7 +145,7 @@ void vertex() {
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
 	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
-			(hole || (_background_mode == 0u && v_region.z < 0))) {
+			(hole || (_background_mode == 0u && is_none_bg(UV)))) {
 		v_vertex.x = 0. / 0.;
 	} else {
 		// Set final vertex height.

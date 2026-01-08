@@ -95,24 +95,16 @@ varying mat3 TBN;
 // Vertex
 ////////////////////////
 
-// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_index_coord(const vec2 uv, const int search) {
+ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
-	vec2 o_uv = mod(r_uv,_region_size);
-	ivec2 pos;
-	int bounds, layer_index = -1;
-	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
-		if ((layer_index == -1 && _background_mode == 0u ) || i < 0) {
-			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
-			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
-			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
-		}
-	}
-	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
+	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
@@ -123,6 +115,16 @@ vec3 get_index_uv(const vec2 uv2) {
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
+}
+
+// Takes in world space XZ (UV) and returns if the coordinate should be part of the NONE background.
+bool is_none_bg(const vec2 uv) {
+	ivec4 regions = ivec4(
+		get_index_coord(uv - vec2(0.5, 0.0)).z,
+		get_index_coord(uv - vec2(0.0, 0.5)).z,
+		get_index_coord(uv + vec2(1.0, 0.0)).z,
+		get_index_coord(uv + vec2(0.0, 1.0)).z);
+	return any(equal(regions, ivec4(-1)));
 }
 
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
@@ -152,10 +154,10 @@ float interpolated_height(vec2 pos) {
 	const vec2 offsets = vec2(0, 1);
 	vec2 index_id = floor(pos);
 	ivec3 index[4];
-	index[0] = get_index_coord(index_id + offsets.xy, VERTEX_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, VERTEX_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, VERTEX_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, VERTEX_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 	float h0 = texelFetch(_height_maps, index[0], 0).r;
 	float h1 = texelFetch(_height_maps, index[1], 0).r;
 	float h2 = texelFetch(_height_maps, index[2], 0).r;
@@ -202,13 +204,13 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	ivec3 v_region = get_index_coord(start_pos, VERTEX_PASS);
+	ivec3 v_region = get_index_coord(start_pos);
 	uint control = floatBitsToUint(texelFetch(_control_maps, v_region, 0)).r;
 	bool hole = DECODE_HOLE(control);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
 	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
-			(hole || (_background_mode == 0u && v_region.z == -1))) {
+			(hole || (_background_mode == 0u && is_none_bg(UV)))) {
 		v_vertex.x = 0. / 0.;
 	} else {
 		// Set final vertex height, and vertex normal.
@@ -220,12 +222,12 @@ void vertex() {
 			u = interpolated_height(UV + vec2(1, 0));
 			v = interpolated_height(UV + vec2(0, 1));
 		} else {
-			ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
-			ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
-			ivec3 coord_ua = get_index_coord(start_pos + vec2(1, 0), VERTEX_PASS);
-			ivec3 coord_ub = get_index_coord(end_pos + vec2(1, 0), VERTEX_PASS);
-			ivec3 coord_va = get_index_coord(start_pos + vec2(0, 1), VERTEX_PASS);
-			ivec3 coord_vb = get_index_coord(end_pos + vec2(0, 1), VERTEX_PASS);
+			ivec3 coord_a = get_index_coord(start_pos);
+			ivec3 coord_b = get_index_coord(end_pos);
+			ivec3 coord_ua = get_index_coord(start_pos + vec2(1, 0));
+			ivec3 coord_ub = get_index_coord(end_pos + vec2(1, 0));
+			ivec3 coord_va = get_index_coord(start_pos + vec2(0, 1));
+			ivec3 coord_vb = get_index_coord(end_pos + vec2(0, 1));
 			h = mix(texelFetch(_height_maps, coord_a, 0).r, texelFetch(_height_maps, coord_b, 0).r, vertex_lerp);
 			u = mix(texelFetch(_height_maps, coord_ua, 0).r, texelFetch(_height_maps, coord_ub, 0).r, vertex_lerp);
 			v = mix(texelFetch(_height_maps, coord_va, 0).r, texelFetch(_height_maps, coord_vb, 0).r, vertex_lerp);
@@ -283,10 +285,10 @@ void fragment() {
 
 	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well
-	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);

@@ -20,9 +20,6 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
  */
 
 // Defined Constants
-#define SKIP_PASS 0
-#define VERTEX_PASS 1
-#define FRAGMENT_PASS 2
 #define COLOR_MAP_DEF vec4(1.0, 1.0, 1.0, 0.5)
 #define DIV_255 0.003921568627450 // 1. / 255.
 #define DIV_1024 0.0009765625 // 1. / 1024.
@@ -48,6 +45,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform float _subdiv = 1.f;
+uniform float _tessellation_level = 0.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
 uniform float _vertex_spacing = 1.0;
@@ -114,12 +112,17 @@ varying vec3 v_camera_pos;
 // Vertex
 ////////////////////////
 
-// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-//INSERT: INDEX_COORD_STANDARD
-//INSERT: INDEX_COORD_BG_NONE
+ivec3 get_index_coord(const vec2 uv) {
+	vec2 r_uv = round(uv);
+	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+}
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
 // XY: (0. to 1.) coordinates within a region
@@ -135,10 +138,10 @@ float interpolated_height(vec2 pos) {
 	const vec2 offsets = vec2(0, 1);
 	vec2 index_id = floor(pos);
 	ivec3 index[4];
-	index[0] = get_index_coord(index_id + offsets.xy, VERTEX_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, VERTEX_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, VERTEX_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, VERTEX_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 	float h0 = texelFetch(_height_maps, index[0], 0).r;
 	float h1 = texelFetch(_height_maps, index[1], 0).r;
 	float h2 = texelFetch(_height_maps, index[2], 0).r;
@@ -151,6 +154,7 @@ float interpolated_height(vec2 pos) {
 }
 
 //INSERT: DISPLACEMENT_FUNCTIONS
+//INSERT: NONE_FUNCTIONS
 //INSERT: FLAT_FUNCTIONS
 //INSERT: WORLD_NOISE_FUNCTIONS
 
@@ -189,14 +193,15 @@ void vertex() {
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	ivec3 v_region = get_index_coord(start_pos, VERTEX_PASS);
+	ivec3 v_region = get_index_coord(start_pos);
 	uint control = floatBitsToUint(texelFetch(_control_maps, v_region, 0)).r;
 	bool hole = DECODE_HOLE(control);
 
 	vec3 displacement = vec3(0.);
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
-	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && 
-			(hole || (_background_mode == 0u && v_region.z == -1))) {
+	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && (hole
+//INSERT: NONE_CHECK
+		)){
 		v_vertex.x = 0. / 0.;
 	} else {
 		// Set final vertex height.
@@ -206,8 +211,8 @@ void vertex() {
 		if (scale < _vertex_spacing) {
 			h = interpolated_height(UV);
 		} else {
-			ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
-			ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
+			ivec3 coord_a = get_index_coord(start_pos);
+			ivec3 coord_b = get_index_coord(end_pos);
 			h = mix(texelFetch(_height_maps, coord_a, 0).r, texelFetch(_height_maps, coord_b, 0).r, vertex_lerp);
 		}
 
@@ -374,7 +379,7 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const mat3 TNB, const flo
 }
 
 float get_height(vec2 index_id, vec2 offset) {
-	float height = texelFetch(_height_maps, get_index_coord(index_id + offset, SKIP_PASS), 0).r;
+	float height = texelFetch(_height_maps, get_index_coord(index_id + offset), 0).r;
 //INSERT: FLAT_FRAGMENT
 	return height;
 }
@@ -402,10 +407,10 @@ void fragment() {
 
 	ivec3 index[4];
 	// control map lookups
-	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 	
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);
