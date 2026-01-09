@@ -279,7 +279,6 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	if plugin.debug:
 		print("Terrain3DUI: _on_tool_changed: calling _on_setting_changed()")
 	_on_setting_changed()
-	plugin.update_region_grid()
 
 
 func _on_setting_changed(p_setting: Variant = null) -> void:

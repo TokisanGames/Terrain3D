@@ -753,7 +753,7 @@ Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
 	// If material available, autoshader enabled, and pixel set to auto
 	if (_terrain) {
 		Ref<Terrain3DMaterial> t_material = _terrain->get_material();
-		bool auto_enabled = t_material->get_auto_shader();
+		bool auto_enabled = t_material->get_auto_shader_enabled();
 		bool control_auto = is_auto(src);
 		if (auto_enabled && control_auto) {
 			real_t auto_slope = real_t(t_material->get_shader_param("auto_slope"));

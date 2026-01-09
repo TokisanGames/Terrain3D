@@ -26,6 +26,13 @@ public: // Constants
 		NEAREST,
 	};
 
+enum UpdateFlags {
+		UNIFORMS = 0u,
+		TEXTURE_ARRAYS = 1u,
+		REGION_ARRAYS = 2u,
+		FULL_REBUILD = TEXTURE_ARRAYS | REGION_ARRAYS,
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
@@ -47,8 +54,16 @@ private:
 	// Material Features
 	WorldBackground _world_background = FLAT;
 	TextureFiltering _texture_filtering = LINEAR;
-	bool _dual_scaling = false;
-	bool _auto_shader = false;
+	bool _dual_scaling_enabled = false;
+	bool _auto_shader_enabled = false;
+	bool _macro_variation_enabled = false;
+	bool _projection_enabled = false;
+
+	// PBR Outputs
+	bool _output_albedo_enabled = true;
+	bool _output_roughness_enabled = true;
+	bool _output_normal_map_enabled = true;
+	bool _output_ambient_occlusion_enabled = true;
 
 	// Overlays
 	bool _show_region_grid = false;
@@ -84,13 +99,14 @@ private:
 	void _parse_shader(const String &p_shader, const String &p_name);
 	String _apply_inserts(const String &p_shader, const Array &p_excludes = Array()) const;
 	String _generate_shader_code() const;
-	String _generate_buffer_shader_code();
+	String _generate_buffer_shader_code() const;
 	String _strip_comments(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
-	void _update_uniforms(const RID &p_material);
+	void _update_uniforms(const RID &p_material, const uint32_t p_update = UpdateFlags::UNIFORMS);
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
+	static inline bool _has_update_flag(uint32_t value, UpdateFlags flag) {	return (value & static_cast<uint32_t>(flag)) != 0u; }
 
 public:
 	Terrain3DMaterial() {}
@@ -100,7 +116,7 @@ public:
 	void uninitialize();
 	void destroy();
 
-	void update(bool p_full = false);
+	void update(const uint32_t p_update = UpdateFlags::UNIFORMS);
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader.is_valid() ? _shader->get_rid() : RID(); }
 
@@ -116,10 +132,14 @@ public:
 	WorldBackground get_world_background() const { return _world_background; }
 	void set_texture_filtering(const TextureFiltering p_filtering);
 	TextureFiltering get_texture_filtering() const { return _texture_filtering; }
-	void set_auto_shader(const bool p_enabled);
-	bool get_auto_shader() const { return _auto_shader; }
-	void set_dual_scaling(const bool p_enabled);
-	bool get_dual_scaling() const { return _dual_scaling; }
+	void set_auto_shader_enabled(const bool p_enabled);
+	bool get_auto_shader_enabled() const { return _auto_shader_enabled; }
+	void set_dual_scaling_enabled(const bool p_enabled);
+	bool get_dual_scaling_enabled() const { return _dual_scaling_enabled; }
+	void set_macro_variation_enabled(const bool p_enabled);
+	bool get_macro_variation_enabled() const { return _macro_variation_enabled; }
+	void set_projection_enabled(const bool p_enabled);
+	bool get_projection_enabled() const { return _projection_enabled; }
 
 	void set_shader_override_enabled(const bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
@@ -133,6 +153,19 @@ public:
 
 	void set_shader_param(const StringName &p_name, const Variant &p_value);
 	Variant get_shader_param(const StringName &p_name) const;
+
+	// PBR outputs
+	void set_output_albedo_enabled(const bool p_enabled);
+	bool get_output_albedo_enabled() const { return _output_albedo_enabled; }
+
+	void set_output_roughness_enabled(const bool p_enabled);
+	bool get_output_roughness_enabled() const { return _output_roughness_enabled; }
+
+	void set_output_normal_map_enabled(const bool p_enabled);
+	bool get_output_normal_map_enabled() const { return _output_normal_map_enabled; }
+
+	void set_output_ambient_occlusion_enabled(const bool p_enabled);
+	bool get_output_ambient_occlusion_enabled() const { return _output_ambient_occlusion_enabled; }
 
 	// Overlays
 	void set_show_region_grid(const bool p_enabled);
@@ -198,5 +231,6 @@ protected:
 
 VARIANT_ENUM_CAST(Terrain3DMaterial::WorldBackground);
 VARIANT_ENUM_CAST(Terrain3DMaterial::TextureFiltering);
+VARIANT_ENUM_CAST(Terrain3DMaterial::UpdateFlags);
 
 #endif // TERRAIN3D_MATERIAL_CLASS_H

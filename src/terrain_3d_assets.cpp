@@ -353,7 +353,6 @@ void Terrain3DAssets::_update_texture_settings() {
 		_texture_ao_light_affects.clear();
 		_texture_roughness_mods.clear();
 		_texture_uv_scales.clear();
-		_texture_vertical_projections = 0u;
 		_texture_detiles.clear();
 		_texture_displacements.clear();
 
@@ -371,7 +370,6 @@ void Terrain3DAssets::_update_texture_settings() {
 			_texture_ao_light_affects.push_back(ta->get_ao_light_affect());
 			_texture_roughness_mods.push_back(ta->get_roughness());
 			_texture_uv_scales.push_back(ta->get_uv_scale());
-			_texture_vertical_projections |= (ta->get_vertical_projection() ? (uint32_t(1u) << uint32_t(ta->get_id())) : uint32_t(0u));
 			_texture_detiles.push_back(Vector2(ta->get_detiling_rotation(), ta->get_detiling_shift()));
 			_texture_displacements.push_back(Vector2(ta->get_displacement_offset(), ta->get_displacement_scale()));
 		}
@@ -737,7 +735,6 @@ void Terrain3DAssets::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_texture_ao_light_affects"), &Terrain3DAssets::get_texture_ao_light_affects);
 	ClassDB::bind_method(D_METHOD("get_texture_roughness_mods"), &Terrain3DAssets::get_texture_roughness_mods);
 	ClassDB::bind_method(D_METHOD("get_texture_uv_scales"), &Terrain3DAssets::get_texture_uv_scales);
-	ClassDB::bind_method(D_METHOD("get_texture_vertical_projections"), &Terrain3DAssets::get_texture_vertical_projections);
 	ClassDB::bind_method(D_METHOD("get_texture_detiles"), &Terrain3DAssets::get_texture_detiles);
 	ClassDB::bind_method(D_METHOD("get_texture_displacements"), &Terrain3DAssets::get_texture_displacements);
 	ClassDB::bind_method(D_METHOD("clear_textures", "update"), &Terrain3DAssets::clear_textures, DEFVAL(false));
