@@ -57,7 +57,7 @@ R"(
 //INSERT: OUTPUT_ALBEDO
 	ALBEDO = mat.albedo_height.rgb * color_map.rgb;
 //INSERT: OUTPUT_ALBEDO_GREY
-	ALBEDO = vec3(0.4);
+	ALBEDO = vec3(0.2);
 //INSERT: OUTPUT_ROUGHNESS
 	ROUGHNESS = roughness;
 	SPECULAR = 1. - mat.normal_rough.a;
