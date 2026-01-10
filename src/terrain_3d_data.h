@@ -81,6 +81,10 @@ private:
 	GeneratedTexture _generated_color_maps;
 
 	uint64_t _next_layer_group_id = 1;
+	
+	// Track external tool layers by external_id -> {region_loc, layer_ref}
+	// Used to find and update existing layers created by external tools
+	Dictionary _external_layers; // Dict[uint64_t external_id] -> Dictionary{"region_loc": Vector2i, "layer": Ref<Terrain3DLayer>, "map_type": MapType}
 
 	// Functions
 	void _clear();
@@ -170,6 +174,17 @@ public:
 	Ref<Terrain3DCurveLayer> add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update = true);
 	Ref<Terrain3DLayer> get_layer_in_group(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, int *r_index = nullptr);
 	Ref<Terrain3DLayer> create_layer_group_slice(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, const Ref<Terrain3DLayer> &p_template_layer, const bool p_update = true);
+	
+	// External tool integration - non-destructive layer writing
+	// Primary entry point for procedural tools (like funofabot's terrain3d-tools) to commit their final results
+	// to the non-destructive layer stack. Similar to set_map() but writes to a layer instead of
+	// absolute override. Creates or updates a non-user-editable layer that can only be modified
+	// by external tools, preventing accidental edits from the Terrain3D editor.
+	// Thread-safe: Uses atomic-safe dirty flag updates for background thread compatibility.
+	Ref<Terrain3DStampLayer> set_map_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Image> &p_image, const uint64_t p_external_id = 0, const bool p_update = true);
+	// Allows external tools to drop or recycle tracked layer IDs before creating new map layers.
+	bool release_map_layer(const uint64_t p_external_id, const bool p_remove_layer = true, const bool p_update = true);
+	
 	RID get_height_maps_rid() const { return _generated_height_maps.get_rid(); }
 	RID get_control_maps_rid() const { return _generated_control_maps.get_rid(); }
 	RID get_color_maps_rid() const { return _generated_color_maps.get_rid(); }

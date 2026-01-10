@@ -34,6 +34,7 @@ void Terrain3DData::_clear() {
 	_generated_control_maps.clear();
 	_generated_color_maps.clear();
 	_next_layer_group_id = 1;
+	_external_layers.clear();
 }
 
 // Structured to work with do_for_regions. Should be renamed when copy_paste is expanded
@@ -1055,6 +1056,166 @@ void Terrain3DData::remove_layer(const Vector2i &p_region_loc, const MapType p_m
 	}
 }
 
+Ref<Terrain3DStampLayer> Terrain3DData::set_map_layer(const Vector2i &p_region_loc, const MapType p_map_type, const Ref<Image> &p_image, const uint64_t p_external_id, const bool p_update) {
+	// Validate input data
+	if (p_image.is_null()) {
+		LOG(ERROR, "set_map_layer: Input image is null");
+		return Ref<Terrain3DStampLayer>();
+	}
+	
+	if (p_image->get_width() <= 0 || p_image->get_height() <= 0) {
+		LOG(ERROR, "set_map_layer: Input image has invalid dimensions: ", 
+			Vector2i(p_image->get_width(), p_image->get_height()));
+		return Ref<Terrain3DStampLayer>();
+	}
+	
+	// Validate image format matches the MapType
+	Image::Format expected_format = map_type_get_format(p_map_type);
+	Image::Format actual_format = p_image->get_format();
+	
+	if (actual_format != expected_format) {
+		LOG(ERROR, "set_map_layer: Image format mismatch. Expected ", 
+			expected_format, " for ", map_type_get_string(p_map_type), 
+			" but got ", actual_format);
+		return Ref<Terrain3DStampLayer>();
+	}
+	
+	Terrain3DRegion *region = get_region_ptr(p_region_loc);
+	if (!region) {
+		LOG(ERROR, "set_map_layer: Region not found at ", p_region_loc);
+		return Ref<Terrain3DStampLayer>();
+	}
+	
+	Ref<Terrain3DStampLayer> layer;
+	
+	// Check if we have an existing external layer for this external_id
+	if (p_external_id != 0 && _external_layers.has(p_external_id)) {
+		Dictionary layer_info = _external_layers[p_external_id];
+		Vector2i stored_loc = layer_info.get("region_loc", Vector2i());
+		MapType stored_type = MapType(int(layer_info.get("map_type", TYPE_HEIGHT)));
+		
+		// Verify the region and map type match
+		if (stored_loc == p_region_loc && stored_type == p_map_type) {
+			layer = layer_info.get("layer", Ref<Terrain3DStampLayer>());
+			if (layer.is_valid()) {
+				// Update existing layer
+				layer->set_payload(p_image);
+				layer->set_coverage(Rect2i(Vector2i(), Vector2i(p_image->get_width(), p_image->get_height())));
+				
+				// Mark dirty for the entire coverage area
+				// Thread-safe: mark_layers_dirty uses atomic-safe operations for dirty flags
+				region->mark_layers_dirty(p_map_type, true);
+				region->set_modified(true);
+				region->set_edited(true);
+				
+				if (p_update) {
+					update_maps(p_map_type, false, false);
+				}
+				
+				LOG(DEBUG, "set_map_layer: Updated existing external layer ", p_external_id, 
+					" in region ", p_region_loc, " for ", map_type_get_string(p_map_type));
+				
+				return layer;
+			}
+		} else {
+			LOG(WARN, "set_map_layer: External ID ", p_external_id, 
+				" registered for different region/type. Creating new layer.");
+		}
+	}
+	
+	// Create new layer
+	layer.instantiate();
+	if (layer.is_null()) {
+		LOG(ERROR, "set_map_layer: Failed to instantiate Terrain3DStampLayer");
+		return Ref<Terrain3DStampLayer>();
+	}
+	
+	// Configure the layer as non-user-editable (can only be modified by external tools)
+	layer->set_user_editable(false);
+	layer->set_map_type(p_map_type);
+	layer->set_payload(p_image);
+	layer->set_coverage(Rect2i(Vector2i(), Vector2i(p_image->get_width(), p_image->get_height())));
+	layer->set_blend_mode(Terrain3DLayer::BLEND_REPLACE); // Default to replace mode like set_map()
+	layer->set_intensity(1.0f);
+	layer->set_enabled(true);
+	
+	// Add the layer to the region
+	Ref<Terrain3DLayer> added_layer = region->add_layer(p_map_type, layer, -1);
+	if (added_layer.is_null()) {
+		LOG(ERROR, "set_map_layer: Failed to add layer to region");
+		return Ref<Terrain3DStampLayer>();
+	}
+	
+	// Track this external layer if external_id is provided
+	if (p_external_id != 0) {
+		Dictionary layer_info;
+		layer_info["region_loc"] = p_region_loc;
+		layer_info["layer"] = layer;
+		layer_info["map_type"] = int(p_map_type);
+		_external_layers[p_external_id] = layer_info;
+	}
+	
+	region->set_modified(true);
+	region->set_edited(true);
+	
+	if (p_update) {
+		update_maps(p_map_type, false, false);
+	}
+	
+	LOG(DEBUG, "set_map_layer: Created new external layer ", 
+		(p_external_id != 0 ? String::num_uint64(p_external_id) : String("(no ID)")),
+		" in region ", p_region_loc, " for ", map_type_get_string(p_map_type));
+	
+	return layer;
+}
+
+bool Terrain3DData::release_map_layer(const uint64_t p_external_id, const bool p_remove_layer, const bool p_update) {
+	if (p_external_id == 0) {
+		LOG(WARN, "release_map_layer: external_id must be non-zero");
+		return false;
+	}
+	if (!_external_layers.has(p_external_id)) {
+		LOG(WARN, "release_map_layer: External ID ", p_external_id, " is not registered");
+		return false;
+	}
+	Dictionary layer_info = _external_layers[p_external_id];
+	_external_layers.erase(p_external_id);
+
+	if (!p_remove_layer) {
+		LOG(DEBUG, "release_map_layer: Detached tracking for external layer ", p_external_id);
+		return true;
+	}
+
+	Ref<Terrain3DLayer> layer = layer_info.get("layer", Ref<Terrain3DLayer>());
+	if (layer.is_null()) {
+		LOG(WARN, "release_map_layer: Layer reference missing for external ID ", p_external_id);
+		return false;
+	}
+	Vector2i region_loc = layer_info.get("region_loc", Vector2i());
+	MapType map_type = MapType(int(layer_info.get("map_type", TYPE_HEIGHT)));
+	Terrain3DRegion *region = get_region_ptr(region_loc);
+	if (!region) {
+		LOG(WARN, "release_map_layer: Region not found at ", region_loc, " for external ID ", p_external_id);
+		return false;
+	}
+	TypedArray<Terrain3DLayer> layers = region->get_layers(map_type);
+	for (int i = 0; i < layers.size(); i++) {
+		if (layers[i] == layer) {
+			region->remove_layer(map_type, i);
+			region->set_modified(true);
+			region->set_edited(true);
+			if (p_update) {
+				update_maps(map_type, false, false);
+			}
+			LOG(DEBUG, "release_map_layer: Removed external layer ", p_external_id, " from region ", region_loc, " (", map_type_get_string(map_type), ")");
+			return true;
+		}
+	}
+
+	LOG(WARN, "release_map_layer: Layer not found in region stack for external ID ", p_external_id);
+	return false;
+}
+
 Ref<Terrain3DCurveLayer> Terrain3DData::add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update) {
 	Terrain3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region) {
@@ -1894,6 +2055,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_layer_enabled", "region_location", "map_type", "index", "enabled", "update"), &Terrain3DData::set_layer_enabled, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_layer", "region_location", "map_type", "index", "update"), &Terrain3DData::remove_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_curve_layer", "region_location", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DData::add_curve_layer, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("set_map_layer", "region_location", "map_type", "image", "external_id", "update"), &Terrain3DData::set_map_layer, DEFVAL(0), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("release_map_layer", "external_id", "remove_layer", "update"), &Terrain3DData::release_map_layer, DEFVAL(true), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_maps", "map_type", "all_regions", "generate_mipmaps"), &Terrain3DData::update_maps, DEFVAL(TYPE_MAX), DEFVAL(true), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_height_maps_rid"), &Terrain3DData::get_height_maps_rid);
 	ClassDB::bind_method(D_METHOD("get_control_maps_rid"), &Terrain3DData::get_control_maps_rid);
