@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DData : GodotObject
 {
 
@@ -28,10 +29,9 @@ public partial class Terrain3DData : GodotObject
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DData"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DData Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DData wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -280,6 +280,21 @@ public partial class Terrain3DData : GodotObject
 		public new static readonly StringName LoadDirectory = "load_directory";
 		public new static readonly StringName LoadRegion = "load_region";
 		public new static readonly StringName GetMaps = "get_maps";
+		public new static readonly StringName GetLayers = "get_layers";
+		public new static readonly StringName GetLayerGroups = "get_layer_groups";
+		public new static readonly StringName EnsureLayerGroupId = "ensure_layer_group_id";
+		public new static readonly StringName AddLayer = "add_layer";
+		public new static readonly StringName AddStampLayer = "add_stamp_layer";
+		public new static readonly StringName AddStampLayerGlobal = "add_stamp_layer_global";
+		public new static readonly StringName SplitLayerPayloadGlobalData = "split_layer_payload_global_data";
+		public new static readonly StringName GetLayerOwnerInfo = "get_layer_owner_info";
+		public new static readonly StringName SetLayerCoverage = "set_layer_coverage";
+		public new static readonly StringName MoveStampLayer = "move_stamp_layer";
+		public new static readonly StringName SetLayerEnabled = "set_layer_enabled";
+		public new static readonly StringName RemoveLayer = "remove_layer";
+		public new static readonly StringName AddCurveLayer = "add_curve_layer";
+		public new static readonly StringName SetMapLayer = "set_map_layer";
+		public new static readonly StringName ReleaseMapLayer = "release_map_layer";
 		public new static readonly StringName UpdateMaps = "update_maps";
 		public new static readonly StringName GetHeightMapsRid = "get_height_maps_rid";
 		public new static readonly StringName GetControlMapsRid = "get_control_maps_rid";
@@ -406,11 +421,56 @@ public partial class Terrain3DData : GodotObject
 	public new void LoadRegion(Vector2I regionLocation, string directory, bool update = true) => 
 		Call(GDExtensionMethodName.LoadRegion, [regionLocation, directory, update]);
 
-	public new Godot.Collections.Array GetMaps(Terrain3DRegion.MapType mapType) => 
-		Call(GDExtensionMethodName.GetMaps, [Variant.From(mapType)]).As<Godot.Collections.Array>();
+	public new Godot.Collections.Array GetMaps(long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.GetMaps, [mapType]).As<Godot.Collections.Array>();
 
-	public new void UpdateMaps(Terrain3DRegion.MapType mapType = Terrain3DRegion.MapType.Max, bool allRegions = true, bool generateMipmaps = false) => 
-		Call(GDExtensionMethodName.UpdateMaps, [Variant.From(mapType), allRegions, generateMipmaps]);
+	public new Godot.Collections.Array GetLayers(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.GetLayers, [regionLocation, mapType]).As<Godot.Collections.Array>();
+
+	public new Godot.Collections.Array GetLayerGroups(long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.GetLayerGroups, [mapType]).As<Godot.Collections.Array>();
+
+	public new long EnsureLayerGroupId(Terrain3DLayer layer) => 
+		Call(GDExtensionMethodName.EnsureLayerGroupId, [layer]).As<long>();
+
+	public new Terrain3DLayer AddLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, Terrain3DLayer layer, long index = -1, bool update = true) => 
+		Terrain3DLayer.Bind(Call(GDExtensionMethodName.AddLayer, [regionLocation, mapType, layer, index, update]).As<Resource>());
+
+	public new Terrain3DStampLayer AddStampLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, Image payload, Rect2I coverage, Image alpha = null, double intensity = 1, double featherRadius = 0, Terrain3DLayer.BlendModeEnum blendMode = Terrain3DLayer.BlendModeEnum.Add, long index = -1, bool update = true) => 
+		Terrain3DStampLayer.Bind(Call(GDExtensionMethodName.AddStampLayer, [regionLocation, mapType, payload, coverage, alpha, intensity, featherRadius, Variant.From(blendMode), index, update]).As<Resource>());
+
+	public new Godot.Collections.Array AddStampLayerGlobal(Rect2I globalCoverage, long/* "Empty Enum Constant String" */ mapType, Image payload, Image alpha = null, double intensity = 1, double featherRadius = 0, Terrain3DLayer.BlendModeEnum blendMode = Terrain3DLayer.BlendModeEnum.Add, bool autoCreateRegions = true, bool update = true) => 
+		Call(GDExtensionMethodName.AddStampLayerGlobal, [globalCoverage, mapType, payload, alpha, intensity, featherRadius, Variant.From(blendMode), autoCreateRegions, update]).As<Godot.Collections.Array>();
+
+	public new Godot.Collections.Array SplitLayerPayloadGlobalData(Rect2I globalCoverage, Image payload, Image alpha = null) => 
+		Call(GDExtensionMethodName.SplitLayerPayloadGlobalData, [globalCoverage, payload, alpha]).As<Godot.Collections.Array>();
+
+	public new Godot.Collections.Dictionary GetLayerOwnerInfo(Terrain3DLayer layer, long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.GetLayerOwnerInfo, [layer, mapType]).As<Godot.Collections.Dictionary>();
+
+	public new bool SetLayerCoverage(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, long index, Rect2I coverage, bool update = true) => 
+		Call(GDExtensionMethodName.SetLayerCoverage, [regionLocation, mapType, index, coverage, update]).As<bool>();
+
+	public new bool MoveStampLayer(Terrain3DStampLayer layer, Vector3 worldPosition, bool update = true) => 
+		Call(GDExtensionMethodName.MoveStampLayer, [layer, worldPosition, update]).As<bool>();
+
+	public new void SetLayerEnabled(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, long index, bool enabled, bool update = true) => 
+		Call(GDExtensionMethodName.SetLayerEnabled, [regionLocation, mapType, index, enabled, update]);
+
+	public new void RemoveLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, long index, bool update = true) => 
+		Call(GDExtensionMethodName.RemoveLayer, [regionLocation, mapType, index, update]);
+
+	public new Terrain3DCurveLayer AddCurveLayer(Vector2I regionLocation, Vector3[] points, double width, double depth, bool dualGroove, double featherRadius, bool update = true) => 
+		Terrain3DCurveLayer.Bind(Call(GDExtensionMethodName.AddCurveLayer, [regionLocation, points, width, depth, dualGroove, featherRadius, update]).As<Resource>());
+
+	public new Terrain3DStampLayer SetMapLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, Image image, long externalId = 0, bool update = true) => 
+		Terrain3DStampLayer.Bind(Call(GDExtensionMethodName.SetMapLayer, [regionLocation, mapType, image, externalId, update]).As<Resource>());
+
+	public new bool ReleaseMapLayer(long externalId, bool removeLayer = true, bool update = true) => 
+		Call(GDExtensionMethodName.ReleaseMapLayer, [externalId, removeLayer, update]).As<bool>();
+
+	public new void UpdateMaps(long/* "Empty Enum Constant String" */ mapType = 3, bool allRegions = true, bool generateMipmaps = false) => 
+		Call(GDExtensionMethodName.UpdateMaps, [mapType, allRegions, generateMipmaps]);
 
 	public new Rid GetHeightMapsRid() => 
 		Call(GDExtensionMethodName.GetHeightMapsRid, []).As<Rid>();
@@ -421,11 +481,11 @@ public partial class Terrain3DData : GodotObject
 	public new Rid GetColorMapsRid() => 
 		Call(GDExtensionMethodName.GetColorMapsRid, []).As<Rid>();
 
-	public new void SetPixel(Terrain3DRegion.MapType mapType, Vector3 globalPosition, Color pixel) => 
-		Call(GDExtensionMethodName.SetPixel, [Variant.From(mapType), globalPosition, pixel]);
+	public new void SetPixel(long/* "Empty Enum Constant String" */ mapType, Vector3 globalPosition, Color pixel) => 
+		Call(GDExtensionMethodName.SetPixel, [mapType, globalPosition, pixel]);
 
-	public new Color GetPixel(Terrain3DRegion.MapType mapType, Vector3 globalPosition) => 
-		Call(GDExtensionMethodName.GetPixel, [Variant.From(mapType), globalPosition]).As<Color>();
+	public new Color GetPixel(long/* "Empty Enum Constant String" */ mapType, Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.GetPixel, [mapType, globalPosition]).As<Color>();
 
 	public new void SetHeight(Vector3 globalPosition, double height) => 
 		Call(GDExtensionMethodName.SetHeight, [globalPosition, height]);
@@ -520,11 +580,11 @@ public partial class Terrain3DData : GodotObject
 	public new void ImportImages(Godot.Collections.Array images, Vector3 globalPosition = default, double offset = 0, double scale = 1) => 
 		Call(GDExtensionMethodName.ImportImages, [images, globalPosition, offset, scale]);
 
-	public new Error ExportImage(string fileName, Terrain3DRegion.MapType mapType) => 
-		Call(GDExtensionMethodName.ExportImage, [fileName, Variant.From(mapType)]).As<Error>();
+	public new Error ExportImage(string fileName, long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.ExportImage, [fileName, mapType]).As<Error>();
 
-	public new Image LayeredToImage(Terrain3DRegion.MapType mapType) => 
-		Call(GDExtensionMethodName.LayeredToImage, [Variant.From(mapType)]).As<Image>();
+	public new Image LayeredToImage(long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.LayeredToImage, [mapType]).As<Image>();
 
 	public new void Dump(bool verbose = false) => 
 		Call(GDExtensionMethodName.Dump, [verbose]);

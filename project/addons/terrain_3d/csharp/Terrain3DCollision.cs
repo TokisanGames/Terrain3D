@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DCollision : GodotObject
 {
 
@@ -28,10 +29,9 @@ public partial class Terrain3DCollision : GodotObject
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DCollision"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DCollision Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DCollision wrapperScriptInstance)
 			return wrapperScriptInstance;
 

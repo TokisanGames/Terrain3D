@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DRegion : Resource
 {
 
@@ -28,10 +29,9 @@ public partial class Terrain3DRegion : Resource
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DRegion"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DRegion Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DRegion wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -77,6 +77,9 @@ public partial class Terrain3DRegion : Resource
 		public new static readonly StringName HeightMap = "height_map";
 		public new static readonly StringName ControlMap = "control_map";
 		public new static readonly StringName ColorMap = "color_map";
+		public new static readonly StringName HeightLayers = "height_layers";
+		public new static readonly StringName ControlLayers = "control_layers";
+		public new static readonly StringName ColorLayers = "color_layers";
 		public new static readonly StringName Instances = "instances";
 		public new static readonly StringName Edited = "edited";
 		public new static readonly StringName Deleted = "deleted";
@@ -126,6 +129,24 @@ public partial class Terrain3DRegion : Resource
 		set => Set(GDExtensionPropertyName.ColorMap, value);
 	}
 
+	public new Godot.Collections.Array HeightLayers
+	{
+		get => Get(GDExtensionPropertyName.HeightLayers).As<Godot.Collections.Array>();
+		set => Set(GDExtensionPropertyName.HeightLayers, value);
+	}
+
+	public new Godot.Collections.Array ControlLayers
+	{
+		get => Get(GDExtensionPropertyName.ControlLayers).As<Godot.Collections.Array>();
+		set => Set(GDExtensionPropertyName.ControlLayers, value);
+	}
+
+	public new Godot.Collections.Array ColorLayers
+	{
+		get => Get(GDExtensionPropertyName.ColorLayers).As<Godot.Collections.Array>();
+		set => Set(GDExtensionPropertyName.ColorLayers, value);
+	}
+
 	public new Godot.Collections.Dictionary Instances
 	{
 		get => Get(GDExtensionPropertyName.Instances).As<Godot.Collections.Dictionary>();
@@ -162,6 +183,13 @@ public partial class Terrain3DRegion : Resource
 		public new static readonly StringName GetMap = "get_map";
 		public new static readonly StringName SetMaps = "set_maps";
 		public new static readonly StringName GetMaps = "get_maps";
+		public new static readonly StringName GetLayers = "get_layers";
+		public new static readonly StringName SetLayers = "set_layers";
+		public new static readonly StringName MarkLayersDirty = "mark_layers_dirty";
+		public new static readonly StringName AddLayer = "add_layer";
+		public new static readonly StringName RemoveLayer = "remove_layer";
+		public new static readonly StringName ClearLayers = "clear_layers";
+		public new static readonly StringName GetCompositedMap = "get_composited_map";
 		public new static readonly StringName SanitizeMaps = "sanitize_maps";
 		public new static readonly StringName SanitizeMap = "sanitize_map";
 		public new static readonly StringName ValidateMapSize = "validate_map_size";
@@ -175,11 +203,11 @@ public partial class Terrain3DRegion : Resource
 		public new static readonly StringName Dump = "dump";
 	}
 
-	public new void SetMap(Terrain3DRegion.MapType mapType, Image map) => 
-		Call(GDExtensionMethodName.SetMap, [Variant.From(mapType), map]);
+	public new void SetMap(long/* "Empty Enum Constant String" */ mapType, Image map) => 
+		Call(GDExtensionMethodName.SetMap, [mapType, map]);
 
-	public new Image GetMap(Terrain3DRegion.MapType mapType) => 
-		Call(GDExtensionMethodName.GetMap, [Variant.From(mapType)]).As<Image>();
+	public new Image GetMap(long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.GetMap, [mapType]).As<Image>();
 
 	public new void SetMaps(Godot.Collections.Array maps) => 
 		Call(GDExtensionMethodName.SetMaps, [maps]);
@@ -187,11 +215,32 @@ public partial class Terrain3DRegion : Resource
 	public new Godot.Collections.Array GetMaps() => 
 		Call(GDExtensionMethodName.GetMaps, []).As<Godot.Collections.Array>();
 
+	public new Godot.Collections.Array GetLayers(long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.GetLayers, [mapType]).As<Godot.Collections.Array>();
+
+	public new void SetLayers(long/* "Empty Enum Constant String" */ mapType, Godot.Collections.Array layers) => 
+		Call(GDExtensionMethodName.SetLayers, [mapType, layers]);
+
+	public new void MarkLayersDirty(long/* "Empty Enum Constant String" */ mapType, bool markModified = true) => 
+		Call(GDExtensionMethodName.MarkLayersDirty, [mapType, markModified]);
+
+	public new Terrain3DLayer AddLayer(long/* "Empty Enum Constant String" */ mapType, Terrain3DLayer layer, long index = -1) => 
+		Terrain3DLayer.Bind(Call(GDExtensionMethodName.AddLayer, [mapType, layer, index]).As<Resource>());
+
+	public new void RemoveLayer(long/* "Empty Enum Constant String" */ mapType, long index) => 
+		Call(GDExtensionMethodName.RemoveLayer, [mapType, index]);
+
+	public new void ClearLayers(long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.ClearLayers, [mapType]);
+
+	public new Image GetCompositedMap(long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.GetCompositedMap, [mapType]).As<Image>();
+
 	public new void SanitizeMaps() => 
 		Call(GDExtensionMethodName.SanitizeMaps, []);
 
-	public new Image SanitizeMap(Terrain3DRegion.MapType mapType, Image map) => 
-		Call(GDExtensionMethodName.SanitizeMap, [Variant.From(mapType), map]).As<Image>();
+	public new Image SanitizeMap(long/* "Empty Enum Constant String" */ mapType, Image map) => 
+		Call(GDExtensionMethodName.SanitizeMap, [mapType, map]).As<Image>();
 
 	public new bool ValidateMapSize(Image map) => 
 		Call(GDExtensionMethodName.ValidateMapSize, [map]).As<bool>();

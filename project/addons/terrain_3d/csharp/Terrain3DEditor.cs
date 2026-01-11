@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DEditor : GodotObject
 {
 
@@ -28,10 +29,9 @@ public partial class Terrain3DEditor : GodotObject
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DEditor"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DEditor Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DEditor wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -87,6 +87,17 @@ public partial class Terrain3DEditor : GodotObject
 		Max = 12,
 	}
 
+	public new static class GDExtensionPropertyName
+	{
+		public new static readonly StringName ActiveLayerIndex = "active_layer_index";
+	}
+
+	public new long ActiveLayerIndex
+	{
+		get => Get(GDExtensionPropertyName.ActiveLayerIndex).As<long>();
+		set => Set(GDExtensionPropertyName.ActiveLayerIndex, value);
+	}
+
 	public new static class GDExtensionMethodName
 	{
 		public new static readonly StringName SetTerrain = "set_terrain";
@@ -101,6 +112,10 @@ public partial class Terrain3DEditor : GodotObject
 		public new static readonly StringName Operate = "operate";
 		public new static readonly StringName BackupRegion = "backup_region";
 		public new static readonly StringName StopOperation = "stop_operation";
+		public new static readonly StringName AddCurveLayer = "add_curve_layer";
+		public new static readonly StringName CreateLayer = "create_layer";
+		public new static readonly StringName SetActiveLayerReference = "set_active_layer_reference";
+		public new static readonly StringName GetActiveLayerGroupId = "get_active_layer_group_id";
 		public new static readonly StringName ApplyUndo = "apply_undo";
 	}
 
@@ -139,6 +154,18 @@ public partial class Terrain3DEditor : GodotObject
 
 	public new void StopOperation() => 
 		Call(GDExtensionMethodName.StopOperation, []);
+
+	public new Godot.Collections.Dictionary AddCurveLayer(Vector3[] points, double width, double depth, bool dualGroove = false, double featherRadius = 0, bool update = true) => 
+		Call(GDExtensionMethodName.AddCurveLayer, [points, width, depth, dualGroove, featherRadius, update]).As<Godot.Collections.Dictionary>();
+
+	public new long CreateLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, bool select = true) => 
+		Call(GDExtensionMethodName.CreateLayer, [regionLocation, mapType, select]).As<long>();
+
+	public new void SetActiveLayerReference(Terrain3DLayer layer, long/* "Empty Enum Constant String" */ mapType) => 
+		Call(GDExtensionMethodName.SetActiveLayerReference, [layer, mapType]);
+
+	public new long GetActiveLayerGroupId() => 
+		Call(GDExtensionMethodName.GetActiveLayerGroupId, []).As<long>();
 
 	public new void ApplyUndo(Godot.Collections.Dictionary data) => 
 		Call(GDExtensionMethodName.ApplyUndo, [data]);

@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DMeshAsset : Resource
 {
 
@@ -28,10 +29,9 @@ public partial class Terrain3DMeshAsset : Resource
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DMeshAsset"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DMeshAsset Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DMeshAsset wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -245,9 +245,9 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.Density, value);
 	}
 
-	public new Variant CastShadows
+	public new long CastShadows
 	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<Variant>();
+		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
 		set => Set(GDExtensionPropertyName.CastShadows, value);
 	}
 

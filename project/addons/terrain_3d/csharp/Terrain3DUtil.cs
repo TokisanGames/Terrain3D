@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3DUtil : GodotObject
 {
 
@@ -28,10 +29,9 @@ public partial class Terrain3DUtil : GodotObject
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DUtil"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DUtil Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DUtil wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -166,8 +166,8 @@ public partial class Terrain3DUtil : GodotObject
 	public new static Image LoadImage(string fileName, long cacheMode = 0, Vector2 r16HeightRange = default, Vector2I r16Size = default) => 
 		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.LoadImage, [fileName, cacheMode, r16HeightRange, r16Size]).As<Image>();
 
-	public new static Image PackImage(Image srcRgb, Image srcA, bool invertGreen = false, bool invertAlpha = false, bool normalizeAlpha = false, long alphaChannel = 0) => 
-		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.PackImage, [srcRgb, srcA, invertGreen, invertAlpha, normalizeAlpha, alphaChannel]).As<Image>();
+	public new static Image PackImage(Image srcRgb, Image srcA, Image srcAo, bool invertGreen = false, bool invertAlpha = false, bool normalizeAlpha = false, long alphaChannel = 0, long aoChannel = 0) => 
+		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.PackImage, [srcRgb, srcA, srcAo, invertGreen, invertAlpha, normalizeAlpha, alphaChannel, aoChannel]).As<Image>();
 
 	public new static Image LuminanceToHeight(Image srcRgb) => 
 		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.LuminanceToHeight, [srcRgb]).As<Image>();

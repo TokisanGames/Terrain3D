@@ -8,6 +8,7 @@ using Godot.Collections;
 
 namespace TokisanGames;
 
+[Tool]
 public partial class Terrain3D : Node3D
 {
 
@@ -28,10 +29,9 @@ public partial class Terrain3D : Node3D
 	/// <returns>The existing or a new instance of the <see cref="Terrain3D"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3D Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3D wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -150,15 +150,20 @@ public partial class Terrain3D : Node3D
 		public new static readonly StringName CollisionMode = "collision_mode";
 		public new static readonly StringName CollisionShapeSize = "collision_shape_size";
 		public new static readonly StringName CollisionRadius = "collision_radius";
+		public new static readonly StringName CollisionTarget = "collision_target";
 		public new static readonly StringName CollisionLayer = "collision_layer";
 		public new static readonly StringName CollisionMask = "collision_mask";
 		public new static readonly StringName CollisionPriority = "collision_priority";
 		public new static readonly StringName PhysicsMaterial = "physics_material";
-		public new static readonly StringName CollisionTarget = "collision_target";
+		public new static readonly StringName ClipmapTarget = "clipmap_target";
 		public new static readonly StringName MeshLods = "mesh_lods";
 		public new static readonly StringName MeshSize = "mesh_size";
 		public new static readonly StringName VertexSpacing = "vertex_spacing";
-		public new static readonly StringName ClipmapTarget = "clipmap_target";
+		public new static readonly StringName TessellationLevel = "tessellation_level";
+		public new static readonly StringName DisplacementScale = "displacement_scale";
+		public new static readonly StringName DisplacementSharpness = "displacement_sharpness";
+		public new static readonly StringName BufferShaderOverrideEnabled = "buffer_shader_override_enabled";
+		public new static readonly StringName BufferShaderOverride = "buffer_shader_override";
 		public new static readonly StringName RenderLayers = "render_layers";
 		public new static readonly StringName MouseLayer = "mouse_layer";
 		public new static readonly StringName CastShadows = "cast_shadows";
@@ -182,9 +187,12 @@ public partial class Terrain3D : Node3D
 		public new static readonly StringName ShowControlScale = "show_control_scale";
 		public new static readonly StringName ShowColormap = "show_colormap";
 		public new static readonly StringName ShowRoughmap = "show_roughmap";
+		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
+		public new static readonly StringName ShowTextureAlbedo = "show_texture_albedo";
 		public new static readonly StringName ShowTextureHeight = "show_texture_height";
 		public new static readonly StringName ShowTextureNormal = "show_texture_normal";
 		public new static readonly StringName ShowTextureRough = "show_texture_rough";
+		public new static readonly StringName ShowTextureAo = "show_texture_ao";
 	}
 
 	public new string Version
@@ -279,6 +287,12 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.CollisionRadius, value);
 	}
 
+	public new Node3D CollisionTarget
+	{
+		get => Get(GDExtensionPropertyName.CollisionTarget).As<Node3D>();
+		set => Set(GDExtensionPropertyName.CollisionTarget, value);
+	}
+
 	public new long CollisionLayer
 	{
 		get => Get(GDExtensionPropertyName.CollisionLayer).As<long>();
@@ -303,10 +317,10 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.PhysicsMaterial, value);
 	}
 
-	public new Node3D CollisionTarget
+	public new Node3D ClipmapTarget
 	{
-		get => Get(GDExtensionPropertyName.CollisionTarget).As<Node3D>();
-		set => Set(GDExtensionPropertyName.CollisionTarget, value);
+		get => Get(GDExtensionPropertyName.ClipmapTarget).As<Node3D>();
+		set => Set(GDExtensionPropertyName.ClipmapTarget, value);
 	}
 
 	public new long MeshLods
@@ -327,10 +341,34 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.VertexSpacing, value);
 	}
 
-	public new Node3D ClipmapTarget
+	public new long TessellationLevel
 	{
-		get => Get(GDExtensionPropertyName.ClipmapTarget).As<Node3D>();
-		set => Set(GDExtensionPropertyName.ClipmapTarget, value);
+		get => Get(GDExtensionPropertyName.TessellationLevel).As<long>();
+		set => Set(GDExtensionPropertyName.TessellationLevel, value);
+	}
+
+	public new double DisplacementScale
+	{
+		get => Get(GDExtensionPropertyName.DisplacementScale).As<double>();
+		set => Set(GDExtensionPropertyName.DisplacementScale, value);
+	}
+
+	public new double DisplacementSharpness
+	{
+		get => Get(GDExtensionPropertyName.DisplacementSharpness).As<double>();
+		set => Set(GDExtensionPropertyName.DisplacementSharpness, value);
+	}
+
+	public new bool BufferShaderOverrideEnabled
+	{
+		get => Get(GDExtensionPropertyName.BufferShaderOverrideEnabled).As<bool>();
+		set => Set(GDExtensionPropertyName.BufferShaderOverrideEnabled, value);
+	}
+
+	public new Shader BufferShaderOverride
+	{
+		get => Get(GDExtensionPropertyName.BufferShaderOverride).As<Shader>();
+		set => Set(GDExtensionPropertyName.BufferShaderOverride, value);
 	}
 
 	public new long RenderLayers
@@ -345,9 +383,9 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.MouseLayer, value);
 	}
 
-	public new Variant CastShadows
+	public new long CastShadows
 	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<Variant>();
+		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
 		set => Set(GDExtensionPropertyName.CastShadows, value);
 	}
 
@@ -471,6 +509,18 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.ShowRoughmap, value);
 	}
 
+	public new bool ShowDisplacementBuffer
+	{
+		get => Get(GDExtensionPropertyName.ShowDisplacementBuffer).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowDisplacementBuffer, value);
+	}
+
+	public new bool ShowTextureAlbedo
+	{
+		get => Get(GDExtensionPropertyName.ShowTextureAlbedo).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureAlbedo, value);
+	}
+
 	public new bool ShowTextureHeight
 	{
 		get => Get(GDExtensionPropertyName.ShowTextureHeight).As<bool>();
@@ -487,6 +537,12 @@ public partial class Terrain3D : Node3D
 	{
 		get => Get(GDExtensionPropertyName.ShowTextureRough).As<bool>();
 		set => Set(GDExtensionPropertyName.ShowTextureRough, value);
+	}
+
+	public new bool ShowTextureAo
+	{
+		get => Get(GDExtensionPropertyName.ShowTextureAo).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureAo, value);
 	}
 
 	public new static class GDExtensionMethodName
