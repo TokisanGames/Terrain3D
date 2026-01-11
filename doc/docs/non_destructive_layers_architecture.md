@@ -668,6 +668,32 @@ add_child(anchor)
 anchor.global_position = Vector3(500, 0, 500)
 ```
 
+## External Tool Workflow
+
+Procedural plugins can push their baked results straight into the non-destructive stack without touching the base maps by pairing `set_map_layer()` with the new `release_map_layer()` helper. Each external write should use a deterministic ID per `(region_location, map_type)` so subsequent updates overwrite the exact layer instead of creating new `BLEND_REPLACE` entries.
+
+```gdscript
+var data := terrain.get_data()
+var region := Vector2i(0, 0)
+var payload := Image.create(...)
+var id := hash([region, Terrain3DRegion.TYPE_HEIGHT])
+
+# Create or update a hidden layer owned by the plugin
+data.set_map_layer(region, Terrain3DRegion.TYPE_HEIGHT, payload, id)
+
+# When migrating that ID to a new region or removing its effect
+data.release_map_layer(id, true, true)
+
+# Omit the second argument to keep the layer in-place but free the ID:
+data.release_map_layer(id, false)
+```
+
+`release_map_layer(external_id, remove_layer := true, update := true)` performs two jobs:
+- Drops the cached lookup so the same `external_id` can be reused safely.
+- Optionally removes the stored layer and refreshes the affected region, which prevents abandoned `BLEND_REPLACE` layers from persisting in the editor.
+
+This mirrors how version-control–friendly plugins (for example OldGnuts) can create deterministic slices, update them as inputs change, and explicitly clean up any temporary slices when the generation pass completes.
+
 ## Implementation Files
 
 ### C++ Core
