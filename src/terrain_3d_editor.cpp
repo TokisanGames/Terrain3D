@@ -227,6 +227,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			bool marked_dirty = false;
 			bool payload_rebuilt = false;
 			bool composite_is_cache = false;
+			bool force_base_fallback = false;
 		};
 	std::unordered_map<Vector2i, LayerContext, Vector2iHash> layer_contexts;
 	struct DirtyRegionInfo {
@@ -326,6 +327,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							locked_layer_log_count++;
 						}
 						candidate_layer.unref();
+						ctx.force_base_fallback = true;
 					} else if (!candidate_layer->is_enabled()) {
 						ctx.layer = candidate_layer;
 					} else {
@@ -503,7 +505,11 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			Color dest = src;
 			bool layer_pixel_applied = false;
 			bool wrote_to_base_map = false;
-			if (paint_to_layer && !using_layer) {
+			bool skip_layer_paint = paint_to_layer && !using_layer;
+			if (skip_layer_paint && ctx_ptr && ctx_ptr->force_base_fallback) {
+				skip_layer_paint = false;
+			}
+			if (skip_layer_paint) {
 				continue;
 			}
 			Color composite_src = src;
