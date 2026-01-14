@@ -316,12 +316,15 @@ func _collect_global_layers(data: Terrain3DData, map_type: int, default_region: 
 		if slices.is_empty():
 			continue
 		var primary_slice: Dictionary = {}
+		var layer_ref: Terrain3DLayer = null
 		for slice in slices:
 			var layer_candidate: Terrain3DLayer = slice.get("layer")
-			if layer_candidate and layer_candidate.has_method("is_user_editable") and not layer_candidate.is_user_editable():
-				continue
-			primary_slice = slice
+			if layer_candidate and layer_ref == null:
+				layer_ref = layer_candidate
+			if primary_slice.is_empty():
+				primary_slice = slice
 			if slice.get("region_location", Vector2i.ZERO) == default_region:
+				primary_slice = slice
 				break
 		if primary_slice.is_empty():
 			continue
@@ -329,6 +332,9 @@ func _collect_global_layers(data: Terrain3DData, map_type: int, default_region: 
 		for slice in slices:
 			var loc: Vector2i = slice.get("region_location", Vector2i.ZERO)
 			unique_regions[str(loc)] = loc
+		var editable := true
+		if layer_ref and layer_ref.has_method("is_user_editable"):
+			editable = layer_ref.is_user_editable()
 		var entry := {
 			"group_id": group_dict.get("group_id", 0),
 			"map_type": map_type,
@@ -336,7 +342,8 @@ func _collect_global_layers(data: Terrain3DData, map_type: int, default_region: 
 			"layers": slices,
 			"region_location": primary_slice.get("region_location", Vector2i.ZERO),
 			"layer_index": primary_slice.get("layer_index", -1),
-			"region_count": unique_regions.size()
+			"region_count": unique_regions.size(),
+			"user_editable": editable
 		}
 		entries.append(entry)
 	return entries

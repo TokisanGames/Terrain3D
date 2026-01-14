@@ -61,10 +61,15 @@ var layers_list: VBoxContainer
 var layer_header_label: Label
 var layer_refresh_button: Button
 var layer_add_button: Button
+var layer_locked_filter_button: CheckBox
 var current_layer_region: Vector2i = Vector2i.ZERO
 var current_layer_map_type: int = Terrain3DRegion.TYPE_MAX
 var layer_selection_group: ButtonGroup
 var _layer_entries: Array = [] ## Array[Dictionary] storing group_id, representative layer, and slice metadata
+var _show_locked_layers: bool = false
+var _selected_layer_groups: Dictionary = {}
+var _layer_row_panels: Dictionary = {}
+var _selected_row_style: StyleBoxFlat
 
 
 func _ready() -> void:
@@ -215,6 +220,14 @@ func _ready() -> void:
 	layer_header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	layer_header_label.text = "Layers"
 	header.add_child(layer_header_label, true)
+
+	layer_locked_filter_button = CheckBox.new()
+	layer_locked_filter_button.focus_mode = Control.FOCUS_NONE
+	layer_locked_filter_button.text = "Show locked"
+	layer_locked_filter_button.tooltip_text = "Toggle visibility of locked layers"
+	layer_locked_filter_button.button_pressed = _show_locked_layers
+	layer_locked_filter_button.toggled.connect(_on_locked_filter_toggled)
+	header.add_child(layer_locked_filter_button, true)
 
 	layer_refresh_button = Button.new()
 	layer_refresh_button.icon = get_theme_icon("Reload", "EditorIcons")
@@ -659,50 +672,83 @@ func get_setting(p_setting: String) -> Variant:
 func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Array) -> void:
 	if not layer_section or not layers_list or not layer_header_label or not layer_add_button:
 		return
+	var previous_map_type := current_layer_map_type
 	current_layer_region = region_loc
 	current_layer_map_type = map_type
+	if previous_map_type != map_type:
+		_selected_layer_groups.clear()
 	_layer_entries = layer_entries.duplicate(true)
+	_layer_row_panels.clear()
 	for child in layers_list.get_children():
 		child.queue_free()
 	if map_type == Terrain3DRegion.TYPE_MAX:
 		layer_section.visible = false
 		layer_header_label.text = "Layers"
 		layer_add_button.disabled = true
+		_selected_layer_groups.clear()
 		return
 	layer_section.visible = true
 	layer_selection_group = ButtonGroup.new()
+	if layer_locked_filter_button:
+		layer_locked_filter_button.button_pressed = _show_locked_layers
 	var active_index: int = 0
 	if plugin and plugin.editor and plugin.editor.has_method("get_active_layer_index"):
 		active_index = plugin.editor.get_active_layer_index()
+	if active_index > 0:
+		var preview_entry_index := active_index - 1
+		if preview_entry_index >= 0 and preview_entry_index < _layer_entries.size():
+			var preview_entry: Dictionary = _layer_entries[preview_entry_index]
+			if not bool(preview_entry.get("user_editable", true)):
+				active_index = 0
+				if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_index"):
+					plugin.editor.set_active_layer_index(0)
 	var group_count := _layer_entries.size()
 	var region_count := _count_unique_regions()
 	var slice_count := _count_total_slices()
+	var locked_group_count := 0
+	for entry in _layer_entries:
+		if not bool(entry.get("user_editable", true)):
+			locked_group_count += 1
 	var label_prefix: String = MAP_TYPE_LABELS.get(map_type, "Map")
 	var group_suffix := "" if group_count == 1 else "s"
 	var region_suffix := "" if region_count == 1 else "s"
 	var slice_suffix := "" if slice_count == 1 else "s"
-	layer_header_label.text = "%s Layers (%d group%s, %d region%s, %d slice%s)" % [label_prefix, group_count, group_suffix, region_count, region_suffix, slice_count, slice_suffix]
+	var header_text := "%s Layers (%d group%s, %d region%s, %d slice%s)" % [label_prefix, group_count, group_suffix, region_count, region_suffix, slice_count, slice_suffix]
+	if locked_group_count > 0 and not _show_locked_layers:
+		header_text += " • %d locked hidden" % locked_group_count
+	layer_header_label.text = header_text
 	_add_base_layer_entry(active_index)
-	if group_count == 0:
-		var empty_label := Label.new()
-		empty_label.text = "No additional layers yet"
-		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-		empty_label.modulate = Color(0.75, 0.75, 0.75)
-		layers_list.add_child(empty_label, true)
-		_update_layer_action_state()
-		return
+	var visible_entry_count := 0
 	for entry_id in range(_layer_entries.size()):
 		var entry: Dictionary = _layer_entries[entry_id]
 		var layer: Terrain3DLayer = entry.get("layer")
 		if layer == null:
 			continue
-		var row := HBoxContainer.new()
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var ui_index := entry_id + 1
 		entry["ui_index"] = ui_index
+		var group_id := int(entry.get("group_id", 0))
+		var locked := not bool(entry.get("user_editable", true))
+		if locked and not _show_locked_layers:
+			_selected_layer_groups.erase(group_id)
+			continue
+		visible_entry_count += 1
+		var row_panel := PanelContainer.new()
+		row_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row_panel.add_child(row, true)
+		layers_list.add_child(row_panel, true)
+		_layer_row_panels[entry_id] = row_panel
+		var selection_toggle := CheckBox.new()
+		selection_toggle.focus_mode = Control.FOCUS_NONE
+		selection_toggle.tooltip_text = "Select this layer for batch actions"
+		selection_toggle.button_pressed = _is_group_selected(group_id)
+		selection_toggle.toggled.connect(_on_layer_row_selection_toggled.bind(entry_id))
+		row.add_child(selection_toggle)
 		var label_text := _describe_layer(entry)
 		var tooltip := _describe_layer_regions(entry)
-		var select_button := _create_layer_select_button(ui_index, label_text, active_index, entry_id, tooltip)
+		var can_select := bool(entry.get("user_editable", true))
+		var select_button := _create_layer_select_button(ui_index, label_text, active_index, entry_id, tooltip, can_select)
 		row.add_child(select_button)
 		var toggle := CheckBox.new()
 		toggle.focus_mode = Control.FOCUS_NONE
@@ -716,12 +762,25 @@ func update_layer_stack(region_loc: Vector2i, map_type: int, layer_entries: Arra
 		remove_button.tooltip_text = "Remove this layer"
 		remove_button.pressed.connect(_on_layer_remove.bind(entry_id))
 		row.add_child(remove_button)
-		layers_list.add_child(row, true)
+		_apply_row_selection_style(entry_id)
+	if visible_entry_count == 0:
+		var empty_label := Label.new()
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		if group_count == 0:
+			empty_label.text = "No additional layers yet"
+		elif not _show_locked_layers and locked_group_count > 0:
+			empty_label.text = "All additional layers are locked (enable \"Show locked\" to view them)"
+		else:
+			empty_label.text = "No visible layers"
+		empty_label.modulate = Color(0.75, 0.75, 0.75)
+		layers_list.add_child(empty_label, true)
 	_update_layer_action_state()
 	_sync_active_layer_row()
 
 func clear_layer_stack() -> void:
 	_layer_entries.clear()
+	_selected_layer_groups.clear()
+	_layer_row_panels.clear()
 	update_layer_stack(Vector2i.ZERO, Terrain3DRegion.TYPE_MAX, [])
 
 func _describe_layer(entry: Dictionary) -> String:
@@ -741,6 +800,8 @@ func _describe_layer(entry: Dictionary) -> String:
 		var coverage: Rect2i = layer.get_coverage()
 		if coverage.size.x > 0 and coverage.size.y > 0:
 			parts.append("%dx%d @ %d,%d" % [coverage.size.x, coverage.size.y, coverage.position.x, coverage.position.y])
+	if not bool(entry.get("user_editable", true)):
+		parts.append("locked")
 	var slice_count := _slice_count(entry)
 	var slice_suffix := "" if slice_count == 1 else "s"
 	parts.append("%d slice%s" % [slice_count, slice_suffix])
@@ -776,14 +837,20 @@ func _describe_base_layer(map_type: int) -> String:
 		_:
 			return "Base Layer"
 
-func _create_layer_select_button(index: int, label: String, active_index: int, entry_id: int = -1, tooltip: String = "") -> Button:
+func _create_layer_select_button(index: int, label: String, active_index: int, entry_id: int = -1, tooltip: String = "", can_select: bool = true) -> Button:
 	var button := Button.new()
 	button.toggle_mode = true
 	button.focus_mode = Control.FOCUS_NONE
 	button.button_group = layer_selection_group
 	button.text = label
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.tooltip_text = tooltip if not tooltip.is_empty() else "Make this the active layer for painting"
+	var base_tooltip := tooltip if not tooltip.is_empty() else "Make this the active layer for painting"
+	if can_select:
+		button.tooltip_text = base_tooltip
+	else:
+		var lock_tooltip := "Layer is locked and cannot be the active paint target"
+		button.tooltip_text = "%s\n%s" % [base_tooltip, lock_tooltip] if not base_tooltip.is_empty() else lock_tooltip
+		button.disabled = true
 	if index == active_index:
 		button.set_pressed_no_signal(true)
 	button.toggled.connect(_on_layer_selected.bind(index, entry_id))
@@ -842,7 +909,7 @@ func _sync_active_layer_row() -> void:
 		return
 	for entry_id in range(_layer_entries.size()):
 		var entry: Dictionary = _layer_entries[entry_id]
-		if int(entry.get("group_id", 0)) == group_id:
+		if int(entry.get("group_id", 0)) == group_id and bool(entry.get("user_editable", true)):
 			if plugin.editor.has_method("set_active_layer_index"):
 				plugin.editor.set_active_layer_index(entry_id + 1)
 			return
@@ -853,6 +920,8 @@ func _on_layer_selected(pressed: bool, ui_index: int, entry_id: int = -1) -> voi
 	if entry_id >= 0:
 		var entry := _get_layer_entry(entry_id)
 		if not entry.is_empty():
+			if not bool(entry.get("user_editable", true)):
+				return
 			current_layer_region = entry.get("region_location", current_layer_region)
 			_update_layer_action_state()
 	if not plugin or not plugin.editor:
@@ -873,12 +942,123 @@ func _has_layer_context() -> bool:
 func _on_layer_toggle(pressed: bool, entry_id: int) -> void:
 	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
 		return
+	var target_ids := _get_batch_entry_ids(entry_id)
+	var any_changed := false
+	for target_id in target_ids:
+		var entry := _get_layer_entry(target_id)
+		if entry.is_empty():
+			continue
+		if _toggle_entry_layers(entry, pressed):
+			any_changed = true
+	if any_changed:
+		_on_refresh_layers()
+
+func _on_layer_remove(entry_id: int) -> void:
+	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
+		return
+	var target_ids := _get_batch_entry_ids(entry_id)
+	var removed_groups: Array[int] = []
+	var any_removed := false
+	for target_id in target_ids:
+		var entry := _get_layer_entry(target_id)
+		if entry.is_empty():
+			continue
+		removed_groups.append(int(entry.get("group_id", 0)))
+		if _remove_entry_layers(entry):
+			any_removed = true
+	for group_id in removed_groups:
+		_selected_layer_groups.erase(group_id)
+	if any_removed:
+		if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_index"):
+			plugin.editor.set_active_layer_index(0)
+		if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_reference"):
+			plugin.editor.set_active_layer_reference(null, Terrain3DRegion.TYPE_MAX)
+		_on_refresh_layers()
+
+
+func _on_refresh_layers() -> void:
+	if plugin and plugin.ui and plugin.ui.has_method("update_layer_panel"):
+		plugin.ui.update_layer_panel()
+	else:
+		clear_layer_stack()
+	
+func _on_locked_filter_toggled(pressed: bool) -> void:
+	_show_locked_layers = pressed
+	if not _show_locked_layers:
+		_clear_hidden_locked_selection()
+	_on_refresh_layers()
+
+func _on_layer_row_selection_toggled(pressed: bool, entry_id: int) -> void:
 	var entry := _get_layer_entry(entry_id)
 	if entry.is_empty():
 		return
+	var group_id := int(entry.get("group_id", 0))
+	if group_id == 0:
+		return
+	_set_group_selected(group_id, pressed)
+	_apply_row_selection_style(entry_id)
+
+func _is_group_selected(group_id: int) -> bool:
+	if group_id == 0:
+		return false
+	return _selected_layer_groups.has(group_id)
+
+func _set_group_selected(group_id: int, selected: bool) -> void:
+	if group_id == 0:
+		return
+	if selected:
+		_selected_layer_groups[group_id] = true
+	else:
+		_selected_layer_groups.erase(group_id)
+
+func _get_selected_entry_ids() -> Array:
+	var ids: Array = []
+	if _selected_layer_groups.is_empty():
+		return ids
+	for entry_id in range(_layer_entries.size()):
+		var entry: Dictionary = _layer_entries[entry_id]
+		if _is_group_selected(int(entry.get("group_id", 0))):
+			ids.append(entry_id)
+	return ids
+
+func _get_batch_entry_ids(primary_entry_id: int) -> Array:
+	var selected_ids := _get_selected_entry_ids()
+	if selected_ids.is_empty():
+		return [primary_entry_id]
+	if selected_ids.has(primary_entry_id):
+		return selected_ids
+	return [primary_entry_id]
+
+func _apply_row_selection_style(entry_id: int) -> void:
+	if not _layer_row_panels.has(entry_id):
+		return
+	var panel: PanelContainer = _layer_row_panels[entry_id]
+	if panel == null:
+		return
+	var entry := _get_layer_entry(entry_id)
+	if entry.is_empty():
+		panel.remove_theme_stylebox_override("panel")
+		return
+	var group_id := int(entry.get("group_id", 0))
+	if _is_group_selected(group_id):
+		panel.add_theme_stylebox_override("panel", _get_selected_row_style())
+	else:
+		panel.remove_theme_stylebox_override("panel")
+
+func _get_selected_row_style() -> StyleBoxFlat:
+	if _selected_row_style == null:
+		_selected_row_style = StyleBoxFlat.new()
+		_selected_row_style.bg_color = Color(0.35, 0.6, 1.0, 0.15)
+		_selected_row_style.border_color = Color(0.35, 0.6, 1.0, 0.6)
+		_selected_row_style.set_border_width_all(1)
+		_selected_row_style.set_corner_radius_all(3)
+	return _selected_row_style
+
+func _toggle_entry_layers(entry: Dictionary, pressed: bool) -> bool:
 	var slices: Array = entry.get("layers", [])
 	if slices.is_empty():
-		return
+		return false
+	var changed := false
 	for i in range(slices.size()):
 		var slice: Dictionary = slices[i]
 		var region_loc: Vector2i = slice.get("region_location", current_layer_region)
@@ -887,17 +1067,14 @@ func _on_layer_toggle(pressed: bool, entry_id: int) -> void:
 			continue
 		var update := (i == slices.size() - 1)
 		plugin.terrain.data.set_layer_enabled(region_loc, current_layer_map_type, layer_index, pressed, update)
-	_on_refresh_layers()
+		changed = true
+	return changed
 
-func _on_layer_remove(entry_id: int) -> void:
-	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
-		return
-	var entry := _get_layer_entry(entry_id)
-	if entry.is_empty():
-		return
+func _remove_entry_layers(entry: Dictionary) -> bool:
 	var slices: Array = entry.get("layers", [])
 	if slices.is_empty():
-		return
+		return false
+	var removed := false
 	for i in range(slices.size()):
 		var slice: Dictionary = slices[i]
 		var region_loc: Vector2i = slice.get("region_location", current_layer_region)
@@ -906,18 +1083,16 @@ func _on_layer_remove(entry_id: int) -> void:
 			continue
 		var update := (i == slices.size() - 1)
 		plugin.terrain.data.remove_layer(region_loc, current_layer_map_type, layer_index, update)
-	if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_index"):
-		plugin.editor.set_active_layer_index(0)
-	if plugin and plugin.editor and plugin.editor.has_method("set_active_layer_reference"):
-		plugin.editor.set_active_layer_reference(null, Terrain3DRegion.TYPE_MAX)
-	_on_refresh_layers()
+		removed = true
+	return removed
 
-
-func _on_refresh_layers() -> void:
-	if plugin and plugin.ui and plugin.ui.has_method("update_layer_panel"):
-		plugin.ui.update_layer_panel()
-	else:
-		clear_layer_stack()
+func _clear_hidden_locked_selection() -> void:
+	if _selected_layer_groups.is_empty():
+		return
+	for entry in _layer_entries:
+		if not bool(entry.get("user_editable", true)):
+			var group_id := int(entry.get("group_id", 0))
+			_selected_layer_groups.erase(group_id)
 
 func _on_add_layer() -> void:
 	if not _has_layer_context() or current_layer_map_type == Terrain3DRegion.TYPE_MAX:
