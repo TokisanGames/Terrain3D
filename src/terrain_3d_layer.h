@@ -5,11 +5,8 @@
 
 #include <cstdint>
 
-#include <godot_cpp/classes/curve.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/resource.hpp>
-#include <godot_cpp/variant/node_path.hpp>
-#include <godot_cpp/variant/transform3d.hpp>
 
 #include "constants.h"
 #include "terrain_3d_map.h"
@@ -101,65 +98,6 @@ protected:
 public:
 	Terrain3DStampLayer() {}
 	~Terrain3DStampLayer() {}
-};
-
-class Terrain3DCurveLayer : public Terrain3DLayer {
-	GDCLASS(Terrain3DCurveLayer, Terrain3DLayer);
-	CLASS_NAME();
-
-private:
-	PackedVector3Array _points;
-	real_t _width = 5.0f;
-	real_t _depth = 0.0f;
-	bool _dual_groove = false;
-	Ref<Curve> _falloff_curve;
-
-protected:
-	static void _bind_methods();
-	virtual void _generate_payload(const real_t p_vertex_spacing) override;
-
-	bool _closest_point_on_polyline(const Vector2 &p_point, real_t &r_distance, real_t &r_height) const;
-
-public:
-	Terrain3DCurveLayer() {}
-	~Terrain3DCurveLayer() {}
-
-	void set_points(const PackedVector3Array &p_points);
-	PackedVector3Array get_points() const { return _points; }
-
-	void set_width(const real_t p_width);
-	real_t get_width() const { return _width; }
-
-	void set_depth(const real_t p_depth);
-	real_t get_depth() const { return _depth; }
-
-	void set_dual_groove(const bool p_dual);
-	bool get_dual_groove() const { return _dual_groove; }
-
-	void set_falloff_curve(const Ref<Curve> &p_curve);
-	Ref<Curve> get_falloff_curve() const { return _falloff_curve; }
-};
-
-class Terrain3DLocalNodeLayer : public Terrain3DLayer {
-	GDCLASS(Terrain3DLocalNodeLayer, Terrain3DLayer);
-	CLASS_NAME();
-
-private:
-	NodePath _source_path;
-	Transform3D _local_transform;
-
-protected:
-	static void _bind_methods();
-	virtual void _generate_payload(const real_t p_vertex_spacing) override;
-
-public:
-	Terrain3DLocalNodeLayer() {}
-	~Terrain3DLocalNodeLayer() {}
-
-	void set_source_path(const NodePath &p_path) { _source_path = p_path; }
-	NodePath get_source_path() const { return _source_path; }
-	void set_local_transform(const Transform3D &p_transform) { _local_transform = p_transform; mark_dirty(); }
-	Transform3D get_local_transform() const { return _local_transform; }
 };
 
 #endif // TERRAIN3D_LAYER_CLASS_H

@@ -9,7 +9,6 @@
 
 class Terrain3DLayer;
 class Terrain3DStampLayer;
-class Terrain3DCurveLayer;
 
 class Terrain3DRegion : public Resource {
 	GDCLASS(Terrain3DRegion, Resource);

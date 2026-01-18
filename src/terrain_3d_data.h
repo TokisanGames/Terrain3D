@@ -171,7 +171,6 @@ public:
 	bool move_stamp_layer(const Ref<Terrain3DStampLayer> &p_layer, const Vector3 &p_world_position, const bool p_update = true);
 	void set_layer_enabled(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_enabled, const bool p_update = true);
 	void remove_layer(const Vector2i &p_region_loc, const MapType p_map_type, const int p_index, const bool p_update = true);
-	Ref<Terrain3DCurveLayer> add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update = true);
 	Ref<Terrain3DLayer> get_layer_in_group(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, int *r_index = nullptr);
 	Ref<Terrain3DLayer> create_layer_group_slice(const Vector2i &p_region_loc, const MapType p_map_type, const uint64_t p_group_id, const Ref<Terrain3DLayer> &p_template_layer, const bool p_update = true);
 	

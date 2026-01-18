@@ -1216,73 +1216,6 @@ bool Terrain3DData::release_map_layer(const uint64_t p_external_id, const bool p
 	return false;
 }
 
-Ref<Terrain3DCurveLayer> Terrain3DData::add_curve_layer(const Vector2i &p_region_loc, const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove, const real_t p_feather_radius, const bool p_update) {
-	Terrain3DRegion *region = get_region_ptr(p_region_loc);
-	if (!region) {
-		LOG(ERROR, "Cannot add curve layer. Region not found at ", p_region_loc);
-		return Ref<Terrain3DCurveLayer>();
-	}
-	if (p_points.size() < 2) {
-		LOG(ERROR, "Curve layer requires at least two points");
-		return Ref<Terrain3DCurveLayer>();
-	}
-	Ref<Image> height_map = region->get_height_map();
-	bool height_map_invalid = height_map.is_null() || height_map->get_width() <= 0 || height_map->get_height() <= 0;
-	if (height_map_invalid) {
-		region->sanitize_maps();
-		height_map = region->get_height_map();
-		height_map_invalid = height_map.is_null() || height_map->get_width() <= 0 || height_map->get_height() <= 0;
-	}
-	if (height_map_invalid) {
-		int region_size = region->get_region_size();
-		if (!is_valid_region_size(region_size)) {
-			region_size = _region_size;
-		}
-		if (is_valid_region_size(region_size)) {
-			Ref<Image> new_height;
-			new_height.instantiate();
-			new_height->create(region_size, region_size, false, Image::FORMAT_RF);
-			new_height->fill(Color(0.0f, 0.0f, 0.0f, 1.0f));
-			region->set_height_map(new_height);
-			LOG(WARN, "Region ", p_region_loc, " had invalid height map when adding curve layer. Created blank height map.");
-		} else {
-			LOG(ERROR, "Region ", p_region_loc, " has invalid region size when adding curve layer. Aborting layer creation.");
-			return Ref<Terrain3DCurveLayer>();
-		}
-	}
-	Ref<Terrain3DCurveLayer> curve_layer;
-	curve_layer.instantiate();
-	Vector3 region_origin = Vector3(p_region_loc.x, 0.0f, p_region_loc.y) * real_t(_region_size) * _vertex_spacing;
-	PackedVector3Array local_points;
-	local_points.resize(p_points.size());
-	for (int i = 0; i < p_points.size(); i++) {
-		Vector3 local = p_points[i];
-		local.x -= region_origin.x;
-		local.z -= region_origin.z;
-		local_points.set(i, local);
-	}
-	curve_layer->set_map_type(TYPE_HEIGHT);
-	curve_layer->set_points(local_points);
-	curve_layer->set_width(p_width);
-	curve_layer->set_depth(p_depth);
-	curve_layer->set_dual_groove(p_dual_groove);
-	curve_layer->set_feather_radius(p_feather_radius);
-	curve_layer->set_blend_mode(Terrain3DLayer::BLEND_REPLACE);
-	curve_layer->set_intensity(1.0f);
-	_ensure_layer_group_id_internal(curve_layer);
-	Ref<Terrain3DLayer> added = region->add_layer(TYPE_HEIGHT, curve_layer);
-	Ref<Terrain3DCurveLayer> result = added;
-	if (result.is_null()) {
-		result = curve_layer;
-	}
-	region->set_modified(true);
-	region->set_edited(true);
-	if (p_update) {
-		update_maps(TYPE_HEIGHT, false, false);
-	}
-	return result;
-}
-
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
 	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
@@ -2054,7 +1987,6 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("move_stamp_layer", "layer", "world_position", "update"), &Terrain3DData::move_stamp_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("set_layer_enabled", "region_location", "map_type", "index", "enabled", "update"), &Terrain3DData::set_layer_enabled, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("remove_layer", "region_location", "map_type", "index", "update"), &Terrain3DData::remove_layer, DEFVAL(true));
-	ClassDB::bind_method(D_METHOD("add_curve_layer", "region_location", "points", "width", "depth", "dual_groove", "feather_radius", "update"), &Terrain3DData::add_curve_layer, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("set_map_layer", "region_location", "map_type", "image", "external_id", "update"), &Terrain3DData::set_map_layer, DEFVAL(0), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("release_map_layer", "external_id", "remove_layer", "update"), &Terrain3DData::release_map_layer, DEFVAL(true), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("update_maps", "map_type", "all_regions", "generate_mipmaps"), &Terrain3DData::update_maps, DEFVAL(TYPE_MAX), DEFVAL(true), DEFVAL(false));

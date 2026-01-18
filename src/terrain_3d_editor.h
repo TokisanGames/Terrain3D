@@ -24,8 +24,6 @@
 #include "terrain_3d_layer.h"
 #include "terrain_3d_region.h"
 
-class Terrain3DCurveLayer;
-
 class Terrain3DEditor : public Object {
 	GDCLASS(Terrain3DEditor, Object);
 	CLASS_NAME();
@@ -141,7 +139,6 @@ public:
 	void operate(const Vector3 &p_global_position, const real_t p_camera_direction);
 	void backup_region(const Ref<Terrain3DRegion> &p_region);
 	void stop_operation();
-	Dictionary add_curve_layer(const PackedVector3Array &p_points, const real_t p_width, const real_t p_depth, const bool p_dual_groove = false, const real_t p_feather_radius = 0.0f, const bool p_update = true);
 	void set_active_layer_index(const int p_index);
 	int get_active_layer_index() const { return _active_layer_index; }
 	int create_layer(const Vector2i &p_region_loc, const MapType p_map_type, const bool p_select = true);
