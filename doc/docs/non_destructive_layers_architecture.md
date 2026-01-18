@@ -24,7 +24,7 @@ graph TD
     classDef plugin fill:#4B0082,stroke:#333,stroke-width:1px,color:#fff;
     classDef layerNew fill:#2E7D32,stroke:#1B5E20,stroke-width:3px,color:#fff;
     classDef resource fill:#666,stroke:#333,stroke-width:1px,color:#fff;
-    classDef gdscript fill:#8B4513,stroke:#333,stroke-width:1px,color:#fff;
+    %% (Helper nodes removed; external tools now integrate through API only)
 
     %% Main Nodes
     T3D[Terrain3D<br/>* Mesh generation<br/>* Collision generation<br/>* Camera snapping]:::main
@@ -60,10 +60,6 @@ graph TD
     
     T3DLNL[Terrain3DLocalNodeLayer<br/>* Node-based layers<br/>* Transform support]:::layerNew
     
-    StampAnchor[Terrain3DStampAnchor<br/>* GDScript helper node<br/>* Multi-region stamps<br/>* Auto-positioning<br/>* Group ID management]:::gdscript
-    
-    CurveAnchor[Terrain3DCurveLayerPath<br/>* GDScript Path3D node<br/>* Auto-updates from path<br/>* Multi-region curves<br/>* Profile sculpting]:::gdscript
-
     MapType[MapType Enum<br/>* TYPE_HEIGHT<br/>* TYPE_CONTROL<br/>* TYPE_COLOR<br/>* Centralized in terrain_3d_map.h]:::layerNew
 
     %% Original Connections
@@ -95,9 +91,6 @@ graph TD
     T3DD ==>|manages groups| T3DL
     EP ==>|UI for| T3DL
     
-    StampAnchor ==>|creates/updates| T3DSL
-    CurveAnchor ==>|creates/updates| T3DCL
-    
     T3DR ==>|composites layers| T3DM
     T3DL -.->|uses| MapType
     T3DR -.->|uses| MapType
@@ -108,7 +101,7 @@ graph TD
 - **Terrain3DLayer hierarchy** (new): Base class with three specialized layer types
 - **MapType refactoring** (new): Standalone enum in `terrain_3d_map.h` for better organization
 - **Layer compositing** (new): Regions now composite base maps with layers on-demand
-- **GDScript helpers** (new): StampAnchor and CurveLayerPath nodes for artist-friendly workflows
+- **External tool bridge** (new): `Terrain3DData.set_map_layer()` + `release_map_layer()` let procedural pipelines push layers safely
 - **Layer group management** (new): Terrain3DData manages group IDs for multi-region coordination
 - **Dirty-tracking optimization** (new): Incremental re-composition of modified areas
 
@@ -371,89 +364,6 @@ stateDiagram-v2
     end note
 ```
 
-## GDScript Helper Nodes
-
-### Terrain3DStampAnchor Workflow
-
-```mermaid
-sequenceDiagram
-    participant Scene as Scene Tree
-    participant Anchor as Terrain3DStampAnchor
-    participant Data as Terrain3DData
-    participant Regions as Terrain3DRegion(s)
-    participant Layers as Terrain3DStampLayer(s)
-    
-    Scene->>Anchor: _ready() / position changed
-    Anchor->>Anchor: Detect overlapping regions
-    
-    alt No template layer set
-        Anchor->>Data: Find layer at target_region[layer_index]
-        Data-->>Anchor: Return template layer
-        Anchor->>Anchor: Cache template properties
-    end
-    
-    loop For each overlapping region
-        Anchor->>Data: Check if layer exists for this region
-        
-        alt Layer doesn't exist
-            Anchor->>Data: Create duplicate layer
-            Data->>Regions: add_layer(TYPE_HEIGHT, new_layer)
-            Regions->>Layers: Append to layer stack
-        end
-        
-        Anchor->>Layers: Update coverage to local coordinates
-        Anchor->>Layers: Set group_id (for synchronization)
-        Anchor->>Layers: Mark dirty
-    end
-    
-    Anchor->>Data: Mark regions modified
-    Data->>Regions: mark_layers_dirty(TYPE_HEIGHT)
-    Regions->>Regions: Invalidate cache
-```
-
-### Terrain3DCurveLayerPath Workflow
-
-```mermaid
-sequenceDiagram
-    participant User as User (moves path)
-    participant Path as Terrain3DCurveLayerPath
-    participant Curve as Curve3D
-    participant Data as Terrain3DData
-    participant Regions as Terrain3DRegion(s)
-    participant Layer as Terrain3DCurveLayer
-    
-    User->>Path: Modify path control points
-    Path->>Path: _notification(TRANSFORM_CHANGED)
-    Path->>Path: request_update()
-    
-    Path->>Curve: get_baked_points()
-    Curve-->>Path: PackedVector3Array
-    
-    Path->>Path: Calculate affected regions
-    
-    loop For each affected region
-        alt Layer doesn't exist for region
-            Path->>Layer: Create new Terrain3DCurveLayer
-            Path->>Data: add_layer(region_loc, TYPE_HEIGHT, layer)
-        else Layer exists
-            Path->>Layer: Get existing layer
-        end
-        
-        Path->>Layer: set_points(local_points)
-        Path->>Layer: set_width(width)
-        Path->>Layer: set_depth(depth)
-        Path->>Layer: set_falloff_curve(falloff_curve)
-        Layer->>Layer: mark_dirty()
-        Layer->>Layer: _generate_payload() on next apply()
-    end
-    
-    Path->>Data: update_maps()
-    Data->>Regions: get_composited_map(TYPE_HEIGHT)
-    Regions->>Layer: apply(cache, vertex_spacing)
-    Layer->>Layer: Generate procedural curve payload
-    Layer->>Layer: Apply to cache with blending
-```
-
 ## Data Flow: Layer Application
 
 ```mermaid
@@ -610,10 +520,10 @@ graph TB
 - **Alpha Mask**: Per-pixel layer opacity
 - **Feather**: Smooth edge falloff
 
-### 6. Artist-Friendly Tools
-- **Terrain3DStampAnchor**: Node3D-based stamp placement with auto-positioning
-- **Terrain3DCurveLayerPath**: Path3D-based curve editing with live preview
-- Both support auto-update in editor and at runtime
+### 6. External Tool Hooks
+- `Terrain3DData.set_map_layer()` lets procedural pipelines inject baked images into the layer stack without touching base maps
+- `Terrain3DData.release_map_layer()` recycles IDs or removes stale layers when plugins re-slice data
+- Layer stack UI in the editor still exposes everything for manual editing after external updates
 
 ## Performance Characteristics
 
@@ -637,35 +547,6 @@ real_t radius = 50.0;
 
 add_stamp_layer(world_pos, radius, stamp_image, alpha_mask, Terrain3DRegion::TYPE_HEIGHT);
 // Returns a Terrain3DStampLayer that can be further edited
-```
-
-### Creating a Curve Layer (GDScript)
-```gdscript
-# Add Terrain3DCurveLayerPath node to scene
-var curve_path = Terrain3DCurveLayerPath.new()
-curve_path.terrain_path = ^"../Terrain3D"
-curve_path.width = 10.0
-curve_path.depth = -2.0  # Carve 2m deep
-curve_path.feather_radius = 3.0
-add_child(curve_path)
-
-# Modify the path's curve property to define the road/river
-curve_path.curve.add_point(Vector3(0, 5, 0))
-curve_path.curve.add_point(Vector3(50, 5, 20))
-curve_path.curve.add_point(Vector3(100, 8, 15))
-```
-
-### Placing a Multi-Region Stamp (GDScript)
-```gdscript
-# Add Terrain3DStampAnchor node to scene
-var anchor = Terrain3DStampAnchor.new()
-anchor.terrain_path = ^"../Terrain3D"
-anchor.map_type = Terrain3DRegion.TYPE_HEIGHT
-anchor.auto_create_regions = true  # Create regions as needed
-add_child(anchor)
-
-# Move the anchor - it automatically updates all affected regions
-anchor.global_position = Vector3(500, 0, 500)
 ```
 
 ## External Tool Workflow
@@ -704,8 +585,6 @@ This mirrors how version-control–friendly plugins (for example OldGnuts) can c
 - **src/terrain_3d_map.h**: MapType enum and utilities
 
 ### GDScript Helpers
-- **project/addons/terrain_3d/src/stamp_layer_anchor.gd**: Stamp anchor node
-- **project/addons/terrain_3d/src/curve_layer_path.gd**: Curve path node
 - **project/addons/terrain_3d/src/ui.gd**: Layer stack UI integration
 
 ### Demo
