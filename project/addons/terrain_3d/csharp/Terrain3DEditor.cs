@@ -112,7 +112,6 @@ public partial class Terrain3DEditor : GodotObject
 		public new static readonly StringName Operate = "operate";
 		public new static readonly StringName BackupRegion = "backup_region";
 		public new static readonly StringName StopOperation = "stop_operation";
-		public new static readonly StringName AddCurveLayer = "add_curve_layer";
 		public new static readonly StringName CreateLayer = "create_layer";
 		public new static readonly StringName SetActiveLayerReference = "set_active_layer_reference";
 		public new static readonly StringName GetActiveLayerGroupId = "get_active_layer_group_id";
@@ -154,9 +153,6 @@ public partial class Terrain3DEditor : GodotObject
 
 	public new void StopOperation() => 
 		Call(GDExtensionMethodName.StopOperation, []);
-
-	public new Godot.Collections.Dictionary AddCurveLayer(Vector3[] points, double width, double depth, bool dualGroove = false, double featherRadius = 0, bool update = true) => 
-		Call(GDExtensionMethodName.AddCurveLayer, [points, width, depth, dualGroove, featherRadius, update]).As<Godot.Collections.Dictionary>();
 
 	public new long CreateLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, bool select = true) => 
 		Call(GDExtensionMethodName.CreateLayer, [regionLocation, mapType, select]).As<long>();

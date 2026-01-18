@@ -292,7 +292,6 @@ public partial class Terrain3DData : GodotObject
 		public new static readonly StringName MoveStampLayer = "move_stamp_layer";
 		public new static readonly StringName SetLayerEnabled = "set_layer_enabled";
 		public new static readonly StringName RemoveLayer = "remove_layer";
-		public new static readonly StringName AddCurveLayer = "add_curve_layer";
 		public new static readonly StringName SetMapLayer = "set_map_layer";
 		public new static readonly StringName ReleaseMapLayer = "release_map_layer";
 		public new static readonly StringName UpdateMaps = "update_maps";
@@ -459,9 +458,6 @@ public partial class Terrain3DData : GodotObject
 
 	public new void RemoveLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, long index, bool update = true) => 
 		Call(GDExtensionMethodName.RemoveLayer, [regionLocation, mapType, index, update]);
-
-	public new Terrain3DCurveLayer AddCurveLayer(Vector2I regionLocation, Vector3[] points, double width, double depth, bool dualGroove, double featherRadius, bool update = true) => 
-		Terrain3DCurveLayer.Bind(Call(GDExtensionMethodName.AddCurveLayer, [regionLocation, points, width, depth, dualGroove, featherRadius, update]).As<Resource>());
 
 	public new Terrain3DStampLayer SetMapLayer(Vector2I regionLocation, long/* "Empty Enum Constant String" */ mapType, Image image, long externalId = 0, bool update = true) => 
 		Terrain3DStampLayer.Bind(Call(GDExtensionMethodName.SetMapLayer, [regionLocation, mapType, image, externalId, update]).As<Resource>());
