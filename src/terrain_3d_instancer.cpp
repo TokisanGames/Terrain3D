@@ -519,7 +519,7 @@ Array Terrain3DInstancer::_get_usable_height(const Vector3 &p_global_position, c
 	real_t height = data->get_height(p_global_position);
 	Dictionary raycast_result;
 	bool raycast_hit = false;
-	real_t raycast_height = FLT_MIN;
+	real_t raycast_height = -FLT_MAX;
 	Vector3 raycast_normal = V3_UP;
 	// Raycast physics if using on_collision
 	if (p_on_collision) {
