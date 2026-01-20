@@ -29,10 +29,9 @@ public partial class Terrain3DUtil : GodotObject
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DUtil"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DUtil Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DUtil wrapperScriptInstance)
 			return wrapperScriptInstance;
 

@@ -29,10 +29,9 @@ public partial class Terrain3DAssets : Resource
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DAssets"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DAssets Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DAssets wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -152,7 +151,6 @@ public partial class Terrain3DAssets : Resource
 		public new static readonly StringName GetTextureAoLightAffects = "get_texture_ao_light_affects";
 		public new static readonly StringName GetTextureRoughnessMods = "get_texture_roughness_mods";
 		public new static readonly StringName GetTextureUvScales = "get_texture_uv_scales";
-		public new static readonly StringName GetTextureVerticalProjections = "get_texture_vertical_projections";
 		public new static readonly StringName GetTextureDetiles = "get_texture_detiles";
 		public new static readonly StringName GetTextureDisplacements = "get_texture_displacements";
 		public new static readonly StringName ClearTextures = "clear_textures";
@@ -197,9 +195,6 @@ public partial class Terrain3DAssets : Resource
 
 	public new float[] GetTextureUvScales() => 
 		Call(GDExtensionMethodName.GetTextureUvScales, []).As<float[]>();
-
-	public new long GetTextureVerticalProjections() => 
-		Call(GDExtensionMethodName.GetTextureVerticalProjections, []).As<long>();
 
 	public new Vector2[] GetTextureDetiles() => 
 		Call(GDExtensionMethodName.GetTextureDetiles, []).As<Vector2[]>();

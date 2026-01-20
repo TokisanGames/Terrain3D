@@ -29,10 +29,9 @@ public partial class Terrain3D : Node3D
 	/// <returns>The existing or a new instance of the <see cref="Terrain3D"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3D Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3D wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -161,7 +160,6 @@ public partial class Terrain3D : Node3D
 		public new static readonly StringName MeshSize = "mesh_size";
 		public new static readonly StringName VertexSpacing = "vertex_spacing";
 		public new static readonly StringName TessellationLevel = "tessellation_level";
-		public new static readonly StringName Displacement = "Displacement";
 		public new static readonly StringName DisplacementScale = "displacement_scale";
 		public new static readonly StringName DisplacementSharpness = "displacement_sharpness";
 		public new static readonly StringName BufferShaderOverrideEnabled = "buffer_shader_override_enabled";
@@ -190,7 +188,6 @@ public partial class Terrain3D : Node3D
 		public new static readonly StringName ShowColormap = "show_colormap";
 		public new static readonly StringName ShowRoughmap = "show_roughmap";
 		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
-		public new static readonly StringName Pbr = "PBR";
 		public new static readonly StringName ShowTextureAlbedo = "show_texture_albedo";
 		public new static readonly StringName ShowTextureHeight = "show_texture_height";
 		public new static readonly StringName ShowTextureNormal = "show_texture_normal";
@@ -386,9 +383,9 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.MouseLayer, value);
 	}
 
-	public new Variant CastShadows
+	public new long CastShadows
 	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<Variant>();
+		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
 		set => Set(GDExtensionPropertyName.CastShadows, value);
 	}
 
