@@ -14,6 +14,12 @@
 				Recalculates the height range for this region by looking at every pixel in the heightmap.
 			</description>
 		</method>
+		<method name="clear">
+			<return type="void" />
+			<description>
+				Unreferences the maps and resets all of the variables to default values.
+			</description>
+		</method>
 		<method name="dump" qualifiers="const">
 			<return type="void" />
 			<param index="0" name="verbose" type="bool" default="false" />

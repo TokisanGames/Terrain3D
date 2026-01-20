@@ -74,8 +74,6 @@ Methods
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedFloat32Array``                                    | :ref:`get_texture_uv_scales<class_Terrain3DAssets_method_get_texture_uv_scales>`\ (\ ) |const|                                                                                  |
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``int``                                                   | :ref:`get_texture_vertical_projections<class_Terrain3DAssets_method_get_texture_vertical_projections>`\ (\ ) |const|                                                            |
-   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | Error                                                     | :ref:`save<class_Terrain3DAssets_method_save>`\ (\ path\: ``String`` = ""\ )                                                                                                    |
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                    | :ref:`set_mesh_asset<class_Terrain3DAssets_method_set_mesh_asset>`\ (\ id\: ``int``, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ )                              |
@@ -411,18 +409,6 @@ Returns the array of roughness modification values for each texture asset, index
 ``PackedFloat32Array`` **get_texture_uv_scales**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_uv_scales>`
 
 Returns the array of uv scale values for each texture asset, indexed by asset id.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3DAssets_method_get_texture_vertical_projections:
-
-.. rst-class:: classref-method
-
-``int`` **get_texture_vertical_projections**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_vertical_projections>`
-
-Returns a 32-bit int that identifies which textures are to be projected vertically.
 
 .. rst-class:: classref-item-separator
 

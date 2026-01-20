@@ -112,12 +112,6 @@
 				Returns the array of uv scale values for each texture asset, indexed by asset id.
 			</description>
 		</method>
-		<method name="get_texture_vertical_projections" qualifiers="const">
-			<return type="int" />
-			<description>
-				Returns a 32-bit int that identifies which textures are to be projected vertically.
-			</description>
-		</method>
 		<method name="save">
 			<return type="int" enum="Error" />
 			<param index="0" name="path" type="String" default="&quot;&quot;" />
