@@ -26,11 +26,12 @@ public: // Constants
 		NEAREST,
 	};
 
-enum UpdateFlags {
-		UNIFORMS = 0u,
-		TEXTURE_ARRAYS = 1u,
-		REGION_ARRAYS = 2u,
-		FULL_REBUILD = TEXTURE_ARRAYS | REGION_ARRAYS,
+	enum UpdateFlags {
+		UNIFORMS_ONLY = 0,
+		TEXTURE_ARRAYS = 1 << 0,
+		REGION_ARRAYS = 1 << 1,
+		UPDATE_ARRAYS = TEXTURE_ARRAYS | REGION_ARRAYS,
+		FULL_REBUILD = (1 << 2) | UPDATE_ARRAYS,
 	};
 
 private:
@@ -103,10 +104,9 @@ private:
 	String _strip_comments(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
-	void _update_uniforms(const RID &p_material, const uint32_t p_update = UpdateFlags::UNIFORMS);
+	void _update_uniforms(const RID &p_material, const uint32_t p_update = UNIFORMS_ONLY);
 	void _set_shader_parameters(const Dictionary &p_dict);
 	Dictionary _get_shader_parameters() const { return _shader_params; }
-	static inline bool _has_update_flag(uint32_t value, UpdateFlags flag) {	return (value & static_cast<uint32_t>(flag)) != 0u; }
 
 public:
 	Terrain3DMaterial() {}
@@ -116,7 +116,7 @@ public:
 	void uninitialize();
 	void destroy();
 
-	void update(const uint32_t p_update = UpdateFlags::UNIFORMS);
+	void update(const uint32_t p_flags = UNIFORMS_ONLY);
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader.is_valid() ? _shader->get_rid() : RID(); }
 
