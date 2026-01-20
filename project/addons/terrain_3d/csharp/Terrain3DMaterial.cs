@@ -29,10 +29,9 @@ public partial class Terrain3DMaterial : Resource
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DMaterial"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DMaterial Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DMaterial wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -74,13 +73,27 @@ public partial class Terrain3DMaterial : Resource
 		Nearest = 1,
 	}
 
+	public enum UpdateFlags
+	{
+		UniformsOnly = 0,
+		TextureArrays = 1,
+		RegionArrays = 2,
+		Arrays = 3,
+		FullRebuild = 7,
+	}
+
 	public new static class GDExtensionPropertyName
 	{
-		public new static readonly StringName ShaderParameters = "_shader_parameters";
 		public new static readonly StringName WorldBackground = "world_background";
 		public new static readonly StringName TextureFiltering = "texture_filtering";
 		public new static readonly StringName AutoShaderEnabled = "auto_shader_enabled";
 		public new static readonly StringName DualScalingEnabled = "dual_scaling_enabled";
+		public new static readonly StringName MacroVariationEnabled = "macro_variation_enabled";
+		public new static readonly StringName ProjectionEnabled = "projection_enabled";
+		public new static readonly StringName OutputAlbedo = "output_albedo";
+		public new static readonly StringName OutputRoughness = "output_roughness";
+		public new static readonly StringName OutputNormalMap = "output_normal_map";
+		public new static readonly StringName OutputAmbientOcclusion = "output_ambient_occlusion";
 		public new static readonly StringName ShaderOverrideEnabled = "shader_override_enabled";
 		public new static readonly StringName ShaderOverride = "shader_override";
 		public new static readonly StringName ShowRegionGrid = "show_region_grid";
@@ -111,12 +124,6 @@ public partial class Terrain3DMaterial : Resource
 		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
 	}
 
-	public new Godot.Collections.Dictionary ShaderParameters
-	{
-		get => Get(GDExtensionPropertyName.ShaderParameters).As<Godot.Collections.Dictionary>();
-		set => Set(GDExtensionPropertyName.ShaderParameters, value);
-	}
-
 	public new Terrain3DMaterial.WorldBackgroundEnum WorldBackground
 	{
 		get => Get(GDExtensionPropertyName.WorldBackground).As<Terrain3DMaterial.WorldBackgroundEnum>();
@@ -139,6 +146,42 @@ public partial class Terrain3DMaterial : Resource
 	{
 		get => Get(GDExtensionPropertyName.DualScalingEnabled).As<bool>();
 		set => Set(GDExtensionPropertyName.DualScalingEnabled, value);
+	}
+
+	public new bool MacroVariationEnabled
+	{
+		get => Get(GDExtensionPropertyName.MacroVariationEnabled).As<bool>();
+		set => Set(GDExtensionPropertyName.MacroVariationEnabled, value);
+	}
+
+	public new bool ProjectionEnabled
+	{
+		get => Get(GDExtensionPropertyName.ProjectionEnabled).As<bool>();
+		set => Set(GDExtensionPropertyName.ProjectionEnabled, value);
+	}
+
+	public new bool OutputAlbedo
+	{
+		get => Get(GDExtensionPropertyName.OutputAlbedo).As<bool>();
+		set => Set(GDExtensionPropertyName.OutputAlbedo, value);
+	}
+
+	public new bool OutputRoughness
+	{
+		get => Get(GDExtensionPropertyName.OutputRoughness).As<bool>();
+		set => Set(GDExtensionPropertyName.OutputRoughness, value);
+	}
+
+	public new bool OutputNormalMap
+	{
+		get => Get(GDExtensionPropertyName.OutputNormalMap).As<bool>();
+		set => Set(GDExtensionPropertyName.OutputNormalMap, value);
+	}
+
+	public new bool OutputAmbientOcclusion
+	{
+		get => Get(GDExtensionPropertyName.OutputAmbientOcclusion).As<bool>();
+		set => Set(GDExtensionPropertyName.OutputAmbientOcclusion, value);
 	}
 
 	public new bool ShaderOverrideEnabled
@@ -321,8 +364,8 @@ public partial class Terrain3DMaterial : Resource
 		public new static readonly StringName Save = "save";
 	}
 
-	public new void Update(bool full = false) => 
-		Call(GDExtensionMethodName.Update, [full]);
+	public new void Update(long flags = 0) => 
+		Call(GDExtensionMethodName.Update, [flags]);
 
 	public new Rid GetMaterialRid() => 
 		Call(GDExtensionMethodName.GetMaterialRid, []).As<Rid>();

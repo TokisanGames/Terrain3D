@@ -64,6 +64,8 @@ Methods
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`calc_height_range<class_Terrain3DRegion_method_calc_height_range>`\ (\ )                                                                         |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`clear<class_Terrain3DRegion_method_clear>`\ (\ )                                                                                                 |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`dump<class_Terrain3DRegion_method_dump>`\ (\ verbose\: ``bool`` = false\ ) |const|                                                               |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Terrain3DRegion<class_Terrain3DRegion>` | :ref:`duplicate<class_Terrain3DRegion_method_duplicate>`\ (\ deep\: ``bool`` = false\ )                                                                |
@@ -397,6 +399,18 @@ Method Descriptions
 |void| **calc_height_range**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_calc_height_range>`
 
 Recalculates the height range for this region by looking at every pixel in the heightmap.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_clear:
+
+.. rst-class:: classref-method
+
+|void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_clear>`
+
+Unreferences the maps and resets all of the variables to default values.
 
 .. rst-class:: classref-item-separator
 

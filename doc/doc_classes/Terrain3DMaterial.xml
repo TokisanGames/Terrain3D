@@ -6,7 +6,8 @@
 	<description>
 		This class handles options for both the built-in shader and any custom override shader. It collects compiled texture data from the other classes and sends all of it to the shader via the RenderingServer.
 		It is a savable resource, so you can save it to disk and use the same material settings in multiple scenes that use Terrain3D. The amount of data is small, assuming you have saved your shader parameter textures to disk, so it can be saved as a git-friendly, text based .tres file or left within the scene file.
-		While it does mimic some of the functionality of ShaderMaterial, it does not derive from any of the Godot Material classes. It will not pass any [code skip-lint]is Material[/code] checks. It is a [code skip-lint]Resource[/code].
+		While it does mimic some of the functionality of ShaderMaterial, it does not derive from any of the Godot Material classes. It will fail any [code skip-lint]is Material[/code] checks. It is a [code skip-lint]Resource[/code].
+		Inspector settings above `Custom Shader` and [member shader_override] are used to determine what code is used in the current shader. Inspector settings in `Shader Uniforms` are the public uniforms (not prefaced with `_`) available in the current shader.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -60,10 +61,9 @@
 		</method>
 		<method name="update">
 			<return type="void" />
-			<param index="0" name="full" type="bool" default="false" />
+			<param index="0" name="flags" type="int" default="0" />
 			<description>
-				Sends all uniform values to the shader again.
-				full - recompiles the shader first.
+				Sends uniform values to the shader. See [enum UpdateFlags] for options.
 			</description>
 		</method>
 	</methods>
@@ -71,7 +71,7 @@
 		<member name="_shader_parameters" type="Dictionary" setter="_set_shader_parameters" getter="_get_shader_parameters" default="{}">
 			This private dictionary stores all of the shader parameters in the resource. It is not a cache.
 		</member>
-		<member name="auto_shader_enabled" type="bool" setter="set_auto_shader" getter="get_auto_shader" default="false">
+		<member name="auto_shader_enabled" type="bool" setter="set_auto_shader_enabled" getter="get_auto_shader_enabled" default="false">
 			Enables selecting two texture IDs that will automatically be applied to the terrain based upon slope.
 		</member>
 		<member name="buffer_shader_override" type="Shader" setter="set_buffer_shader_override" getter="get_buffer_shader_override">
@@ -86,14 +86,33 @@
 		<member name="displacement_sharpness" type="float" setter="set_displacement_sharpness" getter="get_displacement_sharpness" default="0.5">
 			Adjusts the transition between textures. When set at `1.0`, the blending of displacment between textures will match the aldebo/normal blend sharpness exactly. Lower values will have a softer transition, avoiding harsh shapes, without compromising the abldeo and normal blend sharpness. If set at or very near to `0.0`, it is possible that more displaced textures can affect less displaced textures at low blend values even if not visible.
 		</member>
-		<member name="dual_scaling_enabled" type="bool" setter="set_dual_scaling" getter="get_dual_scaling" default="false">
+		<member name="dual_scaling_enabled" type="bool" setter="set_dual_scaling_enabled" getter="get_dual_scaling_enabled" default="false">
 			Enables selecting one texture ID that will have multiple scales applied based upon camera distance. Use it for something like a rock texture so up close it will be nicely detailed, and far away mountains can be covered in the same rock texture without looking tiled. The two blend together at a specified distance.
+		</member>
+		<member name="macro_variation_enabled" type="bool" setter="set_macro_variation_enabled" getter="get_macro_variation_enabled" default="false">
+			Allows you to add a couple of noise patterns at different scales and colors to add variation to your terrain to avoid tiled textures.
+		</member>
+		<member name="output_albedo" type="bool" setter="set_output_albedo_enabled" getter="get_output_albedo_enabled" default="true">
+			Enables the Albedo, aka Base Color or Diffuse, output channel in the shader.
+		</member>
+		<member name="output_ambient_occlusion" type="bool" setter="set_output_ambient_occlusion_enabled" getter="get_output_ambient_occlusion_enabled" default="true">
+			Enables the Ambient Occlusion output channel in the shader.
+		</member>
+		<member name="output_normal_map" type="bool" setter="set_output_normal_map_enabled" getter="get_output_normal_map_enabled" default="true">
+			Enables the Normal Map output channel in the shader.
+		</member>
+		<member name="output_roughness" type="bool" setter="set_output_roughness_enabled" getter="get_output_roughness_enabled" default="true">
+			Enables the Roughness output channel in the shader.
+		</member>
+		<member name="projection_enabled" type="bool" setter="set_projection_enabled" getter="get_projection_enabled" default="false">
+			Enables textures to be projected vertically when placed on slopes above 45 degrees. This is useful for mapping textures on cliff faces without stretching, even though the polygons are stretched.
 		</member>
 		<member name="shader_override" type="Shader" setter="set_shader_override" getter="get_shader_override">
 			If shader_override_enabled is true and this Shader is valid, the material will use this custom shader code. If this is blank when you enable the override, the system will generate a shader with the current settings. So if you have a debug view enabled, the generated shader will have all of that code. A visual shader will also work here. However we only generate a text based shader so currently a visual shader needs to be constructed with the base code before it can work.
 		</member>
 		<member name="shader_override_enabled" type="bool" setter="set_shader_override_enabled" getter="is_shader_override_enabled" default="false">
-			Enables use of the [member shader_override] shader code. Generates default code if shader_override is blank.
+			Enables using the [member shader_override] shader. An editable shader is generated from the current one if shader_override is blank.
+			The inspector settings above this group determine the code that is used in the current shader. The settings below are uniforms for the current shader.
 		</member>
 		<member name="show_autoshader" type="bool" setter="set_show_autoshader" getter="get_show_autoshader" default="false">
 			Displays the area designated for use by the autoshader, which shows materials based upon slope.
@@ -184,6 +203,21 @@
 		</constant>
 		<constant name="NEAREST" value="1" enum="TextureFiltering">
 			Textures are filtered using a the nearest pixel only. It is faster than LINEAR, but the texture will look pixelated. Use this for a low-poly look, with a very low uv_scale.
+		</constant>
+		<constant name="UNIFORMS_ONLY" value="0" enum="UpdateFlags">
+			Non-texture array values are assigned to the shader. This is the default and is always done.
+		</constant>
+		<constant name="TEXTURE_ARRAYS" value="1" enum="UpdateFlags">
+			The ground texture arrays are assigned to the shader, along with the values in `UNIFORMS_ONLY`.
+		</constant>
+		<constant name="REGION_ARRAYS" value="2" enum="UpdateFlags">
+			The region data texture arrays are assigned to the shader, along with the values in `UNIFORMS_ONLY`.
+		</constant>
+		<constant name="UPDATE_ARRAYS" value="3" enum="UpdateFlags">
+			Values in `TEXTURE_ARRAYS` and `REGION_ARRAYS` are assigned to the shader.
+		</constant>
+		<constant name="FULL_REBUILD" value="7" enum="UpdateFlags">
+			The shader is rebuilt, then all values in `UPDATE_ARRAYS` are assigned to the shader.
 		</constant>
 	</constants>
 </class>

@@ -26,9 +26,6 @@ using namespace godot;
 #ifndef FLT_MAX
 #define FLT_MAX __FLT_MAX__
 #endif
-#ifndef FLT_MIN
-#define FLT_MIN __FLT_MIN__
-#endif
 
 // Terrain3D::_warnings is uint8_t
 #define WARN_MISMATCHED_SIZE 0x01

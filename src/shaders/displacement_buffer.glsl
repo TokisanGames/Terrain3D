@@ -7,6 +7,8 @@ R"(shader_type canvas_item;
 // the buffer directly via RID (avoids GPU > CPU > GPU copies) as alpha
 // is premultiplied by the renderer.
 
+#define IS_DISPLACEMENT_BUFFER
+
 // Defined Constants
 #define SKIP_PASS 0
 #define VERTEX_PASS 1
@@ -47,26 +49,28 @@ uniform int _region_map_size = 32;
 uniform int _region_map[1024];
 uniform vec2 _region_locations[1024];
 uniform float _texture_uv_scale_array[32];
-uniform uint _texture_vertical_projections;
 uniform vec2 _texture_detile_array[32];
 uniform vec2 _texture_displacement_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 //INSERT: TEXTURE_SAMPLERS_LINEAR
+uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
+uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
 
 // Public uniforms
-group_uniforms general;
+group_uniforms shader_uniforms.general;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
-uniform bool vertical_projection = true;
-uniform float projection_threshold : hint_range(0.0, 0.99, 0.01) = 0.8;
 group_uniforms;
 //INSERT: AUTO_SHADER_UNIFORMS
+
+//INSERT: FLAT_UNIFORMS
+//INSERT: FLAT_FUNCTIONS
 
 // Uniquely named displacement uniforms should be in this group.
 // Uniforms that are shared with the main shader are automatically synchronised.
 // Subgroups should work as expected.
-group_uniforms displacement;
+group_uniforms shader_uniforms.displacement;
 uniform float _displacement_sharpness : hint_range(0.0, 1.0, 0.01) = 0.25;
 group_uniforms;
 
@@ -82,24 +86,16 @@ struct material {
 // Vertex
 ////////////////////////
 
-// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_index_coord(const vec2 uv, const int search) {
+ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
-	vec2 o_uv = mod(r_uv,_region_size);
-	ivec2 pos;
-	int bounds, layer_index = -1;
-	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
-		if ((layer_index == -1 && _background_mode == 0u ) || i < 0) {
-			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
-			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
-			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
-		}
-	}
-	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
+	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
@@ -144,26 +140,13 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	// Projection
 	vec2 i_uv = i_vertex.xz;
 	mat2 p_align = mat2(1.);
-	vec2 p_uv = i_uv;
-	vec2 p_pos = i_pos;
-	if (i_normal.y <= projection_threshold && vertical_projection) {
-		// Projected normal map alignment matrix
-		p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
-		// Fast 45 degree snapping https://iquilezles.org/articles/noatan/
-		vec2 xz = round(normalize(-i_normal.xz) * 1.3065629648763765); // sqrt(1.0 + sqrt(0.5))
-		xz *= abs(xz.x) + abs(xz.y) > 1.5 ? 0.7071067811865475 : 1.0; // sqrt(0.5)
-		xz = vec2(-xz.y, xz.x);
-		p_pos = floor(vec2(dot(i_pos, xz), -h));
-		p_uv = vec2(dot(i_vertex.xz, xz), -i_vertex.y);
-	}
+//INSERT: PROJECTION
 
 	// Control map rotation. Must be applied seperatley from detiling to maintain UV continuity.
 	float c_angle = DECODE_ANGLE(control);
 	vec2 c_cs_angle = vec2(cos(c_angle), sin(c_angle));
 	i_uv = rotate_vec2(i_uv, c_cs_angle);
 	i_pos = rotate_vec2(i_pos, c_cs_angle);
-	p_uv = rotate_vec2(p_uv, c_cs_angle);
-	p_pos = rotate_vec2(p_pos, c_cs_angle);
 
 	// Blend adjustment of Higher ID from Lower ID normal map in world space.
 	float world_normal = 1.;
@@ -176,18 +159,15 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	// 1st Texture Asset ID
 	if (blend < 1.0) {
 		int id = texture_id[0];
-		bool projected = TEXTURE_ID_PROJECTED(id);
 		float id_w = texture_weight[0];
 		float id_scale = _texture_uv_scale_array[id];
 
 		// Detiling and Control map rotation
-		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
-		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
 		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
-		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
@@ -198,8 +178,7 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 		vec4 nrm = textureLod(_texture_array_normal, vec3(id_uv, float(id)), 0.);
 		// Unpack and rotate normal map.
 		nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
-		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle);
-		nrm.xz = fma((nrm.xz * p_align), vec2(float(projected)), nrm.xz * vec2(float(!projected)));
+		nrm.xz = rotate_vec2(nrm.xz, id_cs_angle) * p_align;
 
 		world_normal = FAST_WORLD_NORMAL(nrm).y;
 
@@ -217,18 +196,15 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 	// 2nd Texture Asset ID
 	if (blend > 0.0 && texture_id[1] != texture_id[0]) {
 		int id = texture_id[1];
-		bool projected = TEXTURE_ID_PROJECTED(id);
 		float id_w = texture_weight[1];
 		float id_scale = _texture_uv_scale_array[id];
 
 		// Detiling and Control map rotation
-		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
-		vec2 uv_center = floor(fma(id_pos, vec2(id_scale), vec2(0.5)));
+		vec2 uv_center = floor(fma(i_pos, vec2(id_scale), vec2(0.5)));
 		vec2 id_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[id] * TAU;
 		vec2 id_cs_angle = vec2(cos(id_detile.x), sin(id_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 id_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
-		id_uv = rotate_vec2(fma(id_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
+		vec2 id_uv = rotate_vec2(fma(i_uv, vec2(id_scale), -uv_center), id_cs_angle) + uv_center + id_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		id_cs_angle = vec2(
@@ -249,6 +225,13 @@ void accumulate_material(const mat3 TNB, const float weight, const ivec3 index,
 		mat.total_weight += id_weight;
 	}
 }
+
+float get_height(vec2 index_id, vec2 offset) {
+	float height = texelFetch(_height_maps, get_index_coord(index_id + offset), 0).r;
+//INSERT: FLAT_FRAGMENT
+	return height;
+}
+
 )"
 
 		R"(
@@ -275,10 +258,10 @@ void fragment() {
 
 	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well
-	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 
 	// Terrain normals
 	vec3 index_normal[4];
@@ -288,18 +271,18 @@ void fragment() {
 	float v = 0.0;
 
 	// Re-use index[] for the first lookups, skipping some math. 3 lookups
-	h[3] = texelFetch(_height_maps, index[3], 0).r; // 0 (0,0)
-	h[2] = texelFetch(_height_maps, index[2], 0).r; // 1 (1,0)
-	h[0] = texelFetch(_height_maps, index[0], 0).r; // 2 (0,1)
+	h[3] = get_height(index_id, offsets.xx); // 0 (0, 0)
+	h[2] = get_height(index_id, offsets.yx); // 1 (1, 0)
+	h[0] = get_height(index_id, offsets.xy); // 2 (0, 1)
 	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// 5 lookups
 	// Fetch the additional required height values for smooth normals
-	h[1] = texelFetch(_height_maps, index[1], 0).r; // 3 (1,1)
-	float h_4 = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r; // 4 (1,2)
-	float h_5 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r; // 5 (2,1)
-	float h_6 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r; // 6 (2,0)
-	float h_7 = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r; // 7 (0,2)
+	h[1] = get_height(index_id, offsets.yy); // 3 (1, 1)
+	float h_4 = get_height(index_id, offsets.yz); // 4 (1, 2)
+	float h_5 = get_height(index_id, offsets.zy); // 5 (2, 1)
+	float h_6 = get_height(index_id, offsets.zx); // 6 (2, 0)
+	float h_7 = get_height(index_id, offsets.xz); // 7 (0, 2)
 
 	// Calculate the normal for the remaining index ids.
 	index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h_7 + v));
@@ -350,7 +333,6 @@ void fragment() {
 				vec2(weights_id_0[3], weights_id_1[3]));
 	// interpolated weights
 
-	#if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
 	t_weights = {vec2(0), vec2(0), vec2(0), vec2(0)};
 	weights_id_0 *= weights;
 	weights_id_1 *= weights;
@@ -365,7 +347,6 @@ void fragment() {
 		t_weights[3] += fma(w_0, vec2(equal(texture_ids[3], id_0)), w_1 * vec2(equal(texture_ids[3], id_1)));
 	}
 
-	#endif
 
 	// Struct to accumulate all texture data.
 	material mat = material(0., 0.);

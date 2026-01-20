@@ -66,9 +66,9 @@ void Terrain3D::_initialize() {
 		_data->connect("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build));
 	}
 	// Any map was regenerated or regions changed, update material uniforms without rebuilding shaders
-	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
+	if (!_data->is_connected("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(Terrain3DMaterial::REGION_ARRAYS))) {
 		LOG(DEBUG, "Connecting _data::maps_changed signal to _material->_update()");
-		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
+		_data->connect("maps_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(Terrain3DMaterial::REGION_ARRAYS));
 	}
 	// Height map was regenerated, update aabbs
 	if (!_data->is_connected("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs))) {
@@ -76,9 +76,9 @@ void Terrain3D::_initialize() {
 		_data->connect("height_maps_changed", callable_mp(this, &Terrain3D::_update_mesher_aabbs));
 	}
 	// Texture assets changed, update material uniforms without rebuilding shaders
-	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false))) {
+	if (!_assets->is_connected("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(Terrain3DMaterial::TEXTURE_ARRAYS))) {
 		LOG(DEBUG, "Connecting _assets.textures_changed to _material->update()");
-		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(false));
+		_assets->connect("textures_changed", callable_mp(_material.ptr(), &Terrain3DMaterial::update).bind(Terrain3DMaterial::TEXTURE_ARRAYS));
 	}
 	// Initialize the system
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
@@ -503,7 +503,7 @@ void Terrain3D::set_editor(Terrain3DEditor *p_editor) {
 	SET_IF_DIFF(_editor, p_editor);
 	LOG(INFO, "Setting Terrain3DEditor: ", _editor);
 	if (_material.is_valid()) {
-		_material->update(true);
+		_material->update(Terrain3DMaterial::FULL_REBUILD);
 	}
 }
 
@@ -694,7 +694,7 @@ void Terrain3D::set_tessellation_level(const int p_level) {
 	SET_IF_DIFF(_tessellation_level, CLAMP(p_level, 0, 6));
 	LOG(INFO, "Setting tessellation level: ", p_level);
 	if (_mesher && _material.is_valid()) {
-		_material->update(true);
+		_material->update(Terrain3DMaterial::FULL_REBUILD);
 		_mesher->initialize(this);
 		_update_displacement_buffer();
 	}
@@ -1380,7 +1380,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap"), "set_show_roughmap", "get_show_roughmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_displacement_buffer"), "set_show_displacement_buffer", "get_show_displacement_buffer");
 
-	ADD_SUBGROUP("PBR", "show_");
+	ADD_SUBGROUP("PBR Maps", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_albedo"), "set_show_texture_albedo", "get_show_texture_albedo");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");

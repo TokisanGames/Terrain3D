@@ -4,31 +4,21 @@
 // Variables should be prefaced with __ to avoid name conflicts.
 
 R"(
-//INSERT: OVERLAY_REGION_GRID
-	// Show region grid
-	{
-		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
-		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
-		float __region_line = 1.0;		// Region line thickness
-		__region_line *= .1*sqrt(length(__camera_pos - __pixel_pos));
-		if (mod(__pixel_pos.x * _vertex_density + __region_line*.5, _region_size) <= __region_line || 
-			mod(__pixel_pos.z * _vertex_density + __region_line*.5, _region_size) <= __region_line ) {
-			ALBEDO = vec3(1.);
-		}
-	}
-
 //INSERT: OVERLAY_INSTANCER_GRID
-	// Show region grid
+	// Show instancer grid
 	{
-		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
-		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
-		float __cell_line = 0.5;		// Cell line thickness
-		__cell_line *= .1*sqrt(length(__camera_pos - __pixel_pos));
-		#define CELL_SIZE 32
-		if (mod(__pixel_pos.x * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line || 
-			mod(__pixel_pos.z * _vertex_density + __cell_line*.5, CELL_SIZE) <= __cell_line ) {
-			ALBEDO = vec3(.033);
-		}
+		vec3 __grid_color = vec3(.05);
+		float __line_thickness = 0.01 * sqrt(-VERTEX.z);
+		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz * _vertex_density;
+		vec2 __p = __pixel_pos.xz;
+		// Instancer Grid
+		#define CELL_SIZE 32.0
+		vec2 __g = abs(fract((__p + CELL_SIZE * 0.5) / CELL_SIZE) - 0.5) * CELL_SIZE;
+		float __grid_d = min(__g.x, __g.y);
+		float __grid_mask = 1.0 - smoothstep(__line_thickness - fwidth(__grid_d), __line_thickness + fwidth(__grid_d), __grid_d);
+		// Clip Grid outside regions
+		__grid_mask *= float(clamp(get_index_coord(__pixel_pos.xz - 0.5).z + 1, 0, 1));
+		ALBEDO = mix(ALBEDO, __grid_mask * __grid_color, __grid_mask);
 	}
 
 //INSERT: OVERLAY_VERTEX_GRID
@@ -57,7 +47,7 @@ R"(
 	}
 
 //INSERT: OVERLAY_CONTOURS_SETUP
-group_uniforms contour_lines;
+group_uniforms shader_uniforms.contour_lines;
 uniform float contour_interval: hint_range(0.25, 100.0, 0.001) = 1.0;
 uniform float contour_thickness : hint_range(0.0, 10.0, 0.001) = 1.0;
 uniform vec4 contour_color : source_color = vec4(.85, .85, .19, 1.);

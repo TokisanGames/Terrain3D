@@ -283,6 +283,12 @@
     <None Include="doc\docs\displacement.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="src\shaders\macro_variation.glsl">
+      <Filter>4. Shaders</Filter>
+    </None>
+    <None Include="src\shaders\projection.glsl">
+      <Filter>4. Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">

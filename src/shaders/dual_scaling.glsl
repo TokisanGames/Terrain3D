@@ -3,7 +3,7 @@
 R"(
 
 //INSERT: DUAL_SCALING_UNIFORMS
-group_uniforms dual_scaling;
+group_uniforms shader_uniforms.dual_scaling;
 uniform int dual_scale_texture : hint_range(0,31) = 0;
 uniform float dual_scale_reduction : hint_range(0.001,1) = 0.3;
 uniform float tri_scale_reduction : hint_range(0.001,1) = 0.3;
@@ -18,21 +18,18 @@ group_uniforms;
 	vec4 far_nrm = vec4(0.);
 	float far_ao = 1.0;
 	if (far_factor > 0. && any(equal(texture_id, ivec2(dual_scale_texture)))) {
-		bool projected = TEXTURE_ID_PROJECTED(dual_scale_texture);
 		float far_scale = _texture_uv_scale_array[dual_scale_texture] * dual_scale_reduction;
 		if (index.z < 0) {
 			far_scale *= tri_scale_reduction;
 		}
-		vec4 far_dd = fma(p_dd, vec4(float(projected)), i_dd * vec4(float(!projected))) * far_scale;
+		vec4 far_dd = i_dd * far_scale;
 
 		// Detiling and Control map rotation
-		vec2 id_pos = fma(p_pos, vec2(float(projected)), i_pos * vec2(float(!projected)));
-		vec2 uv_center = floor(fma(id_pos, vec2(far_scale), vec2(0.5)));
+		vec2 uv_center = floor(fma(i_pos, vec2(far_scale), vec2(0.5)));
 		vec2 far_detile = fma(random(uv_center), 2.0, -1.0) * _texture_detile_array[dual_scale_texture] * TAU;
 		vec2 far_cs_angle = vec2(cos(far_detile.x), sin(far_detile.x));
 		// Apply UV rotation and shift around pivot.
-		vec2 far_uv = fma(p_uv, vec2(float(projected)), i_uv * vec2(float(!projected)));
-		far_uv = rotate_vec2(fma(far_uv, vec2(far_scale), -uv_center), far_cs_angle) + uv_center + far_detile.y - 0.5;
+		vec2 far_uv = rotate_vec2(fma(i_uv, vec2(far_scale), -uv_center), far_cs_angle) + uv_center + far_detile.y - 0.5;
 		// Manual transpose to rotate derivatives and normals counter to uv rotation whilst also
 		// including control map rotation. avoids extra matrix op, and sin/cos calls.
 		far_cs_angle = vec2(
@@ -51,8 +48,7 @@ group_uniforms;
 		far_ao = length(far_nrm.xyz) * 2.0 - 1.0;
 		far_ao = mix(far_ao * far_ao * _texture_ao_strength_array[dual_scale_texture] + 1.0 - _texture_ao_strength_array[dual_scale_texture], 1.0, far_alb.a * far_alb.a);
 		far_nrm.xyz = normalize(far_nrm.xyz);
-		far_nrm.xz = rotate_vec2(far_nrm.xz, far_cs_angle);
-		far_nrm.xz = fma((far_nrm.xz * p_align), vec2(float(projected)), far_nrm.xz * vec2(float(!projected)));
+		far_nrm.xz = rotate_vec2(far_nrm.xz, far_cs_angle) * p_align;
 		
 		// apply weighting when far_factor == 1.0 as the later lookup will be skipped.
 		if (far_factor == 1.0) {
