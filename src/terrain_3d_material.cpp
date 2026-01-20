@@ -1082,7 +1082,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 	_active_params.clear();
 	Dictionary grouped_params;
-	StringName current_group = StringName("General");
+	StringName current_group = StringName("shader_uniforms.general");
 	grouped_params[current_group] = Array();
 	for (int i = 0; i < param_list.size(); i++) {
 		Dictionary dict = param_list[i];
@@ -1090,7 +1090,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 		// An empty name indicates a group being closed, reset to the "general" group.
 		if (name.is_empty() && i < buffer_param) {
-			current_group = StringName("General");
+			current_group = StringName("shader_uniforms.general");
 		}
 
 		// Filter out private uniforms that start with _ and nulls
@@ -1101,7 +1101,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 				dict["name"] = split_name[MAX(split_name.size() - 1, 0)].capitalize();
 				// Ensure sub groups are batched with their parent group
 				current_group = split_name[0].capitalize();
-				dict["usage"] = (name.contains("::") ? PROPERTY_USAGE_SUBGROUP : PROPERTY_USAGE_GROUP) | PROPERTY_USAGE_EDITOR;
+				dict["usage"] = name.contains("::") ? PROPERTY_USAGE_SUBGROUP : PROPERTY_USAGE_GROUP;
 			} else {
 				// Filter out duplicate non-groups entries from displacement buffer shader
 				if (_active_params.has(name)) {
@@ -1344,14 +1344,16 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling_enabled", "get_dual_scaling_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "macro_variation_enabled"), "set_macro_variation_enabled", "get_macro_variation_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "projection_enabled"), "set_projection_enabled", "get_projection_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "set_shader_override_enabled", "is_shader_override_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
-	ADD_GROUP("PBR Channels", "output_");
+	ADD_GROUP("PBR Output", "output_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_albedo"), "set_output_albedo_enabled", "get_output_albedo_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_roughness"), "set_output_roughness_enabled", "get_output_roughness_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_normal_map"), "set_output_normal_map_enabled", "get_output_normal_map_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_ambient_occlusion"), "set_output_ambient_occlusion_enabled", "get_output_ambient_occlusion_enabled");
+
+	ADD_GROUP("Custom Shader", "");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shader_override_enabled"), "set_shader_override_enabled", "is_shader_override_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader_override", "get_shader_override");
 
 	// Hidden in Material, aliased in Terrain3D
 	//ADD_GROUP("Overlays", "show_");

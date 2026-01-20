@@ -47,7 +47,7 @@ R"(
 	}
 
 //INSERT: OVERLAY_CONTOURS_SETUP
-group_uniforms contour_lines;
+group_uniforms shader_uniforms.contour_lines;
 uniform float contour_interval: hint_range(0.25, 100.0, 0.001) = 1.0;
 uniform float contour_thickness : hint_range(0.0, 10.0, 0.001) = 1.0;
 uniform vec4 contour_color : source_color = vec4(.85, .85, .19, 1.);

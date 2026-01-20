@@ -59,7 +59,7 @@ uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
 
 // Public uniforms
-group_uniforms general;
+group_uniforms shader_uniforms.general;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 group_uniforms;
 //INSERT: AUTO_SHADER_UNIFORMS
@@ -70,7 +70,7 @@ group_uniforms;
 // Uniquely named displacement uniforms should be in this group.
 // Uniforms that are shared with the main shader are automatically synchronised.
 // Subgroups should work as expected.
-group_uniforms displacement;
+group_uniforms shader_uniforms.displacement;
 uniform float _displacement_sharpness : hint_range(0.0, 1.0, 0.01) = 0.25;
 group_uniforms;
 

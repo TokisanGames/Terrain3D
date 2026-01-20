@@ -1,3 +1,6 @@
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// This shader is the minimum needed to allow the terrain to function, without any texturing.
+
 shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
 
@@ -13,9 +16,6 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
  */
 
 // Defined Constants
-#define SKIP_PASS 0
-#define VERTEX_PASS 1
-#define FRAGMENT_PASS 2
 #define COLOR_MAP vec4(1.0, 1.0, 1.0, 0.5)
 #define DIV_255 0.003921568627450 // 1. / 255.
 
@@ -33,6 +33,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #endif
 
 // Private uniforms
+group_uniforms shader_uniforms;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
@@ -56,24 +57,25 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+group_uniforms;
 
 // Public uniforms
-group_uniforms general;
+group_uniforms shader_uniforms.general;
 uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
 uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 uniform bool flat_terrain_normals = false;
-uniform bool enable_textures = true;
+uniform bool textures_enabled = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 group_uniforms;
 
-group_uniforms auto_shader;
+group_uniforms shader_uniforms.auto_shader;
 uniform float auto_slope : hint_range(0, 10) = 1.0;
 uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
 uniform int auto_base_texture : hint_range(0, 31) = 0;
 uniform int auto_overlay_texture : hint_range(0, 31) = 1;
 group_uniforms;
 
-group_uniforms macro_variation;
+group_uniforms shader_uniforms.macro_variation;
 uniform bool macro_variation_enabled = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
@@ -232,13 +234,13 @@ void vertex() {
 			u = mix(texelFetch(_height_maps, coord_ua, 0).r, texelFetch(_height_maps, coord_ub, 0).r, vertex_lerp);
 			v = mix(texelFetch(_height_maps, coord_va, 0).r, texelFetch(_height_maps, coord_vb, 0).r, vertex_lerp);
 		}
-		
+
 		// Apply background ground level and region blend
 		vec2 ruv = UV * _region_texel_size;
 		h += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv));
 		u += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(_region_texel_size, 0.)));
 		v += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(0., _region_texel_size)));
-		
+
 		v_vertex.y = h;
 		v_normal = normalize(vec3(h - u, _vertex_spacing, h - v));
 	}
@@ -312,7 +314,7 @@ void fragment() {
 	float ao = 1.0;
 	float ao_affect = 0.;
 
-	if (enable_textures) {
+	if (textures_enabled) {
 		// set to zero before accumulation
 		albedo_height = vec4(0.);
 		normal_rough = vec4(0.);
@@ -334,9 +336,9 @@ void fragment() {
 			float auto_blend = clamp(fma(auto_slope * 2.0, (v_normal.y - 1.0), 1.0)
 				- auto_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);
 			// Enable Autoshader if outside regions or painted in regions, otherwise manual painted
-			uvec4 is_auto = (control & uvec4(0x1u)) | 
+			uvec4 is_auto = (control & uvec4(0x1u)) |
 				uvec4(lessThan(ivec4(index[0].z, index[1].z, index[2].z, index[3].z), ivec4(0)));
-			uint u_auto = 
+			uint u_auto =
 				((uint(auto_base_texture) & 0x1Fu) << 27u) |
 				((uint(auto_overlay_texture) & 0x1Fu) << 22u) |
 				((uint(fma(auto_blend, 255.0 , 0.5)) & 0xFFu) << 14u);

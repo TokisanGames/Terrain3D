@@ -55,7 +55,7 @@ float get_region_blend(vec2 uv2) {
 	}
 
 //INSERT: WORLD_NOISE_UNIFORMS
-group_uniforms world_background_noise;
+group_uniforms shader_uniforms.world_background_noise;
 uniform bool world_noise_fragment_normals = false;
 uniform int world_noise_max_octaves : hint_range(0, 15) = 4;
 uniform int world_noise_min_octaves : hint_range(0, 15) = 2;

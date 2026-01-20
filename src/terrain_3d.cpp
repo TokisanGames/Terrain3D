@@ -1380,7 +1380,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_roughmap"), "set_show_roughmap", "get_show_roughmap");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_displacement_buffer"), "set_show_displacement_buffer", "get_show_displacement_buffer");
 
-	ADD_SUBGROUP("PBR", "show_");
+	ADD_SUBGROUP("PBR Maps", "show_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_albedo"), "set_show_texture_albedo", "get_show_texture_albedo");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_height"), "set_show_texture_height", "get_show_texture_height");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_texture_normal"), "set_show_texture_normal", "get_show_texture_normal");

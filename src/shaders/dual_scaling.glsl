@@ -3,7 +3,7 @@
 R"(
 
 //INSERT: DUAL_SCALING_UNIFORMS
-group_uniforms dual_scaling;
+group_uniforms shader_uniforms.dual_scaling;
 uniform int dual_scale_texture : hint_range(0,31) = 0;
 uniform float dual_scale_reduction : hint_range(0.001,1) = 0.3;
 uniform float tri_scale_reduction : hint_range(0.001,1) = 0.3;

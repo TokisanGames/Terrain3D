@@ -3,7 +3,7 @@
 R"(
 
 //INSERT: MACRO_VARIATION_UNIFORMS
-group_uniforms macro_variation;
+group_uniforms shader_uniforms.macro_variation;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
 uniform float macro_variation_slope : hint_range(0., 1.)  = 0.333;
