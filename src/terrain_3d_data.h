@@ -36,6 +36,15 @@ private:
 	AABB _edited_area;
 	Vector2 _master_height_range = V2_ZERO;
 
+	// Import splat map
+	PackedInt32Array _splat_channel_to_material_list;
+
+	struct ControlIds {
+		int base_id;
+		int overlay_id;
+		int blend;
+	};
+
 	/////////
 	// Terrain3DRegions house the maps, instances, and other data for each region.
 	// Regions are dual indexed:
@@ -183,6 +192,13 @@ public:
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
 	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
 	Ref<Image> layered_to_image(const MapType p_map_type) const;
+
+	// Import splat map
+	void set_splat_channel_to_material_list(const PackedInt32Array &p_array, const int &p_splat_count);
+	PackedInt32Array get_splat_channel_to_material_list() { return _splat_channel_to_material_list; };
+	int splat_channel_to_material(const int p_channel_idx);
+	ControlIds compute_control_ids_and_blend(const PackedFloat32Array &p_weights);
+	void import_splat_map(const TypedArray<Image> &p_splat_images, const Vector3 &p_global_position = V3_ZERO);
 
 	// Utility
 	void dump(const bool verbose = false) const;
