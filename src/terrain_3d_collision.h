@@ -65,6 +65,7 @@ public:
 	void build();
 	void reset_target_position() { _last_snapped_pos = V2I_MAX; }
 	void update(const bool p_rebuild = false);
+	void update_region(const Vector2i &p_region_loc); 
 	void destroy();
 
 	void set_mode(const CollisionMode p_mode);
