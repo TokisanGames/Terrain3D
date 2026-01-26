@@ -312,7 +312,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		// Set region path and take over the path from any other cached resources,
 		// incuding those in the undo queue
 	}
-	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
+	LOG(INFO, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
 	set_version(Terrain3DData::CURRENT_VERSION);
 	Error err = OK;
 	if (p_16_bit) {
