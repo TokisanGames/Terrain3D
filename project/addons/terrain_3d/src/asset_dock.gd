@@ -43,19 +43,8 @@ enum {
 }
 var state: int = HIDDEN
 
-enum {
-	POS_LEFT_UL = 0,
-	POS_LEFT_BL = 1,
-	POS_LEFT_UR = 2,
-	POS_LEFT_BR = 3,
-	POS_RIGHT_UL = 4,
-	POS_RIGHT_BL = 5,
-	POS_RIGHT_UR = 6,
-	POS_RIGHT_BR = 7,
-	POS_BOTTOM = 8,
-	POS_MAX = 9,
-}
-var slot: int = POS_RIGHT_BR
+var _dock: EditorDock
+var _dock_slot: EditorDock.DockSlot = EditorDock.DockSlot.DOCK_SLOT_BOTTOM
 var _initialized: bool = false
 var plugin: EditorPlugin
 var window: Window
@@ -65,6 +54,18 @@ var _godot_last_state: Window.Mode = Window.MODE_FULLSCREEN
 func initialize(p_plugin: EditorPlugin) -> void:
 	if p_plugin:
 		plugin = p_plugin
+
+	_dock = EditorDock.new()
+	_dock.title = "Terrain3D"
+	_dock.dock_icon = preload("res://icon.png")
+	_dock.default_slot = EditorDock.DockSlot.DOCK_SLOT_BOTTOM
+	_dock.closable = false
+	_dock.available_layouts = EditorDock.DOCK_LAYOUT_ALL
+	_dock.add_child(self)
+	plugin.add_dock(_dock)
+	_dock.open()
+	_dock.make_visible()
+
 	
 	_godot_last_state = plugin.godot_editor_window.mode
 	placement_opt = $Box/Buttons/PlacementOpt
@@ -156,26 +157,28 @@ func _gui_input(p_event: InputEvent) -> void:
 ## Dock placement
 
 
-func set_slot(p_slot: int) -> void:
+func set_slot(p_slot: EditorDock.DockSlot) -> void:
 	if plugin.debug:
 		print("Terrain3DAssetDock: set_slot: ", p_slot)
-	p_slot = clamp(p_slot, 0, POS_MAX-1)
+	p_slot = clamp(p_slot, 0, EditorDock.DockSlot.DOCK_SLOT_MAX - 1)
 	
-	if slot != p_slot:
-		slot = p_slot
-		placement_opt.selected = slot
+	if _dock_slot != p_slot:
+		_dock_slot = p_slot
+		placement_opt.selected = _dock_slot
 		save_editor_settings()
 		plugin.select_terrain()
 		update_dock()
 
 
 func remove_dock(p_force: bool = false) -> void:
+	plugin.remove_dock(_dock)
+
 	if state == SIDEBAR:
-		plugin.remove_control_from_docks(self)
+		#plugin.remove_control_from_docks(self)
 		state = HIDDEN
 
 	elif state == BOTTOM:
-		plugin.remove_control_from_bottom_panel(self)
+		#plugin.remove_control_from_bottom_panel(self)
 		state = HIDDEN
 
 	# If windowed and destination is not window or final exit, otherwise leave
@@ -203,18 +206,15 @@ func update_dock() -> void:
 
 	update_assets()
 
-	# Move dock to new destination
-	remove_dock()
+	_dock.make_visible()
 	# Sidebar
-	if slot < POS_BOTTOM:
+	if _dock_slot < EditorDock.DockSlot.DOCK_SLOT_BOTTOM:
 		state = SIDEBAR
-		plugin.add_control_to_dock(slot, self)
-	# Bottom
-	elif slot == POS_BOTTOM:
-		state = BOTTOM
-		plugin.add_control_to_bottom_panel(self, "Terrain3D")
-		plugin.make_bottom_panel_item_visible(self)
 
+	# Bottom
+	elif _dock_slot == EditorDock.DockSlot.DOCK_SLOT_BOTTOM:
+		state = BOTTOM
+	
 
 func update_layout() -> void:
 	if plugin.debug > 1:
@@ -229,7 +229,7 @@ func update_layout() -> void:
 		return # Will call this function again upon display
 
 	# Vertical layout: buttons on top
-	if size.x < 500 or ( not window and slot < POS_BOTTOM ):
+	if size.x < 500 or ( not window and _dock_slot < EditorDock.DockSlot.DOCK_SLOT_BOTTOM ):
 		box.vertical = true
 		buttons.vertical = false
 		search_box.reparent(box)
@@ -483,7 +483,7 @@ func load_editor_settings() -> void:
 	pinned_btn.button_pressed = plugin.get_setting(ES_DOCK_PINNED, true)
 	size_slider.value = plugin.get_setting(ES_DOCK_TILE_SIZE, 90)
 	_on_slider_changed(size_slider.value)
-	set_slot(plugin.get_setting(ES_DOCK_SLOT, POS_BOTTOM))
+	set_slot(plugin.get_setting(ES_DOCK_SLOT, EditorDock.DockSlot.DOCK_SLOT_BOTTOM))
 	if floating_btn.button_pressed:
 		make_dock_float()
 	# TODO Don't save tab until thumbnail generation more reliable
@@ -495,7 +495,7 @@ func save_editor_settings() -> void:
 	if not _initialized:
 		return
 	clamp_window_position()
-	plugin.set_setting(ES_DOCK_SLOT, slot)
+	plugin.set_setting(ES_DOCK_SLOT, _dock_slot)
 	plugin.set_setting(ES_DOCK_TILE_SIZE, size_slider.value)
 	plugin.set_setting(ES_DOCK_FLOATING, floating_btn.button_pressed)
 	plugin.set_setting(ES_DOCK_PINNED, pinned_btn.button_pressed)
@@ -1055,6 +1055,9 @@ class ListEntry extends MarginContainer:
 
 
 	func set_selected(value: bool) -> void:
+		if not is_inside_tree():
+			#push_error("not in tree")
+			return
 		is_selected = value
 		if is_selected:
 			# Handle scrolling to show the selected item
