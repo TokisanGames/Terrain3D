@@ -7,9 +7,7 @@ signal confirmation_closed
 signal confirmation_confirmed
 signal confirmation_canceled
 
-const ES_DOCK_SLOT: String = "terrain3d/dock/slot"
 const ES_DOCK_TILE_SIZE: String = "terrain3d/dock/tile_size"
-const ES_DOCK_FLOATING: String = "terrain3d/dock/floating"
 const ES_DOCK_PINNED: String = "terrain3d/dock/always_on_top"
 const ES_DOCK_WINDOW_POSITION: String = "terrain3d/dock/window_position"
 const ES_DOCK_WINDOW_SIZE: String = "terrain3d/dock/window_size"
@@ -20,8 +18,6 @@ var mesh_list: ListContainer
 var current_list: ListContainer
 var _updating_list: bool
 
-var placement_opt: OptionButton
-var floating_btn: Button
 var pinned_btn: Button
 var size_slider: HSlider
 var box: BoxContainer
@@ -57,7 +53,7 @@ func initialize(p_plugin: EditorPlugin) -> void:
 
 	_dock = EditorDock.new()
 	_dock.title = "Terrain3D"
-	_dock.dock_icon = preload("res://icon.png")
+	_dock.dock_icon = preload("../icons/terrain3d.svg")
 	_dock.default_slot = EditorDock.DockSlot.DOCK_SLOT_BOTTOM
 	_dock.closable = false
 	_dock.available_layouts = EditorDock.DOCK_LAYOUT_ALL
@@ -66,12 +62,8 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	_dock.open()
 	_dock.make_visible()
 
-	
 	_godot_last_state = plugin.godot_editor_window.mode
-	placement_opt = $Box/Buttons/PlacementOpt
 	pinned_btn = $Box/Buttons/Pinned
-	floating_btn = $Box/Buttons/Floating
-	floating_btn.owner = null # Godot complains about buttons that are reparented
 	size_slider = $Box/Buttons/SizeSlider
 	size_slider.owner = null
 	box = $Box
@@ -102,8 +94,6 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	resized.connect(update_layout)
 	textures_btn.pressed.connect(_on_textures_pressed)
 	meshes_btn.pressed.connect(_on_meshes_pressed)
-	placement_opt.item_selected.connect(set_slot)
-	floating_btn.pressed.connect(make_dock_float)
 	pinned_btn.toggled.connect(_on_pin_changed)
 	pinned_btn.visible = ( window != null )
 	pinned_btn.owner = null
@@ -128,8 +118,6 @@ func _ready() -> void:
 	if EditorInterface.get_edited_scene_root() != self:
 		pinned_btn.icon = get_theme_icon("Pin", "EditorIcons")
 		pinned_btn.text = ""
-		floating_btn.icon = get_theme_icon("MakeFloating", "EditorIcons")
-		floating_btn.text = ""
 		search_button.icon = get_theme_icon("Search", "EditorIcons")
 	
 	search_box.text_changed.connect(_on_search_text_changed)
@@ -164,7 +152,6 @@ func set_slot(p_slot: EditorDock.DockSlot) -> void:
 	
 	if _dock_slot != p_slot:
 		_dock_slot = p_slot
-		placement_opt.selected = _dock_slot
 		save_editor_settings()
 		plugin.select_terrain()
 		update_dock()
@@ -192,10 +179,7 @@ func remove_dock(p_force: bool = false) -> void:
 		window.hide()
 		window.queue_free()
 		window = null
-		floating_btn.button_pressed = false
-		floating_btn.visible = true
 		pinned_btn.visible = false
-		placement_opt.visible = true
 		state = HIDDEN
 		update_dock() # return window to side/bottom
 
@@ -236,7 +220,6 @@ func update_layout() -> void:
 		box.move_child(search_box, 1)
 		size_slider.reparent(box)
 		box.move_child(size_slider, 2)
-		floating_btn.reparent(buttons)
 		pinned_btn.reparent(buttons)
 	else:
 	# Wide layout: buttons on left
@@ -246,7 +229,6 @@ func update_layout() -> void:
 		buttons.move_child(search_box, 0)
 		size_slider.reparent(buttons)
 		buttons.move_child(size_slider, 4)
-		floating_btn.reparent(box)
 		pinned_btn.reparent(box)
 
 	save_editor_settings()
@@ -398,8 +380,6 @@ func make_dock_float() -> void:
 	state = WINDOWED
 	visible = true # Asset dock contents are hidden when popping out of the bottom!
 	pinned_btn.visible = true
-	floating_btn.visible = false
-	placement_opt.visible = false
 	window.title = "Terrain3D Asset Dock"
 	window.always_on_top = pinned_btn.button_pressed
 	window.close_requested.connect(remove_dock.bind(true))
@@ -479,13 +459,13 @@ func _on_godot_focus_exited() -> void:
 
 
 func load_editor_settings() -> void:
-	floating_btn.button_pressed = plugin.get_setting(ES_DOCK_FLOATING, false)
+	# Remove old editor settings
+	const ES_DOCK: String = "terrain3d/dock/"
+	for setting in [ "slot", "floating" ]:
+		plugin.erase_setting(ES_DOCK + setting)
 	pinned_btn.button_pressed = plugin.get_setting(ES_DOCK_PINNED, true)
 	size_slider.value = plugin.get_setting(ES_DOCK_TILE_SIZE, 90)
 	_on_slider_changed(size_slider.value)
-	set_slot(plugin.get_setting(ES_DOCK_SLOT, EditorDock.DockSlot.DOCK_SLOT_BOTTOM))
-	if floating_btn.button_pressed:
-		make_dock_float()
 	# TODO Don't save tab until thumbnail generation more reliable
 	#if plugin.get_setting(ES_DOCK_TAB, 0) == 1:
 	#	_on_meshes_pressed()
@@ -495,9 +475,7 @@ func save_editor_settings() -> void:
 	if not _initialized:
 		return
 	clamp_window_position()
-	plugin.set_setting(ES_DOCK_SLOT, _dock_slot)
 	plugin.set_setting(ES_DOCK_TILE_SIZE, size_slider.value)
-	plugin.set_setting(ES_DOCK_FLOATING, floating_btn.button_pressed)
 	plugin.set_setting(ES_DOCK_PINNED, pinned_btn.button_pressed)
 	# TODO Don't save tab until thumbnail generation more reliable
 	# plugin.set_setting(ES_DOCK_TAB, 0 if current_list == texture_list else 1)
