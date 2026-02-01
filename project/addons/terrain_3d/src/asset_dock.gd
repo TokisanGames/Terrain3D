@@ -47,6 +47,12 @@ var window: Window
 var _godot_last_state: Window.Mode = Window.MODE_FULLSCREEN
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_ENTER_TREE:
+		await get_tree().process_frame
+		update_layout()
+		
+		
 func initialize(p_plugin: EditorPlugin) -> void:
 	if p_plugin:
 		plugin = p_plugin
@@ -196,17 +202,21 @@ func update_dock() -> void:
 	
 
 func update_layout() -> void:
-	if plugin.debug > 1:
-		print("Terrain3DAssetDock: update_layout")	
 	if not _initialized:
 		return
+	if plugin.debug > 1:
+		print("Terrain3DAssetDock: update_layout")	
+	
 
 	# Detect if we have a new window from Make floating, grab it so we can free it properly
-	if not window and get_parent() and get_parent().get_parent() is Window:
-		window = get_parent().get_parent()
-		make_dock_float()
+	if not window and get_parent() and get_parent().get_parent().get_parent() is Window:
+		window = get_parent().get_parent().get_parent()
 		return # Will call this function again upon display
-
+	elif window and get_parent() and not get_parent().get_parent().get_parent() is Window:
+		window = null
+		return # Will call this function again upon display
+	
+	
 	# Vertical layout: buttons on top
 	if size.x < 500 or ( not window and _dock_slot < EditorDock.DockSlot.DOCK_SLOT_BOTTOM ):
 		box.vertical = true
@@ -226,6 +236,7 @@ func update_layout() -> void:
 		buttons.move_child(size_slider, 4)
 		pinned_btn.reparent(box)
 
+	pinned_btn.visible = is_instance_valid(window)
 	save_editor_settings()
 
 
