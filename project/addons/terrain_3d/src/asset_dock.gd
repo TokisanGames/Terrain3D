@@ -103,23 +103,6 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	meshes_btn.add_theme_font_size_override("font_size", 16 * EditorInterface.get_editor_scale())
 	textures_btn.add_theme_font_size_override("font_size", 16 * EditorInterface.get_editor_scale())
 
-	_initialized = true
-	update_dock()
-	update_layout()
-
-
-func _ready() -> void:
-	if not _initialized:
-		return
-		
-	# Setup styles
-	set("theme_override_styles/panel", get_theme_stylebox("panel", "Panel"))
-	# Avoid saving icon resources in tscn when editing w/ a tool script
-	if EditorInterface.get_edited_scene_root() != self:
-		pinned_btn.icon = get_theme_icon("Pin", "EditorIcons")
-		pinned_btn.text = ""
-		search_button.icon = get_theme_icon("Search", "EditorIcons")
-	
 	search_box.text_changed.connect(_on_search_text_changed)
 	search_button.pressed.connect(_on_search_button_pressed)
 	
@@ -127,11 +110,23 @@ func _ready() -> void:
 	add_child(confirm_dialog, true)
 	confirm_dialog.hide()
 	confirm_dialog.confirmed.connect(func(): _confirmed = true; \
-		emit_signal("confirmation_closed"); \
-		emit_signal("confirmation_confirmed") )
+		confirmation_closed.emit(); \
+		confirmation_confirmed.emit() )
 	confirm_dialog.canceled.connect(func(): _confirmed = false; \
-		emit_signal("confirmation_closed"); \
-		emit_signal("confirmation_canceled") )
+		confirmation_closed.emit(); \
+		confirmation_canceled.emit() )
+
+	# Setup styles
+	set("theme_override_styles/panel", get_theme_stylebox("panel", "Panel"))
+	# Avoid saving icon resources in tscn when editing w/ a tool script
+	if EditorInterface.get_edited_scene_root() != self:
+		pinned_btn.icon = get_theme_icon("Pin", "EditorIcons")
+		pinned_btn.text = ""
+		search_button.icon = get_theme_icon("Search", "EditorIcons")
+
+	_initialized = true
+	update_dock()
+	update_layout()
 
 
 func _gui_input(p_event: InputEvent) -> void:
