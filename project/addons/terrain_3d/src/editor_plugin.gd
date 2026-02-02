@@ -326,14 +326,16 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 # Returns true if hotkey matches and operation triggered
 func consume_hotkey(keycode: int) -> bool:
 	match keycode:
-		KEY_1:
+		KEY_1, KEY_KP_1:
 			terrain.material.set_show_region_grid(!terrain.material.get_show_region_grid())
-		KEY_2:
-			terrain.material.set_show_instancer_grid(!terrain.material.get_show_instancer_grid())
-		KEY_3:
-			terrain.material.set_show_vertex_grid(!terrain.material.get_show_vertex_grid())
-		KEY_4:
+		KEY_2, KEY_KP_2:
+			terrain.label_distance = 4096.0 if is_zero_approx(terrain.label_distance) else 0.0 
+		KEY_3, KEY_KP_3:
 			terrain.material.set_show_contours(!terrain.material.get_show_contours())
+		KEY_4, KEY_KP_4:
+			terrain.material.set_show_instancer_grid(!terrain.material.get_show_instancer_grid())
+		KEY_5, KEY_KP_5:
+			terrain.material.set_show_vertex_grid(!terrain.material.get_show_vertex_grid())
 		KEY_E:
 			ui.toolbar.get_button("AddRegion").set_pressed(true)
 		KEY_R:
