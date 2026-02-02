@@ -233,7 +233,7 @@ func update_layout() -> void:
 		search_box.reparent(buttons)
 		buttons.move_child(search_box, 0)
 		size_slider.reparent(buttons)
-		buttons.move_child(size_slider, 4)
+		buttons.move_child(size_slider, 3)
 		pinned_btn.reparent(box)
 
 	pinned_btn.visible = is_instance_valid(window)
