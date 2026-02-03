@@ -39,8 +39,24 @@ enum {
 }
 var state: int = HIDDEN
 
-var _dock: EditorDock
-var _dock_slot: EditorDock.DockSlot = EditorDock.DockSlot.DOCK_SLOT_BOTTOM
+
+#DEPRECATED 4.5 - Delete and replace DockSlot with EditorDock.DockSlot
+enum DockSlot {
+DOCK_SLOT_NONE = -1, # The dock is closed.
+DOCK_SLOT_LEFT_UL = 0, # Dock slot, left side, upper-left (empty in default layout).
+DOCK_SLOT_LEFT_BL = 1, # Dock slot, left side, bottom-left (empty in default layout).
+DOCK_SLOT_LEFT_UR = 2, # Dock slot, left side, upper-right (in default layout includes Scene and Import docks).
+DOCK_SLOT_LEFT_BR = 3, # Dock slot, left side, bottom-right (in default layout includes FileSystem and History docks).
+DOCK_SLOT_RIGHT_UL = 4, # Dock slot, right side, upper-left (in default layout includes Inspector, Signal, and Group docks).
+DOCK_SLOT_RIGHT_BL = 5, # Dock slot, right side, bottom-left (empty in default layout).
+DOCK_SLOT_RIGHT_UR = 6, # Dock slot, right side, upper-right (empty in default layout).
+DOCK_SLOT_RIGHT_BR = 7, # Dock slot, right side, bottom-right (empty in default layout).
+DOCK_SLOT_BOTTOM = 8, # Bottom panel.
+DOCK_SLOT_MAX = 9, # Represents the size of the DockSlot enum.
+}
+
+var _dock: MarginContainer #DEPRECATED 4.5 - Use EditorDock
+var _dock_slot: DockSlot = DockSlot.DOCK_SLOT_BOTTOM
 var _initialized: bool = false
 var plugin: EditorPlugin
 var window: Window
@@ -57,12 +73,12 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	if p_plugin:
 		plugin = p_plugin
 
-	_dock = EditorDock.new()
+	_dock = ClassDB.instantiate("EditorDock") #DEPRECATED 4.5 - EditorDock.new()
 	_dock.title = "Terrain3D"
 	_dock.dock_icon = preload("../icons/terrain3d.svg")
-	_dock.default_slot = EditorDock.DockSlot.DOCK_SLOT_BOTTOM
+	_dock.default_slot = DockSlot.DOCK_SLOT_BOTTOM
 	_dock.closable = false
-	_dock.available_layouts = EditorDock.DOCK_LAYOUT_ALL
+	_dock.available_layouts = 0x7 #DEPRECATED 4.5 - EditorDock.DOCK_LAYOUT_ALL
 	_dock.add_child(self)
 	plugin.add_dock(_dock)
 	_dock.open()
@@ -146,10 +162,10 @@ func _gui_input(p_event: InputEvent) -> void:
 ## Dock placement
 
 
-func set_slot(p_slot: EditorDock.DockSlot) -> void:
+func set_slot(p_slot: DockSlot) -> void:
 	if plugin.debug:
 		print("Terrain3DAssetDock: set_slot: ", p_slot)
-	p_slot = clamp(p_slot, 0, EditorDock.DockSlot.DOCK_SLOT_MAX - 1)
+	p_slot = clamp(p_slot, 0, DockSlot.DOCK_SLOT_MAX - 1)
 	
 	if _dock_slot != p_slot:
 		_dock_slot = p_slot
@@ -193,11 +209,11 @@ func update_dock() -> void:
 
 	_dock.make_visible()
 	# Sidebar
-	if _dock_slot < EditorDock.DockSlot.DOCK_SLOT_BOTTOM:
+	if _dock_slot < DockSlot.DOCK_SLOT_BOTTOM:
 		state = SIDEBAR
 
 	# Bottom
-	elif _dock_slot == EditorDock.DockSlot.DOCK_SLOT_BOTTOM:
+	elif _dock_slot == DockSlot.DOCK_SLOT_BOTTOM:
 		state = BOTTOM
 	
 
@@ -218,7 +234,7 @@ func update_layout() -> void:
 	
 	
 	# Vertical layout: buttons on top
-	if size.x < 500 or ( not window and _dock_slot < EditorDock.DockSlot.DOCK_SLOT_BOTTOM ):
+	if size.x < 500 or ( not window and _dock_slot < DockSlot.DOCK_SLOT_BOTTOM ):
 		box.vertical = true
 		buttons.vertical = false
 		search_box.reparent(box)
