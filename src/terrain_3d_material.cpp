@@ -620,13 +620,21 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material, const uint32_t p
 	LOG(EXTREME, "Setting region size in material: ", region_size);
 	RS->material_set_param(p_material, "_region_size", region_size);
 	RS->material_set_param(p_material, "_region_texel_size", 1.0f / region_size);
+
 	if (p_flags & REGION_ARRAYS) {
-		RS->material_set_param(p_material, "_height_maps", data->get_height_maps_rid());
-		RS->material_set_param(p_material, "_control_maps", data->get_control_maps_rid());
-		RS->material_set_param(p_material, "_color_maps", data->get_color_maps_rid());
-		LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
-		LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
-		LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
+		if (data->get_region_count() > 0) {
+			RS->material_set_param(p_material, "_height_maps", data->get_height_maps_rid());
+			RS->material_set_param(p_material, "_control_maps", data->get_control_maps_rid());
+			RS->material_set_param(p_material, "_color_maps", data->get_color_maps_rid());
+			LOG(EXTREME, "Height map RID: ", data->get_height_maps_rid());
+			LOG(EXTREME, "Control map RID: ", data->get_control_maps_rid());
+			LOG(EXTREME, "Color map RID: ", data->get_color_maps_rid());
+		} else {
+			// Send dummy texture array to stop compatibility error spam
+			RS->material_set_param(p_material, "_height_maps", _generated_dummy.get_rid());
+			RS->material_set_param(p_material, "_control_maps", _generated_dummy.get_rid());
+			RS->material_set_param(p_material, "_color_maps", _generated_dummy.get_rid());
+		}
 	}
 
 	real_t spacing = _terrain->get_vertex_spacing();
@@ -651,10 +659,25 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material, const uint32_t p
 		return;
 	}
 
-	if (p_flags & TEXTURE_ARRAYS) {
-		RS->material_set_param(p_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
-		RS->material_set_param(p_material, "_texture_array_normal", asset_list->get_normal_array_rid());
+	if (asset_list->get_generated_array_size() > 0) {
+		if (p_flags & TEXTURE_ARRAYS) {
+			RS->material_set_param(p_material, "_texture_array_albedo", asset_list->get_albedo_array_rid());
+			RS->material_set_param(p_material, "_texture_array_normal", asset_list->get_normal_array_rid());
+		}
+		set_show_checkered(false);
+		LOG(DEBUG, "Texture count >0: ", asset_list->get_generated_array_size(), ", disabling checkered view");
+	} else {
+		// Send dummy texture array to stop compatibility error spam
+		RS->material_set_param(p_material, "_texture_array_albedo", _generated_dummy.get_rid());
+		RS->material_set_param(p_material, "_texture_array_normal", _generated_dummy.get_rid());
+
+		// Enable checkered view if texture_count is 0, disable if not
+		if (_debug_view_checkered == false) {
+			set_show_checkered(true);
+			LOG(DEBUG, "No textures, enabling checkered view");
+		}
 	}
+
 	RS->material_set_param(p_material, "_texture_color_array", asset_list->get_texture_colors());
 	RS->material_set_param(p_material, "_texture_normal_depth_array", asset_list->get_texture_normal_depths());
 	RS->material_set_param(p_material, "_texture_ao_strength_array", asset_list->get_texture_ao_strengths());
@@ -663,17 +686,6 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material, const uint32_t p
 	RS->material_set_param(p_material, "_texture_uv_scale_array", asset_list->get_texture_uv_scales());
 	RS->material_set_param(p_material, "_texture_detile_array", asset_list->get_texture_detiles());
 	RS->material_set_param(p_material, "_texture_displacement_array", asset_list->get_texture_displacements());
-
-	// Enable checkered view if texture_count is 0, disable if not
-	if (asset_list->get_generated_array_size() == 0) {
-		if (_debug_view_checkered == false) {
-			set_show_checkered(true);
-			LOG(DEBUG, "No textures, enabling checkered view");
-		}
-	} else {
-		set_show_checkered(false);
-		LOG(DEBUG, "Texture count >0: ", asset_list->get_generated_array_size(), ", disabling checkered view");
-	}
 }
 
 void Terrain3DMaterial::_set_shader_parameters(const Dictionary &p_dict) {
@@ -705,6 +717,12 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	}
 	_shader.instantiate();
 	_buffer_shader.instantiate();
+	{ // Create dummy texture array to avoid empty sampler2DArrays
+		Ref<Image> img = Image::create(1, 1, false, Image::FORMAT_RF);
+		TypedArray<Image> ia = { img };
+		_generated_dummy.create(ia);
+	}
+
 	update(FULL_REBUILD);
 }
 
@@ -721,6 +739,7 @@ void Terrain3DMaterial::destroy() {
 	_shader_code.clear();
 	_active_params.clear();
 	_shader_params.clear();
+	_generated_dummy.clear();
 	if (_material.is_valid()) {
 		RS->free_rid(_material);
 		_material = RID();

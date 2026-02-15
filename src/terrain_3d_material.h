@@ -51,6 +51,7 @@ private:
 	Ref<Shader> _buffer_shader_override; // User's shader we copy code from
 	real_t _displacement_scale = 1.0f;
 	real_t _displacement_sharpness = 0.5f;
+	GeneratedTexture _generated_dummy;
 
 	// Material Features
 	WorldBackground _world_background = FLAT;
