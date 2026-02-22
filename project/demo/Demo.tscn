@@ -2,10 +2,10 @@
 
 [ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_nqak5"]
-[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="3_cw38j"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="3_ht63y"]
 [ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="3_kdh0b"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="3_yqldq"]
+[ext_resource type="Material" uid="uid://b126phjxi3np1" path="res://addons/terrain_3d/extras/shaders/M_ocean.tres" id="7_fwrtk"]
 [ext_resource type="PackedScene" uid="uid://d3sr0a7dxfkr8" path="res://addons/terrain_3d/extras/particle_example/Terrain3DParticles.tscn" id="8_fwrtk"]
 [ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="8_g2of2"]
 
@@ -45,7 +45,7 @@ _shader_parameters = {
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
 &"flat_terrain_normals": false,
-&"ground_level": 0.0,
+&"ground_level": -20.0,
 "macro_variation1": Color(0.855, 0.8625, 0.9, 1),
 "macro_variation2": Color(0.9, 0.885, 0.81, 1),
 "macro_variation_slope": 0.333,
@@ -58,7 +58,6 @@ _shader_parameters = {
 &"region_blend": 0.25,
 &"shader_uniforms": null,
 &"shader_uniforms::auto_shader": null,
-&"shader_uniforms::displacement": null,
 &"shader_uniforms::dual_scaling": null,
 &"shader_uniforms::general": null,
 &"shader_uniforms::macro_variation": null,
@@ -66,11 +65,11 @@ _shader_parameters = {
 &"shader_uniforms::world_background_noise": null,
 "tri_scale_reduction": 0.3,
 "world_noise_fragment_normals": false,
-"world_noise_height": 34.0,
+"world_noise_height": 35.0,
 "world_noise_lod_distance": 7500.0,
 "world_noise_max_octaves": 4,
 "world_noise_min_octaves": 2,
-"world_noise_offset": Vector3(2.17, -1.225, 1.9),
+"world_noise_offset": Vector3(2.17, -1.8, 1.9),
 "world_noise_scale": 9.85
 }
 world_background = 2
@@ -87,13 +86,8 @@ script = ExtResource("1_k7qca")
 
 [node name="Environment" parent="." instance=ExtResource("3_yqldq")]
 
-[node name="Borders" parent="." instance=ExtResource("3_cw38j")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, -3, 512)
-collision_mask = 3
-
 [node name="DirectionalLight3D" parent="Environment" index="1"]
-transform = Transform3D(-0.814116, 0.456349, 0.359111, 0, -0.618408, 0.785857, 0.580703, 0.639778, 0.503456, 0, 0, 0)
-
+transform = Transform3D(-0.991445, 0.119881, -0.051629, 3.45797e-08, 0.395545, 0.918446, 0.130526, 0.910588, -0.392161, 0, 0, 0)
 
 [node name="Tunnel" parent="." instance=ExtResource("3_kdh0b")]
 
@@ -109,7 +103,7 @@ collision_mask = 3
 clipmap_target = NodePath("../Player")
 mesh_size = 96
 tessellation_level = 3
-cull_margin = 120.0
+cull_margin = 60.0
 ocean_enabled = true
 ocean_material = ExtResource("7_fwrtk")
 directional_light_target = NodePath("../Environment/DirectionalLight3D")
