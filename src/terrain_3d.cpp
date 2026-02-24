@@ -127,6 +127,9 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
+	if (_collision && _collision->is_instance_collision_enabled()) {
+		_collision->update_instance_collision();
+	}
 }
 
 /**
@@ -175,6 +178,7 @@ void Terrain3D::_destroy_collision(const bool p_final) {
 	LOG(INFO, "Destroying Collision");
 	if (_collision) {
 		_collision->destroy();
+		_collision->destroy_instance_collision();
 	}
 	if (p_final) {
 		memdelete_safely(_collision);
@@ -683,6 +687,7 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 		_material->update();
 		_collision->destroy();
 		_collision->build();
+		_collision->set_instance_collision_dirty(true);
 		_update_displacement_buffer();
 	}
 	if (IS_EDITOR && _editor_plugin) {
@@ -1099,6 +1104,7 @@ void Terrain3D::_notification(const int p_what) {
 			set_physics_process(false);
 			_destroy_mesher();
 			_destroy_instancer();
+			_destroy_collision();
 			_destroy_mouse_picking();
 			_destroy_displacement_buffer();
 			if (_assets.is_valid()) {
@@ -1219,6 +1225,12 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_physics_material", "material"), &Terrain3D::set_physics_material);
 	ClassDB::bind_method(D_METHOD("get_physics_material"), &Terrain3D::get_physics_material);
 
+	// Instance Collision
+	ClassDB::bind_method(D_METHOD("set_instance_collision_mode", "mode"), &Terrain3D::set_instance_collision_mode);
+	ClassDB::bind_method(D_METHOD("get_instance_collision_mode"), &Terrain3D::get_instance_collision_mode);
+	ClassDB::bind_method(D_METHOD("set_instance_collision_radius", "radius"), &Terrain3D::set_instance_collision_radius);
+	ClassDB::bind_method(D_METHOD("get_instance_collision_radius"), &Terrain3D::get_instance_collision_radius);
+
 	// Terrain Mesh
 	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Terrain3D::set_mesh_lods);
 	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Terrain3D::get_mesh_lods);
@@ -1337,6 +1349,9 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority", PROPERTY_HINT_RANGE, "0.1,256,.1"), "set_collision_priority", "get_collision_priority");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
+	ADD_SUBGROUP("Instance Collision", "");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "instance_collision_mode", PROPERTY_HINT_ENUM, "Disabled, Dynamic / Game, Dynamic / Editor"), "set_instance_collision_mode", "get_instance_collision_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "instance_collision_radius", PROPERTY_HINT_RANGE, "1.,256.,1."), "set_instance_collision_radius", "get_instance_collision_radius");
 
 	ADD_GROUP("Terrain Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_clipmap_target", "get_clipmap_target");

@@ -236,6 +236,12 @@ public:
 	void set_physics_material(const Ref<PhysicsMaterial> &p_mat) { _collision ? _collision->set_physics_material(p_mat) : void(); }
 	Ref<PhysicsMaterial> get_physics_material() const { return _collision ? _collision->get_physics_material() : Ref<PhysicsMaterial>(); }
 
+	// Instance Collision Aliases
+	void set_instance_collision_mode(const InstanceCollisionMode p_mode) { _collision ? _collision->set_instance_collision_mode(p_mode) : void(); }
+	InstanceCollisionMode get_instance_collision_mode() const { return _collision ? _collision->get_instance_collision_mode() : InstanceCollisionMode::INSTANCE_COLLISION_DYNAMIC_GAME; }
+	void set_instance_collision_radius(const real_t p_radius) { _collision ? _collision->set_instance_collision_radius(p_radius) : void(); }
+	real_t get_instance_collision_radius() const { return _collision ? _collision->get_instance_collision_radius() : 64.f; }
+
 	// Instancer Aliases
 	void set_instancer_mode(const InstancerMode p_mode) { _instancer ? _instancer->set_mode(p_mode) : void(); }
 	InstancerMode get_instancer_mode() const { return _instancer ? _instancer->get_mode() : InstancerMode::NORMAL; }
