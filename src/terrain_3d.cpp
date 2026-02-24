@@ -435,6 +435,7 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 ///////////////////////////
 
 Terrain3D::Terrain3D() {
+	LOG(INFO, "Terrain3D v", _version, " - https://github.com/TokisanGames/Terrain3D");
 	// Process the command line
 	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
 	for (int i = args.size() - 1; i >= 0; i--) {
