@@ -1,0 +1,203 @@
+[gd_scene load_steps=16 format=3 uid="uid://c04wuoe5k7oq6"]
+
+[ext_resource type="Script" uid="uid://bdkxa5pqd0r3x" path="res://addons/terrain_3d/menu/terrain_generation.gd" id="1_1t2g3"]
+[ext_resource type="Shader" uid="uid://bfyq22k30khqd" path="res://addons/terrain_3d/extras/TerrainGeneration/terrain_generation.gdshader" id="1_34yxq"]
+[ext_resource type="Script" uid="uid://b7qb3n8btnjmc" path="res://addons/terrain_3d/extras/TerrainGeneration/sub_viewport_container.gd" id="2_valc7"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_n2mt3"]
+
+[sub_resource type="Sky" id="Sky_ktjl2"]
+sky_material = SubResource("ProceduralSkyMaterial_n2mt3")
+
+[sub_resource type="Environment" id="Environment_u0a73"]
+background_mode = 2
+sky = SubResource("Sky_ktjl2")
+
+[sub_resource type="World3D" id="World3D_0f0kr"]
+resource_local_to_scene = true
+environment = SubResource("Environment_u0a73")
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1t2g3"]
+
+[sub_resource type="Sky" id="Sky_valc7"]
+sky_material = SubResource("ProceduralSkyMaterial_1t2g3")
+
+[sub_resource type="Environment" id="Environment_1t2g3"]
+background_mode = 2
+sky = SubResource("Sky_valc7")
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_n2mt3"]
+frequency = 0.0075
+fractal_octaves = 7
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_ktjl2"]
+width = 1024
+height = 1024
+seamless = true
+noise = SubResource("FastNoiseLite_n2mt3")
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_u0a73"]
+width = 1024
+height = 1024
+invert = true
+seamless = true
+as_normal_map = true
+noise = SubResource("FastNoiseLite_n2mt3")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1t2g3"]
+render_priority = 0
+shader = ExtResource("1_34yxq")
+shader_parameter/noise = SubResource("NoiseTexture2D_ktjl2")
+shader_parameter/normal_map = SubResource("NoiseTexture2D_u0a73")
+shader_parameter/noise_scale = 51.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_34yxq"]
+material = SubResource("ShaderMaterial_1t2g3")
+size = Vector2(1024, 1024)
+subdivide_width = 256
+subdivide_depth = 256
+
+[node name="TerrainGeneration" type="ConfirmationDialog"]
+title = "Terrain Generation"
+initial_position = 1
+size = Vector2i(780, 637)
+visible = true
+min_size = Vector2i(780, 420)
+ok_button_text = "Generate"
+script = ExtResource("1_1t2g3")
+metadata/_edit_horizontal_guides_ = [17.0, -13.0]
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+custom_minimum_size = Vector2(700, 500)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -49.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="NoiseControls" type="VBoxContainer" parent="MarginContainer/HBoxContainer/VBoxContainer2"]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="HeightLabel" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer2/NoiseControls"]
+layout_mode = 2
+text = "Height scale"
+
+[node name="HeightSlider" type="HSlider" parent="MarginContainer/HBoxContainer/VBoxContainer2/NoiseControls"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(256, 0)
+layout_mode = 2
+min_value = -100.0
+
+[node name="FrequencyLabel" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer2/NoiseControls"]
+layout_mode = 2
+text = "Frequency"
+
+[node name="FrequencySlider" type="HSlider" parent="MarginContainer/HBoxContainer/VBoxContainer2/NoiseControls"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(256, 0)
+layout_mode = 2
+max_value = 1.0
+step = 0.001
+
+[node name="OctavesLabel" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer2/NoiseControls"]
+layout_mode = 2
+text = "Octaves"
+
+[node name="OctavesSpinBox" type="SpinBox" parent="MarginContainer/HBoxContainer/VBoxContainer2/NoiseControls"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="RegionControls" type="VBoxContainer" parent="MarginContainer/HBoxContainer/VBoxContainer2"]
+layout_mode = 2
+size_flags_vertical = 10
+
+[node name="RegionCountLabel" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer2/RegionControls"]
+layout_mode = 2
+text = "Regions"
+
+[node name="RegionCountSpinBox" type="SpinBox" parent="MarginContainer/HBoxContainer/VBoxContainer2/RegionControls"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 1.0
+max_value = 16.0
+value = 1.0
+
+[node name="RegionSizeLabel" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer2/RegionControls"]
+layout_mode = 2
+text = "Region Size"
+
+[node name="RegionSizeOptionButton" type="OptionButton" parent="MarginContainer/HBoxContainer/VBoxContainer2/RegionControls"]
+unique_name_in_owner = true
+layout_mode = 2
+selected = 0
+item_count = 3
+popup/item_0/text = "256"
+popup/item_0/id = 0
+popup/item_1/text = "512"
+popup/item_1/id = 1
+popup/item_2/text = "1024"
+popup/item_2/id = 2
+
+[node name="GenerateButton" type="Button" parent="MarginContainer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+text = "GENERATE"
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="MarginContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(400, 300)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 0
+stretch = true
+script = ExtResource("2_valc7")
+
+[node name="SubViewport" type="SubViewport" parent="MarginContainer/SubViewportContainer"]
+own_world_3d = true
+world_3d = SubResource("World3D_0f0kr")
+handle_input_locally = false
+size = Vector2i(400, 300)
+render_target_update_mode = 4
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="MarginContainer/SubViewportContainer/SubViewport"]
+environment = SubResource("Environment_1t2g3")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="MarginContainer/SubViewportContainer/SubViewport"]
+transform = Transform3D(-0.0610486, -0.916043, -0.396407, -3.47198e-08, -0.397148, 0.917754, -0.998135, 0.0560276, 0.0242453, 0, 0, 0)
+shadow_enabled = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MarginContainer/SubViewportContainer/SubViewport"]
+unique_name_in_owner = true
+mesh = SubResource("PlaneMesh_34yxq")
+
+[node name="CameraPivotYaw" type="Node3D" parent="MarginContainer/SubViewportContainer/SubViewport"]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 0, 0, 0)
+
+[node name="CameraPivotPitch" type="Node3D" parent="MarginContainer/SubViewportContainer/SubViewport/CameraPivotYaw"]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866026, 0, 0, 0)
+
+[node name="PreviewCamera3D" type="Camera3D" parent="MarginContainer/SubViewportContainer/SubViewport/CameraPivotYaw/CameraPivotPitch"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 200)
+current = true
+
+[node name="World" type="Node3D" parent="MarginContainer/SubViewportContainer/SubViewport"]
+unique_name_in_owner = true
