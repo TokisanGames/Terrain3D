@@ -1150,6 +1150,188 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 	return img;
 }
 
+void Terrain3DData::set_splat_channel_to_material_list(const PackedInt32Array &p_array, const int &p_splat_count) {
+	LOG(INFO, "Setting splat channel to material list with ", p_array.size(), " entries");
+	if (!differs(_splat_channel_to_material_list, p_array)) {
+		return;
+	}
+	int max_size = Terrain3DAssets::MAX_TEXTURES;
+	int min_size = p_splat_count * 4;
+	int array_size = CLAMP(p_array.size(), min_size, max_size);
+	_splat_channel_to_material_list = p_array;
+	_splat_channel_to_material_list.resize(array_size);
+	for (int i = 0; i < array_size; i++) {
+		int id = _splat_channel_to_material_list[i];
+		if (id >= array_size || id < -1) {
+			_splat_channel_to_material_list[i] = -1;
+		}
+	}
+}
+
+int Terrain3DData::splat_channel_to_material(const int p_channel_idx) {
+	if (p_channel_idx < 0) {
+		return -1;
+	}
+	return _splat_channel_to_material_list[p_channel_idx];
+}
+
+Terrain3DData::ControlIds Terrain3DData::compute_control_ids_and_blend(const PackedFloat32Array &p_weights) {
+	int dom_channel_idx = -1;
+	int second_dom_channel_idx = -1;
+	float dom_channel = -1.f;
+	float second_dom_channel = -1.f;
+	float noise = 1.f / 255.f; // Max color value 
+	ControlIds control_ids;
+	control_ids.base_id = -1;
+	control_ids.overlay_id = -1;
+	control_ids.blend = 0;
+
+	for (int i = 0; i < p_weights.size(); i++) {
+		if (p_weights[i] > dom_channel) {
+			second_dom_channel = dom_channel;
+			second_dom_channel_idx = dom_channel_idx;
+			dom_channel = p_weights[i];
+			dom_channel_idx = i;
+		} else if (p_weights[i] > second_dom_channel) {
+			second_dom_channel = p_weights[i];
+			second_dom_channel_idx = i;
+		}
+	}
+	
+	if (dom_channel_idx == -1 || dom_channel <= noise) {
+		return control_ids;
+	}
+	int base_id = splat_channel_to_material(dom_channel_idx);
+	if (base_id == -1) {
+		return control_ids;
+	}
+
+	if (second_dom_channel_idx == -1 || second_dom_channel <= noise) {
+		control_ids.base_id = base_id;
+		control_ids.overlay_id = base_id;
+		return control_ids;
+	}
+	int overlay_id = splat_channel_to_material(second_dom_channel_idx);
+	float sum = dom_channel + second_dom_channel;
+	if (overlay_id == -1 || overlay_id == base_id || sum <= 0.f) {
+		control_ids.base_id = base_id;
+		control_ids.overlay_id = base_id;
+		return control_ids;
+	}
+
+	float percentage = CLAMP(second_dom_channel / sum, 0.f, 1.f);
+	control_ids.base_id = base_id;
+	control_ids.overlay_id = overlay_id;
+	control_ids.blend = (int)round(percentage * 255.f);
+	return control_ids;
+}
+
+void Terrain3DData::import_splat_map(const TypedArray<Image> &p_splat_images, const Vector3 &p_global_position) {
+	int splat_count = p_splat_images.size();
+	int channel_count = splat_count * 4;
+	Vector2i img_size = V2I_ZERO;
+	for (int i = 0; i < splat_count; i++) {
+		Ref<Image> img = p_splat_images[i];
+		if (img.is_valid() && !img->is_empty()) {
+			if (img_size == V2I_ZERO) {
+				img_size = img->get_size();
+			} else if (img_size != img->get_size()) {
+				LOG(ERROR, "Included Images in p_splat_images have different dimensions. Aborting import");
+				return;
+			}
+		}
+	}
+	if (img_size == V2I_ZERO) {
+		LOG(ERROR, "All images are empty. Nothing to import");
+		return;
+	}
+	Vector3 descaled_position = p_global_position / _vertex_spacing;
+	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
+	if ((std::abs(descaled_position.x) > max_dimension) || (std::abs(descaled_position.z) > max_dimension)) {
+		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _vertex_spacing);
+		return;
+	}
+	if ((descaled_position.x + img_size.x > max_dimension) ||
+			(descaled_position.z + img_size.y > max_dimension)) {
+		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
+				". Try ", -(img_size * _vertex_spacing) / 2.f, " to center");
+		return;
+	}
+	Ref<Image> img = p_splat_images[0];
+	PackedFloat32Array weights = PackedFloat32Array();
+	weights.resize(channel_count);
+	Ref<Image> temp = Image::create_empty(img->get_width(), img->get_height(), false, Image::FORMAT_RF);
+	for (int y = 0; y < temp->get_height(); y++) {
+		for (int x = 0; x < temp->get_width(); x++) {
+			int w_i = 0;
+			for (int i = 0; i < splat_count; i++) {
+				Ref<Image> splat = p_splat_images[i];
+				if (splat.is_null()) {
+					weights[w_i + 0] = 0.f;
+					weights[w_i + 1] = 0.f;
+					weights[w_i + 2] = 0.f;
+					weights[w_i + 3] = 0.f;
+				} else {
+					Color color = splat->get_pixel(x, y);
+					weights[w_i + 0] = _splat_channel_to_material_list[w_i + 0] != -1 ? color.r : 0.f;
+					weights[w_i + 1] = _splat_channel_to_material_list[w_i + 1] != -1 ? color.g : 0.f;
+					weights[w_i + 2] = _splat_channel_to_material_list[w_i + 2] != -1 ? color.b : 0.f;
+					weights[w_i + 3] = _splat_channel_to_material_list[w_i + 3] != -1 ? color.a : 0.f;
+				}
+				w_i += 4;
+			}
+			ControlIds control_ids = compute_control_ids_and_blend(weights);
+			uint32_t bits = enc_base(control_ids.base_id) | enc_overlay(control_ids.overlay_id) | enc_blend(control_ids.blend);
+
+			// Write back to pixel in FORMAT_RF. Must be a 32-bit float
+			Color color = Color(as_float(bits), 0.f, 0.f, 1.f);
+			temp->set_pixel(x, y, color);
+		}
+	}
+	// Slice up incoming image into segments of region_size^2, and pad any remainder
+	int slices_width = ceil(real_t(img_size.x) / real_t(_region_size));
+	int slices_height = ceil(real_t(img_size.y) / real_t(_region_size));
+	slices_width = CLAMP(slices_width, 1, REGION_MAP_SIZE);
+	slices_height = CLAMP(slices_height, 1, REGION_MAP_SIZE);
+	LOG(DEBUG, "Creating ", Vector2i(slices_width, slices_height), " slices for ", img_size, " images.");
+	for (int y = 0; y < slices_height; y++) {
+		for (int x = 0; x < slices_width; x++) {
+			Vector2i start_coords = Vector2i(x * _region_size, y * _region_size);
+			Vector2i end_coords = Vector2i((x + 1) * _region_size - 1, (y + 1) * _region_size - 1);
+			LOG(DEBUG, "Reviewing image section ", start_coords, " to ", end_coords);
+
+			Vector2i size_to_copy;
+			if (end_coords.x <= img_size.x && end_coords.y <= img_size.y) {
+				size_to_copy = _region_sizev;
+			} else {
+				size_to_copy.x = img_size.x - start_coords.x;
+				size_to_copy.y = img_size.y - start_coords.y;
+				LOG(DEBUG, "Uneven end piece. Copying padded slice ", Vector2i(x, y), " size to copy: ", size_to_copy);
+			}
+			LOG(DEBUG, "Copying ", size_to_copy, " sized segment");
+			Vector3 global_position = Vector3(descaled_position.x + start_coords.x, 0.f, descaled_position.z + start_coords.y) * _vertex_spacing;
+			Vector2i region_loc = get_region_location(global_position);
+			Ref<Terrain3DRegion> region = get_region(region_loc);
+			if (region.is_null()) {
+				region.instantiate();
+				region->set_location(region_loc);
+				region->set_region_size(_region_size);
+				region->set_vertex_spacing(_vertex_spacing);
+				region->set_modified(true);
+				add_region(region, false);
+			}
+			Ref<Image> img_slice;
+			if (temp.is_valid() && !temp->is_empty()) {
+				img_slice = Util::get_filled_image(_region_sizev, COLOR_CONTROL, false, temp->get_format());
+				img_slice->blit_rect(temp, Rect2i(start_coords, size_to_copy), V2I_ZERO);
+				region->set_control_map(img_slice);
+			}
+			region->sanitize_maps();
+		} // for x < slices_width
+	} // for y < slices_height
+	update_maps(TYPE_CONTROL, true, false);
+}
+
 void Terrain3DData::dump(const bool verbose) const {
 	LOG(MESG, "_region_locations (", _region_locations.size(), "): ", _region_locations);
 	Array keys = _regions.keys();
@@ -1272,6 +1454,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DData::import_images, DEFVAL(V3_ZERO), DEFVAL(0.f), DEFVAL(1.f));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DData::export_image);
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DData::layered_to_image);
+	ClassDB::bind_method(D_METHOD("set_splat_channel_to_material_list", "array", "splat_count"), &Terrain3DData::set_splat_channel_to_material_list);
+	ClassDB::bind_method(D_METHOD("import_splat_map", "splat_images", "global_position"), &Terrain3DData::import_splat_map, DEFVAL(V3_ZERO));
 	ClassDB::bind_method(D_METHOD("dump", "verbose"), &Terrain3DData::dump, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
