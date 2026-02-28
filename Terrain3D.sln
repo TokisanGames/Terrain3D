@@ -1,5 +1,4 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34024.191
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -7,20 +6,73 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Terrain3D", "Terrain3D.vcxp
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|x64 = Release|x64
-		Release|x86 = Release|x86
+		Debug|windows-x86_32 = Debug|windows-x86_32
+		Release|windows-x86_32 = Release|windows-x86_32
+		Debug|windows-x86_64 = Debug|windows-x86_64
+		Release|windows-x86_64 = Release|windows-x86_64
+
+		Debug|linux-x86_64 = Debug|linux-x86_64
+		Release|linux-x86_64 = Release|linux-x86_64
+		Debug|linux-arm64 = Debug|linux-arm64
+		Release|linux-arm64 = Release|linux-arm64
+		Debug|linux-rv64 = Debug|linux-rv64
+		Release|linux-rv64 = Release|linux-rv64
+
+		Debug|macos = Debug|macos
+		Release|macos = Release|macos
+
+		Debug|ios-arm64 = Debug|ios-arm64
+		Release|ios-arm64 = Release|ios-arm64
+
+		Debug|android-x86_64 = Debug|android-x86_64
+		Release|android-x86_64 = Release|android-x86_64
+		Debug|android-arm64 = Debug|android-arm64
+		Release|android-arm64 = Release|android-arm64
+
+		Debug|web-wasm32 = Debug|web-wasm32
+		Release|web-wasm32 = Release|web-wasm32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|x64.ActiveCfg = Debug|x64
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|x64.Build.0 = Debug|x64
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|x86.ActiveCfg = Debug|Win32
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|x86.Build.0 = Debug|Win32
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|x64.ActiveCfg = Release|x64
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|x64.Build.0 = Release|x64
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|x86.ActiveCfg = Release|Win32
-		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|x86.Build.0 = Release|Win32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|windows-x86_32.ActiveCfg = Debug|Win32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|windows-x86_32.Build.0 = Debug|Win32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|windows-x86_32.ActiveCfg = Release|Win32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|windows-x86_32.Build.0 = Release|Win32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|windows-x86_64.ActiveCfg = Debug|x64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|windows-x86_64.Build.0 = Debug|x64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|windows-x86_64.ActiveCfg = Release|x64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|windows-x86_64.Build.0 = Release|x64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|linux-x86_64.ActiveCfg = Debug|linux-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|linux-x86_64.Build.0 = Debug|linux-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|linux-x86_64.ActiveCfg = Release|linux-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|linux-x86_64.Build.0 = Release|linux-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|linux-arm64.ActiveCfg = Debug|linux-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|linux-arm64.Build.0 = Debug|linux-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|linux-arm64.ActiveCfg = Release|linux-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|linux-arm64.Build.0 = Release|linux-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|linux-rv64.ActiveCfg = Debug|linux-rv64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|linux-rv64.Build.0 = Debug|linux-rv64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|linux-rv64.ActiveCfg = Release|linux-rv64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|linux-rv64.Build.0 = Release|linux-rv64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|macos.ActiveCfg = Debug|macos
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|macos.Build.0 = Debug|macos
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|macos.ActiveCfg = Release|macos
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|macos.Build.0 = Release|macos
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|ios-arm64.ActiveCfg = Debug|ios-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|ios-arm64.Build.0 = Debug|ios-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|ios-arm64.ActiveCfg = Release|ios-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|ios-arm64.Build.0 = Release|ios-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|android-x86_64.ActiveCfg = Debug|android-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|android-x86_64.Build.0 = Debug|android-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|android-x86_64.ActiveCfg = Release|android-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|android-x86_64.Build.0 = Release|android-x86_64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|android-arm64.ActiveCfg = Debug|android-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|android-arm64.Build.0 = Debug|android-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|android-arm64.ActiveCfg = Release|android-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|android-arm64.Build.0 = Release|android-arm64
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|web-wasm32.ActiveCfg = Debug|web-wasm32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Debug|web-wasm32.Build.0 = Debug|web-wasm32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|web-wasm32.ActiveCfg = Release|web-wasm32
+		{B8850C81-3339-46A9-9668-CAA004E84629}.Release|web-wasm32.Build.0 = Release|web-wasm32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

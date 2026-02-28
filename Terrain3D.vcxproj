@@ -1,276 +1,139 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|x64">
-      <Configuration>Debug</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|x64">
-      <Configuration>Release</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-  </ItemGroup>
-  <PropertyGroup Label="Globals">
-    <VCProjectVersion>17.0</VCProjectVersion>
-    <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{b8850c81-3339-46a9-9668-caa004e84629}</ProjectGuid>
-    <RootNamespace>Terrain3D</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-  </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Makefile</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
-  <ImportGroup Label="Shared">
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <NMakeBuildCommandLine>scons dev_build=yes</NMakeBuildCommandLine>
-    <NMakeReBuildCommandLine>scons dev_build=yes</NMakeReBuildCommandLine>
-    <NMakeCleanCommandLine>scons --clean</NMakeCleanCommandLine>
-    <NMakeIncludeSearchPath>$(SolutionDir)\src;$(SolutionDir)\godot-cpp\gdextension;$(SolutionDir)\godot-cpp\gen\include;$(SolutionDir)\godot-cpp\include</NMakeIncludeSearchPath>
-    <AdditionalOptions>/std:c++17</AdditionalOptions>
-    <OutDir>.vs</OutDir>
-    <IntDir>.vs</IntDir>
-    <NMakePreprocessorDefinitions>GDEXTENSION</NMakePreprocessorDefinitions>
-  </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-    <BuildLog>
-      <Path>.vs/Terrain3D-build.log</Path>
-    </BuildLog>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="src\constants.h" />
-    <ClInclude Include="src\generated_texture.h" />
-    <ClInclude Include="src\target_node_3d.h" />
-    <ClInclude Include="src\terrain_3d_mesher.h" />
-    <ClInclude Include="src\register_types.h" />
-    <ClInclude Include="src\terrain_3d.h" />
-    <ClInclude Include="src\terrain_3d_asset_resource.h" />
-    <ClInclude Include="src\terrain_3d_collision.h" />
-    <ClInclude Include="src\terrain_3d_data.h" />
-    <ClInclude Include="src\terrain_3d_editor.h" />
-    <ClInclude Include="src\logger.h" />
-    <ClInclude Include="src\terrain_3d_instancer.h" />
-    <ClInclude Include="src\terrain_3d_mesh_asset.h" />
-    <ClInclude Include="src\terrain_3d_region.h" />
-    <ClInclude Include="src\terrain_3d_texture_asset.h" />
-    <ClInclude Include="src\terrain_3d_util.h" />
-    <ClInclude Include="src\terrain_3d_material.h" />
-    <ClInclude Include="src\terrain_3d_assets.h" />
-    <ClInclude Include="src\unit_testing.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="src\generated_texture.cpp" />
-    <ClCompile Include="src\terrain_3d_mesher.cpp" />
-    <ClCompile Include="src\register_types.cpp" />
-    <ClCompile Include="src\terrain_3d.cpp" />
-    <ClCompile Include="src\terrain_3d_collision.cpp" />
-    <ClCompile Include="src\terrain_3d_data.cpp" />
-    <ClCompile Include="src\terrain_3d_editor.cpp" />
-    <ClCompile Include="src\terrain_3d_instancer.cpp" />
-    <ClCompile Include="src\terrain_3d_material.cpp" />
-    <ClCompile Include="src\terrain_3d_mesh_asset.cpp" />
-    <ClCompile Include="src\terrain_3d_region.cpp" />
-    <ClCompile Include="src\terrain_3d_texture_asset.cpp" />
-    <ClCompile Include="src\terrain_3d_assets.cpp" />
-    <ClCompile Include="src\terrain_3d_util.cpp" />
-    <ClCompile Include="src\unit_testing.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include=".github\actions\base-deps\action.yml" />
-    <None Include=".github\actions\build-cache\action.yml" />
-    <None Include=".github\ISSUE_TEMPLATE\bug_report.yml" />
-    <None Include=".github\ISSUE_TEMPLATE\config.yml" />
-    <None Include=".github\ISSUE_TEMPLATE\feature_request.yml" />
-    <None Include=".github\workflows\android.yml" />
-    <None Include=".github\workflows\build.yml" />
-    <None Include=".github\workflows\ios.yml" />
-    <None Include=".github\workflows\linux.yml" />
-    <None Include=".github\workflows\macos.yml" />
-    <None Include=".github\workflows\web.yml" />
-    <None Include=".github\workflows\windows.yml" />
-    <None Include=".gitignore" />
-    <None Include="AUTHORS.md" />
-    <None Include="CONTRIBUTING.md" />
-    <None Include="doc\conf.py" />
-    <None Include="doc\docs\collision.md" />
-    <None Include="doc\docs\generating_csharp_bindings.md" />
-    <None Include="doc\docs\introduction.md" />
-    <None Include="doc\docs\double_precision.md" />
-    <None Include="doc\docs\games.md" />
-    <None Include="doc\docs\instancer.md" />
-    <None Include="doc\docs\keyboard_shortcuts.md" />
-    <None Include="doc\docs\platforms.md" />
-    <None Include="doc\docs\nightly_builds.md" />
-    <None Include="doc\docs\press.md" />
-    <None Include="doc\docs\data_format.md" />
-    <None Include="doc\docs\heightmaps.md" />
-    <None Include="doc\docs\programming_languages.rst" />
-    <None Include="doc\docs\displacement.md" />
-    <None Include="doc\docs\texture_painting.md" />
-    <None Include="doc\docs\user_interface.md" />
-    <None Include="doc\index.rst" />
-    <None Include="doc\docs\tips_environment.md">
-      <SubType>
-      </SubType>
-    </None>
-    <None Include="project\addons\terrain_3d\extras\shaders\lightweight.gdshader" />
-    <None Include="project\addons\terrain_3d\extras\shaders\minimum.gdshader" />
-    <None Include="project\addons\terrain_3d\plugin.cfg" />
-    <None Include="project\addons\terrain_3d\terrain.gdextension" />
-    <None Include="README.md" />
-    <None Include="SConstruct" />
-    <None Include="src\shaders\debug_views.glsl" />
-    <None Include="src\shaders\displacement.glsl" />
-    <None Include="src\shaders\displacement_buffer.glsl" />
-    <None Include="src\shaders\macro_variation.glsl" />
-    <None Include="src\shaders\main.glsl" />
-    <None Include="src\shaders\overlays.glsl" />
-    <None Include="src\shaders\pbr_views.glsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="src\shaders\projection.glsl" />
-    <None Include="src\shaders\samplers.glsl" />
-    <None Include="src\shaders\backgrounds.glsl" />
-    <None Include="src\shaders\editor_functions.glsl" />
-    <None Include="src\shaders\dual_scaling.glsl" />
-    <None Include="src\shaders\auto_shader.glsl" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include=".readthedocs.yaml" />
-    <Text Include="doc\docs\import_export.md" />
-    <Text Include="doc\docs\occlusion_culling.md" />
-    <Text Include="doc\docs\shader_design.md" />
-    <Text Include="doc\docs\system_architecture.md" />
-    <Text Include="doc\docs\installation.md" />
-    <Text Include="doc\docs\controlmap_format.md" />
-    <Text Include="doc\docs\getting_help.md" />
-    <Text Include="doc\docs\tutorial_videos.md" />
-    <Text Include="doc\docs\troubleshooting.md" />
-    <Text Include="doc\docs\tips_technical.md" />
-    <Text Include="doc\docs\texture_prep.md" />
-    <Text Include="doc\docs\building_from_source.md" />
-    <Text Include="doc\_new_release_process.txt" />
-    <Text Include="doc\_static\theme_overrides.css" />
-    <Text Include="LICENSE.txt" />
-    <Text Include="doc\docs\navigation.md" />
-    <Text Include="src\shaders\gpu_depth.glsl" />
-  </ItemGroup>
-  <ItemGroup>
-    <Xml Include="doc\doc_classes\Terrain3D.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DCollision.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DData.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DEditor.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DInstancer.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DMaterial.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DMeshAsset.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DRegion.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DTextureAsset.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DAssets.xml" />
-    <Xml Include="doc\doc_classes\Terrain3DUtil.xml" />
-  </ItemGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<PropertyGroup>
+		<RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</RepoRoot>
+	</PropertyGroup>
+
+	<PropertyGroup Label="Globals">
+		<ProjectGuid>{B8850C81-3339-46A9-9668-CAA004E84629}</ProjectGuid>
+		<RootNamespace>Terrain3D</RootNamespace>
+		<Keyword>MakeFileProj</Keyword>
+		<VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Debug'">
+		<GodotTemplate>template_debug</GodotTemplate>
+		<BuildType>dev_build=yes</BuildType>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<GodotTemplate>template_release</GodotTemplate>
+	</PropertyGroup>
+
+	<!-- Windows -->
+	<PropertyGroup Condition="'$(Platform)'=='Win32'">
+		<GodotPlatform>windows</GodotPlatform>
+		<Arch>x86_32</Arch>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Platform)'=='x64'">
+		<GodotPlatform>windows</GodotPlatform>
+		<Arch>x86_64</Arch>
+	</PropertyGroup>
+
+	<!-- Linux -->
+	<PropertyGroup Condition="'$(Platform)'=='linux-x86_64'">
+		<GodotPlatform>linux</GodotPlatform>
+		<Arch>x86_64</Arch>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Platform)'=='linux-arm64'">
+		<GodotPlatform>linux</GodotPlatform>
+		<Arch>arm64</Arch>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Platform)'=='linux-rv64'">
+		<GodotPlatform>linux</GodotPlatform>
+		<Arch>rv64</Arch>
+	</PropertyGroup>
+
+	<!-- macOS -->
+	<PropertyGroup Condition="'$(Platform)'=='macos'">
+		<GodotPlatform>macos</GodotPlatform>
+		<Arch></Arch> <!-- no arch needed-->
+	</PropertyGroup>
+
+	<!-- iOS -->
+	<PropertyGroup Condition="'$(Platform)'=='ios-arm64'">
+		<GodotPlatform>ios</GodotPlatform>
+		<Arch>arm64</Arch>
+	</PropertyGroup>
+
+	<!-- Android -->
+	<PropertyGroup Condition="'$(Platform)'=='android-x86_64'">
+		<GodotPlatform>android</GodotPlatform>
+		<Arch>x86_64</Arch>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Platform)'=='android-arm64'">
+		<GodotPlatform>android</GodotPlatform>
+		<Arch>arm64</Arch>
+	</PropertyGroup>
+
+	<!-- Web -->
+	<PropertyGroup Condition="'$(Platform)'=='web-wasm32'">
+		<GodotPlatform>web</GodotPlatform>
+		<Arch>wasm32</Arch>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<IsWindows>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))</IsWindows>
+		<IsMac>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))</IsMac>
+		<IsLinux>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))</IsLinux>
+	</PropertyGroup>
+	<Import Project="$(VCTargetsPath)/Microsoft.Cpp.Default.props" Condition="$(IsWindows)"/>
+	<Import Project="$(MSBuildProjectDirectory)/rider-cpp-msbuild/targets/JetBrains.Rider.Cpp.targets" Condition="$(IsMac) OR $(IsLinux)"/>
+
+	<PropertyGroup Label="UserMacros">
+		<Precision Condition="'$(Precision)' == ''">single</Precision>
+		<Threads Condition="'$(Threads)' == ''">threads</Threads>
+	</PropertyGroup>
+	<Import Project="$(MSBuildProjectDirectory)/rider-cpp-msbuild/targets/godot.user.props" Condition="Exists('$(MSBuildProjectDirectory)/rider-cpp-msbuild/targets/godot.user.props')"/>
+
+	<PropertyGroup Label="Configuration">
+		<ConfigurationType>Makefile</ConfigurationType>
+		<UseOfMfc>false</UseOfMfc>
+		<PlatformToolset Condition="'$(GodotPlatform)'=='windows'">v143</PlatformToolset>
+		<PlatformToolset Condition="'$(GodotPlatform)'=='macos' or '$(GodotPlatform)'=='ios'">Clang_Mac</PlatformToolset>
+		<PlatformToolset Condition="'$(GodotPlatform)'=='linux'">Clang_Linux</PlatformToolset>
+		<PlatformToolset Condition="'$(GodotPlatform)'=='android'">Clang_Linux</PlatformToolset>
+		<PlatformToolset Condition="'$(GodotPlatform)'=='web'">Clang_Linux</PlatformToolset>
+		<PlatformToolset Condition="'$(PlatformToolset)'==''">Unknown</PlatformToolset>
+
+		<NMakeWorkingDirectory>$(RepoRoot)</NMakeWorkingDirectory>
+		<NMakeOutput Condition="'$(NMakeOutput)' == ''">dylib</NMakeOutput>
+		<LocalDebuggerWorkingDirectory Condition="'$(LocalDebuggerWorkingDirectory)' == ''">$(RepoRoot)/project</LocalDebuggerWorkingDirectory>
+		<NMakeIncludeSearchPath>$(RepoRoot)/src;$(RepoRoot)/godot-cpp/gen/include;$(RepoRoot)/godot-cpp/include;$(RepoRoot)/godot-cpp/gdextension;$(NMakeIncludeSearchPath);</NMakeIncludeSearchPath>
+		<NMakePreprocessorDefinitions>GDEXTENSION;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="!$(IsWindows)" Label="Configuration">
+		<NMakeBuildCommandLine>scons platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate) $(BuildType)</NMakeBuildCommandLine>
+		<NMakeReBuildCommandLine>scons --clean platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate) &amp;&amp; scons platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate)</NMakeReBuildCommandLine>
+		<NMakeCleanCommandLine>scons --clean platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate)</NMakeCleanCommandLine>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="$(IsWindows)" Label="Configuration">
+		<NMakeBuildCommandLine>cmd /V /C set "PATH=$(PATH)" ^&amp; scons platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate) $(BuildType)</NMakeBuildCommandLine>
+		<NMakeReBuildCommandLine>cmd /V /C set "PATH=$(PATH)" ^&amp; scons --clean platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate) ^&amp; scons platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate)</NMakeReBuildCommandLine>
+		<NMakeCleanCommandLine>cmd /V /C set "PATH=$(PATH)" ^&amp; scons --clean platform=$(GodotPlatform) arch=$(Arch) target=$(GodotTemplate)</NMakeCleanCommandLine>
+	</PropertyGroup>
+
+	<Import Project="$(VCTargetsPath)/Microsoft.Cpp.props" Condition="$(IsWindows)"/>
+	<ImportGroup Label="ExtensionSettings">
+	</ImportGroup>
+	<ItemGroup>
+		<ClInclude Include="src/**/*.h"/>
+		<ClCompile Include="src/**/*.cpp"/>
+		<None Include="**/*.glsl" />
+		<None Include="**/*.gdshader" />
+		<None Include="project/addons/terrain_3d/terrain.gdextension" />
+		<None Include="SConstruct" />
+		<None Include="README.md" />
+	</ItemGroup>
+
+	<ItemDefinitionGroup Condition="$(IsWindows)">
+		<ClCompile>
+			<LanguageStandard>stdcpp17</LanguageStandard>
+		</ClCompile>
+	</ItemDefinitionGroup>
+
+	<Import Project="$(MSBuildProjectDirectory)/rider-cpp-msbuild/targets/nmake.substitution.props" Condition="!Exists('$(VCTargetsPath)/Microsoft.Cpp.targets')" />
+	<Import Project="$(VCTargetsPath)/Microsoft.Cpp.targets" Condition="$(IsWindows)"/>
 </Project>
