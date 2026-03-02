@@ -14,6 +14,8 @@ release = '1.1.0'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+# TODO sphinx_tabs used in programming_languages.rst requires sphinx < 9. 
+# Migrate to sphinx-design and sphinx 9+, then we can use tabs in markdown
 extensions = ['myst_parser', 'sphinx_rtd_dark_mode', 'sphinx_tabs.tabs']
 
 myst_heading_anchors = 3
