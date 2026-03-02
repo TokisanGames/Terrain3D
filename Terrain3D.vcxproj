@@ -193,6 +193,7 @@
     <None Include=".gitignore" />
     <None Include="AUTHORS.md" />
     <None Include="CONTRIBUTING.md" />
+    <None Include="doc\build_docs.sh" />
     <None Include="doc\conf.py" />
     <None Include="doc\docs\collision.md" />
     <None Include="doc\docs\generating_csharp_bindings.md" />
@@ -251,6 +252,7 @@
     <Text Include="doc\docs\tips_technical.md" />
     <Text Include="doc\docs\texture_prep.md" />
     <Text Include="doc\docs\building_from_source.md" />
+    <Text Include="doc\requirements.txt" />
     <Text Include="doc\_new_release_process.txt" />
     <Text Include="doc\_static\theme_overrides.css" />
     <Text Include="LICENSE.txt" />
