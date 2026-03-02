@@ -1,6 +1,6 @@
 [gd_resource type="StandardMaterial3D" load_steps=2 format=3 uid="uid://cso4f2iyuxpmc"]
 
-[ext_resource type="Texture2D" uid="uid://c307hdmos4gtm" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="2_1t610"]
+[ext_resource type="Texture2D" uid="uid://dabyathlpy04p" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="2_1t610"]
 
 [resource]
 transparency = 1
