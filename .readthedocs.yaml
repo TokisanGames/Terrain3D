@@ -11,6 +11,9 @@ build:
 python:
   install:
     - requirements: doc/requirements.txt
+    - pip:
+        - sphinx<9.0.0
+        # See note in conf.py
 
 sphinx:
   configuration: doc/conf.py
