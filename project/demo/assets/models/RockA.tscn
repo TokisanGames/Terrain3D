@@ -10,7 +10,6 @@ data = PackedVector3Array(0.8507, -2.8222, -2.0706, 0.5747, -2.1329, -3.01, 0.00
 collision_mask = 3
 
 [node name="Rock1" parent="." index="0"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 surface_material_override/0 = ExtResource("2_pmd5x")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." index="1"]
