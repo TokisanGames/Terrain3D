@@ -340,6 +340,7 @@ Returns true if :ref:`mode<class_Terrain3DCollision_property_mode>` is not ``Dis
 - If :ref:`mode<class_Terrain3DCollision_property_mode>` is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set ``rebuild`` to true to recalculate all shapes within :ref:`radius<class_Terrain3DCollision_property_radius>`. This is very fast, and can be updated at 60fps for little cost.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
+.. |required| replace:: :abbr:`required (This method is required to be overridden when extending its base class.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`
 .. |vararg| replace:: :abbr:`vararg (This method accepts any number of arguments after the ones described here.)`
 .. |constructor| replace:: :abbr:`constructor (This method is used to construct a type.)`
