@@ -26,9 +26,9 @@ domain_warp_fractal_lacunarity = 1.5
 domain_warp_fractal_gain = 1.0
 
 [sub_resource type="NoiseTexture2D" id="NoiseTexture2D_bov7h"]
-seamless = true
-color_ramp = SubResource("Gradient_vr1m7")
 noise = SubResource("FastNoiseLite_d8lcj")
+color_ramp = SubResource("Gradient_vr1m7")
+seamless = true
 
 [sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_jrc01"]
 _shader_parameters = {
