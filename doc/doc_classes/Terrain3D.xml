@@ -66,7 +66,7 @@
 
 				- If gpu_mode is enabled, it uses the GPU to detect the mouse. This works wherever the terrain is visible, even outside of regions, but may need to be called twice.
 
-				GPU mode places a camera at the specified point and "looks" at the terrain. It uses the depth texture to determine how far away the intersection point is. It requires the use of an editor render layer (default 32) while using this function. See [member mouse_layer].
+				GPU mode places a camera at the specified point and "looks" at the terrain. It uses the depth texture to determine how far away the intersection point is. It requires the use of an editor render layer, (default 32, set with [member mouse_layer]) while using this function.
 
 				The main caveats of using this mode is that the call to get_intersection() requests a viewport be drawn, but cannot wait for it to finish as there is no "await" in C++ and no force draw function in Godot. So the return value is one frame behind, and invalid on the first call. This also means the function cannot be used more than once per frame. This mode works well when used continuously, once per frame, where one frame of difference won't matter. The editor uses this mode to place the mouse cursor decal.
 
@@ -183,7 +183,7 @@
 			In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the [member clipmap_target] position and failing that will use the camera position. See [method set_camera].
 		</member>
 		<member name="cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
-			This margin is added to the vertical component of the terrain bounding box (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
+			This margin is added to the vertical component of the terrain mesh bounding boxes (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
 		</member>
 		<member name="data" type="Terrain3DData" setter="" getter="get_data">
 			This class manages loading, saving, adding, and removing of Terrain3DRegions and access to their content.
@@ -206,7 +206,7 @@
 			Frees ground textures used for editing in _ready(). These textures are used to generate the TextureArrays, so if you don't change any [Terrain3DTextureAsset] settings in game, this can be enabled. Also reloads the texture asset list in _enter_tree() in case you load scenes via code and need the textures again. Calls [method Terrain3DAssets.clear_textures].
 		</member>
 		<member name="gi_mode" type="int" setter="set_gi_mode" getter="get_gi_mode" enum="GeometryInstance3D.GIMode" default="1">
-			Tells the renderer which global illumination mode to use for Terrain3D. This sets [code skip-lint]GeometryInstance3D.gi_mode[/code] in the engine.
+			Tells the renderer which global illumination mode to use for the terrain mesh. This sets [code skip-lint]GeometryInstance3D.gi_mode[/code] in the engine.
 		</member>
 		<member name="instancer" type="Terrain3DInstancer" setter="" getter="get_instancer">
 			The active [Terrain3DInstancer] object.
@@ -226,7 +226,7 @@
 			A custom material for Terrain3D. You can optionally save this as an external [code skip-lint].tres[/code] text file if you wish to share it with instances of Terrain3D in other scenes. See [Terrain3DMaterial].
 		</member>
 		<member name="mesh_lods" type="int" setter="set_mesh_lods" getter="get_mesh_lods" default="7">
-			The number of lods generated in the mesh. Enable wireframe mode in the viewport to see them.
+			The number of lods generated for the terrain meshes. Enable wireframe mode in the viewport to see them.
 		</member>
 		<member name="mesh_size" type="int" setter="set_mesh_size" getter="get_mesh_size" default="48">
 			The correlated size of the terrain meshes. Lod0 has [code skip-lint]4*mesh_size + 2[/code] quads per side. E.g. when mesh_size=8, lod0 has 34 quads to a side, including 2 quads for seams.
@@ -237,6 +237,39 @@
 			You may place other objects on this layer, however [code skip-lint]get_intersection[/code] will report intersections with them. So either dedicate this layer to Terrain3D, or if you must use all 32 layers, dedicate this one during editing or when using [code skip-lint]get_intersection[/code], and then you can use it during game play.
 			See [method get_intersection].
 		</member>
+		<member name="ocean_cast_shadows" type="int" setter="set_ocean_cast_shadows" getter="get_ocean_cast_shadows" enum="RenderingServer.ShadowCastingSetting" default="0">
+			Tells the renderer how to cast shadows from the ocean onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
+		</member>
+		<member name="ocean_cull_margin" type="float" setter="set_ocean_cull_margin" getter="get_ocean_cull_margin" default="20.0">
+			This margin is added to the vertical component of the ocean mesh bounding boxes (AABB). When you set the height of your waves in the shader, this margin should be adjusted. If it's too small, the meshes will clip at certain camera angles. If you set it too large, the renderer may have slightly more work to do. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
+		</member>
+		<member name="ocean_enabled" type="bool" setter="set_ocean_enabled" getter="is_ocean_enabled" default="false">
+			Generates another clipmap mesh, which you can apply an ocean shader to and configure independently of the terrain mesh.
+		</member>
+		<member name="ocean_gi_mode" type="int" setter="set_ocean_gi_mode" getter="get_ocean_gi_mode" enum="GeometryInstance3D.GIMode" default="0">
+			Tells the renderer which global illumination mode to use for the ocean mesh. This sets [code skip-lint]GeometryInstance3D.gi_mode[/code] in the engine.
+		</member>
+		<member name="ocean_light_target" type="Node3D" setter="set_ocean_light_target" getter="get_ocean_light_target">
+			This sets the _light_direction and _light_color uniforms in the ocean shader, if they are present. You can use this for light scattering, detecting if the light is above the horizon, albedo coloring, etc.
+		</member>
+		<member name="ocean_material" type="Material" setter="set_ocean_material" getter="get_ocean_material">
+			You can assign a [code skip-lint]StandardMaterial[/code] here for testing, but you really need a [code skip-lint]ShaderMaterial[/code]. Start with the example in [code skip-lint]addons/terrain_3d/extras/shaders/M_ocean.tres[/code], which you can build on. Or use any of the ocean shaders available around the internet, provided you set `skip_vertex_transform` and copy the geomorphing code from our `vertex()` shader, which will properly handle the LOD transitions on the clipmap.
+		</member>
+		<member name="ocean_mesh_lods" type="int" setter="set_ocean_mesh_lods" getter="get_ocean_mesh_lods" default="7">
+			The number of lods generated for the ocean meshes. Enable wireframe mode in the viewport to see them.
+		</member>
+		<member name="ocean_mesh_size" type="int" setter="set_ocean_mesh_size" getter="get_ocean_mesh_size" default="32">
+			The correlated size of the ocean meshes. Lod0 has [code skip-lint]4*ocean_mesh_size + 2[/code] quads per side. E.g. when ocean_mesh_size=8, lod0 has 34 quads to a side, including 2 quads for seams.
+		</member>
+		<member name="ocean_render_layers" type="int" setter="set_ocean_render_layers" getter="get_ocean_render_layers" default="1">
+			The render layers the ocean is drawn on. This sets [code skip-lint]VisualInstance3D.layers[/code] in the engine.
+		</member>
+		<member name="ocean_tessellation_level" type="int" setter="set_ocean_tessellation_level" getter="get_ocean_tessellation_level" default="0">
+			This setting creates up to 6 additional subdivisions of the ocean mesh below LOD0, which provides more vertices for the vertex shader if desired. You can see it in wireframe mode.
+		</member>
+		<member name="ocean_vertex_spacing" type="float" setter="set_ocean_vertex_spacing" getter="get_ocean_vertex_spacing" default="4.0">
+			The distance between vertices, settable up to 100. Godot units are typically considered to be meters. This laterally scales the ocean vertices on X and Z axes, but does not scale wave height.
+		</member>
 		<member name="physics_material" type="PhysicsMaterial" setter="set_physics_material" getter="get_physics_material">
 			Applies a [code skip-lint]PhysicsMaterial[/code] override to the entire terrain StaticBody.
 			Alias for [member Terrain3DCollision.physics_material] See that entry for details.
@@ -246,7 +279,7 @@
 			There is no undo for this operation. However you can apply it again to reslice, as long as your data doesn't hit the maximum boundaries.
 		</member>
 		<member name="render_layers" type="int" setter="set_render_layers" getter="get_render_layers" default="2147483649">
-			The render layers the terrain is drawn on. This sets [code skip-lint]VisualInstance3D.layers[/code] in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this, make sure the layer for [member mouse_layer] is included, or set that variable again after this so that the mouse cursor works.
+			The render layers the terrain is drawn on. This sets [code skip-lint]VisualInstance3D.layers[/code] in the engine. The defaults is layer 1 and 32 (for the mouse cursor). When you set this via code, make sure the layer for [member mouse_layer] is included, or set that variable again after this so that the mouse cursor and [method get_intersection] work.
 		</member>
 		<member name="save_16_bit" type="bool" setter="set_save_16_bit" getter="get_save_16_bit" default="false">
 			If enabled, heightmaps are saved as 16-bit half-precision to reduce file size. Files are always loaded in 32-bit for editing. Upon save, a copy of the heightmap is converted to 16-bit for writing. It does not change what is currently in memory.
@@ -350,8 +383,8 @@
 			The current version of Terrain3D.
 		</member>
 		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
-			The distance between vertices. Godot units are typically considered to be meters. This laterally scales the terrain on X and Z axes.
-			This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024).
+			The distance between vertices, settable up to 100. Godot units are typically considered to be meters. This laterally scales the terrain on X and Z axes.
+			This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024). It retains the same height.
 			All Terrain3D functions with a global_position expect an absolute global value. If you would normally use [method Terrain3DData.import_images] to import an image in the region at (-1024, -1024), with a vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
 			To scale heights, export the height map and reimport it with a new height scale.
 		</member>
