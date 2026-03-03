@@ -163,3 +163,4 @@ This step isn't required for contributors. You may ask for help generating the X
 5. Push your updates to the Markdown, XML, and RST files to the repository. Due to the nature of generation scripts, carefully review the changes so you only push those you intend.
 6. Readthedocs will detect commits to the main tree and will build the online html docs from the Markdown and RST files.
 
+Doc generation via Sphinx is configured by conf.py and requirements.txt. Readthedocs also reads .readthedocs.yaml. The website is configured to automatically build based on specifically chosen branches and tags. `latest` is `main`. `stable` is a tag that we must manually update to point to the latest stable commit.
