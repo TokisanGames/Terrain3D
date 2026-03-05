@@ -679,14 +679,11 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 		_instancer->_update_vertex_spacing(_vertex_spacing);
 		_data->_vertex_spacing = _vertex_spacing;
 		update_region_labels();
-		_mesher->reset_target_position();
 		_material->update();
+		_mesher->initialize(this);
 		_collision->destroy();
 		_collision->build();
 		_update_displacement_buffer();
-	}
-	if (IS_EDITOR && _editor_plugin) {
-		_editor_plugin->call("update_region_grid");
 	}
 }
 
