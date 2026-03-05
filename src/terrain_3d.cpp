@@ -685,9 +685,6 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 		_collision->build();
 		_update_displacement_buffer();
 	}
-	if (IS_EDITOR && _editor_plugin) {
-		_editor_plugin->call("update_region_grid");
-	}
 }
 
 void Terrain3D::set_tessellation_level(const int p_level) {

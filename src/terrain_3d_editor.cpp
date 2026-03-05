@@ -734,10 +734,6 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		}
 	}
 	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
-	if (_terrain->get_plugin()->has_method("update_region_grid")) {
-		LOG(DEBUG, "Calling GDScript update_region_grid()");
-		_terrain->get_plugin()->call("update_region_grid");
-	}
 }
 
 // Returns average of height, blend (as real_t(0-255)), or roughness. Overloaded version handles average color
