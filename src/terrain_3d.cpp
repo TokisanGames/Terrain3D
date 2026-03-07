@@ -1,11 +1,11 @@
 // Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/compositor.hpp>
+#include <godot_cpp/classes/directional_light3d.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/environment.hpp>
 #include <godot_cpp/classes/label3d.hpp>
-#include <godot_cpp/classes/light3d.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/physics_direct_space_state3d.hpp>
 #include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
@@ -122,12 +122,12 @@ void Terrain3D::__physics_process(const double p_delta) {
 	}
 	if (_ocean_enabled && _ocean_mesher) {
 		_ocean_mesher->snap();
-		if (_ocean_material.is_valid() && _ocean_light_target.is_inside_tree()) {
-			Light3D *light = cast_to<Light3D>(_ocean_light_target.ptr());
+		if (_ocean_material.is_valid() && _ocean_light_target.is_valid()) {
+			DirectionalLight3D *light = cast_to<DirectionalLight3D>(_ocean_light_target.ptr());
 			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
 			if (light && ocean_shader_mat) {
 				Color color = COLOR_WHITE;
-				color = light->get_color() * light->get_param(Light3D::PARAM_ENERGY);
+				color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
 				ocean_shader_mat->set_shader_parameter("_light_color", color);
 				Vector3 direction = light->get_global_basis().get_column(2);
 				ocean_shader_mat->set_shader_parameter("_light_direction", direction);
@@ -626,70 +626,59 @@ void Terrain3D::update_region_labels() {
 }
 
 void Terrain3D::set_camera(Camera3D *p_camera) {
-	if (p_camera && p_camera->is_queued_for_deletion()) {
-		LOG(ERROR, "Attempted to set a node queued for deletion");
-		_camera.clear();
-		return;
-	}
 	if (_camera.ptr() != p_camera) {
-		_camera.set_target(p_camera);
 		LOG(EXTREME, "Setting camera: ", p_camera);
-		set_physics_process(true);
-	};
+		_camera.set_target(p_camera);
+		if (_clipmap_target.is_valid()) {
+			set_physics_process(true);
+		}
+	}
 }
 
 void Terrain3D::set_clipmap_target(Node3D *p_node) {
-	if (p_node && p_node->is_queued_for_deletion()) {
-		LOG(ERROR, "Attempted to set a node queued for deletion");
-		_clipmap_target.clear();
-		return;
-	}
 	if (_clipmap_target.ptr() != p_node) {
-		_clipmap_target.set_target(p_node);
 		LOG(INFO, "Setting clipmap target: ", p_node);
-		set_physics_process(true);
+		_clipmap_target.set_target(p_node);
+		if (_clipmap_target.is_valid()) {
+			set_physics_process(true);
+		}
 	}
 }
 
 Vector3 Terrain3D::get_clipmap_target_position() const {
-	if (!IS_EDITOR && _clipmap_target.is_inside_tree()) {
-		return _clipmap_target.ptr()->get_global_position();
+	if (Node3D *target = _clipmap_target.get_target()) {
+		return target->get_global_position();
 	}
-	if (_camera.is_inside_tree()) {
-		return _camera.ptr()->get_global_position();
+	if (Node3D *cam = _camera.get_target()) {
+		return cam->get_global_position();
 	}
 	return V3_ZERO;
 }
 
 void Terrain3D::set_collision_target(Node3D *p_node) {
-	if (p_node && p_node->is_queued_for_deletion()) {
-		LOG(ERROR, "Attempted to set a node queued for deletion");
-		_collision_target.clear();
-		return;
-	}
 	if (_collision_target.ptr() != p_node) {
 		LOG(INFO, "Setting collision target: ", p_node);
 		_collision_target.set_target(p_node);
-		set_physics_process(true);
+		if (_collision_target.is_valid()) {
+			set_physics_process(true);
+		}
 	}
 }
 
 Vector3 Terrain3D::get_collision_target_position() const {
-	if (!IS_EDITOR && _collision_target.is_inside_tree()) {
-		return _collision_target.ptr()->get_global_position();
+	if (Node3D *target = _collision_target.get_target()) {
+		return target->get_global_position();
 	}
 	return get_clipmap_target_position();
 }
 
 void Terrain3D::set_ocean_light_target(Node3D *p_node) {
-	if (p_node && p_node->is_queued_for_deletion()) {
-		LOG(ERROR, "Attempted to set a node queued for deletion");
-		_ocean_light_target.clear();
-		return;
-	}
 	if (_ocean_light_target.ptr() != p_node) {
 		LOG(INFO, "Setting directional light target: ", p_node);
 		_ocean_light_target.set_target(p_node);
+		if (_ocean_light_target.is_valid()) {
+			set_physics_process(true);
+		}
 	}
 }
 

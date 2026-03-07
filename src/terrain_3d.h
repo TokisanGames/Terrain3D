@@ -182,14 +182,14 @@ public:
 	// Target Tracking
 	void set_camera(Camera3D *p_camera);
 	Camera3D *get_camera() const { return cast_to<Camera3D>(_camera.ptr()); }
-	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
 	void set_clipmap_target(Node3D *p_node);
+	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
 	Vector3 get_clipmap_target_position() const;
-	Node3D *get_collision_target() const { return _collision_target.ptr(); }
 	void set_collision_target(Node3D *p_node);
+	Node3D *get_collision_target() const { return _collision_target.ptr(); }
 	Vector3 get_collision_target_position() const;
-	Node3D *get_ocean_light_target() const { return _ocean_light_target.ptr(); }
 	void set_ocean_light_target(Node3D *p_node);
+	Node3D *get_ocean_light_target() const { return _ocean_light_target.ptr(); }
 	void snap();
 
 	// Collision Aliases
