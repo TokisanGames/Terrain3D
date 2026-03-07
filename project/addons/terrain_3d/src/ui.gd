@@ -111,10 +111,18 @@ func _enter_tree() -> void:
 		get_tree().create_tween().tween_property(self, "editor_decal_fade", 0.0, 0.15))
 	add_child(editor_decal_timer)
 
-
+	if not tool_settings.pull_button_pressed.is_connected(_on_pull_button_pressed):
+		tool_settings.pull_button_pressed.connect(_on_pull_button_pressed)
+	if not tool_settings.push_button_pressed.is_connected(_on_push_button_pressed):
+		tool_settings.push_button_pressed.connect(_on_push_button_pressed)
+		
 func _exit_tree() -> void:
 	if plugin.debug:
 		print("Terrain3DUI: _exit_tree()")
+	if tool_settings.pull_button_pressed.is_connected(_on_pull_button_pressed):
+		tool_settings.pull_button_pressed.disconnect(_on_pull_button_pressed)
+	if tool_settings.push_button_pressed.is_connected(_on_push_button_pressed):
+		tool_settings.push_button_pressed.disconnect(_on_push_button_pressed)
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, toolbar)
 	plugin.remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_BOTTOM, tool_settings)
 	toolbar.queue_free()
@@ -169,6 +177,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 	set_menu_visibility(tool_settings.height_list, false)
 	set_menu_visibility(tool_settings.color_list, false)
 	set_menu_visibility(tool_settings.collision_list, false)
+	set_menu_visibility(tool_settings.pull_push_list, false)
 
 	# Select which settings to show. Options in tool_settings.gd:_ready
 	var to_show: PackedStringArray = []
@@ -266,6 +275,9 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 			to_show.push_back("on_collision")
 			to_show.push_back("raycast_height")
 			to_show.push_back("invert")
+			set_menu_visibility(tool_settings.pull_push_list, true)
+			to_show.push_back("pull")
+			to_show.push_back("push")
 
 		_:
 			pass
@@ -648,5 +660,15 @@ func pick(p_global_position: Vector3) -> void:
 		operation_builder.pick(p_global_position, plugin.terrain)
 
 
+func _on_pull_button_pressed() -> void:
+	var id: int = brush_data.get("asset_id", -1)
+	plugin.terrain.instancer.pull_from_scene(id)
+	
+	
+func _on_push_button_pressed() -> void:
+	var id: int = brush_data.get("asset_id", -1)
+	plugin.terrain.instancer.push_from_instancer(id)
+	
+	
 func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 	p_button.icon = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
