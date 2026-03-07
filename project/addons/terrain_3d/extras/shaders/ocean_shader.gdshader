@@ -49,7 +49,7 @@ uniform float height_threshold : hint_range(0.0, 1.0) = 0.1;
 uniform float height_angle_threshold : hint_range(0.0, 1.0) = 0.21;
 uniform float fersnel_scattering : hint_range(0.0, 70.0) = 20.0;
 uniform float direct_scattering : hint_range(0.0, 70.0) = 10.0;
-uniform float depth_absorbtion : hint_range(0.0, 10.0) = 1.0;
+uniform float depth_absorption : hint_range(0.0, 10.0) = 1.0;
 group_uniforms;
 
 
@@ -230,7 +230,7 @@ void fragment() {
 		refract_uv = clamp(refract_uv, vec2(0.001, 0.001), vec2(0.999, 0.999));  // slight inset to avoid exact edge artifacts
 
 		// Increase alpha with depth as more water means more light absorbed
-		depth_fade = clamp(depth_fade + min(abs(VERTEX.z - proximity_view_pos.z) * 0.001 * depth_absorbtion, 1.0), 0.0, 1.0);
+		depth_fade = clamp(depth_fade + min(abs(VERTEX.z - proximity_view_pos.z) * 0.001 * depth_absorption, 1.0), 0.0, 1.0);
 
 		vec3 background = texture(screen_texture, refract_uv).rgb;
 		final_color = mix(background, final_color, depth_fade * depth_fade);
