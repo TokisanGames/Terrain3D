@@ -157,18 +157,29 @@ public partial class Terrain3D : Node3D
 		public new static readonly StringName PhysicsMaterial = "physics_material";
 		public new static readonly StringName ClipmapTarget = "clipmap_target";
 		public new static readonly StringName MeshLods = "mesh_lods";
+		public new static readonly StringName TessellationLevel = "tessellation_level";
 		public new static readonly StringName MeshSize = "mesh_size";
 		public new static readonly StringName VertexSpacing = "vertex_spacing";
-		public new static readonly StringName TessellationLevel = "tessellation_level";
+		public new static readonly StringName CullMargin = "cull_margin";
+		public new static readonly StringName CastShadows = "cast_shadows";
+		public new static readonly StringName GiMode = "gi_mode";
+		public new static readonly StringName RenderLayers = "render_layers";
 		public new static readonly StringName DisplacementScale = "displacement_scale";
 		public new static readonly StringName DisplacementSharpness = "displacement_sharpness";
 		public new static readonly StringName BufferShaderOverrideEnabled = "buffer_shader_override_enabled";
 		public new static readonly StringName BufferShaderOverride = "buffer_shader_override";
-		public new static readonly StringName RenderLayers = "render_layers";
+		public new static readonly StringName OceanEnabled = "ocean_enabled";
+		public new static readonly StringName OceanMeshLods = "ocean_mesh_lods";
+		public new static readonly StringName OceanTessellationLevel = "ocean_tessellation_level";
+		public new static readonly StringName OceanMeshSize = "ocean_mesh_size";
+		public new static readonly StringName OceanVertexSpacing = "ocean_vertex_spacing";
+		public new static readonly StringName OceanCullMargin = "ocean_cull_margin";
+		public new static readonly StringName OceanCastShadows = "ocean_cast_shadows";
+		public new static readonly StringName OceanGiMode = "ocean_gi_mode";
+		public new static readonly StringName OceanRenderLayers = "ocean_render_layers";
+		public new static readonly StringName OceanMaterial = "ocean_material";
+		public new static readonly StringName OceanLightTarget = "ocean_light_target";
 		public new static readonly StringName MouseLayer = "mouse_layer";
-		public new static readonly StringName CastShadows = "cast_shadows";
-		public new static readonly StringName GiMode = "gi_mode";
-		public new static readonly StringName CullMargin = "cull_margin";
 		public new static readonly StringName FreeEditorTextures = "free_editor_textures";
 		public new static readonly StringName InstancerMode = "instancer_mode";
 		public new static readonly StringName ShowRegionGrid = "show_region_grid";
@@ -329,6 +340,12 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.MeshLods, value);
 	}
 
+	public new long TessellationLevel
+	{
+		get => Get(GDExtensionPropertyName.TessellationLevel).As<long>();
+		set => Set(GDExtensionPropertyName.TessellationLevel, value);
+	}
+
 	public new long MeshSize
 	{
 		get => Get(GDExtensionPropertyName.MeshSize).As<long>();
@@ -341,10 +358,28 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.VertexSpacing, value);
 	}
 
-	public new long TessellationLevel
+	public new double CullMargin
 	{
-		get => Get(GDExtensionPropertyName.TessellationLevel).As<long>();
-		set => Set(GDExtensionPropertyName.TessellationLevel, value);
+		get => Get(GDExtensionPropertyName.CullMargin).As<double>();
+		set => Set(GDExtensionPropertyName.CullMargin, value);
+	}
+
+	public new long CastShadows
+	{
+		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
+		set => Set(GDExtensionPropertyName.CastShadows, value);
+	}
+
+	public new long GiMode
+	{
+		get => Get(GDExtensionPropertyName.GiMode).As<long>();
+		set => Set(GDExtensionPropertyName.GiMode, value);
+	}
+
+	public new long RenderLayers
+	{
+		get => Get(GDExtensionPropertyName.RenderLayers).As<long>();
+		set => Set(GDExtensionPropertyName.RenderLayers, value);
 	}
 
 	public new double DisplacementScale
@@ -371,34 +406,76 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.BufferShaderOverride, value);
 	}
 
-	public new long RenderLayers
+	public new bool OceanEnabled
 	{
-		get => Get(GDExtensionPropertyName.RenderLayers).As<long>();
-		set => Set(GDExtensionPropertyName.RenderLayers, value);
+		get => Get(GDExtensionPropertyName.OceanEnabled).As<bool>();
+		set => Set(GDExtensionPropertyName.OceanEnabled, value);
+	}
+
+	public new long OceanMeshLods
+	{
+		get => Get(GDExtensionPropertyName.OceanMeshLods).As<long>();
+		set => Set(GDExtensionPropertyName.OceanMeshLods, value);
+	}
+
+	public new long OceanTessellationLevel
+	{
+		get => Get(GDExtensionPropertyName.OceanTessellationLevel).As<long>();
+		set => Set(GDExtensionPropertyName.OceanTessellationLevel, value);
+	}
+
+	public new long OceanMeshSize
+	{
+		get => Get(GDExtensionPropertyName.OceanMeshSize).As<long>();
+		set => Set(GDExtensionPropertyName.OceanMeshSize, value);
+	}
+
+	public new double OceanVertexSpacing
+	{
+		get => Get(GDExtensionPropertyName.OceanVertexSpacing).As<double>();
+		set => Set(GDExtensionPropertyName.OceanVertexSpacing, value);
+	}
+
+	public new double OceanCullMargin
+	{
+		get => Get(GDExtensionPropertyName.OceanCullMargin).As<double>();
+		set => Set(GDExtensionPropertyName.OceanCullMargin, value);
+	}
+
+	public new long OceanCastShadows
+	{
+		get => Get(GDExtensionPropertyName.OceanCastShadows).As<long>();
+		set => Set(GDExtensionPropertyName.OceanCastShadows, value);
+	}
+
+	public new long OceanGiMode
+	{
+		get => Get(GDExtensionPropertyName.OceanGiMode).As<long>();
+		set => Set(GDExtensionPropertyName.OceanGiMode, value);
+	}
+
+	public new long OceanRenderLayers
+	{
+		get => Get(GDExtensionPropertyName.OceanRenderLayers).As<long>();
+		set => Set(GDExtensionPropertyName.OceanRenderLayers, value);
+	}
+
+	public new Material OceanMaterial
+	{
+		get => Get(GDExtensionPropertyName.OceanMaterial).As<Material>();
+		set => Set(GDExtensionPropertyName.OceanMaterial, value);
+	}
+
+	public new Node3D OceanLightTarget
+	{
+		get => Get(GDExtensionPropertyName.OceanLightTarget).As<Node3D>();
+		set => Set(GDExtensionPropertyName.OceanLightTarget, value);
 	}
 
 	public new long MouseLayer
 	{
 		get => Get(GDExtensionPropertyName.MouseLayer).As<long>();
 		set => Set(GDExtensionPropertyName.MouseLayer, value);
-	}
-
-	public new long CastShadows
-	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
-		set => Set(GDExtensionPropertyName.CastShadows, value);
-	}
-
-	public new long GiMode
-	{
-		get => Get(GDExtensionPropertyName.GiMode).As<long>();
-		set => Set(GDExtensionPropertyName.GiMode, value);
-	}
-
-	public new double CullMargin
-	{
-		get => Get(GDExtensionPropertyName.CullMargin).As<double>();
-		set => Set(GDExtensionPropertyName.CullMargin, value);
 	}
 
 	public new bool FreeEditorTextures
