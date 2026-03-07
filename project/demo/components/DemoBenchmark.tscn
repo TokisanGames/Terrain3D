@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_2gjn4"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_3obxr"]
 [ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="3_b7ioy"]
-[ext_resource type="PackedScene" uid="uid://dwnhqfjq7v1pq" path="res://demo/components/Borders.tscn" id="4_nn6wp"]
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="5_bwggt"]
 [ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="6_3r2au"]
 
@@ -27,9 +26,6 @@ script = ExtResource("1_2gjn4")
 [node name="UI" parent="." instance=ExtResource("2_3obxr")]
 
 [node name="World" parent="." instance=ExtResource("3_b7ioy")]
-
-[node name="Borders" parent="." instance=ExtResource("4_nn6wp")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 0, 512)
 
 [node name="Player" parent="." instance=ExtResource("5_bwggt")]
 transform = Transform3D(0.134125, 0, -0.990965, 0, 1, 0, 0.990965, 0, 0.134125, 216.455, 103.968, -1835.34)
