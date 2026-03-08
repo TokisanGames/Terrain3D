@@ -10,9 +10,6 @@ R"(shader_type canvas_item;
 #define IS_DISPLACEMENT_BUFFER
 
 // Defined Constants
-#define SKIP_PASS 0
-#define VERTEX_PASS 1
-#define FRAGMENT_PASS 2
 #define COLOR_MAP_DEF vec4(1.0, 1.0, 1.0, 0.5)
 #define DIV_255 0.003921568627450 // 1. / 255.
 #define DIV_1024 0.0009765625 // 1. / 1024.
