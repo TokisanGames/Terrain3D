@@ -34,6 +34,7 @@ uniform float patch_min_threshold : hint_range(0.0, 1.0, 0.001) = 0.025;
 uniform float patch_max_threshold : hint_range(0.0, 1.0, 0.001) = 0.2;
 
 group_uniforms filtering;
+uniform int texture_filter : hint_range(-1, 31) = -1; // Specify a texture ID or -1 for all
 uniform float condition_dither_range : hint_range(0.0, 1.0, 0.01) = 0.15;
 uniform float surface_slope_min : hint_range(0.0, 1.0, 0.01) = 0.87;
 uniform float distance_fade_ammount : hint_range(0.0, 1.0, 0.01) = 0.5;
@@ -186,7 +187,7 @@ void start() {
 	h[5] = get_height(index_id, offsets.zy); // 5 (2,1)
 	h[6] = get_height(index_id, offsets.zx); // 6 (2,0)
 	h[7] = get_height(index_id, offsets.xz); // 7 (0,2)
-	
+
 	vec3 index_normal[4];
 	index_normal[0] = vec3(h[0] - h[1], _vertex_spacing, h[0] - h[7]);
 	index_normal[1] = vec3(h[1] - h[5], _vertex_spacing, h[1] - h[4]);
@@ -280,10 +281,12 @@ void start() {
 		pos.xz = vec2(100000.0);
 	}
 
-	// Hardcoded example, hand painted texture id 0 is filtered out.
-	if (!auto && ((base == 0 && blend < 0.7) || (over == 0 && blend >= 0.3))) {
-		pos.y = 0. / 0.;
-		pos.xz = vec2(100000.0);
+	// Apply only to specified texture id, or -1 for all. Adjust blend values as needed
+	if (!auto  && texture_filter >= 0 &&
+		((base != texture_filter && blend < 0.7) ||
+		(over != texture_filter && blend >= 0.3))) {
+			pos.y = 0. / 0.;
+			pos.xz = vec2(100000.0);
 	}
 
 	if (length(camera_position - pos) > max_dist) {
