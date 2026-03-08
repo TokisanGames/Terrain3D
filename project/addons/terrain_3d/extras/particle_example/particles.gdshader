@@ -289,7 +289,7 @@ void start() {
 			pos.xz = vec2(100000.0);
 	}
 
-	if (length(camera_position - pos) > max_dist) {
+	if (length(camera_position - pos) > max_dist || get_index_coord(pos.xz).z < 0) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
 	} else {
