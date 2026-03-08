@@ -36,7 +36,7 @@ _shader_parameters = {
 "dual_scale_reduction": 0.3,
 "dual_scale_texture": 0,
 &"flat_terrain_normals": false,
-&"ground_level": -618.9519819002201,
+&"ground_level": -199.999962,
 "macro_variation1": Color(0.855, 0.8625, 0.9, 1),
 "macro_variation2": Color(0.9, 0.885, 0.81, 1),
 "macro_variation_slope": 0.333,
@@ -46,7 +46,7 @@ _shader_parameters = {
 "noise1_scale": 0.04,
 "noise2_scale": 0.076,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
-&"region_blend": 0.95600004541,
+&"region_blend": 0.9600000456,
 &"shader_uniforms": null,
 &"shader_uniforms::auto_shader": null,
 &"shader_uniforms::displacement": null,
@@ -57,11 +57,11 @@ _shader_parameters = {
 &"shader_uniforms::world_background_noise": null,
 "tri_scale_reduction": 0.3,
 &"world_noise_fragment_normals": false,
-&"world_noise_height": 75.00001601878989,
+&"world_noise_height": 64.00001585487689,
 &"world_noise_lod_distance": 7500.0,
 &"world_noise_max_octaves": 4,
 &"world_noise_min_octaves": 2,
-&"world_noise_offset": Vector3(0, 0, 0),
+&"world_noise_offset": Vector3(-0.67, -4, -2.61),
 &"world_noise_scale": 5.0
 }
 world_background = 2
