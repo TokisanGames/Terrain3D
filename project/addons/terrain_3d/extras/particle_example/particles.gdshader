@@ -39,6 +39,8 @@ uniform float surface_slope_min : hint_range(0.0, 1.0, 0.01) = 0.87;
 uniform float distance_fade_ammount : hint_range(0.0, 1.0, 0.01) = 0.5;
 
 group_uniforms private;
+uniform float ground_level : hint_range(-1000., 1000.) = -20.0;
+uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 uniform float max_dist = 1.;
 uniform vec3 camera_position = vec3(0.);
 uniform uint instance_rows = 1;
@@ -60,29 +62,57 @@ uniform highp sampler2DArray _color_maps : repeat_disable;
 #define VERTEX_PASS 1
 #define FRAGMENT_PASS 2
 
-// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_index_coord(const vec2 uv, const int search) {
+ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
-	vec2 o_uv = mod(r_uv,_region_size);
-	ivec2 pos;
-	int bounds, layer_index = -1;
-	for (int i = -1; i < 0; i++) {
-		if ((layer_index == -1 && _background_mode == 0u) || i < 0) {
-			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
-			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
-			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
-		}
-	}
-	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
+	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
 	#define fma(a, b, c) ((a) * (b) + (c))
 #endif
+
+// Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
+float check_region(const vec2 uv2) {
+	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
+	int layer_index = 0;
+	if (uint(pos.x | pos.y) < uint(_region_map_size)) {
+		layer_index = clamp(_region_map[ pos.y * _region_map_size + pos.x ] - 1, -1, 0) + 1;
+	}
+	return float(layer_index);
+}
+
+// Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
+float get_region_blend(vec2 uv2) {
+	uv2 -= 0.5011; // correct for floating point error
+	const vec2 offset = vec2(0.0, 1.0);
+	float a = check_region(uv2 + offset.xy);
+	float b = check_region(uv2 + offset.yy);
+	float c = check_region(uv2 + offset.yx);
+	float d = check_region(uv2 + offset.xx);
+	vec2 blend_factor = vec2(2.0 + 126.0 * (1.0 - region_blend));
+	vec2 f = fract(uv2);
+	vec2 w = 1.0 / (1.0 + exp(blend_factor * log((1.0 - f) / f)));
+	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
+	return (1.0 - blend) * 2.0;
+}
+
+float get_height(vec2 index_id, vec2 offset) {
+	float height = texelFetch(_height_maps, get_index_coord(index_id + offset), 0).r;
+	if (_background_mode != 0u) {
+		float blend = get_region_blend(index_id * _region_texel_size + offset * _region_texel_size);
+		height = mix(height, ground_level, smoothstep(0., 1., blend));
+	}
+
+	return height;
+}
+
 float random(vec2 v) {
 	return fract(1e4 * sin(fma(17.0, v.x, v.y * 0.1)) * (0.1 + abs(sin(fma(v.y, 13.0, v.x)))));
 }
@@ -142,20 +172,21 @@ void start() {
 
 	ivec3 index[4];
 	// Map lookups
-	index[0] = get_index_coord(index_id + offsets.xy, VERTEX_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, VERTEX_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, VERTEX_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, VERTEX_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 
 	highp float h[8];
-	h[0] = texelFetch(_height_maps, index[0], 0).r; // 0 (0,1)
-	h[1] = texelFetch(_height_maps, index[1], 0).r; // 1 (1,1)
-	h[2] = texelFetch(_height_maps, index[2], 0).r; // 2 (1,0)
-	h[3] = texelFetch(_height_maps, index[3], 0).r; // 3 (0,0)
-	h[4] = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, VERTEX_PASS), 0).r; // 4 (1,2)
-	h[5] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, VERTEX_PASS), 0).r; // 5 (2,1)
-	h[6] = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, VERTEX_PASS), 0).r; // 6 (2,0)
-	h[7] = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, VERTEX_PASS), 0).r; // 7 (0,2)
+	h[0] = get_height(index_id, offsets.xy); // 0 (0,1)
+	h[1] = get_height(index_id, offsets.yy); // 1 (1,1)
+	h[2] = get_height(index_id, offsets.yx); // 2 (1,0)
+	h[3] = get_height(index_id, offsets.xx); // 3 (0,0)
+	h[4] = get_height(index_id, offsets.yz); // 4 (1,2)
+	h[5] = get_height(index_id, offsets.zy); // 5 (2,1)
+	h[6] = get_height(index_id, offsets.zx); // 6 (2,0)
+	h[7] = get_height(index_id, offsets.xz); // 7 (0,2)
+	
 	vec3 index_normal[4];
 	index_normal[0] = vec3(h[0] - h[1], _vertex_spacing, h[0] - h[7]);
 	index_normal[1] = vec3(h[1] - h[5], _vertex_spacing, h[1] - h[4]);
