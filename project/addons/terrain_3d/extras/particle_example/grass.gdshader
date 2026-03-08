@@ -53,7 +53,7 @@ void vertex() {
 }
 
 void fragment() {
-	// Hard coded color.
+	// Hard coded color
 	ALBEDO = vec3(0.20, 0.22, 0.05) * (data[2] * 0.5 + 0.5);
 	ALBEDO.rg *= (data.rg * 0.3 + 0.9);
 	ALBEDO *= pow(COLOR.rgb, vec3(2.2));
