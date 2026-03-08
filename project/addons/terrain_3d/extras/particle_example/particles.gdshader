@@ -58,11 +58,6 @@ uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : repeat_disable;
 
-// Defined Constants
-#define SKIP_PASS 0
-#define VERTEX_PASS 1
-#define FRAGMENT_PASS 2
-
 // Takes in world space XZ (UV) coordinates
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
