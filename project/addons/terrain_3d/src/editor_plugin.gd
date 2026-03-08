@@ -82,12 +82,12 @@ func _on_godot_focus_entered() -> void:
 
 ## EditorPlugin selection function call chain isn't consistent. Here's the map of calls:
 ## Assume we handle Terrain3D and NavigationRegion3D  
-# Click Terrain3D: 					_handles(Terrain3D), _make_visible(true), _edit(Terrain3D)
-# Deselect:							_make_visible(false), _edit(null)
+# Click Terrain3D: 					_handles(Terrain3D), _edit(Terrain3D), _make_visible(true)
+# Deselect:							_edit(null), _make_visible(false)
 # Click other node:					_handles(OtherNode)
-# Click NavRegion3D:				_handles(NavReg3D), _make_visible(true), _edit(NavReg3D)
-# Click NavRegion3D, Terrain3D:		_handles(Terrain3D), _edit(Terrain3D)
-# Click Terrain3D, NavRegion3D:		_handles(NavReg3D), _edit(NavReg3D)
+# Click NavRegion3D:				_handles(NavReg3D), _edit(NavReg3D), _make_visible(true)
+# Click NavRegion3D, Terrain3D:		_handles(Terrain3D), _make_visible(true), _edit(Terrain3D)
+# Click Terrain3D, NavRegion3D:		_handles(NavReg3D), _make_visible(true), _edit(NavReg3D)
 func _handles(p_object: Object) -> bool:
 	if p_object is Terrain3D:
 		return true
@@ -104,16 +104,6 @@ func _handles(p_object: Object) -> bool:
 	return false
 
 
-func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
-	if debug:
-		print("Terrain3DEditorPlugin: _make_visible(%s, %s)" % [ p_visible, p_redraw ])
-	if p_visible and is_selected():
-		ui.set_visible(true)
-		asset_dock.update_dock()
-	else:
-		ui.set_visible(false)
-
-
 func _edit(p_object: Object) -> void:
 	if !p_object:
 		_clear()
@@ -128,6 +118,7 @@ func _edit(p_object: Object) -> void:
 		debug = terrain.debug_level
 		editor.set_terrain(terrain)
 		terrain.set_meta("_edit_lock_", true)
+		ui.set_visible(true)
 
 		# Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
@@ -144,11 +135,22 @@ func _edit(p_object: Object) -> void:
 			nav_region = null
 
 	
+func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _make_visible(%s, %s)" % [ p_visible, p_redraw ])
+	if p_visible and is_selected():
+		ui.set_visible(true)
+		asset_dock.update_dock()
+	else:
+		ui.set_visible(false)
+
+
 func _clear() -> void:
 	if is_terrain_valid():
+		editor.set_tool(Terrain3DEditor.TOOL_MAX)
+		editor.set_operation(Terrain3DEditor.OP_MAX)
 		terrain = null
 		editor.set_terrain(null)
-		
 		ui.clear_picking()
 
 

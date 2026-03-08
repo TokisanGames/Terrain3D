@@ -137,17 +137,13 @@ func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 		toolbar.set_visible(p_visible)
 		tool_settings.set_visible(p_visible)
 
-	if plugin.editor:
-		if p_visible:
+	if plugin.editor and plugin.terrain and p_visible:
 			await get_tree().process_frame # Won't work, otherwise
 			if plugin.debug:
 				print("Terrain3DUI: set_visible: calling _on_tool_changed()")
 			_on_tool_changed(_selected_tool, _selected_operation)
 			if _selected_tool in [ Terrain3DEditor.REGION, Terrain3DEditor.NAVIGATION ]:
 				plugin.terrain.material.update(Terrain3DMaterial.FULL_REBUILD)
-		else:
-			plugin.editor.set_tool(Terrain3DEditor.TOOL_MAX)
-			plugin.editor.set_operation(Terrain3DEditor.OP_MAX)
 
 	
 func set_menu_visibility(p_list: Control, p_visible: bool) -> void:
