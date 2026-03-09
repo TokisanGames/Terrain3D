@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back, depth_draw_always, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
+render_mode cull_back, depth_draw_always, diffuse_burley, specular_schlick_ggx, shadows_disabled, skip_vertex_transform;
 
 //////////////////////////////
 // Constants
@@ -11,19 +11,19 @@ const int ITERATIONS_FRAGMENT = 3;
 // Uniforms
 //////////////////////////////
 group_uniforms water;
-uniform float sea_level : hint_range(-50.0, 50.0, 0.1) = 1.0;
-uniform vec3 albedo_color : source_color = vec3(.1058, .1568, .2117); // This is a common deep blue
-//uniform vec3 albedo_color : source_color = vec3(0.102, 0.212, 0.235); // This is a more green ocean
+uniform float sea_level : hint_range(-50.0, 50.0, 0.001) = 1.0;
+uniform vec3 water_color : source_color = vec3(.1058, .1568, .2117); // This is a common deep blue
+//uniform vec3 water_color : source_color = vec3(0.102, 0.212, 0.235); // This is a more green ocean
 uniform float visible_depth : hint_range(0.001, 10000., .1) = 256.;
-uniform float depth_curve : hint_range(0., 1.) = .2;
-uniform float shore_blend : hint_range(0.0, 10.0, 0.01) = 1.;
-uniform float refraction_strength : hint_range(0.0, 0.1, 0.001) = 0.02;
+uniform float depth_curve : hint_range(0.001, 5.0) = .1;
+uniform float shore_blend : hint_range(0.0, 10.0, 0.001) = 1.;
+uniform float refraction_strength : hint_range(0.0, .2, 0.001) = 0.02;
 group_uniforms;
 
 group_uniforms waves;
 uniform float time_scale : hint_range(0.0, 64.0) = 8.0;
 uniform float height_scale : hint_range(0.0, 16.0) = 3.0;
-uniform float ocean_scale : hint_range(0.1, 8.0) = 2.0;
+uniform float ocean_scale : hint_range(0.1, 16.0) = 2.0;
 group_uniforms;
 
 group_uniforms reflections;
@@ -34,7 +34,8 @@ group_uniforms;
 
 group_uniforms foam;
 uniform bool foam_enabled = true;
-uniform float foam_height : hint_range(-2.0, 5.0) = 2.5;
+uniform float foam_height : hint_range(0., 5.0) = 2.5;
+uniform float foam_top_intensity : hint_range(.1, 100.0) = 2.0;
 uniform float foam_distance : hint_range(0.1, 16384.0) = 2048.;
 uniform bool foam_shore_enabled = true;
 uniform float foam_shore_intensity : hint_range(0.1, 100.0) = 2.;
@@ -49,9 +50,7 @@ uniform float height_threshold : hint_range(0.0, 1.0) = 0.1;
 uniform float height_angle_threshold : hint_range(0.0, 1.0) = 0.21;
 uniform float fersnel_scattering : hint_range(0.0, 70.0) = 20.0;
 uniform float direct_scattering : hint_range(0.0, 70.0) = 10.0;
-uniform float depth_absorption : hint_range(0.0, 10.0) = 1.0;
 group_uniforms;
-
 
 // Uniforms set by C++
 group_uniforms private_set_by_terrain;
@@ -121,12 +120,11 @@ float ocean_height(vec2 pos, int iterations) {
 
 //////////////////////////////
 // Vertex
-//////////////////////////////
-
-
+//
 // vertex() positions the vertices of the clipmap mesh across the geomorphed lods. You'll need the
 // first two blocks for any other water shader, from the start to setting v_vertex.xz. After that
 // your own shader can set the UV and v_vertex.Y however you like.
+//////////////////////////////
 
 void vertex() {
 	// Get vertex of flat plane in world coordinates and set world UV
@@ -164,92 +162,98 @@ void vertex() {
 
 void fragment() {
 	// Normals
-	float h, u, v;
+	float wave_height, u, v;
 	// Adjust normal domain as screen space distance increases to reduce high frequency values across pixels
 	float dv = max(0.25, length(fwidth(VERTEX)));
 	vec2  n_uv = UV + dv * -0.66;
-	h = ocean_height(n_uv, ITERATIONS_FRAGMENT);
+	wave_height = ocean_height(n_uv, ITERATIONS_FRAGMENT);
 	u = ocean_height(n_uv + vec2(dv, 0.0), ITERATIONS_FRAGMENT);
 	v = ocean_height(n_uv + vec2(0.0, dv), ITERATIONS_FRAGMENT);
 	const float wave_distance = 512.;
-	vec3 world_normal = normalize(vec3(h - u, max(.1, v_vertex_distance/wave_distance), h - v));
+	vec3 world_normal = normalize(vec3(wave_height - u, max(.1, v_vertex_distance/wave_distance), wave_height - v));
 	NORMAL = mat3(VIEW_MATRIX) * world_normal;
 	TANGENT = normalize(cross(NORMAL, VIEW_MATRIX[2].xyz));
 	BINORMAL = normalize(cross(NORMAL, TANGENT));
 
-	// Horizon mask - 1.0 when light is above horizon w/ fade at edge
+	// Horizon mask: 1.0 when light is above horizon w/ fade at edge
 	float daytime_mask = smoothstep(0., .1, _light_direction.y);
 
 	// Reflections
-	float cos_theta = max(0.0, dot(NORMAL, VIEW));           // 1.0 when perpendicular (looking straight down), ~0.0 grazing
+	float cos_theta = max(0.0, dot(NORMAL, VIEW)); // 1.0 when perpendicular (looking straight down), ~0.0 grazing
 	float fresnel_base = pow(1.0 - cos_theta, fresnel_power); // high at grazing, low straight down
 	float fresnel = clamp(fresnel_scale * fresnel_base, 0.0, 1.0);
 	ROUGHNESS = mix(0.02, 0.8, fresnel) * daytime_mask;
 	SPECULAR = specular * fresnel;
-	SPECULAR = clamp ( SPECULAR - .5 *  (1. - daytime_mask), 0.15, 1.); // Mask far distance when sun is below horizon
+	SPECULAR = clamp (SPECULAR - .5 *  (1. - daytime_mask), 0.15, 1.); // Mask far distance when sun is below horizon
 
-	// Shore mask - 1.0 near the shore line
-	float proximity_depth_tex = textureLod(depth_texture, SCREEN_UV, 0.0).r;
-	vec4 proximity_view_pos = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, proximity_depth_tex, 1.0);
-	proximity_view_pos.xyz /= proximity_view_pos.w;
-	float shore_mask = 1.0 - clamp(1.0 - smoothstep(proximity_view_pos.z + 2. * shore_blend, proximity_view_pos.z, VERTEX.z), 0.0, 1.0);
+	// Terrain pixel position
+	float depth_raw = textureLod(depth_texture, SCREEN_UV, 0.0).r;
+	vec4 clip_pos = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, depth_raw, 1.0);
+	vec3 view_pos = clip_pos.xyz / clip_pos.w;
+	vec4 world_pos_hom = INV_VIEW_MATRIX * vec4(view_pos, 1.0);
+	vec3 terrain_position = world_pos_hom.xyz / world_pos_hom.w;
+
+	// Shore mask: 1.0 near the shore line
+	float shore_mask = 1.0 - clamp(1.0 - smoothstep(view_pos.z + 2. * shore_blend, view_pos.z, VERTEX.z), 0.0, 1.0);
 	ALPHA = 1.0 - shore_mask;
 
-	// Depth fade - based on vertex height rather than camera distance
-	float depth_fade = 1. - depth_curve * (1. + smoothstep(0., 1., abs(sea_level - v_vertex.y) / visible_depth));
-
-	// Albedo - start accumulation w/ sunlight color
+	// Albedo accumulation: starting with water and sunlight colors
 	vec3 light_mult = light_scattering_enabled ? _light_color : vec3(1.0);
-	vec3 final_color = albedo_color * light_mult;
+	ALBEDO = water_color * light_mult;
 
-	// Add foam
+	// Refraction offset
+	vec2 refract_offset = NORMAL.xz * refraction_strength;
+	float vp_y_mask = 1.0 - smoothstep(0.0, length(refract_offset) * 2.0, 1.0 - SCREEN_UV.y);
+	refract_offset = mix(refract_offset, vec2(0.0), max(shore_mask, vp_y_mask));
+	vec2 refract_uv = SCREEN_UV + refract_offset;
+	refract_uv = clamp(refract_uv, vec2(0.001, 0.001), vec2(0.999, 0.999));
+
+	// Sample refracted terrain depth & pixel position
+	float refract_depth_raw = textureLod(depth_texture, refract_uv, 0.0).r;
+	vec4 refract_clip_pos = INV_PROJECTION_MATRIX * vec4(refract_uv * 2.0 - 1.0, refract_depth_raw, 1.0);
+	vec3 refract_view_pos = refract_clip_pos.xyz / refract_clip_pos.w;
+	vec4 refract_world_hom = INV_VIEW_MATRIX * vec4(refract_view_pos, 1.0);
+	vec3 refract_world_pos = refract_world_hom.xyz / refract_world_hom.w;
+
+	// Filter out pixels above the water surface (ie player's head), or beyond the visible depth
+	bool pixel_above_water = refract_world_pos.y >= v_vertex.y;
+	bool in_refraction_depth = VERTEX.z < refract_view_pos.z + 2. * visible_depth;
+	bool use_refracted = !pixel_above_water && in_refraction_depth;
+	vec2 final_refract_uv = use_refracted ? refract_uv : SCREEN_UV;
+
+	// Sample undersea meshes
+	vec3 background_color = texture(screen_texture, final_refract_uv).rgb;
+
+	// Depth fade based on vertical depth, with curve
+	// The minimum amount helps to avoid ghosting around the player under the water
+	float water_depth = max(20., sea_level + v_vertex.y - terrain_position.y);
+	float normalized_depth = water_depth / visible_depth;
+	float depth_fade = pow(clamp(normalized_depth, 0.0, 1.0), depth_curve);
+	ALBEDO = mix(background_color, ALBEDO, depth_fade);
+
+	// Foam
 	float foam_mask = 0.0;
 	if (foam_enabled) {
-		float detail_wave = h * 0.005 ;
+		float detail_wave = wave_height * 0.005 ;
 		float foam_noise = texture(foam_noise_texture, UV * .1 * foam_noise_scale).r;
-		foam_mask = clamp(h * 0.5 + (detail_wave * 2.0 + shore_mask * foam_shore_intensity * float(foam_shore_enabled)) * foam_noise * 1.5 - foam_height, 0.0, 1.0);
+		foam_mask = clamp(wave_height * 0.5 + (detail_wave * foam_top_intensity + float(foam_shore_enabled) * shore_mask * foam_shore_intensity) * foam_noise * 1.5 - foam_height, 0.0, 1.0);
 		float dist_fade = 1. - smoothstep(0., 1., v_vertex_distance / foam_distance);
 		foam_mask *= dist_fade;
-		final_color = mix(final_color, vec3(0.8), foam_mask);
+		ALBEDO = mix(ALBEDO, vec3(0.8), foam_mask);
 	}
 
-	// Refraction: Distort screen UVs using the normal (tangent-space projection)
-	{
-		vec2 refract_offset = NORMAL.xz * refraction_strength;
-		// limit refraction at the bottom edge of the screen as normals push away in view direction.
-		float y_limit = 1.0 - smoothstep(.0, length(refract_offset) * 4.0, 1.-SCREEN_UV.y);
-		refract_offset = mix(refract_offset, vec2(0.), max(shore_mask, y_limit));
-		vec2 refract_uv = SCREEN_UV + refract_offset;
-		refract_uv = clamp(refract_uv, vec2(0.001, 0.001), vec2(0.999, 0.999));  // slight inset to avoid exact edge artifacts
-
-		// Invert refract if target screenspace pixel is above ocean surface, replaces major artifact with minor one.
-		proximity_depth_tex = textureLod(depth_texture, refract_uv, 0.0).r;
-		proximity_view_pos = INV_PROJECTION_MATRIX * vec4(refract_uv * 2.0 - 1.0, proximity_depth_tex, 1.0);
-		proximity_view_pos.xyz /= proximity_view_pos.w;
-		refract_uv = SCREEN_UV + mix(refract_offset * (float(proximity_view_pos.z < VERTEX.z) * 2.0 - 1.0), vec2(0.), max(shore_mask, y_limit));
-		refract_uv = clamp(refract_uv, vec2(0.001, 0.001), vec2(0.999, 0.999));  // slight inset to avoid exact edge artifacts
-
-		// Increase alpha with depth as more water means more light absorbed
-		depth_fade = clamp(depth_fade + min(abs(VERTEX.z - proximity_view_pos.z) * 0.001 * depth_absorption, 1.0), 0.0, 1.0);
-
-		vec3 background = texture(screen_texture, refract_uv).rgb;
-		final_color = mix(background, final_color, depth_fade * depth_fade);
-	}
-
-	ALBEDO = final_color;
-
+	// Light scattering
 	if (light_scattering_enabled) {
-		// Approximate light scattering
 		vec3 ray_dir = normalize(mat3(INV_VIEW_MATRIX) * VIEW);
-		// light scattering based on height and sun angle
-		vec3 light_factor = height_scattering * max(h, height_threshold)
+		// Light scattering based on height and sun angle
+		vec3 light_factor = height_scattering * max(wave_height, height_threshold)
 			* max(pow(dot(_light_direction, -ray_dir), 4.0), height_angle_threshold)
 			* _light_color
 			* pow(0.5 - 0.5 * dot(_light_direction, world_normal), 3.0);
-		// light scattering based on view angle
-		light_factor += fersnel_scattering * pow(dot(ray_dir, world_normal), 2.0) * _light_color * albedo_color;
-		// direct light scattering
-		light_factor += direct_scattering * dot(_light_direction, world_normal) * albedo_color * _light_color;
+		// Light scattering based on view angle
+		light_factor += fersnel_scattering * pow(dot(ray_dir, world_normal), 2.0) * _light_color * water_color;
+		// Direct light scattering
+		light_factor += direct_scattering * dot(_light_direction, world_normal) * water_color * _light_color;
 		// Apply horizon fade to the whole scattering
     	BACKLIGHT = light_factor * 4.0 * clamp(depth_fade, 0.4, 1.0) * max(1.0 - foam_mask, 0.5) * daytime_mask;
 	}
