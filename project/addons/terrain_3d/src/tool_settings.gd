@@ -4,6 +4,8 @@ extends PanelContainer
 
 signal picking(type: Terrain3DEditor.Tool, callback: Callable)
 signal setting_changed(setting: Variant)
+signal push_button_pressed
+signal pull_button_pressed
 
 enum Layout {
 	HORIZONTAL,
@@ -21,6 +23,7 @@ enum SettingType {
 	SLIDER,
 	LABEL,
 	TYPE_MAX,
+	BUTTON,
 }
 
 const MultiPicker: Script = preload("res://addons/terrain_3d/src/multi_picker.gd")
@@ -49,6 +52,7 @@ var scale_list: VBoxContainer
 var rotation_list: VBoxContainer
 var color_list: VBoxContainer
 var collision_list: VBoxContainer
+var pull_push_list: VBoxContainer
 var settings: Dictionary = {}
 
 
@@ -167,7 +171,10 @@ func _ready() -> void:
 							"default":true })
 	add_setting({ "name":"raycast_height", "label":"Raycast Height", "type":SettingType.SLIDER, 
 							"list":collision_list, "default":10, "unit":"m", "range":Vector3(0, 200, .25) })
-
+	pull_push_list = create_submenu(main_list, "Pull/Push", Layout.VERTICAL)
+	add_setting({"name":"pull", "label":"Pull from scene", "type":SettingType.BUTTON, "list":pull_push_list, "icon":"", "flags":NO_LABEL})
+	add_setting({"name":"push", "label":"Push from instancer", "type":SettingType.BUTTON, "list":pull_push_list, "icon":"", "flags":NO_LABEL})
+	
 	if DisplayServer.is_touchscreen_available():
 		add_setting({ "name":"invert", "label":"Invert", "type":SettingType.CHECKBOX, "list":main_list, "default":false, "flags":ADD_SEPARATOR })
 
@@ -481,6 +488,16 @@ func add_setting(p_args: Dictionary) -> void:
 			pending_children.push_back(option)
 			control = option
 
+		SettingType.BUTTON:
+			var button:= Button.new()
+			button.text = p_label
+			if p_name == "pull":
+				button.pressed.connect(pull_button_pressed.emit)
+			if p_name == "push":
+				button.pressed.connect(push_button_pressed.emit)
+			pending_children.push_back(button)
+			control = button
+			
 		SettingType.SLIDER, SettingType.DOUBLE_SLIDER:
 			var slider: Control
 			if p_type == SettingType.SLIDER:
