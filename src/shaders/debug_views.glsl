@@ -55,12 +55,12 @@ group_uniforms;
 		const vec3 __offsets = vec3(0, 1, 2);
 		vec2 __index_id = floor((INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xz);
 		float __h[6];
-		__h[0] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xy, FRAGMENT_PASS), 0).r;
-		__h[1] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.yy, FRAGMENT_PASS), 0).r;
-		__h[2] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.yx, FRAGMENT_PASS), 0).r;
-		__h[3] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xx, FRAGMENT_PASS), 0).r;
-		__h[4] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.zx, FRAGMENT_PASS), 0).r;
-		__h[5] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xz, FRAGMENT_PASS), 0).r;
+		__h[0] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xy), 0).r;
+		__h[1] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.yy), 0).r;
+		__h[2] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.yx), 0).r;
+		__h[3] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xx), 0).r;
+		__h[4] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.zx), 0).r;
+		__h[5] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xz), 0).r;
 
 		vec3 __normal[3];
 		__normal[0] = normalize(vec3(__h[0] - __h[1], _vertex_spacing, __h[0] - __h[5]));
@@ -78,7 +78,7 @@ group_uniforms;
 //INSERT: DEBUG_AUTOSHADER
 	// Show where autoshader enabled
 	{
-		ivec3 __ruv = get_index_coord(floor(uv), SKIP_PASS);
+		ivec3 __ruv = get_index_coord(floor(uv));
 		uint __control = floatBitsToUint(texelFetch(_control_maps, __ruv, 0).r);
 		float __autoshader = float( bool(__control & 0x1u) || __ruv.z<0 );
 		ALBEDO = vec3(__autoshader);
@@ -124,7 +124,7 @@ group_uniforms;
 		__t_colors[29] = vec3(0.1);
 		__t_colors[30] = vec3(0.05);
 		__t_colors[31] = vec3(0.0125);
-		ivec3 __uv = get_index_coord(floor(uv), SKIP_PASS);
+		ivec3 __uv = get_index_coord(floor(uv));
 		uint __control = floatBitsToUint(texelFetch(_control_maps, __uv, 0).r);
 		vec3 __ctrl_base = __t_colors[int(__control >>27u & 0x1Fu)];
 		vec3 __ctrl_over = __t_colors[int(__control >>22u & 0x1Fu)];
@@ -140,7 +140,7 @@ group_uniforms;
 //INSERT: DEBUG_CONTROL_BLEND
 	// Show control map blend values
 	{
-		ivec3 __uv = get_index_coord(floor(uv), SKIP_PASS);
+		ivec3 __uv = get_index_coord(floor(uv));
         uint __control = floatBitsToUint(texelFetch(_control_maps, __uv, 0).r);
         float __ctrl_blend = float(__control >>14u & 0xFFu) * 0.003921568627450; // 1.0/255.0
 		float __is_auto = 0.;
@@ -157,7 +157,7 @@ group_uniforms;
 //INSERT: DEBUG_CONTROL_ANGLE
 	// Show control map texture angle
 	{
-		ivec3 __auv = get_index_coord(floor(uv), SKIP_PASS);
+		ivec3 __auv = get_index_coord(floor(uv));
 		uint __a_control = floatBitsToUint(texelFetch(_control_maps, __auv, 0)).r;
 		uint __angle = (__a_control >>10u & 0xFu);
 		vec3 __a_colors[16] = {
@@ -176,7 +176,7 @@ group_uniforms;
 //INSERT: DEBUG_CONTROL_SCALE
 	// Show control map texture scale
 	{
-		ivec3 __suv = get_index_coord(floor(uv), SKIP_PASS);
+		ivec3 __suv = get_index_coord(floor(uv));
 		uint __s_control = floatBitsToUint(texelFetch(_control_maps, __suv, 0)).r;
 		uint __scale = (__s_control >>7u & 0x7u);
 		vec3 __s_colors[8] = {
