@@ -380,8 +380,8 @@ void fragment() {
 		uint id_read = 0u; // 1 bit per possible ID
 		// world normal adjustment requires acess to previous id during next iteration
 		vec4 nrm = vec4(0.0, 1.0, 0.0, 1.0);
-		// adjust uv scale to account for vertex spacing
-		uv *= _vertex_spacing;
+
+		vec2 world_uv = v_vertex.xz;
 		for (int i = 0; i < 4; i++) {
 			for (int t = 0; t < 2; t++) {
 				int id = texture_ids[i][t];
@@ -391,7 +391,7 @@ void fragment() {
 					id_read |= mask;
 					float id_w = t_weights[i][t];
 					float id_scale = _texture_uv_scale_array[id] * 0.5;
-					vec2 id_uv = fma(uv, vec2(id_scale), vec2(0.5));
+					vec2 id_uv = fma(world_uv, vec2(id_scale), vec2(0.5));
 					vec4 i_dd = base_dd * id_scale;
 					vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), i_dd.xy, i_dd.zw);
 					float world_normal = clamp(fma(TBN[0], vec3(nrm.x), fma(TBN[1], vec3(nrm.z), v_normal * vec3(nrm.y))).y, 0., 1.);
