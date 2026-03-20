@@ -1,0 +1,108 @@
+[gd_scene load_steps=17 format=3 uid="uid://biscji44igfd1"]
+
+[ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="1_bn1pt"]
+[ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="1_ocys8"]
+[ext_resource type="Texture2D" uid="uid://c307hdmos4gtm" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="2_tner3"]
+[ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="3_icstv"]
+[ext_resource type="Texture2D" uid="uid://c1ots7w6i0i1q" path="res://demo/assets/textures/ground037_nrm_rgh.png" id="4_ocys8"]
+[ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="5_tner3"]
+[ext_resource type="PackedScene" uid="uid://bb2lp50sjndus" path="res://demo/components/Environment.tscn" id="7_aeuid"]
+
+[sub_resource type="Gradient" id="Gradient_bhdbr"]
+offsets = PackedFloat32Array(0.2, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_lykh7"]
+noise_type = 2
+frequency = 0.03
+cellular_jitter = 3.0
+cellular_return_type = 0
+domain_warp_enabled = true
+domain_warp_type = 1
+domain_warp_amplitude = 50.0
+domain_warp_fractal_type = 2
+domain_warp_fractal_lacunarity = 1.5
+domain_warp_fractal_gain = 1.0
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_v7kqh"]
+seamless = true
+color_ramp = SubResource("Gradient_bhdbr")
+noise = SubResource("FastNoiseLite_lykh7")
+
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_mvmq4"]
+_shader_parameters = {
+&"auto_base_texture": 0,
+&"auto_height_reduction": 0.1,
+&"auto_overlay_texture": 1,
+&"auto_shader": null,
+&"auto_slope": 1.0,
+&"bias_distance": 512.0,
+&"blend_sharpness": 0.5,
+&"depth_blur": 0.0,
+&"flat_terrain_normals": false,
+&"general": null,
+&"macro_variation": true,
+&"macro_variation1": Color(1, 1, 1, 1),
+&"macro_variation2": Color(1, 1, 1, 1),
+&"macro_variation_slope": 0.333,
+&"mipmap_bias": 1.0,
+&"mipmaps": null,
+&"noise1_angle": 0.0,
+&"noise1_offset": Vector2(0.5, 0.5),
+&"noise1_scale": 0.04,
+&"noise2_scale": 0.076,
+&"noise_texture": SubResource("NoiseTexture2D_v7kqh"),
+&"projection_threshold": 0.8,
+&"vertical_projection": true
+}
+world_background = 0
+auto_shader_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bn1pt"]
+transparency = 4
+cull_mode = 2
+vertex_color_use_as_albedo = true
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_tner3"]
+height_offset = 0.5
+material_override = SubResource("StandardMaterial3D_bn1pt")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_aeuid"]
+name = "ground037_alb_ht"
+albedo_texture = ExtResource("1_bn1pt")
+normal_texture = ExtResource("2_tner3")
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_ka12a"]
+name = "ground037_alb_ht"
+id = 1
+albedo_texture = ExtResource("3_icstv")
+normal_texture = ExtResource("4_ocys8")
+
+[sub_resource type="Terrain3DAssets" id="Terrain3DAssets_icstv"]
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_tner3")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_aeuid"), SubResource("Terrain3DTextureAsset_ka12a")])
+
+[node name="GenerationTest" type="Node3D"]
+
+[node name="UI" parent="." instance=ExtResource("1_ocys8")]
+
+[node name="Environment" parent="." instance=ExtResource("7_aeuid")]
+
+[node name="Player" parent="." instance=ExtResource("5_tner3")]
+transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 50, 105.348, 50)
+
+[node name="Terrain3D" type="Terrain3D" parent="."]
+data_directory = "res://demo/data3"
+material = SubResource("Terrain3DMaterial_mvmq4")
+assets = SubResource("Terrain3DAssets_icstv")
+cull_margin = 10000.0
+top_level = true
+metadata/_edit_lock_ = true
