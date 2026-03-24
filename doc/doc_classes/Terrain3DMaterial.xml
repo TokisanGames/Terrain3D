@@ -198,11 +198,17 @@
 		<constant name="NOISE" value="2" enum="WorldBackground">
 			Outside of the defined regions, generate visual-only hills.
 		</constant>
-		<constant name="LINEAR" value="0" enum="TextureFiltering">
+		<constant name="LINEAR_ANISOTROPIC" value="0" enum="TextureFiltering">
+			Textures are filtered using a blend of 4 adjacent pixels, with anisotropic filtering which improves the sharpness of distant terrain off axis from the camera. Use this for most cases for high quality renders.
+		</constant>
+		<constant name="LINEAR" value="1" enum="TextureFiltering">
 			Textures are filtered using a blend of 4 adjacent pixels. Use this for most cases for high quality renders.
 		</constant>
-		<constant name="NEAREST" value="1" enum="TextureFiltering">
-			Textures are filtered using a the nearest pixel only. It is faster than LINEAR, but the texture will look pixelated. Use this for a low-poly look, with a very low uv_scale.
+		<constant name="NEAREST_ANISOTROPIC" value="2" enum="TextureFiltering">
+			Textures are filtered using the nearest pixel only with anisotropic filtering which improves the sharpness of distant terrain off axis from the camera. It is faster than LINEAR, but the texture will look pixelated. Use this for a low-poly look, with a very low uv_scale.
+		</constant>
+		<constant name="NEAREST" value="3" enum="TextureFiltering">
+			Textures are filtered using the nearest pixel only. It is faster than LINEAR, but the texture will look pixelated. Use this for a low-poly look, with a very low uv_scale.
 		</constant>
 		<constant name="UNIFORMS_ONLY" value="0" enum="UpdateFlags">
 			Non-texture array values are assigned to the shader. This is the default and is always done.

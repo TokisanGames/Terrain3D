@@ -190,21 +190,37 @@ Outside of the defined regions, generate visual-only hills.
 
 enum **TextureFiltering**: :ref:`🔗<enum_Terrain3DMaterial_TextureFiltering>`
 
+.. _class_Terrain3DMaterial_constant_LINEAR_ANISOTROPIC:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **LINEAR_ANISOTROPIC** = ``0``
+
+Textures are filtered using a blend of 4 adjacent pixels, with anisotropic filtering which improves the sharpness of distant terrain off axis from the camera. Use this for most cases for high quality renders.
+
 .. _class_Terrain3DMaterial_constant_LINEAR:
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **LINEAR** = ``0``
+:ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **LINEAR** = ``1``
 
 Textures are filtered using a blend of 4 adjacent pixels. Use this for most cases for high quality renders.
+
+.. _class_Terrain3DMaterial_constant_NEAREST_ANISOTROPIC:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **NEAREST_ANISOTROPIC** = ``2``
+
+Textures are filtered using the nearest pixel only with anisotropic filtering which improves the sharpness of distant terrain off axis from the camera. It is faster than LINEAR, but the texture will look pixelated. Use this for a low-poly look, with a very low uv_scale.
 
 .. _class_Terrain3DMaterial_constant_NEAREST:
 
 .. rst-class:: classref-enumeration-constant
 
-:ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **NEAREST** = ``1``
+:ref:`TextureFiltering<enum_Terrain3DMaterial_TextureFiltering>` **NEAREST** = ``3``
 
-Textures are filtered using a the nearest pixel only. It is faster than LINEAR, but the texture will look pixelated. Use this for a low-poly look, with a very low uv_scale.
+Textures are filtered using the nearest pixel only. It is faster than LINEAR, but the texture will look pixelated. Use this for a low-poly look, with a very low uv_scale.
 
 .. rst-class:: classref-item-separator
 
