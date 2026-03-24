@@ -155,10 +155,27 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("WORLD_NOISE_VERTEX");
 		excludes.push_back("WORLD_NOISE_FRAGMENT");
 	}
-	if (_texture_filtering == LINEAR) {
-		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-	} else {
-		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+	switch (_texture_filtering) {
+		case LINEAR_ANISOTROPIC:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+			break;
+		case LINEAR:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
+			break;
+		case NEAREST_ANISOTROPIC:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
+			break;
+		case NEAREST:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
+			break;
 	}
 	if (!_auto_shader_enabled) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
@@ -303,10 +320,27 @@ String Terrain3DMaterial::_generate_buffer_shader_code() const {
 		excludes.push_back("FLAT_FUNCTIONS");
 		excludes.push_back("FLAT_FRAGMENT");
 	}
-	if (_texture_filtering == LINEAR) {
-		excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-	} else {
-		excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+	switch (_texture_filtering) {
+		case LINEAR_ANISOTROPIC:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+			break;
+		case LINEAR:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
+			break;
+		case NEAREST_ANISOTROPIC:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
+			break;
+		case NEAREST:
+			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
+			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
+			break;
 	}
 	if (!_auto_shader_enabled) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
@@ -1226,7 +1260,9 @@ void Terrain3DMaterial::_bind_methods() {
 	BIND_ENUM_CONSTANT(NONE);
 	BIND_ENUM_CONSTANT(FLAT);
 	BIND_ENUM_CONSTANT(NOISE);
+	BIND_ENUM_CONSTANT(LINEAR_ANISOTROPIC);
 	BIND_ENUM_CONSTANT(LINEAR);
+	BIND_ENUM_CONSTANT(NEAREST_ANISOTROPIC);
 	BIND_ENUM_CONSTANT(NEAREST);
 	BIND_ENUM_CONSTANT(UNIFORMS_ONLY);
 	BIND_ENUM_CONSTANT(TEXTURE_ARRAYS);
@@ -1340,7 +1376,7 @@ void Terrain3DMaterial::_bind_methods() {
 
 	// These must be different from the names of uniform groups
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "world_background", PROPERTY_HINT_ENUM, "None,Flat,Noise"), "set_world_background", "get_world_background");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear,Nearest"), "set_texture_filtering", "get_texture_filtering");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "texture_filtering", PROPERTY_HINT_ENUM, "Linear Anisotropic,Linear,Nearest Anisotropic,Nearest"), "set_texture_filtering", "get_texture_filtering");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_shader_enabled"), "set_auto_shader_enabled", "get_auto_shader_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling_enabled", "get_dual_scaling_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "macro_variation_enabled"), "set_macro_variation_enabled", "get_macro_variation_enabled");
