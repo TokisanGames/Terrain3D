@@ -1,0 +1,53 @@
+[gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://cgk4glwmc4vk2"]
+
+[ext_resource type="Shader" uid="uid://biawd3fhk5weg" path="res://addons/terrain_3d/extras/shaders/ocean_shader.gdshader" id="1_t7ju5"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_m6kh4"]
+noise_type = 2
+frequency = 0.029
+fractal_type = 2
+fractal_octaves = 3
+fractal_gain = 0.195
+cellular_return_type = 3
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_i2r35"]
+generate_mipmaps = false
+noise = SubResource("FastNoiseLite_m6kh4")
+seamless = true
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_t7ju5")
+shader_parameter/sea_level = 5.000000819565997
+shader_parameter/water_color = Color(0.1058, 0.1568, 0.2117, 1)
+shader_parameter/visible_depth = 256.0
+shader_parameter/depth_curve = 0.1
+shader_parameter/shore_blend = 0.999999977648
+shader_parameter/refraction_strength = 0.02
+shader_parameter/time_scale = 8.0
+shader_parameter/height_scale = 3.0
+shader_parameter/ocean_scale = 2.0
+shader_parameter/fresnel_scale = 0.5
+shader_parameter/fresnel_power = 1.0
+shader_parameter/specular = 1.0
+shader_parameter/foam_enabled = true
+shader_parameter/foam_height = 1.350000064125
+shader_parameter/foam_top_intensity = 2.0
+shader_parameter/foam_distance = 3072.00014591674
+shader_parameter/foam_shore_enabled = true
+shader_parameter/foam_shore_intensity = 1.3000000584901201
+shader_parameter/foam_noise_texture = SubResource("NoiseTexture2D_i2r35")
+shader_parameter/foam_noise_scale = 1.5
+shader_parameter/light_scattering_enabled = true
+shader_parameter/height_scattering = 6.000000285
+shader_parameter/height_threshold = 0.1
+shader_parameter/height_angle_threshold = 0.21
+shader_parameter/fersnel_scattering = 20.0
+shader_parameter/direct_scattering = 10.0
+shader_parameter/_mesh_size = 32.0
+shader_parameter/_subdiv = 1.0
+shader_parameter/_vertex_spacing = 4.0
+shader_parameter/_vertex_density = 0.25
+shader_parameter/_target_pos = Vector3(0, 0, 0)
+shader_parameter/_light_direction = Vector3(0, 0.7671652, 0.64144963)
+shader_parameter/_light_color = Color(1, 1, 1, 1)

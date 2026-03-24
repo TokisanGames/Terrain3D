@@ -161,7 +161,7 @@ Vector2 Terrain3DUtil::get_min_max(const Ref<Image> &p_image) {
 		return V2(INFINITY);
 	}
 
-	Vector2 min_max = Vector2(FLT_MAX, FLT_MIN);
+	Vector2 min_max = Vector2(FLT_MAX, -FLT_MAX);
 
 	for (int y = 0; y < p_image->get_height(); y++) {
 		for (int x = 0; x < p_image->get_width(); x++) {

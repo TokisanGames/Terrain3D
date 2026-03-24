@@ -29,10 +29,9 @@ public partial class Terrain3DTextureAsset : Resource
 	/// <returns>The existing or a new instance of the <see cref="Terrain3DTextureAsset"/> wrapper script attached to the supplied <paramref name="godotObject"/>.</returns>
 	public new static Terrain3DTextureAsset Bind(GodotObject godotObject)
 	{
-#if DEBUG
 		if (!IsInstanceValid(godotObject))
-			throw new InvalidOperationException("The supplied GodotObject instance is not valid.");
-#endif
+			return null;
+
 		if (godotObject is Terrain3DTextureAsset wrapperScriptInstance)
 			return wrapperScriptInstance;
 
@@ -154,7 +153,6 @@ public partial class Terrain3DTextureAsset : Resource
 		public new static readonly StringName DisplacementScale = "displacement_scale";
 		public new static readonly StringName DisplacementOffset = "displacement_offset";
 		public new static readonly StringName UvScale = "uv_scale";
-		public new static readonly StringName VerticalProjection = "vertical_projection";
 		public new static readonly StringName DetilingRotation = "detiling_rotation";
 		public new static readonly StringName DetilingShift = "detiling_shift";
 	}
@@ -229,12 +227,6 @@ public partial class Terrain3DTextureAsset : Resource
 	{
 		get => Get(GDExtensionPropertyName.UvScale).As<double>();
 		set => Set(GDExtensionPropertyName.UvScale, value);
-	}
-
-	public new bool VerticalProjection
-	{
-		get => Get(GDExtensionPropertyName.VerticalProjection).As<bool>();
-		set => Set(GDExtensionPropertyName.VerticalProjection, value);
 	}
 
 	public new double DetilingRotation

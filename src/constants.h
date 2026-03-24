@@ -14,9 +14,9 @@ using namespace godot;
 #define IS_EDITOR Engine::get_singleton()->is_editor_hint()
 
 // Constants
-#define COLOR_NAN Color(NAN, NAN, NAN, NAN)
+static const Color COLOR_NAN{ NAN, NAN, NAN, NAN };
+static const Color COLOR_WHITE{ 1.0f, 1.0f, 1.0f, 1.0f };
 #define COLOR_BLACK Color(0.0f, 0.0f, 0.0f, 1.0f)
-#define COLOR_WHITE Color(1.0f, 1.0f, 1.0f, 1.0f)
 #define COLOR_ROUGHNESS Color(1.0f, 1.0f, 1.0f, 0.5f)
 #define COLOR_CHECKED Color(1.f, 1.f, 1.0f, -1.0f)
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
@@ -25,9 +25,6 @@ using namespace godot;
 // For consistency between MSVC, gcc, clang
 #ifndef FLT_MAX
 #define FLT_MAX __FLT_MAX__
-#endif
-#ifndef FLT_MIN
-#define FLT_MIN __FLT_MIN__
 #endif
 
 // Terrain3D::_warnings is uint8_t

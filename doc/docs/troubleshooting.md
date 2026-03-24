@@ -100,7 +100,9 @@ If you're using multiple cameras, or viewports, you need to tell Terrain3D which
 
 ### Textures flicker
 
-Disable temporal effects: FSR, TAA, and motion blur. The Terrain3D mesh is constantly moving which causes Godot to unnecessarily generate motion vectors for the terrain. A way to fix this is making it's way through Godot and will be included in a later version. Until then, temporal effects are unreliable.
+This is caused by temporal effects: FSR, TAA, and motion blur shaders. The Terrain3D mesh is constantly moving, which causes Godot to unnecessarily generate motion vectors for the terrain.
+
+To fix the flickering, disable the effects above, or use Godot 4.5+ and Terrain3D v1.0.2+, v1.1.0+, or source built against the godot-cpp 4.5 branch or higher.
 
 
 ### Intersecting meshes flicker

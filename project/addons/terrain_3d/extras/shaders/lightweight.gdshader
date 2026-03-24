@@ -1,3 +1,6 @@
+// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// This shader is the minimum needed to allow the terrain to function, without any texturing.
+
 shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
 
@@ -13,9 +16,6 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
  */
 
 // Defined Constants
-#define SKIP_PASS 0
-#define VERTEX_PASS 1
-#define FRAGMENT_PASS 2
 #define COLOR_MAP vec4(1.0, 1.0, 1.0, 0.5)
 #define DIV_255 0.003921568627450 // 1. / 255.
 
@@ -33,6 +33,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #endif
 
 // Private uniforms
+group_uniforms shader_uniforms;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
@@ -56,24 +57,25 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+group_uniforms;
 
 // Public uniforms
-group_uniforms general;
+group_uniforms shader_uniforms.general;
 uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
 uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 uniform bool flat_terrain_normals = false;
-uniform bool enable_textures = true;
+uniform bool textures_enabled = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 group_uniforms;
 
-group_uniforms auto_shader;
+group_uniforms shader_uniforms.auto_shader;
 uniform float auto_slope : hint_range(0, 10) = 1.0;
 uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
 uniform int auto_base_texture : hint_range(0, 31) = 0;
 uniform int auto_overlay_texture : hint_range(0, 31) = 1;
 group_uniforms;
 
-group_uniforms macro_variation;
+group_uniforms shader_uniforms.macro_variation;
 uniform bool macro_variation_enabled = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
@@ -86,8 +88,9 @@ uniform float noise2_scale : hint_range(0.001, 1.) = 0.076; // Used for macro va
 group_uniforms;
 
 // Varyings & Types
-varying vec3 v_normal;
 varying vec3 v_vertex;
+varying float v_vertex_xz_dist;
+varying vec3 v_normal;
 varying vec3 v_camera_pos;
 varying mat3 TBN;
 
@@ -95,24 +98,16 @@ varying mat3 TBN;
 // Vertex
 ////////////////////////
 
-// Takes in world space XZ (UV) coordinates & search depth (only applicable for background mode none)
+// Takes in world space XZ (UV) coordinates
 // Returns ivec3 with:
 // XY: (0 to _region_size - 1) coordinates within a region
 // Z: layer index used for texturearrays, -1 if not in a region
-ivec3 get_index_coord(const vec2 uv, const int search) {
+ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
-	vec2 o_uv = mod(r_uv,_region_size);
-	ivec2 pos;
-	int bounds, layer_index = -1;
-	for (int i = -1; i < clamp(search, SKIP_PASS, FRAGMENT_PASS); i++) {
-		if ((layer_index == -1 && _background_mode == 0u ) || i < 0) {
-			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
-			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
-			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-			layer_index = (_region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1);
-		}
-	}
-	return ivec3(ivec2(mod(r_uv,_region_size)), layer_index);
+	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
@@ -123,6 +118,16 @@ vec3 get_index_uv(const vec2 uv2) {
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
 	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
+}
+
+// Takes in world space XZ (UV) and returns if the coordinate should be part of the NONE background.
+bool is_none_bg(const vec2 uv) {
+	ivec4 regions = ivec4(
+		get_index_coord(uv - vec2(0.5, 0.0)).z,
+		get_index_coord(uv - vec2(0.0, 0.5)).z,
+		get_index_coord(uv + vec2(1.0, 0.0)).z,
+		get_index_coord(uv + vec2(0.0, 1.0)).z);
+	return any(equal(regions, ivec4(-1)));
 }
 
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
@@ -137,7 +142,7 @@ float check_region(const vec2 uv2) {
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
 float get_region_blend(vec2 uv2) {
-	uv2 -= 0.4989; // Offset from - 0.5 to account for FP errors highlighted by Tessellation.
+	uv2 -= 0.5;
 	const vec2 offset = vec2(0.0, 1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
@@ -152,10 +157,10 @@ float interpolated_height(vec2 pos) {
 	const vec2 offsets = vec2(0, 1);
 	vec2 index_id = floor(pos);
 	ivec3 index[4];
-	index[0] = get_index_coord(index_id + offsets.xy, VERTEX_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, VERTEX_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, VERTEX_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, VERTEX_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 	float h0 = texelFetch(_height_maps, index[0], 0).r;
 	float h1 = texelFetch(_height_maps, index[1], 0).r;
 	float h2 = texelFetch(_height_maps, index[2], 0).r;
@@ -174,41 +179,41 @@ void vertex() {
 	// Get vertex of flat plane in world coordinates and set world UV
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
-	// Camera distance to vertex on flat plane
-	float v_vertex_xz_dist = length(v_vertex.xz - _target_pos.xz);
+	// Distance from target node to vertex on a flat plane
+	v_vertex_xz_dist = length(v_vertex.xz - _target_pos.xz);
 
-	// Geomorph vertex, set end and start for linear height interpolate
+	// Geomorph vertex across clipmap LODs, set end and start for linear height interpolate
 	float scale = MODEL_MATRIX[0][0];
 	float inv_scale = 1.0 / scale;
-	float vertex_distance = max(abs(v_vertex.x - _target_pos.x), abs(v_vertex.z - _target_pos.z));
-	float vertex_lerp = smoothstep(0.0, 1.0, (vertex_distance * inv_scale - _mesh_size - 4.0) / (_mesh_size - 4.0));
-	vec2 v_fract = fract(VERTEX.xz * 0.5) * 2.0;
+	float max_xz = max(abs(v_vertex.x - _target_pos.x), abs(v_vertex.z - _target_pos.z));
+	float vertex_lerp = smoothstep(0.0, 1.0, (max_xz * inv_scale - _mesh_size - 4.0) / (_mesh_size - 4.0));
+	vec2 vertex_fract = fract(VERTEX.xz * 0.5) * 2.0;
 	// For LOD0 morph from a regular grid to an alternating grid to align with LOD1+
 	vec2 shift = (scale < _vertex_spacing / _subdiv + 1e-6) ? // LOD0 or not
 		// Shift from regular to symmetric
-		mix(v_fract, vec2(v_fract.x, -v_fract.y),
+		mix(vertex_fract, vec2(vertex_fract.x, -vertex_fract.y),
 			round(fract(round(mod(v_vertex.z * inv_scale, 4.0)) *
 			round(mod(v_vertex.x * inv_scale, 4.0)) * 0.25))) :
-		// symmetric shift
-		v_fract * round((fract(v_vertex.xz * 0.25 * inv_scale) - 0.5) * 4.0);
+		// Symmetric shift
+		vertex_fract * round((fract(v_vertex.xz * 0.25 * inv_scale) - 0.5) * 4.0);
 	vec2 start_pos = v_vertex.xz * _vertex_density;
 	vec2 end_pos = (v_vertex.xz - shift * scale) * _vertex_density;
 	v_vertex.xz -= shift * scale * vertex_lerp;
 
-	// UV coordinates in world space. Values are 0 to _region_size within regions
+	// UV coordinates in region space. 0-1 covers 1 region, 1-2 is the next region, etc.
 	UV = v_vertex.xz * _vertex_density;
 
 	// UV coordinates in region space + texel offset. Values are 0 to 1 within regions
 	UV2 = fma(UV, vec2(_region_texel_size), vec2(0.5 * _region_texel_size));
 
 	// Discard vertices for Holes. 1 lookup
-	ivec3 v_region = get_index_coord(start_pos, VERTEX_PASS);
+	ivec3 v_region = get_index_coord(start_pos);
 	uint control = floatBitsToUint(texelFetch(_control_maps, v_region, 0)).r;
 	bool hole = DECODE_HOLE(control);
 
 	// Show holes to all cameras except mouse camera (on exactly 1 layer)
 	if ( !(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
-			(hole || (_background_mode == 0u && v_region.z == -1))) {
+			(hole || (_background_mode == 0u && is_none_bg(UV)))) {
 		v_vertex.x = 0. / 0.;
 	} else {
 		// Set final vertex height, and vertex normal.
@@ -216,26 +221,27 @@ void vertex() {
 		// This branch is static for each of the clipmap segments
 		// Interpolated reads only occur where sub-texel values are required.
 		if (scale < _vertex_spacing) {
-			h = mix(interpolated_height(start_pos), interpolated_height(end_pos), vertex_lerp);
-			u = mix(interpolated_height(start_pos + vec2(1, 0)), interpolated_height(end_pos + vec2(1, 0)), vertex_lerp);
-			v = mix(interpolated_height(start_pos + vec2(0, 1)), interpolated_height(end_pos + vec2(0, 1)), vertex_lerp);
+			h = interpolated_height(UV);
+			u = interpolated_height(UV + vec2(1, 0));
+			v = interpolated_height(UV + vec2(0, 1));
 		} else {
-			ivec3 coord_a = get_index_coord(start_pos, VERTEX_PASS);
-			ivec3 coord_b = get_index_coord(end_pos, VERTEX_PASS);
-			ivec3 coord_ua = get_index_coord(start_pos + vec2(1, 0), VERTEX_PASS);
-			ivec3 coord_ub = get_index_coord(end_pos + vec2(1, 0), VERTEX_PASS);
-			ivec3 coord_va = get_index_coord(start_pos + vec2(0, 1), VERTEX_PASS);
-			ivec3 coord_vb = get_index_coord(end_pos + vec2(0, 1), VERTEX_PASS);
+			ivec3 coord_a = get_index_coord(start_pos);
+			ivec3 coord_b = get_index_coord(end_pos);
+			ivec3 coord_ua = get_index_coord(start_pos + vec2(1, 0));
+			ivec3 coord_ub = get_index_coord(end_pos + vec2(1, 0));
+			ivec3 coord_va = get_index_coord(start_pos + vec2(0, 1));
+			ivec3 coord_vb = get_index_coord(end_pos + vec2(0, 1));
 			h = mix(texelFetch(_height_maps, coord_a, 0).r, texelFetch(_height_maps, coord_b, 0).r, vertex_lerp);
 			u = mix(texelFetch(_height_maps, coord_ua, 0).r, texelFetch(_height_maps, coord_ub, 0).r, vertex_lerp);
 			v = mix(texelFetch(_height_maps, coord_va, 0).r, texelFetch(_height_maps, coord_vb, 0).r, vertex_lerp);
 		}
-		
+
 		// Apply background ground level and region blend
-		h += ground_level *  smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2));
-		u += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(_region_texel_size, 0.)));
-		v += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(UV2 + vec2(0., _region_texel_size)));
-		
+		vec2 ruv = UV * _region_texel_size;
+		h += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv));
+		u += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(_region_texel_size, 0.)));
+		v += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(0., _region_texel_size)));
+
 		v_vertex.y = h;
 		v_normal = normalize(vec3(h - u, _vertex_spacing, h - v));
 	}
@@ -282,10 +288,10 @@ void fragment() {
 
 	ivec3 index[4];
 	// control map lookups, used for some normal lookups as well
-	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
-	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
-	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
-	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
+	index[0] = get_index_coord(index_id + offsets.xy);
+	index[1] = get_index_coord(index_id + offsets.yy);
+	index[2] = get_index_coord(index_id + offsets.yx);
+	index[3] = get_index_coord(index_id + offsets.xx);
 
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);
@@ -309,7 +315,7 @@ void fragment() {
 	float ao = 1.0;
 	float ao_affect = 0.;
 
-	if (enable_textures) {
+	if (textures_enabled) {
 		// set to zero before accumulation
 		albedo_height = vec4(0.);
 		normal_rough = vec4(0.);
@@ -331,7 +337,8 @@ void fragment() {
 			float auto_blend = clamp(fma(auto_slope * 2.0, (v_normal.y - 1.0), 1.0)
 				- auto_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);
 			// Enable Autoshader if outside regions or painted in regions, otherwise manual painted
-			uvec4 is_auto = (control & uvec4(0x1u)) | uvec4(uint(region_uv.z < 0.0));
+			uvec4 is_auto = (control & uvec4(0x1u)) |
+				uvec4(lessThan(ivec4(index[0].z, index[1].z, index[2].z, index[3].z), ivec4(0)));
 			uint u_auto =
 				((uint(auto_base_texture) & 0x1Fu) << 27u) |
 				((uint(auto_overlay_texture) & 0x1Fu) << 22u) |
@@ -373,8 +380,8 @@ void fragment() {
 		uint id_read = 0u; // 1 bit per possible ID
 		// world normal adjustment requires acess to previous id during next iteration
 		vec4 nrm = vec4(0.0, 1.0, 0.0, 1.0);
-		// adjust uv scale to account for vertex spacing
-		uv *= _vertex_spacing;
+
+		vec2 world_uv = v_vertex.xz;
 		for (int i = 0; i < 4; i++) {
 			for (int t = 0; t < 2; t++) {
 				int id = texture_ids[i][t];
@@ -384,7 +391,7 @@ void fragment() {
 					id_read |= mask;
 					float id_w = t_weights[i][t];
 					float id_scale = _texture_uv_scale_array[id] * 0.5;
-					vec2 id_uv = fma(uv, vec2(id_scale), vec2(0.5));
+					vec2 id_uv = fma(world_uv, vec2(id_scale), vec2(0.5));
 					vec4 i_dd = base_dd * id_scale;
 					vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), i_dd.xy, i_dd.zw);
 					float world_normal = clamp(fma(TBN[0], vec3(nrm.x), fma(TBN[1], vec3(nrm.z), v_normal * vec3(nrm.y))).y, 0., 1.);

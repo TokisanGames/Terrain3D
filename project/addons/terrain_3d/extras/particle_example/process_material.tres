@@ -8,8 +8,8 @@ frequency = 0.0145
 cellular_return_type = 4
 
 [sub_resource type="NoiseTexture2D" id="NoiseTexture2D_544iv"]
-seamless = true
 noise = SubResource("FastNoiseLite_544iv")
+seamless = true
 
 [resource]
 shader = ExtResource("1_t55me")

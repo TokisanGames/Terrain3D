@@ -74,8 +74,6 @@ Methods
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``PackedFloat32Array``                                    | :ref:`get_texture_uv_scales<class_Terrain3DAssets_method_get_texture_uv_scales>`\ (\ ) |const|                                                                                  |
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | ``int``                                                   | :ref:`get_texture_vertical_projections<class_Terrain3DAssets_method_get_texture_vertical_projections>`\ (\ ) |const|                                                            |
-   +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | Error                                                     | :ref:`save<class_Terrain3DAssets_method_save>`\ (\ path\: ``String`` = ""\ )                                                                                                    |
    +-----------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                    | :ref:`set_mesh_asset<class_Terrain3DAssets_method_set_mesh_asset>`\ (\ id\: ``int``, mesh\: :ref:`Terrain3DMeshAsset<class_Terrain3DMeshAsset>`\ )                              |
@@ -416,18 +414,6 @@ Returns the array of uv scale values for each texture asset, indexed by asset id
 
 ----
 
-.. _class_Terrain3DAssets_method_get_texture_vertical_projections:
-
-.. rst-class:: classref-method
-
-``int`` **get_texture_vertical_projections**\ (\ ) |const| :ref:`🔗<class_Terrain3DAssets_method_get_texture_vertical_projections>`
-
-Returns a 32-bit int that identifies which textures are to be projected vertically.
-
-.. rst-class:: classref-item-separator
-
-----
-
 .. _class_Terrain3DAssets_method_save:
 
 .. rst-class:: classref-method
@@ -487,6 +473,7 @@ Updates the internal list of meshes used by the instancer.
 Regenerates the texture arrays from the list of texture assets, which is sent to the shader.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
+.. |required| replace:: :abbr:`required (This method is required to be overridden when extending its base class.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`
 .. |vararg| replace:: :abbr:`vararg (This method accepts any number of arguments after the ones described here.)`
 .. |constructor| replace:: :abbr:`constructor (This method is used to construct a type.)`

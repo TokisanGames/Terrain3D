@@ -6,7 +6,6 @@ extends EditorPlugin
 
 # Includes
 const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
-const RegionGizmo: Script = preload("res://addons/terrain_3d/src/region_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 
 # Editor Plugin
@@ -15,7 +14,6 @@ var editor: Terrain3DEditor
 var editor_settings: EditorSettings
 var ui: Node # Terrain3DUI see Godot #75388
 var asset_dock: PanelContainer
-var region_gizmo: RegionGizmo
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
@@ -58,8 +56,6 @@ func _enter_tree() -> void:
 	ui.plugin = self
 	add_child(ui)
 
-	region_gizmo = RegionGizmo.new()
-
 	scene_changed.connect(_on_scene_changed)
 
 	asset_dock = load(ASSET_DOCK).instantiate()
@@ -86,12 +82,12 @@ func _on_godot_focus_entered() -> void:
 
 ## EditorPlugin selection function call chain isn't consistent. Here's the map of calls:
 ## Assume we handle Terrain3D and NavigationRegion3D  
-# Click Terrain3D: 					_handles(Terrain3D), _make_visible(true), _edit(Terrain3D)
-# Deselect:							_make_visible(false), _edit(null)
+# Click Terrain3D: 					_handles(Terrain3D), _edit(Terrain3D), _make_visible(true)
+# Deselect:							_edit(null), _make_visible(false)
 # Click other node:					_handles(OtherNode)
-# Click NavRegion3D:				_handles(NavReg3D), _make_visible(true), _edit(NavReg3D)
-# Click NavRegion3D, Terrain3D:		_handles(Terrain3D), _edit(Terrain3D)
-# Click Terrain3D, NavRegion3D:		_handles(NavReg3D), _edit(NavReg3D)
+# Click NavRegion3D:				_handles(NavReg3D), _edit(NavReg3D), _make_visible(true)
+# Click NavRegion3D, Terrain3D:		_handles(Terrain3D), _make_visible(true), _edit(Terrain3D)
+# Click Terrain3D, NavRegion3D:		_handles(NavReg3D), _make_visible(true), _edit(NavReg3D)
 func _handles(p_object: Object) -> bool:
 	if p_object is Terrain3D:
 		return true
@@ -108,16 +104,6 @@ func _handles(p_object: Object) -> bool:
 	return false
 
 
-func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
-	if debug:
-		print("Terrain3DEditorPlugin: _make_visible(%s, %s)" % [ p_visible, p_redraw ])
-	if p_visible and is_selected():
-		ui.set_visible(true)
-		asset_dock.update_dock()
-	else:
-		ui.set_visible(false)
-
-
 func _edit(p_object: Object) -> void:
 	if !p_object:
 		_clear()
@@ -131,19 +117,13 @@ func _edit(p_object: Object) -> void:
 		terrain.set_editor(editor)
 		debug = terrain.debug_level
 		editor.set_terrain(terrain)
-		region_gizmo.set_node_3d(terrain)
-		terrain.add_gizmo(region_gizmo)
-		ui.set_visible(true)
 		terrain.set_meta("_edit_lock_", true)
+		ui.set_visible(true)
 
 		# Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
-		# Get alerted when the region map changes
-		if not terrain.data.region_map_changed.is_connected(update_region_grid):
-			terrain.data.region_map_changed.connect(update_region_grid)
-		update_region_grid()
 	else:
 		_clear()
 
@@ -155,18 +135,23 @@ func _edit(p_object: Object) -> void:
 			nav_region = null
 
 	
+func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
+	if debug:
+		print("Terrain3DEditorPlugin: _make_visible(%s, %s)" % [ p_visible, p_redraw ])
+	if p_visible and is_selected():
+		ui.set_visible(true)
+		asset_dock.update_dock()
+	else:
+		ui.set_visible(false)
+
+
 func _clear() -> void:
 	if is_terrain_valid():
-		if terrain.data.region_map_changed.is_connected(update_region_grid):
-			terrain.data.region_map_changed.disconnect(update_region_grid)
-		
-		terrain.clear_gizmos()
+		editor.set_tool(Terrain3DEditor.TOOL_MAX)
+		editor.set_operation(Terrain3DEditor.OP_MAX)
 		terrain = null
 		editor.set_terrain(null)
-		
 		ui.clear_picking()
-		
-	region_gizmo.clear()
 
 
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> AfterGUIInput:
@@ -218,9 +203,6 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 			## Update region highlight
 			var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
 				/ (terrain.get_region_size() * terrain.get_vertex_spacing()) ).floor()
-			if current_region_position != region_position:
-				current_region_position = region_position
-				update_region_grid()
 
 			if _input_mode > 0 and editor.is_operating():
 				# Inject pressure - Relies on C++ set_brush_data() using same dictionary instance
@@ -346,14 +328,16 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 # Returns true if hotkey matches and operation triggered
 func consume_hotkey(keycode: int) -> bool:
 	match keycode:
-		KEY_1:
+		KEY_1, KEY_KP_1:
 			terrain.material.set_show_region_grid(!terrain.material.get_show_region_grid())
-		KEY_2:
-			terrain.material.set_show_instancer_grid(!terrain.material.get_show_instancer_grid())
-		KEY_3:
-			terrain.material.set_show_vertex_grid(!terrain.material.get_show_vertex_grid())
-		KEY_4:
+		KEY_2, KEY_KP_2:
+			terrain.label_distance = 4096.0 if is_zero_approx(terrain.label_distance) else 0.0 
+		KEY_3, KEY_KP_3:
 			terrain.material.set_show_contours(!terrain.material.get_show_contours())
+		KEY_4, KEY_KP_4:
+			terrain.material.set_show_instancer_grid(!terrain.material.get_show_instancer_grid())
+		KEY_5, KEY_KP_5:
+			terrain.material.set_show_vertex_grid(!terrain.material.get_show_vertex_grid())
 		KEY_E:
 			ui.toolbar.get_button("AddRegion").set_pressed(true)
 		KEY_R:
@@ -383,26 +367,6 @@ func consume_hotkey(keycode: int) -> bool:
 		_:
 			return false
 	return true
-
-
-func update_region_grid() -> void:
-	if not region_gizmo:
-		return
-	region_gizmo.set_hidden(not ui.visible)
-
-	if is_terrain_valid():
-		region_gizmo.show_rect = editor.get_tool() == Terrain3DEditor.REGION
-		region_gizmo.use_secondary_color = editor.get_operation() == Terrain3DEditor.SUBTRACT
-		region_gizmo.region_position = current_region_position
-		region_gizmo.region_size = terrain.get_region_size() * terrain.get_vertex_spacing()
-		region_gizmo.grid = terrain.get_data().get_region_locations()
-		
-		terrain.update_gizmos()
-		return
-		
-	region_gizmo.show_rect = false
-	region_gizmo.region_size = 1024
-	region_gizmo.grid = [Vector2i.ZERO]
 
 
 func _on_scene_changed(scene_root: Node) -> void:

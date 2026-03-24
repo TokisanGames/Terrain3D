@@ -64,6 +64,8 @@ Methods
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`calc_height_range<class_Terrain3DRegion_method_calc_height_range>`\ (\ )                                                                         |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`clear<class_Terrain3DRegion_method_clear>`\ (\ )                                                                                                 |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`dump<class_Terrain3DRegion_method_dump>`\ (\ verbose\: ``bool`` = false\ ) |const|                                                               |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Terrain3DRegion<class_Terrain3DRegion>` | :ref:`duplicate<class_Terrain3DRegion_method_duplicate>`\ (\ deep\: ``bool`` = false\ )                                                                |
@@ -402,6 +404,18 @@ Recalculates the height range for this region by looking at every pixel in the h
 
 ----
 
+.. _class_Terrain3DRegion_method_clear:
+
+.. rst-class:: classref-method
+
+|void| **clear**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_clear>`
+
+Unreferences the maps and resets all of the variables to default values.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DRegion_method_dump:
 
 .. rst-class:: classref-method
@@ -573,6 +587,7 @@ When sculpting the terrain, this is called to provide both a low and high height
 This validates the map size according to previously loaded maps.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
+.. |required| replace:: :abbr:`required (This method is required to be overridden when extending its base class.)`
 .. |const| replace:: :abbr:`const (This method has no side effects. It doesn't modify any of the instance's member variables.)`
 .. |vararg| replace:: :abbr:`vararg (This method accepts any number of arguments after the ones described here.)`
 .. |constructor| replace:: :abbr:`constructor (This method is used to construct a type.)`

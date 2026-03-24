@@ -12,44 +12,35 @@ class TargetNode3D {
 
 private:
 	uint64_t _instance_id = 0;
-	Node3D *_target = nullptr;
 
 public:
-	void clear() {
-		_instance_id = 0;
-		_target = nullptr;
-	}
+	void clear() { _instance_id = 0; }
 
-	void set_target(Node3D *p_node_3d) {
-		if (p_node_3d) {
-			_target = p_node_3d;
-			_instance_id = p_node_3d->get_instance_id();
+	void set_target(Node3D *p_node) {
+		if (p_node && !p_node->is_queued_for_deletion()) {
+			_instance_id = p_node->get_instance_id();
 		} else {
 			clear();
 		}
 	}
 
-	Node3D *ptr() const {
-		return _target;
+	Node3D *get_target() const {
+		if (_instance_id == 0) {
+			return nullptr;
+		}
+		Object *obj = ObjectDB::get_instance(_instance_id);
+		return obj ? Object::cast_to<Node3D>(obj) : nullptr;
 	}
 
-	Node3D *get_target() const {
-		return _target;
-	}
+	Node3D *ptr() const { return get_target(); }
 
 	bool is_valid() const {
-		if (_target && _instance_id > 0) {
-			return _target == ObjectDB::get_instance(_instance_id);
-		}
-		return false;
+		Node3D *node = get_target();
+		return node && node->is_inside_tree() && !node->is_queued_for_deletion();
 	}
 
 	bool is_null() const {
 		return !is_valid();
-	}
-
-	bool is_inside_tree() const {
-		return is_valid() && _target->is_inside_tree();
 	}
 };
 

@@ -734,10 +734,6 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		}
 	}
 	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
-	if (_terrain->get_plugin()->has_method("update_region_grid")) {
-		LOG(DEBUG, "Calling GDScript update_region_grid()");
-		_terrain->get_plugin()->call("update_region_grid");
-	}
 }
 
 // Returns average of height, blend (as real_t(0-255)), or roughness. Overloaded version handles average color
@@ -898,8 +894,8 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 void Terrain3DEditor::set_tool(const Tool p_tool) {
 	Tool old_tool = _tool;
 	SET_IF_DIFF(_tool, CLAMP(p_tool, Tool(0), TOOL_MAX));
-	if (_terrain && (_tool == Tool::NAVIGATION || old_tool == Tool::NAVIGATION)) {
-		_terrain->get_material()->update(true);
+	if (_terrain && (_tool == Tool::NAVIGATION || old_tool == Tool::NAVIGATION || _tool == Tool::REGION || old_tool == Tool::REGION)) {
+		_terrain->get_material()->update(Terrain3DMaterial::FULL_REBUILD);
 	}
 }
 

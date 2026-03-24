@@ -84,9 +84,6 @@
 		<member name="uv_scale" type="float" setter="set_uv_scale" getter="get_uv_scale" default="0.1">
 			The scale of the textures.
 		</member>
-		<member name="vertical_projection" type="bool" setter="set_vertical_projection" getter="get_vertical_projection" default="false">
-			Projects this texture vertically so it is suitable for the stretched polygons on cliff faces. Turn this on for textures you'll use on cliffs. It can still work on horizontal areas with care and blending. Enable Vertical Projection and adjust the settings in the material.
-		</member>
 	</members>
 	<signals>
 		<signal name="file_changed">

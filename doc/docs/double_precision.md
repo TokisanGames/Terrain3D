@@ -21,9 +21,11 @@ For a more detailed explanation, see [Large World Coordinates](https://docs.godo
 
 To get Terrain3D and Godot working with double precision floats, you must:
 
-1. [Build Godot from source](https://docs.godotengine.org/en/latest/contributing/development/compiling/index.html) with `scons precision=double` along with your other parameters like target, platform, etc.
-2. [Generate custom godot-cpp bindings](https://docs.godotengine.org/en/latest/tutorials/scripting/gdextension/gdextension_cpp_example.html#building-the-c-bindings) using this new executable. This will generate a JSON file you will use in the next step.
-3. [Build Terrain3D from source](building_from_source.md) (which includes godot-cpp) using `scons precision=double custom_api_file=YOUR_CUSTOM_JSON_FILE`
+1. [Build Godot from source](https://docs.godotengine.org/en/latest/engine_details/development/compiling/index.html) with `scons precision=double` along with your other parameters like target, platform, etc.
+2. Generate custom godot-cpp bindings using this new executable. This will generate a JSON file you will use in the next step.
+	- `godot --dump-extension-api`, which gives you an extension_api.json
+	- `scons custom_api_file=path_to/extension_api.json`
+3. [Build Terrain3D from source](building_from_source.md) (which includes godot-cpp) using `scons precision=double custom_api_file=path_to/extension_api.json`
 
 After that, you can run the double version of Godot with the double version of Terrain3D.
 
