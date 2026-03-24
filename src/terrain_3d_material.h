@@ -22,7 +22,9 @@ public: // Constants
 	};
 
 	enum TextureFiltering {
+		LINEAR_ANISOTROPIC,
 		LINEAR,
+		NEAREST_ANISOTROPIC,
 		NEAREST,
 	};
 
@@ -54,7 +56,7 @@ private:
 
 	// Material Features
 	WorldBackground _world_background = FLAT;
-	TextureFiltering _texture_filtering = LINEAR;
+	TextureFiltering _texture_filtering = LINEAR_ANISOTROPIC;
 	bool _dual_scaling_enabled = false;
 	bool _auto_shader_enabled = false;
 	bool _macro_variation_enabled = false;

@@ -53,8 +53,10 @@ uniform vec2 _texture_detile_array[32];
 uniform vec2 _texture_displacement_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
-//INSERT: TEXTURE_SAMPLERS_NEAREST
+//INSERT: TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC
 //INSERT: TEXTURE_SAMPLERS_LINEAR
+//INSERT: TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC
+//INSERT: TEXTURE_SAMPLERS_NEAREST
 uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
 
