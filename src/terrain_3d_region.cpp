@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/resource_saver.hpp>
 
@@ -37,9 +37,9 @@ void Terrain3DRegion::set_version(const real_t p_version) {
 	}
 	_version = version;
 	LOG(INFO, vformat("%.3f", _version));
-	if (_version < Terrain3DData::CURRENT_VERSION) {
-		LOG(WARN, "Region ", get_path(), " version ", vformat("%.3f", _version),
-				" will be updated to ", vformat("%.3f", Terrain3DData::CURRENT_VERSION), " upon save");
+	if (_version < Terrain3DData::CURRENT_DATA_VERSION) {
+		LOG(WARN, "Region Data ", get_path(), " version ", vformat("%.3f", _version),
+				" will be updated to ", vformat("%.3f", Terrain3DData::CURRENT_DATA_VERSION), " upon save");
 	}
 }
 
@@ -313,7 +313,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 		// incuding those in the undo queue
 	}
 	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
-	set_version(Terrain3DData::CURRENT_VERSION);
+	set_version(Terrain3DData::CURRENT_DATA_VERSION);
 	Error err = OK;
 	if (p_16_bit) {
 		Ref<Image> original_map;

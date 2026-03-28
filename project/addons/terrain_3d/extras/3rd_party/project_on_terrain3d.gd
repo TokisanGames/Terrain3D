@@ -1,4 +1,4 @@
-# Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+# Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 # This script is an addon for HungryProton's Scatter https://github.com/HungryProton/scatter
 # It provides a `Project on Terrain3D` modifier, which allows Scatter 
 # to detect the terrain height from Terrain3D without using collision.

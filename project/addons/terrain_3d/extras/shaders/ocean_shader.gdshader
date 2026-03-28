@@ -1,3 +1,7 @@
+﻿// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
+// This file is an example ocean shader. You should be able to use any ocean shader with slight modification
+// for the clipmap. See the note above vertex().
+
 shader_type spatial;
 render_mode cull_back, depth_draw_always, diffuse_burley, specular_schlick_ggx, shadows_disabled, skip_vertex_transform;
 

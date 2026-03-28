@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/editor_file_system.hpp>
@@ -386,7 +386,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 		}
 		region->take_over_path(path);
 		region->set_location(loc);
-		region->set_version(CURRENT_VERSION); // Sends upgrade warning if old version
+		region->set_version(CURRENT_DATA_VERSION); // Sends upgrade warning if old version
 		add_region(region, false);
 	}
 	update_maps(TYPE_MAX, true, false);
@@ -416,7 +416,7 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 	}
 	region->take_over_path(path);
 	region->set_location(p_region_loc);
-	region->set_version(CURRENT_VERSION); // Sends upgrade warning if old version
+	region->set_version(CURRENT_DATA_VERSION); // Sends upgrade warning if old version
 	add_region(region, p_update);
 }
 
