@@ -608,6 +608,8 @@ void Terrain3D::update_region_labels() {
 			label->set_draw_flag(Label3D::FLAG_DOUBLE_SIDED, true);
 			label->set_draw_flag(Label3D::FLAG_DISABLE_DEPTH_TEST, true);
 			label->set_draw_flag(Label3D::FLAG_FIXED_SIZE, true);
+			label->set_render_priority(127);
+			label->set_outline_render_priority(126);
 			label->set_text(text);
 			label->set_modulate(Color(1.f, 1.f, 1.f, .5f));
 			label->set_outline_modulate(Color(0.f, 0.f, 0.f, .5f));
@@ -619,7 +621,7 @@ void Terrain3D::update_region_labels() {
 			_label_parent->add_child(label, true);
 			Vector3 pos = Vector3(real_t(region_loc.x) + .5f, 0.f, real_t(region_loc.y) + .5f) * _region_size * _vertex_spacing;
 			real_t height = _data->get_height(pos);
-			pos.y = (std::isnan(height)) ? 0 : height;
+			pos.y = (std::isnan(height)) ? 0.f : height;
 			label->set_position(pos);
 		}
 	}
