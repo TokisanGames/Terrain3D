@@ -78,9 +78,15 @@ public partial class Terrain3D : Node3D
 		Size2048 = 2048,
 	}
 
-	public new static class GDExtensionSignalName
+	public new class GDExtensionSignalName : Node3D.SignalName
 	{
+		/// <summary>
+		/// Cached name for the 'material_changed' member.
+		/// </summary>
 		public new static readonly StringName MaterialChanged = "material_changed";
+		/// <summary>
+		/// Cached name for the 'assets_changed' member.
+		/// </summary>
 		public new static readonly StringName AssetsChanged = "assets_changed";
 	}
 
@@ -132,77 +138,287 @@ public partial class Terrain3D : Node3D
 		}
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionPropertyName : Node3D.PropertyName
 	{
+		/// <summary>
+		/// Cached name for the 'version' member.
+		/// </summary>
 		public new static readonly StringName Version = "version";
+		/// <summary>
+		/// Cached name for the 'debug_level' member.
+		/// </summary>
 		public new static readonly StringName DebugLevel = "debug_level";
+		/// <summary>
+		/// Cached name for the 'data_directory' member.
+		/// </summary>
 		public new static readonly StringName DataDirectory = "data_directory";
+		/// <summary>
+		/// Cached name for the 'material' member.
+		/// </summary>
 		public new static readonly StringName Material = "material";
+		/// <summary>
+		/// Cached name for the 'assets' member.
+		/// </summary>
 		public new static readonly StringName Assets = "assets";
+		/// <summary>
+		/// Cached name for the 'data' member.
+		/// </summary>
 		public new static readonly StringName Data = "data";
+		/// <summary>
+		/// Cached name for the 'collision' member.
+		/// </summary>
 		public new static readonly StringName Collision = "collision";
+		/// <summary>
+		/// Cached name for the 'instancer' member.
+		/// </summary>
 		public new static readonly StringName Instancer = "instancer";
+		/// <summary>
+		/// Cached name for the 'region_size' member.
+		/// </summary>
 		public new static readonly StringName RegionSize = "region_size";
+		/// <summary>
+		/// Cached name for the 'save_16_bit' member.
+		/// </summary>
 		public new static readonly StringName Save16Bit = "save_16_bit";
+		/// <summary>
+		/// Cached name for the 'label_distance' member.
+		/// </summary>
 		public new static readonly StringName LabelDistance = "label_distance";
+		/// <summary>
+		/// Cached name for the 'label_size' member.
+		/// </summary>
 		public new static readonly StringName LabelSize = "label_size";
+		/// <summary>
+		/// Cached name for the 'show_grid' member.
+		/// </summary>
 		public new static readonly StringName ShowGrid = "show_grid";
+		/// <summary>
+		/// Cached name for the 'collision_mode' member.
+		/// </summary>
 		public new static readonly StringName CollisionMode = "collision_mode";
+		/// <summary>
+		/// Cached name for the 'collision_shape_size' member.
+		/// </summary>
 		public new static readonly StringName CollisionShapeSize = "collision_shape_size";
+		/// <summary>
+		/// Cached name for the 'collision_radius' member.
+		/// </summary>
 		public new static readonly StringName CollisionRadius = "collision_radius";
+		/// <summary>
+		/// Cached name for the 'collision_target' member.
+		/// </summary>
 		public new static readonly StringName CollisionTarget = "collision_target";
+		/// <summary>
+		/// Cached name for the 'collision_layer' member.
+		/// </summary>
 		public new static readonly StringName CollisionLayer = "collision_layer";
+		/// <summary>
+		/// Cached name for the 'collision_mask' member.
+		/// </summary>
 		public new static readonly StringName CollisionMask = "collision_mask";
+		/// <summary>
+		/// Cached name for the 'collision_priority' member.
+		/// </summary>
 		public new static readonly StringName CollisionPriority = "collision_priority";
+		/// <summary>
+		/// Cached name for the 'physics_material' member.
+		/// </summary>
 		public new static readonly StringName PhysicsMaterial = "physics_material";
+		/// <summary>
+		/// Cached name for the 'clipmap_target' member.
+		/// </summary>
 		public new static readonly StringName ClipmapTarget = "clipmap_target";
+		/// <summary>
+		/// Cached name for the 'mesh_lods' member.
+		/// </summary>
 		public new static readonly StringName MeshLods = "mesh_lods";
+		/// <summary>
+		/// Cached name for the 'tessellation_level' member.
+		/// </summary>
 		public new static readonly StringName TessellationLevel = "tessellation_level";
+		/// <summary>
+		/// Cached name for the 'mesh_size' member.
+		/// </summary>
 		public new static readonly StringName MeshSize = "mesh_size";
+		/// <summary>
+		/// Cached name for the 'vertex_spacing' member.
+		/// </summary>
 		public new static readonly StringName VertexSpacing = "vertex_spacing";
+		/// <summary>
+		/// Cached name for the 'cull_margin' member.
+		/// </summary>
 		public new static readonly StringName CullMargin = "cull_margin";
+		/// <summary>
+		/// Cached name for the 'cast_shadows' member.
+		/// </summary>
 		public new static readonly StringName CastShadows = "cast_shadows";
+		/// <summary>
+		/// Cached name for the 'gi_mode' member.
+		/// </summary>
 		public new static readonly StringName GiMode = "gi_mode";
+		/// <summary>
+		/// Cached name for the 'render_layers' member.
+		/// </summary>
 		public new static readonly StringName RenderLayers = "render_layers";
+		/// <summary>
+		/// Cached name for the 'displacement_scale' member.
+		/// </summary>
 		public new static readonly StringName DisplacementScale = "displacement_scale";
+		/// <summary>
+		/// Cached name for the 'displacement_sharpness' member.
+		/// </summary>
 		public new static readonly StringName DisplacementSharpness = "displacement_sharpness";
+		/// <summary>
+		/// Cached name for the 'buffer_shader_override_enabled' member.
+		/// </summary>
 		public new static readonly StringName BufferShaderOverrideEnabled = "buffer_shader_override_enabled";
+		/// <summary>
+		/// Cached name for the 'buffer_shader_override' member.
+		/// </summary>
 		public new static readonly StringName BufferShaderOverride = "buffer_shader_override";
+		/// <summary>
+		/// Cached name for the 'ocean_enabled' member.
+		/// </summary>
 		public new static readonly StringName OceanEnabled = "ocean_enabled";
+		/// <summary>
+		/// Cached name for the 'ocean_mesh_lods' member.
+		/// </summary>
 		public new static readonly StringName OceanMeshLods = "ocean_mesh_lods";
+		/// <summary>
+		/// Cached name for the 'ocean_tessellation_level' member.
+		/// </summary>
 		public new static readonly StringName OceanTessellationLevel = "ocean_tessellation_level";
+		/// <summary>
+		/// Cached name for the 'ocean_mesh_size' member.
+		/// </summary>
 		public new static readonly StringName OceanMeshSize = "ocean_mesh_size";
+		/// <summary>
+		/// Cached name for the 'ocean_vertex_spacing' member.
+		/// </summary>
 		public new static readonly StringName OceanVertexSpacing = "ocean_vertex_spacing";
+		/// <summary>
+		/// Cached name for the 'ocean_cull_margin' member.
+		/// </summary>
 		public new static readonly StringName OceanCullMargin = "ocean_cull_margin";
+		/// <summary>
+		/// Cached name for the 'ocean_cast_shadows' member.
+		/// </summary>
 		public new static readonly StringName OceanCastShadows = "ocean_cast_shadows";
+		/// <summary>
+		/// Cached name for the 'ocean_gi_mode' member.
+		/// </summary>
 		public new static readonly StringName OceanGiMode = "ocean_gi_mode";
+		/// <summary>
+		/// Cached name for the 'ocean_render_layers' member.
+		/// </summary>
 		public new static readonly StringName OceanRenderLayers = "ocean_render_layers";
+		/// <summary>
+		/// Cached name for the 'ocean_material' member.
+		/// </summary>
 		public new static readonly StringName OceanMaterial = "ocean_material";
+		/// <summary>
+		/// Cached name for the 'ocean_light_target' member.
+		/// </summary>
 		public new static readonly StringName OceanLightTarget = "ocean_light_target";
+		/// <summary>
+		/// Cached name for the 'mouse_layer' member.
+		/// </summary>
 		public new static readonly StringName MouseLayer = "mouse_layer";
+		/// <summary>
+		/// Cached name for the 'free_editor_textures' member.
+		/// </summary>
 		public new static readonly StringName FreeEditorTextures = "free_editor_textures";
+		/// <summary>
+		/// Cached name for the 'instancer_mode' member.
+		/// </summary>
 		public new static readonly StringName InstancerMode = "instancer_mode";
+		/// <summary>
+		/// Cached name for the 'show_region_grid' member.
+		/// </summary>
 		public new static readonly StringName ShowRegionGrid = "show_region_grid";
+		/// <summary>
+		/// Cached name for the 'show_instancer_grid' member.
+		/// </summary>
 		public new static readonly StringName ShowInstancerGrid = "show_instancer_grid";
+		/// <summary>
+		/// Cached name for the 'show_vertex_grid' member.
+		/// </summary>
 		public new static readonly StringName ShowVertexGrid = "show_vertex_grid";
+		/// <summary>
+		/// Cached name for the 'show_contours' member.
+		/// </summary>
 		public new static readonly StringName ShowContours = "show_contours";
+		/// <summary>
+		/// Cached name for the 'show_navigation' member.
+		/// </summary>
 		public new static readonly StringName ShowNavigation = "show_navigation";
+		/// <summary>
+		/// Cached name for the 'show_checkered' member.
+		/// </summary>
 		public new static readonly StringName ShowCheckered = "show_checkered";
+		/// <summary>
+		/// Cached name for the 'show_grey' member.
+		/// </summary>
 		public new static readonly StringName ShowGrey = "show_grey";
+		/// <summary>
+		/// Cached name for the 'show_heightmap' member.
+		/// </summary>
 		public new static readonly StringName ShowHeightmap = "show_heightmap";
+		/// <summary>
+		/// Cached name for the 'show_jaggedness' member.
+		/// </summary>
 		public new static readonly StringName ShowJaggedness = "show_jaggedness";
+		/// <summary>
+		/// Cached name for the 'show_autoshader' member.
+		/// </summary>
 		public new static readonly StringName ShowAutoshader = "show_autoshader";
+		/// <summary>
+		/// Cached name for the 'show_control_texture' member.
+		/// </summary>
 		public new static readonly StringName ShowControlTexture = "show_control_texture";
+		/// <summary>
+		/// Cached name for the 'show_control_blend' member.
+		/// </summary>
 		public new static readonly StringName ShowControlBlend = "show_control_blend";
+		/// <summary>
+		/// Cached name for the 'show_control_angle' member.
+		/// </summary>
 		public new static readonly StringName ShowControlAngle = "show_control_angle";
+		/// <summary>
+		/// Cached name for the 'show_control_scale' member.
+		/// </summary>
 		public new static readonly StringName ShowControlScale = "show_control_scale";
+		/// <summary>
+		/// Cached name for the 'show_colormap' member.
+		/// </summary>
 		public new static readonly StringName ShowColormap = "show_colormap";
+		/// <summary>
+		/// Cached name for the 'show_roughmap' member.
+		/// </summary>
 		public new static readonly StringName ShowRoughmap = "show_roughmap";
+		/// <summary>
+		/// Cached name for the 'show_displacement_buffer' member.
+		/// </summary>
 		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
+		/// <summary>
+		/// Cached name for the 'show_texture_albedo' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureAlbedo = "show_texture_albedo";
+		/// <summary>
+		/// Cached name for the 'show_texture_height' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureHeight = "show_texture_height";
+		/// <summary>
+		/// Cached name for the 'show_texture_normal' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureNormal = "show_texture_normal";
+		/// <summary>
+		/// Cached name for the 'show_texture_rough' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureRough = "show_texture_rough";
+		/// <summary>
+		/// Cached name for the 'show_texture_ao' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureAo = "show_texture_ao";
 	}
 
@@ -211,10 +427,10 @@ public partial class Terrain3D : Node3D
 		get => Get(GDExtensionPropertyName.Version).As<string>();
 	}
 
-	public new Variant DebugLevel
+	public new Terrain3D.DebugLevelEnum DebugLevel
 	{
-		get => Get(GDExtensionPropertyName.DebugLevel).As<Variant>();
-		set => Set(GDExtensionPropertyName.DebugLevel, value);
+		get => Get(GDExtensionPropertyName.DebugLevel).As<Terrain3D.DebugLevelEnum>();
+		set => Set(GDExtensionPropertyName.DebugLevel, Variant.From(value));
 	}
 
 	public new string DataDirectory
@@ -250,10 +466,10 @@ public partial class Terrain3D : Node3D
 		get => Terrain3DInstancer.Bind(Get(GDExtensionPropertyName.Instancer).As<GodotObject>());
 	}
 
-	public new Variant RegionSize
+	public new Terrain3D.RegionSizeEnum RegionSize
 	{
-		get => Get(GDExtensionPropertyName.RegionSize).As<Variant>();
-		set => Set(GDExtensionPropertyName.RegionSize, value);
+		get => Get(GDExtensionPropertyName.RegionSize).As<Terrain3D.RegionSizeEnum>();
+		set => Set(GDExtensionPropertyName.RegionSize, Variant.From(value));
 	}
 
 	public new bool Save16Bit
@@ -280,10 +496,10 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.ShowGrid, value);
 	}
 
-	public new Variant CollisionMode
+	public new Terrain3DCollision.CollisionMode CollisionMode
 	{
-		get => Get(GDExtensionPropertyName.CollisionMode).As<Variant>();
-		set => Set(GDExtensionPropertyName.CollisionMode, value);
+		get => Get(GDExtensionPropertyName.CollisionMode).As<Terrain3DCollision.CollisionMode>();
+		set => Set(GDExtensionPropertyName.CollisionMode, Variant.From(value));
 	}
 
 	public new long CollisionShapeSize
@@ -364,16 +580,16 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.CullMargin, value);
 	}
 
-	public new long CastShadows
+	public new RenderingServer.ShadowCastingSetting CastShadows
 	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
-		set => Set(GDExtensionPropertyName.CastShadows, value);
+		get => Get(GDExtensionPropertyName.CastShadows).As<RenderingServer.ShadowCastingSetting>();
+		set => Set(GDExtensionPropertyName.CastShadows, Variant.From(value));
 	}
 
-	public new long GiMode
+	public new GeometryInstance3D.GIModeEnum GiMode
 	{
-		get => Get(GDExtensionPropertyName.GiMode).As<long>();
-		set => Set(GDExtensionPropertyName.GiMode, value);
+		get => Get(GDExtensionPropertyName.GiMode).As<GeometryInstance3D.GIModeEnum>();
+		set => Set(GDExtensionPropertyName.GiMode, Variant.From(value));
 	}
 
 	public new long RenderLayers
@@ -442,16 +658,16 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.OceanCullMargin, value);
 	}
 
-	public new long OceanCastShadows
+	public new RenderingServer.ShadowCastingSetting OceanCastShadows
 	{
-		get => Get(GDExtensionPropertyName.OceanCastShadows).As<long>();
-		set => Set(GDExtensionPropertyName.OceanCastShadows, value);
+		get => Get(GDExtensionPropertyName.OceanCastShadows).As<RenderingServer.ShadowCastingSetting>();
+		set => Set(GDExtensionPropertyName.OceanCastShadows, Variant.From(value));
 	}
 
-	public new long OceanGiMode
+	public new GeometryInstance3D.GIModeEnum OceanGiMode
 	{
-		get => Get(GDExtensionPropertyName.OceanGiMode).As<long>();
-		set => Set(GDExtensionPropertyName.OceanGiMode, value);
+		get => Get(GDExtensionPropertyName.OceanGiMode).As<GeometryInstance3D.GIModeEnum>();
+		set => Set(GDExtensionPropertyName.OceanGiMode, Variant.From(value));
 	}
 
 	public new long OceanRenderLayers
@@ -622,20 +838,59 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.ShowTextureAo, value);
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : Node3D.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'set_editor' member.
+		/// </summary>
 		public new static readonly StringName SetEditor = "set_editor";
+		/// <summary>
+		/// Cached name for the 'get_editor' member.
+		/// </summary>
 		public new static readonly StringName GetEditor = "get_editor";
+		/// <summary>
+		/// Cached name for the 'set_plugin' member.
+		/// </summary>
 		public new static readonly StringName SetPlugin = "set_plugin";
+		/// <summary>
+		/// Cached name for the 'get_plugin' member.
+		/// </summary>
 		public new static readonly StringName GetPlugin = "get_plugin";
+		/// <summary>
+		/// Cached name for the 'set_camera' member.
+		/// </summary>
 		public new static readonly StringName SetCamera = "set_camera";
+		/// <summary>
+		/// Cached name for the 'get_camera' member.
+		/// </summary>
 		public new static readonly StringName GetCamera = "get_camera";
+		/// <summary>
+		/// Cached name for the 'get_clipmap_target_position' member.
+		/// </summary>
 		public new static readonly StringName GetClipmapTargetPosition = "get_clipmap_target_position";
+		/// <summary>
+		/// Cached name for the 'get_collision_target_position' member.
+		/// </summary>
 		public new static readonly StringName GetCollisionTargetPosition = "get_collision_target_position";
+		/// <summary>
+		/// Cached name for the 'snap' member.
+		/// </summary>
 		public new static readonly StringName Snap = "snap";
+		/// <summary>
+		/// Cached name for the 'get_intersection' member.
+		/// </summary>
 		public new static readonly StringName GetIntersection = "get_intersection";
+		/// <summary>
+		/// Cached name for the 'get_raycast_result' member.
+		/// </summary>
 		public new static readonly StringName GetRaycastResult = "get_raycast_result";
+		/// <summary>
+		/// Cached name for the 'bake_mesh' member.
+		/// </summary>
 		public new static readonly StringName BakeMesh = "bake_mesh";
+		/// <summary>
+		/// Cached name for the 'generate_nav_mesh_source_geometry' member.
+		/// </summary>
 		public new static readonly StringName GenerateNavMeshSourceGeometry = "generate_nav_mesh_source_geometry";
 	}
 
@@ -678,4 +933,28 @@ public partial class Terrain3D : Node3D
 	public new Vector3[] GenerateNavMeshSourceGeometry(Aabb globalAabb, bool requireNav = true) => 
 		Call(GDExtensionMethodName.GenerateNavMeshSourceGeometry, [globalAabb, requireNav]).As<Vector3[]>();
 
+}
+
+file static class DebugLevelEnumExtensions
+{
+public static int SafeAsInt32(this Terrain3D.DebugLevelEnum enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3D.DebugLevelEnum enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3D.DebugLevelEnum? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
+}
+
+file static class RegionSizeEnumExtensions
+{
+public static int SafeAsInt32(this Terrain3D.RegionSizeEnum enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3D.RegionSizeEnum enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3D.RegionSizeEnum? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }

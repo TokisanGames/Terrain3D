@@ -60,34 +60,123 @@ public partial class Terrain3DUtil : GodotObject
 	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DUtil" type.</returns>
 	public new static Terrain3DUtil Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionSignalName : GodotObject.SignalName
 	{
+	}
+
+	public new class GDExtensionPropertyName : GodotObject.PropertyName
+	{
+	}
+
+	public new class GDExtensionMethodName : GodotObject.MethodName
+	{
+		/// <summary>
+		/// Cached name for the 'as_float' member.
+		/// </summary>
 		public new static readonly StringName AsFloat = "as_float";
+		/// <summary>
+		/// Cached name for the 'as_uint' member.
+		/// </summary>
 		public new static readonly StringName AsUint = "as_uint";
+		/// <summary>
+		/// Cached name for the 'get_base' member.
+		/// </summary>
 		public new static readonly StringName GetBase = "get_base";
+		/// <summary>
+		/// Cached name for the 'enc_base' member.
+		/// </summary>
 		public new static readonly StringName EncBase = "enc_base";
+		/// <summary>
+		/// Cached name for the 'get_overlay' member.
+		/// </summary>
 		public new static readonly StringName GetOverlay = "get_overlay";
+		/// <summary>
+		/// Cached name for the 'enc_overlay' member.
+		/// </summary>
 		public new static readonly StringName EncOverlay = "enc_overlay";
+		/// <summary>
+		/// Cached name for the 'get_blend' member.
+		/// </summary>
 		public new static readonly StringName GetBlend = "get_blend";
+		/// <summary>
+		/// Cached name for the 'enc_blend' member.
+		/// </summary>
 		public new static readonly StringName EncBlend = "enc_blend";
+		/// <summary>
+		/// Cached name for the 'get_uv_rotation' member.
+		/// </summary>
 		public new static readonly StringName GetUvRotation = "get_uv_rotation";
+		/// <summary>
+		/// Cached name for the 'enc_uv_rotation' member.
+		/// </summary>
 		public new static readonly StringName EncUvRotation = "enc_uv_rotation";
+		/// <summary>
+		/// Cached name for the 'get_uv_scale' member.
+		/// </summary>
 		public new static readonly StringName GetUvScale = "get_uv_scale";
+		/// <summary>
+		/// Cached name for the 'enc_uv_scale' member.
+		/// </summary>
 		public new static readonly StringName EncUvScale = "enc_uv_scale";
+		/// <summary>
+		/// Cached name for the 'is_hole' member.
+		/// </summary>
 		public new static readonly StringName IsHole = "is_hole";
+		/// <summary>
+		/// Cached name for the 'enc_hole' member.
+		/// </summary>
 		public new static readonly StringName EncHole = "enc_hole";
+		/// <summary>
+		/// Cached name for the 'is_nav' member.
+		/// </summary>
 		public new static readonly StringName IsNav = "is_nav";
+		/// <summary>
+		/// Cached name for the 'enc_nav' member.
+		/// </summary>
 		public new static readonly StringName EncNav = "enc_nav";
+		/// <summary>
+		/// Cached name for the 'is_auto' member.
+		/// </summary>
 		public new static readonly StringName IsAuto = "is_auto";
+		/// <summary>
+		/// Cached name for the 'enc_auto' member.
+		/// </summary>
 		public new static readonly StringName EncAuto = "enc_auto";
+		/// <summary>
+		/// Cached name for the 'filename_to_location' member.
+		/// </summary>
 		public new static readonly StringName FilenameToLocation = "filename_to_location";
+		/// <summary>
+		/// Cached name for the 'location_to_filename' member.
+		/// </summary>
 		public new static readonly StringName LocationToFilename = "location_to_filename";
+		/// <summary>
+		/// Cached name for the 'black_to_alpha' member.
+		/// </summary>
 		public new static readonly StringName BlackToAlpha = "black_to_alpha";
+		/// <summary>
+		/// Cached name for the 'get_min_max' member.
+		/// </summary>
 		public new static readonly StringName GetMinMax = "get_min_max";
+		/// <summary>
+		/// Cached name for the 'get_thumbnail' member.
+		/// </summary>
 		public new static readonly StringName GetThumbnail = "get_thumbnail";
+		/// <summary>
+		/// Cached name for the 'get_filled_image' member.
+		/// </summary>
 		public new static readonly StringName GetFilledImage = "get_filled_image";
+		/// <summary>
+		/// Cached name for the 'load_image' member.
+		/// </summary>
 		public new static readonly StringName LoadImage = "load_image";
+		/// <summary>
+		/// Cached name for the 'pack_image' member.
+		/// </summary>
 		public new static readonly StringName PackImage = "pack_image";
+		/// <summary>
+		/// Cached name for the 'luminance_to_height' member.
+		/// </summary>
 		public new static readonly StringName LuminanceToHeight = "luminance_to_height";
 	}
 

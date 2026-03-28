@@ -60,10 +60,19 @@ public partial class Terrain3DTextureAsset : Resource
 	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DTextureAsset" type.</returns>
 	public new static Terrain3DTextureAsset Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
-	public new static class GDExtensionSignalName
+	public new class GDExtensionSignalName : Resource.SignalName
 	{
+		/// <summary>
+		/// Cached name for the 'id_changed' member.
+		/// </summary>
 		public new static readonly StringName IdChanged = "id_changed";
+		/// <summary>
+		/// Cached name for the 'file_changed' member.
+		/// </summary>
 		public new static readonly StringName FileChanged = "file_changed";
+		/// <summary>
+		/// Cached name for the 'setting_changed' member.
+		/// </summary>
 		public new static readonly StringName SettingChanged = "setting_changed";
 	}
 
@@ -139,21 +148,63 @@ public partial class Terrain3DTextureAsset : Resource
 		}
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionPropertyName : Resource.PropertyName
 	{
+		/// <summary>
+		/// Cached name for the 'name' member.
+		/// </summary>
 		public new static readonly StringName Name = "name";
+		/// <summary>
+		/// Cached name for the 'id' member.
+		/// </summary>
 		public new static readonly StringName Id = "id";
+		/// <summary>
+		/// Cached name for the 'albedo_color' member.
+		/// </summary>
 		public new static readonly StringName AlbedoColor = "albedo_color";
+		/// <summary>
+		/// Cached name for the 'albedo_texture' member.
+		/// </summary>
 		public new static readonly StringName AlbedoTexture = "albedo_texture";
+		/// <summary>
+		/// Cached name for the 'normal_texture' member.
+		/// </summary>
 		public new static readonly StringName NormalTexture = "normal_texture";
+		/// <summary>
+		/// Cached name for the 'normal_depth' member.
+		/// </summary>
 		public new static readonly StringName NormalDepth = "normal_depth";
+		/// <summary>
+		/// Cached name for the 'ao_strength' member.
+		/// </summary>
 		public new static readonly StringName AoStrength = "ao_strength";
+		/// <summary>
+		/// Cached name for the 'ao_light_affect' member.
+		/// </summary>
 		public new static readonly StringName AoLightAffect = "ao_light_affect";
+		/// <summary>
+		/// Cached name for the 'roughness' member.
+		/// </summary>
 		public new static readonly StringName Roughness = "roughness";
+		/// <summary>
+		/// Cached name for the 'displacement_scale' member.
+		/// </summary>
 		public new static readonly StringName DisplacementScale = "displacement_scale";
+		/// <summary>
+		/// Cached name for the 'displacement_offset' member.
+		/// </summary>
 		public new static readonly StringName DisplacementOffset = "displacement_offset";
+		/// <summary>
+		/// Cached name for the 'uv_scale' member.
+		/// </summary>
 		public new static readonly StringName UvScale = "uv_scale";
+		/// <summary>
+		/// Cached name for the 'detiling_rotation' member.
+		/// </summary>
 		public new static readonly StringName DetilingRotation = "detiling_rotation";
+		/// <summary>
+		/// Cached name for the 'detiling_shift' member.
+		/// </summary>
 		public new static readonly StringName DetilingShift = "detiling_shift";
 	}
 
@@ -241,12 +292,27 @@ public partial class Terrain3DTextureAsset : Resource
 		set => Set(GDExtensionPropertyName.DetilingShift, value);
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : Resource.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'clear' member.
+		/// </summary>
 		public new static readonly StringName Clear = "clear";
+		/// <summary>
+		/// Cached name for the 'set_highlighted' member.
+		/// </summary>
 		public new static readonly StringName SetHighlighted = "set_highlighted";
+		/// <summary>
+		/// Cached name for the 'is_highlighted' member.
+		/// </summary>
 		public new static readonly StringName IsHighlighted = "is_highlighted";
+		/// <summary>
+		/// Cached name for the 'get_highlight_color' member.
+		/// </summary>
 		public new static readonly StringName GetHighlightColor = "get_highlight_color";
+		/// <summary>
+		/// Cached name for the 'get_thumbnail' member.
+		/// </summary>
 		public new static readonly StringName GetThumbnail = "get_thumbnail";
 	}
 

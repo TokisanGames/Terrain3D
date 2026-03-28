@@ -37,7 +37,7 @@ func _physics_process(p_delta) -> void:
 		velocity.y -= 40 * p_delta
 	move_and_slide()
 	# Allow player to walk on waves in the ocean
-	if get_parent().terrain.ocean_enabled:
+	if get_parent().terrain and get_parent().terrain.ocean_enabled:
 		position.y = max(3, position.y)
 
 

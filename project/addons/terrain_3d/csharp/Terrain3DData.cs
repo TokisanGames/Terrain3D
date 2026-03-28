@@ -66,13 +66,31 @@ public partial class Terrain3DData : GodotObject
 		Minimum = 1,
 	}
 
-	public new static class GDExtensionSignalName
+	public new class GDExtensionSignalName : GodotObject.SignalName
 	{
+		/// <summary>
+		/// Cached name for the 'maps_changed' member.
+		/// </summary>
 		public new static readonly StringName MapsChanged = "maps_changed";
+		/// <summary>
+		/// Cached name for the 'region_map_changed' member.
+		/// </summary>
 		public new static readonly StringName RegionMapChanged = "region_map_changed";
+		/// <summary>
+		/// Cached name for the 'height_maps_changed' member.
+		/// </summary>
 		public new static readonly StringName HeightMapsChanged = "height_maps_changed";
+		/// <summary>
+		/// Cached name for the 'control_maps_changed' member.
+		/// </summary>
 		public new static readonly StringName ControlMapsChanged = "control_maps_changed";
+		/// <summary>
+		/// Cached name for the 'color_maps_changed' member.
+		/// </summary>
 		public new static readonly StringName ColorMapsChanged = "color_maps_changed";
+		/// <summary>
+		/// Cached name for the 'maps_edited' member.
+		/// </summary>
 		public new static readonly StringName MapsEdited = "maps_edited";
 	}
 
@@ -220,11 +238,23 @@ public partial class Terrain3DData : GodotObject
 		}
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionPropertyName : GodotObject.PropertyName
 	{
+		/// <summary>
+		/// Cached name for the 'region_locations' member.
+		/// </summary>
 		public new static readonly StringName RegionLocations = "region_locations";
+		/// <summary>
+		/// Cached name for the 'height_maps' member.
+		/// </summary>
 		public new static readonly StringName HeightMaps = "height_maps";
+		/// <summary>
+		/// Cached name for the 'control_maps' member.
+		/// </summary>
 		public new static readonly StringName ControlMaps = "control_maps";
+		/// <summary>
+		/// Cached name for the 'color_maps' member.
+		/// </summary>
 		public new static readonly StringName ColorMaps = "color_maps";
 	}
 
@@ -249,76 +279,283 @@ public partial class Terrain3DData : GodotObject
 		get => Get(GDExtensionPropertyName.ColorMaps).As<Godot.Collections.Array>();
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : GodotObject.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'get_region_count' member.
+		/// </summary>
 		public new static readonly StringName GetRegionCount = "get_region_count";
+		/// <summary>
+		/// Cached name for the 'get_regions_active' member.
+		/// </summary>
 		public new static readonly StringName GetRegionsActive = "get_regions_active";
+		/// <summary>
+		/// Cached name for the 'get_regions_all' member.
+		/// </summary>
 		public new static readonly StringName GetRegionsAll = "get_regions_all";
+		/// <summary>
+		/// Cached name for the 'get_region_map' member.
+		/// </summary>
 		public new static readonly StringName GetRegionMap = "get_region_map";
+		/// <summary>
+		/// Cached name for the 'get_region_map_index' member.
+		/// </summary>
 		public new static readonly StringName GetRegionMapIndex = "get_region_map_index";
+		/// <summary>
+		/// Cached name for the 'do_for_regions' member.
+		/// </summary>
 		public new static readonly StringName DoForRegions = "do_for_regions";
+		/// <summary>
+		/// Cached name for the 'change_region_size' member.
+		/// </summary>
 		public new static readonly StringName ChangeRegionSize = "change_region_size";
+		/// <summary>
+		/// Cached name for the 'get_region_location' member.
+		/// </summary>
 		public new static readonly StringName GetRegionLocation = "get_region_location";
+		/// <summary>
+		/// Cached name for the 'get_region_id' member.
+		/// </summary>
 		public new static readonly StringName GetRegionId = "get_region_id";
+		/// <summary>
+		/// Cached name for the 'get_region_idp' member.
+		/// </summary>
 		public new static readonly StringName GetRegionIdp = "get_region_idp";
+		/// <summary>
+		/// Cached name for the 'has_region' member.
+		/// </summary>
 		public new static readonly StringName HasRegion = "has_region";
+		/// <summary>
+		/// Cached name for the 'has_regionp' member.
+		/// </summary>
 		public new static readonly StringName HasRegionp = "has_regionp";
+		/// <summary>
+		/// Cached name for the 'get_region' member.
+		/// </summary>
 		public new static readonly StringName GetRegion = "get_region";
+		/// <summary>
+		/// Cached name for the 'get_regionp' member.
+		/// </summary>
 		public new static readonly StringName GetRegionp = "get_regionp";
+		/// <summary>
+		/// Cached name for the 'set_region_modified' member.
+		/// </summary>
 		public new static readonly StringName SetRegionModified = "set_region_modified";
+		/// <summary>
+		/// Cached name for the 'is_region_modified' member.
+		/// </summary>
 		public new static readonly StringName IsRegionModified = "is_region_modified";
+		/// <summary>
+		/// Cached name for the 'set_region_deleted' member.
+		/// </summary>
 		public new static readonly StringName SetRegionDeleted = "set_region_deleted";
+		/// <summary>
+		/// Cached name for the 'is_region_deleted' member.
+		/// </summary>
 		public new static readonly StringName IsRegionDeleted = "is_region_deleted";
+		/// <summary>
+		/// Cached name for the 'add_region_blankp' member.
+		/// </summary>
 		public new static readonly StringName AddRegionBlankp = "add_region_blankp";
+		/// <summary>
+		/// Cached name for the 'add_region_blank' member.
+		/// </summary>
 		public new static readonly StringName AddRegionBlank = "add_region_blank";
+		/// <summary>
+		/// Cached name for the 'add_region' member.
+		/// </summary>
 		public new static readonly StringName AddRegion = "add_region";
+		/// <summary>
+		/// Cached name for the 'remove_regionp' member.
+		/// </summary>
 		public new static readonly StringName RemoveRegionp = "remove_regionp";
+		/// <summary>
+		/// Cached name for the 'remove_regionl' member.
+		/// </summary>
 		public new static readonly StringName RemoveRegionl = "remove_regionl";
+		/// <summary>
+		/// Cached name for the 'remove_region' member.
+		/// </summary>
 		public new static readonly StringName RemoveRegion = "remove_region";
+		/// <summary>
+		/// Cached name for the 'save_directory' member.
+		/// </summary>
 		public new static readonly StringName SaveDirectory = "save_directory";
+		/// <summary>
+		/// Cached name for the 'save_region' member.
+		/// </summary>
 		public new static readonly StringName SaveRegion = "save_region";
+		/// <summary>
+		/// Cached name for the 'load_directory' member.
+		/// </summary>
 		public new static readonly StringName LoadDirectory = "load_directory";
+		/// <summary>
+		/// Cached name for the 'load_region' member.
+		/// </summary>
 		public new static readonly StringName LoadRegion = "load_region";
+		/// <summary>
+		/// Cached name for the 'get_maps' member.
+		/// </summary>
 		public new static readonly StringName GetMaps = "get_maps";
+		/// <summary>
+		/// Cached name for the 'update_maps' member.
+		/// </summary>
 		public new static readonly StringName UpdateMaps = "update_maps";
+		/// <summary>
+		/// Cached name for the 'get_height_maps_rid' member.
+		/// </summary>
 		public new static readonly StringName GetHeightMapsRid = "get_height_maps_rid";
+		/// <summary>
+		/// Cached name for the 'get_control_maps_rid' member.
+		/// </summary>
 		public new static readonly StringName GetControlMapsRid = "get_control_maps_rid";
+		/// <summary>
+		/// Cached name for the 'get_color_maps_rid' member.
+		/// </summary>
 		public new static readonly StringName GetColorMapsRid = "get_color_maps_rid";
+		/// <summary>
+		/// Cached name for the 'set_pixel' member.
+		/// </summary>
 		public new static readonly StringName SetPixel = "set_pixel";
+		/// <summary>
+		/// Cached name for the 'get_pixel' member.
+		/// </summary>
 		public new static readonly StringName GetPixel = "get_pixel";
+		/// <summary>
+		/// Cached name for the 'set_height' member.
+		/// </summary>
 		public new static readonly StringName SetHeight = "set_height";
+		/// <summary>
+		/// Cached name for the 'get_height' member.
+		/// </summary>
 		public new static readonly StringName GetHeight = "get_height";
+		/// <summary>
+		/// Cached name for the 'set_color' member.
+		/// </summary>
 		public new static readonly StringName SetColor = "set_color";
+		/// <summary>
+		/// Cached name for the 'get_color' member.
+		/// </summary>
 		public new static readonly StringName GetColor = "get_color";
+		/// <summary>
+		/// Cached name for the 'set_control' member.
+		/// </summary>
 		public new static readonly StringName SetControl = "set_control";
+		/// <summary>
+		/// Cached name for the 'get_control' member.
+		/// </summary>
 		public new static readonly StringName GetControl = "get_control";
+		/// <summary>
+		/// Cached name for the 'set_roughness' member.
+		/// </summary>
 		public new static readonly StringName SetRoughness = "set_roughness";
+		/// <summary>
+		/// Cached name for the 'get_roughness' member.
+		/// </summary>
 		public new static readonly StringName GetRoughness = "get_roughness";
+		/// <summary>
+		/// Cached name for the 'set_control_base_id' member.
+		/// </summary>
 		public new static readonly StringName SetControlBaseId = "set_control_base_id";
+		/// <summary>
+		/// Cached name for the 'get_control_base_id' member.
+		/// </summary>
 		public new static readonly StringName GetControlBaseId = "get_control_base_id";
+		/// <summary>
+		/// Cached name for the 'set_control_overlay_id' member.
+		/// </summary>
 		public new static readonly StringName SetControlOverlayId = "set_control_overlay_id";
+		/// <summary>
+		/// Cached name for the 'get_control_overlay_id' member.
+		/// </summary>
 		public new static readonly StringName GetControlOverlayId = "get_control_overlay_id";
+		/// <summary>
+		/// Cached name for the 'set_control_blend' member.
+		/// </summary>
 		public new static readonly StringName SetControlBlend = "set_control_blend";
+		/// <summary>
+		/// Cached name for the 'get_control_blend' member.
+		/// </summary>
 		public new static readonly StringName GetControlBlend = "get_control_blend";
+		/// <summary>
+		/// Cached name for the 'set_control_angle' member.
+		/// </summary>
 		public new static readonly StringName SetControlAngle = "set_control_angle";
+		/// <summary>
+		/// Cached name for the 'get_control_angle' member.
+		/// </summary>
 		public new static readonly StringName GetControlAngle = "get_control_angle";
+		/// <summary>
+		/// Cached name for the 'set_control_scale' member.
+		/// </summary>
 		public new static readonly StringName SetControlScale = "set_control_scale";
+		/// <summary>
+		/// Cached name for the 'get_control_scale' member.
+		/// </summary>
 		public new static readonly StringName GetControlScale = "get_control_scale";
+		/// <summary>
+		/// Cached name for the 'set_control_hole' member.
+		/// </summary>
 		public new static readonly StringName SetControlHole = "set_control_hole";
+		/// <summary>
+		/// Cached name for the 'get_control_hole' member.
+		/// </summary>
 		public new static readonly StringName GetControlHole = "get_control_hole";
+		/// <summary>
+		/// Cached name for the 'set_control_navigation' member.
+		/// </summary>
 		public new static readonly StringName SetControlNavigation = "set_control_navigation";
+		/// <summary>
+		/// Cached name for the 'get_control_navigation' member.
+		/// </summary>
 		public new static readonly StringName GetControlNavigation = "get_control_navigation";
+		/// <summary>
+		/// Cached name for the 'set_control_auto' member.
+		/// </summary>
 		public new static readonly StringName SetControlAuto = "set_control_auto";
+		/// <summary>
+		/// Cached name for the 'get_control_auto' member.
+		/// </summary>
 		public new static readonly StringName GetControlAuto = "get_control_auto";
+		/// <summary>
+		/// Cached name for the 'get_normal' member.
+		/// </summary>
 		public new static readonly StringName GetNormal = "get_normal";
+		/// <summary>
+		/// Cached name for the 'is_in_slope' member.
+		/// </summary>
 		public new static readonly StringName IsInSlope = "is_in_slope";
+		/// <summary>
+		/// Cached name for the 'get_texture_id' member.
+		/// </summary>
 		public new static readonly StringName GetTextureId = "get_texture_id";
+		/// <summary>
+		/// Cached name for the 'get_mesh_vertex' member.
+		/// </summary>
 		public new static readonly StringName GetMeshVertex = "get_mesh_vertex";
+		/// <summary>
+		/// Cached name for the 'get_height_range' member.
+		/// </summary>
 		public new static readonly StringName GetHeightRange = "get_height_range";
+		/// <summary>
+		/// Cached name for the 'calc_height_range' member.
+		/// </summary>
 		public new static readonly StringName CalcHeightRange = "calc_height_range";
+		/// <summary>
+		/// Cached name for the 'import_images' member.
+		/// </summary>
 		public new static readonly StringName ImportImages = "import_images";
+		/// <summary>
+		/// Cached name for the 'export_image' member.
+		/// </summary>
 		public new static readonly StringName ExportImage = "export_image";
+		/// <summary>
+		/// Cached name for the 'layered_to_image' member.
+		/// </summary>
 		public new static readonly StringName LayeredToImage = "layered_to_image";
+		/// <summary>
+		/// Cached name for the 'dump' member.
+		/// </summary>
 		public new static readonly StringName Dump = "dump";
 	}
 
@@ -529,4 +766,16 @@ public partial class Terrain3DData : GodotObject
 	public new void Dump(bool verbose = false) => 
 		Call(GDExtensionMethodName.Dump, [verbose]);
 
+}
+
+file static class HeightFilterExtensions
+{
+public static int SafeAsInt32(this Terrain3DData.HeightFilter enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DData.HeightFilter enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DData.HeightFilter? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }

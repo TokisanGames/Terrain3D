@@ -66,9 +66,15 @@ public partial class Terrain3DAssets : Resource
 		Mesh = 1,
 	}
 
-	public new static class GDExtensionSignalName
+	public new class GDExtensionSignalName : Resource.SignalName
 	{
+		/// <summary>
+		/// Cached name for the 'meshes_changed' member.
+		/// </summary>
 		public new static readonly StringName MeshesChanged = "meshes_changed";
+		/// <summary>
+		/// Cached name for the 'textures_changed' member.
+		/// </summary>
 		public new static readonly StringName TexturesChanged = "textures_changed";
 	}
 
@@ -120,9 +126,15 @@ public partial class Terrain3DAssets : Resource
 		}
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionPropertyName : Resource.PropertyName
 	{
+		/// <summary>
+		/// Cached name for the 'mesh_list' member.
+		/// </summary>
 		public new static readonly StringName MeshList = "mesh_list";
+		/// <summary>
+		/// Cached name for the 'texture_list' member.
+		/// </summary>
 		public new static readonly StringName TextureList = "texture_list";
 	}
 
@@ -138,28 +150,91 @@ public partial class Terrain3DAssets : Resource
 		set => Set(GDExtensionPropertyName.TextureList, value);
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : Resource.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'set_texture_asset' member.
+		/// </summary>
 		public new static readonly StringName SetTextureAsset = "set_texture_asset";
+		/// <summary>
+		/// Cached name for the 'get_texture_asset' member.
+		/// </summary>
 		public new static readonly StringName GetTextureAsset = "get_texture_asset";
+		/// <summary>
+		/// Cached name for the 'get_texture_count' member.
+		/// </summary>
 		public new static readonly StringName GetTextureCount = "get_texture_count";
+		/// <summary>
+		/// Cached name for the 'get_albedo_array_rid' member.
+		/// </summary>
 		public new static readonly StringName GetAlbedoArrayRid = "get_albedo_array_rid";
+		/// <summary>
+		/// Cached name for the 'get_normal_array_rid' member.
+		/// </summary>
 		public new static readonly StringName GetNormalArrayRid = "get_normal_array_rid";
+		/// <summary>
+		/// Cached name for the 'get_texture_colors' member.
+		/// </summary>
 		public new static readonly StringName GetTextureColors = "get_texture_colors";
+		/// <summary>
+		/// Cached name for the 'get_texture_normal_depths' member.
+		/// </summary>
 		public new static readonly StringName GetTextureNormalDepths = "get_texture_normal_depths";
+		/// <summary>
+		/// Cached name for the 'get_texture_ao_strengths' member.
+		/// </summary>
 		public new static readonly StringName GetTextureAoStrengths = "get_texture_ao_strengths";
+		/// <summary>
+		/// Cached name for the 'get_texture_ao_light_affects' member.
+		/// </summary>
 		public new static readonly StringName GetTextureAoLightAffects = "get_texture_ao_light_affects";
+		/// <summary>
+		/// Cached name for the 'get_texture_roughness_mods' member.
+		/// </summary>
 		public new static readonly StringName GetTextureRoughnessMods = "get_texture_roughness_mods";
+		/// <summary>
+		/// Cached name for the 'get_texture_uv_scales' member.
+		/// </summary>
 		public new static readonly StringName GetTextureUvScales = "get_texture_uv_scales";
+		/// <summary>
+		/// Cached name for the 'get_texture_detiles' member.
+		/// </summary>
 		public new static readonly StringName GetTextureDetiles = "get_texture_detiles";
+		/// <summary>
+		/// Cached name for the 'get_texture_displacements' member.
+		/// </summary>
 		public new static readonly StringName GetTextureDisplacements = "get_texture_displacements";
+		/// <summary>
+		/// Cached name for the 'clear_textures' member.
+		/// </summary>
 		public new static readonly StringName ClearTextures = "clear_textures";
+		/// <summary>
+		/// Cached name for the 'update_texture_list' member.
+		/// </summary>
 		public new static readonly StringName UpdateTextureList = "update_texture_list";
+		/// <summary>
+		/// Cached name for the 'set_mesh_asset' member.
+		/// </summary>
 		public new static readonly StringName SetMeshAsset = "set_mesh_asset";
+		/// <summary>
+		/// Cached name for the 'get_mesh_asset' member.
+		/// </summary>
 		public new static readonly StringName GetMeshAsset = "get_mesh_asset";
+		/// <summary>
+		/// Cached name for the 'get_mesh_count' member.
+		/// </summary>
 		public new static readonly StringName GetMeshCount = "get_mesh_count";
+		/// <summary>
+		/// Cached name for the 'create_mesh_thumbnails' member.
+		/// </summary>
 		public new static readonly StringName CreateMeshThumbnails = "create_mesh_thumbnails";
+		/// <summary>
+		/// Cached name for the 'update_mesh_list' member.
+		/// </summary>
 		public new static readonly StringName UpdateMeshList = "update_mesh_list";
+		/// <summary>
+		/// Cached name for the 'save' member.
+		/// </summary>
 		public new static readonly StringName Save = "save";
 	}
 
@@ -226,4 +301,16 @@ public partial class Terrain3DAssets : Resource
 	public new Error Save(string path = "") => 
 		Call(GDExtensionMethodName.Save, [path]).As<Error>();
 
+}
+
+file static class AssetTypeExtensions
+{
+public static int SafeAsInt32(this Terrain3DAssets.AssetType enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DAssets.AssetType enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DAssets.AssetType? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }

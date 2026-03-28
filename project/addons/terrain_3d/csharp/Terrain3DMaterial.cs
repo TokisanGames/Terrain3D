@@ -69,8 +69,10 @@ public partial class Terrain3DMaterial : Resource
 
 	public enum TextureFilteringEnum
 	{
-		Linear = 0,
-		Nearest = 1,
+		LinearAnisotropic = 0,
+		Linear = 1,
+		NearestAnisotropic = 2,
+		Nearest = 3,
 	}
 
 	public enum UpdateFlags
@@ -82,45 +84,163 @@ public partial class Terrain3DMaterial : Resource
 		FullRebuild = 7,
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionSignalName : Resource.SignalName
 	{
+	}
+
+	public new class GDExtensionPropertyName : Resource.PropertyName
+	{
+		/// <summary>
+		/// Cached name for the 'world_background' member.
+		/// </summary>
 		public new static readonly StringName WorldBackground = "world_background";
+		/// <summary>
+		/// Cached name for the 'texture_filtering' member.
+		/// </summary>
 		public new static readonly StringName TextureFiltering = "texture_filtering";
+		/// <summary>
+		/// Cached name for the 'auto_shader_enabled' member.
+		/// </summary>
 		public new static readonly StringName AutoShaderEnabled = "auto_shader_enabled";
+		/// <summary>
+		/// Cached name for the 'dual_scaling_enabled' member.
+		/// </summary>
 		public new static readonly StringName DualScalingEnabled = "dual_scaling_enabled";
+		/// <summary>
+		/// Cached name for the 'macro_variation_enabled' member.
+		/// </summary>
 		public new static readonly StringName MacroVariationEnabled = "macro_variation_enabled";
+		/// <summary>
+		/// Cached name for the 'projection_enabled' member.
+		/// </summary>
 		public new static readonly StringName ProjectionEnabled = "projection_enabled";
+		/// <summary>
+		/// Cached name for the 'output_albedo' member.
+		/// </summary>
 		public new static readonly StringName OutputAlbedo = "output_albedo";
+		/// <summary>
+		/// Cached name for the 'output_roughness' member.
+		/// </summary>
 		public new static readonly StringName OutputRoughness = "output_roughness";
+		/// <summary>
+		/// Cached name for the 'output_normal_map' member.
+		/// </summary>
 		public new static readonly StringName OutputNormalMap = "output_normal_map";
+		/// <summary>
+		/// Cached name for the 'output_ambient_occlusion' member.
+		/// </summary>
 		public new static readonly StringName OutputAmbientOcclusion = "output_ambient_occlusion";
+		/// <summary>
+		/// Cached name for the 'shader_override_enabled' member.
+		/// </summary>
 		public new static readonly StringName ShaderOverrideEnabled = "shader_override_enabled";
+		/// <summary>
+		/// Cached name for the 'shader_override' member.
+		/// </summary>
 		public new static readonly StringName ShaderOverride = "shader_override";
+		/// <summary>
+		/// Cached name for the 'show_region_grid' member.
+		/// </summary>
 		public new static readonly StringName ShowRegionGrid = "show_region_grid";
+		/// <summary>
+		/// Cached name for the 'show_instancer_grid' member.
+		/// </summary>
 		public new static readonly StringName ShowInstancerGrid = "show_instancer_grid";
+		/// <summary>
+		/// Cached name for the 'show_vertex_grid' member.
+		/// </summary>
 		public new static readonly StringName ShowVertexGrid = "show_vertex_grid";
+		/// <summary>
+		/// Cached name for the 'show_contours' member.
+		/// </summary>
 		public new static readonly StringName ShowContours = "show_contours";
+		/// <summary>
+		/// Cached name for the 'show_navigation' member.
+		/// </summary>
 		public new static readonly StringName ShowNavigation = "show_navigation";
+		/// <summary>
+		/// Cached name for the 'displacement_scale' member.
+		/// </summary>
 		public new static readonly StringName DisplacementScale = "displacement_scale";
+		/// <summary>
+		/// Cached name for the 'displacement_sharpness' member.
+		/// </summary>
 		public new static readonly StringName DisplacementSharpness = "displacement_sharpness";
+		/// <summary>
+		/// Cached name for the 'buffer_shader_override_enabled' member.
+		/// </summary>
 		public new static readonly StringName BufferShaderOverrideEnabled = "buffer_shader_override_enabled";
+		/// <summary>
+		/// Cached name for the 'buffer_shader_override' member.
+		/// </summary>
 		public new static readonly StringName BufferShaderOverride = "buffer_shader_override";
+		/// <summary>
+		/// Cached name for the 'show_checkered' member.
+		/// </summary>
 		public new static readonly StringName ShowCheckered = "show_checkered";
+		/// <summary>
+		/// Cached name for the 'show_grey' member.
+		/// </summary>
 		public new static readonly StringName ShowGrey = "show_grey";
+		/// <summary>
+		/// Cached name for the 'show_heightmap' member.
+		/// </summary>
 		public new static readonly StringName ShowHeightmap = "show_heightmap";
+		/// <summary>
+		/// Cached name for the 'show_jaggedness' member.
+		/// </summary>
 		public new static readonly StringName ShowJaggedness = "show_jaggedness";
+		/// <summary>
+		/// Cached name for the 'show_autoshader' member.
+		/// </summary>
 		public new static readonly StringName ShowAutoshader = "show_autoshader";
+		/// <summary>
+		/// Cached name for the 'show_control_texture' member.
+		/// </summary>
 		public new static readonly StringName ShowControlTexture = "show_control_texture";
+		/// <summary>
+		/// Cached name for the 'show_control_blend' member.
+		/// </summary>
 		public new static readonly StringName ShowControlBlend = "show_control_blend";
+		/// <summary>
+		/// Cached name for the 'show_control_angle' member.
+		/// </summary>
 		public new static readonly StringName ShowControlAngle = "show_control_angle";
+		/// <summary>
+		/// Cached name for the 'show_control_scale' member.
+		/// </summary>
 		public new static readonly StringName ShowControlScale = "show_control_scale";
+		/// <summary>
+		/// Cached name for the 'show_colormap' member.
+		/// </summary>
 		public new static readonly StringName ShowColormap = "show_colormap";
+		/// <summary>
+		/// Cached name for the 'show_roughmap' member.
+		/// </summary>
 		public new static readonly StringName ShowRoughmap = "show_roughmap";
+		/// <summary>
+		/// Cached name for the 'show_texture_albedo' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureAlbedo = "show_texture_albedo";
+		/// <summary>
+		/// Cached name for the 'show_texture_height' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureHeight = "show_texture_height";
+		/// <summary>
+		/// Cached name for the 'show_texture_normal' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureNormal = "show_texture_normal";
+		/// <summary>
+		/// Cached name for the 'show_texture_ao' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureAo = "show_texture_ao";
+		/// <summary>
+		/// Cached name for the 'show_texture_rough' member.
+		/// </summary>
 		public new static readonly StringName ShowTextureRough = "show_texture_rough";
+		/// <summary>
+		/// Cached name for the 'show_displacement_buffer' member.
+		/// </summary>
 		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
 	}
 
@@ -130,10 +250,10 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.WorldBackground, Variant.From(value));
 	}
 
-	public new long TextureFiltering
+	public new Terrain3DMaterial.TextureFilteringEnum TextureFiltering
 	{
-		get => Get(GDExtensionPropertyName.TextureFiltering).As<long>();
-		set => Set(GDExtensionPropertyName.TextureFiltering, value);
+		get => Get(GDExtensionPropertyName.TextureFiltering).As<Terrain3DMaterial.TextureFilteringEnum>();
+		set => Set(GDExtensionPropertyName.TextureFiltering, Variant.From(value));
 	}
 
 	public new bool AutoShaderEnabled
@@ -244,9 +364,9 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.BufferShaderOverrideEnabled, value);
 	}
 
-	public new Variant BufferShaderOverride
+	public new Shader BufferShaderOverride
 	{
-		get => Get(GDExtensionPropertyName.BufferShaderOverride).As<Variant>();
+		get => Get(GDExtensionPropertyName.BufferShaderOverride).As<Shader>();
 		set => Set(GDExtensionPropertyName.BufferShaderOverride, value);
 	}
 
@@ -352,15 +472,39 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.ShowDisplacementBuffer, value);
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : Resource.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'update' member.
+		/// </summary>
 		public new static readonly StringName Update = "update";
+		/// <summary>
+		/// Cached name for the 'get_material_rid' member.
+		/// </summary>
 		public new static readonly StringName GetMaterialRid = "get_material_rid";
+		/// <summary>
+		/// Cached name for the 'get_shader_rid' member.
+		/// </summary>
 		public new static readonly StringName GetShaderRid = "get_shader_rid";
+		/// <summary>
+		/// Cached name for the 'get_buffer_material_rid' member.
+		/// </summary>
 		public new static readonly StringName GetBufferMaterialRid = "get_buffer_material_rid";
+		/// <summary>
+		/// Cached name for the 'get_buffer_shader_rid' member.
+		/// </summary>
 		public new static readonly StringName GetBufferShaderRid = "get_buffer_shader_rid";
+		/// <summary>
+		/// Cached name for the 'set_shader_param' member.
+		/// </summary>
 		public new static readonly StringName SetShaderParam = "set_shader_param";
+		/// <summary>
+		/// Cached name for the 'get_shader_param' member.
+		/// </summary>
 		public new static readonly StringName GetShaderParam = "get_shader_param";
+		/// <summary>
+		/// Cached name for the 'save' member.
+		/// </summary>
 		public new static readonly StringName Save = "save";
 	}
 
@@ -388,4 +532,40 @@ public partial class Terrain3DMaterial : Resource
 	public new Error Save(string path = "") => 
 		Call(GDExtensionMethodName.Save, [path]).As<Error>();
 
+}
+
+file static class WorldBackgroundEnumExtensions
+{
+public static int SafeAsInt32(this Terrain3DMaterial.WorldBackgroundEnum enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.WorldBackgroundEnum enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.WorldBackgroundEnum? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
+}
+
+file static class TextureFilteringEnumExtensions
+{
+public static int SafeAsInt32(this Terrain3DMaterial.TextureFilteringEnum enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.TextureFilteringEnum enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.TextureFilteringEnum? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
+}
+
+file static class UpdateFlagsExtensions
+{
+public static int SafeAsInt32(this Terrain3DMaterial.UpdateFlags enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.UpdateFlags enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.UpdateFlags? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }

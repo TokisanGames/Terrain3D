@@ -63,10 +63,11 @@ func create_terrain() -> Terrain3D:
 	# Instance foliage
 	var xforms: Array[Transform3D]
 	var width: int = 100
+	var center_offset := Vector3(width, 0, width) * .5
 	var step: int = 2
 	for x in range(0, width, step):
 		for z in range(0, width, step):
-			var pos := Vector3(x, 0, z) - Vector3(width, 0, width) * .5
+			var pos := Vector3(x, 0, z) - center_offset
 			pos.y = terrain.data.get_height(pos)
 			xforms.push_back(Transform3D(Basis(), pos))
 	terrain.instancer.add_transforms(0, xforms)
