@@ -46,10 +46,11 @@
 		</method>
 		<method name="update">
 			<return type="void" />
-			<param index="0" name="rebuild" type="bool" default="false" />
+			<param index="0" name="region_location" type="Vector2i" default="Vector2i(2147483647, 2147483647)" />
+			<param index="1" name="rebuild" type="bool" default="false" />
 			<description>
-				- If [member mode] is Full, recalculates the existing collision shapes. If regions have been added or removed, set [code skip-lint]rebuild[/code] to true or call [method build] instead. Can be slow.
-				- If [member mode] is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set [code skip-lint]rebuild[/code] to true to recalculate all shapes within [member radius]. This is very fast, and can be updated at 60fps for little cost.
+				- If [member mode] is Full, recalculates the specified or all existing collision shapes. Specify a [code skip-lint]region_location[/code] to update only that region, or omit it or use `Vector2i.MAX` to update all regions. If regions have been added or removed, set [code skip-lint]rebuild[/code] to true or call [method build] instead. A full update can be slow.
+				- If [member mode] is Dynamic, repositions collision shapes around the camera and recalculates ones that moved. Set [code skip-lint]rebuild[/code] to true to recalculate all shapes within [member radius]. [code skip-lint]region_location[/code] is ignored. This is very fast, and can be updated at 60fps for little cost.
 			</description>
 		</method>
 	</methods>
@@ -88,10 +89,10 @@
 			Collision shapes are generated around the camera as it moves; in the editor and in game. Enable [code skip-lint]View Gizmos[/code] in the viewport menu to see them.
 		</constant>
 		<constant name="FULL_GAME" value="3" enum="CollisionMode">
-			Collision shapes are generated for all regions in game only.
+			Collision shapes are generated for all regions in game only. One shape per region.
 		</constant>
 		<constant name="FULL_EDITOR" value="4" enum="CollisionMode">
-			Collision shapes are generated for all regions in the editor and in game. This mode is necessary for some 3rd party plugins to detect the terrain using collision. Enable [code skip-lint]View Gizmos[/code] in the viewport menu to see the collision mesh.
+			Collision shapes are generated for all regions in the editor and in game. One shape per region. This mode is necessary for some 3rd party plugins to detect the terrain using collision. Enable [code skip-lint]View Gizmos[/code] in the viewport menu to see the collision mesh.
 		</constant>
 	</constants>
 </class>
