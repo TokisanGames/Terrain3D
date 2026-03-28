@@ -211,10 +211,10 @@ public partial class Terrain3D : Node3D
 		get => Get(GDExtensionPropertyName.Version).As<string>();
 	}
 
-	public new Variant DebugLevel
+	public new Terrain3D.DebugLevelEnum DebugLevel
 	{
-		get => Get(GDExtensionPropertyName.DebugLevel).As<Variant>();
-		set => Set(GDExtensionPropertyName.DebugLevel, value);
+		get => Get(GDExtensionPropertyName.DebugLevel).As<Terrain3D.DebugLevelEnum>();
+		set => Set(GDExtensionPropertyName.DebugLevel, Variant.From(value));
 	}
 
 	public new string DataDirectory
@@ -250,10 +250,10 @@ public partial class Terrain3D : Node3D
 		get => Terrain3DInstancer.Bind(Get(GDExtensionPropertyName.Instancer).As<GodotObject>());
 	}
 
-	public new Variant RegionSize
+	public new Terrain3D.RegionSizeEnum RegionSize
 	{
-		get => Get(GDExtensionPropertyName.RegionSize).As<Variant>();
-		set => Set(GDExtensionPropertyName.RegionSize, value);
+		get => Get(GDExtensionPropertyName.RegionSize).As<Terrain3D.RegionSizeEnum>();
+		set => Set(GDExtensionPropertyName.RegionSize, Variant.From(value));
 	}
 
 	public new bool Save16Bit
@@ -280,10 +280,10 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.ShowGrid, value);
 	}
 
-	public new Variant CollisionMode
+	public new Terrain3DCollision.CollisionMode CollisionMode
 	{
-		get => Get(GDExtensionPropertyName.CollisionMode).As<Variant>();
-		set => Set(GDExtensionPropertyName.CollisionMode, value);
+		get => Get(GDExtensionPropertyName.CollisionMode).As<Terrain3DCollision.CollisionMode>();
+		set => Set(GDExtensionPropertyName.CollisionMode, Variant.From(value));
 	}
 
 	public new long CollisionShapeSize
@@ -364,16 +364,16 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.CullMargin, value);
 	}
 
-	public new long CastShadows
+	public new RenderingServer.ShadowCastingSetting CastShadows
 	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
-		set => Set(GDExtensionPropertyName.CastShadows, value);
+		get => Get(GDExtensionPropertyName.CastShadows).As<RenderingServer.ShadowCastingSetting>();
+		set => Set(GDExtensionPropertyName.CastShadows, Variant.From(value));
 	}
 
-	public new long GiMode
+	public new GeometryInstance3D.GIModeEnum GiMode
 	{
-		get => Get(GDExtensionPropertyName.GiMode).As<long>();
-		set => Set(GDExtensionPropertyName.GiMode, value);
+		get => Get(GDExtensionPropertyName.GiMode).As<GeometryInstance3D.GIModeEnum>();
+		set => Set(GDExtensionPropertyName.GiMode, Variant.From(value));
 	}
 
 	public new long RenderLayers
@@ -442,16 +442,16 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.OceanCullMargin, value);
 	}
 
-	public new long OceanCastShadows
+	public new RenderingServer.ShadowCastingSetting OceanCastShadows
 	{
-		get => Get(GDExtensionPropertyName.OceanCastShadows).As<long>();
-		set => Set(GDExtensionPropertyName.OceanCastShadows, value);
+		get => Get(GDExtensionPropertyName.OceanCastShadows).As<RenderingServer.ShadowCastingSetting>();
+		set => Set(GDExtensionPropertyName.OceanCastShadows, Variant.From(value));
 	}
 
-	public new long OceanGiMode
+	public new GeometryInstance3D.GIModeEnum OceanGiMode
 	{
-		get => Get(GDExtensionPropertyName.OceanGiMode).As<long>();
-		set => Set(GDExtensionPropertyName.OceanGiMode, value);
+		get => Get(GDExtensionPropertyName.OceanGiMode).As<GeometryInstance3D.GIModeEnum>();
+		set => Set(GDExtensionPropertyName.OceanGiMode, Variant.From(value));
 	}
 
 	public new long OceanRenderLayers
