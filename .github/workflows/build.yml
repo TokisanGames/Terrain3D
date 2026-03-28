@@ -3,7 +3,7 @@
 name: 🛠️ Build All
 on: 
     push:
-        branches: [ main ]
+        branches: [ main, 1.1-godot4.4 ]
     pull_request:
         paths: [ '**' ]
     workflow_dispatch:
@@ -66,16 +66,22 @@ jobs:
 
     steps:
       - name: Checkout Terrain3D
+        env:
+            FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         uses: actions/checkout@v4
         with:
           submodules: recursive
         
       - name: Setup Base Dependencies
+        env:
+            FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         uses: ./.github/actions/base-deps
         with:
             platform: ${{ matrix.platform }}
 
       - name: Setup Build Cache
+        env:
+            FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         uses: ./.github/actions/build-cache
         with:
           cache-name: ${{ matrix.identifier }}-${{ matrix.target }}
@@ -103,6 +109,8 @@ jobs:
           cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload Package
+        env:
+            FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         uses: actions/upload-artifact@v4
         with:
           include-hidden-files: true
@@ -115,6 +123,8 @@ jobs:
     needs: build
     steps:
       - name: Merge Artifacts
+        env:
+            FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         uses: actions/upload-artifact/merge@v4
         with:
           include-hidden-files: true
