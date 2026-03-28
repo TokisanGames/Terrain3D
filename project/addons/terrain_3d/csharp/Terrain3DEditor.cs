@@ -87,20 +87,67 @@ public partial class Terrain3DEditor : GodotObject
 		Max = 12,
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionSignalName : GodotObject.SignalName
 	{
+	}
+
+	public new class GDExtensionPropertyName : GodotObject.PropertyName
+	{
+	}
+
+	public new class GDExtensionMethodName : GodotObject.MethodName
+	{
+		/// <summary>
+		/// Cached name for the 'set_terrain' member.
+		/// </summary>
 		public new static readonly StringName SetTerrain = "set_terrain";
+		/// <summary>
+		/// Cached name for the 'get_terrain' member.
+		/// </summary>
 		public new static readonly StringName GetTerrain = "get_terrain";
+		/// <summary>
+		/// Cached name for the 'set_brush_data' member.
+		/// </summary>
 		public new static readonly StringName SetBrushData = "set_brush_data";
+		/// <summary>
+		/// Cached name for the 'set_tool' member.
+		/// </summary>
 		public new static readonly StringName SetTool = "set_tool";
+		/// <summary>
+		/// Cached name for the 'get_tool' member.
+		/// </summary>
 		public new static readonly StringName GetTool = "get_tool";
+		/// <summary>
+		/// Cached name for the 'set_operation' member.
+		/// </summary>
 		public new static readonly StringName SetOperation = "set_operation";
+		/// <summary>
+		/// Cached name for the 'get_operation' member.
+		/// </summary>
 		public new static readonly StringName GetOperation = "get_operation";
+		/// <summary>
+		/// Cached name for the 'start_operation' member.
+		/// </summary>
 		public new static readonly StringName StartOperation = "start_operation";
+		/// <summary>
+		/// Cached name for the 'is_operating' member.
+		/// </summary>
 		public new static readonly StringName IsOperating = "is_operating";
+		/// <summary>
+		/// Cached name for the 'operate' member.
+		/// </summary>
 		public new static readonly StringName Operate = "operate";
+		/// <summary>
+		/// Cached name for the 'backup_region' member.
+		/// </summary>
 		public new static readonly StringName BackupRegion = "backup_region";
+		/// <summary>
+		/// Cached name for the 'stop_operation' member.
+		/// </summary>
 		public new static readonly StringName StopOperation = "stop_operation";
+		/// <summary>
+		/// Cached name for the 'apply_undo' member.
+		/// </summary>
 		public new static readonly StringName ApplyUndo = "apply_undo";
 	}
 
@@ -143,4 +190,28 @@ public partial class Terrain3DEditor : GodotObject
 	public new void ApplyUndo(Godot.Collections.Dictionary data) => 
 		Call(GDExtensionMethodName.ApplyUndo, [data]);
 
+}
+
+file static class OperationExtensions
+{
+public static int SafeAsInt32(this Terrain3DEditor.Operation enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DEditor.Operation enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DEditor.Operation? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
+}
+
+file static class ToolExtensions
+{
+public static int SafeAsInt32(this Terrain3DEditor.Tool enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DEditor.Tool enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DEditor.Tool? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }

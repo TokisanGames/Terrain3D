@@ -66,8 +66,15 @@ public partial class Terrain3DInstancer : GodotObject
 		Disabled = 0,
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionSignalName : GodotObject.SignalName
 	{
+	}
+
+	public new class GDExtensionPropertyName : GodotObject.PropertyName
+	{
+		/// <summary>
+		/// Cached name for the 'mode' member.
+		/// </summary>
 		public new static readonly StringName Mode = "mode";
 	}
 
@@ -77,21 +84,63 @@ public partial class Terrain3DInstancer : GodotObject
 		set => Set(GDExtensionPropertyName.Mode, Variant.From(value));
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : GodotObject.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'clear_by_mesh' member.
+		/// </summary>
 		public new static readonly StringName ClearByMesh = "clear_by_mesh";
+		/// <summary>
+		/// Cached name for the 'clear_by_location' member.
+		/// </summary>
 		public new static readonly StringName ClearByLocation = "clear_by_location";
+		/// <summary>
+		/// Cached name for the 'clear_by_region' member.
+		/// </summary>
 		public new static readonly StringName ClearByRegion = "clear_by_region";
+		/// <summary>
+		/// Cached name for the 'is_enabled' member.
+		/// </summary>
 		public new static readonly StringName IsEnabled = "is_enabled";
+		/// <summary>
+		/// Cached name for the 'add_instances' member.
+		/// </summary>
 		public new static readonly StringName AddInstances = "add_instances";
+		/// <summary>
+		/// Cached name for the 'remove_instances' member.
+		/// </summary>
 		public new static readonly StringName RemoveInstances = "remove_instances";
+		/// <summary>
+		/// Cached name for the 'add_multimesh' member.
+		/// </summary>
 		public new static readonly StringName AddMultimesh = "add_multimesh";
+		/// <summary>
+		/// Cached name for the 'add_transforms' member.
+		/// </summary>
 		public new static readonly StringName AddTransforms = "add_transforms";
+		/// <summary>
+		/// Cached name for the 'append_location' member.
+		/// </summary>
 		public new static readonly StringName AppendLocation = "append_location";
+		/// <summary>
+		/// Cached name for the 'append_region' member.
+		/// </summary>
 		public new static readonly StringName AppendRegion = "append_region";
+		/// <summary>
+		/// Cached name for the 'update_transforms' member.
+		/// </summary>
 		public new static readonly StringName UpdateTransforms = "update_transforms";
+		/// <summary>
+		/// Cached name for the 'get_closest_mesh_id' member.
+		/// </summary>
 		public new static readonly StringName GetClosestMeshId = "get_closest_mesh_id";
+		/// <summary>
+		/// Cached name for the 'update_mmis' member.
+		/// </summary>
 		public new static readonly StringName UpdateMmis = "update_mmis";
+		/// <summary>
+		/// Cached name for the 'swap_ids' member.
+		/// </summary>
 		public new static readonly StringName SwapIds = "swap_ids";
 	}
 
@@ -137,4 +186,16 @@ public partial class Terrain3DInstancer : GodotObject
 	public new void SwapIds(long srcId, long destId) => 
 		Call(GDExtensionMethodName.SwapIds, [srcId, destId]);
 
+}
+
+file static class InstancerModeExtensions
+{
+public static int SafeAsInt32(this Terrain3DInstancer.InstancerMode enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DInstancer.InstancerMode enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DInstancer.InstancerMode? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }

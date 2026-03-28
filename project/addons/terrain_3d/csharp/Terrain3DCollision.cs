@@ -69,21 +69,46 @@ public partial class Terrain3DCollision : GodotObject
 		FullEditor = 4,
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionSignalName : GodotObject.SignalName
 	{
+	}
+
+	public new class GDExtensionPropertyName : GodotObject.PropertyName
+	{
+		/// <summary>
+		/// Cached name for the 'mode' member.
+		/// </summary>
 		public new static readonly StringName Mode = "mode";
+		/// <summary>
+		/// Cached name for the 'shape_size' member.
+		/// </summary>
 		public new static readonly StringName ShapeSize = "shape_size";
+		/// <summary>
+		/// Cached name for the 'radius' member.
+		/// </summary>
 		public new static readonly StringName Radius = "radius";
+		/// <summary>
+		/// Cached name for the 'layer' member.
+		/// </summary>
 		public new static readonly StringName Layer = "layer";
+		/// <summary>
+		/// Cached name for the 'mask' member.
+		/// </summary>
 		public new static readonly StringName Mask = "mask";
+		/// <summary>
+		/// Cached name for the 'priority' member.
+		/// </summary>
 		public new static readonly StringName Priority = "priority";
+		/// <summary>
+		/// Cached name for the 'physics_material' member.
+		/// </summary>
 		public new static readonly StringName PhysicsMaterial = "physics_material";
 	}
 
-	public new Variant Mode
+	public new Terrain3DCollision.CollisionMode Mode
 	{
-		get => Get(GDExtensionPropertyName.Mode).As<Variant>();
-		set => Set(GDExtensionPropertyName.Mode, value);
+		get => Get(GDExtensionPropertyName.Mode).As<Terrain3DCollision.CollisionMode>();
+		set => Set(GDExtensionPropertyName.Mode, Variant.From(value));
 	}
 
 	public new long ShapeSize
@@ -122,22 +147,43 @@ public partial class Terrain3DCollision : GodotObject
 		set => Set(GDExtensionPropertyName.PhysicsMaterial, value);
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : GodotObject.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'build' member.
+		/// </summary>
 		public new static readonly StringName Build = "build";
+		/// <summary>
+		/// Cached name for the 'update' member.
+		/// </summary>
 		public new static readonly StringName Update = "update";
+		/// <summary>
+		/// Cached name for the 'destroy' member.
+		/// </summary>
 		public new static readonly StringName Destroy = "destroy";
+		/// <summary>
+		/// Cached name for the 'is_enabled' member.
+		/// </summary>
 		public new static readonly StringName IsEnabled = "is_enabled";
+		/// <summary>
+		/// Cached name for the 'is_editor_mode' member.
+		/// </summary>
 		public new static readonly StringName IsEditorMode = "is_editor_mode";
+		/// <summary>
+		/// Cached name for the 'is_dynamic_mode' member.
+		/// </summary>
 		public new static readonly StringName IsDynamicMode = "is_dynamic_mode";
+		/// <summary>
+		/// Cached name for the 'get_rid' member.
+		/// </summary>
 		public new static readonly StringName GetRid = "get_rid";
 	}
 
 	public new void Build() => 
 		Call(GDExtensionMethodName.Build, []);
 
-	public new void Update(bool rebuild = false) => 
-		Call(GDExtensionMethodName.Update, [rebuild]);
+	public new void Update(Vector2I regionLocation = default, bool rebuild = false) => 
+		Call(GDExtensionMethodName.Update, [regionLocation, rebuild]);
 
 	public new void Destroy() => 
 		Call(GDExtensionMethodName.Destroy, []);
@@ -154,4 +200,16 @@ public partial class Terrain3DCollision : GodotObject
 	public new Rid GetRid() => 
 		Call(GDExtensionMethodName.GetRid, []).As<Rid>();
 
+}
+
+file static class CollisionModeExtensions
+{
+public static int SafeAsInt32(this Terrain3DCollision.CollisionMode enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DCollision.CollisionMode enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DCollision.CollisionMode? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }

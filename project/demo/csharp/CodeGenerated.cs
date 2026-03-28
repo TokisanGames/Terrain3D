@@ -50,7 +50,7 @@ public partial class CodeGenerated : Node
 		terrain = Terrain3D.Instantiate();
 		terrain.Name = "Terrain3D";
 		// Optionally log to the console. Use the console version of Godot. See Troubleshooting doc.
-		//terrain.DebugLevel = Variant.From(Terrain3D.DebugLevelEnum.Debug);
+		//terrain.DebugLevel = Terrain3D.DebugLevelEnum.Debug;
 		AddChild(terrain, true);
 		terrain.Owner = GetTree().GetCurrentScene();
 		
@@ -74,7 +74,7 @@ public partial class CodeGenerated : Node
 				img.SetPixel(x, y, new Color(noise.GetNoise2D(x, y), 0f, 0f, 1f));
 			}
 		}
-		terrain.RegionSize = 1024;
+		terrain.RegionSize = Terrain3D.RegionSizeEnum.Size1024;
 		var data = terrain.Data;
 		var images = new Godot.Collections.Array { img, new Variant(), new Variant() };
 		data.ImportImages(images, new Vector3(-1024, 0, -1024), 0.0, 150.0);
@@ -83,12 +83,13 @@ public partial class CodeGenerated : Node
 		var instancer = terrain.Instancer;
 		var xforms = new Godot.Collections.Array();
 		int width = 100;
+		Vector3 center_offset = new Vector3(width, 0, width) * 0.5f;
 		int step = 2;
 		for (int x = 0; x < width; x += step)
 		{
 			for (int z = 0; z < width; z += step)
 			{
-				var pos = new Vector3(x, 0, z) - new Vector3(width, 0, width) * 0.5f;
+				var pos = new Vector3(x, 0, z) - center_offset;
 				pos.Y = (float)data.GetHeight(pos);
 				xforms.Add(new Transform3D(Basis.Identity, pos));
 			}
@@ -156,7 +157,7 @@ public partial class CodeGenerated : Node
 	{
 		var ma = Terrain3DMeshAsset.Instantiate();
 		ma.Name = assetName;
-		ma.GeneratedType = Variant.From(Terrain3DMeshAsset.GenType.TextureCard);
+		ma.GeneratedType = Terrain3DMeshAsset.GenType.TextureCard;
 		ma.HeightOffset = 0.5f;
 		ma.Lod0Range = 128.0f;
 		(ma.MaterialOverride as StandardMaterial3D).AlbedoColor = color;

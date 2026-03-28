@@ -67,11 +67,23 @@ public partial class Terrain3DMeshAsset : Resource
 		Max = 2,
 	}
 
-	public new static class GDExtensionSignalName
+	public new class GDExtensionSignalName : Resource.SignalName
 	{
+		/// <summary>
+		/// Cached name for the 'id_changed' member.
+		/// </summary>
 		public new static readonly StringName IdChanged = "id_changed";
+		/// <summary>
+		/// Cached name for the 'setting_changed' member.
+		/// </summary>
 		public new static readonly StringName SettingChanged = "setting_changed";
+		/// <summary>
+		/// Cached name for the 'instancer_setting_changed' member.
+		/// </summary>
 		public new static readonly StringName InstancerSettingChanged = "instancer_setting_changed";
+		/// <summary>
+		/// Cached name for the 'instance_count_changed' member.
+		/// </summary>
 		public new static readonly StringName InstanceCountChanged = "instance_count_changed";
 	}
 
@@ -171,35 +183,119 @@ public partial class Terrain3DMeshAsset : Resource
 		}
 	}
 
-	public new static class GDExtensionPropertyName
+	public new class GDExtensionPropertyName : Resource.PropertyName
 	{
+		/// <summary>
+		/// Cached name for the 'name' member.
+		/// </summary>
 		public new static readonly StringName Name = "name";
+		/// <summary>
+		/// Cached name for the 'id' member.
+		/// </summary>
 		public new static readonly StringName Id = "id";
+		/// <summary>
+		/// Cached name for the 'enabled' member.
+		/// </summary>
 		public new static readonly StringName Enabled = "enabled";
+		/// <summary>
+		/// Cached name for the 'scene_file' member.
+		/// </summary>
 		public new static readonly StringName SceneFile = "scene_file";
+		/// <summary>
+		/// Cached name for the 'generated_type' member.
+		/// </summary>
 		public new static readonly StringName GeneratedType = "generated_type";
+		/// <summary>
+		/// Cached name for the 'height_offset' member.
+		/// </summary>
 		public new static readonly StringName HeightOffset = "height_offset";
+		/// <summary>
+		/// Cached name for the 'density' member.
+		/// </summary>
 		public new static readonly StringName Density = "density";
+		/// <summary>
+		/// Cached name for the 'cast_shadows' member.
+		/// </summary>
 		public new static readonly StringName CastShadows = "cast_shadows";
+		/// <summary>
+		/// Cached name for the 'visibility_layers' member.
+		/// </summary>
 		public new static readonly StringName VisibilityLayers = "visibility_layers";
+		/// <summary>
+		/// Cached name for the 'material_override' member.
+		/// </summary>
 		public new static readonly StringName MaterialOverride = "material_override";
+		/// <summary>
+		/// Cached name for the 'material_overlay' member.
+		/// </summary>
 		public new static readonly StringName MaterialOverlay = "material_overlay";
+		/// <summary>
+		/// Cached name for the 'generated_faces' member.
+		/// </summary>
 		public new static readonly StringName GeneratedFaces = "generated_faces";
+		/// <summary>
+		/// Cached name for the 'generated_size' member.
+		/// </summary>
 		public new static readonly StringName GeneratedSize = "generated_size";
+		/// <summary>
+		/// Cached name for the 'lod_count' member.
+		/// </summary>
 		public new static readonly StringName LodCount = "lod_count";
+		/// <summary>
+		/// Cached name for the 'last_lod' member.
+		/// </summary>
 		public new static readonly StringName LastLod = "last_lod";
+		/// <summary>
+		/// Cached name for the 'last_shadow_lod' member.
+		/// </summary>
 		public new static readonly StringName LastShadowLod = "last_shadow_lod";
+		/// <summary>
+		/// Cached name for the 'shadow_impostor' member.
+		/// </summary>
 		public new static readonly StringName ShadowImpostor = "shadow_impostor";
+		/// <summary>
+		/// Cached name for the 'lod0_range' member.
+		/// </summary>
 		public new static readonly StringName Lod0Range = "lod0_range";
+		/// <summary>
+		/// Cached name for the 'lod1_range' member.
+		/// </summary>
 		public new static readonly StringName Lod1Range = "lod1_range";
+		/// <summary>
+		/// Cached name for the 'lod2_range' member.
+		/// </summary>
 		public new static readonly StringName Lod2Range = "lod2_range";
+		/// <summary>
+		/// Cached name for the 'lod3_range' member.
+		/// </summary>
 		public new static readonly StringName Lod3Range = "lod3_range";
+		/// <summary>
+		/// Cached name for the 'lod4_range' member.
+		/// </summary>
 		public new static readonly StringName Lod4Range = "lod4_range";
+		/// <summary>
+		/// Cached name for the 'lod5_range' member.
+		/// </summary>
 		public new static readonly StringName Lod5Range = "lod5_range";
+		/// <summary>
+		/// Cached name for the 'lod6_range' member.
+		/// </summary>
 		public new static readonly StringName Lod6Range = "lod6_range";
+		/// <summary>
+		/// Cached name for the 'lod7_range' member.
+		/// </summary>
 		public new static readonly StringName Lod7Range = "lod7_range";
+		/// <summary>
+		/// Cached name for the 'lod8_range' member.
+		/// </summary>
 		public new static readonly StringName Lod8Range = "lod8_range";
+		/// <summary>
+		/// Cached name for the 'lod9_range' member.
+		/// </summary>
 		public new static readonly StringName Lod9Range = "lod9_range";
+		/// <summary>
+		/// Cached name for the 'fade_margin' member.
+		/// </summary>
 		public new static readonly StringName FadeMargin = "fade_margin";
 	}
 
@@ -227,10 +323,10 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.SceneFile, value);
 	}
 
-	public new Variant GeneratedType
+	public new Terrain3DMeshAsset.GenType GeneratedType
 	{
-		get => Get(GDExtensionPropertyName.GeneratedType).As<Variant>();
-		set => Set(GDExtensionPropertyName.GeneratedType, value);
+		get => Get(GDExtensionPropertyName.GeneratedType).As<Terrain3DMeshAsset.GenType>();
+		set => Set(GDExtensionPropertyName.GeneratedType, Variant.From(value));
 	}
 
 	public new double HeightOffset
@@ -245,10 +341,10 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.Density, value);
 	}
 
-	public new long CastShadows
+	public new RenderingServer.ShadowCastingSetting CastShadows
 	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
-		set => Set(GDExtensionPropertyName.CastShadows, value);
+		get => Get(GDExtensionPropertyName.CastShadows).As<RenderingServer.ShadowCastingSetting>();
+		set => Set(GDExtensionPropertyName.CastShadows, Variant.From(value));
 	}
 
 	public new long VisibilityLayers
@@ -370,16 +466,43 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.FadeMargin, value);
 	}
 
-	public new static class GDExtensionMethodName
+	public new class GDExtensionMethodName : Resource.MethodName
 	{
+		/// <summary>
+		/// Cached name for the 'clear' member.
+		/// </summary>
 		public new static readonly StringName Clear = "clear";
+		/// <summary>
+		/// Cached name for the 'set_highlighted' member.
+		/// </summary>
 		public new static readonly StringName SetHighlighted = "set_highlighted";
+		/// <summary>
+		/// Cached name for the 'is_highlighted' member.
+		/// </summary>
 		public new static readonly StringName IsHighlighted = "is_highlighted";
+		/// <summary>
+		/// Cached name for the 'get_highlight_color' member.
+		/// </summary>
 		public new static readonly StringName GetHighlightColor = "get_highlight_color";
+		/// <summary>
+		/// Cached name for the 'get_thumbnail' member.
+		/// </summary>
 		public new static readonly StringName GetThumbnail = "get_thumbnail";
+		/// <summary>
+		/// Cached name for the 'get_mesh' member.
+		/// </summary>
 		public new static readonly StringName GetMesh = "get_mesh";
+		/// <summary>
+		/// Cached name for the 'set_lod_range' member.
+		/// </summary>
 		public new static readonly StringName SetLodRange = "set_lod_range";
+		/// <summary>
+		/// Cached name for the 'get_lod_range' member.
+		/// </summary>
 		public new static readonly StringName GetLodRange = "get_lod_range";
+		/// <summary>
+		/// Cached name for the 'get_instance_count' member.
+		/// </summary>
 		public new static readonly StringName GetInstanceCount = "get_instance_count";
 	}
 
@@ -410,4 +533,16 @@ public partial class Terrain3DMeshAsset : Resource
 	public new long GetInstanceCount() => 
 		Call(GDExtensionMethodName.GetInstanceCount, []).As<long>();
 
+}
+
+file static class GenTypeExtensions
+{
+public static int SafeAsInt32(this Terrain3DMeshAsset.GenType enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMeshAsset.GenType enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMeshAsset.GenType? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }
