@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_DATA_CLASS_H
 #define TERRAIN3D_DATA_CLASS_H
@@ -16,7 +16,7 @@ class Terrain3DData : public Object {
 	friend Terrain3D;
 
 public: // Constants
-	static inline const real_t CURRENT_VERSION = 0.93f;
+	static inline const real_t CURRENT_DATA_VERSION = 0.93f; // Current Data format version
 	static inline const int REGION_MAP_SIZE = 32;
 	static inline const Vector2i REGION_MAP_VSIZE = V2I(REGION_MAP_SIZE);
 

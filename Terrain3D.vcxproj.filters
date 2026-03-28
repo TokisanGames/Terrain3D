@@ -348,9 +348,6 @@
     <Text Include="src\shaders\gpu_depth.glsl">
       <Filter>4. Shaders</Filter>
     </Text>
-    <Text Include="doc\_new_release_process.txt">
-      <Filter>1. Project Files</Filter>
-    </Text>
     <Text Include="doc\requirements.txt">
       <Filter>1. Project Files</Filter>
     </Text>
