@@ -80,10 +80,10 @@ public partial class Terrain3DCollision : GodotObject
 		public new static readonly StringName PhysicsMaterial = "physics_material";
 	}
 
-	public new Variant Mode
+	public new Terrain3DCollision.CollisionMode Mode
 	{
-		get => Get(GDExtensionPropertyName.Mode).As<Variant>();
-		set => Set(GDExtensionPropertyName.Mode, value);
+		get => Get(GDExtensionPropertyName.Mode).As<Terrain3DCollision.CollisionMode>();
+		set => Set(GDExtensionPropertyName.Mode, Variant.From(value));
 	}
 
 	public new long ShapeSize
@@ -136,8 +136,8 @@ public partial class Terrain3DCollision : GodotObject
 	public new void Build() => 
 		Call(GDExtensionMethodName.Build, []);
 
-	public new void Update(bool rebuild = false) => 
-		Call(GDExtensionMethodName.Update, [rebuild]);
+	public new void Update(Vector2I regionLocation = default, bool rebuild = false) => 
+		Call(GDExtensionMethodName.Update, [regionLocation, rebuild]);
 
 	public new void Destroy() => 
 		Call(GDExtensionMethodName.Destroy, []);

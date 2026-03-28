@@ -69,8 +69,10 @@ public partial class Terrain3DMaterial : Resource
 
 	public enum TextureFilteringEnum
 	{
-		Linear = 0,
-		Nearest = 1,
+		LinearAnisotropic = 0,
+		Linear = 1,
+		NearestAnisotropic = 2,
+		Nearest = 3,
 	}
 
 	public enum UpdateFlags
@@ -130,10 +132,10 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.WorldBackground, Variant.From(value));
 	}
 
-	public new long TextureFiltering
+	public new Terrain3DMaterial.TextureFilteringEnum TextureFiltering
 	{
-		get => Get(GDExtensionPropertyName.TextureFiltering).As<long>();
-		set => Set(GDExtensionPropertyName.TextureFiltering, value);
+		get => Get(GDExtensionPropertyName.TextureFiltering).As<Terrain3DMaterial.TextureFilteringEnum>();
+		set => Set(GDExtensionPropertyName.TextureFiltering, Variant.From(value));
 	}
 
 	public new bool AutoShaderEnabled
@@ -244,9 +246,9 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.BufferShaderOverrideEnabled, value);
 	}
 
-	public new Variant BufferShaderOverride
+	public new Shader BufferShaderOverride
 	{
-		get => Get(GDExtensionPropertyName.BufferShaderOverride).As<Variant>();
+		get => Get(GDExtensionPropertyName.BufferShaderOverride).As<Shader>();
 		set => Set(GDExtensionPropertyName.BufferShaderOverride, value);
 	}
 
