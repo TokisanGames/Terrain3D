@@ -7,8 +7,32 @@
 @tool
 extends Node3D
 
+@export_category("Info")
+## The maximum distance that particles will be drawn upto
+## If using fade out effects like pixel alpha this is the limit to use.
+@export_custom(PROPERTY_HINT_NONE, "suffix:m", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY) var max_draw_distance: float = 1.0:
+	set(value):
+		max_draw_distance = float(cell_width * grid_width) * 0.5
+
+
+## Displays current total particle count based on Cell Width and Instance Spacing
+@export_custom(PROPERTY_HINT_NONE, "suffix:particles", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY)  var particle_count: int = 1:
+	set(value):
+		particle_count = amount * grid_width * grid_width
+
+
+@export_storage var rows: int = 1
+@export_storage var amount: int = 1:
+	set(value):
+		amount = value
+		particle_count = value
+		last_pos = Vector3.ZERO
+		for p in particle_nodes:
+			p.amount = amount
+
 
 #region settings
+@export_category("Settings")
 ## Auto set if attached as a child of a Terrain3D node
 @export var terrain: Terrain3D:
 	set(value):
@@ -31,7 +55,7 @@ extends Node3D
 		cell_width = clamp(value, 8.0, 256.0)
 		rows = maxi(int(cell_width / instance_spacing), 1)
 		amount = rows * rows
-		min_draw_distance = 1.0
+		max_draw_distance = 1.0
 		# Have to update aabb
 		if terrain and terrain.data:
 			var height_range: Vector2 = terrain.data.get_height_range()
@@ -51,19 +75,8 @@ extends Node3D
 	set(value):
 		grid_width = value
 		particle_count = 1
-		min_draw_distance = 1.0
+		max_draw_distance = 1.0
 		_create_grid()
-
-
-@export_storage var rows: int = 1
-
-@export_storage var amount: int = 1:
-	set(value):
-		amount = value
-		particle_count = value
-		last_pos = Vector3.ZERO
-		for p in particle_nodes:
-			p.amount = amount
 
 
 @export_range(1, 256, 1) var process_fixed_fps: int = 30:
@@ -73,19 +86,18 @@ extends Node3D
 			p.fixed_fps = process_fixed_fps
 			p.preprocess = 1.0 / float(process_fixed_fps)
 
-
-## Access to process material parameters
-@export var process_material: ShaderMaterial
-
-## The mesh that each particle will render
-@export var mesh: Mesh
-
 @export var shadow_mode: GeometryInstance3D.ShadowCastingSetting = (
 		GeometryInstance3D.ShadowCastingSetting.SHADOW_CASTING_SETTING_ON):
 	set(value):
 		shadow_mode = value
 		for p in particle_nodes:
 			p.cast_shadow = value
+
+## Access to process material parameters
+@export var process_material: ShaderMaterial
+
+## The mesh that each particle will render
+@export var mesh: Mesh
 
 
 ## Override material for the particle mesh
@@ -96,20 +108,6 @@ extends Node3D
 		mesh_material_override = value
 		for p in particle_nodes:
 			p.material_override = mesh_material_override
-
-
-@export_group("Info")
-## The minimum distance that particles will be drawn upto
-## If using fade out effects like pixel alpha this is the limit to use.
-@export var min_draw_distance: float = 1.0:
-	set(value):
-		min_draw_distance = float(cell_width * grid_width) * 0.5
-
-
-## Displays current total particle count based on Cell Width and Instance Spacing
-@export var particle_count: int = 1:
-	set(value):
-		particle_count = amount * grid_width * grid_width
 
 #endregion
 
@@ -222,6 +220,9 @@ func _update_process_parameters() -> void:
 		var process_rid: RID = process_material.get_rid()
 		if terrain and process_rid.is_valid():
 			RenderingServer.material_set_param(process_rid, "_background_mode", terrain.material.world_background)
+			if terrain.material.world_background > 0:
+				RenderingServer.material_set_param(process_rid, "ground_level", terrain.material.ground_level)
+				RenderingServer.material_set_param(process_rid, "region_blend", terrain.material.region_blend)
 			RenderingServer.material_set_param(process_rid, "_vertex_spacing", terrain.vertex_spacing)
 			RenderingServer.material_set_param(process_rid, "_vertex_density", 1.0 / terrain.vertex_spacing)
 			RenderingServer.material_set_param(process_rid, "_region_size", terrain.region_size)
@@ -234,4 +235,4 @@ func _update_process_parameters() -> void:
 			RenderingServer.material_set_param(process_rid, "_color_maps", terrain.data.get_color_maps_rid())
 			RenderingServer.material_set_param(process_rid, "instance_spacing", instance_spacing)
 			RenderingServer.material_set_param(process_rid, "instance_rows", rows)
-			RenderingServer.material_set_param(process_rid, "max_dist", min_draw_distance)
+			RenderingServer.material_set_param(process_rid, "max_dist", max_draw_distance)
