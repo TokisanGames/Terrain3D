@@ -1114,7 +1114,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 		}
 	}
 
-	_active_params.clear();
+	TypedArray<StringName> new_active_params;
 	Dictionary grouped_params;
 	StringName current_group = StringName("shader_uniforms.general");
 	grouped_params[current_group] = Array();
@@ -1138,13 +1138,13 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 				dict["usage"] = name.contains("::") ? PROPERTY_USAGE_SUBGROUP : PROPERTY_USAGE_GROUP;
 			} else {
 				// Filter out duplicate non-groups entries from displacement buffer shader
-				if (_active_params.has(name)) {
+				if (new_active_params.has(name)) {
 					continue;
 				}
 				dict["usage"] = PROPERTY_USAGE_EDITOR;
 			}
 			// Filter out extraneous parameters from the inspector if they are not present in the terrain shader.
-			if (i >= buffer_param && (!_active_params.has(name) && use != PROPERTY_USAGE_GROUP) && !current_group.contains("Displacement")) {
+			if (i >= buffer_param && (!new_active_params.has(name) && use != PROPERTY_USAGE_GROUP) && !current_group.contains("Displacement")) {
 				LOG(INFO, "Displacement buffer has active parameter: ", name, " not present in terrain shader.");
 				continue;
 			}
@@ -1160,7 +1160,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 			grouped_params[current_group] = group;
 
 			// Populate list of public parameters for current shader
-			_active_params.push_back(name);
+			new_active_params.push_back(name);
 
 			// Store this param in a dictionary that is saved in the resource file
 			// Initially set with default value
@@ -1172,6 +1172,7 @@ void Terrain3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 			}
 		}
 	}
+	_active_params = new_active_params;
 
 	// Populate Godot's property list
 	Array keys = grouped_params.keys();
