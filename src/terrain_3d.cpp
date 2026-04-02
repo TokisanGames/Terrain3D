@@ -648,11 +648,14 @@ void Terrain3D::set_clipmap_target(Node3D *p_node) {
 }
 
 Vector3 Terrain3D::get_clipmap_target_position() const {
+	// In Editor, or no clipmap target, use camera
+	if (IS_EDITOR || !_clipmap_target.get_target()) {
+		if (Node3D *cam = _camera.get_target()) {
+			return cam->get_global_position();
+		}
+	}
 	if (Node3D *target = _clipmap_target.get_target()) {
 		return target->get_global_position();
-	}
-	if (Node3D *cam = _camera.get_target()) {
-		return cam->get_global_position();
 	}
 	return V3_ZERO;
 }
@@ -668,10 +671,22 @@ void Terrain3D::set_collision_target(Node3D *p_node) {
 }
 
 Vector3 Terrain3D::get_collision_target_position() const {
+	// In Editor, always prefer camera
+	if (IS_EDITOR) {
+		if (Node3D *cam = _camera.get_target()) {
+			return cam->get_global_position();
+		}
+	}
 	if (Node3D *target = _collision_target.get_target()) {
 		return target->get_global_position();
 	}
-	return get_clipmap_target_position();
+	if (Node3D *target = _clipmap_target.get_target()) {
+		return target->get_global_position();
+	}
+	if (Node3D *cam = _camera.get_target()) {
+		return cam->get_global_position();
+	}
+	return V3_ZERO;
 }
 
 void Terrain3D::set_ocean_light_target(Node3D *p_node) {
