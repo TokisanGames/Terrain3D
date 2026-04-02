@@ -148,7 +148,7 @@
 			Tells the renderer how to cast shadows from the terrain onto other objects. This sets [code skip-lint]GeometryInstance3D.ShadowCastingSetting[/code] in the engine.
 		</member>
 		<member name="clipmap_target" type="Node3D" setter="set_clipmap_target" getter="get_clipmap_target">
-			The terrain mesh will center itself at the position of this node. If null, it will fall back to the camera position. See [method set_camera].
+			The terrain clipmap mesh and lods will center itself at the position of this node. If null, or if in the editor, it will fall back to the camera position. See [method set_camera].
 		</member>
 		<member name="collision" type="Terrain3DCollision" setter="" getter="get_collision">
 			The active [Terrain3DCollision] object.
@@ -180,7 +180,7 @@
 			Alias for [member Terrain3DCollision.shape_size].
 		</member>
 		<member name="collision_target" type="Node3D" setter="set_collision_target" getter="get_collision_target">
-			In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the [member clipmap_target] position and failing that will use the camera position. See [method set_camera].
+			In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the [member clipmap_target] position and failing that will use the camera position. The camera is always used in the editor. See [method set_camera].
 		</member>
 		<member name="cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
 			This margin is added to the vertical component of the terrain mesh bounding boxes (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.

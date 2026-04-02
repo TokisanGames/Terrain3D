@@ -433,7 +433,7 @@ Tells the renderer how to cast shadows from the terrain onto other objects. This
 - |void| **set_clipmap_target**\ (\ value\: ``Node3D``\ )
 - ``Node3D`` **get_clipmap_target**\ (\ )
 
-The terrain mesh will center itself at the position of this node. If null, it will fall back to the camera position. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
+The terrain clipmap mesh and lods will center itself at the position of this node. If null, or if in the editor, it will fall back to the camera position. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
 
 .. rst-class:: classref-item-separator
 
@@ -584,7 +584,7 @@ Alias for :ref:`Terrain3DCollision.shape_size<class_Terrain3DCollision_property_
 - |void| **set_collision_target**\ (\ value\: ``Node3D``\ )
 - ``Node3D`` **get_collision_target**\ (\ )
 
-In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>` position and failing that will use the camera position. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
+In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>` position and failing that will use the camera position. The camera is always used in the editor. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
 
 .. rst-class:: classref-item-separator
 
