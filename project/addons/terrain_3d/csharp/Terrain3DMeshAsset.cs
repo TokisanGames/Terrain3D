@@ -227,10 +227,10 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.SceneFile, value);
 	}
 
-	public new Variant GeneratedType
+	public new Terrain3DMeshAsset.GenType GeneratedType
 	{
-		get => Get(GDExtensionPropertyName.GeneratedType).As<Variant>();
-		set => Set(GDExtensionPropertyName.GeneratedType, value);
+		get => Get(GDExtensionPropertyName.GeneratedType).As<Terrain3DMeshAsset.GenType>();
+		set => Set(GDExtensionPropertyName.GeneratedType, Variant.From(value));
 	}
 
 	public new double HeightOffset
@@ -245,10 +245,10 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.Density, value);
 	}
 
-	public new long CastShadows
+	public new RenderingServer.ShadowCastingSetting CastShadows
 	{
-		get => Get(GDExtensionPropertyName.CastShadows).As<long>();
-		set => Set(GDExtensionPropertyName.CastShadows, value);
+		get => Get(GDExtensionPropertyName.CastShadows).As<RenderingServer.ShadowCastingSetting>();
+		set => Set(GDExtensionPropertyName.CastShadows, Variant.From(value));
 	}
 
 	public new long VisibilityLayers
