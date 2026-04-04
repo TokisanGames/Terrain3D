@@ -70,7 +70,8 @@
 		<method name="export_image" qualifiers="const">
 			<return type="int" enum="Error" />
 			<param index="0" name="file_name" type="String" />
-			<param index="1" name="map_type" type="int" enum="Terrain3DRegion.MapType" />
+			<param index="1" name="map_type" type="int" enum="Terrain3DRegion.MapType" default="0" />
+			<param index="2" name="mode" type="int" enum="Terrain3DData.ExportMode" default="0" />
 			<description>
 				Exports the specified map type as one of r16/raw, exr, jpg, png, webp, res, tres. 
 				R16 or exr are recommended for roundtrip external editing.
@@ -374,6 +375,7 @@
 		<method name="layered_to_image" qualifiers="const">
 			<return type="Image" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DRegion.MapType" />
+			<param index="1" name="bounds" type="Rect2i" default="Rect2i(0, 0, 0, 0)" />
 			<description>
 				Returns an Image of the given map type that contains all regions in one large image. If the world has multiple islands, this function will return an image large enough to encompass all used regions, with black areas in between the islands.
 			</description>
@@ -645,6 +647,10 @@
 		</constant>
 		<constant name="HEIGHT_FILTER_MINIMUM" value="1" enum="HeightFilter">
 			Samples (1 &lt;&lt; lod) * 2 heights around the given coordinates and returns the lowest.
+		</constant>
+		<constant name="EXPORT_SLICED" value="0" enum="ExportMode">
+		</constant>
+		<constant name="EXPORT_PER_REGION" value="1" enum="ExportMode">
 		</constant>
 		<constant name="REGION_MAP_SIZE" value="32">
 			Hard coded number of regions on a side. The total number of regions is this squared.
