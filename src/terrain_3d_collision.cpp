@@ -57,8 +57,8 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 
 		real_t blend_factor = 2.0f + 126.0f * (1.0f - region_blend);
 		Vector2 f = Vector2(uv2.x - Math::floor(uv2.x), uv2.y - Math::floor(uv2.y));
-		f.x = Math::clamp(f.x, 1e-8f, 1.f - 1e-8f);
-		f.y = Math::clamp(f.y, 1e-8f, 1.f - 1e-8f);
+		f.x = Math::clamp(f.x, real_t(1e-8), real_t(1.0 - 1e-8));
+		f.y = Math::clamp(f.y, real_t(1e-8), real_t(1.0 - 1e-8));
 		Vector2 w = Vector2(1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.x) / f.x))),
 				1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.y) / f.y))));
 		real_t blend = Math::lerp(Math::lerp(d, c, w.x), Math::lerp(a, b, w.x), w.y);
