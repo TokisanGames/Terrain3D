@@ -737,8 +737,8 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 }
 
 // Returns average of height, blend (as real_t(0-255)), or roughness. Overloaded version handles average color
-real_t Terrain3DEditor::_average(const AverageMode p_mode, const Vector3 &p_global_position, const real_t p_base,
-		const real_t p_nan_val, bool p_alt) const {
+float Terrain3DEditor::_average(const AverageMode p_mode, const Vector3 &p_global_position, const float p_base,
+		const float p_nan_val, bool p_alt) const {
 	IS_DATA_INIT(NAN);
 	Terrain3DData *data = _terrain->get_data();
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
@@ -767,7 +767,7 @@ real_t Terrain3DEditor::_average(const AverageMode p_mode, const Vector3 &p_glob
 	}
 
 	Color pixel;
-	real_t left, right, up, down;
+	float left, right, up, down;
 	pixel = data->get_pixel(map_type, left_position);
 	left = std::isnan(pixel.r) ? p_nan_val : pixel[index];
 	pixel = data->get_pixel(map_type, right_position);
@@ -779,9 +779,9 @@ real_t Terrain3DEditor::_average(const AverageMode p_mode, const Vector3 &p_glob
 
 	if (p_mode == AVG_BLEND) {
 		if (p_alt) {
-			return real_t(get_blend(p_base) + get_blend(left) + get_blend(right) + get_blend(up) + get_blend(down)) * 0.2f;
+			return (get_blend(p_base) + get_blend(left) + get_blend(right) + get_blend(up) + get_blend(down)) * 0.2f;
 		} else {
-			return Math::lerp(get_blend(p_base), 128.f, .1f);
+			return Math::lerp(float(get_blend(p_base)), 128.f, .1f);
 		}
 	} else {
 		return (p_base + left + right + up + down) * 0.2f;

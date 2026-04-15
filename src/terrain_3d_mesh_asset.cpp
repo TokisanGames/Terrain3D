@@ -489,7 +489,7 @@ void Terrain3DMeshAsset::set_lod_range(const int p_lod, const real_t p_distance)
 		LOG(ERROR, "p_lod out of range. Valid range is 0 - ", _lod_ranges.size() - 1);
 		return;
 	}
-	SET_IF_DIFF(_lod_ranges[p_lod], CLAMP(p_distance, 0.f, 100000.f));
+	SET_IF_DIFF(_lod_ranges[p_lod], CLAMP(float(p_distance), 0.f, 100000.f));
 	LOG(INFO, "ID ", _id, ", ", _name, ": Setting LOD ", p_lod, " visibility range: ", _lod_ranges[p_lod]);
 	LOG(DEBUG, "Emitting instancer_setting_changed, ID: ", _id);
 	emit_signal("instancer_setting_changed", _id);
