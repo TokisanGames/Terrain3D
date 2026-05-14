@@ -5,6 +5,11 @@
 
 #include <functional>
 
+#include <godot_cpp/variant/color.hpp>
+#include <godot_cpp/variant/vector2.hpp>
+#include <godot_cpp/variant/vector2i.hpp>
+#include <godot_cpp/variant/vector3.hpp>
+
 // GDExtension uses the godot namespace, custom modules do not.
 #if defined(GDEXTENSION) && !defined(GODOT_MODULE)
 using namespace godot;

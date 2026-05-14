@@ -4,6 +4,7 @@
 #define TERRAIN3D_ASSET_RESOURCE_CLASS_H
 
 #include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/classes/texture2d.hpp>
 
 #include "constants.h"
 

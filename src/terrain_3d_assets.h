@@ -5,7 +5,6 @@
 
 #include "constants.h"
 #include "generated_texture.h"
-#include "terrain_3d.h"
 #include "terrain_3d_mesh_asset.h"
 #include "terrain_3d_texture_asset.h"
 
