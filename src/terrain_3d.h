@@ -47,7 +47,7 @@ public: // Constants
 	};
 
 private:
-	String _version = "1.0.1";
+	String _version = "1.0.2-rc";
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;
@@ -114,9 +114,9 @@ private:
 	void _destroy_mouse_picking();
 
 	void _generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
-			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
+							 const Terrain3DData::HeightFilter p_filter, const bool require_nav, const AABB &p_global_aabb) const;
 	void _generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
-			const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
+								 const Terrain3DData::HeightFilter p_filter, const bool require_nav, const int32_t x, const int32_t z) const;
 
 public:
 	static DebugLevel debug_level; // Initialized in terrain_3d.cpp
