@@ -67,7 +67,7 @@ R"(
 //INSERT: OUTPUT_NORMAL_MAP
 	// Repack final normal map value.
 	NORMAL_MAP = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
-	NORMAL_MAP_DEPTH = mat.normal_map_depth;
+	NORMAL_MAP_DEPTH = mat.normal_map_depth * distant_normal_amplifier;
 //INSERT: OUTPUT_AMBIENT_OCCLUSION
 	AO = clamp(mat.ao, 0., 1.);
 	AO_LIGHT_AFFECT = mat.ao_affect;
