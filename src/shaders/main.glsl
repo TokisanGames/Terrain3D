@@ -90,6 +90,7 @@ group_uniforms;
 group_uniforms shader_uniforms.mipmaps;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
+uniform float distant_normal_scale : hint_range(1.0, 10.0, 0.1) = 2.0;
 uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
 group_uniforms;
 
@@ -583,6 +584,8 @@ void fragment() {
 	
 	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
 	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
+
+	float distant_normal_amplifier = clamp(max(length(base_ddx.xz), length(base_ddy.xz)), 1., distant_normal_scale);
 	
 	// Apply PBR
 //INSERT: OUTPUT_ALBEDO
