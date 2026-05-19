@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_MESHER_CLASS_H
 #define TERRAIN3D_MESHER_CLASS_H
@@ -12,7 +12,7 @@ class Terrain3D;
 class Terrain3DMesher {
 	CLASS_NAME_STATIC("Terrain3DMesher");
 
-// Constants
+	// Constants
 public:
 	enum MeshType {
 		TILE,
@@ -35,7 +35,7 @@ private:
 	RID _instantiate_mesh(const PackedVector3Array &p_vertices, const PackedInt32Array &p_indices, const AABB &p_aabb);
 	void _generate_clipmap(const int p_size, const int p_lods, const RID &scenario);
 	void _generate_offset_data(const int p_mesh_size);
-	
+
 	void _clear_clipmap();
 	void _clear_mesh_types();
 
@@ -68,7 +68,6 @@ public:
 	void snap(const Vector3 &p_tracked_pos);
 	void update();
 	void update_aabbs();
-
 };
 // Inline Functions
 

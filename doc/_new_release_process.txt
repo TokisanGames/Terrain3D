@@ -9,6 +9,7 @@ Upgrade to new release version:
 * Set src/terrain_3d.h : _version
 * Set project/addons/terrain_3d/plugin.cfg : version
 * Set doc/conf.py : version
+* Review installation.md : requirements and upgrading
 * Rebuild the docs with doc/build_docs.sh
 * Review minimum version in terrain.gdextension
 * Create a new tag for github

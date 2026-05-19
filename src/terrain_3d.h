@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_CLASS_H
 #define TERRAIN3D_CLASS_H
@@ -47,7 +47,7 @@ public: // Constants
 	};
 
 private:
-	String _version = "1.0.2-rc";
+	String _version = "1.0.2";
 	String _data_directory;
 	bool _is_inside_world = false;
 	bool _initialized = false;

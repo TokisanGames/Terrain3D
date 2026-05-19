@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/editor_file_system.hpp>
@@ -246,7 +246,7 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 	// Check bounds and slow report errors
 	if (get_region_map_index(region_loc) < 0) {
 		LOG(ERROR, "Location ", region_loc, " out of bounds. Max: ",
-				-REGION_MAP_SIZE / 2, " to ", REGION_MAP_SIZE / 2 - 1);
+			-REGION_MAP_SIZE / 2, " to ", REGION_MAP_SIZE / 2 - 1);
 		return FAILED;
 	}
 	p_region->sanitize_maps();
@@ -383,7 +383,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 		} else {
 			if (_terrain->get_region_size() != (Terrain3D::RegionSize)region->get_region_size()) {
 				LOG(ERROR, "Region size mismatch. First loaded: ", _terrain->get_region_size(), " next: ",
-						region->get_region_size(), " in file: ", path);
+					region->get_region_size(), " in file: ", path);
 				return;
 			}
 		}
@@ -413,7 +413,7 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 	} else {
 		if (_terrain->get_region_size() != (Terrain3D::RegionSize)region->get_region_size()) {
 			LOG(ERROR, "Region size mismatch. First loaded: ", _terrain->get_region_size(), " next: ",
-					region->get_region_size(), " in file: ", path);
+				region->get_region_size(), " in file: ", path);
 			return;
 		}
 	}
@@ -518,7 +518,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 				_height_maps.push_back(region->get_height_map());
 			} else {
 				LOG(ERROR, "Can't find region ", region_loc, ", _regions: ", _regions,
-						", locations: ", _region_locations, ". Please report this error.");
+					", locations: ", _region_locations, ". Please report this error.");
 				return;
 			}
 		}
@@ -882,9 +882,9 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		return;
 	}
 	if ((descaled_position.x + img_size.x > max_dimension) ||
-			(descaled_position.z + img_size.y > max_dimension)) {
+		(descaled_position.z + img_size.y > max_dimension)) {
 		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -(img_size * _vertex_spacing) / 2.f, " to center");
+			". Try ", -(img_size * _vertex_spacing) / 2.f, " to center");
 		return;
 	}
 
@@ -1030,7 +1030,7 @@ Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map
 
 	String ext = file_name.get_extension().to_lower();
 	LOG(MESG, "Saving ", img->get_size(), " sized ", TYPESTR[p_map_type],
-			" map in format ", img->get_format(), " as ", ext, " to: ", file_name);
+		" map in format ", img->get_format(), " as ", ext, " to: ", file_name);
 	Vector2i minmax = Util::get_min_max(img);
 	LOG(MESG, "Minimum height: ", minmax.x, ", Maximum height: ", minmax.y);
 	if (ext == "r16" || ext == "raw") {

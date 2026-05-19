@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
 #include <godot_cpp/classes/engine.hpp>
@@ -42,7 +42,7 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	if (data->get_region_map_index(p_region_loc) < 0) {
 		if (can_print) {
 			LOG(INFO, "Location ", p_region_loc, " out of bounds. Max: ",
-					-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);
+				-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);
 		}
 		return Ref<Terrain3DRegion>();
 	}
@@ -828,7 +828,7 @@ void Terrain3DEditor::stop_operation() {
 	IS_DATA_INIT_MESG("Terrain isn't initialized", VOID);
 	// If undo was created and terrain actually modified, store it
 	LOG(DEBUG, "Backed up regions: ", _original_regions.size(), ", Edited regions: ", _edited_regions.size(),
-			", Added/Removed regions: ", _added_removed_locations.size());
+		", Added/Removed regions: ", _added_removed_locations.size());
 	if (_is_operating && (!_added_removed_locations.is_empty() || !_edited_regions.is_empty())) {
 		for (int i = 0; i < _edited_regions.size(); i++) {
 			Ref<Terrain3DRegion> region = _edited_regions[i];

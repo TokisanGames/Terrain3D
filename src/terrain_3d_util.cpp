@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/engine.hpp>
@@ -235,7 +235,7 @@ Ref<Image> Terrain3DUtil::get_thumbnail(const Ref<Image> &p_image, const Vector2
  * often wrong. We have selected a few compressed formats it gets right.
  */
 Ref<Image> Terrain3DUtil::get_filled_image(const Vector2i &p_size, const Color &p_color,
-		const bool p_create_mipmaps, const Image::Format p_format) {
+										   const bool p_create_mipmaps, const Image::Format p_format) {
 	Image::Format format = p_format;
 	if (format < 0 || format >= Image::FORMAT_MAX) {
 		format = Image::FORMAT_DXT5;
@@ -373,7 +373,7 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
  * If p_invert_alpha is true, the destination alpha channel will be 1.0 - input source channel.
  */
 Ref<Image> Terrain3DUtil::pack_image(const Ref<Image> &p_src_rgb, const Ref<Image> &p_src_a,
-		const bool p_invert_green, const bool p_invert_alpha, const bool p_normalize_alpha, const int p_alpha_channel) {
+									 const bool p_invert_green, const bool p_invert_alpha, const bool p_normalize_alpha, const int p_alpha_channel) {
 	if (!p_src_rgb.is_valid() || !p_src_a.is_valid()) {
 		LOG(ERROR, "Provided images are not valid. Cannot pack");
 		return Ref<Image>();

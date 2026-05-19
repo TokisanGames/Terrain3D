@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_DATA_CLASS_H
 #define TERRAIN3D_DATA_CLASS_H
@@ -182,7 +182,7 @@ public:
 	void calc_height_range(const bool p_recursive = false);
 
 	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = V3_ZERO,
-			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
+					   const real_t p_offset = 0.f, const real_t p_scale = 1.f);
 	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
 	Ref<Image> layered_to_image(const MapType p_map_type) const;
 

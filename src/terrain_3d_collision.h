@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_COLLISION_CLASS_H
 #define TERRAIN3D_COLLISION_CLASS_H
@@ -97,12 +97,12 @@ VARIANT_ENUM_CAST(Terrain3DCollision::CollisionMode);
 
 inline Vector2i Terrain3DCollision::_snap_to_grid(const Vector2i &p_pos) const {
 	return Vector2i(int_round_mult(p_pos.x, int32_t(_shape_size)),
-			int_round_mult(p_pos.y, int32_t(_shape_size)));
+					int_round_mult(p_pos.y, int32_t(_shape_size)));
 }
 
 inline Vector2i Terrain3DCollision::_snap_to_grid(const Vector3 &p_pos) const {
 	return Vector2i(Math::floor(p_pos.x / real_t(_shape_size) + 0.5f),
-				   Math::floor(p_pos.z / real_t(_shape_size) + 0.5f)) *
+					Math::floor(p_pos.z / real_t(_shape_size) + 0.5f)) *
 			_shape_size;
 }
 

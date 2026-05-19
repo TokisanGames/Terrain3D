@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
@@ -339,12 +339,12 @@ void Terrain3DCollision::update(const bool p_rebuild) {
 				grid[grid_loc.y * grid_width + grid_loc.x] = i;
 				_shape_set_disabled(i, false);
 				LOG(EXTREME, "Shape ", i, ": shape_center: ", shape_center.x < FLT_MAX ? shape_center : V3(-999), ", shape_pos: ", shape_pos,
-						", grid_loc: ", grid_loc, ", index: ", (grid_loc.y * grid_width + grid_loc.x), " active");
+					", grid_loc: ", grid_loc, ", index: ", (grid_loc.y * grid_width + grid_loc.x), " active");
 			} else {
 				inactive_shape_ids.push_back(i);
 				_shape_set_disabled(i, true);
 				LOG(EXTREME, "Shape ", i, ": shape_center: ", shape_center.x < FLT_MAX ? shape_center : V3(-999), ", shape_pos: ", shape_pos,
-						" out of bounds, marking inactive");
+					" out of bounds, marking inactive");
 			}
 		}
 		LOG(EXTREME, "_inactive_shapes size: ", inactive_shape_ids.size());

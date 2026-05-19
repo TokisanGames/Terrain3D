@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/compositor.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
@@ -274,7 +274,7 @@ void Terrain3D::_destroy_mouse_picking() {
 }
 
 void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs, const int32_t p_lod,
-		const Terrain3DData::HeightFilter p_filter, const bool p_require_nav, const AABB &p_global_aabb) const {
+									const Terrain3DData::HeightFilter p_filter, const bool p_require_nav, const AABB &p_global_aabb) const {
 	ERR_FAIL_COND(_data == nullptr);
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 
@@ -319,8 +319,8 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 // p_uvs might not exist, so a pointer is fine
 // p_require_nav is false for the runtime baker, which ignores navigation
 void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs,
-		const int32_t p_lod, const Terrain3DData::HeightFilter p_filter, const bool p_require_nav,
-		const int32_t x, const int32_t z) const {
+										const int32_t p_lod, const Terrain3DData::HeightFilter p_filter, const bool p_require_nav,
+										const int32_t x, const int32_t z) const {
 	int32_t step = 1 << CLAMP(p_lod, 0, 8);
 	Vector3 xz = Vector3(x, 0.0f, z) * _vertex_spacing;
 	Vector3 xsz = Vector3(x + step, 0.0f, z) * _vertex_spacing;

@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 // This is an example particle shader designed to procedurally place
 // particles like grass, small rocks, and other ground effects, on the terrain

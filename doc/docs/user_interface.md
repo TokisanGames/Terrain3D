@@ -82,6 +82,8 @@ The dropdown option allows you to select the dock position. Shown above, it is d
 
 The icon with white and grey boxes in the top right can be used to pop out the dock into its own window. While in this state, there is a pin button that allows you to enable or disable always-on-top.
 
+In Godot 4.6+, moving the asset dock to the bottom, sidebar, or a floating window is accessible via the 3-dots menu.
+
 Next the slider will resize the thumbnails.
 
 Finally, when the dock is in the sidebar, there are three vertical, grey dots, shown in the image above, in the top right. This also allows you to change the sidebar position, however setting it here won't save. Ignore this and use our dropdown instead.

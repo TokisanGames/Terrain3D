@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #ifndef TERRAIN3D_UTIL_CLASS_H
 #define TERRAIN3D_UTIL_CLASS_H
@@ -41,17 +41,17 @@ public:
 	static Vector2 get_min_max(const Ref<Image> &p_image);
 	static Ref<Image> get_thumbnail(const Ref<Image> &p_image, const Vector2i &p_size = Vector2i(256, 256));
 	static Ref<Image> get_filled_image(const Vector2i &p_size,
-			const Color &p_color = COLOR_BLACK,
-			const bool p_create_mipmaps = true,
-			const Image::Format p_format = Image::FORMAT_MAX);
+									   const Color &p_color = COLOR_BLACK,
+									   const bool p_create_mipmaps = true,
+									   const Image::Format p_format = Image::FORMAT_MAX);
 	static Ref<Image> load_image(const String &p_file_name, const int p_cache_mode = ResourceLoader::CACHE_MODE_IGNORE,
-			const Vector2 &p_r16_height_range = Vector2(0.f, 255.f), const Vector2i &p_r16_size = V2I_ZERO);
+								 const Vector2 &p_r16_height_range = Vector2(0.f, 255.f), const Vector2i &p_r16_size = V2I_ZERO);
 	static Ref<Image> pack_image(const Ref<Image> &p_src_rgb,
-			const Ref<Image> &p_src_a,
-			const bool p_invert_green = false,
-			const bool p_invert_alpha = false,
-			const bool p_normalize_alpha = false,
-			const int p_alpha_channel = 0);
+								 const Ref<Image> &p_src_a,
+								 const bool p_invert_green = false,
+								 const bool p_invert_alpha = false,
+								 const bool p_normalize_alpha = false,
+								 const int p_alpha_channel = 0);
 	static Ref<Image> luminance_to_height(const Ref<Image> &p_src_rgb);
 	static void benchmark(Terrain3D *p_terrain);
 
@@ -162,7 +162,7 @@ inline T int_divide_round(const T numer, const T denom) {
 // * Positioned at the 4 corners of the p_pos00 - p_pos11 rectangle
 // * Interpolated to the position p_pos, which is global, not a 0-1 percentage
 inline real_t bilerp(const real_t p_v00, const real_t p_v01, const real_t p_v10, const real_t p_v11,
-		const Vector2 &p_pos00, const Vector2 &p_pos11, const Vector2 &p_pos) {
+					 const Vector2 &p_pos00, const Vector2 &p_pos11, const Vector2 &p_pos) {
 	real_t x2x1 = p_pos11.x - p_pos00.x;
 	real_t y2y1 = p_pos11.y - p_pos00.y;
 	real_t x2x = p_pos11.x - p_pos.x;
@@ -170,14 +170,14 @@ inline real_t bilerp(const real_t p_v00, const real_t p_v01, const real_t p_v10,
 	real_t xx1 = p_pos.x - p_pos00.x;
 	real_t yy1 = p_pos.y - p_pos00.y;
 	return (p_v00 * x2x * y2y +
-				   p_v01 * x2x * yy1 +
-				   p_v10 * xx1 * y2y +
-				   p_v11 * xx1 * yy1) /
+			p_v01 * x2x * yy1 +
+			p_v10 * xx1 * y2y +
+			p_v11 * xx1 * yy1) /
 			(x2x1 * y2y1);
 }
 
 inline real_t bilerp(const real_t p_v00, const real_t p_v01, const real_t p_v10, const real_t p_v11,
-		const Vector3 &p_pos00, const Vector3 &p_pos11, const Vector3 &p_pos) {
+					 const Vector3 &p_pos00, const Vector3 &p_pos11, const Vector3 &p_pos) {
 	Vector2 pos00 = Vector2(p_pos00.x, p_pos00.z);
 	Vector2 pos11 = Vector2(p_pos11.x, p_pos11.z);
 	Vector2 pos = Vector2(p_pos.x, p_pos.z);

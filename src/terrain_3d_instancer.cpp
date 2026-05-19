@@ -1,4 +1,4 @@
-// Copyright © 2025 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/resource_saver.hpp>
 
@@ -16,7 +16,7 @@
 void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_mesh_id) {
 	IS_DATA_INIT(VOID);
 	LOG(INFO, "Updating MMIs for ", (p_region_loc.x == INT32_MAX) ? "all regions" : "region " + String(p_region_loc),
-			(p_mesh_id == -1) ? ", all meshes" : ", mesh " + String::num_int64(p_mesh_id));
+		(p_mesh_id == -1) ? ", all meshes" : ", mesh " + String::num_int64(p_mesh_id));
 
 	// For specified region_location, or max for all
 	Array region_locations;
@@ -95,8 +95,8 @@ void Terrain3DInstancer::_update_mmis(const Vector2i &p_region_loc, const int p_
 					// Don't create shadow MMI if not needed
 					if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
 						if (ma->get_shadow_impostor() == 0 ||
-								ma->get_cast_shadows() == SHADOWS_OFF ||
-								ma->get_cast_shadows() == SHADOWS_ONLY) {
+							ma->get_cast_shadows() == SHADOWS_OFF ||
+							ma->get_cast_shadows() == SHADOWS_ONLY) {
 							continue;
 						}
 					}
@@ -448,8 +448,8 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
 	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
 	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
-					MAX(0.01f, fixed_scale + .5f * random_scale),
-			.001f, 1000.f);
+								   MAX(0.01f, fixed_scale + .5f * random_scale),
+						   .001f, 1000.f);
 
 	// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
 	uint32_t count = _get_density_count(density);
@@ -651,8 +651,8 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					real_t radial_distance = localised_ring_center.distance_to(Vector2(t.origin.x, t.origin.z));
 					Vector3 height_offset = t.basis.get_column(1) * mesh_height_offset;
 					if (radial_distance < radius &&
-							UtilityFunctions::randf() < CLAMP(0.175f * strength, 0.005f, 10.f) &&
-							data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
+						UtilityFunctions::randf() < CLAMP(0.175f * strength, 0.005f, 10.f) &&
+						data->is_in_slope(t.origin + global_local_offset - height_offset, slope_range, invert)) {
 						_backup_region(region);
 						continue;
 					} else {
@@ -745,7 +745,7 @@ void Terrain3DInstancer::add_transforms(const int p_mesh_id, const TypedArray<Tr
 
 // Appends new global transforms to existing cells, offsetting transforms to region space, scaled by vertex spacing
 void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int p_mesh_id,
-		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_update) {
+										 const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_update) {
 	IS_DATA_INIT(VOID);
 	Ref<Terrain3DRegion> region = _terrain->get_data()->get_region(p_region_loc);
 	if (region.is_null()) {
@@ -767,7 +767,7 @@ void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int
 
 // append_region requires all transforms are in region space, 0 - region_size * vertex_spacing
 void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, const int p_mesh_id,
-		const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_update) {
+									   const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors, const bool p_update) {
 	if (p_region.is_null()) {
 		LOG(ERROR, "Null region provided. Doing nothing.");
 		return;
@@ -1039,7 +1039,7 @@ void Terrain3DInstancer::swap_ids(const int p_src_id, const int p_dst_id) {
 				_backup_region(region);
 				mesh_inst_dict[p_src_id] = cells_inst_dict_dst;
 			}
-			LOG(MESG, "Swapped mesh_ids for region: ", region_loc);
+			LOG(INFO, "Swapped mesh_ids for region: ", region_loc);
 		}
 		update_mmis(true);
 	}

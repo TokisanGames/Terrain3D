@@ -124,7 +124,7 @@ Properties
    +-------------------------------------------------------------+----------------------------------------------------------------------------+----------------+
    | ``bool``                                                    | :ref:`show_vertex_grid<class_Terrain3D_property_show_vertex_grid>`         | ``false``      |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+----------------+
-   | ``String``                                                  | :ref:`version<class_Terrain3D_property_version>`                           | ``"1.0.2-rc"`` |
+   | ``String``                                                  | :ref:`version<class_Terrain3D_property_version>`                           | ``"1.0.2"``    |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+----------------+
    | ``float``                                                   | :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>`             | ``1.0``        |
    +-------------------------------------------------------------+----------------------------------------------------------------------------+----------------+
@@ -1112,7 +1112,7 @@ Alias for :ref:`Terrain3DMaterial.show_vertex_grid<class_Terrain3DMaterial_prope
 
 .. rst-class:: classref-property
 
-``String`` **version** = ``"1.0.2-rc"`` :ref:`🔗<class_Terrain3D_property_version>`
+``String`` **version** = ``"1.0.2"`` :ref:`🔗<class_Terrain3D_property_version>`
 
 .. rst-class:: classref-property-setget
 
