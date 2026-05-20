@@ -52,6 +52,7 @@ static const Vector2 V2_ZERO{ 0.f, 0.f };
 static const Vector2 V2_MAX{ FLT_MAX, FLT_MAX };
 static const Vector2i V2I_ZERO{ 0, 0 };
 static const Vector2i V2I_MAX{ INT32_MAX, INT32_MAX };
+static const Vector2i V2I_MIN{ INT32_MIN, INT32_MIN };
 static const Vector3 V3_ZERO{ 0.f, 0.f, 0.f };
 static const Vector3 V3_MAX{ FLT_MAX, FLT_MAX, FLT_MAX };
 static const Vector3 V3_NAN{ NAN, NAN, NAN };
