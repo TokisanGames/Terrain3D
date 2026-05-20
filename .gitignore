@@ -6,7 +6,6 @@ project/_export/
 project/_tests/
 project/test/
 src/_archive/
-src/gen/
 _misc/
 _patches/
 *.zip
@@ -14,6 +13,10 @@ _patches/
 # Docs
 doc/_build
 doc/art/
+
+# Godot-cpp
+src/gen/
+compile_commands.json
 
 # Godot-specific ignores (Include script cache. See godot issue #75388)
 /project/.import/
