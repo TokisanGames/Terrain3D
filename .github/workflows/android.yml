@@ -38,11 +38,12 @@ jobs:
         run: |
           scons target=$TARGET platform='${{ matrix.platform }}' arch=$ARCH debug_symbols=no -j2
 
-      - name: Include Files
+      - name: Prepare Files
         shell: sh
         run: |
           ls -l project/addons/terrain_3d/bin/
-          cp '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
+          rm -v project/*.*
+          cp -v '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload Package
         uses: actions/upload-artifact@v4
