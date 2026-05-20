@@ -167,7 +167,43 @@ Method Descriptions
 
 |void| **add_instances**\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_instances>`
 
-Used by Terrain3DEditor to place instances given many brush parameters. In addition to the brush position, it also uses the following parameters: asset_id:int, size:float, strength:float, fixed_scale:float, random_scale:float, fixed_spin:float, random_spin:float, fixed_tilt:float, random_tilt:float, align_to_normal:bool, height_offset:float, random_height:float, vertex_color:Color, random_hue:float, random_darken:float, slope:Vector2, on_collision:bool, raycast_height:float. All of these settings are set in the editor via tool_settings.gd.
+Used by Terrain3DEditor to place instances within the brush radius (size). In addition to the brush position, it also uses the following parameters, which are all set in the editor via tool_settings.gd.
+
+\* asset_id:int
+
+\* size:float
+
+\* strength:float
+
+\* fixed_scale:float
+
+\* random_scale:float
+
+\* fixed_spin:float
+
+\* random_spin:float
+
+\* fixed_tilt:float
+
+\* random_tilt:float
+
+\* align_to_normal:bool
+
+\* height_offset:float
+
+\* random_height:float
+
+\* vertex_color:Color
+
+\* random_hue:float
+
+\* random_darken:float
+
+\* slope:Vector2
+
+\* on_collision:bool
+
+\* raycast_height:float
 
 .. rst-class:: classref-item-separator
 
@@ -297,7 +333,21 @@ Returns true if :ref:`mode<class_Terrain3DInstancer_property_mode>` is not disab
 
 |void| **remove_instances**\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DInstancer_method_remove_instances>`
 
-Uses parameters asset_id:int, size:float, strength:float, slope:Vector2, on_collision:bool, raycast_height:float to randomly remove instances within the indicated brush position and size.
+Terrain3DEditor uses this to randomly remove instances within the indicated brush position and radius (size). It uses these parameters, if available:
+
+\* asset_id:int
+
+\* modifier_shift:bool
+
+\* size:float
+
+\* strength:float
+
+\* slope:Vector2
+
+\* on_collision:bool
+
+\* raycast_height:float
 
 .. rst-class:: classref-item-separator
 

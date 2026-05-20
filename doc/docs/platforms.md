@@ -128,11 +128,11 @@ The Forward+ Vulkan renderer is fully supported.
 
 ## D3D12
 
-The Forward+ Direct3D 12 support should be fully supported as of Godot 4.6.
+The Forward+ Direct3D 12 renderer is fully supported as of Godot 4.6.
 
 ## Metal
 
-Support for Apple's Metal for iOS and macOS was merged into Godot 4.4-dev1. No testing has been done, and Terrain3D support is unknown.
+Support for Apple's Metal for iOS and macOS was merged into Godot 4.4-dev1. We do have Metal users but full Terrain3D support is not clear.
 
 ## Mobile
 

@@ -295,6 +295,9 @@
     <None Include="project\addons\terrain_3d\extras\shaders\ocean_shader.gdshader">
       <Filter>4. Shaders</Filter>
     </None>
+    <None Include="doc\docs\maintainers.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
