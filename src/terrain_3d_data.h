@@ -23,10 +23,12 @@ public: // Constants
 		HEIGHT_FILTER_NEAREST,
 		HEIGHT_FILTER_MINIMUM
 	};
+
 	enum ExportMode {
-		EXPORT_SLICED,
-		EXPORT_PER_REGION
+		EXPORT_SLICES,
+		EXPORT_REGIONS
 	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
@@ -184,7 +186,7 @@ public:
 
 	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = V3_ZERO,
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
-	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT, const ExportMode p_mode = EXPORT_SLICED) const;
+	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT, const ExportMode p_mode = EXPORT_SLICES) const;
 	Ref<Image> layered_to_image(const MapType p_map_type, const Rect2i &p_bounds = Rect2i()) const;
 
 	// Utility

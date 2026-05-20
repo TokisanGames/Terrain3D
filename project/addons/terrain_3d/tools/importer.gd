@@ -103,12 +103,18 @@ func save_data() -> void:
 
 
 @export_group("Export File")
+
 enum { TYPE_HEIGHT, TYPE_CONTROL, TYPE_COLOR }
 @export_enum("Height:0", "Control:1", "Color:2") var map_type: int = TYPE_HEIGHT
+
+enum { EXPORT_SLICES, EXPORT_REGIONS }
+@export_enum("Slices:0", "Per Region:1") var export_mode: int = EXPORT_SLICES
+
 @export var file_name_out: String = ""
 @export_tool_button("Run Export") var run_export = start_export
 
+
 func start_export() -> void:
-	var err: int = data.export_image(file_name_out, map_type)
+	var err: int = data.export_image(file_name_out, map_type, export_mode)
 	print("Terrain3DImporter: Export error status: ", err, " ", error_string(err))
 	
