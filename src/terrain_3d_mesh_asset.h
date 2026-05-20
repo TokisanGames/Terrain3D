@@ -118,7 +118,7 @@ public:
 	void set_density(const real_t p_density);
 	real_t get_density() const { return _density; }
 	void set_cast_shadows(const ShadowCasting p_cast_shadows);
-	ShadowCasting get_cast_shadows() const { return _cast_shadows; };
+	ShadowCasting get_cast_shadows() const { return _cast_shadows; }
 	ShadowCasting get_lod_cast_shadows(const int p_lod_id) const;
 	void set_visibility_layers(const uint32_t p_layers);
 	uint32_t get_visibility_layers() const { return _visibility_layers; }
@@ -165,7 +165,7 @@ public:
 	void set_lod9_range(const real_t p_distance) { set_lod_range(9, p_distance); }
 	real_t get_lod9_range() const { return _lod_ranges[9]; }
 	void set_fade_margin(const real_t p_fade_margin);
-	real_t get_fade_margin() const { return _fade_margin; };
+	real_t get_fade_margin() const { return _fade_margin; }
 
 protected:
 	void _validate_property(PropertyInfo &p_property) const;

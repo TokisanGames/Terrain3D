@@ -221,13 +221,13 @@ public:
 	void set_vertex_spacing(const real_t p_spacing);
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 	void set_cull_margin(const real_t p_margin);
-	real_t get_cull_margin() const { return _cull_margin; };
+	real_t get_cull_margin() const { return _cull_margin; }
 	void set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows);
-	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; };
+	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; }
 	void set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode);
 	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
 	void set_render_layers(const uint32_t p_layers);
-	uint32_t get_render_layers() const { return _render_layers; };
+	uint32_t get_render_layers() const { return _render_layers; }
 
 	// Material Displacement Aliases
 	void set_displacement_scale(const real_t p_displacement_scale) { _material.is_valid() ? _material->set_displacement_scale(p_displacement_scale) : void(); }
@@ -252,21 +252,21 @@ public:
 	void set_ocean_vertex_spacing(const real_t p_spacing);
 	real_t get_ocean_vertex_spacing() const { return _ocean_vertex_spacing; }
 	void set_ocean_cull_margin(const real_t p_margin);
-	real_t get_ocean_cull_margin() const { return _ocean_cull_margin; };
+	real_t get_ocean_cull_margin() const { return _ocean_cull_margin; }
 	void set_ocean_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows);
-	RenderingServer::ShadowCastingSetting get_ocean_cast_shadows() const { return _ocean_cast_shadows; };
+	RenderingServer::ShadowCastingSetting get_ocean_cast_shadows() const { return _ocean_cast_shadows; }
 	void set_ocean_gi_mode(const GeometryInstance3D::GIMode p_gi_mode);
 	GeometryInstance3D::GIMode get_ocean_gi_mode() const { return _ocean_gi_mode; }
 	void set_ocean_render_layers(const uint32_t p_layers);
-	uint32_t get_ocean_render_layers() const { return _ocean_render_layers; };
+	uint32_t get_ocean_render_layers() const { return _ocean_render_layers; }
 	void set_ocean_material(const Ref<Material> &p_material);
 	Ref<Material> get_ocean_material() const { return _ocean_material; }
 
 	// Rendering
 	void set_mouse_layer(const uint32_t p_layer);
-	uint32_t get_mouse_layer() const { return _mouse_layer; };
+	uint32_t get_mouse_layer() const { return _mouse_layer; }
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
-	bool get_free_editor_textures() const { return _free_editor_textures; };
+	bool get_free_editor_textures() const { return _free_editor_textures; }
 	void set_instancer_mode(const InstancerMode p_mode) { _instancer ? _instancer->set_mode(p_mode) : void(); }
 	InstancerMode get_instancer_mode() const { return _instancer ? _instancer->get_mode() : InstancerMode::NORMAL; }
 

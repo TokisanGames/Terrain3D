@@ -1,7 +1,7 @@
 Games Using Terrain3D
 =======================
 
-Terrain3D is being used in the following games. To add yours, submit it to the #game-dev channel on [our discord server](https://tokisan.com/discord).
+Terrain3D is being used in the following games. To add yours, submit the game, link, and description to the #game-dev channel on [our discord server](https://tokisan.com/discord).
 
 | Game | Studio | Description |
 |------|--------|-------------|
@@ -18,6 +18,9 @@ Terrain3D is being used in the following games. To add yours, submit it to the #
 | [open-fpsz](https://gitlab.com/open-fpsz/open-fpsz) | [anyreso](https://mastodon.gamedev.place/@anyreso) | Open-source, Tribes-like FPS multiplayer shooter
 | [Element](https://devanew.itch.io/element) | [Luke Aaron](https://www.youtube.com/watch?v=b18jDnY1YS4) | Gamejam FPS tactial shooter
 | [Castaway Cove](https://boolburg.itch.io/castaway-cove) | [Boolburg](https://boolburg.itch.io/) | Tropical island exploration
+| [The UNDA Legacy](https://store.steampowered.com/app/4709190/The_UNDA_Legacy/) | [Squirrelation Games](https://x.com/squirrgames) | Atmospheric 3D puzzle game
+| [Unaccessible](https://store.steampowered.com/app/3419670/Unaccessible/) | [Rembot Games](https://x.com/RembotGames) | 3rd person wheelchair platformer
+
 
 ## Demos
 

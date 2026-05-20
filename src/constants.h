@@ -89,56 +89,56 @@ struct Vector3Hash {
 
 // Validation macros
 
-#define ASSERT(cond, ret)                                                                            \
-	if (!(cond)) {                                                                                   \
+#define ASSERT(cond, ret) \
+	if (!(cond)) { \
 		UtilityFunctions::push_error("Assertion '", #cond, "' failed at ", __FILE__, ":", __LINE__); \
-		return ret;                                                                                  \
+		return ret; \
 	}
 
 #define VOID // a return value for void, to avoid compiler warnings
 
 #define IS_INIT(ret) \
 	if (!_terrain) { \
-		return ret;  \
+		return ret; \
 	}
 
 #define IS_INIT_MESG(mesg, ret) \
-	if (!_terrain) {            \
-		LOG(ERROR, mesg);       \
-		return ret;             \
+	if (!_terrain) { \
+		LOG(ERROR, mesg); \
+		return ret; \
 	}
 
 #define IS_INIT_COND(cond, ret) \
-	if (!_terrain || cond) {    \
-		return ret;             \
+	if (!_terrain || cond) { \
+		return ret; \
 	}
 
 #define IS_INIT_COND_MESG(cond, mesg, ret) \
-	if (!_terrain || cond) {               \
-		LOG(ERROR, mesg);                  \
-		return ret;                        \
+	if (!_terrain || cond) { \
+		LOG(ERROR, mesg); \
+		return ret; \
 	}
 
-#define IS_INSTANCER_INIT(ret)                     \
+#define IS_INSTANCER_INIT(ret) \
 	if (!_terrain || !_terrain->get_instancer()) { \
-		return ret;                                \
+		return ret; \
 	}
 
-#define IS_INSTANCER_INIT_MESG(mesg, ret)          \
+#define IS_INSTANCER_INIT_MESG(mesg, ret) \
 	if (!_terrain || !_terrain->get_instancer()) { \
-		LOG(ERROR, mesg);                          \
-		return ret;                                \
+		LOG(ERROR, mesg); \
+		return ret; \
 	}
 
-#define IS_DATA_INIT(ret)                     \
+#define IS_DATA_INIT(ret) \
 	if (!_terrain || !_terrain->get_data()) { \
-		return ret;                           \
+		return ret; \
 	}
 
-#define IS_DATA_INIT_MESG(mesg, ret)          \
+#define IS_DATA_INIT_MESG(mesg, ret) \
 	if (!_terrain || !_terrain->get_data()) { \
-		LOG(ERROR, mesg);                     \
-		return ret;                           \
+		LOG(ERROR, mesg); \
+		return ret; \
 	}
 
 #endif // CONSTANTS_CLASS_H

@@ -36,17 +36,23 @@ Make sure you are setup to [build the plugin from source](https://terrain3d.read
 
 clang-format will adjust the style of your code to a consistent standard. Once you install it you can manually run it on all of your code to see or apply changes, and you can set it up to run automatically upon each commit.
 
+If upgrading from an older version, delete everything in `.git/hooks/`.
+
 #### Installing clang-format binary onto your system.
-* Download version 13 or later
+* Download LLVM version 21.1.7 or later
+	* Linux/OSX: Install the `clang-format` package, or all of `LLVM` or `clang` if your distribution doesn't provide the standalone tool
+	* Windows: Download LLVM for Windows from <https://releases.llvm.org/download.html>
+
 * Make sure the LLVM binary directory where `clang-format` is stored gets added to the `PATH` during installation
-* Linux/OSX: Install the `clang-format` package, or all of `LLVM` or `clang` if your distribution doesn't provide the standalone tool
-* Windows: Download LLVM for Windows from <https://releases.llvm.org/download.html>
 
-#### Using clang-format automatically
+#### Using clang-format on commit via hooks
 
-We use Godot's clang-format hooks that will format your code upon making a commit. Install the hooks into your repo after cloning.
+Install pre-commit. After this, clang-format will be run on every commit. It will print a failure if it makes changes to files so you can review them.
 
-* Copy `tools/hooks/*` into `.git/hooks` or run `python tools/install-hooks.py`
+```
+pip install pre-commit
+pre-commit install
+```
 
 #### Using clang-format manually
 

@@ -109,7 +109,7 @@ public:
 	Terrain3D *get_terrain() const { return _terrain; }
 
 	void set_brush_data(const Dictionary &p_data);
-	Dictionary get_brush_data() const { return _brush_data; };
+	Dictionary get_brush_data() const { return _brush_data; }
 	void set_tool(const Tool p_tool);
 	Tool get_tool() const { return _tool; }
 	void set_operation(const Operation p_operation);

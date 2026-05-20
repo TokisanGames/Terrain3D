@@ -3,22 +3,22 @@
 #ifndef UNIT_TESTING_H
 #define UNIT_TESTING_H
 
-#define EXPECT_FALSE(cond)                              \
-	do {                                                \
-		if (cond) {                                     \
+#define EXPECT_FALSE(cond) \
+	do { \
+		if (cond) { \
 			UtilityFunctions::print("FAILED: ", #cond); \
-		} else {                                        \
+		} else { \
 			UtilityFunctions::print("PASSED: ", #cond); \
-		}                                               \
+		} \
 	} while (0)
 
-#define EXPECT_TRUE(cond)                               \
-	do {                                                \
-		if (cond) {                                     \
+#define EXPECT_TRUE(cond) \
+	do { \
+		if (cond) { \
 			UtilityFunctions::print("PASSED: ", #cond); \
-		} else {                                        \
+		} else { \
 			UtilityFunctions::print("FAILED: ", #cond); \
-		}                                               \
+		} \
 	} while (0)
 
 void test_differs();

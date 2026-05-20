@@ -97,8 +97,9 @@ void Terrain3D::_initialize() {
  * https://github.com/godotengine/godot-cpp/issues/1022
  */
 void Terrain3D::__physics_process(const double p_delta) {
-	if (!_initialized)
+	if (!_initialized) {
 		return;
+	}
 	if (!_camera.is_valid()) {
 		LOG(DEBUG, "Camera is null, getting the current one");
 		_grab_camera();

@@ -336,8 +336,8 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit) {
 
 void Terrain3DRegion::set_data(const Dictionary &p_data) {
 #define SET_IF_HAS(var, str) \
-	if (p_data.has(str)) {   \
-		var = p_data[str];   \
+	if (p_data.has(str)) { \
+		var = p_data[str]; \
 	}
 	SET_IF_HAS(_location, "location");
 	SET_IF_HAS(_deleted, "deleted");

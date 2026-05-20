@@ -337,10 +337,10 @@ _FORCE_INLINE_ bool differs(const T &a, const T &b) {
 
 // Sets A if different from B, otherwise returns
 #define SET_IF_DIFF(a, b) \
-	if (differs(a, b)) {  \
-		a = b;            \
-	} else {              \
-		return;           \
+	if (differs(a, b)) { \
+		a = b; \
+	} else { \
+		return; \
 	}
 
 #endif // TERRAIN3D_UTIL_CLASS_H
