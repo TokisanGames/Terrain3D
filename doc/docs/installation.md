@@ -7,7 +7,7 @@ Installation & Upgrades
 * [Upgrading Terrain3D](#upgrading-terrain3d)
 
 ## Requirements
-* Terrain3D 1.0.1 supports Godot 4.4+. Use 1.0.0 for 4.3.
+* See the release notes for each version of Godot supported
 * Supports Windows, Linux, and [macOS (read more)](platforms.md#macos).
 * Some platforms and renderers are experimental or unsupported. See [Supported Platforms](platforms.md).
 
