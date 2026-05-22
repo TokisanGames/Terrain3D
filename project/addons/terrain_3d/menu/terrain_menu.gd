@@ -6,12 +6,14 @@ extends HBoxContainer
 const DirectoryWizard: Script = preload("res://addons/terrain_3d/menu/directory_setup.gd")
 const ChannelPacker: Script = preload("res://addons/terrain_3d/menu/channel_packer.gd")
 const LodBaker: Script = preload("res://addons/terrain_3d/menu/baker.gd")
+const TerrainGenerator: Script = preload("res://addons/terrain_3d/menu/terrain_generation.gd")
 
 var plugin: EditorPlugin
 var menu_button: MenuButton = MenuButton.new()
 var directory_setup: DirectoryWizard = DirectoryWizard.new()
 var packer: ChannelPacker = ChannelPacker.new()
 var baker: LodBaker = LodBaker.new()
+var terrain_generator: TerrainGenerator = TerrainGenerator.new()
 
 # These are IDs and order must be consistent with add_item and set_disabled IDs
 enum {
@@ -23,6 +25,8 @@ enum {
 	MENU_SEPARATOR2,
 	MENU_SET_UP_NAVIGATION,
 	MENU_BAKE_NAV_MESH,
+	MENU_SEPARATOR3,
+	MENU_GENERATE_TERRAIN,
 }
 
 
@@ -30,6 +34,7 @@ func _enter_tree() -> void:
 	directory_setup.plugin = plugin
 	packer.plugin = plugin
 	baker.plugin = plugin
+	terrain_generator.plugin = plugin
 	add_child(directory_setup)
 	add_child(baker)
 	
@@ -42,6 +47,9 @@ func _enter_tree() -> void:
 	menu_button.get_popup().add_separator("", MENU_SEPARATOR2)
 	menu_button.get_popup().add_item("Set up Navigation...", MENU_SET_UP_NAVIGATION)
 	menu_button.get_popup().add_item("Bake NavMesh...", MENU_BAKE_NAV_MESH)
+	menu_button.get_popup().add_separator("", MENU_SEPARATOR3)
+	menu_button.get_popup().add_item("Generate Terrain...", MENU_GENERATE_TERRAIN)
+
 	
 	menu_button.get_popup().id_pressed.connect(_on_menu_pressed)
 	menu_button.about_to_popup.connect(_on_menu_about_to_popup)
@@ -62,6 +70,8 @@ func _on_menu_pressed(p_id: int) -> void:
 			baker.set_up_navigation_popup()
 		MENU_BAKE_NAV_MESH:
 			baker.bake_nav_mesh()
+		MENU_GENERATE_TERRAIN:
+			terrain_generator.set_up_pop_up()
 
 
 func _on_menu_about_to_popup() -> void:
@@ -69,15 +79,19 @@ func _on_menu_about_to_popup() -> void:
 	menu_button.get_popup().set_item_disabled(MENU_PACK_TEXTURES, not plugin.terrain)
 	menu_button.get_popup().set_item_disabled(MENU_BAKE_ARRAY_MESH, not plugin.terrain)
 	menu_button.get_popup().set_item_disabled(MENU_BAKE_OCCLUDER, not plugin.terrain)
+	menu_button.get_popup().set_item_disabled(MENU_GENERATE_TERRAIN, not plugin.terrain)
 
 	if plugin.terrain:
 		var nav_regions: Array[NavigationRegion3D] = baker.find_terrain_nav_regions(plugin.terrain)
 		menu_button.get_popup().set_item_disabled(MENU_BAKE_NAV_MESH, nav_regions.size() == 0)
 		menu_button.get_popup().set_item_disabled(MENU_SET_UP_NAVIGATION, nav_regions.size() != 0)
+		menu_button.get_popup().set_item_disabled(MENU_GENERATE_TERRAIN, false)
 	elif plugin.nav_region:
 		var terrains: Array[Terrain3D] = baker.find_nav_region_terrains(plugin.nav_region)
 		menu_button.get_popup().set_item_disabled(MENU_BAKE_NAV_MESH, terrains.size() == 0)
 		menu_button.get_popup().set_item_disabled(MENU_SET_UP_NAVIGATION, true)
+		menu_button.get_popup().set_item_disabled(MENU_GENERATE_TERRAIN, false)
 	else:
 		menu_button.get_popup().set_item_disabled(MENU_BAKE_NAV_MESH, true)
 		menu_button.get_popup().set_item_disabled(MENU_SET_UP_NAVIGATION, true)
+		menu_button.get_popup().set_item_disabled(MENU_GENERATE_TERRAIN, true)
