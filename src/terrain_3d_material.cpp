@@ -208,6 +208,11 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	if (!_output_roughness_enabled) {
 		excludes.push_back("OUTPUT_ROUGHNESS");
 	}
+	if (!_output_specular_enabled) {
+		excludes.push_back("OUTPUT_SPECULAR");
+	} else {
+		excludes.push_back("OUTPUT_SPECULAR_NONE");
+	}
 	if (!_output_normal_map_enabled) {
 		excludes.push_back("OUTPUT_NORMAL_MAP");
 	}
@@ -904,6 +909,12 @@ void Terrain3DMaterial::set_output_roughness_enabled(const bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_output_specular_enabled(const bool p_enabled) {
+	SET_IF_DIFF(_output_specular_enabled, p_enabled);
+	LOG(INFO, "Enable PBR output specular: ", p_enabled);
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_output_normal_map_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_output_normal_map_enabled, p_enabled);
 	LOG(INFO, "Enable PBR output normal map: ", p_enabled);
@@ -1339,6 +1350,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_output_albedo_enabled"), &Terrain3DMaterial::get_output_albedo_enabled);
 	ClassDB::bind_method(D_METHOD("set_output_roughness_enabled", "enabled"), &Terrain3DMaterial::set_output_roughness_enabled);
 	ClassDB::bind_method(D_METHOD("get_output_roughness_enabled"), &Terrain3DMaterial::get_output_roughness_enabled);
+	ClassDB::bind_method(D_METHOD("set_output_specular_enabled", "enabled"), &Terrain3DMaterial::set_output_specular_enabled);
+	ClassDB::bind_method(D_METHOD("get_output_specular_enabled"), &Terrain3DMaterial::get_output_specular_enabled);
 	ClassDB::bind_method(D_METHOD("set_output_normal_map_enabled", "enabled"), &Terrain3DMaterial::set_output_normal_map_enabled);
 	ClassDB::bind_method(D_METHOD("get_output_normal_map_enabled"), &Terrain3DMaterial::get_output_normal_map_enabled);
 	ClassDB::bind_method(D_METHOD("set_output_ambient_occlusion_enabled", "enabled"), &Terrain3DMaterial::set_output_ambient_occlusion_enabled);
@@ -1407,6 +1420,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_GROUP("PBR Output", "output_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_albedo"), "set_output_albedo_enabled", "get_output_albedo_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_roughness"), "set_output_roughness_enabled", "get_output_roughness_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_specular"), "set_output_specular_enabled", "get_output_specular_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_normal_map"), "set_output_normal_map_enabled", "get_output_normal_map_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_ambient_occlusion"), "set_output_ambient_occlusion_enabled", "get_output_ambient_occlusion_enabled");
 

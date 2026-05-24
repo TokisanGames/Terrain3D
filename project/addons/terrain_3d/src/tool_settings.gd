@@ -83,7 +83,7 @@ func _ready() -> void:
 	add_setting({ "name":"color_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.COLOR,
 							"flags":NO_LABEL, "tooltip":"Pick Color from the terrain." })
 
-	add_setting({ "name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":-65,
+	add_setting({ "name":"roughness", "type":SettingType.SLIDER, "list":main_list, "default":-50,
 							"unit":"%", "range":Vector3(-100, 100, 1), "flags":ADD_SEPARATOR })
 	add_setting({ "name":"roughness_picker", "type":SettingType.PICKER, "list":main_list, "default":Terrain3DEditor.ROUGHNESS,
 							"flags":NO_LABEL, "tooltip":"Pick Wetness from the terrain." })

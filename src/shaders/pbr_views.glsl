@@ -60,7 +60,10 @@ R"(
 	ALBEDO = vec3(0.2);
 //INSERT: OUTPUT_ROUGHNESS
 	ROUGHNESS = roughness;
-	SPECULAR = 1. - mat.normal_rough.a;
+//INSERT: OUTPUT_SPECULAR
+	SPECULAR = 1. - roughness;
+//INSERT: OUTPUT_SPECULAR_NONE
+	SPECULAR = 0.;
 //INSERT: OUTPUT_NORMAL_MAP
 	// Repack final normal map value.
 	NORMAL_MAP = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
