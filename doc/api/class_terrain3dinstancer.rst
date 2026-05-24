@@ -167,43 +167,43 @@ Method Descriptions
 
 |void| **add_instances**\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DInstancer_method_add_instances>`
 
-Used by Terrain3DEditor to place instances within the brush radius (size). In addition to the brush position, it also uses the following parameters, which are all set in the editor via tool_settings.gd.
+Used by Terrain3DEditor to place instances within the brush radius (size). In addition to the brush position, it also uses the following parameters if available, which are all set in the editor via tool_settings.gd.
 
-\* asset_id:int
+- asset_id:int
 
-\* size:float
+- size:float
 
-\* strength:float
+- strength:float
 
-\* fixed_scale:float
+- fixed_scale:float
 
-\* random_scale:float
+- random_scale:float
 
-\* fixed_spin:float
+- fixed_spin:float
 
-\* random_spin:float
+- random_spin:float
 
-\* fixed_tilt:float
+- fixed_tilt:float
 
-\* random_tilt:float
+- random_tilt:float
 
-\* align_to_normal:bool
+- align_to_normal:bool
 
-\* height_offset:float
+- height_offset:float
 
-\* random_height:float
+- random_height:float
 
-\* vertex_color:Color
+- vertex_color:Color
 
-\* random_hue:float
+- random_hue:float
 
-\* random_darken:float
+- random_darken:float
 
-\* slope:Vector2
+- slope:Vector2
 
-\* on_collision:bool
+- on_collision:bool
 
-\* raycast_height:float
+- raycast_height:float
 
 .. rst-class:: classref-item-separator
 
@@ -333,21 +333,21 @@ Returns true if :ref:`mode<class_Terrain3DInstancer_property_mode>` is not disab
 
 |void| **remove_instances**\ (\ global_position\: ``Vector3``, params\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DInstancer_method_remove_instances>`
 
-Terrain3DEditor uses this to randomly remove instances within the indicated brush position and radius (size). It uses these parameters, if available:
+Terrain3DEditor uses this to randomly remove instances within the indicated brush position and radius (size). It uses these parameters if available, which are all set in the editor via tool_settings.gd:
 
-\* asset_id:int
+- asset_id:int
 
-\* modifier_shift:bool
+- modifier_shift:bool
 
-\* size:float
+- size:float
 
-\* strength:float
+- strength:float
 
-\* slope:Vector2
+- slope:Vector2
 
-\* on_collision:bool
+- on_collision:bool
 
-\* raycast_height:float
+- raycast_height:float
 
 .. rst-class:: classref-item-separator
 

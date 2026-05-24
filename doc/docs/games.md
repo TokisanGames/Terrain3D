@@ -1,7 +1,7 @@
 Games Using Terrain3D
 =======================
 
-Terrain3D is being used in the following games. To add yours, submit the game, link, and description to the #game-dev channel on [our discord server](https://tokisan.com/discord).
+Terrain3D is being used in the following games. To add yours, submit all the links and info you see below for your game to the #game-dev channel on [our discord server](https://tokisan.com/discord).
 
 | Game | Studio | Description |
 |------|--------|-------------|

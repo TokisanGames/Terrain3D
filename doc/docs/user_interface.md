@@ -41,6 +41,8 @@ Depending on which tool is selected on the toolbar, various tool settings will a
 :target: ../_images/ui_tool_settings.jpg
 ```
 
+Brushes can be changed via the Terrain3D Menu / `Open Brushes Directory...`. The folder is hidden to Godot. The files are 100x100 alpha masks saved as EXR. Larger sizes should work fine, but will be slow if too big. We scale all brushes up to a minimum of 1024px on selection.
+
 Many tool settings offer a slider with a fixed range, and an input box where you can manually enter a much larger setting.
 
 Click the label of any setting to reset the value to its default, or checkboxes to toggle.
@@ -50,8 +52,6 @@ The settings are saved across sessions in `Editor Settings / Terrain3D / Tool Se
 Some tools like `Paint`, `Spray`, and `Color` have options to disable some features. e.g. Disabling `Texture` on `Paint` means it will only apply scale or angle. Enabling `Texture` on `Color` will filter color painting to the selected texture.
 
 The three dots button on the right is the advanced options menu. One noteworthy setting is `Brush Spin Speed`, which is what causes the brush to spin while painting. Reduce it to zero if you don't want this.
-
-Brushes can be edited in the `addons/terrain_3d/brushes` directory, using your OS folder explorer. The folder is hidden to Godot. The files are 100x100 alpha masks saved as EXR. Larger sizes should work fine, but will be slow if too big. We scale all brushes up to a minimum of 1024px on selection.
 
 Most other options are self explanatory. See [Foliage Instancing](instancer.md) for specific details on its settings.
 

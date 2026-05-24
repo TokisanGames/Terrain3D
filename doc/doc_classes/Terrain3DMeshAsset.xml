@@ -87,7 +87,6 @@
 		<member name="fade_margin" type="float" setter="set_fade_margin" getter="get_fade_margin" default="0.0">
 			If &gt; 0, sets [code skip-lint]GeometryInstance3D.fade_mode = self[/code], sets this margin in [code skip-lint]GeometryInstance3D.visibility_range_begin_margin[/code] and [code skip-lint]GeometryInstance3D.visibility_range_end_margin[/code] and adjusts the ranges to allow fading between lods.
 			Limited to the smaller of half the distance between LOD0 and LOD1, or 64m.
-			Currently broken and hidden in the inspector until [url=https://github.com/godotengine/godot/issues/102799]Godot issue #102799[/url] is fixed.
 		</member>
 		<member name="generated_faces" type="int" setter="set_generated_faces" getter="get_generated_faces" default="2">
 			Select if you want the generated texture card to have a single QuadMesh, 2 meshes rotated 90° in a cross, or 3 rotated at 60°.
