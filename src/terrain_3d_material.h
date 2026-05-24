@@ -66,6 +66,7 @@ private:
 	// PBR Outputs
 	bool _output_albedo_enabled = true;
 	bool _output_roughness_enabled = true;
+	bool _output_specular_enabled = true;
 	bool _output_normal_map_enabled = true;
 	bool _output_ambient_occlusion_enabled = true;
 
@@ -160,13 +161,12 @@ public:
 	// PBR outputs
 	void set_output_albedo_enabled(const bool p_enabled);
 	bool get_output_albedo_enabled() const { return _output_albedo_enabled; }
-
 	void set_output_roughness_enabled(const bool p_enabled);
 	bool get_output_roughness_enabled() const { return _output_roughness_enabled; }
-
+	void set_output_specular_enabled(const bool p_enabled);
+	bool get_output_specular_enabled() const { return _output_specular_enabled; }
 	void set_output_normal_map_enabled(const bool p_enabled);
 	bool get_output_normal_map_enabled() const { return _output_normal_map_enabled; }
-
 	void set_output_ambient_occlusion_enabled(const bool p_enabled);
 	bool get_output_ambient_occlusion_enabled() const { return _output_ambient_occlusion_enabled; }
 
