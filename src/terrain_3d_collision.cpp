@@ -176,8 +176,7 @@ void Terrain3DCollision::_shape_set_transform(const int p_shape_id, const Transf
 
 Vector3 Terrain3DCollision::_shape_get_position(const int p_shape_id) const {
 	if (is_editor_mode()) {
-		CollisionShape3D *shape = _shapes[p_shape_id];
-		return shape->get_global_position();
+		return _shapes[p_shape_id]->get_global_position();
 	} else {
 		return PS->body_get_shape_transform(_static_body_rid, p_shape_id).origin;
 	}
@@ -335,8 +334,8 @@ void Terrain3DCollision::update(const Vector2i &p_region_loc, const bool p_rebui
 		Vector2i snapped_pos = _snap_to_grid(_terrain->get_collision_target_position() / spacing);
 		LOG(EXTREME, "Updating collision at ", snapped_pos);
 
-		// Skip if location hasn't moved to next step
-		if (!p_rebuild && (_last_snapped_pos - snapped_pos).length_squared() < (_shape_size * _shape_size)) {
+		// Return if target hasn't moved to next grid slot
+		if (!p_rebuild && (_last_snapped_pos - snapped_pos).length_squared() == 0) {
 			return;
 		}
 
@@ -348,12 +347,11 @@ void Terrain3DCollision::update(const Vector2i &p_region_loc, const bool p_rebui
 		grid.resize(grid_width * grid_width);
 		grid.fill(-1);
 		Vector2i grid_offset = -V2I(grid_width / 2); // offset # cells to center of grid
-		Vector2i shape_offset = V2I(_shape_size / 2); // offset meters to top left corner of shape
-		Vector2i grid_pos = snapped_pos + grid_offset * _shape_size; // Top left of grid
-		LOG(EXTREME, "New Snapped position: ", snapped_pos);
-		LOG(EXTREME, "Grid_pos: ", grid_pos);
-		LOG(EXTREME, "Radius: ", _radius, ", Grid_width: ", grid_width, ", Grid_offset: ", grid_offset, ", # cells: ", grid.size());
-		LOG(EXTREME, "Shape_size: ", _shape_size, ", shape_offset: ", shape_offset);
+		Vector2i grid_corner = snapped_pos + grid_offset * _shape_size; // Top left of grid
+		LOG(EXTREME, "New snapped_pos: ", snapped_pos);
+		LOG(EXTREME, "grid_corner: ", grid_corner);
+		LOG(EXTREME, "radius: ", _radius, ", grid_width: ", grid_width, ", grid_offset: ", grid_offset, ", # cells: ", grid.size());
+		LOG(EXTREME, "shape_size: ", _shape_size);
 
 		LOG(EXTREME, "---- 2. Checking existing shapes ----");
 		// If shape is within area, skip
@@ -363,26 +361,38 @@ void Terrain3DCollision::update(const Vector2i &p_region_loc, const bool p_rebui
 		TypedArray<int> inactive_shape_ids;
 
 		real_t radius_sqr = real_t(_radius * _radius);
+		Vector2i shape_offset = V2I(_shape_size / 2); // offset meters to top left corner of shape
 		int shape_count = is_editor_mode() ? _shapes.size() : PS->body_get_shape_count(_static_body_rid);
 		for (int i = 0; i < shape_count; i++) {
-			// Descaled global position of shape center
-			Vector3 shape_center = _shape_get_position(i) / spacing;
-			// Unique key: Top left corner of shape, snapped to grid
-			Vector2i shape_pos = _snap_to_grid(v3v2i(shape_center) - shape_offset);
-			// Optionally could adjust radius to account for corner (sqrt(_shape_size*2))
-			if (!p_rebuild && (shape_center.x < FLT_MAX && v3v2i(shape_center).distance_squared_to(snapped_pos) <= radius_sqr)) {
-				// Get index into shape array
-				Vector2i grid_loc = (shape_pos - grid_pos) / _shape_size;
-				grid[grid_loc.y * grid_width + grid_loc.x] = i;
-				_shape_set_disabled(i, false);
-				LOG(EXTREME, "Shape ", i, ": shape_center: ", shape_center.x < FLT_MAX ? shape_center : V3(-999), ", shape_pos: ", shape_pos,
-						", grid_loc: ", grid_loc, ", index: ", (grid_loc.y * grid_width + grid_loc.x), " active");
-			} else {
+			Vector3 shape_global_pos = _shape_get_position(i);
+			if (p_rebuild || shape_global_pos.x > 1e20f) {
 				inactive_shape_ids.push_back(i);
 				_shape_set_disabled(i, true);
-				LOG(EXTREME, "Shape ", i, ": shape_center: ", shape_center.x < FLT_MAX ? shape_center : V3(-999), ", shape_pos: ", shape_pos,
-						" out of bounds, marking inactive");
+				LOG(EXTREME, "Shape ", i, " marked inactive (rebuild or out of bounds)");
+				continue;
 			}
+
+			// Descale global position of shape center
+			Vector3 shape_center = shape_global_pos / spacing;
+			// Unique key: Top left corner of shape, snapped to grid
+			Vector2i shape_pos = _snap_to_grid(v3v2i(shape_center) - shape_offset);
+			if (v3v2i(shape_center).distance_squared_to(snapped_pos) <= radius_sqr) {
+				// Get index into shape array
+				Vector2i grid_loc = (shape_pos - grid_corner) / _shape_size;
+				int idx = grid_loc.y * grid_width + grid_loc.x;
+				if (idx >= 0 && idx < grid.size()) {
+					grid[idx] = i;
+					_shape_set_disabled(i, false);
+					LOG(EXTREME, "Shape ", i, ": shape_center: ", shape_center, ", shape_pos: ", shape_pos, ", grid_loc: ",
+							grid_loc, ", index: ", idx, " active");
+					continue;
+				}
+			}
+
+			inactive_shape_ids.push_back(i);
+			_shape_set_disabled(i, true);
+			LOG(EXTREME, "Shape ", i, ": shape_center: ", shape_center, ", shape_pos: ", shape_pos,
+					" out of bounds, marking inactive");
 		}
 		LOG(EXTREME, "_inactive_shapes size: ", inactive_shape_ids.size());
 
@@ -392,35 +402,34 @@ void Terrain3DCollision::update(const Vector2i &p_region_loc, const bool p_rebui
 
 		for (int i = 0; i < grid.size(); i++) {
 			Vector2i grid_loc(i % grid_width, i / grid_width);
-			// Unique key: Top left corner of shape, snapped to grid
-			Vector2i shape_pos = grid_pos + grid_loc * _shape_size;
+			if (!p_rebuild && grid[i] >= 0) {
+				LOG(EXTREME, "grid[", i, ":", grid_loc, "] already active, skipping");
+				continue;
+			}
 
-			if ((shape_pos + shape_offset).distance_squared_to(snapped_pos) > radius_sqr) {
+			// Unique key: Top left corner of shape, snapped to grid
+			Vector2i shape_pos = grid_corner + grid_loc * _shape_size;
+			Vector2i shape_center = shape_pos + shape_offset;
+			if (shape_center.distance_squared_to(snapped_pos) > radius_sqr) {
 				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " out of circle, skipping");
 				continue;
 			}
-			if (!p_rebuild && grid[i] >= 0) {
-				Vector2i center_pos = v3v2i(_shape_get_position(i));
-				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " act ", center_pos - shape_offset, " Has active shape id: ", grid[i]);
-				continue;
-			} else {
-				if (inactive_shape_ids.size() == 0) {
-					LOG(ERROR, "No more unused shapes! Aborting!");
-					break;
-				}
-				Dictionary shape_data = _get_shape_data(shape_pos, _shape_size);
-				if (shape_data.is_empty()) {
-					LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " No region found");
-					continue;
-				}
-				int shape_id = inactive_shape_ids.pop_back();
-				Transform3D xform = shape_data["xform"];
-				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " act ", v3v2i(xform.origin) - shape_offset, " placing shape id ", shape_id);
-				xform.scale(Vector3(spacing, 1.f, spacing));
-				_shape_set_transform(shape_id, xform);
-				_shape_set_disabled(shape_id, false);
-				_shape_set_data(shape_id, shape_data);
+			if (inactive_shape_ids.size() == 0) {
+				LOG(ERROR, "No more unused shapes! Aborting!");
+				break;
 			}
+			Dictionary shape_data = _get_shape_data(shape_pos, _shape_size);
+			if (shape_data.is_empty()) {
+				LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " No region found");
+				continue;
+			}
+			int shape_id = inactive_shape_ids.pop_back();
+			Transform3D xform = shape_data["xform"];
+			LOG(EXTREME, "grid[", i, ":", grid_loc, "] shape_pos : ", shape_pos, " act ", v3v2i(xform.origin) - shape_offset, " placing shape id ", shape_id);
+			xform.scale(Vector3(spacing, 1.f, spacing));
+			_shape_set_transform(shape_id, xform);
+			_shape_set_disabled(shape_id, false);
+			_shape_set_data(shape_id, shape_data);
 		}
 		_last_snapped_pos = snapped_pos;
 		LOG(EXTREME, "Setting _last_snapped_pos: ", _last_snapped_pos);
