@@ -694,6 +694,5 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod7_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod7_range", "get_lod7_range");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod8_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod8_range", "get_lod8_range");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod9_range", PROPERTY_HINT_RANGE, "0.,4096.0,.05,or_greater"), "set_lod9_range", "get_lod9_range");
-	// Fade disabled until https://github.com/godotengine/godot/issues/102799 is fixed
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fade_margin", PROPERTY_HINT_RANGE, "0.,64.0,.05,or_greater", PROPERTY_USAGE_NO_EDITOR), "set_fade_margin", "get_fade_margin");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fade_margin", PROPERTY_HINT_RANGE, "0.,64.0,.05,or_greater"), "set_fade_margin", "get_fade_margin");
 }
