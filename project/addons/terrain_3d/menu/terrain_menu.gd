@@ -23,6 +23,8 @@ enum {
 	MENU_SEPARATOR2,
 	MENU_SET_UP_NAVIGATION,
 	MENU_BAKE_NAV_MESH,
+	MENU_SEPARATOR3,
+	MENU_BRUSH_DIRECTORY,
 }
 
 
@@ -42,6 +44,8 @@ func _enter_tree() -> void:
 	menu_button.get_popup().add_separator("", MENU_SEPARATOR2)
 	menu_button.get_popup().add_item("Set up Navigation...", MENU_SET_UP_NAVIGATION)
 	menu_button.get_popup().add_item("Bake NavMesh...", MENU_BAKE_NAV_MESH)
+	menu_button.get_popup().add_separator("", MENU_SEPARATOR3)
+	menu_button.get_popup().add_item("Open Brush Directory...", MENU_BRUSH_DIRECTORY)
 	
 	menu_button.get_popup().id_pressed.connect(_on_menu_pressed)
 	menu_button.about_to_popup.connect(_on_menu_about_to_popup)
@@ -62,6 +66,8 @@ func _on_menu_pressed(p_id: int) -> void:
 			baker.set_up_navigation_popup()
 		MENU_BAKE_NAV_MESH:
 			baker.bake_nav_mesh()
+		MENU_BRUSH_DIRECTORY:
+			OS.shell_show_in_file_manager(ProjectSettings.globalize_path("res://addons/terrain_3d/brushes"))
 
 
 func _on_menu_about_to_popup() -> void:
