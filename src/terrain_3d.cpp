@@ -808,6 +808,7 @@ void Terrain3D::set_ocean_enabled(const bool p_enabled) {
 	} else {
 		_destroy_ocean_mesher(false);
 	}
+	notify_property_list_changed();
 }
 
 void Terrain3D::set_ocean_mesh_lods(const int p_count) {
@@ -1188,6 +1189,9 @@ void Terrain3D::_notification(const int p_what) {
 			if (_terrain_mesher) {
 				_terrain_mesher->update();
 			}
+			if (_ocean_mesher) {
+				_ocean_mesher->update();
+			}
 			if (_instancer) {
 				if (!is_visible_in_tree()) {
 					_instancer->destroy();
@@ -1299,15 +1303,10 @@ void Terrain3D::_validate_property(PropertyInfo &p_property) const {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		}
 	}
-	if (!_ocean_enabled) {
-		// Hide all ocean properties
-		if (p_property.name == StringName("ocean_mesh_lods") ||
-				p_property.name == StringName("ocean_mesh_size") ||
-				p_property.name == StringName("ocean_tessellation_level") ||
-				p_property.name == StringName("ocean_material") ||
-				p_property.name == StringName("ocean_vertex_spacing")) {
-			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
-		}
+	// Hide all ocean properties if not enabled
+	if (!_ocean_enabled && p_property.name != StringName("ocean_enabled") &&
+			p_property.name.begins_with("ocean_")) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 }
 
