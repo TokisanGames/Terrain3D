@@ -28,7 +28,7 @@ environment = SubResource("Environment_877j2")
 camera_attributes = SubResource("CameraAttributesPractical_0gcl0")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1.0000001, 0, 0, 0, 0.6414489, 0.7671647, 0, -0.76716435, 0.6414493, 0, 0, 0)
+transform = Transform3D(1.0000001, 0, 0, 0, 0.6427869, 0.76604396, 0, -0.7660436, 0.6427873, 0, 2000, 0)
 shadow_enabled = true
 shadow_blur = 2.0
 directional_shadow_blend_splits = true
