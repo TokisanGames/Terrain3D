@@ -22,6 +22,9 @@ script = ExtResource("1_k7qca")
 [node name="Player" parent="." instance=ExtResource("3_ht63y")]
 transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
 
+[node name="Terrain3DParticles" parent="." node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
+terrain = NodePath("../Terrain3D")
+
 [node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("collision_target", "clipmap_target", "ocean_light_target")]
 data_directory = "res://demo/data"
 material = ExtResource("5_fwrtk")
@@ -37,8 +40,5 @@ ocean_material = ExtResource("7_fwrtk")
 ocean_light_target = NodePath("../Environment/DirectionalLight3D")
 top_level = true
 metadata/_edit_lock_ = true
-
-[node name="Terrain3DParticles" parent="Terrain3D" node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
-terrain = NodePath("..")
 
 [editable path="Environment"]
