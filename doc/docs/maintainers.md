@@ -4,7 +4,7 @@ There are various responsibilities and processes maintainers need to do to updat
 
 1. Ensure PR builds are successful, and occasionally make changes to the build scripts when Github makes changes.
 2. Ensure PRs are up to code standards and include XML documentation. You may need to generate the XML for them first.
-3. [Update docs](#using-the-documentation-generation-tools) to generate the XML and RST files. Readthedocs will update automatically once PRs are merged. Though if it fails, you may need to log in and figure out why. It can be a bit finicky. They have automatic tags.
+3. [Update docs](contributing.md#using-the-documentation-generation-tools) to generate the XML and RST files. Readthedocs will update automatically once PRs are merged. Though if it fails, you may need to log in and figure out why. It can be a bit finicky. They have automatic tags.
 4. [Update C# bindings](generating_csharp_bindings.md) as the API changes.
 5. Update versions and tags as indicated below.
 
@@ -29,7 +29,7 @@ Edit the following files on new releases and versions.
 * Update docs/data_format.md
 
 
-### New Year:
+### After the New Year
 * Update Copyright header in all source files and conf.py
 
 

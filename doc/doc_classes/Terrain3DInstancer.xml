@@ -27,25 +27,25 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="params" type="Dictionary" />
 			<description>
-				Used by Terrain3DEditor to place instances within the brush radius (size). In addition to the brush position, it also uses the following parameters, which are all set in the editor via tool_settings.gd.
-				* asset_id:int
-				* size:float
-				* strength:float
-				* fixed_scale:float
-				* random_scale:float
-				* fixed_spin:float
-				* random_spin:float
-				* fixed_tilt:float
-				* random_tilt:float
-				* align_to_normal:bool
-				* height_offset:float
-				* random_height:float
-				* vertex_color:Color
-				* random_hue:float
-				* random_darken:float
-				* slope:Vector2
-				* on_collision:bool
-				* raycast_height:float
+				Used by Terrain3DEditor to place instances within the brush radius (size). In addition to the brush position, it also uses the following parameters if available, which are all set in the editor via tool_settings.gd.
+				- asset_id:int
+				- size:float
+				- strength:float
+				- fixed_scale:float
+				- random_scale:float
+				- fixed_spin:float
+				- random_spin:float
+				- fixed_tilt:float
+				- random_tilt:float
+				- align_to_normal:bool
+				- height_offset:float
+				- random_height:float
+				- vertex_color:Color
+				- random_hue:float
+				- random_darken:float
+				- slope:Vector2
+				- on_collision:bool
+				- raycast_height:float
 			</description>
 		</method>
 		<method name="add_multimesh">
@@ -136,14 +136,14 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="params" type="Dictionary" />
 			<description>
-				Terrain3DEditor uses this to randomly remove instances within the indicated brush position and radius (size). It uses these parameters, if available:
-				* asset_id:int
-				* modifier_shift:bool
-				* size:float
-				* strength:float
-				* slope:Vector2
-				* on_collision:bool
-				* raycast_height:float
+				Terrain3DEditor uses this to randomly remove instances within the indicated brush position and radius (size). It uses these parameters if available, which are all set in the editor via tool_settings.gd:
+				- asset_id:int
+				- modifier_shift:bool
+				- size:float
+				- strength:float
+				- slope:Vector2
+				- on_collision:bool
+				- raycast_height:float
 			</description>
 		</method>
 		<method name="swap_ids">

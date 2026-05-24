@@ -104,6 +104,9 @@
 		<member name="output_roughness" type="bool" setter="set_output_roughness_enabled" getter="get_output_roughness_enabled" default="true">
 			Enables the Roughness output channel in the shader.
 		</member>
+		<member name="output_specular" type="bool" setter="set_output_specular_enabled" getter="get_output_specular_enabled" default="true">
+			Enables the Specular output channel in the shader.
+		</member>
 		<member name="projection_enabled" type="bool" setter="set_projection_enabled" getter="get_projection_enabled" default="false">
 			Enables textures to be projected vertically when placed on slopes above 45 degrees. This is useful for mapping textures on cliff faces without stretching, even though the polygons are stretched.
 		</member>

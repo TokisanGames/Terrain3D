@@ -60,6 +60,8 @@ Properties
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`output_roughness<class_Terrain3DMaterial_property_output_roughness>`                             | ``true``  |
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`output_specular<class_Terrain3DMaterial_property_output_specular>`                               | ``true``  |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`projection_enabled<class_Terrain3DMaterial_property_projection_enabled>`                         | ``false`` |
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``Shader``                                                       | :ref:`shader_override<class_Terrain3DMaterial_property_shader_override>`                               |           |
@@ -475,6 +477,23 @@ Enables the Normal Map output channel in the shader.
 - ``bool`` **get_output_roughness_enabled**\ (\ )
 
 Enables the Roughness output channel in the shader.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_output_specular:
+
+.. rst-class:: classref-property
+
+``bool`` **output_specular** = ``true`` :ref:`🔗<class_Terrain3DMaterial_property_output_specular>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_output_specular_enabled**\ (\ value\: ``bool``\ )
+- ``bool`` **get_output_specular_enabled**\ (\ )
+
+Enables the Specular output channel in the shader.
 
 .. rst-class:: classref-item-separator
 

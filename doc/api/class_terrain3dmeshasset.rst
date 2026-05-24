@@ -292,8 +292,6 @@ If > 0, sets ``GeometryInstance3D.fade_mode = self``, sets this margin in ``Geom
 
 Limited to the smaller of half the distance between LOD0 and LOD1, or 64m.
 
-Currently broken and hidden in the inspector until `Godot issue #102799 <https://github.com/godotengine/godot/issues/102799>`__ is fixed.
-
 .. rst-class:: classref-item-separator
 
 ----

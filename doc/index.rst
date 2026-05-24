@@ -121,6 +121,7 @@ And the contribution team in :doc:`docs/authors` and displayed on `github contri
    docs/data_format
    docs/generating_csharp_bindings
    docs/contributing
+   docs/maintainers
 
 
 .. toctree::

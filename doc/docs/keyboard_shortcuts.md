@@ -52,6 +52,11 @@ The mouse must be in the 3D Viewport with Terrain3D selected for these to work.
 * <kbd>X</kbd> - Paint **Holes**.
 * <kbd>I</kbd> - Add mesh **Instances**.
 
+## Tool Settings
+* <kbd>[</kbd> - Reduce **Brush Size**.
+* <kbd>]</kbd> - Increase **Brush Size**.
+* <kbd>-</kbd> - Reduce **Brush Strength**.
+* <kbd>=</kbd> - Increase **Brush Strength**.
 
 ## Tool Specific Keys
 

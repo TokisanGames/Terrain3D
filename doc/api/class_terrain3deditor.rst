@@ -335,7 +335,55 @@ Start brushing.
 
 |void| **set_brush_data**\ (\ data\: ``Dictionary``\ ) :ref:`🔗<class_Terrain3DEditor_method_set_brush_data>`
 
-Sets all brush settings used in the editor plugin.
+Sets all brush settings used in the editor plugin. It uses these parameters, if available:
+
+- brush:Array{Image, Texture2D}
+
+- Expands to brush_image, brush_image_size, and brush_texture
+
+- size:float
+
+- strength:float
+
+- mouse_pressure:float
+
+- height:float
+
+- color:Color
+
+- roughness:float
+
+- enable_texture:bool
+
+- texture_filter:bool
+
+- asset_id:int
+
+- margin:float
+
+- slope:Vector2
+
+- enable_angle:bool
+
+- dynamic_angle:bool
+
+- angle:float
+
+- enable_scale:bool
+
+- scale:float
+
+- auto_regions:bool
+
+- align_to_view:bool
+
+- gamma:float
+
+- brush_spin_speed:float
+
+- gradient_points:{Vector3, Vector3}
+
+Also see :ref:`Terrain3DInstancer.add_instances()<class_Terrain3DInstancer_method_add_instances>` and :ref:`Terrain3DInstancer.remove_instances()<class_Terrain3DInstancer_method_remove_instances>` for additional parameters used by the instancer.
 
 .. rst-class:: classref-item-separator
 

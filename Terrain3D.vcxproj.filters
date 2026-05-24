@@ -175,9 +175,6 @@
     <None Include="README.md">
       <Filter>2. Docs</Filter>
     </None>
-    <None Include="CONTRIBUTING.md">
-      <Filter>2. Docs</Filter>
-    </None>
     <None Include="AUTHORS.md">
       <Filter>2. Docs</Filter>
     </None>
@@ -296,6 +293,9 @@
       <Filter>4. Shaders</Filter>
     </None>
     <None Include="doc\docs\maintainers.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\contributing.md">
       <Filter>2. Docs</Filter>
     </None>
   </ItemGroup>
