@@ -1266,12 +1266,14 @@ bool Terrain3DMaterial::_set(const StringName &p_name, const Variant &p_property
 // inspector, so be efficient
 bool Terrain3DMaterial::_get(const StringName &p_name, Variant &r_property) const {
 	IS_INIT_COND(!_active_params.has(p_name), Resource::_get(p_name, r_property));
-
 	r_property = RS->material_get_param(_material, p_name);
 	// Material server only has RIDs, but inspector needs objects for things like Textures
 	// So if its an RID, return the object
 	if (r_property.get_type() == Variant::RID && _shader_params.has(p_name)) {
 		r_property = _shader_params[p_name];
+	}
+	if (r_property.get_type() == Variant::NIL) {
+		r_property = RS->shader_get_parameter_default(get_shader_rid(), p_name);
 	}
 	return true;
 }
