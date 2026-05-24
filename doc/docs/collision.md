@@ -100,12 +100,18 @@ However, note that `get_height()` above will [interpolate between vertices](http
 
 ### Visualizing Collision
 
-To see the collision shape, first set `Terrain3D/Collision/Collision Mode` to `Full / Editor` or `Dynamic / Editor`.
+To see the collision shapes, first set `Terrain3D / Collision / Collision Mode` to `Full / Editor` or `Dynamic / Editor`. Avoid using the Full modes on slow systems, especially in the editor.
 
-To see it in the editor, in the Godot `Perspective` menu, enable `View Gizmos`. Avoid using the Full option on slow systems.
+To see it in the editor, click the Godot `Perspective` menu, enable `View Gizmos`.
 
 To see debug collision in game, in the Godot `Debug` menu, enable `Visible Collision Shapes` and run the scene.
 
+If it's hard to see, try any of the following options:
+* The default Godot debug color in later versions has too much alpha. Go into `Project Settings / Debug / Shapes / Collision / Shape Color` and increase alpha of the color to 204 (0.8) or higher.
+* Turn off any particle grass, your own assets, or disable the instancer rendering under `Terrain3D / Rendering / Instancer Mode`.
+* Set `Terrain3D / Terrain Mesh / Tessellation Level` to 0 to disable displacement, which draws the texture above the terrain.
+* Enable `Terrain3D / Debug Views / Jaggedness` which shows the terrain as black with sharp edges, or select `Heightmap` and adjust the color gradient in `Terrain3D / Terrain3DMaterial / Shader Uniforms / Debug Heightmap`.
+* Turn off the lights.
 
 ### Enemy Collision
 
