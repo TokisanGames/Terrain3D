@@ -15,6 +15,9 @@
 using namespace godot;
 #endif
 
+// File Paths (e.g. extras)
+#define OCEAN_MATERIAL_PATH "res://addons/terrain_3d/extras/shaders/M_ocean.tres"
+
 // Engine Shortcuts
 #define RS RenderingServer::get_singleton()
 #define PS PhysicsServer3D::get_singleton()

@@ -49,5 +49,5 @@ shader_parameter/_subdiv = 1.0
 shader_parameter/_vertex_spacing = 4.0
 shader_parameter/_vertex_density = 0.25
 shader_parameter/_target_pos = Vector3(0, 0, 0)
-shader_parameter/_light_direction = Vector3(0, 0.7671652, 0.64144963)
+shader_parameter/_light_direction = Vector3(0, 0.76604444, 0.64278764)
 shader_parameter/_light_color = Color(1, 1, 1, 1)

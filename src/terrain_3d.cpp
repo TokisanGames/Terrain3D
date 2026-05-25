@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/physics_direct_space_state3d.hpp>
 #include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/quad_mesh.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
@@ -804,6 +805,16 @@ void Terrain3D::set_ocean_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_ocean_enabled, p_enabled);
 	LOG(INFO, "Setting ocean enabled: ", _ocean_enabled);
 	if (_ocean_enabled) {
+		if (_ocean_material.is_null()) {
+			String ocean_mat_path = ProjectSettings::get_singleton()->globalize_path(OCEAN_MATERIAL_PATH);
+			ResourceLoader *rl = ResourceLoader::get_singleton();
+			if (rl->exists(ocean_mat_path)) {
+				Ref<ShaderMaterial> ocean_mat = rl->load(ocean_mat_path);
+				if (ocean_mat.is_valid()) {
+					_ocean_material = ocean_mat;
+				}
+			}
+		}
 		_setup_ocean_mesher();
 	} else {
 		_destroy_ocean_mesher(false);
