@@ -44,7 +44,7 @@ And the contribution team in [AUTHORS.md](https://terrain3d.readthedocs.io/en/st
 
 ## Contributing
 
-Please see [CONTRIBUTING.md](https://github.com/TokisanGames/Terrain3D/blob/main/CONTRIBUTING.md) if you would like to help make Terrain3D the best terrain system for Godot.
+Please see [Contributing](https://terrain3d.readthedocs.io/en/latest/docs/contributing.html) if you would like to help make Terrain3D the best terrain system for Godot.
 
 
 ## License
