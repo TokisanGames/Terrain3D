@@ -7,7 +7,7 @@ Installation & Upgrades
 * [Upgrading Terrain3D](#upgrading-terrain3d)
 
 ## Requirements
-* See the release notes for each version of Godot supported
+* See the release notes for each version to learn which versions of Godot are supported.
 * Supports Windows, Linux, and [macOS (read more)](platforms.md#macos).
 * Some platforms and renderers are experimental or unsupported. See [Supported Platforms](platforms.md).
 
@@ -16,27 +16,25 @@ Installation & Upgrades
 ### From The Asset Library
 Terrain3D is [listed in the Asset Library](https://godotengine.org/asset-library/asset/3134), so you can download it directly within Godot.
 1. Run Godot using the console executable so you can see error messages.
-2. Setup a new project within Godot.
+2. Create a new project.
 3. Click `AssetLib` at the top of the Godot window.
 4. Search for `Terrain3D`, and click the entry from `TokisanGames` shown for your Godot version.
 5. Click `Download`.
 6. Godot will ask you to install files into `addons` and `demo`. Demo is optional, but highly recommended for troubleshooting. Click `Install`.
-7. Restart when Godot prompts.
-8. In `Project / Project Settings / Plugins`, ensure that Terrain3D is enabled.
-9. Select `Project / Reload Current Project` to restart once more.
-10. Open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`.
+7. In `Project / Project Settings / Plugins`, enable `Terrain3D`.
+8. Open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`.
 
 If the demo isn't working for you, watch the [tutorial videos](tutorial_videos.md) and see [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
 
 Continue below to [In Your Own Scene](#in-your-own-scene).
 
 ### From Github
-1. Download the [latest binary release](https://github.com/TokisanGames/Terrain3D/releases) and extract the files, or [build the plugin from source](building_from_source.md).
+1. Download the [latest binary release](https://github.com/TokisanGames/Terrain3D/releases) or [build the plugin from source](building_from_source.md).
 2. Run Godot using the console executable so you can see error messages.
-3. In the Project Manager, import the demo project and open it. Restart when it prompts.
-4. In `Project / Project Settings / Plugins`, ensure that Terrain3D is enabled.
-5. Select `Project / Reload Current Project` to restart once more.
-6. If the demo scene doesn't open automatically, open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`. 
+3. Create a new project.
+4. In your filesystem, copy the `addons` and `demo` folders from the zip file into your Godot project folder.
+5. Switch back to Godot and after it imports, open `Project / Project Settings / Plugins`, and enable `Terrain3D`.
+6. Open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`.
 
 If the demo isn't working for you, watch the [tutorial videos](tutorial_videos.md) and see [Troubleshooting](troubleshooting.md) and [Getting Help](getting_help.md).
 
