@@ -139,7 +139,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	bool enable_texture = _brush_data["enable_texture"];
 	bool texture_filter = _brush_data["texture_filter"];
 	int margin = _brush_data["margin"];
-	int asset_id = _brush_data["asset_id"];
+	Array asset_ids = _brush_data["asset_ids"];
 
 	Vector2 slope_range = _brush_data["slope"];
 	bool enable_angle = _brush_data["enable_angle"];
@@ -326,6 +326,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (!data->is_in_slope(brush_global_position, slope_range)) {
 							continue;
 						}
+						if (!asset_ids.size()) {
+							continue;
+						}
+						const int asset_id = asset_ids[0];
 						switch (_operation) {
 							// Base Paint
 							case REPLACE: {
@@ -487,6 +491,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					if (!cmap) {
 						continue;
 					}
+					if (!asset_ids.size()) {
+						continue;
+					}
+					const int asset_id = asset_ids[0];
 					float src_ctrl = cmap->get_pixelv(map_pixel_position).r; // Must be float
 					int tex_id = (get_blend(src_ctrl) > 110 - margin) ? get_overlay(src_ctrl) : get_base(src_ctrl);
 					if (tex_id != asset_id) {
@@ -872,7 +880,6 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 
 	_brush_data["enable_texture"] = p_data.get("enable_texture", true);
 	_brush_data["texture_filter"] = p_data.get("texture_filter", false);
-	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, ((_tool == INSTANCER) ? Terrain3DAssets::MAX_MESHES : Terrain3DAssets::MAX_TEXTURES) - 1);
 	_brush_data["margin"] = CLAMP(int(p_data.get("margin", 0)), -100, 100);
 
 	_brush_data["enable_angle"] = p_data.get("enable_angle", true);
@@ -888,6 +895,30 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["brush_spin_speed"] = CLAMP(real_t(p_data.get("brush_spin_speed", 0.f)), 0.f, 1.f);
 	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
 
+	if (_terrain && (_tool == Tool::TEXTURE || _tool == Tool::INSTANCER)) { // Get and sanitize asset ids. If invalid, remove from list and log error
+		TypedArray<int> asset_ids = p_data.get("asset_ids", TypedArray<int>()[0]);
+		TypedArray<int> valid_ids;
+		int max_asset_id = -1;
+		if (_tool == Tool::TEXTURE) {
+			max_asset_id = _terrain->get_assets()->get_texture_count();
+		} else if (_tool == Tool::INSTANCER) {
+			max_asset_id = _terrain->get_assets()->get_mesh_count();
+		}
+		for (const int id : asset_ids) {
+			if (id < max_asset_id) {
+				valid_ids.push_back(id);
+			} else {
+				LOG(ERROR, "Brush data contains invalid asset id: ", id, ". Max asset id is: ", max_asset_id - 1);
+			}
+		}
+		asset_ids = valid_ids;
+
+		// Default to first asset id if none provided
+		if (asset_ids.is_empty()) {
+			asset_ids.push_back(0);
+		}
+		_brush_data["asset_ids"] = asset_ids;
+	}
 	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, EXTREME);
 }
 
