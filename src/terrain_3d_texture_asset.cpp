@@ -79,7 +79,7 @@ void Terrain3DTextureAsset::set_id(const int p_new_id) {
 
 void Terrain3DTextureAsset::set_highlighted(const bool p_highlighted) {
 	SET_IF_DIFF(_highlighted, p_highlighted);
-	LOG(INFO, "Set mesh ID ", _id, " highlight: ", p_highlighted);
+	LOG(INFO, "Set texture ID ", _id, " highlight: ", _highlighted);
 	real_t random_float = real_t(rand()) / real_t(RAND_MAX);
 	_highlight_color.set_hsv(random_float, 1.f, 1.f, 1.f);
 	LOG(DEBUG, "Emitting setting_changed");
