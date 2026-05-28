@@ -627,130 +627,168 @@ void Terrain3DInstancer::set_mode(const InstancerMode p_mode) {
 
 void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
-	int mesh_id = p_params.get("asset_id", 0);
-	if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
-		LOG(ERROR, "Mesh ID out of range: ", mesh_id, ", valid: 0 to ", _terrain->get_assets()->get_mesh_count() - 1);
+	if (!p_params.has("asset_ids")) {
+		LOG(ERROR, "We need an array of asset_ids");
 		return;
 	}
 
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), 0.1f, 4096.f); // Meters
 	real_t radius = brush_size * .5f;
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
-	real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
-	real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
-	Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
-	real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
-					MAX(0.01f, fixed_scale + .5f * random_scale),
-			.001f, 1000.f);
-	// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
-	uint32_t count = _get_density_count(density);
-	if (count <= 0) {
-		return;
+
+	Array mesh_ids = p_params.get("asset_ids", Array());
+
+	if (_density_counters.size() != mesh_ids.size()) {
+		_density_counters.resize(mesh_ids.size());
+		_density_counters.fill(0);
 	}
-	LOG(EXTREME, "Adding ", count, " instances at ", p_global_position);
 
-	real_t fixed_spin = CLAMP(real_t(p_params.get("fixed_spin", 0.f)), .0f, 360.f); // degrees
-	real_t random_spin = CLAMP(real_t(p_params.get("random_spin", 360.f)), 0.f, 360.f); // degrees
-	real_t fixed_tilt = CLAMP(real_t(p_params.get("fixed_tilt", 0.f)), -180.f, 180.f); // degrees
-	real_t random_tilt = CLAMP(real_t(p_params.get("random_tilt", 10.f)), 0.f, 180.f); // degrees
-	bool align_to_normal = bool(p_params.get("align_to_normal", false));
-
-	real_t height_offset = CLAMP(real_t(p_params.get("height_offset", 0.f)), -100.0f, 100.f); // meters
-	real_t random_height = CLAMP(real_t(p_params.get("random_height", 0.f)), 0.f, 100.f); // meters
-
-	Color vertex_color = Color(p_params.get("vertex_color", COLOR_WHITE));
-	real_t random_hue = CLAMP(real_t(p_params.get("random_hue", 0.f)) / 360.f, 0.f, 1.f); // degrees -> 0-1
-	real_t random_darken = CLAMP(real_t(p_params.get("random_darken", 0.f)) * .01f, 0.f, 1.f); // 0-100%
-
-	Vector2 slope_range = p_params.get("slope", Vector2(0.f, 90.f)); // 0-90 degrees
-	slope_range.x = CLAMP(slope_range.x, 0.f, 90.f);
-	slope_range.y = CLAMP(slope_range.y, 0.f, 90.f);
-	bool on_collision = bool(p_params.get("on_collision", false));
-	real_t raycast_height = p_params.get("raycast_height", 10.f);
-	Terrain3DData *data = _terrain->get_data();
-
-	TypedArray<Transform3D> xforms;
-	PackedColorArray colors;
-	for (int i = 0; i < count; i++) {
-		Transform3D t;
-
-		// Get random XZ position and height in a circle
-		real_t r_radius = radius * sqrt(UtilityFunctions::randf());
-		real_t r_theta = UtilityFunctions::randf() * Math_TAU;
-		Vector3 rand_vec = Vector3(r_radius * cos(r_theta), 0.f, r_radius * sin(r_theta));
-		Vector3 position = p_global_position + rand_vec;
-
-		// Get height
-		Array height_data = _get_usable_height(position, slope_range, on_collision, raycast_height);
-		if (height_data.size() != 3) {
-			continue;
+	for (int i = 0; i < mesh_ids.size(); i++) {
+		int mesh_id = mesh_ids[i];
+		if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
+			LOG(ERROR, "Mesh ID out of range: ", mesh_id, ", valid: 0 to ", _terrain->get_assets()->get_mesh_count() - 1);
+			return;
 		}
-		position.y = height_data[0];
-		bool raycast_hit = height_data[1];
 
-		// Orientation
-		Vector3 normal = V3_UP;
-		if (align_to_normal) {
-			// Use either collision normal or terrain normal
-			normal = raycast_hit ? (Vector3)height_data[2] : data->get_normal(position);
-			if (!normal.is_finite()) {
-				normal = V3_UP;
-			} else {
-				normal = normal.normalized();
-				Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
-				Vector3 x_axis = -z_axis.cross(normal);
-				if (x_axis.length_squared() > 0.001f) {
-					t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
+		real_t fixed_scale = CLAMP(real_t(p_params.get("fixed_scale", 100.f)) * .01f, .01f, 100.f); // 1-10k%
+		real_t random_scale = CLAMP(real_t(p_params.get("random_scale", 0.f)) * .01f, 0.f, 10.f); // +/- 1000%
+		Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
+		real_t density = CLAMP(.1f * brush_size * strength * mesh_asset->get_density() /
+						MAX(0.01f, fixed_scale + .5f * random_scale),
+				.001f, 1000.f);
+		// Density based on strength, mesh AABB and input scale determines how many to place, even fractional
+		uint32_t count = _get_density_count(density, i);
+		if (count <= 0) {
+			return;
+		}
+		LOG(EXTREME, "Adding ", count, " instances at ", p_global_position);
+
+		real_t fixed_spin = CLAMP(real_t(p_params.get("fixed_spin", 0.f)), .0f, 360.f); // degrees
+		real_t random_spin = CLAMP(real_t(p_params.get("random_spin", 360.f)), 0.f, 360.f); // degrees
+		real_t fixed_tilt = CLAMP(real_t(p_params.get("fixed_tilt", 0.f)), -180.f, 180.f); // degrees
+		real_t random_tilt = CLAMP(real_t(p_params.get("random_tilt", 10.f)), 0.f, 180.f); // degrees
+		bool align_to_normal = bool(p_params.get("align_to_normal", false));
+
+		real_t height_offset = CLAMP(real_t(p_params.get("height_offset", 0.f)), -100.0f, 100.f); // meters
+		real_t random_height = CLAMP(real_t(p_params.get("random_height", 0.f)), 0.f, 100.f); // meters
+
+		Color vertex_color = Color(p_params.get("vertex_color", COLOR_WHITE));
+		real_t random_hue = CLAMP(real_t(p_params.get("random_hue", 0.f)) / 360.f, 0.f, 1.f); // degrees -> 0-1
+		real_t random_darken = CLAMP(real_t(p_params.get("random_darken", 0.f)) * .01f, 0.f, 1.f); // 0-100%
+
+		Vector2 slope_range = p_params.get("slope", Vector2(0.f, 90.f)); // 0-90 degrees
+		slope_range.x = CLAMP(slope_range.x, 0.f, 90.f);
+		slope_range.y = CLAMP(slope_range.y, 0.f, 90.f);
+		bool on_collision = bool(p_params.get("on_collision", false));
+		real_t raycast_height = p_params.get("raycast_height", 10.f);
+		Terrain3DData *data = _terrain->get_data();
+
+		TypedArray<Transform3D> xforms;
+		PackedColorArray colors;
+		for (int i = 0; i < count; i++) {
+			Transform3D t;
+
+			// Get random XZ position and height in a circle
+			real_t r_radius = radius * sqrt(UtilityFunctions::randf());
+			real_t r_theta = UtilityFunctions::randf() * Math_TAU;
+			Vector3 rand_vec = Vector3(r_radius * cos(r_theta), 0.f, r_radius * sin(r_theta));
+			Vector3 position = p_global_position + rand_vec;
+
+			// Get height
+			Array height_data = _get_usable_height(position, slope_range, on_collision, raycast_height);
+			if (height_data.size() != 3) {
+				continue;
+			}
+			position.y = height_data[0];
+			bool raycast_hit = height_data[1];
+
+			// Orientation
+			Vector3 normal = V3_UP;
+			if (align_to_normal) {
+				// Use either collision normal or terrain normal
+				normal = raycast_hit ? (Vector3)height_data[2] : data->get_normal(position);
+				if (!normal.is_finite()) {
+					normal = V3_UP;
+				} else {
+					normal = normal.normalized();
+					Vector3 z_axis = Vector3(0.f, 0.f, 1.f);
+					Vector3 x_axis = -z_axis.cross(normal);
+					if (x_axis.length_squared() > 0.001f) {
+						t.basis = Basis(x_axis, normal, z_axis).orthonormalized();
+					}
 				}
 			}
+			real_t spin = (fixed_spin + random_spin * UtilityFunctions::randf()) * Math_PI / 180.f;
+			if (std::abs(spin) > 0.001f) {
+				t.basis = t.basis.rotated(normal, spin);
+			}
+			real_t tilt = (fixed_tilt + random_tilt * (2.f * UtilityFunctions::randf() - 1.f)) * Math_PI / 180.f;
+			if (std::abs(tilt) > 0.001f) {
+				t.basis = t.basis.rotated(t.basis.get_column(0), tilt); // Rotate pitch, X-axis
+			}
+
+			// Scale
+			real_t t_scale = CLAMP(fixed_scale + random_scale * (2.f * UtilityFunctions::randf() - 1.f), 0.01f, 10.f);
+			t = t.scaled(Vector3(t_scale, t_scale, t_scale));
+
+			// Position. mesh_asset height offset added in add_transforms
+			real_t offset = height_offset + random_height * (2.f * UtilityFunctions::randf() - 1.f);
+			position += t.basis.get_column(1) * offset; // Offset along UP axis
+			t = t.translated(position);
+
+			// Color
+			Color col = vertex_color;
+			col.set_v(CLAMP(col.get_v() - random_darken * UtilityFunctions::randf(), 0.f, 1.f));
+			col.set_h(fmod(col.get_h() + random_hue * (2.f * UtilityFunctions::randf() - 1.f), 1.f));
+
+			xforms.push_back(t);
+			colors.push_back(col);
 		}
-		real_t spin = (fixed_spin + random_spin * UtilityFunctions::randf()) * Math_PI / 180.f;
-		if (std::abs(spin) > 0.001f) {
-			t.basis = t.basis.rotated(normal, spin);
+
+		// Append multimesh
+		if (xforms.size() > 0) {
+			add_transforms(mesh_id, xforms, colors);
 		}
-		real_t tilt = (fixed_tilt + random_tilt * (2.f * UtilityFunctions::randf() - 1.f)) * Math_PI / 180.f;
-		if (std::abs(tilt) > 0.001f) {
-			t.basis = t.basis.rotated(t.basis.get_column(0), tilt); // Rotate pitch, X-axis
-		}
-
-		// Scale
-		real_t t_scale = CLAMP(fixed_scale + random_scale * (2.f * UtilityFunctions::randf() - 1.f), 0.01f, 10.f);
-		t = t.scaled(Vector3(t_scale, t_scale, t_scale));
-
-		// Position. mesh_asset height offset added in add_transforms
-		real_t offset = height_offset + random_height * (2.f * UtilityFunctions::randf() - 1.f);
-		position += t.basis.get_column(1) * offset; // Offset along UP axis
-		t = t.translated(position);
-
-		// Color
-		Color col = vertex_color;
-		col.set_v(CLAMP(col.get_v() - random_darken * UtilityFunctions::randf(), 0.f, 1.f));
-		col.set_h(fmod(col.get_h() + random_hue * (2.f * UtilityFunctions::randf() - 1.f), 1.f));
-
-		xforms.push_back(t);
-		colors.push_back(col);
-	}
-
-	// Append multimesh
-	if (xforms.size() > 0) {
-		add_transforms(mesh_id, xforms, colors);
 	}
 }
 
 void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
 
-	int mesh_id = p_params.get("asset_id", 0);
-	int mesh_count = _terrain->get_assets()->get_mesh_count();
-	if (mesh_id < 0 || mesh_id >= mesh_count) {
-		LOG(ERROR, "Mesh ID out of range: ", mesh_id, ", valid: 0 to ", _terrain->get_assets()->get_mesh_count() - 1);
+	if (p_params.has("asset_id")) {
+		LOG(ERROR, "We are no longer using asset_id, we need an array of asset_ids");
+	}
+
+	if (!p_params.has("asset_ids")) {
+		LOG(ERROR, "We need an array of asset_ids");
 		return;
+	}
+	Array mesh_ids = p_params.get("asset_ids", Array());
+	int mesh_count = _terrain->get_assets()->get_mesh_count();
+
+	bool modifier_shift = p_params.get("modifier_shift", false);
+	if (modifier_shift) {
+		mesh_ids.resize(mesh_count);
+		for (int i = 0; i < mesh_count; i++) {
+			mesh_ids[i] = i;
+		}
+	}
+
+	if (mesh_ids.is_empty()) {
+		LOG(ERROR, "We need an array of asset_ids");
+		return;
+	}
+
+	for (const int mesh_id : mesh_ids) {
+		if (mesh_id < 0 || mesh_id >= mesh_count) {
+			LOG(ERROR, "Mesh ID out of range: ", mesh_id, ", valid: 0 to ", mesh_count - 1);
+			return;
+		}
 	}
 
 	Terrain3DData *data = _terrain->get_data();
 	int region_size = _terrain->get_region_size();
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
-	bool modifier_shift = p_params.get("modifier_shift", false);
 	real_t brush_size = CLAMP(real_t(p_params.get("size", 10.f)), .5f, 4096.f); // Meters
 	real_t half_brush_size = brush_size * 0.5f + 1.f; // 1m margin
 	real_t radius = brush_size * .5f;
@@ -794,17 +832,17 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		}
 		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
 		Vector2 localised_ring_center = Vector2(p_global_position.x - global_local_offset.x, p_global_position.z - global_local_offset.z);
-		// For this mesh id, or all mesh ids
-		for (int m = (modifier_shift ? 0 : mesh_id); m <= (modifier_shift ? mesh_count - 1 : mesh_id); m++) {
+
+		for (const int mesh_id : mesh_ids) {
 			// Ensure this region has this mesh
-			if (!mesh_inst_dict.has(m)) {
+			if (!mesh_inst_dict.has(mesh_id)) {
 				continue;
 			}
-			Dictionary cell_inst_dict = mesh_inst_dict[m];
+			Dictionary cell_inst_dict = mesh_inst_dict[mesh_id];
 			Array cell_locations = cell_inst_dict.keys();
 			// This shouldnt be empty
 			if (cell_locations.size() == 0) {
-				LOG(WARN, "Region at: ", region_loc, " has instance dictionary for mesh id: ", m, " but has no cells.")
+				LOG(WARN, "Region at: ", region_loc, " has instance dictionary for mesh id: ", mesh_id, " but has no cells.")
 				continue;
 			}
 			// Check potential cells rather than searching the entire region, whilst marginally
@@ -829,7 +867,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 			if (cell_queue.size() == 0) {
 				continue;
 			}
-			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(m);
+			Ref<Terrain3DMeshAsset> mesh_asset = _terrain->get_assets()->get_mesh_asset(mesh_id);
 			real_t mesh_height_offset = mesh_asset->get_height_offset();
 			for (int c = 0; c < cell_queue.size(); c++) {
 				Vector2i cell = cell_queue[c];
@@ -865,13 +903,13 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 					cell_inst_dict[cell] = triple;
 				} else {
 					cell_inst_dict.erase(cell);
-					_destroy_mmi_by_cell(region_loc, m, cell);
+					_destroy_mmi_by_cell(region_loc, mesh_id, cell);
 				}
 			}
 			if (cell_inst_dict.is_empty()) {
-				mesh_inst_dict.erase(m);
+				mesh_inst_dict.erase(mesh_id);
 			}
-			update_mmis(m, region_loc);
+			update_mmis(mesh_id, region_loc);
 		}
 	}
 }

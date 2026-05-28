@@ -139,7 +139,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	bool enable_texture = _brush_data["enable_texture"];
 	bool texture_filter = _brush_data["texture_filter"];
 	int margin = _brush_data["margin"];
-	int asset_id = _brush_data["asset_id"];
+	Array asset_ids = _brush_data["asset_ids"];
 
 	Vector2 slope_range = _brush_data["slope"];
 	bool enable_angle = _brush_data["enable_angle"];
@@ -326,6 +326,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (!data->is_in_slope(brush_global_position, slope_range)) {
 							continue;
 						}
+						if (!asset_ids.size()) {
+							continue;
+						}
+						const int asset_id = asset_ids[0];
 						switch (_operation) {
 							// Base Paint
 							case REPLACE: {
@@ -487,6 +491,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					if (!cmap) {
 						continue;
 					}
+					if (!asset_ids.size()) {
+						continue;
+					}
+					const int asset_id = asset_ids[0];
 					float src_ctrl = cmap->get_pixelv(map_pixel_position).r; // Must be float
 					int tex_id = (get_blend(src_ctrl) > 110 - margin) ? get_overlay(src_ctrl) : get_base(src_ctrl);
 					if (tex_id != asset_id) {
@@ -872,7 +880,6 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 
 	_brush_data["enable_texture"] = p_data.get("enable_texture", true);
 	_brush_data["texture_filter"] = p_data.get("texture_filter", false);
-	_brush_data["asset_id"] = CLAMP(int(p_data.get("asset_id", 0)), 0, ((_tool == INSTANCER) ? Terrain3DAssets::MAX_MESHES : Terrain3DAssets::MAX_TEXTURES) - 1);
 	_brush_data["margin"] = CLAMP(int(p_data.get("margin", 0)), -100, 100);
 
 	_brush_data["enable_angle"] = p_data.get("enable_angle", true);
