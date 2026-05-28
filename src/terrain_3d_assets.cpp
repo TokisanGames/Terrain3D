@@ -54,6 +54,7 @@ void Terrain3DAssets::_swap_ids(const AssetType p_type, const int p_src_id, cons
 	switch (p_type) {
 		case TYPE_TEXTURE:
 			update_texture_list();
+			emit_signal("ids_swapped", AssetType::TYPE_TEXTURE, p_src_id, dst_id);
 			break;
 		case TYPE_MESH:
 			if (_terrain) {
@@ -62,6 +63,7 @@ void Terrain3DAssets::_swap_ids(const AssetType p_type, const int p_src_id, cons
 				LOG(ERROR, "Changing IDs before the terrain is initialized. Meshes on the ground may be wrong.");
 			}
 			update_mesh_list();
+			emit_signal("ids_swapped", AssetType::TYPE_MESH, p_src_id, dst_id);
 			break;
 		default:
 			return;
@@ -721,6 +723,11 @@ void Terrain3DAssets::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_MESH);
 	BIND_CONSTANT(MAX_TEXTURES);
 	BIND_CONSTANT(MAX_MESHES);
+
+	ADD_SIGNAL(MethodInfo("ids_swapped",
+			PropertyInfo(Variant::INT, "type"),
+			PropertyInfo(Variant::INT, "old_id"),
+			PropertyInfo(Variant::INT, "new_id")));
 
 	ClassDB::bind_method(D_METHOD("set_texture_asset", "id", "texture"), &Terrain3DAssets::set_texture_asset);
 	ClassDB::bind_method(D_METHOD("get_texture_asset", "id"), &Terrain3DAssets::get_texture_asset);
