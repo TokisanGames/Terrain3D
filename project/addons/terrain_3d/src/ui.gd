@@ -41,6 +41,8 @@ const OP_NEGATIVE_ONLY: int = 0x02
 		image.fill(Color.WHITE)
 		value.create_from_image(image)
 		region_texture = value
+
+
 var plugin: EditorPlugin # Actually Terrain3DEditorPlugin, but Godot still has CRC errors
 var toolbar: TerrainToolbar
 var tool_settings: TerrainToolSettings
@@ -591,10 +593,33 @@ func set_decal_rotation(p_rot: float) -> void:
 func _on_picking(p_type: Terrain3DEditor.Tool, p_callback: Callable) -> void:
 	picking = p_type
 	picking_callback = p_callback
+	if picking == Terrain3DEditor.Tool.INSTANCER:
+		if not get_tree().process_frame.is_connected(_update_picker_highlight):
+			get_tree().process_frame.connect(_update_picker_highlight)
+	else:
+		if get_tree().process_frame.is_connected(_update_picker_highlight):
+			get_tree().process_frame.disconnect(_update_picker_highlight)
 
+		
+func _update_picker_highlight() -> void:
+	var mesh_asset_id: int = -1
+	if plugin.terrain.data.has_regionp(plugin.mouse_global_position):
+		mesh_asset_id = plugin.terrain.instancer.get_closest_mesh_id(plugin.mouse_global_position)
+	for i: int in plugin.terrain.assets.get_mesh_count():
+		var ma: Terrain3DMeshAsset = plugin.terrain.assets.get_mesh_asset(i)
+		if ma:
+			ma.set_highlighted(i == mesh_asset_id)
+		
 
 func clear_picking() -> void:
 	picking = Terrain3DEditor.TOOL_MAX
+	if get_tree().process_frame.is_connected(_update_picker_highlight):
+		get_tree().process_frame.disconnect(_update_picker_highlight)
+		for i: int in range(0,  plugin.terrain.assets.get_mesh_count()):
+			var ma: Terrain3DMeshAsset = plugin.terrain.assets.get_mesh_asset(i)
+			if ma:
+				ma.set_highlighted(false)
+		plugin.asset_dock.update_dock()
 
 
 func is_picking() -> bool:
@@ -638,7 +663,7 @@ func pick(p_global_position: Vector3) -> void:
 		if picking_callback.is_valid():
 			picking_callback.call(picking, color, p_global_position)
 			picking_callback = Callable()
-		picking = Terrain3DEditor.TOOL_MAX
+		clear_picking()
 	
 	elif operation_builder and operation_builder.is_picking():
 		operation_builder.pick(p_global_position, plugin.terrain)
