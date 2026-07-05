@@ -256,7 +256,9 @@ void Pasture3DData::_copy_paste_dfr(const Pasture3DRegion *p_src_region, const R
 			img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
 		}
 	}
-	_terrain->get_instancer()->copy_paste_dfr(p_src_region, p_src_rect, p_dst_region);
+	if (_terrain) { // Null on standalone data (unit tests).
+		_terrain->get_instancer()->copy_paste_dfr(p_src_region, p_src_rect, p_dst_region);
+	}
 }
 
 ///////////////////////////
@@ -349,6 +351,27 @@ void Pasture3DData::change_region_size(int p_new_size) {
 	if (p_new_size == _region_size) {
 		return;
 	}
+	const int old_size = _region_size;
+
+	// Snapshot each layer's tiles, then empty the layers and pre-size their tile grids for the new
+	// region size. Base layers must match the new size exactly, or _adopt_region_into_bases silently
+	// skips every re-added region and the stack never covers the terrain again (the "layer system
+	// breaks after changing region size" bug). The snapshot (outer + inner dictionaries duplicated,
+	// images shared) is re-mapped onto the new grid by _migrate_layers_region_size below.
+	TypedArray<Dictionary> old_layer_tiles;
+	PackedInt32Array old_layer_tile_sizes;
+	if (_layer_stack.is_valid()) {
+		for (int i = 0; i < _layer_stack->get_layer_count(); i++) {
+			Pasture3DLayer *layer = _layer_stack->get_layer_ptr(i);
+			old_layer_tiles.push_back(layer ? layer->get_tiles().duplicate(true) : Dictionary());
+			old_layer_tile_sizes.push_back(layer ? layer->get_tile_size() : 0);
+			if (layer) {
+				layer->set_tiles(Dictionary());
+				// Overlays keep their sub-tiling but can never exceed the region size.
+				layer->set_tile_size(layer->is_base() ? p_new_size : MIN(layer->get_tile_size(), p_new_size));
+			}
+		}
+	}
 
 	// Get current region corners expressed in new region_size coordinates
 	Dictionary new_region_locations;
@@ -387,23 +410,36 @@ void Pasture3DData::change_region_size(int p_new_size) {
 	}
 
 	// Remove old data
-	_terrain->get_instancer()->destroy();
+	if (_terrain) {
+		_terrain->get_instancer()->destroy();
+	}
 	TypedArray<Pasture3DRegion> old_regions = get_regions_active();
 	for (const Ref<Pasture3DRegion> &region : old_regions) {
 		remove_region(region, false);
 	}
 
 	// Change region size
-	_terrain->set_region_size((Pasture3D::RegionSize)p_new_size);
+	if (_terrain) {
+		_terrain->set_region_size((Pasture3D::RegionSize)p_new_size); // Also writes our _region_size.
+	} else {
+		_region_size = p_new_size; // Standalone data (unit tests): no node to route through.
+		_region_sizev = V2I(p_new_size);
+	}
 
-	// Add new regions and rebuild
+	// Add new regions and rebuild. Base adoption inside add_region re-seeds every base layer from the
+	// new region maps (alias for a single-layer height Base, owned copies otherwise).
 	for (const Ref<Pasture3DRegion> &region : new_regions) {
 		add_region(region, false);
 	}
 
+	// Restore the layer stack's pixel data onto the new grid (see _migrate_layers_region_size).
+	_migrate_layers_region_size(old_size, p_new_size, old_layer_tiles, old_layer_tile_sizes);
+
 	calc_height_range(true);
-	update_maps(TYPE_MAX, true, true);
-	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
+	if (_terrain) {
+		update_maps(TYPE_MAX, true, true);
+		_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
+	}
 }
 
 void Pasture3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
@@ -1072,7 +1108,9 @@ void Pasture3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 	if (any_changed) {
 		LOG(DEBUG, "Emitting maps_changed");
 		emit_signal("maps_changed");
-		_terrain->snap();
+		if (_terrain) { // Null on standalone data (unit tests).
+			_terrain->snap();
+		}
 	}
 }
 
@@ -1483,8 +1521,21 @@ void Pasture3DData::_adopt_region_into_bases(Pasture3DRegion *p_region) {
 			continue;
 		}
 		Ref<Image> src = p_region->get_map_ptr(base->get_map_type());
-		if (src.is_null() || src->get_width() != base->get_tile_size() || src->get_height() != base->get_tile_size()) {
+		if (src.is_null()) {
 			continue;
+		}
+		if (src->get_width() != base->get_tile_size() || src->get_height() != base->get_tile_size()) {
+			// A base synthesized before a region-size change carries a stale tile size (e.g. a stack
+			// saved by an older build). An empty base can simply be re-sized to match; one with pixel
+			// data can't be fixed here, and silently skipping would leave the region uncovered forever —
+			// warn so the mismatch is visible.
+			if (base->get_region_locations().is_empty()) {
+				base->set_tile_size(src->get_width());
+			} else {
+				LOG(WARN, "Base layer '", base->get_layer_name(), "' tile size ", base->get_tile_size(),
+						" != region size ", src->get_width(), "; region ", loc, " not adopted into the stack");
+				continue;
+			}
 		}
 		// A single-layer height Base aliases the region map (zero copy); any other base owns a copy so the
 		// composite target and the base source stay distinct (the un-alias invariant, §5.1 / §10.4).
@@ -1494,6 +1545,80 @@ void Pasture3DData::_adopt_region_into_bases(Pasture3DRegion *p_region) {
 			base->set_region_image(loc, Image::create_from_data(src->get_width(), src->get_height(), src->has_mipmaps(), src->get_format(), src->get_data()));
 		}
 	}
+}
+
+// Re-map the layer stack's pixel data onto the new region grid (called by change_region_size; see the
+// header comment). At this point every layer was emptied and re-sized up front, and base adoption
+// during the region re-add seeded each base with a copy of the new region maps — i.e. the flattened
+// composite. Two passes over the old snapshot restore the true sources:
+//   Bases: blit the old hand-authored base pixels back over the adopted seeds, so the base stays
+//     distinct from the composite where overlays cover (the idempotency requirement, §5.1). Areas the
+//     old grid never covered keep the seed (sanitized defaults there — correct). A single-layer stack
+//     is exempt: its Base aliases the region maps and IS the composite by definition.
+//   Overlays: tiles re-key exactly. Every size in play is a power of two, so an old tile lands
+//     tile-aligned in the new grid — either 1:1 (tile size unchanged) or split into aligned sub-tiles
+//     (the tile size was capped to the new region size).
+void Pasture3DData::_migrate_layers_region_size(const int p_old_size, const int p_new_size, const TypedArray<Dictionary> &p_old_tiles, const PackedInt32Array &p_old_tile_sizes) {
+	if (_layer_stack.is_null() || p_old_size <= 0) {
+		return;
+	}
+	const int layer_count = _layer_stack->get_layer_count();
+	for (int i = 0; i < layer_count && i < p_old_tiles.size(); i++) {
+		Pasture3DLayer *layer = _layer_stack->get_layer_ptr(i);
+		const Dictionary old_tiles = p_old_tiles[i];
+		if (!layer || old_tiles.is_empty()) {
+			continue; // Nothing to migrate; an empty base was already covered by adoption.
+		}
+		const bool is_base = layer->is_base();
+		if (is_base && layer_count == 1) {
+			// Aliased single-layer Base: adoption re-aliased it onto the new maps, which carry the old
+			// (composited == base) heights verbatim. Nothing to restore.
+			layer->set_modified(false);
+			continue;
+		}
+		const int ts_old = (int)p_old_tile_sizes[i];
+		const int ts_new = layer->get_tile_size();
+		if (ts_old <= 0) {
+			continue;
+		}
+		const int chunk = MIN(ts_old, ts_new);
+		Dictionary new_tiles = layer->get_tiles(); // Shared ref: base blits land in the layer directly.
+		for (const Vector2i &old_loc : old_tiles.keys()) {
+			const Dictionary tmap = old_tiles[old_loc];
+			for (const Vector2i &tc : tmap.keys()) {
+				const Ref<Image> img = tmap[tc];
+				if (img.is_null() || img->get_width() != ts_old || img->get_height() != ts_old) {
+					continue;
+				}
+				for (int cy = 0; cy < ts_old; cy += chunk) {
+					for (int cx = 0; cx < ts_old; cx += chunk) {
+						const Vector2i g = old_loc * p_old_size + tc * ts_old + Vector2i(cx, cy);
+						const Vector2i new_loc = V2I_DIVIDE_FLOOR(g, p_new_size);
+						const Vector2i local = g - new_loc * p_new_size;
+						Dictionary ntmap = new_tiles.get(new_loc, Dictionary());
+						if (is_base) {
+							// Overwrite the composite-derived seed with the old hand-authored base pixels. No
+							// seed here means no active region at this location (e.g. an old deleted region).
+							Ref<Image> dst = ntmap.get(V2I_ZERO, Ref<Image>());
+							if (dst.is_valid() && dst->get_format() == img->get_format()) {
+								dst->blit_rect(img, Rect2i(cx, cy, chunk, chunk), local);
+							}
+						} else {
+							// chunk == ts_new for overlays and both grids align, so a chunk IS one new tile.
+							ntmap[local / ts_new] = (chunk == ts_old) ? img : img->get_region(Rect2i(cx, cy, chunk, chunk));
+							new_tiles[new_loc] = ntmap;
+						}
+					}
+				}
+			}
+		}
+		if (!is_base) {
+			layer->set_tiles(new_tiles);
+			layer->gc(); // Split tiles may be fully uncovered; reclaim them.
+		}
+		layer->set_modified(true);
+	}
+	LOG(INFO, "Migrated layer stack pixel data from region size ", p_old_size, " to ", p_new_size);
 }
 
 ///////////////////////////

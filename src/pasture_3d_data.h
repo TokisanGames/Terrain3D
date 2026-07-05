@@ -19,6 +19,7 @@ class Pasture3DData : public Object {
 	friend void test_layer_road_connector();
 	friend void test_layer_subtiling(); // Phase 6 test; same descale-field access as above.
 	friend void test_layer_control_color(); // Phase 7 test; same descale-field access as above.
+	friend void test_layer_region_size_change(); // change_region_size x layer-stack migration test.
 
 public: // Constants
 	static inline const real_t CURRENT_DATA_VERSION = 0.93f; // Current Data format version
@@ -130,6 +131,13 @@ private:
 	// Make every base layer (height/control/color) cover a newly added region by adopting its region map
 	// (alias for a single-layer height base, an owned copy otherwise). Skipped during initial load.
 	void _adopt_region_into_bases(Pasture3DRegion *p_region);
+	// Re-map the layer stack's pixel data onto the new region grid at the end of change_region_size.
+	// change_region_size snapshots each layer's tiles/tile size (p_old_tiles / p_old_tile_sizes) and
+	// empties the layers up front, so base adoption during the region re-add works against the NEW grid;
+	// this pass then restores the old pixels: base tiles are blitted back over the adopted seeds (the
+	// hand-authored source must stay distinct from the composite, §5.1) and overlay tiles are re-keyed
+	// to their new region/tile coordinates (global pixel positions are preserved).
+	void _migrate_layers_region_size(const int p_old_size, const int p_new_size, const TypedArray<Dictionary> &p_old_tiles, const PackedInt32Array &p_old_tile_sizes);
 	void _copy_paste_dfr(const Pasture3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Pasture3DRegion *p_dst_region);
 
 public:

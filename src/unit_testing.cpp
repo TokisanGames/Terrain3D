@@ -1363,3 +1363,134 @@ void test_layer_control_color() {
 	memdelete(data);
 	UtilityFunctions::print("=== End control & color layer tests ===");
 }
+
+// Regression guard for the "changing region size breaks the layer system" bug: the Layers dock
+// synthesizes a Base the moment a new node is selected, so by the time the user changes region_size
+// in the inspector the stack already exists at the OLD size. change_region_size never migrated it, so
+// _adopt_region_into_bases silently skipped every region added afterwards (tile-size mismatch) and
+// the stack never covered the terrain. Covers both halves of the fix:
+//   (a) The user repro: stack synthesized at 64 -> resize to 128 (no regions) -> add region ->
+//       material (control) layer. The Base must cover the region and control painting must land.
+//   (b) Data preservation: regions + an un-aliased Base + a painted height overlay survive a resize —
+//       region maps keep their bytes, overlay samples keep their global position (including across a
+//       negative-location re-key), and a full recomposite reproduces the maps byte-identically (the
+//       migrated Base is the hand-authored source, not the composite — no double-applied ADD).
+//   (c) Safety net: a stack whose EMPTY Base carries a stale tile size (e.g. saved by an older build)
+//       is healed by the next add_region instead of being silently skipped.
+void test_layer_region_size_change() {
+	UtilityFunctions::print("=== Testing layer stack across change_region_size ===");
+
+	// ---- (a) New-node repro: synthesize at 64, resize to 128, add a region, paint a material. ----
+	{
+		Pasture3DData *data = memnew(Pasture3DData);
+		data->_region_size = 64; // As a fresh node's default before the user touches the inspector.
+		data->_region_sizev = V2I(64);
+		data->_vertex_spacing = 1.f;
+		EXPECT_TRUE(data->ensure_layer_stack()); // The Layers dock does this on node selection.
+		Ref<Pasture3DLayer> base = data->get_layer_stack()->get_layer(0);
+		EXPECT_TRUE(base.is_valid() && base->get_tile_size() == 64);
+
+		data->change_region_size(128); // Inspector edit, before any region exists.
+		EXPECT_TRUE(data->_region_size == 128);
+
+		Ref<Pasture3DRegion> region = data->add_region_blank(Vector2i(0, 0), false);
+		EXPECT_TRUE(region.is_valid());
+		// The empty Base was re-sized to the new grid and adopted the region (it was silently skipped
+		// before the fix, leaving the stack permanently uncovered).
+		EXPECT_TRUE(base->get_tile_size() == 128);
+		EXPECT_TRUE(base->has_region(Vector2i(0, 0)));
+
+		// Material-brush path: a control overlay (+ its lazily created dense Control Base), then a
+		// painted + composited control sample must land on the region control map.
+		int cidx = data->create_owned_layer_typed("/root/Mat", "Mat", Pasture3DLayer::REPLACE, TYPE_CONTROL);
+		EXPECT_TRUE(cidx > 0);
+		EXPECT_TRUE(data->get_layer_stack()->find_base_layer(TYPE_CONTROL) >= 0);
+		const uint32_t ctrl = enc_base(3) | enc_overlay(1) | enc_blend(128);
+		const Vector3 pos(10.f, 0.f, 7.f);
+		data->set_control_on_layer(cidx, pos, int(ctrl), 1.f);
+		EXPECT_TRUE(data->get_control(pos) == ctrl);
+		memdelete(data);
+	}
+
+	// ---- (b) Existing regions + painted layers survive a 64 -> 128 resize. ----
+	{
+		const int rs_old = 64;
+		Pasture3DData *data = memnew(Pasture3DData);
+		data->_region_size = rs_old;
+		data->_region_sizev = V2I(rs_old);
+		data->_vertex_spacing = 1.f;
+		// Two regions, one at a negative location so the re-key exercises floor division. Both merge
+		// into new 128 regions at (0,0) and (-1,-1).
+		for (const Vector2i &loc : { Vector2i(0, 0), Vector2i(-1, -1) }) {
+			Ref<Pasture3DRegion> region = data->add_region_blank(loc, false);
+			Ref<Image> hm = region->get_height_map();
+			for (int y = 0; y < rs_old; y++) {
+				for (int x = 0; x < rs_old; x++) {
+					real_t h = real_t(loc.x * 100 + x) * 0.5f - real_t(y) * 0.25f + real_t((x * 7 + y * 13) % 17);
+					hm->set_pixel(x, y, Color(h, 0.f, 0.f, 1.f));
+				}
+			}
+			region->calc_height_range();
+		}
+		EXPECT_TRUE(data->ensure_layer_stack()); // Base aliases both region height maps.
+		int didx = data->layer_add("Detail", Pasture3DLayer::ADD); // Un-aliases the Base.
+		EXPECT_TRUE(didx == 1 && data->is_layer_routing());
+		Ref<Pasture3DLayer> detail = data->get_layer_stack()->get_layer(didx);
+		detail->set_sample(Vector2i(0, 0), Vector2i(10, 10), 5.f, 1.f);
+		detail->set_sample(Vector2i(-1, -1), Vector2i(3, 4), -2.f, 1.f);
+		data->composite_region(Vector2i(0, 0), Rect2i(), false);
+		data->composite_region(Vector2i(-1, -1), Rect2i(), false);
+		const real_t h_a = data->get_region_ptr(Vector2i(0, 0))->get_height_map()->get_pixel(10, 10).r;
+		const real_t h_b = data->get_region_ptr(Vector2i(-1, -1))->get_height_map()->get_pixel(3, 4).r;
+
+		data->change_region_size(128);
+
+		// Old region (0,0) fills the top-left quadrant of new region (0,0); old region (-1,-1) fills
+		// the bottom-right quadrant of new region (-1,-1) (origin -64,-64 -> local 64,64).
+		Pasture3DRegion *r0 = data->get_region_ptr(Vector2i(0, 0));
+		Pasture3DRegion *rn = data->get_region_ptr(Vector2i(-1, -1));
+		EXPECT_TRUE(r0 && r0->get_region_size() == 128);
+		EXPECT_TRUE(rn && rn->get_region_size() == 128);
+		// Composited heights preserved by the map blit.
+		EXPECT_TRUE(Math::is_equal_approx(r0->get_height_map()->get_pixel(10, 10).r, h_a));
+		EXPECT_TRUE(Math::is_equal_approx(rn->get_height_map()->get_pixel(67, 68).r, h_b));
+		// Overlay samples migrated with their global positions.
+		EXPECT_TRUE(Math::is_equal_approx(detail->get_value(Vector2i(0, 0), Vector2i(10, 10)), 5.f));
+		EXPECT_TRUE(Math::is_equal_approx(detail->get_value(Vector2i(-1, -1), Vector2i(67, 68)), -2.f));
+		// The migrated Base is the hand-authored source (old composite blitted back over the adopted
+		// seed), so a full recomposite is byte-identical — the ADD delta lands exactly once.
+		PackedByteArray ref0 = r0->get_height_map()->get_data();
+		PackedByteArray refn = rn->get_height_map()->get_data();
+		data->composite_region(Vector2i(0, 0), Rect2i(), false);
+		data->composite_region(Vector2i(-1, -1), Rect2i(), false);
+		EXPECT_TRUE(r0->get_height_map()->get_data() == ref0);
+		EXPECT_TRUE(rn->get_height_map()->get_data() == refn);
+		memdelete(data);
+	}
+
+	// ---- (c) A stale-tile-size EMPTY Base (older save) is healed on the next add_region. ----
+	{
+		Pasture3DData *data = memnew(Pasture3DData);
+		data->_region_size = 128;
+		data->_region_sizev = V2I(128);
+		data->_vertex_spacing = 1.f;
+		Ref<Pasture3DLayerStack> stack;
+		stack.instantiate();
+		Ref<Pasture3DLayer> base;
+		base.instantiate();
+		base->set_layer_name("Base");
+		base->set_map_type(TYPE_HEIGHT);
+		base->set_tile_size(64); // Stale: synthesized/saved at the old region size.
+		base->set_blend_mode(Pasture3DLayer::REPLACE);
+		base->set_base(true);
+		stack->add_layer_ref(base);
+		data->set_layer_stack(stack);
+		Ref<Pasture3DRegion> region = data->add_region_blank(Vector2i(1, 1), false);
+		EXPECT_TRUE(region.is_valid());
+		EXPECT_TRUE(base->get_tile_size() == 128);
+		EXPECT_TRUE(base->has_region(Vector2i(1, 1)));
+		memdelete(data);
+	}
+
+	UtilityFunctions::print("=== End layer stack region-size change tests ===");
+}
