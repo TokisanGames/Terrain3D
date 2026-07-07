@@ -658,9 +658,14 @@ void Pasture3D::set_camera(Camera3D *p_camera) {
 	if (_camera.ptr() != p_camera) {
 		LOG(EXTREME, "Setting camera: ", p_camera);
 		_camera.set_target(p_camera);
-		if (_clipmap_target.is_valid()) {
-			set_physics_process(true);
-		}
+	}
+	// Re-arm clipmap tracking even if we previously gave up (node loaded camera-less and
+	// _grab_camera called set_physics_process(false)). Prime a re-snap so the terrain re-centers
+	// on the next physics frame instead of staying flat/dark. Kept outside the "changed" guard so
+	// re-setting the same camera after a give-up also recovers.
+	if (_camera.is_valid() || _clipmap_target.is_valid()) {
+		snap();
+		set_physics_process(true);
 	}
 }
 
