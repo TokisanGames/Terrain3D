@@ -104,11 +104,13 @@ var _dirty: bool = false
 var _full_dirty: bool = false   # A queued refresh needs the whole layer (param/transform/structural change)
 var _dirty_splines: Dictionary = {} # Path3D instance_id -> true: splines whose curve changed (partial redraw)
 var _moved_node: bool = false   # A queued refresh is a node-transform move (dirty-rect, but re-snap all points)
+var _last_baked_xform: Transform3D = Transform3D() # Global xform baked into the terrain; guards no-op transform refreshes (tab-switch churn)
 var _clip_aabb: AABB = AABB()   # When non-empty, _paint_* writes only cells inside this world box (dirty-rect)
 var _defer_composite: bool = false # When true, _paint_* write samples without compositing (caller composites the box once)
 var _curve_cache: Dictionary = {}   # spline instance_id -> PackedVector3Array of point positions at last bake
 var _suspend_auto: bool = false # Blocks auto-refresh while we mutate curves programmatically (undo)
 var _ready_done: bool = false   # True once _ready ran — gates re-parent auto-assign off scene-load
+var _tree_settling: bool = false # True during the node's own tree enter/exit churn (tab switch) — suppresses no-op child-refresh
 
 ## Editor-only floating nameplate (internal child → never saved, hidden from the Scene dock).
 var _name_label: Label3D = null
@@ -145,6 +147,9 @@ func _ready() -> void:
 	# Baseline the footprint cache to the loaded poses (without painting) so the first edit of the
 	# session clears where a spline WAS, not just where it ends up — no stale flattening trail.
 	_seed_cache()
+	# Baseline the baked-transform guard to the loaded pose so a tab-switch TRANSFORM_CHANGED that
+	# re-notifies the SAME transform is recognised as a no-op (see _schedule_transform_refresh).
+	_last_baked_xform = global_transform
 	_ready_done = true
 	# A freshly added/duplicated brush may have made an existing brush's curve newly shared — refresh all.
 	_refresh_group_warnings()
@@ -168,6 +173,15 @@ func _notification(what: int) -> void:
 		# Re-join the group on every enter (a reparent exits + re-enters the tree, and _ready only runs
 		# once) so layer-sharing keeps seeing this brush after it has been moved.
 		add_to_group(BRUSH_GROUP)
+		# A tab switch re-attaches the whole scene: our child splines re-enter the tree and fire
+		# child_entered_tree, which _on_child_changed would treat as a structural edit and full-bake the
+		# layer (the multi-second scene-tab-switch freeze). This ENTER_TREE fires BEFORE those child
+		# signals, so flag the churn now and clear it after the frame settles. Gate on _ready_done so this
+		# only suppresses RE-entries (tab switch / reparent, already baked) — a fresh duplicate/paste/open
+		# has _ready_done == false and still bakes its new footprint normally.
+		if _ready_done:
+			_tree_settling = true
+			_clear_tree_settling.call_deferred()
 	elif what == NOTIFICATION_EXIT_TREE:
 		remove_from_group(BRUSH_GROUP)
 	elif what == NOTIFICATION_PREDELETE:
@@ -294,9 +308,17 @@ func _on_path_curve_changed(path: Path3D) -> void:
 	_schedule_spline_refresh(path)
 
 
+func _clear_tree_settling() -> void:
+	_tree_settling = false
+
+
 func _on_child_changed(node: Node) -> void:
 	if node == _name_label:
 		return # our internal nameplate is not a spline and must not trigger a refresh
+	if _tree_settling:
+		# Child splines entering/leaving the tree because the whole scene (re)attached — not a real
+		# structural edit. The baked terrain data is already correct; skip the redundant full bake.
+		return
 	if node is Path3D:
 		_connect_spline(node)
 	# Broadcast, not just self: adding/removing a spline can make another brush's curve newly (non-)shared.
@@ -426,7 +448,12 @@ func _schedule_refresh() -> void:
 ## just the overlapping layer-mates) instead of redrawing the entire layer (the many-brushes-on-one-layer
 ## slowdown). The points didn't move in local space, so flag a full re-snap of this node's points.
 func _schedule_transform_refresh() -> void:
-	if not _can_auto_refresh():
+	if not _can_auto_refresh() or not _ready_done:
+		return
+	# A tab switch re-attaches the scene and re-notifies TRANSFORM_CHANGED with an IDENTICAL transform
+	# (the terrain also resets its own transform to identity on enter, propagating to children). That is
+	# not a real move — re-baking here is a scene-tab-switch freeze. Skip it.
+	if global_transform.is_equal_approx(_last_baked_xform):
 		return
 	for s in _get_splines():
 		_dirty_splines[s.get_instance_id()] = true
@@ -448,7 +475,12 @@ func _arm_refresh_timer() -> void:
 	_dirty = true
 	if is_instance_valid(_timer):
 		return
-	_timer = get_tree().create_timer(REFRESH_DELAY)
+	# get_tree() is transiently null while the node is detached during a tab switch, even when
+	# is_inside_tree() read true at the scheduler. Guard so we don't error; the next real edit re-arms.
+	var tree := get_tree()
+	if tree == null:
+		return
+	_timer = tree.create_timer(REFRESH_DELAY)
 	_timer.timeout.connect(_on_refresh_timer)
 
 
@@ -474,6 +506,8 @@ func _on_refresh_timer() -> void:
 		_refresh_owner(_layer_owner, false, [])
 	else:
 		_refresh_owner_rect(_layer_owner, splines, moved_node)
+	# Record the transform this bake reflects, so a later no-op TRANSFORM_CHANGED (tab switch) is skipped.
+	_last_baked_xform = global_transform
 
 
 ## ---- The paint cycle (layer-granular: repaint every tool bound to the layer) ----
