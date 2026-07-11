@@ -320,16 +320,27 @@ checks green.
 - Phase 1 items land independently, each behind its own commit and re-measured.
 - Phase 2 lands only if §6.4 gate fails, on its own branch, with the §7.5 audit completed first.
 
-## 9a. Related errors surfaced during measurement
+## 9a. Related errors surfaced during measurement — FIXED (commit ce3ac6f)
 
-1. **`terrain_brush.gd:451` — `Cannot call method 'create_timer' on a null value`** (paired with
-   `node.h:559 - Parameter "data.tree" is null`). **Same root cause as the freeze** — now fixed by
-   §6.2. Not a separate item.
+All traced to `_arm_refresh_timer` running while the brush was detached during scene load / tree churn.
+Fixed by guarding it with `is_inside_tree()` before arming (never arm a timer detached, never call the
+node's `get_tree()` detached):
+
+1. **`terrain_brush.gd` — `Cannot call method 'create_timer' on a null value`** + **`node.h:559 -
+   Parameter "data.tree" is null`.** `get_tree()` called on a detached node. Fixed.
 2. **`node_3d.cpp:649` — `Condition "!is_inside_tree()" is true. Returning: Transform3D()` (spam).**
-   Seen only under rapid multi-tab switching (not in the single-switch repro). A global-transform query
-   on a detached `Node3D`. Likely the same churn; if it persists after §6, find the caller (a connector
-   or the objects helper reading `global_position`/`global_transform` while detached) and guard on tree
-   membership. **Deferred** — address after this work if still present.
+   A timer that armed on a detached/churning node fired a bake that read spline `global_transform` while
+   detached. With the guard, no timer arms while detached, so the bake never runs. Fixed.
+
+Note: an interim attempt used `Engine.get_main_loop()` instead of `get_tree()` — that was a **regression**
+(it armed timers on detached nodes, causing #2 plus expensive re-bakes and region saves on switch).
+Reverted in favor of the `is_inside_tree()` guard.
+
+Residual (benign, not user-visible): `_on_child_changed` still fires `_schedule_refresh` on genuine
+scene-open child-enters that land in a later frame than the brush's ENTER_TREE (so `_tree_settling` has
+already been deferred-cleared). Their timers no-op because the node is mid-churn when they fire — no
+freeze observed. If an open-time freeze ever appears, harden `_tree_settling` (e.g. clear on an idle
+frame after settle rather than a single `call_deferred`).
 
 ## 10. Open questions
 
