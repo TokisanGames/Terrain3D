@@ -475,12 +475,13 @@ func _arm_refresh_timer() -> void:
 	_dirty = true
 	if is_instance_valid(_timer):
 		return
-	# get_tree() is transiently null while the node is detached during a tab switch, even when
-	# is_inside_tree() read true at the scheduler. Guard so we don't error; the next real edit re-arms.
-	var tree := get_tree()
-	if tree == null:
+	# Never arm a timer while detached (scene load / tree churn): the timer would fire and bake a node
+	# that isn't in the tree, spamming node_3d.cpp:649 transform errors and re-baking pointlessly. Also
+	# avoids calling the node's get_tree() when detached (which spams node.h:559). is_inside_tree() is
+	# the cheap, non-erroring check; the next real edit re-arms once we're settled back in the tree.
+	if not is_inside_tree():
 		return
-	_timer = tree.create_timer(REFRESH_DELAY)
+	_timer = get_tree().create_timer(REFRESH_DELAY)
 	_timer.timeout.connect(_on_refresh_timer)
 
 
