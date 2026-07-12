@@ -10,7 +10,7 @@ jobs:
       matrix:
         platform: [windows]
         target: [debug, release]
-        arch: [x86_64]
+        arch: [x86_64, arm64]
 
     steps:
       - name: Checkout Terrain3D
@@ -26,8 +26,19 @@ jobs:
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
         with:
-          cache-name: ${{ matrix.platform }}-${{ matrix.target }}
+          cache-name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
         continue-on-error: true
+
+      - name: Setup LLVM-MinGW (Arm64)
+        if: ${{ matrix.arch == 'arm64' }}
+        shell: sh
+        run: |
+          export LLVM_MINGW_VERSION=20251118
+          export LLVM_MINGW_NAME=llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-x86_64
+          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/${LLVM_MINGW_NAME}.tar.xz
+          tar xf ${LLVM_MINGW_NAME}.tar.xz
+          rm -f ${LLVM_MINGW_NAME}.tar.xz
+          echo "$(pwd)/${LLVM_MINGW_NAME}/bin" >> $GITHUB_PATH
 
       - name: Build Terrain3D
         env:
@@ -36,13 +47,21 @@ jobs:
             ARCH: '${{ matrix.arch }}'
         shell: sh
         run: |
-            scons target=$TARGET platform='${{ matrix.platform }}' arch=$ARCH debug_symbols=no -j2
+            EXTRA_FLAGS=""
+            if [ "$ARCH" = "arm64" ]; then
+              EXTRA_FLAGS="use_mingw=yes use_llvm=yes"
+            fi
+            scons target=$TARGET platform='${{ matrix.platform }}' arch=$ARCH $EXTRA_FLAGS debug_symbols=no -j2
 
       - name: Prepare Files
         shell: sh
         run: |
+          STRIP="strip"
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            STRIP="llvm-strip"
+          fi
           ls -l project/addons/terrain_3d/bin/
-          strip project/addons/terrain_3d/bin/libterrain.*
+          $STRIP project/addons/terrain_3d/bin/libterrain.*
           ls -l project/addons/terrain_3d/bin/
           rm -v project/*.*
           cp -v '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/

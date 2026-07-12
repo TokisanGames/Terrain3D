@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        identifier: [linux, windows, macos, ios, android-arm32, android-arm64, web-nothreads]
+        identifier: [linux, windows, windows-arm64, macos, ios, android-arm32, android-arm64, web-nothreads]
         target: [debug, release]
         include:
           - identifier: linux
@@ -33,6 +33,12 @@ jobs:
             name: 🪟 Windows
             runner: ubuntu-22.04
             flags: arch=x86_64
+
+          - identifier: windows-arm64
+            platform: windows
+            name: 🪟 Windows Arm64
+            runner: ubuntu-22.04
+            flags: arch=arm64 use_mingw=yes use_llvm=yes
 
           - identifier: macos
             platform: macos
@@ -87,6 +93,17 @@ jobs:
           cache-name: ${{ matrix.identifier }}-${{ matrix.target }}
         continue-on-error: true
 
+      - name: Setup LLVM-MinGW (Windows Arm64)
+        if: ${{ matrix.identifier == 'windows-arm64' }}
+        shell: sh
+        run: |
+          export LLVM_MINGW_VERSION=20251118
+          export LLVM_MINGW_NAME=llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-x86_64
+          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/${LLVM_MINGW_NAME}.tar.xz
+          tar xf ${LLVM_MINGW_NAME}.tar.xz
+          rm -f ${LLVM_MINGW_NAME}.tar.xz
+          echo "$(pwd)/${LLVM_MINGW_NAME}/bin" >> $GITHUB_PATH
+
       - name: Build Terrain3D
         env:
             SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
@@ -95,12 +112,16 @@ jobs:
         run: |
             scons target=$TARGET platform='${{ matrix.platform }}' ${{ matrix.flags }} debug_symbols=no -j2
 
-      - name: Strip Libraries (Windows/Linux)
+      - name: Strip Libraries (Windows / Linux)
         if: ${{ matrix.platform == 'windows' || matrix.platform == 'linux' }}
         shell: sh
         run: |
+          STRIP="strip"
+          if [ "${{ matrix.identifier }}" = "windows-arm64" ]; then
+            STRIP="llvm-strip"
+          fi
           ls -l project/addons/terrain_3d/bin/
-          strip project/addons/terrain_3d/bin/libterrain.*
+          $STRIP project/addons/terrain_3d/bin/libterrain.*
           ls -l project/addons/terrain_3d/bin/
 
       - name: Prepare Files
