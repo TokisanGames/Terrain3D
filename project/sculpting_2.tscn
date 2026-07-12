@@ -130,14 +130,14 @@ point_count = 6
 [sub_resource type="Curve3D" id="Curve3D_rdfxo"]
 closed = true
 _data = {
-"points": PackedVector3Array(-21.5, -11.5, 20.6, 21.5, 11.5, -20.6, -97, 8, -101, -28.800001, 15.2, -2.9, 28.800001, -15.2, 2.9, 127, 8, -115, 0, 0, 0, 0, 0, 0, 131.28387, 8.000001, 9.598114, 0, 0, 0, 0, 0, 0, 130.55151, 31.140316, 45.894623, 20, 2.9, -11.900001, -20, -2.9, 11.900001, 110, 63.839222, 79, 0, 0, 0, 0, 0, 0, 62.98517, 26.769825, 90.30368, 31.240599, 0, 19.703964, -35.1772, 0, -22.677994, -69, 8, 95),
+"points": PackedVector3Array(-21.5, -11.5, 20.6, 21.5, 11.5, -20.6, -97, 8, -101, -28.800001, 15.2, -2.9, 28.800001, -15.2, 2.9, 127, 8, -115, 0, 0, 0, 0, 0, 0, 131.28387, 8.000001, 9.598114, 0, 0, 0, 0, 0, 0, 130.55151, 25.091246, 45.894623, 20, 2.9, -11.900001, -20, -2.9, 11.900001, 110, 69.65784, 79, 0, 0, 0, 0, 0, 0, 62.98517, 33.177376, 90.30368, 31.240599, 0, 19.703964, -35.1772, 0, -22.677994, -69, 8, 95),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 7
 
 [sub_resource type="Curve3D" id="Curve3D_xmus7"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 51.756702, -20, 0, 0, 0, 0, 0, 0, 20, 66.29145, -20, 0, 0, 0, 0, 0, 0, 20, 82.80657, -3.4847412, 0, 0, 0, 0, 0, 0, 20, 93.40198, 20, 0, 0, 0, 0, 0, 0, -20, 76.261856, 20),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 53.08526, -20, 0, 0, 0, 0, 0, 0, 20, 63.019764, -20, 0, 0, 0, 0, 0, 0, 20, 81.21748, -3.4847412, 0, 0, 0, 0, 0, 0, 20, 93.585014, 20, 0, 0, 0, 0, 0, 0, -20, 76.32297, 20),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0)
 }
 point_count = 5
@@ -234,10 +234,10 @@ point_count = 4
 
 [sub_resource type="Curve3D" id="Curve3D_ce53t"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, 20),
-"tilts": PackedFloat32Array(0, 0)
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 10.158173, 0, -67.10355, 0, 0, 0, 0, 0, 0, 0, 0, -20, 0, 0, 0, 0, 0, 0, 23.965668, 0, 32.76766),
+"tilts": PackedFloat32Array(0, 0, 0)
 }
-point_count = 2
+point_count = 3
 
 [sub_resource type="Curve3D" id="Curve3D_qex3v"]
 _data = {
@@ -258,6 +258,14 @@ point_count = 4
 closed = true
 _data = {
 "points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, 21.470337, 1, 22.552185, 0, 0, 0, 0, 0, 0, -19.476318, 1, 22.563293),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
+
+[sub_resource type="Curve3D" id="Curve3D_hvsre"]
+closed = true
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, 20, 0, 0, 0, 0, 0, 0, -20, 1, 20),
 "tilts": PackedFloat32Array(0, 0, 0, 0)
 }
 point_count = 4
@@ -362,7 +370,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52, 0, 32)
 curve = SubResource("Curve3D_nylof")
 
 [node name="Pasture3DRidge" type="Node3D" parent="Pasture3D" unique_id=367645157 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 225, 10, 92)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 225, 10, 87.037094)
 script = ExtResource("2_60doo")
 width = 40.0
 blend_mode = 0
@@ -456,7 +464,7 @@ metadata/_custom_type_script = "uid://br5raorbyrwhw"
 curve = SubResource("Curve3D_sy2cg")
 
 [node name="Pasture3DMound7" type="Node3D" parent="Pasture3D" unique_id=286128172 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 821, 0, 250)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 834.52985, 0, 278.70554)
 script = ExtResource("1_fwsd8")
 terrain = NodePath("..")
 log_bake_timing = true
@@ -545,7 +553,7 @@ metadata/_custom_type_script = "uid://bvg7srpngxqfj"
 curve = SubResource("Curve3D_8ey8c")
 
 [node name="Mound" type="Node3D" parent="Pasture3D" unique_id=768916266 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 101.06149, -66.030106, 42.251984)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 99.557205, -66.030106, 15.761818)
 script = ExtResource("1_fwsd8")
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Mounds"
@@ -584,6 +592,7 @@ curve = SubResource("Curve3D_w1nth")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.612, 20, -26.109)
 script = ExtResource("2_60doo")
 terrain = NodePath("..")
+log_bake_timing = true
 snap_to_surface = false
 _layer_owner = "pasture3d_brush:Ridges"
 
@@ -620,3 +629,12 @@ _layer_owner = "pasture3d_brush:Mounds"
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound5" unique_id=1804399810]
 curve = SubResource("Curve3D_7sjga")
+
+[node name="Mound6" type="Node3D" parent="Pasture3D" unique_id=738645377 node_paths=PackedStringArray("terrain")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 122.39368, 0, 113.51898)
+script = ExtResource("1_fwsd8")
+terrain = NodePath("..")
+_layer_owner = "pasture3d_brush:Mounds"
+
+[node name="Loop1" type="Path3D" parent="Pasture3D/Mound6" unique_id=821857872]
+curve = SubResource("Curve3D_hvsre")

@@ -15,7 +15,6 @@ _shader_parameters = {
 &"shader_uniforms/general": null,
 &"shader_uniforms/mipmaps": null
 }
-world_background = 0
 show_checkered = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wxaqu"]
@@ -50,7 +49,7 @@ point_count = 4
 
 [sub_resource type="Curve3D" id="Curve3D_7ivm1"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, -2.2150497, 7.444336, 69.63768, 0, 0, 0, 0, 0, 0, -24.19318, -2.3092804, 109.323265, 0, 0, 0, 0, 0, 0, -43.42788, -32.97505, 99.069725, 0, 0, 0, 0, 0, 0, -16.316921, 27.61309, 148.82231),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, -23.058174, 7.444336, 65.7281, 0, 0, 0, 0, 0, 0, -24.19318, -2.3092804, 109.323265, 0, 0, 0, 0, 0, 0, -43.42788, -32.97505, 99.069725, 0, 0, 0, 0, 0, 0, -16.316921, 27.61309, 148.82231),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0)
 }
 point_count = 6
@@ -77,7 +76,7 @@ metadata/_edit_lock_ = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -236, 0, 41)
 script = ExtResource("1_ume0e")
 terrain = NodePath("../Pasture3D")
-target_layer_name = "Mounds"
+_layer_owner = "pasture3d_brush:Mounds"
 metadata/_custom_type_script = "uid://br5raorbyrwhw"
 
 [node name="Loop1" type="Path3D" parent="Pasture3DMound" unique_id=264325674]
@@ -87,7 +86,8 @@ curve = SubResource("Curve3D_ume0e")
 transform = Transform3D(-0.9828594, 0, -0.18435696, 0, 1, 0, 0.18435696, 0, -0.9828594, -40.987457, 0, 114.440506)
 script = ExtResource("3_4xbm0")
 terrain = NodePath("../Pasture3D")
-target_layer_name = "Ridges"
+snap_to_surface = false
+_layer_owner = "pasture3d_brush:Ridges"
 metadata/_custom_type_script = "uid://bj10ochgiqrlg"
 
 [node name="Ridge1" type="Path3D" parent="Pasture3DRidge" unique_id=13448032]
@@ -97,7 +97,8 @@ curve = SubResource("Curve3D_7ivm1")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -109, 0, 127)
 script = ExtResource("2_7ivm1")
 terrain = NodePath("../Pasture3D")
-target_layer_name = "Troughs"
+snap_to_surface = false
+_layer_owner = "pasture3d_brush:Troughs"
 metadata/_custom_type_script = "uid://bvg7srpngxqfj"
 
 [node name="Channel1" type="Path3D" parent="Pasture3DTrough" unique_id=1667892792]

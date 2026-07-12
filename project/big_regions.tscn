@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://5v15phkq5omi"]
+
+[ext_resource type="Script" uid="uid://br5raorbyrwhw" path="res://addons/pasture_3d/connectors/mound.gd" id="1_xgana"]
+
+[sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_xgana"]
+_shader_parameters = {
+&"bias_distance": null,
+&"blend_sharpness": null,
+&"depth_blur": null,
+&"flat_terrain_normals": null,
+&"mipmap_bias": null,
+&"shader_uniforms": null,
+&"shader_uniforms/general": null,
+&"shader_uniforms/mipmaps": null
+}
+show_checkered = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e2s86"]
+transparency = 4
+cull_mode = 2
+vertex_color_use_as_albedo = true
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+metadata/pasture3d_generated_material = true
+
+[sub_resource type="Pasture3DMeshAsset" id="Pasture3DMeshAsset_rx4tp"]
+generated_type = 1
+height_offset = 0.5
+density = 10.0
+material_override = SubResource("StandardMaterial3D_e2s86")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
+
+[sub_resource type="Pasture3DAssets" id="Pasture3DAssets_pe8qp"]
+mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_rx4tp")])
+
+[sub_resource type="Curve3D" id="Curve3D_33v3g"]
+closed = true
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, 20, 0, 0, 0, 0, 0, 0, -20, 1, 20),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
+
+[node name="BigRegions" type="Node3D" unique_id=1755523717]
+
+[node name="Pasture3D" type="Pasture3D" parent="." unique_id=139146567]
+data_directory = "res://demo/data/BigRegions"
+material = SubResource("Pasture3DMaterial_xgana")
+assets = SubResource("Pasture3DAssets_pe8qp")
+displacement_sharpness = 0.5
+show_checkered = true
+top_level = true
+metadata/_edit_lock_ = true
+
+[node name="Mound" type="Node3D" parent="Pasture3D" unique_id=1429870565 node_paths=PackedStringArray("terrain")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 334.9737, 0, 354.51202)
+script = ExtResource("1_xgana")
+terrain = NodePath("..")
+_layer_owner = "pasture3d_brush:Mounds"
+
+[node name="Loop1" type="Path3D" parent="Pasture3D/Mound" unique_id=1309274412]
+curve = SubResource("Curve3D_33v3g")

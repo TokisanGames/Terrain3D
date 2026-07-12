@@ -10,7 +10,11 @@
       "Bash(git add *)",
       "Bash(git commit -m '@ *)",
       "Bash(git commit *)",
-      "Bash(python -m SCons platform=windows target=editor arch=x86_64 -j8)"
+      "Bash(python -m SCons platform=windows target=editor arch=x86_64 -j8)",
+      "Bash(cat plugin.cfg)",
+      "Bash(sed -n '1,80p' editor_plugin.gd)",
+      "Bash(grep -rn \"custom_type\\\\|RoadPastureConnector\\\\|add_custom_type\\\\|connector\" editor_plugin.gd)",
+      "WebSearch"
     ]
   }
 }
