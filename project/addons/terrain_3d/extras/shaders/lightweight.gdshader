@@ -33,7 +33,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #endif
 
 // Private uniforms
-group_uniforms shader_uniforms;
+group_uniforms private;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
@@ -60,7 +60,7 @@ uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_
 group_uniforms;
 
 // Public uniforms
-group_uniforms shader_uniforms.general;
+group_uniforms general_uniforms;
 uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
 uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 uniform bool flat_terrain_normals = false;
@@ -68,14 +68,14 @@ uniform bool textures_enabled = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 group_uniforms;
 
-group_uniforms shader_uniforms.auto_shader;
+group_uniforms auto_shader;
 uniform float auto_slope : hint_range(0, 10) = 1.0;
 uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
 uniform int auto_base_texture : hint_range(0, 31) = 0;
 uniform int auto_overlay_texture : hint_range(0, 31) = 1;
 group_uniforms;
 
-group_uniforms shader_uniforms.macro_variation;
+group_uniforms macro_variation;
 uniform bool macro_variation_enabled = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);

@@ -34,6 +34,7 @@ R"(shader_type canvas_item;
 #endif
 
 // Private uniforms
+group_uniforms private;
 uniform float _tessellation_level = 0.;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
@@ -56,9 +57,10 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
+group_uniforms;
 
 // Public uniforms
-group_uniforms shader_uniforms.general;
+group_uniforms general_uniforms;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 group_uniforms;
 //INSERT: AUTO_SHADER_UNIFORMS
@@ -69,7 +71,7 @@ group_uniforms;
 // Uniquely named displacement uniforms should be in this group.
 // Uniforms that are shared with the main shader are automatically synchronised.
 // Subgroups should work as expected.
-group_uniforms shader_uniforms.displacement;
+group_uniforms displacement;
 uniform float _displacement_sharpness : hint_range(0.0, 1.0, 0.01) = 0.25;
 group_uniforms;
 

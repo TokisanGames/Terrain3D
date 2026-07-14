@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://dyt8c2xqmddo2"]
+[gd_scene load_steps=7 format=3 uid="uid://dyt8c2xqmddo2"]
 
 [ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_2gjn4"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_3obxr"]
@@ -11,13 +11,14 @@ _shader_parameters = {
 "bias_distance": 512.0,
 "blend_sharpness": 0.87,
 "depth_blur": 0.0,
+&"distant_normal_scale": null,
 &"flat_terrain_normals": false,
+&"general_uniforms": null,
 &"ground_level": 0.0,
 "mipmap_bias": 1.0,
-&"region_blend": 0.25,
-&"shader_uniforms": null,
-&"shader_uniforms::general": null,
-&"shader_uniforms::mipmaps": null
+&"mipmaps": null,
+&"private": null,
+&"region_blend": 0.25
 }
 
 [node name="Demo" type="Node"]
