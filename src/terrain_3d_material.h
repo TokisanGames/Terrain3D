@@ -44,7 +44,7 @@ private:
 	Dictionary _shader_code; // All loaded shader and INSERT code
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override; // User's shader we copy code from
-	mutable TypedArray<StringName> _active_params; // All shader params in the current shader
+	mutable TypedArray<StringName> _active_params; // All public shader params in the current shader
 	mutable Dictionary _shader_params; // Public shader params saved to disk
 
 	RID _buffer_material;

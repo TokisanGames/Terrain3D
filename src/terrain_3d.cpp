@@ -124,15 +124,22 @@ void Terrain3D::__physics_process(const double p_delta) {
 	}
 	if (_ocean_enabled && _ocean_mesher) {
 		_ocean_mesher->snap();
-		if (_ocean_material.is_valid() && _ocean_light_target.is_valid()) {
-			DirectionalLight3D *light = cast_to<DirectionalLight3D>(_ocean_light_target.ptr());
-			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
-			if (light && ocean_shader_mat) {
-				Color color = COLOR_WHITE;
-				color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
-				ocean_shader_mat->set_shader_parameter("_light_color", color);
-				Vector3 direction = light->get_global_basis().get_column(2);
-				ocean_shader_mat->set_shader_parameter("_light_direction", direction);
+	}
+	if (_light_target.is_valid()) {
+		DirectionalLight3D *light = cast_to<DirectionalLight3D>(_light_target.ptr());
+		if (light) {
+			Color color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
+			Vector3 direction = light->get_global_basis().get_column(2);
+			if (_material.is_valid()) {
+				_material->set_shader_param("_light_color", color);
+				_material->set_shader_param("_light_direction", direction);
+			}
+			if (_ocean_material.is_valid()) {
+				ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
+				if (ocean_shader_mat) {
+					ocean_shader_mat->set_shader_parameter("_light_color", color);
+					ocean_shader_mat->set_shader_parameter("_light_direction", direction);
+				}
 			}
 		}
 	}
@@ -692,11 +699,11 @@ Vector3 Terrain3D::get_collision_target_position() const {
 	return V3_ZERO;
 }
 
-void Terrain3D::set_ocean_light_target(Node3D *p_node) {
-	if (_ocean_light_target.ptr() != p_node) {
+void Terrain3D::set_light_target(Node3D *p_node) {
+	if (_light_target.ptr() != p_node) {
 		LOG(INFO, "Setting directional light target: ", p_node);
-		_ocean_light_target.set_target(p_node);
-		if (_ocean_light_target.is_valid()) {
+		_light_target.set_target(p_node);
+		if (_light_target.is_valid()) {
 			set_physics_process(true);
 		}
 	}
@@ -1372,8 +1379,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collision_target", "node"), &Terrain3D::set_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target"), &Terrain3D::get_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target_position"), &Terrain3D::get_collision_target_position);
-	ClassDB::bind_method(D_METHOD("set_ocean_light_target", "node"), &Terrain3D::set_ocean_light_target);
-	ClassDB::bind_method(D_METHOD("get_ocean_light_target"), &Terrain3D::get_ocean_light_target);
+	ClassDB::bind_method(D_METHOD("set_light_target", "node"), &Terrain3D::set_light_target);
+	ClassDB::bind_method(D_METHOD("get_light_target"), &Terrain3D::get_light_target);
 	ClassDB::bind_method(D_METHOD("snap"), &Terrain3D::snap);
 
 	// Collision
@@ -1517,6 +1524,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE, "Terrain3DData"), "", "get_data");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE, "Terrain3DCollision"), "", "get_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE, "Terrain3DInstancer"), "", "get_instancer");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "light_target", PROPERTY_HINT_NODE_TYPE, "DirectionalLight3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_light_target", "get_light_target");
 
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
@@ -1563,7 +1571,6 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_ocean_gi_mode", "get_ocean_gi_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_ocean_render_layers", "get_ocean_render_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_ocean_material", "get_ocean_material");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_light_target", PROPERTY_HINT_NODE_TYPE, "DirectionalLight3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_ocean_light_target", "get_ocean_light_target");
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");

@@ -72,14 +72,16 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : source_color, FILTER_METHOD, repeat_disable;
 uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
+uniform vec3 _light_direction = vec3(0., 0., 0);
+uniform vec3 _light_color : source_color = vec3(1.0, 1.0, .735);
 group_uniforms;
 
 // Public uniforms
 group_uniforms shader_uniforms.general;
 //INSERT: FLAT_UNIFORMS
 uniform bool flat_terrain_normals = false;
+uniform float distant_normal_scale : hint_range(1.0, 10.0, 0.1) = 2.0;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
-//INSERT: PROJECTION_UNIFORMS
 group_uniforms;
 
 //INSERT: AUTO_SHADER_UNIFORMS
@@ -90,7 +92,6 @@ group_uniforms;
 group_uniforms shader_uniforms.mipmaps;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
-uniform float distant_normal_scale : hint_range(1.0, 10.0, 0.1) = 2.0;
 uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
 group_uniforms;
 
@@ -580,18 +581,28 @@ void fragment() {
 	mat.ao *= weight_inv;
 	mat.ao_affect *= weight_inv;
 
-	//INSERT: MACRO_VARIATION
-	
-	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
-	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
-
+	vec3 normal_map = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
 	float distant_normal_amplifier = clamp(max(length(base_ddx.xz), length(base_ddy.xz)), 1., distant_normal_scale);
+	mat.normal_map_depth *= distant_normal_amplifier;
+
+	//INSERT: MACRO_VARIATION
+
+	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
+	float wetness = fma(color_map.a, -2., 1.);
+	float roughness = clamp(mat.normal_rough.a - wetness, 0., 1.);
 	
+	// Specular w/ non-light-facing suppression. Apply wetness after so it reflects the sky after sunset
+	float terrain_facing_light = clamp(dot(w_normal, normalize(_light_direction)), 0.0, 1.0);
+	float specular = 1. - mat.normal_rough.a;
+	specular *= mix(0.0, 1.0, terrain_facing_light);
+	specular = clamp(specular + wetness, 0., 1.);
+
 	// Apply PBR
 //INSERT: OUTPUT_ALBEDO
 //INSERT: OUTPUT_ALBEDO_GREY
 //INSERT: OUTPUT_ROUGHNESS
 //INSERT: OUTPUT_SPECULAR
+//INSERT: OUTPUT_SPECULAR_NONE
 //INSERT: OUTPUT_NORMAL_MAP
 //INSERT: OUTPUT_AMBIENT_OCCLUSION
 

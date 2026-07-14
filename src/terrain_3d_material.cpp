@@ -887,13 +887,21 @@ void Terrain3DMaterial::set_buffer_shader_override(const Ref<Shader> &p_shader) 
 
 void Terrain3DMaterial::set_shader_param(const StringName &p_name, const Variant &p_value) {
 	LOG(INFO, "Setting shader parameter: ", p_name);
-	_set(p_name, p_value);
+	if (p_name.begins_with("_") && _material.is_valid()) {
+		RS->material_set_param(_material, p_name, p_value);
+	} else {
+		_set(p_name, p_value);
+	}
 }
 
 Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 	LOG(INFO, "Getting shader parameter: ", p_name);
 	Variant value;
-	_get(p_name, value);
+	if (p_name.begins_with("_") && _material.is_valid()) {
+		value = RS->material_get_param(_material, p_name);
+	} else {
+		_get(p_name, value);
+	}
 	return value;
 }
 

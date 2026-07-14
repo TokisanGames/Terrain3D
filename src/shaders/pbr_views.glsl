@@ -61,13 +61,13 @@ R"(
 //INSERT: OUTPUT_ROUGHNESS
 	ROUGHNESS = roughness;
 //INSERT: OUTPUT_SPECULAR
-	SPECULAR = 1. - roughness;
+	SPECULAR = specular;
 //INSERT: OUTPUT_SPECULAR_NONE
 	SPECULAR = 0.;
 //INSERT: OUTPUT_NORMAL_MAP
-	// Repack final normal map value.
-	NORMAL_MAP = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
-	NORMAL_MAP_DEPTH = mat.normal_map_depth * distant_normal_amplifier;
+	// Repack final normal map value
+	NORMAL_MAP = normal_map;
+	NORMAL_MAP_DEPTH = mat.normal_map_depth;
 //INSERT: OUTPUT_AMBIENT_OCCLUSION
 	AO = clamp(mat.ao, 0., 1.);
 	AO_LIGHT_AFFECT = mat.ao_affect;

@@ -69,7 +69,7 @@ private:
 	// Tracked Targets
 	TargetNode3D _clipmap_target;
 	TargetNode3D _collision_target;
-	TargetNode3D _ocean_light_target;
+	TargetNode3D _light_target;
 	TargetNode3D _camera; // Fallback target for clipmap and collision
 
 	// Terrain Mesh
@@ -188,8 +188,8 @@ public:
 	void set_collision_target(Node3D *p_node);
 	Node3D *get_collision_target() const { return _collision_target.ptr(); }
 	Vector3 get_collision_target_position() const;
-	void set_ocean_light_target(Node3D *p_node);
-	Node3D *get_ocean_light_target() const { return _ocean_light_target.ptr(); }
+	void set_light_target(Node3D *p_node);
+	Node3D *get_light_target() const { return _light_target.ptr(); }
 	void snap();
 
 	// Collision Aliases

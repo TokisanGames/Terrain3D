@@ -63,8 +63,8 @@ uniform float _subdiv = 1.;
 uniform float _vertex_spacing = 1.;
 uniform float _vertex_density = 1.;
 uniform vec3 _target_pos = vec3(0.,0.,0.);
-uniform vec3 _light_direction = vec3(-0.196, 0.980, 0);
-uniform vec3 _light_color : source_color = vec3(1.0, 1.0, .735);
+uniform vec3 _light_direction = vec3(0.0, 0.0, 0.0);
+uniform vec3 _light_color : source_color = vec3(1.0, 1.0, 1.0);
 group_uniforms;
 
 uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
