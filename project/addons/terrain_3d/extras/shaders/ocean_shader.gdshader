@@ -1,4 +1,4 @@
-﻿// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
+// Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 // This file is an example ocean shader. You should be able to use any ocean shader with slight modification
 // for the clipmap. See the note above vertex().
 

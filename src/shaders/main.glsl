@@ -42,7 +42,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 #endif
 
 // Private uniforms
-group_uniforms shader_uniforms;
+group_uniforms private;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform float _subdiv = 1.f;
@@ -77,7 +77,7 @@ uniform vec3 _light_color : source_color = vec3(1.0, 1.0, .735);
 group_uniforms;
 
 // Public uniforms
-group_uniforms shader_uniforms.general;
+group_uniforms general_uniforms;
 //INSERT: FLAT_UNIFORMS
 uniform bool flat_terrain_normals = false;
 uniform float distant_normal_scale : hint_range(1.0, 10.0, 0.1) = 2.0;
@@ -89,7 +89,7 @@ group_uniforms;
 //INSERT: DUAL_SCALING_UNIFORMS
 //INSERT: MACRO_VARIATION_UNIFORMS
 
-group_uniforms shader_uniforms.mipmaps;
+group_uniforms mipmaps;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
 uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
