@@ -70,6 +70,7 @@ varying vec2 world_noise_ddxy;
 // World Noise Functions Start
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
+// Intentionally and subtly different from get_region_blend()
 float get_noise_region_blend(vec2 uv2) {
 	uv2 -= 0.5011; // correct for floating point error
 	const vec2 offset = vec2(0.0, 1.0);
