@@ -80,6 +80,8 @@ Properties
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`label_size<class_Terrain3D_property_label_size>`                                         | ``48``          |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
+   | ``Node3D``                                                  | :ref:`light_target<class_Terrain3D_property_light_target>`                                     |                 |
+   +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DMaterial<class_Terrain3DMaterial>`           | :ref:`material<class_Terrain3D_property_material>`                                             |                 |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`mesh_lods<class_Terrain3D_property_mesh_lods>`                                           | ``7``           |
@@ -95,8 +97,6 @@ Properties
    | ``bool``                                                    | :ref:`ocean_enabled<class_Terrain3D_property_ocean_enabled>`                                   | ``false``       |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | GeometryInstance3D.GIMode                                   | :ref:`ocean_gi_mode<class_Terrain3D_property_ocean_gi_mode>`                                   | ``0``           |
-   +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
-   | ``Node3D``                                                  | :ref:`ocean_light_target<class_Terrain3D_property_ocean_light_target>`                         |                 |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``Material``                                                | :ref:`ocean_material<class_Terrain3D_property_ocean_material>`                                 |                 |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
@@ -777,7 +777,7 @@ Alias for :ref:`Terrain3DInstancer.mode<class_Terrain3DInstancer_property_mode>`
 - |void| **set_label_distance**\ (\ value\: ``float``\ )
 - ``float`` **get_label_distance**\ (\ )
 
-If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels.
+If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels. With the mouse in the viewport you can press the hotkey to toggle visibility (default `2`).
 
 .. rst-class:: classref-item-separator
 
@@ -795,6 +795,23 @@ If label_distance is non-zero (try 1024-4096) it will generate and display regio
 - ``int`` **get_label_size**\ (\ )
 
 Sets the font size for region labels. See :ref:`label_distance<class_Terrain3D_property_label_distance>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_light_target:
+
+.. rst-class:: classref-property
+
+``Node3D`` **light_target** :ref:`🔗<class_Terrain3D_property_light_target>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_light_target**\ (\ value\: ``Node3D``\ )
+- ``Node3D`` **get_light_target**\ (\ )
+
+This sets the _light_direction and _light_color uniforms in the terrain and ocean shaders, if they are present. You can use them for light scattering, detecting if the light is above the horizon or the terrain faces the sun, etc.
 
 .. rst-class:: classref-item-separator
 
@@ -937,23 +954,6 @@ GeometryInstance3D.GIMode **ocean_gi_mode** = ``0`` :ref:`🔗<class_Terrain3D_p
 - GeometryInstance3D.GIMode **get_ocean_gi_mode**\ (\ )
 
 Tells the renderer which global illumination mode to use for the ocean mesh. This sets ``GeometryInstance3D.gi_mode`` in the engine.
-
-.. rst-class:: classref-item-separator
-
-----
-
-.. _class_Terrain3D_property_ocean_light_target:
-
-.. rst-class:: classref-property
-
-``Node3D`` **ocean_light_target** :ref:`🔗<class_Terrain3D_property_ocean_light_target>`
-
-.. rst-class:: classref-property-setget
-
-- |void| **set_ocean_light_target**\ (\ value\: ``Node3D``\ )
-- ``Node3D`` **get_ocean_light_target**\ (\ )
-
-This sets the _light_direction and _light_color uniforms in the ocean shader, if they are present. You can use this for light scattering, detecting if the light is above the horizon, albedo coloring, etc.
 
 .. rst-class:: classref-item-separator
 
@@ -1205,7 +1205,7 @@ Alias for :ref:`Terrain3DMaterial.show_colormap<class_Terrain3DMaterial_property
 - |void| **set_show_contours**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_contours**\ (\ )
 
-Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
+Overlays contour lines on the terrain. Customize the options in the material when enabled. With the mouse in the viewport you can press the hotkey to toggle visibility (default `3`).
 
 Alias for :ref:`Terrain3DMaterial.show_contours<class_Terrain3DMaterial_property_show_contours>`.
 
@@ -1336,7 +1336,7 @@ Alias for :ref:`Terrain3DMaterial.show_grey<class_Terrain3DMaterial_property_sho
 - |void| **set_show_region_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_region_grid**\ (\ )
 
-Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`. Press `1` with the mouse in the viewport to toggle.
+Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`. With the mouse in the viewport you can press the hotkey to toggle visibility (default `1`).
 
 .. rst-class:: classref-item-separator
 
@@ -1372,7 +1372,7 @@ Alias for :ref:`Terrain3DMaterial.show_heightmap<class_Terrain3DMaterial_propert
 - |void| **set_show_instancer_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
-Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
+Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. With the mouse in the viewport you can press the hotkey to toggle visibility (default `4`).
 
 Alias for :ref:`Terrain3DMaterial.show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`.
 
@@ -1429,7 +1429,7 @@ Alias for :ref:`Terrain3DMaterial.show_navigation<class_Terrain3DMaterial_proper
 - |void| **set_show_region_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_region_grid**\ (\ )
 
-Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. Press `1` with the mouse in the viewport to toggle.
+Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. With the mouse in the viewport you can press the hotkey to toggle visibility (default `1`).
 
 Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_property_show_region_grid>`.
 
@@ -1562,7 +1562,7 @@ Alias for :ref:`Terrain3DMaterial.show_texture_rough<class_Terrain3DMaterial_pro
 - |void| **set_show_vertex_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_vertex_grid**\ (\ )
 
-Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
+Overlays the vertex grid on the terrain, showing where each vertex is. With the mouse in the viewport you can press the hotkey to toggle visibility (default `5`).
 
 Alias for :ref:`Terrain3DMaterial.show_vertex_grid<class_Terrain3DMaterial_property_show_vertex_grid>`.
 

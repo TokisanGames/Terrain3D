@@ -173,6 +173,10 @@ public partial class Terrain3D : Node3D
 		/// </summary>
 		public new static readonly StringName Instancer = "instancer";
 		/// <summary>
+		/// Cached name for the 'light_target' member.
+		/// </summary>
+		public new static readonly StringName LightTarget = "light_target";
+		/// <summary>
 		/// Cached name for the 'region_size' member.
 		/// </summary>
 		public new static readonly StringName RegionSize = "region_size";
@@ -317,10 +321,6 @@ public partial class Terrain3D : Node3D
 		/// </summary>
 		public new static readonly StringName OceanMaterial = "ocean_material";
 		/// <summary>
-		/// Cached name for the 'ocean_light_target' member.
-		/// </summary>
-		public new static readonly StringName OceanLightTarget = "ocean_light_target";
-		/// <summary>
 		/// Cached name for the 'mouse_layer' member.
 		/// </summary>
 		public new static readonly StringName MouseLayer = "mouse_layer";
@@ -464,6 +464,12 @@ public partial class Terrain3D : Node3D
 	public new Terrain3DInstancer Instancer
 	{
 		get => Terrain3DInstancer.Bind(Get(GDExtensionPropertyName.Instancer).As<GodotObject>());
+	}
+
+	public new Node3D LightTarget
+	{
+		get => Get(GDExtensionPropertyName.LightTarget).As<Node3D>();
+		set => Set(GDExtensionPropertyName.LightTarget, value);
 	}
 
 	public new Terrain3D.RegionSizeEnum RegionSize
@@ -680,12 +686,6 @@ public partial class Terrain3D : Node3D
 	{
 		get => Get(GDExtensionPropertyName.OceanMaterial).As<Material>();
 		set => Set(GDExtensionPropertyName.OceanMaterial, value);
-	}
-
-	public new Node3D OceanLightTarget
-	{
-		get => Get(GDExtensionPropertyName.OceanLightTarget).As<Node3D>();
-		set => Set(GDExtensionPropertyName.OceanLightTarget, value);
 	}
 
 	public new long MouseLayer

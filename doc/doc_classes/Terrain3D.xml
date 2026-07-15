@@ -217,10 +217,13 @@
 			Alias for [member Terrain3DInstancer.mode].
 		</member>
 		<member name="label_distance" type="float" setter="set_label_distance" getter="get_label_distance" default="0.0">
-			If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels.
+			If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels. With the mouse in the viewport you can press the hotkey to toggle visibility (default `2`).
 		</member>
 		<member name="label_size" type="int" setter="set_label_size" getter="get_label_size" default="48">
 			Sets the font size for region labels. See [member label_distance].
+		</member>
+		<member name="light_target" type="Node3D" setter="set_light_target" getter="get_light_target">
+			This sets the _light_direction and _light_color uniforms in the terrain and ocean shaders, if they are present. You can use them for light scattering, detecting if the light is above the horizon or the terrain faces the sun, etc.
 		</member>
 		<member name="material" type="Terrain3DMaterial" setter="set_material" getter="get_material">
 			A custom material for Terrain3D. You can optionally save this as an external [code skip-lint].tres[/code] text file if you wish to share it with instances of Terrain3D in other scenes. See [Terrain3DMaterial].
@@ -248,9 +251,6 @@
 		</member>
 		<member name="ocean_gi_mode" type="int" setter="set_ocean_gi_mode" getter="get_ocean_gi_mode" enum="GeometryInstance3D.GIMode" default="0">
 			Tells the renderer which global illumination mode to use for the ocean mesh. This sets [code skip-lint]GeometryInstance3D.gi_mode[/code] in the engine.
-		</member>
-		<member name="ocean_light_target" type="Node3D" setter="set_ocean_light_target" getter="get_ocean_light_target">
-			This sets the _light_direction and _light_color uniforms in the ocean shader, if they are present. You can use this for light scattering, detecting if the light is above the horizon, albedo coloring, etc.
 		</member>
 		<member name="ocean_material" type="Material" setter="set_ocean_material" getter="get_ocean_material">
 			You can assign a [code skip-lint]StandardMaterial[/code] here for testing, but you really need a [code skip-lint]ShaderMaterial[/code]. Start with the example in [code skip-lint]addons/terrain_3d/extras/shaders/M_ocean.tres[/code], which you can build on. Or use any of the ocean shaders available around the internet, provided you set `skip_vertex_transform` and copy the geomorphing code from our `vertex()` shader, which will properly handle the LOD transitions on the clipmap.
@@ -299,7 +299,7 @@
 			Alias for [member Terrain3DMaterial.show_colormap].
 		</member>
 		<member name="show_contours" type="bool" setter="set_show_contours" getter="get_show_contours" default="false">
-			Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
+			Overlays contour lines on the terrain. Customize the options in the material when enabled. With the mouse in the viewport you can press the hotkey to toggle visibility (default `3`).
 			Alias for [member Terrain3DMaterial.show_contours].
 		</member>
 		<member name="show_control_angle" type="bool" setter="set_show_control_angle" getter="get_show_control_angle" default="false">
@@ -326,14 +326,14 @@
 			Alias for [member Terrain3DMaterial.show_grey].
 		</member>
 		<member name="show_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
-			Alias for [member Terrain3DMaterial.show_region_grid]. Press `1` with the mouse in the viewport to toggle.
+			Alias for [member Terrain3DMaterial.show_region_grid]. With the mouse in the viewport you can press the hotkey to toggle visibility (default `1`).
 		</member>
 		<member name="show_heightmap" type="bool" setter="set_show_heightmap" getter="get_show_heightmap" default="false">
 			Albedo is a white to black gradient depending on height. The gradient is scaled to a height of 300, so above that or far below 0 will be all white or black.
 			Alias for [member Terrain3DMaterial.show_heightmap].
 		</member>
 		<member name="show_instancer_grid" type="bool" setter="set_show_instancer_grid" getter="get_show_instancer_grid" default="false">
-			Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
+			Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. With the mouse in the viewport you can press the hotkey to toggle visibility (default `4`).
 			Alias for [member Terrain3DMaterial.show_instancer_grid].
 		</member>
 		<member name="show_jaggedness" type="bool" setter="set_show_jaggedness" getter="get_show_jaggedness" default="false">
@@ -345,7 +345,7 @@
 			Alias for [member Terrain3DMaterial.show_navigation].
 		</member>
 		<member name="show_region_grid" type="bool" setter="set_show_region_grid" getter="get_show_region_grid" default="false">
-			Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. Press `1` with the mouse in the viewport to toggle.
+			Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. With the mouse in the viewport you can press the hotkey to toggle visibility (default `1`).
 			Alias for [member Terrain3DMaterial.show_region_grid].
 		</member>
 		<member name="show_roughmap" type="bool" setter="set_show_roughmap" getter="get_show_roughmap" default="false">
@@ -373,7 +373,7 @@
 			Alias for [member Terrain3DMaterial.show_texture_rough].
 		</member>
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
-			Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
+			Overlays the vertex grid on the terrain, showing where each vertex is. With the mouse in the viewport you can press the hotkey to toggle visibility (default `5`).
 			Alias for [member Terrain3DMaterial.show_vertex_grid].
 		</member>
 		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="0">
