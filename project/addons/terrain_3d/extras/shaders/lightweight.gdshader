@@ -142,15 +142,17 @@ float check_region(const vec2 uv2) {
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
 float get_region_blend(vec2 uv2) {
-	uv2 -= 0.5;
+	uv2 -= 0.5011; // correct for floating point error
 	const vec2 offset = vec2(0.0, 1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
 	float c = check_region(uv2 + offset.yx);
 	float d = check_region(uv2 + offset.xx);
-	vec2 w = smoothstep(vec2(0.0), vec2(1.0), fract(uv2));
+	vec2 blend_factor = vec2(2.0 + 126.0 * (1.0 - region_blend));
+	vec2 f = fract(uv2);
+	vec2 w = 1.0 / (1.0 + exp(blend_factor * log((1.0 - f) / f)));
 	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
-    return 1.0 - blend;
+	return (1.0 - blend) * 2.0;
 }
 
 float interpolated_height(vec2 pos) {
@@ -238,9 +240,9 @@ void vertex() {
 
 		// Apply background ground level and region blend
 		vec2 ruv = UV * _region_texel_size;
-		h += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv));
-		u += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(_region_texel_size, 0.)));
-		v += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(0., _region_texel_size)));
+		h = mix(h, ground_level, smoothstep(0.0, 1.0, get_region_blend(ruv)));
+		u = mix(u, ground_level, smoothstep(0.0, 1.0, get_region_blend(ruv + vec2(_region_texel_size, 0.0))));
+		v = mix(v, ground_level, smoothstep(0.0, 1.0, get_region_blend(ruv + vec2(0.0, _region_texel_size))));
 
 		v_vertex.y = h;
 		v_normal = normalize(vec3(h - u, _vertex_spacing, h - v));
