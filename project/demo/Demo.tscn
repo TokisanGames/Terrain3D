@@ -25,10 +25,11 @@ transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 22
 [node name="Terrain3DParticles" parent="." node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
 terrain = NodePath("../Terrain3D")
 
-[node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("collision_target", "clipmap_target", "ocean_light_target")]
+[node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("light_target", "collision_target", "clipmap_target")]
 data_directory = "res://demo/data"
 material = ExtResource("5_fwrtk")
 assets = ExtResource("8_g2of2")
+light_target = NodePath("../Environment/DirectionalLight3D")
 collision_target = NodePath("../Player")
 collision_mask = 3
 clipmap_target = NodePath("../Player")
@@ -37,7 +38,6 @@ mesh_size = 96
 cull_margin = 450.0
 ocean_enabled = true
 ocean_material = ExtResource("7_fwrtk")
-ocean_light_target = NodePath("../Environment/DirectionalLight3D")
 top_level = true
 metadata/_edit_lock_ = true
 

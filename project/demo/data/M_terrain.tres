@@ -31,6 +31,7 @@ _shader_parameters = {
 "bias_distance": 512.0,
 "blend_sharpness": 0.5,
 "depth_blur": 0.0,
+&"distant_normal_scale": 2.0,
 "dual_scale_far": 170.0,
 "dual_scale_near": 100.0,
 "dual_scale_reduction": 0.3,
