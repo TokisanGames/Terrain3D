@@ -5,8 +5,9 @@
 
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
-#include <unordered_map>
-#include <unordered_set>
+#include <godot_cpp/templates/hash_map.hpp>
+#include <godot_cpp/templates/hash_set.hpp>
+#include <godot_cpp/templates/pair.hpp>
 
 #include "constants.h"
 #include "terrain_3d_region.h"
@@ -37,16 +38,16 @@ private:
 	// A pair of MMI and MM RIDs, freed in destructor, stored as
 	// _mmi_rids{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> std::pair<mmi_RID, mm_RID>
 
-	using CellMMIDict = std::unordered_map<Vector2i, std::pair<RID, RID>, Vector2iHash>;
-	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
-	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_rids;
+	using CellMMIDict = HashMap<Vector2i, Pair<RID, RID>>;
+	using MeshMMIDict = HashMap<Vector2i, CellMMIDict>;
+	HashMap<Vector2i, MeshMMIDict> _mmi_rids;
 
 	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
 	// <V2I_MAX, -2> means destroy first, then update everything
 	// <V2I_MAX, -1> means update everything
 	// <reg_loc, -1> means update all meshes in that region
 	// <V2I_MAX, N> means update mesh ID N in all regions
-	using V2IIntPair = std::unordered_set<std::pair<Vector2i, int>, PairVector2iIntHash>;
+	using V2IIntPair = HashSet<Pair<Vector2i, int>>;
 	V2IIntPair _queued_updates;
 
 	InstancerMode _mode = NORMAL;
