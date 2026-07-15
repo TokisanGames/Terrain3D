@@ -123,6 +123,10 @@ public partial class Terrain3DMaterial : Resource
 		/// </summary>
 		public new static readonly StringName OutputRoughness = "output_roughness";
 		/// <summary>
+		/// Cached name for the 'output_specular' member.
+		/// </summary>
+		public new static readonly StringName OutputSpecular = "output_specular";
+		/// <summary>
 		/// Cached name for the 'output_normal_map' member.
 		/// </summary>
 		public new static readonly StringName OutputNormalMap = "output_normal_map";
@@ -290,6 +294,12 @@ public partial class Terrain3DMaterial : Resource
 	{
 		get => Get(GDExtensionPropertyName.OutputRoughness).As<bool>();
 		set => Set(GDExtensionPropertyName.OutputRoughness, value);
+	}
+
+	public new bool OutputSpecular
+	{
+		get => Get(GDExtensionPropertyName.OutputSpecular).As<bool>();
+		set => Set(GDExtensionPropertyName.OutputSpecular, value);
 	}
 
 	public new bool OutputNormalMap
