@@ -40,7 +40,6 @@ _shader_parameters = {
 "dual_scale_texture": 0,
 &"dual_scaling": null,
 "flat_terrain_normals": false,
-&"general": null,
 &"general_uniforms": null,
 "ground_level": -199.999962,
 &"macro_variation": null,

@@ -298,6 +298,9 @@
     <None Include="doc\docs\contributing.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="src\shaders\max_regions.glsl">
+      <Filter>4. Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
