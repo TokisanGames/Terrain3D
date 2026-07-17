@@ -1020,17 +1020,15 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
  * r16 can be edited by Krita, however you must know the dimensions and min/max before reimporting
  * res/tres stores in Godot's native format.
  */
-Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map_type) const {
+Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map_type, const ExportMode p_mode) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Invalid map type specified: ", p_map_type, " max: ", TYPE_MAX - 1);
 		return FAILED;
 	}
-
 	if (p_file_name.is_empty()) {
 		LOG(ERROR, "No file specified. Nothing to export");
 		return FAILED;
 	}
-
 	if (get_region_count() == 0) {
 		LOG(ERROR, "No valid regions. Nothing to export");
 		return FAILED;
@@ -1047,7 +1045,7 @@ Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map
 		}
 	}
 
-	// Update path delimeter
+	// Update path delimiter
 	String file_name = p_file_name.replace("\\", "/");
 
 	// Check if p_file_name has a path and prepend "res://" if not
@@ -1071,48 +1069,148 @@ Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map
 	}
 	file_ref->close();
 
-	// Filename is validated. Begin export image generation
-	Ref<Image> img = layered_to_image(p_map_type);
-	if (img.is_null() || img->is_empty()) {
-		LOG(ERROR, "Cannot create an export image for map type: ", TYPESTR[p_map_type]);
+	String base_path = file_name.get_basename();
+	String ext = file_name.get_extension().to_lower();
+
+	// Validate extension
+	if (ext != "r16" && ext != "raw" && ext != "exr" && ext != "png" &&
+			ext != "jpg" && ext != "webp" && ext != "res" && ext != "tres") {
+		LOG(ERROR, "No recognized file type. See docs for valid extensions");
 		return FAILED;
 	}
 
-	String ext = file_name.get_extension().to_lower();
-	LOG(MESG, "Saving ", img->get_size(), " sized ", TYPESTR[p_map_type],
-			" map in format ", img->get_format(), " as ", ext, " to: ", file_name);
-	Vector2i minmax = Util::get_min_max(img);
-	LOG(MESG, "Minimum height: ", minmax.x, ", Maximum height: ", minmax.y);
-	if (ext == "r16" || ext == "raw") {
-		Ref<FileAccess> file = FileAccess::open(file_name, FileAccess::WRITE);
+	// Calculate terrain extents
+	Vector2i top_left = V2I_ZERO;
+	Vector2i bottom_right = V2I_ZERO;
+	for (const Vector2i &region_loc : _region_locations) {
+		if (region_loc.x < top_left.x) {
+			top_left.x = region_loc.x;
+		} else if (region_loc.x > bottom_right.x) {
+			bottom_right.x = region_loc.x;
+		}
+		if (region_loc.y < top_left.y) {
+			top_left.y = region_loc.y;
+		} else if (region_loc.y > bottom_right.y) {
+			bottom_right.y = region_loc.y;
+		}
+	}
+	Vector2i terrain_origin = top_left * _region_size;
+	Vector2i terrain_size = Vector2i(1 + bottom_right.x - top_left.x, 1 + bottom_right.y - top_left.y) * _region_size;
+
+	LOG(MESG, "=== Terrain3D Export ===");
+	LOG(MESG, "Map type: ", TYPESTR[p_map_type]);
+	LOG(MESG, "Regions: ", top_left, " to ", bottom_right);
+	LOG(MESG, "Total size: ", terrain_size, " px");
+	LOG(MESG, "Origin: ", terrain_origin, " px, ", Vector2(terrain_origin) * _vertex_spacing, " world");
+
+	int files_exported = 0;
+	Error last_error = OK;
+
+	if (p_mode == EXPORT_PER_REGION) {
+		LOG(MESG, "Mode: Per-Region (", _region_locations.size(), " regions)");
+		LOG(MESG, "");
+
+		for (const Vector2i &region_loc : _region_locations) {
+			const Terrain3DRegion *region = get_region_ptr(region_loc);
+			if (!region || region->is_deleted()) {
+				continue;
+			}
+
+			String path = base_path + Util::location_to_string(region_loc) + "." + ext;
+			Ref<Image> img = region->get_map(p_map_type);
+			if (img.is_null() || img->is_empty()) {
+				continue;
+			}
+
+			Vector2i pos_px = region_loc * _region_size;
+			LOG(MESG, "Exporting: ", path);
+			LOG(MESG, "  Size: ", img->get_size(), " px");
+			LOG(MESG, "  Position: ", pos_px, " px, ", Vector2(pos_px) * _vertex_spacing, " world");
+
+			Error err = _save_export_image(img, path, ext, p_map_type);
+			if (err != OK) {
+				last_error = err;
+			} else {
+				files_exported++;
+			}
+		}
+	} else { // EXPORT_SLICED
+		const int MAX_SIZE = 16384;
+		int chunks_x = (terrain_size.x + MAX_SIZE - 1) / MAX_SIZE;
+		int chunks_y = (terrain_size.y + MAX_SIZE - 1) / MAX_SIZE;
+
+		LOG(MESG, "Mode: Sliced (", chunks_x, " x ", chunks_y, " chunks, max ", MAX_SIZE, " px)");
+		LOG(MESG, "");
+
+		for (int cy = 0; cy < chunks_y; cy++) {
+			for (int cx = 0; cx < chunks_x; cx++) {
+				Vector2i chunk_origin = terrain_origin + Vector2i(cx * MAX_SIZE, cy * MAX_SIZE);
+				Vector2i chunk_size;
+				chunk_size.x = MIN(MAX_SIZE, terrain_origin.x + terrain_size.x - chunk_origin.x);
+				chunk_size.y = MIN(MAX_SIZE, terrain_origin.y + terrain_size.y - chunk_origin.y);
+
+				Ref<Image> img = layered_to_image(p_map_type, Rect2i(chunk_origin, chunk_size));
+				if (img.is_null() || img->is_empty()) {
+					continue;
+				}
+
+				String suffix = (chunks_x == 1 && chunks_y == 1) ? "" : vformat("_%02d_%02d", cx, cy);
+				String path = base_path + suffix + "." + ext;
+
+				LOG(MESG, "Exporting: ", path);
+				LOG(MESG, "  Size: ", img->get_size(), " px");
+				LOG(MESG, "  Position: ", chunk_origin, " px, ", Vector2(chunk_origin) * _vertex_spacing, " world");
+
+				Error err = _save_export_image(img, path, ext, p_map_type);
+				if (err != OK) {
+					last_error = err;
+				} else {
+					files_exported++;
+				}
+			}
+		}
+	}
+
+	LOG(MESG, "");
+	LOG(MESG, "=== Export complete: ", files_exported, " file(s) ===");
+	return last_error;
+}
+
+Error Terrain3DData::_save_export_image(const Ref<Image> &p_img, const String &p_path,
+		const String &p_ext, const MapType p_map_type) const {
+	if (p_ext == "r16" || p_ext == "raw") {
+		Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE);
+		if (file.is_null()) {
+			return ERR_CANT_OPEN;
+		}
+		Vector2 minmax = Util::get_min_max(p_img);
 		real_t height_min = minmax.x;
 		real_t height_max = minmax.y;
 		real_t hscale = 65535.0 / (height_max - height_min);
-		for (int y = 0; y < img->get_height(); y++) {
-			for (int x = 0; x < img->get_width(); x++) {
-				int h = int((img->get_pixel(x, y).r - height_min) * hscale);
+		for (int y = 0; y < p_img->get_height(); y++) {
+			for (int x = 0; x < p_img->get_width(); x++) {
+				int h = int((p_img->get_pixel(x, y).r - height_min) * hscale);
 				h = CLAMP(h, 0, 65535);
 				file->store_16(h);
 			}
 		}
+		LOG(MESG, "  Height range: ", height_min, " to ", height_max);
 		return file->get_error();
-	} else if (ext == "exr") {
-		return img->save_exr(file_name, (p_map_type == TYPE_HEIGHT) ? true : false);
-	} else if (ext == "png") {
-		return img->save_png(file_name);
-	} else if (ext == "jpg") {
-		return img->save_jpg(file_name);
-	} else if (ext == "webp") {
-		return img->save_webp(file_name);
-	} else if ((ext == "res") || (ext == "tres")) {
-		return ResourceSaver::get_singleton()->save(img, file_name, ResourceSaver::FLAG_COMPRESS);
+	} else if (p_ext == "exr") {
+		return p_img->save_exr(p_path, (p_map_type == TYPE_HEIGHT));
+	} else if (p_ext == "png") {
+		return p_img->save_png(p_path);
+	} else if (p_ext == "jpg") {
+		return p_img->save_jpg(p_path);
+	} else if (p_ext == "webp") {
+		return p_img->save_webp(p_path);
+	} else if (p_ext == "res" || p_ext == "tres") {
+		return ResourceSaver::get_singleton()->save(p_img, p_path, ResourceSaver::FLAG_COMPRESS);
 	}
-
-	LOG(ERROR, "No recognized file type. See docs for valid extensions");
-	return FAILED;
+	return ERR_FILE_UNRECOGNIZED;
 }
 
-Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
+Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type, const Rect2i &p_bounds) const {
 	LOG(INFO, "Generating a full sized image for all regions including empty regions");
 	MapType map_type = p_map_type;
 	if (map_type >= TYPE_MAX) {
@@ -1135,17 +1233,33 @@ Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type) const {
 	}
 
 	LOG(DEBUG, "Full range to cover all regions: ", top_left, " to ", bottom_right);
-	Vector2i img_size = Vector2i(1 + bottom_right.x - top_left.x, 1 + bottom_right.y - top_left.y) * _region_size;
-	LOG(DEBUG, "Image size: ", img_size);
-	Ref<Image> img = Util::get_filled_image(img_size, COLOR[map_type], false, FORMAT[map_type]);
+	Vector2i terrain_origin = top_left * _region_size;
+	Vector2i terrain_size = Vector2i(1 + bottom_right.x - top_left.x, 1 + bottom_right.y - top_left.y) * _region_size;
+	Rect2i terrain_rect(terrain_origin, terrain_size);
+
+	Rect2i export_rect = p_bounds.has_area() ? p_bounds.intersection(terrain_rect) : terrain_rect;
+	if (!export_rect.has_area()) {
+		LOG(ERROR, "Export bounds don't intersect terrain");
+		return Ref<Image>();
+	}
+
+	LOG(DEBUG, "Export rect: ", export_rect);
+	Ref<Image> img = Util::get_filled_image(export_rect.size, COLOR[map_type], false, FORMAT[map_type]);
 
 	for (const Vector2i &region_loc : _region_locations) {
-		Vector2i img_location = (region_loc - top_left) * _region_size;
-		LOG(DEBUG, "Region to blit: ", region_loc, " Export image coords: ", img_location);
 		const Terrain3DRegion *region = get_region_ptr(region_loc);
-		if (region) {
-			img->blit_rect(region->get_map(map_type), Rect2i(V2I_ZERO, _region_sizev), img_location);
+		if (!region) {
+			continue;
 		}
+		Rect2i region_rect(region_loc * _region_size, _region_sizev);
+		Rect2i overlap = region_rect.intersection(export_rect);
+		if (!overlap.has_area()) {
+			continue;
+		}
+		Rect2i src_rect(overlap.position - region_rect.position, overlap.size);
+		Vector2i dst_pos = overlap.position - export_rect.position;
+		LOG(DEBUG, "Region ", region_loc, ": src=", src_rect, " dst=", dst_pos);
+		img->blit_rect(region->get_map(map_type), src_rect, dst_pos);
 	}
 	return img;
 }
@@ -1184,6 +1298,9 @@ void Terrain3DData::dump(const bool verbose) const {
 void Terrain3DData::_bind_methods() {
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_NEAREST);
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_MINIMUM);
+
+	BIND_ENUM_CONSTANT(EXPORT_SLICED);
+	BIND_ENUM_CONSTANT(EXPORT_PER_REGION);
 
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
@@ -1270,8 +1387,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("calc_height_range", "recursive"), &Terrain3DData::calc_height_range, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DData::import_images, DEFVAL(V3_ZERO), DEFVAL(0.f), DEFVAL(1.f));
-	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3DData::export_image);
-	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type"), &Terrain3DData::layered_to_image);
+	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type", "mode"), &Terrain3DData::export_image, DEFVAL(TYPE_HEIGHT), DEFVAL(EXPORT_SLICED));
+	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type", "bounds"), &Terrain3DData::layered_to_image, DEFVAL(Rect2i()));
 	ClassDB::bind_method(D_METHOD("dump", "verbose"), &Terrain3DData::dump, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
