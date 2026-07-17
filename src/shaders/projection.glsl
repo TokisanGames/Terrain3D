@@ -3,7 +3,7 @@
 R"(
 
 //INSERT: PROJECTION
-if (i_normal.y <= 0.7071067811865475) { // sqrt(0.5)
+	if (i_normal.y <= 0.7071067811865475) { // sqrt(0.5)
 		// Projected normal map alignment matrix
 		p_align = mat2(vec2(i_normal.z, -i_normal.x), vec2(i_normal.x, i_normal.z));
 		// Fast 45 degree snapping https://iquilezles.org/articles/noatan/

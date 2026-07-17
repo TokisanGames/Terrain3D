@@ -52,6 +52,8 @@ Properties
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`macro_variation_enabled<class_Terrain3DMaterial_property_macro_variation_enabled>`               | ``false`` |
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>`       | :ref:`max_regions<class_Terrain3DMaterial_property_max_regions>`                                       | ``1024``  |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`output_albedo<class_Terrain3DMaterial_property_output_albedo>`                                   | ``true``  |
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`output_ambient_occlusion<class_Terrain3DMaterial_property_output_ambient_occlusion>`             | ``true``  |
@@ -181,6 +183,56 @@ Outside of the defined regions, show a flat terrain.
 :ref:`WorldBackground<enum_Terrain3DMaterial_WorldBackground>` **NOISE** = ``2``
 
 Outside of the defined regions, generate visual-only hills.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _enum_Terrain3DMaterial_RegionMaximum:
+
+.. rst-class:: classref-enumeration
+
+enum **RegionMaximum**: :ref:`🔗<enum_Terrain3DMaterial_RegionMaximum>`
+
+.. _class_Terrain3DMaterial_constant_MAX_REGIONS_64:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_64** = ``64``
+
+Renders the first 64 textures that are loaded.
+
+.. _class_Terrain3DMaterial_constant_MAX_REGIONS_128:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_128** = ``128``
+
+Renders the first 128 textures that are loaded.
+
+.. _class_Terrain3DMaterial_constant_MAX_REGIONS_256:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_256** = ``256``
+
+Renders the first 256 textures that are loaded.
+
+.. _class_Terrain3DMaterial_constant_MAX_REGIONS_512:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_512** = ``512``
+
+Renders the first 512 textures that are loaded.
+
+.. _class_Terrain3DMaterial_constant_MAX_REGIONS_1024:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_1024** = ``1024``
+
+Renders the first 1024 textures that are loaded.
 
 .. rst-class:: classref-item-separator
 
@@ -409,6 +461,23 @@ Enables selecting one texture ID that will have multiple scales applied based up
 - ``bool`` **get_macro_variation_enabled**\ (\ )
 
 Allows you to add a couple of noise patterns at different scales and colors to add variation to your terrain to avoid tiled textures.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_max_regions:
+
+.. rst-class:: classref-property
+
+:ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **max_regions** = ``1024`` :ref:`🔗<class_Terrain3DMaterial_property_max_regions>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_max_regions**\ (\ value\: :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>`\ )
+- :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **get_max_regions**\ (\ )
+
+Limits the number of regions that are rendered. Does not reduce VRAM. Regions loaded beyond this number are still present in memory and on disk, they just don't render. This is used to reduce uniform buffer consumption on mobiles. Set to the minimum you need for mobiles (e.g. 64-256) and test a variety of devices to ensure your target audience can render textures. It renders the first X number of regions that are loaded. Region order is not stable.
 
 .. rst-class:: classref-item-separator
 
