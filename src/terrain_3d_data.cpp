@@ -722,7 +722,7 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 		slope_normal.normalize();
 	}
 
-	const real_t slope_angle = Math::acos(slope_normal.dot(V3_UP));
+	const real_t slope_angle = slope_normal.angle_to(V3_UP);
 	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
 	return (slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y);
 }
