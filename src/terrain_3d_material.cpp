@@ -21,38 +21,41 @@
 void Terrain3DMaterial::_preload_shaders() {
 	// Preprocessor loading of external shader inserts
 	_parse_shader(
-#include "shaders/samplers.glsl"
-			, "samplers");
+#include "shaders/auto_shader.glsl"
+			, "auto_shader");
 	_parse_shader(
 #include "shaders/backgrounds.glsl"
 			, "backgrounds");
 	_parse_shader(
-#include "shaders/auto_shader.glsl"
-			, "auto_shader");
-	_parse_shader(
-#include "shaders/dual_scaling.glsl"
-			, "dual_scaling");
-	_parse_shader(
-#include "shaders/overlays.glsl"
-			, "overlays");
-	_parse_shader(
-#include "shaders/displacement.glsl"
-			, "displacement");
-	_parse_shader(
-#include "shaders/macro_variation.glsl"
-			, "macro_variation");
-	_parse_shader(
-#include "shaders/projection.glsl"
-			, "projection");
+#include "shaders/editor_functions.glsl"
+			, "editor_functions");
 	_parse_shader(
 #include "shaders/debug_views.glsl"
 			, "debug_views");
 	_parse_shader(
+#include "shaders/displacement.glsl"
+			, "displacement");
+	_parse_shader(
+#include "shaders/dual_scaling.glsl"
+			, "dual_scaling");
+	_parse_shader(
+#include "shaders/macro_variation.glsl"
+			, "macro_variation");
+	_parse_shader(
+#include "shaders/max_regions.glsl"
+			, "macro_variation");
+	_parse_shader(
+#include "shaders/overlays.glsl"
+			, "overlays");
+	_parse_shader(
 #include "shaders/pbr_views.glsl"
 			, "pbr_views");
 	_parse_shader(
-#include "shaders/editor_functions.glsl"
-			, "editor_functions");
+#include "shaders/projection.glsl"
+			, "projection");
+	_parse_shader(
+#include "shaders/samplers.glsl"
+			, "samplers");
 
 	// Load main code
 	_shader_code["main"] = String(
@@ -139,6 +142,38 @@ String Terrain3DMaterial::_apply_inserts(const String &p_shader, const Array &p_
 String Terrain3DMaterial::_generate_shader_code() const {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
+	switch (_max_regions) {
+		case MAX_REGIONS_64:
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_512");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_128:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_512");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_256:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_512");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_512:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_1024:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_512");
+			break;
+	}
 	if (_world_background != NONE) {
 		excludes.push_back("NONE_FUNCTIONS");
 		excludes.push_back("NONE_CHECK");
@@ -316,6 +351,38 @@ String Terrain3DMaterial::_strip_comments(const String &p_shader) const {
 String Terrain3DMaterial::_generate_buffer_shader_code() const {
 	LOG(INFO, "Generating default displacement buffer shader code");
 	Array excludes;
+	switch (_max_regions) {
+		case MAX_REGIONS_64:
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_512");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_128:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_512");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_256:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_512");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_512:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_1024");
+			break;
+		case MAX_REGIONS_1024:
+			excludes.push_back("MAX_REGIONS_64");
+			excludes.push_back("MAX_REGIONS_128");
+			excludes.push_back("MAX_REGIONS_256");
+			excludes.push_back("MAX_REGIONS_512");
+			break;
+	}
 	if (_world_background != NONE) {
 		excludes.push_back("NONE_FUNCTIONS");
 		excludes.push_back("NONE_CHECK");
@@ -652,8 +719,12 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material, const uint32_t p
 	}
 
 	TypedArray<Vector2i> region_locations = data->get_region_locations();
-	LOG(EXTREME, "Region_locations size: ", region_locations.size(), " ", region_locations);
-	RS->material_set_param(p_material, "_region_locations", region_locations);
+	PackedVector2Array padded_locations;
+	padded_locations.resize(_max_regions);
+	for (int i = 0; i < MIN(region_locations.size(), _max_regions); ++i) {
+		padded_locations[i] = region_locations[i];
+	}
+	RS->material_set_param(p_material, "_region_locations", padded_locations);
 
 	real_t region_size = real_t(_terrain->get_region_size());
 	LOG(EXTREME, "Setting region size in material: ", region_size);
@@ -804,13 +875,13 @@ void Terrain3DMaterial::update(uint32_t p_flags) {
 
 void Terrain3DMaterial::set_displacement_scale(const real_t p_displacement_scale) {
 	SET_IF_DIFF(_displacement_scale, CLAMP(p_displacement_scale, 0.f, 2.f));
-	LOG(INFO, "Setting displacement scale: ", p_displacement_scale);
+	LOG(INFO, "Setting displacement scale: ", _displacement_scale);
 	update();
 }
 
 void Terrain3DMaterial::set_displacement_sharpness(const real_t p_displacement_sharpness) {
 	SET_IF_DIFF(_displacement_sharpness, CLAMP(p_displacement_sharpness, 0.f, 1.f));
-	LOG(INFO, "Setting displacement sharpness: ", p_displacement_sharpness);
+	LOG(INFO, "Setting displacement sharpness: ", _displacement_sharpness);
 	update();
 	if (_terrain) {
 		_terrain->snap();
@@ -819,43 +890,49 @@ void Terrain3DMaterial::set_displacement_sharpness(const real_t p_displacement_s
 
 void Terrain3DMaterial::set_world_background(const WorldBackground p_background) {
 	SET_IF_DIFF(_world_background, p_background);
-	LOG(INFO, "Enable world background: ", p_background);
+	LOG(INFO, "Enable world background: ", _world_background);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_texture_filtering(const TextureFiltering p_filtering) {
 	SET_IF_DIFF(_texture_filtering, p_filtering);
-	LOG(INFO, "Setting texture filtering: ", p_filtering);
+	LOG(INFO, "Setting texture filtering: ", _texture_filtering);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_auto_shader_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_auto_shader_enabled, p_enabled);
-	LOG(INFO, "Enable auto shader: ", p_enabled);
+	LOG(INFO, "Enable auto shader: ", _auto_shader_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_dual_scaling_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_dual_scaling_enabled, p_enabled);
-	LOG(INFO, "Enable dual scaling: ", p_enabled);
+	LOG(INFO, "Enable dual scaling: ", _dual_scaling_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_macro_variation_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_macro_variation_enabled, p_enabled);
-	LOG(INFO, "Enable macro variation: ", p_enabled);
+	LOG(INFO, "Enable macro variation: ", _macro_variation_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_projection_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_projection_enabled, p_enabled);
-	LOG(INFO, "Enable projection: ", p_enabled);
+	LOG(INFO, "Enable projection: ", _projection_enabled);
+	_update_shader();
+}
+
+void Terrain3DMaterial::set_max_regions(const RegionMaximum p_max) {
+	SET_IF_DIFF(_max_regions, RegionMaximum(CLAMP(closest_power_of_2(p_max), 64, 1024)));
+	LOG(INFO, "Set max region count: ", _max_regions);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_shader_override_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_shader_override_enabled, p_enabled);
-	LOG(INFO, "Enable shader override: ", p_enabled);
+	LOG(INFO, "Enable shader override: ", _shader_override_enabled);
 	if (_shader_override_enabled && _shader_override.is_null()) {
 		LOG(DEBUG, "Instantiating new _shader_override");
 		_shader_override.instantiate();
@@ -871,7 +948,7 @@ void Terrain3DMaterial::set_shader_override(const Ref<Shader> &p_shader) {
 
 void Terrain3DMaterial::set_buffer_shader_override_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_buffer_shader_override_enabled, p_enabled);
-	LOG(INFO, "Enable shader override: ", p_enabled);
+	LOG(INFO, "Enable shader override: ", _buffer_shader_override_enabled);
 	if (_buffer_shader_override_enabled && _buffer_shader_override.is_null()) {
 		LOG(DEBUG, "Instantiating new _shader_override");
 		_buffer_shader_override.instantiate();
@@ -886,7 +963,7 @@ void Terrain3DMaterial::set_buffer_shader_override(const Ref<Shader> &p_shader) 
 }
 
 void Terrain3DMaterial::set_shader_param(const StringName &p_name, const Variant &p_value) {
-	LOG(INFO, "Setting shader parameter: ", p_name);
+	LOG(INFO, "Setting shader parameter: ", p_name, " = ", p_value);
 	if (p_name.begins_with("_") && _material.is_valid()) {
 		RS->material_set_param(_material, p_name, p_value);
 	} else {
@@ -907,162 +984,162 @@ Variant Terrain3DMaterial::get_shader_param(const StringName &p_name) const {
 
 void Terrain3DMaterial::set_output_albedo_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_output_albedo_enabled, p_enabled);
-	LOG(INFO, "Enable PBR output albedo: ", p_enabled);
+	LOG(INFO, "Enable PBR output albedo: ", _output_albedo_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_output_roughness_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_output_roughness_enabled, p_enabled);
-	LOG(INFO, "Enable PBR output roughness: ", p_enabled);
+	LOG(INFO, "Enable PBR output roughness: ", _output_roughness_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_output_specular_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_output_specular_enabled, p_enabled);
-	LOG(INFO, "Enable PBR output specular: ", p_enabled);
+	LOG(INFO, "Enable PBR output specular: ", _output_specular_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_output_normal_map_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_output_normal_map_enabled, p_enabled);
-	LOG(INFO, "Enable PBR output normal map: ", p_enabled);
+	LOG(INFO, "Enable PBR output normal map: ", _output_normal_map_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_output_ambient_occlusion_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_output_ambient_occlusion_enabled, p_enabled);
-	LOG(INFO, "Enable PBR output ambient occlusion: ", p_enabled);
+	LOG(INFO, "Enable PBR output ambient occlusion: ", _output_ambient_occlusion_enabled);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_region_grid(const bool p_enabled) {
 	SET_IF_DIFF(_show_region_grid, p_enabled);
-	LOG(INFO, "Enable show_region_grid: ", p_enabled);
+	LOG(INFO, "Enable show_region_grid: ", _show_region_grid);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_instancer_grid(const bool p_enabled) {
 	SET_IF_DIFF(_show_instancer_grid, p_enabled);
-	LOG(INFO, "Enable show_instancer_grid: ", p_enabled);
+	LOG(INFO, "Enable show_instancer_grid: ", _show_instancer_grid);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_vertex_grid(const bool p_enabled) {
 	SET_IF_DIFF(_show_vertex_grid, p_enabled);
-	LOG(INFO, "Enable show_vertex_grid: ", p_enabled);
+	LOG(INFO, "Enable show_vertex_grid: ", _show_vertex_grid);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_contours(const bool p_enabled) {
 	SET_IF_DIFF(_show_contours, p_enabled);
-	LOG(INFO, "Enable show_contours: ", p_enabled);
+	LOG(INFO, "Enable show_contours: ", _show_contours);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_navigation(const bool p_enabled) {
 	SET_IF_DIFF(_show_navigation, p_enabled);
-	LOG(INFO, "Enable show_navigation: ", p_enabled);
+	LOG(INFO, "Enable show_navigation: ", _show_navigation);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_checkered(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_checkered, p_enabled);
-	LOG(INFO, "Enable set_show_checkered: ", p_enabled);
+	LOG(INFO, "Enable set_show_checkered: ", _debug_view_checkered);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_grey(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_grey, p_enabled);
-	LOG(INFO, "Enable show_grey: ", p_enabled);
+	LOG(INFO, "Enable show_grey: ", _debug_view_grey);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_heightmap(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_heightmap, p_enabled);
-	LOG(INFO, "Enable show_heightmap: ", p_enabled);
+	LOG(INFO, "Enable show_heightmap: ", _debug_view_heightmap);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_jaggedness(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_jaggedness, p_enabled);
-	LOG(INFO, "Enable show_jaggedness: ", p_enabled);
+	LOG(INFO, "Enable show_jaggedness: ", _debug_view_jaggedness);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_autoshader(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_autoshader, p_enabled);
-	LOG(INFO, "Enable show_autoshader: ", p_enabled);
+	LOG(INFO, "Enable show_autoshader: ", _debug_view_autoshader);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_texture(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_control_texture, p_enabled);
-	LOG(INFO, "Enable show_control_texture: ", p_enabled);
+	LOG(INFO, "Enable show_control_texture: ", _debug_view_control_texture);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_blend(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_control_blend, p_enabled);
-	LOG(INFO, "Enable show_control_blend: ", p_enabled);
+	LOG(INFO, "Enable show_control_blend: ", _debug_view_control_blend);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_angle(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_control_angle, p_enabled);
-	LOG(INFO, "Enable show_control_angle: ", p_enabled);
+	LOG(INFO, "Enable show_control_angle: ", _debug_view_control_angle);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_control_scale(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_control_scale, p_enabled);
-	LOG(INFO, "Enable show_control_scale: ", p_enabled);
+	LOG(INFO, "Enable show_control_scale: ", _debug_view_control_scale);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_colormap(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_colormap, p_enabled);
-	LOG(INFO, "Enable show_colormap: ", p_enabled);
+	LOG(INFO, "Enable show_colormap: ", _debug_view_colormap);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_roughmap(const bool p_enabled) {
 	SET_IF_DIFF(_debug_view_roughmap, p_enabled);
-	LOG(INFO, "Enable show_roughmap: ", p_enabled);
+	LOG(INFO, "Enable show_roughmap: ", _debug_view_roughmap);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_albedo(const bool p_enabled) {
 	SET_IF_DIFF(_pbr_view_tex_albedo, p_enabled);
-	LOG(INFO, "Enable show_texture_albedo: ", p_enabled);
+	LOG(INFO, "Enable show_texture_albedo: ", _pbr_view_tex_albedo);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_height(const bool p_enabled) {
 	SET_IF_DIFF(_pbr_view_tex_height, p_enabled);
-	LOG(INFO, "Enable show_texture_height: ", p_enabled);
+	LOG(INFO, "Enable show_texture_height: ", _pbr_view_tex_height);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_normal(const bool p_enabled) {
 	SET_IF_DIFF(_pbr_view_tex_normal, p_enabled);
-	LOG(INFO, "Enable show_texture_normal: ", p_enabled);
+	LOG(INFO, "Enable show_texture_normal: ", _pbr_view_tex_normal);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_rough(const bool p_enabled) {
 	SET_IF_DIFF(_pbr_view_tex_rough, p_enabled);
-	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
+	LOG(INFO, "Enable show_texture_rough: ", _pbr_view_tex_rough);
 	_update_shader();
 }
 void Terrain3DMaterial::set_show_displacement_buffer(const bool p_enabled) {
-	LOG(INFO, "Enable show_texture_rough: ", p_enabled);
-	_debug_view_displacement_buffer = p_enabled;
+	SET_IF_DIFF(_debug_view_displacement_buffer, p_enabled);
+	LOG(INFO, "Enable show_displacement_buffer: ", _debug_view_displacement_buffer);
 	_update_shader();
 }
 
 void Terrain3DMaterial::set_show_texture_ao(const bool p_enabled) {
 	SET_IF_DIFF(_pbr_view_tex_ao, p_enabled);
-	LOG(INFO, "Enable show_texture_ao: ", p_enabled);
+	LOG(INFO, "Enable show_texture_ao: ", _pbr_view_tex_ao);
 	_update_shader();
 }
 
@@ -1301,6 +1378,11 @@ void Terrain3DMaterial::_bind_methods() {
 	BIND_ENUM_CONSTANT(NONE);
 	BIND_ENUM_CONSTANT(FLAT);
 	BIND_ENUM_CONSTANT(NOISE);
+	BIND_ENUM_CONSTANT(MAX_REGIONS_64);
+	BIND_ENUM_CONSTANT(MAX_REGIONS_128);
+	BIND_ENUM_CONSTANT(MAX_REGIONS_256);
+	BIND_ENUM_CONSTANT(MAX_REGIONS_512);
+	BIND_ENUM_CONSTANT(MAX_REGIONS_1024);
 	BIND_ENUM_CONSTANT(LINEAR_ANISOTROPIC);
 	BIND_ENUM_CONSTANT(LINEAR);
 	BIND_ENUM_CONSTANT(NEAREST_ANISOTROPIC);
@@ -1335,6 +1417,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_macro_variation_enabled"), &Terrain3DMaterial::get_macro_variation_enabled);
 	ClassDB::bind_method(D_METHOD("set_projection_enabled", "enabled"), &Terrain3DMaterial::set_projection_enabled);
 	ClassDB::bind_method(D_METHOD("get_projection_enabled"), &Terrain3DMaterial::get_projection_enabled);
+	ClassDB::bind_method(D_METHOD("set_max_regions", "count"), &Terrain3DMaterial::set_max_regions);
+	ClassDB::bind_method(D_METHOD("get_max_regions"), &Terrain3DMaterial::get_max_regions);
 
 	ClassDB::bind_method(D_METHOD("set_shader_override_enabled", "enabled"), &Terrain3DMaterial::set_shader_override_enabled);
 	ClassDB::bind_method(D_METHOD("is_shader_override_enabled"), &Terrain3DMaterial::is_shader_override_enabled);
@@ -1424,6 +1508,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling_enabled", "get_dual_scaling_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "macro_variation_enabled"), "set_macro_variation_enabled", "get_macro_variation_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "projection_enabled"), "set_projection_enabled", "get_projection_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_regions", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024"), "set_max_regions", "get_max_regions");
 
 	ADD_GROUP("PBR Output", "output_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_albedo"), "set_output_albedo_enabled", "get_output_albedo_enabled");

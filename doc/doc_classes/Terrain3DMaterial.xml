@@ -92,6 +92,9 @@
 		<member name="macro_variation_enabled" type="bool" setter="set_macro_variation_enabled" getter="get_macro_variation_enabled" default="false">
 			Allows you to add a couple of noise patterns at different scales and colors to add variation to your terrain to avoid tiled textures.
 		</member>
+		<member name="max_regions" type="int" setter="set_max_regions" getter="get_max_regions" enum="Terrain3DMaterial.RegionMaximum" default="1024">
+			Limits the number of regions that are rendered. Does not reduce VRAM. Regions loaded beyond this number are still present in memory and on disk, they just don't render. This is used to reduce uniform buffer consumption on mobiles. Set to the minimum you need for mobiles (e.g. 64-256) and test a variety of devices to ensure your target audience can render textures. It renders the first X number of regions that are loaded. Region order is not stable.
+		</member>
 		<member name="output_albedo" type="bool" setter="set_output_albedo_enabled" getter="get_output_albedo_enabled" default="true">
 			Enables the Albedo, aka Base Color or Diffuse, output channel in the shader.
 		</member>
@@ -200,6 +203,21 @@
 		</constant>
 		<constant name="NOISE" value="2" enum="WorldBackground">
 			Outside of the defined regions, generate visual-only hills.
+		</constant>
+		<constant name="MAX_REGIONS_64" value="64" enum="RegionMaximum">
+			Renders the first 64 textures that are loaded.
+		</constant>
+		<constant name="MAX_REGIONS_128" value="128" enum="RegionMaximum">
+			Renders the first 128 textures that are loaded.
+		</constant>
+		<constant name="MAX_REGIONS_256" value="256" enum="RegionMaximum">
+			Renders the first 256 textures that are loaded.
+		</constant>
+		<constant name="MAX_REGIONS_512" value="512" enum="RegionMaximum">
+			Renders the first 512 textures that are loaded.
+		</constant>
+		<constant name="MAX_REGIONS_1024" value="1024" enum="RegionMaximum">
+			Renders the first 1024 textures that are loaded.
 		</constant>
 		<constant name="LINEAR_ANISOTROPIC" value="0" enum="TextureFiltering">
 			Textures are filtered using a blend of 4 adjacent pixels, with anisotropic filtering which improves the sharpness of distant terrain off axis from the camera. Use this for most cases for high quality renders.
