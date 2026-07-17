@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Terrain3DStreamer" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+	</brief_description>
+	<description>
+		This class manages runtime region streaming. Regions around the clipmap target are loaded on background threads and evicted as the target moves away, so memory scales with the loaded area instead of the whole terrain. It works with the slot pool in [Terrain3DData]; see [method Terrain3DData.enable_streaming].
+		Settings are exposed as aliases on the [Terrain3D] node (e.g. [member Terrain3D.streaming_enabled]), which is also where they are saved. Streaming only runs outside the editor; the editor always keeps the full terrain loaded.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="abort_pending">
+			<return type="void" />
+			<description>
+				Consumes and drops every in flight threaded load. An unconsumed threaded load stays pinned in the ResourceLoader forever, so this runs whenever streaming stops: rescans, disabling streaming at runtime, and leaving the tree.
+			</description>
+		</method>
+		<method name="get_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns live streaming counters: [code skip-lint]streaming_active[/code], [code skip-lint]resident[/code], [code skip-lint]free_slots[/code], [code skip-lint]inflight[/code], [code skip-lint]failed[/code], [code skip-lint]known[/code], [code skip-lint]landed_total[/code], [code skip-lint]evicted_total[/code], and [code skip-lint]land_ms_avg[/code] (an exponential moving average of an insertion's main thread cost in ms). Useful for debug overlays and tests.
+			</description>
+		</method>
+		<method name="is_active" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code skip-lint]true[/code] when streaming is enabled and the game is running outside the editor.
+			</description>
+		</method>
+		<method name="scan_directory">
+			<return type="void" />
+			<description>
+				Scans the data directory for region locations and resets streaming state. Only file names are read, nothing is loaded. Called automatically at initialization while streaming is active.
+			</description>
+		</method>
+		<method name="step">
+			<return type="void" />
+			<description>
+				Runs the streaming state machine once: evicts regions that fell outside the loaded area, inserts completed loads, and requests missing regions. Called automatically once per physics frame while streaming is active.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="concurrent_loads" type="int" setter="set_concurrent_loads" getter="get_concurrent_loads" default="3">
+			Alias target of [member Terrain3D.streaming_concurrent_loads].
+		</member>
+		<member name="distance" type="int" setter="set_distance" getter="get_distance" default="4">
+			Alias target of [member Terrain3D.streaming_distance].
+		</member>
+		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="false">
+			Alias target of [member Terrain3D.streaming_enabled].
+		</member>
+		<member name="loads_per_frame" type="int" setter="set_loads_per_frame" getter="get_loads_per_frame" default="1">
+			Alias target of [member Terrain3D.streaming_loads_per_frame].
+		</member>
+		<member name="shape" type="int" setter="set_shape" getter="get_shape" enum="Terrain3DStreamer.StreamShape" default="0">
+			Alias target of [member Terrain3D.streaming_shape].
+		</member>
+		<member name="slots" type="int" setter="set_slots" getter="get_slots" default="121">
+			Alias target of [member Terrain3D.streaming_slots].
+		</member>
+	</members>
+	<constants>
+		<constant name="SQUARE" value="0" enum="StreamShape">
+			The loaded area is a square block of regions around the clipmap target.
+		</constant>
+		<constant name="CIRCLE" value="1" enum="StreamShape">
+			The loaded area is a circle of regions around the clipmap target.
+		</constant>
+	</constants>
+</class>

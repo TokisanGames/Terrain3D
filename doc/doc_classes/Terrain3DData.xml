@@ -35,6 +35,13 @@
 				Creates and adds a blank region at a region location encompassing the specified global position. See [method add_region].
 			</description>
 		</method>
+		<method name="add_region_streamed">
+			<return type="int" enum="Error" />
+			<param index="0" name="region" type="Terrain3DRegion" />
+			<description>
+				Streaming only. Inserts a loaded region into a free pool slot: one texture layer update per map plus one region map entry; the texture arrays are never rebuilt. Fails if streaming is off, the pool is exhausted, or the region size does not match the pool. Called by [Terrain3D] as streamed loads complete; call directly only if you drive streaming yourself.
+			</description>
+		</method>
 		<method name="calc_height_range">
 			<return type="void" />
 			<param index="0" name="recursive" type="bool" default="false" />
@@ -65,6 +72,21 @@
 			<param index="0" name="verbose" type="bool" default="false" />
 			<description>
 				Calls [method Terrain3DRegion.dump] for all regions loaded, active and inactive.
+			</description>
+		</method>
+		<method name="enable_streaming">
+			<return type="void" />
+			<param index="0" name="slot_capacity" type="int" />
+			<description>
+				Switches this data object to slot-pool streaming with the given capacity, allocating blank pooled texture arrays. Must run before any region is loaded, with [code skip-lint]Terrain3D.region_size[/code] already set. Called automatically at initialization when [member Terrain3D.streaming_enabled] is on.
+			</description>
+		</method>
+		<method name="evict_region">
+			<return type="int" enum="Error" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<param index="1" name="save_directory" type="String" />
+			<description>
+				Streaming only. Removes a resident region and returns its slot to the pool. A region carrying unsaved modifications is saved to [code skip-lint]save_directory[/code] first (pass an empty string to discard).
 			</description>
 		</method>
 		<method name="export_image" qualifiers="const">
@@ -168,6 +190,12 @@
 			<description>
 				Returns the uv scale on the control map at the requested position. The value is rounded to the nearest 20% difference from 100%, ranging between -60% to +80%. Eg. +20% or -40%.
 				Returns [code skip-lint]NAN[/code] if the position is outside of defined regions.
+			</description>
+		</method>
+		<method name="get_free_slot_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Streaming only. Number of free pool slots.
 			</description>
 		</method>
 		<method name="get_height" qualifiers="const">
@@ -309,6 +337,12 @@
 				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
 			</description>
 		</method>
+		<method name="get_slot_capacity" qualifiers="const">
+			<return type="int" />
+			<description>
+				Streaming only. Total pool capacity set by [method enable_streaming].
+			</description>
+		</method>
 		<method name="get_texture_id" qualifiers="const">
 			<return type="Vector3" />
 			<param index="0" name="global_position" type="Vector3" />
@@ -369,6 +403,12 @@
 			<param index="0" name="region_location" type="Vector2i" />
 			<description>
 				Returns true if the region at the location exists and is marked as modified. Syntactic sugar for [member Terrain3DRegion.modified].
+			</description>
+		</method>
+		<method name="is_streaming" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code skip-lint]true[/code] when this data object manages regions through the streaming slot pool.
 			</description>
 		</method>
 		<method name="layered_to_image" qualifiers="const">

@@ -11,6 +11,7 @@
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
+#include <godot_cpp/templates/hash_map.hpp>
 
 #include "constants.h"
 #include "target_node_3d.h"
@@ -21,6 +22,7 @@
 #include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_mesher.h"
+#include "terrain_3d_streamer.h"
 
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
@@ -56,6 +58,7 @@ private:
 	Terrain3DData *_data = nullptr;
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DCollision *_collision = nullptr;
+	Terrain3DStreamer *_streamer = nullptr;
 	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DEditor *_editor = nullptr;
 	Object *_editor_plugin = nullptr;
@@ -158,6 +161,7 @@ public:
 
 	// Object references
 	Terrain3DData *get_data() const { return _data; }
+	Terrain3DStreamer *get_streamer() const { return _streamer; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DCollision *get_collision() const { return _collision; }
@@ -191,6 +195,22 @@ public:
 	void set_light_target(Node3D *p_node);
 	Node3D *get_light_target() const { return _light_target.ptr(); }
 	void snap();
+
+	// Streaming Aliases
+	void set_streaming_enabled(const bool p_enabled);
+	bool get_streaming_enabled() const { return _streamer ? _streamer->is_enabled() : false; }
+	bool is_streaming_active() const { return _streamer ? _streamer->is_active() : false; }
+	void set_streaming_shape(const int p_shape) { _streamer ? _streamer->set_shape((Terrain3DStreamer::StreamShape)p_shape) : void(); }
+	int get_streaming_shape() const { return _streamer ? (int)_streamer->get_shape() : 0; }
+	void set_streaming_distance(const int p_distance) { _streamer ? _streamer->set_distance(p_distance) : void(); }
+	int get_streaming_distance() const { return _streamer ? _streamer->get_distance() : 4; }
+	void set_streaming_slots(const int p_slots) { _streamer ? _streamer->set_slots(p_slots) : void(); }
+	int get_streaming_slots() const { return _streamer ? _streamer->get_slots() : 121; }
+	void set_streaming_concurrent_loads(const int p_count) { _streamer ? _streamer->set_concurrent_loads(p_count) : void(); }
+	int get_streaming_concurrent_loads() const { return _streamer ? _streamer->get_concurrent_loads() : 3; }
+	void set_streaming_loads_per_frame(const int p_count) { _streamer ? _streamer->set_loads_per_frame(p_count) : void(); }
+	int get_streaming_loads_per_frame() const { return _streamer ? _streamer->get_loads_per_frame() : 1; }
+	Dictionary get_streaming_stats() const { return _streamer ? _streamer->get_stats() : Dictionary(); }
 
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }

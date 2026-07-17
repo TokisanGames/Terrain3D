@@ -73,6 +73,13 @@ private:
 	GeneratedTexture _generated_control_maps;
 	GeneratedTexture _generated_color_maps;
 
+	// Region streaming slot pool, see enable_streaming() in terrain_3d_data.cpp
+	bool _streaming = false;
+	int _slot_capacity = 0;
+	Vector<int> _free_slots; // Free texture array layer indices
+	HashMap<Vector2i, int> _slot_of; // Region location -> slot
+	TypedArray<Vector2i> _slot_locs; // Slot -> location, the shader's per layer table
+
 	// Functions
 	void _clear();
 	void _copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
@@ -85,6 +92,15 @@ public:
 	// Regions
 
 	int get_region_count() const { return _region_locations.size(); }
+	// Region streaming
+	void enable_streaming(const int p_slot_capacity);
+	bool is_streaming() const { return _streaming; }
+	int get_slot_capacity() const { return _slot_capacity; }
+	int get_free_slot_count() const { return _free_slots.size(); }
+	Error add_region_streamed(const Ref<Terrain3DRegion> &p_region);
+	Error evict_region(const Vector2i &p_region_loc, const String &p_save_dir);
+	// Slot indexed while streaming, the dense id ordered list classically
+	TypedArray<Vector2i> get_shader_region_locations() const { return _streaming ? _slot_locs : _region_locations; }
 	void set_region_locations(const TypedArray<Vector2i> &p_locations);
 	TypedArray<Vector2i> get_region_locations() const { return _region_locations; }
 	TypedArray<Terrain3DRegion> get_regions_active(const bool p_copy = false, const bool p_deep = false) const;
@@ -124,6 +140,7 @@ public:
 	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false);
 	void load_directory(const String &p_dir);
 	void load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update = true);
+	void adopt_region_size_from_disk(const String &p_dir);
 
 	// Maps
 	TypedArray<Image> get_height_maps() const { return _height_maps; }
@@ -219,7 +236,9 @@ inline int Terrain3DData::get_region_id(const Vector2i &p_region_loc) const {
 	int map_index = get_region_map_index(p_region_loc);
 	if (map_index >= 0) {
 		int region_id = _region_map[map_index] - 1; // 0 = no region
-		if (region_id >= 0 && region_id < _region_locations.size()) {
+		// While streaming ids are slots, sparse up to capacity. The map is zeroed
+		// on evict, so a non-zero entry is live by construction
+		if (region_id >= 0 && region_id < (_streaming ? _slot_capacity : (int)_region_locations.size())) {
 			return region_id;
 		}
 	}
