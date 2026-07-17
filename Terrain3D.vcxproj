@@ -229,6 +229,7 @@
     <None Include="src\shaders\displacement_buffer.glsl" />
     <None Include="src\shaders\macro_variation.glsl" />
     <None Include="src\shaders\main.glsl" />
+    <None Include="src\shaders\max_regions.glsl" />
     <None Include="src\shaders\overlays.glsl" />
     <None Include="src\shaders\pbr_views.glsl">
       <FileType>Document</FileType>

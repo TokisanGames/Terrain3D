@@ -16,6 +16,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
  */
 
 // Defined Constants
+#define MAX_REGIONS 1024 // Match Terrain3DMaterial.max_regions. Set to 64-256 for mobile
 #define COLOR_MAP vec4(1.0, 1.0, 1.0, 0.5)
 #define DIV_255 0.003921568627450 // 1. / 255.
 
@@ -45,7 +46,7 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1./region_size
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
-uniform vec2 _region_locations[1024];
+uniform vec2 _region_locations[MAX_REGIONS];
 uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
 uniform float _texture_ao_affect_array[32];
@@ -106,8 +107,10 @@ ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
 	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
-	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+    int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+    int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+    int layer_index = (raw_index * is_region) - (1 - is_region);
+    return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
@@ -116,7 +119,9 @@ ivec3 get_index_coord(const vec2 uv) {
 vec3 get_index_uv(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
+    int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+    int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+    int layer_index = (raw_index * is_region) - (1 - is_region);
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
 }
 
@@ -133,11 +138,10 @@ bool is_none_bg(const vec2 uv) {
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
 float check_region(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
-	int layer_index = 0;
-	if (uint(pos.x | pos.y) < uint(_region_map_size)) {
-		layer_index = clamp(_region_map[ pos.y * _region_map_size + pos.x ] - 1, -1, 0) + 1;
-	}
-	return float(layer_index);
+    int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+    int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+    int is_valid = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	return float(is_valid);
 }
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions

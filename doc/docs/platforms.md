@@ -54,6 +54,7 @@ If bypassing Apple security is not working, or if approaching a release date, ma
 
 As of Terrain3D 0.9.1 and Godot 4.2, iOS is reported to work with the following setup:
 
+* In Terrain3DMaterial, set max_regions to 64-256 and keep region count under that.
 * Use textures that Godot imports (converts) such as PNG or TGA, not DDS.
 * Enable `Project Settings/Rendering/Textures/VRAM Compression/Import ETC2 ASTC`.
 * Set `Project Settings/Application/Config/Icon` to a valid file (eg `res://icon.png` or svg).
@@ -82,6 +83,7 @@ Further reading:
 
 As of Terrain3D 0.9.1 and Godot 4.2, Android is reported to work. It is still a bit experimental.
 
+* In Terrain3DMaterial, set max_regions to 64-256 (128 has the broadest reported coverage) and keep region count under that.
 * Use textures that Godot imports (converts) such as PNG or TGA, not DDS.
 * Enable `Project Settings/Rendering/Textures/VRAM Compression/Import ETC2 ASTC`.
 
@@ -138,7 +140,6 @@ Support for Apple's Metal for iOS and macOS was merged into Godot 4.4-dev1. We d
 
 The Forward Vulkan Mobile renderer is fully supported.
 
-
 ## Compatibility
 
-The OpenGLES 3.0 Compatibility renderer is fully supported since Terrain3D 1.0 and Godot 4.4. A small set of shader pre-processor statements are used to override fma() and dFdxCoarse(). This allows the shader to work with the compatibility renderer without intrusive changes.
+The OpenGLES 3.0 Compatibility renderer is fully supported since Terrain3D 1.0 and Godot 4.4.
