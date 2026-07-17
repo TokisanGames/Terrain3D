@@ -33,26 +33,96 @@ var modifier_shift: bool
 var _last_modifiers: int = 0
 var _input_mode: int = 0 # -1: camera move, 0: none, 1: operating
 var rmb_release_time: int = 0
-var _use_meta: bool = false
+var shortcut_defaults: Dictionary[String, Variant] = {
+	"Invert Tool": KEY_CTRL,
+	"Sculpt Smooth": KEY_SHIFT,
+	"Alternate Mode": KEY_ALT,
+	"Decrease Tool Size": KEY_BRACKETLEFT,
+	"Increase Tool Size": KEY_BRACKETRIGHT,
+	"Decrease Tool Strength": KEY_MINUS,
+	"Increase Tool Strength": KEY_EQUAL,
+	"Toggle Region Grid": [KEY_1, KEY_KP_1],
+	"Toggle Region Labels": [KEY_2, KEY_KP_2],
+	"Toggle Contour Lines": [KEY_3, KEY_KP_3],
+	"Toggle Instancer Grid": [KEY_4, KEY_KP_4],
+	"Toggle Vertex Grid": [KEY_5, KEY_KP_5],
+	"Add or Remove Region": KEY_E,
+	"Sculpt Raise or Lower": KEY_R,
+	"Sculpt Height": KEY_H,
+	"Sculpt Slope": KEY_S,
+	"Paint Color": KEY_C,
+	"Paint Navigable Area": KEY_N,
+	"Instance Meshes": KEY_I,
+	"Add Holes": KEY_X,
+	"Paint Wetness": KEY_W,
+	"Paint Texture": KEY_B,
+	"Spray Texture": KEY_V,
+	"Paint Autoshader": KEY_A,
+	"Inverse Slope Range": KEY_T,
+}
+var shortcuts: Dictionary[String, Shortcut]
+var version: int # < 4.6 compatibility
 
 
 func _init() -> void:
 	if debug:
 		print("Terrain3DEditorPlugin: _init")
-	if OS.get_name() == "macOS":
-		_use_meta = true
+	if OS.has_feature("macos"):
+		shortcut_defaults["Invert Tool"] = KEY_META
 	
 	# Get the Godot Editor window. Structure is root:Window/EditorNode/Base Control
 	godot_editor_window = EditorInterface.get_base_control().get_parent().get_parent()
 	godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
 	EditorInterface.get_inspector().mouse_entered.connect(func(): mouse_in_main = false)
+	
+	# Load shortcuts
+	version = Engine.get_version_info().hex
+	setup_editor_settings()
+	if version >= 0x040600:
+		var editor_settings:EditorSettings = EditorInterface.get_editor_settings()
+		for shortcut_name in shortcut_defaults.keys():
+			var saved_shortcut:Shortcut = editor_settings.get_shortcut("terrain_3d/" + shortcut_name)
+			if not saved_shortcut:
+				var shortcut := Shortcut.new()
+				var binding:Variant = shortcut_defaults[shortcut_name]
+				if binding is Key: # Single keycode
+					var shortcut_event := InputEventKey.new()
+					shortcut_event.physical_keycode = binding
+					shortcut.events.append(shortcut_event)
+				elif binding is Array: # Multiple keycodes
+					for key in binding:
+						var shortcut_event := InputEventKey.new()
+						shortcut_event.physical_keycode = key
+						shortcut.events.append(shortcut_event)
+				else:
+					push_error("Default shortcut keybind type is incorrect, must be Key or an array of Keys")
+				editor_settings.add_shortcut("terrain_3d/" + shortcut_name, shortcut)
+				shortcuts[shortcut_name] = shortcut
+			else:
+				# BUG: Saved shortcuts aren't automatically added to shortcuts menu, re-add manually
+				editor_settings.add_shortcut("terrain_3d/" + shortcut_name, saved_shortcut)
+				shortcuts[shortcut_name] = saved_shortcut
+	else: # < 4.6 compatiblility
+		for shortcut_name in shortcut_defaults.keys():
+			var shortcut := Shortcut.new()
+			var binding:Variant = shortcut_defaults[shortcut_name]
+			if binding is Key: # Single keycode
+				var shortcut_event := InputEventKey.new()
+				shortcut_event.physical_keycode = binding
+				shortcut.events.append(shortcut_event)
+			elif binding is Array: # Multiple keycodes
+				for key in binding:
+					var shortcut_event := InputEventKey.new()
+					shortcut_event.physical_keycode = key
+					shortcut.events.append(shortcut_event)
+			shortcuts[shortcut_name] = shortcut
+	apply_editor_settings()
 
 
 func _enter_tree() -> void:
 	if debug:
 		print("Terrain3DEditorPlugin: _enter_tree")
 	editor = Terrain3DEditor.new()
-	setup_editor_settings()
 	ui = Terrain3DUI.new()
 	ui.plugin = self
 	add_child(ui)
@@ -124,6 +194,7 @@ func _edit(p_object: Object) -> void:
 		editor.set_terrain(terrain)
 		terrain.set_meta("_edit_lock_", true)
 		ui.set_visible(true)
+		ui.toolbar.update_tooltips()
 
 		# Get alerted when a new asset list is loaded
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
@@ -139,7 +210,7 @@ func _edit(p_object: Object) -> void:
 		else:
 			nav_region = null
 
-	
+
 func _make_visible(p_visible: bool, p_redraw: bool = false) -> void:
 	if debug:
 		print("Terrain3DEditorPlugin: _make_visible(%s, %s)" % [ p_visible, p_redraw ])
@@ -270,7 +341,7 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 	match get_setting("editors/3d/navigation/navigation_scheme", 0):
 		2, 1: # Modo, Maya
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or \
-	 			( Input.is_key_pressed(KEY_ALT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) ):
+				( Input.is_key_pressed(KEY_ALT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) ):
 					_input_mode = -1 
 			if p_event is InputEventMouseButton and p_event.is_released() and \
 				( p_event.get_button_index() == MOUSE_BUTTON_RIGHT or \
@@ -289,22 +360,16 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 		return AFTER_GUI_INPUT_PASS
 
 	## Determine modifiers pressed
-	modifier_shift = Input.is_key_pressed(KEY_SHIFT)
+	if shortcuts["Sculpt Smooth"].matches_event(p_event):
+		modifier_shift = p_event.is_pressed()
 	
-	# Editor responds to modifier_ctrl so we must register touchscreen Invert 
-	if _use_meta:
-		modifier_ctrl = Input.is_key_pressed(KEY_META) || ui.inverted_input
-	else:
-		modifier_ctrl = Input.is_key_pressed(KEY_CTRL) || ui.inverted_input
-	
-	# Keybind enum: Alt,Space,Meta,Capslock
-	var alt_key: int
-	match get_setting("terrain3d/config/alt_key_bind", 0):
-		3: alt_key = KEY_CAPSLOCK
-		2: alt_key = KEY_META
-		1: alt_key = KEY_SPACE
-		0, _: alt_key = KEY_ALT
-	modifier_alt = Input.is_key_pressed(alt_key)
+	elif shortcuts["Invert Tool"].matches_event(p_event):
+		# Editor responds to modifier_ctrl so we must register touchscreen Invert
+		modifier_ctrl = p_event.is_pressed() || ui.inverted_input
+		
+	elif shortcuts["Alternate Mode"].matches_event(p_event):
+		modifier_alt = p_event.is_pressed()
+		
 	var current_mods: int = int(modifier_shift) | int(modifier_ctrl) << 1 | int(modifier_alt) << 2
 
 	## Process Hotkeys
@@ -332,63 +397,61 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 # Returns true if hotkey matches and operation triggered
 func consume_hotkey(p_event: InputEventKey) -> bool:
 	# Handle repeatable keys
-	match p_event.keycode:
-		KEY_BRACKETLEFT:
-			ui.tool_settings.set_setting("size", ui.tool_settings.get_setting("size") - 1)
-			return true
-		KEY_BRACKETRIGHT:
-			ui.tool_settings.set_setting("size", ui.tool_settings.get_setting("size") + 1)
-			return true
-		KEY_MINUS:
-			ui.tool_settings.set_setting("strength", ui.tool_settings.get_setting("strength") - 1)
-			return true
-		KEY_EQUAL:
-			ui.tool_settings.set_setting("strength", ui.tool_settings.get_setting("strength") + 1)
-			return true
+	if shortcuts["Decrease Tool Size"].matches_event(p_event):
+		ui.tool_settings.set_setting("size", ui.tool_settings.get_setting("size") - 1)
+		return true
+	elif shortcuts["Increase Tool Size"].matches_event(p_event):
+		ui.tool_settings.set_setting("size", ui.tool_settings.get_setting("size") + 1)
+		return true
+	elif shortcuts["Decrease Tool Strength"].matches_event(p_event):
+		ui.tool_settings.set_setting("strength", ui.tool_settings.get_setting("strength") - 1)
+		return true
+	elif shortcuts["Increase Tool Strength"].matches_event(p_event):
+		ui.tool_settings.set_setting("strength", ui.tool_settings.get_setting("strength") + 1)
+		return true
 		
 	if p_event.is_echo():
 		return false
-		
+	
 	# Handle non-repeatable keys
-	match p_event.keycode:
-		KEY_1, KEY_KP_1:
-			terrain.material.set_show_region_grid(!terrain.material.get_show_region_grid())
-		KEY_2, KEY_KP_2:
-			terrain.label_distance = 4096.0 if is_zero_approx(terrain.label_distance) else 0.0 
-		KEY_3, KEY_KP_3:
-			terrain.material.set_show_contours(!terrain.material.get_show_contours())
-		KEY_4, KEY_KP_4:
-			terrain.material.set_show_instancer_grid(!terrain.material.get_show_instancer_grid())
-		KEY_5, KEY_KP_5:
-			terrain.material.set_show_vertex_grid(!terrain.material.get_show_vertex_grid())
-		KEY_E:
-			ui.toolbar.get_button("AddRegion").set_pressed(true)
-		KEY_R:
-			ui.toolbar.get_button("Raise").set_pressed(true)
-		KEY_H:
-			ui.toolbar.get_button("Height").set_pressed(true)
-		KEY_S:
-			ui.toolbar.get_button("Slope").set_pressed(true)
-		KEY_C:
-			ui.toolbar.get_button("PaintColor").set_pressed(true)
-		KEY_N:
-			ui.toolbar.get_button("PaintNavigableArea").set_pressed(true)
-		KEY_I:
-			ui.toolbar.get_button("InstanceMeshes").set_pressed(true)
-		KEY_X:
-			ui.toolbar.get_button("AddHoles").set_pressed(true)
-		KEY_W:
-			ui.toolbar.get_button("PaintWetness").set_pressed(true)
-		KEY_B:
-			ui.toolbar.get_button("PaintTexture").set_pressed(true)
-		KEY_V:
-			ui.toolbar.get_button("SprayTexture").set_pressed(true)
-		KEY_A:
-			ui.toolbar.get_button("PaintAutoshader").set_pressed(true)
-		KEY_T:
-			ui.tool_settings.inverse_slope_range()
-		_:
-			return false
+	if shortcuts["Toggle Region Grid"].matches_event(p_event):
+		terrain.material.set_show_region_grid(!terrain.material.get_show_region_grid())
+	elif shortcuts["Toggle Region Labels"].matches_event(p_event):
+		terrain.label_distance = 4096.0 if is_zero_approx(terrain.label_distance) else 0.0
+	elif shortcuts["Toggle Contour Lines"].matches_event(p_event):
+		terrain.material.set_show_contours(!terrain.material.get_show_contours())
+	elif shortcuts["Toggle Instancer Grid"].matches_event(p_event):
+		terrain.material.set_show_instancer_grid(!terrain.material.get_show_instancer_grid())
+	elif shortcuts["Toggle Vertex Grid"].matches_event(p_event):
+		terrain.material.set_show_vertex_grid(!terrain.material.get_show_vertex_grid())
+	elif shortcuts["Add or Remove Region"].matches_event(p_event):
+		ui.toolbar.get_button("AddRegion").set_pressed(true)
+	elif shortcuts["Sculpt Raise or Lower"].matches_event(p_event):
+		ui.toolbar.get_button("Raise").set_pressed(true)
+	elif shortcuts["Sculpt Height"].matches_event(p_event):
+		ui.toolbar.get_button("Height").set_pressed(true)
+	elif shortcuts["Sculpt Slope"].matches_event(p_event):
+		ui.toolbar.get_button("Slope").set_pressed(true)
+	elif shortcuts["Paint Color"].matches_event(p_event):
+		ui.toolbar.get_button("PaintColor").set_pressed(true)
+	elif shortcuts["Paint Navigable Area"].matches_event(p_event):
+		ui.toolbar.get_button("PaintNavigableArea").set_pressed(true)
+	elif shortcuts["Instance Meshes"].matches_event(p_event):
+		ui.toolbar.get_button("InstanceMeshes").set_pressed(true)
+	elif shortcuts["Add Holes"].matches_event(p_event):
+		ui.toolbar.get_button("AddHoles").set_pressed(true)
+	elif shortcuts["Paint Wetness"].matches_event(p_event):
+		ui.toolbar.get_button("PaintWetness").set_pressed(true)
+	elif shortcuts["Paint Texture"].matches_event(p_event):
+		ui.toolbar.get_button("PaintTexture").set_pressed(true)
+	elif shortcuts["Spray Texture"].matches_event(p_event):
+		ui.toolbar.get_button("SprayTexture").set_pressed(true)
+	elif shortcuts["Paint Autoshader"].matches_event(p_event):
+		ui.toolbar.get_button("PaintAutoshader").set_pressed(true)
+	elif shortcuts["Inverse Slope Range"].matches_event(p_event):
+		ui.tool_settings.inverse_slope_range()
+	else:
+		return false
 	return true
 
 
@@ -458,7 +521,8 @@ func setup_editor_settings() -> void:
 		"hint_string": "Alt,Space,Meta,Capslock"
 	}
 	editor_settings.add_property_info(property_info)
-	
+	editor_settings.connect(&"settings_changed", apply_editor_settings)
+
 
 func set_setting(p_str: String, p_value: Variant) -> void:
 	editor_settings.set_setting(p_str, p_value)
@@ -477,6 +541,22 @@ func has_setting(p_str: String) -> bool:
 
 func erase_setting(p_str: String) -> void:
 	editor_settings.erase(p_str)
+	
+
+func apply_editor_settings() -> void:
+	# Keybind enum: Alt,Space,Meta,Capslock
+	var alt_key: int
+	match get_setting("terrain3d/config/alt_key_bind", 0):
+		3: alt_key = KEY_CAPSLOCK
+		2: alt_key = KEY_META
+		1: alt_key = KEY_SPACE
+		0, _: alt_key = KEY_ALT
+	var shortcut := Shortcut.new()
+	var binding:Variant = alt_key
+	var shortcut_event := InputEventKey.new()
+	shortcut_event.physical_keycode = binding
+	shortcut.events.append(shortcut_event)
+	shortcuts["Alternate Mode"] = shortcut
 
 
 ## Undo / Redo Functions
