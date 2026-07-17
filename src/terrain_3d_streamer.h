@@ -8,6 +8,7 @@
 #include <godot_cpp/templates/hash_set.hpp>
 
 #include "constants.h"
+#include "terrain_3d_region.h"
 
 using namespace godot;
 
@@ -27,12 +28,18 @@ public: // Constants
 		CIRCLE,
 	};
 
+	enum StreamMode {
+		DISK, // RAM and GPU follow the loaded area; evicted regions save and drop
+		RAM, // Region bodies stay cached in RAM; only the GPU layers follow
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
 	// Public settings
 	bool _enabled = false;
 	StreamShape _shape = SQUARE;
+	StreamMode _mode = DISK;
 	int _distance = 4; // Regions kept loaded around the clipmap target
 	int _slots = 121; // Pooled texture array layers, must exceed the loaded area
 	int _concurrent_loads = 3; // Threaded region loads in flight
@@ -43,6 +50,8 @@ private:
 	HashSet<Vector2i> _known_set;
 	HashSet<Vector2i> _failed; // Corrupt or unreadable on disk, never retried
 	HashMap<Vector2i, String> _pending; // In flight threaded loads, location -> path
+	HashMap<Vector2i, Ref<Terrain3DRegion>> _ram_cache; // RAM mode: evicted bodies, plus prefetched ones
+	int _prefetch_cursor = 0; // RAM mode: background walk of _known filling the cache
 	Vector2 _travel_dir; // Moving average of target motion, breaks load order ties
 	Vector2 _last_focus;
 	bool _has_last_focus = false;
@@ -52,6 +61,7 @@ private:
 
 	real_t _distance_to(const Vector2i &p_region_loc, const Vector2i &p_focus_loc) const;
 	void _collision_refresh(const Vector2i &p_region_loc);
+	void _flush_ram_cache();
 
 public:
 	Terrain3DStreamer() {}
@@ -63,6 +73,8 @@ public:
 	bool is_active() const; // Enabled and outside the editor
 	void set_shape(const StreamShape p_shape) { _shape = p_shape; }
 	StreamShape get_shape() const { return _shape; }
+	void set_mode(const StreamMode p_mode);
+	StreamMode get_mode() const { return _mode; }
 	void set_distance(const int p_distance) { _distance = CLAMP(p_distance, 1, 15); }
 	int get_distance() const { return _distance; }
 	void set_slots(const int p_slots) { _slots = CLAMP(p_slots, 9, 1024); }
@@ -82,6 +94,8 @@ protected:
 };
 
 using StreamShape = Terrain3DStreamer::StreamShape;
+using StreamMode = Terrain3DStreamer::StreamMode;
 VARIANT_ENUM_CAST(Terrain3DStreamer::StreamShape);
+VARIANT_ENUM_CAST(Terrain3DStreamer::StreamMode);
 
 #endif // TERRAIN3D_STREAMER_CLASS_H

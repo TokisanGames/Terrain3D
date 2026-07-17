@@ -26,7 +26,36 @@ void Terrain3DStreamer::set_enabled(const bool p_enabled) {
 	LOG(INFO, "Region streaming ", p_enabled ? "enabled" : "disabled");
 	if (!p_enabled) {
 		abort_pending();
+		_flush_ram_cache();
 	}
+}
+
+void Terrain3DStreamer::set_mode(const StreamMode p_mode) {
+	if (_mode == p_mode) {
+		return;
+	}
+	_mode = p_mode;
+	LOG(INFO, "Streaming mode: ", p_mode == RAM ? "RAM resident" : "disk");
+	if (p_mode == DISK) {
+		// Cached bodies may carry runtime edits that DISK mode would have saved
+		// on eviction; write them back before the cache drops
+		_flush_ram_cache();
+	}
+	_prefetch_cursor = 0;
+}
+
+// Saves modified cached regions and drops the cache. Runs when leaving RAM mode
+// or when streaming stops, so runtime edits are never lost with the bodies.
+void Terrain3DStreamer::_flush_ram_cache() {
+	if (_terrain != nullptr && !_terrain->get_data_directory().is_empty()) {
+		for (const KeyValue<Vector2i, Ref<Terrain3DRegion>> &kv : _ram_cache) {
+			if (kv.value.is_valid() && kv.value->is_modified()) {
+				String path = _terrain->get_data_directory() + String("/") + Util::location_to_filename(kv.key);
+				kv.value->save(path, _terrain->get_save_16_bit());
+			}
+		}
+	}
+	_ram_cache.clear();
 }
 
 bool Terrain3DStreamer::is_active() const {
@@ -50,6 +79,8 @@ void Terrain3DStreamer::scan_directory() {
 	_known_set.clear();
 	_failed.clear();
 	abort_pending();
+	_flush_ram_cache();
+	_prefetch_cursor = 0;
 	_travel_dir = Vector2();
 	_has_last_focus = false;
 	_landed_total = 0;
@@ -110,7 +141,17 @@ void Terrain3DStreamer::step() {
 		}
 	}
 	for (int i = 0; i < stale.size() && i < 8; i++) {
-		data->evict_region(stale[i], dir);
+		if (_mode == RAM) {
+			// Keep the body: eviction only frees the GPU slot, the region parks in
+			// the cache with any runtime edits intact and reinserts without disk IO
+			Ref<Terrain3DRegion> body = data->get_region(stale[i]);
+			data->evict_region(stale[i], String());
+			if (body.is_valid()) {
+				_ram_cache[stale[i]] = body;
+			}
+		} else {
+			data->evict_region(stale[i], dir);
+		}
 		_evicted_total += 1;
 	}
 	// Poll in flight loads. Failures are marked and never retried, loads that fell out
@@ -137,8 +178,13 @@ void Terrain3DStreamer::step() {
 		}
 		real_t d = _distance_to(kv.key, floc);
 		if (d > real_t(_distance + 1)) {
-			// Walked away while it loaded: consume and drop
-			ResourceLoader::get_singleton()->load_threaded_get(kv.value);
+			// Walked away while it loaded: consume, and in RAM mode keep the body
+			Ref<Terrain3DRegion> body = ResourceLoader::get_singleton()->load_threaded_get(kv.value);
+			if (_mode == RAM && body.is_valid()) {
+				body->take_over_path(kv.value);
+				body->set_location(kv.key);
+				_ram_cache[kv.key] = body;
+			}
 			drop.push_back(kv.key);
 			continue;
 		}
@@ -155,6 +201,7 @@ void Terrain3DStreamer::step() {
 		bool operator()(const Landing &a, const Landing &b) const { return a.d < b.d; }
 	};
 	ready.sort_custom<LandingSort>();
+	int inserted = 0;
 	for (int i = 0; i < ready.size() && i < _loads_per_frame; i++) {
 		uint64_t t0 = Time::get_singleton()->get_ticks_usec();
 		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load_threaded_get(ready[i].path);
@@ -170,6 +217,7 @@ void Terrain3DStreamer::step() {
 		if (data->add_region_streamed(region) == OK) {
 			_collision_refresh(ready[i].loc);
 			_landed_total += 1;
+			inserted += 1;
 			real_t ms = real_t(Time::get_singleton()->get_ticks_usec() - t0) * 0.001f;
 			_land_ms_avg = _land_ms_avg == 0.f ? ms : _land_ms_avg * 0.9f + ms * 0.1f;
 		} else if (data->get_free_slot_count() > 0) {
@@ -219,16 +267,57 @@ void Terrain3DStreamer::step() {
 	}
 	cands.sort_custom<CandSort>();
 	for (int i = 0; i < cands.size() && budget > 0; i++) {
-		String path = dir + String("/") + Util::location_to_filename(cands[i].loc);
+		Vector2i loc = cands[i].loc;
+		if (_ram_cache.has(loc)) {
+			// RAM mode revisit: the body is already decoded, only the GPU upload
+			// remains. Still bounded by loads_per_frame
+			if (inserted >= _loads_per_frame || data->get_free_slot_count() <= 0) {
+				continue;
+			}
+			uint64_t t0 = Time::get_singleton()->get_ticks_usec();
+			Ref<Terrain3DRegion> region = _ram_cache[loc];
+			_ram_cache.erase(loc);
+			region->set_location(loc);
+			region->set_version(Terrain3DData::CURRENT_DATA_VERSION);
+			if (data->add_region_streamed(region) == OK) {
+				_collision_refresh(loc);
+				_landed_total += 1;
+				inserted += 1;
+				real_t ms = real_t(Time::get_singleton()->get_ticks_usec() - t0) * 0.001f;
+				_land_ms_avg = _land_ms_avg == 0.f ? ms : _land_ms_avg * 0.9f + ms * 0.1f;
+			}
+			continue;
+		}
+		String path = dir + String("/") + Util::location_to_filename(loc);
 		Error err = ResourceLoader::get_singleton()->load_threaded_request(
 				path, "Terrain3DRegion", false, ResourceLoader::CACHE_MODE_IGNORE);
 		if (err != OK) {
 			LOG(ERROR, "Streaming load request failed for ", path, ": ", err);
-			_failed.insert(cands[i].loc);
+			_failed.insert(loc);
 			continue;
 		}
-		_pending[cands[i].loc] = path;
+		_pending[loc] = path;
 		budget--;
+	}
+	// RAM mode: spend leftover load budget prefetching the rest of the world into
+	// the cache, so revisits and far teleports never touch the disk again
+	if (_mode == RAM) {
+		while (budget > 0 && _prefetch_cursor < _known.size()) {
+			Vector2i loc = _known[_prefetch_cursor];
+			_prefetch_cursor++;
+			if (data->has_region(loc) || _ram_cache.has(loc) || _failed.has(loc) || _pending.has(loc)) {
+				continue;
+			}
+			String path = dir + String("/") + Util::location_to_filename(loc);
+			Error err = ResourceLoader::get_singleton()->load_threaded_request(
+					path, "Terrain3DRegion", false, ResourceLoader::CACHE_MODE_IGNORE);
+			if (err != OK) {
+				_failed.insert(loc);
+				continue;
+			}
+			_pending[loc] = path;
+			budget--;
+		}
 	}
 }
 
@@ -239,6 +328,8 @@ Dictionary Terrain3DStreamer::get_stats() const {
 	d["resident"] = data != nullptr ? data->get_region_count() : 0;
 	d["free_slots"] = data != nullptr ? data->get_free_slot_count() : 0;
 	d["inflight"] = (int)_pending.size();
+	d["ram_cached"] = (int)_ram_cache.size();
+	d["mode"] = _mode == RAM ? "ram" : "disk";
 	d["failed"] = (int)_failed.size();
 	d["known"] = (int)_known.size();
 	d["landed_total"] = (int64_t)_landed_total;
@@ -287,11 +378,16 @@ void Terrain3DStreamer::_bind_methods() {
 	BIND_ENUM_CONSTANT(SQUARE);
 	BIND_ENUM_CONSTANT(CIRCLE);
 
+	BIND_ENUM_CONSTANT(DISK);
+	BIND_ENUM_CONSTANT(RAM);
+
 	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Terrain3DStreamer::set_enabled);
 	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DStreamer::is_enabled);
 	ClassDB::bind_method(D_METHOD("is_active"), &Terrain3DStreamer::is_active);
 	ClassDB::bind_method(D_METHOD("set_shape", "shape"), &Terrain3DStreamer::set_shape);
 	ClassDB::bind_method(D_METHOD("get_shape"), &Terrain3DStreamer::get_shape);
+	ClassDB::bind_method(D_METHOD("set_mode", "mode"), &Terrain3DStreamer::set_mode);
+	ClassDB::bind_method(D_METHOD("get_mode"), &Terrain3DStreamer::get_mode);
 	ClassDB::bind_method(D_METHOD("set_distance", "distance"), &Terrain3DStreamer::set_distance);
 	ClassDB::bind_method(D_METHOD("get_distance"), &Terrain3DStreamer::get_distance);
 	ClassDB::bind_method(D_METHOD("set_slots", "slots"), &Terrain3DStreamer::set_slots);
@@ -304,6 +400,7 @@ void Terrain3DStreamer::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shape", PROPERTY_HINT_ENUM, "Square,Circle"), "set_shape", "get_shape");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_mode", "get_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_distance", "get_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "slots", PROPERTY_HINT_RANGE, "9,1024,1"), "set_slots", "get_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_concurrent_loads", "get_concurrent_loads");

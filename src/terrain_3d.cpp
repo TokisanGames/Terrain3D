@@ -1384,6 +1384,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_streaming_active"), &Terrain3D::is_streaming_active);
 	ClassDB::bind_method(D_METHOD("set_streaming_shape", "shape"), &Terrain3D::set_streaming_shape);
 	ClassDB::bind_method(D_METHOD("get_streaming_shape"), &Terrain3D::get_streaming_shape);
+	ClassDB::bind_method(D_METHOD("set_streaming_mode", "mode"), &Terrain3D::set_streaming_mode);
+	ClassDB::bind_method(D_METHOD("get_streaming_mode"), &Terrain3D::get_streaming_mode);
 	ClassDB::bind_method(D_METHOD("set_streaming_distance", "distance"), &Terrain3D::set_streaming_distance);
 	ClassDB::bind_method(D_METHOD("get_streaming_distance"), &Terrain3D::get_streaming_distance);
 	ClassDB::bind_method(D_METHOD("set_streaming_slots", "slots"), &Terrain3D::set_streaming_slots);
@@ -1577,6 +1579,7 @@ void Terrain3D::_bind_methods() {
 	ADD_GROUP("Streaming", "streaming_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_enabled"), "set_streaming_enabled", "get_streaming_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_shape", PROPERTY_HINT_ENUM, "Square,Circle"), "set_streaming_shape", "get_streaming_shape");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_streaming_mode", "get_streaming_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_streaming_distance", "get_streaming_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_slots", PROPERTY_HINT_RANGE, "9,1024,1"), "set_streaming_slots", "get_streaming_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_concurrent_loads", "get_streaming_concurrent_loads");

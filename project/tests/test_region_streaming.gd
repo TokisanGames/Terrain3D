@@ -128,5 +128,33 @@ func _run() -> void:
 		ok(_t.data.has_region(loc), "circle: core region %s loaded" % loc)
 	ok(not _t.data.has_region(Vector2i(2, 2)), "circle: far corner evicted")
 	ok(_t.data.get_region_count() <= 13, "circle: residency bounded by hysteresis disc (%d)" % _t.data.get_region_count())
+	# RAM mode: eviction parks bodies in the cache, revisits reinsert from RAM,
+	# and a runtime edit survives the round trip without touching the disk.
+	_t.streaming_shape = Terrain3DStreamer.SQUARE
+	_t.streaming_mode = Terrain3DStreamer.RAM
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	_t.data.set_height(Vector3(20.0, 0, 20.0), 55.0)
+	cam.global_position = Vector3(rs * 6.5, 50, rs * 0.5)
+	await _settle(400)
+	ok(not _t.data.has_region(Vector2i(0, 0)), "ram: region evicted from GPU")
+	ok(int(_t.get_streaming_stats().get("ram_cached", 0)) > 0, "ram: bodies cached (%d)" % int(_t.get_streaming_stats().get("ram_cached", 0)))
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	var hr: float = _t.data.get_height(Vector3(20.0, 0, 20.0))
+	ok(absf(hr - 55.0) < 0.01, "ram: edit survived cache round trip (%.1f)" % hr)
+	_t.streaming_mode = Terrain3DStreamer.DISK
+
+	# Runtime toggle: disabling live falls back to the classic full load, and
+	# re-enabling streams again. Neither direction may crash or leak loads.
+	_t.streaming_enabled = false
+	await _settle(400)
+	ok(not _t.data.is_streaming(), "toggle: classic mode after live disable")
+	ok(_t.data.get_region_count() == 25, "toggle: full world loaded classically (%d)" % _t.data.get_region_count())
+	_t.streaming_enabled = true
+	await _settle(400)
+	ok(_t.data.is_streaming(), "toggle: streaming again after live enable")
+	ok(_t.data.get_region_count() < 25, "toggle: ring residency restored (%d)" % _t.data.get_region_count())
+
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

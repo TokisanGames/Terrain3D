@@ -50,6 +50,10 @@
 		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="false">
 			Enables region streaming at runtime. Instead of loading every region up front, regions within [member distance] of the clipmap target are loaded on background threads and evicted as the target moves away. Regions modified at runtime are saved back to the data directory before eviction. Has no effect inside the editor; see [method is_active].
 		</member>
+		<member name="mode" type="int" setter="set_mode" getter="get_mode" enum="Terrain3DStreamer.StreamMode" default="0">
+			What eviction does with a region's data. DISK saves modified regions and drops them; RAM keeps every body cached in memory (and prefetches the rest of the world in the background with spare load budget), so only the GPU layers follow the loaded area and revisits never touch the disk. RAM mode trades memory for the smoothest possible region changes. Modified cached regions are saved when leaving RAM mode or disabling streaming.
+			Alias target of [member Terrain3D.streaming_mode].
+		</member>
 		<member name="loads_per_frame" type="int" setter="set_loads_per_frame" getter="get_loads_per_frame" default="1">
 			How many completed region loads may be inserted into the terrain per physics frame. Each insertion uploads texture layers and updates collision on the main thread, so raising this trades hitching for faster fill in.
 		</member>
@@ -66,6 +70,12 @@
 		</constant>
 		<constant name="CIRCLE" value="1" enum="StreamShape">
 			The loaded area is a circle of regions around the clipmap target.
+		</constant>
+		<constant name="DISK" value="0" enum="StreamMode">
+			Evicted regions save (if modified) and drop; RAM and GPU both follow the loaded area.
+		</constant>
+		<constant name="RAM" value="1" enum="StreamMode">
+			Region bodies stay cached in RAM; only the GPU layers follow the loaded area.
 		</constant>
 	</constants>
 </class>

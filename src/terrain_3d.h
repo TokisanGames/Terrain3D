@@ -201,6 +201,8 @@ public:
 	bool is_streaming_active() const { return _streamer ? _streamer->is_active() : false; }
 	void set_streaming_shape(const StreamShape p_shape) { _streamer ? _streamer->set_shape(p_shape) : void(); }
 	StreamShape get_streaming_shape() const { return _streamer ? _streamer->get_shape() : StreamShape::SQUARE; }
+	void set_streaming_mode(const StreamMode p_mode) { _streamer ? _streamer->set_mode(p_mode) : void(); }
+	StreamMode get_streaming_mode() const { return _streamer ? _streamer->get_mode() : StreamMode::DISK; }
 	void set_streaming_distance(const int p_distance) { _streamer ? _streamer->set_distance(p_distance) : void(); }
 	int get_streaming_distance() const { return _streamer ? _streamer->get_distance() : 4; }
 	void set_streaming_slots(const int p_slots) { _streamer ? _streamer->set_slots(p_slots) : void(); }

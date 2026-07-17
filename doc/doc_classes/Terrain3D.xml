@@ -406,6 +406,10 @@
 			How many completed region loads may be inserted into the terrain per physics frame. Each insertion uploads texture layers and updates collision on the main thread, so raising this trades hitching for faster fill in.
 			Alias for [member Terrain3DStreamer.loads_per_frame].
 		</member>
+		<member name="streaming_mode" type="int" setter="set_streaming_mode" getter="get_streaming_mode" enum="Terrain3DStreamer.StreamMode" default="0">
+			What eviction does with a region's data: save-and-drop (Disk), or keep every body cached in RAM so only the GPU layers follow the loaded area (RAM Resident). See [enum Terrain3DStreamer.StreamMode].
+			Alias for [member Terrain3DStreamer.mode].
+		</member>
 		<member name="streaming_shape" type="int" setter="set_streaming_shape" getter="get_streaming_shape" enum="Terrain3DStreamer.StreamShape" default="0">
 			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member streaming_distance]. A circle loads ~21% fewer regions at the same distance.
 			Alias for [member Terrain3DStreamer.shape].
