@@ -204,7 +204,8 @@ func _on_godot_window_entered() -> void:
 func set_selected_by_asset_id(p_id: int) -> void:
 	search_box.text = ""
 	_on_search_text_changed()
-	current_list.set_selected_id(p_id)
+	current_list.selected_asset_ids = [p_id]
+	current_list.update_selection()
 	
 	
 func _on_search_text_changed() -> void:
@@ -221,7 +222,7 @@ func _on_search_text_changed() -> void:
 	mesh_list.search_text = search_box.text
 	texture_list.search_text = search_box.text
 	current_list.update_asset_list()
-	current_list.set_selected_id(0)
+	current_list.update_selection()
 
 
 func _on_search_button_pressed() -> void:
@@ -369,7 +370,7 @@ class ListContainer extends Container:
 	var plugin: EditorPlugin
 	var type := Terrain3DAssets.TYPE_TEXTURE
 	var entries: Array[ListEntry]
-	var selected_id: int = 0
+	var selected_asset_ids: Array[int] = [0]
 	var height: float = 0.
 	var width: float = 90.
 	var focus_style: StyleBox
@@ -416,10 +417,11 @@ class ListContainer extends Container:
 			var mesh_count: int = t.assets.get_mesh_count()
 			for i in mesh_count:
 				var mesh: Terrain3DMeshAsset = t.assets.get_mesh_asset(i)
-				add_item(mesh)
+				if mesh:
+					add_item(mesh)
 			if mesh_count < Terrain3DAssets.MAX_MESHES:
 				add_item()
-		set_selected_id(selected_id)
+		update_selection()
 
 
 	func add_item(p_resource: Resource = null) -> void:
@@ -451,47 +453,42 @@ class ListContainer extends Container:
 	
 	func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
 		EditorInterface.mark_scene_as_unsaved()
-		set_selected_id(clamp(p_new_id, 0, entries.size() - 2))
+		# Select the new id
+		clicked_id(MOUSE_BUTTON_LEFT, p_new_id)
+		# deselect the old id
+		clicked_id(MOUSE_BUTTON_LEFT, p_old_id)
+		update_selection()
 
 
-	func clicked_id(p_id: int) -> void:
+	func clicked_id(p_mouse_button: MouseButton, p_id: int) -> void:
 		# Select Tool if clicking an asset
 		plugin.select_terrain()
-		if type == Terrain3DAssets.TYPE_TEXTURE and \
-				not plugin.editor.get_tool() in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
-			plugin.ui.toolbar.change_tool("PaintTexture")
-		elif type == Terrain3DAssets.TYPE_MESH and plugin.editor.get_tool() != Terrain3DEditor.INSTANCER:
-			plugin.ui.toolbar.change_tool("InstanceMeshes")
-		set_selected_id(p_id)
+		if type == Terrain3DAssets.TYPE_TEXTURE:
+			if not plugin.editor.get_tool() in [ Terrain3DEditor.TEXTURE, Terrain3DEditor.COLOR, Terrain3DEditor.ROUGHNESS ]:
+				plugin.ui.toolbar.change_tool("PaintTexture")
+			var res: Terrain3DTextureAsset = entries[p_id].resource
+			selected_asset_ids = [ res.get_id() ]
+		elif type == Terrain3DAssets.TYPE_MESH:
+			if plugin.editor.get_tool() != Terrain3DEditor.INSTANCER:
+				plugin.ui.toolbar.change_tool("InstanceMeshes")
+			var res: Terrain3DMeshAsset = entries[p_id].resource
 
+			if selected_asset_ids.has(res.get_id()):
+				if not p_mouse_button == MOUSE_BUTTON_RIGHT:
+					selected_asset_ids.erase(res.get_id())
+			else:
+				selected_asset_ids.push_back(res.get_id())
+			if selected_asset_ids.is_empty():
+				selected_asset_ids = [0]
+		update_selection()
 
-	func set_selected_id(p_id: int) -> void:
-		# "Add new" is the final entry only when search box is blank
-		var max_id: int = max(0, entries.size() - (1 if search_text else 2))
-		if plugin.debug:
-			print("Terrain3DListContainer ", name, ": set_selected_id: ", selected_id, " to ", clamp(p_id, 0, max_id))
-		selected_id = clamp(p_id, 0, max_id)
+	
+	func update_selection() -> void:
 		for i in entries.size():
 			var entry: ListEntry = entries[i]
-			entry.set_selected(i == selected_id)
+			if entry.resource:
+				entry.set_selected(entry.resource.get_id() in selected_asset_ids)
 		plugin.ui._on_setting_changed()
-
-
-	func get_selected_asset_id() -> int:
-		# "Add new" is the final entry only when search box is blank
-		var max_id: int = max(0, entries.size() - (1 if search_text else 2))
-		var id: int = clamp(selected_id, 0, max_id)
-		if plugin.debug:
-			print("Terrain3DListContainer ", name, ": get_selected_asset_id: selected_id: ", selected_id, ", clamped: ", id, ", entries: ", entries.size())
-		if id >= entries.size():
-			return 0
-		var res: Resource = entries[id].resource
-		if not res:
-			return 0
-		if type == Terrain3DAssets.AssetType.TYPE_MESH:
-			return (res as Terrain3DMeshAsset).id
-		else:
-			return (res as Terrain3DTextureAsset).id
 
 
 	func _on_resource_inspected(p_resource: Resource) -> void:
@@ -582,7 +579,7 @@ class ListContainer extends Container:
 
 class ListEntry extends MarginContainer:
 	signal hovered()
-	signal clicked()
+	signal clicked(mouse_button: MouseButton)
 	signal changed(resource: Resource)
 	signal inspected(resource: Resource)
 	
@@ -839,7 +836,7 @@ class ListEntry extends MarginContainer:
 								set_edited_resource(Terrain3DMeshAsset.new(), false)
 							_on_edit()
 						else:
-							emit_signal("clicked")
+							clicked.emit(MOUSE_BUTTON_LEFT)
 					MOUSE_BUTTON_RIGHT:
 						if resource:
 							_on_edit()
@@ -900,7 +897,7 @@ class ListEntry extends MarginContainer:
 			button_clear.set_visible(resource != null)
 			
 		queue_redraw()
-		if not p_no_signal:
+		if resource and not p_no_signal:
 			emit_signal("changed", resource)
 
 
@@ -930,7 +927,7 @@ class ListEntry extends MarginContainer:
 
 	
 	func _on_edit() -> void:
-		emit_signal("clicked")
+		clicked.emit(MOUSE_BUTTON_RIGHT)
 		emit_signal("inspected", resource)
 
 

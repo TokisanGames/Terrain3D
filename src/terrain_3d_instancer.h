@@ -50,9 +50,9 @@ private:
 	V2IIntPair _queued_updates;
 
 	InstancerMode _mode = NORMAL;
-	uint32_t _density_counter = 0;
+	PackedInt64Array _density_counters;
 
-	uint32_t _get_density_count(const real_t p_density);
+	uint32_t _get_density_count(const real_t p_density, const uint32_t p_id);
 	int _get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma);
 	void _process_updates();
 	void _update_mmi_by_region(const Terrain3DRegion *p_region, const int p_mesh_id);
@@ -96,7 +96,7 @@ public:
 	void swap_ids(const int p_src_id, const int p_dst_id);
 	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
-	void reset_density_counter() { _density_counter = 0; }
+	void reset_density_counter() { _density_counters.clear(); }
 
 protected:
 	static void _bind_methods();
@@ -107,13 +107,22 @@ VARIANT_ENUM_CAST(Terrain3DInstancer::InstancerMode);
 
 // Allows us to instance every X function calls for sparse placement
 // Modifies _density_counter, not const!
-inline uint32_t Terrain3DInstancer::_get_density_count(const real_t p_density) {
+inline uint32_t Terrain3DInstancer::_get_density_count(const real_t p_density, const uint32_t p_idx) {
 	uint32_t count = 0;
-	if (p_density < 1.f && _density_counter++ % uint32_t(1.f / p_density) == 0) {
-		count = 1;
-	} else if (p_density >= 1.f) {
+	if (p_idx >= _density_counters.size()) {
+		_density_counters.push_back(0);
+	}
+	uint32_t density_counter = static_cast<uint32_t>(_density_counters[p_idx]);
+	density_counter++; // Increment first
+	if (p_density < 1.f) {
+		uint32_t interval = uint32_t(1.f / p_density);
+		if (density_counter % interval == 0) {
+			count = 1;
+		}
+	} else {
 		count = uint32_t(p_density);
 	}
+	_density_counters[p_idx] = static_cast<int64_t>(density_counter);
 	return count;
 }
 
