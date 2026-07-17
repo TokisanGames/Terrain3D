@@ -58,7 +58,7 @@ void Terrain3D::_initialize() {
 	}
 	// Any region was changed, regenerate collision if enabled. Not while streaming:
 	// region traffic is per frame there and a full build() would recreate the physics
-	// body under the player. _stream_step updates the dynamic window in place instead.
+	// body under the player. The streamer updates the dynamic window in place instead.
 	if (!is_streaming_active() &&
 			!_data->is_connected("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build))) {
 		LOG(DEBUG, "Connecting _data::region_map_changed signal to build()");

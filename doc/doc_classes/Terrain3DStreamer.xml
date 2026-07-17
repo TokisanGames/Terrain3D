@@ -42,22 +42,22 @@
 	</methods>
 	<members>
 		<member name="concurrent_loads" type="int" setter="set_concurrent_loads" getter="get_concurrent_loads" default="3">
-			Alias target of [member Terrain3D.streaming_concurrent_loads].
+			How many regions may be loading on background threads at once. Loading runs wide while insertions stay narrow; see [member loads_per_frame].
 		</member>
 		<member name="distance" type="int" setter="set_distance" getter="get_distance" default="4">
-			Alias target of [member Terrain3D.streaming_distance].
+			How far out from the clipmap target regions are kept loaded, in regions. Regions one region beyond this distance are evicted (hysteresis, so regions don't churn at the boundary).
 		</member>
 		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="false">
-			Alias target of [member Terrain3D.streaming_enabled].
+			Enables region streaming at runtime. Instead of loading every region up front, regions within [member distance] of the clipmap target are loaded on background threads and evicted as the target moves away. Regions modified at runtime are saved back to the data directory before eviction. Has no effect inside the editor; see [method is_active].
 		</member>
 		<member name="loads_per_frame" type="int" setter="set_loads_per_frame" getter="get_loads_per_frame" default="1">
-			Alias target of [member Terrain3D.streaming_loads_per_frame].
+			How many completed region loads may be inserted into the terrain per physics frame. Each insertion uploads texture layers and updates collision on the main thread, so raising this trades hitching for faster fill in.
 		</member>
 		<member name="shape" type="int" setter="set_shape" getter="get_shape" enum="Terrain3DStreamer.StreamShape" default="0">
-			Alias target of [member Terrain3D.streaming_shape].
+			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member distance]. A circle loads ~21% fewer regions at the same distance.
 		</member>
 		<member name="slots" type="int" setter="set_slots" getter="get_slots" default="121">
-			Alias target of [member Terrain3D.streaming_slots].
+			Capacity of the pooled texture arrays, in regions. Must exceed the loaded area (e.g. (2 * [member distance] + 1)² for a square shape) with headroom for regions in flight.
 		</member>
 	</members>
 	<constants>

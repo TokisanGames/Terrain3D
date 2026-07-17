@@ -81,6 +81,7 @@ protected:
 	static void _bind_methods();
 };
 
+using StreamShape = Terrain3DStreamer::StreamShape;
 VARIANT_ENUM_CAST(Terrain3DStreamer::StreamShape);
 
 #endif // TERRAIN3D_STREAMER_CLASS_H

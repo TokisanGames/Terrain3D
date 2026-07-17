@@ -108,13 +108,15 @@
 		<method name="get_streaming_stats" qualifiers="const">
 			<return type="Dictionary" />
 			<description>
-				Returns live region-streaming counters: [code skip-lint]streaming_active[/code], [code skip-lint]resident[/code], [code skip-lint]free_slots[/code], [code skip-lint]inflight[/code], [code skip-lint]failed[/code], [code skip-lint]known[/code], [code skip-lint]landed_total[/code], [code skip-lint]evicted_total[/code], and [code skip-lint]land_ms_avg[/code] (an exponential moving average of a landing's main-thread cost in ms). Useful for debug overlays and tests.
+				Returns live streaming counters, useful for debug overlays and tests.
+				Alias for [method Terrain3DStreamer.get_stats].
 			</description>
 		</method>
 		<method name="is_streaming_active" qualifiers="const">
 			<return type="bool" />
 			<description>
 				Returns [code skip-lint]true[/code] when [member streaming_enabled] is on and the game is running outside the editor. The editor and any tool that authors the whole terrain always keep full residency.
+				Alias for [method Terrain3DStreamer.is_active].
 			</description>
 		</method>
 		<method name="set_camera">
@@ -390,21 +392,27 @@
 		</member>
 		<member name="streaming_concurrent_loads" type="int" setter="set_streaming_concurrent_loads" getter="get_streaming_concurrent_loads" default="3">
 			How many regions may be loading on background threads at once. Loading runs wide while insertions stay narrow; see [member streaming_loads_per_frame].
+			Alias for [member Terrain3DStreamer.concurrent_loads].
 		</member>
 		<member name="streaming_distance" type="int" setter="set_streaming_distance" getter="get_streaming_distance" default="4">
 			How far out from the clipmap target regions are kept loaded, in regions. E.g. at the default 4 with a square [member streaming_shape], a 9x9 block of regions surrounds the target. Regions one region beyond this distance are evicted (hysteresis, so regions don't churn at the boundary).
+			Alias for [member Terrain3DStreamer.distance].
 		</member>
 		<member name="streaming_enabled" type="bool" setter="set_streaming_enabled" getter="get_streaming_enabled" default="false">
 			Enables region streaming at runtime. Instead of loading every region in [member data_directory] up front, regions within [member streaming_distance] of the clipmap target are loaded on background threads and evicted as the target moves away, so memory scales with the loaded area instead of the whole terrain. Regions modified at runtime are saved back to [member data_directory] before eviction. Has no effect inside the editor, which always keeps the full terrain loaded; see [method is_streaming_active].
+			Alias for [member Terrain3DStreamer.enabled].
 		</member>
 		<member name="streaming_loads_per_frame" type="int" setter="set_streaming_loads_per_frame" getter="get_streaming_loads_per_frame" default="1">
 			How many completed region loads may be inserted into the terrain per physics frame. Each insertion uploads texture layers and updates collision on the main thread, so raising this trades hitching for faster fill in.
+			Alias for [member Terrain3DStreamer.loads_per_frame].
 		</member>
 		<member name="streaming_shape" type="int" setter="set_streaming_shape" getter="get_streaming_shape" enum="Terrain3DStreamer.StreamShape" default="0">
 			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member streaming_distance]. A circle loads ~21% fewer regions at the same distance.
+			Alias for [member Terrain3DStreamer.shape].
 		</member>
 		<member name="streaming_slots" type="int" setter="set_streaming_slots" getter="get_streaming_slots" default="121">
 			Capacity of the pooled texture arrays while streaming, in regions. Must exceed the loaded area (e.g. (2 * [member streaming_distance] + 1)² for a square shape) with headroom for regions in flight.
+			Alias for [member Terrain3DStreamer.slots].
 		</member>
 		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="0">
 			Enables displacement using texture heights for additional mesh detail when set above 0. This creates up to 6 additional subdivisions of the terrain mesh below LOD0, and adds a displacement buffer configurable in the material. You can see this in wireframe mode. Set to 0 to disable displacement. See [member Terrain3DMaterial.show_displacement_buffer] and look at the Displacement Buffer debug view.

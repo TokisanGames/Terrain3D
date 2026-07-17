@@ -11,7 +11,6 @@
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
-#include <godot_cpp/templates/hash_map.hpp>
 
 #include "constants.h"
 #include "target_node_3d.h"
@@ -200,8 +199,8 @@ public:
 	void set_streaming_enabled(const bool p_enabled);
 	bool get_streaming_enabled() const { return _streamer ? _streamer->is_enabled() : false; }
 	bool is_streaming_active() const { return _streamer ? _streamer->is_active() : false; }
-	void set_streaming_shape(const int p_shape) { _streamer ? _streamer->set_shape((Terrain3DStreamer::StreamShape)p_shape) : void(); }
-	int get_streaming_shape() const { return _streamer ? (int)_streamer->get_shape() : 0; }
+	void set_streaming_shape(const StreamShape p_shape) { _streamer ? _streamer->set_shape(p_shape) : void(); }
+	StreamShape get_streaming_shape() const { return _streamer ? _streamer->get_shape() : StreamShape::SQUARE; }
 	void set_streaming_distance(const int p_distance) { _streamer ? _streamer->set_distance(p_distance) : void(); }
 	int get_streaming_distance() const { return _streamer ? _streamer->get_distance() : 4; }
 	void set_streaming_slots(const int p_slots) { _streamer ? _streamer->set_slots(p_slots) : void(); }

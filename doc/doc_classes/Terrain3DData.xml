@@ -39,7 +39,7 @@
 			<return type="int" enum="Error" />
 			<param index="0" name="region" type="Terrain3DRegion" />
 			<description>
-				Streaming only. Inserts a loaded region into a free pool slot: one texture layer update per map plus one region map entry; the texture arrays are never rebuilt. Fails if streaming is off, the pool is exhausted, or the region size does not match the pool. Called by [Terrain3D] as streamed loads complete; call directly only if you drive streaming yourself.
+				Streaming only. Inserts a loaded region into a free pool slot: one texture layer update per map plus one region map entry; the texture arrays are never rebuilt. Fails if streaming is off, the pool is exhausted, or the region size does not match the pool. Called by [Terrain3DStreamer] as streamed loads complete; call directly only if you drive streaming yourself.
 			</description>
 		</method>
 		<method name="calc_height_range">
