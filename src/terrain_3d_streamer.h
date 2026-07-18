@@ -38,6 +38,7 @@ private:
 
 	// Public settings
 	bool _enabled = false;
+	bool _editor_streaming = false; // Opt in to streaming inside the editor, off by default
 	StreamShape _shape = SQUARE;
 	StreamMode _mode = DISK;
 	int _distance = 4; // Regions kept loaded around the clipmap target
@@ -72,7 +73,9 @@ public:
 
 	void set_enabled(const bool p_enabled);
 	bool is_enabled() const { return _enabled; }
-	bool is_active() const; // Enabled and outside the editor
+	void set_editor_streaming(const bool p_enabled);
+	bool is_editor_streaming() const { return _editor_streaming; }
+	bool is_active() const; // Enabled, and either outside the editor or opted in to editor streaming
 	void set_shape(const StreamShape p_shape);
 	StreamShape get_shape() const { return _shape; }
 	void set_mode(const StreamMode p_mode);

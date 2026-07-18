@@ -126,7 +126,18 @@ void Terrain3DStreamer::_flush_ram_cache() {
 }
 
 bool Terrain3DStreamer::is_active() const {
-	return _enabled && !IS_EDITOR;
+	return _enabled && (!IS_EDITOR || _editor_streaming);
+}
+
+// Opts the editor in to streaming. Off by default because the editor writes and
+// several editor systems assume the whole world is resident; Terrain3D reinitializes
+// the terrain when this changes so the load path switches with it.
+void Terrain3DStreamer::set_editor_streaming(const bool p_enabled) {
+	if (_editor_streaming == p_enabled) {
+		return;
+	}
+	_editor_streaming = p_enabled;
+	LOG(INFO, "Editor streaming ", p_enabled ? "enabled" : "disabled");
 }
 
 // Consumes and drops every in flight threaded load. An unconsumed threaded load
@@ -484,6 +495,8 @@ void Terrain3DStreamer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Terrain3DStreamer::set_enabled);
 	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DStreamer::is_enabled);
+	ClassDB::bind_method(D_METHOD("set_editor_streaming", "enabled"), &Terrain3DStreamer::set_editor_streaming);
+	ClassDB::bind_method(D_METHOD("is_editor_streaming"), &Terrain3DStreamer::is_editor_streaming);
 	ClassDB::bind_method(D_METHOD("is_active"), &Terrain3DStreamer::is_active);
 	ClassDB::bind_method(D_METHOD("set_shape", "shape"), &Terrain3DStreamer::set_shape);
 	ClassDB::bind_method(D_METHOD("get_shape"), &Terrain3DStreamer::get_shape);
@@ -506,6 +519,7 @@ void Terrain3DStreamer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_stats"), &Terrain3DStreamer::get_stats);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "editor_streaming"), "set_editor_streaming", "is_editor_streaming");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shape", PROPERTY_HINT_ENUM, "Square,Circle"), "set_shape", "get_shape");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_mode", "get_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "slots", PROPERTY_HINT_RANGE, "25,1024,1"), "set_slots", "get_slots");

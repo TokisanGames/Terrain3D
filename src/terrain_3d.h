@@ -135,6 +135,7 @@ private:
 	void _destroy_containers();
 	void _destroy_labels();
 
+	void _reinitialize();
 	void _reinit_streaming_pool();
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
@@ -199,6 +200,8 @@ public:
 	// Streaming Aliases
 	void set_streaming_enabled(const bool p_enabled);
 	bool get_streaming_enabled() const { return _streamer ? _streamer->is_enabled() : false; }
+	void set_editor_streaming(const bool p_enabled);
+	bool get_editor_streaming() const { return _streamer ? _streamer->is_editor_streaming() : false; }
 	bool is_streaming_active() const { return _streamer ? _streamer->is_active() : false; }
 	void set_streaming_shape(const StreamShape p_shape) { _streamer ? _streamer->set_shape(p_shape) : void(); }
 	StreamShape get_streaming_shape() const { return _streamer ? _streamer->get_shape() : StreamShape::SQUARE; }

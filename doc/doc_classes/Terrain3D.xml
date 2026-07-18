@@ -412,8 +412,12 @@
 			How far the loaded area extends from the clipmap target, in regions. For example, 4 with a square [member streaming_shape] keeps a 9x9 block of regions loaded around the target. Raising it automatically grows [member streaming_slots] to fit. See [member Terrain3DStreamer.distance].
 			Alias for [member Terrain3DStreamer.distance].
 		</member>
+		<member name="streaming_editor" type="bool" setter="set_editor_streaming" getter="get_editor_streaming" default="false">
+			Opts the editor in to streaming so a world too large to hold in memory can still be opened and navigated. Off by default because the editor writes and several editor systems assume the whole world is resident. When on, [member streaming_enabled] takes effect inside the editor and the editor camera drives the loaded window.
+			Alias for [member Terrain3DStreamer.editor_streaming].
+		</member>
 		<member name="streaming_enabled" type="bool" setter="set_streaming_enabled" getter="get_streaming_enabled" default="false">
-			Enables region streaming at runtime. Instead of loading every region in [member data_directory] up front, regions within [member streaming_distance] of the clipmap target are loaded on background threads and evicted as the target moves away, so memory scales with the loaded area instead of the whole terrain. Regions modified at runtime are saved back to [member data_directory] before eviction. Has no effect inside the editor, which always keeps the full terrain loaded; see [method is_streaming_active].
+			Enables region streaming. Instead of loading every region in [member data_directory] up front, regions within [member streaming_distance] of the clipmap target are loaded on background threads and evicted as the target moves away, so memory scales with the loaded area instead of the whole terrain. Regions modified at runtime are saved back to [member data_directory] before eviction. Inside the editor this takes effect only when [member streaming_editor] is also on; otherwise the editor keeps the full terrain loaded. See [method is_streaming_active].
 			Alias for [member Terrain3DStreamer.enabled].
 		</member>
 		<member name="streaming_loads_per_frame" type="int" setter="set_streaming_loads_per_frame" getter="get_streaming_loads_per_frame" default="1">

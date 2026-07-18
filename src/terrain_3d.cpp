@@ -557,16 +557,24 @@ void Terrain3D::set_data_directory(String p_dir) {
 	update_configuration_warnings();
 }
 
+// Tears down and rebuilds the terrain data, the way a data directory change does.
+// The streaming load path differs from the classic full load, so switching between
+// them or resizing the slot pool needs a fresh initialize.
+void Terrain3D::_reinitialize() {
+	_initialized = false;
+	_destroy_labels();
+	_destroy_collision();
+	_destroy_instancer();
+	memdelete_safely(_data);
+	_initialize();
+}
+
 // The pooled texture arrays are allocated once at slot capacity, so any live
 // change to that capacity rebuilds the terrain data like toggling streaming does.
+// Streaming is active in the editor only when editor streaming is opted in.
 void Terrain3D::_reinit_streaming_pool() {
-	if (_initialized && is_streaming_active() && !IS_EDITOR) {
-		_initialized = false;
-		_destroy_labels();
-		_destroy_collision();
-		_destroy_instancer();
-		memdelete_safely(_data);
-		_initialize();
+	if (_initialized && is_streaming_active()) {
+		_reinitialize();
 	}
 }
 
@@ -595,15 +603,23 @@ void Terrain3D::set_streaming_enabled(const bool p_enabled) {
 		return;
 	}
 	_streamer->set_enabled(p_enabled);
-	// The load path differs at initialization, so toggling live reinitializes
-	// the terrain like a data directory change does.
-	if (_initialized && !IS_EDITOR) {
-		_initialized = false;
-		_destroy_labels();
-		_destroy_collision();
-		_destroy_instancer();
-		memdelete_safely(_data);
-		_initialize();
+	// The load path differs at initialization, so toggling live reinitializes the
+	// terrain like a data directory change does. In the editor this only matters when
+	// editor streaming is opted in; otherwise the editor stays on the classic load.
+	if (_initialized && (!IS_EDITOR || _streamer->is_editor_streaming())) {
+		_reinitialize();
+	}
+}
+
+// Opts the editor in to region streaming. Reinitializes so the load path switches
+// between the classic full load and the streaming window.
+void Terrain3D::set_editor_streaming(const bool p_enabled) {
+	if (_streamer == nullptr || _streamer->is_editor_streaming() == p_enabled) {
+		return;
+	}
+	_streamer->set_editor_streaming(p_enabled);
+	if (_initialized && IS_EDITOR) {
+		_reinitialize();
 	}
 }
 
@@ -1420,6 +1436,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
 	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
 	ClassDB::bind_method(D_METHOD("set_streaming_enabled", "enabled"), &Terrain3D::set_streaming_enabled);
+	ClassDB::bind_method(D_METHOD("set_editor_streaming", "enabled"), &Terrain3D::set_editor_streaming);
+	ClassDB::bind_method(D_METHOD("get_editor_streaming"), &Terrain3D::get_editor_streaming);
 	ClassDB::bind_method(D_METHOD("get_streaming_enabled"), &Terrain3D::get_streaming_enabled);
 	ClassDB::bind_method(D_METHOD("is_streaming_active"), &Terrain3D::is_streaming_active);
 	ClassDB::bind_method(D_METHOD("set_streaming_shape", "shape"), &Terrain3D::set_streaming_shape);
@@ -1622,6 +1640,7 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Streaming", "streaming_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_enabled"), "set_streaming_enabled", "get_streaming_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_editor"), "set_editor_streaming", "get_editor_streaming");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_shape", PROPERTY_HINT_ENUM, "Square,Circle"), "set_streaming_shape", "get_streaming_shape");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_streaming_mode", "get_streaming_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_slots", PROPERTY_HINT_RANGE, "25,1024,1"), "set_streaming_slots", "get_streaming_slots");

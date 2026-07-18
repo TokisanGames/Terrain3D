@@ -37,7 +37,7 @@
 		<method name="is_active" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns [code skip-lint]true[/code] when streaming is enabled and the game is running outside the editor.
+				Returns [code skip-lint]true[/code] when streaming is enabled and either the game is running outside the editor or [member editor_streaming] is on.
 			</description>
 		</method>
 		<method name="is_location_known" qualifiers="const">
@@ -68,8 +68,12 @@
 			How far the loaded area extends from the clipmap target, in regions. For example, 4 with a square [member shape] keeps a 9x9 block of regions loaded (the target region plus 4 in every direction); a circle of the same radius keeps fewer. In world units the radius is distance x region_size x vertex_spacing.
 			Higher values load more of the world at once and cost more memory. Raising distance automatically raises [member slots] to fit, so it just works; lowering slots below what the current distance needs pulls distance back down (with a warning). The maximum is bounded by the 1024 slot ceiling (square shape tops out at distance 14).
 		</member>
+		<member name="editor_streaming" type="bool" setter="set_editor_streaming" getter="is_editor_streaming" default="false">
+			Opts the editor in to streaming. Off by default because the editor writes and several editor systems assume the whole world is resident, so leave it off unless you are opening a world too large to hold in memory. When on, [member enabled] takes effect inside the editor and the editor camera drives the loaded window.
+			Alias target of [member Terrain3D.streaming_editor].
+		</member>
 		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="false">
-			Enables region streaming at runtime. Instead of loading every region up front, regions within [member distance] of the clipmap target are loaded on background threads and evicted as the target moves away. Regions modified at runtime are saved back to the data directory before eviction. Has no effect inside the editor; see [method is_active].
+			Enables region streaming. Instead of loading every region up front, regions within [member distance] of the clipmap target are loaded on background threads and evicted as the target moves away. Regions modified at runtime are saved back to the data directory before eviction. Inside the editor this takes effect only when [member editor_streaming] is also on; see [method is_active].
 		</member>
 		<member name="mode" type="int" setter="set_mode" getter="get_mode" enum="Terrain3DStreamer.StreamMode" default="0">
 			What eviction does with a region's data. DISK saves modified regions and drops them; RAM keeps every body cached in memory (and prefetches the rest of the world in the background with spare load budget), so only the GPU layers follow the loaded area and revisits never touch the disk. RAM mode trades memory for the smoothest possible region changes. Modified cached regions are saved when leaving RAM mode or disabling streaming.

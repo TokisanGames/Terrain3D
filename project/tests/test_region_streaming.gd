@@ -293,5 +293,13 @@ func _run() -> void:
 	ok(absf(_t.data.get_region(va).get_version() - 0.93) < 0.001, "skip_version: version upgraded with skip off (%.3f)" % _t.data.get_region(va).get_version())
 	_t.streaming_skip_version_upgrade = true
 
+	# editor_streaming: the opt-in flag stores, and outside the editor it does not
+	# change activity because is_active already holds there. Editor behavior is eyes-on.
+	_t.streaming_editor = true
+	ok(_t.get_editor_streaming(), "editor_streaming: flag set")
+	ok(_t.is_streaming_active() == _t.streaming_enabled, "editor_streaming: inert outside editor")
+	_t.streaming_editor = false
+	ok(not _t.get_editor_streaming(), "editor_streaming: flag cleared")
+
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)
