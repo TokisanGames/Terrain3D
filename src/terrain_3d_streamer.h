@@ -94,6 +94,9 @@ public:
 	bool get_skip_version_upgrade() const { return _skip_version_upgrade; }
 
 	void scan_directory();
+	TypedArray<Vector2i> get_known_locations() const;
+	TypedArray<Vector2i> get_pending_locations() const;
+	TypedArray<Vector2i> get_failed_locations() const;
 	bool is_location_known(const Vector2i &p_loc) const { return _known_set.has(p_loc); }
 	void mark_known(const Vector2i &p_loc);
 	void mark_unknown(const Vector2i &p_loc);

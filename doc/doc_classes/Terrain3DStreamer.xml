@@ -40,6 +40,24 @@
 				Returns [code skip-lint]true[/code] when streaming is enabled and either the game is running outside the editor or [member editor_streaming] is on.
 			</description>
 		</method>
+		<method name="get_failed_locations" qualifiers="const">
+			<return type="Vector2i[]" />
+			<description>
+				Returns the region locations whose file failed to load and will not be retried. For the streaming dock and debug overlays.
+			</description>
+		</method>
+		<method name="get_known_locations" qualifiers="const">
+			<return type="Vector2i[]" />
+			<description>
+				Returns every region location found on disk, whether or not it is currently resident. Kept current as regions are saved and deleted. For the streaming dock and debug overlays.
+			</description>
+		</method>
+		<method name="get_pending_locations" qualifiers="const">
+			<return type="Vector2i[]" />
+			<description>
+				Returns the region locations with a threaded load in flight. For the streaming dock and debug overlays.
+			</description>
+		</method>
 		<method name="is_location_known" qualifiers="const">
 			<return type="bool" />
 			<param index="0" name="location" type="Vector2i" />

@@ -180,6 +180,35 @@ void Terrain3DStreamer::scan_directory() {
 	LOG(INFO, "Streaming scan: ", _known.size(), " regions on disk at ", dir);
 }
 
+// Every region location found on disk, resident or not. For the streaming dock and
+// debug overlays; the streamer keeps this current as regions are saved and deleted.
+TypedArray<Vector2i> Terrain3DStreamer::get_known_locations() const {
+	TypedArray<Vector2i> locs;
+	for (int i = 0; i < _known.size(); i++) {
+		locs.push_back(_known[i]);
+	}
+	return locs;
+}
+
+// Locations with a threaded load in flight, for the dock's loading cells.
+TypedArray<Vector2i> Terrain3DStreamer::get_pending_locations() const {
+	TypedArray<Vector2i> locs;
+	for (const KeyValue<Vector2i, String> &kv : _pending) {
+		locs.push_back(kv.key);
+	}
+	return locs;
+}
+
+// Locations whose file failed to load and will not be retried, for the dock's
+// failed cells.
+TypedArray<Vector2i> Terrain3DStreamer::get_failed_locations() const {
+	TypedArray<Vector2i> locs;
+	for (const Vector2i &loc : _failed) {
+		locs.push_back(loc);
+	}
+	return locs;
+}
+
 // Records that a region file now exists at this location. Called when a region is
 // saved or created after the boot scan, so is_location_known stays authoritative for
 // the overwrite guards and the dock's on-disk cells. Idempotent.
@@ -515,6 +544,9 @@ void Terrain3DStreamer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_required_slots", "distance"), &Terrain3DStreamer::get_required_slots);
 	ClassDB::bind_method(D_METHOD("get_max_distance"), &Terrain3DStreamer::get_max_distance);
 	ClassDB::bind_method(D_METHOD("scan_directory"), &Terrain3DStreamer::scan_directory);
+	ClassDB::bind_method(D_METHOD("get_known_locations"), &Terrain3DStreamer::get_known_locations);
+	ClassDB::bind_method(D_METHOD("get_pending_locations"), &Terrain3DStreamer::get_pending_locations);
+	ClassDB::bind_method(D_METHOD("get_failed_locations"), &Terrain3DStreamer::get_failed_locations);
 	ClassDB::bind_method(D_METHOD("is_location_known", "location"), &Terrain3DStreamer::is_location_known);
 	ClassDB::bind_method(D_METHOD("get_stats"), &Terrain3DStreamer::get_stats);
 
