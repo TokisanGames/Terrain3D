@@ -212,6 +212,8 @@ public:
 	int get_streaming_concurrent_loads() const { return _streamer ? _streamer->get_concurrent_loads() : 3; }
 	void set_streaming_loads_per_frame(const int p_count) { _streamer ? _streamer->set_loads_per_frame(p_count) : void(); }
 	int get_streaming_loads_per_frame() const { return _streamer ? _streamer->get_loads_per_frame() : 1; }
+	void set_streaming_skip_version_upgrade(const bool p_skip) { _streamer ? _streamer->set_skip_version_upgrade(p_skip) : void(); }
+	bool get_streaming_skip_version_upgrade() const { return _streamer ? _streamer->get_skip_version_upgrade() : true; }
 	Dictionary get_streaming_stats() const { return _streamer ? _streamer->get_stats() : Dictionary(); }
 	bool has_region_on_disk(const Vector2i &p_region_loc) const { return _streamer ? _streamer->is_location_known(p_region_loc) : false; }
 

@@ -428,6 +428,10 @@
 			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member streaming_distance]. A circle loads ~21% fewer regions at the same distance.
 			Alias for [member Terrain3DStreamer.shape].
 		</member>
+		<member name="streaming_skip_version_upgrade" type="bool" setter="set_streaming_skip_version_upgrade" getter="get_streaming_skip_version_upgrade" default="true">
+			When [code skip-lint]true[/code], regions loaded from an older data version are not restamped to the current version while streaming, so panning over an old world no longer saves every region back on eviction. A region upgrades and saves only when a real edit modifies it.
+			Alias for [member Terrain3DStreamer.skip_version_upgrade].
+		</member>
 		<member name="streaming_slots" type="int" setter="set_streaming_slots" getter="get_streaming_slots" default="121">
 			Capacity of the pooled texture arrays, in regions. Must hold every region within [member streaming_distance] + 1: (2 * (distance + 1) + 1)² for a square shape (the default 121 fits distance 4). Changing this while streaming rebuilds the terrain data at the new capacity.
 			Alias for [member Terrain3DStreamer.slots].

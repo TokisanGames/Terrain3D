@@ -166,14 +166,15 @@ func _run() -> void:
 
 	# Runtime toggle: disabling live falls back to the classic full load, and
 	# re-enabling streams again. Neither direction may crash or leak loads.
+	var on_disk: int = DirAccess.get_files_at(_dir).size()
 	_t.streaming_enabled = false
 	await _settle(400)
 	ok(not _t.data.is_streaming(), "toggle: classic mode after live disable")
-	ok(_t.data.get_region_count() == 25, "toggle: full world loaded classically (%d)" % _t.data.get_region_count())
+	ok(_t.data.get_region_count() == on_disk, "toggle: full world loaded classically (%d/%d)" % [_t.data.get_region_count(), on_disk])
 	_t.streaming_enabled = true
 	await _settle(400)
 	ok(_t.data.is_streaming(), "toggle: streaming again after live enable")
-	ok(_t.data.get_region_count() < 25, "toggle: ring residency restored (%d)" % _t.data.get_region_count())
+	ok(_t.data.get_region_count() < on_disk, "toggle: ring residency restored (%d)" % _t.data.get_region_count())
 
 	# Every option must switch live and clean up after itself.
 	# Slots: the pool is rebuilt live at the new capacity (needed below: distance 2
@@ -255,6 +256,42 @@ func _run() -> void:
 	_t.data.remove_regionl(kloc, false)
 	_t.data.save_region(kloc, _dir, false)
 	ok(not _t.has_region_on_disk(kloc), "known-set: deleted region cleared from disk")
+
+	# skip_version_upgrade: panning over an older-version world must not restamp
+	# regions, so nothing is resaved on eviction. Author two old-version regions now,
+	# after the classic-load toggle above (which would have upgraded them). Region.save
+	# force-upgrades the version, so write them through ResourceSaver to keep the old
+	# stamp, then rescan so the streamer picks up the files.
+	var va := Vector2i(8, 8)
+	var vb := Vector2i(9, 8)
+	var scratch := Terrain3D.new()
+	root.add_child(scratch)
+	for vloc in [va, vb]:
+		var vr: Terrain3DRegion = scratch.data.add_region_blank(vloc, false)
+		vr.get_height_map().fill(Color(30.0, 0, 0))
+		vr.set_version(0.92)
+		ResourceSaver.save(vr, _dir + "/" + Terrain3DUtil.location_to_filename(vloc), ResourceSaver.FLAG_COMPRESS)
+	scratch.queue_free()
+	await process_frame
+	_t.get_streamer().scan_directory()
+	_t.streaming_shape = Terrain3DStreamer.SQUARE
+	_t.streaming_distance = 1
+	# Skip on (default): the loaded region keeps its old version, so a version upgrade
+	# never marks it modified and eviction has nothing to resave.
+	ok(_t.get_streaming_skip_version_upgrade(), "skip_version: on by default")
+	cam.global_position = Vector3(8.5 * rs, 50, 8.5 * rs)
+	await _settle(400)
+	ok(_t.data.has_region(va) and _t.data.has_region(vb), "skip_version: old regions loaded")
+	ok(absf(_t.data.get_region(va).get_version() - 0.92) < 0.001, "skip_version: version kept with skip on (%.3f)" % _t.data.get_region(va).get_version())
+	# Skip off: evict, then reload the same regions and confirm they restamp to current.
+	_t.streaming_skip_version_upgrade = false
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	ok(not _t.data.has_region(va), "skip_version: old region evicted before reload")
+	cam.global_position = Vector3(8.5 * rs, 50, 8.5 * rs)
+	await _settle(400)
+	ok(absf(_t.data.get_region(va).get_version() - 0.93) < 0.001, "skip_version: version upgraded with skip off (%.3f)" % _t.data.get_region(va).get_version())
+	_t.streaming_skip_version_upgrade = true
 
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

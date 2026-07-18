@@ -44,6 +44,7 @@ private:
 	int _slots = 121; // Pooled texture array layers, must exceed the loaded area
 	int _concurrent_loads = 3; // Threaded region loads in flight
 	int _loads_per_frame = 1; // Loaded regions inserted per physics frame
+	bool _skip_version_upgrade = true; // Do not restamp older regions to current on streamed load
 
 	// Work data
 	Vector<Vector2i> _known; // Region locations present on disk
@@ -86,6 +87,8 @@ public:
 	int get_concurrent_loads() const { return _concurrent_loads; }
 	void set_loads_per_frame(const int p_count) { _loads_per_frame = CLAMP(p_count, 1, 8); }
 	int get_loads_per_frame() const { return _loads_per_frame; }
+	void set_skip_version_upgrade(const bool p_skip) { _skip_version_upgrade = p_skip; }
+	bool get_skip_version_upgrade() const { return _skip_version_upgrade; }
 
 	void scan_directory();
 	bool is_location_known(const Vector2i &p_loc) const { return _known_set.has(p_loc); }

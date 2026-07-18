@@ -1434,6 +1434,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_streaming_concurrent_loads"), &Terrain3D::get_streaming_concurrent_loads);
 	ClassDB::bind_method(D_METHOD("set_streaming_loads_per_frame", "count"), &Terrain3D::set_streaming_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_streaming_loads_per_frame"), &Terrain3D::get_streaming_loads_per_frame);
+	ClassDB::bind_method(D_METHOD("set_streaming_skip_version_upgrade", "skip"), &Terrain3D::set_streaming_skip_version_upgrade);
+	ClassDB::bind_method(D_METHOD("get_streaming_skip_version_upgrade"), &Terrain3D::get_streaming_skip_version_upgrade);
 	ClassDB::bind_method(D_METHOD("get_streaming_stats"), &Terrain3D::get_streaming_stats);
 	ClassDB::bind_method(D_METHOD("has_region_on_disk", "region_location"), &Terrain3D::has_region_on_disk);
 	ClassDB::bind_method(D_METHOD("get_streamer"), &Terrain3D::get_streamer);
@@ -1626,6 +1628,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_streaming_distance", "get_streaming_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_concurrent_loads", "get_streaming_concurrent_loads");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_loads_per_frame", "get_streaming_loads_per_frame");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_skip_version_upgrade"), "set_streaming_skip_version_upgrade", "get_streaming_skip_version_upgrade");
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");

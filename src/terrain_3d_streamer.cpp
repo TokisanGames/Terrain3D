@@ -307,7 +307,12 @@ void Terrain3DStreamer::step() {
 		}
 		region->take_over_path(ready[i].path);
 		region->set_location(ready[i].loc);
-		region->set_version(Terrain3DData::CURRENT_DATA_VERSION);
+		// Restamping an older region to the current version marks it modified, so
+		// merely panning over an old world saves every region back on eviction. Skip
+		// it while streaming; a region then upgrades and saves only on a real edit.
+		if (!_skip_version_upgrade) {
+			region->set_version(Terrain3DData::CURRENT_DATA_VERSION);
+		}
 		if (data->add_region_streamed(region) == OK) {
 			_collision_refresh(ready[i].loc);
 			_landed_total += 1;
@@ -372,7 +377,9 @@ void Terrain3DStreamer::step() {
 			Ref<Terrain3DRegion> region = _ram_cache[loc];
 			_ram_cache.erase(loc);
 			region->set_location(loc);
-			region->set_version(Terrain3DData::CURRENT_DATA_VERSION);
+			if (!_skip_version_upgrade) {
+				region->set_version(Terrain3DData::CURRENT_DATA_VERSION);
+			}
 			if (data->add_region_streamed(region) == OK) {
 				_collision_refresh(loc);
 				_landed_total += 1;
@@ -490,8 +497,11 @@ void Terrain3DStreamer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_concurrent_loads"), &Terrain3DStreamer::get_concurrent_loads);
 	ClassDB::bind_method(D_METHOD("set_loads_per_frame", "count"), &Terrain3DStreamer::set_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_loads_per_frame"), &Terrain3DStreamer::get_loads_per_frame);
+	ClassDB::bind_method(D_METHOD("set_skip_version_upgrade", "skip"), &Terrain3DStreamer::set_skip_version_upgrade);
+	ClassDB::bind_method(D_METHOD("get_skip_version_upgrade"), &Terrain3DStreamer::get_skip_version_upgrade);
 	ClassDB::bind_method(D_METHOD("get_required_slots", "distance"), &Terrain3DStreamer::get_required_slots);
 	ClassDB::bind_method(D_METHOD("get_max_distance"), &Terrain3DStreamer::get_max_distance);
+	ClassDB::bind_method(D_METHOD("scan_directory"), &Terrain3DStreamer::scan_directory);
 	ClassDB::bind_method(D_METHOD("is_location_known", "location"), &Terrain3DStreamer::is_location_known);
 	ClassDB::bind_method(D_METHOD("get_stats"), &Terrain3DStreamer::get_stats);
 
@@ -502,4 +512,5 @@ void Terrain3DStreamer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_distance", "get_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_concurrent_loads", "get_concurrent_loads");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_loads_per_frame", "get_loads_per_frame");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "skip_version_upgrade"), "set_skip_version_upgrade", "get_skip_version_upgrade");
 }

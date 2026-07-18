@@ -50,7 +50,7 @@
 		<method name="scan_directory">
 			<return type="void" />
 			<description>
-				Scans the data directory for region locations and resets streaming state. Only file names are read, nothing is loaded. Called automatically at initialization while streaming is active.
+				Scans the data directory for region locations and resets streaming state. Only file names are read, nothing is loaded. Called automatically at initialization while streaming is active; call it manually to refresh the known-set after region files change on disk outside the streamer.
 			</description>
 		</method>
 		<method name="step">
@@ -80,6 +80,9 @@
 		</member>
 		<member name="shape" type="int" setter="set_shape" getter="get_shape" enum="Terrain3DStreamer.StreamShape" default="0">
 			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member distance]. A circle loads ~21% fewer regions at the same distance.
+		</member>
+		<member name="skip_version_upgrade" type="bool" setter="set_skip_version_upgrade" getter="get_skip_version_upgrade" default="true">
+			When [code skip-lint]true[/code], a region loaded from an older data version is not restamped to the current version on insertion. Restamping marks the region modified, so without this a session that merely pans over an old world writes every region back to disk as it evicts. With it, a region upgrades and saves only when a real edit modifies it.
 		</member>
 		<member name="slots" type="int" setter="set_slots" getter="get_slots" default="121">
 			Capacity of the pooled texture arrays, in regions. Sized automatically when you raise [member distance] (the pool must hold every region within distance + 1 for hysteresis: (2 * (distance + 1) + 1)² for a square shape, so 25 at distance 1, 121 at distance 4). Set it directly only to reserve extra headroom; setting it below what the current distance needs clamps distance down. Changing it while streaming rebuilds the terrain data at the new capacity.
