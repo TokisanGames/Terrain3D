@@ -655,6 +655,7 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 	if (is_hole(get_control(p_global_position))) {
 		return NAN;
 	}
+	real_t height = NAN;
 	Vector3 pos = p_global_position;
 	const real_t &step = _vertex_spacing;
 	pos.y = 0.f;
@@ -662,7 +663,7 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 	Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
 	// If requested position is close to a vertex, return its height
 	if ((pos - pos_round).length_squared() < 0.0001f) {
-		return get_pixel(TYPE_HEIGHT, pos).r;
+		height = get_pixel(TYPE_HEIGHT, pos).r;
 	} else {
 		// Otherwise, bilinearly interpolate 4 surrounding vertices
 		Vector3 pos00 = Vector3(floor(pos.x / step) * step, 0.f, floor(pos.z / step) * step);
@@ -673,8 +674,13 @@ real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
 		real_t ht10 = get_pixel(TYPE_HEIGHT, pos10).r;
 		Vector3 pos11 = pos00 + Vector3(step, 0.f, step);
 		real_t ht11 = get_pixel(TYPE_HEIGHT, pos11).r;
-		return bilerp(ht00, ht01, ht10, ht11, pos00, pos11, pos);
+		height = bilerp(ht00, ht01, ht10, ht11, pos00, pos11, pos);
 	}
+
+	if (!std::isnan(height) && _terrain->get_material()->get_world_background() != Terrain3DMaterial::WorldBackground::NONE) {
+		height = Math::lerp(height, _terrain->get_material()->get("ground_level"), smoothstep(0.f, 1.f, get_region_blend(pos)));
+	}
+	return height;
 }
 
 Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
@@ -725,6 +731,40 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 	const real_t slope_angle = Math::acos(slope_normal.dot(V3_UP));
 	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
 	return (slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y);
+}
+
+real_t Terrain3DData::get_region_blend(const Vector3 &p_global_position) const {
+	auto check_region = [&](const Vector2 &uv2) -> real_t {
+		Vector2i pos = Vector2i(Math::floor(uv2.x), Math::floor(uv2.y)) + Vector2i(REGION_MAP_SIZE / 2, REGION_MAP_SIZE / 2);
+		int layer_index = 0;
+		if ((uint32_t)(pos.x | pos.y) < (uint32_t)REGION_MAP_SIZE) {
+			int v = _region_map[pos.y * REGION_MAP_SIZE + pos.x];
+			layer_index = Math::clamp(v - 1, -1, 0) + 1;
+		}
+		return real_t(layer_index);
+	};
+
+	const real_t region_blend = _terrain->get_material()->get("region_blend");
+	const real_t region_texel_size = 1.f / real_t(_region_size);
+	Vector2 uv2 = Vector2(floor(p_global_position.x / _vertex_spacing), floor(p_global_position.z / _vertex_spacing)) * region_texel_size;
+	//Vector2 uv2 = Vector2(floor(p_global_position.x / _vertex_spacing) * _vertex_spacing, floor(p_global_position.z / _vertex_spacing) * _vertex_spacing);
+	// Floating point bias (must match shader)
+	uv2 -= Vector2(0.5011f, 0.5011f);
+
+	real_t a = check_region(uv2 + Vector2(0.0f, 1.0f));
+	real_t b = check_region(uv2 + Vector2(1.0f, 1.0f));
+	real_t c = check_region(uv2 + Vector2(1.0f, 0.0f));
+	real_t d = check_region(uv2 + Vector2(0.0f, 0.0f));
+
+	real_t blend_factor = 2.0f + 126.0f * (1.0f - region_blend);
+	Vector2 f = Vector2(uv2.x - Math::floor(uv2.x), uv2.y - Math::floor(uv2.y));
+	f.x = Math::clamp(f.x, real_t(1e-8f), real_t(1.0f - 1e-8f));
+	f.y = Math::clamp(f.y, real_t(1e-8f), real_t(1.0f - 1e-8f));
+	Vector2 w = Vector2(1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.x) / f.x))),
+			1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.y) / f.y))));
+	real_t blend = Math::lerp(Math::lerp(d, c, w.x), Math::lerp(a, b, w.x), w.y);
+
+	return (1.f - blend) * 2.f;
 }
 
 /**

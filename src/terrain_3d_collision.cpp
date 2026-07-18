@@ -23,84 +23,11 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 	IS_DATA_INIT_MESG("Terrain not initialized", Dictionary());
 	const Terrain3DData *data = _terrain->get_data();
 
-	const Ref<Terrain3DMaterial> material = _terrain->get_material();
-	if (!material.is_valid()) {
-		return Dictionary();
-	}
-	const Terrain3DMaterial::WorldBackground bg_mode = material->get_world_background();
-	const bool is_bg_flat_or_noise = bg_mode == Terrain3DMaterial::WorldBackground::FLAT || bg_mode == Terrain3DMaterial::WorldBackground::NOISE;
-	const real_t ground_level = material->get("ground_level");
-	const real_t region_blend = material->get("region_blend");
-	const int region_map_size = Terrain3DData::REGION_MAP_SIZE;
-	const PackedInt32Array region_map = data->get_region_map();
-	const int region_size = _terrain->get_region_size();
-	const real_t region_texel_size = 1.f / real_t(region_size);
-
-	auto check_region = [&](const Vector2 &uv2) -> real_t {
-		Vector2i pos = Vector2i(Math::floor(uv2.x), Math::floor(uv2.y)) + Vector2i(region_map_size / 2, region_map_size / 2);
-		int layer_index = 0;
-		if ((uint32_t)(pos.x | pos.y) < (uint32_t)region_map_size) {
-			int v = region_map[pos.y * region_map_size + pos.x];
-			layer_index = Math::clamp(v - 1, -1, 0) + 1;
-		}
-		return real_t(layer_index);
-	};
-
-	auto get_region_blend = [&](Vector2 uv2) -> real_t {
-		// Floating point bias (must match shader)
-		uv2 -= Vector2(0.5011f, 0.5011f);
-
-		real_t a = check_region(uv2 + Vector2(0.0f, 1.0f));
-		real_t b = check_region(uv2 + Vector2(1.0f, 1.0f));
-		real_t c = check_region(uv2 + Vector2(1.0f, 0.0f));
-		real_t d = check_region(uv2 + Vector2(0.0f, 0.0f));
-
-		real_t blend_factor = 2.0f + 126.0f * (1.0f - region_blend);
-		Vector2 f = Vector2(uv2.x - Math::floor(uv2.x), uv2.y - Math::floor(uv2.y));
-		f.x = Math::clamp(f.x, real_t(1e-8f), real_t(1.0f - 1e-8f));
-		f.y = Math::clamp(f.y, real_t(1e-8f), real_t(1.0f - 1e-8f));
-		Vector2 w = Vector2(1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.x) / f.x))),
-				1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.y) / f.y))));
-		real_t blend = Math::lerp(Math::lerp(d, c, w.x), Math::lerp(a, b, w.x), w.y);
-
-		return (1.f - blend) * 2.f;
-	};
-
 	int hshape_size = p_size + 1; // Calculate last vertex at end
 	PackedRealArray map_data = PackedRealArray();
 	map_data.resize(hshape_size * hshape_size);
 	real_t min_height = FLT_MAX;
 	real_t max_height = -FLT_MAX;
-
-	Ref<Image> map, map_x, map_z, map_xz; // height maps
-	Ref<Image> cmap, cmap_x, cmap_z, cmap_xz; // control maps w/ holes
-
-	// Get region_loc of top left corner of descaled and grid snapped collision shape position
-	Vector2i region_loc = V2I_DIVIDE_FLOOR(p_position, region_size);
-	const Terrain3DRegion *region = data->get_region_ptr(region_loc);
-	if (!region || region->is_deleted()) {
-		LOG(EXTREME, "Region not found at: ", region_loc, ". Returning blank");
-		return Dictionary();
-	}
-	map = region->get_map(TYPE_HEIGHT);
-	cmap = region->get_map(TYPE_CONTROL);
-
-	// Get +X, +Z adjacent regions in case we run over
-	region = data->get_region_ptr(region_loc + Vector2i(1, 0));
-	if (region && !region->is_deleted()) {
-		map_x = region->get_map(TYPE_HEIGHT);
-		cmap_x = region->get_map(TYPE_CONTROL);
-	}
-	region = data->get_region_ptr(region_loc + Vector2i(0, 1));
-	if (region && !region->is_deleted()) {
-		map_z = region->get_map(TYPE_HEIGHT);
-		cmap_z = region->get_map(TYPE_CONTROL);
-	}
-	region = data->get_region_ptr(region_loc + Vector2i(1, 1));
-	if (region && !region->is_deleted()) {
-		map_xz = region->get_map(TYPE_HEIGHT);
-		cmap_xz = region->get_map(TYPE_CONTROL);
-	}
 
 	for (int z = 0; z < hshape_size; z++) {
 		for (int x = 0; x < hshape_size; x++) {
@@ -112,27 +39,7 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 			int index = hshape_size - 1 - z + x * hshape_size;
 
 			Vector2i shape_pos = p_position + Vector2i(x, z);
-			Vector2i shape_region_loc = V2I_DIVIDE_FLOOR(shape_pos, region_size);
-			int img_x = Math::posmod(shape_pos.x, region_size);
-			bool next_x = shape_region_loc.x > region_loc.x;
-			int img_y = Math::posmod(shape_pos.y, region_size);
-			bool next_z = shape_region_loc.y > region_loc.y;
-
-			// Set heights on local map, or adjacent maps if on the last row/col
-			real_t height = NAN;
-			if (!next_x && !next_z && map.is_valid()) {
-				height = is_hole(cmap->get_pixel(img_x, img_y).r) ? NAN : map->get_pixel(img_x, img_y).r;
-			} else if (next_x && !next_z && map_x.is_valid()) {
-				height = is_hole(cmap_x->get_pixel(img_x, img_y).r) ? NAN : map_x->get_pixel(img_x, img_y).r;
-			} else if (!next_x && next_z && map_z.is_valid()) {
-				height = is_hole(cmap_z->get_pixel(img_x, img_y).r) ? NAN : map_z->get_pixel(img_x, img_y).r;
-			} else if (next_x && next_z && map_xz.is_valid()) {
-				height = is_hole(cmap_xz->get_pixel(img_x, img_y).r) ? NAN : map_xz->get_pixel(img_x, img_y).r;
-			}
-			if (!std::isnan(height) && is_bg_flat_or_noise) {
-				Vector2 uv2 = Vector2(shape_pos) * region_texel_size;
-				height = Math::lerp(height, ground_level, smoothstep(0.f, 1.f, get_region_blend(uv2)));
-			}
+			real_t height = data->get_height(Vector3(shape_pos.x, 0., shape_pos.y) * _terrain->get_vertex_spacing());
 			map_data[index] = height;
 			if (!std::isnan(height)) {
 				min_height = MIN(min_height, height);
