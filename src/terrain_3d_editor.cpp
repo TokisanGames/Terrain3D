@@ -927,6 +927,17 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 		LOG(ERROR, "Run start_operation() before operating");
 		return;
 	}
+	// While editor streaming, the brush is read only until the C2 overwrite guards
+	// land: a region on disk but not resident reads as absent, so an edit could blank
+	// the real file. Selection and preview still work, edits just do not commit.
+	if (IS_EDITOR && _terrain->is_streaming_active()) {
+		uint64_t ticks = Time::get_singleton()->get_ticks_msec();
+		if (ticks - _last_readonly_notice > 1000) {
+			_last_readonly_notice = ticks;
+			LOG(INFO, "Editor streaming is on, so terrain editing is read only. Turn off streaming_editor to edit");
+		}
+		return;
+	}
 	_operation_movement = p_global_position - _operation_position;
 	_operation_position = p_global_position;
 

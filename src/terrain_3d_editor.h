@@ -82,6 +82,7 @@ private:
 	Array _operation_movement_history;
 	bool _is_operating = false;
 	uint64_t _last_region_bounds_error = 0;
+	uint64_t _last_readonly_notice = 0;
 	TypedArray<Terrain3DRegion> _original_regions; // Queue for undo
 	TypedArray<Terrain3DRegion> _edited_regions; // Queue for redo
 	TypedArray<Vector2i> _added_removed_locations; // Queue for added/removed locations
