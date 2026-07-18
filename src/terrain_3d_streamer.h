@@ -60,6 +60,7 @@ private:
 	real_t _land_ms_avg = 0.f;
 
 	real_t _distance_to(const Vector2i &p_region_loc, const Vector2i &p_focus_loc) const;
+	void _apply_distance_limit();
 	void _collision_refresh(const Vector2i &p_region_loc);
 	void _flush_ram_cache();
 
@@ -71,14 +72,16 @@ public:
 	void set_enabled(const bool p_enabled);
 	bool is_enabled() const { return _enabled; }
 	bool is_active() const; // Enabled and outside the editor
-	void set_shape(const StreamShape p_shape) { _shape = p_shape; }
+	void set_shape(const StreamShape p_shape);
 	StreamShape get_shape() const { return _shape; }
 	void set_mode(const StreamMode p_mode);
 	StreamMode get_mode() const { return _mode; }
-	void set_distance(const int p_distance) { _distance = CLAMP(p_distance, 1, 15); }
+	void set_distance(const int p_distance);
 	int get_distance() const { return _distance; }
-	void set_slots(const int p_slots) { _slots = CLAMP(p_slots, 9, 1024); }
+	void set_slots(const int p_slots);
 	int get_slots() const { return _slots; }
+	int get_required_slots(const int p_distance) const;
+	int get_max_distance() const;
 	void set_concurrent_loads(const int p_count) { _concurrent_loads = CLAMP(p_count, 1, 8); }
 	int get_concurrent_loads() const { return _concurrent_loads; }
 	void set_loads_per_frame(const int p_count) { _loads_per_frame = CLAMP(p_count, 1, 8); }

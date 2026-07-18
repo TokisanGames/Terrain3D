@@ -68,7 +68,7 @@ func _run() -> void:
 	# Fresh terrain, STREAMING ON, small pool.
 	_t = Terrain3D.new()
 	_t.streaming_enabled = true
-	_t.streaming_slots = 12
+	_t.streaming_slots = 25 # required for distance 1 (moving hysteresis ring): (2*2+1)^2
 	_t.streaming_distance = 1 # 3x3 = 9 loaded
 	_t.data_directory = _dir
 	root.add_child(_t)
@@ -81,7 +81,7 @@ func _run() -> void:
 	ok(_t.data.is_streaming(), "streaming mode active")
 	await _settle(400)
 	ok(_t.data.get_region_count() == 9, "3x3 ring loaded (%d)" % _t.data.get_region_count())
-	ok(_t.data.get_free_slot_count() == 3, "free slots = capacity - loaded (%d)" % _t.data.get_free_slot_count())
+	ok(_t.data.get_free_slot_count() == 16, "free slots = capacity - loaded (%d)" % _t.data.get_free_slot_count())
 	var h0: float = _t.data.get_height(Vector3(rs * 0.5, 0, rs * 0.5))
 	ok(absf(h0 - 10.0) < 0.01, "region (0,0) height streamed in (%.1f)" % h0)
 
@@ -104,7 +104,7 @@ func _run() -> void:
 			await process_frame
 	await _settle(400)
 	ok(_t.data.get_region_count() == 9, "ring settled after churn (%d)" % _t.data.get_region_count())
-	ok(_t.data.get_free_slot_count() + _t.data.get_region_count() == 12, "no slot leaked (%d+%d)" % [
+	ok(_t.data.get_free_slot_count() + _t.data.get_region_count() == 25, "no slot leaked (%d+%d)" % [
 			_t.data.get_free_slot_count(), _t.data.get_region_count()])
 	# Runtime modification survives eviction: edit a resident region, walk away so
 	# it evicts (saving back to disk), walk back and expect the edit streamed in.
@@ -157,13 +157,14 @@ func _run() -> void:
 	ok(_t.data.get_region_count() < 25, "toggle: ring residency restored (%d)" % _t.data.get_region_count())
 
 	# Every option must switch live and clean up after itself.
-	# Slots: the pool is rebuilt live at the new capacity (needed below, the boot
-	# pool of 12 cannot hold a 5x5 area).
+	# Slots: the pool is rebuilt live at the new capacity (needed below: distance 2
+	# retains up to (2*3+1)^2 = 49 regions with hysteresis, which also exercises
+	# the capacity guard boundary exactly).
 	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
 	await _settle(400)
-	_t.streaming_slots = 30
+	_t.streaming_slots = 49 # required for distance 2: (2*3+1)^2
 	await _settle(400)
-	ok(_t.data.get_slot_capacity() == 30, "live slots: pool rebuilt (%d)" % _t.data.get_slot_capacity())
+	ok(_t.data.get_slot_capacity() == 49, "live slots: pool rebuilt (%d)" % _t.data.get_slot_capacity())
 	ok(_t.data.get_region_count() == 9, "live slots: ring reloaded after rebuild (%d)" % _t.data.get_region_count())
 
 	# Distance grow then shrink: residency follows.
@@ -199,6 +200,31 @@ func _run() -> void:
 	for y in range(0, 3):
 		for x in range(0, 3):
 			ok(_t.data.has_region(Vector2i(x, y)), "live budgets: ring region (%d,%d) present" % [x, y])
+
+	# Capacity guard, both ways. Raising distance grows the pool to fit rather than
+	# starving loading (the "distance 15 loses regions" report); lowering slots
+	# below what the current distance needs clamps distance back down.
+	var streamer: Terrain3DStreamer = _t.get_streamer()
+	ok(streamer.get_required_slots(4) == 121, "guard: square d4 needs 121 slots (%d)" % streamer.get_required_slots(4))
+	# Raising distance auto-grows slots.
+	_t.streaming_shape = Terrain3DStreamer.SQUARE
+	_t.streaming_slots = 25
+	_t.streaming_distance = 1
+	_t.streaming_distance = 6
+	ok(_t.streaming_distance == 6, "guard: distance 6 accepted (%d)" % _t.streaming_distance)
+	ok(streamer.get_slots() == 225, "guard: slots grew to fit distance 6 (%d)" % streamer.get_slots())
+	# Square beyond the 1024 ceiling caps distance at 14, not silent starvation.
+	_t.streaming_distance = 15
+	ok(_t.streaming_distance == 14, "guard: square distance 15 caps at 14 (%d)" % _t.streaming_distance)
+	ok(streamer.get_slots() <= 1024, "guard: slots stay within ceiling (%d)" % streamer.get_slots())
+	# A circle of the same distance needs fewer slots.
+	_t.streaming_shape = Terrain3DStreamer.CIRCLE
+	ok(streamer.get_required_slots(6) < 225, "guard: circle d6 needs fewer than square (%d)" % streamer.get_required_slots(6))
+	# Explicitly lowering slots pulls distance down.
+	_t.streaming_shape = Terrain3DStreamer.SQUARE
+	_t.streaming_distance = 4 # slots grow to 121
+	_t.streaming_slots = 49 # only holds distance 2
+	ok(_t.streaming_distance == 2, "guard: lowering slots clamps distance (%d)" % _t.streaming_distance)
 
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

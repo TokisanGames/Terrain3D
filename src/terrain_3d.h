@@ -135,6 +135,7 @@ private:
 	void _destroy_containers();
 	void _destroy_labels();
 
+	void _reinit_streaming_pool();
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
 	void _destroy_instancer();
@@ -203,7 +204,7 @@ public:
 	StreamShape get_streaming_shape() const { return _streamer ? _streamer->get_shape() : StreamShape::SQUARE; }
 	void set_streaming_mode(const StreamMode p_mode) { _streamer ? _streamer->set_mode(p_mode) : void(); }
 	StreamMode get_streaming_mode() const { return _streamer ? _streamer->get_mode() : StreamMode::DISK; }
-	void set_streaming_distance(const int p_distance) { _streamer ? _streamer->set_distance(p_distance) : void(); }
+	void set_streaming_distance(const int p_distance);
 	int get_streaming_distance() const { return _streamer ? _streamer->get_distance() : 4; }
 	void set_streaming_slots(const int p_slots);
 	int get_streaming_slots() const { return _streamer ? _streamer->get_slots() : 121; }

@@ -30,6 +30,72 @@ void Terrain3DStreamer::set_enabled(const bool p_enabled) {
 	}
 }
 
+// Regions within distance + 1 (hysteresis) stay resident, so the pool must hold
+// every cell of the shape at that radius. Square: (2 * (distance + 1) + 1)^2 -
+// the default 121 slots fit the default distance 4. A circle needs ~21% fewer.
+int Terrain3DStreamer::get_required_slots(const int p_distance) const {
+	int retained = p_distance + 1;
+	int count = 0;
+	for (int dy = -retained; dy <= retained; dy++) {
+		for (int dx = -retained; dx <= retained; dx++) {
+			if (_distance_to(Vector2i(dx, dy), Vector2i()) <= real_t(retained)) {
+				count++;
+			}
+		}
+	}
+	return count;
+}
+
+// Largest distance the current slot capacity can hold with the current shape
+int Terrain3DStreamer::get_max_distance() const {
+	int d = 1;
+	while (d < 15 && get_required_slots(d + 1) <= _slots) {
+		d++;
+	}
+	return d;
+}
+
+// Lowers distance to what the pool can hold. A distance the slots cannot hold
+// would permanently starve loading: the pool fills, nothing beyond it ever
+// inserts, and nothing evicts, leaving holes in the world.
+void Terrain3DStreamer::_apply_distance_limit() {
+	int max_distance = get_max_distance();
+	if (_distance > max_distance) {
+		LOG(WARN, "streaming_distance ", _distance, " needs ", get_required_slots(_distance),
+				" slots but only ", _slots, " are allocated; clamping distance to ", max_distance,
+				". Raise streaming_slots to increase it");
+		_distance = max_distance;
+	}
+}
+
+void Terrain3DStreamer::set_shape(const StreamShape p_shape) {
+	if (_shape == p_shape) {
+		return;
+	}
+	_shape = p_shape;
+	_apply_distance_limit();
+}
+
+void Terrain3DStreamer::set_distance(const int p_distance) {
+	_distance = CLAMP(p_distance, 1, 15);
+	// Distance is the primary knob: grow the pool to hold it rather than clamping
+	// distance down. slots follows distance up (capped at 1024); only an
+	// explicit slots decrease pulls distance back (see set_slots).
+	int required = get_required_slots(_distance);
+	if (required > _slots) {
+		_slots = MIN(required, 1024);
+	}
+	_apply_distance_limit(); // Still clamps if even 1024 slots cannot hold it (square distance > 14)
+}
+
+void Terrain3DStreamer::set_slots(const int p_slots) {
+	// Floor at the smallest usable pool: distance 1 with a square shape retains
+	// (2 * 2 + 1)^2 = 25 regions, so a smaller pool starves even at the minimum
+	// distance. Circle needs fewer, but the square worst case is shape safe.
+	_slots = CLAMP(p_slots, 25, 1024);
+	_apply_distance_limit();
+}
+
 void Terrain3DStreamer::set_mode(const StreamMode p_mode) {
 	if (_mode == p_mode) {
 		return;
@@ -396,13 +462,15 @@ void Terrain3DStreamer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_concurrent_loads"), &Terrain3DStreamer::get_concurrent_loads);
 	ClassDB::bind_method(D_METHOD("set_loads_per_frame", "count"), &Terrain3DStreamer::set_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_loads_per_frame"), &Terrain3DStreamer::get_loads_per_frame);
+	ClassDB::bind_method(D_METHOD("get_required_slots", "distance"), &Terrain3DStreamer::get_required_slots);
+	ClassDB::bind_method(D_METHOD("get_max_distance"), &Terrain3DStreamer::get_max_distance);
 	ClassDB::bind_method(D_METHOD("get_stats"), &Terrain3DStreamer::get_stats);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shape", PROPERTY_HINT_ENUM, "Square,Circle"), "set_shape", "get_shape");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_mode", "get_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "slots", PROPERTY_HINT_RANGE, "25,1024,1"), "set_slots", "get_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_distance", "get_distance");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "slots", PROPERTY_HINT_RANGE, "9,1024,1"), "set_slots", "get_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_concurrent_loads", "get_concurrent_loads");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_loads_per_frame", "get_loads_per_frame");
 }

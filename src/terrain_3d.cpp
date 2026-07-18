@@ -557,13 +557,9 @@ void Terrain3D::set_data_directory(String p_dir) {
 	update_configuration_warnings();
 }
 
-void Terrain3D::set_streaming_slots(const int p_slots) {
-	if (_streamer == nullptr || _streamer->get_slots() == CLAMP(p_slots, 9, 1024)) {
-		return;
-	}
-	_streamer->set_slots(p_slots);
-	// The pooled texture arrays are allocated once at slot capacity, so a live
-	// change rebuilds the terrain data like toggling streaming does
+// The pooled texture arrays are allocated once at slot capacity, so any live
+// change to that capacity rebuilds the terrain data like toggling streaming does.
+void Terrain3D::_reinit_streaming_pool() {
 	if (_initialized && is_streaming_active() && !IS_EDITOR) {
 		_initialized = false;
 		_destroy_labels();
@@ -571,6 +567,26 @@ void Terrain3D::set_streaming_slots(const int p_slots) {
 		_destroy_instancer();
 		memdelete_safely(_data);
 		_initialize();
+	}
+}
+
+void Terrain3D::set_streaming_slots(const int p_slots) {
+	if (_streamer == nullptr || _streamer->get_slots() == CLAMP(p_slots, 25, 1024)) {
+		return;
+	}
+	_streamer->set_slots(p_slots);
+	_reinit_streaming_pool();
+}
+
+// Raising distance grows the pool to fit, so rebuild when that capacity changed.
+void Terrain3D::set_streaming_distance(const int p_distance) {
+	if (_streamer == nullptr) {
+		return;
+	}
+	int slots_before = _streamer->get_slots();
+	_streamer->set_distance(p_distance);
+	if (_streamer->get_slots() != slots_before) {
+		_reinit_streaming_pool();
 	}
 }
 
@@ -1419,6 +1435,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_streaming_loads_per_frame", "count"), &Terrain3D::set_streaming_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_streaming_loads_per_frame"), &Terrain3D::get_streaming_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_streaming_stats"), &Terrain3D::get_streaming_stats);
+	ClassDB::bind_method(D_METHOD("get_streamer"), &Terrain3D::get_streamer);
 	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
 
 	// Object references
@@ -1604,8 +1621,8 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_enabled"), "set_streaming_enabled", "get_streaming_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_shape", PROPERTY_HINT_ENUM, "Square,Circle"), "set_streaming_shape", "get_streaming_shape");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_streaming_mode", "get_streaming_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_slots", PROPERTY_HINT_RANGE, "25,1024,1"), "set_streaming_slots", "get_streaming_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_streaming_distance", "get_streaming_distance");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_slots", PROPERTY_HINT_RANGE, "9,1024,1"), "set_streaming_slots", "get_streaming_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_concurrent_loads", "get_streaming_concurrent_loads");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_loads_per_frame", "get_streaming_loads_per_frame");
 	ADD_GROUP("Regions", "");

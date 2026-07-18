@@ -105,6 +105,12 @@
 				Also see [method get_intersection] and [method Terrain3DData.get_height] for alternative functions.
 			</description>
 		</method>
+		<method name="get_streamer" qualifiers="const">
+			<return type="Terrain3DStreamer" />
+			<description>
+				Returns the [Terrain3DStreamer] that manages region streaming for this terrain.
+			</description>
+		</method>
 		<method name="get_streaming_stats" qualifiers="const">
 			<return type="Dictionary" />
 			<description>
@@ -395,7 +401,7 @@
 			Alias for [member Terrain3DStreamer.concurrent_loads].
 		</member>
 		<member name="streaming_distance" type="int" setter="set_streaming_distance" getter="get_streaming_distance" default="4">
-			How far out from the clipmap target regions are kept loaded, in regions. E.g. at the default 4 with a square [member streaming_shape], a 9x9 block of regions surrounds the target. Regions one region beyond this distance are evicted (hysteresis, so regions don't churn at the boundary).
+			How far the loaded area extends from the clipmap target, in regions. For example, 4 with a square [member streaming_shape] keeps a 9x9 block of regions loaded around the target. Raising it automatically grows [member streaming_slots] to fit. See [member Terrain3DStreamer.distance].
 			Alias for [member Terrain3DStreamer.distance].
 		</member>
 		<member name="streaming_enabled" type="bool" setter="set_streaming_enabled" getter="get_streaming_enabled" default="false">
@@ -415,7 +421,7 @@
 			Alias for [member Terrain3DStreamer.shape].
 		</member>
 		<member name="streaming_slots" type="int" setter="set_streaming_slots" getter="get_streaming_slots" default="121">
-			Capacity of the pooled texture arrays while streaming, in regions. Must exceed the loaded area (e.g. (2 * [member streaming_distance] + 1)² for a square shape) with headroom for regions in flight. Changing this while streaming rebuilds the terrain data at the new capacity.
+			Capacity of the pooled texture arrays, in regions. Must hold every region within [member streaming_distance] + 1: (2 * (distance + 1) + 1)² for a square shape (the default 121 fits distance 4). Changing this while streaming rebuilds the terrain data at the new capacity.
 			Alias for [member Terrain3DStreamer.slots].
 		</member>
 		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="0">

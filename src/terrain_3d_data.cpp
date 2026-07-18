@@ -511,7 +511,7 @@ void Terrain3DData::enable_streaming(const int p_slot_capacity) {
 	_region_sizev = V2I(rs);
 	_streaming = true;
 	// The shader's per layer tables are fixed vec2[1024]/int[1024] uniforms
-	_slot_capacity = CLAMP(p_slot_capacity, 9, 1024);
+	_slot_capacity = CLAMP(p_slot_capacity, 25, 1024);
 	LOG(INFO, "Streaming enabled: ", _slot_capacity, " slots of ", rs, " px");
 	_free_slots.clear();
 	_slot_of.clear();
