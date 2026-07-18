@@ -36,6 +36,9 @@ func _settle(max_frames: int) -> void:
 	var stable := 0
 	for i in range(max_frames):
 		await process_frame
+		# Headless never emits frame_pre_draw, so pump the instancer queue like a
+		# renderer would - a no-op when nothing is queued.
+		RenderingServer.emit_signal("frame_pre_draw")
 		var n: int = _t.data.get_region_count()
 		if n == last:
 			stable += 1
@@ -51,11 +54,20 @@ func _run() -> void:
 		return
 	_done = true
 	var rs: int = _t.region_size
+	var ma := Terrain3DMeshAsset.new()
+	ma.set_generated_type(Terrain3DMeshAsset.TYPE_TEXTURE_CARD)
+	_t.assets.set_mesh_asset(0, ma)
+	var rs0: int = _t.region_size
 	for y in range(-2, 3):
 		for x in range(-2, 3):
 			_t.data.add_region_blank(Vector2i(x, y), false)
 			var r: Terrain3DRegion = _t.data.get_region(Vector2i(x, y))
 			r.get_height_map().fill(Color(float(10 + x + y * 5), 0, 0)) # per-region signature height
+			# Instanced meshes so streaming coverage includes the instancer.
+			var xforms: Array[Transform3D] = []
+			for i in 20:
+				xforms.append(Transform3D(Basis(), Vector3(x * rs0 + i * 10.0 + 5.0, 10, y * rs0 + 5.0)))
+			_t.instancer.add_transforms(0, xforms)
 			r.set_modified(true)
 	_t.data.update_maps()
 	for y in range(-2, 3):
@@ -67,6 +79,10 @@ func _run() -> void:
 
 	# Fresh terrain, STREAMING ON, small pool.
 	_t = Terrain3D.new()
+	var ma2 := Terrain3DMeshAsset.new()
+	ma2.set_generated_type(Terrain3DMeshAsset.TYPE_TEXTURE_CARD)
+	_t.assets = Terrain3DAssets.new()
+	_t.assets.set_mesh_asset(0, ma2)
 	_t.streaming_enabled = true
 	_t.streaming_slots = 25 # required for distance 1 (moving hysteresis ring): (2*2+1)^2
 	_t.streaming_distance = 1 # 3x3 = 9 loaded
@@ -93,6 +109,9 @@ func _run() -> void:
 	ok(not _t.data.has_region(Vector2i(-2, 0)), "west region evicted")
 	var h2: float = _t.data.get_height(Vector3(rs * 2.5, 0, rs * 0.5))
 	ok(absf(h2 - 12.0) < 0.01, "east region heights correct after churn (%.1f)" % h2)
+	ok(_t.instancer.get_mmi_region_count() == _t.data.get_region_count(),
+			"instancer MMIs match residency after churn (%d/%d)" % [
+			_t.instancer.get_mmi_region_count(), _t.data.get_region_count()])
 
 	# Churn stress: 60 random hops; slots must never leak.
 	seed(7)

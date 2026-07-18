@@ -590,8 +590,11 @@ Error Terrain3DData::add_region_streamed(const Ref<Terrain3DRegion> &p_region) {
 	emit_signal("region_map_changed");
 	emit_signal("maps_changed");
 	emit_signal("height_maps_changed");
+	// Per region MMI build only. A rebuild (third argument true) queues a
+	// destroy and rebuild of every instance in the world, which turns each
+	// insertion into a global hitch on instanced terrains
 	if (_terrain != nullptr && _terrain->get_instancer() != nullptr) {
-		_terrain->get_instancer()->update_mmis(-1, loc, true);
+		_terrain->get_instancer()->update_mmis(-1, loc, false);
 	}
 	return OK;
 }
@@ -619,8 +622,10 @@ Error Terrain3DData::evict_region(const Vector2i &p_region_loc, const String &p_
 	if (idx >= 0) {
 		_region_locations.remove_at(idx);
 	}
+	// The region is gone from _regions, so the per region update path would skip
+	// it and leave its instances rendering; destroy its MMIs directly
 	if (_terrain != nullptr && _terrain->get_instancer() != nullptr) {
-		_terrain->get_instancer()->update_mmis(-1, p_region_loc, true);
+		_terrain->get_instancer()->destroy_mmis_by_region(p_region_loc);
 	}
 	emit_signal("region_map_changed");
 	emit_signal("maps_changed");
