@@ -118,6 +118,14 @@
 				Alias for [method Terrain3DStreamer.get_stats].
 			</description>
 		</method>
+		<method name="has_region_on_disk" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<description>
+				Returns [code skip-lint]true[/code] when a region file exists on disk at [param region_location], whether or not it is currently resident. The answer stays current as regions are saved, created, or deleted.
+				Alias for [method Terrain3DStreamer.is_location_known].
+			</description>
+		</method>
 		<method name="is_streaming_active" qualifiers="const">
 			<return type="bool" />
 			<description>

@@ -1435,6 +1435,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_streaming_loads_per_frame", "count"), &Terrain3D::set_streaming_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_streaming_loads_per_frame"), &Terrain3D::get_streaming_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_streaming_stats"), &Terrain3D::get_streaming_stats);
+	ClassDB::bind_method(D_METHOD("has_region_on_disk", "region_location"), &Terrain3D::has_region_on_disk);
 	ClassDB::bind_method(D_METHOD("get_streamer"), &Terrain3D::get_streamer);
 	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
 

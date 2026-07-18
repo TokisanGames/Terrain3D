@@ -354,11 +354,16 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 			LOG(ERROR, "Could not remove file: ", fname, ", error code: ", err);
 		}
 		LOG(INFO, "File ", path, " deleted");
+		if (_terrain != nullptr && _terrain->get_streamer() != nullptr) {
+			_terrain->get_streamer()->mark_unknown(p_region_loc);
+		}
 		return;
 	}
 	Error err = region->save(path, p_16_bit);
 	if (!(err == OK || err == ERR_SKIP)) {
 		LOG(ERROR, "Could not save file: ", path, ", error: ", UtilityFunctions::error_string(err), " (", err, ")");
+	} else if (_terrain != nullptr && _terrain->get_streamer() != nullptr) {
+		_terrain->get_streamer()->mark_known(p_region_loc);
 	}
 }
 

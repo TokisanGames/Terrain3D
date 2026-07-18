@@ -213,6 +213,7 @@ public:
 	void set_streaming_loads_per_frame(const int p_count) { _streamer ? _streamer->set_loads_per_frame(p_count) : void(); }
 	int get_streaming_loads_per_frame() const { return _streamer ? _streamer->get_loads_per_frame() : 1; }
 	Dictionary get_streaming_stats() const { return _streamer ? _streamer->get_stats() : Dictionary(); }
+	bool has_region_on_disk(const Vector2i &p_region_loc) const { return _streamer ? _streamer->is_location_known(p_region_loc) : false; }
 
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }

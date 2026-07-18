@@ -88,6 +88,9 @@ public:
 	int get_loads_per_frame() const { return _loads_per_frame; }
 
 	void scan_directory();
+	bool is_location_known(const Vector2i &p_loc) const { return _known_set.has(p_loc); }
+	void mark_known(const Vector2i &p_loc);
+	void mark_unknown(const Vector2i &p_loc);
 	void step();
 	void abort_pending();
 	Dictionary get_stats() const;

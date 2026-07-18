@@ -245,5 +245,16 @@ func _run() -> void:
 	_t.streaming_slots = 49 # only holds distance 2
 	ok(_t.streaming_distance == 2, "guard: lowering slots clamps distance (%d)" % _t.streaming_distance)
 
+	# The on-disk known-set stays fresh as regions are created and deleted.
+	# (7,7) is outside the authored 5x5, so the scan never seeded it.
+	var kloc := Vector2i(7, 7)
+	ok(not _t.has_region_on_disk(kloc), "known-set: unauthored location absent")
+	_t.data.add_region_blank(kloc, false)
+	_t.data.save_region(kloc, _dir, false)
+	ok(_t.has_region_on_disk(kloc), "known-set: created region marked on disk")
+	_t.data.remove_regionl(kloc, false)
+	_t.data.save_region(kloc, _dir, false)
+	ok(not _t.has_region_on_disk(kloc), "known-set: deleted region cleared from disk")
+
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

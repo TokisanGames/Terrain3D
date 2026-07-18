@@ -40,6 +40,13 @@
 				Returns [code skip-lint]true[/code] when streaming is enabled and the game is running outside the editor.
 			</description>
 		</method>
+		<method name="is_location_known" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="location" type="Vector2i" />
+			<description>
+				Returns [code skip-lint]true[/code] when a region file exists on disk at [param location]. The set is seeded by the boot directory scan and kept current as regions are saved, created, or deleted, so it stays authoritative for the editor overwrite guards and the streaming dock's on-disk cells.
+			</description>
+		</method>
 		<method name="scan_directory">
 			<return type="void" />
 			<description>

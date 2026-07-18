@@ -118,6 +118,7 @@ void Terrain3DStreamer::_flush_ram_cache() {
 			if (kv.value.is_valid() && kv.value->is_modified()) {
 				String path = _terrain->get_data_directory() + String("/") + Util::location_to_filename(kv.key);
 				kv.value->save(path, _terrain->get_save_16_bit());
+				mark_known(kv.key);
 			}
 		}
 	}
@@ -166,6 +167,33 @@ void Terrain3DStreamer::scan_directory() {
 		_known_set.insert(loc);
 	}
 	LOG(INFO, "Streaming scan: ", _known.size(), " regions on disk at ", dir);
+}
+
+// Records that a region file now exists at this location. Called when a region is
+// saved or created after the boot scan, so is_location_known stays authoritative for
+// the overwrite guards and the dock's on-disk cells. Idempotent.
+void Terrain3DStreamer::mark_known(const Vector2i &p_loc) {
+	if (_known_set.has(p_loc)) {
+		return;
+	}
+	_known_set.insert(p_loc);
+	_known.push_back(p_loc);
+}
+
+// Records that a region file was deleted from disk, so the known-set no longer
+// reports it. Rewinds the prefetch cursor if it sat past the removed entry.
+void Terrain3DStreamer::mark_unknown(const Vector2i &p_loc) {
+	if (!_known_set.has(p_loc)) {
+		return;
+	}
+	_known_set.erase(p_loc);
+	int idx = _known.find(p_loc);
+	if (idx >= 0) {
+		_known.remove_at(idx);
+		if (_prefetch_cursor > idx) {
+			_prefetch_cursor--;
+		}
+	}
 }
 
 // Runs the streaming state machine once per physics frame: evict regions that fell
@@ -464,6 +492,7 @@ void Terrain3DStreamer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_loads_per_frame"), &Terrain3DStreamer::get_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("get_required_slots", "distance"), &Terrain3DStreamer::get_required_slots);
 	ClassDB::bind_method(D_METHOD("get_max_distance"), &Terrain3DStreamer::get_max_distance);
+	ClassDB::bind_method(D_METHOD("is_location_known", "location"), &Terrain3DStreamer::is_location_known);
 	ClassDB::bind_method(D_METHOD("get_stats"), &Terrain3DStreamer::get_stats);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
