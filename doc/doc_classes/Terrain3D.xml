@@ -415,7 +415,7 @@
 			Alias for [member Terrain3DStreamer.shape].
 		</member>
 		<member name="streaming_slots" type="int" setter="set_streaming_slots" getter="get_streaming_slots" default="121">
-			Capacity of the pooled texture arrays while streaming, in regions. Must exceed the loaded area (e.g. (2 * [member streaming_distance] + 1)² for a square shape) with headroom for regions in flight.
+			Capacity of the pooled texture arrays while streaming, in regions. Must exceed the loaded area (e.g. (2 * [member streaming_distance] + 1)² for a square shape) with headroom for regions in flight. Changing this while streaming rebuilds the terrain data at the new capacity.
 			Alias for [member Terrain3DStreamer.slots].
 		</member>
 		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="0">

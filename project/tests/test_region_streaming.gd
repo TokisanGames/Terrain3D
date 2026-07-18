@@ -156,5 +156,49 @@ func _run() -> void:
 	ok(_t.data.is_streaming(), "toggle: streaming again after live enable")
 	ok(_t.data.get_region_count() < 25, "toggle: ring residency restored (%d)" % _t.data.get_region_count())
 
+	# Every option must switch live and clean up after itself.
+	# Slots: the pool is rebuilt live at the new capacity (needed below, the boot
+	# pool of 12 cannot hold a 5x5 area).
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	_t.streaming_slots = 30
+	await _settle(400)
+	ok(_t.data.get_slot_capacity() == 30, "live slots: pool rebuilt (%d)" % _t.data.get_slot_capacity())
+	ok(_t.data.get_region_count() == 9, "live slots: ring reloaded after rebuild (%d)" % _t.data.get_region_count())
+
+	# Distance grow then shrink: residency follows.
+	_t.streaming_distance = 2
+	await _settle(400)
+	ok(_t.data.get_region_count() == 25, "live distance: grew to 5x5 (%d)" % _t.data.get_region_count())
+	_t.streaming_distance = 1
+	# Hysteresis keeps regions within distance+1 until the target moves; a
+	# teleport cycle makes the shrink deterministic.
+	cam.global_position = Vector3(rs * 6.5, 50, rs * 0.5)
+	await _settle(400)
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	ok(_t.data.get_region_count() == 9, "live distance: shrank to 3x3 (%d)" % _t.data.get_region_count())
+
+	# Shape square -> circle: hysteresis retains the old corners in place, so
+	# force a fresh area with a teleport; the circle then excludes corners.
+	_t.streaming_shape = Terrain3DStreamer.CIRCLE
+	cam.global_position = Vector3(rs * 6.5, 50, rs * 0.5)
+	await _settle(400)
+	cam.global_position = Vector3(rs * -0.5, 50, rs * -0.5) # region (-1,-1)
+	await _settle(400)
+	ok(not _t.data.has_region(Vector2i(0, 0)), "live shape: corner outside circle (count %d)" % _t.data.get_region_count())
+	_t.streaming_shape = Terrain3DStreamer.SQUARE
+	await _settle(400)
+	ok(_t.data.has_region(Vector2i(0, 0)), "live shape: corner loaded again (square)")
+
+	# Concurrent loads and loads_per_frame are per frame reads; smoke them live.
+	_t.streaming_concurrent_loads = 1
+	_t.streaming_loads_per_frame = 2
+	cam.global_position = Vector3(rs * 1.5, 50, rs * 1.5)
+	await _settle(400)
+	for y in range(0, 3):
+		for x in range(0, 3):
+			ok(_t.data.has_region(Vector2i(x, y)), "live budgets: ring region (%d,%d) present" % [x, y])
+
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

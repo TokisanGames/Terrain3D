@@ -205,7 +205,7 @@ public:
 	StreamMode get_streaming_mode() const { return _streamer ? _streamer->get_mode() : StreamMode::DISK; }
 	void set_streaming_distance(const int p_distance) { _streamer ? _streamer->set_distance(p_distance) : void(); }
 	int get_streaming_distance() const { return _streamer ? _streamer->get_distance() : 4; }
-	void set_streaming_slots(const int p_slots) { _streamer ? _streamer->set_slots(p_slots) : void(); }
+	void set_streaming_slots(const int p_slots);
 	int get_streaming_slots() const { return _streamer ? _streamer->get_slots() : 121; }
 	void set_streaming_concurrent_loads(const int p_count) { _streamer ? _streamer->set_concurrent_loads(p_count) : void(); }
 	int get_streaming_concurrent_loads() const { return _streamer ? _streamer->get_concurrent_loads() : 3; }

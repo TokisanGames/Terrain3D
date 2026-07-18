@@ -550,6 +550,23 @@ void Terrain3D::set_data_directory(String p_dir) {
 	update_configuration_warnings();
 }
 
+void Terrain3D::set_streaming_slots(const int p_slots) {
+	if (_streamer == nullptr || _streamer->get_slots() == CLAMP(p_slots, 9, 1024)) {
+		return;
+	}
+	_streamer->set_slots(p_slots);
+	// The pooled texture arrays are allocated once at slot capacity, so a live
+	// change rebuilds the terrain data like toggling streaming does
+	if (_initialized && is_streaming_active() && !IS_EDITOR) {
+		_initialized = false;
+		_destroy_labels();
+		_destroy_collision();
+		_destroy_instancer();
+		memdelete_safely(_data);
+		_initialize();
+	}
+}
+
 void Terrain3D::set_streaming_enabled(const bool p_enabled) {
 	if (_streamer == nullptr || _streamer->is_enabled() == p_enabled) {
 		return;

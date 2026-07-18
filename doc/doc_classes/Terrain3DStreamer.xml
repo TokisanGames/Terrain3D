@@ -61,7 +61,7 @@
 			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member distance]. A circle loads ~21% fewer regions at the same distance.
 		</member>
 		<member name="slots" type="int" setter="set_slots" getter="get_slots" default="121">
-			Capacity of the pooled texture arrays, in regions. Must exceed the loaded area (e.g. (2 * [member distance] + 1)² for a square shape) with headroom for regions in flight.
+			Capacity of the pooled texture arrays, in regions. Must exceed the loaded area (e.g. (2 * [member distance] + 1)² for a square shape) with headroom for regions in flight. Changing this while streaming rebuilds the terrain data at the new capacity.
 		</member>
 	</members>
 	<constants>
