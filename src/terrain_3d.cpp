@@ -88,7 +88,14 @@ void Terrain3D::_initialize() {
 			_streamer->scan_directory();
 		}
 		_material->initialize(this);
-		_assets->initialize(this);
+		// Only on first initialization or a fresh assets resource: at runtime,
+		// free_editor_textures drops the source textures after the arrays are
+		// generated, so re-initializing assets on a live reinitialization (data
+		// directory change, streaming toggle) would regenerate from an empty
+		// list and blank the terrain
+		if (!_assets->is_initialized()) {
+			_assets->initialize(this);
+		}
 		_collision->initialize(this);
 		_instancer->initialize(this);
 		_setup_terrain_mesher();
