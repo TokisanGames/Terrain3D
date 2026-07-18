@@ -81,7 +81,7 @@ private:
 	// Functions
 	void _clear();
 	void _copy_paste_dfr(const Terrain3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Terrain3DRegion *p_dst_region);
-	Error _save_export_image(const Ref<Image> &p_img, const String &p_path, const String &p_ext, const MapType p_map_type) const;
+	Error _save_export_image(const MapType p_map_type, const Ref<Image> &p_img, const String &p_path, const String &p_ext) const;
 
 public:
 	Terrain3DData() {}
@@ -143,22 +143,24 @@ public:
 
 	void set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel);
 	Color get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const;
+
+	// Height Map
 	void set_height(const Vector3 &p_global_position, const real_t p_height);
 	real_t get_height(const Vector3 &p_global_position) const;
-	void set_color(const Vector3 &p_global_position, const Color &p_color);
-	Color get_color(const Vector3 &p_global_position) const;
-	void set_control(const Vector3 &p_global_position, const uint32_t p_control);
-	uint32_t get_control(const Vector3 &p_global_position) const;
-	void set_roughness(const Vector3 &p_global_position, const real_t p_roughness);
-	real_t get_roughness(const Vector3 &p_global_position) const;
+	real_t get_region_blend(const Vector3 &p_global_position) const;
+	Vector3 get_normal(const Vector3 &p_global_position) const;
+	bool is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const Vector3 &p_normal = V3_ZERO) const;
 
 	// Control Map
+	void set_control(const Vector3 &p_global_position, const uint32_t p_control);
+	uint32_t get_control(const Vector3 &p_global_position) const;
 	void set_control_base_id(const Vector3 &p_global_position, const uint8_t p_base);
 	uint32_t get_control_base_id(const Vector3 &p_global_position) const;
 	void set_control_overlay_id(const Vector3 &p_global_position, const uint8_t p_overlay);
 	uint32_t get_control_overlay_id(const Vector3 &p_global_position) const;
 	void set_control_blend(const Vector3 &p_global_position, const real_t p_blend);
 	real_t get_control_blend(const Vector3 &p_global_position) const;
+	Vector3 get_texture_id(const Vector3 &p_global_position) const;
 	void set_control_angle(const Vector3 &p_global_position, const real_t p_angle);
 	real_t get_control_angle(const Vector3 &p_global_position) const;
 	void set_control_scale(const Vector3 &p_global_position, const real_t p_scale);
@@ -170,9 +172,12 @@ public:
 	void set_control_auto(const Vector3 &p_global_position, const bool p_auto);
 	bool get_control_auto(const Vector3 &p_global_position) const;
 
-	Vector3 get_normal(const Vector3 &p_global_position) const;
-	bool is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const Vector3 &p_normal = V3_ZERO) const;
-	Vector3 get_texture_id(const Vector3 &p_global_position) const;
+	// Color Map
+	void set_color(const Vector3 &p_global_position, const Color &p_color);
+	Color get_color(const Vector3 &p_global_position) const;
+	void set_roughness(const Vector3 &p_global_position, const real_t p_roughness);
+	real_t get_roughness(const Vector3 &p_global_position) const;
+
 	Vector3 get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const;
 
 	void add_edited_area(const AABB &p_area);
@@ -274,18 +279,6 @@ inline void Terrain3DData::set_height(const Vector3 &p_global_position, const re
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));
 }
 
-inline void Terrain3DData::set_color(const Vector3 &p_global_position, const Color &p_color) {
-	Color clr = p_color;
-	clr.a = get_roughness(p_global_position);
-	set_pixel(TYPE_COLOR, p_global_position, clr);
-}
-
-inline Color Terrain3DData::get_color(const Vector3 &p_global_position) const {
-	Color clr = get_pixel(TYPE_COLOR, p_global_position);
-	clr.a = 1.0f;
-	return clr;
-}
-
 inline void Terrain3DData::set_control(const Vector3 &p_global_position, const uint32_t p_control) {
 	set_pixel(TYPE_CONTROL, p_global_position, Color(as_float(p_control), 0.f, 0.f, 1.f));
 }
@@ -336,7 +329,7 @@ inline void Terrain3DData::set_control_angle(const Vector3 &p_global_position, c
 	set_control(p_global_position, (control & ~(0xF << 10)) | enc_uv_rotation(uvrotation));
 }
 
-// returns angle in degrees
+// Returns angle in degrees
 inline real_t Terrain3DData::get_control_angle(const Vector3 &p_global_position) const {
 	uint32_t control = get_control(p_global_position);
 	real_t angle = real_t(get_uv_rotation(control)) * 22.5f;
@@ -386,6 +379,18 @@ inline void Terrain3DData::set_control_auto(const Vector3 &p_global_position, co
 inline bool Terrain3DData::get_control_auto(const Vector3 &p_global_position) const {
 	uint32_t control = get_control(p_global_position);
 	return control == UINT32_MAX ? false : is_auto(control);
+}
+
+inline void Terrain3DData::set_color(const Vector3 &p_global_position, const Color &p_color) {
+	Color clr = p_color;
+	clr.a = get_roughness(p_global_position);
+	set_pixel(TYPE_COLOR, p_global_position, clr);
+}
+
+inline Color Terrain3DData::get_color(const Vector3 &p_global_position) const {
+	Color clr = get_pixel(TYPE_COLOR, p_global_position);
+	clr.a = 1.0f;
+	return clr;
 }
 
 inline void Terrain3DData::set_roughness(const Vector3 &p_global_position, const real_t p_roughness) {
