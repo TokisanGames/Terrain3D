@@ -293,6 +293,20 @@ func _run() -> void:
 	ok(absf(_t.data.get_region(va).get_version() - 0.93) < 0.001, "skip_version: version upgraded with skip off (%.3f)" % _t.data.get_region(va).get_version())
 	_t.streaming_skip_version_upgrade = true
 
+	# Batch residency: baking while streaming must cover the whole world, not just the
+	# loaded window, and streaming must be restored afterward.
+	_t.streaming_shape = Terrain3DStreamer.SQUARE
+	_t.streaming_distance = 1
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	var windowed: int = _t.data.get_region_count()
+	ok(windowed < 25, "batch residency: only a window resident before bake (%d)" % windowed)
+	var baked: Mesh = _t.bake_mesh(5)
+	ok(baked != null and baked.get_surface_count() > 0, "batch residency: bake produced a mesh")
+	ok(baked.get_aabb().size.x > float(rs) * 3.0, "batch residency: bake spans the full world, not the window (%.0f)" % baked.get_aabb().size.x)
+	await _settle(400)
+	ok(_t.data.is_streaming() and _t.data.get_region_count() == windowed, "batch residency: streaming restored after bake (%d)" % _t.data.get_region_count())
+
 	# editor_streaming: the opt-in flag stores, and outside the editor it does not
 	# change activity because is_active already holds there. Editor behavior is eyes-on.
 	_t.streaming_editor = true

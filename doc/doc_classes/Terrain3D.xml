@@ -19,6 +19,14 @@
 				[code skip-lint]filter[/code] - Controls how vertex Y coordinates are generated from the height map. See [enum Terrain3DData.HeightFilter].
 			</description>
 		</method>
+		<method name="export_image">
+			<return type="int" enum="Error" />
+			<param index="0" name="file_name" type="String" />
+			<param index="1" name="map_type" type="int" enum="Terrain3DRegion.MapType" />
+			<description>
+				Exports a combined image of the given map type across the whole terrain. Prefer this over [method Terrain3DData.export_image] while streaming: it forces full residency for the duration so the export covers every region, not just the loaded window, then restores streaming.
+			</description>
+		</method>
 		<method name="generate_nav_mesh_source_geometry" qualifiers="const">
 			<return type="PackedVector3Array" />
 			<param index="0" name="global_aabb" type="AABB" />

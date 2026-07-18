@@ -1137,7 +1137,32 @@ Dictionary Terrain3D::get_raycast_result(const Vector3 &p_src_pos, const Vector3
  *   This takes longer than ..._NEAREST, but can be used to create occluders, since it can guarantee the
  *   generated mesh will not extend above or outside the clipmap at any LOD.
  */
+// Temporarily drops streaming to a classic full load so a whole-world batch tool
+// sees every region, then restores it. Reinitializing recreates _data, so this must
+// wrap calls on Terrain3D itself, never a method of the object being rebuilt. Returns
+// true when it suspended, so the caller can re-fetch _data before continuing.
+bool Terrain3D::_suspend_streaming_for_full_residency(bool &r_was_enabled) {
+	if (!is_streaming_active()) {
+		return false;
+	}
+	r_was_enabled = _streamer->is_enabled();
+	set_streaming_enabled(false);
+	return true;
+}
+
+void Terrain3D::_resume_streaming(const bool r_was_enabled) {
+	set_streaming_enabled(r_was_enabled);
+}
+
 Ref<Mesh> Terrain3D::bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter) const {
+	// Batch tools read every region, but the streaming window holds only part of the
+	// world. Suspend to a classic full load and recurse, so the bake sees everything.
+	bool was_enabled = false;
+	if (const_cast<Terrain3D *>(this)->_suspend_streaming_for_full_residency(was_enabled)) {
+		Ref<Mesh> full = bake_mesh(p_lod, p_filter);
+		const_cast<Terrain3D *>(this)->_resume_streaming(was_enabled);
+		return full;
+	}
 	LOG(INFO, "Baking mesh at lod: ", p_lod, " with filter: ", p_filter);
 	Ref<Mesh> result;
 	ERR_FAIL_COND_V(_data == nullptr, result);
@@ -1174,10 +1199,30 @@ Ref<Mesh> Terrain3D::bake_mesh(const int p_lod, const Terrain3DData::HeightFilte
  *  dynamic and/or runtime nav mesh baking).
  */
 PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav) const {
+	// Full residency so a windowed streaming editor still bakes the whole nav mesh.
+	bool was_enabled = false;
+	if (const_cast<Terrain3D *>(this)->_suspend_streaming_for_full_residency(was_enabled)) {
+		PackedVector3Array full = generate_nav_mesh_source_geometry(p_global_aabb, p_require_nav);
+		const_cast<Terrain3D *>(this)->_resume_streaming(was_enabled);
+		return full;
+	}
 	LOG(INFO, "Generating NavMesh source geometry from terrain");
 	PackedVector3Array faces;
 	_generate_triangles(faces, nullptr, 0, Terrain3DData::HEIGHT_FILTER_NEAREST, p_require_nav, p_global_aabb);
 	return faces;
+}
+
+// Residency safe wrapper over Terrain3DData::export_image. The data export iterates
+// every region, and reinitializing for full residency recreates the data object, so
+// the suspend must live here on the terrain rather than inside the data method.
+Error Terrain3D::export_image(const String &p_file_name, const MapType p_map_type) {
+	bool was_enabled = false;
+	bool suspended = _suspend_streaming_for_full_residency(was_enabled);
+	Error err = _data != nullptr ? _data->export_image(p_file_name, p_map_type) : FAILED;
+	if (suspended) {
+		_resume_streaming(was_enabled);
+	}
+	return err;
 }
 
 void Terrain3D::set_warning(const uint8_t p_warning, const bool p_enabled) {
@@ -1625,6 +1670,7 @@ void Terrain3D::_bind_methods() {
 			&Terrain3D::get_raycast_result, DEFVAL(0xFFFFFFFF), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh, DEFVAL(Terrain3DData::HEIGHT_FILTER_NEAREST));
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type"), &Terrain3D::export_image);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");

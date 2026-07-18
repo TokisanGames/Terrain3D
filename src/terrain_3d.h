@@ -137,6 +137,8 @@ private:
 
 	void _reinitialize();
 	void _reinit_streaming_pool();
+	bool _suspend_streaming_for_full_residency(bool &r_was_enabled);
+	void _resume_streaming(const bool r_was_enabled);
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
 	void _destroy_instancer();
@@ -303,6 +305,7 @@ public:
 	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const uint32_t p_col_mask = 0xFFFFFFFF, const bool p_exclude_self = false) const;
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
+	Error export_image(const String &p_file_name, const MapType p_map_type);
 
 	// Warnings
 	void set_warning(const uint8_t p_warning, const bool p_enabled);
