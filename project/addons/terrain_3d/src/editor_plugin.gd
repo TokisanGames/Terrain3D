@@ -77,8 +77,7 @@ func _exit_tree() -> void:
 		print("Terrain3DEditorPlugin: _exit_tree")
 	asset_dock.remove_dock(true)
 	asset_dock.queue_free()
-	streaming_dock.remove_dock()
-	streaming_dock.queue_free()
+	streaming_dock.remove_dock() # frees the dock subtree itself
 	ui.queue_free()
 	editor.free()
 
@@ -136,7 +135,6 @@ func _edit(p_object: Object) -> void:
 		if not terrain.assets_changed.is_connected(asset_dock.update_assets):
 			terrain.assets_changed.connect(asset_dock.update_assets)
 		asset_dock.update_assets()
-		streaming_dock.set_terrain(terrain)
 	else:
 		_clear()
 
@@ -165,22 +163,6 @@ func _clear() -> void:
 		terrain = null
 		editor.set_terrain(null)
 		ui.clear_picking()
-	if is_instance_valid(streaming_dock):
-		streaming_dock.set_terrain(null)
-
-
-# Frames the editor 3D camera over a region's center so the streaming dock's grid can
-# drive navigation. Called by the dock when a cell is clicked.
-func focus_region(p_location: Vector2i) -> void:
-	if not is_terrain_valid():
-		return
-	var span: float = float(terrain.region_size) * terrain.vertex_spacing
-	var center := Vector3((float(p_location.x) + 0.5) * span, 0.0, (float(p_location.y) + 0.5) * span)
-	var cam := EditorInterface.get_editor_viewport_3d(0).get_camera_3d()
-	if cam != null:
-		# Pull back and up along the camera's current view so the region frames nicely.
-		var back: Vector3 = cam.global_transform.basis.z
-		cam.look_at_from_position(center + back * span * 1.5 + Vector3(0, span, 0), center)
 
 
 func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> AfterGUIInput:
