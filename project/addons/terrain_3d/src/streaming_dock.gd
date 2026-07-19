@@ -17,6 +17,8 @@ var _grid: Control
 var _meter: ProgressBar
 var _meter_label: Label
 var _stats: Label
+var _dirty_label: Label
+var _save_button: Button
 var _accum: float = 0.0
 
 
@@ -133,6 +135,19 @@ func _build() -> void:
 	_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_stats)
 
+	var edits_box := HBoxContainer.new()
+	root.add_child(edits_box)
+	_dirty_label = Label.new()
+	_dirty_label.text = "No unsaved edits"
+	_dirty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edits_box.add_child(_dirty_label)
+	_save_button = Button.new()
+	_save_button.text = "Save edits"
+	_save_button.tooltip_text = "Save every region with unsaved edits, freeing pool slots."
+	_save_button.disabled = true
+	_save_button.pressed.connect(_on_save_edits)
+	edits_box.add_child(_save_button)
+
 
 func _refresh() -> void:
 	if _grid != null:
@@ -141,13 +156,24 @@ func _refresh() -> void:
 		_stats.text = "Select a Terrain3D node."
 		_meter.value = 0
 		_meter_label.text = "0 / 0"
+		_dirty_label.text = "No unsaved edits"
+		_save_button.disabled = true
 		return
 	var s: Dictionary = _terrain.get_streaming_stats()
 	var resident: int = int(s.get("resident", 0))
 	var slots: int = _terrain.data.get_slot_capacity() if _terrain.data != null else 0
+	var dirty: int = _terrain.data.get_pinned_locations().size()
 	_meter.max_value = maxi(slots, 1)
 	_meter.value = resident
 	_meter_label.text = "%d / %d" % [resident, slots]
+	# Tint the residency bar amber as unsaved edits fill the pool toward the wall.
+	if dirty > 0:
+		var frac: float = clampf(float(dirty) / float(maxi(slots, 1)), 0.0, 1.0)
+		_meter.modulate = Color(1, 1, 1).lerp(Color(0.95, 0.68, 0.18), 0.4 + frac * 0.6)
+	else:
+		_meter.modulate = Color(1, 1, 1)
+	_dirty_label.text = "%d unsaved edit%s" % [dirty, "" if dirty == 1 else "s"] if dirty > 0 else "No unsaved edits"
+	_save_button.disabled = dirty == 0
 	_stats.text = "mode %s   in flight %d   failed %d   known %d\nlanded %d   evicted %d" % [
 		s.get("mode", "-"), int(s.get("inflight", 0)), int(s.get("failed", 0)),
 		int(s.get("known", 0)), int(s.get("landed_total", 0)), int(s.get("evicted_total", 0))]
@@ -160,6 +186,17 @@ func _on_cell_clicked(p_location: Vector2i) -> void:
 func _on_minimap_toggled(p_on: bool) -> void:
 	if _grid != null:
 		_grid.set_minimap_enabled(p_on)
+
+
+# Saves every region with an unsaved edit. save_region unpins each on success, freeing
+# pool slots. Iterates a snapshot so clearing the pinned set mid-loop is safe.
+func _on_save_edits() -> void:
+	if not _valid():
+		return
+	var save_16: bool = _terrain.save_16_bit
+	for loc in _terrain.data.get_pinned_locations():
+		_terrain.data.save_region(loc, _terrain.data_directory, save_16)
+	_refresh()
 
 
 func _on_recenter() -> void:

@@ -9,6 +9,7 @@ const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 const ASSET_DOCK_45: String = "res://addons/terrain_3d/src/asset_dock_45.tscn"
 const StreamingDock: Script = preload("res://addons/terrain_3d/src/streaming_dock.gd")
+const StreamingHistoryPanel: Script = preload("res://addons/terrain_3d/src/streaming_history_panel.gd")
 
 # Editor Plugin
 var debug: int = 0 # Set in _edit()
@@ -17,6 +18,7 @@ var editor_settings: EditorSettings
 var ui: Node # Terrain3DUI see Godot #75388
 var asset_dock: PanelContainer
 var streaming_dock: PanelContainer
+var streaming_history: PanelContainer
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
@@ -71,6 +73,9 @@ func _enter_tree() -> void:
 	streaming_dock = StreamingDock.new()
 	streaming_dock.initialize(self)
 
+	streaming_history = StreamingHistoryPanel.new()
+	streaming_history.initialize(self)
+
 
 func _exit_tree() -> void:
 	if debug:
@@ -78,6 +83,7 @@ func _exit_tree() -> void:
 	asset_dock.remove_dock(true)
 	asset_dock.queue_free()
 	streaming_dock.remove_dock() # frees the dock subtree itself
+	streaming_history.remove_dock()
 	ui.queue_free()
 	editor.free()
 

@@ -14,6 +14,7 @@ const COLOR_FAILED := Color(0.80, 0.28, 0.24) # load failed, not retried
 const COLOR_EMPTY := Color(0.20, 0.20, 0.23, 0.5) # no region authored
 const COLOR_FOCUS := Color(0.95, 0.95, 1.0) # camera / clipmap target region
 const COLOR_WINDOW := Color(0.45, 0.75, 1.0, 0.9) # loaded-area outline
+const COLOR_DIRTY := Color(0.95, 0.68, 0.18) # unsaved editor edit (pinned)
 
 # Prerender the whole minimap up front unless the world is bigger than this many
 # regions, in which case the map fills in from residency instead. Capped resolution.
@@ -31,6 +32,7 @@ var _resident := {}
 var _on_disk := {}
 var _loading := {}
 var _failed := {}
+var _dirty := {}
 var _focus := Vector2i.ZERO
 var _has_focus := false
 
@@ -88,6 +90,7 @@ func refresh() -> void:
 	_on_disk.clear()
 	_loading.clear()
 	_failed.clear()
+	_dirty.clear()
 	_has_focus = false
 	if not is_instance_valid(_terrain) or _terrain.data == null:
 		queue_redraw()
@@ -111,6 +114,8 @@ func refresh() -> void:
 			_loading[loc] = true
 		for loc in streamer.get_failed_locations():
 			_failed[loc] = true
+	for loc in _terrain.data.get_pinned_locations():
+		_dirty[loc] = true
 
 	var all_keys: Array = _resident.keys() + _on_disk.keys() + _loading.keys() + _failed.keys()
 	if all_keys.is_empty():
@@ -311,6 +316,9 @@ func _draw() -> void:
 				state = COLOR_FAILED
 			if state.a > 0.0:
 				draw_rect(body, state, not mapped)
+			# Unsaved edit: an amber border on top so it reads over any fill or state.
+			if _dirty.has(loc):
+				draw_rect(body, COLOR_DIRTY, false, 2.0)
 
 	# Focus cross over the target region.
 	if _has_focus:
