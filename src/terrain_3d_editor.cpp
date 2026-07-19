@@ -614,6 +614,10 @@ void Terrain3DEditor::_store_undo() {
 	// Store original and current backups of edited regions
 	_undo_data["edited_regions"] = _original_regions;
 	redo_data["edited_regions"] = _edited_regions;
+	// Undo restores the pre-edit state (toward the saved file), redo re-applies the edit.
+	// The pin follows: undo clears it, redo sets it, so the dirty count tracks reality.
+	_undo_data["restores_edit"] = false;
+	redo_data["restores_edit"] = true;
 
 	if (Terrain3D::debug_level >= DEBUG) {
 		LOG(DEBUG, "Storing Original Regions:");
@@ -718,7 +722,8 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 				if (data->add_region_streamed(region) != OK) {
 					LOG(ERROR, "Undo could not restore region ", loc, "; streaming pool is full of unsaved edits");
 				}
-				data->set_region_pinned(loc, true); // restored state differs from disk until saved
+				// Undo returns toward the saved state (unpin), redo re-applies the edit (pin).
+				data->set_region_pinned(loc, (bool)p_data.get("restores_edit", true));
 			} else {
 				Dictionary regions = data->get_regions_all();
 				regions[region->get_location()] = region;

@@ -22,6 +22,9 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	_editor = plugin.editor
 	if _editor != null and not _editor.edit_committed.is_connected(_on_edit_committed):
 		_editor.edit_committed.connect(_on_edit_committed)
+	# Reset the timeline when the edited scene changes; its rows belong to that scene.
+	if not plugin.scene_changed.is_connected(_on_scene_changed):
+		plugin.scene_changed.connect(_on_scene_changed)
 	if ClassDB.class_exists("EditorDock"):
 		_dock = ClassDB.instantiate("EditorDock")
 		_dock.title = "Terrain Edits"
@@ -35,7 +38,14 @@ func initialize(p_plugin: EditorPlugin) -> void:
 		plugin.add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, self)
 
 
+func _on_scene_changed(_scene_root: Node) -> void:
+	if _list != null:
+		_list.clear()
+
+
 func remove_dock() -> void:
+	if is_instance_valid(plugin) and plugin.scene_changed.is_connected(_on_scene_changed):
+		plugin.scene_changed.disconnect(_on_scene_changed)
 	if is_instance_valid(_editor) and _editor.edit_committed.is_connected(_on_edit_committed):
 		_editor.edit_committed.disconnect(_on_edit_committed)
 	if not is_instance_valid(plugin):
@@ -81,10 +91,15 @@ func _build() -> void:
 func _on_edit_committed(p_descriptor: Dictionary) -> void:
 	var locs: Array = p_descriptor.get("locations", [])
 	var loc: Vector2i = Vector2i(locs[0]) if not locs.is_empty() else Vector2i.ZERO
-	var map_i: int = int(p_descriptor.get("map_type", 0))
-	var map_name: String = MAP_NAMES[map_i] if map_i >= 0 and map_i < MAP_NAMES.size() else "map"
+	# The REGION tool edits no map, so label it by the add/remove operation instead.
+	var label: String
+	if int(p_descriptor.get("tool", -1)) == Terrain3DEditor.REGION:
+		label = "region remove" if int(p_descriptor.get("operation", -1)) == Terrain3DEditor.SUBTRACT else "region add"
+	else:
+		var map_i: int = int(p_descriptor.get("map_type", 0))
+		label = MAP_NAMES[map_i] if map_i >= 0 and map_i < MAP_NAMES.size() else "map"
 	var extra: String = "  (+%d)" % (locs.size() - 1) if locs.size() > 1 else ""
-	var text := "#%d  (%d,%d)  %s%s" % [int(p_descriptor.get("index", 0)), loc.x, loc.y, map_name, extra]
+	var text := "#%d  (%d,%d)  %s%s" % [int(p_descriptor.get("index", 0)), loc.x, loc.y, label, extra]
 	var idx := _list.add_item(text)
 	_list.set_item_metadata(idx, loc)
 	_list.ensure_current_is_visible()
