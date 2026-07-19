@@ -629,7 +629,9 @@ void Terrain3D::set_editor_streaming(const bool p_enabled) {
 		return;
 	}
 	_streamer->set_editor_streaming(p_enabled);
-	if (_initialized && IS_EDITOR) {
+	// Only the load path changing matters. With streaming disabled the editor is on
+	// the classic load either way, so skip the reinit hitch.
+	if (_initialized && IS_EDITOR && _streamer->is_enabled()) {
 		_reinitialize();
 	}
 }

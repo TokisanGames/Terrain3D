@@ -158,8 +158,15 @@ void Terrain3DStreamer::set_editor_streaming(const bool p_enabled) {
 	if (_editor_streaming == p_enabled) {
 		return;
 	}
+	bool was_active = is_active();
 	_editor_streaming = p_enabled;
 	LOG(INFO, "Editor streaming ", p_enabled ? "enabled" : "disabled");
+	// Leaving the active state must release in flight loads and flush the RAM cache,
+	// like set_enabled does, or pending loads stay pinned and cached edits are lost.
+	if (was_active && !is_active()) {
+		abort_pending();
+		_flush_ram_cache();
+	}
 }
 
 // Consumes and drops every in flight threaded load. An unconsumed threaded load
