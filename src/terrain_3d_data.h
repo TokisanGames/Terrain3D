@@ -112,6 +112,7 @@ public:
 	Ref<Terrain3DRegion> ensure_region_resident(const Vector2i &p_region_loc);
 	void set_region_pinned(const Vector2i &p_region_loc, const bool p_pinned);
 	bool is_region_pinned(const Vector2i &p_region_loc) const { return _pinned_regions.has(p_region_loc); }
+	TypedArray<Vector2i> get_pinned_locations() const;
 	// Slot indexed while streaming, the dense id ordered list classically
 	TypedArray<Vector2i> get_shader_region_locations() const { return _streaming ? _slot_locs : _region_locations; }
 	void set_region_locations(const TypedArray<Vector2i> &p_locations);

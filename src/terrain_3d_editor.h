@@ -83,6 +83,7 @@ private:
 	bool _is_operating = false;
 	uint64_t _last_region_bounds_error = 0;
 	uint64_t _last_readonly_notice = 0;
+	uint32_t _edit_index = 0; // Monotonic id for the streaming history panel's rows
 	TypedArray<Terrain3DRegion> _original_regions; // Queue for undo
 	TypedArray<Terrain3DRegion> _edited_regions; // Queue for redo
 	TypedArray<Vector2i> _added_removed_locations; // Queue for added/removed locations

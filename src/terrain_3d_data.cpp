@@ -712,6 +712,15 @@ void Terrain3DData::set_region_pinned(const Vector2i &p_region_loc, const bool p
 	}
 }
 
+// The locations of every pinned (unsaved editor edit) region, for the streaming dock.
+TypedArray<Vector2i> Terrain3DData::get_pinned_locations() const {
+	TypedArray<Vector2i> locs;
+	for (const Vector2i &loc : _pinned_regions) {
+		locs.push_back(loc);
+	}
+	return locs;
+}
+
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
 	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
@@ -1495,6 +1504,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("ensure_region_resident", "region_location"), &Terrain3DData::ensure_region_resident);
 	ClassDB::bind_method(D_METHOD("set_region_pinned", "region_location", "pinned"), &Terrain3DData::set_region_pinned);
 	ClassDB::bind_method(D_METHOD("is_region_pinned", "region_location"), &Terrain3DData::is_region_pinned);
+	ClassDB::bind_method(D_METHOD("get_pinned_locations"), &Terrain3DData::get_pinned_locations);
 	ClassDB::bind_method(D_METHOD("has_regionp", "global_position"), &Terrain3DData::has_regionp);
 	ClassDB::bind_method(D_METHOD("get_region", "region_location"), &Terrain3DData::get_region);
 	ClassDB::bind_method(D_METHOD("get_regionp", "global_position"), &Terrain3DData::get_regionp);

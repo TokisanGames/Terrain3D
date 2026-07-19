@@ -96,6 +96,12 @@
 				Loads an on-disk region into the streaming pool immediately and returns it, so an edit can change a region that is not currently loaded. Frees a slot by evicting the farthest region with no unsaved editor edit. Returns [code skip-lint]null[/code] if the region does not exist, or if the pool is full of unsaved edits.
 			</description>
 		</method>
+		<method name="get_pinned_locations" qualifiers="const">
+			<return type="Vector2i[]" />
+			<description>
+				Returns the locations of every pinned region, i.e. those with unsaved editor edits held resident by streaming. For the streaming dock's unsaved-edits view. See [method set_region_pinned].
+			</description>
+		</method>
 		<method name="is_region_pinned" qualifiers="const">
 			<return type="bool" />
 			<param index="0" name="region_location" type="Vector2i" />

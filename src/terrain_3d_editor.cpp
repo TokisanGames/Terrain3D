@@ -663,6 +663,27 @@ void Terrain3DEditor::_store_undo() {
 
 		LOG(DEBUG, "Committing undo action");
 		_terrain->get_plugin()->call("commit_action", false);
+
+		// Report the committed edit to the editor UI (the streaming history panel).
+		TypedArray<Vector2i> locs;
+		for (const Ref<Terrain3DRegion> &r : _edited_regions) {
+			if (r.is_valid()) {
+				locs.push_back(r->get_location());
+			}
+		}
+		for (int i = 0; i < _added_removed_locations.size(); i++) {
+			locs.push_back(_added_removed_locations[i]);
+		}
+		Dictionary descriptor;
+		descriptor["index"] = (int)(++_edit_index);
+		descriptor["tool"] = _tool;
+		descriptor["operation"] = _operation;
+		descriptor["locations"] = locs;
+		descriptor["map_type"] = _get_map_type();
+		if (_terrain->get_data()->get_edited_area().has_volume()) {
+			descriptor["area"] = _terrain->get_data()->get_edited_area();
+		}
+		emit_signal("edit_committed", descriptor);
 	}
 }
 
@@ -1070,4 +1091,6 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
+
+	ADD_SIGNAL(MethodInfo("edit_committed", PropertyInfo(Variant::DICTIONARY, "descriptor")));
 }
