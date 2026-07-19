@@ -19,6 +19,8 @@ var _meter_label: Label
 var _stats: Label
 var _dirty_label: Label
 var _save_button: Button
+var _next_button: Button
+var _dirty_cycle: int = 0
 var _warn_label: Label
 var _was_saturated: bool = false
 var _ctx_menu: PopupMenu
@@ -175,6 +177,12 @@ func _build() -> void:
 	_dirty_label.text = "No unsaved edits"
 	_dirty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	edits_box.add_child(_dirty_label)
+	_next_button = Button.new()
+	_next_button.text = "Next ▸"
+	_next_button.tooltip_text = "Jump the editor camera to the next region with unsaved edits."
+	_next_button.disabled = true
+	_next_button.pressed.connect(_on_next_unsaved)
+	edits_box.add_child(_next_button)
 	_save_button = Button.new()
 	_save_button.text = "Save edits"
 	_save_button.tooltip_text = "Save every region with unsaved edits, freeing pool slots."
@@ -192,6 +200,7 @@ func _refresh() -> void:
 		_meter_label.text = "0 / 0"
 		_dirty_label.text = "No unsaved edits"
 		_save_button.disabled = true
+		_next_button.disabled = true
 		_warn_label.visible = false
 		_was_saturated = false
 		return
@@ -220,6 +229,7 @@ func _refresh() -> void:
 		_meter.modulate = Color(1, 1, 1)
 	_dirty_label.text = "%d unsaved edit%s" % [dirty, "" if dirty == 1 else "s"] if dirty > 0 else "No unsaved edits"
 	_save_button.disabled = dirty == 0
+	_next_button.disabled = dirty == 0
 	_stats.text = "mode %s   in flight %d   failed %d   known %d\nlanded %d   evicted %d" % [
 		s.get("mode", "-"), int(s.get("inflight", 0)), int(s.get("failed", 0)),
 		int(s.get("known", 0)), int(s.get("landed_total", 0)), int(s.get("evicted_total", 0))]
@@ -278,6 +288,20 @@ func _on_save_edits() -> void:
 	for loc in _terrain.data.get_pinned_locations():
 		_terrain.data.save_region(loc, _terrain.data_directory, save_16)
 	_refresh()
+
+
+# Cycles the editor camera through the regions with unsaved edits, so scattered edits on a
+# large world are easy to find and review before saving. Sorted for a stable walk order.
+func _on_next_unsaved() -> void:
+	if not _valid():
+		return
+	var pins: Array = _terrain.data.get_pinned_locations()
+	if pins.is_empty():
+		return
+	pins.sort_custom(func(a, b): return a.y < b.y or (a.y == b.y and a.x < b.x))
+	_dirty_cycle = _dirty_cycle % pins.size()
+	_teleport_to(Vector2i(pins[_dirty_cycle]))
+	_dirty_cycle += 1
 
 
 func _on_recenter() -> void:
