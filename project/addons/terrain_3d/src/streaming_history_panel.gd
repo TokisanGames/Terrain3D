@@ -22,6 +22,8 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	_editor = plugin.editor
 	if _editor != null and not _editor.edit_committed.is_connected(_on_edit_committed):
 		_editor.edit_committed.connect(_on_edit_committed)
+	if _editor != null and not _editor.edit_reverted.is_connected(_on_edit_reverted):
+		_editor.edit_reverted.connect(_on_edit_reverted)
 	# Reset the timeline when the edited scene changes; its rows belong to that scene.
 	if not plugin.scene_changed.is_connected(_on_scene_changed):
 		plugin.scene_changed.connect(_on_scene_changed)
@@ -48,6 +50,8 @@ func remove_dock() -> void:
 		plugin.scene_changed.disconnect(_on_scene_changed)
 	if is_instance_valid(_editor) and _editor.edit_committed.is_connected(_on_edit_committed):
 		_editor.edit_committed.disconnect(_on_edit_committed)
+	if is_instance_valid(_editor) and _editor.edit_reverted.is_connected(_on_edit_reverted):
+		_editor.edit_reverted.disconnect(_on_edit_reverted)
 	if not is_instance_valid(plugin):
 		return
 	if _dock != null:
@@ -99,17 +103,31 @@ func _on_edit_committed(p_descriptor: Dictionary) -> void:
 		var map_i: int = int(p_descriptor.get("map_type", 0))
 		label = MAP_NAMES[map_i] if map_i >= 0 and map_i < MAP_NAMES.size() else "map"
 	var extra: String = "  (+%d)" % (locs.size() - 1) if locs.size() > 1 else ""
-	var text := "#%d  (%d,%d)  %s%s" % [int(p_descriptor.get("index", 0)), loc.x, loc.y, label, extra]
+	var edit_index: int = int(p_descriptor.get("index", 0))
+	var text := "#%d  (%d,%d)  %s%s" % [edit_index, loc.x, loc.y, label, extra]
 	var idx := _list.add_item(text)
-	_list.set_item_metadata(idx, loc)
+	# Store the edit index alongside the location so undo can remove this exact row.
+	_list.set_item_metadata(idx, {"loc": loc, "index": edit_index})
 	_list.ensure_current_is_visible()
 	# Bound the timeline so a long session does not grow it without limit.
 	while _list.item_count > MAX_ROWS:
 		_list.remove_item(0)
 
 
+# Undo removed a committed edit; drop its row so the timeline tracks the undo stack.
+func _on_edit_reverted(p_edit_index: int) -> void:
+	if _list == null:
+		return
+	for i in range(_list.item_count - 1, -1, -1):
+		var meta: Dictionary = _list.get_item_metadata(i)
+		if int(meta.get("index", -1)) == p_edit_index:
+			_list.remove_item(i)
+			return
+
+
 func _on_row_activated(p_index: int) -> void:
-	var loc: Vector2i = _list.get_item_metadata(p_index)
+	var meta: Dictionary = _list.get_item_metadata(p_index)
+	var loc: Vector2i = meta.get("loc", Vector2i.ZERO)
 	var terrain := _find_terrain()
 	if terrain == null:
 		return

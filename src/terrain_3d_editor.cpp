@@ -614,11 +614,6 @@ void Terrain3DEditor::_store_undo() {
 	// Store original and current backups of edited regions
 	_undo_data["edited_regions"] = _original_regions;
 	redo_data["edited_regions"] = _edited_regions;
-	// Both undo and redo leave the region pinned. A partial undo restores an earlier
-	// edited state that still differs from disk, so unpinning it there would drop the
-	// unsaved-edit flag and let a save miss the region. The pin clears only on save.
-	_undo_data["restores_edit"] = true;
-	redo_data["restores_edit"] = true;
 
 	if (Terrain3D::debug_level >= DEBUG) {
 		LOG(DEBUG, "Storing Original Regions:");
@@ -654,6 +649,31 @@ void Terrain3DEditor::_store_undo() {
 		LOG(DEBUG, "Adding edited area to snapshots: ", _undo_data["edited_area"]);
 	}
 
+	// Describe the edit for the streaming history panel. Built before binding so the undo
+	// snapshot can carry the row index (to remove it) and the redo snapshot the descriptor
+	// (to re-add the row), keeping the timeline in step with Ctrl+Z / Ctrl+Shift+Z.
+	TypedArray<Vector2i> locs;
+	for (const Ref<Terrain3DRegion> &r : _edited_regions) {
+		if (r.is_valid()) {
+			locs.push_back(r->get_location());
+		}
+	}
+	for (int i = 0; i < _added_removed_locations.size(); i++) {
+		locs.push_back(_added_removed_locations[i]);
+	}
+	int edit_index = (int)(++_edit_index);
+	Dictionary descriptor;
+	descriptor["index"] = edit_index;
+	descriptor["tool"] = _tool;
+	descriptor["operation"] = _operation;
+	descriptor["locations"] = locs;
+	descriptor["map_type"] = _get_map_type();
+	if (_terrain->get_data()->get_edited_area().has_volume()) {
+		descriptor["area"] = _terrain->get_data()->get_edited_area();
+	}
+	_undo_data["revert_index"] = edit_index;
+	redo_data["reapply_descriptor"] = descriptor;
+
 	// Request the plugin store the undo/redo data.
 	if (_terrain->get_plugin()->has_method("create_undo_action")) {
 		LOG(INFO, "Storing undo snapshot");
@@ -673,24 +693,6 @@ void Terrain3DEditor::_store_undo() {
 		_terrain->get_plugin()->call("commit_action", false);
 
 		// Report the committed edit to the editor UI (the streaming history panel).
-		TypedArray<Vector2i> locs;
-		for (const Ref<Terrain3DRegion> &r : _edited_regions) {
-			if (r.is_valid()) {
-				locs.push_back(r->get_location());
-			}
-		}
-		for (int i = 0; i < _added_removed_locations.size(); i++) {
-			locs.push_back(_added_removed_locations[i]);
-		}
-		Dictionary descriptor;
-		descriptor["index"] = (int)(++_edit_index);
-		descriptor["tool"] = _tool;
-		descriptor["operation"] = _operation;
-		descriptor["locations"] = locs;
-		descriptor["map_type"] = _get_map_type();
-		if (_terrain->get_data()->get_edited_area().has_volume()) {
-			descriptor["area"] = _terrain->get_data()->get_edited_area();
-		}
 		emit_signal("edit_committed", descriptor);
 	}
 }
@@ -723,8 +725,15 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 				if (data->add_region_streamed(region) != OK) {
 					LOG(ERROR, "Undo could not restore region ", loc, "; streaming pool is full of unsaved edits");
 				}
-				// Keep the region pinned across undo and redo; it clears only on save.
-				data->set_region_pinned(loc, (bool)p_data.get("restores_edit", true));
+				// Restore the region's prior pin state: undo carries the pre-op pinned set
+				// so a first edit unpins while a still-dirty region stays pinned; redo has
+				// no such set and re-pins. The pin otherwise clears only on save.
+				bool pin = true;
+				if (p_data.has("prior_pinned")) {
+					TypedArray<Vector2i> prior = p_data["prior_pinned"];
+					pin = prior.has(loc);
+				}
+				data->set_region_pinned(loc, pin);
 			} else {
 				Dictionary regions = data->get_regions_all();
 				regions[region->get_location()] = region;
@@ -794,6 +803,14 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		}
 	}
 	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
+
+	// Keep the streaming history panel in step: undo removes the row it recorded, redo
+	// re-adds it from the stored descriptor.
+	if (p_data.has("revert_index")) {
+		emit_signal("edit_reverted", (int)p_data["revert_index"]);
+	} else if (p_data.has("reapply_descriptor")) {
+		emit_signal("edit_committed", p_data["reapply_descriptor"]);
+	}
 }
 
 // Returns average of height, blend (as real_t(0-255)), or roughness. Overloaded version handles average color
@@ -969,6 +986,10 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	LOG(INFO, "Setting up undo snapshot");
 	_undo_data.clear();
 	_undo_data["region_locations"] = _terrain->get_data()->get_region_locations().duplicate();
+	// Snapshot which regions were already dirty before this operation. Undo restores a
+	// region's prior pin state, so a first edit since save unpins on undo while a region
+	// with earlier unsaved edits stays pinned.
+	_undo_data["prior_pinned"] = _terrain->get_data()->get_pinned_locations();
 	_is_operating = true;
 	_original_regions = TypedArray<Terrain3DRegion>(); // New pointers instead of clear
 	_edited_regions = TypedArray<Terrain3DRegion>();
@@ -1102,4 +1123,5 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
 
 	ADD_SIGNAL(MethodInfo("edit_committed", PropertyInfo(Variant::DICTIONARY, "descriptor")));
+	ADD_SIGNAL(MethodInfo("edit_reverted", PropertyInfo(Variant::INT, "index")));
 }
