@@ -106,5 +106,16 @@ func _run() -> void:
 	_t.data.set_region_pinned(Vector2i(0, 0), false)
 	ok(not _t.data.is_region_pinned(Vector2i(0, 0)), "pin: cleared")
 
+	# Reinit safety net: an unsaved pinned edit is flushed to disk before streaming
+	# reinitializes (here, when disabled), not lost with the destroyed data object.
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	var epos := Vector3(rs * 1.0 + 4.0, 0.0, 4.0) # inside region (1,0)
+	_t.data.set_height(epos, 88.0)
+	_t.data.set_region_pinned(Vector2i(1, 0), true)
+	_t.streaming_enabled = false
+	await _settle(400)
+	ok(absf(_t.data.get_height(epos) - 88.0) < 0.01, "reinit: pinned edit saved before teardown (%.1f)" % _t.data.get_height(epos))
+
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

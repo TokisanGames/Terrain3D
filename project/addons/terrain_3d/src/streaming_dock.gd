@@ -53,10 +53,29 @@ func remove_dock() -> void:
 
 
 func set_terrain(p_terrain: Terrain3D) -> void:
-	_terrain = p_terrain
+	if _terrain != p_terrain:
+		if is_instance_valid(_terrain) and _terrain.edits_flushed.is_connected(_on_edits_flushed):
+			_terrain.edits_flushed.disconnect(_on_edits_flushed)
+		_terrain = p_terrain
+		if is_instance_valid(_terrain) and not _terrain.edits_flushed.is_connected(_on_edits_flushed):
+			_terrain.edits_flushed.connect(_on_edits_flushed)
 	if _grid != null:
 		_grid.set_terrain(p_terrain)
 	_refresh()
+
+
+# The engine saved pinned edits before a reinitialize (e.g. streaming was disabled or the
+# pool resized). Acknowledge it so the save is not silent; the toggle itself lives on the
+# node inspector, so this is a notice rather than a pre-toggle confirm.
+func _on_edits_flushed(p_count: int) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Terrain edits saved"
+	dialog.dialog_text = "%d unsaved region edit%s saved to disk before streaming reinitialized." % [
+		p_count, "" if p_count == 1 else "s"]
+	add_child(dialog)
+	dialog.popup_centered()
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
 
 
 # Editor tool node: the editor drives _process, so poll the streaming state on an

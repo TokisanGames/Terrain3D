@@ -561,6 +561,18 @@ void Terrain3D::set_data_directory(String p_dir) {
 // The streaming load path differs from the classic full load, so switching between
 // them or resizing the slot pool needs a fresh initialize.
 void Terrain3D::_reinitialize() {
+	// Save any unsaved editor edits before the data object is destroyed, so disabling
+	// streaming or resizing the pool never silently discards a pinned region.
+	if (_data != nullptr && !_data_directory.is_empty()) {
+		TypedArray<Vector2i> pinned = _data->get_pinned_locations();
+		if (pinned.size() > 0) {
+			for (int i = 0; i < pinned.size(); i++) {
+				_data->save_region(pinned[i], _data_directory, _save_16_bit);
+			}
+			LOG(INFO, "Saved ", pinned.size(), " unsaved edit(s) before reinitializing");
+			emit_signal("edits_flushed", (int)pinned.size());
+		}
+	}
 	_initialized = false;
 	_destroy_labels();
 	_destroy_collision();
@@ -1791,4 +1803,5 @@ void Terrain3D::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("material_changed"));
 	ADD_SIGNAL(MethodInfo("assets_changed"));
+	ADD_SIGNAL(MethodInfo("edits_flushed", PropertyInfo(Variant::INT, "count")));
 }
