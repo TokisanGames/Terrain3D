@@ -100,6 +100,12 @@ func _run() -> void:
 	ok(_t.data.get_region_load_state(Vector2i(-2, -2)) == Terrain3DData.REGION_RESIDENT, "api: region streamed in on write")
 	ok(absf(_t.data.get_height(wpos) - 77.0) < 0.01, "api: write landed on the streamed-in region")
 
+	# revert_region discards the unsaved edit and reloads the on-disk version, unpinned.
+	_t.data.set_region_pinned(Vector2i(-2, -2), true)
+	_t.data.revert_region(Vector2i(-2, -2))
+	ok(not _t.data.is_region_pinned(Vector2i(-2, -2)), "revert: region unpinned")
+	ok(absf(_t.data.get_height(wpos) - float(10 - 2 - 2 * 5)) < 0.01, "revert: on-disk height restored (%.1f)" % _t.data.get_height(wpos))
+
 	# Pin API round trip, and ensure-resident skips a pinned region as an eviction victim.
 	_t.data.set_region_pinned(Vector2i(0, 0), true)
 	ok(_t.data.is_region_pinned(Vector2i(0, 0)), "pin: set and query")

@@ -6,6 +6,7 @@
 extends Control
 
 signal cell_clicked(location: Vector2i)
+signal cell_right_clicked(location: Vector2i, screen_pos: Vector2)
 
 const COLOR_RESIDENT := Color(0.32, 0.72, 0.36) # loaded in memory
 const COLOR_ON_DISK := Color(0.42, 0.42, 0.46) # on disk, not loaded
@@ -346,15 +347,26 @@ func _draw() -> void:
 
 
 func _gui_input(p_event: InputEvent) -> void:
-	if p_event is InputEventMouseButton and p_event.pressed and p_event.button_index == MOUSE_BUTTON_LEFT:
-		_layout() # ensure cell metrics are current even before the first paint
-		if _cell_px <= 0.0 or _max_loc == _min_loc:
-			return
-		var local: Vector2 = p_event.position - _origin
-		if local.x < 0.0 or local.y < 0.0:
-			return
-		var cx := int(local.x / _cell_px)
-		var cy := int(local.y / _cell_px)
-		var loc := _min_loc + Vector2i(cx, cy)
-		if loc.x <= _max_loc.x and loc.y <= _max_loc.y:
-			cell_clicked.emit(loc)
+	if not (p_event is InputEventMouseButton and p_event.pressed):
+		return
+	var loc = _loc_at(p_event.position)
+	if loc == null:
+		return
+	if p_event.button_index == MOUSE_BUTTON_LEFT:
+		cell_clicked.emit(loc)
+	elif p_event.button_index == MOUSE_BUTTON_RIGHT:
+		cell_right_clicked.emit(loc, get_screen_transform() * p_event.position)
+
+
+# The region location under a local mouse position, or null if outside the authored grid.
+func _loc_at(p_pos: Vector2):
+	_layout() # ensure cell metrics are current even before the first paint
+	if _cell_px <= 0.0 or _max_loc == _min_loc:
+		return null
+	var local: Vector2 = p_pos - _origin
+	if local.x < 0.0 or local.y < 0.0:
+		return null
+	var loc := _min_loc + Vector2i(int(local.x / _cell_px), int(local.y / _cell_px))
+	if loc.x <= _max_loc.x and loc.y <= _max_loc.y:
+		return loc
+	return null

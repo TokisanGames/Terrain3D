@@ -110,6 +110,7 @@ public:
 	Error evict_region(const Vector2i &p_region_loc, const String &p_save_dir);
 	RegionState get_region_load_state(const Vector2i &p_region_loc) const;
 	Ref<Terrain3DRegion> ensure_region_resident(const Vector2i &p_region_loc);
+	Ref<Terrain3DRegion> revert_region(const Vector2i &p_region_loc);
 	void set_region_pinned(const Vector2i &p_region_loc, const bool p_pinned);
 	bool is_region_pinned(const Vector2i &p_region_loc) const { return _pinned_regions.has(p_region_loc); }
 	TypedArray<Vector2i> get_pinned_locations() const;

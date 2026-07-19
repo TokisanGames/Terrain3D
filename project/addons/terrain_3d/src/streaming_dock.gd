@@ -21,6 +21,8 @@ var _dirty_label: Label
 var _save_button: Button
 var _warn_label: Label
 var _was_saturated: bool = false
+var _ctx_menu: PopupMenu
+var _ctx_loc: Vector2i
 var _accum: float = 0.0
 
 
@@ -137,7 +139,12 @@ func _build() -> void:
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid.cell_clicked.connect(_on_cell_clicked)
+	_grid.cell_right_clicked.connect(_on_cell_right_clicked)
 	root.add_child(_grid)
+
+	_ctx_menu = PopupMenu.new()
+	_ctx_menu.id_pressed.connect(_on_ctx_menu)
+	add_child(_ctx_menu)
 
 	var meter_box := HBoxContainer.new()
 	root.add_child(meter_box)
@@ -220,6 +227,41 @@ func _refresh() -> void:
 
 func _on_cell_clicked(p_location: Vector2i) -> void:
 	_teleport_to(p_location)
+
+
+# Right-click a region on the map to stage or revert it without a brush stroke.
+func _on_cell_right_clicked(p_location: Vector2i, p_screen_pos: Vector2) -> void:
+	if not _valid():
+		return
+	var state: int = _terrain.data.get_region_load_state(p_location)
+	if state == Terrain3DData.REGION_ABSENT:
+		return # unauthored cell; nothing to act on
+	_ctx_loc = p_location
+	_ctx_menu.clear()
+	_ctx_menu.add_item("Teleport here", 0)
+	if state != Terrain3DData.REGION_RESIDENT:
+		_ctx_menu.add_item("Load && pin here", 1)
+	if _terrain.data.is_region_pinned(p_location):
+		_ctx_menu.add_item("Discard edits (reload from disk)", 2)
+	_ctx_menu.reset_size()
+	_ctx_menu.position = Vector2i(p_screen_pos)
+	_ctx_menu.popup()
+
+
+func _on_ctx_menu(p_id: int) -> void:
+	if not _valid():
+		return
+	match p_id:
+		0:
+			_teleport_to(_ctx_loc)
+		1:
+			# Stage a region for editing: stream it in and hold it resident (pinned).
+			_terrain.data.ensure_region_resident(_ctx_loc)
+			_terrain.data.set_region_pinned(_ctx_loc, true)
+			_teleport_to(_ctx_loc)
+		2:
+			_terrain.data.revert_region(_ctx_loc)
+	_refresh()
 
 
 func _on_minimap_toggled(p_on: bool) -> void:

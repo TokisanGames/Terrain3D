@@ -709,6 +709,20 @@ Ref<Terrain3DRegion> Terrain3DData::ensure_region_resident(const Vector2i &p_reg
 	return region;
 }
 
+// Discards a region's unsaved editor edits: unpins it, drops the in-memory copy without
+// saving, and reloads the on-disk version. Lets an author revert one region without walking
+// the undo stack. No effect when not streaming or when the region is not on disk.
+Ref<Terrain3DRegion> Terrain3DData::revert_region(const Vector2i &p_region_loc) {
+	if (!_streaming) {
+		return Ref<Terrain3DRegion>();
+	}
+	set_region_pinned(p_region_loc, false);
+	if (get_region_load_state(p_region_loc) == REGION_RESIDENT) {
+		evict_region(p_region_loc, String()); // drop without persisting the edit
+	}
+	return ensure_region_resident(p_region_loc); // reload the on-disk version
+}
+
 // Pins a region so streaming keeps it resident and undoable until it is saved. The editor
 // pins a region when it edits it and unpins it on save.
 void Terrain3DData::set_region_pinned(const Vector2i &p_region_loc, const bool p_pinned) {
@@ -1509,6 +1523,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_region", "region_location"), &Terrain3DData::has_region);
 	ClassDB::bind_method(D_METHOD("get_region_load_state", "region_location"), &Terrain3DData::get_region_load_state);
 	ClassDB::bind_method(D_METHOD("ensure_region_resident", "region_location"), &Terrain3DData::ensure_region_resident);
+	ClassDB::bind_method(D_METHOD("revert_region", "region_location"), &Terrain3DData::revert_region);
 	ClassDB::bind_method(D_METHOD("set_region_pinned", "region_location", "pinned"), &Terrain3DData::set_region_pinned);
 	ClassDB::bind_method(D_METHOD("is_region_pinned", "region_location"), &Terrain3DData::is_region_pinned);
 	ClassDB::bind_method(D_METHOD("get_pinned_locations"), &Terrain3DData::get_pinned_locations);
