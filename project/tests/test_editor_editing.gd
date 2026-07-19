@@ -112,6 +112,12 @@ func _run() -> void:
 	_t.data.set_region_pinned(Vector2i(0, 0), false)
 	ok(not _t.data.is_region_pinned(Vector2i(0, 0)), "pin: cleared")
 
+	# A stale pin on a region with no data (e.g. a failed stage) self-heals on save, so it
+	# can never get stuck as a phantom unsaved edit.
+	_t.data.set_region_pinned(Vector2i(9, 9), true)
+	_t.data.save_region(Vector2i(9, 9), _dir, false)
+	ok(not _t.data.is_region_pinned(Vector2i(9, 9)), "pin: stale pin on missing region cleared by save")
+
 	# Reinit safety net: an unsaved pinned edit is flushed to disk before streaming
 	# reinitializes (here, when disabled), not lost with the destroyed data object.
 	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)

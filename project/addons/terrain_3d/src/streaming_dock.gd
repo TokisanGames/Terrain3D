@@ -252,7 +252,7 @@ func _on_cell_right_clicked(p_location: Vector2i, p_screen_pos: Vector2) -> void
 	if state != Terrain3DData.REGION_RESIDENT:
 		_ctx_menu.add_item("Load && pin here", 1)
 	if _terrain.data.is_region_pinned(p_location):
-		_ctx_menu.add_item("Discard edits (reload from disk)", 2)
+		_ctx_menu.add_item("Discard edits", 2)
 	_ctx_menu.reset_size()
 	_ctx_menu.position = Vector2i(p_screen_pos)
 	_ctx_menu.popup()
@@ -265,10 +265,14 @@ func _on_ctx_menu(p_id: int) -> void:
 		0:
 			_teleport_to(_ctx_loc)
 		1:
-			# Stage a region for editing: stream it in and hold it resident (pinned).
-			_terrain.data.ensure_region_resident(_ctx_loc)
-			_terrain.data.set_region_pinned(_ctx_loc, true)
-			_teleport_to(_ctx_loc)
+			# Stage a region for editing: stream it in and hold it resident (pinned). Only
+			# pin if it actually loaded, or a saturated pool leaves a phantom pin on a
+			# non-resident region that Save cannot clear.
+			if _terrain.data.ensure_region_resident(_ctx_loc) != null:
+				_terrain.data.set_region_pinned(_ctx_loc, true)
+				_teleport_to(_ctx_loc)
+			else:
+				push_warning("Could not load region %s: streaming pool is full of unsaved edits. Save some first." % _ctx_loc)
 		2:
 			_terrain.data.revert_region(_ctx_loc)
 	_refresh()

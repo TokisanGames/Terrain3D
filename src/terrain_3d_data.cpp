@@ -332,6 +332,7 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "No region found at: ", p_region_loc);
+		_pinned_regions.erase(p_region_loc); // nothing to save here; drop any stale pin
 		return;
 	}
 	String fname = Util::location_to_filename(p_region_loc);
