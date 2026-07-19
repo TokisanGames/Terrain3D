@@ -47,6 +47,17 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 		return Ref<Terrain3DRegion>();
 	}
 
+	// Under editor streaming, a stroke on an unloaded region streams it in and applies
+	// nothing this stroke. The next stroke edits the now-resident region.
+	if (IS_EDITOR && _terrain->is_streaming_active() &&
+			data->get_region_load_state(p_region_loc) == Terrain3DData::REGION_UNLOADED) {
+		data->ensure_region_resident(p_region_loc);
+		if (can_print) {
+			LOG(INFO, "Streamed in region ", p_region_loc, "; brush again to edit it");
+		}
+		return Ref<Terrain3DRegion>();
+	}
+
 	// Get Region & dump data if debug
 	Ref<Terrain3DRegion> region = data->get_region(p_region_loc);
 	if (can_print) {
@@ -668,11 +679,19 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 				continue;
 			}
 			region->sanitize_maps(); // Live data may not have some maps so must be sanitized
-			Dictionary regions = data->get_regions_all();
-			regions[region->get_location()] = region;
+			region->set_deleted(false); // Ensure region not marked for deletion
+			if (data->is_streaming()) {
+				// Reconcile per region: drop the current pool copy without saving and
+				// re-insert the backup through the streaming path, so the slot pool and
+				// membership stay consistent instead of a raw dict insert with no slot.
+				data->evict_region(region->get_location(), String());
+				data->add_region_streamed(region);
+			} else {
+				Dictionary regions = data->get_regions_all();
+				regions[region->get_location()] = region;
+			}
 			region->set_modified(true); // Tell update_maps() this region has layers that can be individually updated
 			region->set_edited(true); // Flag so update_maps() will include it
-			region->set_deleted(false); // Ensure region not marked for deletion
 			if (Terrain3D::debug_level >= DEBUG) {
 				LOG(DEBUG, "Restoring region:");
 				region->dump();
@@ -712,7 +731,9 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	}
 
 	// After all regions are in place, reset the region map, which also calls update_maps
-	if (p_data.has("region_locations")) {
+	// While streaming, the per-region reconcile above manages membership; rewriting the
+	// whole location list would clobber the slot pool with a stale snapshot.
+	if (p_data.has("region_locations") && !data->is_streaming()) {
 		// Load w/ duplicate or it gets a bit wonky undoing removed regions w/ saves
 		TypedArray<Vector2i> locations = p_data["region_locations"];
 		_terrain->get_data()->set_region_locations(locations.duplicate());
@@ -925,17 +946,6 @@ void Terrain3DEditor::operate(const Vector3 &p_global_position, const real_t p_c
 	IS_DATA_INIT_MESG("Terrain isn't initialized", VOID);
 	if (!_is_operating) {
 		LOG(ERROR, "Run start_operation() before operating");
-		return;
-	}
-	// While editor streaming, the brush is read only until the C2 overwrite guards
-	// land: a region on disk but not resident reads as absent, so an edit could blank
-	// the real file. Selection and preview still work, edits just do not commit.
-	if (IS_EDITOR && _terrain->is_streaming_active()) {
-		uint64_t ticks = Time::get_singleton()->get_ticks_msec();
-		if (ticks - _last_readonly_notice > 1000) {
-			_last_readonly_notice = ticks;
-			LOG(INFO, "Editor streaming is on, so terrain editing is read only. Turn off streaming_editor to edit");
-		}
 		return;
 	}
 	_operation_movement = p_global_position - _operation_position;
