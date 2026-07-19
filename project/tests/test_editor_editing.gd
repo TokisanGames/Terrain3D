@@ -117,5 +117,24 @@ func _run() -> void:
 	await _settle(400)
 	ok(absf(_t.data.get_height(epos) - 88.0) < 0.01, "reinit: pinned edit saved before teardown (%.1f)" % _t.data.get_height(epos))
 
+	# Close safety net: deleting the node (scene close) flushes pinned edits before _data is
+	# destroyed, so an unsaved edit is not lost on close.
+	_t.streaming_enabled = true
+	_t.streaming_slots = 25
+	_t.streaming_distance = 1
+	await _settle(400)
+	var cpos := Vector3(rs * 2.0 + 4.0, 0.0, rs * 2.0 + 4.0) # inside region (2,2)
+	_t.data.set_height(cpos, 66.0)
+	_t.data.set_region_pinned(Vector2i(2, 2), true)
+	_t.queue_free() # NOTIFICATION_PREDELETE must flush before destroying _data
+	await process_frame
+	await process_frame
+	var verify := Terrain3D.new()
+	verify.assets = Terrain3DAssets.new()
+	verify.data_directory = _dir
+	root.add_child(verify)
+	await _settle(400)
+	ok(absf(verify.data.get_height(cpos) - 66.0) < 0.01, "close: pinned edit flushed on node delete (%.1f)" % verify.data.get_height(cpos))
+
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

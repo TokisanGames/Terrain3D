@@ -137,6 +137,7 @@ private:
 
 	void _reinitialize();
 	void _reinit_streaming_pool();
+	void _flush_pinned_edits(const char *p_reason);
 	bool _suspend_streaming_for_full_residency(bool &r_was_enabled);
 	void _resume_streaming(const bool r_was_enabled);
 	void _setup_mouse_picking();
