@@ -89,6 +89,13 @@
 				Streaming only. Removes a resident region and returns its slot to the pool. A region carrying unsaved modifications is saved to [code skip-lint]save_directory[/code] first (pass an empty string to discard).
 			</description>
 		</method>
+		<method name="ensure_region_resident">
+			<return type="Terrain3DRegion" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<description>
+				Loads an on-disk region into the streaming pool immediately and returns it, so an edit can change a region that is not currently loaded. Frees a slot by evicting the farthest region with no unsaved editor edit. Returns [code skip-lint]null[/code] if the region does not exist, or if the pool is full of unsaved edits.
+			</description>
+		</method>
 		<method name="export_image" qualifiers="const">
 			<return type="int" enum="Error" />
 			<param index="0" name="file_name" type="String" />
@@ -282,6 +289,13 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
 				Returns the region id at a global position. See [method get_region_id].
+			</description>
+		</method>
+		<method name="get_region_load_state" qualifiers="const">
+			<return type="int" enum="Terrain3DData.RegionState" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<description>
+				Returns whether the region at [param region_location] is loaded ([code skip-lint]REGION_RESIDENT[/code]), on disk but not loaded while streaming ([code skip-lint]REGION_UNLOADED[/code]), or has no file ([code skip-lint]REGION_ABSENT[/code]). Edit paths use this to stream a region in before writing to it.
 			</description>
 		</method>
 		<method name="get_region_location" qualifiers="const">
@@ -688,6 +702,15 @@
 		</constant>
 		<constant name="REGION_MAP_SIZE" value="32">
 			Hard coded number of regions on a side. The total number of regions is this squared.
+		</constant>
+		<constant name="REGION_RESIDENT" value="0" enum="RegionState">
+			The region is loaded in the slot pool.
+		</constant>
+		<constant name="REGION_UNLOADED" value="1" enum="RegionState">
+			The region exists on disk but is not loaded while streaming.
+		</constant>
+		<constant name="REGION_ABSENT" value="2" enum="RegionState">
+			No region file exists at this location.
 		</constant>
 	</constants>
 </class>

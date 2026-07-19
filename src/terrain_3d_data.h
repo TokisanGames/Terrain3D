@@ -24,6 +24,12 @@ public: // Constants
 		HEIGHT_FILTER_MINIMUM
 	};
 
+	enum RegionState {
+		REGION_RESIDENT, // Loaded in the slot pool
+		REGION_UNLOADED, // On disk but not loaded (streaming)
+		REGION_ABSENT, // No region file exists here
+	};
+
 private:
 	Terrain3D *_terrain = nullptr;
 
@@ -99,6 +105,8 @@ public:
 	int get_free_slot_count() const { return _free_slots.size(); }
 	Error add_region_streamed(const Ref<Terrain3DRegion> &p_region);
 	Error evict_region(const Vector2i &p_region_loc, const String &p_save_dir);
+	RegionState get_region_load_state(const Vector2i &p_region_loc) const;
+	Ref<Terrain3DRegion> ensure_region_resident(const Vector2i &p_region_loc);
 	// Slot indexed while streaming, the dense id ordered list classically
 	TypedArray<Vector2i> get_shader_region_locations() const { return _streaming ? _slot_locs : _region_locations; }
 	void set_region_locations(const TypedArray<Vector2i> &p_locations);
@@ -208,6 +216,7 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Terrain3DData::HeightFilter);
+VARIANT_ENUM_CAST(Terrain3DData::RegionState);
 
 // Inline Region Functions
 

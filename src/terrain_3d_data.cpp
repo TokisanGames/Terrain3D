@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
@@ -637,6 +638,62 @@ Error Terrain3DData::evict_region(const Vector2i &p_region_loc, const String &p_
 	return OK;
 }
 
+// Whether a region is loaded, only on disk (streaming), or nowhere. Lets edit paths
+// decide to stream a region in before writing to it.
+Terrain3DData::RegionState Terrain3DData::get_region_load_state(const Vector2i &p_region_loc) const {
+	if (_regions.has(p_region_loc)) {
+		return REGION_RESIDENT;
+	}
+	if (_terrain != nullptr && _terrain->has_region_on_disk(p_region_loc)) {
+		return REGION_UNLOADED;
+	}
+	return REGION_ABSENT;
+}
+
+// Loads an on-disk-but-unloaded region into the pool immediately so an edit can touch it.
+// Frees a slot by evicting the farthest region with no unsaved editor edit; if every slot
+// holds an edited region, returns null so the caller can report the pool is full.
+Ref<Terrain3DRegion> Terrain3DData::ensure_region_resident(const Vector2i &p_region_loc) {
+	if (_regions.has(p_region_loc)) {
+		return get_region(p_region_loc);
+	}
+	if (_terrain == nullptr || !_streaming || !_terrain->has_region_on_disk(p_region_loc)) {
+		return Ref<Terrain3DRegion>();
+	}
+	if (_free_slots.is_empty()) {
+		Vector2i victim = V2I_MAX;
+		real_t best = -1.f;
+		for (const KeyValue<Vector2i, int> &kv : _slot_of) {
+			Ref<Terrain3DRegion> res = get_region(kv.key);
+			if (res.is_valid() && res->is_edited()) {
+				continue;
+			}
+			real_t d = Vector2(kv.key - p_region_loc).length();
+			if (d > best) {
+				best = d;
+				victim = kv.key;
+			}
+		}
+		if (victim == V2I_MAX) {
+			LOG(WARN, "Streaming pool full of unsaved edits; cannot load ", p_region_loc, ". Save regions to free room");
+			return Ref<Terrain3DRegion>();
+		}
+		evict_region(victim, _terrain->get_data_directory());
+	}
+	String path = _terrain->get_data_directory() + String("/") + Util::location_to_filename(p_region_loc);
+	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+	if (region.is_null()) {
+		LOG(ERROR, "Could not load region for edit: ", path);
+		return Ref<Terrain3DRegion>();
+	}
+	region->take_over_path(path);
+	region->set_location(p_region_loc);
+	if (add_region_streamed(region) != OK) {
+		return Ref<Terrain3DRegion>();
+	}
+	return region;
+}
+
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
 	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
@@ -809,6 +866,9 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 		return;
 	}
 	Vector2i region_loc = get_region_location(p_global_position);
+	if (!_regions.has(region_loc) && _streaming) {
+		ensure_region_resident(region_loc); // stream the region in so the write can land
+	}
 	Terrain3DRegion *region = get_region_ptr(region_loc);
 	if (!region) {
 		LOG(ERROR, "No active region found at: ", p_global_position);
@@ -1388,6 +1448,10 @@ void Terrain3DData::_bind_methods() {
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_NEAREST);
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_MINIMUM);
 
+	BIND_ENUM_CONSTANT(REGION_RESIDENT);
+	BIND_ENUM_CONSTANT(REGION_UNLOADED);
+	BIND_ENUM_CONSTANT(REGION_ABSENT);
+
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
 	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DData::get_region_count);
@@ -1406,6 +1470,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DData::get_region_idp);
 
 	ClassDB::bind_method(D_METHOD("has_region", "region_location"), &Terrain3DData::has_region);
+	ClassDB::bind_method(D_METHOD("get_region_load_state", "region_location"), &Terrain3DData::get_region_load_state);
+	ClassDB::bind_method(D_METHOD("ensure_region_resident", "region_location"), &Terrain3DData::ensure_region_resident);
 	ClassDB::bind_method(D_METHOD("has_regionp", "global_position"), &Terrain3DData::has_regionp);
 	ClassDB::bind_method(D_METHOD("get_region", "region_location"), &Terrain3DData::get_region);
 	ClassDB::bind_method(D_METHOD("get_regionp", "global_position"), &Terrain3DData::get_regionp);
