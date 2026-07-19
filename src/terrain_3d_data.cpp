@@ -615,8 +615,12 @@ Error Terrain3DData::evict_region(const Vector2i &p_region_loc, const String &p_
 		return FAILED;
 	}
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
-	// A region modified at runtime writes back before it is dropped
-	if (region.is_valid() && region->is_modified() && !p_save_dir.is_empty()) {
+	// A region modified at runtime writes back before it is dropped. In the editor the pin
+	// is the authority on unsaved edits, not is_modified (which deform re-carve and undo's
+	// map refresh both set), so only pinned regions are written; editor saves otherwise go
+	// exclusively through explicit save, never as a side effect of eviction or undo.
+	bool needs_save = IS_EDITOR ? is_region_pinned(p_region_loc) : (region.is_valid() && region->is_modified());
+	if (region.is_valid() && needs_save && !p_save_dir.is_empty()) {
 		save_region(p_region_loc, p_save_dir, _terrain != nullptr && _terrain->get_save_16_bit());
 	}
 	int slot = _slot_of[p_region_loc];
