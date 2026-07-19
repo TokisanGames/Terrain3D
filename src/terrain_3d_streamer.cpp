@@ -301,6 +301,12 @@ void Terrain3DStreamer::step() {
 	for (int i = 0; i < loaded.size(); i++) {
 		Vector2i loc = loaded[i];
 		if (_distance_to(loc, floc) > real_t(eff_dist + 1)) {
+			// In the editor, keep regions with unsaved edits resident and undoable
+			// instead of streaming them out from under the user.
+			Ref<Terrain3DRegion> body = data->get_region(loc);
+			if (IS_EDITOR && body.is_valid() && body->is_edited()) {
+				continue;
+			}
 			stale.push_back(loc);
 		}
 	}
