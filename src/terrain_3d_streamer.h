@@ -44,6 +44,7 @@ private:
 	int _slots = 121; // Pooled texture array layers, must exceed the loaded area
 	int _concurrent_loads = 3; // Threaded region loads in flight
 	int _loads_per_frame = 1; // Loaded regions inserted per physics frame
+	bool _persist_edits = false; // Write a modified region back to disk when it is evicted
 
 	// Work data
 	Vector<Vector2i> _known; // Region locations present on disk
@@ -86,6 +87,8 @@ public:
 	int get_concurrent_loads() const { return _concurrent_loads; }
 	void set_loads_per_frame(const int p_count) { _loads_per_frame = CLAMP(p_count, 1, 8); }
 	int get_loads_per_frame() const { return _loads_per_frame; }
+	void set_persist_edits(const bool p_enabled) { _persist_edits = p_enabled; }
+	bool get_persist_edits() const { return _persist_edits; }
 
 	void scan_directory();
 	void step();

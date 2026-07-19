@@ -605,8 +605,11 @@ Error Terrain3DData::evict_region(const Vector2i &p_region_loc, const String &p_
 		return FAILED;
 	}
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
-	// A region modified at runtime writes back before it is dropped
-	if (region.is_valid() && region->is_modified() && !p_save_dir.is_empty()) {
+	// Streaming is a read-only view of the data on disk: eviction drops a region without
+	// writing it back. A modified region is only saved when the terrain opts in through
+	// streaming_persist_edits; otherwise persist explicitly with save_directory/save_region.
+	bool persist = _terrain != nullptr && _terrain->get_streaming_persist_edits();
+	if (region.is_valid() && persist && region->is_modified() && !p_save_dir.is_empty()) {
 		save_region(p_region_loc, p_save_dir, _terrain != nullptr && _terrain->get_save_16_bit());
 	}
 	int slot = _slot_of[p_region_loc];
