@@ -56,8 +56,11 @@ void Terrain3D::_initialize() {
 		LOG(DEBUG, "Connecting _data::region_map_changed signal to set_show_region_locations()");
 		_data->connect("region_map_changed", callable_mp(this, &Terrain3D::update_region_labels));
 	}
-	// Any region was changed, regenerate collision if enabled
-	if (!_data->is_connected("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build))) {
+	// Any region was changed, regenerate collision if enabled. Not while streaming:
+	// region traffic is per frame there and a full build() would recreate the physics
+	// body under the player. The streamer updates the dynamic window in place instead.
+	if (!is_streaming_active() &&
+			!_data->is_connected("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build))) {
 		LOG(DEBUG, "Connecting _data::region_map_changed signal to build()");
 		_data->connect("region_map_changed", callable_mp(_collision, &Terrain3DCollision::build));
 	}
@@ -80,8 +83,19 @@ void Terrain3D::_initialize() {
 	if (!_initialized && _is_inside_world && is_inside_tree()) {
 		LOG(INFO, "Initializing main subsystems");
 		_data->initialize(this);
+		_streamer->initialize(this);
+		if (is_streaming_active()) {
+			_streamer->scan_directory();
+		}
 		_material->initialize(this);
-		_assets->initialize(this);
+		// Only on first initialization or a fresh assets resource: at runtime,
+		// free_editor_textures drops the source textures after the arrays are
+		// generated, so re-initializing assets on a live reinitialization (data
+		// directory change, streaming toggle) would regenerate from an empty
+		// list and blank the terrain
+		if (!_assets->is_initialized()) {
+			_assets->initialize(this);
+		}
 		_collision->initialize(this);
 		_instancer->initialize(this);
 		_setup_terrain_mesher();
@@ -100,6 +114,9 @@ void Terrain3D::_initialize() {
 void Terrain3D::__physics_process(const double p_delta) {
 	if (!_initialized) {
 		return;
+	}
+	if (is_streaming_active()) {
+		_streamer->step();
 	}
 	if (!_camera.is_valid()) {
 		LOG(DEBUG, "Camera is null, getting the current one");
@@ -172,6 +189,7 @@ void Terrain3D::_destroy_collision(const bool p_final) {
 		_collision->destroy();
 	}
 	if (p_final) {
+		memdelete_safely(_streamer);
 		memdelete_safely(_collision);
 	}
 }
@@ -494,6 +512,9 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 
 Terrain3D::Terrain3D() {
 	LOG(INFO, "Terrain3D v", _version, " - https://github.com/TokisanGames/Terrain3D");
+	// Created eagerly so streaming settings survive being set before initialization,
+	// in any property order
+	_streamer = memnew(Terrain3DStreamer);
 	// Process the command line
 	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
 	for (int i = args.size() - 1; i >= 0; i--) {
@@ -534,6 +555,56 @@ void Terrain3D::set_data_directory(String p_dir) {
 		_initialize();
 	}
 	update_configuration_warnings();
+}
+
+// The pooled texture arrays are allocated once at slot capacity, so any live
+// change to that capacity rebuilds the terrain data like toggling streaming does.
+void Terrain3D::_reinit_streaming_pool() {
+	if (_initialized && is_streaming_active() && !IS_EDITOR) {
+		_initialized = false;
+		_destroy_labels();
+		_destroy_collision();
+		_destroy_instancer();
+		memdelete_safely(_data);
+		_initialize();
+	}
+}
+
+void Terrain3D::set_streaming_slots(const int p_slots) {
+	if (_streamer == nullptr || _streamer->get_slots() == CLAMP(p_slots, 25, 1024)) {
+		return;
+	}
+	_streamer->set_slots(p_slots);
+	_reinit_streaming_pool();
+}
+
+// Raising distance grows the pool to fit, so rebuild when that capacity changed.
+void Terrain3D::set_streaming_distance(const int p_distance) {
+	if (_streamer == nullptr) {
+		return;
+	}
+	int slots_before = _streamer->get_slots();
+	_streamer->set_distance(p_distance);
+	if (_streamer->get_slots() != slots_before) {
+		_reinit_streaming_pool();
+	}
+}
+
+void Terrain3D::set_streaming_enabled(const bool p_enabled) {
+	if (_streamer == nullptr || _streamer->is_enabled() == p_enabled) {
+		return;
+	}
+	_streamer->set_enabled(p_enabled);
+	// The load path differs at initialization, so toggling live reinitializes
+	// the terrain like a data directory change does.
+	if (_initialized && !IS_EDITOR) {
+		_initialized = false;
+		_destroy_labels();
+		_destroy_collision();
+		_destroy_instancer();
+		memdelete_safely(_data);
+		_initialize();
+	}
 }
 
 void Terrain3D::set_assets(const Ref<Terrain3DAssets> &p_assets) {
@@ -1268,6 +1339,9 @@ void Terrain3D::_notification(const int p_what) {
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_physics_process(false);
+			if (_streamer != nullptr) {
+				_streamer->abort_pending();
+			}
 			_destroy_terrain_mesher();
 			_destroy_ocean_mesher();
 			_destroy_instancer();
@@ -1345,6 +1419,25 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
 	ClassDB::bind_method(D_METHOD("set_data_directory", "directory"), &Terrain3D::set_data_directory);
+	ClassDB::bind_method(D_METHOD("set_streaming_enabled", "enabled"), &Terrain3D::set_streaming_enabled);
+	ClassDB::bind_method(D_METHOD("get_streaming_enabled"), &Terrain3D::get_streaming_enabled);
+	ClassDB::bind_method(D_METHOD("is_streaming_active"), &Terrain3D::is_streaming_active);
+	ClassDB::bind_method(D_METHOD("set_streaming_shape", "shape"), &Terrain3D::set_streaming_shape);
+	ClassDB::bind_method(D_METHOD("get_streaming_shape"), &Terrain3D::get_streaming_shape);
+	ClassDB::bind_method(D_METHOD("set_streaming_mode", "mode"), &Terrain3D::set_streaming_mode);
+	ClassDB::bind_method(D_METHOD("get_streaming_mode"), &Terrain3D::get_streaming_mode);
+	ClassDB::bind_method(D_METHOD("set_streaming_distance", "distance"), &Terrain3D::set_streaming_distance);
+	ClassDB::bind_method(D_METHOD("get_streaming_distance"), &Terrain3D::get_streaming_distance);
+	ClassDB::bind_method(D_METHOD("set_streaming_slots", "slots"), &Terrain3D::set_streaming_slots);
+	ClassDB::bind_method(D_METHOD("get_streaming_slots"), &Terrain3D::get_streaming_slots);
+	ClassDB::bind_method(D_METHOD("set_streaming_concurrent_loads", "count"), &Terrain3D::set_streaming_concurrent_loads);
+	ClassDB::bind_method(D_METHOD("get_streaming_concurrent_loads"), &Terrain3D::get_streaming_concurrent_loads);
+	ClassDB::bind_method(D_METHOD("set_streaming_loads_per_frame", "count"), &Terrain3D::set_streaming_loads_per_frame);
+	ClassDB::bind_method(D_METHOD("get_streaming_loads_per_frame"), &Terrain3D::get_streaming_loads_per_frame);
+	ClassDB::bind_method(D_METHOD("set_streaming_persist_edits", "enabled"), &Terrain3D::set_streaming_persist_edits);
+	ClassDB::bind_method(D_METHOD("get_streaming_persist_edits"), &Terrain3D::get_streaming_persist_edits);
+	ClassDB::bind_method(D_METHOD("get_streaming_stats"), &Terrain3D::get_streaming_stats);
+	ClassDB::bind_method(D_METHOD("get_streamer"), &Terrain3D::get_streamer);
 	ClassDB::bind_method(D_METHOD("get_data_directory"), &Terrain3D::get_data_directory);
 
 	// Object references
@@ -1526,6 +1619,15 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE, "Terrain3DInstancer"), "", "get_instancer");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "light_target", PROPERTY_HINT_NODE_TYPE, "DirectionalLight3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_light_target", "get_light_target");
 
+	ADD_GROUP("Streaming", "streaming_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_enabled"), "set_streaming_enabled", "get_streaming_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_shape", PROPERTY_HINT_ENUM, "Square,Circle"), "set_streaming_shape", "get_streaming_shape");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_streaming_mode", "get_streaming_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_slots", PROPERTY_HINT_RANGE, "25,1024,1"), "set_streaming_slots", "get_streaming_slots");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_streaming_distance", "get_streaming_distance");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_concurrent_loads", "get_streaming_concurrent_loads");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_loads_per_frame", "get_streaming_loads_per_frame");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_persist_edits"), "set_streaming_persist_edits", "get_streaming_persist_edits");
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
