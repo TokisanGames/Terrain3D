@@ -91,6 +91,9 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	if (changed) {
 		_added_removed_locations.push_back(p_region_loc);
 		region->set_modified(true);
+		// A structural change (add or remove) is an unsaved edit too, so pin it for the
+		// dock's dirty count and Save edits, and to keep it resident while streaming.
+		data->set_region_pinned(p_region_loc, true);
 		_send_region_aabb(p_region_loc, height_range);
 	}
 	return region;

@@ -339,6 +339,7 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 	// If region marked for deletion, remove from disk and from _regions, but don't free in case stored in undo
 	if (region->is_deleted()) {
 		LOG(DEBUG, "Removing ", p_region_loc, " from _regions");
+		_pinned_regions.erase(p_region_loc); // a deleted region is no longer a held edit
 		_regions.erase(p_region_loc);
 		LOG(DEBUG, "File to be deleted: ", path);
 		if (!FileAccess::file_exists(path)) {
