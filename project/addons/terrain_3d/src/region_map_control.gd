@@ -152,18 +152,35 @@ func refresh() -> void:
 	queue_redraw()
 
 
-# Terrain-ish ramp for the minimap: low water blue, mid green, high land pale.
-func _ramp(p_t: float) -> Color:
-	var t := clampf(p_t, 0.0, 1.0)
-	if t < 0.5:
-		return Color(0.14, 0.28, 0.40).lerp(Color(0.24, 0.46, 0.30), t * 2.0)
-	return Color(0.24, 0.46, 0.30).lerp(Color(0.80, 0.78, 0.66), (t - 0.5) * 2.0)
+# Sea-level-anchored minimap palette. The coastline stays fixed at height 0: below it is
+# water (shallow teal to deep navy), 0 and up is land (coast green through olive and brown
+# to pale peaks). Depth and elevation scale to the world's own min and max so the full range
+# reads, but 0 is always the shoreline, so land never colors as water and vice versa.
+func _height_color(p_h: float, p_lo: float, p_hi: float) -> Color:
+	if p_h < 0.0:
+		var dt := clampf(-p_h / maxf(-p_lo, 0.0001), 0.0, 1.0)
+		dt = sqrt(dt) # spread the shallows so coasts read
+		return Color(0.33, 0.58, 0.66).lerp(Color(0.06, 0.14, 0.33), dt)
+	return _land_ramp(clampf(p_h / maxf(p_hi, 0.0001), 0.0, 1.0))
+
+
+# Land gradient: coast green -> olive -> brown -> pale rock/snow.
+func _land_ramp(p_t: float) -> Color:
+	const STOPS := [
+		Color(0.34, 0.50, 0.26), # coast green
+		Color(0.52, 0.55, 0.30), # olive
+		Color(0.56, 0.44, 0.28), # brown
+		Color(0.88, 0.88, 0.90), # pale peak
+	]
+	var t := clampf(p_t, 0.0, 1.0) * (STOPS.size() - 1)
+	var i := int(floor(t))
+	if i >= STOPS.size() - 1:
+		return STOPS[STOPS.size() - 1]
+	return STOPS[i].lerp(STOPS[i + 1], t - float(i))
 
 
 func _tile_color(p_h: float) -> Color:
-	if _tile_hmax <= _tile_hmin:
-		return _ramp(0.5)
-	return _ramp((p_h - _tile_hmin) / (_tile_hmax - _tile_hmin))
+	return _height_color(p_h, _tile_hmin, _tile_hmax)
 
 
 # Reads every region file on a background thread, downsampling each into a block of a
@@ -227,7 +244,6 @@ func _prerender_worker(p_payload: Dictionary) -> void:
 					heights.set_pixel(ox + bx, oy + by, Color(v, 0, 0))
 					hmin = minf(hmin, v)
 					hmax = maxf(hmax, v)
-	var rng := maxf(hmax - hmin, 0.0001)
 	var colored := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	for y in range(h):
 		for x in range(w):
@@ -235,7 +251,7 @@ func _prerender_worker(p_payload: Dictionary) -> void:
 			if is_nan(v):
 				colored.set_pixel(x, y, Color(0, 0, 0, 0))
 			else:
-				var c := _ramp((v - hmin) / rng)
+				var c := _height_color(v, hmin, hmax)
 				c.a = 1.0
 				colored.set_pixel(x, y, c)
 	call_deferred("_prerender_done", colored, p_payload.lo, p_payload.hi, p_payload.terrain)
