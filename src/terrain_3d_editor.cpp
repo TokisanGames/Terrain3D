@@ -48,14 +48,22 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	}
 
 	// Under editor streaming, a stroke on an unloaded region streams it in and applies
-	// nothing this stroke. The next stroke edits the now-resident region.
-	if (IS_EDITOR && _terrain->is_streaming_active() &&
-			data->get_region_load_state(p_region_loc) == Terrain3DData::REGION_UNLOADED) {
-		data->ensure_region_resident(p_region_loc);
-		if (can_print) {
-			LOG(INFO, "Streamed in region ", p_region_loc, "; brush again to edit it");
+	// nothing this stroke. ensure_region_resident() flips the region to resident on the
+	// first brush pixel, so remember it and keep aborting for the rest of this stroke;
+	// otherwise the remaining pixels would paint the region the moment it loaded. The set
+	// clears in start_operation(), so the next stroke edits the now-resident region.
+	if (IS_EDITOR && _terrain->is_streaming_active()) {
+		if (data->get_region_load_state(p_region_loc) == Terrain3DData::REGION_UNLOADED) {
+			data->ensure_region_resident(p_region_loc);
+			_streamed_in_regions.insert(p_region_loc);
+			if (can_print) {
+				LOG(INFO, "Streamed in region ", p_region_loc, "; brush again to edit it");
+			}
+			return Ref<Terrain3DRegion>();
 		}
-		return Ref<Terrain3DRegion>();
+		if (_streamed_in_regions.has(p_region_loc)) {
+			return Ref<Terrain3DRegion>();
+		}
 	}
 
 	// Get Region & dump data if debug
@@ -994,6 +1002,7 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	_original_regions = TypedArray<Terrain3DRegion>(); // New pointers instead of clear
 	_edited_regions = TypedArray<Terrain3DRegion>();
 	_added_removed_locations = TypedArray<Vector2i>();
+	_streamed_in_regions.clear(); // A region streamed in last stroke is editable this one
 	// Reset counter at start to ensure first click places an instance
 	_terrain->get_instancer()->reset_density_counter();
 	_terrain->get_data()->clear_edited_area();
