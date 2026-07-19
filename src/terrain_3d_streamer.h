@@ -41,7 +41,8 @@ private:
 	bool _editor_streaming = false; // Opt in to streaming inside the editor, off by default
 	StreamShape _shape = SQUARE;
 	StreamMode _mode = DISK;
-	int _distance = 4; // Regions kept loaded around the clipmap target
+	int _distance = 4; // Regions kept loaded around the clipmap target at runtime
+	int _editor_distance = 2; // Separate, usually smaller, loaded radius while editor streaming
 	int _slots = 121; // Pooled texture array layers, must exceed the loaded area
 	int _concurrent_loads = 3; // Threaded region loads in flight
 	int _loads_per_frame = 1; // Loaded regions inserted per physics frame
@@ -82,6 +83,9 @@ public:
 	StreamMode get_mode() const { return _mode; }
 	void set_distance(const int p_distance);
 	int get_distance() const { return _distance; }
+	void set_editor_distance(const int p_distance);
+	int get_editor_distance() const { return _editor_distance; }
+	int get_effective_distance() const; // Editor distance while editor streaming, else the runtime distance
 	void set_slots(const int p_slots);
 	int get_slots() const { return _slots; }
 	int get_required_slots(const int p_distance) const;

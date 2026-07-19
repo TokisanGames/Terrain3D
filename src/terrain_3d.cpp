@@ -598,6 +598,17 @@ void Terrain3D::set_streaming_distance(const int p_distance) {
 	}
 }
 
+void Terrain3D::set_editor_streaming_distance(const int p_distance) {
+	if (_streamer == nullptr) {
+		return;
+	}
+	int slots_before = _streamer->get_slots();
+	_streamer->set_editor_distance(p_distance);
+	if (_streamer->get_slots() != slots_before) {
+		_reinit_streaming_pool();
+	}
+}
+
 void Terrain3D::set_streaming_enabled(const bool p_enabled) {
 	if (_streamer == nullptr || _streamer->is_enabled() == p_enabled) {
 		return;
@@ -1490,6 +1501,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_streaming_mode", "mode"), &Terrain3D::set_streaming_mode);
 	ClassDB::bind_method(D_METHOD("get_streaming_mode"), &Terrain3D::get_streaming_mode);
 	ClassDB::bind_method(D_METHOD("set_streaming_distance", "distance"), &Terrain3D::set_streaming_distance);
+	ClassDB::bind_method(D_METHOD("set_editor_streaming_distance", "distance"), &Terrain3D::set_editor_streaming_distance);
+	ClassDB::bind_method(D_METHOD("get_editor_streaming_distance"), &Terrain3D::get_editor_streaming_distance);
 	ClassDB::bind_method(D_METHOD("get_streaming_distance"), &Terrain3D::get_streaming_distance);
 	ClassDB::bind_method(D_METHOD("set_streaming_slots", "slots"), &Terrain3D::set_streaming_slots);
 	ClassDB::bind_method(D_METHOD("get_streaming_slots"), &Terrain3D::get_streaming_slots);
@@ -1691,6 +1704,7 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_streaming_mode", "get_streaming_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_slots", PROPERTY_HINT_RANGE, "25,1024,1"), "set_streaming_slots", "get_streaming_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_streaming_distance", "get_streaming_distance");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_editor_distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_editor_streaming_distance", "get_editor_streaming_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_concurrent_loads", "get_streaming_concurrent_loads");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "streaming_loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_streaming_loads_per_frame", "get_streaming_loads_per_frame");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "streaming_skip_version_upgrade"), "set_streaming_skip_version_upgrade", "get_streaming_skip_version_upgrade");

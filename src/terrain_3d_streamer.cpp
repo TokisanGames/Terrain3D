@@ -66,6 +66,11 @@ void Terrain3DStreamer::_apply_distance_limit() {
 				". Raise streaming_slots to increase it");
 		_distance = max_distance;
 	}
+	if (_editor_distance > max_distance) {
+		LOG(WARN, "editor_streaming_distance ", _editor_distance, " needs more than the ", _slots,
+				" allocated slots; clamping to ", max_distance, ". Raise streaming_slots to increase it");
+		_editor_distance = max_distance;
+	}
 }
 
 void Terrain3DStreamer::set_shape(const StreamShape p_shape) {
@@ -86,6 +91,23 @@ void Terrain3DStreamer::set_distance(const int p_distance) {
 		_slots = MIN(required, 1024);
 	}
 	_apply_distance_limit(); // Still clamps if even 1024 slots cannot hold it (square distance > 14)
+}
+
+// The editor uses its own loaded radius so a streaming editor can hold a tighter
+// window than the shipping game. Like set_distance, it grows the shared pool to fit.
+void Terrain3DStreamer::set_editor_distance(const int p_distance) {
+	_editor_distance = CLAMP(p_distance, 1, 15);
+	int required = get_required_slots(_editor_distance);
+	if (required > _slots) {
+		_slots = MIN(required, 1024);
+	}
+	_apply_distance_limit();
+}
+
+// The radius the loaded area actually uses: the editor distance while editor
+// streaming, otherwise the runtime distance.
+int Terrain3DStreamer::get_effective_distance() const {
+	return (IS_EDITOR && _editor_streaming) ? _editor_distance : _distance;
 }
 
 void Terrain3DStreamer::set_slots(const int p_slots) {
@@ -264,13 +286,14 @@ void Terrain3DStreamer::step() {
 	}
 	_last_focus = fpos;
 	_has_last_focus = true;
+	int eff_dist = get_effective_distance();
 	// Evict regions beyond the loaded area plus one region of hysteresis, up to 8 per
 	// frame so a teleport frees the whole stale area quickly without starving the pool
 	TypedArray<Vector2i> loaded = data->get_region_locations();
 	Vector<Vector2i> stale;
 	for (int i = 0; i < loaded.size(); i++) {
 		Vector2i loc = loaded[i];
-		if (_distance_to(loc, floc) > real_t(_distance + 1)) {
+		if (_distance_to(loc, floc) > real_t(eff_dist + 1)) {
 			stale.push_back(loc);
 		}
 	}
@@ -311,7 +334,7 @@ void Terrain3DStreamer::step() {
 			continue;
 		}
 		real_t d = _distance_to(kv.key, floc);
-		if (d > real_t(_distance + 1)) {
+		if (d > real_t(eff_dist + 1)) {
 			// Walked away while it loaded: consume, and in RAM mode keep the body
 			Ref<Terrain3DRegion> body = ResourceLoader::get_singleton()->load_threaded_get(kv.value);
 			if (_mode == RAM && body.is_valid()) {
@@ -386,15 +409,15 @@ void Terrain3DStreamer::step() {
 		}
 	};
 	Vector<Cand> cands;
-	for (int dy = -_distance; dy <= _distance; dy++) {
-		for (int dx = -_distance; dx <= _distance; dx++) {
+	for (int dy = -eff_dist; dy <= eff_dist; dy++) {
+		for (int dx = -eff_dist; dx <= eff_dist; dx++) {
 			Vector2i loc = floc + Vector2i(dx, dy);
 			if (!_known_set.has(loc) || data->has_region(loc) ||
 					_failed.has(loc) || _pending.has(loc)) {
 				continue;
 			}
 			real_t d = _distance_to(loc, floc);
-			if (d > real_t(_distance)) {
+			if (d > real_t(eff_dist)) {
 				continue; // Corner outside a circular area
 			}
 			Cand c;
@@ -533,6 +556,8 @@ void Terrain3DStreamer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mode"), &Terrain3DStreamer::get_mode);
 	ClassDB::bind_method(D_METHOD("set_distance", "distance"), &Terrain3DStreamer::set_distance);
 	ClassDB::bind_method(D_METHOD("get_distance"), &Terrain3DStreamer::get_distance);
+	ClassDB::bind_method(D_METHOD("set_editor_distance", "distance"), &Terrain3DStreamer::set_editor_distance);
+	ClassDB::bind_method(D_METHOD("get_editor_distance"), &Terrain3DStreamer::get_editor_distance);
 	ClassDB::bind_method(D_METHOD("set_slots", "slots"), &Terrain3DStreamer::set_slots);
 	ClassDB::bind_method(D_METHOD("get_slots"), &Terrain3DStreamer::get_slots);
 	ClassDB::bind_method(D_METHOD("set_concurrent_loads", "count"), &Terrain3DStreamer::set_concurrent_loads);
@@ -556,6 +581,7 @@ void Terrain3DStreamer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disk,RAM Resident"), "set_mode", "get_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "slots", PROPERTY_HINT_RANGE, "25,1024,1"), "set_slots", "get_slots");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_distance", "get_distance");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "editor_distance", PROPERTY_HINT_RANGE, "1,15,1"), "set_editor_distance", "get_editor_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_concurrent_loads", "get_concurrent_loads");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_loads_per_frame", "get_loads_per_frame");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "skip_version_upgrade"), "set_skip_version_upgrade", "get_skip_version_upgrade");

@@ -211,6 +211,8 @@ public:
 	StreamMode get_streaming_mode() const { return _streamer ? _streamer->get_mode() : StreamMode::DISK; }
 	void set_streaming_distance(const int p_distance);
 	int get_streaming_distance() const { return _streamer ? _streamer->get_distance() : 4; }
+	void set_editor_streaming_distance(const int p_distance);
+	int get_editor_streaming_distance() const { return _streamer ? _streamer->get_editor_distance() : 2; }
 	void set_streaming_slots(const int p_slots);
 	int get_streaming_slots() const { return _streamer ? _streamer->get_slots() : 121; }
 	void set_streaming_concurrent_loads(const int p_count) { _streamer ? _streamer->set_concurrent_loads(p_count) : void(); }

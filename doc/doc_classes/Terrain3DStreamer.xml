@@ -86,6 +86,9 @@
 			How far the loaded area extends from the clipmap target, in regions. For example, 4 with a square [member shape] keeps a 9x9 block of regions loaded (the target region plus 4 in every direction); a circle of the same radius keeps fewer. In world units the radius is distance x region_size x vertex_spacing.
 			Higher values load more of the world at once and cost more memory. Raising distance automatically raises [member slots] to fit, so it just works; lowering slots below what the current distance needs pulls distance back down (with a warning). The maximum is bounded by the 1024 slot ceiling (square shape tops out at distance 14).
 		</member>
+		<member name="editor_distance" type="int" setter="set_editor_distance" getter="get_editor_distance" default="2">
+			The loaded radius used while [member editor_streaming] is on, separate from the runtime [member distance] so the editor can hold a tighter window than the shipping game. Like [member distance] it grows the shared [member slots] pool to fit. Ignored at runtime and when editor streaming is off.
+		</member>
 		<member name="editor_streaming" type="bool" setter="set_editor_streaming" getter="is_editor_streaming" default="false">
 			Opts the editor in to streaming. Off by default because the editor writes and several editor systems assume the whole world is resident, so leave it off unless you are opening a world too large to hold in memory. When on, [member enabled] takes effect inside the editor and the editor camera drives the loaded window.
 			Alias target of [member Terrain3D.streaming_editor].
