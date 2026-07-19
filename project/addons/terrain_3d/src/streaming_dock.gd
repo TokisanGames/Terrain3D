@@ -19,6 +19,8 @@ var _meter_label: Label
 var _stats: Label
 var _dirty_label: Label
 var _save_button: Button
+var _warn_label: Label
+var _was_saturated: bool = false
 var _accum: float = 0.0
 
 
@@ -154,6 +156,12 @@ func _build() -> void:
 	_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_stats)
 
+	_warn_label = Label.new()
+	_warn_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_warn_label.add_theme_color_override("font_color", Color(0.95, 0.45, 0.35))
+	_warn_label.visible = false
+	root.add_child(_warn_label)
+
 	var edits_box := HBoxContainer.new()
 	root.add_child(edits_box)
 	_dirty_label = Label.new()
@@ -177,11 +185,23 @@ func _refresh() -> void:
 		_meter_label.text = "0 / 0"
 		_dirty_label.text = "No unsaved edits"
 		_save_button.disabled = true
+		_warn_label.visible = false
+		_was_saturated = false
 		return
 	var s: Dictionary = _terrain.get_streaming_stats()
 	var resident: int = int(s.get("resident", 0))
 	var slots: int = _terrain.data.get_slot_capacity() if _terrain.data != null else 0
 	var dirty: int = _terrain.data.get_pinned_locations().size()
+	# The pool is full and every slot holds an unsaved edit, so no new region can stream in
+	# for editing until some are saved. Surface it: the brush would otherwise just stop
+	# working with only a console warning.
+	var saturated: bool = int(s.get("free_slots", -1)) == 0 and dirty >= slots and slots > 0
+	_warn_label.visible = saturated
+	if saturated:
+		_warn_label.text = "Pool full of unsaved edits (%d/%d). Save to edit new areas." % [dirty, slots]
+		if not _was_saturated:
+			push_warning("Terrain3D streaming pool full of unsaved edits; save to continue editing new regions.")
+	_was_saturated = saturated
 	_meter.max_value = maxi(slots, 1)
 	_meter.value = resident
 	_meter_label.text = "%d / %d" % [resident, slots]
