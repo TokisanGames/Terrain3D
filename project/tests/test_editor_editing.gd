@@ -100,5 +100,11 @@ func _run() -> void:
 	ok(_t.data.get_region_load_state(Vector2i(-2, -2)) == Terrain3DData.REGION_RESIDENT, "api: region streamed in on write")
 	ok(absf(_t.data.get_height(wpos) - 77.0) < 0.01, "api: write landed on the streamed-in region")
 
+	# Pin API round trip, and ensure-resident skips a pinned region as an eviction victim.
+	_t.data.set_region_pinned(Vector2i(0, 0), true)
+	ok(_t.data.is_region_pinned(Vector2i(0, 0)), "pin: set and query")
+	_t.data.set_region_pinned(Vector2i(0, 0), false)
+	ok(not _t.data.is_region_pinned(Vector2i(0, 0)), "pin: cleared")
+
 	print("SUITE ", "GREEN" if _fail == 0 else "RED (%d)" % _fail)
 	quit(_fail)

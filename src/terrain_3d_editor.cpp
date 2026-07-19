@@ -108,9 +108,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	int region_size = _terrain->get_region_size();
 	Vector2i region_vsize = V2I(region_size);
 
-	// If no region and can't add one, skip whole function. Checked again later
+	// If no region and can't add one, skip whole function. Checked again later. An
+	// on-disk region that is only unloaded must still be reached so it streams in.
 	Terrain3DData *data = _terrain->get_data();
-	if (!data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || (_tool != SCULPT && _tool != HEIGHT))) {
+	bool streamed_out = IS_EDITOR && _terrain->is_streaming_active() &&
+			data->get_region_load_state(data->get_region_location(p_global_position)) == Terrain3DData::REGION_UNLOADED;
+	if (!streamed_out && !data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || (_tool != SCULPT && _tool != HEIGHT))) {
 		return;
 	}
 
@@ -684,8 +687,14 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 				// Reconcile per region: drop the current pool copy without saving and
 				// re-insert the backup through the streaming path, so the slot pool and
 				// membership stay consistent instead of a raw dict insert with no slot.
-				data->evict_region(region->get_location(), String());
-				data->add_region_streamed(region);
+				Vector2i loc = region->get_location();
+				if (data->get_region_load_state(loc) == Terrain3DData::REGION_RESIDENT) {
+					data->evict_region(loc, String());
+				}
+				if (data->add_region_streamed(region) != OK) {
+					LOG(ERROR, "Undo could not restore region ", loc, "; streaming pool is full of unsaved edits");
+				}
+				data->set_region_pinned(loc, true); // restored state differs from disk until saved
 			} else {
 				Dictionary regions = data->get_regions_all();
 				regions[region->get_location()] = region;
@@ -979,6 +988,8 @@ void Terrain3DEditor::backup_region(const Ref<Terrain3DRegion> &p_region) {
 		_edited_regions.push_back(p_region);
 		p_region->set_edited(true);
 		p_region->set_modified(true);
+		// Pin the region so streaming keeps it resident and undoable until it is saved.
+		_terrain->get_data()->set_region_pinned(p_region->get_location(), true);
 		if (Terrain3D::debug_level >= DEBUG) {
 			LOG(DEBUG, "Backup original region");
 			orig_region->dump();

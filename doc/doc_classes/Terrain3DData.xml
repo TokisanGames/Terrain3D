@@ -96,6 +96,21 @@
 				Loads an on-disk region into the streaming pool immediately and returns it, so an edit can change a region that is not currently loaded. Frees a slot by evicting the farthest region with no unsaved editor edit. Returns [code skip-lint]null[/code] if the region does not exist, or if the pool is full of unsaved edits.
 			</description>
 		</method>
+		<method name="is_region_pinned" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<description>
+				Returns [code skip-lint]true[/code] when the region is pinned, meaning streaming keeps it resident and undoable until it is saved. The editor pins a region when it edits it. See [method set_region_pinned].
+			</description>
+		</method>
+		<method name="set_region_pinned">
+			<return type="void" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<param index="1" name="pinned" type="bool" />
+			<description>
+				Pins or unpins a region. A pinned region is not evicted by streaming, so unsaved editor edits stay resident and undoable. Saving the region unpins it. See [method is_region_pinned].
+			</description>
+		</method>
 		<method name="export_image" qualifiers="const">
 			<return type="int" enum="Error" />
 			<param index="0" name="file_name" type="String" />

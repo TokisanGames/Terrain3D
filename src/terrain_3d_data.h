@@ -3,6 +3,8 @@
 #ifndef TERRAIN3D_DATA_CLASS_H
 #define TERRAIN3D_DATA_CLASS_H
 
+#include <godot_cpp/templates/hash_set.hpp>
+
 #include "constants.h"
 #include "generated_texture.h"
 #include "terrain_3d_region.h"
@@ -85,6 +87,7 @@ private:
 	Vector<int> _free_slots; // Free texture array layer indices
 	HashMap<Vector2i, int> _slot_of; // Region location -> slot
 	TypedArray<Vector2i> _slot_locs; // Slot -> location, the shader's per layer table
+	HashSet<Vector2i> _pinned_regions; // Editor edits held resident until saved
 
 	// Functions
 	void _clear();
@@ -107,6 +110,8 @@ public:
 	Error evict_region(const Vector2i &p_region_loc, const String &p_save_dir);
 	RegionState get_region_load_state(const Vector2i &p_region_loc) const;
 	Ref<Terrain3DRegion> ensure_region_resident(const Vector2i &p_region_loc);
+	void set_region_pinned(const Vector2i &p_region_loc, const bool p_pinned);
+	bool is_region_pinned(const Vector2i &p_region_loc) const { return _pinned_regions.has(p_region_loc); }
 	// Slot indexed while streaming, the dense id ordered list classically
 	TypedArray<Vector2i> get_shader_region_locations() const { return _streaming ? _slot_locs : _region_locations; }
 	void set_region_locations(const TypedArray<Vector2i> &p_locations);

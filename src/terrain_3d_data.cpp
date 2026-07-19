@@ -363,8 +363,11 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 	Error err = region->save(path, p_16_bit);
 	if (!(err == OK || err == ERR_SKIP)) {
 		LOG(ERROR, "Could not save file: ", path, ", error: ", UtilityFunctions::error_string(err), " (", err, ")");
-	} else if (_terrain != nullptr && _terrain->get_streamer() != nullptr) {
-		_terrain->get_streamer()->mark_known(p_region_loc);
+	} else {
+		_pinned_regions.erase(p_region_loc); // saved, no longer held resident by the editor
+		if (_terrain != nullptr && _terrain->get_streamer() != nullptr) {
+			_terrain->get_streamer()->mark_known(p_region_loc);
+		}
 	}
 }
 
@@ -651,8 +654,8 @@ Terrain3DData::RegionState Terrain3DData::get_region_load_state(const Vector2i &
 }
 
 // Loads an on-disk-but-unloaded region into the pool immediately so an edit can touch it.
-// Frees a slot by evicting the farthest region with no unsaved editor edit; if every slot
-// holds an edited region, returns null so the caller can report the pool is full.
+// Loads first, then frees a slot by evicting the farthest unpinned region; if every slot
+// is pinned, returns null so the caller can report the pool is full.
 Ref<Terrain3DRegion> Terrain3DData::ensure_region_resident(const Vector2i &p_region_loc) {
 	if (_regions.has(p_region_loc)) {
 		return get_region(p_region_loc);
@@ -660,12 +663,25 @@ Ref<Terrain3DRegion> Terrain3DData::ensure_region_resident(const Vector2i &p_reg
 	if (_terrain == nullptr || !_streaming || !_terrain->has_region_on_disk(p_region_loc)) {
 		return Ref<Terrain3DRegion>();
 	}
+	// Load before evicting anything, so a failed or size-mismatched load never destroys a
+	// live region for nothing.
+	String path = _terrain->get_data_directory() + String("/") + Util::location_to_filename(p_region_loc);
+	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+	if (region.is_null()) {
+		LOG(ERROR, "Could not load region for edit: ", path);
+		return Ref<Terrain3DRegion>();
+	}
+	region->take_over_path(path);
+	region->set_location(p_region_loc);
+	if (region->get_region_size() != _region_size) {
+		LOG(ERROR, "Region ", p_region_loc, " is ", region->get_region_size(), " px but the pool is ", _region_size, " px");
+		return Ref<Terrain3DRegion>();
+	}
 	if (_free_slots.is_empty()) {
 		Vector2i victim = V2I_MAX;
 		real_t best = -1.f;
 		for (const KeyValue<Vector2i, int> &kv : _slot_of) {
-			Ref<Terrain3DRegion> res = get_region(kv.key);
-			if (res.is_valid() && res->is_edited()) {
+			if (_pinned_regions.has(kv.key)) {
 				continue;
 			}
 			real_t d = Vector2(kv.key - p_region_loc).length();
@@ -680,18 +696,20 @@ Ref<Terrain3DRegion> Terrain3DData::ensure_region_resident(const Vector2i &p_reg
 		}
 		evict_region(victim, _terrain->get_data_directory());
 	}
-	String path = _terrain->get_data_directory() + String("/") + Util::location_to_filename(p_region_loc);
-	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
-	if (region.is_null()) {
-		LOG(ERROR, "Could not load region for edit: ", path);
-		return Ref<Terrain3DRegion>();
-	}
-	region->take_over_path(path);
-	region->set_location(p_region_loc);
 	if (add_region_streamed(region) != OK) {
 		return Ref<Terrain3DRegion>();
 	}
 	return region;
+}
+
+// Pins a region so streaming keeps it resident and undoable until it is saved. The editor
+// pins a region when it edits it and unpins it on save.
+void Terrain3DData::set_region_pinned(const Vector2i &p_region_loc, const bool p_pinned) {
+	if (p_pinned) {
+		_pinned_regions.insert(p_region_loc);
+	} else {
+		_pinned_regions.erase(p_region_loc);
+	}
 }
 
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
@@ -886,6 +904,9 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 	if (map) {
 		map->set_pixelv(img_pos, p_pixel);
 		region->set_modified(true);
+		if (IS_EDITOR && _streaming) {
+			set_region_pinned(region_loc, true); // hold the edit resident until saved
+		}
 	}
 }
 
@@ -1472,6 +1493,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_region", "region_location"), &Terrain3DData::has_region);
 	ClassDB::bind_method(D_METHOD("get_region_load_state", "region_location"), &Terrain3DData::get_region_load_state);
 	ClassDB::bind_method(D_METHOD("ensure_region_resident", "region_location"), &Terrain3DData::ensure_region_resident);
+	ClassDB::bind_method(D_METHOD("set_region_pinned", "region_location", "pinned"), &Terrain3DData::set_region_pinned);
+	ClassDB::bind_method(D_METHOD("is_region_pinned", "region_location"), &Terrain3DData::is_region_pinned);
 	ClassDB::bind_method(D_METHOD("has_regionp", "global_position"), &Terrain3DData::has_regionp);
 	ClassDB::bind_method(D_METHOD("get_region", "region_location"), &Terrain3DData::get_region);
 	ClassDB::bind_method(D_METHOD("get_regionp", "global_position"), &Terrain3DData::get_regionp);
