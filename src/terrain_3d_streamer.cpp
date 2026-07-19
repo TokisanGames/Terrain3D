@@ -135,7 +135,9 @@ void Terrain3DStreamer::set_mode(const StreamMode p_mode) {
 // Saves modified cached regions and drops the cache. Runs when leaving RAM mode
 // or when streaming stops, so runtime edits are never lost with the bodies.
 void Terrain3DStreamer::_flush_ram_cache() {
-	if (_terrain != nullptr && !_terrain->get_data_directory().is_empty()) {
+	// Only write cached edits back when the terrain opts in; by default streaming never
+	// persists on its own (see Terrain3DData::evict_region).
+	if (_terrain != nullptr && _persist_edits && !_terrain->get_data_directory().is_empty()) {
 		for (const KeyValue<Vector2i, Ref<Terrain3DRegion>> &kv : _ram_cache) {
 			if (kv.value.is_valid() && kv.value->is_modified()) {
 				String path = _terrain->get_data_directory() + String("/") + Util::location_to_filename(kv.key);
@@ -578,6 +580,8 @@ void Terrain3DStreamer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_loads_per_frame"), &Terrain3DStreamer::get_loads_per_frame);
 	ClassDB::bind_method(D_METHOD("set_skip_version_upgrade", "skip"), &Terrain3DStreamer::set_skip_version_upgrade);
 	ClassDB::bind_method(D_METHOD("get_skip_version_upgrade"), &Terrain3DStreamer::get_skip_version_upgrade);
+	ClassDB::bind_method(D_METHOD("set_persist_edits", "enabled"), &Terrain3DStreamer::set_persist_edits);
+	ClassDB::bind_method(D_METHOD("get_persist_edits"), &Terrain3DStreamer::get_persist_edits);
 	ClassDB::bind_method(D_METHOD("get_required_slots", "distance"), &Terrain3DStreamer::get_required_slots);
 	ClassDB::bind_method(D_METHOD("get_max_distance"), &Terrain3DStreamer::get_max_distance);
 	ClassDB::bind_method(D_METHOD("scan_directory"), &Terrain3DStreamer::scan_directory);
@@ -597,4 +601,5 @@ void Terrain3DStreamer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "concurrent_loads", PROPERTY_HINT_RANGE, "1,8,1"), "set_concurrent_loads", "get_concurrent_loads");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "loads_per_frame", PROPERTY_HINT_RANGE, "1,8,1"), "set_loads_per_frame", "get_loads_per_frame");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "skip_version_upgrade"), "set_skip_version_upgrade", "get_skip_version_upgrade");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "persist_edits"), "set_persist_edits", "get_persist_edits");
 }

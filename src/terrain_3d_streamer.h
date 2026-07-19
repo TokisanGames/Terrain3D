@@ -47,6 +47,7 @@ private:
 	int _concurrent_loads = 3; // Threaded region loads in flight
 	int _loads_per_frame = 1; // Loaded regions inserted per physics frame
 	bool _skip_version_upgrade = true; // Do not restamp older regions to current on streamed load
+	bool _persist_edits = false; // Write a modified region back to disk when it is evicted
 
 	// Work data
 	Vector<Vector2i> _known; // Region locations present on disk
@@ -96,6 +97,8 @@ public:
 	int get_loads_per_frame() const { return _loads_per_frame; }
 	void set_skip_version_upgrade(const bool p_skip) { _skip_version_upgrade = p_skip; }
 	bool get_skip_version_upgrade() const { return _skip_version_upgrade; }
+	void set_persist_edits(const bool p_enabled) { _persist_edits = p_enabled; }
+	bool get_persist_edits() const { return _persist_edits; }
 
 	void scan_directory();
 	TypedArray<Vector2i> get_known_locations() const;

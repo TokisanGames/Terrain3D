@@ -125,10 +125,11 @@ func _run() -> void:
 	ok(_t.data.get_region_count() == 9, "ring settled after churn (%d)" % _t.data.get_region_count())
 	ok(_t.data.get_free_slot_count() + _t.data.get_region_count() == 25, "no slot leaked (%d+%d)" % [
 			_t.data.get_free_slot_count(), _t.data.get_region_count()])
-	# Runtime modification survives eviction: edit a resident region, walk away so
-	# it evicts (saving back to disk), walk back and expect the edit streamed in.
+	# By default streaming is a read-only view: an edit to a resident region is dropped on
+	# eviction and a revisit reloads the on-disk version.
 	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
 	await _settle(400)
+	var authored: float = _t.data.get_height(Vector3(10.0, 0, 10.0))
 	_t.data.set_height(Vector3(10.0, 0, 10.0), 44.0)
 	cam.global_position = Vector3(rs * 6.5, 50, rs * 0.5) # far east, (0,0) evicts
 	await _settle(400)
@@ -136,7 +137,20 @@ func _run() -> void:
 	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
 	await _settle(400)
 	var hm: float = _t.data.get_height(Vector3(10.0, 0, 10.0))
-	ok(absf(hm - 44.0) < 0.01, "runtime edit saved on eviction and streamed back (%.1f)" % hm)
+	ok(absf(hm - authored) < 0.01, "default: edit dropped on eviction, on-disk value reloaded (%.1f)" % hm)
+
+	# With streaming_persist_edits on, the edit is written back on eviction and streams in
+	# again on return.
+	_t.streaming_persist_edits = true
+	_t.data.set_height(Vector3(10.0, 0, 10.0), 44.0)
+	cam.global_position = Vector3(rs * 6.5, 50, rs * 0.5)
+	await _settle(400)
+	ok(not _t.data.has_region(Vector2i(0, 0)), "persist: modified region evicted")
+	cam.global_position = Vector3(rs * 0.5, 50, rs * 0.5)
+	await _settle(400)
+	hm = _t.data.get_height(Vector3(10.0, 0, 10.0))
+	ok(absf(hm - 44.0) < 0.01, "persist_edits: edit saved on eviction and streamed back (%.1f)" % hm)
+	_t.streaming_persist_edits = false
 
 	# Circular shape: at distance 1 only the target region and its four orthogonal
 	# neighbors are requested (corners are outside the circle).
