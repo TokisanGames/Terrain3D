@@ -219,7 +219,11 @@ func _frame(p_center: Vector3) -> void:
 	var vp := EditorInterface.get_editor_viewport_3d(0)
 	var cam: Camera3D = vp.get_camera_3d() if vp != null else null
 	if cam != null:
+		# Flatten the pull-back to horizontal so a top-down camera does not make look_at
+		# colinear with the up vector and silently no-op.
 		var back: Vector3 = cam.global_transform.basis.z
+		back.y = 0.0
+		back = back.normalized() if back.length() > 0.01 else Vector3(0, 0, 1)
 		cam.look_at_from_position(p_center + back * span * 1.5 + Vector3(0, span, 0), p_center)
 
 

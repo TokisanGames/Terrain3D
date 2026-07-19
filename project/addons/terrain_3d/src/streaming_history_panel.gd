@@ -103,12 +103,16 @@ func _on_row_activated(p_index: int) -> void:
 	var vp := EditorInterface.get_editor_viewport_3d(0)
 	var cam: Camera3D = vp.get_camera_3d() if vp != null else null
 	if cam != null:
+		# Flatten the pull-back to horizontal so it never lines up with the up vector
+		# (a top-down camera would make look_at colinear and silently no-op).
 		var back: Vector3 = cam.global_transform.basis.z
+		back.y = 0.0
+		back = back.normalized() if back.length() > 0.01 else Vector3(0, 0, 1)
 		cam.look_at_from_position(center + back * span * 1.5 + Vector3(0, span, 0), center)
 
 
 func _find_terrain() -> Terrain3D:
-	if is_instance_valid(plugin) and plugin.terrain != null:
+	if is_instance_valid(plugin) and is_instance_valid(plugin.terrain):
 		return plugin.terrain
 	var root: Node = EditorInterface.get_edited_scene_root()
 	return _walk(root) if root != null else null
