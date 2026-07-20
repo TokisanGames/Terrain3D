@@ -112,5 +112,21 @@ You can read more about mesh setup on the [Foliage Instancer page](instancer.md#
 * <kbd>RMB</kbd> - Edit the asset in the inspector. You can also click the pencil on the thumbnail.
 * <kbd>MMB</kbd> - Clear the asset. You can also click the X on the thumbnail. If this asset is at the end of the list, this will also remove it. You can clear and reuse this asset, or change its ID to move it to the end for removal. When using the instancer, this will remove all instances painted on the ground. It will ask for confirmation first.
 
+## Live Info Panel
 
+The Live Info Panel can be enabled from the Terrain3D menu. When active, it displays real‑time information about the terrain under your mouse cursor, including:
+
+* Height 
+* Slope angle
+* Texture data, such as:
+  * base texture index
+  * overlay texture index
+  * blend value
+  * whether Autoshader is active
+
+When the Region Tool is selected, the panel will only show the current region coordinates. All other terrain information is hidden while this tool is in use.
+
+```{image} images/ui_live_info_panel.png
+:target: ../_images/ui_live_info_panel.png
+```
 
