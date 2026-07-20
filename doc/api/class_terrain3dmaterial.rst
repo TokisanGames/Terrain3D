@@ -200,7 +200,7 @@ enum **RegionMaximum**: :ref:`🔗<enum_Terrain3DMaterial_RegionMaximum>`
 
 :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_64** = ``64``
 
-Renders the first 64 textures that are loaded.
+Renders only the first 64 regions that are loaded.
 
 .. _class_Terrain3DMaterial_constant_MAX_REGIONS_128:
 
@@ -208,7 +208,7 @@ Renders the first 64 textures that are loaded.
 
 :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_128** = ``128``
 
-Renders the first 128 textures that are loaded.
+Renders only the first 128 regions that are loaded.
 
 .. _class_Terrain3DMaterial_constant_MAX_REGIONS_256:
 
@@ -216,7 +216,7 @@ Renders the first 128 textures that are loaded.
 
 :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_256** = ``256``
 
-Renders the first 256 textures that are loaded.
+Renders only the first 256 regions that are loaded.
 
 .. _class_Terrain3DMaterial_constant_MAX_REGIONS_512:
 
@@ -224,7 +224,7 @@ Renders the first 256 textures that are loaded.
 
 :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_512** = ``512``
 
-Renders the first 512 textures that are loaded.
+Renders only the first 512 regions that are loaded.
 
 .. _class_Terrain3DMaterial_constant_MAX_REGIONS_1024:
 
@@ -232,7 +232,7 @@ Renders the first 512 textures that are loaded.
 
 :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **MAX_REGIONS_1024** = ``1024``
 
-Renders the first 1024 textures that are loaded.
+Renders only the first 1024 regions that are loaded.
 
 .. rst-class:: classref-item-separator
 
@@ -477,7 +477,7 @@ Allows you to add a couple of noise patterns at different scales and colors to a
 - |void| **set_max_regions**\ (\ value\: :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>`\ )
 - :ref:`RegionMaximum<enum_Terrain3DMaterial_RegionMaximum>` **get_max_regions**\ (\ )
 
-Limits the number of regions that are rendered. Does not reduce VRAM. Regions loaded beyond this number are still present in memory and on disk, they just don't render. This is used to reduce uniform buffer consumption on mobiles. Set to the minimum you need for mobiles (e.g. 64-256) and test a variety of devices to ensure your target audience can render textures. It renders the first X number of regions that are loaded. Region order is not stable.
+This limits the material to rendering the first X number of regions that are loaded. Region order is not stable. It does not reduce VRAM. Regions loaded beyond this number are still present in memory, VRAM, and on disk, they just don't render. This is used to reduce uniform buffer consumption on mobile apps and web for mobile. Set to the minimum number of regions you need, keep your region count low (64-256), and test a variety of devices to ensure your target audience can render textures on the terrain.
 
 .. rst-class:: classref-item-separator
 

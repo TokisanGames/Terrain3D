@@ -31,6 +31,25 @@ After selecting the Terrain3D node, the Terrain3D menu appears at the top of the
 :target: ../_images/terrain3d_menu.png
 ```
 
+### Live Info Panel
+
+The Live Info Panel can be enabled from the Terrain3D menu. When active, it displays real‑time information about the terrain under your mouse cursor, at the center of your brush, including:
+
+* X, Z mouse position on the terrain
+* Height
+* Slope angle
+* Texture data, such as:
+  * Base texture index
+  * Overlay texture index
+  * Blend value
+  * Whether Autoshader is active
+
+```{image} images/ui_live_info_panel.png
+:target: ../_images/ui_live_info_panel.png
+```
+
+When the Region Tool is selected, the panel shows only the current region coordinates, and an approximate mouse position. Change to any other tool, and set brush size to zero for the most accurate information.
+
 ---
 
 ## Tool Settings Bar
@@ -111,6 +130,3 @@ You can read more about mesh setup on the [Foliage Instancer page](instancer.md#
 * <kbd>LMB</kbd> - Select the asset to paint with.
 * <kbd>RMB</kbd> - Edit the asset in the inspector. You can also click the pencil on the thumbnail.
 * <kbd>MMB</kbd> - Clear the asset. You can also click the X on the thumbnail. If this asset is at the end of the list, this will also remove it. You can clear and reuse this asset, or change its ID to move it to the end for removal. When using the instancer, this will remove all instances painted on the ground. It will ask for confirmation first.
-
-
-
