@@ -47,6 +47,25 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 		return Ref<Terrain3DRegion>();
 	}
 
+	// Under editor streaming, a stroke on an unloaded region streams it in and applies
+	// nothing this stroke. ensure_region_resident() flips the region to resident on the
+	// first brush pixel, so remember it and keep aborting for the rest of this stroke;
+	// otherwise the remaining pixels would paint the region the moment it loaded. The set
+	// clears in start_operation(), so the next stroke edits the now-resident region.
+	if (IS_EDITOR && _terrain->is_streaming_active()) {
+		if (data->get_region_load_state(p_region_loc) == Terrain3DData::REGION_UNLOADED) {
+			data->ensure_region_resident(p_region_loc);
+			_streamed_in_regions.insert(p_region_loc);
+			if (can_print) {
+				LOG(INFO, "Streamed in region ", p_region_loc, "; brush again to edit it");
+			}
+			return Ref<Terrain3DRegion>();
+		}
+		if (_streamed_in_regions.has(p_region_loc)) {
+			return Ref<Terrain3DRegion>();
+		}
+	}
+
 	// Get Region & dump data if debug
 	Ref<Terrain3DRegion> region = data->get_region(p_region_loc);
 	if (can_print) {
@@ -80,6 +99,9 @@ Ref<Terrain3DRegion> Terrain3DEditor::_operate_region(const Vector2i &p_region_l
 	if (changed) {
 		_added_removed_locations.push_back(p_region_loc);
 		region->set_modified(true);
+		// A structural change (add or remove) is an unsaved edit too, so pin it for the
+		// dock's dirty count and Save edits, and to keep it resident while streaming.
+		data->set_region_pinned(p_region_loc, true);
 		_send_region_aabb(p_region_loc, height_range);
 	}
 	return region;
@@ -97,9 +119,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	int region_size = _terrain->get_region_size();
 	Vector2i region_vsize = V2I(region_size);
 
-	// If no region and can't add one, skip whole function. Checked again later
+	// If no region and can't add one, skip whole function. Checked again later. An
+	// on-disk region that is only unloaded must still be reached so it streams in.
 	Terrain3DData *data = _terrain->get_data();
-	if (!data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || (_tool != SCULPT && _tool != HEIGHT))) {
+	bool streamed_out = IS_EDITOR && _terrain->is_streaming_active() &&
+			data->get_region_load_state(data->get_region_location(p_global_position)) == Terrain3DData::REGION_UNLOADED;
+	if (!streamed_out && !data->has_regionp(p_global_position) && (!_brush_data["auto_regions"] || (_tool != SCULPT && _tool != HEIGHT))) {
 		return;
 	}
 
@@ -632,6 +657,31 @@ void Terrain3DEditor::_store_undo() {
 		LOG(DEBUG, "Adding edited area to snapshots: ", _undo_data["edited_area"]);
 	}
 
+	// Describe the edit for the streaming history panel. Built before binding so the undo
+	// snapshot can carry the row index (to remove it) and the redo snapshot the descriptor
+	// (to re-add the row), keeping the timeline in step with Ctrl+Z / Ctrl+Shift+Z.
+	TypedArray<Vector2i> locs;
+	for (const Ref<Terrain3DRegion> &r : _edited_regions) {
+		if (r.is_valid()) {
+			locs.push_back(r->get_location());
+		}
+	}
+	for (int i = 0; i < _added_removed_locations.size(); i++) {
+		locs.push_back(_added_removed_locations[i]);
+	}
+	int edit_index = (int)(++_edit_index);
+	Dictionary descriptor;
+	descriptor["index"] = edit_index;
+	descriptor["tool"] = _tool;
+	descriptor["operation"] = _operation;
+	descriptor["locations"] = locs;
+	descriptor["map_type"] = _get_map_type();
+	if (_terrain->get_data()->get_edited_area().has_volume()) {
+		descriptor["area"] = _terrain->get_data()->get_edited_area();
+	}
+	_undo_data["revert_index"] = edit_index;
+	redo_data["reapply_descriptor"] = descriptor;
+
 	// Request the plugin store the undo/redo data.
 	if (_terrain->get_plugin()->has_method("create_undo_action")) {
 		LOG(INFO, "Storing undo snapshot");
@@ -649,6 +699,9 @@ void Terrain3DEditor::_store_undo() {
 
 		LOG(DEBUG, "Committing undo action");
 		_terrain->get_plugin()->call("commit_action", false);
+
+		// Report the committed edit to the editor UI (the streaming history panel).
+		emit_signal("edit_committed", descriptor);
 	}
 }
 
@@ -668,11 +721,33 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 				continue;
 			}
 			region->sanitize_maps(); // Live data may not have some maps so must be sanitized
-			Dictionary regions = data->get_regions_all();
-			regions[region->get_location()] = region;
+			region->set_deleted(false); // Ensure region not marked for deletion
+			if (data->is_streaming()) {
+				// Reconcile per region: drop the current pool copy without saving and
+				// re-insert the backup through the streaming path, so the slot pool and
+				// membership stay consistent instead of a raw dict insert with no slot.
+				Vector2i loc = region->get_location();
+				if (data->get_region_load_state(loc) == Terrain3DData::REGION_RESIDENT) {
+					data->evict_region(loc, String());
+				}
+				if (data->add_region_streamed(region) != OK) {
+					LOG(ERROR, "Undo could not restore region ", loc, "; streaming pool is full of unsaved edits");
+				}
+				// Restore the region's prior pin state: undo carries the pre-op pinned set
+				// so a first edit unpins while a still-dirty region stays pinned; redo has
+				// no such set and re-pins. The pin otherwise clears only on save.
+				bool pin = true;
+				if (p_data.has("prior_pinned")) {
+					TypedArray<Vector2i> prior = p_data["prior_pinned"];
+					pin = prior.has(loc);
+				}
+				data->set_region_pinned(loc, pin);
+			} else {
+				Dictionary regions = data->get_regions_all();
+				regions[region->get_location()] = region;
+			}
 			region->set_modified(true); // Tell update_maps() this region has layers that can be individually updated
 			region->set_edited(true); // Flag so update_maps() will include it
-			region->set_deleted(false); // Ensure region not marked for deletion
 			if (Terrain3D::debug_level >= DEBUG) {
 				LOG(DEBUG, "Restoring region:");
 				region->dump();
@@ -712,7 +787,9 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 	}
 
 	// After all regions are in place, reset the region map, which also calls update_maps
-	if (p_data.has("region_locations")) {
+	// While streaming, the per-region reconcile above manages membership; rewriting the
+	// whole location list would clobber the slot pool with a stale snapshot.
+	if (p_data.has("region_locations") && !data->is_streaming()) {
 		// Load w/ duplicate or it gets a bit wonky undoing removed regions w/ saves
 		TypedArray<Vector2i> locations = p_data["region_locations"];
 		_terrain->get_data()->set_region_locations(locations.duplicate());
@@ -734,6 +811,14 @@ void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
 		}
 	}
 	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
+
+	// Keep the streaming history panel in step: undo removes the row it recorded, redo
+	// re-adds it from the stored descriptor.
+	if (p_data.has("revert_index")) {
+		emit_signal("edit_reverted", (int)p_data["revert_index"]);
+	} else if (p_data.has("reapply_descriptor")) {
+		emit_signal("edit_committed", p_data["reapply_descriptor"]);
+	}
 }
 
 // Returns average of height, blend (as real_t(0-255)), or roughness. Overloaded version handles average color
@@ -909,10 +994,15 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	LOG(INFO, "Setting up undo snapshot");
 	_undo_data.clear();
 	_undo_data["region_locations"] = _terrain->get_data()->get_region_locations().duplicate();
+	// Snapshot which regions were already dirty before this operation. Undo restores a
+	// region's prior pin state, so a first edit since save unpins on undo while a region
+	// with earlier unsaved edits stays pinned.
+	_undo_data["prior_pinned"] = _terrain->get_data()->get_pinned_locations();
 	_is_operating = true;
 	_original_regions = TypedArray<Terrain3DRegion>(); // New pointers instead of clear
 	_edited_regions = TypedArray<Terrain3DRegion>();
 	_added_removed_locations = TypedArray<Vector2i>();
+	_streamed_in_regions.clear(); // A region streamed in last stroke is editable this one
 	// Reset counter at start to ensure first click places an instance
 	_terrain->get_instancer()->reset_density_counter();
 	_terrain->get_data()->clear_edited_area();
@@ -958,6 +1048,8 @@ void Terrain3DEditor::backup_region(const Ref<Terrain3DRegion> &p_region) {
 		_edited_regions.push_back(p_region);
 		p_region->set_edited(true);
 		p_region->set_modified(true);
+		// Pin the region so streaming keeps it resident and undoable until it is saved.
+		_terrain->get_data()->set_region_pinned(p_region->get_location(), true);
 		if (Terrain3D::debug_level >= DEBUG) {
 			LOG(DEBUG, "Backup original region");
 			orig_region->dump();
@@ -1038,4 +1130,7 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
+
+	ADD_SIGNAL(MethodInfo("edit_committed", PropertyInfo(Variant::DICTIONARY, "descriptor")));
+	ADD_SIGNAL(MethodInfo("edit_reverted", PropertyInfo(Variant::INT, "index")));
 }

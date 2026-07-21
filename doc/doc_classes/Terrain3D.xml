@@ -19,6 +19,14 @@
 				[code skip-lint]filter[/code] - Controls how vertex Y coordinates are generated from the height map. See [enum Terrain3DData.HeightFilter].
 			</description>
 		</method>
+		<method name="export_image">
+			<return type="int" enum="Error" />
+			<param index="0" name="file_name" type="String" />
+			<param index="1" name="map_type" type="int" enum="Terrain3DRegion.MapType" />
+			<description>
+				Exports a combined image of the given map type across the whole terrain. Prefer this over [method Terrain3DData.export_image] while streaming: it forces full residency for the duration so the export covers every region, not just the loaded window, then restores streaming.
+			</description>
+		</method>
 		<method name="generate_nav_mesh_source_geometry" qualifiers="const">
 			<return type="PackedVector3Array" />
 			<param index="0" name="global_aabb" type="AABB" />
@@ -103,6 +111,34 @@
 				Collision_mask has the physics layers the query will detect as a bitmask. By default, all collision layers are detected.
 				See [url=https://docs.godotengine.org/en/stable/classes/class_physicsdirectspacestate3d.html#class-physicsdirectspacestate3d-method-intersect-ray]PhysicsDirectSpaceState3D.intersect_ray[/url] for how to interpret the resulting dictionary.
 				Also see [method get_intersection] and [method Terrain3DData.get_height] for alternative functions.
+			</description>
+		</method>
+		<method name="get_streamer" qualifiers="const">
+			<return type="Terrain3DStreamer" />
+			<description>
+				Returns the [Terrain3DStreamer] that manages region streaming for this terrain.
+			</description>
+		</method>
+		<method name="get_streaming_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns live streaming counters, useful for debug overlays and tests.
+				Alias for [method Terrain3DStreamer.get_stats].
+			</description>
+		</method>
+		<method name="has_region_on_disk" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="region_location" type="Vector2i" />
+			<description>
+				Returns [code skip-lint]true[/code] when a region file exists on disk at [param region_location], whether or not it is currently resident. The answer stays current as regions are saved, created, or deleted.
+				Alias for [method Terrain3DStreamer.is_location_known].
+			</description>
+		</method>
+		<method name="is_streaming_active" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code skip-lint]true[/code] when [member streaming_enabled] is on and the game is running outside the editor. The editor and any tool that authors the whole terrain always keep full residency.
+				Alias for [method Terrain3DStreamer.is_active].
 			</description>
 		</method>
 		<method name="set_camera">
@@ -375,6 +411,50 @@
 		<member name="show_vertex_grid" type="bool" setter="set_show_vertex_grid" getter="get_show_vertex_grid" default="false">
 			Overlays the vertex grid on the terrain, showing where each vertex is. With the mouse in the viewport you can press the hotkey to toggle visibility (default `5`).
 			Alias for [member Terrain3DMaterial.show_vertex_grid].
+		</member>
+		<member name="streaming_concurrent_loads" type="int" setter="set_streaming_concurrent_loads" getter="get_streaming_concurrent_loads" default="3">
+			How many regions may be loading on background threads at once. Loading runs wide while insertions stay narrow; see [member streaming_loads_per_frame].
+			Alias for [member Terrain3DStreamer.concurrent_loads].
+		</member>
+		<member name="streaming_distance" type="int" setter="set_streaming_distance" getter="get_streaming_distance" default="4">
+			How far the loaded area extends from the clipmap target, in regions. For example, 4 with a square [member streaming_shape] keeps a 9x9 block of regions loaded around the target. Raising it automatically grows [member streaming_slots] to fit. See [member Terrain3DStreamer.distance].
+			Alias for [member Terrain3DStreamer.distance].
+		</member>
+		<member name="streaming_editor" type="bool" setter="set_editor_streaming" getter="get_editor_streaming" default="false">
+			Opts the editor in to streaming so a world too large to hold in memory can still be opened and navigated. Off by default because the editor writes and several editor systems assume the whole world is resident. When on, [member streaming_enabled] takes effect inside the editor and the editor camera drives the loaded window.
+			Alias for [member Terrain3DStreamer.editor_streaming].
+		</member>
+		<member name="streaming_editor_distance" type="int" setter="set_editor_streaming_distance" getter="get_editor_streaming_distance" default="2">
+			The loaded radius used while [member streaming_editor] is on, separate from the runtime [member streaming_distance] so the editor can hold a tighter window. Grows [member streaming_slots] to fit like [member streaming_distance] does.
+			Alias for [member Terrain3DStreamer.editor_distance].
+		</member>
+		<member name="streaming_enabled" type="bool" setter="set_streaming_enabled" getter="get_streaming_enabled" default="false">
+			Enables region streaming. Instead of loading every region in [member data_directory] up front, regions within [member streaming_distance] of the clipmap target are loaded on background threads and evicted as the target moves away, so memory scales with the loaded area instead of the whole terrain. Regions modified at runtime are saved back to [member data_directory] before eviction. Inside the editor this takes effect only when [member streaming_editor] is also on; otherwise the editor keeps the full terrain loaded. See [method is_streaming_active].
+			Alias for [member Terrain3DStreamer.enabled].
+		</member>
+		<member name="streaming_loads_per_frame" type="int" setter="set_streaming_loads_per_frame" getter="get_streaming_loads_per_frame" default="1">
+			How many completed region loads may be inserted into the terrain per physics frame. Each insertion uploads texture layers and updates collision on the main thread, so raising this trades hitching for faster fill in.
+			Alias for [member Terrain3DStreamer.loads_per_frame].
+		</member>
+		<member name="streaming_mode" type="int" setter="set_streaming_mode" getter="get_streaming_mode" enum="Terrain3DStreamer.StreamMode" default="0">
+			What eviction does with a region's data: drop it (Disk), or keep every body cached in RAM so only the GPU layers follow the loaded area (RAM Resident). See [enum Terrain3DStreamer.StreamMode].
+			Alias for [member Terrain3DStreamer.mode].
+		</member>
+		<member name="streaming_persist_edits" type="bool" setter="set_streaming_persist_edits" getter="get_streaming_persist_edits" default="false">
+			Whether a region modified at runtime is written back to the data directory when it is evicted. Off by default: streaming only reads the data on disk. See [member Terrain3DStreamer.persist_edits].
+			Alias for [member Terrain3DStreamer.persist_edits].
+		</member>
+		<member name="streaming_shape" type="int" setter="set_streaming_shape" getter="get_streaming_shape" enum="Terrain3DStreamer.StreamShape" default="0">
+			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member streaming_distance]. A circle loads ~21% fewer regions at the same distance.
+			Alias for [member Terrain3DStreamer.shape].
+		</member>
+		<member name="streaming_skip_version_upgrade" type="bool" setter="set_streaming_skip_version_upgrade" getter="get_streaming_skip_version_upgrade" default="true">
+			When [code skip-lint]true[/code], regions loaded from an older data version are not restamped to the current version while streaming, so panning over an old world no longer saves every region back on eviction. A region upgrades and saves only when a real edit modifies it.
+			Alias for [member Terrain3DStreamer.skip_version_upgrade].
+		</member>
+		<member name="streaming_slots" type="int" setter="set_streaming_slots" getter="get_streaming_slots" default="121">
+			Capacity of the pooled texture arrays, in regions. Must hold every region within [member streaming_distance] + 1: (2 * (distance + 1) + 1)² for a square shape (the default 121 fits distance 4). Changing this while streaming rebuilds the terrain data at the new capacity.
+			Alias for [member Terrain3DStreamer.slots].
 		</member>
 		<member name="tessellation_level" type="int" setter="set_tessellation_level" getter="get_tessellation_level" default="0">
 			Enables displacement using texture heights for additional mesh detail when set above 0. This creates up to 6 additional subdivisions of the terrain mesh below LOD0, and adds a displacement buffer configurable in the material. You can see this in wireframe mode. Set to 0 to disable displacement. See [member Terrain3DMaterial.show_displacement_buffer] and look at the Displacement Buffer debug view.

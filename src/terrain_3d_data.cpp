@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 
 #include "logger.h"
@@ -15,6 +16,11 @@
 ///////////////////////////
 
 void Terrain3DData::_clear() {
+	_streaming = false;
+	_slot_capacity = 0;
+	_free_slots.clear();
+	_slot_of.clear();
+	_slot_locs.clear();
 	LOG(INFO, "Clearing data");
 	_region_map_dirty = true;
 	_region_map.clear();
@@ -58,7 +64,17 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 	_vertex_spacing = _terrain->get_vertex_spacing();
 	if (!prev_initialized && !_terrain->get_data_directory().is_empty()) {
-		load_directory(_terrain->get_data_directory());
+		if (_terrain->is_streaming_active()) {
+			// Nothing is loaded up front while streaming. The files own the region size,
+			// exactly as load_directory adopts it from the first region, so peek one
+			// region body to adopt it before the slot pool is created
+			adopt_region_size_from_disk(_terrain->get_data_directory());
+			_region_size = _terrain->get_region_size();
+			_region_sizev = V2I(_region_size);
+			enable_streaming(_terrain->get_streaming_slots());
+		} else {
+			load_directory(_terrain->get_data_directory());
+		}
 	}
 	_region_size = _terrain->get_region_size();
 	_region_sizev = V2I(_region_size);
@@ -316,6 +332,7 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "No region found at: ", p_region_loc);
+		_pinned_regions.erase(p_region_loc); // nothing to save here; drop any stale pin
 		return;
 	}
 	String fname = Util::location_to_filename(p_region_loc);
@@ -323,6 +340,7 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 	// If region marked for deletion, remove from disk and from _regions, but don't free in case stored in undo
 	if (region->is_deleted()) {
 		LOG(DEBUG, "Removing ", p_region_loc, " from _regions");
+		_pinned_regions.erase(p_region_loc); // a deleted region is no longer a held edit
 		_regions.erase(p_region_loc);
 		LOG(DEBUG, "File to be deleted: ", path);
 		if (!FileAccess::file_exists(path)) {
@@ -339,11 +357,49 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 			LOG(ERROR, "Could not remove file: ", fname, ", error code: ", err);
 		}
 		LOG(INFO, "File ", path, " deleted");
+		if (_terrain != nullptr && _terrain->get_streamer() != nullptr) {
+			_terrain->get_streamer()->mark_unknown(p_region_loc);
+		}
 		return;
 	}
 	Error err = region->save(path, p_16_bit);
 	if (!(err == OK || err == ERR_SKIP)) {
 		LOG(ERROR, "Could not save file: ", path, ", error: ", UtilityFunctions::error_string(err), " (", err, ")");
+	} else {
+		_pinned_regions.erase(p_region_loc); // saved, no longer held resident by the editor
+		if (_terrain != nullptr && _terrain->get_streamer() != nullptr) {
+			_terrain->get_streamer()->mark_known(p_region_loc);
+		}
+	}
+}
+
+// Loads one region body and adopts its region size onto the terrain, as
+// load_directory does with its first region. The streaming slot pool must be built
+// at the size the files carry; file names only encode locations.
+void Terrain3DData::adopt_region_size_from_disk(const String &p_dir) {
+	PackedStringArray files = Util::get_files(p_dir, "terrain3d*.res");
+	for (const String &fname : files) {
+		Vector2i loc = Util::filename_to_location(fname);
+		if (loc.x == INT32_MAX) {
+			continue; // sibling non-region file
+		}
+		String path = p_dir + String("/") + fname;
+		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+		if (region.is_null()) {
+			LOG(ERROR, "Cannot load region at ", path, " to establish region size");
+			continue;
+		}
+		int rs = region->get_region_size();
+		if (!is_valid_region_size(rs)) {
+			LOG(ERROR, "Region ", path, " carries invalid region size: ", rs);
+			return;
+		}
+		if (rs != (int)_terrain->get_region_size()) {
+			LOG(WARN, "Region files at ", p_dir, " are ", rs, " px; node was saved with ",
+					(int)_terrain->get_region_size(), " - adopting ", rs);
+			_terrain->set_region_size((Terrain3D::RegionSize)rs);
+		}
+		return;
 	}
 }
 
@@ -416,6 +472,10 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 	}
 	region->take_over_path(path);
 	region->set_location(p_region_loc);
+	if (_streaming) {
+		add_region_streamed(region);
+		return;
+	}
 	region->set_version(CURRENT_DATA_VERSION); // Sends upgrade warning if old version
 	add_region(region, p_update);
 }
@@ -441,6 +501,248 @@ TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 	return TypedArray<Image>();
 }
 
+///////////////////////////
+// Region Streaming
+///////////////////////////
+
+// Switches this data object to slot pool streaming. Classically region_id doubles as
+// the texture array layer and the position in _region_locations, re-enumerated on
+// every membership change, which forces a full texture array rebuild per add or
+// remove. While streaming a region checks out a stable slot from a fixed capacity
+// pool instead: the region map stores slot+1, add/evict touch one texture layer and
+// one region map entry, and the arrays are allocated once at capacity.
+// _region_locations remains the dense list of loaded regions; _slot_locs is the
+// sparse slot to location table the shader indexes by layer.
+void Terrain3DData::enable_streaming(const int p_slot_capacity) {
+	ERR_FAIL_COND_MSG(!_regions.is_empty(), "enable_streaming must run before any region is loaded");
+	ERR_FAIL_NULL(_terrain);
+	int rs = _terrain->get_region_size();
+	ERR_FAIL_COND_MSG(rs < 64, "Set Terrain3D.region_size before enabling streaming");
+	_region_size = rs;
+	_region_sizev = V2I(rs);
+	_streaming = true;
+	// The shader's per layer tables are fixed vec2[1024]/int[1024] uniforms
+	_slot_capacity = CLAMP(p_slot_capacity, 25, 1024);
+	LOG(INFO, "Streaming enabled: ", _slot_capacity, " slots of ", rs, " px");
+	_free_slots.clear();
+	_slot_of.clear();
+	_slot_locs.clear();
+	_slot_locs.resize(_slot_capacity);
+	for (int i = _slot_capacity - 1; i >= 0; i--) {
+		_free_slots.push_back(i);
+		_slot_locs[i] = Vector2i(INT32_MAX, INT32_MAX);
+	}
+	// Allocate the pooled arrays once, full of blanks. The RenderingServer copies
+	// pixel data at create, so one shared blank per map type is fine. The color blank
+	// is mipmapped like sanitize_maps() leaves every region color map, or the layer
+	// would reject each insertion's mipmapped texture update
+	Ref<Image> blank_h = Util::get_filled_image(V2I(rs), COLOR[TYPE_HEIGHT], false, FORMAT[TYPE_HEIGHT]);
+	Ref<Image> blank_c = Util::get_filled_image(V2I(rs), COLOR[TYPE_CONTROL], false, FORMAT[TYPE_CONTROL]);
+	Ref<Image> blank_col = Util::get_filled_image(V2I(rs), COLOR[TYPE_COLOR], true, FORMAT[TYPE_COLOR]);
+	TypedArray<Image> hl, cl, coll;
+	for (int i = 0; i < _slot_capacity; i++) {
+		hl.push_back(blank_h);
+		cl.push_back(blank_c);
+		coll.push_back(blank_col);
+	}
+	_generated_height_maps.clear();
+	_generated_height_maps.create(hl);
+	_generated_control_maps.clear();
+	_generated_control_maps.create(cl);
+	_generated_color_maps.clear();
+	_generated_color_maps.create(coll);
+	_region_map.clear();
+	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
+	_region_map_dirty = false;
+	emit_signal("region_map_changed");
+	emit_signal("height_maps_changed");
+	emit_signal("control_maps_changed");
+	emit_signal("color_maps_changed");
+	emit_signal("maps_changed");
+}
+
+Error Terrain3DData::add_region_streamed(const Ref<Terrain3DRegion> &p_region) {
+	ERR_FAIL_COND_V(!_streaming, FAILED);
+	ERR_FAIL_COND_V(p_region.is_null(), FAILED);
+	Vector2i loc = p_region->get_location();
+	int map_index = get_region_map_index(loc);
+	ERR_FAIL_COND_V_MSG(map_index < 0, FAILED, "Region location out of bounds");
+	if (_slot_of.has(loc)) {
+		return OK; // already resident
+	}
+	ERR_FAIL_COND_V_MSG(_free_slots.is_empty(), FAILED,
+			"Slot pool exhausted. Terrain3D.streaming_slots must exceed the loaded area");
+	// The pool's texture layers and the coordinate routing are built at _region_size;
+	// a body of any other size would land displaced
+	ERR_FAIL_COND_V_MSG(p_region->get_region_size() != _region_size, FAILED,
+			vformat("Streamed region %s is %d px but the pool is %d px - mixed region sizes in %s",
+					loc, p_region->get_region_size(), _region_size, _terrain != nullptr ? _terrain->get_data_directory() : String()));
+	p_region->sanitize_maps();
+	p_region->set_deleted(false);
+	int slot = _free_slots[_free_slots.size() - 1];
+	_free_slots.remove_at(_free_slots.size() - 1);
+	_slot_of[loc] = slot;
+	_slot_locs[slot] = loc;
+	_regions[loc] = p_region;
+	if (!_region_locations.has(loc)) {
+		_region_locations.push_back(loc);
+	}
+	_region_map[map_index] = slot + 1;
+	_generated_height_maps.update(p_region->get_height_map(), slot);
+	_generated_control_maps.update(p_region->get_control_map(), slot);
+	if (p_region->get_color_map().is_valid()) {
+		_generated_color_maps.update(p_region->get_color_map(), slot);
+	}
+	calc_height_range();
+	// Consumers follow signals: the material re-sends the region map and slot
+	// locations (the array RIDs never change), and height_maps_changed refreshes the
+	// mesher AABBs. The pool starts blank with a flat height range, so without that
+	// signal every inserted region keeps under-ground AABBs that get culled
+	emit_signal("region_map_changed");
+	emit_signal("maps_changed");
+	emit_signal("height_maps_changed");
+	// Per region MMI build only. A rebuild (third argument true) queues a
+	// destroy and rebuild of every instance in the world, which turns each
+	// insertion into a global hitch on instanced terrains
+	if (_terrain != nullptr && _terrain->get_instancer() != nullptr) {
+		_terrain->get_instancer()->update_mmis(-1, loc, false);
+	}
+	return OK;
+}
+
+Error Terrain3DData::evict_region(const Vector2i &p_region_loc, const String &p_save_dir) {
+	ERR_FAIL_COND_V(!_streaming, FAILED);
+	if (!_slot_of.has(p_region_loc)) {
+		return FAILED;
+	}
+	Ref<Terrain3DRegion> region = get_region(p_region_loc);
+	// Streaming is a read-only view of the data on disk: eviction drops a region without
+	// writing it back. In the editor the pin is the authority on unsaved edits (is_modified
+	// is polluted by deform re-carve and undo's map refresh), so only pinned regions are
+	// written; at runtime the write-back is opt-in through streaming_persist_edits. Either
+	// way, non-opted saves go exclusively through explicit save_directory/save_region.
+	bool persist = _terrain != nullptr && _terrain->get_streaming_persist_edits();
+	bool needs_save = IS_EDITOR ? is_region_pinned(p_region_loc) : (persist && region->is_modified());
+	if (region.is_valid() && needs_save && !p_save_dir.is_empty()) {
+		save_region(p_region_loc, p_save_dir, _terrain != nullptr && _terrain->get_save_16_bit());
+	}
+	int slot = _slot_of[p_region_loc];
+	_slot_of.erase(p_region_loc);
+	_slot_locs[slot] = Vector2i(INT32_MAX, INT32_MAX);
+	_free_slots.push_back(slot);
+	int map_index = get_region_map_index(p_region_loc);
+	if (map_index >= 0) {
+		_region_map[map_index] = 0; // the stale texture layer is now unreachable
+	}
+	_regions.erase(p_region_loc);
+	int idx = _region_locations.find(p_region_loc);
+	if (idx >= 0) {
+		_region_locations.remove_at(idx);
+	}
+	// The region is gone from _regions, so the per region update path would skip
+	// it and leave its instances rendering; destroy its MMIs directly
+	if (_terrain != nullptr && _terrain->get_instancer() != nullptr) {
+		_terrain->get_instancer()->destroy_mmis_by_region(p_region_loc);
+	}
+	emit_signal("region_map_changed");
+	emit_signal("maps_changed");
+	return OK;
+}
+
+// Whether a region is loaded, only on disk (streaming), or nowhere. Lets edit paths
+// decide to stream a region in before writing to it.
+Terrain3DData::RegionState Terrain3DData::get_region_load_state(const Vector2i &p_region_loc) const {
+	if (_regions.has(p_region_loc)) {
+		return REGION_RESIDENT;
+	}
+	if (_terrain != nullptr && _terrain->has_region_on_disk(p_region_loc)) {
+		return REGION_UNLOADED;
+	}
+	return REGION_ABSENT;
+}
+
+// Loads an on-disk-but-unloaded region into the pool immediately so an edit can touch it.
+// Loads first, then frees a slot by evicting the farthest unpinned region; if every slot
+// is pinned, returns null so the caller can report the pool is full.
+Ref<Terrain3DRegion> Terrain3DData::ensure_region_resident(const Vector2i &p_region_loc) {
+	if (_regions.has(p_region_loc)) {
+		return get_region(p_region_loc);
+	}
+	if (_terrain == nullptr || !_streaming || !_terrain->has_region_on_disk(p_region_loc)) {
+		return Ref<Terrain3DRegion>();
+	}
+	// Load before evicting anything, so a failed or size-mismatched load never destroys a
+	// live region for nothing.
+	String path = _terrain->get_data_directory() + String("/") + Util::location_to_filename(p_region_loc);
+	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+	if (region.is_null()) {
+		LOG(ERROR, "Could not load region for edit: ", path);
+		return Ref<Terrain3DRegion>();
+	}
+	region->take_over_path(path);
+	region->set_location(p_region_loc);
+	if (region->get_region_size() != _region_size) {
+		LOG(ERROR, "Region ", p_region_loc, " is ", region->get_region_size(), " px but the pool is ", _region_size, " px");
+		return Ref<Terrain3DRegion>();
+	}
+	if (_free_slots.is_empty()) {
+		Vector2i victim = V2I_MAX;
+		real_t best = -1.f;
+		for (const KeyValue<Vector2i, int> &kv : _slot_of) {
+			if (_pinned_regions.has(kv.key)) {
+				continue;
+			}
+			real_t d = Vector2(kv.key - p_region_loc).length();
+			if (d > best) {
+				best = d;
+				victim = kv.key;
+			}
+		}
+		if (victim == V2I_MAX) {
+			LOG(WARN, "Streaming pool full of unsaved edits; cannot load ", p_region_loc, ". Save regions to free room");
+			return Ref<Terrain3DRegion>();
+		}
+		evict_region(victim, _terrain->get_data_directory());
+	}
+	if (add_region_streamed(region) != OK) {
+		return Ref<Terrain3DRegion>();
+	}
+	return region;
+}
+
+// Discards a region's unsaved editor edits: unpins it, drops the in-memory copy without
+// saving, and reloads the on-disk version. Lets an author revert one region without walking
+// the undo stack. No effect when not streaming or when the region is not on disk.
+Ref<Terrain3DRegion> Terrain3DData::revert_region(const Vector2i &p_region_loc) {
+	if (!_streaming) {
+		return Ref<Terrain3DRegion>();
+	}
+	set_region_pinned(p_region_loc, false);
+	if (get_region_load_state(p_region_loc) == REGION_RESIDENT) {
+		evict_region(p_region_loc, String()); // drop without persisting the edit
+	}
+	return ensure_region_resident(p_region_loc); // reload the on-disk version
+}
+
+// Pins a region so streaming keeps it resident and undoable until it is saved. The editor
+// pins a region when it edits it and unpins it on save.
+void Terrain3DData::set_region_pinned(const Vector2i &p_region_loc, const bool p_pinned) {
+	if (p_pinned) {
+		_pinned_regions.insert(p_region_loc);
+	} else {
+		_pinned_regions.erase(p_region_loc);
+	}
+}
+
+// The locations of every pinned (unsaved editor edit) region, for the streaming dock.
+TypedArray<Vector2i> Terrain3DData::get_pinned_locations() const {
+	TypedArray<Vector2i> locs;
+	for (const Vector2i &loc : _pinned_regions) {
+		locs.push_back(loc);
+	}
+	return locs;
+}
+
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
 	// Generate region color mipmaps
 	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
@@ -454,8 +756,15 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		}
 	}
 
+	// While streaming, membership and layers are managed per slot by
+	// add_region_streamed and evict_region; a full rebuild here would re-enumerate
+	// ids and collapse the pool. Only the per region edited updates at the tail
+	// apply; get_region_id returns the slot so they hit the right layer
+	if (_streaming) {
+		_region_map_dirty = false;
+	}
 	// Mark texture arrays dirty for rebuilding
-	if (p_all_regions) {
+	if (!_streaming && p_all_regions) {
 		LOG(EXTREME, "Marking dirty maps of type: ", p_map_type);
 		switch (p_map_type) {
 			case TYPE_HEIGHT:
@@ -606,6 +915,9 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 		return;
 	}
 	Vector2i region_loc = get_region_location(p_global_position);
+	if (!_regions.has(region_loc) && _streaming) {
+		ensure_region_resident(region_loc); // stream the region in so the write can land
+	}
 	Terrain3DRegion *region = get_region_ptr(region_loc);
 	if (!region) {
 		LOG(ERROR, "No active region found at: ", p_global_position);
@@ -623,6 +935,9 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 	if (map) {
 		map->set_pixelv(img_pos, p_pixel);
 		region->set_modified(true);
+		if (IS_EDITOR && _streaming) {
+			set_region_pinned(region_loc, true); // hold the edit resident until saved
+		}
 	}
 }
 
@@ -1185,6 +1500,10 @@ void Terrain3DData::_bind_methods() {
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_NEAREST);
 	BIND_ENUM_CONSTANT(HEIGHT_FILTER_MINIMUM);
 
+	BIND_ENUM_CONSTANT(REGION_RESIDENT);
+	BIND_ENUM_CONSTANT(REGION_UNLOADED);
+	BIND_ENUM_CONSTANT(REGION_ABSENT);
+
 	BIND_CONSTANT(REGION_MAP_SIZE);
 
 	ClassDB::bind_method(D_METHOD("get_region_count"), &Terrain3DData::get_region_count);
@@ -1203,6 +1522,12 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DData::get_region_idp);
 
 	ClassDB::bind_method(D_METHOD("has_region", "region_location"), &Terrain3DData::has_region);
+	ClassDB::bind_method(D_METHOD("get_region_load_state", "region_location"), &Terrain3DData::get_region_load_state);
+	ClassDB::bind_method(D_METHOD("ensure_region_resident", "region_location"), &Terrain3DData::ensure_region_resident);
+	ClassDB::bind_method(D_METHOD("revert_region", "region_location"), &Terrain3DData::revert_region);
+	ClassDB::bind_method(D_METHOD("set_region_pinned", "region_location", "pinned"), &Terrain3DData::set_region_pinned);
+	ClassDB::bind_method(D_METHOD("is_region_pinned", "region_location"), &Terrain3DData::is_region_pinned);
+	ClassDB::bind_method(D_METHOD("get_pinned_locations"), &Terrain3DData::get_pinned_locations);
 	ClassDB::bind_method(D_METHOD("has_regionp", "global_position"), &Terrain3DData::has_regionp);
 	ClassDB::bind_method(D_METHOD("get_region", "region_location"), &Terrain3DData::get_region);
 	ClassDB::bind_method(D_METHOD("get_regionp", "global_position"), &Terrain3DData::get_regionp);
@@ -1223,6 +1548,12 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("save_region", "region_location", "directory", "save_16_bit"), &Terrain3DData::save_region, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("load_directory", "directory"), &Terrain3DData::load_directory);
 	ClassDB::bind_method(D_METHOD("load_region", "region_location", "directory", "update"), &Terrain3DData::load_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("enable_streaming", "slot_capacity"), &Terrain3DData::enable_streaming);
+	ClassDB::bind_method(D_METHOD("is_streaming"), &Terrain3DData::is_streaming);
+	ClassDB::bind_method(D_METHOD("get_slot_capacity"), &Terrain3DData::get_slot_capacity);
+	ClassDB::bind_method(D_METHOD("get_free_slot_count"), &Terrain3DData::get_free_slot_count);
+	ClassDB::bind_method(D_METHOD("add_region_streamed", "region"), &Terrain3DData::add_region_streamed);
+	ClassDB::bind_method(D_METHOD("evict_region", "region_location", "save_directory"), &Terrain3DData::evict_region);
 
 	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DData::get_height_maps);
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);

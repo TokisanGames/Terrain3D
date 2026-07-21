@@ -82,9 +82,12 @@ private:
 	Array _operation_movement_history;
 	bool _is_operating = false;
 	uint64_t _last_region_bounds_error = 0;
+	uint64_t _last_readonly_notice = 0;
+	uint32_t _edit_index = 0; // Monotonic id for the streaming history panel's rows
 	TypedArray<Terrain3DRegion> _original_regions; // Queue for undo
 	TypedArray<Terrain3DRegion> _edited_regions; // Queue for redo
 	TypedArray<Vector2i> _added_removed_locations; // Queue for added/removed locations
+	HashSet<Vector2i> _streamed_in_regions; // Regions streamed in this stroke; edited only on the next one
 	AABB _modified_area;
 	Dictionary _undo_data; // See _get_undo_data for definition
 	uint64_t _last_pen_tick = 0;

@@ -21,6 +21,7 @@
 #include "terrain_3d_instancer.h"
 #include "terrain_3d_material.h"
 #include "terrain_3d_mesher.h"
+#include "terrain_3d_streamer.h"
 
 class Terrain3D : public Node3D {
 	GDCLASS(Terrain3D, Node3D);
@@ -56,6 +57,7 @@ private:
 	Terrain3DData *_data = nullptr;
 	Ref<Terrain3DAssets> _assets;
 	Terrain3DCollision *_collision = nullptr;
+	Terrain3DStreamer *_streamer = nullptr;
 	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DEditor *_editor = nullptr;
 	Object *_editor_plugin = nullptr;
@@ -133,6 +135,11 @@ private:
 	void _destroy_containers();
 	void _destroy_labels();
 
+	void _reinitialize();
+	void _reinit_streaming_pool();
+	void _flush_pinned_edits(const char *p_reason);
+	bool _suspend_streaming_for_full_residency(bool &r_was_enabled);
+	void _resume_streaming(const bool r_was_enabled);
 	void _setup_mouse_picking();
 	void _destroy_mouse_picking();
 	void _destroy_instancer();
@@ -158,6 +165,7 @@ public:
 
 	// Object references
 	Terrain3DData *get_data() const { return _data; }
+	Terrain3DStreamer *get_streamer() const { return _streamer; }
 	void set_assets(const Ref<Terrain3DAssets> &p_assets);
 	Ref<Terrain3DAssets> get_assets() const { return _assets; }
 	Terrain3DCollision *get_collision() const { return _collision; }
@@ -191,6 +199,33 @@ public:
 	void set_light_target(Node3D *p_node);
 	Node3D *get_light_target() const { return _light_target.ptr(); }
 	void snap();
+
+	// Streaming Aliases
+	void set_streaming_enabled(const bool p_enabled);
+	bool get_streaming_enabled() const { return _streamer ? _streamer->is_enabled() : false; }
+	void set_editor_streaming(const bool p_enabled);
+	bool get_editor_streaming() const { return _streamer ? _streamer->is_editor_streaming() : false; }
+	bool is_streaming_active() const { return _streamer ? _streamer->is_active() : false; }
+	void set_streaming_shape(const StreamShape p_shape) { _streamer ? _streamer->set_shape(p_shape) : void(); }
+	StreamShape get_streaming_shape() const { return _streamer ? _streamer->get_shape() : StreamShape::SQUARE; }
+	void set_streaming_mode(const StreamMode p_mode) { _streamer ? _streamer->set_mode(p_mode) : void(); }
+	StreamMode get_streaming_mode() const { return _streamer ? _streamer->get_mode() : StreamMode::DISK; }
+	void set_streaming_distance(const int p_distance);
+	int get_streaming_distance() const { return _streamer ? _streamer->get_distance() : 4; }
+	void set_editor_streaming_distance(const int p_distance);
+	int get_editor_streaming_distance() const { return _streamer ? _streamer->get_editor_distance() : 2; }
+	void set_streaming_slots(const int p_slots);
+	int get_streaming_slots() const { return _streamer ? _streamer->get_slots() : 121; }
+	void set_streaming_concurrent_loads(const int p_count) { _streamer ? _streamer->set_concurrent_loads(p_count) : void(); }
+	int get_streaming_concurrent_loads() const { return _streamer ? _streamer->get_concurrent_loads() : 3; }
+	void set_streaming_loads_per_frame(const int p_count) { _streamer ? _streamer->set_loads_per_frame(p_count) : void(); }
+	int get_streaming_loads_per_frame() const { return _streamer ? _streamer->get_loads_per_frame() : 1; }
+	void set_streaming_skip_version_upgrade(const bool p_skip) { _streamer ? _streamer->set_skip_version_upgrade(p_skip) : void(); }
+	bool get_streaming_skip_version_upgrade() const { return _streamer ? _streamer->get_skip_version_upgrade() : true; }
+	void set_streaming_persist_edits(const bool p_enabled) { _streamer ? _streamer->set_persist_edits(p_enabled) : void(); }
+	bool get_streaming_persist_edits() const { return _streamer ? _streamer->get_persist_edits() : false; }
+	Dictionary get_streaming_stats() const { return _streamer ? _streamer->get_stats() : Dictionary(); }
+	bool has_region_on_disk(const Vector2i &p_region_loc) const { return _streamer ? _streamer->is_location_known(p_region_loc) : false; }
 
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }
@@ -275,6 +310,7 @@ public:
 	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const uint32_t p_col_mask = 0xFFFFFFFF, const bool p_exclude_self = false) const;
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
+	Error export_image(const String &p_file_name, const MapType p_map_type);
 
 	// Warnings
 	void set_warning(const uint8_t p_warning, const bool p_enabled);

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Terrain3DStreamer" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+	</brief_description>
+	<description>
+		This class manages runtime region streaming. Regions around the clipmap target are loaded on background threads and evicted as the target moves away, so memory scales with the loaded area instead of the whole terrain. It works with the slot pool in [Terrain3DData]; see [method Terrain3DData.enable_streaming].
+		Settings are exposed as aliases on the [Terrain3D] node (e.g. [member Terrain3D.streaming_enabled]), which is also where they are saved. Streaming only runs outside the editor; the editor always keeps the full terrain loaded.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="abort_pending">
+			<return type="void" />
+			<description>
+				Consumes and drops every in flight threaded load. An unconsumed threaded load stays pinned in the ResourceLoader forever, so this runs whenever streaming stops: rescans, disabling streaming at runtime, and leaving the tree.
+			</description>
+		</method>
+		<method name="get_max_distance" qualifiers="const">
+			<return type="int" />
+			<description>
+				The largest [member distance] the current [member slots] capacity can hold with the current [member shape].
+			</description>
+		</method>
+		<method name="get_required_slots" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="distance" type="int" />
+			<description>
+				How many pool slots the given distance needs with the current [member shape], including the one region hysteresis band. Square: (2 * (distance + 1) + 1)².
+			</description>
+		</method>
+		<method name="get_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns live streaming counters: [code skip-lint]streaming_active[/code], [code skip-lint]resident[/code], [code skip-lint]free_slots[/code], [code skip-lint]inflight[/code], [code skip-lint]failed[/code], [code skip-lint]known[/code], [code skip-lint]landed_total[/code], [code skip-lint]evicted_total[/code], and [code skip-lint]land_ms_avg[/code] (an exponential moving average of an insertion's main thread cost in ms). Useful for debug overlays and tests.
+			</description>
+		</method>
+		<method name="is_active" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code skip-lint]true[/code] when streaming is enabled and either the game is running outside the editor or [member editor_streaming] is on.
+			</description>
+		</method>
+		<method name="get_failed_locations" qualifiers="const">
+			<return type="Vector2i[]" />
+			<description>
+				Returns the region locations whose file failed to load and will not be retried. For the streaming dock and debug overlays.
+			</description>
+		</method>
+		<method name="get_known_locations" qualifiers="const">
+			<return type="Vector2i[]" />
+			<description>
+				Returns every region location found on disk, whether or not it is currently resident. Kept current as regions are saved and deleted. For the streaming dock and debug overlays.
+			</description>
+		</method>
+		<method name="get_pending_locations" qualifiers="const">
+			<return type="Vector2i[]" />
+			<description>
+				Returns the region locations with a threaded load in flight. For the streaming dock and debug overlays.
+			</description>
+		</method>
+		<method name="is_location_known" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="location" type="Vector2i" />
+			<description>
+				Returns [code skip-lint]true[/code] when a region file exists on disk at [param location]. The set is seeded by the boot directory scan and kept current as regions are saved, created, or deleted, so it stays authoritative for the editor overwrite guards and the streaming dock's on-disk cells.
+			</description>
+		</method>
+		<method name="scan_directory">
+			<return type="void" />
+			<description>
+				Scans the data directory for region locations and resets streaming state. Only file names are read, nothing is loaded. Called automatically at initialization while streaming is active; call it manually to refresh the known-set after region files change on disk outside the streamer.
+			</description>
+		</method>
+		<method name="step">
+			<return type="void" />
+			<description>
+				Runs the streaming state machine once: evicts regions that fell outside the loaded area, inserts completed loads, and requests missing regions. Called automatically once per physics frame while streaming is active.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="concurrent_loads" type="int" setter="set_concurrent_loads" getter="get_concurrent_loads" default="3">
+			How many regions may be loading on background threads at once. Loading runs wide while insertions stay narrow; see [member loads_per_frame].
+		</member>
+		<member name="distance" type="int" setter="set_distance" getter="get_distance" default="4">
+			How far the loaded area extends from the clipmap target, in regions. For example, 4 with a square [member shape] keeps a 9x9 block of regions loaded (the target region plus 4 in every direction); a circle of the same radius keeps fewer. In world units the radius is distance x region_size x vertex_spacing.
+			Higher values load more of the world at once and cost more memory. Raising distance automatically raises [member slots] to fit, so it just works; lowering slots below what the current distance needs pulls distance back down (with a warning). The maximum is bounded by the 1024 slot ceiling (square shape tops out at distance 14).
+		</member>
+		<member name="editor_distance" type="int" setter="set_editor_distance" getter="get_editor_distance" default="2">
+			The loaded radius used while [member editor_streaming] is on, separate from the runtime [member distance] so the editor can hold a tighter window than the shipping game. Like [member distance] it grows the shared [member slots] pool to fit. Ignored at runtime and when editor streaming is off.
+		</member>
+		<member name="editor_streaming" type="bool" setter="set_editor_streaming" getter="is_editor_streaming" default="false">
+			Opts the editor in to streaming. Off by default because the editor writes and several editor systems assume the whole world is resident, so leave it off unless you are opening a world too large to hold in memory. When on, [member enabled] takes effect inside the editor and the editor camera drives the loaded window.
+			Alias target of [member Terrain3D.streaming_editor].
+		</member>
+		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="false">
+			Enables region streaming. Instead of loading every region up front, regions within [member distance] of the clipmap target are loaded on background threads and evicted as the target moves away. Eviction drops a region without writing it back unless [member persist_edits] is on. Inside the editor this takes effect only when [member editor_streaming] is also on; see [method is_active].
+		</member>
+		<member name="mode" type="int" setter="set_mode" getter="get_mode" enum="Terrain3DStreamer.StreamMode" default="0">
+			What eviction does with a region's data. DISK drops the region; RAM keeps every body cached in memory (and prefetches the rest of the world in the background with spare load budget), so only the GPU layers follow the loaded area and revisits never touch the disk. RAM mode trades memory for the smoothest possible region changes. In either mode a region's edits are written back only when [member persist_edits] is on.
+			Alias target of [member Terrain3D.streaming_mode].
+		</member>
+		<member name="loads_per_frame" type="int" setter="set_loads_per_frame" getter="get_loads_per_frame" default="1">
+			How many completed region loads may be inserted into the terrain per physics frame. Each insertion uploads texture layers and updates collision on the main thread, so raising this trades hitching for faster fill in.
+		</member>
+		<member name="persist_edits" type="bool" setter="set_persist_edits" getter="get_persist_edits" default="false">
+			Whether a region modified at runtime is written back to the data directory when it is evicted (and, in RAM mode, when the cache is flushed). Off by default: streaming is a read-only view of the data on disk, so eviction just drops the region and a revisit reloads the on-disk version. Turn it on for a world that should persist runtime edits; otherwise save explicitly with [method Terrain3DData.save_directory]. Note that persisting can overwrite an edit made to the same region file by another process while the region was resident.
+			Alias target of [member Terrain3D.streaming_persist_edits].
+		</member>
+		<member name="shape" type="int" setter="set_shape" getter="get_shape" enum="Terrain3DStreamer.StreamShape" default="0">
+			The shape of the loaded area around the clipmap target: a square block or a circle of radius [member distance]. A circle loads ~21% fewer regions at the same distance.
+		</member>
+		<member name="skip_version_upgrade" type="bool" setter="set_skip_version_upgrade" getter="get_skip_version_upgrade" default="true">
+			When [code skip-lint]true[/code], a region loaded from an older data version is not restamped to the current version on insertion. Restamping marks the region modified, so without this a session that merely pans over an old world writes every region back to disk as it evicts. With it, a region upgrades and saves only when a real edit modifies it.
+		</member>
+		<member name="slots" type="int" setter="set_slots" getter="get_slots" default="121">
+			Capacity of the pooled texture arrays, in regions. Sized automatically when you raise [member distance] (the pool must hold every region within distance + 1 for hysteresis: (2 * (distance + 1) + 1)² for a square shape, so 25 at distance 1, 121 at distance 4). Set it directly only to reserve extra headroom; setting it below what the current distance needs clamps distance down. Changing it while streaming rebuilds the terrain data at the new capacity.
+		</member>
+	</members>
+	<constants>
+		<constant name="SQUARE" value="0" enum="StreamShape">
+			The loaded area is a square block of regions around the clipmap target.
+		</constant>
+		<constant name="CIRCLE" value="1" enum="StreamShape">
+			The loaded area is a circle of regions around the clipmap target.
+		</constant>
+		<constant name="DISK" value="0" enum="StreamMode">
+			Evicted regions save (if modified) and drop; RAM and GPU both follow the loaded area.
+		</constant>
+		<constant name="RAM" value="1" enum="StreamMode">
+			Region bodies stay cached in RAM; only the GPU layers follow the loaded area.
+		</constant>
+	</constants>
+</class>

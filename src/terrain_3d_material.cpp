@@ -790,7 +790,10 @@ void Terrain3DMaterial::destroy() {
 }
 
 void Terrain3DMaterial::update(uint32_t p_flags) {
-	if (p_flags & FULL_REBUILD) {
+	// Test the dedicated shader bit only: FULL_REBUILD is a superset mask, and
+	// `& FULL_REBUILD` matched every non-zero flag - a maps_changed signal
+	// (REGION_ARRAYS) regenerated and recompiled the whole shader.
+	if (p_flags & SHADER_REBUILD) {
 		_update_shader();
 	}
 	_update_uniforms(_material, p_flags);
