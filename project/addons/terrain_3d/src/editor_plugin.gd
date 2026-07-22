@@ -204,6 +204,9 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 	## Handle mouse movement
 	if p_event is InputEventMouseMotion:
 
+		if ui.live_info_panel:
+			ui.live_info_panel.update(mouse_global_position)
+
 		if _input_mode != -1: # Not cam rotation
 			## Update region highlight
 			var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
