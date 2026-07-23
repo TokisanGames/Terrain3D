@@ -1337,6 +1337,79 @@ void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_regi
 	}
 }
 
+void Terrain3DInstancer::push_from_instancer(const int asset_id) {
+	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(asset_id);
+	if (!ma.is_valid()) {
+		LOG(ERROR, "Invalid asset ID: ", asset_id);
+		return;
+	}
+	LOG(INFO, "Exporting instances to scene for asset id: ", asset_id);
+	const Terrain3DData *data = _terrain->get_data();
+	if (!data) {
+		LOG(ERROR, "No terrain data found. Cannot export.");
+		return;
+	}
+	TypedArray<Vector2i> region_locations = data->get_region_locations();
+	for (const Vector2i &region_loc : region_locations) {
+		const Terrain3DRegion *region = data->get_region_ptr(region_loc);
+		if (!region) {
+			LOG(WARN, "Errant null region found at: ", region_loc);
+			continue;
+		}
+		auto pair = std::make_pair(region_loc, asset_id);
+		if (region->get_instances().has(asset_id)) {
+			//SPAWN INSTANC
+
+			Vector2i region_loc = region->get_location();
+			Dictionary mesh_inst_dict = region->get_instances();
+			// Process cells
+			Dictionary cell_inst_dict = mesh_inst_dict[asset_id];
+			Array cell_locations = cell_inst_dict.keys();
+
+			for (const Vector2i &cell : cell_locations) {
+				Array triple = cell_inst_dict[cell];
+				if (triple.size() < 3) {
+					LOG(WARN, "Triple is empty for region, ", region_loc, ", cell ", cell);
+					continue;
+				}
+				TypedArray<Transform3D> xforms = triple[0];
+				for (const Transform3D &xform : xforms) {
+					Transform3D global_xform;
+					global_xform.basis = xform.basis;
+					global_xform.origin = v2iv3(region_loc * real_t(region->get_region_size()) * _terrain->get_vertex_spacing()) + xform.origin;
+					Node *node_instance = ma->get_scene_file()->instantiate();
+					Node3D *instance = Object::cast_to<Node3D>(node_instance);
+					instance->set_name(ma->get_name());
+					_terrain->add_child(instance, true);
+					instance->set_global_transform(global_xform);
+					instance->set_owner(_terrain->get_owner());
+				}
+			}
+		}
+	}
+	clear_by_mesh(asset_id);
+}
+
+void Terrain3DInstancer::pull_from_scene(const int asset_id) {
+	Ref<Terrain3DMeshAsset> ma = _terrain->get_assets()->get_mesh_asset(asset_id);
+	if (!ma.is_valid()) {
+		LOG(ERROR, "Invalid asset ID: ", asset_id);
+		return;
+	}
+	LOG(INFO, "Importing instances from scene for asset id: ", asset_id);
+	TypedArray<Node> nodes = _terrain->get_children();
+	TypedArray<Transform3D> xforms;
+	for (int i = 0; i < nodes.size(); i++) {
+		Node *node = cast_to<Node>(nodes[i]);
+		if (node && node->get_scene_file_path() == ma->get_scene_file()->get_path()) {
+			LOG(INFO, "Found an instance of ", asset_id, " in scene");
+			xforms.push_back(Object::cast_to<Node3D>(node)->get_global_transform());
+			node->queue_free();
+		}
+	}
+	add_transforms(asset_id, xforms, PackedColorArray(), true);
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1362,6 +1435,8 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_closest_mesh_id", "global_position"), &Terrain3DInstancer::get_closest_mesh_id);
 	ClassDB::bind_method(D_METHOD("update_mmis", "mesh_id", "region_location", "rebuild_all"), &Terrain3DInstancer::update_mmis, DEFVAL(-1), DEFVAL(V2I_MAX), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("swap_ids", "src_id", "dest_id"), &Terrain3DInstancer::swap_ids);
+	ClassDB::bind_method(D_METHOD("pull_from_scene", "asset_id"), &Terrain3DInstancer::pull_from_scene);
+	ClassDB::bind_method(D_METHOD("push_from_instancer", "asset_id"), &Terrain3DInstancer::push_from_instancer);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Disabled,Normal"), "set_mode", "get_mode");
 }
