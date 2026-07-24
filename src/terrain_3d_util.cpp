@@ -369,6 +369,30 @@ Ref<Image> Terrain3DUtil::load_image(const String &p_file_name, const int p_cach
 	return img;
 }
 
+Ref<Image> Terrain3DUtil::load_raw_image(const String &p_file_name, const int p_width, const int p_height) {
+	if (p_file_name.is_empty()) {
+		LOG(ERROR, "No file specified. Nothing imported");
+		return Ref<Image>();
+	}
+	if (!FileAccess::file_exists(p_file_name)) {
+		LOG(ERROR, "File ", p_file_name, " does not exist. Nothing to import");
+		return Ref<Image>();
+	}
+	Ref<FileAccess> file = FileAccess::open(p_file_name, FileAccess::READ);
+	int expected_length = p_width * p_height * 4;
+	int actual_length = file->get_length();
+	if (actual_length < expected_length) {
+		LOG(ERROR, "File ", p_file_name, " is smaller than expected");
+		file->close();
+		return Ref<Image>();
+	} else if (actual_length > expected_length) {
+		LOG(WARN, "File ", p_file_name, " is bigger than expected. Extra bytes will be ignored");
+	}
+	PackedByteArray data = file->get_buffer(expected_length);
+	file->close();
+	return Image::create_from_data(p_width, p_height, false, Image::FORMAT_RGBA8, data);
+}
+
 /* From source RGB and selected source for Alpha channel, create a new RGBA image.
  * If p_invert_green is true, the destination green channel will be 1.0 - input green channel.
  * If p_invert_alpha is true, the destination alpha channel will be 1.0 - input source channel.
@@ -554,6 +578,7 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(V2I(256)));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_filled_image", "size", "color", "create_mipmaps", "format"), &Terrain3DUtil::get_filled_image);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Terrain3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0.f, 255.f)), DEFVAL(V2I_ZERO));
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("load_raw_image", "file_name", "width", "height"), &Terrain3DUtil::load_raw_image);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "src_ao", "invert_green", "invert_alpha", "normalize_alpha", "alpha_channel", "ao_channel"), &Terrain3DUtil::pack_image, DEFVAL(false), DEFVAL(false), DEFVAL(false), DEFVAL(0), DEFVAL(0));
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("luminance_to_height", "src_rgb"), &Terrain3DUtil::luminance_to_height);
 }

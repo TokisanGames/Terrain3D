@@ -13,6 +13,9 @@ func reset_settings() -> void:
 	height_file_name = ""
 	control_file_name = ""
 	color_file_name = ""
+	import_splat_maps = false
+	splat_map_paths.clear()
+	material_ids.clear()
 	destination_directory = ""
 	import_position = Vector2i.ZERO
 	height_offset = 0.0
@@ -44,6 +47,16 @@ func update_heights() -> void:
 @export_global_file var control_file_name: String = ""
 ## Any RGB or RGBA format is fine; PNG or Webp are recommended.
 @export_global_file var color_file_name: String = ""
+
+@export_subgroup("Advanced")
+## Enable to import splat maps.
+@export var import_splat_maps: bool = false
+## Should use RGBA format; PNG recommended. Must match size of heightmap. Max 8 splat maps supported.
+@export_global_file var splat_map_paths: Array[String]
+## Mark used channels with the corresponding index. Mark -1 for unused.
+@export var material_ids: PackedInt32Array
+@export_subgroup("")
+
 ## The top left (-X, -Y) corner position of where to place the imported data. Positions are descaled and ignore the vertex_spacing setting.
 @export var import_position: Vector2i = Vector2i(0, 0) : set = set_import_position
 ## This scales the height of imported values.
@@ -92,6 +105,23 @@ func start_import() -> void:
 			material.show_colormap = true
 	var pos := Vector3(import_position.x * vertex_spacing, 0, import_position.y * vertex_spacing)
 	data.import_images(imported_images, pos, height_offset, import_scale)
+
+	if import_splat_maps:
+		if splat_map_paths.is_empty():
+			push_error("The list of splat maps is empty")
+		elif splat_map_paths.size() > 8:
+			push_error("There can be max 8 splat maps because max 32 textures can be represented")
+		else:
+			var splat_images : Array[Image]
+			var splat_tex_array : Texture2DArray = Texture2DArray.new()
+			for file : String in splat_map_paths:
+				var splat : Texture2D = ResourceLoader.load(file, "Texture2D", ResourceLoader.CACHE_MODE_IGNORE)
+				var splat_img : Image = splat.get_image()
+				if splat_img.is_compressed():
+					splat_img.decompress()
+				splat_images.append(splat_img)
+			data.set_splat_channel_to_material_list(material_ids, splat_images.size())
+			data.import_splat_map(splat_images, pos)
 	print("Terrain3DImporter: Import finished")
 
 
