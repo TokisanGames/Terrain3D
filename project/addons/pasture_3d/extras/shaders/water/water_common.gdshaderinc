@@ -155,9 +155,31 @@ uniform sampler2D detail_deriv : hint_normal, filter_linear_mipmap, repeat_enabl
 #else
 uniform sampler2D detail_deriv : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 #endif
-// Slope multiplier. 1.0 = the texture as authored (see tools/gen_water_textures.py:
-// ~1.2 cm RMS ripples over a 10 m tile).
-uniform float detail_strength : hint_range(0.0, 4.0, 0.01) = 1.0;
+// Slope multiplier, in units of the texture's FULL SCALE -- not in m/m, and not
+// "the texture as authored", which is what this comment used to claim and what
+// the 1.0 default was chosen to mean.
+//
+// The generator computes a real derivative in m/m and then normalises it by its
+// own 99.5th percentile before quantising, and that divisor is printed and thrown
+// away (tools/gen_water_textures.py). So the stored value is a FRACTION of full
+// scale, and reproducing the authored slope needs the divisor back:
+//
+//   full scale        0.422 m/m     <- authored, from the generator
+//   stored rms        0.277         <- per layer, measured off the shipped PNG
+//   authored rms      0.117 m/m     <- 0.277 * 0.422
+//
+// At the old default of 1.0 the two summed layers reached an rms slope of 0.39
+// with excursions past 2.0: normals tilted far enough to point the reflection
+// vector BELOW the horizon, which is why the ocean picked up the sky's brown
+// ground hemisphere as rust-coloured speckle. The same number also feeds
+// variance_to_roughness, so distant water was getting +0.55 roughness and going
+// out as flat grey slabs. One uniform, wrong at both ends of the distance range.
+//
+// 0.25 gives ~0.10 rms slope over both layers, which is the right order for
+// wind-ruffled water at the sub-10 m scale the Gerstner table does not cover
+// (§3.1 floors it at 10 m). Pinned by Phase 5 gate E, which asserts the composed
+// slope numerically and uses 1.0 as the control that must fail.
+uniform float detail_strength : hint_range(0.0, 4.0, 0.01) = 0.25;
 // Tiles per metre. The two are deliberately non-harmonic: at a simple ratio the
 // layers re-align at a fixed period and the eye finds the tile immediately.
 uniform float detail_scale0 : hint_range(0.001, 1.0, 0.001) = 0.1;
@@ -235,6 +257,18 @@ varying vec3 v_world_pos;
 varying vec3 v_wave_normal; // world space, from the analytic Gerstner sum
 varying float v_jacobian;   // crest-steepness signal, drives whitecaps (§3.1)
 varying float v_view_dist;
+// The UNDISPLACED height of the sheet: sea_level for the clipmap, the mesh's own
+// y for a plain MeshInstance3D. Carried so the fragment stage can ask "is the
+// camera under the water" without knowing which of those two it is.
+//
+// Needed because the two-sided flip cannot be decided from FRONT_FACING alone.
+// Water is depth_draw_never, so it does not occlude itself, and cull_disabled
+// therefore rasterises the far side of every wave crest -- fragments a solid
+// surface would have hidden. Flipping those gave them a downward normal and they
+// shaded as dark dashes across the mid-distance (§8.6). The flip is only ever
+// right when the VIEWER is underneath, which is a property of the camera, not of
+// the triangle.
+varying float v_base_y;
 
 // ---------------------------------------------------------------------------
 // Helpers

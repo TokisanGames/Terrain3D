@@ -167,10 +167,28 @@ def make_derivative_map():
     rgb[..., 1] = np.round((d[..., 1] * 0.5 + 0.5) * 255.0).astype(np.uint8)
     # rgb[..., 2] stays 0 -- see the module docstring.
 
+    stored_rms = float(np.sqrt((d ** 2).mean()))
     print(
         "T_water_deriv: %d^2, tile %.1f m, full-scale slope %.3f m/m, "
         "rms %.3f, %.2f%% clipped"
-        % (n, DERIV_TILE_M, full_scale, float(np.sqrt((d ** 2).mean())), clipped * 100.0)
+        % (n, DERIV_TILE_M, full_scale, stored_rms, clipped * 100.0)
+    )
+    # The normalisation above is the one thing about this texture the shader cannot
+    # recover on its own, and printing it is not enough -- it was printed before,
+    # and the shader still shipped with detail_strength = 1.0 meaning "the 99.5th
+    # percentile" while its comment claimed it meant "the slope as authored". Two
+    # summed layers then reached an rms slope of 0.39 and tilted normals below the
+    # horizon. So state the consequence, not just the input.
+    shipped_strength = 0.25
+    # The shader multiplies the DECODED value by detail_strength and uses the
+    # result as slope in m/m, so its applied slope is in stored units, not in the
+    # authored ones. Two scrolled layers of the same field add in quadrature.
+    applied_rms = stored_rms * shipped_strength * (2.0 ** 0.5)
+    print(
+        "  -> authored slope: %.3f m/m rms per layer (stored rms %.3f x full scale)\n"
+        "     detail_strength = %.3f would reproduce it exactly; shipped default is %.2f,\n"
+        "     which applies %.3f m/m rms over both layers."
+        % (stored_rms * full_scale, stored_rms, full_scale, shipped_strength, applied_rms)
     )
     return rgb
 
