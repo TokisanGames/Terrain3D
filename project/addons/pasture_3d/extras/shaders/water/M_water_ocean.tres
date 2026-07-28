@@ -1,0 +1,49 @@
+; Pasture3D Water — Ocean preset, high tier. Spec §6.
+;
+; The default for Pasture3D.ocean_material (constants.h OCEAN_MATERIAL_PATH).
+;
+; Note what is NOT here: the wave table. For the ocean the waves are generated in
+; C++ and uploaded every time a knob changes, because the CPU height query has to
+; read the identical table (§4.2, §4.3). Setting `_waves` here would be
+; overwritten on the first update and would make the query disagree with the
+; surface in the meantime. Shape the ocean's waves with the ocean_wave_* group on
+; the Pasture3D node, not with this resource.
+;
+; The lake and pond presets DO ship a table, because nothing runs in C++ for a
+; material dropped on a bare MeshInstance3D.
+[gd_resource type="ShaderMaterial" load_steps=4 format=3]
+
+[ext_resource type="Shader" uid="uid://dwc65bc2s82vl" path="res://addons/pasture_3d/extras/shaders/water/water_ocean.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://phek6xr2elbp" path="res://addons/pasture_3d/extras/shaders/water/T_water_deriv.png" id="2_deriv"]
+[ext_resource type="Texture2D" uid="uid://c54c0ur15poks" path="res://addons/pasture_3d/extras/shaders/water/T_water_foam.png" id="3_foam"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/absorption = Vector3(0.35, 0.08, 0.05)
+shader_parameter/deep_color = Color(0.015, 0.05, 0.08, 1)
+shader_parameter/sea_level = 0.0
+shader_parameter/wave_steepness = 0.35
+shader_parameter/_water_domain_origin = Vector3(0, 0, 0)
+shader_parameter/base_roughness = 0.06
+shader_parameter/specular_amount = 0.5
+shader_parameter/variance_to_roughness = 0.55
+shader_parameter/detail_deriv = ExtResource("2_deriv")
+shader_parameter/detail_strength = 0.25
+shader_parameter/detail_scale0 = 0.1
+shader_parameter/detail_scale1 = 0.0345
+shader_parameter/detail_flow0 = Vector2(0.32, 0.11)
+shader_parameter/detail_flow1 = Vector2(-0.17, 0.26)
+shader_parameter/detail_fade_start = 200.0
+shader_parameter/detail_fade_end = 800.0
+shader_parameter/foam_tex = ExtResource("3_foam")
+shader_parameter/foam_color = Color(0.85, 0.89, 0.92, 1)
+shader_parameter/foam_scale = 0.07
+shader_parameter/foam_roughness = 0.8
+shader_parameter/foam_crest_threshold = 0.2
+shader_parameter/foam_crest_softness = 0.1
+shader_parameter/foam_crest_amount = 1.0
+shader_parameter/foam_shore_depth = 1.2
+shader_parameter/foam_shore_amount = 0.8
+shader_parameter/scatter_color = Color(0.06, 0.35, 0.28, 1)
+shader_parameter/scatter_strength = 3.5

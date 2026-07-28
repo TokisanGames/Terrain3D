@@ -1,0 +1,41 @@
+; Pasture3D Water — Ocean preset, low tier. Spec §6.
+;
+; Same ocean, reduced feature set: no scattering, no crest foam, no shadow
+; receive, one detail layer instead of two. Assign to Pasture3D.ocean_material in
+; place of M_water_ocean.tres on hardware that needs it.
+;
+; This is a SEPARATE SHADER, not the same shader with features turned down. The
+; cut work is #define-d out at compile time, so it is not branched over at
+; runtime — which is the point of static variants and the reason a low tier is
+; genuinely cheaper rather than differently tinted.
+;
+; Waves come from the ocean_wave_* group on the Pasture3D node, not from here.
+; See M_water_ocean.tres for why.
+[gd_resource type="ShaderMaterial" load_steps=4 format=3]
+
+[ext_resource type="Shader" uid="uid://chfdrcbdj2do" path="res://addons/pasture_3d/extras/shaders/water/water_ocean_low.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://phek6xr2elbp" path="res://addons/pasture_3d/extras/shaders/water/T_water_deriv.png" id="2_deriv"]
+[ext_resource type="Texture2D" uid="uid://c54c0ur15poks" path="res://addons/pasture_3d/extras/shaders/water/T_water_foam.png" id="3_foam"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/absorption = Vector3(0.35, 0.08, 0.05)
+shader_parameter/deep_color = Color(0.015, 0.05, 0.08, 1)
+shader_parameter/sea_level = 0.0
+shader_parameter/wave_steepness = 0.35
+shader_parameter/_water_domain_origin = Vector3(0, 0, 0)
+shader_parameter/base_roughness = 0.06
+shader_parameter/specular_amount = 0.5
+shader_parameter/variance_to_roughness = 0.55
+shader_parameter/detail_deriv = ExtResource("2_deriv")
+shader_parameter/detail_strength = 0.25
+shader_parameter/detail_scale0 = 0.1
+shader_parameter/detail_fade_start = 200.0
+shader_parameter/detail_fade_end = 800.0
+shader_parameter/foam_tex = ExtResource("3_foam")
+shader_parameter/foam_color = Color(0.85, 0.89, 0.92, 1)
+shader_parameter/foam_scale = 0.07
+shader_parameter/foam_roughness = 0.8
+shader_parameter/foam_shore_depth = 1.2
+shader_parameter/foam_shore_amount = 0.8
