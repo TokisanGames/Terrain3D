@@ -1,9 +1,13 @@
 # Pasture3D Water — Replacement Shader Spec
 
-Status: **design agreed 2026-07-27. Phases 0-3 complete and measured 2026-07-27, desktop only — results in
-§8.1-§8.4. Phase 3 changed two design decisions and retired one target; see §8.4.**
-Replaces the example ocean shader
-([ocean_shader.gdshader](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader)) with a water
+Status: **all six phases implemented and measured, 2026-07-27 to 2026-07-28, on desktop only — results
+in §8.1-§8.6. Five of the six goals in §1 are met and verified. G1 is NOT: no Steam Deck, and no
+lower-spec GPU either, was ever available, so every Deck figure in this document is extrapolated from
+one desktop part and none of it is validated (§11 q7). Phase 3 changed two design decisions and
+retired one target (§8.4); Phase 4 corrected §4.3 (§8.5); Phase 5 found two shading defects that had
+been shipping since Phase 3 (§8.6).**
+Replaces the example ocean shader (now retired to
+[bench/legacy/ocean_shader.gdshader](project/bench/legacy/ocean_shader.gdshader)) with a water
 system that is (a) fast enough that a Steam Deck renders full-screen water without breaking frame, (b)
 versatile enough to cover ocean, lake and pond from one code base, (c) memory-frugal, and (d) queryable
 from C++ so gameplay can float things on it.
@@ -24,7 +28,7 @@ development and is deleted at the end of Phase 5.
 
 ## 0. Why the current shader is slow (the baseline we are beating)
 
-Measured by inspection of [ocean_shader.gdshader:167](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:167).
+Measured by inspection of [ocean_shader.gdshader:167](project/bench/legacy/ocean_shader.gdshader:167).
 Per **fragment**:
 
 | Work | Count | Source |
@@ -62,16 +66,30 @@ Secondary defects carried over as fix-list items (§9).
 
 **Goals**
 
-- **G1.** ≤ **1.0 ms** GPU for full-screen water at 1280×800 on Steam Deck (LCD, 15 W TDP), high tier.
-  ≤ **0.6 ms** low tier. Legacy shader is the A/B baseline.
-- **G2.** One code base serves ocean, lake and pond, differing only by preset uniforms and which thin
-  `.gdshader` wrapper is used.
-- **G3.** ≤ **512 KB** total VRAM for all water textures, all bodies, at any count of water bodies.
+- **G1.** ⚠️ *UNVERIFIED — the one goal still open after Phase 5.* ≤ **1.0 ms** GPU for full-screen water
+  at 1280×800 on Steam Deck (LCD, 15 W TDP), high tier; ≤ **0.6 ms** low tier. Legacy shader is the A/B
+  baseline. **No Steam Deck was ever available**, and no lower-spec GPU either, so this has been
+  extrapolated from a single desktop part throughout. Desktop, RTX 3070, water filling the frame:
+  **0.295 ms high / 0.235 ms low, against 0.452 ms for the legacy shader** (§8.6). Do not quote a Deck
+  number from this document — see §11 q7.
+- **G2.** ✅ *met, Phase 5.* One code base serves ocean, lake and pond, differing only by preset uniforms
+  and which thin `.gdshader` wrapper is used. Four wrappers over four shared includes, four presets
+  (§6). The low tiers are separate shaders rather than the same shader turned down, so their cut work
+  is not branched over at runtime: measured 0.235 ms against 0.295 (§8.6).
+- **G3.** ✅ *met, Phase 3.* ≤ **512 KB** total VRAM for all water textures, all bodies, at any count of
+  water bodies. Measured **384 KB** (§8.4).
 - **G4.** ✅ *met, Phase 4.* `Pasture3D::get_water_height(Vector2 xz)` in C++ agrees with the GPU surface to
   within **1 cm** at any world position, at any time. Measured: 0 of 384 probes differ by even **1 mm**,
   at a 12 km domain origin and a 300 m sea level, at six instants (§8.5).
-- **G5.** No shimmer. Water at 500 m must be stable under camera motion without relying on TAA.
-- **G6.** Drops onto an arbitrary `MeshInstance3D` with no plugin involvement and no clipmap uniforms set.
+- **G5.** ✅ *met, Phase 3.* No shimmer. Water at 500 m must be stable under camera motion without relying
+  on TAA. Measured 30× less speckle than legacy (§8.4). Note the Phase 5 correction to
+  `detail_strength` (§8.6 finding 3) moved this further in the right direction, not the wrong one:
+  the old value was also inflating distance roughness.
+- **G6.** ✅ *met, Phase 5.* Drops onto an arbitrary `MeshInstance3D` with no plugin involvement and no
+  clipmap uniforms set. Gate B renders `M_water_lake` and `M_water_pond` on a bare mesh with no
+  `Pasture3D` in the scene at all (§8.6). One caveat, now documented rather than assumed: such a scene
+  has nothing driving the `water_time` global and must write it itself. A `Pasture3D` anywhere in the
+  scene does it, whether or not its ocean is enabled — which was **not** true until Phase 5 fixed it.
 
 **Non-goals**
 
@@ -130,7 +148,7 @@ render_mode cull_disabled, depth_draw_never, diffuse_lambert, specular_schlick_g
 Changes from the legacy shader and why:
 
 - `cull_back` → **`cull_disabled`**. The legacy shader vanishes when viewed from below, yet
-  [line 223](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:223) tests for the player's
+  [line 223](project/bench/legacy/ocean_shader.gdshader:223) tests for the player's
   head being underwater — the two disagree. `cull_disabled` costs nothing here (no overdraw, the surface
   is a single layer) and gives a correct underwater view. Flip `NORMAL` on `!FRONT_FACING`.
 - `depth_draw_always` → **`depth_draw_never`**. A transparent surface writing depth occludes transparent
@@ -313,7 +331,7 @@ through `water_scroll()` rather than raw `water_time`, so both layers stay on th
 
 **Mipmapping is the anti-aliasing.** This is why the hybrid beats pure procedural on quality as well as
 speed: hardware trilinear/aniso filtering is a *correct* prefilter, whereas the legacy `dv` trick at
-[line 171](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:171) only widened the
+[line 171](project/bench/legacy/ocean_shader.gdshader:171) only widened the
 finite-difference stencil — it band-limited the *derivative* while `wave_height` (which drives foam and
 scattering) stayed full-frequency and aliasing.
 
@@ -339,8 +357,8 @@ Cheap (two MADs) and it is what actually stops the shimmer — lowering roughnes
 ### 3.5 Depth, absorption, refraction
 
 **Cheap linear depth.** Replace the two full `INV_PROJECTION_MATRIX × vec4` chains
-([lines 195–198](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:195) and
-[217–220](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:217)) with a scalar
+([lines 195–198](project/bench/legacy/ocean_shader.gdshader:195) and
+[217–220](project/bench/legacy/ocean_shader.gdshader:217)) with a scalar
 reconstruction. Only view-space `z` is needed, and for a perspective projection that is four scalars from
 the inverse projection matrix:
 
@@ -402,11 +420,11 @@ water absorbs light:
 One physically-grounded model, three parameter sets — instead of the legacy `water_color` +
 `visible_depth` + `depth_curve` trio, which interacted in ways that made the refraction nearly invisible
 (the `max(20., …)` floor at
-[line 233](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:233) combined with
+[line 233](project/bench/legacy/ocean_shader.gdshader:233) combined with
 `depth_curve = 0.1` pinned the background contribution to ≤ 22.5%, and to 0% in deep water).
 
 The same line also **double-counts `sea_level`** — `v_vertex.y` already includes it from
-[line 157](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:157). That bug is likely *why*
+[line 157](project/bench/legacy/ocean_shader.gdshader:157). That bug is likely *why*
 the `max(20., …)` floor was needed to hide the artifacts. Both go away.
 
 **Refraction (`WATER_REFRACTION`, off by default).** When enabled, offset `SCREEN_UV` by the perturbed
@@ -457,7 +475,7 @@ The ocean mesher stays as-is for the ocean body. The shader gains a non-clipmap 
 `MeshInstance3D`:
 
 - `WATER_CLIPMAP` guards the geomorph block
-  ([lines 137–151](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:137)) and its
+  ([lines 137–151](project/bench/legacy/ocean_shader.gdshader:137)) and its
   `_target_pos` / `_mesh_size` / `_subdiv` / `_vertex_spacing` uniforms.
 - Without it, `vertex()` reduces to: world-space position → Gerstner displace → project. No plugin
   involvement, no uniforms the user must remember to wire (G6).
@@ -607,7 +625,7 @@ Consequences:
 > affects anything that has to agree with what the player sees: a boat floated on `get_water_height()`
 > rides up to 22 cm above the water it is drawn on. Since geometry is measurably free (§8.1), the obvious
 > answer is to spend some — but LOD0 density is a preset decision and presets are Phase 5, so this is
-> recorded as §11 q7 rather than changed here.
+> recorded as §11 q6 rather than changed here. **Closed in Phase 5: adopted, see §8.6.**
 
 ---
 
@@ -639,9 +657,27 @@ shared across every water body** (G3). Wave tables are 64–128 bytes per materi
 
 ---
 
-## 6. Presets
+## 6. Presets — ✅ *shipped Phase 5*
 
-Three `.tres` presets, all pointing at the same two shader variants:
+**Four** `.tres` presets, in `addons/pasture_3d/extras/shaders/water/`, one per shader variant —
+`M_water_ocean`, `M_water_ocean_low`, `M_water_lake`, `M_water_pond`. The draft said three and left
+`water_ocean_low` without a resource to point at, which would have made the ocean's low tier
+unreachable from the inspector.
+
+Two things the draft table below does not capture, both decided while authoring them:
+
+- **The ocean presets deliberately ship no wave table.** For the ocean the table is generated in C++
+  and re-uploaded on every knob change, because the CPU height query has to read the identical one
+  (§4.2, §4.3). A table in the resource would be overwritten on the first update and would disagree
+  with the drawn surface until then. Lake and pond do ship one, because nothing runs in C++ for a
+  material dropped on a bare mesh (G6) — generated by the real C++ generator via
+  [bench/WavePresetTables.gd](project/bench/WavePresetTables.gd), so a preset cannot be a table shape
+  `WaterWaves` would never produce.
+- **The pond's numbers are not reachable as drafted.** `L_max` 12 m with 2 waves puts the second wave
+  at 6 m, below the 10 m floor. That turned out to be intended generator behaviour for small bodies
+  and is now documented and tested rather than accidental (§8.6 finding 5).
+
+Draft table, kept for the record:
 
 | | Ocean | Lake | Pond |
 |---|---|---|---|
@@ -668,7 +704,7 @@ be compiled. This is the versatility payoff — a pond is genuinely cheaper, not
 | **2** ✅ | Waves: `water_waves.gdshaderinc`, C++ generator, wave table upload, looping clock. Validate the §3.5 cheap depth reconstruction against the mat4 path. | **DONE 2026-07-27** — all seven gate criteria green, results in §8.3. |
 | **3** ✅ | Surface + shading: detail texture authoring, derivative composition, absorption, foam, scattering, roughness AA. | **DONE 2026-07-27** — all eleven gate criteria green, results in §8.4. G5 verified (30× less speckle than legacy at 500 m). The desktop half of "G1 met on desktop" was **retired as a criterion**: §8.4 finding 2 measures Godot's lit transparent floor at 0.144 ms, above the 0.10 ms figure, so it is not a property of this shader. G1 is decided in Phase 5 as written. |
 | **4** ✅ | C++ query + parity test; §4.4/§4.5 fixes; new geometry defaults. | **DONE 2026-07-28** — all five gate criteria green, results in §8.5. **G4 met**: zero of 384 probes differ from the GPU surface by even 1 mm, at a 12 km domain origin and a 300 m sea level. Unit test green (31/31). §4.3 item 4 was materially wrong and is corrected. |
-| **5** | Presets, docs, Steam Deck validation, delete legacy shader. | G1 met on Steam Deck; A/B screenshots signed off. |
+| **5** ⚠️ | Presets, docs, Steam Deck validation, delete legacy shader. | **DESKTOP HALF DONE 2026-07-28** — all five gate criteria green, results in §8.6. Presets shipped, legacy retired, q1 and q6 closed. **The Steam Deck half is NOT done and cannot be**: no hardware (§11 q7). Every Deck figure in this document remains extrapolated. |
 
 ---
 
@@ -680,11 +716,11 @@ the only pitch where water covers 100% of the frame (§8.1).
 
 | Metric | Legacy | Target | Measured |
 |---|---|---|---|
-| GPU ms, high tier, desktop 1280×800 | **0.392** | ~~≤ 0.10~~ retired, §8.4 finding 2 | **0.259** (of which 0.144 is Godot's floor) |
-| GPU ms, low tier, desktop 1280×800 | — | — | **0.184** |
+| GPU ms, high tier, desktop 1280×800 | **0.452** | ~~≤ 0.10~~ retired, §8.4 finding 2 | **0.295** as shipped, 0.267 on legacy geometry (§8.6) |
+| GPU ms, low tier, desktop 1280×800 | — | — | **0.235** as shipped (§8.6) |
 | GPU ms, this shader's own share, desktop | — | ≤ 0.13 (regression bound) | **0.115** |
-| GPU ms, high tier, Steam Deck | ~3.1–5.1 _(est.)_ | ≤ 1.0 | _blocked, no hardware_ |
-| GPU ms, low tier, Steam Deck | — | ≤ 0.6 | _blocked_ |
+| GPU ms, high tier, Steam Deck | ~3.1–5.1 _(est.)_ | ≤ 1.0 | ⚠️ **still unverified after Phase 5 — no hardware, §11 q7** |
+| GPU ms, low tier, Steam Deck | — | ≤ 0.6 | ⚠️ **still unverified, §11 q7** |
 | Draw calls (visible, −4°) | 42 | ≤ 42 | |
 | Triangles (visible, −4°) | 106 k | ~30 k | |
 | Water VRAM | 0 | ≤ 512 KB | **384 KB** (§8.4) |
@@ -1104,16 +1140,154 @@ that would have applied the terrain's height range to the ocean, and an extent c
 
 ---
 
+### 8.6 Phase 5 results — measured 2026-07-28
+
+Three harnesses. [bench/WaterPhase5Gate.tscn](project/bench/WaterPhase5Gate.tscn) runs the five gate
+criteria; [bench/WaterPresetCheck.tscn](project/bench/WaterPresetCheck.tscn) checks the presets against
+their shaders; [bench/WaterGeometrySweep.tscn](project/bench/WaterGeometrySweep.tscn) is the measurement
+q6 was decided on. Desktop: RTX 3070, Godot 4.7-stable, Forward+.
+
+**Gate: all five criteria green. Unit test 34/34** (three new, see finding 5).
+
+| # | Criterion | Result | Control |
+|---|---|---|---|
+| E | detail slope is physical | rms 0.101 m/m, tail 0.500 | the old default of 1.0 → rms 0.403, tail 2.0, **fails** |
+| A | **G1**, desktop | high 0.295 ms, low 0.235 ms vs legacy 0.452 at −60° | sky floor 0.064 must sit below every water row |
+| B | the shipped presets render | 87% ocean coverage; lake/pond 62% on a bare mesh | high-vs-low delta 0.028 against a high-vs-high control of 0.000 |
+| C | §11 q6 geometry defaults | ratio 10.18, sag 1.7 cm | old defaults → ratio 2.54, sag 21 cm, **fails** |
+| D | A/B captures | 9 pitch×material + 4 wave counts | — (reported for sign-off) |
+
+**⚠️ The exit gate is only half met, and the missing half is not a formality.** Phase 5's gate reads "G1
+met on Steam Deck". No Deck was available and none is expected, so **every Deck figure in this document is
+extrapolated from a desktop measurement and none of it has been validated**. The fallback in §11 q7 was to
+measure on the lowest-spec GPU on hand; the only GPU on hand is the RTX 3070 the whole project has been
+measured on, so there is not even a second data point. This is stated rather than papered over: the
+desktop result is comfortably inside the retired desktop target, which says nothing certain about a 15 W
+RDNA2 part. The gate file runs unchanged on a Deck when one appears.
+
+**Cost, 1280×800, ocean filling the frame (−60°), better of two passes:**
+
+| Configuration | GPU ms | vs legacy |
+|---|---|---|
+| sky floor, no ocean | 0.064 | — |
+| legacy shader, legacy geometry | 0.452 | 1.00× |
+| legacy shader, new geometry | 0.504 | 1.12× |
+| **new high tier, legacy geometry** | 0.267 | **0.59×** |
+| **new high tier, as shipped** | 0.295 | **0.65×** |
+| **new low tier, as shipped** | 0.235 | **0.52×** |
+
+Both changes are priced separately on purpose. Shader-for-shader on identical geometry the replacement is
+**0.59×**; the shipped configuration gives 6% of that back to the denser LOD0 that fixes the 22 cm sag,
+landing at 0.65×. Neither number is quoted without the other.
+
+**1. §11 q6 is closed by spending geometry, and the clipmap made it cheap.** The question was how to fix
+the 22 cm gap between the drawn and analytic surfaces. What mattered was not which spacing but what
+spacing *costs*: a clipmap is scale-invariant, so quartering LOD0's spacing quarters the ocean's reach and
+two extra rings buy it back — it is not an N² triangle count. Adopted **`ocean_vertex_spacing` 1.0 m and
+`ocean_mesh_lods` 9**, holding the 8192 m half-extent.
+
+| config (mesh_size, spacing, lods) | ratio | sag | GPU ms | primitives |
+|---|---|---|---|---|
+| shipped before (16, 4.0, 7) | 2.54 | 22.2 cm | 0.231 | 1.00× |
+| (16, 2.0, 8) | 5.09 | 5.9 cm | 0.245 | 1.73× |
+| **adopted (16, 1.0, 9)** | **10.18** | **1.7 cm** | **0.261** | **2.46×** |
+| (32, 1.0, 8) | 10.18 | 1.7 cm | 0.270 | 6.24× |
+
+Sag falls as spacing², and the rings from LOD2 outward are exactly what shipped before — so this is
+strictly better at every distance, not a trade of near fidelity for far. Reaching the same ratio through
+`mesh_size` 32 costs 6.2× the primitives for the same sag and was rejected.
+
+**2. §11 q1 is closed at 8 waves, and the reason is structural rather than aesthetic.** The captures settle
+4 vs 8 easily — at 4 the sea shows obvious corduroy streaking to the horizon, at 8 it does not. The
+argument against going further is that **8 waves already span the whole available range**: with `L_max`
+137 m and the 10 m precision floor, waves 9 through 16 could only subdivide 137→10.2 more finely, not
+extend it, and the sub-10 m band that would actually add richness is the detail texture's job by design
+(§3.1). Raising `WATER_MAX_WAVES` is a uniform-array and default-table change with nothing visible
+motivating it. **Not doing it.**
+
+**3. `detail_strength` had been 4× too strong since Phase 3, and it took looking at a picture to find
+it.** The first A/B captures came back with rust-coloured speckle across the surface and flat grey slabs
+along the horizon. One constant caused both.
+
+`gen_water_textures.py` computes a real derivative in m/m, normalises it by its own 99.5th percentile so
+the 8-bit range is spent on what is visible, and then **discards the divisor** — it is printed, never
+stored. So the decoded value is a *fraction of full scale*, while the shader treated it as slope in m/m
+and defaulted `detail_strength` to 1.0 on the belief, stated in its own comment, that 1.0 meant "the
+texture as authored". Measured off the shipped PNG: stored rms 0.277 per layer, peak 1.0. Two summed
+layers at 1.0 therefore reached **0.39 rms slope with excursions past 2.0** — normals tilted below the
+horizon, so the reflection vector found the procedural sky's brown ground hemisphere. The same constant
+feeds `variance_to_roughness`, so distant water was simultaneously taking +0.55 roughness and greying out.
+One number, wrong at both ends of the distance range.
+
+Default is now **0.25** (~0.10 m/m rms over both layers). Reproducing the authored slope exactly would be
+0.422, the discarded divisor.
+
+**The lesson is about the shape of the Phase 3 gate, not about the constant.** Phase 3 had eleven criteria
+covering this texture — tiling delta, mip presence, speckle ratio, cost in ms — and every one of them
+measured a *quantity*. None asked whether the composed normal was physically possible, so all eleven
+passed on a surface that was reflecting the ground. Gate criterion E now asserts exactly that, needs no
+rendering at all, and uses the old default as a control that must fail.
+
+**4. A second shading defect, found only because the first one was fixed.** With the speckle gone, dark
+dashes remained scattered across the mid-distance at grazing pitches. They survived disabling detail,
+foam, scattering and the new geometry — and vanished under `cull_back`.
+
+The water is `depth_draw_never`, so it does not occlude itself, and `cull_disabled` therefore rasterises
+the far side of every wave crest: fragments a solid surface would have hidden. Those are `!FRONT_FACING`
+while the viewer is plainly above the water, and the two-sided flip gave them a downward normal. **Which
+side of the surface the viewer is on is a property of the camera and cannot be read off one triangle.** A
+new varying carries the undisplaced sheet height — `sea_level`, or the mesh's own y — so the test also
+works for a plain `MeshInstance3D` with no `sea_level` uniform. `cull_disabled` stays, and the Phase 4
+gate's underwater criterion still passes.
+
+**5. Two defects surfaced by authoring, not by testing.** Writing a pond preset asked for `length_max`
+12 m, which revealed that `update()` runs the series down to `min(MIN_WAVELENGTH, length_max/2)` — so it
+deliberately goes *below* the 10 m floor for small bodies, while the header declared 10 m as "the shortest
+wavelength the generator will produce". The behaviour is right (a pond sits near its own origin, not in
+the precision regime the floor describes); the contract and the test were wrong. Sub-test (e) could never
+have caught it, because the ocean config it uses cannot enter the branch. New sub-test (e2) pins it, with
+a large-body control.
+
+Writing the *user guide* found the second: `_update_water_clock()` and the sun global write were both
+inside `if (_ocean_enabled)`, so a terrain with a lake mesh and no ocean had its water frozen at t=0.
+Those are globals serving every water body in the scene (G6). Hoisted out.
+
+**6. Coverage is the wrong question for "are these two presets different".** Criterion B first reported
+the high and low ocean presets at an identical 86.9%, and lake and pond at an identical 62.2%. That is the
+correct answer to what coverage asks — both draw water over the same silhouette — but it means the
+criterion would have passed unchanged if `M_water_ocean_low.tres` silently loaded the high shader. It now
+differences each pair, with a same-preset re-render as the control that must come out at zero.
+
+Two failures of the same kind, both now closed in the gate: `_screenshot()` printed "written" for all nine
+A/B captures while every save had failed on a missing directory *and the gate still reported PASS*; and
+after the legacy shader moved, a stale uid made `load()` return null, the ocean drew nothing, "LEGACY"
+measured exactly the sky floor, and the new shader appeared **four times more expensive** than the thing
+it replaces — reported as data. A gate that cannot tell "measured nothing" from "measured a good result"
+is not a gate.
+
+**7. The legacy shader is retired but not destroyed.** `ocean_shader.gdshader` and `M_ocean.tres` moved to
+[bench/legacy/](project/bench/legacy/) rather than being deleted: every performance claim in this document
+is stated against that material, and Phase 0's baseline, Phase 3's ablation ladder and Phase 5's own A/B
+all have to stay re-runnable. It is out of the addon, which is what ships. The writes only it read —
+`_light_color`, `_light_direction`, and the never-read `_vertex_density` (§9 item 5) — are gone.
+[Demo.tscn](project/demo/Demo.tscn) now uses the new ocean preset, so the demo shows what ships.
+
+---
+
 ## 9. Carried-over fix list
 
-Defects found in the legacy shader that must not survive into the replacement:
+Defects found in the legacy shader that must not survive into the replacement.
+**All resolved as of Phase 5**: items 2 and 8 were fixed in the replacement during Phase 3; the rest
+were properties of the legacy shader itself, which is no longer in the addon (§8.6 finding 7). Items 5
+and 6 also had C++ halves, and those are gone: `_vertex_density` is no longer written, and the sun is
+published once to a global rather than pushed per-material every frame.
 
-1. `sea_level` double-counted in `water_depth` ([line 233](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:233)).
+1. `sea_level` double-counted in `water_depth` ([line 233](project/bench/legacy/ocean_shader.gdshader:233)).
 2. ✅ **Fixed, Phase 3.** `T_water_foam`'s predecessor has `generate_mipmaps = false`
-   ([M_ocean.tres:14](project/addons/pasture_3d/extras/shaders/M_ocean.tres:14)) while sampled in world
+   ([M_ocean.tres:14](project/bench/legacy/M_ocean.tres:14)) while sampled in world
    space over kilometres. Both new textures ship with mips, asserted by gate A on the imported `Image`
    rather than trusted from the `.import` file (§8.4).
-3. `shore_mask` at [line 201](project/addons/pasture_3d/extras/shaders/ocean_shader.gdshader:201) —
+3. `shore_mask` at [line 201](project/bench/legacy/ocean_shader.gdshader:201) —
    `1.0 - clamp(1.0 - smoothstep(a,b,x), 0, 1)` reduces exactly to `smoothstep(a,b,x)`.
 4. `TANGENT` / `BINORMAL` computed (2 cross + 2 normalize per pixel) and never used.
 5. `_vertex_density` uniform written by C++ ([pasture_3d.cpp:228](src/pasture_3d.cpp:228)), never read.
@@ -1140,7 +1314,11 @@ Defects found in the legacy shader that must not survive into the replacement:
 
 ## 11. Open questions
 
-1. **Wave count for the ocean high tier: 8, 12 or 16?** Spec says 8. Phase 0 showed the vertex stage is
+1. ~~**Wave count for the ocean high tier: 8, 12 or 16?**~~ — **CLOSED at 8, Phase 5 (§8.6 finding
+   2).** The captures settle 4 vs 8 easily. Against 12/16 the argument is structural: with `L_max`
+   137 m and the 10 m floor, 8 waves already span the entire available range, so more waves can only
+   subdivide it, not extend it — and the sub-10 m band is the detail texture's job by design.
+   Original text: Spec says 8. Phase 0 showed the vertex stage is
    nowhere near the constraint (§4.6), and Phase 3 measured the whole wave sum plus blend at 0.008 ms (3% of
    the shader), so cost is not the objection to any of the three. Purely a visual call, for the Phase 5 A/B.
 2. **Should `water_time` be pausable/scrubbable?** Trivial to add (the plugin owns the clock) and useful
@@ -1160,7 +1338,10 @@ Defects found in the legacy shader that must not survive into the replacement:
    off, so the trade is the project's to make rather than the plugin's. **Do not decide this before the
    Steam Deck measurement** — if G1 is met with the light loop in place, none of it needs spending.
 
-6. **How dense should LOD0 be?** *Opened by Phase 4.* The ocean defaults put 4 m vertex spacing against a
+6. ~~**How dense should LOD0 be?**~~ — **CLOSED, Phase 5: `vertex_spacing` 1.0 m, `mesh_lods` 9**
+   (§8.6 finding 1). Sag 22 cm → 1.7 cm, ratio 2.54 → 10.18, same 8192 m reach, +0.03 ms. The two
+   defaults must move together; see the comment on `_ocean_mesh_lods` in `pasture_3d.h`.
+   *Original text, opened by Phase 4:* The ocean defaults put 4 m vertex spacing against a
    10.2 m shortest wavelength — a ratio of 2.54 where `water_waves.gdshaderinc` asks for 8 — and the drawn
    surface consequently sits up to **22 cm** below the analytic one at a cell centre (§8.5, §4.6). G4 is
    unaffected; what is affected is anything that has to agree with what the player sees, which is the whole
@@ -1169,6 +1350,13 @@ Defects found in the legacy shader that must not survive into the replacement:
    The three levers are LOD0 spacing, `ocean_wave_length_max` (which sets the whole geometric series and
    therefore L_min), and the wavelength floor itself. Decide with the Phase 5 A/B screenshots in hand.
 
-7. **Steam Deck validation is an open risk, not an open question.** Every Deck figure in this spec is
-   extrapolated. Phase 5 cannot be signed off without the hardware; if it stays unavailable, the fallback
-   is to validate on the lowest-spec GPU on hand and state clearly that the Deck target is unverified.
+7. **Steam Deck validation — ⚠️ STILL OPEN after Phase 5, and now the only thing between this work and
+   done.** The hardware was confirmed unavailable at the start of Phase 5, and the fallback (validate
+   on the lowest-spec GPU on hand) could not be taken either: the only GPU available is the RTX 3070
+   every measurement in this document was taken on. **So every Deck figure here is extrapolated and
+   none of it is validated — including G1 itself.** What is known: the high tier costs 0.295 ms and
+   the low tier 0.235 ms at 1280×800 with water filling the frame, on a 3070, and 0.064 ms of that is
+   the sky floor. What is not known is how that scales to a 15 W RDNA2 part, and §8.4's finding that
+   56% of the cost is Godot's lit transparent path rather than this shader is the reason not to guess.
+   [bench/WaterPhase5Gate.tscn](project/bench/WaterPhase5Gate.tscn) runs unchanged on a Deck; criterion
+   A is the measurement. Until it is run, do not quote a Deck number from this document.
