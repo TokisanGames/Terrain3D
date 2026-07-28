@@ -127,25 +127,29 @@ void Pasture3D::__physics_process(const double p_delta) {
 	} else if (_terrain_mesher) {
 		_terrain_mesher->snap();
 	}
+	// The clock and the sun are GLOBALS, so they are driven whenever this node is
+	// processing -- not only when the ocean is on. A lake or pond material on a
+	// plain MeshInstance3D reads the same two globals (spec §2.3, G6), and gating
+	// them on ocean_enabled left every such scene with water frozen at t=0 unless
+	// it also happened to have an ocean. Two global writes a frame is not a cost
+	// worth gating.
+	//
+	// A scene with no Pasture3D at all still has to drive water_time itself; that
+	// is the documented plugin-free case and there is nothing here to hook.
+	_update_water_clock(p_delta);
+	if (_ocean_light_target.is_valid()) {
+		DirectionalLight3D *light = cast_to<DirectionalLight3D>(_ocean_light_target.ptr());
+		if (light) {
+			Color color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
+			Vector3 direction = light->get_global_basis().get_column(2);
+			RS->global_shader_parameter_set("water_sun_color", Vector3(color.r, color.g, color.b));
+			RS->global_shader_parameter_set("water_sun_direction", direction);
+		}
+	}
 	if (_ocean_enabled && _ocean_mesher) {
 		_ocean_mesher->snap();
-		_update_water_clock(p_delta);
 		// Change-detected; see the function header for why it is polled at all.
 		_update_ocean_aabbs();
-		// No longer gated on the ocean material: the sun reaches the shaders through
-		// globals, so this write serves every water body in the scene including
-		// lake and pond meshes that have no connection to this node (spec §2.3, G6).
-		// The per-material _light_color / _light_direction pair went with the legacy
-		// shader in Phase 5.
-		if (_ocean_light_target.is_valid()) {
-			DirectionalLight3D *light = cast_to<DirectionalLight3D>(_ocean_light_target.ptr());
-			if (light) {
-				Color color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
-				Vector3 direction = light->get_global_basis().get_column(2);
-				RS->global_shader_parameter_set("water_sun_color", Vector3(color.r, color.g, color.b));
-				RS->global_shader_parameter_set("water_sun_direction", direction);
-			}
-		}
 	}
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
