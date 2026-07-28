@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://cgk4glwmc4vk2"]
 
-[ext_resource type="Shader" uid="uid://biawd3fhk5weg" path="res://addons/pasture_3d/extras/shaders/ocean_shader.gdshader" id="1_t7ju5"]
+[ext_resource type="Shader" uid="uid://biawd3fhk5weg" path="res://bench/legacy/ocean_shader.gdshader" id="1_t7ju5"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_m6kh4"]
 noise_type = 2

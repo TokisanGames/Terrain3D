@@ -132,20 +132,18 @@ void Pasture3D::__physics_process(const double p_delta) {
 		_update_water_clock(p_delta);
 		// Change-detected; see the function header for why it is polled at all.
 		_update_ocean_aabbs();
-		if (_ocean_material.is_valid() && _ocean_light_target.is_valid()) {
+		// No longer gated on the ocean material: the sun reaches the shaders through
+		// globals, so this write serves every water body in the scene including
+		// lake and pond meshes that have no connection to this node (spec §2.3, G6).
+		// The per-material _light_color / _light_direction pair went with the legacy
+		// shader in Phase 5.
+		if (_ocean_light_target.is_valid()) {
 			DirectionalLight3D *light = cast_to<DirectionalLight3D>(_ocean_light_target.ptr());
-			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
-			if (light && ocean_shader_mat) {
-				Color color = COLOR_WHITE;
-				color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
+			if (light) {
+				Color color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
 				Vector3 direction = light->get_global_basis().get_column(2);
-				// Globals: one write reaches every water body in the scene.
 				RS->global_shader_parameter_set("water_sun_color", Vector3(color.r, color.g, color.b));
 				RS->global_shader_parameter_set("water_sun_direction", direction);
-				// Per-material equivalents, for the legacy ocean shader only.
-				// Goes away with it in Phase 5; the new shaders ignore these.
-				ocean_shader_mat->set_shader_parameter("_light_color", color);
-				ocean_shader_mat->set_shader_parameter("_light_direction", direction);
 			}
 		}
 	}
@@ -235,9 +233,12 @@ void Pasture3D::_setup_ocean_mesher() {
 		if (_ocean_material.is_valid()) {
 			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
 			if (ocean_shader_mat) {
+				// All three are read by the clipmap geomorph in
+				// water_surface.gdshaderinc. _vertex_density was written here too and
+				// never read by anything (spec §9 item 5); it went with the legacy
+				// shader in Phase 5.
 				ocean_shader_mat->set_shader_parameter("_mesh_size", _ocean_mesh_size);
 				ocean_shader_mat->set_shader_parameter("_vertex_spacing", _ocean_vertex_spacing);
-				ocean_shader_mat->set_shader_parameter("_vertex_density", 1.0f / _ocean_vertex_spacing);
 				ocean_shader_mat->set_shader_parameter("_subdiv", pow(2.f, real_t(_ocean_tessellation_level)));
 			}
 		}

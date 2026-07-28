@@ -21,7 +21,7 @@
 extends Node
 
 const WATER_DIR := "res://addons/pasture_3d/extras/shaders/water/"
-const LEGACY_MAT := "res://addons/pasture_3d/extras/shaders/M_ocean.tres"
+const LEGACY_MAT := "res://bench/legacy/M_ocean.tres"
 const OCEAN_HIGH := WATER_DIR + "M_water_ocean.tres"
 const OCEAN_LOW := WATER_DIR + "M_water_ocean_low.tres"
 const LAKE := WATER_DIR + "M_water_lake.tres"
@@ -185,6 +185,17 @@ func _gate_a_cost() -> void:
 	var legacy: ShaderMaterial = load(LEGACY_MAT)
 	var high: ShaderMaterial = load(OCEAN_HIGH)
 	var low: ShaderMaterial = load(OCEAN_LOW)
+
+	# Checked, because a failed load is invisible in the numbers and reads as a win.
+	# Moving the legacy shader into bench/legacy for Phase 5 left a stale uid in the
+	# import cache for one run, load() returned null, the ocean drew nothing, and
+	# "LEGACY" measured exactly the sky floor -- so the new shader looked FOUR TIMES
+	# more expensive than the thing it replaces and the gate reported it as data.
+	for entry in [["legacy", legacy], ["ocean high", high], ["ocean low", low]]:
+		if entry[1] == null or entry[1].shader == null:
+			_fail += 1
+			print("    !! %s material failed to load; every number below is meaningless" % entry[0])
+			return
 
 	# name, material (null = ocean off), spacing, lods
 	# Both shaders appear on both geometries, so the 2x2 separates the two changes

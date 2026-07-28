@@ -63,7 +63,7 @@ func _build_scene() -> void:
 	add_child(_camera)
 
 	_terrain = Pasture3D.new()
-	_terrain.ocean_material = load("res://addons/pasture_3d/extras/shaders/M_ocean.tres")
+	_terrain.ocean_material = load("res://bench/legacy/M_ocean.tres")
 	_terrain.ocean_enabled = true
 	_terrain.ocean_light_target = _sun
 	_terrain.clipmap_target = _camera

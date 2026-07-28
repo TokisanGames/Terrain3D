@@ -104,7 +104,7 @@ func _build_scene() -> void:
 
 
 func _build_materials() -> void:
-	_mat_legacy = load("res://addons/pasture_3d/extras/shaders/M_ocean.tres")
+	_mat_legacy = load("res://bench/legacy/M_ocean.tres")
 
 	# Same parameters, screen_texture read removed.
 	_mat_norefr = _mat_legacy.duplicate(true)

@@ -22,7 +22,7 @@ extends Node
 const WATER_DIR := "res://addons/pasture_3d/extras/shaders/water/"
 const DERIV_TEX := WATER_DIR + "T_water_deriv.png"
 const FOAM_TEX := WATER_DIR + "T_water_foam.png"
-const LEGACY_MAT := "res://addons/pasture_3d/extras/shaders/M_ocean.tres"
+const LEGACY_MAT := "res://bench/legacy/M_ocean.tres"
 
 const LOOP_PERIOD := 120.0
 const VRAM_BUDGET := 512 * 1024
