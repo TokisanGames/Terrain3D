@@ -89,6 +89,41 @@ func _enter_tree() -> void:
 	brush_gizmo = Pasture3DBrushGizmo.new()
 	add_node_3d_gizmo_plugin(brush_gizmo)
 
+	_register_water_globals()
+
+
+# Water shaders read their clock and sun from global shader uniforms, so one write
+# drives every water body in the scene (PASTURE3D_WATER_SHADER_SPEC.md §2.3).
+#
+# These have to live in project.godot: the RenderingServer global table is built
+# from it at engine startup and nothing written later persists, which is what makes
+# the uniforms resolve in exported builds. RenderingServer.global_shader_parameter_add()
+# covers the current session only, and Pasture3D does it at runtime as a fallback.
+#
+# Writes project.godot, so it saves only when an entry is genuinely absent.
+func _register_water_globals() -> void:
+	const WATER_GLOBALS: Dictionary = {
+		"water_time": { "type": "float", "value": 0.0 },
+		"water_sun_direction": { "type": "vec3", "value": Vector3(0.0, -1.0, 0.0) },
+		"water_sun_color": { "type": "vec3", "value": Vector3(1.0, 1.0, 1.0) },
+		"water_time_period": { "type": "float", "value": 120.0 },
+	}
+	var added: PackedStringArray = []
+	for gname: String in WATER_GLOBALS:
+		var setting: String = "shader_globals/" + gname
+		if ProjectSettings.has_setting(setting):
+			continue
+		ProjectSettings.set_setting(setting, WATER_GLOBALS[gname])
+		added.append(gname)
+	if added.is_empty():
+		return
+	var err: int = ProjectSettings.save()
+	if err != OK:
+		push_warning("Pasture3D: could not save water shader globals to project.godot (error %d). " % err +
+			"Water will still run, but the uniforms will be re-registered every session.")
+	elif debug:
+		print("Pasture3DEditorPlugin: registered shader globals ", added)
+
 
 func _exit_tree() -> void:
 	if debug:
