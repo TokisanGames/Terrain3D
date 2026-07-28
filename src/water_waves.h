@@ -37,10 +37,16 @@ public:
 		float wavelength = 10.0f;
 	};
 
-	// Shortest wavelength the generator will produce. Below ~10 m the phase
-	// argument w*dot(D, xz) loses too many mantissa bits at clipmap-scale
-	// coordinates (spec §3.1); finer detail is the texture's job. Bodies far
-	// from the origin should set a domain origin rather than lower this.
+	// Where the generated series bottoms out, and the floor on `length_max`.
+	// Below ~10 m the phase argument w*dot(D, xz) loses too many mantissa bits at
+	// clipmap-scale coordinates (spec §3.1); finer detail is the texture's job.
+	// Bodies far from the origin should set a domain origin rather than lower this.
+	//
+	// NOT a hard floor on every wavelength in the table, and it never was -- see
+	// update(). Once `length_max` is under 20 m the series would have nowhere to
+	// run, so it continues to length_max/2 instead: a pond at length_max 12 gets
+	// 12 m and 6 m waves. That is the small-body case, which is near its own origin
+	// and not in the precision regime this constant describes.
 	static constexpr float MIN_WAVELENGTH = 10.0f;
 	static constexpr float GRAVITY = 9.81f;
 	static constexpr float TAU = 6.283185307179586f;

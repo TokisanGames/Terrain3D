@@ -1668,6 +1668,48 @@ void test_water_waves() {
 				"quantisation does not push a wavelength materially below the 10 m floor");
 	}
 
+	// ---- (e2) The small-body branch, which (e) alone cannot reach. ----
+	// update() runs the series down to min(MIN_WAVELENGTH, length_max/2), so under
+	// length_max 20 it goes deliberately BELOW the floor rather than collapsing the
+	// series onto it -- a pond at length_max 12 gets 12 m and 6 m rather than two
+	// copies of one wave. That is intended (a small body sits near its own origin,
+	// which is not the precision regime the floor describes), and it was previously
+	// untested: the ocean config in (e) has length_max 137 and cannot enter the
+	// branch, so (e) passed while the header's "shortest wavelength the generator
+	// will produce" was false for every pond.
+	//
+	// Asserted here so the behaviour is pinned rather than accidental. If the floor
+	// is ever made hard, this test is the thing that says so out loud.
+	{
+		WaterWaves pond;
+		pond.set_count(2);
+		pond.set_amplitude(0.05f);
+		pond.set_length_max(12.0f);
+		pond.set_loop_period(0.0f); // no quantisation, so the series is what is under test
+		pond.update();
+		PackedVector4Array table = pond.get_shader_table();
+		double longest = (double)table[0].w;
+		double shortest = MIN((double)table[0].w, (double)table[1].w);
+		UtilityFunctions::print("  pond series at length_max 12: ", longest, " m -> ", shortest, " m");
+
+		expect(shortest < (double)WaterWaves::MIN_WAVELENGTH,
+				"the small-body branch runs the series below the 10 m floor");
+		expect(std::abs(shortest - 6.0) < 0.01,
+				"and bottoms out at length_max/2, not at some other number");
+		// The control: the same request an ocean would make cannot reach the branch,
+		// so if this ever drops below the floor the branch has escaped its bounds.
+		WaterWaves sea;
+		sea.set_count(2);
+		sea.set_length_max(137.0f);
+		sea.set_loop_period(0.0f);
+		sea.update();
+		PackedVector4Array sea_table = sea.get_shader_table();
+		double sea_shortest = MIN((double)sea_table[0].w, (double)sea_table[1].w);
+		UtilityFunctions::print("  CONTROL, length_max 137: shortest ", sea_shortest, " m");
+		expect(sea_shortest >= (double)WaterWaves::MIN_WAVELENGTH,
+				"CONTROL: a large body stays on the floor and never enters the branch");
+	}
+
 	// ---- (f) The analytic normal describes the surface it is drawn on. ----
 	// GPU Gems' Gerstner normal drops the cross terms of the exact tangent cross
 	// product, so it is an approximation whose error grows with steepness. That is

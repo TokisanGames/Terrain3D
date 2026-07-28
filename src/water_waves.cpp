@@ -117,7 +117,21 @@ void WaterWaves::update() {
 	_dirty = false;
 
 	float length_max = MAX(_length_max, MIN_WAVELENGTH);
-	// A pond whose longest wave is already near the floor still needs a series.
+	// A pond whose longest wave is already near the floor still needs a series, so
+	// this deliberately goes BELOW MIN_WAVELENGTH rather than collapsing the series
+	// onto it. `length_max * 0.5` and not the floor: with length_max 12 the series
+	// runs 12 -> 6 m, and a pond gets ripples instead of two copies of one wave.
+	//
+	// That is safe for the case it exists for and not in general. The floor is a
+	// precision limit at CLIPMAP-scale coordinates (spec §3.1) -- the phase argument
+	// w*dot(D, xz) loses mantissa bits out at kilometres, not near a mesh's own
+	// origin. A 25 m pond sits near its origin, so 6 m waves are fine there; a pond
+	// placed 5 km out is back in the regime the floor describes and needs a domain
+	// origin, exactly as §3.1 says for every other body.
+	//
+	// Pinned by unit sub-test (e), which exercises this branch specifically. It is
+	// only reachable below length_max 20; the ocean defaults cannot reach it, which
+	// is why it went unnoticed until the Phase 5 presets asked for a pond.
 	float length_min = MIN(MIN_WAVELENGTH, length_max * 0.5f);
 	float ratio = (_count > 1) ? std::pow(length_min / length_max, 1.0f / float(_count - 1)) : 1.0f;
 
