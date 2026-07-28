@@ -23,6 +23,7 @@
 #include "pasture_3d_instancer.h"
 #include "pasture_3d_material.h"
 #include "pasture_3d_mesher.h"
+#include "water_waves.h"
 
 class Pasture3D : public Node3D {
 	GDCLASS(Pasture3D, Node3D);
@@ -104,13 +105,31 @@ private:
 	bool _ocean_enabled = false;
 	int _ocean_mesh_lods = 7;
 	int _ocean_tessellation_level = 0;
-	int _ocean_mesh_size = 32;
+	// 16, not 32. Phase 0 measured the clipmap's geometry cost inside the noise
+	// floor at 32, so this is a memory and CPU-snap tidy-up and must not be read as
+	// a GPU optimisation (spec §4.6).
+	int _ocean_mesh_size = 16;
 	real_t _ocean_vertex_spacing = 4.0f;
 	real_t _ocean_cull_margin = 20.0f;
 	RenderingServer::ShadowCastingSetting _ocean_cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_OFF;
 	GeometryInstance3D::GIMode _ocean_gi_mode = GeometryInstance3D::GI_MODE_DISABLED;
 	uint32_t _ocean_render_layers = 1u;
 	Ref<Material> _ocean_material;
+
+	// Ocean waves (spec §3.2, §4.2). The clock is wrapped to the wave table's
+	// loop period so the phase argument never grows without bound -- the legacy
+	// shader used TIME * 8.0, which quantised visibly before Godot's rollover.
+	WaterWaves _ocean_waves;
+	double _water_time = 0.0;
+	// Last value pushed to the water_time_period global; -1 forces the first write.
+	float _water_time_period_sent = -1.0f;
+	bool _water_globals_registered = false;
+	// Last height range applied to the ocean's cull AABB (spec §4.5). Both terms
+	// come from outside this node -- sea_level is a uniform on the ocean material
+	// and the amplitude sum comes off the wave table -- and neither notifies on
+	// change, so the range is re-derived every physics frame and written only when
+	// it moves. FLT_MAX forces the first write.
+	Vector2 _ocean_height_range_sent = V2_MAX;
 
 	// Rendering
 	bool _free_editor_textures = true;
@@ -133,8 +152,21 @@ private:
 	void _update_mesher_aabbs() { _terrain_mesher ? _terrain_mesher->update_aabbs() : void(); }
 	void _destroy_terrain_mesher(const bool p_final = false);
 	void _setup_ocean_mesher();
-	void _update_ocean_aabbs() { _ocean_mesher ? _ocean_mesher->update_aabbs() : void(); }
+	void _update_ocean_aabbs(const bool p_force = false);
 	void _destroy_ocean_mesher(const bool p_final = false);
+
+	void _register_water_globals();
+	void _update_water_clock(const double p_delta);
+	void _upload_wave_table();
+	// sea_level and _water_domain_origin are uniforms on the ocean material, not
+	// properties of this node, because the shader has to work with no plugin at all
+	// (G6). The CPU query and the cull AABB both need them, so they are read back
+	// from the material with the shader's own declared default as the fallback --
+	// ShaderMaterial::get_shader_parameter() returns nil for anything the user
+	// never set, which is not the same as zero.
+	Variant _get_ocean_shader_param(const StringName &p_name) const;
+	real_t _get_ocean_sea_level() const;
+	Vector3 _get_ocean_domain_origin() const;
 
 	void _setup_displacement_buffer();
 	void _update_displacement_buffer();
@@ -277,6 +309,47 @@ public:
 	uint32_t get_ocean_render_layers() const { return _ocean_render_layers; }
 	void set_ocean_material(const Ref<Material> &p_material);
 	Ref<Material> get_ocean_material() const { return _ocean_material; }
+
+	// Ocean waves. These are art knobs; C++ turns them into the wave table the
+	// shader and the CPU height query both read (spec §4.2).
+	void set_ocean_wave_count(const int p_count);
+	int get_ocean_wave_count() const { return _ocean_waves.get_count(); }
+	void set_ocean_wave_direction(const real_t p_degrees);
+	real_t get_ocean_wave_direction() const { return _ocean_waves.get_direction_deg(); }
+	void set_ocean_wave_spread(const real_t p_degrees);
+	real_t get_ocean_wave_spread() const { return _ocean_waves.get_spread_deg(); }
+	void set_ocean_wave_amplitude(const real_t p_metres);
+	real_t get_ocean_wave_amplitude() const { return _ocean_waves.get_amplitude(); }
+	void set_ocean_wave_length_max(const real_t p_metres);
+	real_t get_ocean_wave_length_max() const { return _ocean_waves.get_length_max(); }
+	void set_ocean_wave_steepness(const real_t p_steepness);
+	real_t get_ocean_wave_steepness() const { return _ocean_waves.get_steepness(); }
+	void set_ocean_wave_loop_period(const real_t p_seconds);
+	real_t get_ocean_wave_loop_period() const { return _ocean_waves.get_loop_period(); }
+
+	// The clock the water shaders run on, wrapped to the loop period. Exposed so
+	// gameplay can read the same value the GPU sees.
+	real_t get_water_time() const { return (real_t)_water_time; }
+
+	// --- CPU water query (spec §4.3, G4) -------------------------------------
+	// World-space height and normal of the ocean surface above a world XZ, at the
+	// current water_time. Both solve the Gerstner inverse, so they answer the
+	// question a caller actually asks ("how high is the water under my boat")
+	// rather than the one the wave function answers ("where does parameter u go").
+	//
+	// The reference these are contracted against is water_eval_waves() in
+	// water_waves.gdshaderinc, not the shipped ocean material: if a caller points
+	// ocean_material at something that is not a Pasture3D water shader, these keep
+	// describing the surface the wave table defines and the GPU draws something
+	// else. Only the wave table crosses the boundary, so nothing else can drift.
+	real_t get_water_height(const Vector2 &p_xz) const;
+	Vector3 get_water_normal(const Vector2 &p_xz) const;
+	// The wave function itself: where the surface point for a DOMAIN parameter
+	// lands, which is what the vertex shader computes for the same input and
+	// therefore what the Phase 4 gate compares against. No inverse solve, so this
+	// is also the cheap call for anything that does not need a specific XZ --
+	// spray, wakes, a debug gizmo drawing the surface.
+	Vector3 get_water_surface_point(const Vector2 &p_domain_xz) const;
 
 	// Rendering
 	void set_mouse_layer(const uint32_t p_layer);

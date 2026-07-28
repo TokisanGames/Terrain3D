@@ -30,6 +30,10 @@ Pasture3D::DebugLevel Pasture3D::debug_level{ ERROR };
 
 void Pasture3D::_initialize() {
 	LOG(INFO, "Instantiating main subsystems");
+	// Before any water material can be loaded, or Godot warns about a global
+	// parameter that "was removed at some point" and renders black until the
+	// material recompiles.
+	_register_water_globals();
 	// Make blank objects if needed
 	if (!_data) {
 		LOG(DEBUG, "Creating blank data object");
@@ -125,14 +129,22 @@ void Pasture3D::__physics_process(const double p_delta) {
 	}
 	if (_ocean_enabled && _ocean_mesher) {
 		_ocean_mesher->snap();
+		_update_water_clock(p_delta);
+		// Change-detected; see the function header for why it is polled at all.
+		_update_ocean_aabbs();
 		if (_ocean_material.is_valid() && _ocean_light_target.is_valid()) {
 			DirectionalLight3D *light = cast_to<DirectionalLight3D>(_ocean_light_target.ptr());
 			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
 			if (light && ocean_shader_mat) {
 				Color color = COLOR_WHITE;
 				color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
-				ocean_shader_mat->set_shader_parameter("_light_color", color);
 				Vector3 direction = light->get_global_basis().get_column(2);
+				// Globals: one write reaches every water body in the scene.
+				RS->global_shader_parameter_set("water_sun_color", Vector3(color.r, color.g, color.b));
+				RS->global_shader_parameter_set("water_sun_direction", direction);
+				// Per-material equivalents, for the legacy ocean shader only.
+				// Goes away with it in Phase 5; the new shaders ignore these.
+				ocean_shader_mat->set_shader_parameter("_light_color", color);
 				ocean_shader_mat->set_shader_parameter("_light_direction", direction);
 			}
 		}
@@ -176,7 +188,7 @@ void Pasture3D::_setup_terrain_mesher() {
 		_terrain_mesher = new Pasture3DMesher();
 	}
 	// Terrain uses per-instance _target_pos so each split-screen view geomorphs to its own camera.
-	_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid(), _render_layers, true);
+	_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid(), _render_layers, true, _cast_shadows, _gi_mode);
 	// (Re)initialization resets the mesher to a single view; re-apply any multi-camera config.
 	if (!_cameras.is_empty()) {
 		_apply_cameras_to_mesher();
@@ -218,8 +230,8 @@ void Pasture3D::_setup_ocean_mesher() {
 			LOG(DEBUG, "Creating mesher");
 			_ocean_mesher = new Pasture3DMesher();
 		}
-		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID(), _ocean_render_layers);
-		_ocean_mesher->update_aabbs(_ocean_cull_margin, V2_ZERO);
+		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID(), _ocean_render_layers, false, _ocean_cast_shadows, _ocean_gi_mode);
+		_update_ocean_aabbs(true);
 		if (_ocean_material.is_valid()) {
 			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
 			if (ocean_shader_mat) {
@@ -229,7 +241,193 @@ void Pasture3D::_setup_ocean_mesher() {
 				ocean_shader_mat->set_shader_parameter("_subdiv", pow(2.f, real_t(_ocean_tessellation_level)));
 			}
 		}
+		_upload_wave_table();
 	}
+}
+
+/**
+ * Water shaders read their clock and sun from global shader uniforms, so one
+ * write drives every water body in the scene (spec §2.3).
+ *
+ * The editor plugin persists these to project.godot, which is what makes them
+ * exist at engine startup and therefore resolve in exported builds. This is the
+ * fallback for the first run after enabling the plugin, and for projects where
+ * the settings were never written. Phase 1 probes established the rules:
+ *   - ProjectSettings::has_setting() is the only runtime-safe existence check.
+ *     global_shader_parameter_get_list() and _get() are editor-only and error
+ *     out in a game build.
+ *   - Writing ProjectSettings at runtime does NOT register with RenderingServer;
+ *     its global table is built from project.godot at startup and only then.
+ */
+void Pasture3D::_register_water_globals() {
+	// Process-global, not per-node: the RenderingServer table is shared, so a
+	// second Pasture3D in the scene must not try to add what the first already
+	// added. There is no runtime-safe way to ask RenderingServer whether a
+	// global exists -- global_shader_parameter_get_list() is editor-only -- so
+	// the bookkeeping has to live here.
+	static bool s_registered = false;
+	if (s_registered) {
+		return;
+	}
+	s_registered = true;
+	_water_globals_registered = true;
+
+	struct GlobalDecl {
+		const char *name;
+		RenderingServer::GlobalShaderParameterType type;
+		Variant initial;
+	};
+	const GlobalDecl decls[] = {
+		{ "water_time", RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 0.0f },
+		{ "water_sun_direction", RenderingServer::GLOBAL_VAR_TYPE_VEC3, Vector3(0.f, -1.f, 0.f) },
+		{ "water_sun_color", RenderingServer::GLOBAL_VAR_TYPE_VEC3, Vector3(1.f, 1.f, 1.f) },
+		// The clock's wrap period. The shader needs it, not just the clock:
+		// anything else that advances with water_time -- the scrolling detail
+		// texture (§3.3) -- has to quantise its own rate to the same loop or the
+		// wrap that is seamless for the waves is a visible jump for the ripples.
+		// Defaulted to WaterWaves' own default so a bare MeshInstance3D with no
+		// Pasture3D in the scene (G6) still loops correctly.
+		{ "water_time_period", RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 120.0f },
+	};
+	ProjectSettings *settings = ProjectSettings::get_singleton();
+	for (const GlobalDecl &decl : decls) {
+		if (settings && settings->has_setting(String("shader_globals/") + decl.name)) {
+			continue;
+		}
+		LOG(DEBUG, "Registering water shader global at runtime: ", decl.name);
+		RS->global_shader_parameter_add(decl.name, decl.type, decl.initial);
+	}
+}
+
+/**
+ * Advances the shared water clock and wraps it to the wave table's loop period.
+ *
+ * Wavelengths are quantised so every wave completes a whole number of cycles in
+ * that period (spec §3.2), which makes the wrap seamless and keeps the phase
+ * argument bounded. The legacy shader's `TIME * 8.0` reached ~28,800 before
+ * Godot's 3600 s rollover, at which point its noise quantised and the waves
+ * visibly stepped.
+ */
+void Pasture3D::_update_water_clock(const double p_delta) {
+	_water_time += p_delta;
+	double period = (double)_ocean_waves.get_loop_period();
+	if (period > 0.0) {
+		_water_time = Math::fposmod(_water_time, period);
+	}
+	RS->global_shader_parameter_set("water_time", (float)_water_time);
+	// Change-detected: the period only moves when an art knob does, and the
+	// fragment stage divides by it every pixel, so a stale value is worse than
+	// a redundant write is cheap.
+	if (_water_time_period_sent != (float)period) {
+		_water_time_period_sent = (float)period;
+		RS->global_shader_parameter_set("water_time_period", (float)period);
+	}
+}
+
+void Pasture3D::_upload_wave_table() {
+	_ocean_waves.update();
+	ShaderMaterial *mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
+	if (mat) {
+		mat->set_shader_parameter("_waves", _ocean_waves.get_shader_table());
+		mat->set_shader_parameter("wave_steepness", _ocean_waves.get_steepness());
+	}
+	// A taller sea is a taller cull volume (spec §4.5).
+	_update_ocean_aabbs();
+}
+
+/**
+ * Reads a uniform off the ocean material, falling back to the value the shader
+ * itself declares.
+ *
+ * ShaderMaterial only stores what was explicitly assigned, so an untouched
+ * uniform reads back as nil -- which is indistinguishable from zero if you take
+ * the Variant at face value, and zero is the wrong answer for anything whose
+ * declared default is not zero. shader_get_parameter_default() asks the shader.
+ */
+Variant Pasture3D::_get_ocean_shader_param(const StringName &p_name) const {
+	ShaderMaterial *mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
+	if (!mat) {
+		return Variant();
+	}
+	Variant value = mat->get_shader_parameter(p_name);
+	if (value.get_type() != Variant::NIL) {
+		return value;
+	}
+	Ref<Shader> shader = mat->get_shader();
+	if (shader.is_valid()) {
+		return RS->shader_get_parameter_default(shader->get_rid(), p_name);
+	}
+	return Variant();
+}
+
+real_t Pasture3D::_get_ocean_sea_level() const {
+	Variant value = _get_ocean_shader_param("sea_level");
+	// Absent for the non-clipmap variants, which have no sea_level at all: a lake
+	// mesh's own transform is its height (§4.1). The ocean clipmap sheet is built
+	// at y = 0, so zero is the right answer either way.
+	return value.get_type() == Variant::NIL ? 0.f : (real_t)value;
+}
+
+Vector3 Pasture3D::_get_ocean_domain_origin() const {
+	Variant value = _get_ocean_shader_param("_water_domain_origin");
+	return value.get_type() == Variant::NIL ? V3_ZERO : (Vector3)value;
+}
+
+///////////////////////////
+// CPU water query (spec §4.3)
+///////////////////////////
+
+Vector3 Pasture3D::get_water_surface_point(const Vector2 &p_domain_xz) const {
+	Vector3 origin = _get_ocean_domain_origin();
+	Vector3 local = _ocean_waves.get_position(p_domain_xz, (float)_water_time);
+	// The shader displaces in domain space and adds nothing back: p_pos already
+	// carried the origin, and only `domain` was shifted. Same here.
+	return Vector3(local.x + origin.x, local.y + _get_ocean_sea_level(), local.z + origin.z);
+}
+
+real_t Pasture3D::get_water_height(const Vector2 &p_xz) const {
+	Vector3 origin = _get_ocean_domain_origin();
+	Vector2 target(p_xz.x - origin.x, p_xz.y - origin.z);
+	Vector2 domain = _ocean_waves.solve_domain(target, (float)_water_time);
+	return _get_ocean_sea_level() + (real_t)_ocean_waves.get_height(domain, (float)_water_time);
+}
+
+Vector3 Pasture3D::get_water_normal(const Vector2 &p_xz) const {
+	Vector3 origin = _get_ocean_domain_origin();
+	Vector2 target(p_xz.x - origin.x, p_xz.y - origin.z);
+	Vector2 domain = _ocean_waves.solve_domain(target, (float)_water_time);
+	return _ocean_waves.get_normal(domain, (float)_water_time);
+}
+
+/**
+ * Sizes the ocean's cull AABB to where the water actually is (spec §4.5).
+ *
+ * This used to pass a zero height range, which put the y-extent at +/- the cull
+ * margin around the WORLD ORIGIN rather than around the water. The demo's
+ * sea_level of 5 fitted inside the default margin of 20 by luck; a sea level
+ * outside the margin got the whole clipmap frustum-culled whenever the camera was
+ * near the water, which is exactly when it matters.
+ *
+ * Both terms come from outside this node and neither emits a change signal --
+ * sea_level is a uniform on the material, and the amplitude sum is a property of
+ * the built wave table -- so this is called every physics frame and change-detects
+ * before touching the RenderingServer. update_aabbs() walks every mesh RID.
+ */
+void Pasture3D::_update_ocean_aabbs(const bool p_force) {
+	if (!_ocean_mesher) {
+		return;
+	}
+	real_t sea_level = _get_ocean_sea_level();
+	// The whole table crests together somewhere, so the extreme is the amplitude
+	// SUM, not the amplitude knob (which is only the longest wave's). Understating
+	// it here culls water that is on screen.
+	real_t amplitude = (real_t)_ocean_waves.get_amplitude_sum();
+	Vector2 range(sea_level - amplitude, sea_level + amplitude);
+	if (!p_force && range == _ocean_height_range_sent) {
+		return;
+	}
+	_ocean_height_range_sent = range;
+	_ocean_mesher->update_aabbs(_ocean_cull_margin, range);
 }
 
 void Pasture3D::_destroy_ocean_mesher(const bool p_final) {
@@ -511,6 +709,11 @@ void Pasture3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 
 Pasture3D::Pasture3D() {
 	LOG(INFO, "Pasture3D v", _version, " - https://github.com/TokisanGames/Pasture3D");
+	// Build the wave table once up front so it is never in the unbuilt state a
+	// dirty flag implies. Every knob setter rebuilds it, but a get_water_height()
+	// on a node whose knobs were all left at their defaults would otherwise read a
+	// zero-amplitude table and report flat water (spec §4.3).
+	_ocean_waves.update();
 	// Process the command line
 	PackedStringArray args = OS::get_singleton()->get_cmdline_args();
 	for (int i = args.size() - 1; i >= 0; i--) {
@@ -858,6 +1061,7 @@ void Pasture3D::set_cull_margin(const real_t p_margin) {
 void Pasture3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
 	SET_IF_DIFF(_cast_shadows, p_cast_shadows);
 	if (_terrain_mesher) {
+		_terrain_mesher->set_cast_shadows(_cast_shadows);
 		_terrain_mesher->update();
 	}
 }
@@ -865,6 +1069,7 @@ void Pasture3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_c
 void Pasture3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
 	SET_IF_DIFF(_gi_mode, p_gi_mode);
 	if (_terrain_mesher) {
+		_terrain_mesher->set_gi_mode(_gi_mode);
 		_terrain_mesher->update();
 	}
 }
@@ -936,14 +1141,13 @@ void Pasture3D::set_ocean_vertex_spacing(const real_t p_spacing) {
 void Pasture3D::set_ocean_cull_margin(const real_t p_margin) {
 	SET_IF_DIFF(_ocean_cull_margin, CLAMP(p_margin, 0.f, 100000.f));
 	LOG(INFO, "Setting extra cull margin: ", _ocean_cull_margin);
-	if (_ocean_mesher) {
-		_ocean_mesher->update_aabbs(_ocean_cull_margin, V2_ZERO);
-	}
+	_update_ocean_aabbs(true);
 }
 
 void Pasture3D::set_ocean_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
 	SET_IF_DIFF(_ocean_cast_shadows, p_cast_shadows);
 	if (_ocean_mesher) {
+		_ocean_mesher->set_cast_shadows(_ocean_cast_shadows);
 		_ocean_mesher->update();
 	}
 }
@@ -951,6 +1155,7 @@ void Pasture3D::set_ocean_cast_shadows(const RenderingServer::ShadowCastingSetti
 void Pasture3D::set_ocean_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
 	SET_IF_DIFF(_ocean_gi_mode, p_gi_mode);
 	if (_ocean_mesher) {
+		_ocean_mesher->set_gi_mode(_ocean_gi_mode);
 		_ocean_mesher->update();
 	}
 }
@@ -966,9 +1171,53 @@ void Pasture3D::set_ocean_render_layers(const uint32_t p_layers) {
 void Pasture3D::set_ocean_material(const Ref<Material> &p_material) {
 	SET_IF_DIFF(_ocean_material, p_material);
 	LOG(INFO, "Setting ocean material");
+	// New material, new variant wave count and new sea_level; both are read back
+	// off it rather than owned here.
+	update_configuration_warnings();
 	if (_ocean_enabled) {
 		_setup_ocean_mesher();
 	}
+}
+
+// Wave knobs. Each rebuilds the table and re-uploads; WaterWaves change-detects
+// internally, so setting a knob to its current value costs nothing.
+
+void Pasture3D::set_ocean_wave_count(const int p_count) {
+	_ocean_waves.set_count(p_count);
+	// May have crossed the material variant's WATER_WAVE_COUNT; see
+	// _get_configuration_warnings().
+	update_configuration_warnings();
+	_upload_wave_table();
+}
+
+void Pasture3D::set_ocean_wave_direction(const real_t p_degrees) {
+	_ocean_waves.set_direction_deg((float)p_degrees);
+	_upload_wave_table();
+}
+
+void Pasture3D::set_ocean_wave_spread(const real_t p_degrees) {
+	_ocean_waves.set_spread_deg((float)p_degrees);
+	_upload_wave_table();
+}
+
+void Pasture3D::set_ocean_wave_amplitude(const real_t p_metres) {
+	_ocean_waves.set_amplitude((float)p_metres);
+	_upload_wave_table();
+}
+
+void Pasture3D::set_ocean_wave_length_max(const real_t p_metres) {
+	_ocean_waves.set_length_max((float)p_metres);
+	_upload_wave_table();
+}
+
+void Pasture3D::set_ocean_wave_steepness(const real_t p_steepness) {
+	_ocean_waves.set_steepness((float)p_steepness);
+	_upload_wave_table();
+}
+
+void Pasture3D::set_ocean_wave_loop_period(const real_t p_seconds) {
+	_ocean_waves.set_loop_period((float)p_seconds);
+	_upload_wave_table();
 }
 
 void Pasture3D::set_mouse_layer(const uint32_t p_layer) {
@@ -1188,6 +1437,31 @@ PackedStringArray Pasture3D::_get_configuration_warnings() const {
 	if (_warnings & WARN_MISMATCHED_MIPMAPS) {
 		psa.push_back("Texture mipmap settings don't match. Change on the Import panel.");
 	}
+	// Parity guard (spec §4.3). The CPU evaluator sums all WATER_MAX_WAVES slots,
+	// which is exactly right while the shader variant reads at least as many as the
+	// table fills -- slots past ocean_wave_count are zero on both sides. A variant
+	// reading FEWER cannot be reconciled: the GPU drops waves the CPU keeps, and
+	// get_water_height() reports a surface nobody drew. The wrapper's count is not
+	// introspectable through the RenderingServer, so it is read off the shader
+	// source, and a wrapper written without the literal #define is left alone.
+	if (_ocean_enabled) {
+		ShaderMaterial *mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
+		Ref<Shader> shader = mat ? mat->get_shader() : Ref<Shader>();
+		if (shader.is_valid()) {
+			const String token = "#define WATER_WAVE_COUNT";
+			String code = shader->get_code();
+			int at = code.find(token);
+			if (at >= 0) {
+				int variant_count = code.substr(at + token.length()).strip_edges().to_int();
+				if (variant_count > 0 && variant_count < _ocean_waves.get_count()) {
+					psa.push_back("ocean_wave_count is " + String::num_int64(_ocean_waves.get_count()) +
+							" but the ocean material's shader only reads " + String::num_int64(variant_count) +
+							" waves, so the extra waves are invisible and get_water_height() will not match "
+							"the water on screen. Lower ocean_wave_count or use a higher-tier variant.");
+				}
+			}
+		}
+	}
 	return psa;
 }
 
@@ -1253,6 +1527,17 @@ void Pasture3D::_notification(const int p_what) {
 			//test_layer_subtiling();
 			//test_layer_control_color();
 			//test_layer_region_size_change();
+
+			// Opt-in runner, so a suite can be run without editing and rebuilding the
+			// extension. `PASTURE3D_UNIT_TESTS=water` selects the water parity suite;
+			// unset (the normal case) runs nothing. The water suite is a gate for
+			// spec §4.3, and a gate is only worth anything if it is reproducible.
+			{
+				const String suites = OS::get_singleton()->get_environment("PASTURE3D_UNIT_TESTS");
+				if (suites.contains("water")) {
+					test_water_waves();
+				}
+			}
 
 			// Clear editor textures - also see ENTER_TREE
 			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid()) {
@@ -1531,6 +1816,24 @@ void Pasture3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_ocean_render_layers"), &Pasture3D::get_ocean_render_layers);
 	ClassDB::bind_method(D_METHOD("set_ocean_material", "material"), &Pasture3D::set_ocean_material);
 	ClassDB::bind_method(D_METHOD("get_ocean_material"), &Pasture3D::get_ocean_material);
+	ClassDB::bind_method(D_METHOD("set_ocean_wave_count", "count"), &Pasture3D::set_ocean_wave_count);
+	ClassDB::bind_method(D_METHOD("get_ocean_wave_count"), &Pasture3D::get_ocean_wave_count);
+	ClassDB::bind_method(D_METHOD("set_ocean_wave_direction", "degrees"), &Pasture3D::set_ocean_wave_direction);
+	ClassDB::bind_method(D_METHOD("get_ocean_wave_direction"), &Pasture3D::get_ocean_wave_direction);
+	ClassDB::bind_method(D_METHOD("set_ocean_wave_spread", "degrees"), &Pasture3D::set_ocean_wave_spread);
+	ClassDB::bind_method(D_METHOD("get_ocean_wave_spread"), &Pasture3D::get_ocean_wave_spread);
+	ClassDB::bind_method(D_METHOD("set_ocean_wave_amplitude", "metres"), &Pasture3D::set_ocean_wave_amplitude);
+	ClassDB::bind_method(D_METHOD("get_ocean_wave_amplitude"), &Pasture3D::get_ocean_wave_amplitude);
+	ClassDB::bind_method(D_METHOD("set_ocean_wave_length_max", "metres"), &Pasture3D::set_ocean_wave_length_max);
+	ClassDB::bind_method(D_METHOD("get_ocean_wave_length_max"), &Pasture3D::get_ocean_wave_length_max);
+	ClassDB::bind_method(D_METHOD("set_ocean_wave_steepness", "steepness"), &Pasture3D::set_ocean_wave_steepness);
+	ClassDB::bind_method(D_METHOD("get_ocean_wave_steepness"), &Pasture3D::get_ocean_wave_steepness);
+	ClassDB::bind_method(D_METHOD("set_ocean_wave_loop_period", "seconds"), &Pasture3D::set_ocean_wave_loop_period);
+	ClassDB::bind_method(D_METHOD("get_ocean_wave_loop_period"), &Pasture3D::get_ocean_wave_loop_period);
+	ClassDB::bind_method(D_METHOD("get_water_time"), &Pasture3D::get_water_time);
+	ClassDB::bind_method(D_METHOD("get_water_height", "global_xz"), &Pasture3D::get_water_height);
+	ClassDB::bind_method(D_METHOD("get_water_normal", "global_xz"), &Pasture3D::get_water_normal);
+	ClassDB::bind_method(D_METHOD("get_water_surface_point", "domain_xz"), &Pasture3D::get_water_surface_point);
 
 	// Rendering
 	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Pasture3D::set_mouse_layer);
@@ -1654,6 +1957,15 @@ void Pasture3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_ocean_render_layers", "get_ocean_render_layers");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_ocean_material", "get_ocean_material");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_light_target", PROPERTY_HINT_NODE_TYPE, "DirectionalLight3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_ocean_light_target", "get_ocean_light_target");
+	// Wave knobs. Must match the WATER_WAVE_COUNT the ocean material's variant
+	// was compiled with -- extra waves are uploaded but never read.
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_wave_count", PROPERTY_HINT_RANGE, "1,8,1"), "set_ocean_wave_count", "get_ocean_wave_count");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_wave_direction", PROPERTY_HINT_RANGE, "0.0,360.0,1.0"), "set_ocean_wave_direction", "get_ocean_wave_direction");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_wave_spread", PROPERTY_HINT_RANGE, "0.0,90.0,1.0"), "set_ocean_wave_spread", "get_ocean_wave_spread");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_wave_amplitude", PROPERTY_HINT_RANGE, "0.0,20.0,0.01,or_greater"), "set_ocean_wave_amplitude", "get_ocean_wave_amplitude");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_wave_length_max", PROPERTY_HINT_RANGE, "10.0,500.0,1.0,or_greater"), "set_ocean_wave_length_max", "get_ocean_wave_length_max");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_wave_steepness", PROPERTY_HINT_RANGE, "0.0,1.0,0.01"), "set_ocean_wave_steepness", "get_ocean_wave_steepness");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_wave_loop_period", PROPERTY_HINT_RANGE, "0.0,600.0,1.0"), "set_ocean_wave_loop_period", "get_ocean_wave_loop_period");
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");

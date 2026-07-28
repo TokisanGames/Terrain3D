@@ -74,6 +74,14 @@ private:
 	int _mesh_size = 0;
 	real_t _vertex_spacing = 1.f;
 	uint32_t _render_layers = 1u; // Default single-view layer mask
+	// Owned here rather than read back off _terrain (spec §4.4). The ocean has its
+	// own cast_shadows / gi_mode properties, bound and shown in the inspector, and
+	// update() used to ignore them and apply the terrain's -- so the ocean silently
+	// inherited ON/STATIC over its own OFF/DISABLED defaults. Benign only for as
+	// long as the material stays transparent, which the shader header invites users
+	// to change.
+	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
+	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 
 	void _generate_mesh_types();
 	RID _generate_mesh(const Vector2i &p_size, const bool p_standard_grid = false);
@@ -93,7 +101,9 @@ public:
 
 	void initialize(Pasture3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
 			const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers,
-			const bool p_uses_instance_target_pos = false);
+			const bool p_uses_instance_target_pos = false,
+			const RenderingServer::ShadowCastingSetting p_cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON,
+			const GeometryInstance3D::GIMode p_gi_mode = GeometryInstance3D::GI_MODE_STATIC);
 	void destroy();
 
 	// Reconfigure the clipmap views. Empty input => one default view following the terrain's
@@ -118,6 +128,12 @@ public:
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 	void set_render_layers(const uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; }
+	// Callers apply these with update(); they are read there, not on assignment,
+	// because update() reapplies every instance property in one pass anyway.
+	void set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) { _cast_shadows = p_cast_shadows; }
+	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; }
+	void set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) { _gi_mode = p_gi_mode; }
+	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
 };
 // Inline Functions
 

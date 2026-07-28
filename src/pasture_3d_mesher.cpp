@@ -303,7 +303,9 @@ void Pasture3DMesher::_clear_mesh_types() {
 
 void Pasture3DMesher::initialize(Pasture3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
 		const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers,
-		const bool p_uses_instance_target_pos) {
+		const bool p_uses_instance_target_pos,
+		const RenderingServer::ShadowCastingSetting p_cast_shadows,
+		const GeometryInstance3D::GIMode p_gi_mode) {
 	if (p_terrain) {
 		_terrain = p_terrain;
 	} else {
@@ -323,6 +325,8 @@ void Pasture3DMesher::initialize(Pasture3D *p_terrain, const int p_mesh_size, co
 	_vertex_spacing = p_vertex_spacing;
 	_render_layers = p_render_layers;
 	_uses_instance_target_pos = p_uses_instance_target_pos;
+	_cast_shadows = p_cast_shadows;
+	_gi_mode = p_gi_mode;
 	_generate_mesh_types();
 	_generate_offset_data();
 	// Start with a single default view (current single-camera behavior). The Pasture3D node
@@ -511,7 +515,10 @@ void Pasture3DMesher::update() {
 	}
 	bool baked_light;
 	bool dynamic_gi;
-	switch (_terrain->get_gi_mode()) {
+	// _gi_mode / _cast_shadows, not _terrain->get_gi_mode() / get_cast_shadows():
+	// the ocean mesher is a second instance of this class with its own settings
+	// (spec §4.4).
+	switch (_gi_mode) {
 		case GeometryInstance3D::GI_MODE_DISABLED: {
 			baked_light = false;
 			dynamic_gi = false;
@@ -527,7 +534,7 @@ void Pasture3DMesher::update() {
 		} break;
 	}
 
-	RenderingServer::ShadowCastingSetting node_cast_shadows = _terrain->get_cast_shadows();
+	RenderingServer::ShadowCastingSetting node_cast_shadows = _cast_shadows;
 	bool visible = _terrain->is_visible_in_tree();
 
 	LOG(INFO, "Updating all mesh instances for ", _views.size(), " view(s)");
@@ -565,7 +572,12 @@ void Pasture3DMesher::update_aabbs(const real_t p_cull_margin, const Vector2 &p_
 	} else {
 		height_range = p_height_range;
 	}
-	height_range.y += std::abs(height_range.x);
+	// (min, max) -> (min, extent). This was `y += abs(x)`, which is the same number
+	// only while min <= 0 and overstates the extent by 2*min otherwise. Harmless
+	// for a terrain whose height range straddles zero, but the ocean's range is
+	// sea_level +/- amplitude and sits wherever the sea does, so a sea level of 300
+	// inflated the y-extent to 600 m of nothing.
+	height_range.y -= height_range.x;
 	for (const RID &rid : _mesh_rids) {
 		AABB aabb = RS->mesh_get_custom_aabb(rid);
 		aabb.position.y = height_range.x - cull_margin;
