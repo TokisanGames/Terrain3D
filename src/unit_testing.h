@@ -32,5 +32,6 @@ void test_layer_road_connector();
 void test_layer_subtiling();
 void test_layer_control_color();
 void test_layer_region_size_change();
+void test_water_waves();
 
 #endif // UNIT_TESTING_H
