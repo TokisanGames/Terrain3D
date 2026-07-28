@@ -85,7 +85,21 @@ void fragment() {
 	// Water is a two-sided sheet (render_mode cull_disabled): flip for the
 	// underwater view. The legacy shader was cull_back and simply vanished from
 	// below, while still testing for a submerged camera.
-	if (!FRONT_FACING) {
+	//
+	// Keyed on the CAMERA, not on FRONT_FACING, and the difference is visible.
+	// depth_draw_never means the water does not occlude itself, so cull_disabled
+	// rasterises the back side of every wave crest -- fragments that a solid
+	// surface would have hidden behind the crest in front of them. Those are
+	// !FRONT_FACING while the viewer is plainly above the water, and flipping them
+	// pointed their normal at the ground: they shaded as dark dashes scattered
+	// across the mid-distance at grazing pitches, which is what the Phase 5 A/B
+	// captures showed (§8.6).
+	//
+	// Which side the viewer is on is a property of the camera and cannot be read
+	// off one triangle. v_base_y is the undisplaced sheet -- sea_level, or the
+	// mesh's own height -- so this stays correct for a plain MeshInstance3D that
+	// has no sea_level uniform at all.
+	if (CAMERA_POSITION_WORLD.y < v_base_y) {
 		world_normal = -world_normal;
 	}
 

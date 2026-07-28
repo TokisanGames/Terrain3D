@@ -34,6 +34,11 @@ void vertex() {
 	world_pos.y = sea_level;
 #endif
 
+	// Before the waves displace it: this is the flat sheet the water sits on, and
+	// the fragment stage compares the camera against it to decide which side of
+	// the surface the viewer is on.
+	v_base_y = world_pos.y;
+
 	WaveSample wave = water_eval_waves(world_pos);
 
 	v_world_pos = wave.position;
