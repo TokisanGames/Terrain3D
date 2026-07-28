@@ -97,6 +97,8 @@ public:
 	void update_mmis(const int p_mesh_id = -1, const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
 
 	void reset_density_counter() { _density_counter = 0; }
+	void push_from_instancer(const int asset_id);
+	void pull_from_scene(const int asset_id);
 
 protected:
 	static void _bind_methods();
