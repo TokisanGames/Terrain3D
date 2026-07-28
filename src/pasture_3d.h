@@ -103,13 +103,32 @@ private:
 	// Ocean Mesh
 	Pasture3DMesher *_ocean_mesher = nullptr;
 	bool _ocean_enabled = false;
-	int _ocean_mesh_lods = 7;
+	// 9 lods and 1 m spacing, not 7 and 4 m (spec §11 q6, closed Phase 5).
+	//
+	// These two move together and must not be changed independently. A clipmap is
+	// scale-invariant: LOD0's spacing sets the unit and every level doubles it, so
+	// dividing the spacing by four divides the ocean's reach by four as well, and
+	// two extra rings buy it back. Half-extent is 2 * mesh_size * spacing *
+	// 2^(lods-1) -- 8192 m either way.
+	//
+	// What it buys: the drawn surface sat up to 22 cm below the analytic one at a
+	// LOD0 cell centre, because 4 m spacing against a 10.2 m shortest wavelength is
+	// a ratio of 2.54 where water_waves.gdshaderinc asks for 8. At 1 m the ratio is
+	// 10.2 and the sag is 1.7 cm. Since the rings below LOD2 are exactly what
+	// shipped before, this is strictly better at every distance, not a trade of
+	// near fidelity for far. Measured cost: +0.030 ms of 0.231 (§8.6).
+	//
+	// This is fidelity, not performance -- and it is what makes get_water_height()
+	// useful, since a buoyancy query that disagrees with the drawn surface by 22 cm
+	// floats boats visibly above the water.
+	int _ocean_mesh_lods = 9;
 	int _ocean_tessellation_level = 0;
 	// 16, not 32. Phase 0 measured the clipmap's geometry cost inside the noise
 	// floor at 32, so this is a memory and CPU-snap tidy-up and must not be read as
-	// a GPU optimisation (spec §4.6).
+	// a GPU optimisation (spec §4.6). Phase 5 kept it: reaching the same ratio via
+	// mesh_size 32 costs 6.2x the primitives against 2.5x, for the same sag.
 	int _ocean_mesh_size = 16;
-	real_t _ocean_vertex_spacing = 4.0f;
+	real_t _ocean_vertex_spacing = 1.0f;
 	real_t _ocean_cull_margin = 20.0f;
 	RenderingServer::ShadowCastingSetting _ocean_cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_OFF;
 	GeometryInstance3D::GIMode _ocean_gi_mode = GeometryInstance3D::GI_MODE_DISABLED;
