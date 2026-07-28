@@ -906,16 +906,14 @@ void Terrain3DEditor::set_operation(const Operation p_operation) {
 // Called on mouse click
 void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	IS_DATA_INIT_MESG("Terrain isn't initialized", VOID);
+	// In case mouse-up was intercepted (by a modal dialog, focus change, or a raycast miss, etc...)
+	stop_operation();
 	LOG(INFO, "Setting up undo snapshot");
 	_undo_data.clear();
 	_undo_data["region_locations"] = _terrain->get_data()->get_region_locations().duplicate();
 	_is_operating = true;
-	_original_regions = TypedArray<Terrain3DRegion>(); // New pointers instead of clear
-	_edited_regions = TypedArray<Terrain3DRegion>();
-	_added_removed_locations = TypedArray<Vector2i>();
 	// Reset counter at start to ensure first click places an instance
 	_terrain->get_instancer()->reset_density_counter();
-	_terrain->get_data()->clear_edited_area();
 	_operation_position = p_global_position;
 	_operation_movement = V3_ZERO;
 }
