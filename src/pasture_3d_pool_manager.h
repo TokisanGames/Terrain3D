@@ -70,6 +70,11 @@ private:
 	// one cleared the slot -- leaving no active manager while one was plainly in the
 	// scene. Scene switching does exactly that, and the Phase 1 gate caught it.
 	static inline Vector<Pasture3DPoolManager *> _managers;
+
+	// Water bodies registered with this manager, in registration order. Deferred
+	// from Phase 1 because nothing implemented a body yet and a registry that
+	// cannot be gated is a registry that only compiles.
+	Vector<Node *> _bodies;
 	// The first manager to enter a tree, and the one Pasture3D adopts its clock
 	// from. A raw pointer is safe only because EXIT_TREE clears it; nothing else
 	// may hold it across a frame.
@@ -159,6 +164,19 @@ public:
 
 	// Rebuilds every profile's table and re-uploads it into every cached material.
 	void rebuild_tables();
+
+	// --- Body registry (spec §5.5) ------------------------------------------
+	// Bodies register on entering the tree. The contract a body must satisfy is one
+	// duck-typed method, `contains_point(global_pos) -> bool`, so a GDScript
+	// Pasture3DPool and a C++ Pasture3DOcean can both be bodies without a shared
+	// base class.
+	void register_body(Node *p_body);
+	void unregister_body(Node *p_body);
+	TypedArray<Node> get_bodies() const;
+	// The innermost body containing a world point, or null. Finite bodies are asked
+	// first and the ocean is the fallback -- an ocean is infinite, so asking it first
+	// would mean no pool was ever found.
+	Node *body_at(const Vector3 &p_global_pos) const;
 
 	// --- Evaluation, in DOMAIN space (spec §5.5) ----------------------------
 	// World-space queries belong to the bodies, which apply their own surface

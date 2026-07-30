@@ -296,6 +296,18 @@ Vector3 Pasture3DOcean::get_water_normal(const Vector2 &p_xz) const {
 	return manager->evaluate_normal(_wave_profile, domain);
 }
 
+/**
+ * Is this world point in the water?
+ *
+ * An ocean is unbounded horizontally, so the only question is vertical, and it is
+ * asked against the WAVE surface rather than the flat sea level -- at the shoreline
+ * in a 1 m swell those differ by the entire effect, and a camera or a buoy that used
+ * the flat plane would pop through the surface visibly.
+ */
+bool Pasture3DOcean::contains_point(const Vector3 &p_global_pos) const {
+	return p_global_pos.y <= get_water_height(Vector2(p_global_pos.x, p_global_pos.z));
+}
+
 PackedStringArray Pasture3DOcean::_get_configuration_warnings() const {
 	PackedStringArray warnings;
 	Pasture3DPoolManager *manager = _find_manager();
@@ -376,12 +388,19 @@ void Pasture3DOcean::_notification(int p_what) {
 				if (!manager->is_connected("profiles_changed", cb)) {
 					manager->connect("profiles_changed", cb);
 				}
+				// So body_at() can hand out the ocean as the fallback for a point no
+				// pool claims -- which is what makes a buoy work in open water.
+				manager->register_body(this);
 			}
 			break;
 		}
 
 		case NOTIFICATION_EXIT_TREE: {
 			remove_from_group(OCEAN_GROUP);
+			Pasture3DPoolManager *exiting_manager = _find_manager();
+			if (exiting_manager) {
+				exiting_manager->unregister_body(this);
+			}
 			break;
 		}
 
@@ -458,6 +477,7 @@ void Pasture3DOcean::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_water_normal", "global_xz"), &Pasture3DOcean::get_water_normal);
 	ClassDB::bind_method(D_METHOD("get_water_surface_point", "domain_xz"), &Pasture3DOcean::get_water_surface_point);
 	ClassDB::bind_method(D_METHOD("get_water_time"), &Pasture3DOcean::get_water_time);
+	ClassDB::bind_method(D_METHOD("contains_point", "global_pos"), &Pasture3DOcean::contains_point);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_material", "get_material");

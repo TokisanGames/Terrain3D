@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://dowtnab2uh2pl" path="res://demo/assets/textures/quick_noise.png" id="5_f1dwe"]
 [ext_resource type="Resource" uid="uid://cf4nah7ijrm3y" path="res://demo/data/plow_noise.tres" id="6_xmus7"]
 [ext_resource type="Script" uid="uid://c7ffohefn1uio" path="res://addons/pasture_3d/connectors/splat.gd" id="7_f1dwe"]
+[ext_resource type="Material" uid="uid://cgk4glwmc4vk2" path="res://bench/legacy/M_ocean.tres" id="8_xmus7"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_vnp0k"]
 _shader_parameters = {
@@ -152,10 +153,10 @@ point_count = 4
 [sub_resource type="Curve3D" id="Curve3D_unhns"]
 closed = true
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 2, -20, 0, 0, 0, 0, 0, 0, 22, 2, -24, 0, 0, 0, 0, 0, 0, 50.677246, 2, 19.960052, 0, 0, 0, 0, 0, 0, 37, 2, 77, 0, 0, 0, 0, 0, 0, -12, 2, 77, 0, 0, 0, 0, 0, 0, -68.85394, 2, 24.581116),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0)
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -49.638428, 2, -59.804962, 0, 0, 0, 0, 0, 0, 63.494934, 2, -69.561966, 0, 0, 0, 0, 0, 0, 147.84576, 2, 12.960968, 0, 0, 0, 0, 0, 0, 155.5733, 2, 144.99582, 0, 0, 0, 0, 0, 0, 64.98285, 2, 190.43646, 0, 0, 0, 0, 0, 0, -79.37146, 2, 138.92172, 0, 0, 0, 0, 0, 0, -129.23627, 2, 17.512695),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0)
 }
-point_count = 6
+point_count = 7
 
 [sub_resource type="Curve3D" id="Curve3D_gs7qi"]
 closed = true
@@ -269,6 +270,9 @@ _data = {
 "tilts": PackedFloat32Array(0, 0, 0, 0)
 }
 point_count = 4
+
+[sub_resource type="Pasture3DWaveProfile" id="Pasture3DWaveProfile_ahg1b"]
+profile_name = &"ocean_default"
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4owis"]
 sky_top_color = Color(0.48185542, 0.72736245, 0.79296875, 1)
@@ -478,6 +482,10 @@ curve = SubResource("Curve3D_sy2cg")
 [node name="Pasture3DMound7" type="Node3D" parent="Pasture3D" unique_id=286128172 node_paths=PackedStringArray("terrain")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 834.52985, 0, 278.70554)
 script = ExtResource("1_fwsd8")
+blend_mode = 3
+invert = true
+flank_mode = 1
+slope_angle = 48.0
 terrain = NodePath("..")
 log_bake_timing = true
 surface_offset = 2.0
@@ -652,5 +660,17 @@ _layer_owner = "pasture3d_brush:Mounds"
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound6" unique_id=821857872]
 curve = SubResource("Curve3D_hvsre")
 
+[node name="Pasture3DPoolManager" type="Pasture3DPoolManager" parent="Pasture3D" unique_id=727794514 node_paths=PackedStringArray("sun_light")]
+profiles = Array[Pasture3DWaveProfile]([SubResource("Pasture3DWaveProfile_ahg1b")])
+sun_light = NodePath("../../DirectionalLight3D")
+
+[node name="Pasture3DOcean" type="Pasture3DOcean" parent="Pasture3D/Pasture3DPoolManager" unique_id=890453458]
+material = ExtResource("8_xmus7")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.8939972, 0)
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2130707292]
 environment = SubResource("Environment_ahg1b")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=2062651843]
+transform = Transform3D(0.8813352, -0.32000807, 0.3476249, 0, 0.7357273, 0.6772779, -0.4724915, -0.59690887, 0.64842236, 0, 21.501421, 0)
+shadow_enabled = true

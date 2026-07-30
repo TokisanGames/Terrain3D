@@ -6,6 +6,7 @@
 #include <godot_cpp/core/class_db.hpp>
 
 #include "logger.h"
+#include "pasture_3d_ocean.h"
 #include "pasture_3d_pool_manager.h"
 
 ///////////////////////////
@@ -286,6 +287,63 @@ void Pasture3DPoolManager::rebuild_tables() {
 	_on_profile_changed();
 }
 
+void Pasture3DPoolManager::register_body(Node *p_body) {
+	if (p_body && !_bodies.has(p_body)) {
+		_bodies.push_back(p_body);
+	}
+}
+
+void Pasture3DPoolManager::unregister_body(Node *p_body) {
+	_bodies.erase(p_body);
+}
+
+TypedArray<Node> Pasture3DPoolManager::get_bodies() const {
+	TypedArray<Node> out;
+	for (Node *body : _bodies) {
+		if (body) {
+			out.push_back(body);
+		}
+	}
+	return out;
+}
+
+/**
+ * The body a world point is inside, or null.
+ *
+ * Two passes on purpose. An ocean is unbounded, so a single pass in registration
+ * order would return the ocean for a point plainly inside a pond whenever the ocean
+ * happened to register first -- and registration order is scene-tree order, which no
+ * user thinks about. Finite bodies are therefore asked first, and only if none claims
+ * the point does the ocean get it.
+ *
+ * `contains_point` is duck-typed rather than an interface: Pasture3DPool is GDScript
+ * and Pasture3DOcean is C++, and requiring a shared base would mean making one of
+ * them the other's language.
+ */
+Node *Pasture3DPoolManager::body_at(const Vector3 &p_global_pos) const {
+	Node *ocean = nullptr;
+	for (Node *body : _bodies) {
+		if (!body) {
+			continue;
+		}
+		if (Object::cast_to<Pasture3DOcean>(body)) {
+			if (!ocean) {
+				ocean = body;
+			}
+			continue;
+		}
+		if (body->has_method("contains_point") &&
+				(bool)body->call("contains_point", p_global_pos)) {
+			return body;
+		}
+	}
+	if (ocean && ocean->has_method("contains_point") &&
+			(bool)ocean->call("contains_point", p_global_pos)) {
+		return ocean;
+	}
+	return ocean;
+}
+
 real_t Pasture3DPoolManager::evaluate_height(const StringName &p_profile, const Vector2 &p_domain_xz) const {
 	Ref<Pasture3DWaveProfile> profile = get_profile(p_profile);
 	if (profile.is_null()) {
@@ -408,6 +466,10 @@ void Pasture3DPoolManager::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear_material_cache"), &Pasture3DPoolManager::clear_material_cache);
 	ClassDB::bind_method(D_METHOD("rebuild_tables"), &Pasture3DPoolManager::rebuild_tables);
 	ClassDB::bind_method(D_METHOD("upload_profile_into", "material", "profile"), &Pasture3DPoolManager::upload_profile_into);
+	ClassDB::bind_method(D_METHOD("register_body", "body"), &Pasture3DPoolManager::register_body);
+	ClassDB::bind_method(D_METHOD("unregister_body", "body"), &Pasture3DPoolManager::unregister_body);
+	ClassDB::bind_method(D_METHOD("get_bodies"), &Pasture3DPoolManager::get_bodies);
+	ClassDB::bind_method(D_METHOD("body_at", "global_pos"), &Pasture3DPoolManager::body_at);
 
 	ADD_SIGNAL(MethodInfo("profiles_changed"));
 

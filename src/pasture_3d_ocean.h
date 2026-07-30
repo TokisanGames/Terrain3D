@@ -152,6 +152,10 @@ public:
 	Vector3 get_water_surface_point(const Vector2 &p_domain_xz) const;
 	real_t get_water_time() const;
 
+	// Body-registry contract (spec §5.5). Unbounded horizontally, so this is a
+	// vertical test against the wave surface.
+	bool contains_point(const Vector3 &p_global_pos) const;
+
 	PackedStringArray _get_configuration_warnings() const;
 };
 

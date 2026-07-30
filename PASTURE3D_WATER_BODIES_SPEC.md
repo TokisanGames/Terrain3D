@@ -752,7 +752,7 @@ nothing" from "measured well". Results are appended to this document as they are
 | **0** | Baseline — ✅ **done 2026-07-29 (§11.1)** | No code. Capture current ocean + terrain clipmap: frame time, 6 fixed camera A/B captures, `get_water_height` probe set, mesher AABB values | The captures exist and the probe set is reproducible across two runs. Control: a deliberately perturbed `sea_level` must move the numbers |
 | **1** | Wave profiles + manager — ✅ **done 2026-07-29 (§11.2)** | `Pasture3DWaveProfile`, `Pasture3DPoolManager`, clock + sun ownership, material cache, `instance uniform _water_domain_origin`, `evaluate_*` bindings | (a) CPU/GPU parity ≤ 1 cm for **two different profiles in one scene** — the existing parity test, generalised. (b) Instance origin: two meshes 5 km apart on one material both correct; control = the old shared uniform, which must fail. (c) One material and one upload for ten pools |
 | **2** | Pasture3DOcean — ✅ **done 2026-07-29 (§11.3)** | Host interface, mesher decoupling, `Pasture3DOcean`, sea level from node Y, migration button, `ocean_*` removed | (a) **Pixel- and millisecond-neutral vs Phase 0**, ocean *and* terrain clipmap. (b) Ocean in a scene with no `Pasture3D`. (c) `update_aabbs` correct with no terrain data — control = the pre-fix `IS_DATA_INIT`, which must fail. (d) The demo scene migrates in one press, undoably |
-| **3** | Pasture3DPool core | Curve binding, loop meshing, level, `edge_offset`, presets/unique/save/load, registration, warnings | (a) 500 m lake rebuild ≤ 500 ms. (b) Auto vertex spacing meets the λ/8 rule; control = 4× spacing, which must show measurable surface sag. (c) Pool in a scene with no terrain. (d) Shared curve does not trip the brush's shared-curve warning |
+| **3** | Pasture3DPool core — ✅ **done 2026-07-29 (§11.4)** | Curve binding, loop meshing, level, `edge_offset`, presets/unique/save/load, registration, warnings | (a) 500 m lake rebuild ≤ 500 ms. (b) Auto vertex spacing meets the λ/8 rule; control = 4× spacing, which must show measurable surface sag. (c) Pool in a scene with no terrain. (d) Shared curve does not trip the brush's shared-curve warning |
 | **4** | Brush integration | `Add Pasture3DPool` on `Pasture3DTerrainBrush`, additive warning, undo | Button on each of Mound/Plow/Splat/Ridge/Trough produces a correctly bound pool; additive warning fires on raise-configured brushes and stays silent on carve-configured ones |
 | **5** | Underwater | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
 | **6** | Pasture3DBuoy | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
@@ -991,6 +991,50 @@ should be reopened. The pixel-identity result is unaffected and is the load-bear
 extraction is neutral.
 
 With that, the Phase 2 gate passes. Phase 2 is done.
+
+### 11.4 Phase 3 results — measured 2026-07-29 ✅ *(criterion A passes narrowly)*
+
+Harness: [bench/WaterBodiesPhase3Gate.tscn](project/bench/WaterBodiesPhase3Gate.tscn).
+RTX 3070 / Ryzen desktop, Godot 4.7.
+
+**Built:** [connectors/pool.gd](project/addons/pasture_3d/connectors/pool.gd) — `Pasture3DPool`
+(curve binding, scanline-masked grid tessellation with clipped boundary cells, node-Y water level,
+`edge_offset`, preset/unique/save material path, profile dropdown, wave-aware cull box, config
+warnings including the raising-brush check) — plus the body registry deferred from Phase 1
+(`register_body` / `unregister_body` / `body_at` on the manager, `contains_point` on both body types).
+
+| Criterion | Result |
+|---|---|
+| A — 500 m lake build time | ⚠️ **passes, narrowly.** 168,874 verts / 317,377 tris at 1.27 m spacing in **454 / 460 / 477 ms** against a 500 ms budget |
+| B — spacing rule | ✅ shortest wavelength 10.18 m, automatic spacing 1.27 m, **ratio exactly 8.00**. Sag 0.0091 m; control at 4× spacing 0.1297 m — **14× worse**, so the metric is sensitive to tessellation |
+| C — pool without terrain | ✅ builds (7,428 verts) and answers height queries with zero `Pasture3D` in the tree |
+| D — shared curve | ✅ a pool reading a brush's curve does **not** trip the brush's shared-curve warning; control (two splines sharing one `Curve3D`) still fires |
+| E — body registry | ✅ `body_at` returns the pool inside it and the ocean in open water. **Concave control:** a point in an L-shaped pool's notch is inside the mesh AABB yet resolves to the ocean, so containment is a polygon test and not a box test |
+
+**Criterion A is a pass I do not want to oversell.** 454–477 ms against a 500 ms budget is 9–5% of
+margin on a desktop, on a *square* 500 m loop — the cheapest possible boundary. The cost is dominated
+by the interior grid loop (168 k vertices built in GDScript), so it scales with area: a 700 m lake at
+the same spacing would be ~2× the vertices and would miss the budget outright. Read this as "the
+GDScript choice in §4.3 is viable at the size the budget describes, and only just", not as headroom.
+§12 q1's native escape hatch (`Pasture3DUtil.build_pool_mesh`) is now a live option rather than a
+theoretical one, and the GDScript path is already structured to remain its A/B oracle.
+
+The scanline inside-mask is what makes it viable at all. The obvious implementation —
+`Geometry2D.is_point_in_polygon` per grid point — is O(points × edges); at this size that is
+168 k × ~200 ≈ 34 M operations in GDScript, seconds rather than milliseconds. The scanline is
+O(rows × edges + points), and the expensive exact-clip path (`intersect_polygons` +
+`triangulate_polygon`) runs only on cells the boundary crosses, so it is bounded by shore length
+rather than by area. The brushes reached the same conclusion for the same reason
+(`PASTURE3D_LANDSCAPE_TOOLS_SPEC.md` §9).
+
+**Two fixture bugs found and fixed** (neither a product bug): the gate set the ocean's
+`global_position` before adding it to the tree, which Godot ignores with only a console warning — the
+ocean sat at y=0 rather than −50, so criterion E was describing a scene it was not testing. And the
+Phase 1 gate's clock criterion (§11.2) had gone stale against Phase 2 and was rewritten.
+
+**Deferred to their own phases, as specced:** the underwater volume (`Area3D` + `FogVolume` + overlay)
+is Phase 5; the ribbon/river path is Phase 7; the brush's *Add Water* button is Phase 4. `Pasture3DPool`
+today fills closed loops only and reports "no usable closed curve" for an open spline.
 
 ---
 
