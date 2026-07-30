@@ -176,12 +176,71 @@ void Pasture3DPoolManager::_update_sun() {
 	}
 }
 
+/**
+ * Fills _profiles with the four shipped sea states (spec §5.2).
+ *
+ * A manager with no profiles is a manager that answers every question with "no such
+ * profile", so a freshly added one carries the same four shapes the materials on disk
+ * already use -- `ocean_default`, `lake_calm` and `pond_still` are the exact knobs
+ * bench/WavePresetTables.gd generated M_water_ocean/lake/pond's `_waves` arrays from,
+ * which is what makes a preset material and the profile driving it the same water.
+ *
+ * `river_flow` has no material yet (Phase 7 ships M_water_river.tres): it is pond
+ * chop aligned to a flow direction, narrow-spread so the crests run with the channel
+ * instead of across it. Its numbers are a starting point in the same sense the other
+ * three are -- generator-produced tables from chosen knobs, not measurements.
+ *
+ * Seeded in the CONSTRUCTOR rather than on entering the tree, because that is what
+ * makes it a property default: a scene stores `profiles` as edited and set_profiles()
+ * replaces these on load, including with an empty array if that is what was saved.
+ * Writes _profiles directly instead of calling set_profiles() -- that path emits
+ * profiles_changed and touches configuration warnings, neither of which a
+ * half-constructed Node should be doing.
+ */
+void Pasture3DPoolManager::_seed_default_profiles() {
+	struct Preset {
+		const char *name;
+		int count;
+		real_t direction_deg;
+		real_t spread_deg;
+		real_t amplitude;
+		real_t length_max;
+		real_t steepness;
+	};
+	const Preset presets[] = {
+		{ "ocean_default", 8, 20.f, 28.f, 1.6f, 137.f, 0.35f },
+		{ "lake_calm", 4, 35.f, 40.f, 0.25f, 25.f, 0.25f },
+		{ "pond_still", 2, 55.f, 50.f, 0.05f, 12.f, 0.15f },
+		// length_max is the generator's floor (WaterWaves::MIN_WAVELENGTH) and is spelled
+		// as such: anything smaller is silently raised to it, so asking for 6 m would
+		// document a wave this can never produce. The series still runs BELOW the floor
+		// on its way down -- 10.2 / 7.2 / 5.0 m -- which is the branch water_waves.cpp
+		// added for ponds, and carries the same caveat: a river placed kilometres from
+		// the world origin needs its domain origin set, which Pasture3DPool does.
+		{ "river_flow", 3, 0.f, 10.f, 0.06f, 10.f, 0.12f },
+	};
+	for (const Preset &p : presets) {
+		Ref<Pasture3DWaveProfile> profile;
+		profile.instantiate();
+		profile->set_profile_name(p.name);
+		profile->set_wave_count(p.count);
+		profile->set_direction_deg(p.direction_deg);
+		profile->set_spread_deg(p.spread_deg);
+		profile->set_amplitude(p.amplitude);
+		profile->set_length_max(p.length_max);
+		profile->set_steepness(p.steepness);
+		_profiles.push_back(profile);
+	}
+	_connect_profiles();
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
 
 Pasture3DPoolManager::Pasture3DPoolManager() {
 	set_notify_transform(false);
+	_seed_default_profiles();
 }
 
 Pasture3DPoolManager::~Pasture3DPoolManager() {

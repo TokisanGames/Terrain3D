@@ -109,6 +109,13 @@ func _get_blend_mode() -> int:
 	return int(blend_mode)
 
 
+## Pasture3DPlow has no `invert` of its own — the stamp's sign lives on the material it renders, and
+## only in MATERIAL mode (NOISE and TEXTURE have no inversion to read). Drives the Add Water button's
+## raise check; see PASTURE3D_WATER_BODIES_SPEC.md §7.8.
+func _raise_inverted() -> bool:
+	return source == Source.MATERIAL and plow_material != null and plow_material.invert
+
+
 func _min_points() -> int:
 	return 3
 

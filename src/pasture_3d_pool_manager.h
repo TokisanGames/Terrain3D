@@ -102,6 +102,7 @@ private:
 	void _upload_into(const Ref<Material> &p_material, const Ref<Pasture3DWaveProfile> &p_profile);
 	void _on_profile_changed();
 	void _connect_profiles();
+	void _seed_default_profiles();
 	void _update_clock(const double p_delta);
 	void _update_sun();
 

@@ -234,6 +234,13 @@ so the node is useful before it is configured: `ocean_default`, `lake_calm`, `po
 `river_flow` (§10). Their numbers come from `bench/WavePresetTables.gd`, so they are shapes the
 generator would itself produce — the same provenance rule the guide states in §3.
 
+*Implemented in Phase 4* (`Pasture3DPoolManager::_seed_default_profiles`, §11.5), in the constructor
+so it behaves as a property default. Phase 4's gate criterion F pins `lake_calm` and `pond_still`
+against `M_water_lake.tres` and `M_water_pond.tres` to within the `.tres` files' five stored decimals,
+so a profile and the preset material named after it cannot drift into being two different lakes.
+`bench/WavePresetTables.gd` prints all four and was ported onto this class in the same phase — it had
+been driving `Pasture3D.ocean_wave_*`, removed in Phase 2, and so had been dead since then.
+
 ### 5.3 `Pasture3DWaveProfile` (Resource, C++)
 
 ```
@@ -424,6 +431,10 @@ they ever see a warning.
   the brush or the spline moves the water. It connects to `curve_changed` on the Path3D and `changed`
   on the `Curve3D`, debounced through the same 0.1 s timer idiom `terrain_brush.gd` uses (and with the
   same `_tree_settling` suppression, or a scene-tab switch will rebuild every pool in the scene).
+  **Moving is not a signal.** Node3D transform notifications reach the node that moved and its
+  children, and a pool is a *sibling* of its brush (§7.7) — in neither set. So "moving the brush moves
+  the water" needs a once-per-frame `global_transform` comparison against the pose the last build
+  reflected, which is what `Pasture3DPool._process` does (Phase 4, §11.5).
 - `curve` wins when set, and is read in **Pasture3DPool's own** space. This is the documented cost of the
   resource form: a `Curve3D` carries no transform, so a curve lifted from a brush whose Path3D is
   offset will land offset. The inspector help text says exactly that.
@@ -538,7 +549,7 @@ stored value (so fixing the manager fixes the pool, rather than the pool having 
   `Pasture3DPool` and its exports; the mesh is derived data and is rebuilt on `_ready`.
 - Creation, and the button press that caused it, is one `EditorUndoRedoManager` action.
 
-### 7.8 The `Add Pasture3DPool` button on `Pasture3DTerrainBrush`
+### 7.8 The `Add Water` button on `Pasture3DTerrainBrush`
 
 Added to the **base** class, so every brush type gets it — `Mound`, `Plow`, `Splat`, `Ridge`, `Trough`,
 and anything added later:
@@ -557,7 +568,8 @@ and anything added later:
    `<BrushName>Water<N>` for multi-spline brushes.
 3. Sets `source_spline` to that `Path3D`.
 4. Picks the mode from the curve: `curve.closed` → loop, else ribbon. It reads the flag, not the brush
-   class, so a `Mound` whose loop the user opened behaves as the curve says.
+   class, so a `Mound` whose loop the user opened behaves as the curve says. *Until Phase 7 exists,
+   an open curve is skipped with a warning naming the spline rather than filled as a wedge (§11.5).*
 5. Seeds the level: `global_position.y = curve_min_y + fill_offset` (§7.2).
 6. Seeds `wave_profile` from the brush type — `pond_still` for a `Mound`/`Plow`/`Splat` under
    ~40 m across, `lake_calm` above, `river_flow` for a `Trough` — and `ribbon_half_width` from the
@@ -575,7 +587,7 @@ configured to carve and vice versa:
 |---|---|
 | `Mound` | `blend_mode` ∈ {`MAX`, `ADD`} and `invert == false` |
 | `Ridge` | `blend_mode` ∈ {`MAX`, `ADD`} and `invert == false` (it is the raise tool; this is its normal state) |
-| `Plow` | `blend_mode == ADD` and the stamp's net sign is positive (`plow_material.invert == false`) — it has no `invert` of its own |
+| `Plow` | `blend_mode ∈ {MAX, ADD}` and the stamp's net sign is positive (`plow_material.invert == false`, and only in `MATERIAL` mode) — it has no `invert` of its own |
 | `Trough` | `blend_mode ∈ {MAX, ADD}` — it has no `invert`; carving is its default (`MIN`) and the warning only fires when that has been changed |
 | `Splat` | never — `_map_type()` puts it on control/colour, so it paints material and never moves height. No warning |
 
@@ -753,7 +765,7 @@ nothing" from "measured well". Results are appended to this document as they are
 | **1** | Wave profiles + manager — ✅ **done 2026-07-29 (§11.2)** | `Pasture3DWaveProfile`, `Pasture3DPoolManager`, clock + sun ownership, material cache, `instance uniform _water_domain_origin`, `evaluate_*` bindings | (a) CPU/GPU parity ≤ 1 cm for **two different profiles in one scene** — the existing parity test, generalised. (b) Instance origin: two meshes 5 km apart on one material both correct; control = the old shared uniform, which must fail. (c) One material and one upload for ten pools |
 | **2** | Pasture3DOcean — ✅ **done 2026-07-29 (§11.3)** | Host interface, mesher decoupling, `Pasture3DOcean`, sea level from node Y, migration button, `ocean_*` removed | (a) **Pixel- and millisecond-neutral vs Phase 0**, ocean *and* terrain clipmap. (b) Ocean in a scene with no `Pasture3D`. (c) `update_aabbs` correct with no terrain data — control = the pre-fix `IS_DATA_INIT`, which must fail. (d) The demo scene migrates in one press, undoably |
 | **3** | Pasture3DPool core — ✅ **done 2026-07-29 (§11.4)** | Curve binding, loop meshing, level, `edge_offset`, presets/unique/save/load, registration, warnings | (a) 500 m lake rebuild ≤ 500 ms. (b) Auto vertex spacing meets the λ/8 rule; control = 4× spacing, which must show measurable surface sag. (c) Pool in a scene with no terrain. (d) Shared curve does not trip the brush's shared-curve warning |
-| **4** | Brush integration | `Add Pasture3DPool` on `Pasture3DTerrainBrush`, additive warning, undo | Button on each of Mound/Plow/Splat/Ridge/Trough produces a correctly bound pool; additive warning fires on raise-configured brushes and stays silent on carve-configured ones |
+| **4** | Brush integration — ✅ **done 2026-07-30 (§11.5)** | `Add Water` on `Pasture3DTerrainBrush`, additive warning, undo, the manager's four shipped profiles | Button on each of Mound/Plow/Splat/Ridge/Trough produces a correctly bound pool; additive warning fires on raise-configured brushes and stays silent on carve-configured ones |
 | **5** | Underwater | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
 | **6** | Pasture3DBuoy | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
 | **7** | Ribbon + flow | Ribbon meshing, `ARRAY_COLOR` flow, `WATER_FLOW`, `water_river.gdshader`, `M_water_river.tres` | River follows spline Y downhill; flow direction correct through a 90° bend; no seam at the clock wrap (control: an unquantised half-period, which must seam); cost delta vs lake variant |
@@ -1035,6 +1047,87 @@ Phase 1 gate's clock criterion (§11.2) had gone stale against Phase 2 and was r
 **Deferred to their own phases, as specced:** the underwater volume (`Area3D` + `FogVolume` + overlay)
 is Phase 5; the ribbon/river path is Phase 7; the brush's *Add Water* button is Phase 4. `Pasture3DPool`
 today fills closed loops only and reports "no usable closed curve" for an open spline.
+
+### 11.5 Phase 4 results — measured 2026-07-30 ✅
+
+Harness: [bench/WaterBodiesPhase4Gate.tscn](project/bench/WaterBodiesPhase4Gate.tscn).
+RTX 3070 / Ryzen desktop, Godot 4.7. **No timing criteria** — this phase adds no per-build cost, and
+the one per-frame cost it does add is priced in prose below rather than measured on a shared machine.
+
+**Built:**
+- [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) — the
+  `Add Water` button, `add_pool` / `add_pool_now`, the `brush_raises` effective-sign check, the
+  confirmation dialog, per-spline idempotency, manager creation, profile seeding from loop size, and
+  the `_apply_add_water` / `_revert_add_water` undo pair.
+- [connectors/plow.gd](project/addons/pasture_3d/connectors/plow.gd) — `_raise_inverted()` override
+  (a `Pasture3DPlow`'s inversion lives on its material, and only in `MATERIAL` mode).
+- [pasture_3d_pool_manager.cpp](src/pasture_3d_pool_manager.cpp) — `_seed_default_profiles()`. §5.2
+  said four profiles ship on a freshly added manager; nothing had implemented it, and the button is
+  its first consumer.
+- [connectors/pool.gd](project/addons/pasture_3d/connectors/pool.gd) — the spline-move watcher, the
+  open-curve refusal, and `_brush_raises` delegating to the brush.
+- [bench/WavePresetTables.gd](project/bench/WavePresetTables.gd) — ported off the removed
+  `Pasture3D.ocean_wave_*` API (dead since Phase 2) onto `Pasture3DPoolManager`.
+
+| Criterion | Result |
+|---|---|
+| A — one press per brush type | ✅ `Mound`, `Plow`, `Splat`, `Ridge`, `Trough`: each press produced one pool — sibling of the brush, `source_spline` identity-equal to the brush's `Path3D`, named `<Brush>Water`, level seeded to −0.50, 3,828 verts — and **the binding is live**: moving the brush 200 m moved the water with it. Control: an **open** curve produced no pool |
+| B — idempotency | ✅ three-spline brush: first press **3** pools, second press **0**, three in the scene. Control: a fourth spline added then pressed gives **exactly one more**, so the guard is per-spline and not "never create anything again" |
+| C — the raise matrix | ✅ **13 rows, all as specified** (5 raise, 8 carve), plus the two `Pasture3DPlow` material rows. Control: the eight carve rows all silent — a check hardwired to `true` is only caught by rows that must be `false` |
+| D — the dialog | ✅ a `MAX`-blended `Mound` created **0 pools** and put the dialog up; `Add Anyway` created one carrying a permanent warning naming the brush *and* its blend mode. Control: a `MIN`-blended `Mound` created immediately with **no dialog** |
+| E — the undo pair | ✅ apply → revert → redo. Revert emptied the tree and returned the registry to 0 with the node still alive; redo brought back the **same instance id**, re-registered. Control: the same assertions run *before* the revert, where all three report present |
+| F — manager + defaults | ✅ a press into a manager-less scene created **one** manager at the scene root carrying **`ocean_default`, `lake_calm`, `pond_still`, `river_flow`**; a 60 m loop seeded `lake_calm` and a 16 m loop `pond_still`; the second press created no second manager. **`lake_calm` and `pond_still` reproduce `M_water_lake.tres` and `M_water_pond.tres` to 4.7 × 10⁻⁶ and 4.5 × 10⁻⁶** — the `.tres` files store five decimals, so that is the file format, not a different sea state. Control: comparing each against the *wrong* profile must not match, and does not |
+
+**The default profiles are the shipped materials, and F proves it rather than asserting it.** Before
+this phase a fresh `Pasture3DPoolManager` had no profiles at all, so the button would have produced a
+pool naming a profile that did not exist. Seeding happens in the **constructor**, which is what makes
+it a property default: a scene stores `profiles` as edited and `set_profiles()` replaces them on load,
+including with an empty array if that is what was saved.
+
+**A real gap this phase exposed, and closed.** Making `source_spline` the button's output made it the
+normal binding for the first time, and nothing told a pool that its brush had *moved*. Node3D
+transform notifications reach the node that moved and its children, and a pool is a **sibling** of its
+brush by design (§7.7), so it is in neither set — a pool bound at creation would sit still while its
+basin walked away. `Pasture3DPool._process` now compares `source_spline.global_transform` against the
+pose its last build reflected and schedules a debounced rebuild when it differs. That is **one
+`Transform3D.is_equal_approx` per pool per frame**, and it is deliberately *not* gated to the editor:
+a runtime scene that moves a brush should move its water, and an editor-only behaviour that quietly
+stops working in a build is worse than microseconds. Criterion A is what tests it.
+
+**Three product bugs found by the gate**, all in code this phase wrote:
+
+- **Stacked dialogs.** Pressing `Add Water` twice on a raising brush queued a second modal, and Godot
+  refuses a second exclusive child of the same window outright — an error in the log and a press that
+  silently did nothing. A second press now re-raises the pending dialog.
+- **Open curves filled as wedges.** `Pasture3DPool._local_polygon` checked only `point_count >= 3`,
+  so an open `Ridge` spline was closed between its endpoints and filled — a triangle the user never
+  drew. It now requires `Curve3D.closed`, with its own configuration warning, because an open curve
+  looks perfectly valid in the viewport and `closed` is a checkbox most users have never opened.
+- **A duplicated raise table.** Phase 3's `Pasture3DPool._brush_raises` reimplemented §7.8's table,
+  including identifying `Pasture3DSplat` by *script filename*. It now asks the brush, which is the
+  only place that can answer for `Pasture3DPlow` (inversion on its material) and which identifies
+  `Splat` by `_map_type()` — a brush that does not write height cannot bury anything, by construction
+  rather than by being named in a list.
+
+**Two deviations from §7.8, both deliberate:**
+
+- The table says `Pasture3DPlow` raises when `blend_mode == ADD`. `MAX` raises too, and the
+  implementation treats both as raising for every brush. The spec was loose here; the code is not.
+- Step 4 ("`curve.closed` → loop, else ribbon") cannot be honoured until Phase 7 exists. An open
+  spline is **skipped with a warning naming it**, rather than silently filled. `river_flow` ships as a
+  profile anyway, so Phase 7 has one to select and the manager's default set is complete.
+
+**What the headless gate cannot reach.** `EditorInterface` and `EditorUndoRedoManager` do not exist
+outside the editor, so the gate exercises the do/undo *pair* rather than the action wrapping it, and
+the dialog is hosted on the window root rather than the editor's base control. The button was
+restructured to make that testable: creation is one `_apply_add_water` / `_revert_add_water` pair
+instead of a pile of `add_do_method` steps whose inverse was implicit. Registering the action and
+selecting the new node in the inspector remain editor-only and were checked by hand.
+
+**Regression:** Phase 1 **PASS**, Phase 2 **PASS (correctness only)** with all seven captures still
+bit-identical to the pre-extraction reference, Phase 3 **PASS (correctness only)**. The timing halves
+of Phases 2 and 3 were not re-run — the machine is shared with another engine, and re-measuring them
+needs to be a deliberate, quiet-machine run.
 
 ---
 

@@ -123,6 +123,8 @@ var _surface: MeshInstance3D = null
 var _timer: SceneTreeTimer = null
 var _dirty := false
 var _last_stats := {}
+## World transform of source_spline as of the last rebuild. See _process.
+var _source_xform := Transform3D()
 
 
 func _ready() -> void:
@@ -174,6 +176,28 @@ func _disconnect_source() -> void:
 
 func _on_curve_changed() -> void:
 	_schedule_rebuild()
+
+
+## Follow the source spline when it MOVES, as opposed to when its points change.
+##
+## The pool reads its polygon through `source_spline.global_transform`, so dragging the
+## brush -- or the Path3D under it, or any ancestor of either -- changes where the water
+## is, and its shape if there is any rotation or scale. None of that emits a signal the
+## pool could connect to: Node3D transform notifications reach the node that moved and
+## its children, and a pool is a SIBLING of its brush by design (§7.7), so it is in
+## neither set. A once-per-frame Transform3D comparison is the honest way to see it.
+##
+## The cost is one is_equal_approx per pool per frame and a debounced rebuild only when
+## the answer changes, which is why this is not gated to the editor: a runtime scene that
+## moves a brush should move its water too, and paying microseconds to make that true
+## everywhere is better than an editor-only behaviour that surprises someone at runtime.
+func _process(_delta: float) -> void:
+	if source_spline == null or not is_instance_valid(source_spline):
+		return
+	var xf := source_spline.global_transform
+	if not xf.is_equal_approx(_source_xform):
+		_source_xform = xf
+		_schedule_rebuild()
 
 
 ## Debounced, because dragging one spline handle emits `changed` every mouse move and a
@@ -242,6 +266,11 @@ func _local_polygon(p_spacing: float) -> PackedVector2Array:
 		# Spline space -> world -> our space, so the pool tracks the brush.
 		to_local_xf = global_transform.affine_inverse() * source_spline.global_transform
 	if src == null or src.point_count < 3:
+		return out
+	# An OPEN curve is a river, not a lake. Filling one means closing it between its two
+	# endpoints, which is a wedge the user never drew — so refuse and let the
+	# configuration warning say why. Ribbon meshing (spec §10) is what open curves get.
+	if not src.closed:
 		return out
 
 	var pts := src.get_baked_points()
@@ -331,6 +360,10 @@ func rebuild() -> Dictionary:
 	if not is_inside_tree():
 		_last_stats["reason"] = "not in tree"
 		return _last_stats
+	# Baseline the spline-move watcher (_process) against the pose this build reflects, so a
+	# rebuild triggered by anything else does not leave it looking like a move.
+	if source_spline != null and is_instance_valid(source_spline):
+		_source_xform = source_spline.global_transform
 	var t0 := Time.get_ticks_usec()
 
 	var spacing := _effective_spacing()
@@ -649,10 +682,21 @@ func _validate_property(property: Dictionary) -> void:
 
 func _get_configuration_warnings() -> PackedStringArray:
 	var w := PackedStringArray()
-	if curve == null and (source_spline == null or not is_instance_valid(source_spline)):
+	var src := _source_curve()
+	if src == null:
 		w.append("No source. Set source_spline to a brush's Path3D, or assign a Curve3D.")
+	elif src.point_count < 3:
+		w.append("The source curve has fewer than 3 points, so there is no area to fill.")
+	elif not src.closed:
+		# Worth its own message rather than the generic one: the curve looks perfectly
+		# valid in the viewport, and "closed" is a checkbox on the Curve3D the user has
+		# probably never opened.
+		w.append("The source curve is open. A pool fills a closed loop; an open spline is a "
+			+ "river, and ribbon water is not built yet. Tick the curve's Closed property "
+			+ "(or the brush's, on a Ridge or Trough) to fill it as a loop.")
 	elif _local_polygon(_effective_spacing()).size() < 3:
-		w.append("The source curve has fewer than 3 usable points, so there is no area to fill.")
+		w.append("The source curve collapses to fewer than 3 usable points at this vertex "
+			+ "spacing, so there is no area to fill.")
 	var m := _resolve_manager()
 	if m == null:
 		w.append("No Pasture3DPoolManager in the scene. The water will draw with whatever "
@@ -670,9 +714,20 @@ func _get_configuration_warnings() -> PackedStringArray:
 	# creation-time-only dialog would miss — and it is the more likely one.
 	var brush := _source_brush()
 	if brush != null and _brush_raises(brush):
-		w.append("'%s' raises terrain, so water here will sit inside the landform and "
-			% brush.name + "be hidden. Set its blend_mode to MIN (or invert it) to carve.")
+		var mode: String = brush._blend_mode_name() if brush.has_method("_blend_mode_name") else "?"
+		w.append(("'%s' raises terrain (blend_mode = %s), so water here will sit inside the "
+			+ "landform and be hidden. Set its blend_mode to MIN (or invert it) to carve.")
+			% [brush.name, mode])
 	return w
+
+
+## The Curve3D actually driving the mesh: the explicit override if set, else the spline's.
+func _source_curve() -> Curve3D:
+	if curve != null:
+		return curve
+	if source_spline != null and is_instance_valid(source_spline):
+		return source_spline.curve
+	return null
 
 
 func _source_brush() -> Node:
@@ -683,13 +738,9 @@ func _source_brush() -> Node:
 
 
 ## Effective sign of a brush, not its class: every raise brush can be configured to
-## carve and vice versa. Mirrors the table in spec §7.8.
+## carve and vice versa. The BRUSH owns this answer (spec §7.8) — where the inversion
+## lives differs per brush, and Pasture3DPlow keeps it on its material rather than on
+## itself, so a table reimplemented here would drift from the one the Add Water button
+## consults. Duck-typed, so a brush type added later gets this for free.
 func _brush_raises(p_brush: Node) -> bool:
-	# Splat paints material, never height.
-	if p_brush.get_script() != null and String(p_brush.get_script().resource_path).ends_with("splat.gd"):
-		return false
-	var blend: int = p_brush.get("blend_mode") if p_brush.get("blend_mode") != null else -1
-	var inverted: bool = p_brush.get("invert") == true
-	# BlendMode: REPLACE=0, ADD=1, MAX=2, MIN=3.
-	var raising := blend == 1 or blend == 2
-	return raising and not inverted
+	return p_brush.has_method("brush_raises") and p_brush.brush_raises()

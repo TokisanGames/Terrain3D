@@ -65,6 +65,10 @@ const REFRESH_DELAY: float = 0.1
 
 @export_tool_button("Refresh") var _refresh_btn = _refresh_button
 @export_tool_button("Add Spline") var _add_spline_btn = add_spline
+## Fill this brush's closed spline(s) with a Pasture3DPool — the one-press path from "I carved a
+## basin" to "there is water in it". Asks first if this brush RAISES terrain, because water authored
+## inside a landform is water you cannot see. See PASTURE3D_WATER_BODIES_SPEC.md §7.8.
+@export_tool_button("Add Water") var _add_water_btn = add_pool
 ## Create a brand-new tool layer named after this node and assign this node to it.
 @export_tool_button("Add New Layer") var _add_layer_btn = add_new_layer
 ## Show/hide the floating "Name — Layer" nameplate over EVERY brush at once (an editor-only label that
@@ -1523,6 +1527,301 @@ func place_bake() -> void:
 	if ids.is_empty():
 		return
 	_refresh_owner_rect(_layer_owner, ids, true)
+
+
+## ---- Add Water button (PASTURE3D_WATER_BODIES_SPEC.md §7.8) ----
+##
+## The whole point of the water work: a brush already knows the shape of the basin it carved, so
+## filling it should not be a modelling job. One press per brush, one undo step, and the resulting
+## Pasture3DPool is bound to the brush's Path3D — not a copy of its curve — so moving the brush or
+## dragging a loop point moves the water with it.
+
+## The water connector, loaded by path rather than referenced as `Pasture3DPool`. A class_name
+## reference is a PARSE-time dependency: a syntax error in pool.gd — or an install without it —
+## would stop this file compiling and take every brush in the scene down with it, which is exactly
+## how the Phase 1 DLL failure presented. By path, a missing pool is a failed button press.
+const POOL_SCRIPT := "res://addons/pasture_3d/connectors/pool.gd"
+## Group Pasture3DPool joins (mirrors its POOL_GROUP), for the same reason.
+const POOL_GROUP: StringName = &"pasture3d_pool"
+## Group Pasture3DPoolManager joins (mirrors Pasture3DPoolManager::MANAGER_GROUP).
+const WATER_MANAGER_GROUP: StringName = &"pasture3d_water_manager"
+## Loop span (metres) below which a new pool is seeded with the pond profile instead of the lake
+## one. A pond and a lake are different sea states, not one scaled — a 10 m pond carrying 25 m
+## waves looks wrong before the user has touched anything. A starting point only: nothing
+## re-derives it, so resizing the loop later never moves the profile out from under the user.
+const POND_MAX_SPAN: float = 40.0
+
+## The Add Water confirmation currently on screen for this brush, if any. See _prompt_add_pool.
+var _pool_dialog: ConfirmationDialog = null
+
+
+## The Add Water button.
+##
+## Returns the Pasture3DPool nodes created. An EMPTY return with a dialog on screen is the
+## raise-brush path (§7.8): the press asks first and "Add Anyway" calls add_pool_now(). It asks
+## rather than refuses, because a raised pool on a plateau is a real thing to author and the tool
+## should make sure the user knows, not claim to know better.
+func add_pool() -> Array:
+	if not is_inside_tree():
+		return []
+	if brush_raises() and _prompt_add_pool():
+		return []
+	return add_pool_now()
+
+
+## Create the pools, unconditionally — the no-raise path and the dialog's "Add Anyway" both land
+## here. Idempotent per spline: pressing twice on a three-spline brush gives three pools, not six.
+func add_pool_now() -> Array:
+	if not is_inside_tree():
+		return []
+	var parent := get_parent()
+	if parent == null:
+		push_warning("Pasture3D: '%s' has no parent to add water beside." % name)
+		return []
+	if not ClassDB.class_exists("Pasture3DPoolManager"):
+		push_error("Pasture3D: the water classes are missing from this build — cannot add water.")
+		return []
+
+	var targets: Array[Path3D] = []
+	var skipped := PackedStringArray()
+	for s in _get_splines():
+		if pool_for_spline(s) != null:
+			continue
+		# Read the CURVE's closed flag, not the brush class: a Mound whose loop the user opened
+		# behaves as the curve says. An open spline is a river, and ribbon water is Phase 7 — so
+		# say so rather than filling the wedge between its endpoints and calling it a lake.
+		if s.curve == null or not s.curve.closed or s.curve.point_count < 3:
+			skipped.append(String(s.name))
+			continue
+		targets.append(s)
+	if not skipped.is_empty():
+		push_warning(("Pasture3D: no water added to %s — only closed loops can be filled. "
+			+ "Ribbon (river) water is not built yet; close the curve to fill it as a loop.")
+			% ", ".join(skipped))
+	if targets.is_empty():
+		return []
+
+	# Built before the pools so each one can be handed its manager directly, and so the whole
+	# press — manager included — is a single undo step.
+	var manager := find_pool_manager()
+	var new_manager: Node = null
+	if manager == null:
+		new_manager = ClassDB.instantiate("Pasture3DPoolManager")
+		new_manager.name = "Pasture3DPoolManager"
+		manager = new_manager
+
+	var pools: Array = []
+	for s in targets:
+		var p := _build_pool_for(s, manager)
+		if p != null:
+			pools.append(p)
+	if pools.is_empty():
+		return []
+
+	var root := _water_scene_root()
+	var ur := _editor_undo()
+	if ur:
+		ur.create_action("Add Water to %s" % name)
+		ur.add_do_method(self, "_apply_add_water", pools, parent, root, new_manager)
+		ur.add_undo_method(self, "_revert_add_water", pools, parent, new_manager)
+		# The undo action owns the nodes while they are out of the tree, so redo re-adds these
+		# same pools rather than silently rebuilding different ones.
+		for p in pools:
+			ur.add_do_reference(p)
+		if new_manager != null:
+			ur.add_do_reference(new_manager)
+		ur.commit_action() # executes the do-method
+	else:
+		# No editor undo manager: a script driving the brush, or a headless run.
+		_apply_add_water(pools, parent, root, new_manager)
+
+	if Engine.is_editor_hint() and not pools.is_empty():
+		var sel := EditorInterface.get_selection()
+		sel.clear()
+		sel.add_node(pools[0])
+	return pools
+
+
+## Put the press's nodes into the scene.
+##
+## One method rather than a pile of add_do_method steps, so the action has an explicit inverse
+## instead of an implicit one — and so the revert can be exercised without an editor, since
+## EditorUndoRedoManager does not exist in a headless run and an untestable undo is an undo that
+## is wrong the first time someone presses Ctrl+Z.
+##
+## The manager goes in FIRST: pools register with it on entering the tree, and one that arrives to
+## an empty scene registers with nothing.
+func _apply_add_water(p_pools: Array, p_parent: Node, p_root: Node, p_new_manager: Node) -> void:
+	if p_new_manager != null and is_instance_valid(p_new_manager) and p_new_manager.get_parent() == null:
+		p_root.add_child(p_new_manager)
+		p_new_manager.owner = p_root
+	for p in p_pools:
+		if not is_instance_valid(p) or p.get_parent() != null:
+			continue
+		p_parent.add_child(p)
+		p.owner = p_root
+		# Seeding the level reads global transforms, so it happens once the node is in the tree
+		# and not on the detached one, where global_position is meaningless.
+		p.fit_to_curve()
+
+
+## Exact inverse of _apply_add_water. The nodes leave the tree but stay alive — the undo action
+## holds them — so redo re-adds the same instances. Pools leave BEFORE the manager, so each one
+## unregisters from a registry that still exists.
+func _revert_add_water(p_pools: Array, p_parent: Node, p_new_manager: Node) -> void:
+	for p in p_pools:
+		if is_instance_valid(p) and p.get_parent() == p_parent:
+			p_parent.remove_child(p)
+	if p_new_manager != null and is_instance_valid(p_new_manager) and p_new_manager.get_parent() != null:
+		p_new_manager.get_parent().remove_child(p_new_manager)
+
+
+## The Pasture3DPool already filled from `path`, or null. What makes the button idempotent.
+func pool_for_spline(path: Path3D) -> Node:
+	if not is_inside_tree() or path == null:
+		return null
+	for n in get_tree().get_nodes_in_group(POOL_GROUP):
+		if is_instance_valid(n) and n.get("source_spline") == path:
+			return n
+	return null
+
+
+## The scene's water manager, or null. One per scene is the normal case; the first is the active
+## one, which is the same rule Pasture3DPool and the C++ side use.
+func find_pool_manager() -> Node:
+	if not is_inside_tree():
+		return null
+	var found := get_tree().get_nodes_in_group(WATER_MANAGER_GROUP)
+	return found[0] if not found.is_empty() else null
+
+
+## True when this brush pushes terrain UP, so water authored in its loop would be buried inside the
+## landform. The check is on the brush's EFFECTIVE sign and not its class, because every raise brush
+## can be configured to carve and every carve brush to raise (§7.8). Public because Pasture3DPool
+## re-asks it in its configuration warnings — changing a brush's blend mode AFTER the water exists
+## is the case a creation-time dialog alone would miss, and it is the more likely one.
+func brush_raises() -> bool:
+	# A brush that does not write height cannot bury anything. Pasture3DSplat paints control/colour,
+	# so it is silent here by construction rather than by being named in a list.
+	if _map_type() != PASTURE_3D_MAPTYPE_HEIGHT:
+		return false
+	var blend := _get_blend_mode()
+	if blend != BLEND_ADD and blend != BLEND_MAX:
+		return false
+	return not _raise_inverted()
+
+
+## Whether this brush's stamp is flipped, so an ADD/MAX blend carves rather than raises. Subclasses
+## whose inversion lives somewhere other than an `invert` property override this (Pasture3DPlow).
+func _raise_inverted() -> bool:
+	return get("invert") == true
+
+
+## Human-readable blend mode, for the dialog and the warning. Reads the subclass's own enum names so
+## a brush that adds a mode does not need this updated.
+func _blend_mode_name() -> String:
+	const NAMES := ["REPLACE", "ADD", "MAX", "MIN"]
+	var b := _get_blend_mode()
+	return NAMES[b] if b >= 0 and b < NAMES.size() else str(b)
+
+
+## Put the raise-brush confirmation on screen. Returns false when there is nothing to host it, in
+## which case add_pool() proceeds: the dialog is a prompt, not a permission gate, and the created
+## pool carries the same warning permanently (Pasture3DPool._get_configuration_warnings).
+func _prompt_add_pool() -> bool:
+	var host := _dialog_host()
+	if host == null:
+		return false
+	# A second press while the first prompt is still up must re-raise that one, not stack another.
+	# Godot refuses a second exclusive child of the same window outright ("the parent window
+	# already has another exclusive child") and logs an error, so this is not merely tidiness.
+	if is_instance_valid(_pool_dialog):
+		_pool_dialog.grab_focus()
+		return true
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Water inside a landform"
+	dlg.dialog_text = ("'%s' raises terrain (blend_mode = %s).\n\nWater placed here will sit inside "
+		+ "the landform and be hidden.\n\nAdd it anyway?") % [name, _blend_mode_name()]
+	dlg.ok_button_text = "Add Anyway"
+	dlg.cancel_button_text = "Cancel"
+	dlg.confirmed.connect(add_pool_now)
+	# One cleanup path, not one per way of dismissing: confirm hides the dialog too, so freeing on
+	# "became invisible" covers OK, Cancel and Escape without double-freeing on any of them.
+	dlg.visibility_changed.connect(func() -> void:
+		if not dlg.visible:
+			_pool_dialog = null
+			dlg.queue_free())
+	_pool_dialog = dlg
+	host.add_child(dlg)
+	dlg.popup_centered()
+	return true
+
+
+## Where a modal goes: the editor's own base control in-editor, the window root otherwise.
+func _dialog_host() -> Node:
+	if Engine.is_editor_hint():
+		return EditorInterface.get_base_control()
+	return get_tree().root if is_inside_tree() else null
+
+
+## Where a newly created manager is parented, and what the new nodes are owned by so they persist
+## when the scene is saved.
+func _water_scene_root() -> Node:
+	var root: Node = get_tree().edited_scene_root
+	if root == null:
+		root = get_tree().current_scene
+	if root == null:
+		root = get_parent()
+	return root
+
+
+## A Pasture3DPool bound to `p_spline`, detached (the caller adds it inside the undo action).
+func _build_pool_for(p_spline: Path3D, p_manager: Node) -> Node:
+	var script: GDScript = load(POOL_SCRIPT)
+	if script == null:
+		push_error("Pasture3D: could not load %s — cannot add water." % POOL_SCRIPT)
+		return null
+	var pool: Node = script.new()
+	pool.name = _pool_name_for(p_spline)
+	pool.source_spline = p_spline
+	pool.wave_profile = _seed_profile_for(p_spline, p_manager)
+	# Match the material to the sea state rather than leaving a pond on the lake preset: the pond
+	# variant is a genuinely cheaper shader, not the lake one tinted differently.
+	pool.water_preset = 1 if pool.wave_profile == &"pond_still" else 0
+	if p_manager != null:
+		pool.manager = p_manager
+	return pool
+
+
+## "<BrushName>Water", numbered per spline on a multi-spline brush so the pairing stays readable.
+func _pool_name_for(p_spline: Path3D) -> String:
+	var splines := _get_splines()
+	if splines.size() <= 1:
+		return "%sWater" % name
+	return "%sWater%d" % [name, splines.find(p_spline) + 1]
+
+
+## Starting profile for a new pool, chosen from the loop's size (§7.8 step 6). Falls back to
+## whatever the manager does have if the wanted name is not on it, so a manager the user has
+## re-profiled still produces water rather than a warning.
+func _seed_profile_for(p_spline: Path3D, p_manager: Node) -> StringName:
+	var want: StringName = &"lake_calm" if _spline_span(p_spline) >= POND_MAX_SPAN else &"pond_still"
+	if p_manager == null or not p_manager.has_method("has_profile"):
+		return want
+	if p_manager.has_profile(want):
+		return want
+	var names: PackedStringArray = p_manager.get_profile_names()
+	return StringName(names[0]) if not names.is_empty() else want
+
+
+## The larger XZ extent of a spline's loop, in metres. Taken from the footprint box with the
+## brush's lateral padding removed, so it measures the loop the user drew and not its skirt.
+func _spline_span(p_spline: Path3D) -> float:
+	var box := _spline_footprint_aabb(p_spline)
+	if box.size == Vector3.ZERO:
+		return 0.0
+	var pad := _padding() * 2.0
+	return maxf(maxf(box.size.x - pad, box.size.z - pad), 0.0)
 
 
 ## ---- Geometry helpers (shared) ----
