@@ -31,10 +31,29 @@ const SURFACE_LIFT: float = 6.0
 ## the same time as a pool marker (tangents show only while a BRUSH is selected).
 const MARKER_COLOR := Color(1.0, 0.55, 0.1)
 
+## Built by hand rather than through create_material(), and that is what makes the handle visible
+## when the pool is NOT selected.
+##
+## EditorNode3DGizmoPlugin.create_material() stores four variants and get_material() hands back a
+## different one depending on the gizmo's selected/editable state — and every UNSELECTED variant has
+## its alpha multiplied by 0.3. That is the right default for a gizmo decorating a node you have
+## already found. It is the wrong one for a handle whose entire purpose is to be findable, and at 30%
+## alpha over a bright water surface it is not there at all. One material, full alpha, always.
+var _marker_material: StandardMaterial3D
+
 
 func _init() -> void:
-	# on_top, like the brush marker: a pool sunk in a basin stays findable from above the rim.
-	create_material("marker", MARKER_COLOR, false, true)
+	_marker_material = StandardMaterial3D.new()
+	_marker_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_marker_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_marker_material.albedo_color = MARKER_COLOR
+	_marker_material.disable_fog = true
+	# no_depth_test, like the brush marker: a pool sunk in a basin stays findable from above the rim,
+	# and the water surface it floats over is itself transparent geometry.
+	_marker_material.no_depth_test = true
+	# Transparent surfaces are depth-sorted against each other, and the water is transparent too.
+	# Priority is the tie-break that keeps the handle in front of its own pool rather than inside it.
+	_marker_material.render_priority = 100
 
 
 func _get_gizmo_name() -> String:
@@ -56,7 +75,7 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 		return
 
 	var centre := _marker_centre(node)
-	p_gizmo.add_lines(BrushGizmo.octa(centre, MARKER_R), get_material("marker", p_gizmo))
+	p_gizmo.add_lines(BrushGizmo.octa(centre, MARKER_R), _marker_material)
 	# A solid box of collision triangles makes the marker pickable from any angle, which is what
 	# turns it from decoration into a selection handle. add_collision_triangles takes no transform,
 	# so the vertices are moved to the marker rather than the mesh being placed.
