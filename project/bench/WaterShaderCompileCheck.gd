@@ -16,6 +16,9 @@ const VARIANTS := [
 	"water_ocean_low.gdshader",
 	"water_body.gdshader",
 	"water_body_low.gdshader",
+	# canvas_item rather than spatial, and it shares no include with the others -- but it is a
+	# water shader that ships, so it belongs in the four-second check like the rest.
+	"water_underwater.gdshader",
 ]
 
 

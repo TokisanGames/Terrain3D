@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://c7ffohefn1uio" path="res://addons/pasture_3d/connectors/splat.gd" id="7_f1dwe"]
 [ext_resource type="Material" uid="uid://cgk4glwmc4vk2" path="res://bench/legacy/M_ocean.tres" id="8_xmus7"]
 [ext_resource type="Script" uid="uid://c8nligty7vy44" path="res://addons/pasture_3d/connectors/pool.gd" id="9_46g7t"]
-[ext_resource type="Material" path="res://addons/pasture_3d/extras/shaders/water/M_water_lake.tres" id="10_gs7qi"]
+[ext_resource type="Material" uid="uid://cfoelhhitrvnp" path="res://addons/pasture_3d/extras/shaders/water/M_water_lake.tres" id="10_gs7qi"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_vnp0k"]
 _shader_parameters = {
@@ -676,14 +676,13 @@ sun_light = NodePath("../../DirectionalLight3D")
 material = ExtResource("8_xmus7")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -60.552383, 0)
 
-[node name="Mound6Water" type="Node3D" parent="Pasture3D" unique_id=1376800571 node_paths=PackedStringArray("source_spline", "manager")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.41972637, 0)
+[node name="Mound6Water" type="Node3D" parent="Pasture3D" unique_id=1712178916 node_paths=PackedStringArray("source_spline", "manager")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 345.9957, 0.41972637, 156.82648)
 script = ExtResource("9_46g7t")
 source_spline = NodePath("../Mound6/Loop1")
-wave_profile = &"lake"
+wave_profile = &"ocean_default"
 material = ExtResource("10_gs7qi")
 manager = NodePath("../Pasture3DPoolManager")
-wave_profile = &"lake"
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2130707292]
 environment = SubResource("Environment_ahg1b")

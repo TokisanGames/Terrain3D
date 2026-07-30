@@ -40,6 +40,10 @@ const MARKER_COLOR := Color(1.0, 0.55, 0.1)
 ## already found. It is the wrong one for a handle whose entire purpose is to be findable, and at 30%
 ## alpha over a bright water surface it is not there at all. One material, full alpha, always.
 var _marker_material: StandardMaterial3D
+## Same orange, dimmed and depth-tested: the volume outline is context for the handle, not a second
+## thing competing with it, and it SHOULD be occluded by terrain so the box reads as being in the
+## ground rather than floating over it.
+var _volume_material: StandardMaterial3D
 
 
 func _init() -> void:
@@ -54,6 +58,12 @@ func _init() -> void:
 	# Transparent surfaces are depth-sorted against each other, and the water is transparent too.
 	# Priority is the tie-break that keeps the handle in front of its own pool rather than inside it.
 	_marker_material.render_priority = 100
+
+	_volume_material = StandardMaterial3D.new()
+	_volume_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_volume_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_volume_material.albedo_color = Color(MARKER_COLOR.r, MARKER_COLOR.g, MARKER_COLOR.b, 0.35)
+	_volume_material.disable_fog = true
 
 
 func _get_gizmo_name() -> String:
@@ -92,6 +102,16 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	if tmesh:
 		p_gizmo.add_collision_triangles(tmesh)
 
+	# The underwater volume's extent, while the pool is selected (spec §8.4). In a running game the
+	# effect is what you see; in the editor the box is invisible, and "how deep does this water
+	# claim to be" is otherwise unanswerable without reading the inspector and doing the arithmetic.
+	# Selected only — every pool in a scene outlining its box would be a cage.
+	if node in EditorInterface.get_selection().get_selected_nodes():
+		var vol := _volume_of(node)
+		if vol != null and vol.shape is BoxShape3D:
+			var box_size: Vector3 = (vol.shape as BoxShape3D).size
+			p_gizmo.add_lines(_box_lines(vol.position, box_size * 0.5), _volume_material)
+
 
 ## Marker centre in node-local space: above the middle of the WATER, not above the node's origin.
 ##
@@ -117,3 +137,32 @@ func _surface_of(p_node: Node3D) -> MeshInstance3D:
 		if c is MeshInstance3D:
 			return c
 	return null
+
+
+## The pool's underwater volume shape, or null when underwater_enabled is off.
+func _volume_of(p_node: Node3D) -> CollisionShape3D:
+	for c in p_node.get_children():
+		if c is Area3D:
+			for cc in c.get_children():
+				if cc is CollisionShape3D:
+					return cc
+	return null
+
+
+## The 12 edges of a box, as line pairs. `p_half` is the half-extent; `p_centre` is node-local.
+func _box_lines(p_centre: Vector3, p_half: Vector3) -> PackedVector3Array:
+	var c := PackedVector3Array()
+	for i in 8:
+		c.append(p_centre + Vector3(
+			p_half.x if (i & 1) else -p_half.x,
+			p_half.y if (i & 2) else -p_half.y,
+			p_half.z if (i & 4) else -p_half.z))
+	var out := PackedVector3Array()
+	# Every pair of corners differing in exactly one bit is an edge — 12 of them, no table needed.
+	for i in 8:
+		for bit in [1, 2, 4]:
+			var j: int = i | bit
+			if j != i:
+				out.append(c[i])
+				out.append(c[j])
+	return out

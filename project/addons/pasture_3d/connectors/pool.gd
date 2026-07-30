@@ -117,6 +117,55 @@ const MAX_VERTICES: int = 400000
 ## Explicit manager, for a scene with more than one. Empty = the scene's active one.
 @export var manager: Node
 
+# --- Underwater (spec §8) -----------------------------------------------------
+
+@export_group("Underwater")
+## Build the submersion volume at all. Off = no Area3D, no fog, no overlay, no camera poll —
+## for water that is scenery and will never be swum in.
+@export var underwater_enabled: bool = true:
+	set(v):
+		underwater_enabled = v
+		_rebuild_volume()
+		update_configuration_warnings()
+## Metres the volume extends BELOW the surface. Not a depth measurement of the basin — it is how
+## far down "in this water" reaches, and a body below it has sunk out of the pool's care.
+@export var volume_depth: float = 20.0:
+	set(v):
+		volume_depth = maxf(v, 0.1)
+		_rebuild_volume()
+## Spawn a FogVolume matching the box, tinted from the water material. Needs
+## Environment.volumetric_fog_enabled; the pool warns when that is off rather than doing nothing.
+@export var underwater_fog: bool = true:
+	set(v):
+		underwater_fog = v
+		_rebuild_volume()
+		update_configuration_warnings()
+## Multiplies the fog density derived from the material's `absorption`. Absorption is a per-metre
+## extinction in the surface shader's Beer-Lambert term; fog wants a density, and this is the
+## conversion factor between them.
+@export var underwater_density_scale: float = 0.15:
+	set(v):
+		underwater_density_scale = maxf(v, 0.0)
+		_apply_fog_material()
+## Spawn the screen effect when the camera goes under. Runtime only — a plugin that tints the
+## EDITOR viewport because the camera dipped below a plane is a bug report waiting to happen.
+@export var underwater_overlay: bool = true
+## CanvasLayer index for that overlay. Raise it above your HUD if the HUD should be tinted too.
+@export var overlay_canvas_layer: int = 1
+## Seconds to ramp the overlay in and out across the surface crossing, so it is not a single-frame
+## pop. Independent of the wave clock.
+@export var overlay_transition: float = 0.25
+
+# --- Signals ------------------------------------------------------------------
+
+## A physics body's origin crossed into / out of this water. Emitted from the Area3D's own
+## signals, re-filtered through is_point_underwater() so a concave lake does not claim a peninsula.
+signal body_submerged(body: Node3D)
+signal body_surfaced(body: Node3D)
+## The active camera crossed the surface. A Camera3D is not a physics body and generates no area
+## signals at all, so this comes from a poll (see _poll_camera).
+signal camera_submerged(submerged: bool)
+
 # --- Internals ----------------------------------------------------------------
 
 var _surface: MeshInstance3D = null
@@ -125,6 +174,22 @@ var _dirty := false
 var _last_stats := {}
 ## World transform of source_spline as of the last rebuild. See _process.
 var _source_xform := Transform3D()
+## The offset loop in LOCAL XZ, and its bounds, as of the last rebuild. Every containment query
+## reads these rather than re-deriving them; see rebuild().
+var _poly_cache := PackedVector2Array()
+var _poly_bounds := Rect2()
+
+var _volume: Area3D = null
+var _volume_shape: CollisionShape3D = null
+var _fog: FogVolume = null
+## Bodies currently inside the Area3D box -> whether they were last reported as submerged. The box
+## is the broad phase; the polygon test that refines it has to be re-run as they move, which is why
+## this is a set and not just a pair of signal handlers.
+var _bodies_in_box := {}
+var _camera_under := false
+var _overlay_layer: CanvasLayer = null
+var _overlay_rect: ColorRect = null
+var _overlay_amount := 0.0
 
 
 func _ready() -> void:
@@ -144,6 +209,11 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_EXIT_TREE:
 		remove_from_group(POOL_GROUP)
 		_unregister()
+		# The overlay is a CanvasLayer: leaving it up after the pool has gone would tint a scene
+		# with no water in it.
+		_drop_overlay()
+		_camera_under = false
+		_overlay_amount = 0.0
 	elif what == NOTIFICATION_TRANSFORM_CHANGED:
 		# The surface height IS this node's Y, so moving it in Y moves the water level and
 		# the mesh (built flat, in local space) needs nothing.
@@ -200,7 +270,9 @@ func _on_curve_changed() -> void:
 ## the answer changes, which is why this is not gated to the editor: a runtime scene that
 ## moves a brush should move its water too, and paying microseconds to make that true
 ## everywhere is better than an editor-only behaviour that surprises someone at runtime.
-func _process(_delta: float) -> void:
+func _process(p_delta: float) -> void:
+	_poll_camera()
+	_update_overlay(p_delta)
 	if source_spline == null or not is_instance_valid(source_spline):
 		return
 	var xf := source_spline.global_transform
@@ -381,8 +453,14 @@ func rebuild() -> Dictionary:
 	var spacing := _effective_spacing()
 	_last_stats["spacing"] = spacing
 	var poly := _offset_polygon(_local_polygon(spacing))
+	# Cache it. Every containment question — the camera poll, the Area3D re-filter, a buoy asking
+	# which body it is in — needs this same polygon, and rebuilding it per query means re-baking the
+	# curve, decimating it and running Geometry2D.offset_polygon several times a frame. It only
+	# changes when the mesh does, so it is stored where the mesh is.
+	_poly_cache = poly
 	if poly.size() < 3:
 		_clear_surface()
+		_poly_bounds = Rect2()
 		_last_stats["reason"] = "no usable closed curve"
 		update_configuration_warnings()
 		return _last_stats
@@ -395,6 +473,9 @@ func rebuild() -> Dictionary:
 		mx = Vector2(maxf(mx.x, v.x), maxf(mx.y, v.y))
 	mn = Vector2(floorf(mn.x / spacing) * spacing, floorf(mn.y / spacing) * spacing)
 	mx = Vector2(ceilf(mx.x / spacing) * spacing, ceilf(mx.y / spacing) * spacing)
+	# Local-space XZ bounds of the polygon: the broad phase for every containment query, and the
+	# footprint the underwater volume spans.
+	_poly_bounds = Rect2(mn, mx - mn)
 	var gw := int(round((mx.x - mn.x) / spacing)) + 1
 	var gh := int(round((mx.y - mn.y) / spacing)) + 1
 	if gw < 2 or gh < 2:
@@ -477,6 +558,8 @@ func rebuild() -> Dictionary:
 	_surface.mesh = mesh
 	_apply_material()
 	_apply_cull_box(mn, mx)
+	# The volume spans the polygon, so it is derived from the same build rather than tracked.
+	_rebuild_volume()
 
 	_last_stats["ok"] = true
 	_last_stats["vertices"] = verts.size()
@@ -582,6 +665,230 @@ func _update_domain_origin() -> void:
 		_surface.set_instance_shader_parameter("_water_domain_origin", global_position)
 
 
+# ---- the underwater volume (spec §8) -----------------------------------------
+
+## Build (or drop) the Area3D + FogVolume that span this pool's footprint.
+##
+## Both are internal children with no owner, like Surface: they are derived from the polygon and are
+## rebuilt whenever it is, so serialising them would only let a stale copy load from a scene.
+##
+## The box is the BROAD phase and nothing more. A lake outline is frequently concave, and a box says
+## "in the water" for a peninsula between two arms — which is why every signal it raises is
+## re-filtered through is_point_underwater() before it reaches anyone (§8.2).
+func _rebuild_volume() -> void:
+	if not is_inside_tree():
+		return
+	if not underwater_enabled or _poly_cache.size() < 3:
+		_drop_volume()
+		return
+
+	if _volume == null or not is_instance_valid(_volume):
+		_volume = Area3D.new()
+		_volume.name = "Volume"
+		# The pool answers "is this point in the water", it does not push anything.
+		_volume.monitorable = false
+		# NOTE: Godot 4.4+ defaults 3D physics to Jolt, and a Jolt Area3D does NOT report
+		# StaticBody3D unless physics/jolt_physics_3d/simulation/areas_detect_static_bodies is
+		# turned on. So body_submerged never fires for static props — which is usually what you
+		# want (a rock does not swim) but is surprising the first time. Rigid, character and
+		# kinematic bodies are detected normally. is_point_underwater() has no such limit; it is
+		# geometry, not physics, so anything can be asked about it directly.
+		_volume_shape = CollisionShape3D.new()
+		_volume_shape.name = "VolumeShape"
+		_volume.add_child(_volume_shape)
+		add_child(_volume)
+		_volume.body_entered.connect(_on_body_entered)
+		_volume.body_exited.connect(_on_body_exited)
+
+	var shape: BoxShape3D = _volume_shape.shape as BoxShape3D
+	if shape == null:
+		shape = BoxShape3D.new()
+		_volume_shape.shape = shape
+	# Spans the polygon in XZ and volume_depth downward from the surface. The top is the still
+	# level: a crest above it is handled by the exact test, which reads the wave surface, and
+	# growing the box upward would only widen the broad phase for no gain.
+	var centre := _poly_bounds.get_center()
+	shape.size = Vector3(_poly_bounds.size.x, volume_depth, _poly_bounds.size.y)
+	_volume_shape.position = Vector3(centre.x, -volume_depth * 0.5, centre.y)
+
+	if underwater_fog:
+		if _fog == null or not is_instance_valid(_fog):
+			_fog = FogVolume.new()
+			_fog.name = "Fog"
+			add_child(_fog)
+		_fog.size = shape.size
+		_fog.position = _volume_shape.position
+		_apply_fog_material()
+	elif _fog != null and is_instance_valid(_fog):
+		_fog.queue_free()
+		_fog = null
+
+
+func _drop_volume() -> void:
+	if _volume != null and is_instance_valid(_volume):
+		_volume.queue_free()
+	_volume = null
+	_volume_shape = null
+	if _fog != null and is_instance_valid(_fog):
+		_fog.queue_free()
+	_fog = null
+	_bodies_in_box.clear()
+
+
+## Tint the fog from the WATER material rather than from a second set of knobs.
+##
+## `deep_color` and `absorption` are the two uniforms that already make an ocean an ocean and a pond
+## a pond, so deriving from them is what makes the view from under the surface agree with the view
+## from above it. Density is the luminance of absorption (a per-metre extinction in the shader's
+## Beer-Lambert term) scaled into fog units.
+func _apply_fog_material() -> void:
+	if _fog == null or not is_instance_valid(_fog):
+		return
+	var mat: FogMaterial = _fog.material as FogMaterial
+	if mat == null:
+		mat = FogMaterial.new()
+		_fog.material = mat
+	var albedo := Color(0.1, 0.2, 0.25)
+	var density := 0.05
+	var shader_mat := material as ShaderMaterial
+	if shader_mat != null:
+		var deep = shader_mat.get_shader_parameter("deep_color")
+		if deep is Color:
+			albedo = deep
+		var absorption = shader_mat.get_shader_parameter("absorption")
+		if absorption is Vector3:
+			# Rec. 709 luminance of the per-channel extinction — one number for a scalar density.
+			density = 0.2126 * absorption.x + 0.7152 * absorption.y + 0.0722 * absorption.z
+	mat.albedo = albedo
+	mat.density = maxf(density * underwater_density_scale, 0.0)
+
+
+func _on_body_entered(p_body: Node3D) -> void:
+	_bodies_in_box[p_body] = false
+	_refilter_bodies()
+
+
+func _on_body_exited(p_body: Node3D) -> void:
+	if _bodies_in_box.get(p_body, false):
+		body_surfaced.emit(p_body)
+	_bodies_in_box.erase(p_body)
+
+
+## Re-run the exact test for every body the box currently holds, emitting only on a change.
+##
+## The Area3D signals alone are not enough: they fire on the BOX, so a body that walks onto a
+## peninsula between two arms of a lake never leaves the box and never fires anything, while
+## remaining very much out of the water. Bodies in the box are few, and this runs on the physics
+## tick, so the cost is bounded by how many things are actually near this pool.
+func _refilter_bodies() -> void:
+	for body in _bodies_in_box.keys():
+		if not is_instance_valid(body):
+			_bodies_in_box.erase(body)
+			continue
+		var now := is_point_underwater(body.global_position)
+		if now != _bodies_in_box[body]:
+			_bodies_in_box[body] = now
+			if now:
+				body_submerged.emit(body)
+			else:
+				body_surfaced.emit(body)
+
+
+func _physics_process(_delta: float) -> void:
+	if underwater_enabled and not _bodies_in_box.is_empty():
+		_refilter_bodies()
+
+
+## Poll the active camera against the surface (spec §8.2).
+##
+## A Camera3D is not a physics body, has no collision shape, and generates no area signals whatever
+## — so there is no event to listen for and polling is the whole of the technique, not a shortcut.
+## One rectangle test per pool per frame in the common case; the polygon walk and the wave solve only
+## run for a camera actually over this water.
+func _poll_camera() -> void:
+	var cam := _active_camera()
+	if cam == null:
+		return
+	var under := underwater_enabled and is_point_underwater(cam.global_position)
+	if under != _camera_under:
+		_camera_under = under
+		camera_submerged.emit(under)
+
+
+## The camera to test. In a running scene that is the viewport's; in the editor it is the 3D
+## editor's own, so the Volume gizmo and the warnings can be checked without pressing play.
+func _active_camera() -> Camera3D:
+	if Engine.is_editor_hint():
+		var vp := EditorInterface.get_editor_viewport_3d(0)
+		return vp.get_camera_3d() if vp else null
+	if not is_inside_tree():
+		return null
+	var vp2 := get_viewport()
+	return vp2.get_camera_3d() if vp2 else null
+
+
+## ---- the screen overlay (spec §8.4) ----
+##
+## Runtime only, and built lazily the first time the camera actually goes under: a pool that is
+## never swum in should cost nothing, and in the editor tinting the viewport because the camera
+## dipped below a plane would be a bug report rather than a feature.
+
+func _update_overlay(p_delta: float) -> void:
+	if Engine.is_editor_hint() or not underwater_overlay:
+		return
+	var target := 1.0 if _camera_under else 0.0
+	if is_equal_approx(_overlay_amount, target) and _overlay_rect == null:
+		return
+	# A step, not a lerp: a fixed-duration ramp crosses in overlay_transition seconds regardless of
+	# frame rate, where a lerp's speed depends on it.
+	var step := p_delta / maxf(overlay_transition, 0.001)
+	_overlay_amount = move_toward(_overlay_amount, target, step)
+	if _overlay_amount <= 0.0:
+		_drop_overlay()
+		return
+	_ensure_overlay()
+	var mat := _overlay_rect.material as ShaderMaterial
+	if mat == null:
+		return
+	mat.set_shader_parameter("amount", _overlay_amount)
+	var shader_mat := material as ShaderMaterial
+	if shader_mat != null:
+		var absorption = shader_mat.get_shader_parameter("absorption")
+		if absorption is Vector3:
+			mat.set_shader_parameter("absorption", absorption)
+		var deep = shader_mat.get_shader_parameter("deep_color")
+		if deep is Color:
+			mat.set_shader_parameter("deep_color", deep)
+
+
+func _ensure_overlay() -> void:
+	if _overlay_rect != null and is_instance_valid(_overlay_rect):
+		return
+	_overlay_layer = CanvasLayer.new()
+	_overlay_layer.name = "UnderwaterOverlay"
+	_overlay_layer.layer = overlay_canvas_layer
+	_overlay_rect = ColorRect.new()
+	_overlay_rect.name = "Effect"
+	_overlay_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# It samples the screen; it must never eat a click meant for the game.
+	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := ShaderMaterial.new()
+	mat.shader = load(WATER_DIR + "water_underwater.gdshader")
+	# The SAME derivative texture the surface shader already has resident, so the ripple under the
+	# water matches the ripple on it and this costs no new VRAM (guide G3).
+	mat.set_shader_parameter("detail_deriv", load(WATER_DIR + "T_water_deriv.png"))
+	_overlay_rect.material = mat
+	_overlay_layer.add_child(_overlay_rect)
+	add_child(_overlay_layer)
+
+
+func _drop_overlay() -> void:
+	if _overlay_layer != null and is_instance_valid(_overlay_layer):
+		_overlay_layer.queue_free()
+	_overlay_layer = null
+	_overlay_rect = null
+
+
 # ---- public API --------------------------------------------------------------
 
 ## Surface height at a world XZ, including waves. The pool's own Y plus the profile's
@@ -612,13 +919,33 @@ func get_water_normal(p_global_xz: Vector2) -> Vector3:
 ## and a box says "in the water" for a peninsula. Vertically it is compared against the
 ## WAVE surface, so a point just under a trough is out and just under a crest is in.
 func contains_point(p_global_pos: Vector3) -> bool:
-	var poly := _offset_polygon(_local_polygon(_effective_spacing()))
-	if poly.size() < 3:
+	return is_point_underwater(p_global_pos)
+
+
+## Spec §8.2. The same question `contains_point` answers, under the name the underwater
+## feature asks it by — one implementation, so the camera, a swimming character and a
+## buoy can never disagree about where the water is.
+##
+## Deliberately compared against the WAVE surface and not the flat plane: at the
+## shoreline in a 1 m swell the difference between those two IS the effect.
+func is_point_underwater(p_global_pos: Vector3) -> bool:
+	if _poly_cache.size() < 3:
 		return false
 	var lp: Vector3 = global_transform.affine_inverse() * p_global_pos
-	if not Geometry2D.is_point_in_polygon(Vector2(lp.x, lp.z), poly):
+	var l2 := Vector2(lp.x, lp.z)
+	# Broad phase: a rectangle test costs nothing next to a polygon walk, and the common
+	# answer for a per-frame poll is "nowhere near".
+	if not _poly_bounds.has_point(l2):
+		return false
+	if not Geometry2D.is_point_in_polygon(l2, _poly_cache):
 		return false
 	return p_global_pos.y <= get_water_height(Vector2(p_global_pos.x, p_global_pos.z))
+
+
+## The pool's outline in local XZ, as the mesh was last built from it. Exposed so a gate — or a
+## tool — can check containment against the same polygon the node uses rather than a re-derived one.
+func get_polygon() -> PackedVector2Array:
+	return _poly_cache
 
 
 ## Re-seat this node on its curve: XZ onto the source spline's own origin, Y onto the
@@ -755,6 +1082,13 @@ func _get_configuration_warnings() -> PackedStringArray:
 	# The raising-brush warning §7.8 describes. Checked here as well as at creation
 	# time, because changing a brush's blend mode afterwards is the case a
 	# creation-time-only dialog would miss — and it is the more likely one.
+	# §8.3's named failure. A FogVolume renders NOTHING unless the scene's Environment has
+	# volumetric fog switched on — no error, no warning, just no fog — and "the underwater fog
+	# doesn't work" is the single most likely report this feature will generate. Say which setting.
+	if underwater_enabled and underwater_fog and not _volumetric_fog_available():
+		w.append("Underwater fog is on, but the scene's Environment does not have "
+			+ "volumetric_fog_enabled — a FogVolume draws nothing without it. Enable it on the "
+			+ "WorldEnvironment, or turn off underwater_fog.")
 	var brush := _source_brush()
 	if brush != null and _brush_raises(brush):
 		var mode: String = brush._blend_mode_name() if brush.has_method("_blend_mode_name") else "?"
@@ -762,6 +1096,44 @@ func _get_configuration_warnings() -> PackedStringArray:
 			+ "landform and be hidden. Set its blend_mode to MIN (or invert it) to carve.")
 			% [brush.name, mode])
 	return w
+
+
+## Whether the scene's Environment would actually render a FogVolume.
+##
+## Reported as "available" when there is no Environment to inspect at all, rather than warned about:
+## a headless or fixture scene has none and does not want to be told, and the warning exists to
+## catch the specific case of an Environment that is present with the setting off.
+func _volumetric_fog_available() -> bool:
+	var env := _scene_environment()
+	return env == null or env.volumetric_fog_enabled
+
+
+## The Environment in force: the viewport's own, else the first WorldEnvironment in the scene. Both
+## are checked because a Camera3D can carry its own and a WorldEnvironment is the usual authoring
+## route; neither alone is the answer.
+func _scene_environment() -> Environment:
+	if not is_inside_tree():
+		return null
+	var vp := get_viewport()
+	if vp != null:
+		var cam := vp.get_camera_3d()
+		if cam != null and cam.environment != null:
+			return cam.environment
+		if vp is Window and vp.world_3d != null and vp.world_3d.environment != null:
+			return vp.world_3d.environment
+	var root := get_tree().current_scene
+	if root != null:
+		for n in _descendants(root):
+			if n is WorldEnvironment and n.environment != null:
+				return n.environment
+	return null
+
+
+func _descendants(p_node: Node) -> Array:
+	var out: Array = [p_node]
+	for c in p_node.get_children():
+		out.append_array(_descendants(c))
+	return out
 
 
 ## The Curve3D actually driving the mesh: the explicit override if set, else the spline's.

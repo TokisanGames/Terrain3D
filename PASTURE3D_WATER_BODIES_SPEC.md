@@ -781,7 +781,7 @@ nothing" from "measured well". Results are appended to this document as they are
 | **2** | Pasture3DOcean — ✅ **done 2026-07-29 (§11.3)** | Host interface, mesher decoupling, `Pasture3DOcean`, sea level from node Y, migration button, `ocean_*` removed | (a) **Pixel- and millisecond-neutral vs Phase 0**, ocean *and* terrain clipmap. (b) Ocean in a scene with no `Pasture3D`. (c) `update_aabbs` correct with no terrain data — control = the pre-fix `IS_DATA_INIT`, which must fail. (d) The demo scene migrates in one press, undoably |
 | **3** | Pasture3DPool core — ✅ **done 2026-07-29 (§11.4)** | Curve binding, loop meshing, level, `edge_offset`, presets/unique/save/load, registration, warnings | (a) 500 m lake rebuild ≤ 500 ms. (b) Auto vertex spacing meets the λ/8 rule; control = 4× spacing, which must show measurable surface sag. (c) Pool in a scene with no terrain. (d) Shared curve does not trip the brush's shared-curve warning |
 | **4** | Brush integration — ✅ **done 2026-07-30 (§11.5)** | `Add Water` on `Pasture3DTerrainBrush`, additive warning, undo, the manager's four shipped profiles | Button on each of Mound/Plow/Splat/Ridge/Trough produces a correctly bound pool; additive warning fires on raise-configured brushes and stays silent on carve-configured ones |
-| **5** | Underwater | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
+| **5** | Underwater — ✅ **done 2026-07-30 (§11.7)**, timing pending | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
 | **6** | Pasture3DBuoy | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
 | **7** | Ribbon + flow | Ribbon meshing, `ARRAY_COLOR` flow, `WATER_FLOW`, `water_river.gdshader`, `M_water_river.tres` | River follows spline Y downhill; flow direction correct through a 90° bend; no seam at the clock wrap (control: an unquantised half-period, which must seam); cost delta vs lake variant |
 | **8** | Docs | Rewrite guide §1/§5, add a water-bodies chapter, `ocean_*` → `Pasture3DOcean` mapping table, spec bookkeeping | The quick-start for a lake is "press the button", and the old property names are all findable |
@@ -1197,6 +1197,57 @@ saying this will happen again and pointing at the **Make Unique** button, which 
 this. Worth recording as a usability finding: the button is discoverable only if you already know you
 need it, and `_validate_property` marking `material` read-only outside `Custom` stops the *reference*
 being reassigned but not the shipped resource being edited through it.
+
+### 11.7 Phase 5 results — measured 2026-07-30 ✅ *(correctness; the one timing criterion is pending)*
+
+Harness: [bench/WaterBodiesPhase5Gate.tscn](project/bench/WaterBodiesPhase5Gate.tscn).
+RTX 3070 / Ryzen desktop, Godot 4.7.
+
+**Built:** the underwater half of `Pasture3DPool` — the `Volume` `Area3D`, `is_point_underwater()`,
+the body-signal re-filter, camera polling with `camera_submerged`, the `FogVolume` tinted from the
+water material, and
+[water_underwater.gdshader](project/addons/pasture_3d/extras/shaders/water/water_underwater.gdshader)
+behind a lazily-built `CanvasLayer`. `pool_gizmo.gd` gained the volume outline (§8.4).
+
+| Criterion | Result |
+|---|---|
+| A — camera crossing | ✅ down and up produced **exactly two** `camera_submerged` signals, `[true, false]` — one per crossing, not one per frame. Control: a camera 300 m out and 6 m *below* the plane fired nothing and read dry |
+| B — the concave case | ✅ the L's notch reads **dry** and the arm reads **wet at the same depth**. Control: the notch is genuinely inside the 125 × 20 × 125 m box, so the criterion is not comparing two things that already agree |
+| C — wave surface, not plane | ✅ 64 probes placed **exactly at the still level** came back **32 wet / 32 dry**, across a surface spanning 1.081 m. Control: the same probes against the flat plane are 64/64 identical — a flat test cannot produce that split |
+| D — Area3D re-filter | ✅ `body_submerged` fired for the swimmer only; walking it onto the peninsula fired `body_surfaced` **without it leaving the box**. Control: the raw `Area3D` list holds both bodies throughout |
+| E — fog + the named warning | ✅ fog albedo equals the material's `deep_color` and density 0.0412 is the luminance of `absorption` scaled; the warning names `volumetric_fog_enabled`. Control: enabling it clears that warning |
+| F — overlay cost | ⏸ **not measured.** Timing, and this machine is shared with another engine — `RUN_TIMING=1` runs it on a quiet machine |
+
+**Criterion C is the one worth reading twice.** Testing submersion against the flat plane would be
+simpler, and it would be wrong every time a crest or trough passed — §8.2 says "at the shoreline in a
+1 m swell the difference is the entire effect", and 32/32 at a single Y is that sentence measured.
+
+**A prerequisite that turned out to matter:** `contains_point` re-derived the polygon on **every
+call** — re-baking the curve, decimating it and running `Geometry2D.offset_polygon`. That was
+tolerable when the only caller was a one-off registry lookup; Phase 5 makes it a per-frame camera
+poll and Phase 6 makes it a per-buoy physics query. The polygon and its bounds are now cached at
+rebuild, and every containment question goes through one `is_point_underwater()` behind a rectangle
+broad phase, so the camera, a swimming character and a buoy cannot disagree about where the water is.
+
+**A Godot behaviour worth recording, found by the gate:** Godot 4.4+ defaults 3D physics to Jolt, and
+a **Jolt `Area3D` does not report `StaticBody3D`** unless
+`physics/jolt_physics_3d/simulation/areas_detect_static_bodies` is enabled. So `body_submerged` never
+fires for static props. That is usually the right behaviour — a rock does not swim — but it is
+surprising the first time, and the fixture that found it was a `StaticBody3D` sitting inside the
+volume raising nothing. Noted at the `Area3D`'s construction. `is_point_underwater()` has no such
+limit: it is geometry, not physics, so anything at all can be asked about it directly.
+
+**Not done, deliberately:** the overlay is **runtime-only**. §8.4 already called tinting the editor
+viewport "a bug report waiting to happen", and the volume gizmo is what the author gets instead.
+
+### 11.8 Phase 5 — the one measurement still owed
+
+`RUN_TIMING=1` on the Phase 5 gate measures the overlay's GPU cost above vs below the surface, with
+a control that fails if the timer reads zero (a "measured nothing" that would otherwise look like a
+free effect) and one that fails if no overlay was actually built. It is a full-screen pass with two
+texture fetches, so the expected shape is small and resolution-dependent — but the number is not
+written here until it has been taken on a quiet machine, alongside the Phase 2 and Phase 3 timing
+halves that are owed for the same reason.
 
 ---
 
