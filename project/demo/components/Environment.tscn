@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://bb2lp50sjndus"]
+[gd_scene format=3 uid="uid://bb2lp50sjndus"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_fhs52"]
 sky_top_color = Color(0.192157, 0.282353, 0.509804, 1)
@@ -18,16 +18,18 @@ ambient_light_source = 3
 ambient_light_color = Color(0.55, 0.55, 0.55, 1)
 ambient_light_sky_contribution = 0.7
 tonemap_mode = 3
+glow_enabled = true
+volumetric_fog_enabled = true
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_0gcl0"]
 
-[node name="Environment" type="Node3D"]
+[node name="Environment" type="Node3D" unique_id=742480165]
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=871735757]
 environment = SubResource("Environment_877j2")
 camera_attributes = SubResource("CameraAttributesPractical_0gcl0")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=905146786]
 transform = Transform3D(1.0000001, 0, 0, 0, 0.6427869, 0.76604396, 0, -0.7660436, 0.6427873, 0, 2000, 0)
 shadow_enabled = true
 shadow_blur = 2.0

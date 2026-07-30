@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://el5y10hnh13g"]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://el5y10hnh13g"]
 
 [ext_resource type="Shader" uid="uid://dce675i014xcn" path="res://addons/terrain_3d/extras/particle_example/particles.gdshader" id="1_t55me"]
 

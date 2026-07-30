@@ -1,0 +1,238 @@
+{
+	"globsDependent" : 
+	[
+		{
+			"expression" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/*.cpp",
+			"paths" : 
+			[
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/classes/editor_plugin_registration.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/classes/low_level.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/classes/wrapped.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/core/class_db.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/core/error_macros.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/core/memory.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/core/method_bind.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/core/object.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/core/print_string.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/godot.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/aabb.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/basis.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/callable_custom.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/callable_method_pointer.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/char_string.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/color.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/packed_arrays.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/plane.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/projection.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/quaternion.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/rect2.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/rect2i.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/transform2d.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/transform3d.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/variant.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/variant_internal.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/vector2.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/vector2i.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/vector3.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/vector3i.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/vector4.cpp",
+				"E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp/src/variant/vector4i.cpp"
+			],
+			"recurse" : true
+		}
+	],
+	"inputs" : 
+	[
+		{
+			"path" : "CMakeLists.txt"
+		},
+		{
+			"path" : "cmake/godotcpp.cmake"
+		},
+		{
+			"path" : "cmake/GodotCPPModule.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/FindPython3.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/FindPackageHandleStandardArgs.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/FindPackageMessage.cmake"
+		},
+		{
+			"path" : "cmake/common_compiler_flags.cmake"
+		},
+		{
+			"path" : "cmake/android.cmake"
+		},
+		{
+			"path" : "cmake/ios.cmake"
+		},
+		{
+			"path" : "cmake/linux.cmake"
+		},
+		{
+			"path" : "cmake/macos.cmake"
+		},
+		{
+			"path" : "cmake/web.cmake"
+		},
+		{
+			"path" : "cmake/windows.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/ProcessorCount.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/4.3.1-msvc1/CMakeSystem.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeSystemSpecificInitialize.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Platform/Windows-Initialize.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/4.3.1-msvc1/CMakeCXXCompiler.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeSystemSpecificInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeGenericSystem.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeInitializeConfigs.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Platform/Windows.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Platform/WindowsPaths.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeCXXInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeLanguageInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Compiler/MSVC-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Compiler/MSVC.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Platform/Windows-MSVC-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Platform/Windows-MSVC.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/4.3.1-msvc1/CMakeRCCompiler.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeRCInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/CMakeCommonLanguageInclude.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Internal/CMakeCXXLinkerInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Internal/CMakeCommonLinkerInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Linker/MSVC-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Linker/MSVC.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Platform/Linker/Windows-MSVC-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.3/Modules/Platform/Linker/Windows-MSVC.cmake"
+		},
+		{
+			"path" : "cmake/emsdkHack.cmake"
+		}
+	],
+	"kind" : "cmakeFiles",
+	"paths" : 
+	{
+		"build" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build",
+		"source" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/godot-cpp"
+	},
+	"version" : 
+	{
+		"major" : 1,
+		"minor" : 1
+	}
+}

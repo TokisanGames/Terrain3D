@@ -1,0 +1,17 @@
+[gd_resource type="Terrain3DMaterial" format=3 uid="uid://bju12h0b75gfw"]
+
+[resource]
+_shader_parameters = {
+&"bias_distance": 512.0,
+&"blend_sharpness": 0.5,
+&"depth_blur": 0.0,
+&"distant_normal_scale": 2.0,
+&"flat_terrain_normals": false,
+&"general_uniforms": null,
+&"ground_level": 0.0,
+&"mipmap_bias": 1.0,
+&"mipmaps": null,
+&"private": null,
+&"region_blend": 0.25
+}
+show_checkered = true

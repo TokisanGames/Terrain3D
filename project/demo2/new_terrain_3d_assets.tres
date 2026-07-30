@@ -1,0 +1,24 @@
+[gd_resource type="Terrain3DAssets" format=3 uid="uid://dywwmj6p8ekpd"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3mvqk"]
+transparency = 4
+cull_mode = 2
+vertex_color_use_as_albedo = true
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+metadata/terrain3d_generated_material = true
+
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_7jge4"]
+generated_type = 1
+height_offset = 0.5
+density = 10.0
+material_override = SubResource("StandardMaterial3D_3mvqk")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
+
+[resource]
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_7jge4")])

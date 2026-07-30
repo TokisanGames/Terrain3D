@@ -1,0 +1,4 @@
+E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/generate_bindings.dir
+E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/godot-cpp.dir
+E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/ALL_BUILD.dir
+E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/ZERO_CHECK.dir

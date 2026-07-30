@@ -1,0 +1,103 @@
+{
+	"backtrace" : 3,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_custom_target",
+			"binding_generator_generate_bindings",
+			"godotcpp_generate"
+		],
+		"files" : 
+		[
+			"cmake/GodotCPPModule.cmake",
+			"cmake/godotcpp.cmake",
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 2,
+				"line" : 65,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 272,
+				"parent" : 1
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 119,
+				"parent" : 2
+			}
+		]
+	},
+	"codemodelVersion" : 
+	{
+		"major" : 2,
+		"minor" : 10
+	},
+	"dependencies" : 
+	[
+		{
+			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
+		}
+	],
+	"folder" : 
+	{
+		"name" : "godot-cpp"
+	},
+	"id" : "generate_bindings::@6890427a1f51a3e7e1df",
+	"name" : "generate_bindings",
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "",
+			"sourceIndexes" : 
+			[
+				0,
+				2
+			]
+		},
+		{
+			"name" : "CMake Rules",
+			"sourceIndexes" : 
+			[
+				1
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 3,
+			"isGenerated" : true,
+			"path" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/generate_bindings",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "E:/Mocho Indie Studio/Godot/Tools/Godot-Terrain3D/build/CMakeFiles/06d0d8b152b2e4044e8b3881f22d9e6e/generate_bindings.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"path" : "gdextension/extension_api.json",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "UTILITY"
+}

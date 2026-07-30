@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://chol2xlfbq7cu"]
+[gd_scene format=3 uid="uid://chol2xlfbq7cu"]
 
 [ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_nqak5"]
@@ -10,22 +10,54 @@
 [ext_resource type="PackedScene" uid="uid://d3sr0a7dxfkr8" path="res://addons/terrain_3d/extras/particle_example/Terrain3DParticles.tscn" id="8_fwrtk"]
 [ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="8_g2of2"]
 
-[node name="Demo" type="Node"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_fhs52"]
+sky_top_color = Color(0.192157, 0.282353, 0.509804, 1)
+sky_horizon_color = Color(0.505882, 0.615686, 0.709804, 1)
+ground_bottom_color = Color(0.211765, 0.313726, 0.552941, 1)
+ground_horizon_color = Color(0.505882, 0.615686, 0.709804, 1)
+ground_curve = 0.13
+sun_angle_max = 15.0
+
+[sub_resource type="Sky" id="Sky_jkl3n"]
+sky_material = SubResource("ProceduralSkyMaterial_fhs52")
+
+[sub_resource type="Environment" id="Environment_egbwy"]
+background_mode = 2
+sky = SubResource("Sky_jkl3n")
+ambient_light_source = 3
+ambient_light_color = Color(0.55, 0.55, 0.55, 1)
+ambient_light_sky_contribution = 0.7
+tonemap_mode = 3
+glow_enabled = true
+fog_enabled = true
+fog_mode = 1
+fog_sun_scatter = 0.1
+fog_density = 1.0
+fog_aerial_perspective = 0.01
+fog_sky_affect = 0.5
+fog_depth_begin = 250.0
+fog_depth_end = 2048.0
+volumetric_fog_length = 5.0
+
+[node name="Demo" type="Node" unique_id=1547090067]
 script = ExtResource("1_k7qca")
 
-[node name="UI" parent="." instance=ExtResource("2_nqak5")]
+[node name="UI" parent="." unique_id=1039382288 instance=ExtResource("2_nqak5")]
 
-[node name="Environment" parent="." instance=ExtResource("3_egbwy")]
+[node name="Environment" parent="." unique_id=449310048 instance=ExtResource("3_egbwy")]
 
-[node name="Tunnel" parent="." instance=ExtResource("3_kdh0b")]
+[node name="WorldEnvironment" parent="Environment" index="0"]
+environment = SubResource("Environment_egbwy")
 
-[node name="Player" parent="." instance=ExtResource("3_ht63y")]
+[node name="Tunnel" parent="." unique_id=415937082 instance=ExtResource("3_kdh0b")]
+
+[node name="Player" parent="." unique_id=495562269 instance=ExtResource("3_ht63y")]
 transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
 
-[node name="Terrain3DParticles" parent="." node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
+[node name="Terrain3DParticles" parent="." unique_id=1915176883 node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
 terrain = NodePath("../Terrain3D")
 
-[node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("light_target", "collision_target", "clipmap_target")]
+[node name="Terrain3D" type="Terrain3D" parent="." unique_id=527299826 node_paths=PackedStringArray("light_target", "collision_target", "clipmap_target")]
 data_directory = "res://demo/data"
 material = ExtResource("5_fwrtk")
 assets = ExtResource("8_g2of2")

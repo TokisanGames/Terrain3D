@@ -1,0 +1,1 @@
+C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Microsoft/VC/v180
