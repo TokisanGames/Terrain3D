@@ -22,10 +22,10 @@
 #include "pasture_3d_editor.h"
 #include "pasture_3d_instancer.h"
 #include "pasture_3d_material.h"
+#include "pasture_3d_clipmap_host.h"
 #include "pasture_3d_mesher.h"
-#include "water_waves.h"
 
-class Pasture3D : public Node3D {
+class Pasture3D : public Node3D, public Pasture3DClipmapHost {
 	GDCLASS(Pasture3D, Node3D);
 	CLASS_NAME();
 
@@ -77,7 +77,6 @@ private:
 	// Tracked Targets
 	TargetNode3D _clipmap_target;
 	TargetNode3D _collision_target;
-	TargetNode3D _ocean_light_target;
 	TargetNode3D _camera; // Fallback target for clipmap and collision
 	// Pasture3D: explicit per-camera list for local split-screen (>=2 cameras). When set, the
 	// mesher renders one clipmap per camera; empty/single collapses to the single-view path above.
@@ -101,54 +100,11 @@ private:
 	Vector2 _last_buffer_position = V2_MAX;
 
 	// Ocean Mesh
-	Pasture3DMesher *_ocean_mesher = nullptr;
-	bool _ocean_enabled = false;
-	// 9 lods and 1 m spacing, not 7 and 4 m (spec §11 q6, closed Phase 5).
-	//
-	// These two move together and must not be changed independently. A clipmap is
-	// scale-invariant: LOD0's spacing sets the unit and every level doubles it, so
-	// dividing the spacing by four divides the ocean's reach by four as well, and
-	// two extra rings buy it back. Half-extent is 2 * mesh_size * spacing *
-	// 2^(lods-1) -- 8192 m either way.
-	//
-	// What it buys: the drawn surface sat up to 22 cm below the analytic one at a
-	// LOD0 cell centre, because 4 m spacing against a 10.2 m shortest wavelength is
-	// a ratio of 2.54 where water_waves.gdshaderinc asks for 8. At 1 m the ratio is
-	// 10.2 and the sag is 1.7 cm. Since the rings below LOD2 are exactly what
-	// shipped before, this is strictly better at every distance, not a trade of
-	// near fidelity for far. Measured cost: +0.030 ms of 0.231 (§8.6).
-	//
-	// This is fidelity, not performance -- and it is what makes get_water_height()
-	// useful, since a buoyancy query that disagrees with the drawn surface by 22 cm
-	// floats boats visibly above the water.
-	int _ocean_mesh_lods = 9;
-	int _ocean_tessellation_level = 0;
-	// 16, not 32. Phase 0 measured the clipmap's geometry cost inside the noise
-	// floor at 32, so this is a memory and CPU-snap tidy-up and must not be read as
-	// a GPU optimisation (spec §4.6). Phase 5 kept it: reaching the same ratio via
-	// mesh_size 32 costs 6.2x the primitives against 2.5x, for the same sag.
-	int _ocean_mesh_size = 16;
-	real_t _ocean_vertex_spacing = 1.0f;
-	real_t _ocean_cull_margin = 20.0f;
-	RenderingServer::ShadowCastingSetting _ocean_cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_OFF;
-	GeometryInstance3D::GIMode _ocean_gi_mode = GeometryInstance3D::GI_MODE_DISABLED;
-	uint32_t _ocean_render_layers = 1u;
-	Ref<Material> _ocean_material;
-
-	// Ocean waves (spec §3.2, §4.2). The clock is wrapped to the wave table's
-	// loop period so the phase argument never grows without bound -- the legacy
-	// shader used TIME * 8.0, which quantised visibly before Godot's rollover.
-	WaterWaves _ocean_waves;
-	double _water_time = 0.0;
-	// Last value pushed to the water_time_period global; -1 forces the first write.
-	float _water_time_period_sent = -1.0f;
-	bool _water_globals_registered = false;
-	// Last height range applied to the ocean's cull AABB (spec §4.5). Both terms
-	// come from outside this node -- sea_level is a uniform on the ocean material
-	// and the amplitude sum comes off the wave table -- and neither notifies on
-	// change, so the range is re-derived every physics frame and written only when
-	// it moves. FLT_MAX forces the first write.
-	Vector2 _ocean_height_range_sent = V2_MAX;
+	// Ocean state left this node in Phase 2 of the water-bodies work; it lives on
+	// Ocean3D now (WATER_BODIES_SPEC §6). What remains is the holding pen for
+	// ocean_* values found in scenes saved before that, so opening and re-saving an
+	// old scene cannot silently erase somebody's ocean before they are told.
+	Dictionary _legacy_ocean;
 
 	// Rendering
 	bool _free_editor_textures = true;
@@ -170,22 +126,8 @@ private:
 	void _apply_cameras_to_mesher();
 	void _update_mesher_aabbs() { _terrain_mesher ? _terrain_mesher->update_aabbs() : void(); }
 	void _destroy_terrain_mesher(const bool p_final = false);
-	void _setup_ocean_mesher();
-	void _update_ocean_aabbs(const bool p_force = false);
-	void _destroy_ocean_mesher(const bool p_final = false);
 
-	void _register_water_globals();
-	void _update_water_clock(const double p_delta);
 	void _upload_wave_table();
-	// sea_level and _water_domain_origin are uniforms on the ocean material, not
-	// properties of this node, because the shader has to work with no plugin at all
-	// (G6). The CPU query and the cull AABB both need them, so they are read back
-	// from the material with the shader's own declared default as the fallback --
-	// ShaderMaterial::get_shader_parameter() returns nil for anything the user
-	// never set, which is not the same as zero.
-	Variant _get_ocean_shader_param(const StringName &p_name) const;
-	real_t _get_ocean_sea_level() const;
-	Vector3 _get_ocean_domain_origin() const;
 
 	void _setup_displacement_buffer();
 	void _update_displacement_buffer();
@@ -251,12 +193,34 @@ public:
 	TypedArray<Camera3D> get_cameras() const;
 	void set_clipmap_target(Node3D *p_node);
 	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
-	Vector3 get_clipmap_target_position() const;
+	virtual Vector3 get_clipmap_target_position() const override;
+
+	// --- Pasture3DClipmapHost (WATER_BODIES_SPEC §6.2) ----------------------
+	// Was a direct Pasture3D* dependency inside Pasture3DMesher. Narrowed to this
+	// so Ocean3D can own a clipmap too.
+	virtual bool is_clipmap_host_ready() const override { return _is_inside_world; }
+	virtual Ref<World3D> get_clipmap_world() const override { return get_world_3d(); }
+	virtual bool is_clipmap_visible() const override { return is_visible_in_tree(); }
+	virtual real_t get_default_cull_margin() const override { return _cull_margin; }
+	virtual Vector2 get_default_height_range() const override;
+
+	// --- Legacy ocean migration (§6.4) --------------------------------------
+	// Builds a Pool3DManager + Ocean3D from ocean_* properties captured out of a
+	// scene saved before Phase 2, then clears them. Returns the new Ocean3D, or
+	// null if there was nothing to migrate.
+	Node *migrate_ocean();
+	void discard_legacy_ocean();
+	bool has_legacy_ocean() const { return !_legacy_ocean.is_empty(); }
+	Dictionary get_legacy_ocean() const { return _legacy_ocean; }
+	// Inspector buttons for the two above. Godot's tool-button hint wants a property
+	// whose getter returns a Callable; these are those getters, and they are the
+	// GDExtension equivalent of GDScript's @export_tool_button.
+	Callable get_migrate_ocean_button() const;
+	Callable get_discard_legacy_ocean_button() const;
+
 	void set_collision_target(Node3D *p_node);
 	Node3D *get_collision_target() const { return _collision_target.ptr(); }
 	Vector3 get_collision_target_position() const;
-	void set_ocean_light_target(Node3D *p_node);
-	Node3D *get_ocean_light_target() const { return _ocean_light_target.ptr(); }
 	void snap();
 
 	// Collision Aliases
@@ -307,68 +271,16 @@ public:
 	Ref<Shader> get_buffer_shader_override() const { return _material.is_valid() ? _material->get_buffer_shader_override() : Ref<Shader>(); }
 
 	// Ocean Mesh
-	Pasture3DMesher *get_ocean_mesher() const { return _ocean_mesher; }
-	void set_ocean_enabled(const bool p_enabled);
-	bool is_ocean_enabled() const { return _ocean_enabled; }
-	void set_ocean_mesh_lods(const int p_count);
-	int get_ocean_mesh_lods() const { return _ocean_mesh_lods; }
-	void set_ocean_tessellation_level(const int p_level);
-	int get_ocean_tessellation_level() const { return _ocean_tessellation_level; }
-	void set_ocean_mesh_size(const int p_size);
-	int get_ocean_mesh_size() const { return _ocean_mesh_size; }
-	void set_ocean_vertex_spacing(const real_t p_spacing);
-	real_t get_ocean_vertex_spacing() const { return _ocean_vertex_spacing; }
-	void set_ocean_cull_margin(const real_t p_margin);
-	real_t get_ocean_cull_margin() const { return _ocean_cull_margin; }
-	void set_ocean_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows);
-	RenderingServer::ShadowCastingSetting get_ocean_cast_shadows() const { return _ocean_cast_shadows; }
-	void set_ocean_gi_mode(const GeometryInstance3D::GIMode p_gi_mode);
-	GeometryInstance3D::GIMode get_ocean_gi_mode() const { return _ocean_gi_mode; }
-	void set_ocean_render_layers(const uint32_t p_layers);
-	uint32_t get_ocean_render_layers() const { return _ocean_render_layers; }
-	void set_ocean_material(const Ref<Material> &p_material);
-	Ref<Material> get_ocean_material() const { return _ocean_material; }
 
 	// Ocean waves. These are art knobs; C++ turns them into the wave table the
 	// shader and the CPU height query both read (spec §4.2).
-	void set_ocean_wave_count(const int p_count);
-	int get_ocean_wave_count() const { return _ocean_waves.get_count(); }
-	void set_ocean_wave_direction(const real_t p_degrees);
-	real_t get_ocean_wave_direction() const { return _ocean_waves.get_direction_deg(); }
-	void set_ocean_wave_spread(const real_t p_degrees);
-	real_t get_ocean_wave_spread() const { return _ocean_waves.get_spread_deg(); }
-	void set_ocean_wave_amplitude(const real_t p_metres);
-	real_t get_ocean_wave_amplitude() const { return _ocean_waves.get_amplitude(); }
-	void set_ocean_wave_length_max(const real_t p_metres);
-	real_t get_ocean_wave_length_max() const { return _ocean_waves.get_length_max(); }
-	void set_ocean_wave_steepness(const real_t p_steepness);
-	real_t get_ocean_wave_steepness() const { return _ocean_waves.get_steepness(); }
-	void set_ocean_wave_loop_period(const real_t p_seconds);
-	real_t get_ocean_wave_loop_period() const { return _ocean_waves.get_loop_period(); }
 
-	// The clock the water shaders run on, wrapped to the loop period. Exposed so
-	// gameplay can read the same value the GPU sees.
-	real_t get_water_time() const { return (real_t)_water_time; }
 
-	// --- CPU water query (spec §4.3, G4) -------------------------------------
-	// World-space height and normal of the ocean surface above a world XZ, at the
-	// current water_time. Both solve the Gerstner inverse, so they answer the
-	// question a caller actually asks ("how high is the water under my boat")
-	// rather than the one the wave function answers ("where does parameter u go").
-	//
-	// The reference these are contracted against is water_eval_waves() in
-	// water_waves.gdshaderinc, not the shipped ocean material: if a caller points
-	// ocean_material at something that is not a Pasture3D water shader, these keep
-	// describing the surface the wave table defines and the GPU draws something
-	// else. Only the wave table crosses the boundary, so nothing else can drift.
-	real_t get_water_height(const Vector2 &p_xz) const;
-	Vector3 get_water_normal(const Vector2 &p_xz) const;
 	// The wave function itself: where the surface point for a DOMAIN parameter
 	// lands, which is what the vertex shader computes for the same input and
 	// therefore what the Phase 4 gate compares against. No inverse solve, so this
 	// is also the cheap call for anything that does not need a specific XZ --
 	// spray, wakes, a debug gizmo drawing the surface.
-	Vector3 get_water_surface_point(const Vector2 &p_domain_xz) const;
 
 	// Rendering
 	void set_mouse_layer(const uint32_t p_layer);
@@ -442,6 +354,9 @@ public:
 protected:
 	void _notification(const int p_what);
 	void _validate_property(PropertyInfo &p_property) const;
+	// Captures ocean_* from scenes saved before Phase 2 instead of discarding them.
+	bool _set(const StringName &p_name, const Variant &p_value);
+	bool _get(const StringName &p_name, Variant &r_ret) const;
 	static void _bind_methods();
 };
 

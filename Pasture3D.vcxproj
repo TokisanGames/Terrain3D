@@ -71,9 +71,9 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <NMakeBuildCommandLine>scons dev_build=yes</NMakeBuildCommandLine>
-    <NMakeReBuildCommandLine>scons dev_build=yes</NMakeReBuildCommandLine>
-    <NMakeCleanCommandLine>scons --clean</NMakeCleanCommandLine>
+    <NMakeBuildCommandLine>python -m SCons dev_build=yes</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>python -m SCons dev_build=yes</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>python -m SCons --clean</NMakeCleanCommandLine>
     <NMakeIncludeSearchPath>$(SolutionDir)\src;$(SolutionDir)\godot-cpp\gdextension;$(SolutionDir)\godot-cpp\gen\include;$(SolutionDir)\godot-cpp\include</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++17</AdditionalOptions>
     <OutDir>.vs</OutDir>

@@ -1,5 +1,19 @@
 # Pasture3D Water — user guide
 
+> ⚠️ **PARTLY OUT OF DATE as of 2026-07-29.** Phase 2 of
+> [PASTURE3D_WATER_BODIES_SPEC.md](PASTURE3D_WATER_BODIES_SPEC.md) moved the ocean off the `Pasture3D`
+> node onto its own **`Ocean3D`**, and the clock, sun and wave tables onto a **`Pool3DManager`**. So:
+>
+> - **§1, §3 and §5 describe an API that no longer exists.** There is no `ocean_enabled`,
+>   `ocean_material`, `ocean_light_target` or `ocean_wave_*` on `Pasture3D`. Add an `Ocean3D` and a
+>   `Pool3DManager` instead; a scene saved before the change keeps its settings and offers a
+>   **Migrate Ocean to Ocean3D** button on the terrain.
+> - **§2, §4, §6, §7 and §8 are still accurate**, except that `get_water_height()` and friends are on
+>   `Ocean3D` rather than on `Pasture3D`, and `sea_level` is the `Ocean3D` node's Y rather than a
+>   material uniform.
+>
+> The full rewrite is Phase 8 of that spec. This notice exists so nobody follows §1 in the meantime.
+
 Water in Pasture3D comes in two forms that share one shader family:
 
 - an **ocean**, drawn on the terrain's clipmap so it follows the camera to the horizon, driven by the

@@ -14,7 +14,9 @@
 ; limit at clipmap-scale coordinates (spec §3.1); a pond sits near its own origin
 ; and is not in that regime, so it gets ripples instead of two copies of one wave.
 ; A pond placed kilometres from the world origin IS back in that regime — set
-; _water_domain_origin to the mesh's position if you put one there.
+; _water_domain_origin to the mesh's position if you put one there. It is an
+; INSTANCE uniform, so that is MeshInstance3D.set_instance_shader_parameter(),
+; not a value on this material; Pool3D does it for you from the node's position.
 [gd_resource type="ShaderMaterial" load_steps=4 format=3]
 
 [ext_resource type="Shader" uid="uid://dr6832xkn5heq" path="res://addons/pasture_3d/extras/shaders/water/water_body_low.gdshader" id="1_shader"]
@@ -28,7 +30,6 @@ shader_parameter/absorption = Vector3(0.9, 0.6, 0.8)
 shader_parameter/deep_color = Color(0.04, 0.055, 0.035, 1)
 shader_parameter/_waves = PackedVector4Array(0.57358, 0.81915, 0.05066, 12.15947, 0.9573, 0.28909, 0.02518, 6.04216, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10)
 shader_parameter/wave_steepness = 0.15
-shader_parameter/_water_domain_origin = Vector3(0, 0, 0)
 shader_parameter/base_roughness = 0.04
 shader_parameter/specular_amount = 0.45
 shader_parameter/variance_to_roughness = 0.55

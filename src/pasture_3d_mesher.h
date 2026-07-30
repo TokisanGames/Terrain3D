@@ -8,8 +8,7 @@
 #include <godot_cpp/variant/rid.hpp>
 
 #include "constants.h"
-
-class Pasture3D;
+#include "pasture_3d_clipmap_host.h"
 
 class Pasture3DMesher {
 	CLASS_NAME_STATIC("Pasture3DMesher");
@@ -42,7 +41,9 @@ public: // Constants
 	};
 
 private:
-	Pasture3D *_terrain = nullptr;
+	// The owner. Was a Pasture3D *; narrowed to the six-method interface in Phase 2
+	// of the water-bodies work so Ocean3D can own one too (WATER_BODIES_SPEC §6.2).
+	Pasture3DClipmapHost *_host = nullptr;
 	RID _scenario = RID();
 
 	// Shared, view-independent mesh resources
@@ -99,7 +100,7 @@ public:
 	Pasture3DMesher() {}
 	~Pasture3DMesher() { destroy(); }
 
-	void initialize(Pasture3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
+	void initialize(Pasture3DClipmapHost *p_host, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
 			const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers,
 			const bool p_uses_instance_target_pos = false,
 			const RenderingServer::ShadowCastingSetting p_cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON,
@@ -113,6 +114,12 @@ public:
 
 	void snap();
 	void reset_target_position();
+	// Sets an `instance uniform` on every instance in every view. The ocean needs it
+	// for _water_domain_origin, which became per-instance in Phase 1 of the water
+	// bodies work so that a shared material can serve bodies in different places
+	// (WATER_BODIES_SPEC §5.4). material_set_param() does not reach an instance
+	// uniform, so this is the only route.
+	void set_instance_shader_param(const StringName &p_name, const Variant &p_value);
 	void update();
 	void update_aabbs(const real_t p_cull_margin = -1.f, const Vector2 &p_height_range = V2_MAX);
 

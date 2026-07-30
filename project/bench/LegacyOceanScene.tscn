@@ -1,0 +1,39 @@
+; Fixture for the Phase 2 gate, criterion D (PASTURE3D_WATER_BODIES_SPEC.md §6.4).
+;
+; A scene as it would have been saved BEFORE Phase 2: a Pasture3D carrying ocean_*
+; properties that the class no longer declares. Godot hands them to Pasture3D::_set()
+; on load, which captures them into _legacy_ocean instead of dropping them.
+;
+; Hand-written rather than generated, because the point is to exercise the load path
+; of a file this codebase can no longer produce. Every key migrate_ocean() reads is
+; present, so a key it silently ignores shows up as a transferred value that is wrong.
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Material" path="res://addons/pasture_3d/extras/shaders/water/M_water_ocean.tres" id="1_ocean_mat"]
+
+[node name="LegacyOceanScene" type="Node3D"]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.766044, -0.413176, 0.492404, 0, 0.766044, 0.642788, -0.642788, -0.492404, 0.586824, 0, 0, 0)
+shadow_enabled = false
+
+[node name="Terrain" type="Pasture3D" parent="." node_paths=PackedStringArray("ocean_light_target")]
+ocean_enabled = true
+ocean_material = ExtResource("1_ocean_mat")
+ocean_light_target = NodePath("../Sun")
+ocean_mesh_lods = 7
+ocean_mesh_size = 32
+ocean_tessellation_level = 1
+ocean_vertex_spacing = 2.5
+ocean_cull_margin = 45.0
+ocean_cast_shadows = 1
+ocean_gi_mode = 2
+ocean_render_layers = 3
+ocean_domain_origin = Vector3(1500, 0, -2500)
+ocean_wave_count = 6
+ocean_wave_direction = 55.0
+ocean_wave_spread = 33.0
+ocean_wave_amplitude = 2.25
+ocean_wave_length_max = 180.0
+ocean_wave_steepness = 0.42
+ocean_wave_loop_period = 90.0

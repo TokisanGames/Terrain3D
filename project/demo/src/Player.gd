@@ -25,6 +25,10 @@ extends CharacterBody3D
 		$CollisionShapeBody.disabled = ! collision_enabled
 		$CollisionShapeRay.disabled = ! collision_enabled
 
+## The scene's Ocean3D, found once (see _physics_process). Null in a scene with none.
+var _ocean: Node3D = null
+var _ocean_searched: bool = false
+
 
 func _physics_process(p_delta) -> void:
 	var direction: Vector3 = get_camera_relative_input()
@@ -36,9 +40,18 @@ func _physics_process(p_delta) -> void:
 	if gravity_enabled:
 		velocity.y -= 40 * p_delta
 	move_and_slide()
-	# Allow player to walk on waves in the ocean
-	if get_parent().terrain and get_parent().terrain.ocean_enabled:
-		position.y = max(3, position.y)
+	# Allow player to walk on waves in the ocean.
+	#
+	# The ocean is an Ocean3D node since Phase 2 of the water-bodies work, not an
+	# `ocean_enabled` flag on the terrain, so this asks the scene for one. Cached
+	# because a per-physics-frame group lookup for a demo floor clamp is silly.
+	if _ocean == null and not _ocean_searched:
+		_ocean_searched = true
+		for node in get_tree().get_nodes_in_group(&"pasture3d_ocean"):
+			_ocean = node
+			break
+	if _ocean != null and _ocean.enabled:
+		position.y = max(_ocean.get_sea_level() + 3.0, position.y)
 
 
 # Returns the input vector relative to the camera. Forward is always the direction the camera is facing

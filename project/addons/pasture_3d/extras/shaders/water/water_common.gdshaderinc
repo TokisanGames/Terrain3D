@@ -111,8 +111,33 @@ const vec4 _wave_defaults[2] = vec4[2]( // pond
 #define WATER_NO_DEFAULT_WAVES
 #endif
 uniform float wave_steepness : hint_range(0.0, 0.6, 0.01) = 0.35;
+
 // Keeps phase arguments small and precise for bodies far from the origin (§3.1).
+//
+// PER INSTANCE, not per material (WATER_BODIES_SPEC §5.4). Pool3DManager hands the
+// same material to every body sharing a (base material, wave profile) pair, so ten
+// ponds cost one material and one _waves upload -- but each of those ponds sits
+// somewhere different, and a domain origin stored on the material would force them
+// all to share one. An instance uniform is the only per-body channel Godot offers
+// that a shared material survives; it is also the ONLY thing here that can be one,
+// since instance uniforms take scalars and vectors and not arrays, which is why
+// _waves above can never be one and why the material cache is keyed on the profile
+// at all.
+//
+// Written with MeshInstance3D.set_instance_shader_parameter(), or
+// RenderingServer.instance_geometry_set_shader_parameter() for the ocean clipmap's
+// instances. material.set_shader_parameter() no longer reaches it -- anything that
+// used to set it that way now sets nothing and silently gets vec3(0).
+//
+// Instance uniforms are a spatial-shader feature. bench/water_parity_probe.gdshader
+// includes this file from a canvas_item shader, where the declaration is a compile
+// error, so it opts out and drives the origin as an ordinary uniform instead. That
+// probe tests the wave arithmetic, which the origin only shifts the input of.
+#ifdef WATER_PLAIN_DOMAIN_ORIGIN
 uniform vec3 _water_domain_origin = vec3(0.0, 0.0, 0.0);
+#else
+instance uniform vec3 _water_domain_origin = vec3(0.0, 0.0, 0.0);
+#endif
 group_uniforms;
 
 group_uniforms surface;

@@ -37,6 +37,10 @@ shader_type canvas_item;
 render_mode unshaded;
 
 #define WATER_WAVE_COUNT 8
+// canvas_item cannot declare instance uniforms, and _water_domain_origin became one
+// in Phase 1 of the water-bodies work. Opt back to a plain uniform; this probe sets
+// it with material.set_shader_parameter() like everything else it drives.
+#define WATER_PLAIN_DOMAIN_ORIGIN
 #include "res://addons/pasture_3d/extras/shaders/water/water_common.gdshaderinc"
 #include "res://addons/pasture_3d/extras/shaders/water/water_waves.gdshaderinc"
 

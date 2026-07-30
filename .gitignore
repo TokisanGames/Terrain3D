@@ -43,3 +43,6 @@ export_presets.cfg
 # Editors
 .vscode/
 .vs/
+
+# MSVC build artifact from the VS/NMake project
+*.pdb

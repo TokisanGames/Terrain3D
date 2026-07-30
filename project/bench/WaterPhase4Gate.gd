@@ -34,6 +34,9 @@ var _out_dir := ""
 var _probe_vp: SubViewport
 var _probe_mat: ShaderMaterial
 var _last_clock_cell := Color.BLACK
+# Mirrors Pasture3D.ocean_domain_origin for the probe, which cannot read it off the
+# material any more. See _run_probe.
+var _domain_origin := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -181,7 +184,14 @@ func _gate_b_parity() -> void:
 	var probed := 0
 
 	for case in cases:
-		mat.set_shader_parameter("_water_domain_origin", case[1])
+		# The domain origin lives on the NODE since Phase 1 of the water-bodies work
+		# (WATER_BODIES_SPEC §5.4): _water_domain_origin became an `instance uniform`
+		# so one shared material can serve bodies in different places, and
+		# material.set_shader_parameter() no longer reaches it. Setting it the old way
+		# here would leave the CPU query on origin 0 while the probe was told 12 km,
+		# and this gate would fail for a reason that is not about parity at all.
+		terrain.ocean_domain_origin = case[1]
+		_domain_origin = case[1]
 		mat.set_shader_parameter("sea_level", case[2])
 		# Physics frames, so C++ re-reads the uniforms it polls.
 		await _settle_physics(4)
@@ -273,8 +283,11 @@ func _run_probe(p_ocean: ShaderMaterial, p_domains: PackedVector2Array,
 	_probe_mat.set_shader_parameter("_waves", p_ocean.get_shader_parameter("_waves"))
 	_probe_mat.set_shader_parameter("wave_steepness",
 			p_ocean.get_shader_parameter("wave_steepness"))
-	_probe_mat.set_shader_parameter("_water_domain_origin",
-			p_ocean.get_shader_parameter("_water_domain_origin"))
+	# The probe declares this as a plain uniform (WATER_PLAIN_DOMAIN_ORIGIN -- a
+	# canvas_item shader cannot have instance uniforms), so it is handed the value
+	# the node holds rather than read back off the material, which no longer carries
+	# one.
+	_probe_mat.set_shader_parameter("_water_domain_origin", _domain_origin)
 	_probe_mat.set_shader_parameter("probe_in", packed)
 	_probe_mat.set_shader_parameter("probe_cpu", p_cpu)
 	_probe_mat.set_shader_parameter("probe_count", p_domains.size())

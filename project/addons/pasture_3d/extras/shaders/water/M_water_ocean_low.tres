@@ -24,7 +24,6 @@ shader_parameter/absorption = Vector3(0.35, 0.08, 0.05)
 shader_parameter/deep_color = Color(0.015, 0.05, 0.08, 1)
 shader_parameter/sea_level = 0.0
 shader_parameter/wave_steepness = 0.35
-shader_parameter/_water_domain_origin = Vector3(0, 0, 0)
 shader_parameter/base_roughness = 0.06
 shader_parameter/specular_amount = 0.5
 shader_parameter/variance_to_roughness = 0.55

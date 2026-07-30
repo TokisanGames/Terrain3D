@@ -270,7 +270,7 @@ Vector3 Pasture3DMesher::_resolve_view_target(const ClipmapView &p_view) const {
 			return cam->get_global_position();
 		}
 	}
-	return _terrain->get_clipmap_target_position();
+	return _host->get_clipmap_target_position();
 }
 
 // Frees all view instance RIDs. Mesh rids must be freed separately.
@@ -301,23 +301,23 @@ void Pasture3DMesher::_clear_mesh_types() {
 // Public Functions
 ///////////////////////////
 
-void Pasture3DMesher::initialize(Pasture3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
+void Pasture3DMesher::initialize(Pasture3DClipmapHost *p_host, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
 		const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers,
 		const bool p_uses_instance_target_pos,
 		const RenderingServer::ShadowCastingSetting p_cast_shadows,
 		const GeometryInstance3D::GIMode p_gi_mode) {
-	if (p_terrain) {
-		_terrain = p_terrain;
+	if (p_host) {
+		_host = p_host;
 	} else {
 		return;
 	}
-	if (!_terrain->is_inside_world()) {
-		LOG(DEBUG, "Pasture3D's world3D is null");
+	if (!_host->is_clipmap_host_ready()) {
+		LOG(DEBUG, "Clipmap host is not ready (no world3D)");
 		return;
 	}
 
 	LOG(INFO, "Initializing GeoMesh");
-	_scenario = _terrain->get_world_3d()->get_scenario();
+	_scenario = _host->get_clipmap_world()->get_scenario();
 	_material = p_material;
 	_lods = p_lods;
 	_tessellation_level = p_tessellation_level;
@@ -352,8 +352,10 @@ void Pasture3DMesher::destroy() {
 // terrain's clipmap target). Pass one camera ObjectID per view for local split-screen; each view
 // then renders on its own layer and snaps to its own camera, all sharing the single terrain data.
 void Pasture3DMesher::set_views(const Vector<uint64_t> &p_camera_ids, const Vector<uint32_t> &p_render_layers) {
-	IS_INIT(VOID);
-	if (!_terrain->is_inside_world() || _mesh_rids.is_empty()) {
+	if (!_host) {
+		return;
+	}
+	if (!_host->is_clipmap_host_ready() || _mesh_rids.is_empty()) {
 		LOG(DEBUG, "Mesher not ready; skipping set_views");
 		return;
 	}
@@ -383,7 +385,9 @@ void Pasture3DMesher::set_views(const Vector<uint64_t> &p_camera_ids, const Vect
 }
 
 void Pasture3DMesher::snap() {
-	IS_INIT(VOID);
+	if (!_host) {
+		return;
+	}
 	for (ClipmapView &view : _views) {
 		_snap_view(view);
 	}
@@ -488,6 +492,14 @@ void Pasture3DMesher::_snap_view(ClipmapView &p_view) {
 	return;
 }
 
+void Pasture3DMesher::set_instance_shader_param(const StringName &p_name, const Variant &p_value) {
+	for (const ClipmapView &view : _views) {
+		for (const RID &rid : view.instance_rids) {
+			RS->instance_geometry_set_shader_parameter(rid, p_name, p_value);
+		}
+	}
+}
+
 void Pasture3DMesher::reset_target_position() {
 	for (ClipmapView &view : _views) {
 		view.last_target_position = V2_MAX;
@@ -508,8 +520,10 @@ void Pasture3DMesher::set_render_layers(const uint32_t p_layers) {
 
 // Iterates over every instance of every view and updates all properties.
 void Pasture3DMesher::update() {
-	IS_INIT(VOID);
-	if (!_terrain->is_inside_world()) {
+	if (!_host) {
+		return;
+	}
+	if (!_host->is_clipmap_host_ready()) {
 		LOG(DEBUG, "Pasture3D's world3D is null");
 		return;
 	}
@@ -535,7 +549,7 @@ void Pasture3DMesher::update() {
 	}
 
 	RenderingServer::ShadowCastingSetting node_cast_shadows = _cast_shadows;
-	bool visible = _terrain->is_visible_in_tree();
+	bool visible = _host->is_clipmap_visible();
 
 	LOG(INFO, "Updating all mesh instances for ", _views.size(), " view(s)");
 	for (const ClipmapView &view : _views) {
@@ -558,17 +572,25 @@ void Pasture3DMesher::update() {
 // All instances of each mesh inherit the updated AABB
 // Defaults to using the terrain parameters
 void Pasture3DMesher::update_aabbs(const real_t p_cull_margin, const Vector2 &p_height_range) {
-	IS_DATA_INIT(VOID);
+	// Was IS_DATA_INIT, which early-returns unless the host is a Pasture3D WITH
+	// loaded region data. An Ocean3D has no data and never will, so under the old
+	// guard its cull AABBs were never updated and the whole clipmap got culled the
+	// moment the camera approached the water -- water spec §4.5's bug, reintroduced
+	// through a guard nobody would think to look at. Criterion C of the Phase 2 gate
+	// is this line, with the old guard as the control that must fail.
+	if (!_host) {
+		return;
+	}
 	LOG(INFO, "Updating ", _mesh_rids.size(), " meshes AABBs")
 	real_t cull_margin;
 	Vector2 height_range;
 	if (p_cull_margin < 0.f) {
-		cull_margin = _terrain->get_cull_margin();
+		cull_margin = _host->get_default_cull_margin();
 	} else {
 		cull_margin = p_cull_margin;
 	}
 	if (p_height_range.x == FLT_MAX) {
-		height_range = _terrain->get_data()->get_height_range();
+		height_range = _host->get_default_height_range();
 	} else {
 		height_range = p_height_range;
 	}
