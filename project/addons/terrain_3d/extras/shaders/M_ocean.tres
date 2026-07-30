@@ -18,7 +18,7 @@ seamless = true
 [resource]
 render_priority = 0
 shader = ExtResource("1_t7ju5")
-shader_parameter/sea_level = 5.000000819565997
+shader_parameter/sea_level = 5.0
 shader_parameter/water_color = Color(0.1058, 0.1568, 0.2117, 1)
 shader_parameter/visible_depth = 256.0
 shader_parameter/depth_curve = 0.1

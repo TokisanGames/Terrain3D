@@ -15,7 +15,7 @@ const int ITERATIONS_FRAGMENT = 3;
 // Uniforms
 //////////////////////////////
 group_uniforms water;
-uniform float sea_level : hint_range(-50.0, 50.0, 0.001) = 1.0;
+uniform float sea_level : hint_range(-50.0, 50.0, 0.001) = 5.0;
 uniform vec3 water_color : source_color = vec3(.1058, .1568, .2117); // This is a common deep blue
 //uniform vec3 water_color : source_color = vec3(0.102, 0.212, 0.235); // This is a more green ocean
 uniform float visible_depth : hint_range(0.001, 10000., .1) = 256.;

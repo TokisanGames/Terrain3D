@@ -14,4 +14,3 @@ _shader_parameters = {
 &"private": null,
 &"region_blend": 0.25
 }
-show_checkered = true
