@@ -456,6 +456,13 @@ under the lip. `@export_tool_button("Fit to Curve")` re-seeds on demand — it i
 because the brushes re-snap their points to the terrain surface (`snap_to_surface`, default on) and an
 automatic fit would move the water level every time the terrain under the rim changed.
 
+**X and Z are not a level and behave differently** (§11.6). "Fit to Curve" also seats them on the
+source spline's origin, but dragging them afterwards does *not* move the water: the spline decides
+where the water is, so an XZ move is compensated by a rebuild. What it does move is
+`_water_domain_origin`, which is the node's position. The bare-`curve` mode is the exception in both
+respects — those points are in the node's own space, so the node carries them, and "Fit to Curve" has
+no fixed point to solve for and declines with a warning.
+
 ### 7.3 Meshing
 
 Both modes emit a single `ArrayMesh` on an internal `MeshInstance3D` named `Surface`, with
@@ -544,9 +551,17 @@ stored value (so fixing the manager fixes the pool, rather than the pool having 
 - The button parents the `Pasture3DPool` **as a sibling of the brush**, under the same parent, named
   `<BrushName>Water`. Not under the brush: brushes do transform-driven re-bakes and treat their child
   set as splines, and a `MeshInstance3D` subtree under one is noise in both directions.
+- The pool's own **position** is seeded to the source spline's origin (Phase 4 tuning, §11.6), so the
+  transform reads as "this water belongs to that brush", the selection handle is over the water, and
+  `_water_domain_origin` is somewhere useful. Position only — the water plane is horizontal by
+  construction, so no basis is inherited.
 - `Surface`, `Volume` and `Fog` are created at runtime with `owner = null` so they never serialise —
   the same internal-child idiom `terrain_brush.gd` uses for its `_name_label`. The scene stores the
   `Pasture3DPool` and its exports; the mesh is derived data and is rebuilt on `_ready`.
+- Because `Surface` is not selectable and the node's origin is a bare point, a pool would otherwise be
+  unclickable in the viewport. `src/pool_gizmo.gd` draws an **orange** marker above the water — the
+  brushes' octahedron in a different colour — with a collision box, so selecting a lake is the same
+  gesture as selecting a brush (§11.6).
 - Creation, and the button press that caused it, is one `EditorUndoRedoManager` action.
 
 ### 7.8 The `Add Water` button on `Pasture3DTerrainBrush`
@@ -1077,6 +1092,7 @@ the one per-frame cost it does add is priced in prose below rather than measured
 | D — the dialog | ✅ a `MAX`-blended `Mound` created **0 pools** and put the dialog up; `Add Anyway` created one carrying a permanent warning naming the brush *and* its blend mode. Control: a `MIN`-blended `Mound` created immediately with **no dialog** |
 | E — the undo pair | ✅ apply → revert → redo. Revert emptied the tree and returned the registry to 0 with the node still alive; redo brought back the **same instance id**, re-registered. Control: the same assertions run *before* the revert, where all three report present |
 | F — manager + defaults | ✅ a press into a manager-less scene created **one** manager at the scene root carrying **`ocean_default`, `lake_calm`, `pond_still`, `river_flow`**; a 60 m loop seeded `lake_calm` and a 16 m loop `pond_still`; the second press created no second manager. **`lake_calm` and `pond_still` reproduce `M_water_lake.tres` and `M_water_pond.tres` to 4.7 × 10⁻⁶ and 4.5 × 10⁻⁶** — the `.tres` files store five decimals, so that is the file format, not a different sea state. Control: comparing each against the *wrong* profile must not match, and does not |
+| G — the pool's own transform | ✅ a brush at 1,442 m from the world origin produced a pool seated on its spline's origin to < 1 mm, with `_water_domain_origin` tracking the node; dragging the pool 37 m left the water on its spline. Control: a **bare-`curve`** pool moves with its node, which is the documented difference |
 
 **The default profiles are the shipped materials, and F proves it rather than asserting it.** Before
 this phase a fresh `Pasture3DPoolManager` had no profiles at all, so the button would have produced a
@@ -1128,6 +1144,59 @@ selecting the new node in the inspector remain editor-only and were checked by h
 bit-identical to the pre-extraction reference, Phase 3 **PASS (correctness only)**. The timing halves
 of Phases 2 and 3 were not re-run — the machine is shared with another engine, and re-measuring them
 needs to be a deliberate, quiet-machine run.
+
+### 11.6 Phase 4 tuning — first editor use, 2026-07-30 ✅
+
+Driven by using the button in `sculpting_2` rather than by the gate, which is how the remaining
+problems were always going to surface. Criterion **G** was added for the first of these.
+
+**The pool's transform is now its brush's.** A created pool sat at the world origin with only its Y
+seeded. It *drew* correctly — the polygon is read in world space and expressed relative to the node —
+which is exactly why it went unnoticed, but the transform said nothing about which brush the water
+belonged to, and `_water_domain_origin` was `(0,0,0)`. That last one is the substantive bug: the
+instance uniform exists so wave phase stays precise far from the world origin (§3.1), it is set from
+the node's position, and a pool pinned at the origin therefore switches it off *exactly where it is
+needed*. `fit_to_curve()` now seats XZ on the source spline's origin as well as Y on the rim.
+
+Position only, never rotation: the water plane is horizontal by construction, and copying a brush
+tilted about X or Z would tilt it.
+
+Two consequences worth stating, because they are not symmetric:
+
+- **Moving the pool in XZ must not move the water.** The spline decides where the water is, so an XZ
+  move is compensated by a rebuild. Before, the mesh slid off its spline and stayed there until the
+  next curve edit silently snapped it back.
+- **A bare `curve` is the opposite**, and stays so: its points are in the node's own space, so it
+  genuinely travels with the node. That asymmetry is criterion G's control.
+
+`fit_to_curve()` on a bare `curve` is now a **no-op with a warning** rather than a level fit. The rim
+travels with the node in that mode, so "put the plane at the rim" has no fixed point to solve for —
+the previous version drifted by `fill_offset` on every press.
+
+**An orange selection handle** ([src/pool_gizmo.gd](project/addons/pasture_3d/src/pool_gizmo.gd)),
+the same octahedron marker the brushes use in purple. A pool is the hardest node in the scene to
+click: its only visible geometry is an internal-child `MeshInstance3D` that is not selectable, its
+origin is a bare point, and it sits at the bottom of a basin among the brushes that carved it. The
+marker floats above the **surface mesh's centre** rather than the node origin — usually the same
+place, but a loop drawn well off its brush's centre would otherwise put the handle in the grass
+beside the lake — and its lift is larger than the brush marker's so the two do not stack at a shared
+XZ. `brush_gizmo.gd`'s `octa()` became `static` and is shared, so the two markers cannot drift apart.
+Marker only, no subgizmos: the loop belongs to the brush, and two gizmos editing one curve is worse
+than one.
+
+**`wave_profile` was being serialised twice.** `Pasture3DPool` declared it as an `@export` *and*
+re-declared it in `_get_property_list()` to attach the manager's live profile names as an enum hint.
+Godot does not treat that as a replacement — it adds a second property with the same name, and writes
+both into every saved scene. `_validate_property()` is the mechanism for re-hinting a property that
+already exists, and it is what does it now.
+
+**Found in the working tree, not in code:** `M_water_lake.tres` had been tuned **in place**, and the
+editor strips a `.tres`'s comment header whenever it re-saves it — so the preset's documentation was
+collateral of a colour change. The colour is kept and the header restored, with a note at its top
+saying this will happen again and pointing at the **Make Unique** button, which exists for precisely
+this. Worth recording as a usability finding: the button is discoverable only if you already know you
+need it, and `_validate_property` marking `material` read-only outside `Custom` stops the *reference*
+being reassigned but not the shipped resource being edited through it.
 
 ---
 

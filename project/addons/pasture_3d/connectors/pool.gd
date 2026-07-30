@@ -145,11 +145,20 @@ func _notification(what: int) -> void:
 		remove_from_group(POOL_GROUP)
 		_unregister()
 	elif what == NOTIFICATION_TRANSFORM_CHANGED:
-		# The surface height IS this node's Y, so moving it moves the water. The mesh
-		# is built in local space and does not need regenerating — only its cull box
-		# tracks the transform, and that is set from the mesh, so nothing to do here
-		# beyond keeping the registry's idea of where we are current.
-		pass
+		# The surface height IS this node's Y, so moving it in Y moves the water level and
+		# the mesh (built flat, in local space) needs nothing.
+		#
+		# XZ is not symmetric with that. With a source_spline the polygon is read in WORLD
+		# space and then expressed relative to this node, so an XZ move has to be compensated
+		# by a rebuild — otherwise the mesh slides off its spline and stays there until the
+		# next curve edit silently snaps it back. With a bare `curve` the points are in this
+		# node's space and genuinely travel with it, so there is nothing to recompute.
+		if curve == null and source_spline != null and is_instance_valid(source_spline):
+			_schedule_rebuild()
+		# The domain origin is this node's position — it is what keeps wave phase precise far
+		# from the world origin — so it follows the node, not just a material assignment.
+		_update_domain_origin()
+		update_gizmos()
 	elif what == NOTIFICATION_PREDELETE:
 		_unregister()
 
@@ -242,6 +251,9 @@ func _unregister() -> void:
 
 
 func _on_profiles_changed() -> void:
+	# The dropdown is built from the manager's live names (see _validate_property), so a
+	# profile added or renamed has to re-hint the property or the list goes stale.
+	notify_property_list_changed()
 	# A profile knob moved. The table is re-uploaded by the manager into the shared
 	# material, but the wavelength may have changed, and vertex spacing is derived
 	# from it — so the MESH may now be too coarse for the waves it carries.
@@ -471,6 +483,7 @@ func rebuild() -> Dictionary:
 	_last_stats["triangles"] = indices.size() / 3
 	_last_stats["ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
 	update_configuration_warnings()
+	update_gizmos() # the selection marker floats over the surface, so it moves with it
 	return _last_stats
 
 
@@ -558,9 +571,15 @@ func _apply_material() -> void:
 		if got != null:
 			resolved = got
 	_surface.material_override = resolved
-	# Per-body, and an INSTANCE uniform since Phase 1 precisely so the shared material
-	# above is possible. Keeps wave phase precise for a pool far from the world origin.
-	_surface.set_instance_shader_parameter("_water_domain_origin", global_position)
+	_update_domain_origin()
+
+
+## Per-body, and an INSTANCE uniform since Phase 1 precisely so the shared material can be
+## shared. Keeps wave phase precise for a pool far from the world origin, which is why it
+## has to track the node's position rather than being written once at material time.
+func _update_domain_origin() -> void:
+	if _surface != null and is_instance_valid(_surface):
+		_surface.set_instance_shader_parameter("_water_domain_origin", global_position)
 
 
 # ---- public API --------------------------------------------------------------
@@ -602,20 +621,46 @@ func contains_point(p_global_pos: Vector3) -> bool:
 	return p_global_pos.y <= get_water_height(Vector2(p_global_pos.x, p_global_pos.z))
 
 
-## Drop this node's Y onto the curve's lowest point + fill_offset.
+## Re-seat this node on its curve: XZ onto the source spline's own origin, Y onto the
+## curve's lowest point + fill_offset. Called once when the Add Water button creates a
+## pool, and by the button afterwards.
+##
+## The XZ half is not tidiness. The polygon is read in world space and expressed relative
+## to this node, so a pool left at the world origin while its loop sits 350 m away draws
+## correctly but has a transform that says nothing, a selection handle nowhere near its
+## water, and -- worst -- a `_water_domain_origin` of (0,0,0). That instance uniform
+## exists precisely so wave phase stays precise far from the world origin, and it is set
+## from this node's position, so leaving the node at the origin switches it off.
+##
+## Position only, never rotation: a pool inherits no basis from its brush because the
+## water plane is horizontal by construction, and copying a brush tilted about X or Z
+## would tilt it.
+##
+## Never automatic: the brushes re-snap their spline points to the terrain surface, so an
+## automatic fit would move the water level whenever the ground under the rim did.
 func fit_to_curve() -> void:
-	var src: Curve3D = curve
-	var xf := Transform3D()
-	if src == null and source_spline != null and is_instance_valid(source_spline):
-		src = source_spline.curve
-		xf = source_spline.global_transform
+	if curve != null:
+		# A bare Curve3D is authored in THIS node's space, so its rim travels with the node
+		# and "put the water plane at the rim" has no fixed point to solve for -- the earlier
+		# version of this drifted by fill_offset on every press. In that mode the node's Y IS
+		# the plane and the curve is drawn in it; there is nothing to fit.
+		push_warning(("Pasture3DPool '%s': Fit to Curve needs a source_spline. A bare `curve` is "
+			+ "authored in this node's own space, so it moves with the node and there is no "
+			+ "level to solve for.") % name)
+		return
+	if source_spline == null or not is_instance_valid(source_spline):
+		return
+	var src: Curve3D = source_spline.curve
 	if src == null or src.point_count == 0:
 		return
+	var xf := source_spline.global_transform
 	var lowest := INF
 	for p in src.get_baked_points():
-		lowest = minf(lowest, (xf * p).y if curve == null else (global_transform * p).y)
-	if is_finite(lowest):
-		global_position = Vector3(global_position.x, lowest + fill_offset, global_position.z)
+		lowest = minf(lowest, (xf * p).y)
+	if not is_finite(lowest):
+		return
+	var origin := source_spline.global_position
+	global_position = Vector3(origin.x, lowest + fill_offset, origin.z)
 	_schedule_rebuild()
 
 
@@ -658,26 +703,24 @@ func get_build_stats() -> Dictionary:
 
 # ---- inspector ---------------------------------------------------------------
 
-func _get_property_list() -> Array[Dictionary]:
-	# wave_profile as a dropdown of the manager's live profile names. Same mechanism
-	# Pasture3DTerrainBrush uses for its tool_layer dropdown.
-	var names := PackedStringArray()
-	var m := _resolve_manager()
-	if m and m.has_method("get_profile_names"):
-		names = m.get_profile_names()
-	return [{
-		"name": "wave_profile",
-		"type": TYPE_STRING_NAME,
-		"usage": PROPERTY_USAGE_DEFAULT,
-		"hint": PROPERTY_HINT_ENUM_SUGGESTION if names.is_empty() else PROPERTY_HINT_ENUM,
-		"hint_string": ",".join(names),
-	}]
-
-
 func _validate_property(property: Dictionary) -> void:
 	# The preset owns `material` unless the user has chosen Custom.
 	if property.name == "material" and water_preset != 2:
 		property.usage |= PROPERTY_USAGE_READ_ONLY
+	elif property.name == "wave_profile":
+		# Re-hint the EXISTING export into a dropdown of the manager's live profile names.
+		#
+		# Not _get_property_list: declaring a second property with the same name as an
+		# @export does not replace it, it adds one, and Godot then writes `wave_profile`
+		# TWICE into every saved scene. _validate_property is the mechanism for changing
+		# the hint of a property that already exists.
+		var names := PackedStringArray()
+		var m := _resolve_manager()
+		if m and m.has_method("get_profile_names"):
+			names = m.get_profile_names()
+		if not names.is_empty():
+			property.hint = PROPERTY_HINT_ENUM
+			property.hint_string = ",".join(names)
 
 
 func _get_configuration_warnings() -> PackedStringArray:

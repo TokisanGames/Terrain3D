@@ -76,7 +76,7 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	# be buried after a height change). Computed in node-local space so transforms/scale are respected.
 	var centre := _marker_centre(node)
 	var mat := get_material("marker", p_gizmo)
-	p_gizmo.add_lines(_octa(centre, MARKER_R), mat)
+	p_gizmo.add_lines(octa(centre, MARKER_R), mat)
 	# A solid box of collision triangles round the marker makes it pickable from any angle → clicking
 	# selects the brush node. Built offset to the same floating centre as the visible marker
 	# (add_collision_triangles has no transform arg, so move the vertices).
@@ -104,13 +104,13 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 		for path in _loop_paths(node):
 			for i in path.curve.point_count:
 				var c := node.to_local(path.to_global(path.curve.get_point_position(i)))
-				p_gizmo.add_lines(_octa(c, POINT_R), pmat)
+				p_gizmo.add_lines(octa(c, POINT_R), pmat)
 				# Tangents only for the selected point (or all, when the toggle is on) — declutter.
 				if _show_tangents(node, gpi):
 					for kind in [1, 2]:
 						var hc := _handle_display_local(node, path, i, kind)
 						p_gizmo.add_lines(PackedVector3Array([c, hc]), gmat)
-						p_gizmo.add_lines(_octa(hc, TANGENT_R), gmat)
+						p_gizmo.add_lines(octa(hc, TANGENT_R), gmat)
 				gpi += 1
 
 
@@ -455,7 +455,8 @@ func _marker_centre(node: Node3D) -> Vector3:
 
 ## Octahedron wireframe (12 edges) of half-size `r` centred on `c` — reads as a gizmo "point" from any
 ## view. Used for the origin marker, loop points, and tangent handles at different sizes.
-func _octa(c: Vector3, r: float) -> PackedVector3Array:
+## Static, and shared with pool_gizmo.gd, so every Pasture3D marker is literally the same shape.
+static func octa(c: Vector3, r: float) -> PackedVector3Array:
 	var a := c + Vector3(r, 0, 0)
 	var b := c + Vector3(-r, 0, 0)
 	var t := c + Vector3(0, r, 0)

@@ -48,7 +48,7 @@ const B_MIN := 3
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 6
+const CRITERIA := 7
 
 
 func _ready() -> void:
@@ -75,6 +75,7 @@ func _ready() -> void:
 	await _gate_d_dialog()
 	await _gate_e_undo_pair()
 	await _gate_f_manager()
+	await _gate_g_transform()
 
 	print("")
 	if _completed != CRITERIA:
@@ -552,7 +553,123 @@ func _gate_f_manager() -> void:
 	_completed += 1
 
 
+# ---- G: the pool's own transform -----------------------------------------------
+#
+# A created pool used to be left at the world origin with only its Y seeded, which drew correctly —
+# the polygon is read in world space and expressed relative to the node — but left a transform that
+# said nothing about which brush the water belonged to, a selection handle nowhere near the water,
+# and a `_water_domain_origin` of (0,0,0). That last one matters: the instance uniform exists so
+# wave phase stays precise far from the world origin, and a pool pinned at the origin switches it
+# off exactly where it is needed.
+#
+# The other half of the claim is that an XZ move of the POOL must not move the water, because the
+# spline decides where the water is. That needs a rebuild to compensate, and the control is the
+# bare-`curve` mode, where the points ARE in the node's space and moving it genuinely should move
+# the water.
+func _gate_g_transform() -> void:
+	print("[G] the pool's transform is its brush's, and moving it does not move the water:")
+	var root := _make_world()
+	_make_manager(root)
+	var brush := _make_brush("Pasture3DMound", root, [[30.0, true]])
+	_make_carve(brush)
+	# Deliberately far from the world origin, or "the pool sits on its spline" is satisfied by
+	# everything being at zero and the criterion measures nothing.
+	brush.position = Vector3(1200, 0, -800)
+	await _settle()
+
+	var pools: Array = brush.add_pool()
+	await _settle()
+	if pools.size() != 1:
+		_fail += 1
+		print("    !! setup produced %d pools" % pools.size())
+		root.queue_free()
+		await _settle()
+		_completed += 1
+		return
+	var pool = pools[0]
+	var spline: Path3D = brush.get_children().filter(func(c): return c is Path3D)[0]
+	var origin_err := Vector2(pool.global_position.x - spline.global_position.x,
+		pool.global_position.z - spline.global_position.z).length()
+	var from_world_origin := Vector2(pool.global_position.x, pool.global_position.z).length()
+	if origin_err > 1e-3:
+		_fail += 1
+		print("    !! the pool sits %.3f m from its spline's origin in XZ" % origin_err)
+	elif from_world_origin < 100.0:
+		_fail += 1
+		print("    !! the fixture is too close to the world origin (%.1f m) to prove anything"
+			% from_world_origin)
+	else:
+		print("    pool origin (%.1f, %.1f) == spline origin, %.0f m from the world origin" % [
+			pool.global_position.x, pool.global_position.z, from_world_origin])
+
+	# The payoff: the domain origin follows the node, so the wave field is evaluated near zero
+	# rather than out at kilometre-scale coordinates.
+	var surface: MeshInstance3D = null
+	for c in pool.get_children():
+		if c is MeshInstance3D:
+			surface = c
+	var domain = surface.get_instance_shader_parameter("_water_domain_origin") if surface else null
+	if domain != null and (domain as Vector3).distance_to(pool.global_position) < 1e-3:
+		print("    _water_domain_origin tracks the node: %s" % [domain])
+	else:
+		_fail += 1
+		print("    !! _water_domain_origin is %s, node is %s" % [domain, pool.global_position])
+
+	# Moving the POOL in XZ must not move the water: the spline decides where it is.
+	var probe_y: float = pool.global_position.y - 5.0
+	var centre := Vector3(spline.global_position.x, probe_y, spline.global_position.z)
+	pool.position += Vector3(37, 0, 0)
+	await _settle()
+	await _settle()
+	if pool.contains_point(centre) and not pool.contains_point(centre + Vector3(37, 0, 0)):
+		print("    dragging the pool 37 m left the water on its spline")
+	else:
+		_fail += 1
+		print("    !! the water moved with the pool node (centre %s, shifted %s)" % [
+			pool.contains_point(centre), pool.contains_point(centre + Vector3(37, 0, 0))])
+	root.queue_free()
+	await _settle()
+
+	# Control: a pool driven by a bare Curve3D has its points in its OWN space, so moving it MUST
+	# move the water. Without this, "the water stayed put" could just mean the mesh never moves.
+	var croot := _make_world()
+	_make_manager(croot)
+	var bare = load("res://addons/pasture_3d/connectors/pool.gd").new()
+	bare.name = "BareCurvePool"
+	bare.curve = _square_curve(30.0)
+	bare.material = load(LAKE_MAT)
+	croot.add_child(bare)
+	await _settle()
+	var bprobe := Vector3(0, bare.global_position.y - 5.0, 0)
+	var before: bool = bare.contains_point(bprobe)
+	bare.position += Vector3(300, 0, 0)
+	await _settle()
+	await _settle()
+	var after_here: bool = bare.contains_point(bprobe)
+	var after_there: bool = bare.contains_point(bprobe + Vector3(300, 0, 0))
+	if before and not after_here and after_there:
+		print("    control (bare curve moves with its node): fires")
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: before %s, here %s, there %s" % [
+			before, after_here, after_there])
+	croot.queue_free()
+	await _settle()
+	_completed += 1
+
+
 # ---- helpers -------------------------------------------------------------------
+
+## A closed square loop of the given half-extent, in the node's own space.
+func _square_curve(p_r: float) -> Curve3D:
+	var c := Curve3D.new()
+	c.add_point(Vector3(-p_r, 0, -p_r))
+	c.add_point(Vector3(p_r, 0, -p_r))
+	c.add_point(Vector3(p_r, 0, p_r))
+	c.add_point(Vector3(-p_r, 0, p_r))
+	c.closed = true
+	return c
+
 
 func _make_world() -> Node3D:
 	var root := Node3D.new()

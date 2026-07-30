@@ -8,6 +8,7 @@ extends EditorPlugin
 const Pasture3DUI: Script = preload("res://addons/pasture_3d/src/ui.gd")
 const Pasture3DLayersDock: Script = preload("res://addons/pasture_3d/src/layers_dock.gd")
 const Pasture3DBrushGizmo: Script = preload("res://addons/pasture_3d/src/brush_gizmo.gd")
+const Pasture3DPoolGizmo: Script = preload("res://addons/pasture_3d/src/pool_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/pasture_3d/src/asset_dock.tscn"
 const ASSET_DOCK_45: String = "res://addons/pasture_3d/src/asset_dock_45.tscn"
 
@@ -19,6 +20,7 @@ var ui: Node # Pasture3DUI see Godot #75388
 var asset_dock: PanelContainer
 var layers_dock: PanelContainer
 var brush_gizmo: EditorNode3DGizmoPlugin # Clickable origin markers for brush nodes
+var pool_gizmo: EditorNode3DGizmoPlugin # Clickable markers floating over Pasture3DPool water
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
@@ -88,6 +90,10 @@ func _enter_tree() -> void:
 	# Clickable origin markers so brush nodes are easy to select in a busy scene.
 	brush_gizmo = Pasture3DBrushGizmo.new()
 	add_node_3d_gizmo_plugin(brush_gizmo)
+	# The same, for water bodies. A pool draws only an internal-child mesh, so without this there
+	# is nothing in the viewport to click that selects the pool itself.
+	pool_gizmo = Pasture3DPoolGizmo.new()
+	add_node_3d_gizmo_plugin(pool_gizmo)
 
 	_register_water_globals()
 
@@ -134,6 +140,8 @@ func _exit_tree() -> void:
 	layers_dock.queue_free()
 	if brush_gizmo:
 		remove_node_3d_gizmo_plugin(brush_gizmo)
+	if pool_gizmo:
+		remove_node_3d_gizmo_plugin(pool_gizmo)
 	ui.queue_free()
 	editor.free()
 
