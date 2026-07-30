@@ -270,6 +270,18 @@ _data = {
 }
 point_count = 4
 
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4owis"]
+sky_top_color = Color(0.48185542, 0.72736245, 0.79296875, 1)
+
+[sub_resource type="Sky" id="Sky_c4dyq"]
+sky_material = SubResource("ProceduralSkyMaterial_4owis")
+
+[sub_resource type="Environment" id="Environment_ahg1b"]
+background_mode = 2
+sky = SubResource("Sky_c4dyq")
+sdfgi_enabled = true
+sdfgi_use_occlusion = true
+
 [node name="Sculpting2" type="Node3D" unique_id=19395411]
 
 [node name="Pasture3D" type="Pasture3D" parent="." unique_id=1932622291]
@@ -633,8 +645,12 @@ curve = SubResource("Curve3D_7sjga")
 [node name="Mound6" type="Node3D" parent="Pasture3D" unique_id=738645377 node_paths=PackedStringArray("terrain")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 122.39368, 0, 113.51898)
 script = ExtResource("1_fwsd8")
+invert = true
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Mounds"
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound6" unique_id=821857872]
 curve = SubResource("Curve3D_hvsre")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2130707292]
+environment = SubResource("Environment_ahg1b")
