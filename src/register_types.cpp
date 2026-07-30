@@ -12,9 +12,9 @@
 #include "pasture_3d_editor.h"
 #include "pasture_3d_layer.h"
 #include "pasture_3d_layer_stack.h"
-#include "ocean_3d.h"
+#include "pasture_3d_ocean.h"
 #include "pasture_3d_wave_profile.h"
-#include "pool_3d_manager.h"
+#include "pasture_3d_pool_manager.h"
 
 void initialize_pasture_3d_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -37,8 +37,8 @@ void initialize_pasture_3d_module(ModuleInitializationLevel p_level) {
 	// before the manager: the manager exports a TypedArray of it, and the property
 	// hint names the class by string.
 	ClassDB::register_class<Pasture3DWaveProfile>();
-	ClassDB::register_class<Pool3DManager>();
-	ClassDB::register_class<Ocean3D>();
+	ClassDB::register_class<Pasture3DPoolManager>();
+	ClassDB::register_class<Pasture3DOcean>();
 
 	// Backward-compat: keep legacy Terrain3D* resource names loadable (see pasture_3d_compat.h).
 	ClassDB::register_class<Terrain3DRegion>();

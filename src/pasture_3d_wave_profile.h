@@ -25,7 +25,7 @@ using namespace godot;
  * `loop_period` is deliberately NOT a property here. water_time and
  * water_time_period are project-wide shader globals and the frequency quantisation
  * that makes the clock wrap seamless (water spec §3.2) is computed against a single
- * period, so the period belongs to whatever owns the clock. Pool3DManager owns it
+ * period, so the period belongs to whatever owns the clock. Pasture3DPoolManager owns it
  * and pushes it in with set_loop_period() before building the table.
  */
 class Pasture3DWaveProfile : public Resource {
@@ -74,7 +74,7 @@ public:
 	// What the surface ACTUALLY reaches, which is the sum over the table and not
 	// the amplitude knob. Cull margins and clearance checks want this one.
 	real_t get_amplitude_sum();
-	// Shortest wavelength in the built table. Pool3D sizes its mesh from this
+	// Shortest wavelength in the built table. Pasture3DPool sizes its mesh from this
 	// (spec §7.3: vertex spacing is a wavelength/8 rule, not a taste).
 	real_t get_min_wavelength();
 
@@ -86,7 +86,7 @@ public:
 	Vector3 get_normal_at(const Vector2 &p_domain_xz, const real_t p_time);
 	Vector2 solve_domain(const Vector2 &p_target_xz, const real_t p_time);
 
-	// For C++ callers that want the evaluator directly (Pool3DManager, Buoy3D).
+	// For C++ callers that want the evaluator directly (Pasture3DPoolManager, Pasture3DBuoy).
 	WaterWaves &get_waves() {
 		_ensure_built();
 		return _waves;

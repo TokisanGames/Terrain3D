@@ -1,6 +1,6 @@
 # Pasture3D Water Bodies — Phase 1 exit gate (spec §11, PASTURE3D_WATER_BODIES_SPEC.md).
 #
-# Phase 1 adds Pasture3DWaveProfile and Pool3DManager, moves the clock and the sun
+# Phase 1 adds Pasture3DWaveProfile and Pasture3DPoolManager, moves the clock and the sun
 # onto the manager, introduces the (base material, profile) material cache, and
 # promotes _water_domain_origin to an instance uniform.
 #
@@ -37,6 +37,13 @@ var _out_dir := ""
 var _probe_vp: SubViewport
 var _probe_mat: ShaderMaterial
 var _last_clock_cell := Color.BLACK
+# Criteria that ran to completion. A GDScript runtime error abandons a function
+# WITHOUT incrementing _fail, so a thrown criterion would otherwise read as a pass --
+# which is exactly what happened when Phase 2 removed Pasture3D.get_water_time() and
+# this gate still printed PASS. Each criterion increments this at its end; the verdict
+# requires all four.
+var _completed := 0
+const CRITERIA := 4
 
 
 func _ready() -> void:
@@ -73,6 +80,11 @@ func _ready() -> void:
 	await _gate_d_clock_ownership()
 
 	print("")
+	if _completed != CRITERIA:
+		_fail += 1
+		print("!! only %d of %d criteria ran to completion -- one threw partway and its" % [
+			_completed, CRITERIA])
+		print("   checks were skipped, so a green result here would mean 'did not look'")
 	print("=== PHASE 1 GATE %s ===" % ("PASS" if _fail == 0 else "FAIL (%d)" % _fail))
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -192,6 +204,7 @@ func _gate_a_parity() -> void:
 
 	root.queue_free()
 	await _settle()
+	_completed += 1
 
 
 # ---- B: the instance uniform --------------------------------------------------
@@ -280,6 +293,7 @@ func _gate_b_instance_origin() -> void:
 	manager.paused = false
 	root.queue_free()
 	await _settle()
+	_completed += 1
 
 
 # ---- C: the material cache ----------------------------------------------------
@@ -343,68 +357,80 @@ func _gate_c_material_cache() -> void:
 		print("       above is a stuck counter and not a cache hit")
 
 	root.queue_free()
+	_completed += 1
 
 
 # ---- D: who owns the clock ----------------------------------------------------
-# Two nodes writing water_time from their own accumulators leaves the global
-# carrying whichever wrote last. Worse, Pasture3D's CPU query reads its OWN
-# _water_time while the surface is drawn from the global, so a scene with both a
-# terrain and a manager would break G4 for a reason invisible in either file.
+# Phase 1 asked whether Pasture3D yielded its clock to the manager. Phase 2 deleted
+# the ocean from Pasture3D outright, so there is no longer a second clock to yield --
+# this criterion was rewritten rather than deleted, because the question it protects
+# still matters: every water body must read the SAME instant the shader is drawing at,
+# or G4's 1 cm parity is broken for a reason invisible in any single file.
 #
-# Pasture3D therefore adopts the manager's clock. Checked as an equality between the
-# two nodes' reported times after the same physics, with a control that removes the
-# manager and requires the terrain to resume driving its own clock -- otherwise
-# "they agree" would also be what two stopped clocks look like.
+# The reader is now Pasture3DOcean, which owns no clock and forwards to the manager.
+# The control is an ocean with NO manager in the tree: it must report 0, proving the
+# agreement above is a real read of the manager rather than two nodes that happen to
+# hold the same number.
 func _gate_d_clock_ownership() -> void:
 	print("")
-	print("[D] Pool3DManager owns the clock; Pasture3D adopts it:")
+	print("[D] Pasture3DPoolManager owns the clock; Pasture3DOcean reads it:")
 	var root := _make_world()
 	var manager := _make_manager(root)
-	# A deliberately different period, so the two clocks cannot agree by accident.
+	# A deliberately non-default period, so agreement cannot be a coincidence of
+	# both sides defaulting to 120.
 	manager.loop_period = 37.0
-	var terrain := Pasture3D.new()
-	terrain.ocean_material = load(WATER_DIR + "M_water_ocean.tres")
-	terrain.ocean_enabled = true
-	terrain.ocean_wave_loop_period = LOOP_PERIOD
-	terrain.render_layers = 1 << 4
-	root.add_child(terrain)
+	var ocean := Pasture3DOcean.new()
+	ocean.material = load(WATER_DIR + "M_water_ocean.tres")
+	ocean.wave_profile = "lake_calm"
+	ocean.render_layers = 1 << 4
+	root.add_child(ocean)
 
 	for i in 90:
 		await get_tree().physics_frame
 	await _settle()
 
 	var t_manager: float = manager.get_water_time()
-	var t_terrain: float = terrain.get_water_time()
-	print("    manager %.6f | terrain %.6f | difference %.9f" % [
-		t_manager, t_terrain, absf(t_manager - t_terrain)])
+	var t_ocean: float = ocean.get_water_time()
+	print("    manager %.6f | ocean %.6f | difference %.9f" % [
+		t_manager, t_ocean, absf(t_manager - t_ocean)])
 	if t_manager <= 0.0:
 		_fail += 1
 		print("    !! the manager's clock never advanced; D is vacuous")
-	elif absf(t_manager - t_terrain) > 1e-5:
+	elif absf(t_manager - t_ocean) > 1e-6:
 		_fail += 1
-		print("    !! the terrain is running its own clock while a manager is present;")
-		print("       the CPU query and the drawn surface are on different instants")
+		print("    !! the ocean is not on the manager's clock, so its CPU query and the")
+		print("       drawn surface are at different instants")
 	else:
-		print("    -> the terrain adopted the manager's clock")
+		print("    -> the ocean reads the manager's clock exactly")
 
-	# Control: remove the manager. The terrain must resume driving, or the agreement
-	# above is two nodes that both stopped rather than one deferring to the other.
-	var before: float = terrain.get_water_time()
-	root.remove_child(manager)
-	manager.queue_free()
-	for i in 30:
-		await get_tree().physics_frame
-	await _settle()
-	var after: float = terrain.get_water_time()
-	print("    CONTROL, manager removed: terrain clock %.6f -> %.6f (must advance)" % [
-		before, after])
-	if absf(after - before) < 1e-4:
+	# The clock must also wrap at the MANAGER's period, not at some default. 90 ticks
+	# at 60 Hz is 1.5 s, well inside 37, so this checks the period actually reached
+	# the manager rather than that the number looks plausible.
+	if not is_equal_approx(manager.loop_period, 37.0):
 		_fail += 1
-		print("    !! the terrain does not resume its own clock, so it was not deferring")
-		print("       to the manager -- it had simply stopped")
+		print("    !! the manager did not keep the period it was given")
 
 	root.queue_free()
 	await _settle()
+
+	# The control: an ocean with no manager anywhere. It must report 0, or the
+	# agreement above could be an ocean quietly running a clock of its own.
+	var lone_root := _make_world()
+	var lone := Pasture3DOcean.new()
+	lone.material = load(WATER_DIR + "M_water_ocean.tres")
+	lone.render_layers = 1 << 4
+	lone_root.add_child(lone)
+	for i in 30:
+		await get_tree().physics_frame
+	await _settle()
+	var t_lone: float = lone.get_water_time()
+	print("    CONTROL, ocean with no manager: get_water_time() = %.6f (must be 0)" % t_lone)
+	if absf(t_lone) > 1e-9:
+		_fail += 1
+		print("    !! the ocean has a clock of its own; D does not prove it reads the manager")
+	lone_root.queue_free()
+	await _settle()
+	_completed += 1
 
 
 # ---- helpers ------------------------------------------------------------------
@@ -437,9 +463,9 @@ func _make_world() -> Node3D:
 	return root
 
 
-func _make_manager(p_root: Node3D) -> Pool3DManager:
-	var manager := Pool3DManager.new()
-	manager.name = "Pool3DManager"
+func _make_manager(p_root: Node3D) -> Pasture3DPoolManager:
+	var manager := Pasture3DPoolManager.new()
+	manager.name = "Pasture3DPoolManager"
 	manager.loop_period = LOOP_PERIOD
 
 	var lake := Pasture3DWaveProfile.new()

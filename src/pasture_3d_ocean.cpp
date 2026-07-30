@@ -10,27 +10,27 @@
 #include <godot_cpp/core/class_db.hpp>
 
 #include "logger.h"
-#include "ocean_3d.h"
-#include "pool_3d_manager.h"
+#include "pasture_3d_ocean.h"
+#include "pasture_3d_pool_manager.h"
 
 ///////////////////////////
 // Private Functions
 ///////////////////////////
 
 /**
- * The scene's Pool3DManager, or null.
+ * The scene's Pasture3DPoolManager, or null.
  *
  * Group lookup rather than an exported reference, matching §5.1: the manager is
  * scene-wide infrastructure and making every body carry a NodePath to it is the kind
  * of wiring that gets forgotten once and then debugged for an hour. An explicit
- * override belongs on Pool3D in Phase 3, where several managers are conceivable; the
+ * override belongs on Pasture3DPool in Phase 3, where several managers are conceivable; the
  * ocean is content with whichever is driving the clock.
  */
-Pool3DManager *Ocean3D::_find_manager() const {
-	return Pool3DManager::get_active_manager();
+Pasture3DPoolManager *Pasture3DOcean::_find_manager() const {
+	return Pasture3DPoolManager::get_active_manager();
 }
 
-void Ocean3D::_setup_mesher() {
+void Pasture3DOcean::_setup_mesher() {
 	if (!_enabled || !_is_inside_world) {
 		return;
 	}
@@ -46,7 +46,7 @@ void Ocean3D::_setup_mesher() {
 	_update_aabbs(true);
 }
 
-void Ocean3D::_destroy_mesher(const bool p_final) {
+void Pasture3DOcean::_destroy_mesher(const bool p_final) {
 	LOG(INFO, "Destroying ocean mesher");
 	if (_mesher) {
 		_mesher->destroy();
@@ -60,7 +60,7 @@ void Ocean3D::_destroy_mesher(const bool p_final) {
 /**
  * Builds the private material this ocean draws with.
  *
- * A duplicate, deliberately outside Pool3DManager's shared cache. The cache exists
+ * A duplicate, deliberately outside Pasture3DPoolManager's shared cache. The cache exists
  * so ten ponds cost one material, and it works because a pond writes nothing into
  * its material -- everything per-pond is either the transform or the instance
  * uniform. The ocean is not like that: the clipmap writes _mesh_size,
@@ -71,7 +71,7 @@ void Ocean3D::_destroy_mesher(const bool p_final) {
  * The table still comes from the manager's profile, so the ocean is on the same
  * wave data as everything else -- it just holds its own copy of the material.
  */
-void Ocean3D::_rebuild_runtime_material() {
+void Pasture3DOcean::_rebuild_runtime_material() {
 	if (_material.is_null()) {
 		_runtime_material = Ref<Material>();
 		return;
@@ -79,14 +79,14 @@ void Ocean3D::_rebuild_runtime_material() {
 	if (_runtime_material.is_null()) {
 		_runtime_material = _material->duplicate();
 	}
-	Pool3DManager *manager = _find_manager();
+	Pasture3DPoolManager *manager = _find_manager();
 	if (manager) {
 		manager->upload_profile_into(_runtime_material, _wave_profile);
 	}
 	_sea_level_sent = FLT_MAX; // force the sea level write below
 }
 
-void Ocean3D::_push_clipmap_uniforms() {
+void Pasture3DOcean::_push_clipmap_uniforms() {
 	ShaderMaterial *mat = Object::cast_to<ShaderMaterial>(_runtime_material.ptr());
 	if (mat) {
 		// Read by the clipmap geomorph in water_surface.gdshaderinc.
@@ -108,13 +108,13 @@ void Ocean3D::_push_clipmap_uniforms() {
  * emit a notification, but the amplitude sum does not), and the amplitude sum
  * belongs to a profile on the manager.
  */
-void Ocean3D::_update_aabbs(const bool p_force) {
+void Pasture3DOcean::_update_aabbs(const bool p_force) {
 	if (!_mesher) {
 		return;
 	}
 	real_t sea_level = get_sea_level();
 	real_t amplitude = 0.f;
-	Pool3DManager *manager = _find_manager();
+	Pasture3DPoolManager *manager = _find_manager();
 	if (manager) {
 		Ref<Pasture3DWaveProfile> profile = manager->get_profile(_wave_profile);
 		if (profile.is_valid()) {
@@ -131,7 +131,7 @@ void Ocean3D::_update_aabbs(const bool p_force) {
 	_mesher->update_aabbs(_cull_margin, range);
 }
 
-void Ocean3D::_on_profiles_changed() {
+void Pasture3DOcean::_on_profiles_changed() {
 	_rebuild_runtime_material();
 	_update_aabbs(true);
 }
@@ -140,15 +140,15 @@ void Ocean3D::_on_profiles_changed() {
 // Public Functions
 ///////////////////////////
 
-Ocean3D::Ocean3D() {
+Pasture3DOcean::Pasture3DOcean() {
 	set_notify_transform(true);
 }
 
-Ocean3D::~Ocean3D() {
+Pasture3DOcean::~Pasture3DOcean() {
 	_destroy_mesher(true);
 }
 
-Vector3 Ocean3D::get_clipmap_target_position() const {
+Vector3 Pasture3DOcean::get_clipmap_target_position() const {
 	Node3D *target = _clipmap_target.ptr();
 	if (target && target->is_inside_tree()) {
 		return target->get_global_position();
@@ -167,12 +167,12 @@ Vector3 Ocean3D::get_clipmap_target_position() const {
 	return get_global_position();
 }
 
-Vector2 Ocean3D::get_default_height_range() const {
+Vector2 Pasture3DOcean::get_default_height_range() const {
 	real_t sea_level = get_sea_level();
 	return Vector2(sea_level, sea_level);
 }
 
-void Ocean3D::set_enabled(const bool p_enabled) {
+void Pasture3DOcean::set_enabled(const bool p_enabled) {
 	if (_enabled == p_enabled) {
 		return;
 	}
@@ -185,51 +185,51 @@ void Ocean3D::set_enabled(const bool p_enabled) {
 	update_configuration_warnings();
 }
 
-void Ocean3D::set_mesh_lods(const int p_count) {
+void Pasture3DOcean::set_mesh_lods(const int p_count) {
 	int lods = CLAMP(p_count, 1, 10);
 	SET_IF_DIFF(_mesh_lods, lods);
 	_setup_mesher();
 }
 
-void Ocean3D::set_tessellation_level(const int p_level) {
+void Pasture3DOcean::set_tessellation_level(const int p_level) {
 	int level = CLAMP(p_level, 0, 3);
 	SET_IF_DIFF(_tessellation_level, level);
 	_setup_mesher();
 }
 
-void Ocean3D::set_mesh_size(const int p_size) {
+void Pasture3DOcean::set_mesh_size(const int p_size) {
 	int size = CLAMP(p_size, 8, 64);
 	SET_IF_DIFF(_mesh_size, size);
 	_setup_mesher();
 }
 
-void Ocean3D::set_vertex_spacing(const real_t p_spacing) {
+void Pasture3DOcean::set_vertex_spacing(const real_t p_spacing) {
 	real_t spacing = CLAMP(p_spacing, 0.25f, 100.f);
 	SET_IF_DIFF(_vertex_spacing, spacing);
 	_setup_mesher();
 }
 
-void Ocean3D::set_cull_margin(const real_t p_margin) {
+void Pasture3DOcean::set_cull_margin(const real_t p_margin) {
 	SET_IF_DIFF(_cull_margin, CLAMP(p_margin, 0.f, 100000.f));
 	_update_aabbs(true);
 }
 
-void Ocean3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
+void Pasture3DOcean::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
 	SET_IF_DIFF(_cast_shadows, p_cast_shadows);
 	_setup_mesher();
 }
 
-void Ocean3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
+void Pasture3DOcean::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
 	SET_IF_DIFF(_gi_mode, p_gi_mode);
 	_setup_mesher();
 }
 
-void Ocean3D::set_render_layers(const uint32_t p_layers) {
+void Pasture3DOcean::set_render_layers(const uint32_t p_layers) {
 	SET_IF_DIFF(_render_layers, p_layers);
 	_setup_mesher();
 }
 
-void Ocean3D::set_material(const Ref<Material> &p_material) {
+void Pasture3DOcean::set_material(const Ref<Material> &p_material) {
 	SET_IF_DIFF(_material, p_material);
 	// The private duplicate is of the OLD base; drop it so the next setup rebuilds.
 	_runtime_material = Ref<Material>();
@@ -237,19 +237,19 @@ void Ocean3D::set_material(const Ref<Material> &p_material) {
 	update_configuration_warnings();
 }
 
-void Ocean3D::set_wave_profile(const StringName &p_name) {
+void Pasture3DOcean::set_wave_profile(const StringName &p_name) {
 	SET_IF_DIFF(_wave_profile, p_name);
 	_rebuild_runtime_material();
 	_update_aabbs(true);
 	update_configuration_warnings();
 }
 
-void Ocean3D::set_domain_origin(const Vector3 &p_origin) {
+void Pasture3DOcean::set_domain_origin(const Vector3 &p_origin) {
 	SET_IF_DIFF(_domain_origin, p_origin);
 	_push_clipmap_uniforms();
 }
 
-void Ocean3D::set_clipmap_target(Node3D *p_node) {
+void Pasture3DOcean::set_clipmap_target(Node3D *p_node) {
 	_clipmap_target.set_target(p_node);
 	if (_mesher) {
 		_mesher->reset_target_position();
@@ -260,13 +260,13 @@ void Ocean3D::set_clipmap_target(Node3D *p_node) {
 // CPU water query
 ///////////////////////////
 
-real_t Ocean3D::get_water_time() const {
-	Pool3DManager *manager = _find_manager();
+real_t Pasture3DOcean::get_water_time() const {
+	Pasture3DPoolManager *manager = _find_manager();
 	return manager ? manager->get_water_time() : 0.f;
 }
 
-Vector3 Ocean3D::get_water_surface_point(const Vector2 &p_domain_xz) const {
-	Pool3DManager *manager = _find_manager();
+Vector3 Pasture3DOcean::get_water_surface_point(const Vector2 &p_domain_xz) const {
+	Pasture3DPoolManager *manager = _find_manager();
 	if (!manager) {
 		return Vector3(p_domain_xz.x, get_sea_level(), p_domain_xz.y);
 	}
@@ -276,8 +276,8 @@ Vector3 Ocean3D::get_water_surface_point(const Vector2 &p_domain_xz) const {
 	return Vector3(local.x + _domain_origin.x, local.y + get_sea_level(), local.z + _domain_origin.z);
 }
 
-real_t Ocean3D::get_water_height(const Vector2 &p_xz) const {
-	Pool3DManager *manager = _find_manager();
+real_t Pasture3DOcean::get_water_height(const Vector2 &p_xz) const {
+	Pasture3DPoolManager *manager = _find_manager();
 	if (!manager) {
 		return get_sea_level();
 	}
@@ -286,8 +286,8 @@ real_t Ocean3D::get_water_height(const Vector2 &p_xz) const {
 	return get_sea_level() + manager->evaluate_height(_wave_profile, domain);
 }
 
-Vector3 Ocean3D::get_water_normal(const Vector2 &p_xz) const {
-	Pool3DManager *manager = _find_manager();
+Vector3 Pasture3DOcean::get_water_normal(const Vector2 &p_xz) const {
+	Pasture3DPoolManager *manager = _find_manager();
 	if (!manager) {
 		return Vector3(0.f, 1.f, 0.f);
 	}
@@ -296,17 +296,17 @@ Vector3 Ocean3D::get_water_normal(const Vector2 &p_xz) const {
 	return manager->evaluate_normal(_wave_profile, domain);
 }
 
-PackedStringArray Ocean3D::_get_configuration_warnings() const {
+PackedStringArray Pasture3DOcean::_get_configuration_warnings() const {
 	PackedStringArray warnings;
-	Pool3DManager *manager = _find_manager();
+	Pasture3DPoolManager *manager = _find_manager();
 	if (!manager) {
 		warnings.push_back(
-				"No Pool3DManager in the scene. The ocean will draw with whatever wave table its "
+				"No Pasture3DPoolManager in the scene. The ocean will draw with whatever wave table its "
 				"material's shader variant compiles in, and nothing will drive water_time, so it "
 				"will not move.");
 	} else if (!manager->has_profile(_wave_profile)) {
 		warnings.push_back("No wave profile named '" + String(_wave_profile) +
-				"' on the Pool3DManager. Available: " + String(", ").join(manager->get_profile_names()));
+				"' on the Pasture3DPoolManager. Available: " + String(", ").join(manager->get_profile_names()));
 	} else {
 		// The failure Pasture3D used to warn about, carried over: a profile with
 		// more waves than the material's variant compiles is invisible on screen
@@ -342,7 +342,7 @@ PackedStringArray Ocean3D::_get_configuration_warnings() const {
 // Protected Functions
 ///////////////////////////
 
-void Ocean3D::_notification(int p_what) {
+void Pasture3DOcean::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_WORLD: {
 			LOG(INFO, "NOTIFICATION_ENTER_WORLD");
@@ -351,7 +351,7 @@ void Ocean3D::_notification(int p_what) {
 			// parameter that "was removed at some point" and renders black until
 			// the material recompiles. An ocean can exist with no manager, so it
 			// cannot rely on the manager having done it.
-			Pool3DManager::register_water_globals();
+			Pasture3DPoolManager::register_water_globals();
 			_setup_mesher();
 			set_physics_process(true);
 			break;
@@ -370,9 +370,9 @@ void Ocean3D::_notification(int p_what) {
 			// and re-enters the tree, and a group left behind is an ocean nothing can
 			// find.
 			add_to_group(OCEAN_GROUP);
-			Pool3DManager *manager = _find_manager();
+			Pasture3DPoolManager *manager = _find_manager();
 			if (manager) {
-				Callable cb = callable_mp(this, &Ocean3D::_on_profiles_changed);
+				Callable cb = callable_mp(this, &Pasture3DOcean::_on_profiles_changed);
 				if (!manager->is_connected("profiles_changed", cb)) {
 					manager->connect("profiles_changed", cb);
 				}
@@ -425,39 +425,39 @@ void Ocean3D::_notification(int p_what) {
 	}
 }
 
-void Ocean3D::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Ocean3D::set_enabled);
-	ClassDB::bind_method(D_METHOD("is_enabled"), &Ocean3D::is_enabled);
-	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Ocean3D::set_mesh_lods);
-	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Ocean3D::get_mesh_lods);
-	ClassDB::bind_method(D_METHOD("set_tessellation_level", "level"), &Ocean3D::set_tessellation_level);
-	ClassDB::bind_method(D_METHOD("get_tessellation_level"), &Ocean3D::get_tessellation_level);
-	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Ocean3D::set_mesh_size);
-	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Ocean3D::get_mesh_size);
-	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "spacing"), &Ocean3D::set_vertex_spacing);
-	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Ocean3D::get_vertex_spacing);
-	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Ocean3D::set_cull_margin);
-	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Ocean3D::get_cull_margin);
-	ClassDB::bind_method(D_METHOD("set_cast_shadows", "setting"), &Ocean3D::set_cast_shadows);
-	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Ocean3D::get_cast_shadows);
-	ClassDB::bind_method(D_METHOD("set_gi_mode", "mode"), &Ocean3D::set_gi_mode);
-	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Ocean3D::get_gi_mode);
-	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Ocean3D::set_render_layers);
-	ClassDB::bind_method(D_METHOD("get_render_layers"), &Ocean3D::get_render_layers);
-	ClassDB::bind_method(D_METHOD("set_material", "material"), &Ocean3D::set_material);
-	ClassDB::bind_method(D_METHOD("get_material"), &Ocean3D::get_material);
-	ClassDB::bind_method(D_METHOD("set_wave_profile", "name"), &Ocean3D::set_wave_profile);
-	ClassDB::bind_method(D_METHOD("get_wave_profile"), &Ocean3D::get_wave_profile);
-	ClassDB::bind_method(D_METHOD("set_domain_origin", "origin"), &Ocean3D::set_domain_origin);
-	ClassDB::bind_method(D_METHOD("get_domain_origin"), &Ocean3D::get_domain_origin);
-	ClassDB::bind_method(D_METHOD("set_clipmap_target", "node"), &Ocean3D::set_clipmap_target);
-	ClassDB::bind_method(D_METHOD("get_clipmap_target"), &Ocean3D::get_clipmap_target);
+void Pasture3DOcean::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &Pasture3DOcean::set_enabled);
+	ClassDB::bind_method(D_METHOD("is_enabled"), &Pasture3DOcean::is_enabled);
+	ClassDB::bind_method(D_METHOD("set_mesh_lods", "count"), &Pasture3DOcean::set_mesh_lods);
+	ClassDB::bind_method(D_METHOD("get_mesh_lods"), &Pasture3DOcean::get_mesh_lods);
+	ClassDB::bind_method(D_METHOD("set_tessellation_level", "level"), &Pasture3DOcean::set_tessellation_level);
+	ClassDB::bind_method(D_METHOD("get_tessellation_level"), &Pasture3DOcean::get_tessellation_level);
+	ClassDB::bind_method(D_METHOD("set_mesh_size", "size"), &Pasture3DOcean::set_mesh_size);
+	ClassDB::bind_method(D_METHOD("get_mesh_size"), &Pasture3DOcean::get_mesh_size);
+	ClassDB::bind_method(D_METHOD("set_vertex_spacing", "spacing"), &Pasture3DOcean::set_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("get_vertex_spacing"), &Pasture3DOcean::get_vertex_spacing);
+	ClassDB::bind_method(D_METHOD("set_cull_margin", "margin"), &Pasture3DOcean::set_cull_margin);
+	ClassDB::bind_method(D_METHOD("get_cull_margin"), &Pasture3DOcean::get_cull_margin);
+	ClassDB::bind_method(D_METHOD("set_cast_shadows", "setting"), &Pasture3DOcean::set_cast_shadows);
+	ClassDB::bind_method(D_METHOD("get_cast_shadows"), &Pasture3DOcean::get_cast_shadows);
+	ClassDB::bind_method(D_METHOD("set_gi_mode", "mode"), &Pasture3DOcean::set_gi_mode);
+	ClassDB::bind_method(D_METHOD("get_gi_mode"), &Pasture3DOcean::get_gi_mode);
+	ClassDB::bind_method(D_METHOD("set_render_layers", "layers"), &Pasture3DOcean::set_render_layers);
+	ClassDB::bind_method(D_METHOD("get_render_layers"), &Pasture3DOcean::get_render_layers);
+	ClassDB::bind_method(D_METHOD("set_material", "material"), &Pasture3DOcean::set_material);
+	ClassDB::bind_method(D_METHOD("get_material"), &Pasture3DOcean::get_material);
+	ClassDB::bind_method(D_METHOD("set_wave_profile", "name"), &Pasture3DOcean::set_wave_profile);
+	ClassDB::bind_method(D_METHOD("get_wave_profile"), &Pasture3DOcean::get_wave_profile);
+	ClassDB::bind_method(D_METHOD("set_domain_origin", "origin"), &Pasture3DOcean::set_domain_origin);
+	ClassDB::bind_method(D_METHOD("get_domain_origin"), &Pasture3DOcean::get_domain_origin);
+	ClassDB::bind_method(D_METHOD("set_clipmap_target", "node"), &Pasture3DOcean::set_clipmap_target);
+	ClassDB::bind_method(D_METHOD("get_clipmap_target"), &Pasture3DOcean::get_clipmap_target);
 
-	ClassDB::bind_method(D_METHOD("get_sea_level"), &Ocean3D::get_sea_level);
-	ClassDB::bind_method(D_METHOD("get_water_height", "global_xz"), &Ocean3D::get_water_height);
-	ClassDB::bind_method(D_METHOD("get_water_normal", "global_xz"), &Ocean3D::get_water_normal);
-	ClassDB::bind_method(D_METHOD("get_water_surface_point", "domain_xz"), &Ocean3D::get_water_surface_point);
-	ClassDB::bind_method(D_METHOD("get_water_time"), &Ocean3D::get_water_time);
+	ClassDB::bind_method(D_METHOD("get_sea_level"), &Pasture3DOcean::get_sea_level);
+	ClassDB::bind_method(D_METHOD("get_water_height", "global_xz"), &Pasture3DOcean::get_water_height);
+	ClassDB::bind_method(D_METHOD("get_water_normal", "global_xz"), &Pasture3DOcean::get_water_normal);
+	ClassDB::bind_method(D_METHOD("get_water_surface_point", "domain_xz"), &Pasture3DOcean::get_water_surface_point);
+	ClassDB::bind_method(D_METHOD("get_water_time"), &Pasture3DOcean::get_water_time);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_material", "get_material");

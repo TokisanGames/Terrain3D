@@ -19,8 +19,8 @@
 #include "logger.h"
 #include "pasture_3d.h"
 #include "pasture_3d_util.h"
-#include "ocean_3d.h"
-#include "pool_3d_manager.h"
+#include "pasture_3d_ocean.h"
+#include "pasture_3d_pool_manager.h"
 #include "unit_testing.h"
 
 // Initialize static member variable
@@ -125,8 +125,8 @@ void Pasture3D::__physics_process(const double p_delta) {
 		_terrain_mesher->snap();
 	}
 	// The water clock, the sun globals and the ocean's clipmap all left this node in
-	// Phase 2 of the water-bodies work: the clock and sun belong to Pool3DManager,
-	// the clipmap to Ocean3D. A terrain no longer knows anything about water.
+	// Phase 2 of the water-bodies work: the clock and sun belong to Pasture3DPoolManager,
+	// the clipmap to Pasture3DOcean. A terrain no longer knows anything about water.
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
@@ -1088,8 +1088,8 @@ PackedStringArray Pasture3D::_get_configuration_warnings() const {
 	// the settings survive until the user converts them -- but silence would let
 	// somebody open, save, and lose an ocean without ever being told.
 	if (!_legacy_ocean.is_empty()) {
-		psa.push_back("This scene's ocean settings predate Ocean3D. Press \"Migrate Ocean\" to "
-					  "convert them into a Pool3DManager + Ocean3D, or clear them with "
+		psa.push_back("This scene's ocean settings predate Pasture3DOcean. Press \"Migrate Ocean\" to "
+					  "convert them into a Pasture3DPoolManager + Pasture3DOcean, or clear them with "
 					  "\"Discard Legacy Ocean\". They are preserved until you do.");
 	}
 	return psa;
@@ -1135,13 +1135,13 @@ bool Pasture3D::_get(const StringName &p_name, Variant &r_ret) const {
 }
 
 /**
- * Builds a Pool3DManager + Ocean3D from the captured settings.
+ * Builds a Pasture3DPoolManager + Pasture3DOcean from the captured settings.
  *
  * Everything geometric transfers one-for-one. The two that do not:
  *
  *   - ocean_wave_* become a Pasture3DWaveProfile on the manager, named after this
  *     terrain, because the ocean's wave table stopped being privileged.
- *   - sea_level was a uniform on the ocean material and is now the Ocean3D's Y, so
+ *   - sea_level was a uniform on the ocean material and is now the Pasture3DOcean's Y, so
  *     it is read off the material once, here, and applied as a position.
  *
  * The nodes are added as siblings of this terrain, and their `owner` is set to the
@@ -1168,11 +1168,11 @@ Node *Pasture3D::migrate_ocean() {
 
 	// One manager per scene. Reuse whatever is already driving the clock rather than
 	// adding a second, which would be a configuration warning on both.
-	Pool3DManager *manager = Pool3DManager::get_active_manager();
+	Pasture3DPoolManager *manager = Pasture3DPoolManager::get_active_manager();
 	bool made_manager = false;
 	if (!manager) {
-		manager = memnew(Pool3DManager);
-		manager->set_name("Pool3DManager");
+		manager = memnew(Pasture3DPoolManager);
+		manager->set_name("Pasture3DPoolManager");
 		parent->add_child(manager, true);
 		made_manager = true;
 	}
@@ -1226,7 +1226,7 @@ Node *Pasture3D::migrate_ocean() {
 		}
 	}
 
-	Ocean3D *ocean = memnew(Ocean3D);
+	Pasture3DOcean *ocean = memnew(Pasture3DOcean);
 	ocean->set_name(String(get_name()) + "Ocean");
 	parent->add_child(ocean, true);
 	ocean->set_wave_profile(profile->get_profile_name());
@@ -1296,7 +1296,7 @@ Node *Pasture3D::migrate_ocean() {
 	}
 
 	LOG(INFO, "Migrated legacy ocean to ", ocean->get_name(),
-			made_manager ? " (created a Pool3DManager)" : " (reused the existing Pool3DManager)");
+			made_manager ? " (created a Pasture3DPoolManager)" : " (reused the existing Pasture3DPoolManager)");
 	_legacy_ocean.clear();
 	update_configuration_warnings();
 	return ocean;
@@ -1319,7 +1319,7 @@ void Pasture3D::discard_legacy_ocean() {
  * The terrain's own height range, for the clipmap's cull AABBs.
  *
  * Was read straight off _data inside the mesher; it comes through the host
- * interface now so an Ocean3D can answer the same question differently.
+ * interface now so a Pasture3DOcean can answer the same question differently.
  */
 Vector2 Pasture3D::get_default_height_range() const {
 	return _data ? _data->get_height_range() : Vector2();
@@ -1754,7 +1754,7 @@ void Pasture3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
 
 	// Only shown when a pre-Phase-2 scene left ocean_* behind; see _validate_property.
-	ADD_PROPERTY(PropertyInfo(Variant::CALLABLE, "migrate_ocean_button", PROPERTY_HINT_TOOL_BUTTON, "Migrate Ocean to Ocean3D"),
+	ADD_PROPERTY(PropertyInfo(Variant::CALLABLE, "migrate_ocean_button", PROPERTY_HINT_TOOL_BUTTON, "Migrate Ocean to Pasture3DOcean"),
 			"", "get_migrate_ocean_button");
 	ADD_PROPERTY(PropertyInfo(Variant::CALLABLE, "discard_legacy_ocean_button", PROPERTY_HINT_TOOL_BUTTON, "Discard Legacy Ocean"),
 			"", "get_discard_legacy_ocean_button");

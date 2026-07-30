@@ -2,8 +2,8 @@
 // The infinite clipmap ocean, extracted from Pasture3D.
 // Spec: PASTURE3D_WATER_BODIES_SPEC.md §6
 
-#ifndef OCEAN3D_CLASS_H
-#define OCEAN3D_CLASS_H
+#ifndef PASTURE3D_OCEAN_CLASS_H
+#define PASTURE3D_OCEAN_CLASS_H
 
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
@@ -17,7 +17,7 @@
 
 using namespace godot;
 
-class Pool3DManager;
+class Pasture3DPoolManager;
 
 /**
  * An ocean, on its own node, owning its own clipmap.
@@ -25,7 +25,7 @@ class Pool3DManager;
  * Everything here used to be `ocean_*` on Pasture3D, which made the ocean a feature
  * of the terrain: you could not have one without the other, the ocean's wave table
  * was the only wave table in the project, and a lake had no way to reach any of the
- * machinery the ocean was sitting on. Splitting it out is what lets Pool3D exist.
+ * machinery the ocean was sitting on. Splitting it out is what lets Pasture3DPool exist.
  *
  * Two things changed on the way out, both of them improvements that fall out of
  * having a node at all rather than features anyone asked for:
@@ -35,20 +35,20 @@ class Pool3DManager;
  *     global_position.y is the obvious source and the uniform becomes
  *     plugin-written. This retires the water guide's troubleshooting entry about
  *     setting sea_level from code and having the ocean vanish.
- *   - THE WAVES COME FROM A PROFILE. `wave_profile` names one on the Pool3DManager,
+ *   - THE WAVES COME FROM A PROFILE. `wave_profile` names one on the Pasture3DPoolManager,
  *     so the ocean is now just another water body that happens to be infinite.
  *
  * It implements Pasture3DClipmapHost, so Pasture3DMesher serves it and the terrain
  * identically. It needs no Pasture3D in the scene (spec W4).
  */
-class Ocean3D : public Node3D, public Pasture3DClipmapHost {
-	GDCLASS(Ocean3D, Node3D);
+class Pasture3DOcean : public Node3D, public Pasture3DClipmapHost {
+	GDCLASS(Pasture3DOcean, Node3D);
 	CLASS_NAME();
 
 public: // Constants
 	// So a scene can find its ocean without a NodePath to it -- the replacement for
 	// asking the terrain whether `ocean_enabled` was set. A `const char *` and not a
-	// StringName: see the note on Pool3DManager::MANAGER_GROUP for what a StringName
+	// StringName: see the note on Pasture3DPoolManager::MANAGER_GROUP for what a StringName
 	// built at static-initialisation time does to the DLL.
 	static constexpr const char *OCEAN_GROUP = "pasture3d_ocean";
 
@@ -89,7 +89,7 @@ private:
 	Vector2 _height_range_sent = V2_MAX;
 	real_t _sea_level_sent = FLT_MAX;
 
-	Pool3DManager *_find_manager() const;
+	Pasture3DPoolManager *_find_manager() const;
 	void _setup_mesher();
 	void _destroy_mesher(const bool p_final = false);
 	void _rebuild_runtime_material();
@@ -102,8 +102,8 @@ protected:
 	void _notification(int p_what);
 
 public:
-	Ocean3D();
-	~Ocean3D();
+	Pasture3DOcean();
+	~Pasture3DOcean();
 
 	// --- Pasture3DClipmapHost ----------------------------------------------
 	virtual Vector3 get_clipmap_target_position() const override;
@@ -155,4 +155,4 @@ public:
 	PackedStringArray _get_configuration_warnings() const;
 };
 
-#endif // OCEAN3D_CLASS_H
+#endif // PASTURE3D_OCEAN_CLASS_H

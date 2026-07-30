@@ -1,6 +1,6 @@
 # Pasture3D Water Bodies — Phase 2 exit gate (spec §11, PASTURE3D_WATER_BODIES_SPEC.md).
 #
-# Phase 2 extracts the ocean out of Pasture3D into Ocean3D and narrows
+# Phase 2 extracts the ocean out of Pasture3D into Pasture3DOcean and narrows
 # Pasture3DMesher's dependency on its owner to a six-method interface. It is a
 # REFACTOR: a refactor that changes a pixel or a millisecond has a bug in it.
 #
@@ -41,15 +41,33 @@ const MS_TOLERANCE_ABS := 0.01
 # should be near-identical. For scale: the high vs low tier delta measured 0.0259.
 const CAPTURE_TOLERANCE := 0.002
 
-# Configs whose frame time is a documented, accepted anomaly rather than a
-# comparison against the frozen reference. Only ocean_high_pitch4: +0.034 ms over
-# the reference for a bit-identical image, at the near-horizon angle, cause not
-# isolatable by black-box timing (spec §11.3). Compared against this accepted value
-# with the normal band, so a genuine future regression past it still fails.
+# Configs whose frame time is compared against a documented accepted value rather
+# than against the frozen reference. Only ocean_high_pitch4: it reads ~0.222 ms
+# against the reference's 0.189 on every run so far, for a BIT-IDENTICAL image.
+# Compared against the accepted value with the normal band, so a genuine regression
+# past it still fails.
+#
+# IMPORTANT (spec §11.3): the deviation is intermittent and NOT specific to this
+# config -- it has also landed on ocean_high_pitch20, and on some runs no config
+# deviates at all. Within a run the repeats are tight, so a bad run looks
+# convincingly stable. If this gate fails on FRAME TIME ALONE while every capture
+# reads 0.000000, RE-RUN IT before believing it; only a deviation that reproduces on
+# the same config across consecutive runs is real.
 const ACCEPTED_MS := {"ocean_high_pitch4": 0.222}
 
 var _fail := 0
 var _out_dir := ""
+
+# Set SKIP_TIMING=1 to run the correctness criteria without the frame-time pass.
+#
+# Frame times are only meaningful on an otherwise-idle machine, and this one is not
+# always idle -- another engine runs on it. The correctness criteria (pixel identity,
+# the no-terrain ocean, the cull volume, migration) are all load-independent, so they
+# are worth running on their own after a refactor. A skipped run prints SKIPPED for
+# every timing line and does not report PASS, because a gate that quietly drops a
+# criterion and still says PASS is the failure mode bench-gate practice exists to
+# prevent.
+var _skip_timing := false
 var _ref = null
 
 
@@ -63,6 +81,7 @@ func _ready() -> void:
 	add_child(bail)
 	bail.start()
 
+	_skip_timing = OS.get_environment("SKIP_TIMING") != ""
 	_out_dir = OS.get_environment("BENCH_OUT")
 	if _out_dir == "":
 		_out_dir = "user://"
@@ -88,13 +107,18 @@ func _ready() -> void:
 	_gate_d_migration()
 
 	print("")
-	print("=== PHASE 2 GATE %s ===" % ("PASS" if _fail == 0 else "FAIL (%d)" % _fail))
+	var verdict := "FAIL (%d)" % _fail
+	if _fail == 0:
+		# Never PASS on a partial run. A gate that drops a criterion and still says
+		# PASS is exactly the false green the bench practice notes warn about.
+		verdict = "PASS (CORRECTNESS ONLY -- timing skipped)" if _skip_timing else "PASS"
+	print("=== PHASE 2 GATE %s ===" % verdict)
 	get_tree().quit(0 if _fail == 0 else 1)
 
 
 # ---- A: neutrality -------------------------------------------------------------
 # The whole claim of this phase. Same six ocean configurations and the same terrain
-# clipmap the reference recorded, rebuilt on Ocean3D, compared on frame time and on
+# clipmap the reference recorded, rebuilt on Pasture3DOcean, compared on frame time and on
 # pixels.
 #
 # The terrain half is not optional and is the half nobody would think to check: §6.2
@@ -135,7 +159,11 @@ func _gate_a_neutral() -> void:
 			var root := _make_world(Vector3(0, 30, 0), pitch)
 			var ocean := _make_ocean(root, tier[1])
 			await _settle_physics(20)
-			var ms := await _measure_repeats(key)
+			var ms := 0.0
+			if _skip_timing:
+				print("    %-22s SKIPPED (timing pass disabled)" % key)
+			else:
+				ms = await _measure_repeats(key)
 
 			# Capture at the same frozen instant the reference used. The manager
 			# advances water_time every physics frame and writes it to the global, so
@@ -146,14 +174,19 @@ func _gate_a_neutral() -> void:
 			# clipmap snap is a separate _physics_process and is unaffected; the
 			# geometry is already positioned.) This is the Phase 1 lesson --
 			# freeze before capture -- applied to the capture path.
-			var manager: Node = root.get_node("Pool3DManager")
+			var manager: Node = root.get_node("Pasture3DPoolManager")
 			manager.set_physics_process(false)
 			_freeze_clock(37.5)
 			await _settle()
 			var img := _grab()
 			_screenshot(_out_dir.path_join("phase2_%s.png" % key))
 
-			if ACCEPTED_MS.has(key):
+			if _skip_timing:
+				# Counted so the "comparisons made" control below still balances --
+				# it asserts every configuration was visited, which is about coverage
+				# of the pixel comparison too, not only the timing.
+				compared += 1
+			elif ACCEPTED_MS.has(key):
 				# ocean_high_pitch4 is +0.034 ms over the frozen reference for a
 				# bit-identical image, at the near-horizon angle only, cause not
 				# isolatable by black-box timing (spec §11.3). Accepted 2026-07-29 on
@@ -219,6 +252,9 @@ func _gate_a_neutral() -> void:
 	if regions == 0:
 		_fail += 1
 		print("    !! no region data; the terrain half of A would measure an empty frame")
+	elif _skip_timing:
+		print("    terrain_clipmap        SKIPPED (timing pass disabled)")
+		compared += 1
 	else:
 		var tms := await _measure_repeats("terrain_clipmap")
 		if ref_ms.has("terrain_clipmap") and ref_ms["terrain_clipmap"] is Dictionary and \
@@ -258,16 +294,17 @@ func _gate_a_neutral() -> void:
 	# GPU still at idle clocks when it was measured first -- the reference was taken
 	# on a back-to-back second baseline run, so its GPU was already warm. This tells
 	# apart "cold GPU" from "real extra cost" without either being assumed.
-	var droot := _make_world(Vector3(0, 30, 0), -4.0)
-	_make_ocean(droot, OCEAN_HIGH)
-	await _settle_physics(20)
-	var warm_pitch4 := await _measure_repeats("ocean_high_pitch4 (warm re-measure)")
-	droot.queue_free()
-	await _settle()
-	if ref_ms.has("ocean_high_pitch4") and ref_ms["ocean_high_pitch4"] is Dictionary:
-		var ref4 := float(ref_ms["ocean_high_pitch4"]["median"])
-		print("    diagnostic: warm re-measure %.4f ms vs reference %.4f ms (%+.1f%%)" % [
-			warm_pitch4, ref4, 100.0 * (warm_pitch4 - ref4) / maxf(ref4, 1e-9)])
+	if not _skip_timing:
+		var droot := _make_world(Vector3(0, 30, 0), -4.0)
+		_make_ocean(droot, OCEAN_HIGH)
+		await _settle_physics(20)
+		var warm_pitch4 := await _measure_repeats("ocean_high_pitch4 (warm re-measure)")
+		droot.queue_free()
+		await _settle()
+		if ref_ms.has("ocean_high_pitch4") and ref_ms["ocean_high_pitch4"] is Dictionary:
+			var ref4 := float(ref_ms["ocean_high_pitch4"]["median"])
+			print("    diagnostic: warm re-measure %.4f ms vs reference %.4f ms (%+.1f%%)" % [
+				warm_pitch4, ref4, 100.0 * (warm_pitch4 - ref4) / maxf(ref4, 1e-9)])
 
 	# The control on the comparison itself.
 	var expect := PITCHES.size() * 2 + 1
@@ -280,7 +317,7 @@ func _gate_a_neutral() -> void:
 
 
 # ---- B: an ocean with no terrain (W4) ------------------------------------------
-# The point of the extraction. An Ocean3D, a manager, a camera and a light -- and
+# The point of the extraction. An Pasture3DOcean, a manager, a camera and a light -- and
 # assert there is genuinely no Pasture3D in the tree, because "it worked" would
 # otherwise be satisfied by one having been left behind.
 func _gate_b_no_terrain() -> void:
@@ -340,7 +377,7 @@ func _gate_b_no_terrain() -> void:
 
 # ---- C: cull volume without terrain data ---------------------------------------
 # The trap §6.2 names. update_aabbs() opened with IS_DATA_INIT, which early-returns
-# unless the host is a Pasture3D holding region data. An Ocean3D has neither and never
+# unless the host is a Pasture3D holding region data. An Pasture3DOcean has neither and never
 # will, so under the old guard its cull volume was never sized and the clipmap got
 # culled the moment the camera came near the water -- water spec §4.5's bug, arriving
 # through a guard nobody would look at.
@@ -446,7 +483,7 @@ func _gate_d_migration() -> void:
 	# is not script-callable and a C++ node's _get_configuration_warnings virtual does
 	# not answer has_method(), so reading the text is not reliable from GDScript.
 	# has_legacy_ocean() is exactly the state _get_configuration_warnings() keys the
-	# "predate Ocean3D" message on -- if it is true, the user is told. Testing the
+	# "predate Pasture3DOcean" message on -- if it is true, the user is told. Testing the
 	# condition rather than the wording is also less brittle than matching a sentence.
 	print("    has_legacy_ocean() (the warning's trigger): %s" % str(terrain.has_legacy_ocean()))
 	if not terrain.has_legacy_ocean():
@@ -463,13 +500,13 @@ func _gate_d_migration() -> void:
 
 	var manager = null
 	for node in _all_nodes(scene):
-		if node.get_class() == "Pool3DManager":
+		if node.get_class() == "Pasture3DPoolManager":
 			manager = node
 	print("    created: %s (%s) + %s" % [
-		ocean.name, ocean.get_class(), "Pool3DManager" if manager else "NO MANAGER"])
+		ocean.name, ocean.get_class(), "Pasture3DPoolManager" if manager else "NO MANAGER"])
 	if manager == null:
 		_fail += 1
-		print("    !! no Pool3DManager was created, so the ocean has no wave table and")
+		print("    !! no Pasture3DPoolManager was created, so the ocean has no wave table and")
 		print("       nothing drives its clock")
 
 	# Every transferred value, against the fixture.
@@ -607,9 +644,9 @@ func _make_world(p_cam_pos: Vector3, p_pitch: float) -> Node3D:
 # The reference's _make_ocean, rebuilt on the extracted nodes. Every wave knob is the
 # same number; the manager's loop_period matches what ocean_wave_loop_period was, so
 # the generated table is the one the reference recorded.
-func _make_ocean(p_root: Node3D, p_material: String) -> Ocean3D:
-	var manager := Pool3DManager.new()
-	manager.name = "Pool3DManager"
+func _make_ocean(p_root: Node3D, p_material: String) -> Pasture3DOcean:
+	var manager := Pasture3DPoolManager.new()
+	manager.name = "Pasture3DPoolManager"
 	manager.loop_period = LOOP_PERIOD
 	var profile := Pasture3DWaveProfile.new()
 	profile.profile_name = &"ocean_default"
@@ -624,8 +661,8 @@ func _make_ocean(p_root: Node3D, p_material: String) -> Ocean3D:
 	p_root.add_child(manager)
 	manager.sun_light = p_root.get_node("Sun")
 
-	var ocean := Ocean3D.new()
-	ocean.name = "Ocean3D"
+	var ocean := Pasture3DOcean.new()
+	ocean.name = "Pasture3DOcean"
 	ocean.material = load(p_material)
 	ocean.wave_profile = &"ocean_default"
 	ocean.render_layers = 1

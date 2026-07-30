@@ -114,7 +114,7 @@ uniform float wave_steepness : hint_range(0.0, 0.6, 0.01) = 0.35;
 
 // Keeps phase arguments small and precise for bodies far from the origin (§3.1).
 //
-// PER INSTANCE, not per material (WATER_BODIES_SPEC §5.4). Pool3DManager hands the
+// PER INSTANCE, not per material (WATER_BODIES_SPEC §5.4). Pasture3DPoolManager hands the
 // same material to every body sharing a (base material, wave profile) pair, so ten
 // ponds cost one material and one _waves upload -- but each of those ponds sits
 // somewhere different, and a domain origin stored on the material would force them

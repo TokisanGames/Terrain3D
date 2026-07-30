@@ -573,7 +573,7 @@ void Pasture3DMesher::update() {
 // Defaults to using the terrain parameters
 void Pasture3DMesher::update_aabbs(const real_t p_cull_margin, const Vector2 &p_height_range) {
 	// Was IS_DATA_INIT, which early-returns unless the host is a Pasture3D WITH
-	// loaded region data. An Ocean3D has no data and never will, so under the old
+	// loaded region data. An Pasture3DOcean has no data and never will, so under the old
 	// guard its cull AABBs were never updated and the whole clipmap got culled the
 	// moment the camera approached the water -- water spec §4.5's bug, reintroduced
 	// through a guard nobody would think to look at. Criterion C of the Phase 2 gate

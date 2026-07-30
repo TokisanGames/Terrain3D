@@ -1,6 +1,6 @@
 # Pasture3D Water Bodies — Phase 0 baseline (spec §11, PASTURE3D_WATER_BODIES_SPEC.md).
 #
-# Phase 2 extracts the ocean out of Pasture3D into an Ocean3D node and rewires the
+# Phase 2 extracts the ocean out of Pasture3D into a Pasture3DOcean node and rewires the
 # clipmap mesher underneath BOTH the ocean and the terrain. Its gate is "pixel- and
 # millisecond-neutral vs Phase 0", and that claim cannot be made against a memory of
 # what the ocean used to look like. This run is the record it is made against.

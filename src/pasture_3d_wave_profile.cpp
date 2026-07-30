@@ -9,7 +9,7 @@
 // Public Functions
 ///////////////////////////
 
-// Every setter emits changed(). Pool3DManager listens for it and re-uploads the
+// Every setter emits changed(). Pasture3DPoolManager listens for it and re-uploads the
 // table into the materials it has cached for this profile -- which is what makes
 // dragging a knob in the inspector move ten ponds at once, and is the only reason
 // the manager does not have to poll.

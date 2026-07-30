@@ -17,7 +17,7 @@ using namespace godot;
  * Pasture3DMesher held a `Pasture3D *` and reached through it in exactly six
  * places. Five of them are Node3D-shaped questions that have nothing to do with
  * terrain; the sixth is a default height range that only the terrain can answer.
- * Ocean3D can answer all six, so this is the entire coupling and it is small.
+ * Pasture3DOcean can answer all six, so this is the entire coupling and it is small.
  *
  * The one that mattered was NOT any of the six. update_aabbs() opened with
  * IS_DATA_INIT, which early-returns unless `_terrain->get_data()` exists -- so an

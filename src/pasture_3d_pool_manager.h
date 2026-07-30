@@ -2,13 +2,14 @@
 // The scene's water authority: wave profiles, the clock, the sun, the material cache.
 // Spec: PASTURE3D_WATER_BODIES_SPEC.md §5
 
-#ifndef POOL3D_MANAGER_CLASS_H
-#define POOL3D_MANAGER_CLASS_H
+#ifndef PASTURE3D_POOL_MANAGER_CLASS_H
+#define PASTURE3D_POOL_MANAGER_CLASS_H
 
 #include <godot_cpp/classes/directional_light3d.hpp>
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
+#include <godot_cpp/templates/vector.hpp>
 #include <godot_cpp/variant/typed_array.hpp>
 
 #include "constants.h"
@@ -43,8 +44,8 @@ using namespace godot;
  * writer too many, so Pasture3D yields whenever a manager is in the tree -- see
  * has_active_manager(). Phase 2 deletes the losing side.
  */
-class Pool3DManager : public Node3D {
-	GDCLASS(Pool3DManager, Node3D);
+class Pasture3DPoolManager : public Node3D {
+	GDCLASS(Pasture3DPoolManager, Node3D);
 	CLASS_NAME();
 
 public: // Constants
@@ -62,11 +63,16 @@ private:
 	// decide whether to drive the clock, and the answer has to be about the whole
 	// process rather than about one scene: the RenderingServer global table is
 	// process-wide, so a manager in ANY open scene is a second writer.
-	static inline int _active_managers = 0;
+	// Every manager currently in a tree, in the order they entered. A LIST and not a
+	// single pointer: managers overlap. A queue_free()d manager stays in the tree
+	// until the frame ends, so a replacement entering before it leaves would decline
+	// to take over (the slot looked occupied) and then be orphaned when the outgoing
+	// one cleared the slot -- leaving no active manager while one was plainly in the
+	// scene. Scene switching does exactly that, and the Phase 1 gate caught it.
+	static inline Vector<Pasture3DPoolManager *> _managers;
 	// The first manager to enter a tree, and the one Pasture3D adopts its clock
 	// from. A raw pointer is safe only because EXIT_TREE clears it; nothing else
 	// may hold it across a frame.
-	static inline Pool3DManager *_first_manager = nullptr;
 
 	TypedArray<Pasture3DWaveProfile> _profiles;
 	real_t _loop_period = 120.f;
@@ -99,20 +105,23 @@ protected:
 	void _notification(int p_what);
 
 public:
-	Pool3DManager();
-	~Pool3DManager();
+	Pasture3DPoolManager();
+	~Pasture3DPoolManager();
 
-	// True when any Pool3DManager is in a tree. Pasture3D consults this before
+	// True when any Pasture3DPoolManager is in a tree. Pasture3D consults this before
 	// writing the clock globals; see the class comment.
-	static bool has_active_manager() { return _active_managers > 0; }
+	static bool has_active_manager() { return !_managers.is_empty(); }
 	// The manager driving the clock, or null. Pasture3D reads its water_time so the
 	// ocean's CPU query stays on the same instant as the drawn surface.
-	static Pool3DManager *get_active_manager() { return _first_manager; }
+	static Pasture3DPoolManager *get_active_manager() {
+		return _managers.is_empty() ? nullptr : _managers[0];
+	}
+	static int get_active_manager_count() { return _managers.size(); }
 
 	// Declares water_time / water_time_period / water_sun_* on the RenderingServer
 	// if the project settings did not already. Process-global and idempotent.
 	//
-	// Static, and called by Ocean3D as well as by this node, because an ocean or a
+	// Static, and called by Pasture3DOcean as well as by this node, because an ocean or a
 	// bare MeshInstance3D with a water material can exist in a scene with no
 	// manager at all -- and a water material loaded before these exist makes Godot
 	// warn that a global "was removed at some point" and render it black until it
@@ -142,7 +151,7 @@ public:
 	Ref<Material> get_material_for(const Ref<Material> &p_base, const StringName &p_profile);
 	// Writes a profile's table into a material the caller owns. For bodies that
 	// cannot use the shared cache because they write their own uniforms into their
-	// material -- Ocean3D and its clipmap parameters are the case this exists for.
+	// material -- Pasture3DOcean and its clipmap parameters are the case this exists for.
 	void upload_profile_into(const Ref<Material> &p_material, const StringName &p_profile);
 	int get_cached_material_count() const { return _material_cache.size(); }
 	int get_upload_count() const { return _upload_count; }
@@ -164,4 +173,4 @@ public:
 	PackedStringArray _get_configuration_warnings() const;
 };
 
-#endif // POOL3D_MANAGER_CLASS_H
+#endif // PASTURE3D_POOL_MANAGER_CLASS_H

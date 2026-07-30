@@ -101,7 +101,7 @@ private:
 
 	// Ocean Mesh
 	// Ocean state left this node in Phase 2 of the water-bodies work; it lives on
-	// Ocean3D now (WATER_BODIES_SPEC §6). What remains is the holding pen for
+	// Pasture3DOcean now (WATER_BODIES_SPEC §6). What remains is the holding pen for
 	// ocean_* values found in scenes saved before that, so opening and re-saving an
 	// old scene cannot silently erase somebody's ocean before they are told.
 	Dictionary _legacy_ocean;
@@ -197,7 +197,7 @@ public:
 
 	// --- Pasture3DClipmapHost (WATER_BODIES_SPEC §6.2) ----------------------
 	// Was a direct Pasture3D* dependency inside Pasture3DMesher. Narrowed to this
-	// so Ocean3D can own a clipmap too.
+	// so Pasture3DOcean can own a clipmap too.
 	virtual bool is_clipmap_host_ready() const override { return _is_inside_world; }
 	virtual Ref<World3D> get_clipmap_world() const override { return get_world_3d(); }
 	virtual bool is_clipmap_visible() const override { return is_visible_in_tree(); }
@@ -205,8 +205,8 @@ public:
 	virtual Vector2 get_default_height_range() const override;
 
 	// --- Legacy ocean migration (§6.4) --------------------------------------
-	// Builds a Pool3DManager + Ocean3D from ocean_* properties captured out of a
-	// scene saved before Phase 2, then clears them. Returns the new Ocean3D, or
+	// Builds a Pasture3DPoolManager + Pasture3DOcean from ocean_* properties captured out of a
+	// scene saved before Phase 2, then clears them. Returns the new Pasture3DOcean, or
 	// null if there was nothing to migrate.
 	Node *migrate_ocean();
 	void discard_legacy_ocean();

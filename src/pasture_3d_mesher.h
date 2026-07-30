@@ -42,7 +42,7 @@ public: // Constants
 
 private:
 	// The owner. Was a Pasture3D *; narrowed to the six-method interface in Phase 2
-	// of the water-bodies work so Ocean3D can own one too (WATER_BODIES_SPEC §6.2).
+	// of the water-bodies work so Pasture3DOcean can own one too (WATER_BODIES_SPEC §6.2).
 	Pasture3DClipmapHost *_host = nullptr;
 	RID _scenario = RID();
 
