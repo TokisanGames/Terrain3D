@@ -507,6 +507,39 @@ func _gate_f_manager() -> void:
 		_fail += 1
 		print("    !! %d lake pools, %d pond pools" % [lake_pools.size(), pond_pools.size()])
 
+	# The fallback, when the manager has been re-profiled and the wanted name is simply absent.
+	# "Take the first" is the obvious implementation and it hands a lake the OCEAN, because
+	# ocean_default is first in the shipped order — 4.9 m of swell in a basin a few metres deep.
+	var custom := _make_manager_with(root, {"ocean_default": 137.0, "brook": 9.0, "tarn": 55.0})
+	var wide := _make_brush("Pasture3DMound", root, [[60.0, true]])   # 120 m span -> budget 60 m
+	_make_carve(wide)
+	wide.position = Vector3(-600, 0, 0)
+	await _settle()
+	var picked: StringName = wide._seed_profile_for(
+		wide.get_children().filter(func(c): return c is Path3D)[0], custom)
+	if picked == &"tarn":
+		print("    with lake_calm absent, a 120 m loop picked 'tarn' (55 m) — the longest that fits")
+	else:
+		_fail += 1
+		print("    !! the fallback picked '%s', expected 'tarn'" % picked)
+	# Control: the same call on a manager holding ONLY oversized profiles must not silently pick a
+	# fitting one — there is none — and must not error either.
+	var only_big := _make_manager_with(root, {"ocean_default": 137.0, "swell": 200.0})
+	var tiny := _make_brush("Pasture3DMound", root, [[6.0, true]])
+	_make_carve(tiny)
+	tiny.position = Vector3(-900, 0, 0)
+	await _settle()
+	var forced: StringName = tiny._seed_profile_for(
+		tiny.get_children().filter(func(c): return c is Path3D)[0], only_big)
+	if forced == &"ocean_default":
+		print("    control (nothing fits a 12 m pond): fires — falls to the shortest, 137 m")
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: picked '%s', expected the shortest" % forced)
+	custom.queue_free()
+	only_big.queue_free()
+	await _settle()
+
 	# Control: the second press must NOT create a second manager.
 	if _find_managers().size() == 1:
 		print("    control (second press reuses the manager): fires — still 1")
@@ -711,6 +744,22 @@ func _new_brush(p_class: String) -> Node3D:
 		"Pasture3DTrough": return Pasture3DTrough.new()
 	push_error("unknown brush class %s" % p_class)
 	return null
+
+
+## A DETACHED manager carrying exactly the named profiles at the given length_max values, for
+## testing the profile fallback against a manager someone has re-profiled. Parented so it is freed
+## with the fixture, but never added to the water-manager group's active slot the pools use.
+func _make_manager_with(p_root: Node3D, p_specs: Dictionary) -> Pasture3DPoolManager:
+	var m := Pasture3DPoolManager.new()
+	var profiles: Array[Pasture3DWaveProfile] = []
+	for n in p_specs:
+		var profile := Pasture3DWaveProfile.new()
+		profile.profile_name = n
+		profile.length_max = p_specs[n]
+		profiles.append(profile)
+	m.profiles = profiles
+	p_root.add_child(m)
+	return m
 
 
 ## Configure a brush to CARVE, so Add Water creates immediately rather than asking. Mound, Plow and

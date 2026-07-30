@@ -1805,13 +1805,47 @@ func _pool_name_for(p_spline: Path3D) -> String:
 ## whatever the manager does have if the wanted name is not on it, so a manager the user has
 ## re-profiled still produces water rather than a warning.
 func _seed_profile_for(p_spline: Path3D, p_manager: Node) -> StringName:
-	var want: StringName = &"lake_calm" if _spline_span(p_spline) >= POND_MAX_SPAN else &"pond_still"
+	var span := _spline_span(p_spline)
+	var want: StringName = &"lake_calm" if span >= POND_MAX_SPAN else &"pond_still"
 	if p_manager == null or not p_manager.has_method("has_profile"):
 		return want
 	if p_manager.has_profile(want):
 		return want
+	return _closest_profile_for(span, p_manager, want)
+
+
+## The best available profile for a body this wide, when the wanted one is not on the manager.
+##
+## NOT simply the first: on a manager re-profiled to, say, [ocean_default, river_flow], "first" hands
+## a 150 m lake the OCEAN — 4.9 m of crest-to-trough swell in a basin a few metres deep. That is what
+## happens in practice, because ocean_default is first in the shipped order.
+##
+## The rule is physical rather than a heuristic: a wave longer than the body is wide cannot fit in
+## it. So take the LONGEST profile whose longest wave still fits across the loop, and if nothing
+## fits, the shortest available — the closest anyone can get with what the manager actually has.
+func _closest_profile_for(p_span: float, p_manager: Node, p_want: StringName) -> StringName:
 	var names: PackedStringArray = p_manager.get_profile_names()
-	return StringName(names[0]) if not names.is_empty() else want
+	if names.is_empty():
+		return p_want
+	var budget := p_span * 0.5
+	var best := ""
+	var best_len := -INF
+	var shortest := ""
+	var shortest_len := INF
+	for n in names:
+		var profile = p_manager.get_profile(n)
+		if profile == null:
+			continue
+		var l: float = profile.length_max
+		if l < shortest_len:
+			shortest_len = l
+			shortest = n
+		if l <= budget and l > best_len:
+			best_len = l
+			best = n
+	if best != "":
+		return StringName(best)
+	return StringName(shortest) if shortest != "" else StringName(names[0])
 
 
 ## The larger XZ extent of a spline's loop, in metres. Taken from the footprint box with the
