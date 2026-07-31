@@ -220,6 +220,40 @@ uniform float detail_fade_end : hint_range(0.0, 4000.0, 1.0) = 800.0;
 group_uniforms;
 #endif
 
+#ifdef WATER_FLOW
+// ---------------------------------------------------------------------------
+// Flow (spec §10). River variant only.
+// ---------------------------------------------------------------------------
+//
+// The detail layers advect along a PER-VERTEX direction carried in ARRAY_COLOR
+// instead of the fixed detail_flow0/1 vectors, so the surface texture runs with
+// the channel through every bend.
+//
+// A plain scroll along a direction that varies per vertex shears the texture at
+// every bend and keeps shearing, without bound. The fix is the standard flow-map
+// scheme: two copies of the layer, offset by half a period each and cross-faded
+// on the same period, so the distortion is reset before it becomes visible. Two
+// extra fetches from a texture already in cache.
+group_uniforms flow;
+// Seconds per advection cycle. Distortion grows for this long, then the
+// cross-fade hands over to a fresh copy. Longer = more coherent motion but more
+// visible smearing at the end of each cycle.
+uniform float flow_period : hint_range(0.5, 20.0, 0.1) = 4.0;
+// Metres per second at ARRAY_COLOR.b == 1. The mesh writes a NORMALISED speed, so
+// this is the reference the normalisation was against and the two must agree --
+// Pasture3DPool writes b = speed / FLOW_SPEED_REF with the same 8.0.
+uniform float flow_speed_scale : hint_range(0.0, 20.0, 0.1) = 8.0;
+// Quantise flow_period so a whole number of cycles fits in water_time_period.
+//
+// Without this the cross-fade is mid-hand-over when water_time wraps and the
+// surface visibly jumps, exactly as an unquantised scroll rate does -- the same
+// constraint water_scroll() documents, applied to a second clock. Exposed rather
+// than hardcoded so the seam can be demonstrated: the Phase 7 gate turns it off
+// as its control and requires the seam to appear.
+uniform bool flow_quantise = true;
+group_uniforms;
+#endif
+
 #ifdef WATER_DEPTH_FADE
 uniform sampler2D depth_texture : hint_depth_texture, filter_nearest;
 #endif
@@ -295,6 +329,14 @@ varying float v_view_dist;
 // the triangle.
 varying float v_base_y;
 
+#ifdef WATER_FLOW
+// Per-vertex flow, decoded from ARRAY_COLOR in the vertex stage: xy is the
+// normalised XZ direction the water runs, z is speed normalised against
+// flow_speed_scale. A loop pool writes a neutral colour, so its flow is a zero
+// vector and the river shader degrades to a still surface rather than misbehaving.
+varying vec3 v_flow;
+#endif
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -328,5 +370,29 @@ vec2 water_scroll(vec2 p_uv_per_second) {
 	float period = max(water_time_period, 1e-3);
 	return round(p_uv_per_second * period) * (water_time / period);
 }
+
+#ifdef WATER_FLOW
+/**
+ * The flow cycle length actually used, snapped so a whole number of cycles fits
+ * in water_time_period.
+ *
+ * Same problem and same fix as water_scroll() above, one clock down: the flow
+ * cross-fade has its own period, and if that period does not divide the wave
+ * clock's then the hand-over is caught mid-way when water_time wraps and the
+ * whole surface jumps. Rounding the CYCLE COUNT and dividing back out moves the
+ * period by at most half a cycle -- at the default 4 s in 120 s, under 2%.
+ *
+ * Clamped to at least one cycle: a flow period longer than the whole loop cannot
+ * both advect and loop, and freezing is less wrong than jumping.
+ */
+float water_flow_period() {
+	if (!flow_quantise) {
+		return max(flow_period, 1e-3);
+	}
+	float clock = max(water_time_period, 1e-3);
+	float cycles = max(round(clock / max(flow_period, 1e-3)), 1.0);
+	return clock / cycles;
+}
+#endif
 
 #endif // WATER_COMMON_INC

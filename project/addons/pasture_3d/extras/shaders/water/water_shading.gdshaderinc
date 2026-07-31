@@ -70,11 +70,39 @@ void fragment() {
 	// second layer costs little more than the first. Mip filtering is the
 	// anti-aliasing here -- hardware trilinear is a correct prefilter, which is
 	// what the legacy shader's widened finite-difference stencil never was.
+#ifdef WATER_FLOW
+	// Advected along the per-vertex flow direction (spec §10), cross-faded between
+	// two half-period-offset copies so the shear a varying direction produces is
+	// reset before it becomes visible.
+	//
+	// The weight is triangular: |1 - 2*phase| is 1 when a copy has just been reset
+	// (zero distortion) and 0 when it is half a cycle old (maximum distortion), so
+	// each copy is at full weight exactly when it is freshest. The two copies are
+	// half a period apart, so one is always near its reset.
+	float flow_len = water_flow_period();
+	float flow_phase = fract(water_time / flow_len);
+	float flow_phase_b = fract(flow_phase + 0.5);
+	float flow_blend = abs(1.0 - 2.0 * flow_phase);
+	// Metres of travel, converted to UV by the same scale the layer is sampled at.
+	vec2 flow_step = v_flow.xy * (v_flow.z * flow_speed_scale) * flow_len;
+
+	vec2 uv0a = (domain - flow_step * flow_phase) * detail_scale0;
+	vec2 uv0b = (domain - flow_step * flow_phase_b) * detail_scale0;
+	vec2 detail = mix(texture(detail_deriv, uv0b).rg, texture(detail_deriv, uv0a).rg,
+		flow_blend) * 2.0 - 1.0;
+#if WATER_DETAIL_LAYERS > 1
+	vec2 uv1a = (domain - flow_step * flow_phase) * detail_scale1;
+	vec2 uv1b = (domain - flow_step * flow_phase_b) * detail_scale1;
+	detail += mix(texture(detail_deriv, uv1b).rg, texture(detail_deriv, uv1a).rg,
+		flow_blend) * 2.0 - 1.0;
+#endif
+#else
 	vec2 uv0 = domain * detail_scale0 - water_scroll(detail_flow0 * detail_scale0);
 	vec2 detail = texture(detail_deriv, uv0).rg * 2.0 - 1.0;
 #if WATER_DETAIL_LAYERS > 1
 	vec2 uv1 = domain * detail_scale1 - water_scroll(detail_flow1 * detail_scale1);
 	detail += texture(detail_deriv, uv1).rg * 2.0 - 1.0;
+#endif
 #endif
 
 	slope += detail * (detail_strength * detail_fade);
@@ -172,8 +200,18 @@ void fragment() {
 	// Also free: thickness came out of the depth fetch above.
 	foam += (1.0 - smoothstep(0.0, foam_shore_depth, thickness)) * foam_shore_amount;
 #endif
+#ifdef WATER_FLOW
+	// Shore foam on a river streaks downstream rather than sitting still, so it
+	// rides the same advection the detail layers do -- one texture, one flow, one
+	// cross-fade, sampled at the foam scale.
+	vec2 foam_uv_a = (domain - flow_step * flow_phase) * foam_scale;
+	vec2 foam_uv_b = (domain - flow_step * flow_phase_b) * foam_scale;
+	foam = clamp(foam, 0.0, 1.0) * mix(texture(foam_tex, foam_uv_b).r,
+		texture(foam_tex, foam_uv_a).r, flow_blend);
+#else
 	foam = clamp(foam, 0.0, 1.0) * texture(foam_tex,
 		domain * foam_scale - water_scroll(detail_flow0 * foam_scale)).r;
+#endif
 
 	albedo = mix(albedo, foam_color, foam);
 	roughness = mix(roughness, foam_roughness, foam);

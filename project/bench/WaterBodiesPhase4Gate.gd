@@ -164,8 +164,10 @@ func _gate_a_button_binds() -> void:
 		root.queue_free()
 		await _settle()
 
-	# Control: an OPEN curve is a river, and ribbon water is Phase 7. If this also produced a pool
-	# then everything above is measuring "the button always makes a node".
+	# Control: the button READS THE CURVE rather than always doing the same thing. Since Phase 7 an
+	# open spline is a river, so the control is no longer "nothing happens" -- it is that something
+	# DIFFERENT happens: a ribbon, on the river preset, not a lake. And a spline too short to be
+	# either still produces nothing, which is what keeps "a pool appeared" from being unconditional.
 	var croot := _make_world()
 	_make_manager(croot)
 	var open_brush := _make_brush("Pasture3DRidge", croot, [[30.0, false]])
@@ -173,12 +175,34 @@ func _gate_a_button_binds() -> void:
 	await _settle()
 	var open_pools: Array = open_brush.add_pool()
 	await _settle()
-	if open_pools.is_empty():
-		print("    control (open curve -> no pool): fires")
+	if open_pools.size() == 1 and open_pools[0].is_ribbon():
+		print("    control (open curve -> a RIBBON, not a loop): fires — %s" % open_pools[0].name)
 	else:
 		_fail += 1
-		print("    !! control did NOT fire: an open spline produced %d pool(s)" % open_pools.size())
+		print("    !! control did NOT fire: %d pool(s), ribbon=%s" % [open_pools.size(),
+			open_pools[0].is_ribbon() if not open_pools.is_empty() else "n/a"])
 	croot.queue_free()
+	await _settle()
+
+	# The second half of that control: a one-point spline is neither a loop nor a river.
+	var sroot := _make_world()
+	_make_manager(sroot)
+	var stub := _make_brush("Pasture3DRidge", sroot, [])
+	_make_carve(stub)
+	var path := Path3D.new()
+	var one := Curve3D.new()
+	one.add_point(Vector3.ZERO)
+	path.curve = one
+	stub.add_child(path)
+	await _settle()
+	var stub_pools: Array = stub.add_pool()
+	await _settle()
+	if stub_pools.is_empty():
+		print("    control (a one-point spline -> no pool): fires")
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: a one-point spline produced %d pool(s)" % stub_pools.size())
+	sroot.queue_free()
 	await _settle()
 	_completed += 1
 

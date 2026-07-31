@@ -1550,6 +1550,9 @@ const WATER_MANAGER_GROUP: StringName = &"pasture3d_water_manager"
 ## waves looks wrong before the user has touched anything. A starting point only: nothing
 ## re-derives it, so resizing the loop later never moves the profile out from under the user.
 const POND_MAX_SPAN: float = 40.0
+## The river preset. Not one of Pasture3DPool's Lake/Pond enum entries, because it is not
+## drop-anywhere: it reads a flow direction out of ARRAY_COLOR that only a ribbon mesh writes.
+const RIVER_MATERIAL := "res://addons/pasture_3d/extras/shaders/water/M_water_river.tres"
 
 ## The Add Water confirmation currently on screen for this brush, if any. See _prompt_add_pool.
 var _pool_dialog: ConfirmationDialog = null
@@ -1587,17 +1590,18 @@ func add_pool_now() -> Array:
 	for s in _get_splines():
 		if pool_for_spline(s) != null:
 			continue
-		# Read the CURVE's closed flag, not the brush class: a Mound whose loop the user opened
-		# behaves as the curve says. An open spline is a river, and ribbon water is Phase 7 — so
-		# say so rather than filling the wedge between its endpoints and calling it a lake.
-		if s.curve == null or not s.curve.closed or s.curve.point_count < 3:
+		# The CURVE decides which kind of water this is, not the brush class: closed fills as a
+		# lake, open becomes a river ribbon (§7.3). A Mound whose loop the user opened is a river,
+		# and a Trough they closed is a moat, without either of them saying so anywhere else.
+		var pts: int = s.curve.point_count if s.curve != null else 0
+		var closed: bool = s.curve != null and s.curve.closed
+		if pts < 2 or (closed and pts < 3):
 			skipped.append(String(s.name))
 			continue
 		targets.append(s)
 	if not skipped.is_empty():
-		push_warning(("Pasture3D: no water added to %s — only closed loops can be filled. "
-			+ "Ribbon (river) water is not built yet; close the curve to fill it as a loop.")
-			% ", ".join(skipped))
+		push_warning(("Pasture3D: no water added to %s — a loop needs at least 3 points and a "
+			+ "river at least 2.") % ", ".join(skipped))
 	if targets.is_empty():
 		return []
 
@@ -1784,6 +1788,20 @@ func _build_pool_for(p_spline: Path3D, p_manager: Node) -> Node:
 	var pool: Node = script.new()
 	pool.name = _pool_name_for(p_spline)
 	pool.source_spline = p_spline
+	var is_river: bool = p_spline.curve != null and not p_spline.curve.closed
+	if is_river:
+		# A river gets the river profile and the river shader, and its width comes from the channel
+		# the brush carved — a Trough already knows how wide its bed is, so asking the user again
+		# would be asking them to repeat themselves.
+		pool.wave_profile = _seed_river_profile(p_manager)
+		pool.water_preset = 2 # Custom: the river preset is not one of the two enum entries
+		pool.material = load(RIVER_MATERIAL)
+		var bed = get("bed_half_width")
+		if bed != null:
+			pool.ribbon_half_width = float(bed)
+		if p_manager != null:
+			pool.manager = p_manager
+		return pool
 	pool.wave_profile = _seed_profile_for(p_spline, p_manager)
 	# Match the material to the sea state rather than leaving a pond on the lake preset: the pond
 	# variant is a genuinely cheaper shader, not the lake one tinted differently.
@@ -1846,6 +1864,16 @@ func _closest_profile_for(p_span: float, p_manager: Node, p_want: StringName) ->
 	if best != "":
 		return StringName(best)
 	return StringName(shortest) if shortest != "" else StringName(names[0])
+
+
+## The starting profile for a river. `river_flow` if the manager has it, else the shortest-waved
+## profile it does have — a channel a few metres across must not be handed ocean swell.
+func _seed_river_profile(p_manager: Node) -> StringName:
+	if p_manager == null or not p_manager.has_method("has_profile"):
+		return &"river_flow"
+	if p_manager.has_profile(&"river_flow"):
+		return &"river_flow"
+	return _closest_profile_for(0.0, p_manager, &"river_flow")
 
 
 ## The larger XZ extent of a spline's loop, in metres. Taken from the footprint box with the

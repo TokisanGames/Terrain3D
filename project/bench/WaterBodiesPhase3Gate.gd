@@ -433,7 +433,7 @@ func _gate_f_mesher_parity() -> void:
 			float(native_stats["ms"]),
 			float(gd_stats["ms"]) / maxf(float(native_stats["ms"]), 0.001)])
 		if diff == "":
-			print("    -> identical: every vertex, index and UV")
+			print("    -> identical: every vertex, index, UV and flow colour")
 		else:
 			_fail += 1
 			print("    !! they differ: %s" % diff)
@@ -467,6 +467,7 @@ func _surface_arrays(p_pool: Node) -> Dictionary:
 				"verts": a[Mesh.ARRAY_VERTEX],
 				"uvs": a[Mesh.ARRAY_TEX_UV],
 				"indices": a[Mesh.ARRAY_INDEX],
+				"colours": a[Mesh.ARRAY_COLOR],
 			}
 	return {}
 
@@ -489,6 +490,20 @@ func _compare_arrays(p_a: Dictionary, p_b: Dictionary) -> String:
 	for i in au.size():
 		if au[i] != bu[i]:
 			return "uv %d: %v vs %v" % [i, au[i], bu[i]]
+	# Colours carry the flow vector (§10). The native mesher was writing none at all, which the
+	# river shader decodes as white -> a diagonal at full speed, so this is compared like the rest.
+	var ac = p_a["colours"]
+	var bc = p_b["colours"]
+	if (ac == null) != (bc == null):
+		return "one side has vertex colours and the other does not"
+	if ac != null:
+		var acp: PackedColorArray = ac
+		var bcp: PackedColorArray = bc
+		if acp.size() != bcp.size():
+			return "colour counts %d vs %d" % [acp.size(), bcp.size()]
+		for i in acp.size():
+			if acp[i] != bcp[i]:
+				return "colour %d: %s vs %s" % [i, acp[i], bcp[i]]
 	var ai: PackedInt32Array = p_a["indices"]
 	var bi: PackedInt32Array = p_b["indices"]
 	if ai.size() != bi.size():

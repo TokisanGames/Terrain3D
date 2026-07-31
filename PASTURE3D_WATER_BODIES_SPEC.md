@@ -783,7 +783,7 @@ nothing" from "measured well". Results are appended to this document as they are
 | **4** | Brush integration — ✅ **done 2026-07-30 (§11.5)** | `Add Water` on `Pasture3DTerrainBrush`, additive warning, undo, the manager's four shipped profiles | Button on each of Mound/Plow/Splat/Ridge/Trough produces a correctly bound pool; additive warning fires on raise-configured brushes and stays silent on carve-configured ones |
 | **5** | Underwater — ✅ **done 2026-07-30 (§11.7)**, timing pending | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
 | **6** | Pasture3DBuoy — ✅ **done 2026-07-30 (§11.9)** | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
-| **7** | Ribbon + flow | Ribbon meshing, `ARRAY_COLOR` flow, `WATER_FLOW`, `water_river.gdshader`, `M_water_river.tres` | River follows spline Y downhill; flow direction correct through a 90° bend; no seam at the clock wrap (control: an unquantised half-period, which must seam); cost delta vs lake variant |
+| **7** | Ribbon + flow — ✅ **done 2026-07-30 (§11.10)** | Ribbon meshing, `ARRAY_COLOR` flow, `WATER_FLOW`, `water_river.gdshader`, `M_water_river.tres` | River follows spline Y downhill; flow direction correct through a 90° bend; no seam at the clock wrap (control: an unquantised half-period, which must seam); cost delta vs lake variant |
 | **8** | Docs | Rewrite guide §1/§5, add a water-bodies chapter, `ocean_*` → `Pasture3DOcean` mapping table, spec bookkeeping | The quick-start for a lake is "press the button", and the old property names are all findable |
 
 Phases 1–4 are the spine. 5, 6 and 7 are independently droppable; 2 is the only one that can break an
@@ -1438,6 +1438,75 @@ allocations per tick. Now cached by instance id and dropped on tree exit.
 
 **Regression:** Phase 3 **PASS** (median 115.9 ms, and the mesher-parity criterion still reports
 identical meshes), Phase 4 **PASS**, Phase 5 **PASS**.
+
+### 11.10 Phase 7 results — measured 2026-07-30 ✅
+
+Harness: [bench/WaterBodiesPhase7Gate.tscn](project/bench/WaterBodiesPhase7Gate.tscn).
+RTX 3070 / Ryzen desktop, Godot 4.7.
+
+**Built:** ribbon meshing on `Pasture3DPool` (open curves, spline-following Y, per-row flow written
+into `ARRAY_COLOR`, an O(1) centreline cell grid for height and containment), the `WATER_FLOW`
+feature in `water_common` / `water_surface` / `water_shading`,
+[water_river.gdshader](project/addons/pasture_3d/extras/shaders/water/water_river.gdshader),
+[M_water_river.tres](project/addons/pasture_3d/extras/shaders/water/M_water_river.tres), and the
+brush button's river path (`river_flow` profile, river preset, `ribbon_half_width` from a Trough's
+`bed_half_width`).
+
+| Criterion | Result |
+|---|---|
+| A — follows the spline downhill | ✅ a 200 m channel dropping 20 m produced a ribbon whose surface descends **monotonically across 11 samples**, head −0.50 m to mouth −20.50 m, **drop 20.00 m**. Control: the same curve *closed* builds a loop, flat to 0.000 m |
+| B — flow through a 90° bend | ✅ first leg `(1.000, −0.004)`, second leg `(−0.004, 1.000)` — within **0.004** of the channel direction on both. Control: a loop pool's 6,097 vertices all decode to zero flow |
+| C — no seam at the clock wrap | ✅ 7 s asked in a 120 s clock quantises to 7.0588 s = **exactly 17 cycles**, phase discontinuity **0.000000**, and the period moved 0.8%. Control: unquantised, **0.1429 of a cycle** of discontinuity |
+| D — a boat on a river | ✅ `body_at` finds the river at −2.51 m upstream and −18.45 m downstream; a 400 kg boat over the downstream reach settled at **−18.77 m against a predicted −18.78**. Control: 60 m to the side at the same depth is dry |
+| E — river vs lake cost | ✅ lake **0.1450 ms**, river **0.1550 ms** — **+0.010 ms, +7%**, 0% spread across three interleaved passes |
+
+**Criterion A is sampled along the channel, not at its ends**, because a mesh that took the first
+row's Y and one that interpolated between the endpoints would both pass an ends-only check and
+neither would follow the spline.
+
+**Criterion C tests the arithmetic the shader runs rather than a render.** `water_flow_period()` is a
+pure function of two uniforms and the seam is exactly "does a whole number of cycles fit in
+`water_time_period`" — the same constraint `water_scroll()` documents for the scrolled layers, one
+clock down. `flow_quantise` is exported so the control can switch it off and show the discontinuity,
+rather than the seamlessness being an unfalsifiable claim.
+
+**Criterion E's first version measured nothing useful, and the failure is instructive.** It measured
+the lake, then the river, once. It reported **+112% on one run and +8% on the next** — the river was
+second, so on a fresh shader cache it paid for its own compilation inside the samples, and on the
+next run it did not. Nothing about the shader had changed. The criterion now **interleaves** the two
+variants across four passes, discards the first entirely, warms 30 frames inside each measurement,
+and prints the pass-to-pass spread so a repeat of that problem is visible instead of silently
+halving the answer. With that, both arms report 0% spread and the delta reproduces across processes:
+**+7% / +8%**.
+
+So §10's estimate holds: the water spec's four-fetch budget becomes six for rivers, and six costs
+about a tenth of a millisecond more than four at this resolution.
+
+**A real gap the gate found.** The **native** mesher was not writing `ARRAY_COLOR` at all — only the
+GDScript one was. Godot supplies white for a mesh with no colours, which the river shader decodes as
+a flow direction of `(1,1)` **at full speed**, so the river material on any natively-built lake would
+have slid its texture diagonally forever. Phase 3's mesher-parity criterion now compares colours too,
+which is what would have caught it a phase earlier.
+
+**A cost this phase added, stated rather than buried:** loop pools now carry a neutral `ARRAY_COLOR`,
+one `Color` per vertex, and Phase 3's 500 m lake build moved from a **116 ms median to 159 ms**.
+§10 says the flow feature "costs nothing on loop pools which write a neutral colour"; that is true of
+the *fragment* cost and false of the *build* cost, by about 40 ms for 168 k vertices. Still well
+inside the 500 ms budget. The alternative — an instance uniform zeroing the flow, so lakes carry no
+per-vertex colour at all — is cheaper and is the change to make if that budget ever gets tight.
+
+**A gate bug worth recording**, because it cost a hung process: the parse-check in the run command
+was piped through `tail`, so `&&` saw *tail's* exit status and launched the scene despite a parse
+error. A GDScript parse error does not fail fast — the window opens and spins until it is killed.
+Check the exit status of the checker, not of whatever formats its output.
+
+**Regression:** Phase 3 **PASS** (parity now includes flow colours), Phase 4 **PASS**, Phase 5
+**PASS**, Phase 6 **PASS**.
+
+**Phase 4's control had to change, and correctly so.** It asserted that an open spline produces *no*
+pool — right when it was written, wrong the moment ribbons existed. It now asserts that an open
+spline produces something **different**: a ribbon rather than a loop. The "not unconditional" half of
+that control moved to a one-point spline, which is neither.
 
 ---
 

@@ -56,6 +56,14 @@ void vertex() {
 	v_jacobian = wave.jacobian;
 	v_view_dist = length(wave.position - CAMERA_POSITION_WORLD);
 
+#ifdef WATER_FLOW
+	// Decoded here rather than in the fragment stage: it is per-vertex data and
+	// interpolating the decoded value is what makes the direction turn smoothly
+	// through a bend instead of stepping at every row. rg is the XZ direction
+	// remapped from [-1,1], b the normalised speed (spec §10).
+	v_flow = vec3(COLOR.rg * 2.0 - 1.0, COLOR.b);
+#endif
+
 	VERTEX = (VIEW_MATRIX * vec4(wave.position, 1.0)).xyz;
 	NORMAL = normalize(mat3(VIEW_MATRIX) * wave.normal);
 }

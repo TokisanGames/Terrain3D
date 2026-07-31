@@ -737,11 +737,25 @@ Ref<ArrayMesh> Pasture3DUtil::build_pool_mesh(const PackedVector2Array &p_poly, 
 		}
 	}
 
+	// Neutral flow (spec §10). A loop pool does not flow, but it must still SAY so: the river
+	// shader decodes ARRAY_COLOR.rg as a direction remapped from [-1,1], and a mesh with no colours
+	// reads white, which decodes to a diagonal at full speed. (0.5, 0.5, 0) is the zero vector.
+	// The GDScript mesher writes the same thing, and Phase 3's parity criterion compares them.
+	PackedColorArray colours;
+	colours.resize(verts.size());
+	{
+		Color *cw = colours.ptrw();
+		for (int i = 0; i < colours.size(); i++) {
+			cw[i] = Color(0.5f, 0.5f, 0.f, 1.f);
+		}
+	}
+
 	Array arrays;
 	arrays.resize(Mesh::ARRAY_MAX);
 	arrays[Mesh::ARRAY_VERTEX] = verts;
 	arrays[Mesh::ARRAY_NORMAL] = normals;
 	arrays[Mesh::ARRAY_TEX_UV] = uvs;
+	arrays[Mesh::ARRAY_COLOR] = colours;
 	arrays[Mesh::ARRAY_INDEX] = indices;
 	mesh.instantiate();
 	mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);

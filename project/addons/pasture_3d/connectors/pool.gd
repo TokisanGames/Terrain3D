@@ -31,6 +31,13 @@ const REFRESH_DELAY: float = 0.1
 ## mistake -- almost always a metre-scale spacing over a kilometre-scale loop -- and
 ## silently building it locks the editor for minutes.
 const MAX_VERTICES: int = 400000
+## The speed ARRAY_COLOR.b == 1 means, in m/s. Must match water_river.gdshader's flow_speed_scale
+## default: the mesh normalises against this and the shader multiplies back by it, so a disagreement
+## is a river that flows at the wrong rate with nothing to point at.
+const FLOW_SPEED_REF: float = 8.0
+## Vertex colour for water that does not flow. Decodes to a zero direction and zero speed, so the
+## river shader on a lake stands still rather than sliding diagonally.
+const FLOW_NEUTRAL := Color(0.5, 0.5, 0.0, 1.0)
 
 # --- Source -------------------------------------------------------------------
 
@@ -83,6 +90,25 @@ const MAX_VERTICES: int = 400000
 @export var vertex_spacing: float = 0.0:
 	set(v):
 		vertex_spacing = maxf(v, 0.0)
+		_schedule_rebuild()
+## Half-width of a RIBBON (open curve) surface, in metres, before edge_offset is added on each
+## side. Ignored by loop pools. Seeded from a Trough's bed_half_width when the button creates it.
+@export var ribbon_half_width: float = 4.0:
+	set(v):
+		ribbon_half_width = maxf(v, 0.1)
+		_schedule_rebuild()
+## Metres per second the surface texture is advected downstream on a ribbon. Written into
+## ARRAY_COLOR.b, normalised against FLOW_SPEED_REF, and read by water_river.gdshader. It moves the
+## texture, not the water: nothing is simulated and no buoy is pushed by it.
+@export var flow_speed: float = 1.5:
+	set(v):
+		flow_speed = maxf(v, 0.0)
+		_schedule_rebuild()
+## How much a downhill gradient adds to that speed. 0 = uniform along the channel; higher makes
+## steep reaches read as rapids. A per-row scalar, so one river can have both.
+@export var flow_slope_gain: float = 3.0:
+	set(v):
+		flow_slope_gain = maxf(v, 0.0)
 		_schedule_rebuild()
 ## Force the GDScript reference mesher even when the native one is available. The two are
 ## transcriptions of each other and are meant to agree exactly, so this is the A/B switch —
@@ -194,6 +220,15 @@ var _mask := PackedByteArray()
 var _mask_gw := 0
 var _mask_gh := 0
 var _mask_spacing := 0.0
+## Ribbon mode only: the sampled centreline in LOCAL space (x, y, z per row) and the per-row flow
+## speed, kept so height queries and containment do not re-bake the curve. See _ribbon_height_at.
+var _ribbon_rows := PackedVector3Array()
+var _ribbon_speed := PackedFloat32Array()
+## Cell -> nearest centreline row index, over _poly_bounds at _mask_spacing. -1 = not on the river.
+## The ribbon's answer to what the mask is for a loop: it turns "which row am I near" from a scan
+## over every row into an array lookup.
+var _ribbon_cell := PackedInt32Array()
+var _is_ribbon := false
 
 var _volume: Area3D = null
 var _volume_shape: CollisionShape3D = null
@@ -479,6 +514,17 @@ func rebuild() -> Dictionary:
 
 	var spacing := _effective_spacing()
 	_last_stats["spacing"] = spacing
+
+	# Mode is read off the CURVE's closed flag, not off the brush class or a toggle of our own
+	# (§7.8 step 4), so a Mound whose loop the user opened becomes a river and a Trough whose
+	# channel they closed becomes a moat, both without touching anything here.
+	var src := _source_curve()
+	_is_ribbon = src != null and not src.closed and src.point_count >= 2
+	if _is_ribbon:
+		return _rebuild_ribbon(spacing)
+	_ribbon_rows = PackedVector3Array()
+	_ribbon_cell = PackedInt32Array()
+
 	var poly := _offset_polygon(_local_polygon(spacing))
 	# Cache it. Every containment question — the camera poll, the Area3D re-filter, a buoy asking
 	# which body it is in — needs this same polygon, and rebuilding it per query means re-baking the
@@ -639,9 +685,19 @@ func _build_mesh_gdscript(poly: PackedVector2Array, mn: Vector2, spacing: float,
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_INDEX] = indices
+	arrays[Mesh.ARRAY_COLOR] = _neutral_colours(verts.size())
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+## A flow colour that decodes to "no flow", one per vertex. Loop pools write this so the river
+## shader is inert on a lake instead of sliding its texture diagonally (§10).
+func _neutral_colours(p_count: int) -> PackedColorArray:
+	var out := PackedColorArray()
+	out.resize(p_count)
+	out.fill(FLOW_NEUTRAL)
+	return out
 
 
 func _grid_vert(p_map: Dictionary, p_verts: PackedVector3Array, p_uvs: PackedVector2Array,
@@ -689,6 +745,249 @@ func _apply_cull_box(p_min: Vector2, p_max: Vector2) -> void:
 			amp = maxf(profile.get_amplitude_sum(), 0.1)
 	var size := Vector3(p_max.x - p_min.x, amp * 2.0, p_max.y - p_min.y)
 	_surface.custom_aabb = AABB(Vector3(p_min.x, -amp, p_min.y), size)
+
+
+# ---- ribbon mode (spec §7.3, §10) --------------------------------------------
+
+## Build the surface for an OPEN curve: a river rather than a lake.
+##
+## The two modes differ in more than outline. A loop is a flat sheet at the node's Y, clipped to a
+## polygon; a ribbon FOLLOWS THE SPLINE'S OWN Y (§7.2), because rivers run downhill and a flat one
+## reads as a canal cut through the hillside. So the mesh here carries real Y per row, and every
+## height query has to ask the centreline rather than return one number.
+func _rebuild_ribbon(p_spacing: float) -> Dictionary:
+	var t0 := Time.get_ticks_usec()
+	var centre := _ribbon_centreline(p_spacing)
+	if centre.size() < 2:
+		_clear_surface()
+		_ribbon_rows = PackedVector3Array()
+		_ribbon_cell = PackedInt32Array()
+		_last_stats["reason"] = "the curve has no usable length"
+		update_configuration_warnings()
+		return _last_stats
+	_ribbon_rows = centre
+
+	var half := ribbon_half_width + edge_offset
+	# Columns across the channel at the same spacing as along it, so the surface is not stretched in
+	# one axis -- the detail normals are derived from world position and a stretched grid shows.
+	var cols := maxi(int(ceil((half * 2.0) / p_spacing)) + 1, 2)
+	var rows := centre.size()
+	if rows * cols > MAX_VERTICES:
+		_clear_surface()
+		_last_stats["reason"] = "would exceed %d vertices at %.2f m spacing" % [
+			MAX_VERTICES, p_spacing]
+		update_configuration_warnings()
+		return _last_stats
+
+	var verts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var colours := PackedColorArray()
+	var indices := PackedInt32Array()
+	verts.resize(rows * cols)
+	uvs.resize(rows * cols)
+	colours.resize(rows * cols)
+
+	var mn := Vector2(INF, INF)
+	var mx := Vector2(-INF, -INF)
+	for r in rows:
+		var c: Vector3 = centre[r]
+		var tangent := _ribbon_tangent(centre, r)
+		# Perpendicular in XZ. Y is deliberately not rotated into: the surface stays horizontal
+		# across the channel and only its centreline descends, which is what water does.
+		var side := Vector2(-tangent.y, tangent.x)
+		var speed: float = _ribbon_speed[r]
+		var col := Color(
+			tangent.x * 0.5 + 0.5, tangent.y * 0.5 + 0.5,
+			clampf(speed / FLOW_SPEED_REF, 0.0, 1.0), 1.0)
+		for k in cols:
+			var t := float(k) / float(cols - 1)
+			var off := lerpf(-half, half, t)
+			var x := c.x + side.x * off
+			var z := c.z + side.y * off
+			var i := r * cols + k
+			verts[i] = Vector3(x, c.y, z)
+			uvs[i] = Vector2(x, z)
+			colours[i] = col
+			mn = Vector2(minf(mn.x, x), minf(mn.y, z))
+			mx = Vector2(maxf(mx.x, x), maxf(mx.y, z))
+	for r in rows - 1:
+		for k in cols - 1:
+			var a := r * cols + k
+			var b := a + 1
+			var cc := (r + 1) * cols + k
+			var d := cc + 1
+			# Same winding as the loop mesher: CCW seen from above.
+			indices.append_array([a, cc, b, b, cc, d])
+
+	var normals := PackedVector3Array()
+	normals.resize(verts.size())
+	normals.fill(Vector3.UP)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_COLOR] = colours
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
+	_poly_bounds = Rect2(mn, mx - mn)
+	_poly_cache = PackedVector2Array() # a ribbon has no polygon; containment is the cell grid
+	_mask = PackedByteArray()
+	_mask_spacing = p_spacing
+	_build_ribbon_cells(p_spacing, half)
+
+	_ensure_surface()
+	_surface.mesh = mesh
+	_apply_material()
+	_apply_cull_box(mn, mx)
+	_rebuild_volume()
+
+	_last_stats["ok"] = true
+	_last_stats["native"] = false # ribbon meshing is O(rows x cols); there is no native path yet
+	_last_stats["ribbon"] = true
+	_last_stats["vertices"] = verts.size()
+	_last_stats["triangles"] = indices.size() / 3
+	_last_stats["ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
+	update_configuration_warnings()
+	update_gizmos()
+	return _last_stats
+
+
+## The centreline, sampled at uniform ARC LENGTH in this node's local space, with the per-row flow
+## speed filled in alongside.
+##
+## fill_offset is applied here, once, so every row carries the level it will be drawn at and no
+## other code has to remember to add it.
+func _ribbon_centreline(p_spacing: float) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	_ribbon_speed = PackedFloat32Array()
+	var src := _source_curve()
+	if src == null or src.point_count < 2:
+		return out
+	var xf := Transform3D()
+	if curve == null and source_spline != null and is_instance_valid(source_spline):
+		xf = global_transform.affine_inverse() * source_spline.global_transform
+	var baked := src.get_baked_points()
+	if baked.size() < 2:
+		return out
+
+	var step := maxf(p_spacing, 0.25)
+	var last := Vector3.INF
+	for p in baked:
+		var lp: Vector3 = xf * p
+		lp.y += fill_offset
+		if last == Vector3.INF or Vector2(lp.x - last.x, lp.z - last.z).length() >= step:
+			out.append(lp)
+			last = lp
+	# Always keep the final point, or the river stops short of where the spline ends.
+	var final_p: Vector3 = xf * baked[baked.size() - 1]
+	final_p.y += fill_offset
+	if out.is_empty() or Vector2(final_p.x - out[out.size() - 1].x,
+			final_p.z - out[out.size() - 1].z).length() > step * 0.25:
+		out.append(final_p)
+
+	# Flow speed per row, from the downhill gradient: steeper reaches read as rapids, and a river
+	# authored on a level spline still flows at the base rate rather than not at all.
+	_ribbon_speed.resize(out.size())
+	for r in out.size():
+		var a: Vector3 = out[maxi(r - 1, 0)]
+		var b: Vector3 = out[mini(r + 1, out.size() - 1)]
+		var run := Vector2(b.x - a.x, b.z - a.z).length()
+		var drop := a.y - b.y # positive running downhill
+		var grade := (drop / run) if run > 1e-4 else 0.0
+		_ribbon_speed[r] = flow_speed * (1.0 + flow_slope_gain * maxf(grade, 0.0))
+	return out
+
+
+## Unit XZ tangent at row `p_i`, from its neighbours. A central difference, so a bend turns smoothly
+## across the rows rather than stepping at each sample -- which is what the fragment stage
+## interpolates between and therefore what makes flow direction correct through a corner.
+func _ribbon_tangent(p_centre: PackedVector3Array, p_i: int) -> Vector2:
+	var a: Vector3 = p_centre[maxi(p_i - 1, 0)]
+	var b: Vector3 = p_centre[mini(p_i + 1, p_centre.size() - 1)]
+	var t := Vector2(b.x - a.x, b.z - a.z)
+	if t.length_squared() < 1e-10:
+		return Vector2(1.0, 0.0)
+	return t.normalized()
+
+
+## Stamp each grid cell over the ribbon's bounds with the nearest centreline row, or -1.
+##
+## The ribbon's equivalent of the loop's inside mask, and it exists for the same reason: Phase 6
+## asks containment and height per buoy per physics tick, and scanning every row of a long river for
+## the nearest is O(rows) per query. Built by walking the ROWS and stamping the cells within reach of
+## each, so the build costs O(rows x reach) rather than O(cells).
+func _build_ribbon_cells(p_spacing: float, p_half: float) -> void:
+	var gw := int(ceil(_poly_bounds.size.x / p_spacing)) + 2
+	var gh := int(ceil(_poly_bounds.size.y / p_spacing)) + 2
+	_mask_gw = gw
+	_mask_gh = gh
+	_ribbon_cell = PackedInt32Array()
+	_ribbon_cell.resize(gw * gh)
+	_ribbon_cell.fill(-1)
+	var reach := int(ceil((p_half + p_spacing) / p_spacing)) + 1
+	for r in _ribbon_rows.size():
+		var c: Vector3 = _ribbon_rows[r]
+		var cx := int(floor((c.x - _poly_bounds.position.x) / p_spacing))
+		var cz := int(floor((c.z - _poly_bounds.position.y) / p_spacing))
+		for dz in range(-reach, reach + 1):
+			var iz := cz + dz
+			if iz < 0 or iz >= gh:
+				continue
+			for dx in range(-reach, reach + 1):
+				var ix := cx + dx
+				if ix < 0 or ix >= gw:
+					continue
+				# First-writer-wins is wrong at a bend, where a later row can be nearer. Compare.
+				var idx := iz * gw + ix
+				var px := _poly_bounds.position.x + (ix + 0.5) * p_spacing
+				var pz := _poly_bounds.position.y + (iz + 0.5) * p_spacing
+				var d := Vector2(px - c.x, pz - c.z).length_squared()
+				if _ribbon_cell[idx] < 0:
+					_ribbon_cell[idx] = r
+				else:
+					var o: Vector3 = _ribbon_rows[_ribbon_cell[idx]]
+					if d < Vector2(px - o.x, pz - o.z).length_squared():
+						_ribbon_cell[idx] = r
+
+
+## Nearest centreline row to a local XZ, or -1 when the point is nowhere near the river.
+func _ribbon_nearest_row(p_local_xz: Vector2) -> int:
+	if _ribbon_cell.is_empty() or _mask_spacing <= 0.0 or _ribbon_rows.is_empty():
+		return -1
+	var ix := int(floor((p_local_xz.x - _poly_bounds.position.x) / _mask_spacing))
+	var iz := int(floor((p_local_xz.y - _poly_bounds.position.y) / _mask_spacing))
+	if ix < 0 or iz < 0 or ix >= _mask_gw or iz >= _mask_gh:
+		return -1
+	var seed: int = _ribbon_cell[iz * _mask_gw + ix]
+	if seed < 0:
+		return -1
+	# The cell answers to within one cell; refine over a small window so a query near a bend lands
+	# on the genuinely nearest row rather than on whichever one stamped that cell.
+	var best := seed
+	var best_d := INF
+	for r in range(maxi(seed - 3, 0), mini(seed + 4, _ribbon_rows.size())):
+		var c: Vector3 = _ribbon_rows[r]
+		var d := Vector2(p_local_xz.x - c.x, p_local_xz.y - c.z).length_squared()
+		if d < best_d:
+			best_d = d
+			best = r
+	return best
+
+
+## Surface of a RIBBON at a local XZ, as [is_over_the_channel, local_y].
+func _ribbon_surface_at(p_local_xz: Vector2) -> Array:
+	var r := _ribbon_nearest_row(p_local_xz)
+	if r < 0:
+		return [false, 0.0]
+	var c: Vector3 = _ribbon_rows[r]
+	# Lateral distance decides containment; the row's own Y is the surface. Interpolating Y between
+	# rows would be smoother, but rows are one vertex_spacing apart and the drop over that is
+	# millimetres on any river a person would author.
+	var lateral := Vector2(p_local_xz.x - c.x, p_local_xz.y - c.z).length()
+	return [lateral <= ribbon_half_width + edge_offset, c.y]
 
 
 # ---- surface child -----------------------------------------------------------
@@ -968,13 +1267,23 @@ func _drop_overlay() -> void:
 ## Surface height at a world XZ, including waves. The pool's own Y plus the profile's
 ## displacement, so it agrees with what the shader draws.
 func get_water_height(p_global_xz: Vector2) -> float:
+	# A ribbon has no single level: it follows the spline downhill (§7.2), so the still surface here
+	# is whatever the nearest centreline row sits at. Everything above that -- the wave displacement,
+	# the domain origin -- is identical to the loop case, which is the point: a river is the same
+	# water as a lake over a different sheet.
+	var base := global_position.y
+	if _is_ribbon:
+		var local: Vector3 = global_transform.affine_inverse() * Vector3(p_global_xz.x, 0.0, p_global_xz.y)
+		var surf := _ribbon_surface_at(Vector2(local.x, local.z))
+		if surf[0]:
+			base = (global_transform * Vector3(0.0, surf[1], 0.0)).y
 	var m := _resolve_manager()
 	if m == null or not m.has_method("solve_domain"):
-		return global_position.y
+		return base
 	var origin := global_position
 	var target := p_global_xz - Vector2(origin.x, origin.z)
 	var domain: Vector2 = m.solve_domain(wave_profile, target)
-	return origin.y + m.evaluate_height(wave_profile, domain)
+	return base + m.evaluate_height(wave_profile, domain)
 
 
 func get_water_normal(p_global_xz: Vector2) -> Vector3:
@@ -1003,7 +1312,7 @@ func contains_point(p_global_pos: Vector3) -> bool:
 ## Deliberately compared against the WAVE surface and not the flat plane: at the
 ## shoreline in a 1 m swell the difference between those two IS the effect.
 func is_point_underwater(p_global_pos: Vector3) -> bool:
-	if _poly_cache.size() < 3:
+	if _poly_cache.size() < 3 and not _is_ribbon:
 		return false
 	var lp: Vector3 = global_transform.affine_inverse() * p_global_pos
 	var l2 := Vector2(lp.x, lp.z)
@@ -1011,6 +1320,13 @@ func is_point_underwater(p_global_pos: Vector3) -> bool:
 	# answer for a per-frame poll is "nowhere near".
 	if not _poly_bounds.has_point(l2):
 		return false
+	if _is_ribbon:
+		# Lateral distance from the centreline, not a polygon walk: a ribbon is defined by a width
+		# about a line and has no outline to be inside of.
+		var surf := _ribbon_surface_at(l2)
+		if not surf[0]:
+			return false
+		return p_global_pos.y <= get_water_height(Vector2(p_global_pos.x, p_global_pos.z))
 	# Cell classification off the mesher's mask, which turns the common answer into an array
 	# lookup. The exact polygon walk is O(perimeter) — a few hundred edges for a lake — and Phase 6
 	# asks this question per buoy per physics tick, where it cost more than the wave solve did.
@@ -1130,12 +1446,23 @@ func get_build_stats() -> Dictionary:
 	return _last_stats
 
 
+## True when this pool is a river (open curve) rather than a lake. Read off the curve, never stored,
+## so there is no mode toggle to get out of sync with the geometry.
+func is_ribbon() -> bool:
+	return _is_ribbon
+
+
 # ---- inspector ---------------------------------------------------------------
 
 func _validate_property(property: Dictionary) -> void:
 	# The preset owns `material` unless the user has chosen Custom.
 	if property.name == "material" and water_preset != 2:
 		property.usage |= PROPERTY_USAGE_READ_ONLY
+	elif property.name in ["ribbon_half_width", "flow_speed", "flow_slope_gain"]:
+		# Ribbon-only. Shown greyed rather than hidden, so it is discoverable on a lake that someone
+		# is about to open into a river -- hiding a property makes people think it does not exist.
+		if not _is_ribbon:
+			property.usage |= PROPERTY_USAGE_READ_ONLY
 	elif property.name == "wave_profile":
 		# Re-hint the EXISTING export into a dropdown of the manager's live profile names.
 		#
@@ -1160,12 +1487,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 	elif src.point_count < 3:
 		w.append("The source curve has fewer than 3 points, so there is no area to fill.")
 	elif not src.closed:
-		# Worth its own message rather than the generic one: the curve looks perfectly
-		# valid in the viewport, and "closed" is a checkbox on the Curve3D the user has
-		# probably never opened.
-		w.append("The source curve is open. A pool fills a closed loop; an open spline is a "
-			+ "river, and ribbon water is not built yet. Tick the curve's Closed property "
-			+ "(or the brush's, on a Ridge or Trough) to fill it as a loop.")
+		pass # an open curve is a river: ribbon mode (§7.3), not a mistake
 	elif _local_polygon(_effective_spacing()).size() < 3:
 		w.append("The source curve collapses to fewer than 3 usable points at this vertex "
 			+ "spacing, so there is no area to fill.")
